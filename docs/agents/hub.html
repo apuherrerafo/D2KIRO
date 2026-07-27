@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-27T16:21:49.186Z</title>
+<title>HUB del ecosistema — 2026-07-27T16:27:48.977Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">8</span></h2>
+        <h2>backlog <span class="count">7</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-007</div>
-          <div class="card-title">SignalScorer: team_synergy (S3)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-008</div>
@@ -220,7 +210,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">6</span></h2>
+        <h2>done <span class="count">7</span></h2>
         
         <div class="card  ">
           
@@ -282,6 +272,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-007</div>
+          <div class="card-title">SignalScorer: team_synergy (S3)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -289,26 +289,26 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">12× · 33% ok  · 1 falló</div>
+          <div class="stat-nums">13× · 31% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
-          <div class="stat-nums">8× · 0% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:69%"></div></div>
+          <div class="stat-nums">9× · 0% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
-          <div class="stat-nums">7× · 86% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
+          <div class="stat-nums">8× · 88% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
-          <div class="stat-nums">7× · 86% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
+          <div class="stat-nums">8× · 88% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:17%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:15%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
@@ -326,6 +326,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-007</span> <span class="feed-ts">2026-07-27T07:45</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 154 líneas / 3 archivos reales — dentro del límite de 200, sin necesidad de pedir excepción. Sin dependencias nuevas (coherente con decisión D2 de SPEC.md, sin STRATZ), sin funciones innecesarias. `bun scripts/hub.ts` regenerado.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-007</span> <span class="feed-ts">2026-07-27T07:35</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (función pura en memoria, sin I/O, sin DB, sin red, sin secretos -- grep limpio; sin dependencias nuevas, coherente con la decisión D2 de no usar STRATZ). Pasada 1 (Standards): heroCapabilities/buildExplanation/ownPicks resuelven una sola responsabilidad cada uno, sin abstracciones de más (deletion test aplicado); nomenclatura mixta español (capacidades) / OpenDota literal (roles) es intencional y clara, no confusa; manejo de nulos/vacíos verificado con 3 pruebas dedicadas (equipo vacío, localSide unknown, héroes sin roles) sin lanzar nunca. N/A UI, N/A Drizzle. Pasada 2 (Spec): sampleSize=0 confirmado en ambos escenarios (equipo vacío y con equipo) con prueba dedicada, no solo inferido; el criterio de aceptación 2 (redundante puntúa más bajo que quien llena hueco) se verificó con una desigualdad real sobre valores calculados (0 vs 0.2), no una comparación tautológica; el caso borde de raw:null se decidió explícitamente y quedó documentado con una prueba que sirve de criterio, tal como pedía el ticket literalmente ('no lo dejes implícito'). Hallazgos no bloqueantes, transparencia de decisiones: (1) el mapeo de las 5 capacidades en español a los roles[] literales de OpenDota (control→Disabler, iniciación→Initiator, aguante→Durable, empuje→Pusher, soporte→Support) es una decisión de producto sin fuente oficial -- documentada en el código y aquí, candidata a revisión si el producto refina la taxonomía más adelante (p. ej. si Nuker debería contar para 'control' también). (2) De las dos lecturas válidas que el ticket dejaba abiertas para 'equipo propio vacío', se eligió la más conservadora (raw:null, no cobertura=0) -- razonamiento: sin cobertura observada no hay una línea base real contra la cual medir qué falta. (3) MetaHeroInfo.roles se declaró opcional, mismo patrón no disruptivo que patchStats en TSK-006 -- counter.test.ts y patch-meta.test.ts siguen sin tocarse. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-007</span> <span class="feed-ts">2026-07-27T07:20</span></div>
+            <div class="feed-note">Implementado apps/engine/src/signals/team-synergy.ts (teamSynergyScorer) + team-synergy.test.ts (5 pruebas: equipo propio vacío → null, localSide 'unknown' → null, equipo que ya cubre control/iniciación con candidato redundante puntuando más bajo que uno que llena un hueco de aguante, sampleSize=0 en todos los casos, candidato/héroes sin roles no lanza y es pura). Extendido signals/types.ts: MetaHeroInfo gana roles?: string[] (opcional, mismo patrón que patchStats en TSK-006 -- counter.test.ts/patch-meta.test.ts no lo conocen y no necesitan tocarse). Decisiones de diseño no especificadas literalmente por el ticket, documentadas aquí y en el propio código: (1) mapeo heurístico de las 5 capacidades en español (control/iniciación/aguante/empuje/soporte) a los roles[] reales de OpenDota confirmados en fixtures de TSK-003 (Disabler/Initiator/Durable/Pusher/Support respectivamente) -- roles sin correspondencia (Carry, Nuker, Escape, Jungler) no cuentan para ninguna capacidad rastreada. (2) raw = cantidad de capacidades que el candidato aporta y el equipo NO tiene todavía, dividido por 5 (fracción 0-1) -- así un candidato redundante (aporta solo capacidades ya cubiertas) puntúa 0, y uno que llena un hueco puntúa más alto, cumpliendo literalmente el criterio de aceptación 2. (3) El caso borde de la regla dura ('equipo propio sin picks Y sin forma de evaluar huecos') se resolvió como raw:null siempre que no haya picks propios identificables (localSide desconocido o cero picks) -- se decidió NO tratar 'equipo vacío' como 'cobertura=0' (lo cual habría dado un raw numérico válido) porque no existe una cobertura observada contra la cual medir qué falta; es la lectura más conservadora de las dos válidas que el ticket explícitamente dejaba abiertas, documentada con un comentario en el código y una prueba dedicada que sirve de documentación del criterio (tal como pedía el ticket). Verificado: bun test completo (50 pass, 0 fail, 111 expect(), 9 archivos); bunx tsc --noEmit sin errores; grep de secretos sin coincidencias. verify-simplicity.sh: 154 líneas / 3 archivos reales -- dentro del límite, sin excepción. TSK-007 sigue en state: doing, pasa a @redteam.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-007</span> <span class="feed-ts">2026-07-27T07:00</span></div>
+            <div class="feed-note">Modo manual, ticket especificado por el usuario (sesión continua: "y sigue con TSK-007 en la misma sesión"). TSK-006 (dependencia previa en orden) ya está done. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004/005/006. Ticket autocontenido (referencia el contrato de TSK-005 sin repetirlo, señal team_synergy heurística sobre roles[], sin fuente medida). state: backlog -> doing. WIP=1 por claude-code libre.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -380,34 +408,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-005</span> <span class="feed-ts">2026-07-27T05:00</span></div>
             <div class="feed-note">Modo manual, ticket especificado por el usuario. TSK-004 (dependencia previa en orden) ya está done, nada bloquea TSK-005. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004 (evt-014): patrón de falta de créditos en Codex confirmado 2/2 veces en TSK-002/TSK-003, sin señal de que se haya restaurado; preferred_tool se conserva como codex (intención original). Ticket autocontenido (contrato de SignalScorer copiado tal cual, señal counter aislada de las otras 3, FakeMetaProvider/datos fijos en memoria, sin red real). state: backlog -> doing. WIP=1 por claude-code libre (nada en doing).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-004</span> <span class="feed-ts">2026-07-27T04:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 369 líneas / 2 archivos reales (reducer.ts 154, reducer.test.ts 215) — supera las 200 líneas, decisión explícita acordada con el usuario antes de empezar (AskUserQuestion, evt-014/evt-015), mismo patrón de cierre que TSK-003. Sin dependencias nuevas, sin funciones innecesarias (deletion test aplicado en la ronda de @redteam). `bun scripts/hub.ts` regenerado: 14 tareas, 29 eventos. Hallazgo cruzado con SPEC.md (no bloqueante, documentado en TSK-004.md como nota abierta): la línea 178 de SPEC.md define `unknown_hero` como "el HeroId no existe en la tabla local de héroes", pero este reductor es puro y sin acceso a esa tabla (C4) — se implementó como validación de forma (entero positivo) únicamente, consistente con el alcance que el propio ticket declaró ("no depende de TSK-001/002/003"). La validación real contra el catálogo de héroes queda sin dueño explícito todavía; recomendado como criterio de aceptación futuro del ticket de ingesta S1 (servidor Bun) o del paso CANDIDATOS de C3.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-004</span> <span class="feed-ts">2026-07-27T04:35</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (funcion pura en memoria, sin I/O, sin DB, sin red, sin secretos -- grep limpio; la validacion de forma de DraftEventEnvelope en el borde de red es responsabilidad de S1/ingest -- TSK-010, no de este reductor S4, consistente con testing-seams.md). Pasada 1 (Standards): sin abstracciones de mas (deletion test: los 3 helpers internos -- checkHeroAvailable, revertHero, accept -- son necesarios, no decorativos), nomenclatura calcada del contrato del ticket, purismo verificado -- ningun spread muta en sitio, estado original siempre devuelto intacto en cada rama de rechazo (confirmado con expect(state).toBe(before) en las pruebas, no solo toEqual). N/A UI, N/A Drizzle. Pasada 2 (Spec): los 3 tipos (DraftEventEnvelope, DraftEvent, DraftState) y RejectionReason coinciden campo por campo con el ticket ('implementar tal cual'). Las 4 transiciones de fase, las 5 RejectionReason, el reset a idle por nueva sessionId, pick_reverted ignorando stale_seq, y format:'unknown' como estado legitimo -- todos presentes y probados. No se modela tabla de turnos de Valve (correcto, fuera de alcance). Hallazgos no bloqueantes: (1) createIdleDraftState se exporta y no estaba en la lista literal de interfaces del ticket -- es una adicion minima necesaria para implementar la regla 'nueva sessionId vuelve a idle' y para que cualquier llamador pueda arrancar el primer DraftState; se senala por transparencia, no es scope creep real. (2) Falta un caso de prueba explicito para 'session_started reenviado con la MISMA sessionId mientras la fase ya es active' (el gate de fase lo rechaza correctamente como wrong_phase por construccion del codigo, pero no hay un test dedicado que lo demuestre) -- no bloquea, la aceptacion literal del ticket (4 transiciones + wrong_phase en complete) ya esta cubierta. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-004</span> <span class="feed-ts">2026-07-27T04:20</span></div>
-            <div class="feed-note">Implementado apps/engine/src/draft/reducer.ts (tipos del contrato S1: DraftEventEnvelope, DraftEvent union de 7 variantes, DraftState, RejectionReason, mas createIdleDraftState y applyDraftEvent) + reducer.test.ts (16 pruebas: 4 transiciones de fase incluyendo idle->active, active->complete, active->aborted con reason aborted|lost_capture, reset a idle en nueva sessionId, y eventos rechazados en fase complete; las 5 RejectionReason con un caso concreto cada una; pureza -- misma entrada misma salida, estado original nunca mutado; local_side_identified y capture_health). Decisiones de diseño no explicitas en el ticket, documentadas aqui (no en SPEC.md, son detalle de implementacion): (1) unknown_hero se define como heroId que no es entero positivo (Number.isInteger(hero) && hero>0) -- el reductor no tiene lista de heroes validos inyectada, solo puede validar forma; (2) hero_already_taken se evalua contra banned + picks.radiant + picks.dire combinados (un heroId no puede repetirse en ningun conjunto); (3) pick_reverted busca el heroId primero en banned (los bans no llevan side en el estado, coincide con el esquema DraftState del propio ticket) y si no esta ahi en picks[side]; si no aparece en ninguno, no-op silencioso (no hay RejectionReason dedicado para 'nada que revertir' en el contrato de 5 razones); (4) el reset a idle por nueva sessionId solo se dispara para el propio evento session_started -- otros tipos de evento con sessionId distinto no se validan contra eso, fuera de alcance del ticket, no hay razon de rechazo dedicada a sesion desconocida; (5) updatedAt se toma de envelope.emittedAt (ya viene en el contrato S1), no de un reloj propio, cumpliendo la regla de pureza sin necesitar un parametro extra en la firma que el ticket fijo como (state, envelope). Verificado: bun test completo (36 pass, 0 fail, 79 expect(), 6 archivos incluyendo los 3 tickets previos, sin romper nada existente); bunx tsc --noEmit sin errores; grep de patron de secretos sin coincidencias. verify-simplicity.sh: 369 lineas / 2 archivos reales (reducer.ts 154 + reducer.test.ts 215) -- supera las 200 lineas, acordado explicitamente con el usuario antes de empezar (AskUserQuestion, misma decision que TSK-003: implementar completo y pedir la excepcion al cerrar en @redteam/@shipcheck, sin excepcion pre-declarada en el texto del ticket). TSK-004 sigue en state: doing, pasa a @redteam (Must-have) antes de @shipcheck.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-004</span> <span class="feed-ts">2026-07-27T04:00</span></div>
-            <div class="feed-note">Modo manual, ticket especificado por el usuario. plan.md desactualizado (no se ha vuelto a correr /helm desde TSK-003), pero el estado real de docs/agents/tasks/ confirma TSK-001/002/003 done y TSK-004 como siguiente en orden de dependencia — nada lo bloquea. assigned_tool fijado directo a claude-code, saltando el ciclo codex-primero-y-luego-Handoff: los dos tickets codex anteriores (TSK-002 evt-012, TSK-003 evt-006) reportaron falta de creditos en Codex de inmediato al dispatchear, sin avance real hecho alli — repetir la asignacion a codex por tercera vez ante el mismo patron ya confirmado dos veces seguidas no es una decision neutral, es ignorar la señal. preferred_tool se conserva como codex (intencion original de /rulebook). Ademas el ticket encaja igual de bien en claude-code por si solo: funcion pura autocontenida, sin necesidad de red ni de journal.md mas alla de lo ya copiado al cuerpo del ticket. state: backlog -> doing. WIP=1 por claude-code libre (TSK-001/002/003 ya done, nada en doing).</div>
           </div>
         </div></div>
     </div>

@@ -18,7 +18,9 @@ export interface SignalScorer {
 
 export interface HeroMatchupStat { vsHero: HeroId; games: number; wins: number }
 
-export interface MetaHeroInfo { id: HeroId; localizedName: string }
+// `roles` opcional: los consumidores previos a TSK-007 (counter/patch-meta y sus pruebas) no lo
+// conocen todavía, igual que `patchStats` abajo.
+export interface MetaHeroInfo { id: HeroId; localizedName: string; roles?: string[] }
 
 export interface HeroPatchBracketStat { patch: string; bracket: Bracket; picks: number; wins: number }
 
