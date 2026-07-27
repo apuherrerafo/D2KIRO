@@ -25,21 +25,29 @@ export interface SyncMetaResult {
 // transacción — una escritura parcial nunca deja el cache a medias. Si una etapa falla (429
 // agotado, red caída, forma inesperada), el cache viejo de las tablas ya sincronizadas antes de
 // la falla sigue sirviendo; sólo se pierde lo que faltaba por escribir en esta corrida.
-export async function syncMeta<TSchema extends Record<string, unknown>>(
+// Separado de syncMeta (aditivo, TSK-010) para que un llamador HTTP pueda insertar la fila y
+// obtener el syncId real de inmediato, sin esperar el resto del trabajo (fetch a OpenDota,
+// reintentos con backoff) para responder -- syncMeta sigue haciendo exactamente lo mismo que
+// antes, solo que ahora en 2 pasos en vez de 1.
+export function beginMetaSync<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  now: Clock = () => new Date().toISOString(),
+): number {
+  const [syncRow] = db
+    .insert(metaSync)
+    .values({ source: "opendota", startedAt: now(), status: "running", rowsWritten: 0 })
+    .returning()
+    .all();
+  return syncRow!.id;
+}
+
+export async function runMetaSync<TSchema extends Record<string, unknown>>(
   db: Db<TSchema>,
   client: OpenDotaClient,
+  syncId: number,
   options: SyncMetaOptions,
 ): Promise<SyncMetaResult> {
   const now: Clock = options.now ?? (() => new Date().toISOString());
-  const startedAt = now();
-
-  const [syncRow] = db
-    .insert(metaSync)
-    .values({ source: "opendota", startedAt, status: "running", rowsWritten: 0 })
-    .returning()
-    .all();
-  const syncId = syncRow!.id;
-
   const issues: string[] = [];
   let rowsWritten = 0;
 
@@ -64,6 +72,15 @@ export async function syncMeta<TSchema extends Record<string, unknown>>(
 
     return { syncId, status: "failed", rowsWritten, error: message };
   }
+}
+
+export async function syncMeta<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  client: OpenDotaClient,
+  options: SyncMetaOptions,
+): Promise<SyncMetaResult> {
+  const syncId = beginMetaSync(db, options.now);
+  return runMetaSync(db, client, syncId, options);
 }
 
 async function syncHeroes<TSchema extends Record<string, unknown>>(

@@ -59,3 +59,31 @@ export async function getMetaFreshness<TSchema extends Record<string, unknown>>(
   const ageMs = now() - new Date(lastOk.finishedAt).getTime();
   return { syncedAt: lastOk.finishedAt, isStale: ageMs > FRESHNESS_WINDOW_MS };
 }
+
+// Aditivo (TSK-010): forma pública para GET /api/heroes -- incluye img_url, requisito duro de UI
+// (dangerouslySetInnerHTML/host-de-imagen ya se validan en el borde de apps/web, no aquí).
+export interface HeroMeta {
+  id: number;
+  name: string;
+  localizedName: string;
+  imgUrl: string;
+  primaryAttr: string;
+  attackType: string;
+  roles: string[];
+}
+
+export async function getAllHeroMeta<TSchema extends Record<string, unknown>>(db: Db<TSchema>): Promise<HeroMeta[]> {
+  return db
+    .select()
+    .from(heroes)
+    .all()
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      localizedName: row.localizedName,
+      imgUrl: row.imgUrl,
+      primaryAttr: row.primaryAttr,
+      attackType: row.attackType,
+      roles: row.roles,
+    }));
+}

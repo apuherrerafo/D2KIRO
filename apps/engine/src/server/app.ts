@@ -1,0 +1,153 @@
+import type { Server, ServerWebSocket } from "bun";
+import { desc } from "drizzle-orm";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import * as schema from "../db/schema";
+import { metaSync } from "../db/schema";
+import { getHealthStatus } from "../health";
+import type { OpenDotaClient } from "../meta/opendota-client";
+import { buildMetaSnapshot, getAllHeroMeta, getMetaFreshness } from "../meta/provider";
+import { beginMetaSync, runMetaSync } from "../meta/sync";
+import { buildSuggestions } from "../signals/mix";
+import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope } from "./edge";
+import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
+
+type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
+
+export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema> {
+  db: Db<TSchema>;
+  openDotaClient: OpenDotaClient;
+  captureToken: string;
+}
+
+interface WsData {
+  sessionId: string | null;
+}
+
+// Une C2 (reductor)/C3 (motor)/C4 (provider/sync) detrás de la API real de apps/engine (§3/§5).
+export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps<TSchema>) {
+  const sessionStore = new SessionStore();
+  const rateLimiter = createSessionRateLimiter();
+  let server: Server<WsData>;
+
+  // Orden garantizado tras cada evento aplicado: draft_state primero, suggestions después (§C2).
+  async function pushSessionUpdate(sessionId: string): Promise<void> {
+    const state = sessionStore.get(sessionId);
+    const meta = await buildMetaSnapshot(deps.db);
+    const freshness = await getMetaFreshness(deps.db);
+
+    server.publish(sessionId, JSON.stringify(buildServerMessage("draft_state", state.lastSeq, state)));
+    const suggestions = buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
+    server.publish(sessionId, JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
+  }
+
+  async function handleDraftEvent(request: Request, opts: { requireToken: boolean; rateLimit: boolean }): Promise<Response> {
+    if (opts.requireToken && !checkCaptureToken(request, deps.captureToken)) {
+      return new Response(null, { status: 401 });
+    }
+
+    const body: unknown = await request.json().catch(() => null);
+    if (!isValidDraftEventEnvelope(body)) {
+      return Response.json({ accepted: false }, { status: 400 });
+    }
+    if (opts.rateLimit && !rateLimiter.allow(body.sessionId)) {
+      return new Response(null, { status: 429 });
+    }
+
+    const { rejected } = sessionStore.apply(body);
+    if (!rejected) await pushSessionUpdate(body.sessionId);
+    return Response.json({ accepted: !rejected, rejected }, { status: 202 });
+  }
+
+  async function handleHeroes(): Promise<Response> {
+    return Response.json(await getAllHeroMeta(deps.db));
+  }
+
+  async function handleMetaStatus(): Promise<Response> {
+    const freshness = await getMetaFreshness(deps.db);
+    const [lastAttempt] = deps.db.select().from(metaSync).orderBy(desc(metaSync.id)).limit(1).all();
+    return Response.json({
+      syncedAt: freshness.syncedAt,
+      isStale: freshness.isStale,
+      lastSync: lastAttempt ? { status: lastAttempt.status, finishedAt: lastAttempt.finishedAt, error: lastAttempt.error } : null,
+    });
+  }
+
+  // Asíncrono, no bloquea: crea la fila de meta_sync (rápido) y responde de inmediato con el
+  // syncId real; el trabajo lento (fetch a OpenDota + reintentos) sigue en segundo plano.
+  async function handleMetaSync(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { patch?: string };
+    const patch = typeof body.patch === "string" ? body.patch : "";
+    const heroIdsForMatchups = deps.db
+      .select({ id: schema.heroes.id })
+      .from(schema.heroes)
+      .all()
+      .map((row) => row.id);
+
+    const syncId = beginMetaSync(deps.db);
+    void runMetaSync(deps.db, deps.openDotaClient, syncId, { patch, heroIdsForMatchups });
+
+    return Response.json({ syncId }, { status: 202 });
+  }
+
+  async function fetchHandler(request: Request): Promise<Response | undefined> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/ws/draft") {
+      const upgraded = server.upgrade(request, { data: { sessionId: null } satisfies WsData });
+      return upgraded ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
+    }
+    if (request.method === "GET" && url.pathname === "/api/health") {
+      return Response.json(getHealthStatus(sessionStore.size));
+    }
+    if (request.method === "POST" && url.pathname === "/ingest/draft-event") {
+      return handleDraftEvent(request, { requireToken: true, rateLimit: true });
+    }
+    if (request.method === "POST" && url.pathname === "/api/session/manual") {
+      return handleDraftEvent(request, { requireToken: false, rateLimit: false });
+    }
+    if (request.method === "GET" && url.pathname === "/api/heroes") {
+      return handleHeroes();
+    }
+    if (request.method === "GET" && url.pathname === "/api/meta/status") {
+      return handleMetaStatus();
+    }
+    if (request.method === "POST" && url.pathname === "/api/meta/sync") {
+      return handleMetaSync(request);
+    }
+
+    return new Response("Not found", { status: 404 });
+  }
+
+  const websocketHandlers = {
+    message(ws: ServerWebSocket<WsData>, raw: string | Buffer) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(String(raw));
+      } catch {
+        ws.send(JSON.stringify(buildServerMessage("error", 0, { code: "invalid_json", message: "Mensaje no es JSON válido" })));
+        return;
+      }
+      if (!isValidClientMessage(parsed)) return;
+      const message: ClientMessage = parsed;
+
+      if (message.type === "hello" && message.sessionId) {
+        ws.data.sessionId = message.sessionId;
+        ws.subscribe(message.sessionId);
+        const state = sessionStore.get(message.sessionId);
+        // Al reconectar, siempre una instantánea completa -- nunca un delta (§3).
+        ws.send(JSON.stringify(buildServerMessage("snapshot", state.lastSeq, state)));
+      }
+      // "ping": sin respuesta requerida -- solo mantiene viva la conexión.
+    },
+    close(ws: ServerWebSocket<WsData>) {
+      if (ws.data.sessionId) ws.unsubscribe(ws.data.sessionId);
+    },
+  };
+
+  function start(hostname: string, port: number): Server<WsData> {
+    server = Bun.serve<WsData>({ hostname, port, fetch: fetchHandler, websocket: websocketHandlers });
+    return server;
+  }
+
+  return { start, sessionStore };
+}

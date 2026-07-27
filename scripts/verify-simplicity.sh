@@ -77,9 +77,21 @@ if git diff "$DIFF_BASE" -- package.json 2>/dev/null | \
 fi
 
 # --- 4. Secretos hardcodeados ---
-if git diff "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | \
-   grep -Ei '(api[_-]?key|password|secret|token)\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{8,}' > /dev/null; then
+# Igual que 1/2 (archivos/líneas): git diff es ciego a archivos nunca trackeados. Un secreto real
+# en un archivo nuevo pasaría inadvertido si solo se mira el diff de lo ya trackeado -- a
+# diferencia del límite de archivos/líneas, aquí NO se excluye bookkeeping (journal.md/ledger.md/
+# TSK-*.md): un secreto pegado ahí también debe bloquear.
+SECRET_PATTERN='(api[_-]?key|password|secret|token)\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{8,}'
+TRACKED_SECRET_HIT=$(git diff "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | grep -Eio "$SECRET_PATTERN") || true
+UNTRACKED_ALL_FILES=$(git ls-files --others --exclude-standard 2>/dev/null) || true
+UNTRACKED_SECRET_FILES=""
+if [ -n "$UNTRACKED_ALL_FILES" ]; then
+  UNTRACKED_SECRET_FILES=$(printf '%s\n' "$UNTRACKED_ALL_FILES" | xargs -r grep -ilE "$SECRET_PATTERN" 2>/dev/null) || true
+fi
+
+if [ -n "$TRACKED_SECRET_HIT" ] || [ -n "$UNTRACKED_SECRET_FILES" ]; then
   echo "❌ ERROR: Posibles secretos hardcodeados en el diff."
+  [ -n "$UNTRACKED_SECRET_FILES" ] && printf '%s\n' "$UNTRACKED_SECRET_FILES" | sed 's/^/   - /'
   ERRORS=$((ERRORS + 1))
 fi
 
