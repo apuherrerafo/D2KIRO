@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "npc_dota_hero_antimage",
+    "localized_name": "Anti-Mage",
+    "primary_attr": "agi",
+    "attack_type": "Melee",
+    "roles": ["Carry", "Escape", "Nuker"],
+    "img": "/apps/dota2/images/dota_react/heroes/antimage.png"
+  },
+  {
+    "id": 6,
+    "name": "npc_dota_hero_drow_ranger",
+    "localized_name": "Drow Ranger",
+    "primary_attr": "agi",
+    "attack_type": "Ranged",
+    "roles": ["Carry", "Disabler"],
+    "img": "/apps/dota2/images/dota_react/heroes/drow_ranger.png"
+  },
+  {
+    "id": 25,
+    "name": "npc_dota_hero_lina",
+    "localized_name": "Lina",
+    "primary_attr": "int",
+    "attack_type": "Ranged",
+    "roles": ["Support", "Carry", "Nuker"],
+    "img": "/apps/dota2/images/dota_react/heroes/lina.png"
+  }
+]
