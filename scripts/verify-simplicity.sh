@@ -61,20 +61,26 @@ fi
 # El check anterior solo detectaba la CLAVE "dependencies" siendo añadida.
 # Este detecta cualquier línea nueva DENTRO de dependencies/devDependencies,
 # que es el caso real: un paquete más en un bloque que ya existía.
-if git diff "$DIFF_BASE" -- package.json 2>/dev/null | \
-   awk '
-     /^\+\+\+/ {next}
-     /"(dependencies|devDependencies)"[[:space:]]*:/ {in_block=1; next}
-     in_block && /^\+/ && /"[^"]+"[[:space:]]*:[[:space:]]*"[^"]+"/ {found=1}
-     in_block && /^[^+-]*}/ {in_block=0}
-     END {exit !found}
-   '; then
-  if ! git diff "$DIFF_BASE" -- package.json 2>/dev/null | grep -q '// ALLOWED'; then
-    echo "❌ ERROR: Nueva(s) dependencia(s) detectada(s) en package.json sin marcar // ALLOWED."
-    echo "   Pasa por /gear-up o @depcheck antes de continuar."
-    ERRORS=$((ERRORS + 1))
+# Monorepo: no hay package.json en la raíz del repo -- cada app tiene el suyo
+# (apps/*/package.json). El check original apuntaba a la raíz y por eso nunca se disparó
+# para ninguna dependencia añadida desde que existe el monorepo (TSK-001 en adelante).
+PACKAGE_JSON_FILES=$(git ls-files -- '*/package.json' 'package.json' 2>/dev/null | grep -v node_modules) || true
+for pkg in $PACKAGE_JSON_FILES; do
+  if git diff "$DIFF_BASE" -- "$pkg" 2>/dev/null | \
+     awk '
+       /^\+\+\+/ {next}
+       /"(dependencies|devDependencies)"[[:space:]]*:/ {in_block=1; next}
+       in_block && /^\+/ && /"[^"]+"[[:space:]]*:[[:space:]]*"[^"]+"/ {found=1}
+       in_block && /^[^+-]*}/ {in_block=0}
+       END {exit !found}
+     '; then
+    if ! git diff "$DIFF_BASE" -- "$pkg" 2>/dev/null | grep -q '// ALLOWED'; then
+      echo "❌ ERROR: Nueva(s) dependencia(s) detectada(s) en $pkg sin marcar // ALLOWED."
+      echo "   Pasa por /gear-up o @depcheck antes de continuar."
+      ERRORS=$((ERRORS + 1))
+    fi
   fi
-fi
+done
 
 # --- 4. Secretos hardcodeados ---
 # Igual que 1/2 (archivos/líneas): git diff es ciego a archivos nunca trackeados. Un secreto real

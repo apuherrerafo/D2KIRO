@@ -1,0 +1,69 @@
+/* Tokens mínimos (regla "Día 1" de /design-forge) — taxonomía obligatoria de .claude/rules/web.md:
+   color por rol semántico, espaciado en escala de 4px, tipografía por escala nombrada.
+   Prohibido un hex suelto fuera de este archivo. Overlay de gaming: base oscura por defecto. */
+:root {
+  /* --- superficie --- */
+  --surface-base: #0f1115;
+  --surface-raised: #171a21;
+  --surface-overlay: #1f232c;
+  --surface-border: #2a2f3a;
+
+  /* --- contenido --- */
+  --content-primary: #f5f6f8;
+  --content-secondary: #a8adba;
+  --content-muted: #6b7280;
+
+  /* --- acento --- */
+  --accent-primary: #d4af37;
+  --accent-primary-hover: #e6c250;
+
+  /* --- señales --- */
+  --signal-positive: #3fb950;
+  --signal-negative: #f85149;
+  --signal-warning: #d29922;
+
+  /* --- espaciado, escala de 4px --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+}
+
+@theme inline {
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-border: var(--surface-border);
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-muted: var(--content-muted);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-hover: var(--accent-primary-hover);
+  --color-signal-positive: var(--signal-positive);
+  --color-signal-negative: var(--signal-negative);
+  --color-signal-warning: var(--signal-warning);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.375rem;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.75rem;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.25rem;
+}

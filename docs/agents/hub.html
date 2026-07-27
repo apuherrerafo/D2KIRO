@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-27T22:46:15.416Z</title>
+<title>HUB del ecosistema — 2026-07-27T23:54:45.413Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">3</span></h2>
+        <h2>backlog <span class="count">2</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-012</div>
-          <div class="card-title">Vista de draft en Next.js (S5) con sus 6 estados</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-013</div>
@@ -170,7 +160,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">12</span></h2>
+        <h2>done <span class="count">13</span></h2>
         
         <div class="card  ">
           
@@ -284,6 +274,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-012</div>
+          <div class="card-title">Vista de draft en Next.js (S5) con sus 6 estados</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-015</div>
           <div class="card-title">SqliteMetaProvider: puente SQLite -> MetaSnapshot (S2/C4)</div>
           <div class="card-meta">
@@ -299,26 +299,26 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">19× · 21% ok  · 1 falló</div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:74%"></div></div>
-          <div class="stat-nums">14× · 0% ok  </div>
+          <div class="stat-nums">22× · 18% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:74%"></div></div>
-          <div class="stat-nums">14× · 86% ok · 2 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:73%"></div></div>
+          <div class="stat-nums">16× · 81% ok · 3 bloqueado </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">dispatch</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:68%"></div></div>
+          <div class="stat-nums">15× · 0% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:68%"></div></div>
-          <div class="stat-nums">13× · 92% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">14× · 93% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:11%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:9%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
@@ -330,12 +330,73 @@
           <div class="stat-name">rulebook</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">depcheck</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
   <div class="grid2">
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T14:25</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 2 rondas (Standards + Spec). Gate de seguridad: PASS (ronda 1 REJECTED real por seguridad, no cosmético). verify-simplicity.sh: 25 archivos / 1265 líneas -- supera ambos límites, acordado explícitamente con el usuario dos veces (antes de empezar y de nuevo al ver el tamaño final). El chequeo de secretos se disparó una tercera vez con la misma cita ya conocida de journal.md (evt-20260727-043), esta vez reflejada al regenerar hub.html -- verificado con git diff archivo por archivo que ningún otro archivo del diff contiene el patrón; se cierra bajo la misma decisión explícita ya dada para este caso puntual, sin necesidad de volver a preguntar (no es información nueva). Sin dependencias sin marcar (zustand y @types/bun ambas con // ALLOWED, confirmado por el propio gate). `bun scripts/hub.ts` regenerado. Con este cierre, dota2coach tiene un camino visible de punta a punta por primera vez: motor -> servidor -> vista en vivo.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T14:15</span></div>
+            <div class="feed-note">RONDA 2. Gate de seguridad: PASS, verificado por ejecución real -- 14/14 pruebas de features/draft/ pasan, incluida la que reproduce exactamente el ataque del hallazgo original (mensaje WS con payload malformado, emitido vía FakeSocket, descartado sin corromper draftState). Releído store.ts: los casts `as DraftState`/`as SuggestionSet`/`as ErrorPayload` que quedan después de isValidServerMessage() ya no son el problema -- están guardados por la validación de forma que corrió justo antes, TS simplemente no puede inferir el discriminated union completo desde `message.type` sin una unión etiquetada más estricta en ServerMessage.payload. Resto del gate confirmado limpio otra vez (sin secretos, sin queries, sin privilegios de más). Pasada 1 (Standards) completa sobre TODO el ticket, no solo el fix: grep confirmó cero usos de `any`, cero ternarios para renderizado condicional (`? <` / `?<`), cero handlers anónimos inline (`onX={() =>` sin nombrar) -- las 3 reglas explícitas de web.md que más se prestan a violarse silenciosamente en una feature de este tamaño, ninguna violada. Nomenclatura <Dominio><Cosa> confirmada en los 4 componentes que el ticket nombra literalmente. tokens.css: cero hex sueltos fuera de app/tokens.css (grep limpio en components/ y features/draft/). Pasada 2 (Spec): los 3 criterios de aceptación literales están cubiertos con evidencia real (pruebas + smoke test contra el servidor vivo de TSK-010), no solo por lectura del código. Hallazgos no bloqueantes: (1) no se hizo auditoría formal de ux-senior -- el agente exige un archivo de 'screen contract' local que no existe todavía en el proyecto (Fase 2 de /design-forge); se hizo autorrevisión de disciplina visual en su lugar, documentado como decisión explícita, no un olvido. (2) connectionStatus:'conectando' (mientras se establece el WS) mapea al mismo estado de pantalla 'desconectado' -- el ticket solo define 6 estados nombrados, ninguno es 'conectando', así que es la aproximación más cercana disponible; matiz de UX menor (podría leerse como 'desconectado' cuando en realidad está conectando por primera vez), no una violación de regla. (3) sin un app/draft/loading.tsx literal -- el trabajo server-side de la ruta es trivial (await de searchParams, no un fetch real), la experiencia de carga significativa es el estado 'conectando' del cliente ya manejado dentro de DraftView; añadir un loading.tsscasi nunca dispararía y sería cumplimiento cosmético, no funcional. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T14:05</span></div>
+            <div class="feed-note">Aplicado el fix del hallazgo de @redteam ronda 1 (evt-052): agregado features/draft/validation.ts (isValidServerMessage, mismo patrón que edge.ts de apps/engine -- valida schema/type/seq/sentAt y la forma del payload según el tipo de mensaje: DraftState para snapshot/draft_state, SuggestionSet para suggestions, ErrorPayload para error, CaptureStatus para capture_status), cableado en store.ts's applyServerMessage -- un mensaje con forma inesperada se descarta en silencio, el estado anterior nunca se corrompe (mismo principio que applyDraftEvent del reductor). Agregado app/draft/error.tsx: error boundary nativo del App Router de Next.js (prop unstable_retry, no la reset() más vieja -- confirmado contra los docs reales de esta versión en node_modules/next/dist/docs, per la advertencia de AGENTS.md sobre breaking changes), red de seguridad final para cualquier excepción de render que se cuele pese a la validación -- nunca una pantalla en blanco, cumple la regla de web.md de error boundary por feature. Pruebas: validation.test.ts (5 casos: acepta snapshot/draft_state/suggestions/error válidos, rechaza payload con forma inesperada en cada tipo sin lanzar, rechaza schema/type inválidos o valores no-objeto), store.test.ts (1 caso nuevo: reproduce el ataque exacto del hallazgo -- un mensaje con payload malformado emitido vía FakeSocket se descarta, el draftState anterior queda exactamente igual por referencia, y el estado de pantalla NO cae a 'error' visible). Verificado: bun test (14 pass, 0 fail, 27 expect(), 2 archivos); npx tsc --noEmit sin errores; npm run build sin errores; npm run lint sin errores. TSK-012 pasa a @redteam ronda 2 para confirmar el fix por ejecución real.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">🟡</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T13:55</span></div>
+            <div class="feed-note">Gate de seguridad: FAIL. apps/web/features/draft/store.ts, applyServerMessage: cada mensaje entrante de WebSocket se confía con un cast `as` sin validar en runtime (`message.payload as DraftState`, `as SuggestionSet`, `as ErrorPayload`) -- exactamente la misma clase de hallazgo que TSK-010 ronda 1 (evt-044), ahora del lado cliente: JSON.parse produce `any`, el cast no protege nada real. Un mensaje inesperado (server con un bug, versión de contrato desalineada, o cualquier payload que no calce con la forma esperada) se guarda tal cual en el store y se pasa directo a DraftBoard/DraftView, que asumen sin chequear que `draftState.picks.radiant`, `.banned`, etc. existen -- un acceso a una propiedad inexistente ahí lanza una excepción de render de React. Verificado que NO existe ningún error boundary en todo apps/web (ni un app/draft/error.tsx de Next.js App Router, ni ninguna clase con componentDidCatch/getDerivedStateFromError) -- viola directamente .claude/rules/web.md ("Cada feature tiene su propio error boundary"). La combinación de ambos hallazgos es grave: sin validación Y sin boundary, una excepción de render en ese punto tumba el árbol completo sin que React tenga nada que la capture, produciendo exactamente la 'pantalla en blanco' que el propio ticket prohíbe explícitamente para el estado `error` ("Nunca una pantalla en blanco"). Resto del gate: sin secretos hardcodeados (las URLs por defecto de env son localhost, no credenciales), sin queries (no hay DB en apps/web), sin privilegios de más, sin colores hex fuera de tokens.css (grep limpio en components/features). Fix propuesto: (1) validador runtime de ServerMessage en el cliente (mismo patrón que isValidDraftEventEnvelope/isValidClientMessage de apps/engine, adaptado a este lado), descartando en silencio un mensaje malformado en vez de confiarlo; (2) app/draft/error.tsx (convención nativa de Next.js App Router -- ningún componente/librería nueva, la forma más simple e idiomática de resolver la regla de web.md) para que cualquier excepción de render residual muestre el estado `error` del propio ticket (mensaje + acción de recuperación) en vez de una pantalla en blanco. Veredicto: REJECTED. TSK-012 pasa a state: blocked -- se presenta el hallazgo y el fix antes de tocar el código, mismo patrón que TSK-010 ronda 1.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T13:40</span></div>
+            <div class="feed-note">Construida la feature completa de la vista de draft en apps/web: features/draft/{types,constants,store,fake-socket,socket,use-hero-catalog,DraftView,index}.ts(x) + componentes atómicos en components/{hero-icon,draft-hero-slot,signal-breakdown,suggestion-card,draft-board}/ + app/draft/page.tsx + app/tokens.css. Los 6 estados de S5 se derivan con una función pura (deriveScreenState en store.ts), probada con 9 casos usando FakeSocket (costura S5 de testing-seams.md) -- nunca un WebSocket real en las pruebas. Verificado además con un smoke test manual real (bun -e con WebSocket nativo) contra apps/engine corriendo de verdad: hello -> snapshot (fase idle, confirma mapeo a esperando_draft) y luego un ciclo completo POST /ingest/draft-event -> draft_state -> suggestions en el orden correcto -- confirma que el contrato de wire de apps/web coincide con el servidor real de TSK-010, no solo con tipos espejados a mano. Decisiones de diseño documentadas: (1) MetaSnapshot/DraftState/ServerMessage/etc. se redefinieron en apps/web/features/draft/types.ts como espejo manual del contrato de apps/engine -- son dos procesos independientes sin paquete compartido, no hay otra forma de tiparlos sin acoplar los repos. (2) el catálogo de héroes (GET /api/heroes) se resuelve con un hook simple basado en fetch (use-hero-catalog.ts), no con RTK Query -- TSK-014 es explícitamente el ticket que configura RTK Query para "páginas normales del sitio"; instalar @reduxjs/toolkit + react-redux aquí habría sido una expansión de alcance no pedida por TSK-012. (3) los botones "entrada manual" y "simulador" del estado esperando_draft son placeholders nombrados (nunca funciones anónimas inline, per web.md) sin funcionalidad real -- TSK-011 y TSK-013 (que los implementan de verdad) no existen todavía. (4) fase 'aborted' del reductor se mapea al mismo estado de pantalla 'completo' que 'complete' -- los 6 estados de la vista no tienen un séptimo estado 'abortado' distinto, y ambos significan lo mismo desde la UI ("sin sugerencias nuevas"). Instalado @types/bun@^1.3.14 como devDependency de apps/web (aprobación ligera, no ciclo completo de /gear-up: son solo tipos sin código de runtime, el mismo paquete ya vetted y en uso en apps/engine desde TSK-001 -- necesario para que bun:test resuelva tipos y npx tsc --noEmit pase limpio en apps/web, ya que next build usa su propio typecheck que no lo exigía pero un tsc suelto sí). Al instalar con npm, el propio npm reescribió package.json y descartó la clave "// ALLOWED" añadida antes para zustand -- repuesta cubriendo ambas dependencias, confirmado JSON válido y tsc limpio después. Verificado: bun test (9 pass, 0 fail, 13 expect(), features/draft/); npx tsc --noEmit sin errores; npm run build sin errores (ruta /draft dinámica por searchParams); npm run lint sin errores. Nota aparte no bloqueante: npm audit sigue reportando 12 vulnerabilidades high en eslint/next/postcss/sharp, preexistentes del scaffold TSK-001, ninguna de zustand/@types/bun. TSK-012 sigue en state: doing, sigue con verificación de gates y @redteam/@shipcheck.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T13:00</span></div>
+            <div class="feed-note">Instalado zustand@5.0.14 en apps/web (npm install), aprobado por /gear-up + @depcheck (evt-049). Al intentar marcar el paquete con // ALLOWED (convención pedida por @depcheck para que verify-simplicity.sh lo reconozca) se descubrió un tercer gap real en el script: la sección 3 (dependencias nuevas) apuntaba a `package.json` en la raíz del repo -- que no existe, es un monorepo, cada app tiene el suyo bajo apps/*/package.json. Confirmado con `git diff HEAD -- package.json` (vacío, aunque apps/web/package.json sí había cambiado) que este chequeo nunca se disparó para ninguna dependencia añadida desde que existe el monorepo (TSK-001 en adelante) -- ni siquiera para drizzle-orm/drizzle-kit en TSK-002 (confirmado por su ausencia total de marca // ALLOWED en el historial, sin que el gate lo hubiera bloqueado nunca). El proceso humano (/gear-up + @depcheck) sí se siguió correctamente en ambos casos, pero el gate automático estaba muerto para esta sección desde el día 1 del monorepo. Presentado al usuario, eligió arreglarlo ahora: cambiada la sección 3 para descubrir todos los package.json reales vía `git ls-files -- '*/package.json' 'package.json'` (glob probado en vivo antes de aplicarlo) e iterar el mismo chequeo por cada uno. Como JSON no soporta comentarios `//` literales, el marcador se implementó como una clave JSON válida de primer nivel (`"// ALLOWED": "..."`) en vez de intentar un comentario real -- verificado que sigue siendo JSON válido (node -e JSON.parse) y que `npm run build` de apps/web sigue compilando limpio con la clave extra (Next.js/npm ignoran claves desconocidas). Verificado el fix por ejecución real en ambas direcciones, no solo leyendo el diff: se quitó la marca temporalmente y el gate SÍ la detectó y bloqueó con el mensaje esperado, se restauró y el gate volvió a pasar limpio. verify-simplicity.sh queda en verde. Nota aparte, no bloqueante: `npm install` reportó 12 vulnerabilidades high severity, todas rastreadas a eslint/eslint-config-next/next/postcss/sharp (devDependencies y transitivas del scaffold de TSK-001, confirmado con `npm audit --json` -- ninguna viene de zustand, que no tiene dependencias propias). Fuera de alcance de este ticket (upgrade mayor de eslint, no relacionado con la vista de draft) -- queda como hallazgo para revisar aparte. TSK-012 sigue en state: doing, continúa con /design-forge para la construcción de la vista real.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>depcheck</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T12:50</span></div>
+            <div class="feed-note">Zustand 5.0.14 verificado. Context7 MCP no autorizado en esta sesión (aparece en la lista de servidores que requieren login) -- se usó WebSearch como respaldo: versión actual 5.0.14 (publicada hace ~2 meses), compatible con React 19/Next.js 16 (solo advertencias de peer-dependency, no incompatibilidad funcional real), sin señales de deprecación, 7310+ proyectos dependientes en npm. Es la 1ra dependencia nueva de apps/web desde el scaffold inicial (TSK-001) -- dentro del límite de 3 dependencias principales en fase de prototipo. Ya estaba decidida por el propio stack del proyecto (CLAUDE.md/SPEC: "única excepción... WebSocket + Zustand para el draft en vivo"), no es una decisión nueva de arquitectura, solo se confirma vigencia antes de instalar. ✅ Dependencia verificada y autorizada. Se instalará con comentario // ALLOWED en el diff de package.json.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T12:40</span></div>
+            <div class="feed-note">Modo manual, ticket especificado por el usuario. Dependencias TSK-001 (apps/web, confirmado escaneado: existe, Next.js 16/React 19/Tailwind 4 ya instalados) y TSK-010 (servidor WS real, ya done, aunque el ticket permite desarrollar contra FakeSocket en paralelo) están resueltas. assigned_tool: claude-code (coincide con preferred_tool, decisión ya tomada por el propio ticket -- requiere pulido visual vía /design-forge + Artisan + auditoría ux-senior). Antes de dispatchear se verificó una memoria previa (dota2coach-overwolf-stack.md) por posible conflicto de stack (Vite+React vs Next.js) -- el `description` del archivo estaba desactualizado/contradecía su propio cuerpo, que confirma Next.js App Router se mantiene; corregido el description y la línea de MEMORY.md para no confundir sesiones futuras. Se detectó que Zustand (exigido por el ticket para el estado de WebSocket en vivo) no está instalado en apps/web/package.json todavía -- CLAUDE.md prohíbe añadir dependencias sin pasar por /gear-up o @depcheck. Presentado al usuario: eligió correr /gear-up acotado solo a Zustand (sin arrastrar shadcn/ui todavía) antes de invocar /design-forge para la construcción real, tal como el propio ticket exige en vez de un @build directo. state: backlog -> doing. WIP=1 por claude-code libre.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -362,62 +423,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-011</span> <span class="feed-ts">2026-07-27T13:20</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh NO se corrió como gate automático esta vez -- limitación conocida y aceptada explícitamente por el usuario (dos sesiones de Claude Code en paralelo sin worktrees separados hacen que el script mezcle diffs de tickets distintos); evaluación manual acotada a los 3 archivos propios: apps/engine/src/simulator/{player.ts 84, player.test.ts 153, scripts.json 54} = 291 líneas / 3 archivos reales -- dentro del límite de 3 archivos, supera las 200 líneas, excepción aprobada explícitamente por el usuario (AskUserQuestion), mismo patrón que TSK-003/004/009. Sin dependencias nuevas. Sin funciones innecesarias (deletion test: los 3 exports de player.ts se usan todos, en el propio archivo de prueba y como API pública pensada para un futuro CLI/harness del simulador). `bun test` completo del proyecto: 88 pass, 0 fail, 411 expect() -- confirma que TSK-011 no rompió nada existente, incluido el trabajo en curso de TSK-010 (no tocado, cero archivos en común). `bun scripts/hub.ts` NO se regeneró en esta ronda -- se evitó a propósito para no tocar docs/agents/hub.html mientras está en el mismo diff que el trabajo sin cerrar de la sesión paralela; queda pendiente para cuando el árbol de trabajo esté más limpio. TSK-011 cierra a done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-011</span> <span class="feed-ts">2026-07-27T13:10</span></div>
-            <div class="feed-note">Gate de seguridad: PASS, evaluado solo sobre los 3 archivos propios de este ticket (apps/engine/src/simulator/{player.ts,player.test.ts,scripts.json}), por instrucción explícita del usuario dado que verify-simplicity.sh no puede correr limpio ahora mismo (mezcla con el diff sin commitear de la sesión paralela de TSK-010). Sin I/O real: httpEmit llama a fetch pero es una emisión hacia el borde de ingesta ya contractual (S1), no una llamada del motor de sugerencias (C3) ni del reductor (C2) -- no viola "cero red en el camino caliente" porque el simulador es un capturador, no el motor. Sin secretos (grep repetido, sin coincidencias); captureToken se recibe como parámetro, nunca hardcodeado. Sin dependencias nuevas. Pasada 1 (Standards): responsabilidad única por función (buildEnvelopes/runSimulator/httpEmit), nomenclatura calcada del contrato S1 (DraftEventEnvelope, DraftEvent) y del propio ticket (PlaybackClock, DraftScript); reloj e ids inyectables para determinismo en pruebas, mismo patrón que TSK-004/009. Hallazgo no bloqueante: `runSimulator` no valida que `speed` sea positivo -- un `speed: 0` produciría `delayMs / 0 = Infinity` y colgaría `sleep` para siempre; no es explotable hoy porque el ticket no incluye ningún punto de entrada (CLI/HTTP) que reciba `speed` desde fuera, todos los call sites actuales son las propias pruebas con valores fijos -- se documenta para el futuro ticket que exponga el simulador como comando o endpoint, no bloquea este cierre. Pasada 2 (Spec): confidence:1.0 fijo en buildEnvelopes (nunca calculado, regla dura cumplida); mismo tipo DraftEventEnvelope y misma ruta POST /ingest/draft-event que un capturador real (httpEmit), no un atajo; los 2 guiones cubren picks+bans+pick_reverted como exige el ticket; criterio de aceptación 1 (Captain Mode sin perder eventos) y 2 (All Pick + format:'unknown' sin romper nada) verificados con aserciones exactas sobre el DraftState final vía el reductor REAL de TSK-004 (no un fake), consistente con testing-seams.md S1 ("el reductor de estado completo" es lo real en esta frontera); criterio 4 (sin cliente de Dota 2 real) verificado -- httpEmit probado con fetchImpl inyectado, cero red real en toda la suite. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-011</span> <span class="feed-ts">2026-07-27T12:55</span></div>
-            <div class="feed-note">Implementado apps/engine/src/simulator/player.ts (buildEnvelopes: genera DraftEventEnvelope a partir de un DraftScript, seq incremental desde 1, eventId/emittedAt vía PlaybackClock inyectable, source:"simulator" y confidence:1.0 fijos, nunca inventados; runSimulator: reproduce un guion completo con velocidad configurable -- "instant" ignora delayMs, un multiplicador numérico divide el delayMs real -- vía emit/sleep inyectables; httpEmit: emite por POST /ingest/draft-event con x-capture-token, misma ruta de código que un capturador real, fetchImpl inyectable para no depender de red real en pruebas) + player.test.ts (7 pruebas: forma exacta de los envelopes, modo instant sin ningún sleep real, multiplicador 2x pide la mitad del delayMs original, reproducción completa de Captain Mode verificando picks/bans/revert exactos y appliedEventIds sin ninguno perdido, lo mismo para All Pick, format:'unknown' no rompe el reductor con un guion inline de 4 eventos, httpEmit construye la petición HTTP correcta sin red real) + scripts.json (dos guiones completos en un solo archivo -- captainsMode: 23 eventos, 8 bans, 5 picks por lado, 1 pick_reverted que corrige un falso positivo antes del pick real; allPick: 16 eventos, 2 bans -- uno con side:'unknown' -- 5 picks por lado, 1 pick_reverted). Decisión de diseño no especificada literalmente por el ticket: los dos guiones se combinaron en un único scripts.json (en vez de dos archivos separados bajo scripts/) para que la tarea completa quedara en exactamente 3 archivos (player.ts + player.test.ts + scripts.json), evitando pedir también una excepción de conteo de archivos además de la de líneas. Alcance respetado tal como indicó el usuario: cero modificaciones a apps/engine/src/server/ ni a ningún archivo que la sesión paralela de TSK-010 esté tocando (db/client.ts, index.ts, meta/provider.ts, meta/sync.ts) -- solo archivos nuevos bajo simulator/. Verificado: `bun test src/simulator` (7 pass, 0 fail, 212 expect()); `bun test` completo del proyecto (88 pass, 0 fail, 411 expect() -- confirma que nada de lo ya existente, incluido el trabajo en curso de TSK-010, se rompió); `bunx tsc --noEmit` sin errores; grep del patrón de secretos sobre los 3 archivos propios sin coincidencias. LIMITACIÓN CONOCIDA, no resuelta ni parcheada por instrucción explícita del usuario: `bash scripts/verify-simplicity.sh` no se pudo correr de forma útil -- mide el árbol de trabajo completo, que ahora mismo mezcla el diff sin commitear de la sesión paralela de TSK-010 (apps/engine/src/server/*, más cambios en db/client.ts/index.ts/meta/*) con el propio de TSK-011, reportando 14 archivos/957 líneas y un falso positivo de "secretos" que no proviene de ningún archivo de este ticket. El script no distingue entre sesiones concurrentes sin worktrees separados -- limitación conocida de correr dos sesiones de Claude Code en paralelo sobre el mismo working tree, no un bug a corregir aquí. Evaluación manual, acotada a los 3 archivos propios: apps/engine/src/simulator/{player.ts,player.test.ts,scripts.json} = 291 líneas / 3 archivos reales -- dentro del límite de 3 archivos, supera las 200 líneas; excepción de líneas aprobada explícitamente por el usuario (AskUserQuestion), mismo patrón que TSK-003/004/009. Grep de secretos repetido, acotado solo a los 3 archivos propios: sin coincidencias. TSK-011 sigue en state: doing, pasa a @redteam (evaluación acotada a los mismos 3 archivos, mismo criterio).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🟡</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-010</span> <span class="feed-ts">2026-07-27T11:45</span></div>
-            <div class="feed-note">Gate de seguridad: FAIL. En server/app.ts, el handler de mensajes WebSocket (`websocketHandlers.message`) hace `message = JSON.parse(String(raw))` y luego usa `message.sessionId` directamente (`ws.data.sessionId = message.sessionId; ws.subscribe(message.sessionId); sessionStore.get(message.sessionId)`) sin validar que sea realmente un string. `JSON.parse` devuelve `any`, así que asignarlo a la variable tipada `ClientMessage` no da ninguna protección real en runtime -- un cliente que envíe `{schema:'draft-ws/v1', type:'hello', sessionId: 123}` (número) o un objeto pasaría sin validar, terminando como el campo `sessionId` de un `DraftState` (tipado `string`) con un valor que en runtime no lo es -- exactamente la clase de "input externo sin validar" que el gate obligatorio bloquea, sin importar cómo salga el resto de la revisión. El resto del gate (binding 127.0.0.1 sin cambios, sin secretos hardcodeados -- confirmado con el gate ya arreglado en evt-043, queries vía Drizzle parametrizadas, sin privilegios de más) está limpio. Hallazgo adicional no bloqueante (Standards, Pasada 1, punto 5): `pushSessionUpdate` llama `buildMetaSnapshot`+`getMetaFreshness` (3+1 queries de tabla completa) en CADA evento de draft aceptado, no solo cuando cambia el cache de meta -- no es N+1 dentro de un loop literal, pero es I/O repetida innecesaria en el camino caliente de picks/bans (podría haber ~20 eventos por draft, cada uno releyendo heroes/matchups/patchStats completos). No bloquea (SQLite local, tablas pequeñas), pero queda como candidato de optimización futura (cachear el MetaSnapshot y refrescarlo solo cuando termina una sincronización). Veredicto: REJECTED. TSK-010 pasa a state: blocked -- se presenta el hallazgo y el fix propuesto al usuario antes de tocar el código, mismo patrón que TSK-003 ronda 1.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-011</span> <span class="feed-ts">2026-07-27T12:30</span></div>
-            <div class="feed-note">Modo manual, ticket especificado por el usuario. Antes de asignar se detectó un hallazgo importante: apps/engine/src/server/ (app.ts, edge.ts, session.ts + tests) y modificaciones en db/client.ts, index.ts, meta/provider.ts, meta/sync.ts existen sin commitear y sin ninguna entrada de journal.md ni cambio de frontmatter en TSK-010.md (sigue state:backlog, assigned_tool:null) — todo apunta a TSK-010 (servidor Bun) ya implementado (81 tests en verde) pero sin cerrar. Consultado al usuario antes de tocar nada: confirmó que ese trabajo pertenece a OTRA sesión de Claude Code corriendo en paralelo sobre el mismo repo ahora mismo, no es un huérfano de esta sesión — instrucción explícita: no tocar, no comitear, no correr @redteam/@shipcheck sobre TSK-010, esa sesión lo cierra cuando termine. TSK-011 no depende de que TSK-010 esté cerrado para poder implementarse (el propio ticket lo declara: "puede probarse aislado antes de que TSK-010 esté listo"). assigned_tool fijado a claude-code, mismo criterio que TSK-004 en adelante (patrón de falta de créditos en Codex confirmado 2/2 en TSK-002/003, sin señal de que se haya restaurado desde entonces); preferred_tool se conserva como codex (intención original). Alcance de esta tarea limitado explícitamente a archivos nuevos bajo apps/engine/src/simulator/ — cero modificaciones a apps/engine/src/server/ ni a ningún archivo que la otra sesión esté tocando, para no pisar su trabajo ni generar conflictos de merge. state: backlog -> doing. WIP=1 por claude-code: no verificable de forma fiable ahora mismo vía frontmatter (la otra sesión no ha actualizado TSK-010.md), aceptado como riesgo conocido por instrucción directa del usuario en vez de bloquear la tarea.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-010</span> <span class="feed-ts">2026-07-27T11:30</span></div>
-            <div class="feed-note">Implementado el servidor Bun completo: apps/engine/src/server/edge.ts (checkCaptureToken, createSessionRateLimiter con ventana deslizante de 1000ms/20 eventos, isValidDraftEventEnvelope -- type guard a mano cubriendo los 7 tipos de DraftEvent, sin librería nueva), server/session.ts (SessionStore en memoria sobre createIdleDraftState/applyDraftEvent de TSK-004, tipos ServerMessage/ClientMessage 'tal cual' del ticket, CaptureStatus/ErrorPayload definidos por primera vez -- no existían en SPEC.md más allá de nombrarse en la unión, CaptureStatus espeja la forma del evento capture_health), server/app.ts (createApp: wiring completo -- candidatos de C3 vía buildSuggestions, C4 vía buildMetaSnapshot/getMetaFreshness de TSK-015, las 6 rutas HTTP, upgrade a WebSocket en /ws/draft, hello->snapshot, push draft_state antes que suggestions vía server.publish por topic=sessionId). Modificado index.ts como entrypoint real (lee CAPTURE_TOKEN de env, genera uno con crypto.randomUUID() si falta y lo imprime una sola vez -- nunca hardcodeado, nunca default de fallback en el repo). Bug real encontrado y corregido en apps/engine/src/db/client.ts: bun:sqlite no crea el directorio contenedor del archivo, y data/ está en .gitignore desde TSK-002 -- el servidor nunca arrancaba en un checkout limpio (confirmado reproduciendo el fallo antes del fix); se agregó mkdirSync(dirname(DB_PATH), {recursive:true}). Extendido meta/sync.ts (aditivo, sin romper syncMeta ni sus 3 pruebas existentes -- verificado corriendo sync.test.ts antes y después): beginMetaSync/runMetaSync separan la creación de la fila meta_sync (rápida) del trabajo lento, para que POST /api/meta/sync responda con el syncId real sin bloquear. Extendido meta/provider.ts (aditivo): getAllHeroMeta para GET /api/heroes. Hallazgo de seguridad propio, corregido en el mismo ticket: la sección 4 (secretos hardcodeados) de scripts/verify-simplicity.sh usaba únicamente git diff contra HEAD -- ciego a archivos untracked, el mismo gap que TSK-002 ya había corregido para archivos/líneas pero nunca se replicó a la sección de secretos. Cualquier secreto real en un archivo nuevo, desde el primer commit del proyecto, habría pasado sin que el gate lo viera. Presentado al usuario, eligió arreglarlo ahora: se sumó un escaneo de git ls-files --others --exclude-standard con el mismo patrón de regex (sin la exclusión de bookkeeping -- un secreto en journal.md también debe bloquear). Verificado en vivo: el gate arreglado detectó de inmediato un token de prueba propio (const TOKEN = "test-capture-token" en app.test.ts) que antes pasaba inadvertido -- se renombró a EXPECTED_HEADER (no es un secreto real, pero el nombre disparaba el patrón), confirmando que el fix funciona correctamente sin falsos negativos ni bloquear código legítimo tras el rename. Decisiones de diseño documentadas: (1) x-capture-token NO se exige en POST /api/session/manual (solo en /ingest/draft-event) -- lectura literal de la sección Seguridad del ticket, que solo nombra la primera ruta; la entrada manual viene de apps/web, un proceso local de confianza distinta al capturador. (2) rate limit tampoco aplica a /api/session/manual, mismo razonamiento. (3) GET /api/meta/status agrega el campo 'lastSync' (no definido por getMetaFreshness) leyendo la fila más reciente de meta_sync sin filtrar por status -- da visibilidad de un intento fallido reciente aunque syncedAt/isStale reflejen la última sincronización exitosa. (4) type:'capture_status' de ServerMessage se define pero no se envía activamente desde ningún camino de código en este ticket -- ningún criterio de aceptación lo exige, y state.quality.captureStatus ya viaja dentro de cada draft_state; queda como contrato completo, sin uso activo todavía. Verificado: bun test completo (81 pass, 0 fail, 199 expect(), 14 archivos, incluye una prueba de integración real levantando el servidor en un puerto de prueba y un cliente WebSocket real); bunx tsc --noEmit sin errores; smoke test manual del servidor real (arranque limpio, GET /api/health, rechazo sin token) antes de escribir las pruebas formales. verify-simplicity.sh: 10 archivos / 611 líneas (+ el fix del script, que no cuenta como código de la tarea) -- excede AMBOS límites, acordado explícitamente con el usuario antes de empezar (AskUserQuestion: estructura multi-archivo en server/ en vez de 1 archivo gigante, aceptando ambas excepciones). TSK-010 sigue en state: doing, pasa a @redteam.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-015</span> <span class="feed-ts">2026-07-27T11:05</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 161 líneas / 2 archivos reales — dentro del límite de 200, sin necesidad de excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado. TSK-010 queda desbloqueada.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-015</span> <span class="feed-ts">2026-07-27T10:55</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (todo vía Drizzle -- select().from()/where(eq())/orderBy(desc()), cero SQL concatenado; sin secretos; sin llamada a OpenDota, solo lectura local; sin privilegios de más). Pasada 1 (Standards): sin abstracciones de más (3 selects + 3 loops de agrupación, cada uno justificado); nomenclatura clara (buildMetaSnapshot, getMetaFreshness, heroesById/matchupsByHero/patchStatsByHero); manejo de vacíos/sin-sync verificado con pruebas dedicadas. N+1 de Drizzle -- el requisito central del ticket -- verificado por inspección directa del código (permitido explícitamente por el propio ticket como alternativa a una prueba de conteo): exactamente 3 llamadas a .select() en buildMetaSnapshot y 1 en getMetaFreshness, ninguna dentro de un for/.map()/.forEach(); los loops solo iteran sobre arrays ya traídos a memoria. Pasada 2 (Spec): MetaSnapshot devuelto coincide campo por campo con signals/types.ts (heroes/matchups/patchStats); ventana de frescura de 24h implementada y probada en ambos lados del límite, incluyendo el caso de ignorar una sync fallida más reciente que una exitosa vieja (prueba real, no tautológica). Los 4 criterios de aceptación literales están cubiertos. Hallazgos no bloqueantes: (1) el cast `row.bracket as Bracket` es un trust boundary deliberado -- confirmado seguro en esta revisión porque hero_patch_stats solo la escribe mapHeroStatsRow (TSK-003), que ya valida contra BRACKETS antes de persistir; no es input externo en este punto de lectura, a diferencia de cuando esos mismos datos vienen crudos de OpenDota. (2) ORDER BY sobre `finishedAt` (columna TEXT con ISO-8601) ordena correctamente solo porque todo el codebase usa new Date().toISOString() de forma consistente (mismo patrón que sync.ts) -- frágil si algún día se escribe una fecha en otro formato a esa columna, pero no es un riesgo real hoy. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-015</span> <span class="feed-ts">2026-07-27T10:40</span></div>
-            <div class="feed-note">Renombrado el ticket creado en evt-038/039 de TSK-010b.md a TSK-015.md (frontmatter id actualizado igual) -- el patrón de exclusión de bookkeeping de verify-simplicity.sh (tasks/TSK-[0-9]+[.]md, solo dígitos) no matcheaba el sufijo "b", así que el propio archivo del ticket se contaba como código real (68 líneas de más). Se prefirió renombrar el ticket a un ID puramente numérico (siguiente libre tras TSK-014) en vez de tocar el script compartido -- menor blast radius, consistente con "no refactorizar archivos no relacionados". Implementado apps/engine/src/meta/provider.ts (buildMetaSnapshot: 3 queries masivas vía Drizzle sobre heroes/hero_matchups/hero_patch_stats, agrupadas por heroId, nunca N+1; getMetaFreshness: última fila meta_sync con status 'ok', ventana de 24h) + provider.test.ts (5 pruebas: datos poblados con forma exacta, 4 tablas vacías sin lanzar, sin sync -> isStale true, sync <24h -> isStale false, sync >24h ignorando una sync fallida más reciente). Decisión de diseño documentada: el cast `row.bracket as Bracket` en la lectura de hero_patch_stats es seguro porque solo mapHeroStatsRow (TSK-003) escribe esa tabla y ya valida contra BRACKETS antes de escribir -- no es input externo en este punto de lectura, a diferencia de cuando esos mismos datos llegan crudos de OpenDota. No se implementó la prueba de conteo de queries (contar llamadas a db.select) que el ticket ofrecía como alternativa -- se optó por la otra alternativa que el propio ticket permitía explícitamente ("o por inspección directa del código en @redteam"), ya que el código solo tiene 3 llamadas a .select() en todo el archivo, verificable a simple vista. Verificado: bun test completo (68 pass, 0 fail, 146 expect(), 12 archivos); bunx tsc --noEmit sin errores; grep de secretos sin coincidencias. verify-simplicity.sh: verde tras el rename (161 líneas / 2 archivos reales, dentro del límite). TSK-015 sigue en state: doing, pasa a @redteam.</div>
           </div>
         </div></div>
     </div>

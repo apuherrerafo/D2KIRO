@@ -8,13 +8,17 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "// ALLOWED": "zustand: única excepción de datos para la vista de draft en vivo (WebSocket), aprobada por /gear-up + @depcheck, TSK-012 — docs/agents/journal.md evt-20260727-049",
+  "// ALLOWED": "zustand: única excepción de datos para la vista de draft en vivo (WebSocket), TSK-012, docs/agents/journal.md evt-20260727-049. @types/bun: solo tipos (sin código en runtime), mismo paquete ya aprobado y en uso en apps/engine desde TSK-001 -- necesario para que 'bun:test' resuelva tipos en apps/web.",
   "dependencies": {
     "next": "16.2.12",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.3.14",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
