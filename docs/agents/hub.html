@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-27T16:34:32.296Z</title>
+<title>HUB del ecosistema — 2026-07-27T16:50:17.282Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">6</span></h2>
+        <h2>backlog <span class="count">5</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-009</div>
-          <div class="card-title">Mezcla, orden y explicación del motor (§C3)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-010</div>
@@ -200,7 +190,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">8</span></h2>
+        <h2>done <span class="count">9</span></h2>
         
         <div class="card  ">
           
@@ -282,6 +272,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-009</div>
+          <div class="card-title">Mezcla, orden y explicación del motor (§C3)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -289,26 +289,26 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">14× · 29% ok  · 1 falló</div>
+          <div class="stat-nums">15× · 27% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:71%"></div></div>
-          <div class="stat-nums">10× · 0% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:73%"></div></div>
+          <div class="stat-nums">11× · 0% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
-          <div class="stat-nums">9× · 89% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
+          <div class="stat-nums">10× · 90% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
-          <div class="stat-nums">9× · 89% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
+          <div class="stat-nums">10× · 90% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:14%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:13%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
@@ -326,6 +326,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-009</span> <span class="feed-ts">2026-07-27T10:05</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec), reforzada por ser la pieza de mayor riesgo del proyecto. Gate de seguridad: PASS. verify-simplicity.sh: 297 líneas / 3 archivos reales — supera las 200, acordado explícitamente con el usuario antes de empezar (AskUserQuestion), mismo patrón que TSK-004. Sin dependencias nuevas, sin funciones innecesarias (deletion test aplicado en @redteam). `bun scripts/hub.ts` regenerado. Con este cierre, la tubería completa de C3 (candidatos -> señales -> mezcla -> orden -> explicación) queda funcional de punta a punta por primera vez en el proyecto.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-009</span> <span class="feed-ts">2026-07-27T09:50</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (función en memoria, sin DB, sin red, sin secretos -- grep limpio; el único "efecto" es leer el reloj real vía Date.now(), inyectable y sin relación con ninguno de los 4 vectores del gate). Revisión reforzada dado que el propio ticket se autodeclara "riesgo central del proyecto" -- se rastrearon 11 hipótesis de bug concretas antes de las dos pasadas normales: conversión string->number de HeroId en candidatePool (correcta), riesgo de división por cero en mixScore (imposible, los 4 pesos son constantes positivas), consistencia entre el array `signals` usado para score/reason/confidence (mismo objeto, una sola pasada de scoring, sin recálculo inconsistente), acoplamiento implícito entre SignalContribution.signal y SCORING_WEIGHTS_V1 (correcto en los 4 scorers reales, verificado contra sus propios archivos), y el caso 'cache de meta vacío -> heurísticas, confidence baja' de SPEC.md -- se caminó el código a mano: con matchups/patchStats vacíos pero catálogo de héroes presente, counter y patch_meta caen a null, team_synergy/role_gap siguen dando dato (o null adicional si el equipo propio también está vacío), confidence cae a 'baja' correctamente en ambos casos -- ningún hallazgo real, la regla se cumple. Pasada 1 (Standards): funciones de una sola responsabilidad, sin abstracciones de más; nomenclatura mixta inglés(identificadores)/español(comentarios y strings de usuario) consistente con el resto del proyecto. N/A UI, N/A Drizzle. Pasada 2 (Spec): Suggestion/SuggestionSet/DegradationFlag coinciden campo por campo y en el mismo orden que el ticket ('implementar tal cual'); reglas de confianza (alta/media/baja) mapeadas exactamente; corte a 500ms implementado como chequeo de tiempo transcurrido antes de cada candidato (única forma real de 'cortar' código síncrono en JS), con presupuesto de 300ms verificado aparte por la prueba de rendimiento, no confundido con un segundo corte duro. Hallazgos no bloqueantes, transparencia de decisiones ya documentadas en evt-035: (1) RAW_RANGE por señal es una calibración razonada, no medida contra datos reales de producción -- candidata a revisión cuando haya telemetría real. (2) el camino catch de safeScore no tiene prueba dedicada (los 4 scorers reales nunca lanzan por diseño) -- red de seguridad documentada, no demostrada. (3) 'sin candidatos -> flag explícito' se implementó como suggestions:[] mismo, sin añadir un 5to valor a DegradationFlag -- lectura defendible dado que SPEC.md original dice 'mensaje explícito en la UI' (responsabilidad de un ticket de frontend futuro) y el type venía fijado 'tal cual'. (4) sin prueba dedicada para menos de 3 candidatos válidos (1 o 2) -- el código lo maneja bien vía slice(0,3) pero no está demostrado con un caso explícito. Ninguno de los 4 bloquea. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-009</span> <span class="feed-ts">2026-07-27T09:30</span></div>
+            <div class="feed-note">Implementado apps/engine/src/signals/weights.ts (SCORING_WEIGHTS_V1), mix.ts (candidatePool, normalize por señal, safeScore con try/catch, mixScore con redistribución proporcional de peso, computeConfidence, buildReason, buildSuggestions -- orquesta las 5 etapas de C3: candidatos ya implementado, señales llamando a los 4 scorers de TSK-005/006/007/008, mezcla, orden top-3, explicación), mix.test.ts (8 pruebas: suma de pesos exacta, redistribución de peso null verificada con números exactos -- score=100 en vez de 55 si se tratara null como 0, reason trazable a los signals no-null, rendimiento <300ms con ~130 héroes candidatos, candidatos excluyen baneados/elegidos, sin candidatos válidos no lanza, degraded incluye unknown_format/unconfirmed_state, meta stale nunca da confidence alta). Decisiones de diseño no especificadas literalmente por el ticket, documentadas aquí y en el código: (1) rangos de normalización por señal (RAW_RANGE) -- counter [-0.3,0.3], patch_meta [0.3,0.7], team_synergy [0,1], role_gap [-1,0] -- no hay un estándar dado por el ticket ni por SPEC.md para 'normalizar a 0-100' cuando cada raw tiene una escala distinta (delta de winrate vs fracción vs penalización); son rangos razonables basados en la semántica de cada señal, documentados en el propio archivo para que sean el único punto a ajustar si el producto calibra distinto. (2) Cuando TODAS las señales de un candidato dan null (caso extremo, ej. primer pick sin ningún dato), el score cae a 50 (neutro) en vez de NaN o 0 -- evita que un candidato sin ningún dato termine arbitrariamente en el fondo o el tope del ranking. (3) 'Corte duro a 500ms' se implementó como chequeo de tiempo transcurrido ANTES de procesar cada candidato del loop (no hay forma real de interrumpir código síncrono a mitad de un cálculo en JS) -- consistente con "se corta y se devuelve lo que haya". El reloj se inyecta como parámetro opcional (`now`) para que las pruebas sean determinísticas si hace falta, aunque la prueba de rendimiento usa el reloj real a propósito. (4) 'Sin candidatos válidos -> flag explícito' (texto del ticket) se interpretó como 'suggestions: [] es el propio flag explícito' (nunca una excepción), no como un 5to valor añadido a DegradationFlag -- SPEC.md original dice literalmente 'mensaje explícito en la UI', que es responsabilidad de un ticket de frontend futuro, no de este contrato de datos; añadir un valor no pedido a un type ya fijado ('implementar tal cual') habría sido una desviación real del contrato. (5) Suggestion.reason concatena hasta 2 explanations de las señales CON dato, ordenadas por peso descendente -- si ninguna tiene dato (caso extremo de 4 null), cae al explanation de la primera señal como último recurso, nunca un string vacío. No se probó el camino de safeScore (scorer que lanza excepción) con una prueba dedicada -- los 4 scorers reales están escritos defensivamente (nunca lanzan para entrada válida, verificado en sus propios tickets), así que no hay forma realista de disparar una excepción real a través de la API pública sin inventar un scorer falso; el try/catch queda como red de seguridad documentada, no demostrada por prueba, decisión de alcance explícita. Verificado: bun test completo (63 pass, 0 fail, 138 expect(), 11 archivos); bunx tsc --noEmit sin errores; grep de secretos sin coincidencias. verify-simplicity.sh: 297 líneas / 3 archivos reales -- supera las 200, acordado explícitamente con el usuario antes de cerrar (AskUserQuestion, misma decisión que TSK-004: implementar completo y pedir la excepción al cerrar, justificado por ser la pieza de mayor riesgo/juicio del proyecto según el propio ticket). TSK-009 sigue en state: doing, pasa a @redteam.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-009</span> <span class="feed-ts">2026-07-27T09:00</span></div>
+            <div class="feed-note">Modo manual, ticket especificado por el usuario. Dependencias TSK-005/006/007/008 (los 4 SignalScorer) ya están done. assigned_tool fijado a claude-code -- coincide con preferred_tool, ya que este ticket es la excepción explícita que el propio autor del ticket (/grill-me) dejó documentada: "es el riesgo central declarado del proyecto -- requiere más juicio que un ticket acotado, por eso queda en claude-code en vez de codex". No aplica el patrón Handoff aquí porque nunca se pensó para Codex. state: backlog -> doing. WIP=1 por claude-code libre. Nota: esta tarea probablemente exceda el límite de 200 líneas (candidatos + mezcla + redistribución de peso + orden + explicación + pruebas de rendimiento y de suma de pesos) -- se evalúa tras el build, igual que en TSK-004.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -380,34 +408,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-007</span> <span class="feed-ts">2026-07-27T07:00</span></div>
             <div class="feed-note">Modo manual, ticket especificado por el usuario (sesión continua: "y sigue con TSK-007 en la misma sesión"). TSK-006 (dependencia previa en orden) ya está done. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004/005/006. Ticket autocontenido (referencia el contrato de TSK-005 sin repetirlo, señal team_synergy heurística sobre roles[], sin fuente medida). state: backlog -> doing. WIP=1 por claude-code libre.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-006</span> <span class="feed-ts">2026-07-27T06:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 161 líneas / 3 archivos reales — dentro del límite de 200, sin necesidad de pedir excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-006</span> <span class="feed-ts">2026-07-27T06:35</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (función pura en memoria, sin I/O, sin DB, sin red, sin secretos -- grep limpio; importar Bracket/BRACKETS desde meta/mappers.ts es solo tipos/constantes, sin efectos de red al cargar el módulo). Pasada 1 (Standards): lowMidTotals resuelve una sola responsabilidad, sin abstracciones de más; nomenclatura de dominio (bracket, winrate, patch); sin excepciones para candidato/meta ausentes (verificado con prueba dedicada); N/A UI, N/A Drizzle. Pasada 2 (Spec): los 3 casos de aceptación literales están cubiertos con aserciones que calculan el valor esperado a mano (280/550), no solo presencia de un número; la prueba de exclusión de bracket alto usa un fixture con datos reales que, de incluirse por error, cambiarían raw/sampleSize de forma detectable -- no es una prueba débil. Hallazgos no bloqueantes, transparencia de decisiones: (1) 'bracket bajo/medio' no tiene definición oficial de Valve -- se agregó herald+guardian+crusader+archon (mitad inferior de la escalera de 8) como un único bucket, sumando picks/wins antes de aplicar el umbral de 500, consistente con la redacción singular del ticket ('el bracket bajo/medio') y con que la prueba de aceptación pide un solo veredicto, no cuatro. (2) MetaSnapshot.patchStats se declaró opcional (`patchStats?`) específicamente para no tener que tocar counter.test.ts (TSK-005) y mantenerse en 3 archivos -- decisión de diseño motivada por el límite de la tarea, no por necesidad técnica real; queda como precedente para TSK-007/008 si necesitan extender MetaSnapshot de nuevo. (3) El ticket menciona 'el bracket de pro' pero ese valor no existe en el esquema real (OpenDota expone pro_pick/pro_win aparte, nunca mapeado a hero_patch_stats desde TSK-003/evt-007) -- la prueba de exclusión usa 'immortal' como el bracket alto más cercano disponible, no un bracket 'pro' literal. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-006</span> <span class="feed-ts">2026-07-27T06:20</span></div>
-            <div class="feed-note">Implementado apps/engine/src/signals/patch-meta.ts (patchMetaScorer) + patch-meta.test.ts (4 pruebas: <500 partidas en bracket bajo/medio → null, >=500 → raw/sampleSize/explanation correctos con parche viejo descartado, exclusión explícita de bracket alto/immortal aunque el fixture traiga ambos, candidato sin datos no lanza y es pura). Extendido signals/types.ts: MetaSnapshot gana patchStats?: Record<HeroId, HeroPatchBracketStat[]> (opcional -- así counter.test.ts de TSK-005 no necesita tocarse, evita un 4to archivo modificado), HeroPatchBracketStat importa Bracket desde meta/mappers.ts (reutiliza la taxonomía de 8 brackets ya definida en TSK-003, no la reinventa). Decisión de diseño no especificada literalmente por el ticket, documentada aquí y en el propio código: 'bracket bajo/medio' no tiene definición oficial de Valve -- se tomó la mitad inferior de la escalera de 8 (herald/guardian/crusader/archon) como un único bucket agregado (suma de picks+wins de esos 4, no un promedio de 4 números separados), aplicando el umbral de 500 partidas a esa suma total, no a cada bracket individual -- consistente con la redacción del ticket ('el bracket bajo/medio', singular) y con la prueba de aceptación que pide un solo veredicto null/numérico, no cuatro. El literal 'pro' del ticket no existe como valor de Bracket (OpenDota expone pro_pick/pro_win aparte, nunca mapeado a hero_patch_stats desde TSK-003) -- la prueba de exclusión usa 'immortal' como el bracket alto más cercano disponible en el esquema real. Verificado: bun test completo (45 pass, 0 fail, 101 expect(), 8 archivos); bunx tsc --noEmit sin errores; grep de secretos sin coincidencias. verify-simplicity.sh: 161 líneas / 3 archivos reales -- dentro del límite, sin pedir excepción. TSK-006 sigue en state: doing, pasa a @redteam.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-006</span> <span class="feed-ts">2026-07-27T06:00</span></div>
-            <div class="feed-note">Modo manual, ticket especificado por el usuario. TSK-005 (dependencia previa en orden) ya está done, nada bloquea TSK-006. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004/005: sin señal de créditos restaurados en Codex. preferred_tool se conserva como codex. Ticket autocontenido (referencia el contrato de TSK-005 sin repetirlo, señal patch_meta aislada de las otras 3). state: backlog -> doing. WIP=1 por claude-code libre (nada en doing).</div>
           </div>
         </div></div>
     </div>
