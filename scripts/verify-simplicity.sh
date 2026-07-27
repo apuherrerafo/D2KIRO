@@ -18,16 +18,40 @@ else
   DIFF_BASE="$EMPTY_TREE"
 fi
 
-# --- 1. Archivos modificados ---
-FILES_TOUCHED=$(git diff --name-only "$DIFF_BASE" 2>/dev/null | wc -l | tr -d ' ')
+# --- Rutas de bookkeeping, excluidas del límite de archivos/líneas ---
+# journal.md (y sus particiones mensuales), el .md del propio ticket, plan.md, ledger.md y
+# PROGRESS.md los toca CASI cualquier tarea (registro de actividad, estado del ticket) — no son
+# el "código" que el límite de 3 archivos/200 líneas busca acotar. Sin esta exclusión, el gate
+# fallaría en casi todo ticket por bookkeeping de rutina en cuanto existe al menos un commit
+# (dejan de ser "nuevos" y sus ediciones sí cuentan en el diff).
+BOOKKEEPING_PATTERN='^docs/agents/(journal[^/]*[.]md|plan[.]md|ledger[.]md|PROGRESS[.]md|tasks/TSK-[0-9]+[.]md)$'
+
+# --- 1 y 2. Archivos tocados y líneas añadidas ---
+# `git diff` es ciego a archivos nunca trackeados (nunca pasaron por `git add`) — el código nuevo
+# de una tarea normalmente son archivos nuevos, así que sin esto el conteo da 0 aunque la tarea
+# haya creado docenas de archivos. Se suman ambos universos: diff de lo ya trackeado + archivos
+# untracked reales (vía `git ls-files --others --exclude-standard`), cada uno con la exclusión de
+# bookkeeping aplicada por igual.
+TRACKED_FILES=$(git diff --name-only "$DIFF_BASE" 2>/dev/null | grep -Ev "$BOOKKEEPING_PATTERN") || true
+UNTRACKED_FILES=$(git ls-files --others --exclude-standard 2>/dev/null | grep -Ev "$BOOKKEEPING_PATTERN") || true
+ALL_FILES=$(printf '%s\n%s\n' "$TRACKED_FILES" "$UNTRACKED_FILES" | grep -v '^$') || true
+
+FILES_TOUCHED=$(printf '%s\n' "$ALL_FILES" | grep -c '.') || true
+FILES_TOUCHED=${FILES_TOUCHED:-0}
 if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
   echo "❌ ERROR: $FILES_TOUCHED archivos modificados. Máximo: $MAX_FILES."
-  git diff --name-only "$DIFF_BASE" 2>/dev/null | sed 's/^/   - /'
+  printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
   ERRORS=$((ERRORS + 1))
 fi
 
-# --- 2. Líneas añadidas (robusto: usa numstat, no shortstat) ---
-LINES_ADDED=$(git diff --numstat "$DIFF_BASE" 2>/dev/null | awk '{sum += $1} END {print sum+0}')
+TRACKED_LINES=$(git diff --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" '$3 !~ pat {sum += $1} END {print sum+0}')
+UNTRACKED_LINES=0
+if [ -n "$UNTRACKED_FILES" ]; then
+  while IFS= read -r f; do
+    [ -f "$f" ] && UNTRACKED_LINES=$((UNTRACKED_LINES + $(wc -l < "$f" | tr -d ' ')))
+  done <<< "$UNTRACKED_FILES"
+fi
+LINES_ADDED=$((TRACKED_LINES + UNTRACKED_LINES))
 if [ "$LINES_ADDED" -gt "$MAX_LINES" ]; then
   echo "❌ ERROR: $LINES_ADDED líneas añadidas. Máximo: $MAX_LINES."
   ERRORS=$((ERRORS + 1))

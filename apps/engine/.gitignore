@@ -4,3 +4,8 @@ bun.lockb
 .env
 .env.*
 !.env.example
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
