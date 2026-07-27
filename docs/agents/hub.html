@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-27T16:27:48.977Z</title>
+<title>HUB del ecosistema — 2026-07-27T16:34:32.296Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">7</span></h2>
+        <h2>backlog <span class="count">6</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-008</div>
-          <div class="card-title">SignalScorer: role_gap (S3)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-009</div>
@@ -210,7 +200,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">7</span></h2>
+        <h2>done <span class="count">8</span></h2>
         
         <div class="card  ">
           
@@ -282,6 +272,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-008</div>
+          <div class="card-title">SignalScorer: role_gap (S3)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -289,36 +289,36 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">13× · 31% ok  · 1 falló</div>
+          <div class="stat-nums">14× · 29% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:69%"></div></div>
-          <div class="stat-nums">9× · 0% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:71%"></div></div>
+          <div class="stat-nums">10× · 0% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
-          <div class="stat-nums">8× · 88% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">9× · 89% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
-          <div class="stat-nums">8× · 88% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">9× · 89% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:15%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:14%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:8%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:7%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:8%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:7%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
@@ -326,6 +326,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-008</span> <span class="feed-ts">2026-07-27T08:45</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 133 líneas / 2 archivos reales — dentro del límite de 200, sin necesidad de pedir excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado. Con este cierre, las 4 señales de S3 (TSK-005/006/007/008) quedan completas -- próximo hito natural del motor es TSK-009 (mezcla: SCORING_WEIGHTS_V1, normalización 0-100, redistribución de peso en null, orden top-3, explicación combinada).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-008</span> <span class="feed-ts">2026-07-27T08:35</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (función pura en memoria, sin I/O, sin DB, sin red, sin secretos -- grep limpio; sin dependencias nuevas). Pasada 1 (Standards): isCarry/ownPicks resuelven una sola responsabilidad, sin abstracciones de más; nomenclatura de dominio (FARM_PRIORITY_ROLE, CARRY_SATURATION, overlap) calca el vocabulario del ticket ('prioridad de farm', 'solapamiento'); manejo de nulos/vacíos verificado con prueba dedicada (candidato/héroes sin roles no lanza). N/A UI, N/A Drizzle. Pasada 2 (Spec): sampleSize=0 confirmado en ambos escenarios con prueba dedicada; el criterio de aceptación 2 se verificó con una desigualdad real sobre valores calculados (overlap=1 -> raw≈-0.333 vs 0), no tautológica; hay una prueba EXPLÍCITA anti-duplicación con team_synergy (TSK-007) que demuestra que un héroe que ganaría crédito allí por llenar una capacidad no recibe ningún trato especial aquí -- cumple literalmente la regla dura del ticket ('si ambas señales terminan siendo idénticas... es señal de que algo se malinterpretó'), verificado por código, no solo declarado. La fórmula de penalización (satura en -1, crece con cuántos carries de más sería el candidato) es monótona y acotada, sin casos borde raros detectados. Hallazgos no bloqueantes, transparencia de decisiones: (1) a diferencia de team_synergy (TSK-007), esta señal nunca devuelve raw:null -- 'equipo sin carries' es un estado perfectamente computable (sin solapamiento, sin penalización), no un caso de dato insuficiente; diferencia de criterio deliberada entre dos señales heurísticas hermanas, documentada para que no se lea como inconsistencia. (2) el helper ownPicks (3 líneas) se duplicó tal cual desde team-synergy.ts en vez de extraerse a un módulo compartido -- duplicación mecánica de acceso a state.picks[state.localSide], no la duplicación de cálculo de señal que la regla dura prohíbe; aceptable para no introducir un archivo/abstracción de más por 3 líneas, pero queda como candidato de refactor si aparece una tercera señal que la necesite. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-008</span> <span class="feed-ts">2026-07-27T08:20</span></div>
+            <div class="feed-note">Implementado apps/engine/src/signals/role-gap.ts (roleGapScorer) + role-gap.test.ts (5 pruebas: equipo sin carries → candidato carry no penalizado, equipo con 2 carries → carry adicional puntúa más bajo que uno de otro rol con desigualdad real verificada, prueba explícita anti-duplicación con team_synergy -- un candidato que aportaría una capacidad ya cubierta en TSK-007 no recibe ningún trato especial aquí porque role_gap solo mira farm/rol, sampleSize=0 en todos los casos, candidato/héroes sin roles no lanza y es pura). No se tocó signals/types.ts -- este ticket no necesitó extender MetaSnapshot, solo lee heroes[].roles ya expuesto desde TSK-007. Decisiones de diseño documentadas: (1) 'carry/prioridad de farm alta' se mapea al único rol literal de OpenDota que representa eso, 'Carry' -- no hay ambigüedad aquí a diferencia del mapeo de 5 capacidades de team_synergy. (2) raw nunca es null en esta señal (a diferencia de team_synergy) -- 'equipo sin carries' es un estado perfectamente computable (overlap=0 → sin penalización), no un caso de dato insuficiente; se documenta la diferencia de criterio respecto a TSK-007 para que quede claro que fue una decisión deliberada, no una inconsistencia. (3) raw es negativo cuando hay solapamiento (penalización real, escala con cuántos carries de más sería el candidato, tope en -1) y 0 en cualquier otro caso -- forma estructuralmente distinta a la fracción 0-1 de team_synergy, cumpliendo literalmente la regla dura del ticket de no duplicar esa lógica. (4) el helper ownPicks se duplicó localmente (3 líneas, idéntico a team-synergy.ts) en vez de extraerlo a un archivo compartido nuevo -- es mecánico, no la clase de duplicación que la regla dura advierte (esa habla del cálculo de la señal, no de leer state.picks[state.localSide]), y evita un archivo/abstracción de más para 3 líneas. Verificado: bun test completo (55 pass, 0 fail, 122 expect(), 10 archivos); bunx tsc --noEmit sin errores; grep de secretos sin coincidencias. verify-simplicity.sh: 133 líneas / 2 archivos reales -- dentro del límite, sin excepción. TSK-008 sigue en state: doing, pasa a @redteam.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-008</span> <span class="feed-ts">2026-07-27T08:00</span></div>
+            <div class="feed-note">Modo manual, ticket especificado por el usuario. TSK-007 (dependencia previa en orden) ya está done, nada bloquea TSK-008 -- última señal de las 4, cierra el contrato S3 completo. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004/005/006/007. Ticket autocontenido (referencia el contrato de TSK-005, complementa a team_synergy sin duplicarla -- recursos/farm, no capacidades). state: backlog -> doing. WIP=1 por claude-code libre.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -380,34 +408,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-006</span> <span class="feed-ts">2026-07-27T06:00</span></div>
             <div class="feed-note">Modo manual, ticket especificado por el usuario. TSK-005 (dependencia previa en orden) ya está done, nada bloquea TSK-006. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004/005: sin señal de créditos restaurados en Codex. preferred_tool se conserva como codex. Ticket autocontenido (referencia el contrato de TSK-005 sin repetirlo, señal patch_meta aislada de las otras 3). state: backlog -> doing. WIP=1 por claude-code libre (nada en doing).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-005</span> <span class="feed-ts">2026-07-27T05:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 196 líneas / 3 archivos reales — dentro del límite de 200, sin necesidad de pedir excepción (a diferencia de TSK-002/003/004). Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-005</span> <span class="feed-ts">2026-07-27T05:35</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (función pura en memoria, sin I/O, sin DB, sin red, sin secretos -- grep limpio; MetaSnapshot se asume ya resuelto por el llamador, consistente con la separación S2/S3 de testing-seams.md). Pasada 1 (Standards): sin abstracciones de más (deletion test: opposingSide/overallWinrate/heroName/buildExplanation cada uno resuelve una responsabilidad distinta, ninguno decorativo), nomenclatura de dominio (winrate, delta, baseline, contrapick), manejo de nulos/vacíos verificado por 3 pruebas dedicadas (0 enemigos, todos bajo umbral, candidato/meta ausentes) sin lanzar nunca. N/A UI, N/A Drizzle (sin DB en este ticket). Pasada 2 (Spec): cálculo, umbral de 200 partidas y los 3 casos de aceptación literales coinciden con TSK-005.md, con una prueba que verifica el valor numérico exacto de raw (no solo "es un número"), no solo su presencia. Hallazgos no bloqueantes, transparencia de decisiones de diseño no explícitas en el ticket: (1) HeroMatchupStat/MetaHeroInfo/MetaSnapshot no existían en ningún lado del repo ni como interfaz concreta en SPEC.md (solo el nombre en la firma de score()) -- se definieron con el alcance mínimo que counter necesita; TSK-006/007/008 previsiblemente necesitan extender MetaSnapshot (patch stats, roles) sin romper esta forma. (2) El umbral de 200 partidas se aplica solo al delta por enemigo, no a la 'winrate base' del candidato (que se calcula agregando TODOS sus matchups sin filtrar) -- el ticket no lo especifica en ninguna dirección; la lectura elegida maximiza la robustez estadística de la base. (3) `weighted` se devuelve siempre en 0, incluso cuando `raw` es un número válido -- lectura de la regla dura del ticket ("el motor es quien redistribuye el peso") como que ningún SignalScorer individual calcula weighted de verdad, eso es 100% responsabilidad de TSK-009 (MEZCLA); si TSK-009 asume que weighted ya viene calculado desde cada scorer en vez de recalcularlo él mismo, esa asunción se rompe -- señalado para que quede en la definición de TSK-009 cuando se dispatchee. (4) Gap menor de cobertura: no hay una prueba para el caso 'único delta válido es negativo' (raw numérico pero explanation cae al fallback 'Sin ventaja de contrapick conocida' porque ningún enemigo tiene delta positivo) -- comportamiento correcto por lectura del código, pero no demostrado con una prueba dedicada; no bloquea, la aceptación literal del ticket no lo exige. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-005</span> <span class="feed-ts">2026-07-27T05:20</span></div>
-            <div class="feed-note">Implementado apps/engine/src/signals/types.ts (contrato compartido S3: SignalId, SignalContribution, SignalScorer, más HeroMatchupStat/MetaHeroInfo/MetaSnapshot -- estos 3 últimos no estaban definidos en ningún lado del repo ni en SPEC.md como interfaces concretas, solo referenciados por nombre en la firma de score(); se definieron aquí con el alcance mínimo que counter necesita, pensados para que TSK-006/007/008 los extiendan agregando campos, no reescribiéndolos), counter.ts (counterScorer: para cada enemigo conocido del lado opuesto a localSide con >=200 partidas registradas, delta = winrate_vs_enemigo - winrate_base_del_candidato; winrate_base se calcula agregando TODOS los matchups del candidato sin el umbral de 200, ya que representa su muestra global, no una comparación puntual; raw = promedio de deltas válidos, sampleSize = suma de partidas de esos deltas, explanation nombra hasta 2 enemigos con mejor delta positivo), counter.test.ts (6 pruebas: 0 enemigos → null, enemigos todos bajo 200 → null, caso válido con raw numérico/sampleSize/explanation verificados con el cálculo exacto de baseline, localSide 'unknown' → null sin lanzar, candidato/meta ausentes → no lanza y es pura). Decisión de diseño explícita: `weighted` siempre se devuelve en 0 -- la redistribución de peso cuando otras señales dan null y la normalización 0-100 son responsabilidad del motor (C3 etapa MEZCLA, ticket aparte TSK-009), citado literalmente en la regla dura del propio TSK-005 ("aquí solo se devuelve null cuando corresponde"). Verificado: bun test completo (41 pass, 0 fail, 91 expect(), 7 archivos); bunx tsc --noEmit sin errores; grep de secretos sin coincidencias. verify-simplicity.sh: 196 líneas / 3 archivos reales -- dentro del límite de 200 tras recortar interfaces de una sola línea y fusionar dos pruebas redundantes (purity + no-throw), sin pedir excepción esta vez. TSK-005 sigue en state: doing, pasa a @redteam.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-005</span> <span class="feed-ts">2026-07-27T05:00</span></div>
-            <div class="feed-note">Modo manual, ticket especificado por el usuario. TSK-004 (dependencia previa en orden) ya está done, nada bloquea TSK-005. assigned_tool fijado directo a claude-code, mismo criterio que TSK-004 (evt-014): patrón de falta de créditos en Codex confirmado 2/2 veces en TSK-002/TSK-003, sin señal de que se haya restaurado; preferred_tool se conserva como codex (intención original). Ticket autocontenido (contrato de SignalScorer copiado tal cual, señal counter aislada de las otras 3, FakeMetaProvider/datos fijos en memoria, sin red real). state: backlog -> doing. WIP=1 por claude-code libre (nada en doing).</div>
           </div>
         </div></div>
     </div>
