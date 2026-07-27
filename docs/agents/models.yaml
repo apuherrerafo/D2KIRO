@@ -1,0 +1,31 @@
+# Referencia central de modelos — ver CLAUDE.md § Política de Modelos para el razonamiento completo.
+#
+# LIMITACIÓN HONESTA: el campo `model:` del frontmatter de un sub-agente de Claude Code
+# necesita un string literal — no soporta variables ni indirección desde este archivo.
+# Esto NO es una fuente ejecutable, es un checklist de qué tocar cuando un modelo cambia
+# de nombre, para no tener que buscar a ciegas en 30 archivos.
+
+tiers:
+  razonamiento:
+    modelo_actual: claude-opus-4-8
+    usado_en:
+      - .claude/skills/blueprint/SKILL.md (nota de modelo)
+      - CLAUDE.md (Política de Modelos)
+      - .claude/skills/compass/SKILL.md (Opus-Emergency, Blueprint v2)
+  estandar:
+    modelo_actual: claude-sonnet-5
+    usado_en:
+      - .claude/agents/warden.md
+      - .claude/agents/artisan.md
+      - .claude/agents/tracer.md
+      - .claude/agents/sentinel.md
+      - CLAUDE.md (Política de Modelos)
+  volumen:
+    modelo_actual: claude-haiku-4-5-20251001
+    usado_en:
+      - .claude/agents/chronicle.md
+      - CLAUDE.md (Política de Modelos)
+
+# Cuando Anthropic renombre un modelo: actualiza "modelo_actual" aquí PRIMERO,
+# y usa la lista de "usado_en" como tu checklist de qué archivos tocar. Sigue
+# siendo trabajo manual — este archivo ahorra la búsqueda, no la edición.

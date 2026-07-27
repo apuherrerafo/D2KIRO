@@ -1,0 +1,47 @@
+{
+  "enabledPlugins": {
+    "caveman@caveman": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "codex@openai-codex": false,
+    "figma@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": true,
+    "subastop-core@subastop-ai": false,
+    "subastop-design@subastop-ai": false,
+    "subastop-thinkers@subastop-ai": false,
+    "superpowers@claude-plugins-official": false
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/pretooluse-guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/verify-simplicity.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/verify-simplicity.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
