@@ -6,7 +6,15 @@ export function createDraftSocket(url: string): DraftSocket {
   const ws = new WebSocket(url);
   let messageHandler: ((message: ServerMessage) => void) | null = null;
   let closeHandler: (() => void) | null = null;
+  // store.ts manda "hello" justo después de crear el socket, pero un WebSocket real arranca en
+  // CONNECTING (nunca OPEN de forma síncrona) -- sin esta cola, ese primer mensaje se perdía en
+  // silencio y la vista de draft se quedaba "desconectada" para siempre contra un motor real
+  // (el FakeSocket de las pruebas nunca modela esta transición async, por eso no se detectó).
+  const pending: ClientMessage[] = [];
 
+  ws.addEventListener("open", () => {
+    for (const message of pending.splice(0)) ws.send(JSON.stringify(message));
+  });
   ws.addEventListener("message", (event: MessageEvent) => {
     try {
       const parsed = JSON.parse(String(event.data)) as ServerMessage;
@@ -21,6 +29,7 @@ export function createDraftSocket(url: string): DraftSocket {
   return {
     send(message: ClientMessage): void {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+      else if (ws.readyState === WebSocket.CONNECTING) pending.push(message);
     },
     close(): void {
       ws.close();
