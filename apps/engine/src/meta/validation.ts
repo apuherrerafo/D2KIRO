@@ -2,7 +2,6 @@ export interface RawHero {
   id: number;
   name: string;
   localized_name: string;
-  img: string;
   primary_attr: string;
   attack_type: string;
   roles: string[];
@@ -23,11 +22,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-// `img` se concatena luego con un host fijo para formar una URL (mappers.ts). Debe ser una ruta
-// relativa segura: un solo "/" inicial (nunca "//..." — protocol-relative), sin "@" ni "://" —
-// esos dos caracteres son justo los que permiten el truco de host-injection "userinfo@host" en
-// URLs (ej. "@evil.example/x" haría que un parser real resuelva el host a evil.example).
-const SAFE_RELATIVE_IMG_PATH = /^\/(?!\/)[\w\-./?=&]+$/;
+// OpenDota dejó de exponer `img` en /heroes (verificado en vivo el 2026-07-28: la respuesta real
+// ya no trae ese campo, aunque el fixture grabado de las pruebas sí lo tenía). El ícono ahora se
+// deriva de `name` en mappers.ts, así que el riesgo de host-injection que TSK-003 cerró sobre
+// `img` (URLs tipo "@evil.example/x") se mueve a `name`: validarlo aquí contra el patrón fijo de
+// Valve (solo minúsculas/dígitos/guion bajo tras el prefijo) garantiza que la ruta de imagen
+// construida después nunca pueda contener "/", "@" ni "://".
+const VALVE_HERO_NAME_PATTERN = /^npc_dota_hero_[a-z0-9_]+$/;
 
 const HERO_STATS_TIER_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -37,9 +38,8 @@ export function isValidRawHero(value: unknown): value is RawHero {
   return (
     typeof value.id === "number" &&
     typeof value.name === "string" &&
+    VALVE_HERO_NAME_PATTERN.test(value.name) &&
     typeof value.localized_name === "string" &&
-    typeof value.img === "string" &&
-    SAFE_RELATIVE_IMG_PATH.test(value.img) &&
     typeof value.primary_attr === "string" &&
     typeof value.attack_type === "string" &&
     Array.isArray(value.roles) &&

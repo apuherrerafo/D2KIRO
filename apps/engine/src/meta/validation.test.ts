@@ -5,26 +5,25 @@ const VALID_HERO = {
   id: 1,
   name: "npc_dota_hero_antimage",
   localized_name: "Anti-Mage",
-  img: "/apps/dota2/images/dota_react/heroes/antimage.png",
   primary_attr: "agi",
   attack_type: "Melee",
   roles: ["Carry", "Escape"],
 };
 
-test("isValidRawHero acepta una ruta de imagen relativa segura", () => {
+test("isValidRawHero acepta un name con el patrón fijo de Valve", () => {
   expect(isValidRawHero(VALID_HERO)).toBe(true);
 });
 
-test("isValidRawHero rechaza img con truco de host-injection userinfo@host", () => {
-  expect(isValidRawHero({ ...VALID_HERO, img: "@evil.example/x" })).toBe(false);
+test("isValidRawHero rechaza name con truco de host-injection userinfo@host", () => {
+  expect(isValidRawHero({ ...VALID_HERO, name: "npc_dota_hero_antimage@evil.example" })).toBe(false);
 });
 
-test("isValidRawHero rechaza img protocol-relative (doble slash inicial)", () => {
-  expect(isValidRawHero({ ...VALID_HERO, img: "//evil.example/x" })).toBe(false);
+test("isValidRawHero rechaza name sin el prefijo fijo de Valve", () => {
+  expect(isValidRawHero({ ...VALID_HERO, name: "antimage" })).toBe(false);
 });
 
-test("isValidRawHero rechaza img con esquema absoluto embebido", () => {
-  expect(isValidRawHero({ ...VALID_HERO, img: "/x?u=https://evil.example" })).toBe(false);
+test("isValidRawHero rechaza name con esquema absoluto embebido", () => {
+  expect(isValidRawHero({ ...VALID_HERO, name: "npc_dota_hero_antimage?u=https://evil.example" })).toBe(false);
 });
 
 test("isValidRawHero rechaza si falta un campo requerido", () => {

@@ -2,6 +2,16 @@ import type { RawHero, RawMatchup, RawHeroStatsRow } from "./validation";
 
 const HERO_IMG_BASE_URL = "https://cdn.cloudflare.steamstatic.com";
 
+// `raw.name` ya viene validado contra VALVE_HERO_NAME_PATTERN (validation.ts) antes de llegar
+// aquí, así que quitarle el prefijo fijo de Valve deja solo [a-z0-9_]+ -- una ruta segura por
+// construcción, sin necesitar una segunda pasada de sanitización.
+const HERO_NAME_PREFIX = "npc_dota_hero_";
+
+function heroImgPath(rawName: string): string {
+  const slug = rawName.slice(HERO_NAME_PREFIX.length);
+  return `/apps/dota2/images/dota_react/heroes/${slug}.png`;
+}
+
 // Los 8 brackets de MMR que expone OpenDota en /heroStats (columnas `<tier>_pick`/`<tier>_win`).
 // No hay taxonomía "bajo/medio/pro" oficial — se deja la granularidad completa; la señal
 // patch_meta (ticket aparte) decide cuáles promediar para "MMR bajo/medio".
@@ -44,7 +54,7 @@ export function mapHero(raw: RawHero, updatedAt: string): HeroRow {
     id: raw.id,
     name: raw.name,
     localizedName: raw.localized_name,
-    imgUrl: `${HERO_IMG_BASE_URL}${raw.img}`,
+    imgUrl: `${HERO_IMG_BASE_URL}${heroImgPath(raw.name)}`,
     primaryAttr: raw.primary_attr,
     attackType: raw.attack_type,
     roles: raw.roles,
