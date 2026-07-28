@@ -1,4 +1,5 @@
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
+import { LOCAL_SIDE_LABEL } from "@/features/draft/styles";
 import type { DraftState, HeroId, TeamSide } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -9,12 +10,16 @@ interface TeamColumnProps {
   heroIds: HeroId[];
   heroCatalog: Map<number, HeroMeta>;
   unconfirmedIds: Set<HeroId>;
+  isLocal: boolean;
 }
 
-function TeamColumn({ side, heroIds, heroCatalog, unconfirmedIds }: TeamColumnProps) {
+function TeamColumn({ side, heroIds, heroCatalog, unconfirmedIds, isLocal }: TeamColumnProps) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-heading text-content-primary">{TEAM_LABELS[side]}</span>
+      <span className="text-heading text-content-primary">
+        {TEAM_LABELS[side]}
+        {isLocal && <span className={`ml-2 text-caption ${LOCAL_SIDE_LABEL}`}>(Tú)</span>}
+      </span>
       <div className="flex flex-wrap gap-2">
         {heroIds.map((heroId) => (
           <DraftHeroSlot
@@ -58,8 +63,20 @@ export function DraftBoard({ draftState, heroCatalog }: DraftBoardProps) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-6">
-        <TeamColumn side="radiant" heroIds={draftState.picks.radiant} heroCatalog={heroCatalog} unconfirmedIds={unconfirmedIds} />
-        <TeamColumn side="dire" heroIds={draftState.picks.dire} heroCatalog={heroCatalog} unconfirmedIds={unconfirmedIds} />
+        <TeamColumn
+          side="radiant"
+          heroIds={draftState.picks.radiant}
+          heroCatalog={heroCatalog}
+          unconfirmedIds={unconfirmedIds}
+          isLocal={draftState.localSide === "radiant"}
+        />
+        <TeamColumn
+          side="dire"
+          heroIds={draftState.picks.dire}
+          heroCatalog={heroCatalog}
+          unconfirmedIds={unconfirmedIds}
+          isLocal={draftState.localSide === "dire"}
+        />
       </div>
     </div>
   );
