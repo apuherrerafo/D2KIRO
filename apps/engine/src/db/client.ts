@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as schema from "./schema";
 
-const DB_PATH = process.env.ENGINE_DB_PATH ?? "./data/dota2coach.sqlite";
+export const DB_PATH = process.env.ENGINE_DB_PATH ?? "./data/dota2coach.sqlite";
 
 // bun:sqlite crea el archivo con { create: true } pero no el directorio contenedor -- en un
 // checkout limpio `data/` no existe (está en .gitignore desde TSK-002), así que el servidor

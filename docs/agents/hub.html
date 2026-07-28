@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-28T00:21:16.688Z</title>
+<title>HUB del ecosistema — 2026-07-28T00:58:00.241Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">1</span></h2>
-        
-        <div class="card  ">
-          
-          <div class="card-id">TSK-014</div>
-          <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
-          <div class="card-meta">
-            <span class="tag tag-should">should</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
+        <h2>backlog <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -150,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">14</span></h2>
+        <h2>done <span class="count">15</span></h2>
         
         <div class="card  ">
           
@@ -292,6 +282,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-014</div>
+          <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -299,27 +299,32 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">24× · 17% ok  · 1 falló</div>
+          <div class="stat-nums">27× · 15% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:71%"></div></div>
-          <div class="stat-nums">17× · 82% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
+          <div class="stat-nums">18× · 83% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
-          <div class="stat-nums">16× · 0% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
+          <div class="stat-nums">17× · 0% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
-          <div class="stat-nums">15× · 93% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
+          <div class="stat-nums">16× · 94% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:8%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:7%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">depcheck</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:7%"></div></div>
+          <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
@@ -330,17 +335,61 @@
           <div class="stat-name">rulebook</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-name">depcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
-          <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
   <div class="grid2">
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:30</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 15 archivos / 563 líneas -- supera ambos límites, acordado explícitamente con el usuario. Sin dependencias sin marcar (zustand, @types/bun, @reduxjs/toolkit, react-redux -- las 4 con // ALLOWED, confirmado por el propio gate ya reparado en TSK-012). `bun scripts/hub.ts` regenerado.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:20</span></div>
+            <div class="feed-note">Gate de seguridad (los 4 vectores literales): PASS. Sin inputs sin validar (isValidSettingBody en el borde antes de tocar la DB; React escapa todo el contenido renderizado, sin dangerouslySetInnerHTML en ninguna página nueva -- grep limpio), sin secretos hardcodeados (NEXT_PUBLIC_ENGINE_HTTP_URL es una URL localhost, no un secreto; ninguna de las 5 rutas nuevas/reutilizadas por RTK Query exige x-capture-token, consistente con TSK-010), queries parametrizadas (Drizzle en toda la capa de settings, sin SQL concatenado), sin privilegios de más. Hallazgo GRAVE encontrado durante Pasada 1, tratado con la misma severidad que un gate obligatorio aunque no caiga literalmente en ninguna de las 4 categorías nombradas -- porque invalida el criterio de aceptación #1 del propio ticket ('Las 3 páginas cargan datos reales vía RTK Query'): apps/engine no mandaba NINGÚN header CORS ni manejaba OPTIONS -- confirmado por ejecución real (no supuesto): un preflight OPTIONS a PUT /api/settings con Origin de apps/web devolvía 404 (ninguna ruta lo manejaba), y un GET simple sin CORS headers es invisible para el JS del navegador aunque la respuesta de red llegue completa. Mi propio smoke test anterior (evt-065) no lo detectó porque usaba curl directo (curl no aplica same-origin policy) en vez de simular una llamada real de navegador con cabecera Origin -- lección explícita: verificar por ejecución significa reproducir las condiciones reales del cliente, no solo que el servidor responda. Corregido: apps/engine/src/server/app.ts gana corsHeaders() (allowlist de origin restringido a 127.0.0.1/localhost en cualquier puerto -- nunca un origin remoto arbitrario, ni un wildcard '*'; el binding a 127.0.0.1 ya es el perímetro de seguridad real, esto es solo lo mínimo para que el navegador acepte una respuesta cross-origin de un proceso local en otro puerto) + manejo explícito de OPTIONS (204 + headers), aplicado a TODA la API existente (routeApiRequest extraído como función separada, fetchHandler ahora adjunta CORS a cualquier respuesta, sin reescribir cada handler individual). Verificado por ejecución real en ambas direcciones: origin local (127.0.0.1:3000) recibe Access-Control-Allow-Origin correcto tanto en preflight como en GET; origin remoto (evil.example) no recibe ningún header CORS -- confirmado que el allowlist realmente restringe, no es un wildcard disfrazado. 3 pruebas nuevas en app.test.ts reproducen exactamente esto. Pasada 1 Standards (resto): sin abstracciones de más, tokens.css respetado en las 3 páginas nuevas (grep limpio de hex sueltos), sin any, sin ternarios de renderizado condicional (grep limpio). N+1 de Drizzle: N/A, sin loops con queries. Pasada 2 (Spec): las 3 páginas cargan datos reales vía RTK Query (ahora sí, confirmado con CORS funcionando) contra los endpoints reales de apps/engine; disparar sync manual invalida el tag MetaStatus y refresca automáticamente (RTK Query, sin código manual de refetch); cada héroe muestra su ícono oficial vía HeroIcon reutilizado de TSK-012, sin excepción. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:00</span></div>
+            <div class="feed-note">Construidas las 3 páginas normales del sitio con RTK Query real (@reduxjs/toolkit + react-redux, evt-062): apps/web/lib/engine-api.ts (createApi con 5 endpoints: getMetaStatus, syncMeta mutation con invalidatesTags para refrescar automáticamente, getHeroes, getSettings, updateSetting mutation), lib/store.ts (makeStore() por-instancia, no singleton de módulo -- evita filtrar estado entre requests en SSR), app/providers.tsx (Provider wrapper, cableado en app/layout.tsx). Páginas: app/meta/page.tsx (syncedAt/isStale/lastSync + botón de sincronización manual), app/heroes/page.tsx (lista con HeroIcon reutilizado de TSK-012, valida host de imagen por diseño), app/settings/page.tsx (lista + formulario de alta/actualización). Bug real encontrado durante el smoke test end-to-end (no en el código nuevo de este ticket, sino en apps/engine/src/db/migrate.ts): construía su propia conexión Database() por separado en vez de reusar db/client.ts, así que no tenía el mkdirSync del directorio contenedor (fix de TSK-010) -- `bun run db:migrate` fallaba con SQLITE_CANTOPEN en un checkout limpio, el mismo bug en un archivo distinto. Corregido reutilizando el `db` ya exportado por client.ts (también se exportó DB_PATH desde ahí para el log); verificado que las migraciones aplican limpio en un checkout recién borrado. Hallazgo de ESLint real durante el build: el patrón clásico de Redux Toolkit + Next.js (useRef para crear el store una sola vez) dispara react-hooks/refs en la versión de eslint-plugin-react-hooks de este proyecto ('Cannot access ref value during render') -- exactamente el tipo de breaking change que AGENTS.md advierte sobre esta versión de Next.js. Corregido usando useState(() => makeStore()) en vez de useRef, que sí es el patrón correcto para inicialización perezosa sin ese problema. Verificado con smoke test real de punta a punta: motor + web levantados juntos, PUT/GET /api/settings confirmado end-to-end vía curl directo, las 3 páginas (/meta, /heroes, /settings) devuelven 200 y renderizan su estado de carga inicial sin errores reales (los "error" que aparecían en el grep eran referencias al bundle global-error.js de Next.js, infraestructura estándar, no un fallo real -- verificado con contexto antes de descartarlo). Verificado: bun test completo de apps/engine (100 pass, sin regresión); bunx tsc --noEmit sin errores en ambos paquetes; npm run build de apps/web sin errores (6 rutas: /, /draft, /heroes, /meta, /settings, /_not-found); npm run lint sin errores. Sigue con pruebas del lado web y cierre del ticket.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:30</span></div>
+            <div class="feed-note">Cerrado el gap de settings (evt-063): apps/engine/src/db/queries.ts (aditivo) gana getAllSettings/upsertSetting (upsert real vía onConflictDoUpdate, nunca duplica la fila en una clave repetida); apps/engine/src/server/app.ts (aditivo) gana GET /api/settings y PUT /api/settings, con isValidSettingBody validando en el borde antes de tocar la DB (mismo estándar del resto del servidor). Agregadas pruebas: queries.test.ts (+2 casos: inserta y refleja, actualiza sin duplicar), app.test.ts (+2 casos de integración: PUT+GET real end-to-end, PUT con forma inválida rechazado con 400 sin lanzar). Verificado: bun test completo de apps/engine (100 pass, 0 fail, 436 expect(), 15 archivos, sin regresión); bunx tsc --noEmit sin errores. Sigue con el armado de RTK Query y las 3 páginas en apps/web.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:15</span></div>
+            <div class="feed-note">Confirmado gap: TSK-010 nunca construyó rutas HTTP para 'settings' -- solo existe la tabla (TSK-002, schema.ts). Presentado al usuario, eligió arreglarlo dentro de TSK-014. Instalado @reduxjs/toolkit@2.12.0 + react-redux@9.3.0 (aprobados por /gear-up + @depcheck, evt-062) -- con zustand, apps/web llega exactamente al límite de 3 dependencias principales en fase de prototipo. Sigue con el fix de settings en apps/engine antes de construir las 3 páginas.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>depcheck</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:05</span></div>
+            <div class="feed-note">@reduxjs/toolkit@2.12.0 + react-redux@9.3.0 verificados. Context7 MCP no autorizado en esta sesión -- se usó `npm view` directo contra el registro real (no solo WebSearch) para confirmar: @reduxjs/toolkit@2.12.0 declara react:'^16.9.0 || ^17.0.0 || ^18 || ^19' como peerDependency, soporte explícito para React 19 (resuelto desde RTK v2.5.0, versiones previas tenían conflicto real con React 19 confirmado en issues públicos del propio repo, ya no aplica a la versión actual). Sin señales de deprecación, paquetes oficiales del equipo Redux, mantenimiento activo. Con zustand (TSK-012) y estos 2 paquetes, apps/web llega exactamente al límite de 3 dependencias principales en fase de prototipo (@types/bun no cuenta -- es solo tipos de desarrollo, no runtime). ✅ Dependencia verificada y autorizada. Se instalarán con comentario // ALLOWED en el diff de package.json.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:00</span></div>
+            <div class="feed-note">Modo manual, ticket especificado por el usuario. moscow:should (no must) -- no es de los 4 criterios de aceptación de fase 1, es soporte al producto; el usuario lo pidió explícitamente por nombre así que se procede sin pausa adicional. Dependencias TSK-001 (apps/web) y TSK-010 (GET /api/heroes, GET /api/meta/status, POST /api/meta/sync) ya están done. assigned_tool: claude-code (mismo criterio que TSK-004 en adelante). Reutiliza toda la arquitectura de apps/web ya construida en TSK-012/013 (tokens.css, HeroIcon, arquitectura por features) pero introduce RTK Query real por primera vez -- @reduxjs/toolkit + react-redux son dependencias nuevas, necesitan /gear-up + @depcheck antes de instalarse. state: backlog -> doing. WIP=1 por claude-code libre.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -374,55 +423,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-013</span> <span class="feed-ts">2026-07-27T14:40</span></div>
             <div class="feed-note">Modo manual, ticket especificado por el usuario. Dependencias TSK-004 (contrato de eventos), TSK-010 (POST /api/session/manual) y TSK-012 (vista de draft, estados esperando_draft/degradado -- ambos ya tienen botones stub esperando esta funcionalidad) están done. TSK-011 (simulador) no existe todavía -- el propio ticket permite usar un fixture en su lugar para el criterio de aceptación de capture_health:'lost'. assigned_tool: claude-code (coincide con preferred_tool, UI que reutiliza toda la arquitectura ya construida en TSK-012: store de Zustand, tipos de wire, HeroIcon, tokens.css -- sin dependencias nuevas esperadas). state: backlog -> doing. WIP=1 por claude-code libre.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T14:25</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 2 rondas (Standards + Spec). Gate de seguridad: PASS (ronda 1 REJECTED real por seguridad, no cosmético). verify-simplicity.sh: 25 archivos / 1265 líneas -- supera ambos límites, acordado explícitamente con el usuario dos veces (antes de empezar y de nuevo al ver el tamaño final). El chequeo de secretos se disparó una tercera vez con la misma cita ya conocida de journal.md (evt-20260727-043), esta vez reflejada al regenerar hub.html -- verificado con git diff archivo por archivo que ningún otro archivo del diff contiene el patrón; se cierra bajo la misma decisión explícita ya dada para este caso puntual, sin necesidad de volver a preguntar (no es información nueva). Sin dependencias sin marcar (zustand y @types/bun ambas con // ALLOWED, confirmado por el propio gate). `bun scripts/hub.ts` regenerado. Con este cierre, dota2coach tiene un camino visible de punta a punta por primera vez: motor -> servidor -> vista en vivo.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T14:15</span></div>
-            <div class="feed-note">RONDA 2. Gate de seguridad: PASS, verificado por ejecución real -- 14/14 pruebas de features/draft/ pasan, incluida la que reproduce exactamente el ataque del hallazgo original (mensaje WS con payload malformado, emitido vía FakeSocket, descartado sin corromper draftState). Releído store.ts: los casts `as DraftState`/`as SuggestionSet`/`as ErrorPayload` que quedan después de isValidServerMessage() ya no son el problema -- están guardados por la validación de forma que corrió justo antes, TS simplemente no puede inferir el discriminated union completo desde `message.type` sin una unión etiquetada más estricta en ServerMessage.payload. Resto del gate confirmado limpio otra vez (sin secretos, sin queries, sin privilegios de más). Pasada 1 (Standards) completa sobre TODO el ticket, no solo el fix: grep confirmó cero usos de `any`, cero ternarios para renderizado condicional (`? <` / `?<`), cero handlers anónimos inline (`onX={() =>` sin nombrar) -- las 3 reglas explícitas de web.md que más se prestan a violarse silenciosamente en una feature de este tamaño, ninguna violada. Nomenclatura <Dominio><Cosa> confirmada en los 4 componentes que el ticket nombra literalmente. tokens.css: cero hex sueltos fuera de app/tokens.css (grep limpio en components/ y features/draft/). Pasada 2 (Spec): los 3 criterios de aceptación literales están cubiertos con evidencia real (pruebas + smoke test contra el servidor vivo de TSK-010), no solo por lectura del código. Hallazgos no bloqueantes: (1) no se hizo auditoría formal de ux-senior -- el agente exige un archivo de 'screen contract' local que no existe todavía en el proyecto (Fase 2 de /design-forge); se hizo autorrevisión de disciplina visual en su lugar, documentado como decisión explícita, no un olvido. (2) connectionStatus:'conectando' (mientras se establece el WS) mapea al mismo estado de pantalla 'desconectado' -- el ticket solo define 6 estados nombrados, ninguno es 'conectando', así que es la aproximación más cercana disponible; matiz de UX menor (podría leerse como 'desconectado' cuando en realidad está conectando por primera vez), no una violación de regla. (3) sin un app/draft/loading.tsx literal -- el trabajo server-side de la ruta es trivial (await de searchParams, no un fetch real), la experiencia de carga significativa es el estado 'conectando' del cliente ya manejado dentro de DraftView; añadir un loading.tsscasi nunca dispararía y sería cumplimiento cosmético, no funcional. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T14:05</span></div>
-            <div class="feed-note">Aplicado el fix del hallazgo de @redteam ronda 1 (evt-052): agregado features/draft/validation.ts (isValidServerMessage, mismo patrón que edge.ts de apps/engine -- valida schema/type/seq/sentAt y la forma del payload según el tipo de mensaje: DraftState para snapshot/draft_state, SuggestionSet para suggestions, ErrorPayload para error, CaptureStatus para capture_status), cableado en store.ts's applyServerMessage -- un mensaje con forma inesperada se descarta en silencio, el estado anterior nunca se corrompe (mismo principio que applyDraftEvent del reductor). Agregado app/draft/error.tsx: error boundary nativo del App Router de Next.js (prop unstable_retry, no la reset() más vieja -- confirmado contra los docs reales de esta versión en node_modules/next/dist/docs, per la advertencia de AGENTS.md sobre breaking changes), red de seguridad final para cualquier excepción de render que se cuele pese a la validación -- nunca una pantalla en blanco, cumple la regla de web.md de error boundary por feature. Pruebas: validation.test.ts (5 casos: acepta snapshot/draft_state/suggestions/error válidos, rechaza payload con forma inesperada en cada tipo sin lanzar, rechaza schema/type inválidos o valores no-objeto), store.test.ts (1 caso nuevo: reproduce el ataque exacto del hallazgo -- un mensaje con payload malformado emitido vía FakeSocket se descarta, el draftState anterior queda exactamente igual por referencia, y el estado de pantalla NO cae a 'error' visible). Verificado: bun test (14 pass, 0 fail, 27 expect(), 2 archivos); npx tsc --noEmit sin errores; npm run build sin errores; npm run lint sin errores. TSK-012 pasa a @redteam ronda 2 para confirmar el fix por ejecución real.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🟡</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T13:55</span></div>
-            <div class="feed-note">Gate de seguridad: FAIL. apps/web/features/draft/store.ts, applyServerMessage: cada mensaje entrante de WebSocket se confía con un cast `as` sin validar en runtime (`message.payload as DraftState`, `as SuggestionSet`, `as ErrorPayload`) -- exactamente la misma clase de hallazgo que TSK-010 ronda 1 (evt-044), ahora del lado cliente: JSON.parse produce `any`, el cast no protege nada real. Un mensaje inesperado (server con un bug, versión de contrato desalineada, o cualquier payload que no calce con la forma esperada) se guarda tal cual en el store y se pasa directo a DraftBoard/DraftView, que asumen sin chequear que `draftState.picks.radiant`, `.banned`, etc. existen -- un acceso a una propiedad inexistente ahí lanza una excepción de render de React. Verificado que NO existe ningún error boundary en todo apps/web (ni un app/draft/error.tsx de Next.js App Router, ni ninguna clase con componentDidCatch/getDerivedStateFromError) -- viola directamente .claude/rules/web.md ("Cada feature tiene su propio error boundary"). La combinación de ambos hallazgos es grave: sin validación Y sin boundary, una excepción de render en ese punto tumba el árbol completo sin que React tenga nada que la capture, produciendo exactamente la 'pantalla en blanco' que el propio ticket prohíbe explícitamente para el estado `error` ("Nunca una pantalla en blanco"). Resto del gate: sin secretos hardcodeados (las URLs por defecto de env son localhost, no credenciales), sin queries (no hay DB en apps/web), sin privilegios de más, sin colores hex fuera de tokens.css (grep limpio en components/features). Fix propuesto: (1) validador runtime de ServerMessage en el cliente (mismo patrón que isValidDraftEventEnvelope/isValidClientMessage de apps/engine, adaptado a este lado), descartando en silencio un mensaje malformado en vez de confiarlo; (2) app/draft/error.tsx (convención nativa de Next.js App Router -- ningún componente/librería nueva, la forma más simple e idiomática de resolver la regla de web.md) para que cualquier excepción de render residual muestre el estado `error` del propio ticket (mensaje + acción de recuperación) en vez de una pantalla en blanco. Veredicto: REJECTED. TSK-012 pasa a state: blocked -- se presenta el hallazgo y el fix antes de tocar el código, mismo patrón que TSK-010 ronda 1.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T13:40</span></div>
-            <div class="feed-note">Construida la feature completa de la vista de draft en apps/web: features/draft/{types,constants,store,fake-socket,socket,use-hero-catalog,DraftView,index}.ts(x) + componentes atómicos en components/{hero-icon,draft-hero-slot,signal-breakdown,suggestion-card,draft-board}/ + app/draft/page.tsx + app/tokens.css. Los 6 estados de S5 se derivan con una función pura (deriveScreenState en store.ts), probada con 9 casos usando FakeSocket (costura S5 de testing-seams.md) -- nunca un WebSocket real en las pruebas. Verificado además con un smoke test manual real (bun -e con WebSocket nativo) contra apps/engine corriendo de verdad: hello -> snapshot (fase idle, confirma mapeo a esperando_draft) y luego un ciclo completo POST /ingest/draft-event -> draft_state -> suggestions en el orden correcto -- confirma que el contrato de wire de apps/web coincide con el servidor real de TSK-010, no solo con tipos espejados a mano. Decisiones de diseño documentadas: (1) MetaSnapshot/DraftState/ServerMessage/etc. se redefinieron en apps/web/features/draft/types.ts como espejo manual del contrato de apps/engine -- son dos procesos independientes sin paquete compartido, no hay otra forma de tiparlos sin acoplar los repos. (2) el catálogo de héroes (GET /api/heroes) se resuelve con un hook simple basado en fetch (use-hero-catalog.ts), no con RTK Query -- TSK-014 es explícitamente el ticket que configura RTK Query para "páginas normales del sitio"; instalar @reduxjs/toolkit + react-redux aquí habría sido una expansión de alcance no pedida por TSK-012. (3) los botones "entrada manual" y "simulador" del estado esperando_draft son placeholders nombrados (nunca funciones anónimas inline, per web.md) sin funcionalidad real -- TSK-011 y TSK-013 (que los implementan de verdad) no existen todavía. (4) fase 'aborted' del reductor se mapea al mismo estado de pantalla 'completo' que 'complete' -- los 6 estados de la vista no tienen un séptimo estado 'abortado' distinto, y ambos significan lo mismo desde la UI ("sin sugerencias nuevas"). Instalado @types/bun@^1.3.14 como devDependency de apps/web (aprobación ligera, no ciclo completo de /gear-up: son solo tipos sin código de runtime, el mismo paquete ya vetted y en uso en apps/engine desde TSK-001 -- necesario para que bun:test resuelva tipos y npx tsc --noEmit pase limpio en apps/web, ya que next build usa su propio typecheck que no lo exigía pero un tsc suelto sí). Al instalar con npm, el propio npm reescribió package.json y descartó la clave "// ALLOWED" añadida antes para zustand -- repuesta cubriendo ambas dependencias, confirmado JSON válido y tsc limpio después. Verificado: bun test (9 pass, 0 fail, 13 expect(), features/draft/); npx tsc --noEmit sin errores; npm run build sin errores (ruta /draft dinámica por searchParams); npm run lint sin errores. Nota aparte no bloqueante: npm audit sigue reportando 12 vulnerabilidades high en eslint/next/postcss/sharp, preexistentes del scaffold TSK-001, ninguna de zustand/@types/bun. TSK-012 sigue en state: doing, sigue con verificación de gates y @redteam/@shipcheck.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T13:00</span></div>
-            <div class="feed-note">Instalado zustand@5.0.14 en apps/web (npm install), aprobado por /gear-up + @depcheck (evt-049). Al intentar marcar el paquete con // ALLOWED (convención pedida por @depcheck para que verify-simplicity.sh lo reconozca) se descubrió un tercer gap real en el script: la sección 3 (dependencias nuevas) apuntaba a `package.json` en la raíz del repo -- que no existe, es un monorepo, cada app tiene el suyo bajo apps/*/package.json. Confirmado con `git diff HEAD -- package.json` (vacío, aunque apps/web/package.json sí había cambiado) que este chequeo nunca se disparó para ninguna dependencia añadida desde que existe el monorepo (TSK-001 en adelante) -- ni siquiera para drizzle-orm/drizzle-kit en TSK-002 (confirmado por su ausencia total de marca // ALLOWED en el historial, sin que el gate lo hubiera bloqueado nunca). El proceso humano (/gear-up + @depcheck) sí se siguió correctamente en ambos casos, pero el gate automático estaba muerto para esta sección desde el día 1 del monorepo. Presentado al usuario, eligió arreglarlo ahora: cambiada la sección 3 para descubrir todos los package.json reales vía `git ls-files -- '*/package.json' 'package.json'` (glob probado en vivo antes de aplicarlo) e iterar el mismo chequeo por cada uno. Como JSON no soporta comentarios `//` literales, el marcador se implementó como una clave JSON válida de primer nivel (`"// ALLOWED": "..."`) en vez de intentar un comentario real -- verificado que sigue siendo JSON válido (node -e JSON.parse) y que `npm run build` de apps/web sigue compilando limpio con la clave extra (Next.js/npm ignoran claves desconocidas). Verificado el fix por ejecución real en ambas direcciones, no solo leyendo el diff: se quitó la marca temporalmente y el gate SÍ la detectó y bloqueó con el mensaje esperado, se restauró y el gate volvió a pasar limpio. verify-simplicity.sh queda en verde. Nota aparte, no bloqueante: `npm install` reportó 12 vulnerabilidades high severity, todas rastreadas a eslint/eslint-config-next/next/postcss/sharp (devDependencies y transitivas del scaffold de TSK-001, confirmado con `npm audit --json` -- ninguna viene de zustand, que no tiene dependencias propias). Fuera de alcance de este ticket (upgrade mayor de eslint, no relacionado con la vista de draft) -- queda como hallazgo para revisar aparte. TSK-012 sigue en state: doing, continúa con /design-forge para la construcción de la vista real.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>depcheck</strong> <span class="feed-ticket">TSK-012</span> <span class="feed-ts">2026-07-27T12:50</span></div>
-            <div class="feed-note">Zustand 5.0.14 verificado. Context7 MCP no autorizado en esta sesión (aparece en la lista de servidores que requieren login) -- se usó WebSearch como respaldo: versión actual 5.0.14 (publicada hace ~2 meses), compatible con React 19/Next.js 16 (solo advertencias de peer-dependency, no incompatibilidad funcional real), sin señales de deprecación, 7310+ proyectos dependientes en npm. Es la 1ra dependencia nueva de apps/web desde el scaffold inicial (TSK-001) -- dentro del límite de 3 dependencias principales en fase de prototipo. Ya estaba decidida por el propio stack del proyecto (CLAUDE.md/SPEC: "única excepción... WebSocket + Zustand para el draft en vivo"), no es una decisión nueva de arquitectura, solo se confirma vigencia antes de instalar. ✅ Dependencia verificada y autorizada. Se instalará con comentario // ALLOWED en el diff de package.json.</div>
           </div>
         </div></div>
     </div>

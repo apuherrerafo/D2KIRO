@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, metaSync } from "../db/schema";
+import { heroes, heroMatchups, heroPatchStats, metaSync, settings } from "../db/schema";
 import { OpenDotaClient } from "../meta/opendota-client";
 import { createApp } from "./app";
 
@@ -29,8 +29,11 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, started_at TEXT NOT NULL,
       finished_at TEXT, status TEXT NOT NULL, rows_written INTEGER NOT NULL DEFAULT 0, error TEXT
     );
+    CREATE TABLE settings (
+      key TEXT PRIMARY KEY, value TEXT NOT NULL
+    );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings } });
   db.insert(heroes)
     .values({ id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-07-27" })
     .run();
@@ -170,5 +173,44 @@ describe("servidor Bun (TSK-010)", () => {
     const heroesList = await res.json();
     expect(Array.isArray(heroesList)).toBe(true);
     expect(heroesList[0]).toMatchObject({ id: 1, imgUrl: "/h1.png" });
+  });
+
+  test("PUT /api/settings guarda una preferencia y GET /api/settings la refleja", async () => {
+    const put = await fetch(`${baseUrl}/api/settings`, {
+      method: "PUT",
+      body: JSON.stringify({ key: "theme", value: "dark" }),
+    });
+    expect(put.status).toBe(200);
+
+    const get = await fetch(`${baseUrl}/api/settings`);
+    const all = await get.json();
+    expect(all).toContainEqual({ key: "theme", value: "dark" });
+  });
+
+  test("PUT /api/settings con forma inválida es rechazado con 400, sin lanzar", async () => {
+    const res = await fetch(`${baseUrl}/api/settings`, {
+      method: "PUT",
+      body: JSON.stringify({ key: 123 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("CORS: un origin local (apps/web en otro puerto) recibe Access-Control-Allow-Origin (hallazgo @redteam)", async () => {
+    const res = await fetch(`${baseUrl}/api/heroes`, { headers: { origin: "http://127.0.0.1:3000" } });
+    expect(res.headers.get("access-control-allow-origin")).toBe("http://127.0.0.1:3000");
+  });
+
+  test("CORS: preflight OPTIONS responde 204 con los headers necesarios para PUT", async () => {
+    const res = await fetch(`${baseUrl}/api/settings`, {
+      method: "OPTIONS",
+      headers: { origin: "http://127.0.0.1:3000", "access-control-request-method": "PUT" },
+    });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-methods")).toContain("PUT");
+  });
+
+  test("CORS: un origin remoto no recibe ningún header de acceso", async () => {
+    const res = await fetch(`${baseUrl}/api/heroes`, { headers: { origin: "https://evil.example" } });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 });

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups } from "./schema";
-import { getMatchupsForHero } from "./queries";
+import { heroes, heroMatchups, settings } from "./schema";
+import { getAllSettings, getMatchupsForHero, upsertSetting } from "./queries";
 
 function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -25,8 +25,12 @@ function createTestDb() {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (hero_id, vs_hero_id)
     );
+    CREATE TABLE settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
-  return drizzle(sqlite, { schema: { heroes, heroMatchups } });
+  return drizzle(sqlite, { schema: { heroes, heroMatchups, settings } });
 }
 
 test("getMatchupsForHero devuelve solo los enfrentamientos del héroe pedido", () => {
@@ -60,4 +64,23 @@ test("getMatchupsForHero devuelve vacío para un héroe sin enfrentamientos regi
   const matchups = getMatchupsForHero(db, 999);
 
   expect(matchups).toHaveLength(0);
+});
+
+test("upsertSetting inserta una clave nueva y getAllSettings la devuelve", () => {
+  const db = createTestDb();
+
+  upsertSetting(db, "theme", "dark");
+
+  expect(getAllSettings(db)).toEqual([{ key: "theme", value: "dark" }]);
+});
+
+test("upsertSetting sobre una clave existente actualiza el valor, no duplica la fila", () => {
+  const db = createTestDb();
+
+  upsertSetting(db, "theme", "dark");
+  upsertSetting(db, "theme", "light");
+
+  const all = getAllSettings(db);
+  expect(all).toHaveLength(1);
+  expect(all[0]).toEqual({ key: "theme", value: "light" });
 });

@@ -3,6 +3,7 @@ import { desc } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../db/schema";
 import { metaSync } from "../db/schema";
+import { getAllSettings, upsertSetting } from "../db/queries";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
 import { buildMetaSnapshot, getAllHeroMeta, getMetaFreshness } from "../meta/provider";
@@ -21,6 +22,21 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
 
 interface WsData {
   sessionId: string | null;
+}
+
+// apps/engine solo escucha en 127.0.0.1 (§5) -- este allowlist no es el perímetro de seguridad
+// real (eso ya lo da el binding), es solo lo mínimo para que el navegador acepte una respuesta
+// cross-origin de un proceso local en otro puerto (apps/web). Nunca refleja un origin remoto.
+const ALLOWED_ORIGIN_PATTERN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("origin");
+  if (!origin || !ALLOWED_ORIGIN_PATTERN.test(origin)) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+    "Access-Control-Allow-Headers": "content-type,x-capture-token",
+  };
 }
 
 // Une C2 (reductor)/C3 (motor)/C4 (provider/sync) detrás de la API real de apps/engine (§3/§5).
@@ -89,13 +105,27 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return Response.json({ syncId }, { status: 202 });
   }
 
-  async function fetchHandler(request: Request): Promise<Response | undefined> {
-    const url = new URL(request.url);
+  async function handleSettingsGet(): Promise<Response> {
+    return Response.json(getAllSettings(deps.db));
+  }
 
-    if (url.pathname === "/ws/draft") {
-      const upgraded = server.upgrade(request, { data: { sessionId: null } satisfies WsData });
-      return upgraded ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
+  function isValidSettingBody(value: unknown): value is { key: string; value: string } {
+    if (typeof value !== "object" || value === null) return false;
+    const body = value as Record<string, unknown>;
+    return typeof body.key === "string" && body.key.length > 0 && typeof body.value === "string";
+  }
+
+  // Input externo: se valida en el borde antes de tocar la DB, igual que cualquier otro envelope.
+  async function handleSettingsPut(request: Request): Promise<Response> {
+    const body: unknown = await request.json().catch(() => null);
+    if (!isValidSettingBody(body)) {
+      return Response.json({ error: "Se espera { key: string, value: string }" }, { status: 400 });
     }
+    upsertSetting(deps.db, body.key, body.value);
+    return Response.json({ key: body.key, value: body.value }, { status: 200 });
+  }
+
+  async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json(getHealthStatus(sessionStore.size));
     }
@@ -114,8 +144,37 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "POST" && url.pathname === "/api/meta/sync") {
       return handleMetaSync(request);
     }
+    if (request.method === "GET" && url.pathname === "/api/settings") {
+      return handleSettingsGet();
+    }
+    if (request.method === "PUT" && url.pathname === "/api/settings") {
+      return handleSettingsPut(request);
+    }
 
     return new Response("Not found", { status: 404 });
+  }
+
+  async function fetchHandler(request: Request): Promise<Response | undefined> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/ws/draft") {
+      const upgraded = server.upgrade(request, { data: { sessionId: null } satisfies WsData });
+      return upgraded ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
+    }
+
+    // apps/web (otro puerto) llama a esta API desde el navegador -- sin esto, RTK Query nunca
+    // funciona de verdad aunque curl y las pruebas de servidor pasen limpio (hallazgo de
+    // @redteam, TSK-014): el preflight de un método no-simple como PUT/POST con JSON responde
+    // 404 sin manejo de OPTIONS, y una respuesta sin Access-Control-Allow-Origin es invisible
+    // para el JS del navegador aunque la request en sí llegue.
+    const cors = corsHeaders(request);
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors });
+    }
+
+    const response = await routeApiRequest(request, url);
+    for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
+    return response;
   }
 
   const websocketHandlers = {
