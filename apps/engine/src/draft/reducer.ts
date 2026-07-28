@@ -72,13 +72,26 @@ function checkHeroAvailable(state: DraftState, hero: HeroId): RejectionReason | 
 }
 
 function revertHero(state: DraftState, hero: HeroId, side: TeamSide): Partial<DraftState> {
+  const quality = { ...state.quality, unconfirmed: state.quality.unconfirmed.filter((h) => h !== hero) };
   if (state.banned.includes(hero)) {
-    return { banned: state.banned.filter((h) => h !== hero) };
+    return { banned: state.banned.filter((h) => h !== hero), quality };
   }
   if (state.picks[side].includes(hero)) {
-    return { picks: { ...state.picks, [side]: state.picks[side].filter((h) => h !== hero) } };
+    return { picks: { ...state.picks, [side]: state.picks[side].filter((h) => h !== hero) }, quality };
   }
-  return {};
+  return { quality };
+}
+
+// Confianza por debajo de este umbral no bloquea el evento (SPEC.md línea 127: "el evento se
+// aplica igual") -- solo marca el héroe como sin confirmar para que la UI lo señale y ofrezca
+// corregirlo con pick_reverted, sin perder el resto del draft.
+const LOW_CONFIDENCE_THRESHOLD = 0.6;
+
+function markUnconfirmed(state: DraftState, envelope: DraftEventEnvelope, hero: HeroId): DraftState["quality"] {
+  if (envelope.confidence >= LOW_CONFIDENCE_THRESHOLD || state.quality.unconfirmed.includes(hero)) {
+    return state.quality;
+  }
+  return { ...state.quality, unconfirmed: [...state.quality.unconfirmed, hero] };
 }
 
 function accept(
@@ -131,13 +144,17 @@ export function applyDraftEvent(
     case "hero_banned": {
       const rejection = checkHeroAvailable(working, event.hero);
       if (rejection) return { state, rejected: rejection };
-      return accept(working, envelope, { banned: [...working.banned, event.hero] });
+      return accept(working, envelope, {
+        banned: [...working.banned, event.hero],
+        quality: markUnconfirmed(working, envelope, event.hero),
+      });
     }
     case "hero_picked": {
       const rejection = checkHeroAvailable(working, event.hero);
       if (rejection) return { state, rejected: rejection };
       return accept(working, envelope, {
         picks: { ...working.picks, [event.side]: [...working.picks[event.side], event.hero] },
+        quality: markUnconfirmed(working, envelope, event.hero),
       });
     }
     case "pick_reverted": {

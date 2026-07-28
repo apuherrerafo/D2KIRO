@@ -213,3 +213,51 @@ describe("pureza y otros eventos", () => {
     expect(state).toBe(before);
   });
 });
+
+describe("quality.unconfirmed (TSK-013 -- confianza < 0.6, SPEC.md línea 127)", () => {
+  test("hero_picked con confidence < 0.6 marca el héroe como sin confirmar, pero el evento igual se aplica", () => {
+    const { state, rejected } = applyDraftEvent(
+      active(),
+      envelope(2, { type: "hero_picked", hero: 1, side: "radiant" }, { confidence: 0.4 }),
+    );
+    expect(rejected).toBeUndefined();
+    expect(state.picks.radiant).toEqual([1]);
+    expect(state.quality.unconfirmed).toEqual([1]);
+  });
+
+  test("hero_banned con confidence >= 0.6 no marca nada", () => {
+    const { state } = applyDraftEvent(
+      active(),
+      envelope(2, { type: "hero_banned", hero: 1, side: "unknown" }, { confidence: 0.6 }),
+    );
+    expect(state.quality.unconfirmed).toEqual([]);
+  });
+
+  test("pick_reverted limpia el héroe de unconfirmed al deshacerlo", () => {
+    const unconfirmed = applyDraftEvent(
+      active(),
+      envelope(2, { type: "hero_picked", hero: 1, side: "radiant" }, { confidence: 0.3 }),
+    ).state;
+    expect(unconfirmed.quality.unconfirmed).toEqual([1]);
+
+    const { state } = applyDraftEvent(
+      unconfirmed,
+      envelope(3, { type: "pick_reverted", hero: 1, side: "radiant" }),
+    );
+    expect(state.picks.radiant).toEqual([]);
+    expect(state.quality.unconfirmed).toEqual([]);
+  });
+
+  test("el mismo héroe de baja confianza no se duplica en unconfirmed", () => {
+    const first = applyDraftEvent(
+      active(),
+      envelope(2, { type: "hero_banned", hero: 1, side: "unknown" }, { confidence: 0.2 }),
+    ).state;
+    // Un segundo evento de baja confianza sobre otro héroe no debe duplicar al primero.
+    const { state } = applyDraftEvent(
+      first,
+      envelope(3, { type: "hero_banned", hero: 2, side: "unknown" }, { confidence: 0.2 }),
+    );
+    expect(state.quality.unconfirmed).toEqual([1, 2]);
+  });
+});

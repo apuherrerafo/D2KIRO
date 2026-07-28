@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
+import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { DEGRADATION_LABELS } from "./constants";
 import { createDraftSocket } from "./socket";
@@ -13,18 +14,20 @@ import { useHeroCatalog } from "./use-hero-catalog";
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_ENGINE_WS_URL ?? "ws://127.0.0.1:4000/ws/draft";
 
-// TSK-011 (simulador) y TSK-013 (entrada manual) todavía no existen -- placeholders
-// intencionales, nombrados (nunca funciones anónimas inline) para que el botón exista ya,
-// tal como pide el estado `esperando_draft`, sin fingir una integración que no está lista.
-function handleManualEntryClick() {}
+// TSK-011 (simulador) todavía no existe -- placeholder intencional, nombrado (nunca una función
+// anónima inline) para que el botón exista ya, sin fingir una integración que no está lista.
 function handleSimulatorClick() {}
 
-function WaitingForDraftState() {
+interface WaitingForDraftStateProps {
+  onOpenManualEntry: () => void;
+}
+
+function WaitingForDraftState({ onOpenManualEntry }: WaitingForDraftStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4">
       <span className="text-heading text-content-primary">Esperando a que empiece el draft</span>
       <div className="flex gap-3">
-        <button type="button" onClick={handleManualEntryClick} className={BUTTON_SECONDARY}>
+        <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
           Entrada manual
         </button>
         <button type="button" onClick={handleSimulatorClick} className={BUTTON_SECONDARY}>
@@ -35,24 +38,46 @@ function WaitingForDraftState() {
   );
 }
 
+interface CaptureLostBannerProps {
+  onOpenManualEntry: () => void;
+}
+
+// Camino de degradación: cuando capture_health:'lost' llega por WebSocket, el aviso se muestra y
+// la entrada manual queda habilitada sin perder el estado ya capturado -- draftState sigue
+// visible debajo, nunca se limpia (regla dura del ticket).
+function CaptureLostBanner({ onOpenManualEntry }: CaptureLostBannerProps) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-signal-negative bg-surface-raised p-4">
+      <span className="text-body text-content-primary">Se perdió la captura automática del draft.</span>
+      <button type="button" onClick={onOpenManualEntry} className={BUTTON_PRIMARY}>
+        Entrada manual
+      </button>
+    </div>
+  );
+}
+
 interface ActiveDraftStateProps {
   draftState: DraftState;
   suggestions: SuggestionSet | null;
   heroCatalog: Map<number, HeroMeta>;
+  onOpenManualEntry: () => void;
 }
 
-function ActiveDraftState({ draftState, suggestions, heroCatalog }: ActiveDraftStateProps) {
+function ActiveDraftState({ draftState, suggestions, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
   const primary = suggestions?.suggestions.find((s) => s.rank === 1);
   const alternatives = suggestions?.suggestions.filter((s) => s.rank !== 1) ?? [];
 
   return (
-    <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-      <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
-      <div className="flex flex-col gap-3">
-        {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
-        {alternatives.map((suggestion) => (
-          <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={false} />
-        ))}
+    <div className="flex flex-col gap-4">
+      {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
+      <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
+        <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
+        <div className="flex flex-col gap-3">
+          {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
+          {alternatives.map((suggestion) => (
+            <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={false} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -62,9 +87,10 @@ interface DegradedDraftStateProps {
   draftState: DraftState;
   suggestions: SuggestionSet;
   heroCatalog: Map<number, HeroMeta>;
+  onOpenManualEntry: () => void;
 }
 
-function DegradedDraftState({ draftState, suggestions, heroCatalog }: DegradedDraftStateProps) {
+function DegradedDraftState({ draftState, suggestions, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-4">
@@ -74,7 +100,7 @@ function DegradedDraftState({ draftState, suggestions, heroCatalog }: DegradedDr
           </span>
         ))}
       </div>
-      <ActiveDraftState draftState={draftState} suggestions={suggestions} heroCatalog={heroCatalog} />
+      <ActiveDraftState draftState={draftState} suggestions={suggestions} heroCatalog={heroCatalog} onOpenManualEntry={onOpenManualEntry} />
     </div>
   );
 }
@@ -141,6 +167,7 @@ interface DraftViewBodyProps {
   errorMessage: string | null;
   heroCatalog: Map<number, HeroMeta>;
   onReconnect: () => void;
+  onOpenManualEntry: () => void;
 }
 
 // deriveScreenState (store.ts) garantiza draftState/suggestions no nulos en las ramas que los
@@ -150,11 +177,25 @@ function DraftViewBody(props: DraftViewBodyProps) {
     case "desconectado":
       return <DisconnectedState draftState={props.draftState} heroCatalog={props.heroCatalog} onReconnect={props.onReconnect} />;
     case "esperando_draft":
-      return <WaitingForDraftState />;
+      return <WaitingForDraftState onOpenManualEntry={props.onOpenManualEntry} />;
     case "activo":
-      return <ActiveDraftState draftState={props.draftState!} suggestions={props.suggestions} heroCatalog={props.heroCatalog} />;
+      return (
+        <ActiveDraftState
+          draftState={props.draftState!}
+          suggestions={props.suggestions}
+          heroCatalog={props.heroCatalog}
+          onOpenManualEntry={props.onOpenManualEntry}
+        />
+      );
     case "degradado":
-      return <DegradedDraftState draftState={props.draftState!} suggestions={props.suggestions!} heroCatalog={props.heroCatalog} />;
+      return (
+        <DegradedDraftState
+          draftState={props.draftState!}
+          suggestions={props.suggestions!}
+          heroCatalog={props.heroCatalog}
+          onOpenManualEntry={props.onOpenManualEntry}
+        />
+      );
     case "completo":
       return <CompletedDraftState draftState={props.draftState!} heroCatalog={props.heroCatalog} />;
     case "error":
@@ -180,6 +221,7 @@ export function DraftView({ sessionId, wsUrl = DEFAULT_WS_URL, socketFactory = c
   const disconnect = useDraftStore((s) => s.disconnect);
   const clearError = useDraftStore((s) => s.clearError);
   const { heroes: heroCatalog } = useHeroCatalog();
+  const [isManualEntryOpen, setManualEntryOpen] = useState(false);
 
   useEffect(() => {
     connect(socketFactory(wsUrl), sessionId);
@@ -190,6 +232,14 @@ export function DraftView({ sessionId, wsUrl = DEFAULT_WS_URL, socketFactory = c
   function handleReconnect() {
     clearError();
     connect(socketFactory(wsUrl), sessionId);
+  }
+
+  function openManualEntry() {
+    setManualEntryOpen(true);
+  }
+
+  function closeManualEntry() {
+    setManualEntryOpen(false);
   }
 
   const screenState = deriveScreenState({ connectionStatus, draftState, suggestions, errorMessage });
@@ -203,7 +253,16 @@ export function DraftView({ sessionId, wsUrl = DEFAULT_WS_URL, socketFactory = c
         errorMessage={errorMessage}
         heroCatalog={heroCatalog}
         onReconnect={handleReconnect}
+        onOpenManualEntry={openManualEntry}
       />
+      {isManualEntryOpen && (
+        <ManualEntryPanel
+          sessionId={sessionId}
+          lastSeq={draftState?.lastSeq ?? 0}
+          heroes={Array.from(heroCatalog.values())}
+          onClose={closeManualEntry}
+        />
+      )}
     </div>
   );
 }

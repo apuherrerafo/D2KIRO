@@ -13,7 +13,9 @@ function isDraftState(value: unknown): value is DraftState {
   if (value.phase !== "idle" && value.phase !== "active" && value.phase !== "complete" && value.phase !== "aborted") return false;
   if (!Array.isArray(value.banned) || typeof value.lastSeq !== "number") return false;
   if (!isRecord(value.picks) || !Array.isArray(value.picks.radiant) || !Array.isArray(value.picks.dire)) return false;
-  return isRecord(value.quality) && Array.isArray(value.quality.unconfirmed);
+  if (!isRecord(value.quality) || !Array.isArray(value.quality.unconfirmed)) return false;
+  const { captureStatus } = value.quality;
+  return captureStatus === "ok" || captureStatus === "degraded" || captureStatus === "lost";
 }
 
 function isSuggestionSet(value: unknown): value is SuggestionSet {

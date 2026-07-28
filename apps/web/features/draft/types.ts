@@ -6,6 +6,15 @@ export type HeroId = number;
 export type TeamSide = "radiant" | "dire";
 export type DraftFormatId = "all_pick" | "captains_mode";
 
+// Payloads que apps/web puede EMITIR hacia el motor (entrada manual, TSK-013) -- subconjunto de
+// los 7 tipos de DraftEvent de apps/engine relevantes desde la UI (pick/ban/revert). Los demás
+// (session_started, local_side_identified, session_ended, capture_health) los emiten los
+// capturadores, no la vista.
+export type DraftEvent =
+  | { type: "hero_banned"; hero: HeroId; side: TeamSide | "unknown" }
+  | { type: "hero_picked"; hero: HeroId; side: TeamSide }
+  | { type: "pick_reverted"; hero: HeroId; side: TeamSide };
+
 export interface DraftState {
   sessionId: string;
   schema: "draft-state/v1";

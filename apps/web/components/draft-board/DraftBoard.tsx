@@ -1,18 +1,20 @@
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
-import type { DraftState, HeroId } from "@/features/draft/types";
+import type { DraftState, HeroId, TeamSide } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
+const TEAM_LABELS: Record<TeamSide, string> = { radiant: "Radiant", dire: "Dire" };
+
 interface TeamColumnProps {
-  title: string;
+  side: TeamSide;
   heroIds: HeroId[];
   heroCatalog: Map<number, HeroMeta>;
   unconfirmedIds: Set<HeroId>;
 }
 
-function TeamColumn({ title, heroIds, heroCatalog, unconfirmedIds }: TeamColumnProps) {
+function TeamColumn({ side, heroIds, heroCatalog, unconfirmedIds }: TeamColumnProps) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-heading text-content-primary">{title}</span>
+      <span className="text-heading text-content-primary">{TEAM_LABELS[side]}</span>
       <div className="flex flex-wrap gap-2">
         {heroIds.map((heroId) => (
           <DraftHeroSlot
@@ -20,6 +22,7 @@ function TeamColumn({ title, heroIds, heroCatalog, unconfirmedIds }: TeamColumnP
             heroId={heroId}
             heroMeta={heroCatalog.get(heroId)}
             variant="pick"
+            side={side}
             unconfirmed={unconfirmedIds.has(heroId)}
           />
         ))}
@@ -44,13 +47,19 @@ export function DraftBoard({ draftState, heroCatalog }: DraftBoardProps) {
         <span className="text-heading text-content-primary">Bans</span>
         <div className="flex flex-wrap gap-2">
           {draftState.banned.map((heroId) => (
-            <DraftHeroSlot key={heroId} heroId={heroId} heroMeta={heroCatalog.get(heroId)} variant="ban" />
+            <DraftHeroSlot
+              key={heroId}
+              heroId={heroId}
+              heroMeta={heroCatalog.get(heroId)}
+              variant="ban"
+              unconfirmed={unconfirmedIds.has(heroId)}
+            />
           ))}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-6">
-        <TeamColumn title="Radiant" heroIds={draftState.picks.radiant} heroCatalog={heroCatalog} unconfirmedIds={unconfirmedIds} />
-        <TeamColumn title="Dire" heroIds={draftState.picks.dire} heroCatalog={heroCatalog} unconfirmedIds={unconfirmedIds} />
+        <TeamColumn side="radiant" heroIds={draftState.picks.radiant} heroCatalog={heroCatalog} unconfirmedIds={unconfirmedIds} />
+        <TeamColumn side="dire" heroIds={draftState.picks.dire} heroCatalog={heroCatalog} unconfirmedIds={unconfirmedIds} />
       </div>
     </div>
   );

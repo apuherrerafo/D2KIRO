@@ -1,9 +1,11 @@
 import { create } from "zustand";
-import type { DraftSocket, DraftState, ErrorPayload, ScreenState, ServerMessage, SuggestionSet } from "./types";
+import { postManualEvent } from "./manual-entry";
+import type { DraftSocket, DraftState, ErrorPayload, HeroId, ScreenState, ServerMessage, SuggestionSet, TeamSide } from "./types";
 import { isValidServerMessage } from "./validation";
 
 export interface DraftStoreState {
   connectionStatus: "desconectado" | "conectando" | "conectado";
+  sessionId: string | null;
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
   errorMessage: string | null;
@@ -11,10 +13,14 @@ export interface DraftStoreState {
   connect: (socket: DraftSocket, sessionId: string) => void;
   disconnect: () => void;
   clearError: () => void;
+  // Corrige un pick/ban de confianza baja -- mismo POST /api/session/manual y pick_reverted del
+  // contrato de TSK-004, disponible desde cualquier componente sin pasar callbacks por props.
+  correctHero: (hero: HeroId, side: TeamSide) => Promise<void>;
 }
 
 export const useDraftStore = create<DraftStoreState>((set, get) => ({
   connectionStatus: "desconectado",
+  sessionId: null,
   draftState: null,
   suggestions: null,
   errorMessage: null,
@@ -24,7 +30,7 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
     get().socket?.close();
     socket.onMessage((message) => applyServerMessage(set, message));
     socket.onClose(() => set({ connectionStatus: "desconectado", socket: null }));
-    set({ socket, connectionStatus: "conectando", errorMessage: null });
+    set({ socket, sessionId, connectionStatus: "conectando", errorMessage: null });
     socket.send({ schema: "draft-ws/v1", type: "hello", sessionId });
   },
 
@@ -35,6 +41,19 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
 
   clearError() {
     set({ errorMessage: null });
+  },
+
+  async correctHero(hero, side) {
+    const { sessionId, draftState } = get();
+    if (!sessionId) return;
+    // Un fallo de red no debe quedar como una promesa rechazada sin capturar -- el botón
+    // "Corregir" no tiene su propio estado de error dedicado, así que como mínimo se registra
+    // en vez de arriesgar un unhandled rejection (hallazgo de @redteam durante esta revisión).
+    try {
+      await postManualEvent(sessionId, draftState?.lastSeq ?? 0, { type: "pick_reverted", hero, side });
+    } catch (error) {
+      console.error("[draft] no se pudo corregir el héroe:", error);
+    }
   },
 }));
 

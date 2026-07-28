@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { FakeSocket } from "./fake-socket";
 import { deriveScreenState, useDraftStore } from "./store";
 import type { DraftState, ServerMessage, SuggestionSet } from "./types";
@@ -38,7 +38,14 @@ function serverMessage(type: ServerMessage["type"], payload: ServerMessage["payl
 }
 
 beforeEach(() => {
-  useDraftStore.setState({ connectionStatus: "desconectado", draftState: null, suggestions: null, errorMessage: null, socket: null });
+  useDraftStore.setState({
+    connectionStatus: "desconectado",
+    sessionId: null,
+    draftState: null,
+    suggestions: null,
+    errorMessage: null,
+    socket: null,
+  });
 });
 
 describe("los 6 estados de pantalla (S5)", () => {
@@ -134,5 +141,59 @@ describe("conexión (hello / snapshot)", () => {
     const state = useDraftStore.getState();
     expect(state.errorMessage).toBeNull();
     expect(state.draftState?.phase).toBe("active");
+  });
+
+  test("connect() guarda el sessionId en el store", () => {
+    useDraftStore.getState().connect(new FakeSocket(), "session-correction");
+    expect(useDraftStore.getState().sessionId).toBe("session-correction");
+  });
+});
+
+describe("correctHero (TSK-013)", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test("envía pick_reverted vía POST /api/session/manual usando el sessionId y lastSeq guardados", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    global.fetch = (async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ accepted: true }), { status: 202 });
+    }) as typeof fetch;
+
+    useDraftStore.setState({ sessionId: "session-correction", draftState: draftState({ lastSeq: 7 }) });
+    await useDraftStore.getState().correctHero(1, "radiant");
+
+    expect(capturedBody).toMatchObject({
+      sessionId: "session-correction",
+      seq: 8,
+      source: "manual",
+      payload: { type: "pick_reverted", hero: 1, side: "radiant" },
+    });
+  });
+
+  test("sin sessionId (nunca conectado), no intenta enviar nada", async () => {
+    let fetchCalled = false;
+    global.fetch = (async () => {
+      fetchCalled = true;
+      return new Response("{}", { status: 202 });
+    }) as unknown as typeof fetch;
+
+    useDraftStore.setState({ sessionId: null });
+    await useDraftStore.getState().correctHero(1, "radiant");
+
+    expect(fetchCalled).toBe(false);
+  });
+
+  test("un fallo de red no queda como una promesa rechazada sin capturar (hallazgo @redteam)", async () => {
+    global.fetch = (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch;
+
+    useDraftStore.setState({ sessionId: "session-correction", draftState: draftState({ lastSeq: 1 }) });
+
+    await expect(useDraftStore.getState().correctHero(1, "radiant")).resolves.toBeUndefined();
   });
 });
