@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T22:20:20.983Z</title>
+<title>HUB del ecosistema — 2026-07-29T23:48:09.786Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: el usuario decide primero — tres caminos válidos, sin orden fijo entre sí · Modelo: — · Acción: Elegir entre (1) `/castoff` (Claude Code, Sonnet) para desplegar fase 1b a Railway, (2) · correr el spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`, instrucciones en su propio · README) en una partida real para decidir el adapter de captura real, o (3) abrir una fase nueva · con `/kickoff` si hay una idea concreta de qué construir después — todavía no hay brief de eso. · Sigue pendiente y no urgente: validar el criterio 1 de fase 1 (captura con partida real) con el · capturador manual.</div>
+  <div class="stepper"><div class="step step-active">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Codex (el usuario decidió llevarse el brief ahí, no se queda en Claude Code) · Modelo: estándar de Codex (equivalente a Sonnet del lado de OpenAI — esto es planificación, no · razonamiento profundo ni bug oculto; ver Política de Modelos en CLAUDE.md) · Acción: Con el brief ya armado ("dota2coach — Fase 2: Draft en equipo", Fase A + Fase B), pedirle · a Codex que primero proponga el diseño concreto (equivalente a `/pre-flight` -- qué tablas nuevas, · qué componentes, qué preguntas abiertas) antes de escribir código, usando el prompt autocontenido · que Claude Code le entregó en el chat. Fase C ("3 caminos completos de draft") queda fuera, · pendiente de su propia ronda de `/kickoff` después. Pendiente aparte, sin resolver: si el timer · de draft visible entra en esta fase o en otra -- no se retomó en las preguntas de kickoff.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -493,8 +493,8 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
-          <div class="stat-nums">33× · 97% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">34× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -526,6 +526,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-033</span> <span class="feed-ts">2026-08-01T01:25</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 archivos/34 líneas -- dentro de ambos límites, sin excepción. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 33 tareas, 167 eventos. Origen del ticket: hallazgo real durante QA en vivo del usuario, no planificado de antemano -- ejemplo del ciclo completo (encontrar → ticket → build → redteam → shipcheck) corriendo dentro de una sesión de prueba manual, no solo entre sesiones de desarrollo.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -601,13 +608,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T23:00</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS (foco en dato personal, ver evt-058). verify-simplicity.sh: 2 archivos/27 líneas -- dentro de ambos límites, sin excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado: 31 tareas, 156 eventos.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T22:55</span></div>
-            <div class="feed-note">Gate de seguridad: PASS -- foco específico en la regla dura del dato personal (SPEC.md §9.7/security.md): grep manual de `accountId` en todo el diff confirma que el único uso fuera de JSX de input es como argumento tipado de `updateSetting`/`calculatePool`, nunca interpolado en una plantilla de string, nunca pasado a console.*, nunca parte de un mensaje de CalculateStatus (esos siguen siendo textos fijos, ninguno eco el valor). Confirmado también que /api/settings no persiste nada nuevo del lado del servidor -- reutiliza el endpoint genérico ya auditado en TSK-014, sin abrir superficie nueva. Pasada 1 (Standards): el patrón `accountIdInput ?? savedAccountId` replica exactamente `draftEntries ?? savedPool` ya validado en este mismo archivo -- consistencia deliberada, no reinventar; el try/catch separado para la escritura best-effort tiene una razón real documentada (no tapar un cálculo exitoso), no es manejo de errores decorativo. Pasada 2 (Spec): las 2 aceptaciones literales verificadas -- pre-poblado confirmado por curl real (PUT+GET round-trip contra el motor vivo) y por el código de derivación; "nunca aparece en consola ni en mensaje de error" confirmado por lectura línea por línea del diff, no solo por ausencia de `console.log` (también se revisó que ningún catch interpole el valor). Hallazgo no bloqueante, transparencia de decisión de diseño no explícita en el ticket: la persistencia ocurre recién cuando `calculatePool` resuelve con éxito -- un accountId nunca se guarda si el usuario lo escribe pero nunca pulsa "Calcular", ni si el servidor lo rechaza por formato inválido; el ticket decía "según se decida en el build", esta lectura evita persistir un valor que el propio borde del servidor ya invalidó. Veredicto: APPROVED.</div>
           </div>
         </div></div>
     </div>
