@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T21:06:57.575Z</title>
+<title>HUB del ecosistema — 2026-07-29T22:20:20.983Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">32</span></h2>
+        <h2>done <span class="count">33</span></h2>
         
         <div class="card  ">
           
@@ -424,6 +424,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-033</div>
+          <div class="card-title">Selector de ventana de días en 'Calcular desde mis partidas'</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -473,18 +483,18 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
-          <div class="stat-nums">35× · 40% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:68%"></div></div>
+          <div class="stat-nums">36× · 39% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
-          <div class="stat-nums">35× · 91% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:68%"></div></div>
+          <div class="stat-nums">36× · 92% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:60%"></div></div>
-          <div class="stat-nums">32× · 97% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
+          <div class="stat-nums">33× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -516,6 +526,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-033</span> <span class="feed-ts">2026-08-01T01:20</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (sin input externo nuevo -- `windowDays` viene de un `<select>` con opciones fijas, no de texto libre, así que no hay superficie de validación nueva; `days` ya se valida en el servidor desde TSK-021, incluido el hallazgo de `Number.isFinite` contra `Infinity`). Pasada 1 (Standards): mismo patrón visual que el selector de velocidad de DraftSetupPanel (consistencia deliberada), `windowDays` que se muestra en la propuesta viene siempre de `result.windowDays` (la respuesta real del servidor), nunca del estado local -- imposible que quede desincronizado si el usuario cambia el selector después de calcular. Pasada 2 (Spec): verificado con QA real del usuario en vivo, no solo local -- (1) cuenta propia (323051362) con distintas ventanas (90, 30 días) devolvió propuestas reales con el número de días exacto reflejado en el texto; (2) cuentas de terceros con distintas ventanas (30/90/180/365) devolvieron consistentemente "ningún héroe pasó el mínimo" en las 4 -- diagnosticado correctamente como historial de partidas privado en Steam del lado de esas cuentas (ajeno a dota2coach), no un bug del selector; el hecho de que el resultado sea estable y consistente en las 4 ventanas para una cuenta sin datos públicos, y varíe correctamente para una cuenta con datos públicos, confirma que el parámetro `days` efectivamente viaja hasta el servidor en cada cálculo. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-033</span> <span class="feed-ts">2026-08-01T01:00</span></div>
+            <div class="feed-note">Modo manual. Ticket nuevo, creado en vivo durante QA del usuario sobre el bloque TSK-027/032: al calcular el pool con la cuenta de un amigo, el mensaje "probá ampliar la ventana" resultó ser una promesa vacía -- no existe ningún control en la UI para cambiar los días, el frontend siempre llama calculatePool sin `days`, así que el servidor usa su default fijo de 90. El backend ya soporta el parámetro (tipado en engine-api.ts desde TSK-021), así que es puramente un gap de apps/web. assigned_tool: claude-code. state: backlog (recién creado) → doing directo, a pedido explícito del usuario ("quiero arreglar aho mismo esto"). WIP=1 por claude-code libre.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-08-01T00:35</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 4 commits, ninguno excede 3 archivos/200 líneas -- sin excepción necesaria en ninguno. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado: 32 tareas, 164 eventos. Con esto queda resuelto el último punto pendiente del bloque de feedback directo de producto abierto tras la primera verificación visual real de fase 1b.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -577,27 +608,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T22:55</span></div>
             <div class="feed-note">Gate de seguridad: PASS -- foco específico en la regla dura del dato personal (SPEC.md §9.7/security.md): grep manual de `accountId` en todo el diff confirma que el único uso fuera de JSX de input es como argumento tipado de `updateSetting`/`calculatePool`, nunca interpolado en una plantilla de string, nunca pasado a console.*, nunca parte de un mensaje de CalculateStatus (esos siguen siendo textos fijos, ninguno eco el valor). Confirmado también que /api/settings no persiste nada nuevo del lado del servidor -- reutiliza el endpoint genérico ya auditado en TSK-014, sin abrir superficie nueva. Pasada 1 (Standards): el patrón `accountIdInput ?? savedAccountId` replica exactamente `draftEntries ?? savedPool` ya validado en este mismo archivo -- consistencia deliberada, no reinventar; el try/catch separado para la escritura best-effort tiene una razón real documentada (no tapar un cálculo exitoso), no es manejo de errores decorativo. Pasada 2 (Spec): las 2 aceptaciones literales verificadas -- pre-poblado confirmado por curl real (PUT+GET round-trip contra el motor vivo) y por el código de derivación; "nunca aparece en consola ni en mensaje de error" confirmado por lectura línea por línea del diff, no solo por ausencia de `console.log` (también se revisó que ningún catch interpole el valor). Hallazgo no bloqueante, transparencia de decisión de diseño no explícita en el ticket: la persistencia ocurre recién cuando `calculatePool` resuelve con éxito -- un accountId nunca se guarda si el usuario lo escribe pero nunca pulsa "Calcular", ni si el servidor lo rechaza por formato inválido; el ticket decía "según se decida en el build", esta lectura evita persistir un valor que el propio borde del servidor ya invalidó. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T22:45</span></div>
-            <div class="feed-note">Implementado en apps/web/features/hero-pool/{HeroPoolConfig.tsx,constants.tsx}: STEAM_ACCOUNT_ID_KEY = "steam_account_id" (misma clave literal que ya usa apps/engine/src/db/queries.test.ts). El campo accountId pasa del mismo patrón derivado que ya usa `entries` en este componente (TSK-024): accountIdInput arranca en null (no tocado), savedAccountId se lee de useGetSettingsQuery() buscando la clave, accountId = accountIdInput ?? savedAccountId -- sin useEffect, mismo criterio que evitó el hallazgo de TSK-016/024. En handleCalculate, justo después de que calculatePool resuelve con éxito (es decir, el servidor ya pasó accountId por isValidSteamAccountId en server/app.ts:222 -- nunca se persiste un valor que el borde vaya a rechazar), se llama updateSetting({key: STEAM_ACCOUNT_ID_KEY, value: accountId}) en su propio try/catch que traga el error silenciosamente -- decisión de diseño no explícita en el ticket, documentada aquí: si esta escritura de conveniencia falla, no debe tapar un cálculo que sí funcionó (el catch exterior existente interpreta status de calculatePool, no de esta mutación aparte; dejarlas compartir el mismo catch habría mostrado "no se pudo calcular" sobre una propuesta que en realidad ya estaba lista). Regla dura verificada línea por línea: el valor de accountId nunca aparece en ningún console.log/error/mensaje mostrado al usuario -- solo se pasa como argumento tipado a la mutación RTK Query. Verificado con servidor real: PUT /api/settings {key:steam_account_id, value:123456789} + GET /api/settings confirma el round-trip exacto vía curl directo al motor (127.0.0.1:4000), luego revertido a value:"" para no dejar un dato de prueba en la base local real del usuario. curl a /hero-pool con ambos servidores arriba: 200, sin crash. tsc --noEmit y eslint limpios. bun test completo de apps/web: 27 pass, 0 fail, sin regresión (este flujo no tiene prueba unitaria propia -- HeroPoolConfig.tsx nunca tuvo una desde que existe, TSK-024/025/029 tampoco la agregaron). verify-simplicity.sh: 2 archivos/27 líneas -- dentro de ambos límites. Cero cambios a apps/engine (fuera de alcance del ticket, /api/settings ya existía). TSK-030 sigue en state: doing, pasa a autorevisión adversarial antes de @shipcheck.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T22:30</span></div>
-            <div class="feed-note">Modo manual, siguiente ticket del feedback de producto (TSK-029 ya done). preferred_tool era codex (creación original) -- assigned_tool se conserva en claude-code, mismo criterio que TSK-024/026: cambio acotado pero toca un patrón de estado ya establecido en este mismo componente (HeroPoolConfig.tsx, TSK-024/025/029) y la regla dura de dato personal (nunca loguear account_id) se sigue mejor con el contexto completo de journal.md/rules ya cargado, sin necesidad de copiar todo el contrato a un ticket autocontenido para Codex. state: backlog → doing. WIP=1 por claude-code libre. Confirmado antes de tocar código: la clave de settings es literal "steam_account_id" (ya usada en apps/engine/src/db/queries.test.ts y referenciada en TSK-021), y /api/settings no valida el formato (la validación de Steam32 vive únicamente en /api/hero-pool/calculate, server/app.ts:222) -- consistente con "fuera de alcance: validación adicional" del propio ticket.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T22:20</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 commits (navegación+landing 4 archivos reales de código -- NavBar.tsx/layout.tsx/page.tsx, más el fix de foco en un 4to commit sobre NavBar.tsx; link post-guardado 2 archivos -- HeroPoolConfig.tsx/constants.tsx), ninguno excede 3 archivos/200 líneas, sin excepción necesaria. Sin funciones innecesarias, sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 31 tareas, 152 eventos.</div>
           </div>
         </div></div>
     </div>
