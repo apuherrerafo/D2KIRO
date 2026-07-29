@@ -4,10 +4,13 @@ import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../db/schema";
 import { metaSync } from "../db/schema";
 import { getAllSettings, getHeroPool, replaceHeroPool, upsertSetting, type HeroPoolWriteRow } from "../db/queries";
+import { calculateProposedPool, type HeroPoolInputRow } from "../hero-pool/calculate-pool";
 import { getHealthStatus } from "../health";
+import { mapPlayerHero } from "../meta/mappers";
 import type { OpenDotaClient } from "../meta/opendota-client";
 import { buildMetaSnapshot, getAllHeroMeta, getMetaFreshness } from "../meta/provider";
 import { beginMetaSync, runMetaSync } from "../meta/sync";
+import { isValidRawPlayerHero, isValidSteamAccountId } from "../meta/validation";
 import { buildSuggestions } from "../signals/mix";
 import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope } from "./edge";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
@@ -44,6 +47,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const sessionStore = new SessionStore();
   const rateLimiter = createSessionRateLimiter();
   let server: Server<WsData>;
+  // TSK-021: sin cola, sin reintento automático (§9.5) -- un flag por proceso alcanza para este
+  // servidor local de un solo usuario. Un segundo POST mientras el primero sigue en vuelo se
+  // rechaza de inmediato con 409, nunca se encola.
+  let heroPoolCalculationInProgress = false;
 
   // Orden garantizado tras cada evento aplicado: draft_state primero, suggestions después (§C2).
   async function pushSessionUpdate(sessionId: string): Promise<void> {
@@ -204,6 +211,59 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return Response.json(rows.map(toHeroPoolEntry), { status: 200 });
   }
 
+  // TSK-021: único endpoint de 1b que toca la red. Conecta getPlayerHeroes (TSK-018) con el
+  // cálculo puro (TSK-019, S7) -- nunca escribe en SQLite, solo propone (PUT /api/hero-pool,
+  // TSK-020, sigue siendo el único camino de escritura). Reglas duras: el accountId nunca se
+  // ecoa en ningún error/log, y esta llamada vive fuera del pipeline de buildSuggestions -- no
+  // toca el camino caliente del draft.
+  async function handleHeroPoolCalculate(request: Request): Promise<Response> {
+    const body: unknown = await request.json().catch(() => null);
+    const accountId = typeof body === "object" && body !== null ? (body as Record<string, unknown>).accountId : undefined;
+    if (typeof accountId !== "string" || !isValidSteamAccountId(accountId)) {
+      return Response.json({ error: "invalid_account_id" }, { status: 400 });
+    }
+    const rawDays = typeof body === "object" && body !== null ? (body as Record<string, unknown>).days : undefined;
+    const days = typeof rawDays === "number" && rawDays > 0 ? rawDays : 90;
+
+    if (heroPoolCalculationInProgress) {
+      return Response.json({ error: "calculation_in_progress" }, { status: 409 });
+    }
+
+    heroPoolCalculationInProgress = true;
+    try {
+      let raw: unknown;
+      try {
+        raw = await deps.openDotaClient.getPlayerHeroes(accountId, { days });
+      } catch {
+        raw = null;
+      }
+      if (!Array.isArray(raw)) {
+        return Response.json(
+          { error: "opendota_unavailable", message: "OpenDota no respondió. El pool guardado (si existe) sigue funcionando." },
+          { status: 502 },
+        );
+      }
+
+      // Bucle de filtrado (nota de @redteam de TSK-018, evt-20260729-007): las primitivas de una
+      // fila (isValidRawPlayerHero/mapPlayerHero) no descartan nada por sí solas -- este es el
+      // orquestador que itera el array crudo, igual que syncHeroes/syncMatchups en sync.ts.
+      const heroRows: HeroPoolInputRow[] = [];
+      for (const item of raw) {
+        if (isValidRawPlayerHero(item)) heroRows.push(mapPlayerHero(item));
+      }
+
+      const result = calculateProposedPool(heroRows, () => new Date().toISOString());
+      return Response.json({
+        proposed: result.proposed,
+        baselineWinrate: result.baselineWinrate,
+        consideredHeroes: result.consideredHeroes,
+        windowDays: days,
+      });
+    } finally {
+      heroPoolCalculationInProgress = false;
+    }
+  }
+
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json(getHealthStatus(sessionStore.size));
@@ -234,6 +294,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "PUT" && url.pathname === "/api/hero-pool") {
       return handleHeroPoolPut(request);
+    }
+    if (request.method === "POST" && url.pathname === "/api/hero-pool/calculate") {
+      return handleHeroPoolCalculate(request);
     }
 
     return new Response("Not found", { status: 404 });

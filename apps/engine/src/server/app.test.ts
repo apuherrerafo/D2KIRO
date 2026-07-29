@@ -306,3 +306,117 @@ describe("servidor Bun (TSK-010)", () => {
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
+
+// TSK-021 (fase 1b): POST /api/hero-pool/calculate necesita un OpenDotaClient controlable por
+// prueba (respuestas distintas: feliz, 502, vacío) -- describe aparte con su propia app/servidor
+// por prueba, en vez de reutilizar el beforeAll compartido de arriba (que usa un cliente real).
+describe("POST /api/hero-pool/calculate (TSK-021)", () => {
+  function jsonResponse(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), { status });
+  }
+
+  function startAppWithClient(fetchImpl: typeof fetch) {
+    const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+    const app = createApp({ db: createTestDb(), openDotaClient: client, captureToken: EXPECTED_HEADER });
+    const server = app.start("127.0.0.1", 0);
+    return { url: `http://127.0.0.1:${server.port}`, stop: () => server.stop(true) };
+  }
+
+  test("accountId con formato inválido -> 400 invalid_account_id, sin llamar a OpenDota", async () => {
+    let called = false;
+    const { url, stop } = startAppWithClient((async () => {
+      called = true;
+      return jsonResponse([]);
+    }) as unknown as typeof fetch);
+
+    const res = await fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "abc" }) });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_account_id");
+    expect(called).toBe(false);
+    stop();
+  });
+
+  test("el cuerpo de error nunca ecoa el accountId recibido", async () => {
+    const { url, stop } = startAppWithClient((async () => jsonResponse([])) as unknown as typeof fetch);
+
+    const res = await fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "no-es-un-id-9999999999999" }) });
+    const bodyText = await res.text();
+
+    expect(bodyText).not.toContain("no-es-un-id-9999999999999");
+    stop();
+  });
+
+  test("OpenDota caído tras agotar reintentos -> 502 opendota_unavailable, mensaje en llano", async () => {
+    const { url, stop } = startAppWithClient((async () => jsonResponse({}, 500)) as unknown as typeof fetch);
+
+    const res = await fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "123456789" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(body.error).toBe("opendota_unavailable");
+    expect(typeof body.message).toBe("string");
+    stop();
+  });
+
+  test("ningún héroe pasa el mínimo -> 200 con proposed:[], no es un error", async () => {
+    const { url, stop } = startAppWithClient((async () =>
+      jsonResponse([{ hero_id: 1, games: 3, win: 2 }])) as unknown as typeof fetch);
+
+    const res = await fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "123456789" }) });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.proposed).toEqual([]);
+    stop();
+  });
+
+  test("caso feliz: fixture con héroes elegibles -> 200 con proposed, baselineWinrate, consideredHeroes, windowDays", async () => {
+    const calls: string[] = [];
+    const { url, stop } = startAppWithClient((async (input: string) => {
+      calls.push(input);
+      return jsonResponse([
+        { hero_id: 1, games: 20, win: 12 },
+        { hero_id: 2, games: 15, win: 6 },
+        { hero_id: 3, games: 2, win: 2 }, // no pasa el mínimo -- se descarta, no rompe el resto
+      ]);
+    }) as typeof fetch);
+
+    const res = await fetch(`${url}/api/hero-pool/calculate`, {
+      method: "POST",
+      body: JSON.stringify({ accountId: "123456789", days: 30 }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.windowDays).toBe(30);
+    expect(body.consideredHeroes).toBe(3);
+    expect(body.proposed.map((e: { hero: number }) => e.hero).sort()).toEqual([1, 2]);
+    expect(calls[0]).toContain("date=30");
+    stop();
+  });
+
+  test("dos calculate simultáneos: el segundo recibe 409 mientras el primero sigue en curso", async () => {
+    let resolveFirst!: (value: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    let callCount = 0;
+    const { url, stop } = startAppWithClient((async () => {
+      callCount++;
+      if (callCount === 1) return pending;
+      throw new Error("no debería llamarse una segunda vez mientras el primero está en curso");
+    }) as unknown as typeof fetch);
+
+    const first = fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "123456789" }) });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const second = await fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "123456789" }) });
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toBe("calculation_in_progress");
+
+    resolveFirst(jsonResponse([]));
+    expect((await first).status).toBe(200);
+    stop();
+  });
+});
