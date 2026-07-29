@@ -151,9 +151,11 @@ function bestFavoringSignal(top: SignalContribution[], second: SignalContributio
   return best;
 }
 
-// TSK-032: si el #1 gana por puntaje total, la suma de los deltas comparables es positiva, así
-// que al menos uno de ellos tiene que ser positivo -- por eso `null` solo ocurre con empate exacto
-// en todas las señales comparables, nunca "no se encontró ninguna". Menos de 2 sugerencias -> null.
+// TSK-032: `null` cuando ninguna señal comparable favorece al #1 -- dos casos reales, no uno: (a)
+// empate exacto en todas las señales comparables, o (b) la ventaja real del #1 vive en una señal
+// que el #2 no tiene (`applicable:false`/`raw:null` de ese lado), así que no es comparable -- en
+// ese caso null es la respuesta honesta, nunca se le atribuye el mérito a una señal comparable
+// que en realidad no fue la razón. Menos de 2 sugerencias -> null.
 export function buildComparison(suggestions: Suggestion[]): SuggestionComparison | null {
   const top = suggestions.find((s) => s.rank === 1);
   const second = suggestions.find((s) => s.rank === 2);
