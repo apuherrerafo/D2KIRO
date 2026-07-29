@@ -8,6 +8,10 @@ Todo lo que no esté aquí, no es fase 1. Si algo de aquí se contradice con el 
 este documento hasta que se actualice explícitamente (una discrepancia seria confirmada
 entre SPEC y código es uno de los gatillos de Opus documentados en `CLAUDE.md`).
 
+> **Fase 1b vive al final de este archivo**, como parte anexada (§9 en adelante), no reescribiendo
+> lo de arriba. Lo que 1b supersede está listado explícitamente en §9.0 — si una fila de fase 1 no
+> aparece ahí, sigue vigente tal cual.
+
 ---
 
 ## 0. Decisiones cerradas en esta fase
@@ -514,3 +518,323 @@ los formaliza con `preferred_tool` y límites de archivos:
 9. Vista de draft en Next.js (S5) con sus 6 estados.
 10. Entrada manual y camino de degradación.
 11. Páginas del sitio (estado del meta, héroes, configuración) con RTK Query.
+
+---
+---
+
+# SPEC — Fase 1b (Personalización de hero pool)
+
+Generado por `/blueprint` (segunda ejecución en Opus del proyecto) a partir del addendum
+"Fase 1b" de `docs/agents/architecture.md`. La segunda ejecución en Opus **no es una excepción
+nueva**: cae en un gatillo ya documentado en `CLAUDE.md` — *cambio de trust boundary respecto a
+lo que definió `/pre-flight`* (el `account_id` de Steam es el primer dato personal del proyecto).
+De aquí en adelante, Sonnet otra vez.
+
+Mismo estatuto que fase 1: esto es contrato. Lo que no esté aquí, no es fase 1b.
+
+## 9.0 — Qué de fase 1 queda superado por 1b
+
+Todo lo demás de §0–§8 sigue vigente sin cambios. Solo estas cinco cosas se mueven:
+
+| Fase 1 decía | 1b lo cambia a |
+|---|---|
+| §C3: `SignalId` son 4 valores | 5 valores — se añade `hero_pool_fit` (§9.3) |
+| §C3: `SCORING_WEIGHTS_V1` (0.40 / 0.25 / 0.20 / 0.15) | `SCORING_WEIGHTS_V2`, 5 pesos (§9.3, D8). V1 **no se borra ni se edita** — se deja versionado por nombre, como manda `engine.md` |
+| §C3: `Suggestion.signals` "siempre las 4" | siempre las **5** |
+| §C4: tablas de SQLite | + tabla `hero_pool`; + claves `steam_account_id` y `personal_baseline_winrate` en `settings` (§9.4) |
+| §5: "Datos personales: ninguno en fase 1 (…) se retoma en 1b" | Se retoma aquí: §9.7 |
+
+**Regresión cero sobre el MVP, y es demostrable, no una promesa** (§9.3, D8): con el pool sin
+configurar, la redistribución proporcional de `mix.ts` devuelve exactamente los pesos de v1.
+
+---
+
+## 9.1 — Decisiones cerradas
+
+Continúan la numeración de §0. D4–D7 vienen del addendum de capturador real del 2026-07-28 y se
+registran aquí para que `SPEC.md` y `architecture.md` no se desincronicen; **no se especifica el
+adapter todavía** — eso espera al resultado del spike.
+
+| # | Decisión | Razón |
+|---|---|---|
+| D4 | **Spike empírico de Overwolf antes de construir cualquier adapter de producción.** Script desechable fuera del árbol de producción, corrido por el usuario en una partida real. | Hay evidencia contradictoria (GSI roto para partidas propias vs. GEP de Overwolf documentado oficialmente pero de dependencia interna incierta) que no se resuelve leyendo más documentación. Criterio de éxito doble: que `roster`/`bans`/`draft` entreguen `heroId`/`team` en vivo **y** que un `pick_revert` provocado sea distinguible de un pick nuevo en los datos crudos. |
+| D5 | **Es aceptable que el capturador dependa de que el usuario tenga Overwolf instalado y corriendo.** | Mismo patrón que DotaPlus y STRATZ+, gratuito, y la vía técnica más sólida encontrada. |
+| D6 | **OCR se construye solo si el spike de Overwolf falla**, nunca en paralelo. | Ataca primero la vía documentada oficialmente; evita duplicar esfuerzo antes de saber si hace falta. |
+| D7 | **El patrón 2-2-1 de turnos de All Pick NO se modela en el reductor.** Se mantiene §C2 intacto. | La evidencia nueva es de una guía de terceros, no de Valve. No alcanza para tocar una regla inviolable ya cerrada. |
+| D8 | **`SCORING_WEIGHTS_V2` por reducción proporcional**: los 4 pesos de v1 se multiplican por `0.80` y `hero_pool_fit` recibe `0.20`. | Cambia **una** cosa (añadir la señal), no dos. Con el pool sin configurar, `w_i/0.80 = v1_i` exactamente para las cuatro — el comportamiento del MVP ya validado no se mueve ni un punto. La alternativa (recortar más a las heurísticas) alteraba las sugerencias de un usuario que ni siquiera usa la función nueva. |
+| D9 | **Mínimo 10 partidas** dentro de la ventana, **+ suavizado hacia la línea base personal** con `K = 10`. | 10 partidas en 90 días ≈ una cada 9 días: bar bajo pero real. El suavizado no existe para invertir pares ajustados (no lo hace, y estadísticamente no debería): existe para que un 10-0 no valga `1.0` y para que un 60%-en-10 y un 55%-en-45 queden casi empatados en vez de muy separados. |
+| D10 | **`raw` de `hero_pool_fit` es una escala de comodidad 0–1, no un winrate crudo.** Fuera del pool = `0.20` (dato real). Pool sin configurar = `applicable: false`, no una degradación. | Un winrate personal crudo no es comparable con el agregado público de `patch_meta`. Y "no configuraste la función" no es lo mismo que "no hay datos": si contara como degradación, todo usuario sin pool bajaría de confianza `alta` a `media` para siempre — una regresión de UX en el MVP causada por una función que no está usando. |
+| D11 | **El hero pool es solo del usuario local.** Compañeros de equipo, fuera de alcance. | El motor conoce `HeroId` + `side`, nunca "de quién" es un pick. Crear identidad de slot es un problema propio, y necesita el login/multiusuario que no existe. |
+| D12 | **Predicción de rol/posición del rival: documentada como dependencia condicional de STRATZ, no se construye en 1b.** | Mismo patrón que D1 con Overwolf: el contrato de señal se puede especificar sin comprometerse a construirla. Añadiría el segundo proveedor externo y el primer secreto real (`STRATZ_API_KEY`) que fase 1 evitó a propósito (D2). Cuando se priorice, pasa obligatoriamente por `/gear-up`/`@depcheck`. |
+
+---
+
+## 9.2 — Costuras nuevas (antes que el comportamiento)
+
+`hero_pool_fit` no estrena costura: es un `SignalScorer` más, cae en **S3** tal cual (función
+pura, su propio archivo de prueba, aislado de los otros cuatro). Lo que sí estrena costura es
+todo lo que rodea al cálculo del pool:
+
+| Costura | Frontera | Qué es real en la prueba | Qué se reemplaza |
+|---|---|---|---|
+| **S7 — Cálculo del pool propuesto** | OpenDota → propuesta de pool | El filtro por mínimo, el suavizado, el orden por winrate y el corte en 5 — todo como **función pura** | El cliente HTTP: respuestas de `/players/{id}/heroes` grabadas en fixtures. **Cero red en las pruebas.** |
+| **S8 — Persistencia y edición del pool** | `apps/web` (configuración) → `apps/engine` → SQLite | La validación en el borde, el reemplazo transaccional y la lectura vía Drizzle, contra una SQLite en memoria | Nada más. `POST /calculate` no participa: leer/escribir el pool nunca llama a la red |
+
+**Regla derivada:** ninguna prueba de S7 depende de que OpenDota esté arriba, igual que S6.
+
+---
+
+## 9.3 — C3 extendido: la quinta señal
+
+```ts
+type SignalId = 'counter' | 'patch_meta' | 'team_synergy' | 'role_gap' | 'hero_pool_fit';
+
+interface SignalContribution {
+  signal: SignalId;
+  raw: number | null;
+  weighted: number;
+  explanation: string;
+  sampleSize: number;
+  applicable?: boolean;   // NUEVO. Ausente = true (los 4 scorers de fase 1 no lo tocan).
+}
+```
+
+`applicable: false` significa **"esta señal no aplica a este usuario ahora mismo"**, y es
+distinto de `raw: null` ("hay hueco de datos"). Sólo `hero_pool_fit` lo usa hoy, y sólo cuando el
+pool nunca se configuró. Consecuencias obligatorias, las tres:
+
+- **No cuenta como `null` para la confianza.** `computeConfidence` se calcula únicamente sobre las
+  señales aplicables: los umbrales de §C3 (≥2 nulls → `baja`, 1 null o meta vencida → `media`)
+  siguen operando sobre las 4 señales de fase 1 mientras no haya pool.
+- **No dispara `degraded: partial_signals`.**
+- **Sí se muestra en el desglose de la UI**, con su explicación propia ("Configura tu pool de
+  héroes para que las sugerencias tengan en cuenta con qué juegas cómodo"). Una señal que no
+  aplica se dice, no se esconde — misma regla que `raw: null`.
+
+**Pesos, `SCORING_WEIGHTS_V2`** (archivo propio, versionado por nombre; V1 se conserva intacto):
+
+| Señal | v1 | **v2** | Cambio |
+|---|---|---|---|
+| `counter` | 0.40 | **0.32** | ×0.80 |
+| `patch_meta` | 0.25 | **0.20** | ×0.80 |
+| `team_synergy` | 0.20 | **0.16** | ×0.80 |
+| `role_gap` | 0.15 | **0.12** | ×0.80 |
+| `hero_pool_fit` | — | **0.20** | nueva |
+| | **1.00** | **1.00** | |
+
+Dos pruebas unitarias, no una: (1) los 5 pesos suman exactamente `1.0`; (2) con
+`hero_pool_fit` no aplicable, la redistribución de `mix.ts` produce exactamente
+`0.40 / 0.25 / 0.20 / 0.15` — el candado de la regresión cero (criterio §9.8-4).
+
+**Contrato del scorer `hero_pool_fit`** (S3, función pura, sin I/O):
+
+| Situación | `raw` | `sampleSize` | `applicable` |
+|---|---|---|---|
+| `meta.heroPool` ausente o vacío | `null` | `0` | **`false`** |
+| Candidato **fuera** del pool | **`0.20`** — dato real: "sin comodidad conocida con este héroe" | `0` | `true` |
+| Candidato en el pool, sin winrate registrado (añadido a mano) | **`0.50`** — el piso de "está en tu pool" | `0` | `true` |
+| Candidato en el pool, con winrate registrado | `clamp(0.5 + (shrunk − baseline) × 2, 0.5, 1.0)` | `personalGames` | `true` |
+
+```
+shrunk   = (personalWins + K × baseline) / (personalGames + K),   K = 10
+baseline = winrate agregado del jugador en la ventana (settings.personal_baseline_winrate);
+           0.5 si nunca se calculó
+```
+
+`RAW_RANGE.hero_pool_fit = [0, 1]` en `mix.ts` — la normalización a 0–100 es `raw × 100`.
+
+La señal mide **comodidad relativa a ti mismo**, no winrate absoluto: un jugador con 45% general
+que va 55% con un héroe recibe el mismo empujón que uno de 55% general que va 65%. El piso `0.50`
+para un héroe dentro del pool con winrate igual o inferior a tu media es deliberado: estar en tu
+pool solo suma, nunca castiga dos veces.
+
+**Distancia máxima que puede mover una sugerencia:** de `0.20` a `1.00` son 80 puntos
+normalizados × peso `0.20` = **16 puntos sobre 100 del score final**. Es una ponderación fuerte y
+un filtro duro no: un contrapick claramente superior (peso `0.32`) sigue pudiendo ganarle a un
+héroe de tu pool. Eso es exactamente lo que pide el Bloque 1 de 1b ("nunca se filtra en duro").
+
+Los cuatro números (`0.20`, `0.50`, `K = 10`, factor `× 2`) son **un punto de partida razonado, no
+medido** — misma honestidad que `SCORING_WEIGHTS_V1` en §7.5. Se calibran con el criterio 2 de
+aceptación en la mano.
+
+---
+
+## 9.4 — C4 extendido: persistencia
+
+**Tabla nueva `hero_pool`** (Drizzle; cuenta como **una unidad lógica** con su migración, por la
+excepción documentada en `CLAUDE.md`):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `hero_id` | integer PK, FK → `heroes.id` | Un héroe no puede estar dos veces |
+| `source` | text `'manual' \| 'calculated'` | Procedencia honesta, igual que `CaptureSource` en S1 |
+| `personal_winrate` | real, nullable | `null` = añadido a mano sin datos |
+| `personal_games` | integer, default `0` | |
+| `updated_at` | text ISO-8601 | |
+
+**Claves nuevas en `settings`** (tabla ya existente, sin cambios de esquema):
+`steam_account_id` y `personal_baseline_winrate`.
+
+**Sin tabla de historial de partidas** — se persiste el agregado (héroe → winrate/partidas), nunca
+las partidas individuales. Coherente con §C4 de fase 1.
+
+**`MetaSnapshot` se extiende** con un campo opcional, mismo patrón que `patchStats?`/`roles?`:
+
+```ts
+interface HeroPoolEntry {
+  hero: HeroId;
+  source: 'manual' | 'calculated';
+  personalWinrate: number | null;   // 0.0 – 1.0
+  personalGames: number;
+  updatedAt: string;
+}
+
+interface MetaSnapshot {
+  // …lo de fase 1…
+  heroPool?: HeroPoolEntry[];              // ≤ 5 entradas
+  personalBaselineWinrate?: number | null; // 0.0 – 1.0
+}
+```
+
+`buildMetaSnapshot` gana dos lecturas triviales (≤5 filas + 1 setting). **No toca el presupuesto
+de §4**: sigue siendo SQLite local, cero red.
+
+**Método nuevo en `OpenDotaClient`** — mismo patrón de clase, reintentos 1s/4s/16s ya cubiertos:
+
+```ts
+getPlayerHeroes(accountId: string, options?: { days?: number }): Promise<unknown>
+// GET /players/{account_id}/heroes?date={days}
+```
+
+Devuelve `unknown` a propósito, igual que los tres métodos existentes: **la validación vive en el
+borde** (§5), nunca en el cliente. El nombre exacto del parámetro de fecha se confirma contra el
+Swagger en vivo durante el build; si difiere, cambia una línea del cliente y nada más.
+
+**Cálculo del pool propuesto (S7), función pura:**
+
+1. Descartar héroes con `games < 10` dentro de la ventana (D9).
+2. `baseline` = `Σwins / Σgames` sobre **todas** las partidas de la ventana (no solo las de los
+   héroes que pasaron el filtro — si no, sale inflado).
+3. Ordenar por `shrunk` descendente (fórmula de §9.3). Desempate: `personalGames` descendente.
+4. Tomar los primeros 5. **"Hasta 5" es un techo, no un piso**: pueden ser 0.
+5. `source: 'calculated'` en todas las entradas propuestas.
+
+Cero héroes pasan el filtro → `proposed: []` y la UI lo explica en llano, ofreciendo ampliar la
+ventana (`days`) o editar a mano. No es un error.
+
+---
+
+## 9.5 — API nueva
+
+Todo en `apps/engine`, `127.0.0.1`, consumido por `apps/web` vía **RTK Query** — el hero pool se
+edita en configuración, no es parte del WebSocket de draft en vivo (régimen "páginas normales",
+§C5).
+
+| Método | Ruta | Cuerpo / respuesta |
+|---|---|---|
+| `GET` | `/api/hero-pool` | → `HeroPoolEntry[]` |
+| `PUT` | `/api/hero-pool` | `{ entries: HeroPoolEntry[], baselineWinrate?: number \| null }` → `200 HeroPoolEntry[]`. **Reemplaza el pool completo, en una sola transacción.** Único camino de escritura |
+| `POST` | `/api/hero-pool/calculate` | `{ accountId: string, days?: number }` → `200 { proposed: HeroPoolEntry[], baselineWinrate: number, consideredHeroes: number, windowDays: number }`. **No escribe en SQLite**: solo propone. El `PUT` posterior confirma |
+
+`days` por defecto: **90**. `accountId` se persiste, si el usuario quiere, vía el
+`PUT /api/settings` ya existente — no se duplica un camino de escritura para eso.
+
+> **Deriva detectada y registrada aquí:** `GET`/`PUT /api/settings` existen en el código desde
+> TSK-014 pero nunca entraron en la tabla de §3. Quedan registrados. Es aditivo y no contradice
+> nada de fase 1 — no es de los gatillos de §7 de `CLAUDE.md`.
+
+**Errores, explícitos:**
+
+| Situación | Respuesta |
+|---|---|
+| `accountId` con formato inválido | `400 { error: 'invalid_account_id' }`. **Nunca se eco el valor recibido** en el cuerpo ni en el log |
+| `entries` con >5 elementos, `heroId` duplicado, o héroe inexistente en `heroes` | `400` con el motivo. El pool guardado **no se toca** |
+| `personalWinrate` fuera de `[0,1]` o `personalGames` negativo/no entero | `400`. Igual: no se toca lo guardado |
+| OpenDota 429 o caído tras los 3 reintentos | `502 { error: 'opendota_unavailable' }` + mensaje en llano. **El pool guardado sigue intacto y las sugerencias siguen funcionando** — mismo principio que `stale_meta` en S6 |
+| Un `calculate` ya en curso | `409 { error: 'calculation_in_progress' }`. Sin cola, sin reintento automático |
+| Ningún héroe pasa el mínimo | `200` con `proposed: []` — **no es un error** |
+
+**Nada de esto toca el camino caliente.** `/api/hero-pool/calculate` es una llamada de red, pero
+vive en el flujo de configuración; durante un draft activo el motor sigue sin tocar la red. La
+regla de §1 sigue intacta, palabra por palabra.
+
+---
+
+## 9.6 — C5: pantallas
+
+Dos, en el régimen RTK Query (nunca WebSocket):
+
+- **Configuración → Mi pool de héroes**: lista editable de hasta 5 héroes con su ícono oficial
+  (requisito duro de `web.md`), añadir/quitar a mano, y un botón "Calcular desde mis partidas"
+  que pide el `account_id` de Steam.
+- **Propuesta de pool**: pantalla de confirmación con los ≤5 héroes propuestos, su winrate y sus
+  partidas en la ventana. **Nunca auto-aplica.** El usuario confirma tal cual, edita antes de
+  confirmar, o descarta. Descartar deja el pool anterior exactamente como estaba.
+
+Ambas con su error boundary y estado de carga propios (`web.md`), y con los estados de "aún no
+calculaste nada", "no hay héroes que pasen el mínimo" y "OpenDota no respondió" visibles y
+explicados en llano — el mismo estándar que los 6 estados de la vista de draft.
+
+`SignalBreakdown` pasa a mostrar **5** señales. Los tres textos nuevos de `hero_pool_fit`
+("configura tu pool", "fuera de tu pool", "en tu pool: X% en N partidas") se muestran igual que
+los de las otras cuatro, sin excepción.
+
+---
+
+## 9.7 — Seguridad (extiende §5)
+
+| Requisito | Cómo se cumple en 1b |
+|---|---|
+| **Validación del `account_id`** | Steam32: **solo dígitos decimales**, valor entre `1` y `4294967295`. Se valida en el borde, antes de tocar lógica de negocio o construir ninguna URL. Un `accountId` que no pase **nunca** llega a `fetch` |
+| **Dato personal — el primero del proyecto** | Vive únicamente en la SQLite local. Se transmite a un solo destino: la propia OpenDota (endpoint público, sin autenticación). **Prohibido**: registrarlo en `journal.md`, en tickets, en `meta_sync.error`, en `/api/health`, o devolverlo en el cuerpo de un error. Si aparece en un diff, es hallazgo de `@redteam` |
+| **Sin secreto nuevo** | OpenDota no requiere API key. `STRATZ_API_KEY` es condicional y futuro (D12) — fuera del alcance de 1b |
+| **Consultas parametrizadas** | Vía Drizzle, incluida la escritura transaccional del `PUT`. Cero SQL concatenado |
+| **Escritura atómica** | El `PUT` reemplaza el pool completo dentro de **una transacción**: nunca queda un pool a medias, mismo principio que S6 |
+| **Sin cambios en lo ya cerrado** | `apps/engine` sigue atado a `127.0.0.1`. El `x-capture-token` de `/ingest/draft-event` no cambia. Las rutas nuevas son del régimen web (sin token, CORS a `127.0.0.1`/`localhost`), igual que `/api/settings` y `/api/session/manual` |
+| **Sin dependencias nuevas** | Cero. `OpenDotaClient` gana un método; no entra ninguna librería |
+
+---
+
+## 9.8 — Criterios de aceptación de 1b
+
+| # | Criterio | Verificación |
+|---|---|---|
+| 1 | **Pool manual** | El usuario guarda hasta 5 héroes a mano desde configuración, persisten en SQLite, siguen ahí al recargar |
+| 2 | **Cálculo desde partidas** | Con un `account_id` real, el sistema trae la ventana de 90 días, filtra por el mínimo de 10 partidas y **propone** un top 5 sin sobreescribir nada hasta que el usuario confirma |
+| 3 | **Visible en el draft** | Un héroe del pool recibe un ajuste **visible y explicado** en el desglose: `hero_pool_fit` aparece igual que las otras cuatro, nunca se calla |
+| 4 | **Regresión cero** | Con el pool nunca configurado: `applicable: false`, la confianza de las sugerencias **no baja**, y el orden de sugerencias es idéntico al de fase 1. Verificado por prueba unitaria de redistribución (§9.3), no a ojo |
+| 5 | **Pesos** | Prueba unitaria: los 5 pesos de `SCORING_WEIGHTS_V2` suman exactamente `1.0` |
+| 6 | **Fuera** | La predicción de rol rival **no** entra en estos criterios: no se construye en 1b (D12) |
+
+---
+
+## 9.9 — Lo que 1b deja abierto a propósito
+
+1. **El nombre exacto del parámetro de ventana de `/players/{id}/heroes`** (`date` en días, según
+   la doc). Se confirma contra el Swagger en vivo durante el build; no bloquea.
+2. **Los cuatro números de `hero_pool_fit`** (`0.20`, `0.50`, `K = 10`, `× 2`) y los pesos de v2:
+   razonados, no medidos. Se calibran con el criterio 2 de fase 1 en la mano.
+3. **Predicción de rol rival vía STRATZ** (D12): contrato de señal descrito en `architecture.md`,
+   sin construir. Requiere `/gear-up` y un secreto nuevo cuando se priorice.
+4. **Hero pool de compañeros** (D11): necesita identidad de slot y login. Fase posterior.
+5. **Qué expone el GEP de Overwolf realmente** (D4): sigue pendiente del spike empírico, con el
+   script ya escrito en `scripts/spikes/overwolf-draft-probe/`. No bloquea nada de 1b.
+
+---
+
+## 9.10 — Entrada para `/rulebook`
+
+Fronteras naturales de ticket, en orden de dependencia. **No son tickets todavía.** Ninguna
+depende del spike de Overwolf — 1b y el capturador real avanzan en paralelo sin tocarse.
+
+1. Migración `hero_pool` + claves de `settings` (§9.4) — **una unidad lógica** con su migración.
+2. `OpenDotaClient.getPlayerHeroes` + validación en el borde de la respuesta + fixtures grabados.
+3. Cálculo puro del pool propuesto (S7): filtro por mínimo, `baseline`, suavizado, orden, corte.
+4. Endpoints `GET`/`PUT /api/hero-pool` + escritura transaccional + validaciones de §9.5 (S8).
+5. Endpoint `POST /api/hero-pool/calculate` + sus errores (502/409/`proposed: []`).
+6. `heroPoolFitScorer` (S3) — archivo y prueba propios, aislado de los otros cuatro.
+7. `SCORING_WEIGHTS_V2` + `applicable` en `mix.ts` (confianza y `partial_signals`) + las dos
+   pruebas del candado de regresión cero.
+8. Pantalla de configuración del pool (RTK Query) con íconos oficiales.
+9. Pantalla de propuesta/confirmación + los tres estados vacíos/de error.
+10. `SignalBreakdown` con las 5 señales y los tres textos nuevos.
