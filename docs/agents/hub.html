@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-28T01:02:57.067Z</title>
+<title>HUB del ecosistema — 2026-07-28T22:51:32.005Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step step-active">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code / Codex según el `preferred_tool` de cada ticket · Modelo: Sonnet (ambos lados) · Acción: Priorizar con /helm el primer ticket a ejecutar — por dependencia, TSK-001 (esqueleto del monorepo + Bun instalado) va primero, todo lo demás depende de él — y pasarlo por /dispatch para confirmar `assigned_tool` justo antes de ejecutar.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code · Modelo: Sonnet · Acción: Fase 1 pasó sus 4 criterios de aceptación (architecture.md Bloque 6) por primera vez el 2026-07-27. Dos caminos posibles para la siguiente sesión, a decidir con calma, no en caliente: (a) validar el criterio 1 contra una partida real usando el capturador `manual` (ya existe, no requiere código nuevo) para cerrar la única salvedad honesta que queda; o (b) abrir la siguiente fase (personalización de hero pool / fase 1b, o el capturador automático Overwolf/OCR) con un ciclo tipo /kickoff propio. Ninguna es urgente — el MVP ya es funcional.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">15</span></h2>
+        <h2>done <span class="count">16</span></h2>
         
         <div class="card  ">
           
@@ -284,6 +284,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-016</div>
+          <div class="card-title">Ambiente de pruebas comprensible — simulador visible, configuración previa y guía de estado</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -299,41 +309,41 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">27× · 15% ok  · 1 falló</div>
+          <div class="stat-nums">33× · 24% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
-          <div class="stat-nums">18× · 83% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
+          <div class="stat-nums">19× · 84% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
-          <div class="stat-nums">17× · 0% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:55%"></div></div>
+          <div class="stat-nums">18× · 6% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
-          <div class="stat-nums">16× · 94% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:52%"></div></div>
+          <div class="stat-nums">17× · 94% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:7%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">depcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:7%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
@@ -341,6 +351,69 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T22:20</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 13 archivos/585 líneas (excede 3/200) -- excepción documentada por adelantado en el propio ticket, mismo patrón ya aceptado en TSK-012 (25/1265) y TSK-013 (13/560); sin hallazgos de dependencias, secretos ni WIP. Tablero regenerado (`bun scripts/hub.ts`, 16 tareas). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T22:05</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- sin endpoint nuevo, sin input externo sin validar, sin secretos, /api/session/manual reutilizado sin escalamiento de privilegio). 4 hallazgos reales de Standards encontrados y corregidos en la misma revisión (mismo patrón que TSK-013): (1) runSimulatorPlayback en modo velocidad sin .catch() -- un fallo de red dejaba "Reproduciendo el draft..." colgado para siempre, mismo tipo de bug que ManualEntryPanel/store.ts ya habían corregido antes; (2) handleNextEvent (paso a paso) sin try/catch -- rechazo no capturado en fallo de red; (3) botón "Siguiente pick/ban" sin gate de connectionStatus, a diferencia de "Iniciar" -- condición de carrera real al arrancar un escenario nuevo; (4) texto guía del estado completo no mencionaba el botón "Simular otro draft" que aparece debajo. Los 4 corregidos; reverificado tsc/eslint limpios y 23+106 tests sin regresión.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T21:40</span></div>
+            <div class="feed-note">Simulador conectado a la UI por primera vez: DraftSetupPanel (nuevo) deja elegir escenario (Captain Mode/All Pick) y modo de reproducción (velocidad configurable o paso a paso con botón "Siguiente pick/ban"), reemplazando el no-op handleSimulatorClick que quedó pendiente desde TSK-012. Reutiliza POST /api/session/manual (sin token, ya habilitado por CORS) con source:'simulator' -- cero endpoint nuevo en apps/engine, solo player.ts gana createStepPlayer (TDD, sin tocar buildEnvelopes). Añadido texto de guía en lenguaje llano para los 6 estados de TSK-012, entrada manual ahora se oculta sola cuando phase pasa a complete/aborted (derivado del estado, no un efecto -- el primer intento con useEffect violó react-hooks/set-state-in-effect de ESLint), badge "(Tú)" más visible en DraftBoard, sessionId real (randomUUID) en vez del placeholder "local" en page.tsx. Verificado: 106+23 tests sin regresión, tsc/eslint limpios, smoke test real contra el motor vivo confirmando orden draft_state/suggestions y transición active->complete. 13 archivos/567 líneas -- excepción ya documentada en el propio ticket antes de empezar (mismo patrón que TSK-012/013), sin hallazgos de secretos/dependencias/WIP. Pendiente: verificación visual en navegador real (sin herramienta de automatización de navegador en esta sesión) -- @redteam y confirmación del usuario quedan como siguiente paso.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T21:00</span></div>
+            <div class="feed-note">Ticket creado a partir de un hallazgo real del usuario probando la app por primera vez (captura de pantalla como evidencia): el motor/vista de draft funcionan y pasan sus pruebas, pero el ambiente de pruebas es incomprensible sin contexto -- simulador sin conectar en la UI (handleSimulatorClick era un no-op desde TSK-012), sin pantalla de configuración previa (elegir guion/velocidad), panel de entrada manual sin indicar cuándo usarlo ni cerrarse al completar el draft, indicador "(Tú)" insuficientemente visible. assigned_tool confirmado como claude-code (igual a preferred_tool): toca memoria/journal, reglas largas de web.md/testing-seams.md, y pulido visual de design system -- ninguna de las otras herramientas del ecosistema aplica. Alcance ya anticipado por superar 3 archivos/200 líneas (mismo patrón que TSK-012/013), documentado en el propio ticket como excepción, no en silencio.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T20:40</span></div>
+            <div class="feed-note">El usuario pidió verificar los 4 criterios de "fase 1 funcional" de `architecture.md` Bloque 6 en vez de saltar directo a planear fase 2 -- 2 de los 4 (captura con simulador, simulador independiente) ya estaban confirmados por evt-001/004; faltaban #2 (sugerencias coherentes, evaluación cualitativa del usuario) y #3 (latencia <2-3s), y en el camino el usuario reportó un tercer gap real de UI: `DraftBoard.tsx` nunca mostraba cuál lado (`Radiant`/`Dire`) es el jugador -- `draftState.localSide` llega bien por WebSocket pero el componente nunca lo leía. Corregido: `apps/web/components/draft-board/DraftBoard.tsx` (`TeamColumn` gana prop `isLocal`, sufijo "(Tú)" junto al nombre del lado) + `apps/web/features/draft/styles.ts` (constante `LOCAL_SIDE_LABEL`, mismo patrón de nombrar estilos que `BUTTON_PRIMARY`/etc, nunca clases inline). Verificado: `bunx tsc --noEmit` limpio, `npm run lint` limpio, `bun test` de apps/web sin regresión (20 pass). #3 (latencia) medido de punta a punta con un probe real (WebSocket + `httpEmit` del simulador, timestamps epoch en ambos lados, no solo el cálculo interno del motor): 5-20ms entre el POST de cada evento y la llegada del mensaje `suggestions` por WebSocket, muy por debajo del presupuesto de 2-3s de Bloque 6 (y del propio corte duro de 500ms de `engine.md`) -- PASS claro. #2 (coherencia) reveló un hallazgo real en el camino, no de código: el primer intento de evaluar sugerencias mostró confianza `baja` en el 100% de los picks de principio a fin del draft, y el top-3 exactamente empatado en score en cada turno -- indicio real de que una señal no estaba aportando dato. Causa raíz encontrada por inspección directa de la tabla `heroPatchStats`: el `POST /api/meta/sync` disparado antes en esta misma sesión (evt no numerado, era manual/ad-hoc) se mandó con body `{}`, y `handleMetaSync` (`server/app.ts`) usa `body.patch ?? ""` como default -- los datos de meta quedaron guardados bajo `patch: ""` en vez de `"7.35d"` (el patch que usan los guiones del simulador), así que `patch_meta` (25% del peso) nunca encontraba fila y siempre devolvía `null`. No es un bug de `patch_meta.ts` ni de `mix.ts` -- es un error de operación de esta sesión (sync disparado sin especificar patch), pero revela una ambigüedad real de la API pública: `POST /api/meta/sync` no exige `patch` ni documenta qué pasa si se omite, dejando fácil sincronizar "meta sin parche" por accidente. Anotado como nota abierta, no arreglado (no es parte de lo pedido hoy). Resincronizado con `{"patch":"7.35d"}` explícito -- 2032 filas de `heroPatchStats` bajo el patch correcto (matchups quedó parcial, un 429 real de OpenDota cortó la sincronización de `/heroes/83/matchups` tras varios reintentos con backoff -- comportamiento correcto de `security.md`/`engine.md`, el resto del cache sigue sirviendo). Con datos de patch reales, las sugerencias cambiaron de forma cualitativa: scores diferenciados (no más empates), confianza sube a `media`/`alta` cuando hay dato real, explicaciones concretas y verificables ("Winrate de 55.3% este parche en bracket bajo/medio", "Fuerte contra Rubick") -- el usuario las vio en vivo en el navegador junto con el fix de `localSide`. Con esto, los 4 criterios de Bloque 6 quedan: #1 con simulador ✅ (con partida real, nunca probado -- no existe capturador automático), #2 ✅ evaluado por el usuario con datos reales de meta, #3 ✅ medido, #4 ✅ confirmado desde evt-004. Fase 1 pasa su propio criterio de aceptación por primera vez, con la salvedad explícita de que "captura con partida real" nunca se validó porque el capturador automático (Overwolf/OCR) no se construyó -- sigue siendo la brecha más grande entre lo que existe y un producto usable con un jugador real.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:36</span></div>
+            <div class="feed-note">Corregido el hallazgo de evt-003, mismo criterio del usuario (fix directo, sin ticket formal). `apps/web/features/draft/socket.ts`: `createDraftSocket` ahora encola en `pending` cualquier `send()` que llegue mientras `readyState === CONNECTING`, y los vacía en orden en el listener `open` -- ningún cambio de interfaz (`DraftSocket` sigue igual, `FakeSocket` no se toca). Verificado: `bun test` completo de apps/web (20 pass, 0 fail, sin regresión); reproducido el patrón exacto de `store.connect()` (crear socket + `send()` en el mismo tick) contra el motor real -- el `snapshot` llega correcto donde antes se perdía en silencio. Confirmado con el usuario en el navegador real: la vista de draft ahora conecta y muestra el draft completo tras recargar. Nota abierta, no bloqueante: sigue sin existir forma de ver un draft en estado `activo` (en progreso, con sugerencias en vivo) más allá de lo que se demuestre en esta misma sesión -- todo lo probado hasta TSK-013 fue con FakeSocket o guiones ya corridos hasta el final.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">🔴</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:33</span></div>
+            <div class="feed-note">Segundo hallazgo real de la misma sesión de prueba manual: el usuario reportó `/draft?session=demo-1` mostrando "Desconectado del motor de sugerencias" de forma permanente tras correr el simulador (TSK-011) contra el motor real, con el botón "Reconectar" sin efecto. Causa raíz en `apps/web/features/draft/socket.ts` (TSK-012): `store.connect()` llama `socket.send({hello...})` en el mismo tick en que se crea el `WebSocket`, pero un `WebSocket` de navegador arranca en `CONNECTING` (nunca `OPEN` de forma síncrona) -- `send()` comprobaba `readyState === OPEN` y descartaba el mensaje en silencio si no. El `hello` nunca llegaba al motor, así que el servidor nunca respondía con el `snapshot` (session.ts sí lo manda correctamente al recibir `hello` -- confirmado con una prueba directa contra el WebSocket real del motor, sin pasar por la app). El `FakeSocket` de la costura S5 (testing-seams.md) acepta cualquier `send()` sin importar el estado de conexión -- nunca modela esta transición async del navegador real, por eso ninguna de las pruebas de TSK-012/013 lo detectó. Mismo patrón que el hallazgo de CORS en TSK-014 (evt-066): un test que no reproduce las condiciones reales del cliente no puede detectar un bug que solo existe en esas condiciones.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:35</span></div>
+            <div class="feed-note">Corregido el hallazgo de evt-001 con aprobación explícita del usuario ("fix directo ahora", sin pasar por ticket formal ni @redteam -- decisión suya, no default). El riesgo de host-injection que TSK-003 cerró sobre `img` se movió a `name` (campo que OpenDota sí sigue enviando, formato fijo de Valve `npc_dota_hero_<slug>`): `apps/engine/src/meta/validation.ts` quita `img` de `RawHero` y valida `name` contra `VALVE_HERO_NAME_PATTERN = /^npc_dota_hero_[a-z0-9_]+$/` (reemplaza `SAFE_RELATIVE_IMG_PATH`, mismos 3 casos de host-injection probados, ahora sobre `name`); `apps/engine/src/meta/mappers.ts` deriva la ruta de imagen quitándole el prefijo fijo a `name` -- segura por construcción, sin necesitar una segunda sanitización porque el regex de entrada ya solo permite `[a-z0-9_]+`. `validation.test.ts` actualizado (3 casos de host-injection movidos a `name`). Verificado: `bun test` completo de apps/engine (103 pass, 0 fail, sin regresión); motor reiniciado con DB limpia, sync real contra OpenDota -- 127/127 héroes guardados, `imgUrl` resuelve 200 contra el CDN real de Cloudflare/Valve (`cdn.cloudflare.steamstatic.com`).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">🔴</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:30</span></div>
+            <div class="feed-note">Primera vez que se corre fase 1 completa contra procesos reales por fuera de un ticket (el usuario pidió "probar todo lo que hemos hecho desde el lado de simulación" antes de aprobar avanzar a fase 2). Al levantar apps/engine + apps/web y disparar POST /api/meta/sync contra la API real de OpenDota (nunca solo el fixture grabado de las pruebas), el sync reportó status:'ok' pero descartó los 127 héroes -- catálogo vacío. Causa raíz: OpenDota dejó de exponer el campo `img` en GET /heroes (confirmado pegándole directo a la API real, no solo leyendo el fixture) -- drift real de una API de terceros, no un bug de código nuevo. `apps/engine/src/meta/validation.ts` exigía `img` como string y validaba ese campo contra `SAFE_RELATIVE_IMG_PATH` (protección de host-injection cerrada en TSK-003) -- al faltar el campo, `isValidRawHero` rechazaba las 127 filas en silencio y el sync igual marcaba 'ok' (el status refleja que el proceso corrió sin excepción, no que los datos sean completos -- ambigüedad real del propio contrato de meta_sync, no bloqueante hoy pero anotada). Nadie lo había detectado porque las pruebas de sync (S6) usan fixtures grabados con `img` presente (testing-seams.md exige exactamente eso -- nunca red real en pruebas del motor), y ningún ticket había disparado un sync real contra la API viva hasta esta sesión.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -360,69 +433,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:00</span></div>
             <div class="feed-note">Construidas las 3 páginas normales del sitio con RTK Query real (@reduxjs/toolkit + react-redux, evt-062): apps/web/lib/engine-api.ts (createApi con 5 endpoints: getMetaStatus, syncMeta mutation con invalidatesTags para refrescar automáticamente, getHeroes, getSettings, updateSetting mutation), lib/store.ts (makeStore() por-instancia, no singleton de módulo -- evita filtrar estado entre requests en SSR), app/providers.tsx (Provider wrapper, cableado en app/layout.tsx). Páginas: app/meta/page.tsx (syncedAt/isStale/lastSync + botón de sincronización manual), app/heroes/page.tsx (lista con HeroIcon reutilizado de TSK-012, valida host de imagen por diseño), app/settings/page.tsx (lista + formulario de alta/actualización). Bug real encontrado durante el smoke test end-to-end (no en el código nuevo de este ticket, sino en apps/engine/src/db/migrate.ts): construía su propia conexión Database() por separado en vez de reusar db/client.ts, así que no tenía el mkdirSync del directorio contenedor (fix de TSK-010) -- `bun run db:migrate` fallaba con SQLITE_CANTOPEN en un checkout limpio, el mismo bug en un archivo distinto. Corregido reutilizando el `db` ya exportado por client.ts (también se exportó DB_PATH desde ahí para el log); verificado que las migraciones aplican limpio en un checkout recién borrado. Hallazgo de ESLint real durante el build: el patrón clásico de Redux Toolkit + Next.js (useRef para crear el store una sola vez) dispara react-hooks/refs en la versión de eslint-plugin-react-hooks de este proyecto ('Cannot access ref value during render') -- exactamente el tipo de breaking change que AGENTS.md advierte sobre esta versión de Next.js. Corregido usando useState(() => makeStore()) en vez de useRef, que sí es el patrón correcto para inicialización perezosa sin ese problema. Verificado con smoke test real de punta a punta: motor + web levantados juntos, PUT/GET /api/settings confirmado end-to-end vía curl directo, las 3 páginas (/meta, /heroes, /settings) devuelven 200 y renderizan su estado de carga inicial sin errores reales (los "error" que aparecían en el grep eran referencias al bundle global-error.js de Next.js, infraestructura estándar, no un fallo real -- verificado con contexto antes de descartarlo). Verificado: bun test completo de apps/engine (100 pass, sin regresión); bunx tsc --noEmit sin errores en ambos paquetes; npm run build de apps/web sin errores (6 rutas: /, /draft, /heroes, /meta, /settings, /_not-found); npm run lint sin errores. Sigue con pruebas del lado web y cierre del ticket.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:30</span></div>
-            <div class="feed-note">Cerrado el gap de settings (evt-063): apps/engine/src/db/queries.ts (aditivo) gana getAllSettings/upsertSetting (upsert real vía onConflictDoUpdate, nunca duplica la fila en una clave repetida); apps/engine/src/server/app.ts (aditivo) gana GET /api/settings y PUT /api/settings, con isValidSettingBody validando en el borde antes de tocar la DB (mismo estándar del resto del servidor). Agregadas pruebas: queries.test.ts (+2 casos: inserta y refleja, actualiza sin duplicar), app.test.ts (+2 casos de integración: PUT+GET real end-to-end, PUT con forma inválida rechazado con 400 sin lanzar). Verificado: bun test completo de apps/engine (100 pass, 0 fail, 436 expect(), 15 archivos, sin regresión); bunx tsc --noEmit sin errores. Sigue con el armado de RTK Query y las 3 páginas en apps/web.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:15</span></div>
-            <div class="feed-note">Confirmado gap: TSK-010 nunca construyó rutas HTTP para 'settings' -- solo existe la tabla (TSK-002, schema.ts). Presentado al usuario, eligió arreglarlo dentro de TSK-014. Instalado @reduxjs/toolkit@2.12.0 + react-redux@9.3.0 (aprobados por /gear-up + @depcheck, evt-062) -- con zustand, apps/web llega exactamente al límite de 3 dependencias principales en fase de prototipo. Sigue con el fix de settings en apps/engine antes de construir las 3 páginas.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>depcheck</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:05</span></div>
-            <div class="feed-note">@reduxjs/toolkit@2.12.0 + react-redux@9.3.0 verificados. Context7 MCP no autorizado en esta sesión -- se usó `npm view` directo contra el registro real (no solo WebSearch) para confirmar: @reduxjs/toolkit@2.12.0 declara react:'^16.9.0 || ^17.0.0 || ^18 || ^19' como peerDependency, soporte explícito para React 19 (resuelto desde RTK v2.5.0, versiones previas tenían conflicto real con React 19 confirmado en issues públicos del propio repo, ya no aplica a la versión actual). Sin señales de deprecación, paquetes oficiales del equipo Redux, mantenimiento activo. Con zustand (TSK-012) y estos 2 paquetes, apps/web llega exactamente al límite de 3 dependencias principales en fase de prototipo (@types/bun no cuenta -- es solo tipos de desarrollo, no runtime). ✅ Dependencia verificada y autorizada. Se instalarán con comentario // ALLOWED en el diff de package.json.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T16:00</span></div>
-            <div class="feed-note">Modo manual, ticket especificado por el usuario. moscow:should (no must) -- no es de los 4 criterios de aceptación de fase 1, es soporte al producto; el usuario lo pidió explícitamente por nombre así que se procede sin pausa adicional. Dependencias TSK-001 (apps/web) y TSK-010 (GET /api/heroes, GET /api/meta/status, POST /api/meta/sync) ya están done. assigned_tool: claude-code (mismo criterio que TSK-004 en adelante). Reutiliza toda la arquitectura de apps/web ya construida en TSK-012/013 (tokens.css, HeroIcon, arquitectura por features) pero introduce RTK Query real por primera vez -- @reduxjs/toolkit + react-redux son dependencias nuevas, necesitan /gear-up + @depcheck antes de instalarse. state: backlog -> doing. WIP=1 por claude-code libre.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-013</span> <span class="feed-ts">2026-07-27T15:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 13 archivos / 560 líneas -- supera ambos límites, acordado explícitamente con el usuario. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-013</span> <span class="feed-ts">2026-07-27T15:35</span></div>
-            <div class="feed-note">Gate de seguridad: PASS. Sin inputs sin validar (HeroPicker restringe estructuralmente a HeroId reales del catálogo -- nunca texto libre convertido en id; el servidor sigue validando el envelope completo con isValidDraftEventEnvelope incluso en la ruta sin token), sin secretos hardcodeados (grep limpio, /api/session/manual correctamente no envía ningún token), sin queries (apps/web no tiene DB; reducer.ts no toca I/O), sin privilegios de más. Verificado por lectura del reductor real (no asumido) que pasar side:'radiant' como placeholder al corregir un héroe baneado es inofensivo: revertHero() revisa banned.includes(hero) ANTES que picks[side], así que el parámetro side se ignora por completo en esa rama. Hallazgo real encontrado durante Pasada 1 (Standards, punto 3 -- manejo de fallos de red), corregido en la misma revisión antes de reportar veredicto (no ameritó ronda formal de REJECTED porque no cae en ninguna de las 4 categorías del gate obligatorio): ni ManualEntryPanel.handleHeroSelect ni store.correctHero envolvían la llamada a postManualEvent en try/catch -- un fallo de red (exactamente el escenario para el que esta feature existe: "cuando la detección automática falla") habría dejado el panel con 'Enviando...' colgado para siempre, y correctHero habría generado una promesa rechazada sin capturar. Corregido: ManualEntryPanel ahora captura el fallo y muestra un mensaje explícito con posibilidad de reintentar; correctHero registra el error en consola (sin estado de error dedicado para el botón "Corregir" -- decisión de alcance proporcional, es una acción de un clic fácilmente reintentable, no el flujo principal). Verificado por ejecución real: nueva prueba en store.test.ts que hace que fetch lance una excepción real y confirma que correctHero() resuelve sin rechazar la promesa. Resto de Pasada 1: sin abstracciones de más, nomenclatura de dominio, tokens.css respetado (sin hex sueltos, confirmado con grep), N/A Drizzle. Pasada 2 (Spec): los 3 criterios de aceptación literales cubiertos con evidencia real -- smoke test de punta a punta confirmó que capture_health:'lost' simulado habilita la entrada manual sin perder el draft (banner + panel conviven con DraftBoard visible), un pick manual produce el mismo efecto en DraftState que el simulador (mismo POST, mismo DraftEventEnvelope, verificado contra el servidor real), y un evento con confidence<0.6 se marca sin confirmar y se corrige sin perder el resto del draft (verificado con el ciclo completo pick->unconfirmed->pick_reverted->limpio). Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-013</span> <span class="feed-ts">2026-07-27T15:20</span></div>
-            <div class="feed-note">Construida la entrada manual completa sobre apps/web (TSK-012): apps/web/features/draft/manual-entry.ts (postManualEvent -- mismo DraftEventEnvelope que cualquier capturador, source:'manual', confidence:1.0, seq=lastSeq+1, sin token -- POST /api/session/manual no lo exige, confirmado en TSK-010), components/hero-picker/HeroPicker.tsx (buscador que solo permite seleccionar del catálogo real, nunca un HeroId inventado -- comunica explícitamente cuando no hay coincidencias, regla dura del ticket), components/manual-entry-panel/ManualEntryPanel.tsx (pick/ban + lado + héroe, sin ternarios de renderizado ni handlers anónimos). Agregada correctHero(hero, side) al store de Zustand (sessionId ahora se guarda en el store state, antes solo vivía como parámetro de connect()) -- disponible desde cualquier componente sin prop drilling, usada por un nuevo botón "Corregir" en DraftHeroSlot que aparece solo cuando el héroe está en quality.unconfirmed. Agregado CaptureLostBanner en ActiveDraftState, visible cuando draftState.quality.captureStatus==='lost', con CTA a la misma entrada manual -- el draftState sigue visible debajo, nunca se limpia (regla dura). Reforzada validation.ts: isDraftState no validaba el valor de quality.captureStatus, solo que unconfirmed fuera un array -- corregido antes de que @redteam lo encontrara. Verificado con smoke test real de punta a punta contra apps/engine corriendo (tras aplicar migraciones en el motor de prueba, mismo paso que ya había hecho falta en TSK-012): POST /api/session/manual con hero_picked y confidence:0.4 (sin header de token) -> 202 accepted, el héroe aparece en picks.radiant Y en quality.unconfirmed vía WebSocket; un segundo POST con pick_reverted -> el héroe desaparece de AMBOS. Confirma que la UI, el fix del reductor, y el servidor de TSK-010 interoperan correctamente, no solo por tipos espejados. Pruebas: reducer.test.ts +4 casos (ya loggeados en evt-057), manual-entry.test.ts (2 casos: envelope correcto con seq=lastSeq+1, propaga accepted:false/rejected), store.test.ts +3 casos (connect() guarda sessionId, correctHero envía pick_reverted con sessionId/lastSeq del store, sin sessionId no intenta enviar nada). Verificado: bun test apps/web (19 pass, 0 fail, 35 expect(), 4 archivos); bun test apps/engine completo (96 pass, sin regresión); npx tsc --noEmit sin errores en ambos paquetes; npm run build sin errores; npm run lint sin errores (1 warning de import sin usar, corregido). verify-simplicity.sh: 13 archivos / 533 líneas -- supera ambos límites, acordado explícitamente con el usuario. TSK-013 sigue en state: doing, pasa a @redteam.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-013</span> <span class="feed-ts">2026-07-27T14:55</span></div>
-            <div class="feed-note">Cerrado el gap de quality.unconfirmed descubierto al planificar TSK-013 (con aprobación explícita del usuario, resuelto dentro de este mismo ticket en vez de crear uno aparte). apps/engine/src/draft/reducer.ts: agregado LOW_CONFIDENCE_THRESHOLD=0.6 y markUnconfirmed() -- hero_banned/hero_picked con confidence<0.6 agregan el heroId a quality.unconfirmed (sin duplicar si ya estaba) mientras el evento se sigue aplicando con normalidad, tal como exige SPEC.md línea 127 ("el evento se aplica igual, pero el estado queda marcado"); revertHero() ahora también limpia el heroId de unconfirmed al deshacerlo con pick_reverted. Agregadas 4 pruebas nuevas a reducer.test.ts (confidence baja marca y el evento igual se aplica; confidence>=0.6 no marca nada; pick_reverted limpia unconfirmed; dos héroes de baja confianza no se pisan ni duplican). Verificado: las 16 pruebas originales de TSK-004 siguen pasando sin cambios (confidence:1 por defecto en su helper envelope(), nunca cruza el umbral); suite completa de apps/engine 96/96 pass (incluye mix.ts, server/, meta/ -- sin efectos colaterales en ningún consumidor de DraftState); bunx tsc --noEmit sin errores. Sigue con la construcción de la UI de entrada manual sobre apps/web (TSK-012).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-013</span> <span class="feed-ts">2026-07-27T14:40</span></div>
-            <div class="feed-note">Modo manual, ticket especificado por el usuario. Dependencias TSK-004 (contrato de eventos), TSK-010 (POST /api/session/manual) y TSK-012 (vista de draft, estados esperando_draft/degradado -- ambos ya tienen botones stub esperando esta funcionalidad) están done. TSK-011 (simulador) no existe todavía -- el propio ticket permite usar un fixture en su lugar para el criterio de aceptación de capture_health:'lost'. assigned_tool: claude-code (coincide con preferred_tool, UI que reutiliza toda la arquitectura ya construida en TSK-012: store de Zustand, tipos de wire, HeroIcon, tokens.css -- sin dependencias nuevas esperadas). state: backlog -> doing. WIP=1 por claude-code libre.</div>
           </div>
         </div></div>
     </div>
