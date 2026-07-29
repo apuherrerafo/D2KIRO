@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T18:29:17.912Z</title>
+<title>HUB del ecosistema — 2026-07-29T19:09:47.071Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step step-active">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code (o Codex según el `preferred_tool` de cada ticket, confirmado por /dispatch) · Modelo: Sonnet · Acción: Empezar a ejecutar los 10 tickets de fase 1b (TSK-017 a TSK-026, todos en `backlog`) con /helm → /dispatch → @build, empezando por TSK-017 (migración `hero_pool` + claves de `settings`), que no depende de ningún otro ticket nuevo. En paralelo, sin que dependa de lo anterior ni viceversa: correr el spike de Overwolf (scripts/spikes/overwolf-draft-probe/) en una partida real para decidir el adapter de captura real. Sigue pendiente y no urgente: validar el criterio 1 de fase 1 contra una partida real con el capturador manual.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: el usuario decide primero — tres caminos válidos, sin orden fijo entre sí · Modelo: — · Acción: Elegir entre (1) `/castoff` (Claude Code, Sonnet) para desplegar fase 1b a Railway, (2) · correr el spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`, instrucciones en su propio · README) en una partida real para decidir el adapter de captura real, o (3) abrir una fase nueva · con `/kickoff` si hay una idea concreta de qué construir después — todavía no hay brief de eso. · Sigue pendiente y no urgente: validar el criterio 1 de fase 1 (captura con partida real) con el · capturador manual.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,26 +120,66 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">0</span></h2>
-        <div class="empty">—</div>
-      </div>
-      <div class="column ">
-        <h2>ready <span class="count">0</span></h2>
-        <div class="empty">—</div>
-      </div>
-      <div class="column ">
-        <h2>doing <span class="count">1</span></h2>
+        <h2>backlog <span class="count">5</span></h2>
         
         <div class="card  ">
           
-          <div class="card-id">TSK-026</div>
-          <div class="card-title">SignalBreakdown con las 5 señales + textos de hero_pool_fit</div>
+          <div class="card-id">TSK-027</div>
+          <div class="card-title">SignalScorer: role_safety + SCORING_WEIGHTS_V3 (feedback real de producto)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-028</div>
+          <div class="card-title">Simulador: el lado del usuario saca héroes de su pool configurado</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-029</div>
+          <div class="card-title">Pantalla de inicio real + navegación compartida entre pantallas</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-030</div>
+          <div class="card-title">Persistir account_id en /hero-pool vía /api/settings</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-031</div>
+          <div class="card-title">Ampliar el guion de bans de allPick en scripts.json</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+      </div>
+      <div class="column ">
+        <h2>ready <span class="count">0</span></h2>
+        <div class="empty">—</div>
+      </div>
+      <div class="column ">
+        <h2>doing <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>review <span class="count">0</span></h2>
@@ -150,7 +190,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">25</span></h2>
+        <h2>done <span class="count">26</span></h2>
         
         <div class="card  ">
           
@@ -394,6 +434,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-026</div>
+          <div class="card-title">SignalBreakdown con las 5 señales + textos de hero_pool_fit</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -409,22 +459,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">45× · 42% ok  · 3 falló</div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
-          <div class="stat-nums">29× · 90% ok · 3 bloqueado </div>
+          <div class="stat-nums">46× · 43% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:62%"></div></div>
-          <div class="stat-nums">28× · 39% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
+          <div class="stat-nums">29× · 41% ok  </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">redteam</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
+          <div class="stat-nums">29× · 90% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
-          <div class="stat-nums">26× · 96% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
+          <div class="stat-nums">27× · 96% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -456,6 +506,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-29T19:15</span></div>
+            <div class="feed-note">5 tickets nuevos (TSK-027 a TSK-031) creados a partir de feedback directo del usuario probando fase 1b en vivo, no de una planificación formal (/kickoff no se corrió -- el usuario ya dio el detalle técnico necesario en conversación directa, incluidas dos decisiones de producto confirmadas explícitamente vía preguntas concretas: ventana de "pick 1 y 2" para la nueva señal role_safety, y fallback al guion original cuando el pool del simulador se agota). TSK-027 (SignalScorer role_safety + SCORING_WEIGHTS_V3, must): no predice al rival (D12 sigue fuera de alcance), solo mira picks propios -- favorece Support en los primeros 2 picks propios, null después. Candado de regresión doble verificado matemáticamente antes de codear: con role_safety null y hero_pool_fit no aplicable, la redistribución reproduce V1 exacto. TSK-028 (simulador personalizado al pool, must): el lado local del simulador saca héroes del pool configurado en vez del guion fijo, con fallback al guion cuando el pool se agota, regresión cero si no hay pool. TSK-029 (home page + navegación, must): la home sigue siendo el placeholder de create-next-app, cero navegación entre pantallas -- huecos reales encontrados en la revisión, no reportados por el usuario directamente pero confirmados con una captura de pantalla. TSK-030 (persistir account_id, should) y TSK-031 (ampliar guion de bans de allPick a ~16, should) son los huecos menores ya anticipados. Ninguno pasó por /kickoff formal -- se documentó el razonamiento completo aquí para que quede trazable igual.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-29T18:45</span></div>
+            <div class="feed-note">Verificación visual real de fase 1b, pendiente desde el cierre de TSK-026: se levantó apps/engine (migración hero_pool aplicada a la base de datos real de desarrollo, 127 héroes ya sincronizados) y apps/web (Turbopack, sin errores de compilación) en local. Smoke test del backend con curl confirmó el flujo completo: GET /api/hero-pool vacío inicial, PUT persistiendo un héroe real, GET reflejándolo, POST /api/hero-pool/calculate rechazando un accountId inválido con 400 -- dato de prueba limpiado después, el pool real del usuario quedó vacío como estaba. Las 4 páginas (/, /settings, /hero-pool, /draft) respondieron 200 sin marcadores de error, con el texto esperado presente en el HTML servido. El usuario después probó "calcular desde mis partidas" con su cuenta real de Steam y confirmó que los héroes propuestos hacen sentido con su historial real -- primera validación real de extremo a extremo de fase 1b, más allá de tests unitarios y smoke tests de servidor. Cierra el último pendiente no bloqueante de TSK-026.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-026</span> <span class="feed-ts">2026-07-29T17:00</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 archivos -- dentro del límite, sin excepción necesaria; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas, 26/26 done). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -517,27 +588,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-024</span> <span class="feed-ts">2026-07-29T15:05</span></div>
             <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- sin dangerouslySetInnerHTML, HeroIcon reutilizado sin modificar sigue validando el host, accountId nunca se loguea, validación real vive en el servidor). 1 hallazgo real de correctness, corregido en la misma ronda: handleCalculate mostraba "OpenDota no respondió" para cualquier error, incluidos 400 (accountId inválido) y 409 (cálculo en curso) -- mensajes factualmente incorrectos que llevarían al usuario a reintentar sin corregir su input. Corregido diferenciando por status code del error de RTK Query. Standards: los ternarios que aparecen calculan texto de etiqueta, no eligen entre árboles JSX distintos, mismo patrón ya aprobado en DraftSetupPanel (TSK-016) -- revisado explícitamente contra la regla de web.md, no es una violación. Spec: alcance respetado, no invadió apps/engine ni la pantalla dedicada de TSK-025 de forma bloqueante.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-024</span> <span class="feed-ts">2026-07-29T14:45</span></div>
-            <div class="feed-note">Implementada la pantalla de configuración del hero pool. Módulo nuevo apps/web/features/hero-pool/ (HeroPoolConfig.tsx, types.ts, constants.tsx, index.ts) + ruta app/hero-pool/page.tsx + 3 endpoints RTK Query nuevos en engine-api.ts. Reutiliza HeroIcon/HeroPicker y los tokens de botón de features/draft/styles.ts (import cruzado, mismo patrón que HeroIcon con ALLOWED_HERO_IMG_HOSTS) en vez de duplicar. El botón "Calcular desde mis partidas" llama al endpoint real (TSK-021) y deja el resultado en el mismo estado editable -- el usuario revisa/quita con los controles normales y confirma con "Guardar" (PUT, único camino de escritura), nunca se auto-aplica; la pantalla de propuesta dedicada con los 3 estados de error específicos de OpenDota sigue siendo TSK-025. Hallazgo real durante el build: el primer intento sincronizaba el pool del servidor con useEffect+setState, mismo patrón que ya rompió TSK-016 (react-hooks/set-state-in-effect) -- corregido con estado derivado (draftEntries ?? savedPool ?? []), sin efecto. tsc limpio, eslint limpio, bun test de apps/web sin regresión (23/23). Sin prueba de componente dedicada (este proyecto no tiene tests de React, solo de lógica pura) ni verificación visual en navegador real (sin herramienta de automatización disponible, misma salvedad que TSK-012). verify-simplicity.sh: 6 archivos/238 líneas -- excede ambos límites, excepción declarada en el propio ticket, mismo patrón que TSK-012 (pantalla nueva) en fase 1. Siguiente paso: @redteam sobre TSK-024.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-024</span> <span class="feed-ts">2026-07-29T14:20</span></div>
-            <div class="feed-note">/dispatch manual sobre TSK-024 (depende de TSK-020, done). WIP=1 libre tras cerrar TSK-023. preferred_tool ya era codex desde /rulebook; sin créditos disponibles, no se repreguntó. assigned_tool: claude-code. Ruta: @build → @redteam → @shipcheck. TSK-024 pasa de `backlog` a `doing`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-023</span> <span class="feed-ts">2026-07-29T14:05</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 archivos -- dentro del límite, sin excepción necesaria; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
           </div>
         </div></div>
     </div>
