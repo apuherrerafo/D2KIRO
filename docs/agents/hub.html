@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T19:28:33.187Z</title>
+<title>HUB del ecosistema — 2026-07-29T19:38:10.129Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">3</span></h2>
+        <h2>backlog <span class="count">2</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-029</div>
-          <div class="card-title">Pantalla de inicio real + navegación compartida entre pantallas</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-030</div>
@@ -170,7 +160,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">28</span></h2>
+        <h2>done <span class="count">29</span></h2>
         
         <div class="card  ">
           
@@ -444,6 +434,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-029</div>
+          <div class="card-title">Pantalla de inicio real + navegación compartida entre pantallas</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -459,22 +459,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">48× · 46% ok  · 3 falló</div>
+          <div class="stat-nums">50× · 48% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">31× · 45% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">32× · 44% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">31× · 90% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">32× · 91% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
-          <div class="stat-nums">28× · 96% ok · 1 bloqueado </div>
+          <div class="stat-nums">29× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -506,6 +506,41 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T22:10</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (sin input externo nuevo, sin query nueva, sin secreto -- grep de patrón de secretos sin coincidencias; NavBar es un componente estático de enlaces internos, sin renderizar ningún dato de OpenDota). Pasada 1 (Standards): 1 hallazgo real, corregido en la misma revisión antes de reportarlo -- NavBar.tsx no tenía `focus-visible:outline` en los links, a diferencia de cada otro elemento interactivo del proyecto (BUTTON_PRIMARY/SECONDARY/GHOST en styles.ts siempre lo definen vía INTERACTIVE_BASE) -- un usuario navegando con teclado no tenía ninguna indicación visual de foco al tabular por el nav. Corregido con las mismas clases de foco que el resto del design system (NAV_LINK_BASE compartido entre estado activo/inactivo, sin duplicar la cadena). El resto: sin ternarios de renderizado, sin funciones anónimas inline (navLinkClassName con nombre, igual que scenarioButtonClassName), tokens semánticos únicamente (--content-*/--accent-*/--surface-*, cero hex suelto). Pasada 2 (Spec): las 3 aceptaciones literales del ticket verificadas -- (1) / muestra contenido real, confirmado por grep negativo del texto de create-next-app sobre el HTML servido; (2) las 4 rutas explícitas del ticket son alcanzables desde cualquier página vía el NavBar compartido (más 2 rutas reales adicionales que el ticket no listó pero que ya existían sin nav, ver nota de alcance evt-051); (3) guardar el pool deja un link visible a /draft, verificado por el mismo estado que ya dispara el mensaje "Pool guardado." (POOL_SAVED_MESSAGE, extraído a constante para que ambos nunca se desincronicen). Límite de verificación honesto: sin click real en navegador (sin herramienta de automatización disponible en este entorno) -- verificado por HTML servido, wiring de estado y grep de contenido, no por interacción real; mismo gap que TSK-016. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T22:00</span></div>
+            <div class="feed-note">Unidad lógica 2/2 (camino claro de /hero-pool a /draft tras guardar). apps/web/features/hero-pool/HeroPoolConfig.tsx: tras un guardado exitoso (mismo estado que ya mostraba el texto "Pool guardado.", en handleSave y handleConfirmProposal), aparece un link visible "Ver el draft en vivo" hacia /draft -- responde directo al reporte de producto ("guardo el pool y ahí queda... ¿con qué se conecta?"). constants.tsx: extraído POOL_SAVED_MESSAGE (antes el literal "Pool guardado." estaba repetido en 2 sitios sin ninguna fuente única) para que la comparación que decide mostrar el link nunca se desincronice de lo que en verdad se muestra al guardar. Verificado: tsc --noEmit y eslint limpios, bun test completo de apps/web (27 pass, 0 fail, sin regresión -- este componente no tiene pruebas unitarias propias, ninguna existía antes de este ticket tampoco). Mismo límite de verificación que la unidad 1/2: sin click real en navegador por falta de herramienta de automatización, verificado por código + wiring de estado.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T21:55</span></div>
+            <div class="feed-note">Unidad lógica 1/2 (shell de navegación + landing real). apps/web/components/nav-bar/NavBar.tsx (nuevo): componente cliente con usePathname, 6 rutas reales del sitio (/, /draft, /hero-pool, /heroes, /meta, /settings -- ver nota de alcance en evt-051), marca la ruta activa con borde de acento (mismo patrón de className por función que ya usa scenarioButtonClassName en DraftSetupPanel, sin ternario de renderizado). apps/web/app/layout.tsx: monta <NavBar /> antes de {children} dentro de <Providers>, y corrige metadata.title/description (seguían siendo el literal "Create Next App" de create-next-app, nunca tocado desde TSK-001 -- mismo boilerplate que el usuario reportó con captura de pantalla) y lang="en" -> "es". apps/web/app/page.tsx: reemplazado el placeholder completo de create-next-app por una landing real (nombre, una frase de qué hace el producto, 3 links a /draft, /hero-pool, /settings -- los 3 flujos explícitos del ticket). Verificado con servidor real: bun run dev en apps/web + apps/engine, curl a / (200, contenido real confirmado por grep -- ni rastro de "To get started"), /draft y /hero-pool (200), y confirmado que el NavBar aparece en /hero-pool junto al contenido de la página (grep de las 4 etiquetas de nav). tsc --noEmit y eslint limpios. No se pudo hacer click real en un navegador (sin herramienta de automatización de navegador disponible en este entorno) -- verificado por HTML servido + código, no por interacción real; mismo gap ya documentado en TSK-016 (ledger.md).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T21:40</span></div>
+            <div class="feed-note">Modo manual, siguiente ticket en orden del feedback de producto (TSK-028 ya done). assigned_tool fijado a claude-code (igual que preferred_tool -- toca componentes visuales/design system y layout raíz, sin necesidad de red ni de créditos externos). state: backlog → doing. WIP=1 por claude-code libre. Nota de alcance encontrada durante la investigación previa a @build, antes de tocar código: el ticket lista 4 rutas (/, /draft, /hero-pool, /settings) para el shell de navegación, pero apps/web/app/ ya tiene 2 rutas reales más (/heroes, /meta -- de TSK-014, fase 1) que quedarían igual de aisladas si el nav las omite -- exactamente el problema que este ticket existe para resolver. Decisión: el NavBar compartido incluye las 6 rutas reales (contando /), sin que esto cambie el archivo/línea de alcance (mismo componente, 2 entradas más en un array) ni el criterio de aceptación literal del ticket (los 4 flujos explícitos siguen navegables). Se documenta aquí por transparencia, no se oculta como si el ticket lo hubiera pedido tal cual.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-028</span> <span class="feed-ts">2026-07-29T21:30</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 archivos/131 líneas — dentro de ambos límites, sin excepción necesaria. Sin funciones innecesarias, sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 31 tareas, 147 eventos.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -553,41 +588,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-027</span> <span class="feed-ts">2026-07-29T19:20</span></div>
             <div class="feed-note">/dispatch sobre TSK-027 (no depende de otro ticket nuevo). WIP=1 libre. assigned_tool: claude-code (lógica central del motor, regresión-crítica, mismo criterio que TSK-023). Ruta: @build → @redteam → @shipcheck. TSK-027 pasa a `doing`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-29T19:15</span></div>
-            <div class="feed-note">5 tickets nuevos (TSK-027 a TSK-031) creados a partir de feedback directo del usuario probando fase 1b en vivo, no de una planificación formal (/kickoff no se corrió -- el usuario ya dio el detalle técnico necesario en conversación directa, incluidas dos decisiones de producto confirmadas explícitamente vía preguntas concretas: ventana de "pick 1 y 2" para la nueva señal role_safety, y fallback al guion original cuando el pool del simulador se agota). TSK-027 (SignalScorer role_safety + SCORING_WEIGHTS_V3, must): no predice al rival (D12 sigue fuera de alcance), solo mira picks propios -- favorece Support en los primeros 2 picks propios, null después. Candado de regresión doble verificado matemáticamente antes de codear: con role_safety null y hero_pool_fit no aplicable, la redistribución reproduce V1 exacto. TSK-028 (simulador personalizado al pool, must): el lado local del simulador saca héroes del pool configurado en vez del guion fijo, con fallback al guion cuando el pool se agota, regresión cero si no hay pool. TSK-029 (home page + navegación, must): la home sigue siendo el placeholder de create-next-app, cero navegación entre pantallas -- huecos reales encontrados en la revisión, no reportados por el usuario directamente pero confirmados con una captura de pantalla. TSK-030 (persistir account_id, should) y TSK-031 (ampliar guion de bans de allPick a ~16, should) son los huecos menores ya anticipados. Ninguno pasó por /kickoff formal -- se documentó el razonamiento completo aquí para que quede trazable igual.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-29T18:45</span></div>
-            <div class="feed-note">Verificación visual real de fase 1b, pendiente desde el cierre de TSK-026: se levantó apps/engine (migración hero_pool aplicada a la base de datos real de desarrollo, 127 héroes ya sincronizados) y apps/web (Turbopack, sin errores de compilación) en local. Smoke test del backend con curl confirmó el flujo completo: GET /api/hero-pool vacío inicial, PUT persistiendo un héroe real, GET reflejándolo, POST /api/hero-pool/calculate rechazando un accountId inválido con 400 -- dato de prueba limpiado después, el pool real del usuario quedó vacío como estaba. Las 4 páginas (/, /settings, /hero-pool, /draft) respondieron 200 sin marcadores de error, con el texto esperado presente en el HTML servido. El usuario después probó "calcular desde mis partidas" con su cuenta real de Steam y confirmó que los héroes propuestos hacen sentido con su historial real -- primera validación real de extremo a extremo de fase 1b, más allá de tests unitarios y smoke tests de servidor. Cierra el último pendiente no bloqueante de TSK-026.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-026</span> <span class="feed-ts">2026-07-29T17:00</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 archivos -- dentro del límite, sin excepción necesaria; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas, 26/26 done). Auditoría de impacto de documentación:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-026</span> <span class="feed-ts">2026-07-29T16:50</span></div>
-            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS trivial -- solo renderiza datos ya validados en el borde del WebSocket, sin dangerouslySetInnerHTML). Sin hallazgos. Verificado explícitamente el orden de los dos if en SignalBreakdownRow: applicable===false se chequea antes que raw===null, así que hero_pool_fit sin pool configurado (que trae ambos según TSK-022) nunca cae en la rama genérica de "sin datos suficientes" -- si el orden estuviera invertido el ticket no cumpliría su propio propósito. Los tres textos se renderizan tal cual llegan del servidor, sin duplicarlos en el frontend. Spec verificada: las 4 señales de fase 1 pasan por el mismo código exacto que antes (applicable siempre undefined para ellas), cero regresión confirmada por lectura de código.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-026</span> <span class="feed-ts">2026-07-29T16:40</span></div>
-            <div class="feed-note">Implementado SignalBreakdown con las 5 señales. types.ts: SignalId gana hero_pool_fit, SignalContribution gana applicable?:boolean, espejo exacto del motor (signals/types.ts, TSK-022). SignalBreakdown.tsx: SIGNAL_LABELS gana "Tu pool de héroes", SignalBreakdownRow distingue tres casos (applicable:false -> fila nueva SignalBreakdownRowNotApplicable con early return, raw:null -> fila existente sin tocar, caso normal). Las 4 señales de fase 1 renderizan exactamente igual -- solo se agregó una rama antes del chequeo existente, sin tocar su lógica. tsc limpio, eslint limpio, bun test 23/23 sin regresión. Sin prueba de componente dedicada (mismo patrón que TSK-012/013/016/024/025). verify-simplicity.sh: 2 archivos -- dentro del límite, sin excepción necesaria. Siguiente paso: @redteam sobre TSK-026, último ticket de fase 1b.</div>
           </div>
         </div></div>
     </div>
