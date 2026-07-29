@@ -110,7 +110,10 @@ export function HeroPoolConfig() {
   // Propone y deja el resultado en el mismo estado editable de arriba -- el usuario revisa/quita
   // héroes con los mismos controles de siempre y confirma con "Guardar", nunca se auto-aplica
   // (regla dura de §9.6). La pantalla de propuesta con winrate/partidas detallado y los 3 estados
-  // vacíos/de error específicos de OpenDota es TSK-025 -- aquí el manejo de error es genérico.
+  // vacíos/de error específicos de OpenDota es TSK-025 -- aquí el manejo de error ya distingue por
+  // código (hallazgo de @redteam: un catch genérico mostraba "OpenDota no respondió" incluso para
+  // un accountId inválido o un cálculo ya en curso, mensajes factualmente incorrectos para esos
+  // dos casos), pero sin la pantalla dedicada que TSK-025 construye.
   async function handleCalculate() {
     setCalculateMessage(null);
     try {
@@ -121,8 +124,15 @@ export function HeroPoolConfig() {
       }
       setDraftEntries(result.proposed);
       setCalculateMessage(`Propuesta de ${result.proposed.length} héroe(s) cargada -- revisala abajo y pulsá "Guardar" para confirmarla.`);
-    } catch {
-      setCalculateMessage("OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- podés intentar de nuevo más tarde.");
+    } catch (err) {
+      const status = typeof err === "object" && err !== null && "status" in err ? err.status : undefined;
+      if (status === 400) {
+        setCalculateMessage("Ese account_id no parece válido -- revisá que sean solo números.");
+      } else if (status === 409) {
+        setCalculateMessage("Ya hay un cálculo en curso -- esperá a que termine e intentá de nuevo.");
+      } else {
+        setCalculateMessage("OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- podés intentar de nuevo más tarde.");
+      }
     }
   }
 
