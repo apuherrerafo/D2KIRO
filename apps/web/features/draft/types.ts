@@ -55,6 +55,15 @@ export interface Suggestion {
   confidence: SuggestionConfidence;
 }
 
+// TSK-032: comparación explícita entre el pick #1 y el #2 -- `signal` es la señal con mayor
+// ventaja del #1 sobre `vsHero`, entre las comparables en ambos lados (mismo criterio que el
+// motor: ni `raw: null` ni `applicable: false` de cualquiera de los dos cuenta como comparable).
+export interface SuggestionComparison {
+  vsHero: HeroId;
+  signal: SignalId;
+  delta: number;
+}
+
 export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format";
 
 export interface SuggestionSet {
@@ -62,6 +71,7 @@ export interface SuggestionSet {
   sessionId: string;
   basedOnSeq: number;
   suggestions: Suggestion[];
+  comparison: SuggestionComparison | null;
   degraded: DegradationFlag[];
   computedInMs: number;
 }

@@ -27,6 +27,7 @@ function suggestionSet(overrides: Partial<SuggestionSet> = {}): SuggestionSet {
     sessionId: "s1",
     basedOnSeq: 1,
     suggestions: [],
+    comparison: null,
     degraded: [],
     computedInMs: 5,
     ...overrides,

@@ -1,6 +1,8 @@
 import type { SignalContribution, SignalId } from "@/features/draft/types";
 
-const SIGNAL_LABELS: Record<SignalId, string> = {
+// Exportado (TSK-032) para que ComparisonNote reutilice el mismo mapeo de nombres en vez de
+// duplicarlo -- un cambio de etiqueta acá nunca debe poder desincronizarse con la comparación.
+export const SIGNAL_LABELS: Record<SignalId, string> = {
   counter: "Contrapick",
   patch_meta: "Meta del parche",
   team_synergy: "Sinergia de equipo",
