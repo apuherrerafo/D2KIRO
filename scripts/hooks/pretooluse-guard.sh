@@ -8,7 +8,11 @@ input=$(cat)
 cmd=$(printf '%s' "$input" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
 
 if printf '%s' "$cmd" | grep -qE 'git (commit|push)'; then
-  if ! bash scripts/verify-simplicity.sh; then
+  # Excepción de simplicidad (ver verify-simplicity.sh): si el mensaje del commit referencia un
+  # ticket (TSK-XXX), se lo pasamos como contexto -- el script decide si ese ticket ya declaró
+  # `simplicity_exception: true` de antemano en su frontmatter, esto solo lo hace disponible.
+  ticket=$(printf '%s' "$cmd" | grep -oE 'TSK-[0-9]+' | head -1) || true
+  if ! COMMIT_TICKET="$ticket" bash scripts/verify-simplicity.sh; then
     echo "Bloqueado: scripts/verify-simplicity.sh falló. Corrige las violaciones antes de commitear/pushear." >&2
     exit 2
   fi

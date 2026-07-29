@@ -27,34 +27,51 @@ fi
 BOOKKEEPING_PATTERN='^docs/agents/(journal[^/]*[.]md|plan[.]md|ledger[.]md|PROGRESS[.]md|tasks/TSK-[0-9]+[.]md)$'
 
 # --- 1 y 2. Archivos tocados y líneas añadidas ---
-# `git diff` es ciego a archivos nunca trackeados (nunca pasaron por `git add`) — el código nuevo
-# de una tarea normalmente son archivos nuevos, así que sin esto el conteo da 0 aunque la tarea
-# haya creado docenas de archivos. Se suman ambos universos: diff de lo ya trackeado + archivos
-# untracked reales (vía `git ls-files --others --exclude-standard`), cada uno con la exclusión de
-# bookkeeping aplicada por igual.
-TRACKED_FILES=$(git diff --name-only "$DIFF_BASE" 2>/dev/null | grep -Ev "$BOOKKEEPING_PATTERN") || true
-UNTRACKED_FILES=$(git ls-files --others --exclude-standard 2>/dev/null | grep -Ev "$BOOKKEEPING_PATTERN") || true
-ALL_FILES=$(printf '%s\n%s\n' "$TRACKED_FILES" "$UNTRACKED_FILES" | grep -v '^$') || true
+# Mide lo que este commit va a contener realmente: `--cached` compara el índice (stage) contra
+# $DIFF_BASE, no el árbol de trabajo completo. Antes usaba `git diff "$DIFF_BASE"` (ciego al
+# stage, cuenta TODO lo no comiteado) más un escaneo aparte de `git ls-files --others` para
+# archivos nunca trackeados -- eso rompía cualquier intento de dividir un backlog grande en varios
+# commits lógicos: el gate seguía viendo el resto del árbol pendiente aunque solo un subconjunto
+# estuviera en stage para ese commit puntual. Con `--cached`, un archivo nuevo cuenta en cuanto
+# pasa por `git add` (entra al índice) y dejaba de listarse en `--others` de todas formas, así que
+# el escaneo de untracked ya no hace falta -- lo que nunca se stagea nunca se comitea.
+ALL_FILES=$(git diff --cached --name-only "$DIFF_BASE" 2>/dev/null | grep -Ev "$BOOKKEEPING_PATTERN") || true
 
 FILES_TOUCHED=$(printf '%s\n' "$ALL_FILES" | grep -c '.') || true
 FILES_TOUCHED=${FILES_TOUCHED:-0}
-if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
-  echo "❌ ERROR: $FILES_TOUCHED archivos modificados. Máximo: $MAX_FILES."
-  printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
-  ERRORS=$((ERRORS + 1))
+LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" '$3 !~ pat {sum += $1} END {print sum+0}')
+
+# --- Excepción documentada de simplicidad ---
+# CLAUDE.md permite declarar por adelantado, dentro del propio ticket, que su alcance real supera
+# 3 archivos/200 líneas (ya usado en prosa en TSK-012/013/016 -- "excepción documentada por
+# adelantado"). Antes esto solo existía como confianza/nota en el ticket, sin que el gate pudiera
+# reconocerlo -- era todo o nada. `pretooluse-guard.sh` extrae un `TSK-XXX` del mensaje del commit
+# (si hay) en `$COMMIT_TICKET`; si ese ticket existe y su frontmatter ya trae
+# `simplicity_exception: true` ANTES de este commit, el exceso se avisa pero no bloquea.
+SIMPLICITY_EXCEPTION=0
+TICKET_FILE="docs/agents/tasks/${COMMIT_TICKET:-}.md"
+if [ -n "${COMMIT_TICKET:-}" ] && [ -f "$TICKET_FILE" ] && grep -qE '^simplicity_exception:[[:space:]]*true[[:space:]]*$' "$TICKET_FILE"; then
+  SIMPLICITY_EXCEPTION=1
 fi
 
-TRACKED_LINES=$(git diff --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" '$3 !~ pat {sum += $1} END {print sum+0}')
-UNTRACKED_LINES=0
-if [ -n "$UNTRACKED_FILES" ]; then
-  while IFS= read -r f; do
-    [ -f "$f" ] && UNTRACKED_LINES=$((UNTRACKED_LINES + $(wc -l < "$f" | tr -d ' ')))
-  done <<< "$UNTRACKED_FILES"
+if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
+  if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
+    echo "⚠️  $FILES_TOUCHED archivos modificados (máximo $MAX_FILES) -- excepción declarada en $TICKET_FILE, no bloquea."
+    printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
+  else
+    echo "❌ ERROR: $FILES_TOUCHED archivos modificados. Máximo: $MAX_FILES."
+    printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
+    ERRORS=$((ERRORS + 1))
+  fi
 fi
-LINES_ADDED=$((TRACKED_LINES + UNTRACKED_LINES))
+
 if [ "$LINES_ADDED" -gt "$MAX_LINES" ]; then
-  echo "❌ ERROR: $LINES_ADDED líneas añadidas. Máximo: $MAX_LINES."
-  ERRORS=$((ERRORS + 1))
+  if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
+    echo "⚠️  $LINES_ADDED líneas añadidas (máximo $MAX_LINES) -- excepción declarada en $TICKET_FILE, no bloquea."
+  else
+    echo "❌ ERROR: $LINES_ADDED líneas añadidas. Máximo: $MAX_LINES."
+    ERRORS=$((ERRORS + 1))
+  fi
 fi
 
 # --- 3. Dependencias nuevas ---
@@ -66,7 +83,7 @@ fi
 # para ninguna dependencia añadida desde que existe el monorepo (TSK-001 en adelante).
 PACKAGE_JSON_FILES=$(git ls-files -- '*/package.json' 'package.json' 2>/dev/null | grep -v node_modules) || true
 for pkg in $PACKAGE_JSON_FILES; do
-  if git diff "$DIFF_BASE" -- "$pkg" 2>/dev/null | \
+  if git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | \
      awk '
        /^\+\+\+/ {next}
        /"(dependencies|devDependencies)"[[:space:]]*:/ {in_block=1; next}
@@ -74,7 +91,7 @@ for pkg in $PACKAGE_JSON_FILES; do
        in_block && /^[^+-]*}/ {in_block=0}
        END {exit !found}
      '; then
-    if ! git diff "$DIFF_BASE" -- "$pkg" 2>/dev/null | grep -q '// ALLOWED'; then
+    if ! git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | grep -q '// ALLOWED'; then
       echo "❌ ERROR: Nueva(s) dependencia(s) detectada(s) en $pkg sin marcar // ALLOWED."
       echo "   Pasa por /gear-up o @depcheck antes de continuar."
       ERRORS=$((ERRORS + 1))
