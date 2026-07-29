@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-28T22:51:32.005Z</title>
+<title>HUB del ecosistema — 2026-07-29T03:23:54.939Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code · Modelo: Sonnet · Acción: Fase 1 pasó sus 4 criterios de aceptación (architecture.md Bloque 6) por primera vez el 2026-07-27. Dos caminos posibles para la siguiente sesión, a decidir con calma, no en caliente: (a) validar el criterio 1 contra una partida real usando el capturador `manual` (ya existe, no requiere código nuevo) para cerrar la única salvedad honesta que queda; o (b) abrir la siguiente fase (personalización de hero pool / fase 1b, o el capturador automático Overwolf/OCR) con un ciclo tipo /kickoff propio. Ninguna es urgente — el MVP ya es funcional.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step step-active">blueprint</div><div class="step-arrow">→</div><div class="step step-active">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code · Modelo: Sonnet (la fase cara de Opus terminó — no se vuelve a usar salvo un gatillo de riesgo de los listados en CLAUDE.md) · Acción: Correr /rulebook para partir la lista de 10 fronteras de la sección §9.10 de docs/specs/SPEC.md en tickets reales (TSK-017 en adelante), cada uno con su preferred_tool y sus límites de archivos. El SPEC ya deja cerrado todo lo que necesitan: los pesos, el mínimo de partidas, el contrato de la señal nueva y los errores de cada endpoint. Dos cosas más siguen pendientes y no bloquean nada: correr el spike de Overwolf (scripts/spikes/overwolf-draft-probe/) en una partida real, y validar el criterio 1 de fase 1 contra una partida real con el capturador manual.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,8 +120,108 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>backlog <span class="count">10</span></h2>
+        
+        <div class="card  ">
+          
+          <div class="card-id">TSK-017</div>
+          <div class="card-title">Migración hero_pool + claves de settings (§9.4)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-018</div>
+          <div class="card-title">OpenDotaClient.getPlayerHeroes + validación en el borde (S7)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-019</div>
+          <div class="card-title">Cálculo puro del pool propuesto (S7)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-020</div>
+          <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-021</div>
+          <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-022</div>
+          <div class="card-title">SignalScorer: hero_pool_fit (S3)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-023</div>
+          <div class="card-title">SCORING_WEIGHTS_V2 + applicable en mix.ts (candado de regresión cero)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-024</div>
+          <div class="card-title">Pantalla de configuración: Mi pool de héroes (RTK Query)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-025</div>
+          <div class="card-title">Pantalla de propuesta/confirmación del pool calculado</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-026</div>
+          <div class="card-title">SignalBreakdown con las 5 señales + textos de hero_pool_fit</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -309,21 +409,21 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">33× · 24% ok  · 3 falló</div>
+          <div class="stat-nums">34× · 24% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:56%"></div></div>
           <div class="stat-nums">19× · 84% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:55%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:53%"></div></div>
           <div class="stat-nums">18× · 6% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:52%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:50%"></div></div>
           <div class="stat-nums">17× · 94% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -332,17 +432,22 @@
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
+          <div class="stat-name">blueprint</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-nums">2× · 100% ok  </div>
+        </div>
+        <div class="stat-row">
           <div class="stat-name">depcheck</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">blueprint</div>
+          <div class="stat-name">rulebook</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">rulebook</div>
+          <div class="stat-name">pre-flight</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
@@ -351,6 +456,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:20</span></div>
+            <div class="feed-note">Segunda ejecución de /blueprint en Opus (gatillo documentado en CLAUDE.md: cambio de trust boundary respecto a /pre-flight — el account_id de Steam es el primer dato personal del proyecto; de aquí en adelante Sonnet otra vez). Sintetizado el addendum "Fase 1b" de architecture.md en una parte anexada a docs/specs/SPEC.md (§9.0 a §9.10), siguiendo el mismo patrón de addendum que ya usa architecture.md — fase 1 no se reescribe, y §9.0 lista explícitamente las 5 cosas de fase 1 que quedan superadas. Cerrados con el usuario vía AskUserQuestion los dos números que /pre-flight dejó provisionales, más dos decisiones que aparecieron al leer el código real:</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:00</span></div>
+            <div class="feed-note">Usuario pidió el script del Paso 0 directamente (spike desechable, sin ticket, sin @redteam/@shipcheck por instrucción explícita). Escrito en scripts/spikes/overwolf-draft-probe/ (fuera del árbol de producción, no cuenta contra verify-simplicity.sh): manifest.json (app mínimo de Overwolf, game_id 7314, features roster/match_state_changed/match_info), background.html/background.js (se suscribe a onInfoUpdates2/onNewEvents, vuelca cada actualización cruda a consola + overwolf-appdata:/draft-probe.log, y calcula un diff por slot sobre roster.players/bans/draft para señalar explícitamente cuando un heroId cambia en el mismo slot -- la señal que el Paso 0 necesita para el criterio de éxito de pick_revert), README.md con protocolo paso a paso (activar modo desarrollador, cargar unpacked, abrir consola, protocolo de partida con bots recomendado sobre pública/rankeada, intento explícito de cambiar de héroe antes de confirmar, troubleshooting de -gamestateintegration). Nota honesta: los nombres exactos de campo dentro de roster (team_slot vs index, hero vs heroId) no están 100% confirmados por una fuente ejecutada realmente -- por eso el script vuelca siempre el RAW completo además del diff, así ninguna sorpresa de la partida real queda oculta por una heurística de key equivocada. Pendiente: que el usuario lo corra en una partida real y traiga el log de vuelta para decidir Paso 1A vs 1B.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>pre-flight</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T22:45</span></div>
+            <div class="feed-note">Re-invocado para planificar la fase siguiente a fase 1 (capturador real Overwolf/OCR, ya anticipada como D1 en SPEC.md). Re-verificado el Bloque 2 de architecture.md (~1 año de antigüedad en algunos puntos) con fuentes primarias de esta sesión: (1) issue de Valve #19408 sigue abierto, comentario de julio 2025 confirma que GSI sigue sin exponer draft de partidas propias de matchmaking -- el problema persiste un año después de la investigación original; (2) hallazgo nuevo no anticipado: la doc oficial y pública del GEP de Overwolf (dev.overwolf.com) documenta campos roster/bans/draft con heroId/team -- no es lectura de memoria de socio privilegiado como se especuló en julio, es API pública documentada; solo steamId/name de jugadores rivales se ocultan hasta STRATEGY_TIME (protección anti-scouting confirmada en issue #878, cerrado); (3) tensión sin resolver: los apps de Overwolf para Dota 2 requieren -gamestateintegration en launch options, sugiriendo que el GEP podría depender internamente del mismo GSI que el punto (1) dice que está roto para partidas propias -- no se puede resolver sin probarlo empíricamente; (4) OCR tiene precedente real en producción (STRATZ+), con fragilidad documentada: resoluciones custom, grids de héroe personalizados, skins arcana, overlays de Dota+, partículas de la sala de espera; (5) pregunta de dominio nunca resuelta -- en All Pick rankeado hay ~16 bans instantáneos pre-partida (preferencias + popularidad del bracket, no una fase de veto en vivo) y luego picks por turnos 2-2-1 alternando equipos, evidencia de guía de terceros, no oficial de Valve. Usuario decidió 4 puntos vía AskUserQuestion: D4 spike empírico de Overwolf antes de construir cualquier adapter de producción; D5 es aceptable que el capturador dependa de que el usuario tenga Overwolf instalado y corriendo (mismo patrón que DotaPlus/STRATZ+); D6 OCR se construye solo si el spike de Overwolf falla, no en paralelo; D7 el patrón 2-2-1 de All Pick NO se modela en el reductor -- se mantiene la regla inviolable ya existente en SPEC.md §C2, la evidencia nueva es secundaria y no alcanza el nivel de certeza para tocarla. El usuario corrigió el primer borrador del plan antes de aprobarlo: el criterio de éxito del Paso 0 (spike) solo validaba que heroId/team llegan en vivo, pero el Paso 1A ya asumía una heurística de snapshots consecutivos para detectar pick_reverted que nunca se probaba en el spike tal como estaba definido -- ampliado el criterio de éxito para exigir también provocar un pick_revert real durante la partida de prueba y confirmar que es distinguible de un pick nuevo en los datos crudos del GEP, más barato de descubrir ahí que a medio construir el adapter. Plan completo (Paso 0 spike ampliado, Paso 1A adapter overwolf, Paso 1B adapter ocr condicional, fuera de alcance explícito: turnos de Valve y Captain Mode como adapter separado) persistido como addendum en docs/agents/architecture.md, sección "Addendum (2026-07-28) -- Capturador real: Overwolf primero, OCR condicional". No se escribió código ni se crearon tickets -- siguiente paso es /rulebook o /grill-me para partir el Paso 0 en un ticket real.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -412,27 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:30</span></div>
             <div class="feed-note">Primera vez que se corre fase 1 completa contra procesos reales por fuera de un ticket (el usuario pidió "probar todo lo que hemos hecho desde el lado de simulación" antes de aprobar avanzar a fase 2). Al levantar apps/engine + apps/web y disparar POST /api/meta/sync contra la API real de OpenDota (nunca solo el fixture grabado de las pruebas), el sync reportó status:'ok' pero descartó los 127 héroes -- catálogo vacío. Causa raíz: OpenDota dejó de exponer el campo `img` en GET /heroes (confirmado pegándole directo a la API real, no solo leyendo el fixture) -- drift real de una API de terceros, no un bug de código nuevo. `apps/engine/src/meta/validation.ts` exigía `img` como string y validaba ese campo contra `SAFE_RELATIVE_IMG_PATH` (protección de host-injection cerrada en TSK-003) -- al faltar el campo, `isValidRawHero` rechazaba las 127 filas en silencio y el sync igual marcaba 'ok' (el status refleja que el proceso corrió sin excepción, no que los datos sean completos -- ambigüedad real del propio contrato de meta_sync, no bloqueante hoy pero anotada). Nadie lo había detectado porque las pruebas de sync (S6) usan fixtures grabados con `img` presente (testing-seams.md exige exactamente eso -- nunca red real en pruebas del motor), y ningún ticket había disparado un sync real contra la API viva hasta esta sesión.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:30</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 15 archivos / 563 líneas -- supera ambos límites, acordado explícitamente con el usuario. Sin dependencias sin marcar (zustand, @types/bun, @reduxjs/toolkit, react-redux -- las 4 con // ALLOWED, confirmado por el propio gate ya reparado en TSK-012). `bun scripts/hub.ts` regenerado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:20</span></div>
-            <div class="feed-note">Gate de seguridad (los 4 vectores literales): PASS. Sin inputs sin validar (isValidSettingBody en el borde antes de tocar la DB; React escapa todo el contenido renderizado, sin dangerouslySetInnerHTML en ninguna página nueva -- grep limpio), sin secretos hardcodeados (NEXT_PUBLIC_ENGINE_HTTP_URL es una URL localhost, no un secreto; ninguna de las 5 rutas nuevas/reutilizadas por RTK Query exige x-capture-token, consistente con TSK-010), queries parametrizadas (Drizzle en toda la capa de settings, sin SQL concatenado), sin privilegios de más. Hallazgo GRAVE encontrado durante Pasada 1, tratado con la misma severidad que un gate obligatorio aunque no caiga literalmente en ninguna de las 4 categorías nombradas -- porque invalida el criterio de aceptación #1 del propio ticket ('Las 3 páginas cargan datos reales vía RTK Query'): apps/engine no mandaba NINGÚN header CORS ni manejaba OPTIONS -- confirmado por ejecución real (no supuesto): un preflight OPTIONS a PUT /api/settings con Origin de apps/web devolvía 404 (ninguna ruta lo manejaba), y un GET simple sin CORS headers es invisible para el JS del navegador aunque la respuesta de red llegue completa. Mi propio smoke test anterior (evt-065) no lo detectó porque usaba curl directo (curl no aplica same-origin policy) en vez de simular una llamada real de navegador con cabecera Origin -- lección explícita: verificar por ejecución significa reproducir las condiciones reales del cliente, no solo que el servidor responda. Corregido: apps/engine/src/server/app.ts gana corsHeaders() (allowlist de origin restringido a 127.0.0.1/localhost en cualquier puerto -- nunca un origin remoto arbitrario, ni un wildcard '*'; el binding a 127.0.0.1 ya es el perímetro de seguridad real, esto es solo lo mínimo para que el navegador acepte una respuesta cross-origin de un proceso local en otro puerto) + manejo explícito de OPTIONS (204 + headers), aplicado a TODA la API existente (routeApiRequest extraído como función separada, fetchHandler ahora adjunta CORS a cualquier respuesta, sin reescribir cada handler individual). Verificado por ejecución real en ambas direcciones: origin local (127.0.0.1:3000) recibe Access-Control-Allow-Origin correcto tanto en preflight como en GET; origin remoto (evil.example) no recibe ningún header CORS -- confirmado que el allowlist realmente restringe, no es un wildcard disfrazado. 3 pruebas nuevas en app.test.ts reproducen exactamente esto. Pasada 1 Standards (resto): sin abstracciones de más, tokens.css respetado en las 3 páginas nuevas (grep limpio de hex sueltos), sin any, sin ternarios de renderizado condicional (grep limpio). N+1 de Drizzle: N/A, sin loops con queries. Pasada 2 (Spec): las 3 páginas cargan datos reales vía RTK Query (ahora sí, confirmado con CORS funcionando) contra los endpoints reales de apps/engine; disparar sync manual invalida el tag MetaStatus y refresca automáticamente (RTK Query, sin código manual de refetch); cada héroe muestra su ícono oficial vía HeroIcon reutilizado de TSK-012, sin excepción. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-014</span> <span class="feed-ts">2026-07-27T17:00</span></div>
-            <div class="feed-note">Construidas las 3 páginas normales del sitio con RTK Query real (@reduxjs/toolkit + react-redux, evt-062): apps/web/lib/engine-api.ts (createApi con 5 endpoints: getMetaStatus, syncMeta mutation con invalidatesTags para refrescar automáticamente, getHeroes, getSettings, updateSetting mutation), lib/store.ts (makeStore() por-instancia, no singleton de módulo -- evita filtrar estado entre requests en SSR), app/providers.tsx (Provider wrapper, cableado en app/layout.tsx). Páginas: app/meta/page.tsx (syncedAt/isStale/lastSync + botón de sincronización manual), app/heroes/page.tsx (lista con HeroIcon reutilizado de TSK-012, valida host de imagen por diseño), app/settings/page.tsx (lista + formulario de alta/actualización). Bug real encontrado durante el smoke test end-to-end (no en el código nuevo de este ticket, sino en apps/engine/src/db/migrate.ts): construía su propia conexión Database() por separado en vez de reusar db/client.ts, así que no tenía el mkdirSync del directorio contenedor (fix de TSK-010) -- `bun run db:migrate` fallaba con SQLITE_CANTOPEN en un checkout limpio, el mismo bug en un archivo distinto. Corregido reutilizando el `db` ya exportado por client.ts (también se exportó DB_PATH desde ahí para el log); verificado que las migraciones aplican limpio en un checkout recién borrado. Hallazgo de ESLint real durante el build: el patrón clásico de Redux Toolkit + Next.js (useRef para crear el store una sola vez) dispara react-hooks/refs en la versión de eslint-plugin-react-hooks de este proyecto ('Cannot access ref value during render') -- exactamente el tipo de breaking change que AGENTS.md advierte sobre esta versión de Next.js. Corregido usando useState(() => makeStore()) en vez de useRef, que sí es el patrón correcto para inicialización perezosa sin ese problema. Verificado con smoke test real de punta a punta: motor + web levantados juntos, PUT/GET /api/settings confirmado end-to-end vía curl directo, las 3 páginas (/meta, /heroes, /settings) devuelven 200 y renderizan su estado de carga inicial sin errores reales (los "error" que aparecían en el grep eran referencias al bundle global-error.js de Next.js, infraestructura estándar, no un fallo real -- verificado con contexto antes de descartarlo). Verificado: bun test completo de apps/engine (100 pass, sin regresión); bunx tsc --noEmit sin errores en ambos paquetes; npm run build de apps/web sin errores (6 rutas: /, /draft, /heroes, /meta, /settings, /_not-found); npm run lint sin errores. Sigue con pruebas del lado web y cierre del ticket.</div>
           </div>
         </div></div>
     </div>
