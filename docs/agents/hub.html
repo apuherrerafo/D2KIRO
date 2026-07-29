@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T05:18:36.662Z</title>
+<title>HUB del ecosistema — 2026-07-29T05:28:35.626Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">6</span></h2>
+        <h2>backlog <span class="count">5</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-021</div>
-          <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-022</div>
@@ -192,8 +182,8 @@
         
         <div class="card  ">
           
-          <div class="card-id">TSK-020</div>
-          <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
+          <div class="card-id">TSK-021</div>
+          <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -210,7 +200,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">19</span></h2>
+        <h2>done <span class="count">20</span></h2>
         
         <div class="card  ">
           
@@ -394,6 +384,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-020</div>
+          <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -409,22 +409,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">39× · 33% ok  · 3 falló</div>
+          <div class="stat-nums">40× · 35% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
-          <div class="stat-nums">23× · 87% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:60%"></div></div>
+          <div class="stat-nums">24× · 88% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:56%"></div></div>
-          <div class="stat-nums">22× · 23% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:57%"></div></div>
+          <div class="stat-nums">23× · 26% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:51%"></div></div>
-          <div class="stat-nums">20× · 95% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:53%"></div></div>
+          <div class="stat-nums">21× · 95% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -456,6 +456,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-021</span> <span class="feed-ts">2026-07-29T11:50</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- accountId validado antes de tocar la red, nunca se ecoa (verificado con prueba dedicada), sin secretos, finally garantiza que el flag de concurrencia nunca queda trabado). 1 hallazgo real, corregido en la misma revisión: "days" aceptaba Infinity -- el literal JSON válido 1e400 desborda a Infinity en JS, y "rawDays > 0" no lo filtraba, colando date=Infinity en la URL hacia OpenDota. Corregido con Number.isFinite + test dedicado que confirma la caída al default de 90. Spec verificada: los 4 errores de la tabla, el bucle de filtrado de la nota de TSK-018 implementado tal como se pidió, sin scope creep hacia TSK-020/024/025.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-021</span> <span class="feed-ts">2026-07-29T11:35</span></div>
+            <div class="feed-note">Implementado POST /api/hero-pool/calculate. TDD: 5 tests rojos confirmados antes de implementar (ruta inexistente), incluida la prueba de concurrencia real (dos requests simultáneos contra el servidor vivo, el segundo recibe 409 mientras el primero sigue esperando su fetch mockeado). Conecta getPlayerHeroes (TSK-018) con calculateProposedPool (TSK-019): valida accountId antes de tocar la red (400 sin llamar a OpenDota si es inválido, y probado que el body de error nunca ecoa el valor recibido), aplica el bucle de filtrado que la nota de @redteam de TSK-018 pedía (isValidRawPlayerHero + mapPlayerHero sobre el array crudo, mismo patrón que sync.ts), nunca escribe en SQLite. Errores: 400 invalid_account_id, 502 opendota_unavailable con mensaje en llano, 409 calculation_in_progress (flag por proceso, sin cola), 200 con proposed:[] cuando ningún héroe pasa el mínimo (no es error). bun test: 144/144 sin regresión. tsc limpio. verify-simplicity.sh: 2 archivos/177 líneas -- dentro del límite, sin excepción necesaria. Siguiente paso: @redteam sobre TSK-021.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-021</span> <span class="feed-ts">2026-07-29T11:10</span></div>
+            <div class="feed-note">/dispatch manual sobre TSK-021 (depende de TSK-018/019, ambos done). WIP=1 libre tras cerrar TSK-020. preferred_tool ya era claude-code desde /rulebook (orquesta 3 piezas + maneja el primer dato personal del proyecto). Ruta: @build → @redteam → @shipcheck. TSK-021 pasa de `backlog` a `doing`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-020</span> <span class="feed-ts">2026-07-29T10:55</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 4 archivos/246 líneas -- excede ambos límites, excepción documentada por adelantado en el propio ticket (simplicity_exception: true); sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -510,34 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:45</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 5 archivos/122 líneas -- excede solo el conteo de archivos (no líneas), excepción documentada por adelantado en el propio ticket (`simplicity_exception: true`); sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:35</span></div>
-            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- confirmado por grep que getPlayerHeroes/isValidSteamAccountId no están wireados a ningún caller real todavía, cero superficie de ataque viva). 1 nota de Spec, no bloqueante, aclarada para evitar confusión futura: el bucle que "descarta filas con forma inesperada" del array de /players/{account_id}/heroes no vive en este ticket -- por precedente directo de sync.ts (que hace exactamente ese bucle para /heroStats y /heroes/{id}/matchups usando las primitivas de validation.ts/mappers.ts, no dentro de ellas), es responsabilidad de TSK-021 iterar el array crudo con isValidRawPlayerHero como filtro + mapPlayerHero por fila válida. Anotado en el propio TSK-021.md como recordatorio para cuando se construya.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:20</span></div>
-            <div class="feed-note">Implementado OpenDotaClient.getPlayerHeroes + validación en el borde. TDD: rojo confirmado (getPlayerHeroes/mapPlayerHero/isValidRawPlayerHero/isValidSteamAccountId inexistentes) antes de implementar. getPlayerHeroes(accountId, {days=90}) reutiliza getJson/fetchWithRetry ya probados, devuelve unknown (validación en el borde, nunca en el cliente). isValidSteamAccountId (Steam32: solo dígitos, 1-4294967295) se agregó junto a los validadores de respuestas de OpenDota en validation.ts en vez de un archivo propio -- decisión documentada: es input externo igual que cualquier respuesta, no hay razón arquitectónica real para separarlo. mapPlayerHero traduce win (nombre real de la API) a wins (nombre interno, consistente con hero_matchups.wins). bun test: 119/119 sin regresión. tsc limpio. verify-simplicity.sh: 5 archivos/122 líneas -- excede solo el conteo de archivos (no líneas), excepción declarada en el propio ticket antes de commitear (simplicity_exception: true, segundo uso real del mecanismo agregado ayer). Siguiente paso: @redteam sobre TSK-018.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:00</span></div>
-            <div class="feed-note">/dispatch manual sobre TSK-018 (top del backlog junto con TSK-019, sin dependencia entre sí, WIP=1 libre tras cerrar TSK-017). preferred_tool era codex (mismo patrón que TSK-003, el OpenDotaClient original de fase 1); no se volvió a preguntar por créditos -- el usuario ya lo confirmó en el dispatch de TSK-017 (patrón Handoff: no se repite la pregunta). assigned_tool: claude-code. Sin cambio de alcance ni sensibilidad respecto al ticket original. Ruta: @build → @redteam → @shipcheck, mismo patrón que TSK-017. TSK-018 pasa de `backlog` a `doing`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 6 archivos/473 líneas -- excede 3/200, excepción documentada por adelantado en el propio ticket (`simplicity_exception: true`), 383 de esas líneas son el snapshot JSON autogenerado por drizzle-kit; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
           </div>
         </div></div>
     </div>
