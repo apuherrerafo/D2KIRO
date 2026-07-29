@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
 import { buildSuggestions, mixScore } from "./mix";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
-import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2 } from "./weights";
+import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3 } from "./weights";
 
 function draftState(overrides: Partial<DraftState> = {}): DraftState {
   return {
@@ -97,6 +97,65 @@ describe("SCORING_WEIGHTS_V2 — candado de regresión cero", () => {
   });
 });
 
+// TSK-027 (feedback real de producto): mismo candado que V2, ahora compuesto -- role_safety se
+// suma a la lista de señales que pueden estar "fuera de juego" sin mover un punto el
+// comportamiento de fase 1 para quien no usa ninguna de las dos funciones nuevas.
+describe("SCORING_WEIGHTS_V3 — candado de regresión cero, doble", () => {
+  test("los 6 pesos suman exactamente 1.0", () => {
+    const sum = Object.values(SCORING_WEIGHTS_V3).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1, 10);
+  });
+
+  test("con role_safety null (fuera de ventana) y hero_pool_fit no aplicable, mixScore redistribuye a exactamente los pesos de V1", () => {
+    const signals: SignalContribution[] = [
+      { signal: "counter", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "patch_meta", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "team_synergy", raw: 0.75, weighted: 0, explanation: "", sampleSize: 0 },
+      { signal: "role_gap", raw: -0.5, weighted: 0, explanation: "", sampleSize: 0 },
+      { signal: "hero_pool_fit", raw: null, weighted: 0, explanation: "", sampleSize: 0, applicable: false },
+      { signal: "role_safety", raw: null, weighted: 0, explanation: "", sampleSize: 0 },
+    ];
+
+    const score = mixScore(signals);
+
+    const expected = 100 * SCORING_WEIGHTS_V1.counter + 0 * SCORING_WEIGHTS_V1.patch_meta + 75 * SCORING_WEIGHTS_V1.team_synergy + 50 * SCORING_WEIGHTS_V1.role_gap;
+    expect(score).toBeCloseTo(expected, 10);
+  });
+
+  test("primer pick propio: un candidato Support puntúa más que un candidato Carry idéntico en todo lo demás (caso original del reporte del usuario)", () => {
+    const state = draftState({ picks: { radiant: [], dire: [] } });
+    const snapshot = meta({
+      1: { id: 1, localizedName: "Support A", roles: ["Support"] },
+      2: { id: 2, localizedName: "Carry A", roles: ["Carry"] },
+    });
+
+    const result = buildSuggestions(state, snapshot);
+    const support = result.suggestions.find((s) => s.hero === 1);
+    const carry = result.suggestions.find((s) => s.hero === 2);
+
+    expect(support).toBeDefined();
+    expect(carry).toBeDefined();
+    expect(support!.score).toBeGreaterThan(carry!.score);
+  });
+
+  test("pick propio 3 en adelante: role_safety ya no diferencia (ambos candidatos empatan en esa señal)", () => {
+    const state = draftState({ picks: { radiant: [10, 11], dire: [] } });
+    const snapshot = meta({
+      1: { id: 1, localizedName: "Support A", roles: ["Support"] },
+      2: { id: 2, localizedName: "Carry A", roles: ["Carry"] },
+    });
+
+    const result = buildSuggestions(state, snapshot);
+    const support = result.suggestions.find((s) => s.hero === 1);
+    const carry = result.suggestions.find((s) => s.hero === 2);
+
+    const supportRoleSafety = support?.signals.find((s) => s.signal === "role_safety");
+    const carryRoleSafety = carry?.signals.find((s) => s.signal === "role_safety");
+    expect(supportRoleSafety?.raw).toBeNull();
+    expect(carryRoleSafety?.raw).toBeNull();
+  });
+});
+
 describe("buildSuggestions", () => {
   test("candidatos excluyen baneados y ya elegidos de ambos lados", () => {
     const state = draftState({ banned: [2], picks: { radiant: [3], dire: [4] } });
@@ -115,9 +174,11 @@ describe("buildSuggestions", () => {
 
   test("señal en null: el peso se redistribuye proporcionalmente, no se trata como 0", () => {
     // Equipo propio vacío -> team_synergy siempre null. Sin patchStats -> patch_meta null.
-    // counter y role_gap normalizan ambos a exactamente 100 (ver cálculo abajo) -- si el peso se
-    // redistribuye bien, el score final debe ser 100 (no 55, que sería tratar null como 0 y seguir
-    // dividiendo por el peso total original de 1.0).
+    // counter y role_gap normalizan ambos a exactamente 100. role_safety también vota ahora
+    // (TSK-027): 0 picks propios está dentro de su ventana, el candidato no tiene rol Support ->
+    // raw:0, normaliza a 0. El score ya no es 100 puro -- es la redistribución proporcional real
+    // de V3 sobre las 3 señales con dato, calculada abajo con las constantes reales (no un número
+    // mágico hardcodeado, para que un cambio de peso futuro no rompa este test en silencio).
     const state = draftState({ picks: { radiant: [], dire: [50] } });
     const snapshot = meta({
       1: { id: 1, localizedName: "Candidato" },
@@ -135,10 +196,13 @@ describe("buildSuggestions", () => {
     const suggestion = result.suggestions.find((s) => s.hero === 1);
 
     expect(suggestion).toBeDefined();
-    expect(suggestion?.score).toBeCloseTo(100, 5);
+    const totalWeight = SCORING_WEIGHTS_V3.counter + SCORING_WEIGHTS_V3.role_gap + SCORING_WEIGHTS_V3.role_safety;
+    const expectedScore =
+      (100 * SCORING_WEIGHTS_V3.counter + 100 * SCORING_WEIGHTS_V3.role_gap + 0 * SCORING_WEIGHTS_V3.role_safety) / totalWeight;
+    expect(suggestion?.score).toBeCloseTo(expectedScore, 5);
     expect(suggestion?.confidence).toBe("baja"); // 2 señales en null (patch_meta, team_synergy)
     const nonNullSignals = suggestion?.signals.filter((s) => s.raw !== null) ?? [];
-    expect(nonNullSignals.map((s) => s.signal).sort()).toEqual(["counter", "role_gap"]);
+    expect(nonNullSignals.map((s) => s.signal).sort()).toEqual(["counter", "role_gap", "role_safety"]);
   });
 
   test("Suggestion.reason es trazable a los signals de esa sugerencia", () => {
@@ -151,9 +215,13 @@ describe("buildSuggestions", () => {
     const result = buildSuggestions(state, snapshot);
     const suggestion = result.suggestions[0];
 
-    const explanations = suggestion?.signals.filter((s) => s.raw !== null).map((s) => s.explanation) ?? [];
-    for (const explanation of explanations) {
-      expect(suggestion?.reason).toContain(explanation);
+    // buildReason muestra las 2 señales de mayor peso con dato real, no todas -- con 3 señales
+    // reales ahora (counter/role_gap/role_safety, TSK-027), solo las 2 más pesadas entran.
+    const topTwoByWeight = (suggestion?.signals.filter((s) => s.raw !== null) ?? [])
+      .sort((a, b) => SCORING_WEIGHTS_V3[b.signal] - SCORING_WEIGHTS_V3[a.signal])
+      .slice(0, 2);
+    for (const signal of topTwoByWeight) {
+      expect(suggestion?.reason).toContain(signal.explanation);
     }
   });
 

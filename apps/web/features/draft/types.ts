@@ -30,7 +30,7 @@ export interface DraftState {
   updatedAt: string;
 }
 
-export type SignalId = "counter" | "patch_meta" | "team_synergy" | "role_gap" | "hero_pool_fit";
+export type SignalId = "counter" | "patch_meta" | "team_synergy" | "role_gap" | "hero_pool_fit" | "role_safety";
 
 export interface SignalContribution {
   signal: SignalId;

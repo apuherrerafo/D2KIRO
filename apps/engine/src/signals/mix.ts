@@ -3,15 +3,16 @@ import { counterScorer } from "./counter";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { patchMetaScorer } from "./patch-meta";
 import { roleGapScorer } from "./role-gap";
+import { roleSafetyScorer } from "./role-safety";
 import { teamSynergyScorer } from "./team-synergy";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
-import { SCORING_WEIGHTS_V2 } from "./weights";
+import { SCORING_WEIGHTS_V3 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
   rank: 1 | 2 | 3;
   score: number;
-  signals: SignalContribution[]; // siempre las 5, incluidas las que dieron null o no aplican
+  signals: SignalContribution[]; // siempre las 6, incluidas las que dieron null o no aplican
   reason: string;
   confidence: "alta" | "media" | "baja";
 }
@@ -32,9 +33,10 @@ export interface BuildSuggestionsOptions {
   now?: () => number; // inyectable para pruebas de rendimiento determinísticas
 }
 
-// TSK-023: hero_pool_fit entra al pipeline real. SCORING_WEIGHTS_V1 (weights.ts) queda intacto y
-// congelado -- SCORING_WEIGHTS_V2 es la única constante que usa este archivo de aquí en adelante.
-const SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, roleGapScorer, heroPoolFitScorer];
+// TSK-027: role_safety entra al pipeline real. SCORING_WEIGHTS_V1/V2 (weights.ts) quedan
+// intactos y congelados -- SCORING_WEIGHTS_V3 es la única constante que usa este archivo de aquí
+// en adelante.
+const SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, roleGapScorer, heroPoolFitScorer, roleSafetyScorer];
 const TOP_N = 3;
 const HARD_CUTOFF_MS = 500;
 
@@ -47,6 +49,7 @@ const RAW_RANGE: Record<SignalId, [number, number]> = {
   team_synergy: [0, 1],
   role_gap: [-1, 0],
   hero_pool_fit: [0, 1],
+  role_safety: [0, 1],
 };
 
 function normalize(signal: SignalId, raw: number): number {
@@ -78,16 +81,17 @@ function hasVote(signal: SignalContribution): boolean {
 export function mixScore(signals: SignalContribution[]): number {
   const withData = signals.filter(hasVote);
   if (withData.length === 0) return 50; // sin ninguna señal con dato: neutro, no 0 ni un extremo
-  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V2[s.signal], 0);
+  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V3[s.signal], 0);
   return withData.reduce((sum, s) => {
-    const share = SCORING_WEIGHTS_V2[s.signal] / totalWeight; // redistribución proporcional
+    const share = SCORING_WEIGHTS_V3[s.signal] / totalWeight; // redistribución proporcional
     return sum + normalize(s.signal, s.raw as number) * share;
   }, 0);
 }
 
-// Candado de regresión cero (§9.3): con hero_pool_fit no aplicable, totalWeight en mixScore es
-// 0.32+0.20+0.16+0.12=0.80 -- cada share individual (ej. 0.32/0.80) reproduce exactamente los
-// pesos de V1 (0.40/0.25/0.20/0.15). Verificado con números exactos en mix.test.ts, no a ojo.
+// Candado de regresión cero, doble (§9.3, TSK-027): con hero_pool_fit no aplicable Y role_safety
+// fuera de ventana (raw:null), totalWeight en mixScore es 0.288+0.18+0.144+0.108=0.72 -- cada
+// share individual (ej. 0.288/0.72) reproduce exactamente los pesos de V1 (0.40/0.25/0.20/0.15).
+// Verificado con números exactos en mix.test.ts, no a ojo.
 function computeConfidence(signals: SignalContribution[], metaIsStale: boolean): Suggestion["confidence"] {
   // Una señal no aplicable no cuenta como null para la confianza -- "no configuraste la función"
   // no es lo mismo que "hay un hueco de datos" (D10). Sin esto, todo usuario sin pool vería su
@@ -102,7 +106,7 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 function buildReason(signals: SignalContribution[]): string {
   const informative = signals
     .filter(hasVote)
-    .sort((a, b) => SCORING_WEIGHTS_V2[b.signal] - SCORING_WEIGHTS_V2[a.signal])
+    .sort((a, b) => SCORING_WEIGHTS_V3[b.signal] - SCORING_WEIGHTS_V3[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
   if (informative.length > 0) return informative.join("; ");

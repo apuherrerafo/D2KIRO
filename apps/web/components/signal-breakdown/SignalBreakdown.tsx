@@ -6,6 +6,7 @@ const SIGNAL_LABELS: Record<SignalId, string> = {
   team_synergy: "Sinergia de equipo",
   role_gap: "Solapamiento de rol",
   hero_pool_fit: "Tu pool de héroes",
+  role_safety: "Seguridad del pick temprano",
 };
 
 interface SignalBreakdownRowProps {
