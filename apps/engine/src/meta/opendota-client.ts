@@ -48,6 +48,14 @@ export class OpenDotaClient {
     return this.getJson("/heroStats");
   }
 
+  // TSK-018 (fase 1b): mismo patrón que los tres métodos de arriba -- devuelve `unknown` a
+  // propósito, la validación vive en el borde (validation.ts), nunca aquí. `accountId` debe llegar
+  // ya validado (isValidSteamAccountId) por el llamador -- esta función no lo valida ni lo loguea.
+  getPlayerHeroes(accountId: string, options?: { days?: number }): Promise<unknown> {
+    const days = options?.days ?? 90;
+    return this.getJson(`/players/${accountId}/heroes?date=${days}`);
+  }
+
   private async getJson(path: string): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const response = await this.fetchWithRetry(url);

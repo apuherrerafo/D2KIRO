@@ -18,6 +18,14 @@ export interface RawHeroStatsRow {
   [key: string]: unknown;
 }
 
+// TSK-018 (fase 1b): campos reales de OpenDota en /players/{account_id}/heroes -- `win` (singular,
+// no `wins`) es el nombre real del campo en la respuesta de la API.
+export interface RawPlayerHero {
+  hero_id: number;
+  games: number;
+  win: number;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -62,4 +70,26 @@ export function isValidRawHeroStatsRow(value: unknown): value is RawHeroStatsRow
   return HERO_STATS_TIER_NUMBERS.every(
     (tier) => typeof value[`${tier}_pick`] === "number" && typeof value[`${tier}_win`] === "number",
   );
+}
+
+export function isValidRawPlayerHero(value: unknown): value is RawPlayerHero {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.hero_id === "number" &&
+    typeof value.games === "number" &&
+    typeof value.win === "number"
+  );
+}
+
+// TSK-018 (fase 1b, §9.7): Steam32 -- solo dígitos decimales, 1 a 4294967295. Un accountId que no
+// pase esto NUNCA debe llegar a construir una URL ni a fetch (regla dura de seguridad, primer dato
+// personal del proyecto). No es una respuesta de OpenDota, pero sigue siendo input externo -- va
+// junto a los demás validadores del borde en vez de en un archivo propio solo para esta función.
+const STEAM_ACCOUNT_ID_PATTERN = /^[0-9]+$/;
+const STEAM_ACCOUNT_ID_MAX = 4294967295;
+
+export function isValidSteamAccountId(value: unknown): value is string {
+  if (typeof value !== "string" || !STEAM_ACCOUNT_ID_PATTERN.test(value)) return false;
+  const n = Number(value);
+  return n >= 1 && n <= STEAM_ACCOUNT_ID_MAX;
 }

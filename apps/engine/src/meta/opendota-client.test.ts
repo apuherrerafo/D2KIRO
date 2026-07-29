@@ -73,3 +73,32 @@ test("getHeroStats lanza de inmediato ante un error que no es 429 (ej. 500), sin
   await expect(client.getHeroStats()).rejects.toThrow(OpenDotaRequestError);
   expect(calls).toHaveLength(1);
 });
+
+// TSK-018 (fase 1b): mismo patrón de clase que los tres métodos de arriba -- getJson/
+// fetchWithRetry ya cubiertos, esta prueba solo confirma la URL construida y el default de días.
+test("getPlayerHeroes construye la URL con el account_id y la ventana de días por defecto (90)", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse([{ hero_id: 1, games: 5, win: 2 }]);
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  const result = await client.getPlayerHeroes("123456789");
+
+  expect(calls).toEqual(["https://api.opendota.com/api/players/123456789/heroes?date=90"]);
+  expect(result).toEqual([{ hero_id: 1, games: 5, win: 2 }]);
+});
+
+test("getPlayerHeroes respeta un days explícito distinto del default", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse([]);
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  await client.getPlayerHeroes("1", { days: 30 });
+
+  expect(calls).toEqual(["https://api.opendota.com/api/players/1/heroes?date=30"]);
+});

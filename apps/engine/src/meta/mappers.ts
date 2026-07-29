@@ -1,4 +1,4 @@
-import type { RawHero, RawMatchup, RawHeroStatsRow } from "./validation";
+import type { RawHero, RawMatchup, RawHeroStatsRow, RawPlayerHero } from "./validation";
 
 const HERO_IMG_BASE_URL = "https://cdn.cloudflare.steamstatic.com";
 
@@ -96,4 +96,17 @@ export function mapHeroStatsRow(raw: RawHeroStatsRow, patch: string, updatedAt: 
     const wins = Number(raw[`${tier}_win`] ?? 0);
     return { heroId: raw.id, patch, bracket, picks, wins, updatedAt };
   });
+}
+
+// TSK-018 (fase 1b): `wins` (no `win`) para que el nombre interno coincida con el resto del
+// esquema (hero_matchups.wins, hero_patch_stats.wins) -- el cálculo del pool (TSK-019) consume
+// esta forma, nunca el nombre crudo de la API.
+export interface PlayerHeroRow {
+  heroId: number;
+  games: number;
+  wins: number;
+}
+
+export function mapPlayerHero(raw: RawPlayerHero): PlayerHeroRow {
+  return { heroId: raw.hero_id, games: raw.games, wins: raw.win };
 }

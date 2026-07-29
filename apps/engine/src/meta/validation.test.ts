@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { isValidRawHero, isValidRawHeroStatsRow, isValidRawMatchup } from "./validation";
+import { isValidRawHero, isValidRawHeroStatsRow, isValidRawMatchup, isValidRawPlayerHero, isValidSteamAccountId } from "./validation";
+import { mapPlayerHero } from "./mappers";
 
 const VALID_HERO = {
   id: 1,
@@ -56,4 +57,43 @@ test("isValidRawHeroStatsRow rechaza si falta el pick/win de un solo bracket", (
   }
   delete row["8_win"];
   expect(isValidRawHeroStatsRow(row)).toBe(false);
+});
+
+// TSK-018 (fase 1b): accountId nunca es una respuesta de OpenDota, pero sigue siendo input
+// externo -- va aquí junto a los demás validadores del borde para no crear un archivo propio
+// solo para una función.
+test("isValidSteamAccountId acepta un id numérico válido", () => {
+  expect(isValidSteamAccountId("123456789")).toBe(true);
+});
+
+test("isValidSteamAccountId rechaza valores no numéricos o vacíos", () => {
+  expect(isValidSteamAccountId("abc123")).toBe(false);
+  expect(isValidSteamAccountId("")).toBe(false);
+  expect(isValidSteamAccountId(" 123")).toBe(false);
+  expect(isValidSteamAccountId("123 ")).toBe(false);
+});
+
+test("isValidSteamAccountId rechaza 0 y valores fuera del rango de Steam32", () => {
+  expect(isValidSteamAccountId("0")).toBe(false);
+  expect(isValidSteamAccountId("4294967296")).toBe(false);
+});
+
+test("isValidSteamAccountId acepta el límite superior exacto de Steam32", () => {
+  expect(isValidSteamAccountId("4294967295")).toBe(true);
+});
+
+test("isValidRawPlayerHero acepta una fila con hero_id/games/win numéricos", () => {
+  expect(isValidRawPlayerHero({ hero_id: 1, games: 20, win: 12 })).toBe(true);
+});
+
+test("isValidRawPlayerHero rechaza si falta un campo requerido", () => {
+  expect(isValidRawPlayerHero({ hero_id: 1, games: 20 })).toBe(false);
+});
+
+test("isValidRawPlayerHero rechaza si algún campo no es numérico", () => {
+  expect(isValidRawPlayerHero({ hero_id: "1", games: 20, win: 12 })).toBe(false);
+});
+
+test("mapPlayerHero convierte el campo win (OpenDota) a wins (nombre interno)", () => {
+  expect(mapPlayerHero({ hero_id: 1, games: 20, win: 12 })).toEqual({ heroId: 1, games: 20, wins: 12 });
 });
