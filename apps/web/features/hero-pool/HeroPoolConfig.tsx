@@ -14,7 +14,15 @@ import {
 } from "@/lib/engine-api";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { EMPTY_POOL_MESSAGE, MAX_POOL_SIZE, POOL_FULL_MESSAGE, POOL_SAVED_MESSAGE, STEAM_ACCOUNT_ID_KEY } from "./constants";
+import {
+  CALCULATE_WINDOW_OPTIONS,
+  DEFAULT_CALCULATE_WINDOW_DAYS,
+  EMPTY_POOL_MESSAGE,
+  MAX_POOL_SIZE,
+  POOL_FULL_MESSAGE,
+  POOL_SAVED_MESSAGE,
+  STEAM_ACCOUNT_ID_KEY,
+} from "./constants";
 import { CalculateStatusMessage, HeroPoolProposalReview } from "./HeroPoolProposalReview";
 import type { CalculateStatus, HeroPoolEntry } from "./types";
 
@@ -72,6 +80,7 @@ export function HeroPoolConfig() {
 
   const [draftEntries, setDraftEntries] = useState<HeroPoolEntry[] | null>(null);
   const [accountIdInput, setAccountIdInput] = useState<string | null>(null);
+  const [windowDays, setWindowDays] = useState(DEFAULT_CALCULATE_WINDOW_DAYS);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [calculateStatus, setCalculateStatus] = useState<CalculateStatus>({ kind: "idle" });
 
@@ -89,6 +98,10 @@ export function HeroPoolConfig() {
 
   function handleAccountIdChange(event: ChangeEvent<HTMLInputElement>) {
     setAccountIdInput(event.target.value);
+  }
+
+  function handleWindowDaysChange(event: ChangeEvent<HTMLSelectElement>) {
+    setWindowDays(Number(event.target.value));
   }
 
   function handleRemove(heroId: number) {
@@ -125,7 +138,7 @@ export function HeroPoolConfig() {
   async function handleCalculate() {
     setCalculateStatus({ kind: "loading" });
     try {
-      const result = await calculatePool({ accountId }).unwrap();
+      const result = await calculatePool({ accountId, days: windowDays }).unwrap();
       // El servidor solo llega hasta acá si accountId pasó isValidSteamAccountId (server/app.ts) --
       // recién ahí vale la pena persistirlo, nunca antes (evita guardar un valor que después
       // rechaza el borde). Nunca se loguea el valor mismo, solo se pasa a la mutación. Best-effort:
@@ -221,6 +234,20 @@ export function HeroPoolConfig() {
           placeholder="account_id de Steam"
           className="rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
         />
+        <label className="flex items-center gap-2 text-caption text-content-secondary">
+          Ventana de partidas
+          <select
+            value={windowDays}
+            onChange={handleWindowDaysChange}
+            className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+          >
+            {CALCULATE_WINDOW_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                Últimos {option} días
+              </option>
+            ))}
+          </select>
+        </label>
         <CalculateStatusMessage status={calculateStatus} />
         <button
           type="button"
