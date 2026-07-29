@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T05:28:35.626Z</title>
+<title>HUB del ecosistema — 2026-07-29T05:38:11.606Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">5</span></h2>
+        <h2>backlog <span class="count">4</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-022</div>
-          <div class="card-title">SignalScorer: hero_pool_fit (S3)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-023</div>
@@ -182,8 +172,8 @@
         
         <div class="card  ">
           
-          <div class="card-id">TSK-021</div>
-          <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
+          <div class="card-id">TSK-022</div>
+          <div class="card-title">SignalScorer: hero_pool_fit (S3)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -200,7 +190,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">20</span></h2>
+        <h2>done <span class="count">21</span></h2>
         
         <div class="card  ">
           
@@ -394,6 +384,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-021</div>
+          <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -409,22 +409,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">40× · 35% ok  · 3 falló</div>
+          <div class="stat-nums">41× · 37% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:60%"></div></div>
-          <div class="stat-nums">24× · 88% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:61%"></div></div>
+          <div class="stat-nums">25× · 88% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:57%"></div></div>
-          <div class="stat-nums">23× · 26% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
+          <div class="stat-nums">24× · 29% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:53%"></div></div>
-          <div class="stat-nums">21× · 95% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:54%"></div></div>
+          <div class="stat-nums">22× · 95% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -448,7 +448,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">pre-flight</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
@@ -456,6 +456,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-022</span> <span class="feed-ts">2026-07-29T12:55</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- función pura, confía en MetaSnapshot ya validado). 1 hallazgo de Spec revisado y aceptado, no defecto: el ticket pedía no tocar weights.ts/mix.ts, pero era ineludible por el compilador -- verificado que el parche (SignalIdV1, weightV1()) es solo de tipos, sin drift de comportamiento (SCORING_WEIGHTS_V1 conserva sus 4 valores exactos, ningún camino de ejecución puede producir signal:'hero_pool_fit' todavía, mix.test.ts sigue en verde sin cambios). Caso borde revisado: personalGames:0 con personalWinrate no nulo degrada limpiamente a raw:0.5 sin NaN. Spec verificada: las 4 filas de la tabla, fórmula exacta, weighted:0 correcto (responsabilidad de la mezcla, no del scorer).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-022</span> <span class="feed-ts">2026-07-29T12:40</span></div>
+            <div class="feed-note">Implementado heroPoolFitScorer (S3). TDD: 9 tests rojos confirmados antes de implementar, incluidos clamp superior/inferior calculados a mano y el uso de personalBaselineWinrate sobre el default. Contrato exacto de SPEC.md §9.3: pool ausente/vacío -> raw:null+applicable:false, fuera del pool -> raw:0.20 (dato real), en el pool sin winrate -> raw:0.50, en el pool con winrate -> comodidad suavizada K=10 con clamp [0.5,1.0]. Hallazgo real durante el build, no anticipado en el ticket: extender SignalId a 5 valores rompía de inmediato la compilación de weights.ts/mix.ts (ambos ya existían, a diferencia de fase 1 donde se crearon después de que SignalId tuviera sus 4 valores) -- resuelto con un parche mínimo de tipos (SignalIdV1 = Exclude<SignalId,'hero_pool_fit'>, helper weightV1() en mix.ts) que no toca valores ni comportamiento, con nota explícita agregada a TSK-023.md sobre exactamente qué debe deshacer al hacer la integración real. bun test: 154/154 sin regresión. tsc limpio. verify-simplicity.sh: 5 archivos/241 líneas -- excede ambos límites, excepción declarada en el propio ticket. Siguiente paso: @redteam sobre TSK-022.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-022</span> <span class="feed-ts">2026-07-29T12:15</span></div>
+            <div class="feed-note">/dispatch manual sobre TSK-022 (sin dependencia con ningún otro ticket de 1b, usa fixtures de MetaSnapshot.heroPool). WIP=1 libre tras cerrar TSK-021. preferred_tool ya era codex desde /rulebook; sin créditos disponibles, no se repreguntó. assigned_tool: claude-code. Ruta: @build → @redteam → @shipcheck. TSK-022 pasa de `backlog` a `doing`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-021</span> <span class="feed-ts">2026-07-29T12:00</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 archivos -- dentro del límite, sin excepción necesaria; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -510,34 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:45</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 archivos/197 líneas -- dentro del límite, sin excepción necesaria; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:35</span></div>
-            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- función pura sin I/O, confía en input ya validado aguas arriba, mismo patrón que los SignalScorer de fase 1). 1 hallazgo de Standards, no bloqueante: la rama `: null` de personalWinrate es código muerto dentro de esta función (proposed solo sale de eligible, que ya garantiza games>=10) -- no es un bug, solo podría confundir a un lector futuro asumiendo que una entrada 'calculated' puede tener personalWinrate:null (eso es exclusivo de entradas 'manual' según TSK-022 §9.3). No amerita cambio ahora. Spec verificada: los 5 pasos en el orden exacto, baseline sobre todas las filas con test dedicado, salida con la forma pedida, sin scope creep.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:20</span></div>
-            <div class="feed-note">Implementado calculateProposedPool (S7) en apps/engine/src/hero-pool/calculate-pool.ts, módulo nuevo (fase 1b no tenía carpeta propia todavía). TDD: 9 tests rojos confirmados antes de implementar. Algoritmo exacto de SPEC.md §9.4: descarta games<10, baseline = suma(wins)/suma(games) sobre TODAS las filas (verificado con test dedicado que un héroe de 3 partidas no filtradas no infla el baseline si se excluyera indebidamente), shrunk = (wins + K*baseline)/(games+K) con K=10, orden por shrunk descendente con desempate por partidas jugadas, corte en 5 (techo no piso). Caso calculado a mano incluido: 7-en-10 vs 25-en-45 (mismo par de la conversación de /blueprint) -- con baseline=32/55, el 7-en-10 sigue arriba después del suavizado, verificado con el número exacto vía toBeCloseTo. bun test: 128/128 sin regresión. tsc limpio. verify-simplicity.sh: 2 archivos/197 líneas -- dentro del límite, sin excepción necesaria. Siguiente paso: @redteam sobre TSK-019.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:00</span></div>
-            <div class="feed-note">/dispatch manual sobre TSK-019 (sin dependencia con TSK-020, WIP=1 libre tras cerrar TSK-018). preferred_tool codex (mismo criterio que TSK-005-008, función pura con spec cerrado); sin créditos disponibles, ya confirmado, no se repreguntó. assigned_tool: claude-code. Ruta: @build → @redteam → @shipcheck. TSK-019 pasa de `backlog` a `doing`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 5 archivos/122 líneas -- excede solo el conteo de archivos (no líneas), excepción documentada por adelantado en el propio ticket (`simplicity_exception: true`); sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
           </div>
         </div></div>
     </div>
