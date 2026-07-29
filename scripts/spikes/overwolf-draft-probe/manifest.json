@@ -1,0 +1,37 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "dota2coach-draft-probe",
+    "version": "0.1.0",
+    "minimum-overwolf-version": "0.78.0",
+    "author": "dota2coach (spike desechable, no es parte del producto)",
+    "name_in_taskbar": "dota2coach draft probe",
+    "description": "Paso 0 del addendum de architecture.md: vuelca roster/bans/draft del GEP de Overwolf a consola y archivo durante una partida real.",
+    "icon": "icon.png",
+    "icon_gray": "icon.png",
+    "launcher_icon": "icon.png"
+  },
+  "permissions": ["GameInfo"],
+  "data": {
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [7314]
+    },
+    "windows": {
+      "background": {
+        "file": "background.html",
+        "is_background_page": true,
+        "background_optimization": false
+      }
+    },
+    "start_window": "background",
+    "launch_events": [
+      {
+        "event": "GameLaunch",
+        "event_data": { "game_ids": [7314] },
+        "start_minimized": true
+      }
+    ]
+  }
+}

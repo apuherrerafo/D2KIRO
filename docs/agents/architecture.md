@@ -392,3 +392,99 @@ constante de scoring (propuesta de partida, a validar en `/blueprint`: `counter:
 además cruza un trust boundary nuevo respecto al `architecture.md` original (primer dato personal
 del proyecto) — coherente con los gatillos de Opus ya documentados en `CLAUDE.md`, no es una
 excepción nueva.
+
+## Addendum (2026-07-28) — Capturador real: Overwolf primero, OCR condicional
+
+Generado por `/pre-flight`, re-invocado para la fase siguiente a fase 1 (D1 de `SPEC.md` ya
+anticipaba que Overwolf/OCR se construirían después de validar el motor). Re-verifica el
+Bloque 2 original, que tenía ~1 año de antigüedad en algunos puntos, con fuentes primarias de
+esta sesión (WebSearch/WebFetch, incluida la doc oficial de Overwolf y el propio issue de Valve).
+
+### Re-verificación del Bloque 2
+
+- **GSI (`gamestate_integration_*.cfg`) sigue sin exponer el draft de partidas propias de
+  matchmaking.** [Issue #19408](https://github.com/ValveSoftware/Dota2-Gameplay/issues/19408)
+  sigue abierto; un comentario de julio 2025 (`GameRuiner`) confirma que investigó OpenDota,
+  STRATZ, logs y GSI y "no encontró solución" — un año más reciente que la investigación
+  original, el problema persiste.
+- **Hallazgo nuevo, no estaba en la investigación original**: el SDK oficial y público de
+  Overwolf (GEP, `dev.overwolf.com/ow-native/live-game-data-gep/supported-games/dota-2/`)
+  documenta campos `roster`, `bans` y `draft` con `heroId`/`team` en JSON — no es "lectura de
+  memoria de socio privilegiado" como se especuló originalmente, es una API pública documentada.
+  Ejemplo real de la doc: `[{"heroId": "75", "team": "0"}]`. Solo `steamId`/`name` de jugadores
+  se ocultan hasta `DOTA_GAMERULES_STATE_STRATEGY_TIME` (protección anti-scouting confirmada por
+  Valve en el issue [#878](https://github.com/ValveSoftware/Dota2-Gameplay/issues/878), cerrado)
+  — el `heroId`/`team` de bans/picks no está gateado por esa protección según la doc.
+- **Tensión sin resolver, no bloqueante**: los apps de Overwolf para Dota 2 requieren
+  `-gamestateintegration` en las opciones de lanzamiento, lo que sugiere que el GEP de Overwolf
+  podría depender internamente del mismo mecanismo GSI que el punto anterior dice que está roto
+  para partidas propias. La documentación no lo aclara — **no hay forma de resolver esto sin
+  probarlo empíricamente en una partida real.**
+- **OCR tiene precedente real y en producción**: STRATZ+ lo construyó y lo mantiene, con
+  fragilidad documentada — falla con resoluciones custom, grids de héroe personalizados, skins
+  arcana, overlays de Dota+ encima del héroe, y partículas de la sala de espera.
+- **Pregunta de dominio (turnos en All Pick), evidencia nueva pero no oficial de Valve**: en
+  All Pick rankeado hay ~16 bans instantáneos pre-partida (mezcla de listas de preferencia +
+  héroes más baneados del bracket, no una fase de veto en vivo) y luego una fase de picks por
+  turnos con patrón 2-2-1 alternando entre equipos. Fuente secundaria (guía de terceros), no
+  documentación oficial de Valve.
+
+### Decisiones (confirmadas por el usuario, 2026-07-28)
+
+| # | Decisión | Razón |
+|---|---|---|
+| D4 | **Spike empírico antes de construir cualquier adapter de producción.** Un script desechable fuera del árbol de producción, corrido por el usuario en una partida real de All Pick, valida el GEP de Overwolf antes de invertir en el adapter completo. | Hay evidencia contradictoria (GSI roto para partidas propias vs. GEP de Overwolf documentado pero de dependencia interna incierta) que no se resuelve leyendo más documentación — coincide con la filosofía ya aplicada en D1 de `SPEC.md` ("no asumas, valida"). |
+| D5 | **Es aceptable que el capturador dependa de que el usuario tenga Overwolf instalado y corriendo.** | Mismo patrón que competidores reales activos (DotaPlus, STRATZ+) — estándar de la industria para este caso de uso, gratuito, y la vía técnica más sólida encontrada. |
+| D6 | **OCR se construye solo si el spike de Overwolf falla** (no en paralelo). | Ataca primero la vía más prometedora y documentada oficialmente; evita duplicar esfuerzo antes de saber si hace falta — mismo principio que D1. |
+| D7 | **El orden de turnos 2-2-1 de All Pick NO se modela en el reductor.** Se mantiene la regla ya inviolable de `SPEC.md` §C2 ("especificar un turnero que adivine sería especificar un bug"). | La evidencia nueva es de una guía de terceros, no de Valve — no alcanza el nivel de certeza para tocar una regla inviolable ya cerrada. Se puede revisar si aparece una fuente primaria. |
+
+### Plan — Paso 0: spike empírico de Overwolf
+
+**Qué valida (ampliado tras revisión del usuario, 2026-07-28):**
+1. Que `roster`/`bans`/`draft` del GEP realmente entregan `heroId`/`team` en vivo durante una
+   partida propia de All Pick (pública, no rankeada, para no arriesgar la cuenta).
+2. **Que un `pick_revert` provocado intencionalmente durante la misma partida de prueba se
+   pueda distinguir de un pick nuevo en los datos crudos del GEP** — el adapter `overwolf`
+   (Paso 1A) va a depender de una heurística de snapshots consecutivos para detectar esto
+   (`pick_reverted` es parte del contrato S1 desde fase 1); esa heurística nunca se prueba si el
+   criterio de éxito se queda solo en "los datos llegan". Es más barato descubrir en el spike
+   que la heurística no es confiable que descubrirlo a medio construir el adapter completo.
+
+**Cómo:** script desechable fuera del árbol de producción (p. ej. `scripts/spikes/`), que
+vuelca a consola/archivo lo que llega en `roster`/`bans`/`draft` en cada `match_state_changed`,
+durante una partida real jugada por el usuario, incluyendo un pick_revert deliberado.
+
+**Bifurcación:** éxito en ambos puntos → Paso 1A (adapter `overwolf`). Falla cualquiera de los
+dos → Paso 1B (adapter `ocr`), documentando en `journal.md` por qué se descartó Overwolf pese a
+estar documentado oficialmente.
+
+### Plan — Paso 1A: adapter `overwolf` (si el spike valida ambos puntos)
+
+- Vive en `apps/engine` como un capturador más (mismo patrón que `simulator`/`manual`), hablando
+  al motor exclusivamente vía `POST /ingest/draft-event` con `x-capture-token`.
+- Mapeo: `match_state_changed` (HERO_SELECTION/STRATEGY_TIME) → `session_started`; diffs en
+  `bans[]` → `hero_banned`; diffs en `draft[]`/`roster[].heroId` → `hero_picked`;
+  `roster[].steamId` propio → `local_side_identified`; pérdida del proceso Overwolf →
+  `capture_health: lost` (la UI habilita entrada manual sin perder estado, regla ya existente).
+- Confianza reportada: `1.0` (dato estructurado directo del cliente, no inferencia).
+- `pick_reverted` se detecta comparando snapshots consecutivos — heurística validada en el
+  Paso 0, no asumida.
+- Modelo de seguridad sin cambios: proceso separado en la misma PC, sin privilegios admin, habla
+  a `apps/engine` en `127.0.0.1` igual que cualquier otro capturador.
+
+### Plan — Paso 1B: adapter `ocr` (solo si el spike de Overwolf falla)
+
+- Mismo contrato de salida (S1); confianza variable por lectura (`0.0–1.0`, ya contemplado en
+  el contrato desde fase 1). Riesgos ya documentados por el precedente de STRATZ+ (resolución
+  custom, grid de héroes personalizado, skins arcana, overlays de Dota+, partículas) — a validar
+  con pruebas propias, no asumir. Esta rama solo se abre si 1A no es viable.
+
+### Explícitamente fuera de alcance de esta fase
+
+- Turnos de Valve (2-2-1 en All Pick, orden de Captains Mode) — sin modelar en el reductor (D7).
+- Captain Mode como adapter separado — el mismo adapter `overwolf`/`ocr` cubre ambos formatos
+  porque el contrato de eventos es agnóstico al formato.
+- Cualquier cambio al contrato S1, al reductor (C2), o al motor de sugerencias (C3) — cero tocar.
+
+**Siguiente paso:** `/rulebook` (o `/grill-me` para afinar el spike primero) parte esto en
+tickets con `preferred_tool`/límites de archivo, empezando por el Paso 0.
