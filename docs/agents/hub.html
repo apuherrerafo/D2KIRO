@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T05:11:05.712Z</title>
+<title>HUB del ecosistema — 2026-07-29T05:18:36.662Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">7</span></h2>
+        <h2>backlog <span class="count">6</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-020</div>
-          <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-021</div>
@@ -202,8 +192,8 @@
         
         <div class="card  ">
           
-          <div class="card-id">TSK-019</div>
-          <div class="card-title">Cálculo puro del pool propuesto (S7)</div>
+          <div class="card-id">TSK-020</div>
+          <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -220,7 +210,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">18</span></h2>
+        <h2>done <span class="count">19</span></h2>
         
         <div class="card  ">
           
@@ -394,6 +384,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-019</div>
+          <div class="card-title">Cálculo puro del pool propuesto (S7)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -409,22 +409,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">38× · 32% ok  · 3 falló</div>
+          <div class="stat-nums">39× · 33% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
-          <div class="stat-nums">22× · 86% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
+          <div class="stat-nums">23× · 87% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:55%"></div></div>
-          <div class="stat-nums">21× · 19% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:56%"></div></div>
+          <div class="stat-nums">22× · 23% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:50%"></div></div>
-          <div class="stat-nums">19× · 95% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:51%"></div></div>
+          <div class="stat-nums">20× · 95% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -456,6 +456,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-020</span> <span class="feed-ts">2026-07-29T10:45</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- validación completa en el borde, Drizzle parametrizado en toda la capa de escritura, sin token igual que /api/settings ya establecido). 1 nota de Standards, no explotable por HTTP real: isValidHeroPoolPutEntry no rechaza explícitamente NaN/Infinity en personalWinrate, pero JSON.parse nativo ya rechaza esos tokens como sintaxis inválida antes de llegar al validador. El patrón for-insert dentro de la transacción se revisó explícitamente contra la regla de N+1 del checklist y se descartó -- acotado a 5 filas máximo, misma transacción, mismo patrón ya aceptado en sync.ts. Spec verificada: las 5 validaciones en el orden correcto, sin scope creep hacia TSK-021/024.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-020</span> <span class="feed-ts">2026-07-29T10:30</span></div>
+            <div class="feed-note">Implementados GET/PUT /api/hero-pool + replaceHeroPool (S8). TDD: 8 tests rojos confirmados antes de implementar. replaceHeroPool (queries.ts) es el único camino de escritura, transaccional -- probado con un heroId duplicado dentro del array que viola la PK a mitad de la transacción, confirmando que el pool anterior queda intacto (atomicidad real, no solo declarada). Endpoints en app.ts: GET siempre 200 (con [] si el pool nunca se configuró), PUT valida en el borde antes de tocar la DB (máximo 5 entradas, sin heroId duplicado, heroId debe existir en heroes, personalWinrate en [0,1] o null, personalGames entero no negativo) -- cualquier fallo deja el pool guardado sin tocar, verificado con pruebas de integración reales contra el servidor vivo (fetch real, no mocks). El servidor estampa su propio updatedAt (new Date().toISOString()), nunca confía en lo que mande el cliente. bun test: 138/138 sin regresión. tsc limpio. verify-simplicity.sh: 4 archivos/246 líneas -- excede ambos límites, excepción declarada en el propio ticket (simplicity_exception: true), mismo patrón que TSK-010 (servidor+seguridad) en fase 1. Siguiente paso: @redteam sobre TSK-020.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-020</span> <span class="feed-ts">2026-07-29T10:00</span></div>
+            <div class="feed-note">/dispatch manual sobre TSK-020 (depende de TSK-017, ya done). WIP=1 libre tras cerrar TSK-019. preferred_tool ya era claude-code desde /rulebook (servidor + validación transaccional, mismo criterio que TSK-010 en fase 1) -- sin decisión de créditos pendiente. Ruta: @build → @redteam → @shipcheck. TSK-020 pasa de `backlog` a `doing`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:45</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 archivos/197 líneas -- dentro del límite, sin excepción necesaria; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -510,34 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:45</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 6 archivos/473 líneas -- excede 3/200, excepción documentada por adelantado en el propio ticket (`simplicity_exception: true`), 383 de esas líneas son el snapshot JSON autogenerado por drizzle-kit; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:35</span></div>
-            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- sin input externo, sin secretos, getHeroPool totalmente parametrizado vía Drizzle, sin escalamiento de privilegios). 1 hallazgo de Standards, no bloqueante: el FK hero_pool.hero_id -> heroes.id no se aplica en runtime porque client.ts nunca activa PRAGMA foreign_keys = ON en bun:sqlite -- mismo patrón ya presente desde TSK-002 en hero_matchups/hero_patch_stats, no introducido por este ticket. La validación real de heroId contra la tabla heroes es responsabilidad explícita de TSK-020 a nivel de aplicación. Spec verificada columna por columna contra el ticket: sin scope creep (el CRUD completo y el límite de 5 quedaron correctamente fuera de este ticket).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:20</span></div>
-            <div class="feed-note">Implementada la migración hero_pool + claves de settings (fase 1b). TDD: test rojo confirmado (import de `heroPool`/`getHeroPool` fallando por no existir) antes de escribir el schema. Tabla `hero_pool` en `apps/engine/src/db/schema.ts` (hero_id PK/FK -> heroes.id, source 'manual'|'calculated', personal_winrate real nullable, personal_games con default 0, updated_at) — esquema exacto de SPEC.md §9.4, sin desviación. Query de ejemplo `getHeroPool` (solo lectura) en `queries.ts`, con dos pruebas nuevas (pool con datos, pool vacío) más una prueba de las dos claves nuevas de settings (`steam_account_id`, `personal_baseline_winrate`, sin cambio de esquema — filas sobre la tabla ya existente). Migración generada con `npx drizzle-kit generate` (0001_narrow_thanos.sql), inspeccionada y aplicada contra un archivo SQLite real descartable antes de commitear (creado y borrado en la misma sesión, nunca tocó `data/dota2coach.sqlite`). `bun test` completo de apps/engine: 109/109 sin regresión. `tsc --noEmit` limpio. verify-simplicity.sh: 6 archivos/473 líneas, 383 de esas líneas son el snapshot JSON autogenerado por drizzle-kit — excepción ya documentada en el propio ticket, primera vez que el mecanismo de `simplicity_exception: true` (agregado esta misma sesión) se usa en un caso real, no de prueba. Siguiente paso: @redteam sobre TSK-017.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:05</span></div>
-            <div class="feed-note">/dispatch manual sobre TSK-017 (top del plan.md, único candidato válido, WIP=1 respetado). preferred_tool era codex (fijado en /rulebook, mismo patrón que TSK-002 en fase 1) pero el usuario confirmó no tener créditos de Codex disponibles ahora mismo — assigned_tool se mantiene claude-code, igual que terminaron los 9 tickets equivalentes de fase 1 con preferred_tool: codex. Sin cambio de alcance ni de sensibilidad respecto a como se escribió el ticket (schema + migración, excepción de 1 unidad lógica ya documentada). Ruta decidida: @build → @redteam (mismo patrón que TSK-002, migración de esquema) → @shipcheck al cerrar; sin /castoff todavía, no hay deploy en juego. TSK-017 pasa de `backlog` a `doing` en su frontmatter — único ticket activo, WIP=1 por herramienta respetado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:50</span></div>
-            <div class="feed-note">`/rulebook` sobre `docs/specs/SPEC.md` §9.10 (fase 1b): sin requirements.md/design.md/tasks.md nativo de Kiro que importar, mismo patrón que fase 1 — 10 tickets generados directamente desde el SPEC (TSK-017 a TSK-026, uno por frontera de §9.10, en orden de dependencia, `state: backlog`, `moscow: must` en los 10 porque cada uno mapea a un criterio de aceptación de §9.8). `preferred_tool` siguiendo la misma heurística que fase 1 (codex para funciones puras/piezas acotadas con spec cerrado: TSK-017/018/019/022/024/026; claude-code para servidor/seguridad/lógica central: TSK-020/021/023/025), `assigned_tool: claude-code` en los 10 (mismo patrón real de las 16 tickets de fase 1: todas terminaron ahí sin importar el `preferred_tool` original). Extendidas (nunca reescritas) las secciones "Fase 1b" de `.claude/rules/{engine,web,security,testing-seams}.md` y `.kiro/steering/{product,structure,tech}.md` — estos últimos tenían una nota de estado desactualizada desde `/rulebook` de fase 1 (decían que `apps/web`/`apps/engine` no existían y que Bun no estaba instalado), corregida de paso. `CLAUDE.md` gana la sección "REGLAS DE FASE 1b" (mismo formato que la de fase 1 ya existente) y la misma corrección de nota de estado. Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). El commit de este trabajo (18 archivos: 10 tickets + 8 de reglas/config) volvió a exceder el límite de archivos sin ticket al que atarle la excepción (mismo caso que los commits de planificación anteriores) — autorizado explícitamente por el usuario, vía PowerShell.</div>
           </div>
         </div></div>
     </div>
