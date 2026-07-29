@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T04:55:37.020Z</title>
+<title>HUB del ecosistema — 2026-07-29T05:11:05.712Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">8</span></h2>
+        <h2>backlog <span class="count">7</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-019</div>
-          <div class="card-title">Cálculo puro del pool propuesto (S7)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-020</div>
@@ -212,8 +202,8 @@
         
         <div class="card  ">
           
-          <div class="card-id">TSK-018</div>
-          <div class="card-title">OpenDotaClient.getPlayerHeroes + validación en el borde (S7)</div>
+          <div class="card-id">TSK-019</div>
+          <div class="card-title">Cálculo puro del pool propuesto (S7)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -230,7 +220,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">17</span></h2>
+        <h2>done <span class="count">18</span></h2>
         
         <div class="card  ">
           
@@ -394,6 +384,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-018</div>
+          <div class="card-title">OpenDotaClient.getPlayerHeroes + validación en el borde (S7)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -409,22 +409,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">37× · 30% ok  · 3 falló</div>
+          <div class="stat-nums">38× · 32% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:57%"></div></div>
-          <div class="stat-nums">21× · 86% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:58%"></div></div>
+          <div class="stat-nums">22× · 86% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:54%"></div></div>
-          <div class="stat-nums">20× · 15% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:55%"></div></div>
+          <div class="stat-nums">21× · 19% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:49%"></div></div>
-          <div class="stat-nums">18× · 94% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:50%"></div></div>
+          <div class="stat-nums">19× · 95% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -456,6 +456,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:35</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- función pura sin I/O, confía en input ya validado aguas arriba, mismo patrón que los SignalScorer de fase 1). 1 hallazgo de Standards, no bloqueante: la rama `: null` de personalWinrate es código muerto dentro de esta función (proposed solo sale de eligible, que ya garantiza games>=10) -- no es un bug, solo podría confundir a un lector futuro asumiendo que una entrada 'calculated' puede tener personalWinrate:null (eso es exclusivo de entradas 'manual' según TSK-022 §9.3). No amerita cambio ahora. Spec verificada: los 5 pasos en el orden exacto, baseline sobre todas las filas con test dedicado, salida con la forma pedida, sin scope creep.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:20</span></div>
+            <div class="feed-note">Implementado calculateProposedPool (S7) en apps/engine/src/hero-pool/calculate-pool.ts, módulo nuevo (fase 1b no tenía carpeta propia todavía). TDD: 9 tests rojos confirmados antes de implementar. Algoritmo exacto de SPEC.md §9.4: descarta games<10, baseline = suma(wins)/suma(games) sobre TODAS las filas (verificado con test dedicado que un héroe de 3 partidas no filtradas no infla el baseline si se excluyera indebidamente), shrunk = (wins + K*baseline)/(games+K) con K=10, orden por shrunk descendente con desempate por partidas jugadas, corte en 5 (techo no piso). Caso calculado a mano incluido: 7-en-10 vs 25-en-45 (mismo par de la conversación de /blueprint) -- con baseline=32/55, el 7-en-10 sigue arriba después del suavizado, verificado con el número exacto vía toBeCloseTo. bun test: 128/128 sin regresión. tsc limpio. verify-simplicity.sh: 2 archivos/197 líneas -- dentro del límite, sin excepción necesaria. Siguiente paso: @redteam sobre TSK-019.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-07-29T09:00</span></div>
+            <div class="feed-note">/dispatch manual sobre TSK-019 (sin dependencia con TSK-020, WIP=1 libre tras cerrar TSK-018). preferred_tool codex (mismo criterio que TSK-005-008, función pura con spec cerrado); sin créditos disponibles, ya confirmado, no se repreguntó. assigned_tool: claude-code. Ruta: @build → @redteam → @shipcheck. TSK-019 pasa de `backlog` a `doing`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:45</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 5 archivos/122 líneas -- excede solo el conteo de archivos (no líneas), excepción documentada por adelantado en el propio ticket (`simplicity_exception: true`); sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -510,34 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:50</span></div>
             <div class="feed-note">`/rulebook` sobre `docs/specs/SPEC.md` §9.10 (fase 1b): sin requirements.md/design.md/tasks.md nativo de Kiro que importar, mismo patrón que fase 1 — 10 tickets generados directamente desde el SPEC (TSK-017 a TSK-026, uno por frontera de §9.10, en orden de dependencia, `state: backlog`, `moscow: must` en los 10 porque cada uno mapea a un criterio de aceptación de §9.8). `preferred_tool` siguiendo la misma heurística que fase 1 (codex para funciones puras/piezas acotadas con spec cerrado: TSK-017/018/019/022/024/026; claude-code para servidor/seguridad/lógica central: TSK-020/021/023/025), `assigned_tool: claude-code` en los 10 (mismo patrón real de las 16 tickets de fase 1: todas terminaron ahí sin importar el `preferred_tool` original). Extendidas (nunca reescritas) las secciones "Fase 1b" de `.claude/rules/{engine,web,security,testing-seams}.md` y `.kiro/steering/{product,structure,tech}.md` — estos últimos tenían una nota de estado desactualizada desde `/rulebook` de fase 1 (decían que `apps/web`/`apps/engine` no existían y que Bun no estaba instalado), corregida de paso. `CLAUDE.md` gana la sección "REGLAS DE FASE 1b" (mismo formato que la de fase 1 ya existente) y la misma corrección de nota de estado. Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). El commit de este trabajo (18 archivos: 10 tickets + 8 de reglas/config) volvió a exceder el límite de archivos sin ticket al que atarle la excepción (mismo caso que los commits de planificación anteriores) — autorizado explícitamente por el usuario, vía PowerShell.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T23:45</span></div>
-            <div class="feed-note">Commiteado el backlog de 21 archivos/1688 líneas acumulado (TSK-016, spike de Overwolf, addendum de architecture.md, blueprint de fase 1b) en 6 commits separados por unidad lógica, a pedido del usuario. En el camino se encontró y corrigió un bug real en `scripts/verify-simplicity.sh`: usaba `git diff HEAD` (ciego a qué está en stage) para contar archivos/líneas, así que veía TODO lo no comiteado sin importar el subconjunto en stage para un commit puntual — dividir el backlog en commits lógicos era imposible, el gate seguía bloqueando por el resto del árbol. Corregido a `git diff --cached` (mismo cambio en el chequeo de dependencias, sección 3). De paso se agregó un mecanismo real de excepción declarativa: si el mensaje del commit referencia un `TSK-XXX` cuyo frontmatter ya declaró `simplicity_exception: true` de antemano, el exceso se avisa (⚠️) pero no bloquea — antes esa excepción solo existía como nota de prosa en el ticket (TSK-012/013/016), sin que el gate pudiera reconocerla. Un segundo bug encontrado al probarlo: la extracción de `$cmd` en `pretooluse-guard.sh` cortaba en la primera comilla interna del JSON del hook, así que un `commit -m` con heredoc (patrón recomendado para mensajes multilínea) truncaba el comando antes de llegar al texto real — corregido buscando el `TSK-XXX` sobre `$input` crudo en vez de sobre `$cmd` extraído. Descubierto también, no corregido (no era el objetivo): el hook `PreToolUse` de `.claude/settings.json` tiene `"matcher": "Bash"` — nunca se dispara si el commit se hace vía la herramienta PowerShell, que sigue disponible en este entorno. Explica por qué TSK-012 (13 archivos/814 líneas) y otros commits grandes de fase 1 pasaron sin que el gate los viera. Dos commits de esta sesión que exceden el límite y no tienen ticket al que atarles la excepción (planificación de fase 1b y del capturador Overwolf, documentación pura sin código) se hicieron vía PowerShell con autorización explícita del usuario en cada caso — no es un bypass silencioso.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:20</span></div>
-            <div class="feed-note">Segunda ejecución de /blueprint en Opus (gatillo documentado en CLAUDE.md: cambio de trust boundary respecto a /pre-flight — el account_id de Steam es el primer dato personal del proyecto; de aquí en adelante Sonnet otra vez). Sintetizado el addendum "Fase 1b" de architecture.md en una parte anexada a docs/specs/SPEC.md (§9.0 a §9.10), siguiendo el mismo patrón de addendum que ya usa architecture.md — fase 1 no se reescribe, y §9.0 lista explícitamente las 5 cosas de fase 1 que quedan superadas. Cerrados con el usuario vía AskUserQuestion los dos números que /pre-flight dejó provisionales, más dos decisiones que aparecieron al leer el código real:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:00</span></div>
-            <div class="feed-note">Usuario pidió el script del Paso 0 directamente (spike desechable, sin ticket, sin @redteam/@shipcheck por instrucción explícita). Escrito en scripts/spikes/overwolf-draft-probe/ (fuera del árbol de producción, no cuenta contra verify-simplicity.sh): manifest.json (app mínimo de Overwolf, game_id 7314, features roster/match_state_changed/match_info), background.html/background.js (se suscribe a onInfoUpdates2/onNewEvents, vuelca cada actualización cruda a consola + overwolf-appdata:/draft-probe.log, y calcula un diff por slot sobre roster.players/bans/draft para señalar explícitamente cuando un heroId cambia en el mismo slot -- la señal que el Paso 0 necesita para el criterio de éxito de pick_revert), README.md con protocolo paso a paso (activar modo desarrollador, cargar unpacked, abrir consola, protocolo de partida con bots recomendado sobre pública/rankeada, intento explícito de cambiar de héroe antes de confirmar, troubleshooting de -gamestateintegration). Nota honesta: los nombres exactos de campo dentro de roster (team_slot vs index, hero vs heroId) no están 100% confirmados por una fuente ejecutada realmente -- por eso el script vuelca siempre el RAW completo además del diff, así ninguna sorpresa de la partida real queda oculta por una heurística de key equivocada. Pendiente: que el usuario lo corra en una partida real y traiga el log de vuelta para decidir Paso 1A vs 1B.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>pre-flight</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T22:45</span></div>
-            <div class="feed-note">Re-invocado para planificar la fase siguiente a fase 1 (capturador real Overwolf/OCR, ya anticipada como D1 en SPEC.md). Re-verificado el Bloque 2 de architecture.md (~1 año de antigüedad en algunos puntos) con fuentes primarias de esta sesión: (1) issue de Valve #19408 sigue abierto, comentario de julio 2025 confirma que GSI sigue sin exponer draft de partidas propias de matchmaking -- el problema persiste un año después de la investigación original; (2) hallazgo nuevo no anticipado: la doc oficial y pública del GEP de Overwolf (dev.overwolf.com) documenta campos roster/bans/draft con heroId/team -- no es lectura de memoria de socio privilegiado como se especuló en julio, es API pública documentada; solo steamId/name de jugadores rivales se ocultan hasta STRATEGY_TIME (protección anti-scouting confirmada en issue #878, cerrado); (3) tensión sin resolver: los apps de Overwolf para Dota 2 requieren -gamestateintegration en launch options, sugiriendo que el GEP podría depender internamente del mismo GSI que el punto (1) dice que está roto para partidas propias -- no se puede resolver sin probarlo empíricamente; (4) OCR tiene precedente real en producción (STRATZ+), con fragilidad documentada: resoluciones custom, grids de héroe personalizados, skins arcana, overlays de Dota+, partículas de la sala de espera; (5) pregunta de dominio nunca resuelta -- en All Pick rankeado hay ~16 bans instantáneos pre-partida (preferencias + popularidad del bracket, no una fase de veto en vivo) y luego picks por turnos 2-2-1 alternando equipos, evidencia de guía de terceros, no oficial de Valve. Usuario decidió 4 puntos vía AskUserQuestion: D4 spike empírico de Overwolf antes de construir cualquier adapter de producción; D5 es aceptable que el capturador dependa de que el usuario tenga Overwolf instalado y corriendo (mismo patrón que DotaPlus/STRATZ+); D6 OCR se construye solo si el spike de Overwolf falla, no en paralelo; D7 el patrón 2-2-1 de All Pick NO se modela en el reductor -- se mantiene la regla inviolable ya existente en SPEC.md §C2, la evidencia nueva es secundaria y no alcanza el nivel de certeza para tocarla. El usuario corrigió el primer borrador del plan antes de aprobarlo: el criterio de éxito del Paso 0 (spike) solo validaba que heroId/team llegan en vivo, pero el Paso 1A ya asumía una heurística de snapshots consecutivos para detectar pick_reverted que nunca se probaba en el spike tal como estaba definido -- ampliado el criterio de éxito para exigir también provocar un pick_revert real durante la partida de prueba y confirmar que es distinguible de un pick nuevo en los datos crudos del GEP, más barato de descubrir ahí que a medio construir el adapter. Plan completo (Paso 0 spike ampliado, Paso 1A adapter overwolf, Paso 1B adapter ocr condicional, fuera de alcance explícito: turnos de Valve y Captain Mode como adapter separado) persistido como addendum en docs/agents/architecture.md, sección "Addendum (2026-07-28) -- Capturador real: Overwolf primero, OCR condicional". No se escribió código ni se crearon tickets -- siguiente paso es /rulebook o /grill-me para partir el Paso 0 en un ticket real.</div>
           </div>
         </div></div>
     </div>
