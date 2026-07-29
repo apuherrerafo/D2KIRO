@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const heroes = sqliteTable("heroes", {
   id: integer("id").primaryKey(),
@@ -55,4 +55,17 @@ export const metaSync = sqliteTable("meta_sync", {
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+});
+
+// Fase 1b (TSK-017, SPEC.md §9.4): hasta 5 héroes de comodidad del usuario local. `steam_account_id`
+// y `personal_baseline_winrate` viven como filas nuevas en `settings` (ya existente arriba), sin
+// cambio de esquema.
+export const heroPool = sqliteTable("hero_pool", {
+  heroId: integer("hero_id")
+    .primaryKey()
+    .references(() => heroes.id),
+  source: text("source").notNull().$type<"manual" | "calculated">(),
+  personalWinrate: real("personal_winrate"),
+  personalGames: integer("personal_games").notNull().default(0),
+  updatedAt: text("updated_at").notNull(),
 });

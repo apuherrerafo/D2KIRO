@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { heroMatchups, settings } from "./schema";
+import { heroMatchups, heroPool, settings } from "./schema";
 
 export function getMatchupsForHero<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
@@ -21,4 +21,11 @@ export function upsertSetting<TSchema extends Record<string, unknown>>(
   value: string,
 ) {
   db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
+}
+
+// TSK-017 (fase 1b, S8 la usará luego): la "1 query afectada" de la excepción de migración
+// documentada en CLAUDE.md. Solo lectura -- el reemplazo transaccional del pool completo es
+// responsabilidad de TSK-020, no de este ticket.
+export function getHeroPool<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>) {
+  return db.select().from(heroPool).all();
 }

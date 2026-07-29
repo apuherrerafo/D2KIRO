@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, settings } from "./schema";
-import { getAllSettings, getMatchupsForHero, upsertSetting } from "./queries";
+import { heroes, heroMatchups, heroPool, settings } from "./schema";
+import { getAllSettings, getHeroPool, getMatchupsForHero, upsertSetting } from "./queries";
 
 function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -29,8 +29,15 @@ function createTestDb() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    CREATE TABLE hero_pool (
+      hero_id INTEGER PRIMARY KEY,
+      source TEXT NOT NULL,
+      personal_winrate REAL,
+      personal_games INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
   `);
-  return drizzle(sqlite, { schema: { heroes, heroMatchups, settings } });
+  return drizzle(sqlite, { schema: { heroes, heroMatchups, settings, heroPool } });
 }
 
 test("getMatchupsForHero devuelve solo los enfrentamientos del héroe pedido", () => {
@@ -83,4 +90,47 @@ test("upsertSetting sobre una clave existente actualiza el valor, no duplica la 
   const all = getAllSettings(db);
   expect(all).toHaveLength(1);
   expect(all[0]).toEqual({ key: "theme", value: "light" });
+});
+
+// TSK-017 (fase 1b): claves nuevas de settings, sin cambio de esquema -- son solo filas sobre la
+// misma tabla key/value que ya existía, mismas funciones genéricas de arriba.
+test("steam_account_id y personal_baseline_winrate se guardan y leen como cualquier otra clave de settings", () => {
+  const db = createTestDb();
+
+  upsertSetting(db, "steam_account_id", "123456789");
+  upsertSetting(db, "personal_baseline_winrate", "0.52");
+
+  const all = getAllSettings(db);
+  expect(all).toHaveLength(2);
+  expect(all).toEqual(
+    expect.arrayContaining([
+      { key: "steam_account_id", value: "123456789" },
+      { key: "personal_baseline_winrate", value: "0.52" },
+    ]),
+  );
+});
+
+// TSK-017 (fase 1b): tabla nueva hero_pool -- la "1 query afectada" de la excepción documentada.
+test("getHeroPool devuelve las entradas insertadas, parametrizadas vía Drizzle", () => {
+  const db = createTestDb();
+
+  db.insert(heroPool)
+    .values([
+      { heroId: 1, source: "manual", personalWinrate: null, personalGames: 0, updatedAt: "2026-07-29" },
+      { heroId: 2, source: "calculated", personalWinrate: 0.58, personalGames: 42, updatedAt: "2026-07-29" },
+    ])
+    .run();
+
+  const pool = getHeroPool(db);
+
+  expect(pool).toHaveLength(2);
+  expect(pool.map((entry) => entry.heroId).sort()).toEqual([1, 2]);
+  const calculated = pool.find((entry) => entry.heroId === 2);
+  expect(calculated).toEqual({ heroId: 2, source: "calculated", personalWinrate: 0.58, personalGames: 42, updatedAt: "2026-07-29" });
+});
+
+test("getHeroPool devuelve vacío cuando el pool nunca se configuró", () => {
+  const db = createTestDb();
+
+  expect(getHeroPool(db)).toHaveLength(0);
 });

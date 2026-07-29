@@ -8,6 +8,13 @@
       "when": 1785126957069,
       "tag": "0000_nifty_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785300013998,
+      "tag": "0001_narrow_thanos",
+      "breakpoints": true
     }
   ]
 }
