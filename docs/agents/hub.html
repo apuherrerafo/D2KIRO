@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T03:23:54.939Z</title>
+<title>HUB del ecosistema — 2026-07-29T04:46:34.477Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step step-active">blueprint</div><div class="step-arrow">→</div><div class="step step-active">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code · Modelo: Sonnet (la fase cara de Opus terminó — no se vuelve a usar salvo un gatillo de riesgo de los listados en CLAUDE.md) · Acción: Correr /rulebook para partir la lista de 10 fronteras de la sección §9.10 de docs/specs/SPEC.md en tickets reales (TSK-017 en adelante), cada uno con su preferred_tool y sus límites de archivos. El SPEC ya deja cerrado todo lo que necesitan: los pesos, el mínimo de partidas, el contrato de la señal nueva y los errores de cada endpoint. Dos cosas más siguen pendientes y no bloquean nada: correr el spike de Overwolf (scripts/spikes/overwolf-draft-probe/) en una partida real, y validar el criterio 1 de fase 1 contra una partida real con el capturador manual.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step step-active">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code (o Codex según el `preferred_tool` de cada ticket, confirmado por /dispatch) · Modelo: Sonnet · Acción: Empezar a ejecutar los 10 tickets de fase 1b (TSK-017 a TSK-026, todos en `backlog`) con /helm → /dispatch → @build, empezando por TSK-017 (migración `hero_pool` + claves de `settings`), que no depende de ningún otro ticket nuevo. En paralelo, sin que dependa de lo anterior ni viceversa: correr el spike de Overwolf (scripts/spikes/overwolf-draft-probe/) en una partida real para decidir el adapter de captura real. Sigue pendiente y no urgente: validar el criterio 1 de fase 1 contra una partida real con el capturador manual.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">10</span></h2>
+        <h2>backlog <span class="count">9</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-017</div>
-          <div class="card-title">Migración hero_pool + claves de settings (§9.4)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-018</div>
@@ -240,7 +230,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">16</span></h2>
+        <h2>done <span class="count">17</span></h2>
         
         <div class="card  ">
           
@@ -394,6 +384,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-017</div>
+          <div class="card-title">Migración hero_pool + claves de settings (§9.4)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -409,21 +409,21 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">34× · 24% ok  · 3 falló</div>
+          <div class="stat-nums">36× · 28% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:56%"></div></div>
-          <div class="stat-nums">19× · 84% ok · 3 bloqueado </div>
+          <div class="stat-nums">20× · 85% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:53%"></div></div>
-          <div class="stat-nums">18× · 6% ok  </div>
+          <div class="stat-nums">19× · 11% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:50%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:47%"></div></div>
           <div class="stat-nums">17× · 94% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -437,14 +437,14 @@
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">depcheck</div>
+          <div class="stat-name">rulebook</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
-          <div class="stat-nums">1× · 100% ok  </div>
+          <div class="stat-name">depcheck</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">pre-flight</div>
@@ -456,6 +456,41 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:35</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- sin input externo, sin secretos, getHeroPool totalmente parametrizado vía Drizzle, sin escalamiento de privilegios). 1 hallazgo de Standards, no bloqueante: el FK hero_pool.hero_id -> heroes.id no se aplica en runtime porque client.ts nunca activa PRAGMA foreign_keys = ON en bun:sqlite -- mismo patrón ya presente desde TSK-002 en hero_matchups/hero_patch_stats, no introducido por este ticket. La validación real de heroId contra la tabla heroes es responsabilidad explícita de TSK-020 a nivel de aplicación. Spec verificada columna por columna contra el ticket: sin scope creep (el CRUD completo y el límite de 5 quedaron correctamente fuera de este ticket).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:20</span></div>
+            <div class="feed-note">Implementada la migración hero_pool + claves de settings (fase 1b). TDD: test rojo confirmado (import de `heroPool`/`getHeroPool` fallando por no existir) antes de escribir el schema. Tabla `hero_pool` en `apps/engine/src/db/schema.ts` (hero_id PK/FK -> heroes.id, source 'manual'|'calculated', personal_winrate real nullable, personal_games con default 0, updated_at) — esquema exacto de SPEC.md §9.4, sin desviación. Query de ejemplo `getHeroPool` (solo lectura) en `queries.ts`, con dos pruebas nuevas (pool con datos, pool vacío) más una prueba de las dos claves nuevas de settings (`steam_account_id`, `personal_baseline_winrate`, sin cambio de esquema — filas sobre la tabla ya existente). Migración generada con `npx drizzle-kit generate` (0001_narrow_thanos.sql), inspeccionada y aplicada contra un archivo SQLite real descartable antes de commitear (creado y borrado en la misma sesión, nunca tocó `data/dota2coach.sqlite`). `bun test` completo de apps/engine: 109/109 sin regresión. `tsc --noEmit` limpio. verify-simplicity.sh: 6 archivos/473 líneas, 383 de esas líneas son el snapshot JSON autogenerado por drizzle-kit — excepción ya documentada en el propio ticket, primera vez que el mecanismo de `simplicity_exception: true` (agregado esta misma sesión) se usa en un caso real, no de prueba. Siguiente paso: @redteam sobre TSK-017.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:05</span></div>
+            <div class="feed-note">/dispatch manual sobre TSK-017 (top del plan.md, único candidato válido, WIP=1 respetado). preferred_tool era codex (fijado en /rulebook, mismo patrón que TSK-002 en fase 1) pero el usuario confirmó no tener créditos de Codex disponibles ahora mismo — assigned_tool se mantiene claude-code, igual que terminaron los 9 tickets equivalentes de fase 1 con preferred_tool: codex. Sin cambio de alcance ni de sensibilidad respecto a como se escribió el ticket (schema + migración, excepción de 1 unidad lógica ya documentada). Ruta decidida: @build → @redteam (mismo patrón que TSK-002, migración de esquema) → @shipcheck al cerrar; sin /castoff todavía, no hay deploy en juego. TSK-017 pasa de `backlog` a `doing` en su frontmatter — único ticket activo, WIP=1 por herramienta respetado.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T23:50</span></div>
+            <div class="feed-note">`/rulebook` sobre `docs/specs/SPEC.md` §9.10 (fase 1b): sin requirements.md/design.md/tasks.md nativo de Kiro que importar, mismo patrón que fase 1 — 10 tickets generados directamente desde el SPEC (TSK-017 a TSK-026, uno por frontera de §9.10, en orden de dependencia, `state: backlog`, `moscow: must` en los 10 porque cada uno mapea a un criterio de aceptación de §9.8). `preferred_tool` siguiendo la misma heurística que fase 1 (codex para funciones puras/piezas acotadas con spec cerrado: TSK-017/018/019/022/024/026; claude-code para servidor/seguridad/lógica central: TSK-020/021/023/025), `assigned_tool: claude-code` en los 10 (mismo patrón real de las 16 tickets de fase 1: todas terminaron ahí sin importar el `preferred_tool` original). Extendidas (nunca reescritas) las secciones "Fase 1b" de `.claude/rules/{engine,web,security,testing-seams}.md` y `.kiro/steering/{product,structure,tech}.md` — estos últimos tenían una nota de estado desactualizada desde `/rulebook` de fase 1 (decían que `apps/web`/`apps/engine` no existían y que Bun no estaba instalado), corregida de paso. `CLAUDE.md` gana la sección "REGLAS DE FASE 1b" (mismo formato que la de fase 1 ya existente) y la misma corrección de nota de estado. Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). El commit de este trabajo (18 archivos: 10 tickets + 8 de reglas/config) volvió a exceder el límite de archivos sin ticket al que atarle la excepción (mismo caso que los commits de planificación anteriores) — autorizado explícitamente por el usuario, vía PowerShell.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T23:45</span></div>
+            <div class="feed-note">Commiteado el backlog de 21 archivos/1688 líneas acumulado (TSK-016, spike de Overwolf, addendum de architecture.md, blueprint de fase 1b) en 6 commits separados por unidad lógica, a pedido del usuario. En el camino se encontró y corrigió un bug real en `scripts/verify-simplicity.sh`: usaba `git diff HEAD` (ciego a qué está en stage) para contar archivos/líneas, así que veía TODO lo no comiteado sin importar el subconjunto en stage para un commit puntual — dividir el backlog en commits lógicos era imposible, el gate seguía bloqueando por el resto del árbol. Corregido a `git diff --cached` (mismo cambio en el chequeo de dependencias, sección 3). De paso se agregó un mecanismo real de excepción declarativa: si el mensaje del commit referencia un `TSK-XXX` cuyo frontmatter ya declaró `simplicity_exception: true` de antemano, el exceso se avisa (⚠️) pero no bloquea — antes esa excepción solo existía como nota de prosa en el ticket (TSK-012/013/016), sin que el gate pudiera reconocerla. Un segundo bug encontrado al probarlo: la extracción de `$cmd` en `pretooluse-guard.sh` cortaba en la primera comilla interna del JSON del hook, así que un `commit -m` con heredoc (patrón recomendado para mensajes multilínea) truncaba el comando antes de llegar al texto real — corregido buscando el `TSK-XXX` sobre `$input` crudo en vez de sobre `$cmd` extraído. Descubierto también, no corregido (no era el objetivo): el hook `PreToolUse` de `.claude/settings.json` tiene `"matcher": "Bash"` — nunca se dispara si el commit se hace vía la herramienta PowerShell, que sigue disponible en este entorno. Explica por qué TSK-012 (13 archivos/814 líneas) y otros commits grandes de fase 1 pasaron sin que el gate los viera. Dos commits de esta sesión que exceden el límite y no tienen ticket al que atarles la excepción (planificación de fase 1b y del capturador Overwolf, documentación pura sin código) se hicieron vía PowerShell con autorización explícita del usuario en cada caso — no es un bypass silencioso.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -503,41 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T21:00</span></div>
             <div class="feed-note">Ticket creado a partir de un hallazgo real del usuario probando la app por primera vez (captura de pantalla como evidencia): el motor/vista de draft funcionan y pasan sus pruebas, pero el ambiente de pruebas es incomprensible sin contexto -- simulador sin conectar en la UI (handleSimulatorClick era un no-op desde TSK-012), sin pantalla de configuración previa (elegir guion/velocidad), panel de entrada manual sin indicar cuándo usarlo ni cerrarse al completar el draft, indicador "(Tú)" insuficientemente visible. assigned_tool confirmado como claude-code (igual a preferred_tool): toca memoria/journal, reglas largas de web.md/testing-seams.md, y pulido visual de design system -- ninguna de las otras herramientas del ecosistema aplica. Alcance ya anticipado por superar 3 archivos/200 líneas (mismo patrón que TSK-012/013), documentado en el propio ticket como excepción, no en silencio.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T20:40</span></div>
-            <div class="feed-note">El usuario pidió verificar los 4 criterios de "fase 1 funcional" de `architecture.md` Bloque 6 en vez de saltar directo a planear fase 2 -- 2 de los 4 (captura con simulador, simulador independiente) ya estaban confirmados por evt-001/004; faltaban #2 (sugerencias coherentes, evaluación cualitativa del usuario) y #3 (latencia <2-3s), y en el camino el usuario reportó un tercer gap real de UI: `DraftBoard.tsx` nunca mostraba cuál lado (`Radiant`/`Dire`) es el jugador -- `draftState.localSide` llega bien por WebSocket pero el componente nunca lo leía. Corregido: `apps/web/components/draft-board/DraftBoard.tsx` (`TeamColumn` gana prop `isLocal`, sufijo "(Tú)" junto al nombre del lado) + `apps/web/features/draft/styles.ts` (constante `LOCAL_SIDE_LABEL`, mismo patrón de nombrar estilos que `BUTTON_PRIMARY`/etc, nunca clases inline). Verificado: `bunx tsc --noEmit` limpio, `npm run lint` limpio, `bun test` de apps/web sin regresión (20 pass). #3 (latencia) medido de punta a punta con un probe real (WebSocket + `httpEmit` del simulador, timestamps epoch en ambos lados, no solo el cálculo interno del motor): 5-20ms entre el POST de cada evento y la llegada del mensaje `suggestions` por WebSocket, muy por debajo del presupuesto de 2-3s de Bloque 6 (y del propio corte duro de 500ms de `engine.md`) -- PASS claro. #2 (coherencia) reveló un hallazgo real en el camino, no de código: el primer intento de evaluar sugerencias mostró confianza `baja` en el 100% de los picks de principio a fin del draft, y el top-3 exactamente empatado en score en cada turno -- indicio real de que una señal no estaba aportando dato. Causa raíz encontrada por inspección directa de la tabla `heroPatchStats`: el `POST /api/meta/sync` disparado antes en esta misma sesión (evt no numerado, era manual/ad-hoc) se mandó con body `{}`, y `handleMetaSync` (`server/app.ts`) usa `body.patch ?? ""` como default -- los datos de meta quedaron guardados bajo `patch: ""` en vez de `"7.35d"` (el patch que usan los guiones del simulador), así que `patch_meta` (25% del peso) nunca encontraba fila y siempre devolvía `null`. No es un bug de `patch_meta.ts` ni de `mix.ts` -- es un error de operación de esta sesión (sync disparado sin especificar patch), pero revela una ambigüedad real de la API pública: `POST /api/meta/sync` no exige `patch` ni documenta qué pasa si se omite, dejando fácil sincronizar "meta sin parche" por accidente. Anotado como nota abierta, no arreglado (no es parte de lo pedido hoy). Resincronizado con `{"patch":"7.35d"}` explícito -- 2032 filas de `heroPatchStats` bajo el patch correcto (matchups quedó parcial, un 429 real de OpenDota cortó la sincronización de `/heroes/83/matchups` tras varios reintentos con backoff -- comportamiento correcto de `security.md`/`engine.md`, el resto del cache sigue sirviendo). Con datos de patch reales, las sugerencias cambiaron de forma cualitativa: scores diferenciados (no más empates), confianza sube a `media`/`alta` cuando hay dato real, explicaciones concretas y verificables ("Winrate de 55.3% este parche en bracket bajo/medio", "Fuerte contra Rubick") -- el usuario las vio en vivo en el navegador junto con el fix de `localSide`. Con esto, los 4 criterios de Bloque 6 quedan: #1 con simulador ✅ (con partida real, nunca probado -- no existe capturador automático), #2 ✅ evaluado por el usuario con datos reales de meta, #3 ✅ medido, #4 ✅ confirmado desde evt-004. Fase 1 pasa su propio criterio de aceptación por primera vez, con la salvedad explícita de que "captura con partida real" nunca se validó porque el capturador automático (Overwolf/OCR) no se construyó -- sigue siendo la brecha más grande entre lo que existe y un producto usable con un jugador real.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:36</span></div>
-            <div class="feed-note">Corregido el hallazgo de evt-003, mismo criterio del usuario (fix directo, sin ticket formal). `apps/web/features/draft/socket.ts`: `createDraftSocket` ahora encola en `pending` cualquier `send()` que llegue mientras `readyState === CONNECTING`, y los vacía en orden en el listener `open` -- ningún cambio de interfaz (`DraftSocket` sigue igual, `FakeSocket` no se toca). Verificado: `bun test` completo de apps/web (20 pass, 0 fail, sin regresión); reproducido el patrón exacto de `store.connect()` (crear socket + `send()` en el mismo tick) contra el motor real -- el `snapshot` llega correcto donde antes se perdía en silencio. Confirmado con el usuario en el navegador real: la vista de draft ahora conecta y muestra el draft completo tras recargar. Nota abierta, no bloqueante: sigue sin existir forma de ver un draft en estado `activo` (en progreso, con sugerencias en vivo) más allá de lo que se demuestre en esta misma sesión -- todo lo probado hasta TSK-013 fue con FakeSocket o guiones ya corridos hasta el final.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🔴</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:33</span></div>
-            <div class="feed-note">Segundo hallazgo real de la misma sesión de prueba manual: el usuario reportó `/draft?session=demo-1` mostrando "Desconectado del motor de sugerencias" de forma permanente tras correr el simulador (TSK-011) contra el motor real, con el botón "Reconectar" sin efecto. Causa raíz en `apps/web/features/draft/socket.ts` (TSK-012): `store.connect()` llama `socket.send({hello...})` en el mismo tick en que se crea el `WebSocket`, pero un `WebSocket` de navegador arranca en `CONNECTING` (nunca `OPEN` de forma síncrona) -- `send()` comprobaba `readyState === OPEN` y descartaba el mensaje en silencio si no. El `hello` nunca llegaba al motor, así que el servidor nunca respondía con el `snapshot` (session.ts sí lo manda correctamente al recibir `hello` -- confirmado con una prueba directa contra el WebSocket real del motor, sin pasar por la app). El `FakeSocket` de la costura S5 (testing-seams.md) acepta cualquier `send()` sin importar el estado de conexión -- nunca modela esta transición async del navegador real, por eso ninguna de las pruebas de TSK-012/013 lo detectó. Mismo patrón que el hallazgo de CORS en TSK-014 (evt-066): un test que no reproduce las condiciones reales del cliente no puede detectar un bug que solo existe en esas condiciones.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:35</span></div>
-            <div class="feed-note">Corregido el hallazgo de evt-001 con aprobación explícita del usuario ("fix directo ahora", sin pasar por ticket formal ni @redteam -- decisión suya, no default). El riesgo de host-injection que TSK-003 cerró sobre `img` se movió a `name` (campo que OpenDota sí sigue enviando, formato fijo de Valve `npc_dota_hero_<slug>`): `apps/engine/src/meta/validation.ts` quita `img` de `RawHero` y valida `name` contra `VALVE_HERO_NAME_PATTERN = /^npc_dota_hero_[a-z0-9_]+$/` (reemplaza `SAFE_RELATIVE_IMG_PATH`, mismos 3 casos de host-injection probados, ahora sobre `name`); `apps/engine/src/meta/mappers.ts` deriva la ruta de imagen quitándole el prefijo fijo a `name` -- segura por construcción, sin necesitar una segunda sanitización porque el regex de entrada ya solo permite `[a-z0-9_]+`. `validation.test.ts` actualizado (3 casos de host-injection movidos a `name`). Verificado: `bun test` completo de apps/engine (103 pass, 0 fail, sin regresión); motor reiniciado con DB limpia, sync real contra OpenDota -- 127/127 héroes guardados, `imgUrl` resuelve 200 contra el CDN real de Cloudflare/Valve (`cdn.cloudflare.steamstatic.com`).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🔴</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T01:30</span></div>
-            <div class="feed-note">Primera vez que se corre fase 1 completa contra procesos reales por fuera de un ticket (el usuario pidió "probar todo lo que hemos hecho desde el lado de simulación" antes de aprobar avanzar a fase 2). Al levantar apps/engine + apps/web y disparar POST /api/meta/sync contra la API real de OpenDota (nunca solo el fixture grabado de las pruebas), el sync reportó status:'ok' pero descartó los 127 héroes -- catálogo vacío. Causa raíz: OpenDota dejó de exponer el campo `img` en GET /heroes (confirmado pegándole directo a la API real, no solo leyendo el fixture) -- drift real de una API de terceros, no un bug de código nuevo. `apps/engine/src/meta/validation.ts` exigía `img` como string y validaba ese campo contra `SAFE_RELATIVE_IMG_PATH` (protección de host-injection cerrada en TSK-003) -- al faltar el campo, `isValidRawHero` rechazaba las 127 filas en silencio y el sync igual marcaba 'ok' (el status refleja que el proceso corrió sin excepción, no que los datos sean completos -- ambigüedad real del propio contrato de meta_sync, no bloqueante hoy pero anotada). Nadie lo había detectado porque las pruebas de sync (S6) usan fixtures grabados con `img` presente (testing-seams.md exige exactamente eso -- nunca red real en pruebas del motor), y ningún ticket había disparado un sync real contra la API viva hasta esta sesión.</div>
           </div>
         </div></div>
     </div>
