@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, metaSync, settings } from "../db/schema";
+import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } from "../db/schema";
 import { OpenDotaClient } from "../meta/opendota-client";
 import { createApp } from "./app";
 
@@ -32,10 +32,17 @@ function createTestDb() {
     CREATE TABLE settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL
     );
+    CREATE TABLE hero_pool (
+      hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
+      personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+    );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, heroPool } });
   db.insert(heroes)
-    .values({ id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-07-27" })
+    .values([
+      { id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-07-27" },
+      { id: 2, name: "h2", localizedName: "Hero Dos", imgUrl: "/h2.png", primaryAttr: "agi", attackType: "Ranged", roles: ["Support"], updatedAt: "2026-07-27" },
+    ])
     .run();
   return db;
 }
@@ -191,6 +198,91 @@ describe("servidor Bun (TSK-010)", () => {
     const res = await fetch(`${baseUrl}/api/settings`, {
       method: "PUT",
       body: JSON.stringify({ key: 123 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  // TSK-020 (fase 1b, S8): GET/PUT /api/hero-pool. El pool empieza vacío -- esta prueba corre
+  // antes que cualquier PUT de hero-pool en este archivo para no depender del orden.
+  test("GET /api/hero-pool con el pool vacío devuelve [], no un error", async () => {
+    const res = await fetch(`${baseUrl}/api/hero-pool`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  test("PUT /api/hero-pool guarda el pool completo y GET /api/hero-pool lo refleja", async () => {
+    const put = await fetch(`${baseUrl}/api/hero-pool`, {
+      method: "PUT",
+      body: JSON.stringify({
+        entries: [
+          { hero: 1, source: "manual", personalWinrate: null, personalGames: 0 },
+          { hero: 2, source: "calculated", personalWinrate: 0.6, personalGames: 20 },
+        ],
+      }),
+    });
+    expect(put.status).toBe(200);
+    const putBody = await put.json();
+    expect(putBody).toHaveLength(2);
+    expect(putBody.find((e: { hero: number }) => e.hero === 2)).toMatchObject({
+      hero: 2,
+      source: "calculated",
+      personalWinrate: 0.6,
+      personalGames: 20,
+    });
+
+    const get = await fetch(`${baseUrl}/api/hero-pool`);
+    const all = await get.json();
+    expect(all).toHaveLength(2);
+  });
+
+  test("PUT /api/hero-pool con más de 5 entradas es rechazado (400), el pool anterior no se toca", async () => {
+    const before = await (await fetch(`${baseUrl}/api/hero-pool`)).json();
+
+    const res = await fetch(`${baseUrl}/api/hero-pool`, {
+      method: "PUT",
+      body: JSON.stringify({
+        entries: Array.from({ length: 6 }, (_, i) => ({ hero: i + 1, source: "manual", personalWinrate: null, personalGames: 0 })),
+      }),
+    });
+    expect(res.status).toBe(400);
+
+    const after = await (await fetch(`${baseUrl}/api/hero-pool`)).json();
+    expect(after).toEqual(before);
+  });
+
+  test("PUT /api/hero-pool con un hero repetido dentro del body es rechazado (400)", async () => {
+    const res = await fetch(`${baseUrl}/api/hero-pool`, {
+      method: "PUT",
+      body: JSON.stringify({
+        entries: [
+          { hero: 1, source: "manual", personalWinrate: null, personalGames: 0 },
+          { hero: 1, source: "manual", personalWinrate: null, personalGames: 0 },
+        ],
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("PUT /api/hero-pool con un héroe que no existe en la tabla heroes es rechazado (400)", async () => {
+    const res = await fetch(`${baseUrl}/api/hero-pool`, {
+      method: "PUT",
+      body: JSON.stringify({ entries: [{ hero: 9999, source: "manual", personalWinrate: null, personalGames: 0 }] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("PUT /api/hero-pool con personalWinrate fuera de [0,1] es rechazado (400)", async () => {
+    const res = await fetch(`${baseUrl}/api/hero-pool`, {
+      method: "PUT",
+      body: JSON.stringify({ entries: [{ hero: 1, source: "manual", personalWinrate: 1.5, personalGames: 10 }] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("PUT /api/hero-pool con personalGames negativo es rechazado (400)", async () => {
+    const res = await fetch(`${baseUrl}/api/hero-pool`, {
+      method: "PUT",
+      body: JSON.stringify({ entries: [{ hero: 1, source: "manual", personalWinrate: null, personalGames: -1 }] }),
     });
     expect(res.status).toBe(400);
   });

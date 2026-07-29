@@ -3,7 +3,7 @@ import { desc } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../db/schema";
 import { metaSync } from "../db/schema";
-import { getAllSettings, upsertSetting } from "../db/queries";
+import { getAllSettings, getHeroPool, replaceHeroPool, upsertSetting, type HeroPoolWriteRow } from "../db/queries";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
 import { buildMetaSnapshot, getAllHeroMeta, getMetaFreshness } from "../meta/provider";
@@ -125,6 +125,85 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return Response.json({ key: body.key, value: body.value }, { status: 200 });
   }
 
+  // TSK-020 (fase 1b, S8): GET/PUT /api/hero-pool. `hero` (no `heroId`) es el nombre de campo del
+  // contrato de dominio (SPEC.md §9.4/§9.5) -- se traduce a/desde `heroId` de la fila de SQLite
+  // solo en este borde, igual que el resto de la API nunca filtra nombres de columna hacia fuera.
+  interface HeroPoolEntry {
+    hero: number;
+    source: "manual" | "calculated";
+    personalWinrate: number | null;
+    personalGames: number;
+    updatedAt: string;
+  }
+
+  function toHeroPoolEntry(row: HeroPoolWriteRow): HeroPoolEntry {
+    return { hero: row.heroId, source: row.source, personalWinrate: row.personalWinrate, personalGames: row.personalGames, updatedAt: row.updatedAt };
+  }
+
+  interface HeroPoolPutEntry {
+    hero: number;
+    source: "manual" | "calculated";
+    personalWinrate: number | null;
+    personalGames: number;
+  }
+
+  function isValidHeroPoolPutEntry(value: unknown): value is HeroPoolPutEntry {
+    if (typeof value !== "object" || value === null) return false;
+    const entry = value as Record<string, unknown>;
+    if (typeof entry.hero !== "number") return false;
+    if (entry.source !== "manual" && entry.source !== "calculated") return false;
+    if (entry.personalWinrate !== null && (typeof entry.personalWinrate !== "number" || entry.personalWinrate < 0 || entry.personalWinrate > 1)) {
+      return false;
+    }
+    if (typeof entry.personalGames !== "number" || !Number.isInteger(entry.personalGames) || entry.personalGames < 0) return false;
+    return true;
+  }
+
+  function isValidHeroPoolPutBody(value: unknown): value is { entries: HeroPoolPutEntry[] } {
+    if (typeof value !== "object" || value === null) return false;
+    const body = value as Record<string, unknown>;
+    return Array.isArray(body.entries) && body.entries.every(isValidHeroPoolPutEntry);
+  }
+
+  async function handleHeroPoolGet(): Promise<Response> {
+    return Response.json(getHeroPool(deps.db).map(toHeroPoolEntry));
+  }
+
+  // Reemplaza el pool completo en una sola transacción (S8). Todas las validaciones corren antes
+  // de tocar la base de datos -- si algo falla, el pool guardado no se toca (§9.5).
+  async function handleHeroPoolPut(request: Request): Promise<Response> {
+    const body: unknown = await request.json().catch(() => null);
+    if (!isValidHeroPoolPutBody(body)) {
+      return Response.json({ error: "invalid_body" }, { status: 400 });
+    }
+    if (body.entries.length > 5) {
+      return Response.json({ error: "too_many_entries" }, { status: 400 });
+    }
+    const heroIds = body.entries.map((entry) => entry.hero);
+    if (new Set(heroIds).size !== heroIds.length) {
+      return Response.json({ error: "duplicate_hero" }, { status: 400 });
+    }
+    const knownHeroIds = new Set(deps.db.select({ id: schema.heroes.id }).from(schema.heroes).all().map((row) => row.id));
+    if (heroIds.some((id) => !knownHeroIds.has(id))) {
+      return Response.json({ error: "unknown_hero" }, { status: 400 });
+    }
+
+    // El servidor siempre estampa su propio reloj -- un cliente no dicta `updatedAt` (mismo
+    // principio que `applyDraftEvent`: el reloj se inyecta desde el lado de confianza, nunca desde
+    // input externo).
+    const updatedAt = new Date().toISOString();
+    const rows: HeroPoolWriteRow[] = body.entries.map((entry) => ({
+      heroId: entry.hero,
+      source: entry.source,
+      personalWinrate: entry.personalWinrate,
+      personalGames: entry.personalGames,
+      updatedAt,
+    }));
+    replaceHeroPool(deps.db, rows);
+
+    return Response.json(rows.map(toHeroPoolEntry), { status: 200 });
+  }
+
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json(getHealthStatus(sessionStore.size));
@@ -149,6 +228,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "PUT" && url.pathname === "/api/settings") {
       return handleSettingsPut(request);
+    }
+    if (request.method === "GET" && url.pathname === "/api/hero-pool") {
+      return handleHeroPoolGet();
+    }
+    if (request.method === "PUT" && url.pathname === "/api/hero-pool") {
+      return handleHeroPoolPut(request);
     }
 
     return new Response("Not found", { status: 404 });

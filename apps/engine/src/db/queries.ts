@@ -29,3 +29,25 @@ export function upsertSetting<TSchema extends Record<string, unknown>>(
 export function getHeroPool<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>) {
   return db.select().from(heroPool).all();
 }
+
+export interface HeroPoolWriteRow {
+  heroId: number;
+  source: "manual" | "calculated";
+  personalWinrate: number | null;
+  personalGames: number;
+  updatedAt: string;
+}
+
+// TSK-020 (fase 1b, S8): único camino de escritura del pool -- borra todo e inserta las nuevas
+// entradas dentro de la misma transacción de Drizzle. Un fallo a mitad de camino (ej. una fila
+// inválida) nunca deja el pool a medio reemplazar, mismo principio que la sincronización de meta
+// (S6) en sync.ts.
+export function replaceHeroPool<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  entries: HeroPoolWriteRow[],
+) {
+  db.transaction((tx) => {
+    tx.delete(heroPool).run();
+    for (const entry of entries) tx.insert(heroPool).values(entry).run();
+  });
+}

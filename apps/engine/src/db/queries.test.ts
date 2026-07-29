@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { heroes, heroMatchups, heroPool, settings } from "./schema";
-import { getAllSettings, getHeroPool, getMatchupsForHero, upsertSetting } from "./queries";
+import { getAllSettings, getHeroPool, getMatchupsForHero, replaceHeroPool, upsertSetting } from "./queries";
 
 function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -133,4 +133,46 @@ test("getHeroPool devuelve vacío cuando el pool nunca se configuró", () => {
   const db = createTestDb();
 
   expect(getHeroPool(db)).toHaveLength(0);
+});
+
+// TSK-020 (fase 1b, S8): replaceHeroPool es el único camino de escritura, transaccional.
+test("replaceHeroPool reemplaza el pool completo, no lo mezcla con lo anterior", () => {
+  const db = createTestDb();
+  db.insert(heroPool).values({ heroId: 1, source: "manual", personalWinrate: null, personalGames: 0, updatedAt: "2026-07-28" }).run();
+
+  replaceHeroPool(db, [
+    { heroId: 2, source: "calculated", personalWinrate: 0.6, personalGames: 20, updatedAt: "2026-07-29" },
+  ]);
+
+  const pool = getHeroPool(db);
+  expect(pool).toHaveLength(1);
+  expect(pool[0]).toEqual({ heroId: 2, source: "calculated", personalWinrate: 0.6, personalGames: 20, updatedAt: "2026-07-29" });
+});
+
+test("replaceHeroPool con un array vacío deja el pool vacío (borrar todo el pool es válido)", () => {
+  const db = createTestDb();
+  db.insert(heroPool).values({ heroId: 1, source: "manual", personalWinrate: null, personalGames: 0, updatedAt: "2026-07-28" }).run();
+
+  replaceHeroPool(db, []);
+
+  expect(getHeroPool(db)).toHaveLength(0);
+});
+
+test("replaceHeroPool es atómico: un fallo a mitad de la transacción no deja el pool a medias", () => {
+  const db = createTestDb();
+  db.insert(heroPool).values({ heroId: 1, source: "manual", personalWinrate: null, personalGames: 0, updatedAt: "2026-07-28" }).run();
+
+  // heroId duplicado dentro del mismo array viola la PK a mitad de la transacción -- simula
+  // cualquier fallo real (la validación de la capa HTTP nunca deja pasar esto, pero esta prueba
+  // confirma que la capa de datos en sí es atómica, no solo que el borde la filtra antes).
+  expect(() =>
+    replaceHeroPool(db, [
+      { heroId: 2, source: "calculated", personalWinrate: 0.5, personalGames: 10, updatedAt: "2026-07-29" },
+      { heroId: 2, source: "calculated", personalWinrate: 0.5, personalGames: 10, updatedAt: "2026-07-29" },
+    ]),
+  ).toThrow();
+
+  const pool = getHeroPool(db);
+  expect(pool).toHaveLength(1);
+  expect(pool[0]!.heroId).toBe(1);
 });
