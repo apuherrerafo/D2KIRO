@@ -16,11 +16,14 @@ const NAV_LINKS: NavLinkDef[] = [
   { href: "/settings", label: "Configuración" },
 ];
 
+const NAV_LINK_BASE =
+  "border-b-2 px-3 py-2 text-body transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary";
+
 function navLinkClassName(isActive: boolean): string {
   if (isActive) {
-    return "border-b-2 border-accent-primary px-3 py-2 text-body text-content-primary";
+    return `${NAV_LINK_BASE} border-accent-primary text-content-primary`;
   }
-  return "border-b-2 border-transparent px-3 py-2 text-body text-content-secondary hover:text-content-primary";
+  return `${NAV_LINK_BASE} border-transparent text-content-secondary hover:text-content-primary`;
 }
 
 // <Dominio><Cosa>: shell de navegación compartido (TSK-029) -- se renderiza una sola vez en
