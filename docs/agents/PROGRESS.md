@@ -1,22 +1,20 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-fase 1b (personalización de hero pool) — **completa**: 10/10 tickets (TSK-017 a TSK-026)
-implementados, aprobados por @redteam y cerrados con @shipcheck
+fase 1b (personalización de hero pool) — **completa y validada**: 10/10 tickets (TSK-017 a
+TSK-026) implementados, aprobados por @redteam, cerrados con @shipcheck, y confirmados por el
+usuario probando "calcular desde mis partidas" con su cuenta real de Steam — los héroes
+propuestos hacen sentido con su historial real.
 
 ## SIGUIENTE PASO
-Herramienta: tú, en el navegador (no es una skill)
+Herramienta: el usuario decide primero — tres caminos válidos, sin orden fijo entre sí
 Modelo: —
-Acción: Abrir `apps/web` en el navegador y probar a ojo las 3 pantallas nuevas de fase 1b
-(`/hero-pool` — configurar el pool a mano, calcular desde una cuenta real de Steam, revisar la
-propuesta y confirmar/editar/descartar; y el desglose de señales en la vista de draft con las 5
-señales) — nadie lo verificó visualmente todavía, no hubo herramienta de automatización de
-navegador disponible en ninguna sesión de esta fase. Después de eso, dos caminos sin orden fijo
-entre sí: `/castoff` (Claude Code, Sonnet) si querés desplegar fase 1b a Railway, o correr el
-spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`, instrucciones en su propio README) en
-una partida real para decidir el adapter de captura real -- avanza en paralelo, sin relación con
-fase 1b. Sigue pendiente y no urgente: validar el criterio 1 de fase 1 contra una partida real con
-el capturador manual.
+Acción: Elegir entre (1) `/castoff` (Claude Code, Sonnet) para desplegar fase 1b a Railway, (2)
+correr el spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`, instrucciones en su propio
+README) en una partida real para decidir el adapter de captura real, o (3) abrir una fase nueva
+con `/kickoff` si hay una idea concreta de qué construir después — todavía no hay brief de eso.
+Sigue pendiente y no urgente: validar el criterio 1 de fase 1 (captura con partida real) con el
+capturador manual.
 
 ## HISTORIAL (append-only, no se borra)
 - [inicio] Proyecto creado, sin fase completada todavía.
@@ -31,3 +29,4 @@ el capturador manual.
 - [2026-07-28] Limpieza de PROGRESS.md: se eliminó un bloque "HISTORIAL" duplicado (repetición parcial de las primeras 6 entradas, sin ninguna línea única) dejado por una regeneración anterior de /compass. No se perdió ninguna entrada real — solo la duplicación.
 - [2026-07-28] Catch-up de commits (21 archivos/1688 líneas acumulados de TSK-016, el spike de Overwolf Paso 0, y la planificación de fase 1b) dividido en 6 commits por unidad lógica. En el camino se corrigió un bug real de scripts/verify-simplicity.sh (medía todo el árbol de trabajo con `git diff HEAD`, ciego a qué estaba en stage para un commit puntual — imposibilitaba dividir un backlog grande en commits lógicos) y se agregó un mecanismo de excepción declarativa (`simplicity_exception: true` en el frontmatter de un ticket, reconocido si el commit lo referencia). /rulebook completado sobre SPEC.md §9.10: 10 tickets nuevos (TSK-017 a TSK-026, backlog, must), reglas de .claude/rules/ y .kiro/steering/ extendidas con secciones "Fase 1b", CLAUDE.md gana "REGLAS DE FASE 1b" y corrige notas de estado desactualizadas (fase 1 ya no dice "no existe todavía"). Tablero regenerado: 26 tareas.
 - [2026-07-29] Fase 1b completa: los 10 tickets (TSK-017 a TSK-026) ejecutados vía /dispatch → @build → @redteam → @shipcheck, uno por uno, WIP=1 respetado en todo momento. Motor (apps/engine, TDD real): migración hero_pool + settings (TSK-017), OpenDotaClient.getPlayerHeroes + validación Steam32 (TSK-018), cálculo puro del pool propuesto con suavizado K=10 (TSK-019), endpoints GET/PUT /api/hero-pool transaccionales (TSK-020), POST /api/hero-pool/calculate conectando las piezas (TSK-021), SignalScorer hero_pool_fit (TSK-022), SCORING_WEIGHTS_V2 + integración real en mix.ts con el candado de regresión cero demostrado por prueba, no solo prometido (TSK-023). Frontend (apps/web, sin tests de componente -- patrón ya establecido del proyecto): pantalla de configuración del pool (TSK-024), pantalla de propuesta/confirmación con 3 acciones explícitas -- confirmar/editar/descartar, nunca auto-aplica (TSK-025), SignalBreakdown con las 5 señales distinguiendo `applicable:false` de `raw:null` (TSK-026). @redteam encontró y corrigió hallazgos reales en varias rondas (días=Infinity vía JSON válido en TSK-021, mensajes de error genéricos en TSK-024) sin necesitar una segunda ronda en ningún ticket. Cinco tickets (TSK-017, TSK-018, TSK-020, TSK-022, TSK-024) necesitaron excepción de simplicidad documentada por adelantado en su propio frontmatter (`simplicity_exception: true`); el resto (TSK-019, TSK-021, TSK-023, TSK-025, TSK-026) pasó dentro del límite sin excepción. Pendiente, no bloqueante: verificación visual en navegador real de las 3 pantallas nuevas (sin herramienta de automatización disponible en ninguna sesión de esta fase).
+- [2026-07-29] Verificación visual real completada: se levantó apps/engine (migración hero_pool aplicada a la base de datos real, no una de prueba) y apps/web en local, con smoke test de curl confirmando el flujo completo del backend (GET/PUT /api/hero-pool persistiendo de verdad, POST /calculate validando accountId). El usuario probó "calcular desde mis partidas" con su cuenta real de Steam y confirmó que los héroes propuestos hacen sentido con su historial real -- primera validación de extremo a extremo por una persona, no solo por tests automatizados. Fase 1b queda completa y validada.
