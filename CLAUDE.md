@@ -16,12 +16,12 @@ Dos procesos locales, no uno:
 - Captura de draft (fase 1): `simulator` y `manual` son capturadores de primera clase.
   `overwolf` y `ocr` quedan especificados como contrato, se construyen después (SPEC §0-D1).
 
-**Nota de estado**: ni `apps/web` ni `apps/engine` existen todavía en el repo (ver TSK-001) — Bun
-tampoco está instalado en esta máquina (`docs/agents/TOOLKIT.md`). Es requisito previo del primer
-ticket.
+**Nota de estado (2026-07-28)**: fase 1 completa (TSK-001 a TSK-016, done), MVP validado. Fase 1b
+(personalización de hero pool, `docs/specs/SPEC.md` §9) tiene sus 10 tickets en `backlog`
+(TSK-017 a TSK-026).
 
 ## COMANDOS ESENCIALES
-- `bun run dev` → Iniciar servidor de desarrollo (una vez exista `apps/engine`).
+- `bun run dev` → Iniciar servidor de desarrollo.
 - `bun test` → Ejecutar pruebas unitarias.
 - `bun run lint` → Formatear código.
 - `bash scripts/verify-simplicity.sh` → Verificar límites (fuente única de verdad de los números).
@@ -81,6 +81,30 @@ esta sección son los puntos que no se pueden violar sin romper el contrato, res
   prueba unitaria verifica que suman `1.0`.
 - **No se modela la tabla de turnos de Valve en fase 1** — el orden de bans vive como datos
   (`DraftFormat`), nunca como lógica adivinada en el reductor.
+
+## REGLAS DE FASE 1b (hero pool) — desde `docs/specs/SPEC.md` §9
+Generadas por `/rulebook`, segunda ejecución del proyecto. Detalle completo en `.claude/rules/`
+(secciones "Fase 1b" añadidas a `engine.md`, `web.md`, `security.md`, `testing-seams.md`) — esta
+sección son los puntos que no se pueden violar sin romper el contrato, resumidos:
+
+- **`applicable: false` no es `raw: null`.** El pool sin configurar hace que `hero_pool_fit`
+  devuelva `applicable: false` — no cuenta para la confianza ni dispara `partial_signals`, pero se
+  muestra en el desglose igual que cualquier otra señal.
+- **`SCORING_WEIGHTS_V1` no se toca.** `hero_pool_fit` vive en `SCORING_WEIGHTS_V2` (5 pesos, suma
+  `1.0`). Con el pool sin configurar, la redistribución de `mix.ts` debe reproducir exactamente los
+  pesos de v1 — regresión cero demostrada por prueba, no prometida.
+- **`account_id` de Steam es el primer dato personal del proyecto.** Validado en el borde (Steam32:
+  solo dígitos, `1`–`4294967295`). Prohibido loguearlo o ecoarlo en cualquier error, `journal.md`,
+  ticket o `/api/health`.
+- **`PUT /api/hero-pool` reemplaza el pool completo en una sola transacción.** Nunca queda un pool
+  a medio escribir.
+- **La propuesta de "calcular desde mis partidas" nunca se auto-aplica.** Confirmar, editar antes
+  de confirmar, o descartar — las tres únicas acciones. Descartar nunca escribe.
+- **`POST /api/hero-pool/calculate` no es camino caliente.** Toca red hacia OpenDota, pero vive en
+  configuración — la regla de cero red durante el cálculo de sugerencias por pick sigue intacta.
+- **Predicción de rol/posición del rival: fuera de alcance de 1b.** Documentada como dependencia
+  condicional de STRATZ (contrato de señal descrito en `architecture.md`), no se construye hasta
+  que se priorice explícitamente y pase por `/gear-up`.
 
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.

@@ -27,3 +27,19 @@ multiusuario con cuentas.
    debe poder explicarse mirando su desglose de señales.
 3. **Velocidad**: `computedInMs` bajo 300ms p95, <2s extremo a extremo.
 4. **Simulador independiente**: un draft completo se reproduce sin Dota 2 abierto.
+
+**Estado (2026-07-28)**: fase 1 completa (TSK-001 a TSK-016), MVP validado contra sus 4 criterios.
+
+## Fase 1b — Personalización de hero pool (SPEC.md §9)
+Espejo de `docs/specs/SPEC.md` §9 y el addendum "Fase 1b" de `architecture.md`.
+
+- **Qué agrega**: el usuario guarda hasta 5 héroes de comodidad (a mano, o calculados desde sus
+  últimas partidas de OpenDota con un mínimo de 10 partidas en 90 días). Las sugerencias del motor
+  ganan una quinta señal ponderada (`hero_pool_fit`) que refleja esa comodidad — nunca filtra en
+  duro, solo pondera (máximo 16 puntos sobre 100 del score final).
+- **Fuera de alcance de 1b**: hero pool de compañeros de equipo (necesita identidad de slot y
+  login), predicción de rol/posición del rival (documentada, depende de STRATZ, no se construye).
+- **Regresión cero, demostrable**: con el pool sin configurar, el comportamiento de fase 1 no
+  cambia — verificado por prueba unitaria, no solo declarado.
+- **Primer dato personal del proyecto**: el `account_id` de Steam del usuario (para calcular el
+  pool). Tratamiento en `.claude/rules/security.md`.

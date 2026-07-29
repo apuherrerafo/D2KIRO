@@ -33,3 +33,18 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   que identifique a una cuenta de Steam real es fuera de alcance hasta fase 1b.
 - **Dependencias nuevas**: nunca sin pasar por `/gear-up` o `@depcheck` — incluida cualquier
   librería de validación de esquemas (SPEC §7.3 la deja abierta a propósito).
+
+## Fase 1b — Primer dato personal del proyecto (SPEC.md §9.7)
+- **`account_id` de Steam**: validado en el borde como Steam32 (solo dígitos, `1`–`4294967295`)
+  antes de tocar lógica de negocio o construir cualquier URL. Un valor que no pase **nunca** llega
+  a `fetch`.
+- **Prohibido**: registrar el `account_id` en `journal.md`, en tickets, en `meta_sync.error`, en
+  `/api/health`, o devolverlo en el cuerpo de un error. Si aparece en un diff, es hallazgo
+  automático de `@redteam` — mismo nivel de cuidado que un secreto, aunque técnicamente sea un
+  endpoint público sin autenticación.
+- Vive únicamente en la SQLite local. Se transmite a un solo destino externo: la propia OpenDota.
+- **Sin secreto nuevo** para el hero pool en sí — OpenDota no requiere API key. `STRATZ_API_KEY`
+  (predicción de rol rival) es condicional y futuro, fuera del alcance de 1b — no se implementa
+  hasta que se priorice explícitamente, y en ese momento pasa por `/gear-up`.
+- `PUT /api/hero-pool` reemplaza el pool completo dentro de una única transacción — cero escritura
+  parcial, mismo principio que la sincronización de meta.

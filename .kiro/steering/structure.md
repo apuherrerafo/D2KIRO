@@ -1,8 +1,9 @@
 # structure — dota2coach, Fase 1 (Draft Coach)
 
-Espejo de `docs/specs/SPEC.md` §2-3 para lectura nativa en Kiro. `CLAUDE.md` es la fuente
-canónica si hay discrepancia. **Nota de estado**: `apps/web` y `apps/engine` no existen todavía
-en el repo (ver `docs/agents/tasks/TSK-001.md`).
+Espejo de `docs/specs/SPEC.md` §2-3 (y §9 para fase 1b) para lectura nativa en Kiro. `CLAUDE.md` es
+la fuente canónica si hay discrepancia. **Nota de estado (2026-07-28)**: `apps/web` y
+`apps/engine` existen y fase 1 está completa (TSK-001 a TSK-016, done). Fase 1b (hero pool) tiene
+sus tickets en `backlog` (TSK-017 a TSK-026).
 
 ## Monorepo — dos procesos locales
 ```
@@ -22,9 +23,11 @@ El capturador le habla directo a `apps/engine` (HTTP loopback), nunca a `apps/we
 ## Costuras de prueba (S1-S6) — ver `.claude/rules/testing-seams.md` para el detalle completo
 Se prueban antes que el comportamiento. Ningún componente se implementa sin su costura definida.
 
-## API (SPEC §3)
-- HTTP: `POST /ingest/draft-event`, `GET /api/health`, `GET /api/heroes`, `GET /api/meta/status`,
-  `POST /api/meta/sync`, `POST /api/session/manual` — todo en `apps/engine`, solo `127.0.0.1`.
+## API (SPEC §3, §9.5)
+- HTTP fase 1: `POST /ingest/draft-event`, `GET /api/health`, `GET /api/heroes`,
+  `GET /api/meta/status`, `POST /api/meta/sync`, `POST /api/session/manual`,
+  `GET`/`PUT /api/settings` — todo en `apps/engine`, solo `127.0.0.1`.
+- HTTP fase 1b: `GET`/`PUT /api/hero-pool`, `POST /api/hero-pool/calculate`.
 - WebSocket: `/ws/draft` — `ServerMessage`/`ClientMessage` tipados, schema `draft-ws/v1`.
 
 ## Orden de tickets (SPEC §8) — frontera de dependencia
@@ -39,3 +42,16 @@ Se prueban antes que el comportamiento. Ningún componente se implementa sin su 
 12. Vista de draft en Next.js (S5), 6 estados
 13. Entrada manual y camino de degradación
 14. Páginas del sitio (meta, héroes, configuración) con RTK Query
+
+## Fase 1b — orden de tickets (SPEC §9.10), TSK-017 a TSK-026
+Ninguno depende del spike de Overwolf — ambas líneas de trabajo avanzan en paralelo.
+1. `TSK-017` — Migración `hero_pool` + claves de `settings`
+2. `TSK-018` — `OpenDotaClient.getPlayerHeroes` + validación de `accountId`
+3. `TSK-019` — Cálculo puro del pool propuesto (S7)
+4. `TSK-020` — `GET`/`PUT /api/hero-pool` + escritura transaccional (S8)
+5. `TSK-021` — `POST /api/hero-pool/calculate` + sus errores
+6. `TSK-022` — `SignalScorer: hero_pool_fit` (S3)
+7. `TSK-023` — `SCORING_WEIGHTS_V2` + `applicable` en `mix.ts` (candado de regresión cero)
+8. `TSK-024` — Pantalla de configuración del pool (RTK Query)
+9. `TSK-025` — Pantalla de propuesta/confirmación
+10. `TSK-026` — `SignalBreakdown` con 5 señales

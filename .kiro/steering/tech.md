@@ -4,12 +4,14 @@ Espejo de `docs/specs/SPEC.md` y `docs/agents/architecture.md` (Bloque 5) para l
 Kiro. `CLAUDE.md` es la fuente canónica si hay discrepancia.
 
 ## Stack
-- **Runtime motor**: Bun (`apps/engine`) — WebSocket y SQLite nativos, arranque rápido.
-  ⚠️ No instalado todavía en esta máquina (`docs/agents/TOOLKIT.md`) — requisito previo de TSK-001.
+- **Runtime motor**: Bun (`apps/engine`) — WebSocket y SQLite nativos, arranque rápido. Instalado
+  desde TSK-001.
 - **Frontend**: Next.js (App Router), TypeScript estricto, Tailwind + shadcn/ui.
 - **Datos del sitio**: RTK Query. **Draft en vivo**: WebSocket + Zustand (única excepción).
 - **DB**: SQLite + Drizzle ORM.
-- **Meta externa**: OpenDota API (sin API key en su nivel gratuito).
+- **Meta externa**: OpenDota API (sin API key en su nivel gratuito). Fase 1b agrega
+  `/players/{account_id}/heroes` (mismo cliente, sin key) — primer punto donde el proyecto guarda
+  un dato personal (el `account_id`), ver `.claude/rules/security.md`.
 - **Testing**: Bun Test.
 - **Despliegue**: Railway.
 

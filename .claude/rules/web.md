@@ -50,3 +50,15 @@ calla el sistema durante un draft.
 ## Íconos de héroe
 - Todo héroe se muestra siempre con su ícono/foto oficial (`img_url`) — es un requisito duro de
   UI, no un nice-to-have.
+
+## Fase 1b — Hero pool (SPEC.md §9.6)
+- Configuración del pool y pantalla de propuesta/confirmación: régimen RTK Query ("páginas
+  normales del sitio"), nunca WebSocket/Zustand — el hero pool no es parte de la vista de draft en
+  vivo.
+- La propuesta de "calcular desde mis partidas" **nunca se auto-aplica**: confirmar, editar antes
+  de confirmar, o descartar son las tres únicas acciones. Descartar nunca dispara una escritura.
+- `SignalBreakdown` muestra **5** señales, no 4. `applicable: false` en `hero_pool_fit` es una fila
+  distinta de una señal con `raw: null` — mensajes distintos, nunca el mismo texto de "sin datos".
+- Estados vacíos/de error del flujo de propuesta ("aún no calculaste nada", "ningún héroe pasa el
+  mínimo", "OpenDota no respondió") explicados en llano — mismo estándar que los 6 estados de la
+  vista de draft de fase 1, ninguno es un error genérico silencioso.
