@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
+import Link from "next/link";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { HeroPicker } from "@/components/hero-picker/HeroPicker";
 import {
@@ -11,7 +12,7 @@ import {
 } from "@/lib/engine-api";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { EMPTY_POOL_MESSAGE, MAX_POOL_SIZE, POOL_FULL_MESSAGE } from "./constants";
+import { EMPTY_POOL_MESSAGE, MAX_POOL_SIZE, POOL_FULL_MESSAGE, POOL_SAVED_MESSAGE } from "./constants";
 import { CalculateStatusMessage, HeroPoolProposalReview } from "./HeroPoolProposalReview";
 import type { CalculateStatus, HeroPoolEntry } from "./types";
 
@@ -102,7 +103,7 @@ export function HeroPoolConfig() {
     setSaveMessage(null);
     try {
       await updateHeroPool({ entries: entries.map(toPutEntry) }).unwrap();
-      setSaveMessage("Pool guardado.");
+      setSaveMessage(POOL_SAVED_MESSAGE);
     } catch {
       setSaveMessage("No se pudo guardar el pool -- revisá que el motor esté corriendo e intentá de nuevo.");
     }
@@ -137,7 +138,7 @@ export function HeroPoolConfig() {
     try {
       await updateHeroPool({ entries: proposed.map(toPutEntry) }).unwrap();
       setDraftEntries(proposed);
-      setSaveMessage("Pool guardado.");
+      setSaveMessage(POOL_SAVED_MESSAGE);
       setCalculateStatus({ kind: "idle" });
     } catch {
       setSaveMessage("No se pudo guardar el pool -- revisá que el motor esté corriendo e intentá de nuevo.");
@@ -183,6 +184,11 @@ export function HeroPoolConfig() {
           <button type="button" onClick={handleSave} disabled={isSaving} className={BUTTON_PRIMARY}>
             Guardar
           </button>
+          {saveMessage === POOL_SAVED_MESSAGE && (
+            <Link href="/draft" className={BUTTON_SECONDARY}>
+              Ver el draft en vivo
+            </Link>
+          )}
         </div>
       )}
 
