@@ -30,7 +30,7 @@ export interface DraftState {
   updatedAt: string;
 }
 
-export type SignalId = "counter" | "patch_meta" | "team_synergy" | "role_gap";
+export type SignalId = "counter" | "patch_meta" | "team_synergy" | "role_gap" | "hero_pool_fit";
 
 export interface SignalContribution {
   signal: SignalId;
@@ -38,6 +38,10 @@ export interface SignalContribution {
   weighted: number;
   explanation: string;
   sampleSize: number;
+  // TSK-026 (fase 1b): ausente = true, las 4 señales de fase 1 no lo tocan. "Esta señal no aplica
+  // a este usuario ahora mismo" (pool nunca configurado) es distinto de `raw: null` ("hay hueco de
+  // datos") -- mismo campo, mismo significado, que el motor ya define en signals/types.ts.
+  applicable?: boolean;
 }
 
 export type SuggestionConfidence = "alta" | "media" | "baja";
