@@ -19,11 +19,21 @@ export interface Suggestion {
 
 export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format";
 
+// TSK-032: comparación explícita entre el pick #1 y el #2 -- "por qué le gana a la otra opción",
+// no solo la explicación independiente de cada sugerencia (`reason`). `signal` es la señal que
+// más favorece al #1 sobre `vsHero` (el #2), entre las comparables en ambos lados.
+export interface SuggestionComparison {
+  vsHero: HeroId;
+  signal: SignalId;
+  delta: number;
+}
+
 export interface SuggestionSet {
   schema: "suggestions/v1";
   sessionId: string;
   basedOnSeq: number;
   suggestions: Suggestion[];
+  comparison: SuggestionComparison | null;
   degraded: DegradationFlag[];
   computedInMs: number;
 }
@@ -75,17 +85,29 @@ function hasVote(signal: SignalContribution): boolean {
   return signal.raw !== null && signal.applicable !== false;
 }
 
+// TSK-032: mismo cálculo que ya hacía mixScore por dentro, extraído para reutilizarlo en
+// buildComparison sin duplicar la redistribución proporcional. Solo incluye señales con voto real
+// (hasVote) -- una señal en `raw: null` o `applicable: false` nunca aparece en el resultado, ni
+// con valor 0 (0 sería indistinguible de "sin ventaja", cuando en realidad es "sin dato").
+function weightedContributions(signals: SignalContribution[]): Partial<Record<SignalId, number>> {
+  const withData = signals.filter(hasVote);
+  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V3[s.signal], 0);
+  const result: Partial<Record<SignalId, number>> = {};
+  for (const s of withData) {
+    const share = SCORING_WEIGHTS_V3[s.signal] / totalWeight; // redistribución proporcional
+    result[s.signal] = normalize(s.signal, s.raw as number) * share;
+  }
+  return result;
+}
+
 // Exportado para el candado de regresión cero (mix.test.ts, TSK-023 §9.3): probarlo directamente
 // con SignalContribution[] fijos es más preciso que reconstruirlo indirectamente vía
 // buildSuggestions, que exigiría fixtures de los 4 scorers reales solo para fijar sus `raw`.
 export function mixScore(signals: SignalContribution[]): number {
-  const withData = signals.filter(hasVote);
-  if (withData.length === 0) return 50; // sin ninguna señal con dato: neutro, no 0 ni un extremo
-  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V3[s.signal], 0);
-  return withData.reduce((sum, s) => {
-    const share = SCORING_WEIGHTS_V3[s.signal] / totalWeight; // redistribución proporcional
-    return sum + normalize(s.signal, s.raw as number) * share;
-  }, 0);
+  const contributions = weightedContributions(signals);
+  const values = Object.values(contributions) as number[];
+  if (values.length === 0) return 50; // sin ninguna señal con dato: neutro, no 0 ni un extremo
+  return values.reduce((sum, v) => sum + v, 0);
 }
 
 // Candado de regresión cero, doble (§9.3, TSK-027): con hero_pool_fit no aplicable Y role_safety
@@ -111,6 +133,34 @@ function buildReason(signals: SignalContribution[]): string {
     .map((s) => s.explanation);
   if (informative.length > 0) return informative.join("; ");
   return signals[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
+}
+
+// Solo señales con voto real en AMBOS candidatos son comparables -- comparar contra un `raw:
+// null` o `applicable: false` de cualquiera de los dos lados no sería una comparación real, sería
+// inventar una ventaja donde en realidad hay un hueco de datos o una función no configurada.
+function bestFavoringSignal(top: SignalContribution[], second: SignalContribution[]): { signal: SignalId; delta: number } | null {
+  const topWeighted = weightedContributions(top);
+  const secondWeighted = weightedContributions(second);
+  let best: { signal: SignalId; delta: number } | null = null;
+  for (const [signal, topValue] of Object.entries(topWeighted) as [SignalId, number][]) {
+    const secondValue = secondWeighted[signal];
+    if (secondValue === undefined) continue;
+    const delta = topValue - secondValue;
+    if (best === null || delta > best.delta) best = { signal, delta };
+  }
+  return best;
+}
+
+// TSK-032: si el #1 gana por puntaje total, la suma de los deltas comparables es positiva, así
+// que al menos uno de ellos tiene que ser positivo -- por eso `null` solo ocurre con empate exacto
+// en todas las señales comparables, nunca "no se encontró ninguna". Menos de 2 sugerencias -> null.
+export function buildComparison(suggestions: Suggestion[]): SuggestionComparison | null {
+  const top = suggestions.find((s) => s.rank === 1);
+  const second = suggestions.find((s) => s.rank === 2);
+  if (!top || !second) return null;
+  const best = bestFavoringSignal(top.signals, second.signals);
+  if (!best || best.delta <= 0) return null;
+  return { vsHero: second.hero, signal: best.signal, delta: best.delta };
 }
 
 function candidatePool(state: DraftState, meta: MetaSnapshot): HeroId[] {
@@ -139,6 +189,7 @@ export function buildSuggestions(
       sessionId: state.sessionId,
       basedOnSeq: state.lastSeq,
       suggestions: [],
+      comparison: null,
       degraded,
       computedInMs: now() - start,
     };
@@ -169,6 +220,7 @@ export function buildSuggestions(
     sessionId: state.sessionId,
     basedOnSeq: state.lastSeq,
     suggestions,
+    comparison: buildComparison(suggestions),
     degraded,
     computedInMs: now() - start,
   };

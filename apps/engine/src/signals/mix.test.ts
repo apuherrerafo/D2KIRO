@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
-import { buildSuggestions, mixScore } from "./mix";
+import { buildComparison, buildSuggestions, mixScore, type Suggestion } from "./mix";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
 import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3 } from "./weights";
+
+function fixtureSuggestion(rank: 1 | 2 | 3, hero: number, signals: SignalContribution[]): Suggestion {
+  return { hero, rank, score: 0, signals, reason: "", confidence: "alta" };
+}
 
 function draftState(overrides: Partial<DraftState> = {}): DraftState {
   return {
@@ -156,6 +160,76 @@ describe("SCORING_WEIGHTS_V3 — candado de regresión cero, doble", () => {
   });
 });
 
+// TSK-032: feedback real de producto ("no veo la explicación de porque es bueno el draft frente
+// al otro") -- comparación explícita entre el pick #1 y el #2, aislada de buildSuggestions con
+// fixtures directos (mismo criterio que mixScore: más preciso que reconstruirlo indirectamente).
+describe("buildComparison", () => {
+  test("identifica la señal con mayor ventaja del #1 sobre el #2, ignorando una señal empatada", () => {
+    const top = fixtureSuggestion(1, 1, [
+      { signal: "counter", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 }, // normaliza a 100
+      { signal: "patch_meta", raw: 0.5, weighted: 0, explanation: "", sampleSize: 10 }, // normaliza a 50, igual en ambos
+    ]);
+    const second = fixtureSuggestion(2, 2, [
+      { signal: "counter", raw: -0.3, weighted: 0, explanation: "", sampleSize: 10 }, // normaliza a 0
+      { signal: "patch_meta", raw: 0.5, weighted: 0, explanation: "", sampleSize: 10 },
+    ]);
+
+    const comparison = buildComparison([top, second]);
+
+    expect(comparison).not.toBeNull();
+    expect(comparison?.vsHero).toBe(2);
+    expect(comparison?.signal).toBe("counter");
+    expect(comparison?.delta).toBeGreaterThan(0);
+  });
+
+  test("una señal con raw:null de un solo lado nunca es candidata, aunque numéricamente favorecería al #1", () => {
+    const top = fixtureSuggestion(1, 1, [
+      { signal: "counter", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "role_safety", raw: 1, weighted: 0, explanation: "", sampleSize: 0 }, // solo el #1 tiene dato
+    ]);
+    const second = fixtureSuggestion(2, 2, [
+      { signal: "counter", raw: -0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "role_safety", raw: null, weighted: 0, explanation: "", sampleSize: 0 },
+    ]);
+
+    const comparison = buildComparison([top, second]);
+
+    // role_safety no cuenta como comparable (falta dato del lado del #2) -- counter es la única
+    // señal con voto real en ambos lados, así que es la única que puede ganar.
+    expect(comparison?.signal).toBe("counter");
+  });
+
+  test("una señal con applicable:false de un lado tampoco es comparable", () => {
+    const top = fixtureSuggestion(1, 1, [
+      { signal: "counter", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "hero_pool_fit", raw: 0.8, weighted: 0, explanation: "", sampleSize: 0 },
+    ]);
+    const second = fixtureSuggestion(2, 2, [
+      { signal: "counter", raw: -0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "hero_pool_fit", raw: null, weighted: 0, explanation: "", sampleSize: 0, applicable: false },
+    ]);
+
+    const comparison = buildComparison([top, second]);
+
+    expect(comparison?.signal).toBe("counter");
+  });
+
+  test("empate exacto en todas las señales comparables -> null, nunca se inventa una comparación", () => {
+    const signals: SignalContribution[] = [{ signal: "counter", raw: 0.1, weighted: 0, explanation: "", sampleSize: 10 }];
+    const top = fixtureSuggestion(1, 1, signals);
+    const second = fixtureSuggestion(2, 2, signals);
+
+    expect(buildComparison([top, second])).toBeNull();
+  });
+
+  test("con menos de 2 sugerencias, no hay comparación", () => {
+    const only = fixtureSuggestion(1, 1, [{ signal: "counter", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 }]);
+
+    expect(buildComparison([only])).toBeNull();
+    expect(buildComparison([])).toBeNull();
+  });
+});
+
 describe("buildSuggestions", () => {
   test("candidatos excluyen baneados y ya elegidos de ambos lados", () => {
     const state = draftState({ banned: [2], picks: { radiant: [3], dire: [4] } });
@@ -253,6 +327,30 @@ describe("buildSuggestions", () => {
 
     expect(result.degraded).toContain("unknown_format");
     expect(result.degraded).toContain("unconfirmed_state");
+  });
+
+  test("adjunta comparison de punta a punta: en el escenario support-vs-carry (TSK-027), role_safety es la señal decisiva", () => {
+    const state = draftState({ picks: { radiant: [], dire: [] } });
+    const snapshot = meta({
+      1: { id: 1, localizedName: "Support A", roles: ["Support"] },
+      2: { id: 2, localizedName: "Carry A", roles: ["Carry"] },
+    });
+
+    const result = buildSuggestions(state, snapshot);
+    const support = result.suggestions.find((s) => s.hero === 1);
+
+    expect(support?.rank).toBe(1);
+    expect(result.comparison).not.toBeNull();
+    expect(result.comparison?.vsHero).toBe(2);
+    expect(result.comparison?.signal).toBe("role_safety");
+    expect(result.comparison?.delta).toBeGreaterThan(0);
+  });
+
+  test("sin candidatos válidos, comparison también es null (no solo suggestions vacío)", () => {
+    const state = draftState({ picks: { radiant: [1], dire: [] } });
+    const snapshot = meta({ 1: { id: 1, localizedName: "Único héroe, ya elegido" } });
+
+    expect(buildSuggestions(state, snapshot).comparison).toBeNull();
   });
 
   test("meta.isStale -> degraded incluye stale_meta y confidence nunca es 'alta'", () => {
