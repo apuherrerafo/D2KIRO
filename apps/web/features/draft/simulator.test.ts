@@ -16,6 +16,73 @@ describe("buildSimulatorEnvelopes", () => {
       expect(envelope.delayMs).toBe(captainsMode.events[index]!.delayMs ?? 0);
     });
   });
+
+  test("con pool vacío, el comportamiento es idéntico al guion fijo (regresión cero)", () => {
+    const envelopes = buildSimulatorEnvelopes(captainsMode, []);
+
+    envelopes.forEach((envelope, index) => {
+      expect(envelope.payload).toEqual(captainsMode.events[index]!.event);
+    });
+  });
+
+  test("TSK-028: los picks del lado local salen del pool en orden, el resto sigue el guion", () => {
+    // captainsMode: local_side_identified=radiant, 5 picks radiant en el guion (8, 9, 7, 3, 10).
+    const pool = [9001, 9002];
+    const envelopes = buildSimulatorEnvelopes(captainsMode, pool);
+
+    const radiantPicks = envelopes
+      .map((e) => e.payload)
+      .filter((p): p is Extract<typeof p, { type: "hero_picked" }> => p.type === "hero_picked" && p.side === "radiant");
+
+    expect(radiantPicks.map((p) => p.hero)).toEqual([9001, 9002, 7, 3, 10]);
+
+    // El lado rival (dire) nunca se toca.
+    const direPicks = envelopes
+      .map((e) => e.payload)
+      .filter((p): p is Extract<typeof p, { type: "hero_picked" }> => p.type === "hero_picked" && p.side === "dire");
+    expect(direPicks.map((p) => p.hero)).toEqual([86, 35, 46, 2, 1, 4]);
+  });
+
+  test("un héroe del pool que el guion ya usa (ban o pick de cualquier lado) nunca se usa como sustituto", () => {
+    // 86 ya está pickeado por dire en captainsMode -- debe descartarse, no duplicarse.
+    const pool = [86, 9001];
+    const envelopes = buildSimulatorEnvelopes(captainsMode, pool);
+
+    const radiantPicks = envelopes
+      .map((e) => e.payload)
+      .filter((p): p is Extract<typeof p, { type: "hero_picked" }> => p.type === "hero_picked" && p.side === "radiant");
+
+    // Solo 9001 es válido -- el primer pick local lo usa, el resto cae al guion original.
+    expect(radiantPicks.map((p) => p.hero)).toEqual([9001, 9, 7, 3, 10]);
+  });
+
+  test("un pick_reverted del lado local revierte el héroe realmente sustituido, no el del guion", () => {
+    // allPick: local_side_identified=dire. Picks locales en orden: 18, 20(revertido), 24, 26, 28, 21.
+    const pool = [9001, 9002];
+    const envelopes = buildSimulatorEnvelopes(allPick, pool);
+    const payloads = envelopes.map((e) => e.payload);
+
+    const firstLocalPick = payloads.find((p) => p.type === "hero_picked" && p.side === "dire");
+    expect(firstLocalPick).toMatchObject({ hero: 9001 });
+
+    const secondLocalPick = payloads.filter((p) => p.type === "hero_picked" && p.side === "dire")[1];
+    expect(secondLocalPick).toMatchObject({ hero: 9002 });
+
+    const reverted = payloads.find((p) => p.type === "pick_reverted");
+    expect(reverted).toMatchObject({ hero: 9002, side: "dire" });
+
+    // Pool agotado (2 héroes, 2 ya usados) -- el resto de los picks locales cae al guion original.
+    const localPicksAfterRevert = payloads.filter(
+      (p): p is Extract<typeof p, { type: "hero_picked" }> => p.type === "hero_picked" && p.side === "dire",
+    );
+    expect(localPicksAfterRevert.map((p) => p.hero)).toEqual([9001, 9002, 24, 26, 28, 21]);
+
+    // Ningún héroe se repite entre todos los eventos emitidos.
+    const allHeroIds = payloads
+      .filter((p): p is Extract<typeof p, { hero: number }> => "hero" in p && p.type !== "pick_reverted")
+      .map((p) => p.hero);
+    expect(new Set(allHeroIds).size).toBe(allHeroIds.length);
+  });
 });
 
 describe("runSimulatorPlayback", () => {

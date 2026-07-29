@@ -6,6 +6,7 @@ import { buildSimulatorEnvelopes, runSimulatorPlayback, type SimulatorEnvelope }
 import { SIMULATOR_SCENARIOS, SIMULATOR_SCENARIO_LABELS, type SimulatorScenarioId } from "@/features/draft/simulator-scripts";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { DraftStoreState } from "@/features/draft/store";
+import { useGetHeroPoolQuery } from "@/lib/engine-api";
 
 type PlaybackMode = "velocidad" | "paso_a_paso";
 const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
@@ -40,6 +41,7 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);
+  const { data: savedPool } = useGetHeroPoolQuery();
 
   function selectCaptainsMode() {
     setScenario("captainsMode");
@@ -60,7 +62,8 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
   function handleStart() {
     const newSessionId = crypto.randomUUID();
     const script = SIMULATOR_SCENARIOS[scenario];
-    const built = buildSimulatorEnvelopes(script);
+    const poolHeroes = (savedPool ?? []).map((entry) => entry.hero);
+    const built = buildSimulatorEnvelopes(script, poolHeroes);
 
     cancelledRef.current = false;
     setSessionId(newSessionId);
@@ -124,6 +127,9 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
       <span className="text-caption text-content-muted">
         Ambiente de pruebas: reproduce un guion de draft grabado, sin necesitar Dota 2 abierto. Útil para ver cómo se actualizan
         el tablero y las sugerencias en vivo.
+      </span>
+      <span className="text-caption text-content-muted">
+        Tus picks en este escenario van a salir de tu pool configurado, si tenés uno.
       </span>
       {error && <span className="text-caption text-signal-negative">{error}</span>}
 

@@ -1,3 +1,4 @@
+import type { HeroId, TeamSide } from "./types";
 import type { ManualEventResult } from "./manual-entry";
 import type { SimulatorEvent, SimulatorScript } from "./simulator-scripts";
 
@@ -12,14 +13,62 @@ export interface SimulatorEnvelope {
   delayMs: number;
 }
 
-export function buildSimulatorEnvelopes(script: SimulatorScript): SimulatorEnvelope[] {
-  return script.events.map((entry, index) => ({
-    eventId: crypto.randomUUID(),
-    seq: index + 1,
-    emittedAt: new Date().toISOString(),
-    payload: entry.event,
-    delayMs: entry.delayMs ?? 0,
-  }));
+function findLocalSide(script: SimulatorScript): TeamSide | null {
+  for (const { event } of script.events) {
+    if (event.type === "local_side_identified") return event.side;
+  }
+  return null;
+}
+
+// Todo héroe que el guion ya usa (ban o pick, cualquier lado) -- un héroe del pool que coincida
+// nunca se usa como sustituto, repetirlo rompería la validación del reductor (TSK-028).
+function collectScriptHeroIds(script: SimulatorScript): Set<HeroId> {
+  const ids = new Set<HeroId>();
+  for (const { event } of script.events) {
+    if (event.type === "hero_banned" || event.type === "hero_picked" || event.type === "pick_reverted") {
+      ids.add(event.hero);
+    }
+  }
+  return ids;
+}
+
+// TSK-028: en el lado local, sustituye el héroe fijo del guion por el siguiente disponible del
+// pool configurado del usuario (en su orden guardado). Sin pool (o agotado) -- 100% guion
+// original, regresión cero. `pick_reverted` sigue al `hero_picked` que sustituye, así que se
+// registra qué héroe original quedó sustituido para revertir el mismo héroe que en verdad se
+// pickeó, no el del guion.
+export function buildSimulatorEnvelopes(script: SimulatorScript, poolHeroes: HeroId[] = []): SimulatorEnvelope[] {
+  const localSide = findLocalSide(script);
+  const reserved = collectScriptHeroIds(script);
+  const poolQueue = poolHeroes.filter((hero) => !reserved.has(hero));
+  const substitutions = new Map<HeroId, HeroId>();
+  let poolCursor = 0;
+
+  return script.events.map((entry, index) => {
+    let payload = entry.event;
+
+    if (localSide && payload.type === "hero_picked" && payload.side === localSide) {
+      const poolHero = poolQueue[poolCursor];
+      if (poolHero !== undefined) {
+        poolCursor += 1;
+        substitutions.set(payload.hero, poolHero);
+        payload = { ...payload, hero: poolHero };
+      }
+    } else if (localSide && payload.type === "pick_reverted" && payload.side === localSide) {
+      const substituted = substitutions.get(payload.hero);
+      if (substituted !== undefined) {
+        payload = { ...payload, hero: substituted };
+      }
+    }
+
+    return {
+      eventId: crypto.randomUUID(),
+      seq: index + 1,
+      emittedAt: new Date().toISOString(),
+      payload,
+      delayMs: entry.delayMs ?? 0,
+    };
+  });
 }
 
 export type PostSimulatorEvent = (sessionId: string, seq: number, payload: SimulatorEvent) => Promise<ManualEventResult>;
