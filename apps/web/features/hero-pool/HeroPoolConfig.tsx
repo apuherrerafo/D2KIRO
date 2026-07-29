@@ -8,11 +8,13 @@ import {
   useCalculateHeroPoolMutation,
   useGetHeroesQuery,
   useGetHeroPoolQuery,
+  useGetSettingsQuery,
   useUpdateHeroPoolMutation,
+  useUpdateSettingMutation,
 } from "@/lib/engine-api";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { EMPTY_POOL_MESSAGE, MAX_POOL_SIZE, POOL_FULL_MESSAGE, POOL_SAVED_MESSAGE } from "./constants";
+import { EMPTY_POOL_MESSAGE, MAX_POOL_SIZE, POOL_FULL_MESSAGE, POOL_SAVED_MESSAGE, STEAM_ACCOUNT_ID_KEY } from "./constants";
 import { CalculateStatusMessage, HeroPoolProposalReview } from "./HeroPoolProposalReview";
 import type { CalculateStatus, HeroPoolEntry } from "./types";
 
@@ -63,11 +65,13 @@ function HeroPoolRow({ entry, hero, onRemove }: HeroPoolRowProps) {
 export function HeroPoolConfig() {
   const { data: savedPool, isLoading: poolLoading, error: poolError } = useGetHeroPoolQuery();
   const { data: heroes = [], isLoading: heroesLoading } = useGetHeroesQuery();
+  const { data: settings } = useGetSettingsQuery();
   const [updateHeroPool, { isLoading: isSaving }] = useUpdateHeroPoolMutation();
+  const [updateSetting] = useUpdateSettingMutation();
   const [calculatePool, { isLoading: isCalculating }] = useCalculateHeroPoolMutation();
 
   const [draftEntries, setDraftEntries] = useState<HeroPoolEntry[] | null>(null);
-  const [accountId, setAccountId] = useState("");
+  const [accountIdInput, setAccountIdInput] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [calculateStatus, setCalculateStatus] = useState<CalculateStatus>({ kind: "idle" });
 
@@ -77,8 +81,14 @@ export function HeroPoolConfig() {
   const entries = draftEntries ?? savedPool ?? [];
   const poolIsFull = entries.length >= MAX_POOL_SIZE;
 
+  // Mismo patrón que `entries` arriba (TSK-030): mientras el usuario no haya tocado el campo,
+  // se muestra el account_id ya guardado en settings (si existe); en cuanto escribe algo, su
+  // copia local manda -- nunca un efecto pisando lo que está tipeando a mitad de camino.
+  const savedAccountId = settings?.find((setting) => setting.key === STEAM_ACCOUNT_ID_KEY)?.value ?? "";
+  const accountId = accountIdInput ?? savedAccountId;
+
   function handleAccountIdChange(event: ChangeEvent<HTMLInputElement>) {
-    setAccountId(event.target.value);
+    setAccountIdInput(event.target.value);
   }
 
   function handleRemove(heroId: number) {
@@ -116,6 +126,16 @@ export function HeroPoolConfig() {
     setCalculateStatus({ kind: "loading" });
     try {
       const result = await calculatePool({ accountId }).unwrap();
+      // El servidor solo llega hasta acá si accountId pasó isValidSteamAccountId (server/app.ts) --
+      // recién ahí vale la pena persistirlo, nunca antes (evita guardar un valor que después
+      // rechaza el borde). Nunca se loguea el valor mismo, solo se pasa a la mutación. Best-effort:
+      // si esta escritura falla, no debe tapar un cálculo que sí funcionó -- por eso su propio
+      // try/catch, separado del que interpreta errores de calculatePool más abajo.
+      try {
+        await updateSetting({ key: STEAM_ACCOUNT_ID_KEY, value: accountId }).unwrap();
+      } catch {
+        // No bloquea el flujo -- el peor caso es que el campo no quede pre-poblado la próxima vez.
+      }
       if (result.proposed.length === 0) {
         setCalculateStatus({ kind: "empty" });
         return;
