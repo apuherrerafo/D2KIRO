@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T19:43:29.249Z</title>
+<title>HUB del ecosistema — 2026-07-29T20:44:05.354Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">1</span></h2>
-        
-        <div class="card  ">
-          
-          <div class="card-id">TSK-031</div>
-          <div class="card-title">Ampliar el guion de bans de allPick en scripts.json</div>
-          <div class="card-meta">
-            <span class="tag tag-should">should</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
+        <h2>backlog <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -150,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">30</span></h2>
+        <h2>done <span class="count">31</span></h2>
         
         <div class="card  ">
           
@@ -452,6 +442,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-031</div>
+          <div class="card-title">Ampliar el guion de bans de allPick en scripts.json</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -459,22 +459,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">51× · 49% ok  · 3 falló</div>
+          <div class="stat-nums">52× · 50% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">33× · 42% ok  </div>
+          <div class="stat-nums">34× · 41% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">33× · 91% ok · 3 bloqueado </div>
+          <div class="stat-nums">34× · 91% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
-          <div class="stat-nums">30× · 97% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:60%"></div></div>
+          <div class="stat-nums">31× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -506,6 +506,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:35</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (cambio puramente de datos, sin I/O nuevo, sin input externo, sin secretos -- grep limpio; cero cambios a player.ts/reductor). Pasada 1 (Standards): sin abstracciones de más -- es literalmente el mismo patrón de evento que ya usaba el guion (mismo delayMs, misma forma), sin inventar un nuevo campo ni una nueva estructura. Pasada 2 (Spec): recalculado a mano el total (2 originales + 14 nuevos = 16, dentro de 14-18) y verificado que ningún heroId nuevo (100-113) colisiona con los picks del mismo guion ({18,19,20,21,23,24,25,26,27,28,30}) ni con los 2 bans originales (11,22) -- ningún duplicado en todo el guion. Confirmado que ambos espejos (apps/engine/src/simulator/scripts.json y apps/web/features/draft/simulator-scripts.ts) quedaron carácter por carácter equivalentes en la lista de eventos agregada (mismo heroId, mismo side, mismo delayMs en el mismo orden) -- un desincronismo entre ambos habría sido peor que no tocar ninguno, ya que un guion cambia lo que ve el usuario y el otro solo lo que ve un test. captainsMode intacto (fuera de alcance, confirmado por diff -- 0 líneas tocadas en ese bloque). Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:20</span></div>
+            <div class="feed-note">Agregados 14 eventos hero_banned al guion allPick en AMBOS espejos (apps/engine/src/simulator/scripts.json y apps/web/features/draft/simulator-scripts.ts, ver hallazgo de alcance en evt-060) -- heroId 100 a 113, alternando dire/radiant/unknown (mismo patrón de reparto que ya usa el guion), delayMs:1500 idéntico al de los 2 bans existentes, insertados entre los bans originales (11 radiant, 22 unknown) y el primer hero_picked. Total: 16 bans (dentro del rango 14-18 pedido). Ningún heroId nuevo colisiona con los picks ya existentes del mismo guion ({18,19,20,21,23,24,25,26,27,28,30}) ni con los 2 bans originales -- verificado a mano contra el guion completo antes de escribir. Verificado: bun test en apps/engine (169 pass, 0 fail, sin cambios necesarios -- ninguna prueba asume una cantidad exacta de bans) y en apps/web (27 pass, 0 fail, mismo resultado). bunx tsc --noEmit limpio en ambas apps, eslint limpio en apps/web. Cero cambios a player.ts ni al reductor (fuera de alcance explícito del ticket, respetado). El guion captainsMode no se tocó. TSK-031 sigue en state: doing, pasa a autorevisión adversarial antes de @shipcheck.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:10</span></div>
+            <div class="feed-note">Modo manual, último ticket del feedback de producto en curso (TSK-030 ya done). preferred_tool era codex -- assigned_tool se conserva en claude-code, mismo criterio de todo este bloque de tickets (evita repetir el patrón de créditos agotados 2/2 ya confirmado en TSK-002/003 al inicio del proyecto, y este hallazgo de alcance necesita el contexto completo). state: backlog → doing. WIP=1 por claude-code libre. HALLAZGO DE ALCANCE antes de tocar código, análogo al de TSK-029 (evt-051): el ticket dice literalmente "editar apps/engine/src/simulator/scripts.json", pero ese archivo NO se lee en runtime por ningún camino de producción -- grep confirma que el único consumidor es apps/engine/src/simulator/player.test.ts (fixture de prueba). El simulador que el usuario realmente usa en el navegador corre 100% en apps/web (simulator-scripts.ts + simulator.ts + DraftSetupPanel.tsx, TSK-016/028), que mantiene su propio guion mirror a mano (documentado en su propio header: "mismo patrón de sincronización a mano que types.ts"). Editar solo scripts.json de apps/engine no cambiaría nada de lo que el usuario ve -- el reporte real ("no me da los bans suficientes") solo se resuelve tocando TAMBIÉN apps/web/features/draft/simulator-scripts.ts con el mismo guion ampliado, manteniendo ambos espejos sincronizados como ya exige su propio comentario de cabecera. Decisión: se editan ambos archivos, no solo el nombrado literalmente en el ticket -- se documenta aquí por transparencia, no se oculta como si el ticket lo hubiera pedido tal cual. Verificado antes de escribir: ni apps/engine/src/simulator/player.test.ts ni apps/web/features/draft/simulator.test.ts hacen ninguna aserción sobre la cantidad exacta de eventos hero_banned de allPick (solo sobre picks, longitud total relativa a events.length, y filtros por tipo/lado) -- agregar bans no debería romper ninguna prueba existente.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T23:00</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS (foco en dato personal, ver evt-058). verify-simplicity.sh: 2 archivos/27 líneas -- dentro de ambos límites, sin excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado: 31 tareas, 156 eventos.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -560,34 +588,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T21:40</span></div>
             <div class="feed-note">Modo manual, siguiente ticket en orden del feedback de producto (TSK-028 ya done). assigned_tool fijado a claude-code (igual que preferred_tool -- toca componentes visuales/design system y layout raíz, sin necesidad de red ni de créditos externos). state: backlog → doing. WIP=1 por claude-code libre. Nota de alcance encontrada durante la investigación previa a @build, antes de tocar código: el ticket lista 4 rutas (/, /draft, /hero-pool, /settings) para el shell de navegación, pero apps/web/app/ ya tiene 2 rutas reales más (/heroes, /meta -- de TSK-014, fase 1) que quedarían igual de aisladas si el nav las omite -- exactamente el problema que este ticket existe para resolver. Decisión: el NavBar compartido incluye las 6 rutas reales (contando /), sin que esto cambie el archivo/línea de alcance (mismo componente, 2 entradas más en un array) ni el criterio de aceptación literal del ticket (los 4 flujos explícitos siguen navegables). Se documenta aquí por transparencia, no se oculta como si el ticket lo hubiera pedido tal cual.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-028</span> <span class="feed-ts">2026-07-29T21:30</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 archivos/131 líneas — dentro de ambos límites, sin excepción necesaria. Sin funciones innecesarias, sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 31 tareas, 147 eventos.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-028</span> <span class="feed-ts">2026-07-29T21:20</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (cero I/O nuevo, cero endpoint nuevo, cero cambio a apps/engine -- el simulador sigue posteando por POST /api/session/manual ya existente; sin dato personal involucrado, hero_pool no expone account_id en este flujo; grep de patrón de secretos sin coincidencias). Pasada 1 (Standards): sin abstracciones de más (findLocalSide/collectScriptHeroIds/el propio buildSimulatorEnvelopes, cada uno con una responsabilidad, ninguno decorativo -- deletion test mental: quitar collectScriptHeroIds reintroduciría el riesgo de duplicar un hero ya usado por el guion, no es cosmético); nombres claros (poolQueue, poolCursor, substitutions); sin ternarios para lo que hace falta lógica de rama, sin funciones anónimas inline como prop (findLocalSide se pasa por nombre donde corresponde). Pasada 2 (Spec): recalculado a mano contra el guion real -- captainsMode con pool=[9001,9002]: picks radiant esperados [8,9,7,3,10] -> con sustitución [9001,9002,7,3,10], picks dire sin tocar [86,35,46,2,1,4] (incluye el hero_picked que luego se revierte, 35 nunca se sustituye porque dire no es local); allPick con pool=[9001,9002]: picks dire (local) esperados [18,20,24,26,28,21] -> con sustitución [9001,9002,24,26,28,21], y el pick_reverted (hero:20 originalmente) debe llevar 9002 -- los 3 tests nuevos verifican estos números exactos, no solo forma. Verificado también el caso límite no cubierto explícitamente por el ticket pero sí por su regla dura ("nunca repetir un héroe ya picked/banned"): un hero de pool que coincide con uno ya usado en cualquier punto del guion (banned o picked, cualquier lado) se filtra antes de entrar a poolQueue -- probado con pool=[86,9001] en captainsMode (86 ya está pickeado por dire), confirma que 86 nunca aparece duplicado y el hueco lo cubre 9001. Sin hallazgos nuevos -- el único hallazgo real (mapeo de pick_reverted, ver evt-048) ya se corrigió durante @build, antes de esta revisión. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-028</span> <span class="feed-ts">2026-07-29T21:10</span></div>
-            <div class="feed-note">Implementado apps/web/features/draft/simulator.ts: buildSimulatorEnvelopes ahora acepta un segundo parámetro opcional poolHeroes (default []), busca localSide vía el evento local_side_identified del guion, calcula un set "reserved" con todo héroe que el guion ya usa (ban o pick, cualquier lado) para nunca ofrecer un sustituto que choque con la validación del reductor, y sustituye el hero de cada hero_picked del lado local por el siguiente disponible del pool en orden -- fallback automático al hero original del guion cuando el pool se agota o está vacío (regresión cero, ambos por diseño: el filtro que ignora eventos no locales y el poolCursor que nunca se adelanta sin usarse). Hallazgo propio corregido antes de terminar la implementación (no llegó a @redteam): pick_reverted en allPick (evento 4, hero:20 side:dire) sigue a un hero_picked que si se sustituye del pool quedaría con un hero distinto al literal del guion -- de no corregirse, el revert intentaría revertir un hero que nunca se pickeó de verdad. Se agregó un Map<original,sustituido> poblado en cada sustitución de hero_picked local y consultado en cada pick_reverted local, cubierto por una prueba dedicada (envelope de pick_reverted debe llevar el hero sustituido, no el del guion). DraftSetupPanel.tsx: agregado useGetHeroPoolQuery (ya existe desde TSK-024), poolHeroes = (savedPool ?? []).map(e => e.hero) pasado a buildSimulatorEnvelopes en handleStart, y el texto visible pedido por el ticket ("Tus picks en este escenario van a salir de tu pool configurado, si tenés uno."). simulator.test.ts: 5 pruebas nuevas (regresión cero con pool vacío, sustitución en orden con fallback a los picks 3-5 del guion, un hero del pool que coincide con uno ya usado en el guion se descarta sin duplicar, pick_reverted revierte el hero realmente sustituido no el del guion, unicidad de todos los heroIds emitidos). Verificado: bun test features/draft/simulator.test.ts (7 pass, 0 fail, 106 expect()); bun test completo de apps/web (27 pass, 0 fail, 142 expect(), sin regresión); npx tsc --noEmit limpio; rtk bun run lint limpio. verify-simplicity.sh: 3 archivos/131 líneas -- dentro de ambos límites, sin necesidad de excepción. Cero cambios a apps/engine (regla dura del ticket). TSK-028 sigue en state: doing, pasa a autorevisión adversarial (Standards + Spec) antes de @shipcheck.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-028</span> <span class="feed-ts">2026-07-29T20:15</span></div>
-            <div class="feed-note">/dispatch sobre TSK-028 (depende de TSK-017/020, ambos done). WIP=1 libre. assigned_tool: claude-code. Ruta: @build → @redteam → @shipcheck. TSK-028 pasa a `doing`.</div>
           </div>
         </div></div>
     </div>
