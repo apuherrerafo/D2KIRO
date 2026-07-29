@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T04:46:34.477Z</title>
+<title>HUB del ecosistema — 2026-07-29T04:55:37.020Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">9</span></h2>
+        <h2>backlog <span class="count">8</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-018</div>
-          <div class="card-title">OpenDotaClient.getPlayerHeroes + validación en el borde (S7)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-019</div>
@@ -218,8 +208,18 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>doing <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>doing <span class="count">1</span></h2>
+        
+        <div class="card  ">
+          
+          <div class="card-id">TSK-018</div>
+          <div class="card-title">OpenDotaClient.getPlayerHeroes + validación en el borde (S7)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>review <span class="count">0</span></h2>
@@ -409,41 +409,41 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">36× · 28% ok  · 3 falló</div>
+          <div class="stat-nums">37× · 30% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:56%"></div></div>
-          <div class="stat-nums">20× · 85% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:57%"></div></div>
+          <div class="stat-nums">21× · 86% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:53%"></div></div>
-          <div class="stat-nums">19× · 11% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:54%"></div></div>
+          <div class="stat-nums">20× · 15% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:47%"></div></div>
-          <div class="stat-nums">17× · 94% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:49%"></div></div>
+          <div class="stat-nums">18× · 94% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">depcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
@@ -456,6 +456,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:35</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- confirmado por grep que getPlayerHeroes/isValidSteamAccountId no están wireados a ningún caller real todavía, cero superficie de ataque viva). 1 nota de Spec, no bloqueante, aclarada para evitar confusión futura: el bucle que "descarta filas con forma inesperada" del array de /players/{account_id}/heroes no vive en este ticket -- por precedente directo de sync.ts (que hace exactamente ese bucle para /heroStats y /heroes/{id}/matchups usando las primitivas de validation.ts/mappers.ts, no dentro de ellas), es responsabilidad de TSK-021 iterar el array crudo con isValidRawPlayerHero como filtro + mapPlayerHero por fila válida. Anotado en el propio TSK-021.md como recordatorio para cuando se construya.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:20</span></div>
+            <div class="feed-note">Implementado OpenDotaClient.getPlayerHeroes + validación en el borde. TDD: rojo confirmado (getPlayerHeroes/mapPlayerHero/isValidRawPlayerHero/isValidSteamAccountId inexistentes) antes de implementar. getPlayerHeroes(accountId, {days=90}) reutiliza getJson/fetchWithRetry ya probados, devuelve unknown (validación en el borde, nunca en el cliente). isValidSteamAccountId (Steam32: solo dígitos, 1-4294967295) se agregó junto a los validadores de respuestas de OpenDota en validation.ts en vez de un archivo propio -- decisión documentada: es input externo igual que cualquier respuesta, no hay razón arquitectónica real para separarlo. mapPlayerHero traduce win (nombre real de la API) a wins (nombre interno, consistente con hero_matchups.wins). bun test: 119/119 sin regresión. tsc limpio. verify-simplicity.sh: 5 archivos/122 líneas -- excede solo el conteo de archivos (no líneas), excepción declarada en el propio ticket antes de commitear (simplicity_exception: true, segundo uso real del mecanismo agregado ayer). Siguiente paso: @redteam sobre TSK-018.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-018</span> <span class="feed-ts">2026-07-29T01:00</span></div>
+            <div class="feed-note">/dispatch manual sobre TSK-018 (top del backlog junto con TSK-019, sin dependencia entre sí, WIP=1 libre tras cerrar TSK-017). preferred_tool era codex (mismo patrón que TSK-003, el OpenDotaClient original de fase 1); no se volvió a preguntar por créditos -- el usuario ya lo confirmó en el dispatch de TSK-017 (patrón Handoff: no se repite la pregunta). assigned_tool: claude-code. Sin cambio de alcance ni sensibilidad respecto al ticket original. Ruta: @build → @redteam → @shipcheck, mismo patrón que TSK-017. TSK-018 pasa de `backlog` a `doing`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-017</span> <span class="feed-ts">2026-07-29T00:45</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 6 archivos/473 líneas -- excede 3/200, excepción documentada por adelantado en el propio ticket (`simplicity_exception: true`), 383 de esas líneas son el snapshot JSON autogenerado por drizzle-kit; sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -510,34 +538,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>pre-flight</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-07-28T22:45</span></div>
             <div class="feed-note">Re-invocado para planificar la fase siguiente a fase 1 (capturador real Overwolf/OCR, ya anticipada como D1 en SPEC.md). Re-verificado el Bloque 2 de architecture.md (~1 año de antigüedad en algunos puntos) con fuentes primarias de esta sesión: (1) issue de Valve #19408 sigue abierto, comentario de julio 2025 confirma que GSI sigue sin exponer draft de partidas propias de matchmaking -- el problema persiste un año después de la investigación original; (2) hallazgo nuevo no anticipado: la doc oficial y pública del GEP de Overwolf (dev.overwolf.com) documenta campos roster/bans/draft con heroId/team -- no es lectura de memoria de socio privilegiado como se especuló en julio, es API pública documentada; solo steamId/name de jugadores rivales se ocultan hasta STRATEGY_TIME (protección anti-scouting confirmada en issue #878, cerrado); (3) tensión sin resolver: los apps de Overwolf para Dota 2 requieren -gamestateintegration en launch options, sugiriendo que el GEP podría depender internamente del mismo GSI que el punto (1) dice que está roto para partidas propias -- no se puede resolver sin probarlo empíricamente; (4) OCR tiene precedente real en producción (STRATZ+), con fragilidad documentada: resoluciones custom, grids de héroe personalizados, skins arcana, overlays de Dota+, partículas de la sala de espera; (5) pregunta de dominio nunca resuelta -- en All Pick rankeado hay ~16 bans instantáneos pre-partida (preferencias + popularidad del bracket, no una fase de veto en vivo) y luego picks por turnos 2-2-1 alternando equipos, evidencia de guía de terceros, no oficial de Valve. Usuario decidió 4 puntos vía AskUserQuestion: D4 spike empírico de Overwolf antes de construir cualquier adapter de producción; D5 es aceptable que el capturador dependa de que el usuario tenga Overwolf instalado y corriendo (mismo patrón que DotaPlus/STRATZ+); D6 OCR se construye solo si el spike de Overwolf falla, no en paralelo; D7 el patrón 2-2-1 de All Pick NO se modela en el reductor -- se mantiene la regla inviolable ya existente en SPEC.md §C2, la evidencia nueva es secundaria y no alcanza el nivel de certeza para tocarla. El usuario corrigió el primer borrador del plan antes de aprobarlo: el criterio de éxito del Paso 0 (spike) solo validaba que heroId/team llegan en vivo, pero el Paso 1A ya asumía una heurística de snapshots consecutivos para detectar pick_reverted que nunca se probaba en el spike tal como estaba definido -- ampliado el criterio de éxito para exigir también provocar un pick_revert real durante la partida de prueba y confirmar que es distinguible de un pick nuevo en los datos crudos del GEP, más barato de descubrir ahí que a medio construir el adapter. Plan completo (Paso 0 spike ampliado, Paso 1A adapter overwolf, Paso 1B adapter ocr condicional, fuera de alcance explícito: turnos de Valve y Captain Mode como adapter separado) persistido como addendum en docs/agents/architecture.md, sección "Addendum (2026-07-28) -- Capturador real: Overwolf primero, OCR condicional". No se escribió código ni se crearon tickets -- siguiente paso es /rulebook o /grill-me para partir el Paso 0 en un ticket real.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T22:20</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 13 archivos/585 líneas (excede 3/200) -- excepción documentada por adelantado en el propio ticket, mismo patrón ya aceptado en TSK-012 (25/1265) y TSK-013 (13/560); sin hallazgos de dependencias, secretos ni WIP. Tablero regenerado (`bun scripts/hub.ts`, 16 tareas). Auditoría de impacto de documentación:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T22:05</span></div>
-            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- sin endpoint nuevo, sin input externo sin validar, sin secretos, /api/session/manual reutilizado sin escalamiento de privilegio). 4 hallazgos reales de Standards encontrados y corregidos en la misma revisión (mismo patrón que TSK-013): (1) runSimulatorPlayback en modo velocidad sin .catch() -- un fallo de red dejaba "Reproduciendo el draft..." colgado para siempre, mismo tipo de bug que ManualEntryPanel/store.ts ya habían corregido antes; (2) handleNextEvent (paso a paso) sin try/catch -- rechazo no capturado en fallo de red; (3) botón "Siguiente pick/ban" sin gate de connectionStatus, a diferencia de "Iniciar" -- condición de carrera real al arrancar un escenario nuevo; (4) texto guía del estado completo no mencionaba el botón "Simular otro draft" que aparece debajo. Los 4 corregidos; reverificado tsc/eslint limpios y 23+106 tests sin regresión.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T21:40</span></div>
-            <div class="feed-note">Simulador conectado a la UI por primera vez: DraftSetupPanel (nuevo) deja elegir escenario (Captain Mode/All Pick) y modo de reproducción (velocidad configurable o paso a paso con botón "Siguiente pick/ban"), reemplazando el no-op handleSimulatorClick que quedó pendiente desde TSK-012. Reutiliza POST /api/session/manual (sin token, ya habilitado por CORS) con source:'simulator' -- cero endpoint nuevo en apps/engine, solo player.ts gana createStepPlayer (TDD, sin tocar buildEnvelopes). Añadido texto de guía en lenguaje llano para los 6 estados de TSK-012, entrada manual ahora se oculta sola cuando phase pasa a complete/aborted (derivado del estado, no un efecto -- el primer intento con useEffect violó react-hooks/set-state-in-effect de ESLint), badge "(Tú)" más visible en DraftBoard, sessionId real (randomUUID) en vez del placeholder "local" en page.tsx. Verificado: 106+23 tests sin regresión, tsc/eslint limpios, smoke test real contra el motor vivo confirmando orden draft_state/suggestions y transición active->complete. 13 archivos/567 líneas -- excepción ya documentada en el propio ticket antes de empezar (mismo patrón que TSK-012/013), sin hallazgos de secretos/dependencias/WIP. Pendiente: verificación visual en navegador real (sin herramienta de automatización de navegador en esta sesión) -- @redteam y confirmación del usuario quedan como siguiente paso.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-016</span> <span class="feed-ts">2026-07-28T21:00</span></div>
-            <div class="feed-note">Ticket creado a partir de un hallazgo real del usuario probando la app por primera vez (captura de pantalla como evidencia): el motor/vista de draft funcionan y pasan sus pruebas, pero el ambiente de pruebas es incomprensible sin contexto -- simulador sin conectar en la UI (handleSimulatorClick era un no-op desde TSK-012), sin pantalla de configuración previa (elegir guion/velocidad), panel de entrada manual sin indicar cuándo usarlo ni cerrarse al completar el draft, indicador "(Tú)" insuficientemente visible. assigned_tool confirmado como claude-code (igual a preferred_tool): toca memoria/journal, reglas largas de web.md/testing-seams.md, y pulido visual de design system -- ninguna de las otras herramientas del ecosistema aplica. Alcance ya anticipado por superar 3 archivos/200 líneas (mismo patrón que TSK-012/013), documentado en el propio ticket como excepción, no en silencio.</div>
           </div>
         </div></div>
     </div>
