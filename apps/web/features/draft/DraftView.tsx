@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftSetupPanel } from "@/components/draft-setup-panel/DraftSetupPanel";
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
@@ -84,6 +85,9 @@ function ActiveDraftState({ draftState, suggestions, heroCatalog, onOpenManualEn
         <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
         <div className="flex flex-col gap-3">
           {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
+          {suggestions?.comparison && (
+            <ComparisonNote comparison={suggestions.comparison} heroMeta={heroCatalog.get(suggestions.comparison.vsHero)} />
+          )}
           {alternatives.map((suggestion) => (
             <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={false} />
           ))}
