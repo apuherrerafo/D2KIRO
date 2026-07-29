@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T20:44:05.354Z</title>
+<title>HUB del ecosistema — 2026-07-29T21:06:57.575Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">31</span></h2>
+        <h2>done <span class="count">32</span></h2>
         
         <div class="card  ">
           
@@ -452,6 +452,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-032</div>
+          <div class="card-title">Comparación explícita entre las 2 mejores sugerencias</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -459,22 +469,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">52× · 50% ok  · 3 falló</div>
+          <div class="stat-nums">53× · 51% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">34× · 41% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
+          <div class="stat-nums">35× · 40% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">34× · 91% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
+          <div class="stat-nums">35× · 91% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:60%"></div></div>
-          <div class="stat-nums">31× · 97% ok · 1 bloqueado </div>
+          <div class="stat-nums">32× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -506,6 +516,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-08-01T00:25</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (sin input externo nuevo, sin secretos -- grep limpio; el motor sigue sin resolver nombres de héroe, respetando el límite de responsabilidad ya establecido). Pasada 1 (Standards): 1 hallazgo real de EXACTITUD de comentario/documentación, corregido en la misma revisión -- el comentario de `buildComparison` afirmaba que "si el #1 gana por puntaje total, la suma de deltas comparables es positiva" (matemáticamente falso en general: si la ventaja real del #1 vive en una señal que el #2 no tiene dato/aplicable, esa señal queda fuera de la comparación por diseño, y todos los deltas comparables pueden ser <=0 aunque el #1 sí gane por el total). El CÓDIGO ya maneja este caso correctamente (retorna `null`, nunca atribuye mérito a una señal comparable que no fue la razón real) -- fue solo el comentario el que sobre-afirmaba una garantía que no siempre se cumple. Corregido el comentario en mix.ts y la misma redacción en TSK-032.md § Diseño para no dejar el error documentado en dos lugares. Verificado con recálculo a mano: en el escenario donde top gana solo por una señal no comparable (ej. hero_pool_fit aplicable solo para el #1) y pierde o empata en todas las comparables, `bestFavoringSignal` correctamente encuentra `best.delta <= 0` y `buildComparison` retorna `null` -- comportamiento honesto, no un bug. Pasada 2 (Spec): las 4 aceptaciones literales del ticket verificadas con las pruebas ya escritas (señal exacta identificada con números calculados a mano; señal con `raw:null`/`applicable:false` de un solo lado nunca es candidata, 2 pruebas dedicadas; `comparison: null` con <2 sugerencias o empate exacto; `bun test` de apps/engine en verde incluidas las pruebas de regresión V1/V2/V3, 176/176). Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-08-01T00:15</span></div>
+            <div class="feed-note">Implementado en 3 unidades lógicas (commits b05f52d/a18e7ba/a14360b). Motor: `weightedContributions` extraído de `mixScore` (mismo cálculo, reutilizable, 0 cambios de número -- verificado por las 16 pruebas preexistentes de mix.test.ts sin tocar), `buildComparison`/`SuggestionComparison` nuevos, `SuggestionSet.comparison` adjuntado en ambas ramas de `buildSuggestions` (con y sin candidatos). Web: mirror de tipos + `SIGNAL_LABELS` exportado (evita duplicar el mapeo señal→etiqueta) + `ComparisonNote.tsx` nuevo + wiring en `DraftView.tsx` (visible solo cuando `suggestions?.comparison` existe, sin ternario de renderizado). Verificado: bun test en apps/engine (176 pass, 0 fail, incluidas 7 pruebas nuevas de `buildComparison` aisladas con fixtures + 2 de integración end-to-end vía `buildSuggestions`) y en apps/web (27 pass, 0 fail, sin regresión). tsc/eslint limpios en ambas apps. Verificación con servidor real (no solo unit tests): script WebSocket ad-hoc contra el motor vivo (POST /ingest/draft-event + `ws://127.0.0.1:4000/ws/draft`) confirma que el mensaje `suggestions` real incluye la clave `comparison` en el payload -- valor `null` en ese caso concreto (sesión recién arrancada, sin picks propios, ninguna señal con dato comparable en ambos lados todavía), comportamiento esperado y correcto, no un bug. verify-simplicity.sh: 3 commits, ninguno excede 3 archivos/200 líneas -- sin excepción necesaria en ningún caso. Cero cambios al reductor ni al contrato de eventos (fuera de alcance, respetado). TSK-032 sigue en state: doing, pasa a autorevisión adversarial antes de @shipcheck.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-07-29T23:55</span></div>
+            <div class="feed-note">Modo manual. Ticket nuevo, creado ahora mismo: el usuario dio luz verde a avanzar el punto que había quedado explícitamente diferido al cierre de TSK-031 ("comparación explícita entre sugerencias"), sin pedir otra ronda de preguntas -- mismo patrón que "Sigamos"/"GO" del resto de la sesión, se decide el diseño y se documenta, no se vuelve a preguntar. assigned_tool: claude-code (toca apps/engine y apps/web en la misma unidad de producto, necesita journal.md/contexto del proyecto). state: backlog (ticket recién creado) → doing directo. WIP=1 por claude-code libre. Hallazgo real durante el diseño, antes de escribir código: `Suggestion.signals[i].weighted` nunca se popula con un número real en todo el pipeline -- cada SignalScorer devuelve `weighted: 0` por diseño (documentado como hallazgo no bloqueante en TSK-005, evt-20260727-020, "responsabilidad de la etapa de MEZCLA") pero `mix.ts`/`mixScore` nunca escribe ese valor de vuelta en los objetos `SignalContribution` -- solo devuelve un escalar total. Ese gap preexistente nunca se cerró; no es parte de este ticket cerrarlo (tocaría el wire format que ya consume `SignalBreakdown.tsx`, que de todos modos muestra `raw`, no `weighted` -- cambiarlo sería scope creep real). Para esta comparación se extrae un helper nuevo (`weightedContributions`) que calcula el mismo número internamente sin mutar los objetos existentes, evitando así heredar el hallazgo sin resolverlo ni expandir el alcance del ticket para arreglarlo.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:45</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 archivos/30 líneas -- dentro de ambos límites, sin excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado: 31 tareas, 160 eventos. Con esto se cierran los 5 tickets del bloque de feedback directo de producto (TSK-027 a TSK-031) abierto tras la primera verificación visual real de fase 1b.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -560,34 +598,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T22:20</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 commits (navegación+landing 4 archivos reales de código -- NavBar.tsx/layout.tsx/page.tsx, más el fix de foco en un 4to commit sobre NavBar.tsx; link post-guardado 2 archivos -- HeroPoolConfig.tsx/constants.tsx), ninguno excede 3 archivos/200 líneas, sin excepción necesaria. Sin funciones innecesarias, sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 31 tareas, 152 eventos.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T22:10</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (sin input externo nuevo, sin query nueva, sin secreto -- grep de patrón de secretos sin coincidencias; NavBar es un componente estático de enlaces internos, sin renderizar ningún dato de OpenDota). Pasada 1 (Standards): 1 hallazgo real, corregido en la misma revisión antes de reportarlo -- NavBar.tsx no tenía `focus-visible:outline` en los links, a diferencia de cada otro elemento interactivo del proyecto (BUTTON_PRIMARY/SECONDARY/GHOST en styles.ts siempre lo definen vía INTERACTIVE_BASE) -- un usuario navegando con teclado no tenía ninguna indicación visual de foco al tabular por el nav. Corregido con las mismas clases de foco que el resto del design system (NAV_LINK_BASE compartido entre estado activo/inactivo, sin duplicar la cadena). El resto: sin ternarios de renderizado, sin funciones anónimas inline (navLinkClassName con nombre, igual que scenarioButtonClassName), tokens semánticos únicamente (--content-*/--accent-*/--surface-*, cero hex suelto). Pasada 2 (Spec): las 3 aceptaciones literales del ticket verificadas -- (1) / muestra contenido real, confirmado por grep negativo del texto de create-next-app sobre el HTML servido; (2) las 4 rutas explícitas del ticket son alcanzables desde cualquier página vía el NavBar compartido (más 2 rutas reales adicionales que el ticket no listó pero que ya existían sin nav, ver nota de alcance evt-051); (3) guardar el pool deja un link visible a /draft, verificado por el mismo estado que ya dispara el mensaje "Pool guardado." (POOL_SAVED_MESSAGE, extraído a constante para que ambos nunca se desincronicen). Límite de verificación honesto: sin click real en navegador (sin herramienta de automatización disponible en este entorno) -- verificado por HTML servido, wiring de estado y grep de contenido, no por interacción real; mismo gap que TSK-016. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T22:00</span></div>
-            <div class="feed-note">Unidad lógica 2/2 (camino claro de /hero-pool a /draft tras guardar). apps/web/features/hero-pool/HeroPoolConfig.tsx: tras un guardado exitoso (mismo estado que ya mostraba el texto "Pool guardado.", en handleSave y handleConfirmProposal), aparece un link visible "Ver el draft en vivo" hacia /draft -- responde directo al reporte de producto ("guardo el pool y ahí queda... ¿con qué se conecta?"). constants.tsx: extraído POOL_SAVED_MESSAGE (antes el literal "Pool guardado." estaba repetido en 2 sitios sin ninguna fuente única) para que la comparación que decide mostrar el link nunca se desincronice de lo que en verdad se muestra al guardar. Verificado: tsc --noEmit y eslint limpios, bun test completo de apps/web (27 pass, 0 fail, sin regresión -- este componente no tiene pruebas unitarias propias, ninguna existía antes de este ticket tampoco). Mismo límite de verificación que la unidad 1/2: sin click real en navegador por falta de herramienta de automatización, verificado por código + wiring de estado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T21:55</span></div>
-            <div class="feed-note">Unidad lógica 1/2 (shell de navegación + landing real). apps/web/components/nav-bar/NavBar.tsx (nuevo): componente cliente con usePathname, 6 rutas reales del sitio (/, /draft, /hero-pool, /heroes, /meta, /settings -- ver nota de alcance en evt-051), marca la ruta activa con borde de acento (mismo patrón de className por función que ya usa scenarioButtonClassName en DraftSetupPanel, sin ternario de renderizado). apps/web/app/layout.tsx: monta <NavBar /> antes de {children} dentro de <Providers>, y corrige metadata.title/description (seguían siendo el literal "Create Next App" de create-next-app, nunca tocado desde TSK-001 -- mismo boilerplate que el usuario reportó con captura de pantalla) y lang="en" -> "es". apps/web/app/page.tsx: reemplazado el placeholder completo de create-next-app por una landing real (nombre, una frase de qué hace el producto, 3 links a /draft, /hero-pool, /settings -- los 3 flujos explícitos del ticket). Verificado con servidor real: bun run dev en apps/web + apps/engine, curl a / (200, contenido real confirmado por grep -- ni rastro de "To get started"), /draft y /hero-pool (200), y confirmado que el NavBar aparece en /hero-pool junto al contenido de la página (grep de las 4 etiquetas de nav). tsc --noEmit y eslint limpios. No se pudo hacer click real en un navegador (sin herramienta de automatización de navegador disponible en este entorno) -- verificado por HTML servido + código, no por interacción real; mismo gap ya documentado en TSK-016 (ledger.md).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-029</span> <span class="feed-ts">2026-07-29T21:40</span></div>
-            <div class="feed-note">Modo manual, siguiente ticket en orden del feedback de producto (TSK-028 ya done). assigned_tool fijado a claude-code (igual que preferred_tool -- toca componentes visuales/design system y layout raíz, sin necesidad de red ni de créditos externos). state: backlog → doing. WIP=1 por claude-code libre. Nota de alcance encontrada durante la investigación previa a @build, antes de tocar código: el ticket lista 4 rutas (/, /draft, /hero-pool, /settings) para el shell de navegación, pero apps/web/app/ ya tiene 2 rutas reales más (/heroes, /meta -- de TSK-014, fase 1) que quedarían igual de aisladas si el nav las omite -- exactamente el problema que este ticket existe para resolver. Decisión: el NavBar compartido incluye las 6 rutas reales (contando /), sin que esto cambie el archivo/línea de alcance (mismo componente, 2 entradas más en un array) ni el criterio de aceptación literal del ticket (los 4 flujos explícitos siguen navegables). Se documenta aquí por transparencia, no se oculta como si el ticket lo hubiera pedido tal cual.</div>
           </div>
         </div></div>
     </div>
