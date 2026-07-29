@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T19:09:47.071Z</title>
+<title>HUB del ecosistema — 2026-07-29T19:18:20.504Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">5</span></h2>
+        <h2>backlog <span class="count">4</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-027</div>
-          <div class="card-title">SignalScorer: role_safety + SCORING_WEIGHTS_V3 (feedback real de producto)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-028</div>
@@ -178,8 +168,18 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>doing <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>doing <span class="count">1</span></h2>
+        
+        <div class="card  ">
+          
+          <div class="card-id">TSK-027</div>
+          <div class="card-title">SignalScorer: role_safety + SCORING_WEIGHTS_V3 (feedback real de producto)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>review <span class="count">0</span></h2>
@@ -459,21 +459,21 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">46× · 43% ok  · 3 falló</div>
+          <div class="stat-nums">47× · 45% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
-          <div class="stat-nums">29× · 41% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">30× · 43% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
-          <div class="stat-nums">29× · 90% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">30× · 90% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:57%"></div></div>
           <div class="stat-nums">27× · 96% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -506,6 +506,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-027</span> <span class="feed-ts">2026-07-29T20:00</span></div>
+            <div class="feed-note">Ronda 1: APPROVED (gate PASS, señal pura sin I/O). Sin hallazgos. Recalculé de forma independiente el escenario "support vs carry en pick 1" (support=100, carry≈51.9) y el candado de regresión (0.288/0.72=0.40 exacto) para no confiar solo en los números del build. Nota positiva, no hallazgo: el patrón de exclusión de tipos (SignalIdV1/V2) se autoprotege -- TypeScript cortó de inmediato cuando la exclusión de V1 no incluía role_safety todavía, durante el build mismo, no en producción.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-027</span> <span class="feed-ts">2026-07-29T19:45</span></div>
+            <div class="feed-note">Implementada la señal role_safety + SCORING_WEIGHTS_V3. TDD: 7 tests rojos confirmados antes de implementar. Favorece Support en los primeros 2 picks propios, raw:null después (mismo tipo de "sin base suficiente" que counter/patch_meta/team_synergy, no usa applicable). Candado de regresión doble verificado matemáticamente y por prueba: con role_safety fuera de ventana Y hero_pool_fit no aplicable, la redistribución reproduce V1 exacto. Dos tests preexistentes de mix.test.ts necesitaron corrección honesta (no forzada): con role_safety ahora votando real en el primer pick, el escenario de "señal en null" pasó de 2 a 3 señales reales -- el score esperado se recalculó a partir de las constantes reales de V3, no un número hardcodeado, y se documentó por qué cambió. bun test: 169/169 (engine) + 23/23 (web) sin regresión. tsc/eslint limpios. verify-simplicity.sh: 8 archivos/264 líneas -- excede ambos límites, excepción declarada en el propio ticket. Siguiente paso: @redteam sobre TSK-027.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-027</span> <span class="feed-ts">2026-07-29T19:20</span></div>
+            <div class="feed-note">/dispatch sobre TSK-027 (no depende de otro ticket nuevo). WIP=1 libre. assigned_tool: claude-code (lógica central del motor, regresión-crítica, mismo criterio que TSK-023). Ruta: @build → @redteam → @shipcheck. TSK-027 pasa a `doing`.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -567,27 +588,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-025</span> <span class="feed-ts">2026-07-29T15:50</span></div>
             <div class="feed-note">Implementada la pantalla de propuesta/confirmación. Refactorizado el flujo de "calcular" de TSK-024 (que mezclaba el resultado directo en la lista editable con un solo mensaje genérico) a un estado propio CalculateStatus con 6 ramas explícitas, cada una con su mensaje en llano. HeroPoolProposalReview.tsx nuevo: hasta 5 héroes con ícono/winrate/partidas y tres acciones explícitas -- confirmar tal cual (PUT directo con la propuesta exacta, sin pasar por el estado editable para no mezclar cambios a medio hacer), editar antes de confirmar (la propuesta pasa a ser la lista editable de TSK-024), descartar (nunca llama a PUT). CalculateStatusMessage usa early return por rama, no ternario eligiendo entre JSX. tsc limpio, eslint limpio, bun test 23/23 sin regresión. verify-simplicity.sh: 3 archivos -- dentro del límite, sin excepción necesaria. Siguiente paso: @redteam sobre TSK-025.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-025</span> <span class="feed-ts">2026-07-29T15:30</span></div>
-            <div class="feed-note">/dispatch manual sobre TSK-025 (depende de TSK-021/024, ambos done). WIP=1 libre tras cerrar TSK-024. preferred_tool ya era claude-code desde /rulebook (flujo con estados de error específicos, mismo criterio que TSK-013 en fase 1). Ruta: @build → @redteam → @shipcheck. TSK-025 pasa de `backlog` a `doing`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-024</span> <span class="feed-ts">2026-07-29T15:15</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 6 archivos/238 líneas -- excede ambos límites, excepción documentada por adelantado en el propio ticket (simplicity_exception: true); sin hallazgos de dependencias, secretos ni WIP (único ticket en `doing`, pasa a `done`). Tablero regenerado (`bun scripts/hub.ts`, 26 tareas). Auditoría de impacto de documentación:</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-024</span> <span class="feed-ts">2026-07-29T15:05</span></div>
-            <div class="feed-note">Ronda 1: APPROVED (gate de seguridad PASS -- sin dangerouslySetInnerHTML, HeroIcon reutilizado sin modificar sigue validando el host, accountId nunca se loguea, validación real vive en el servidor). 1 hallazgo real de correctness, corregido en la misma ronda: handleCalculate mostraba "OpenDota no respondió" para cualquier error, incluidos 400 (accountId inválido) y 409 (cálculo en curso) -- mensajes factualmente incorrectos que llevarían al usuario a reintentar sin corregir su input. Corregido diferenciando por status code del error de RTK Query. Standards: los ternarios que aparecen calculan texto de etiqueta, no eligen entre árboles JSX distintos, mismo patrón ya aprobado en DraftSetupPanel (TSK-016) -- revisado explícitamente contra la regla de web.md, no es una violación. Spec: alcance respetado, no invadió apps/engine ni la pantalla dedicada de TSK-025 de forma bloqueante.</div>
           </div>
         </div></div>
     </div>
