@@ -12,7 +12,8 @@ import {
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { EMPTY_POOL_MESSAGE, MAX_POOL_SIZE, POOL_FULL_MESSAGE } from "./constants";
-import type { HeroPoolEntry } from "./types";
+import { CalculateStatusMessage, HeroPoolProposalReview } from "./HeroPoolProposalReview";
+import type { CalculateStatus, HeroPoolEntry } from "./types";
 
 function toPutEntry(entry: HeroPoolEntry) {
   return { hero: entry.hero, source: entry.source, personalWinrate: entry.personalWinrate, personalGames: entry.personalGames };
@@ -67,7 +68,7 @@ export function HeroPoolConfig() {
   const [draftEntries, setDraftEntries] = useState<HeroPoolEntry[] | null>(null);
   const [accountId, setAccountId] = useState("");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [calculateMessage, setCalculateMessage] = useState<string | null>(null);
+  const [calculateStatus, setCalculateStatus] = useState<CalculateStatus>({ kind: "idle" });
 
   // Derivado, no sincronizado con un efecto (mismo hallazgo que TSK-016): mientras el usuario no
   // haya tocado nada, `entries` es el pool del servidor; en cuanto edita/calcula, la copia local
@@ -107,33 +108,53 @@ export function HeroPoolConfig() {
     }
   }
 
-  // Propone y deja el resultado en el mismo estado editable de arriba -- el usuario revisa/quita
-  // héroes con los mismos controles de siempre y confirma con "Guardar", nunca se auto-aplica
-  // (regla dura de §9.6). La pantalla de propuesta con winrate/partidas detallado y los 3 estados
-  // vacíos/de error específicos de OpenDota es TSK-025 -- aquí el manejo de error ya distingue por
-  // código (hallazgo de @redteam: un catch genérico mostraba "OpenDota no respondió" incluso para
-  // un accountId inválido o un cálculo ya en curso, mensajes factualmente incorrectos para esos
-  // dos casos), pero sin la pantalla dedicada que TSK-025 construye.
+  // TSK-025 (§9.6): calcula y deja el resultado en calculateStatus, nunca lo aplica solo -- las
+  // tres acciones explícitas (confirmar/editar/descartar) viven en handleConfirmProposal/
+  // handleEditProposal/handleDiscardProposal, disparadas desde HeroPoolProposalReview.
   async function handleCalculate() {
-    setCalculateMessage(null);
+    setCalculateStatus({ kind: "loading" });
     try {
       const result = await calculatePool({ accountId }).unwrap();
       if (result.proposed.length === 0) {
-        setCalculateMessage("Ningún héroe de tu historial reciente pasó el mínimo de partidas -- probá ampliar la ventana o añadir a mano.");
+        setCalculateStatus({ kind: "empty" });
         return;
       }
-      setDraftEntries(result.proposed);
-      setCalculateMessage(`Propuesta de ${result.proposed.length} héroe(s) cargada -- revisala abajo y pulsá "Guardar" para confirmarla.`);
+      setCalculateStatus({ kind: "proposal", result });
     } catch (err) {
       const status = typeof err === "object" && err !== null && "status" in err ? err.status : undefined;
-      if (status === 400) {
-        setCalculateMessage("Ese account_id no parece válido -- revisá que sean solo números.");
-      } else if (status === 409) {
-        setCalculateMessage("Ya hay un cálculo en curso -- esperá a que termine e intentá de nuevo.");
-      } else {
-        setCalculateMessage("OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- podés intentar de nuevo más tarde.");
-      }
+      if (status === 400) setCalculateStatus({ kind: "invalid_account" });
+      else if (status === 409) setCalculateStatus({ kind: "in_progress" });
+      else setCalculateStatus({ kind: "unavailable" });
     }
+  }
+
+  // "Confirmar tal cual": PUT directo con la propuesta exacta -- no pasa por el estado editable de
+  // arriba, así que un cambio a medio hacer en la lista manual nunca se mezcla con la propuesta.
+  async function handleConfirmProposal() {
+    if (calculateStatus.kind !== "proposal") return;
+    const { proposed } = calculateStatus.result;
+    setSaveMessage(null);
+    try {
+      await updateHeroPool({ entries: proposed.map(toPutEntry) }).unwrap();
+      setDraftEntries(proposed);
+      setSaveMessage("Pool guardado.");
+      setCalculateStatus({ kind: "idle" });
+    } catch {
+      setSaveMessage("No se pudo guardar el pool -- revisá que el motor esté corriendo e intentá de nuevo.");
+    }
+  }
+
+  // "Editar antes de confirmar": la propuesta pasa a ser la lista editable de siempre -- el
+  // usuario quita/añade con los controles normales y confirma con el botón "Guardar" de abajo.
+  function handleEditProposal() {
+    if (calculateStatus.kind !== "proposal") return;
+    setDraftEntries(calculateStatus.result.proposed);
+    setCalculateStatus({ kind: "idle" });
+  }
+
+  // "Descartar": nunca llama a PUT -- el pool guardado queda exactamente como estaba (regla dura).
+  function handleDiscardProposal() {
+    setCalculateStatus({ kind: "idle" });
   }
 
   return (
@@ -174,7 +195,7 @@ export function HeroPoolConfig() {
           placeholder="account_id de Steam"
           className="rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
         />
-        {calculateMessage && <span className="text-caption text-content-secondary">{calculateMessage}</span>}
+        <CalculateStatusMessage status={calculateStatus} />
         <button
           type="button"
           onClick={handleCalculate}
@@ -183,6 +204,17 @@ export function HeroPoolConfig() {
         >
           {isCalculating ? "Calculando..." : "Calcular desde mis partidas"}
         </button>
+
+        {calculateStatus.kind === "proposal" && (
+          <HeroPoolProposalReview
+            result={calculateStatus.result}
+            heroes={heroes}
+            onConfirm={handleConfirmProposal}
+            onEdit={handleEditProposal}
+            onDiscard={handleDiscardProposal}
+            isConfirming={isSaving}
+          />
+        )}
       </div>
     </main>
   );

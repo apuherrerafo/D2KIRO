@@ -23,3 +23,14 @@ export interface CalculatePoolResult {
   consideredHeroes: number;
   windowDays: number;
 }
+
+// TSK-025 (SPEC.md §9.6): los estados del flujo de "calcular desde mis partidas", explicados en
+// llano -- mismo estándar que los 6 estados de la vista de draft de fase 1, ninguno se calla.
+export type CalculateStatus =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "empty" }
+  | { kind: "invalid_account" }
+  | { kind: "in_progress" }
+  | { kind: "unavailable" }
+  | { kind: "proposal"; result: CalculatePoolResult };
