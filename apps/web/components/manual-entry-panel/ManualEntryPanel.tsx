@@ -84,6 +84,9 @@ export function ManualEntryPanel({ sessionId, lastSeq, heroes, onClose }: Manual
           Cerrar
         </button>
       </div>
+      <span className="text-caption text-content-muted">
+        Úsala cuando el capturador automático no detecte un pick/ban, o para corregir uno que detectó mal.
+      </span>
 
       <div className="flex gap-2">
         <button type="button" onClick={selectPickAction} className={actionButtonClassName(action, "pick")}>

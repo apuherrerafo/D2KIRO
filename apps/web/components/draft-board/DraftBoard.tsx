@@ -1,5 +1,5 @@
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
-import { LOCAL_SIDE_LABEL } from "@/features/draft/styles";
+import { LOCAL_SIDE_BADGE } from "@/features/draft/styles";
 import type { DraftState, HeroId, TeamSide } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -18,7 +18,7 @@ function TeamColumn({ side, heroIds, heroCatalog, unconfirmedIds, isLocal }: Tea
     <div className="flex flex-col gap-2">
       <span className="text-heading text-content-primary">
         {TEAM_LABELS[side]}
-        {isLocal && <span className={`ml-2 text-caption ${LOCAL_SIDE_LABEL}`}>(Tú)</span>}
+        {isLocal && <span className={LOCAL_SIDE_BADGE}>Tú</span>}
       </span>
       <div className="flex flex-wrap gap-2">
         {heroIds.map((heroId) => (

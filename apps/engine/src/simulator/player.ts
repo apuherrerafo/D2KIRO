@@ -41,6 +41,29 @@ export function buildEnvelopes(
   }));
 }
 
+export interface StepPlayer {
+  hasNext(): boolean;
+  remaining(): number;
+  next(): DraftEventEnvelope;
+}
+
+// Modo paso a paso (TSK-016): mismo buildEnvelopes que runSimulator, pero sin temporizador propio
+// -- quien llama decide cuándo pedir el siguiente evento (botón "Siguiente pick/ban" en la UI).
+// No toca buildEnvelopes ni el parseo/temporización del guion, solo agrega esta forma de
+// consumirlo un evento a la vez.
+export function createStepPlayer(script: DraftScript, sessionId: string, clock: PlaybackClock = realClock): StepPlayer {
+  const envelopes = buildEnvelopes(script, sessionId, clock);
+  let cursor = 0;
+  return {
+    hasNext: () => cursor < envelopes.length,
+    remaining: () => envelopes.length - cursor,
+    next: () => {
+      if (cursor >= envelopes.length) throw new Error("createStepPlayer: no quedan eventos en el guion");
+      return envelopes[cursor++]!;
+    },
+  };
+}
+
 export type EmitFn = (envelope: DraftEventEnvelope) => void | Promise<void>;
 
 export interface PlaybackOptions {

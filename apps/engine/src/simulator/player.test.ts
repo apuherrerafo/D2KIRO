@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { applyDraftEvent, createIdleDraftState, type DraftEventEnvelope, type DraftState } from "../draft/reducer";
-import { buildEnvelopes, httpEmit, runSimulator, type DraftScript, type PlaybackClock } from "./player";
+import { buildEnvelopes, createStepPlayer, httpEmit, runSimulator, type DraftScript, type PlaybackClock } from "./player";
 import scripts from "./scripts.json";
 
 const captainsMode = scripts.captainsMode as DraftScript;
@@ -129,6 +129,50 @@ describe("reproducción completa de un guion (sin Dota 2 real, sin perder evento
     expect(finalState.format).toBe("unknown");
     expect(finalState.phase).toBe("complete");
     expect(finalState.picks.radiant).toEqual([1]);
+  });
+});
+
+describe("createStepPlayer", () => {
+  test("expone los mismos envelopes que buildEnvelopes, uno por llamada a next()", () => {
+    // Reloj propio de esta prueba -- fixedClock es compartido por todo el archivo, y comparar
+    // eventId exigiría que ningún otro test hubiera avanzado su contador antes que este.
+    const clock: PlaybackClock = { now: () => 0, genId: (() => {
+      let n = 0;
+      return () => `step-evt-${++n}`;
+    })() };
+    const expected = buildEnvelopes(captainsMode, "step-session", clock);
+    const player = createStepPlayer(captainsMode, "step-session", { now: () => 0, genId: (() => {
+      let n = 0;
+      return () => `step-evt-${++n}`;
+    })() });
+
+    const collected: DraftEventEnvelope[] = [];
+    while (player.hasNext()) {
+      collected.push(player.next());
+    }
+
+    expect(collected).toEqual(expected);
+  });
+
+  test("remaining() decrece con cada next() y hasNext() es false al agotar el guion", () => {
+    const player = createStepPlayer(allPick, "step-session-2", fixedClock);
+    const total = allPick.events.length;
+
+    expect(player.remaining()).toBe(total);
+    player.next();
+    expect(player.remaining()).toBe(total - 1);
+    expect(player.hasNext()).toBe(true);
+
+    for (let i = 1; i < total; i++) player.next();
+    expect(player.hasNext()).toBe(false);
+    expect(player.remaining()).toBe(0);
+  });
+
+  test("next() lanza si ya no quedan eventos -- nunca inventa un evento vacío", () => {
+    const player = createStepPlayer(allPick, "step-session-3", fixedClock);
+    for (let i = 0; i < allPick.events.length; i++) player.next();
+
+    expect(() => player.next()).toThrow();
   });
 });
 

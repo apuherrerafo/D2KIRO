@@ -8,4 +8,8 @@ export const BUTTON_SECONDARY = `rounded-md border border-surface-border px-4 py
 
 export const BUTTON_GHOST = `self-start text-caption text-accent-primary hover:text-accent-primary-hover ${INTERACTIVE_BASE}`;
 
-export const LOCAL_SIDE_LABEL = "text-accent-primary";
+// Badge, no un simple text-caption -- el usuario reportó que el "(Tú)" original pasaba
+// desapercibido (TSK-016). Fondo sólido de acento + texto de alto contraste, mismo patrón de
+// BUTTON_PRIMARY para que se lea como una etiqueta, no como una nota al pie.
+export const LOCAL_SIDE_BADGE =
+  "ml-2 inline-flex items-center rounded-full bg-accent-primary px-2 py-0.5 text-caption font-semibold text-surface-base";
