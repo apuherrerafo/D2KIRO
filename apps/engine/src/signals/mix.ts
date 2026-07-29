@@ -1,16 +1,17 @@
 import type { DraftState, HeroId } from "../draft/reducer";
 import { counterScorer } from "./counter";
+import { heroPoolFitScorer } from "./hero-pool-fit";
 import { patchMetaScorer } from "./patch-meta";
 import { roleGapScorer } from "./role-gap";
 import { teamSynergyScorer } from "./team-synergy";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
-import { SCORING_WEIGHTS_V1 } from "./weights";
+import { SCORING_WEIGHTS_V2 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
   rank: 1 | 2 | 3;
   score: number;
-  signals: SignalContribution[]; // siempre las 4, incluidas las que dieron null
+  signals: SignalContribution[]; // siempre las 5, incluidas las que dieron null o no aplican
   reason: string;
   confidence: "alta" | "media" | "baja";
 }
@@ -31,36 +32,27 @@ export interface BuildSuggestionsOptions {
   now?: () => number; // inyectable para pruebas de rendimiento determinísticas
 }
 
-// TSK-022 extendió SignalId a 5 valores (hero_pool_fit) pero SCORERS/RAW_RANGE/SCORING_WEIGHTS_V1
-// siguen siendo el motor de 4 señales de fase 1 -- integrarlo de verdad (añadirlo aquí, crear
-// SCORING_WEIGHTS_V2, el candado de regresión cero) es responsabilidad de TSK-023, no de este
-// archivo todavía. `SignalIdV1` documenta esa frontera temporal en un solo lugar: mientras
-// hero_pool_fit no esté en SCORERS, ninguna `SignalContribution` que pase por esta función es
-// realmente esa quinta señal en runtime, aunque el tipo `SignalId` ya la permita.
-type SignalIdV1 = Exclude<SignalId, "hero_pool_fit">;
-
-const SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, roleGapScorer];
+// TSK-023: hero_pool_fit entra al pipeline real. SCORING_WEIGHTS_V1 (weights.ts) queda intacto y
+// congelado -- SCORING_WEIGHTS_V2 es la única constante que usa este archivo de aquí en adelante.
+const SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, roleGapScorer, heroPoolFitScorer];
 const TOP_N = 3;
 const HARD_CUTOFF_MS = 500;
 
 // Cada señal tiene una escala de `raw` distinta (deltas de winrate, fracciones 0-1, penalizaciones
 // negativas) -- este rango define cómo se estira cada una a 0-100 antes de aplicar el peso. No hay
 // un estándar único: son rangos razonables documentados aquí, no medidos.
-const RAW_RANGE: Record<SignalIdV1, [number, number]> = {
+const RAW_RANGE: Record<SignalId, [number, number]> = {
   counter: [-0.3, 0.3],
   patch_meta: [0.3, 0.7],
   team_synergy: [0, 1],
   role_gap: [-1, 0],
+  hero_pool_fit: [0, 1],
 };
 
 function normalize(signal: SignalId, raw: number): number {
-  const [min, max] = RAW_RANGE[signal as SignalIdV1];
+  const [min, max] = RAW_RANGE[signal];
   const clamped = Math.min(max, Math.max(min, raw));
   return ((clamped - min) / (max - min)) * 100;
-}
-
-function weightV1(signal: SignalId): number {
-  return SCORING_WEIGHTS_V1[signal as SignalIdV1];
 }
 
 function safeScore(scorer: SignalScorer, state: DraftState, hero: HeroId, meta: MetaSnapshot): SignalContribution {
@@ -72,18 +64,36 @@ function safeScore(scorer: SignalScorer, state: DraftState, hero: HeroId, meta: 
   }
 }
 
-function mixScore(signals: SignalContribution[]): number {
-  const withData = signals.filter((s) => s.raw !== null);
+// TSK-023 (SPEC.md §9.3): `applicable: false` ("esta señal no aplica a este usuario ahora mismo",
+// hoy solo hero_pool_fit sin pool configurado) se excluye del cálculo exactamente igual que
+// `raw: null` ("hay hueco de datos") -- ninguna de las dos vota. La distinción vive en
+// computeConfidence, no aquí: una señal no aplicable no debe bajar la confianza de nadie.
+function hasVote(signal: SignalContribution): boolean {
+  return signal.raw !== null && signal.applicable !== false;
+}
+
+// Exportado para el candado de regresión cero (mix.test.ts, TSK-023 §9.3): probarlo directamente
+// con SignalContribution[] fijos es más preciso que reconstruirlo indirectamente vía
+// buildSuggestions, que exigiría fixtures de los 4 scorers reales solo para fijar sus `raw`.
+export function mixScore(signals: SignalContribution[]): number {
+  const withData = signals.filter(hasVote);
   if (withData.length === 0) return 50; // sin ninguna señal con dato: neutro, no 0 ni un extremo
-  const totalWeight = withData.reduce((sum, s) => sum + weightV1(s.signal), 0);
+  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V2[s.signal], 0);
   return withData.reduce((sum, s) => {
-    const share = weightV1(s.signal) / totalWeight; // redistribución proporcional
+    const share = SCORING_WEIGHTS_V2[s.signal] / totalWeight; // redistribución proporcional
     return sum + normalize(s.signal, s.raw as number) * share;
   }, 0);
 }
 
+// Candado de regresión cero (§9.3): con hero_pool_fit no aplicable, totalWeight en mixScore es
+// 0.32+0.20+0.16+0.12=0.80 -- cada share individual (ej. 0.32/0.80) reproduce exactamente los
+// pesos de V1 (0.40/0.25/0.20/0.15). Verificado con números exactos en mix.test.ts, no a ojo.
 function computeConfidence(signals: SignalContribution[], metaIsStale: boolean): Suggestion["confidence"] {
-  const nullCount = signals.filter((s) => s.raw === null).length;
+  // Una señal no aplicable no cuenta como null para la confianza -- "no configuraste la función"
+  // no es lo mismo que "hay un hueco de datos" (D10). Sin esto, todo usuario sin pool vería su
+  // confianza bajar de "alta" a "media" para siempre, por una función que no está usando.
+  const applicableSignals = signals.filter((s) => s.applicable !== false);
+  const nullCount = applicableSignals.filter((s) => s.raw === null).length;
   if (nullCount >= 2) return "baja";
   if (nullCount === 1 || metaIsStale) return "media";
   return "alta";
@@ -91,8 +101,8 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 
 function buildReason(signals: SignalContribution[]): string {
   const informative = signals
-    .filter((s) => s.raw !== null)
-    .sort((a, b) => weightV1(b.signal) - weightV1(a.signal))
+    .filter(hasVote)
+    .sort((a, b) => SCORING_WEIGHTS_V2[b.signal] - SCORING_WEIGHTS_V2[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
   if (informative.length > 0) return informative.join("; ");

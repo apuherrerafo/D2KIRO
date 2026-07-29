@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
-import { buildSuggestions } from "./mix";
-import type { MetaHeroInfo, MetaSnapshot } from "./types";
-import { SCORING_WEIGHTS_V1 } from "./weights";
+import { buildSuggestions, mixScore } from "./mix";
+import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
+import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2 } from "./weights";
 
 function draftState(overrides: Partial<DraftState> = {}): DraftState {
   return {
@@ -30,6 +30,70 @@ describe("SCORING_WEIGHTS_V1", () => {
   test("los 4 pesos suman exactamente 1.0", () => {
     const sum = Object.values(SCORING_WEIGHTS_V1).reduce((a, b) => a + b, 0);
     expect(sum).toBeCloseTo(1, 10);
+  });
+});
+
+// TSK-023 (fase 1b, SPEC.md §9.3): las dos pruebas obligatorias del candado de regresión cero --
+// no una, ambas. La segunda es el candado real: prueba que la promesa de D8 es un hecho verificado
+// con números exactos, no una afirmación de comentario.
+describe("SCORING_WEIGHTS_V2 — candado de regresión cero", () => {
+  test("los 5 pesos suman exactamente 1.0", () => {
+    const sum = Object.values(SCORING_WEIGHTS_V2).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1, 10);
+  });
+
+  test("con hero_pool_fit no aplicable, mixScore redistribuye a exactamente los pesos de V1 (0.40/0.25/0.20/0.15)", () => {
+    // raw elegidos para que cada señal normalice a un número distinto y verificable a mano:
+    // counter->100 (tope de su rango), patch_meta->0 (piso), team_synergy->75, role_gap->50.
+    const signals: SignalContribution[] = [
+      { signal: "counter", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "patch_meta", raw: 0.3, weighted: 0, explanation: "", sampleSize: 10 },
+      { signal: "team_synergy", raw: 0.75, weighted: 0, explanation: "", sampleSize: 0 },
+      { signal: "role_gap", raw: -0.5, weighted: 0, explanation: "", sampleSize: 0 },
+      { signal: "hero_pool_fit", raw: null, weighted: 0, explanation: "", sampleSize: 0, applicable: false },
+    ];
+
+    const score = mixScore(signals);
+
+    // Esperado usando los pesos ORIGINALES de V1, no V2 crudo -- esto es lo que demuestra que la
+    // redistribución proporcional reproduce V1 exactamente, no una aproximación.
+    const expected = 100 * SCORING_WEIGHTS_V1.counter + 0 * SCORING_WEIGHTS_V1.patch_meta + 75 * SCORING_WEIGHTS_V1.team_synergy + 50 * SCORING_WEIGHTS_V1.role_gap;
+    expect(score).toBeCloseTo(expected, 10);
+  });
+
+  test("un héroe en el pool con winrate alto recibe un score mayor que uno idéntico fuera del pool", () => {
+    const state = draftState();
+    const snapshot = meta(
+      { 1: { id: 1, localizedName: "En el pool" }, 2: { id: 2, localizedName: "Fuera del pool" } },
+      { heroPool: [{ hero: 1, source: "calculated", personalWinrate: 0.9, personalGames: 50, updatedAt: "2026-07-29" }] },
+    );
+
+    const result = buildSuggestions(state, snapshot);
+    const inPool = result.suggestions.find((s) => s.hero === 1);
+    const outOfPool = result.suggestions.find((s) => s.hero === 2);
+
+    expect(inPool).toBeDefined();
+    expect(outOfPool).toBeDefined();
+    expect(inPool!.score).toBeGreaterThan(outOfPool!.score);
+  });
+
+  test("con el pool nunca configurado, hero_pool_fit aparece siempre en signals[] pero no baja la confianza (applicable:false != raw:null)", () => {
+    const state = draftState({ picks: { radiant: [], dire: [50] } });
+    const snapshot = meta(
+      { 1: { id: 1, localizedName: "Candidato" }, 50: { id: 50, localizedName: "Enemigo" } },
+      { matchups: { 1: [{ vsHero: 50, games: 300, wins: 280 }, { vsHero: 60, games: 300, wins: 20 }] } },
+    );
+
+    const result = buildSuggestions(state, snapshot);
+    const suggestion = result.suggestions.find((s) => s.hero === 1);
+    const poolSignal = suggestion?.signals.find((s) => s.signal === "hero_pool_fit");
+
+    expect(poolSignal).toBeDefined();
+    expect(poolSignal?.raw).toBeNull();
+    expect(poolSignal?.applicable).toBe(false);
+    // Mismo resultado que el test "señal en null" de arriba (2 nulls reales: patch_meta,
+    // team_synergy) -- hero_pool_fit no aplicable no suma un tercer null a la cuenta.
+    expect(suggestion?.confidence).toBe("baja");
   });
 });
 
