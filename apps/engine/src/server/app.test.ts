@@ -347,6 +347,27 @@ describe("POST /api/hero-pool/calculate (TSK-021)", () => {
     stop();
   });
 
+  // Hallazgo de @redteam (ronda 1): "1e400" es JSON válido (número), pero JS lo evalúa como
+  // Infinity -- "rawDays > 0" por sí solo lo dejaba pasar y colaba date=Infinity en la URL.
+  test("un days que desborda a Infinity (JSON válido: 1e400) cae al default de 90, nunca se envía tal cual", async () => {
+    const calls: string[] = [];
+    const { url, stop } = startAppWithClient((async (input: string) => {
+      calls.push(input);
+      return jsonResponse([]);
+    }) as unknown as typeof fetch);
+
+    const res = await fetch(`${url}/api/hero-pool/calculate`, {
+      method: "POST",
+      // no se puede usar JSON.stringify({days: Infinity}) -- produce "null". El texto crudo "1e400"
+      // sí es JSON válido y JS lo parsea como Infinity.
+      body: `{"accountId":"123456789","days":1e400}`,
+    });
+
+    expect(res.status).toBe(200);
+    expect(calls[0]).toContain("date=90");
+    stop();
+  });
+
   test("OpenDota caído tras agotar reintentos -> 502 opendota_unavailable, mensaje en llano", async () => {
     const { url, stop } = startAppWithClient((async () => jsonResponse({}, 500)) as unknown as typeof fetch);
 

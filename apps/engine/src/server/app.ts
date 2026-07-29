@@ -223,7 +223,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return Response.json({ error: "invalid_account_id" }, { status: 400 });
     }
     const rawDays = typeof body === "object" && body !== null ? (body as Record<string, unknown>).days : undefined;
-    const days = typeof rawDays === "number" && rawDays > 0 ? rawDays : 90;
+    // Number.isFinite (no solo typeof number) descarta Infinity -- "rawDays > 0" por sí solo lo
+    // dejaba pasar (Infinity > 0 es true), colando date=Infinity en la URL hacia OpenDota.
+    const days = Number.isFinite(rawDays) && (rawDays as number) > 0 ? (rawDays as number) : 90;
 
     if (heroPoolCalculationInProgress) {
       return Response.json({ error: "calculation_in_progress" }, { status: 409 });
