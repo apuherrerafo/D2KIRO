@@ -81,6 +81,9 @@ export interface RunSimulatorPlaybackOptions {
   post: PostSimulatorEvent;
   sleep?: (ms: number) => Promise<void>;
   isCancelled?: () => boolean;
+  // TSK-035: se invoca justo antes de cada espera real (mismo ms que se le pasa a sleep) -- quien
+  // llama puede usarlo para mostrar un timer visual, sin que este módulo sepa nada de UI.
+  onWaitStart?: (waitMs: number) => void;
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -95,7 +98,11 @@ export async function runSimulatorPlayback(envelopes: SimulatorEnvelope[], opts:
   for (const envelope of envelopes) {
     if (opts.isCancelled?.()) return;
     const delayMs = envelope.payload.type === "hero_banned" ? 0 : envelope.delayMs;
-    if (delayMs > 0) await sleep(delayMs / opts.speed);
+    if (delayMs > 0) {
+      const waitMs = delayMs / opts.speed;
+      opts.onWaitStart?.(waitMs);
+      await sleep(waitMs);
+    }
     if (opts.isCancelled?.()) return;
     await opts.post(opts.sessionId, envelope.seq, envelope.payload);
   }

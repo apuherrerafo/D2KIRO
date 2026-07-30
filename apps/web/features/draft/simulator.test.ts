@@ -109,6 +109,41 @@ describe("runSimulatorPlayback", () => {
     expect(sleepCalls).toEqual(expectedDelays);
   });
 
+  test("TSK-035: onWaitStart se invoca justo antes de cada espera real, con el mismo ms que sleep", async () => {
+    const envelopes = buildSimulatorEnvelopes(allPick);
+    const waitStarts: number[] = [];
+
+    await runSimulatorPlayback(envelopes, {
+      sessionId: "session-timer",
+      speed: 2,
+      post: async () => ({ accepted: true }),
+      sleep: async () => {},
+      onWaitStart: (waitMs) => {
+        waitStarts.push(waitMs);
+      },
+    });
+
+    const expectedWaits = envelopes.filter((e) => e.payload.type !== "hero_banned" && e.delayMs > 0).map((e) => e.delayMs / 2);
+    expect(waitStarts).toEqual(expectedWaits);
+  });
+
+  test("sin onWaitStart (comportamiento por defecto), no cambia nada -- regresión cero", async () => {
+    const envelopes = buildSimulatorEnvelopes(captainsMode);
+    const posted: number[] = [];
+
+    await runSimulatorPlayback(envelopes, {
+      sessionId: "session-no-timer",
+      speed: 1,
+      post: async (_sessionId, seq) => {
+        posted.push(seq);
+        return { accepted: true };
+      },
+      sleep: async () => {},
+    });
+
+    expect(posted).toHaveLength(envelopes.length);
+  });
+
   test("se detiene apenas isCancelled() es true, sin emitir el resto del guion", async () => {
     const envelopes = buildSimulatorEnvelopes(captainsMode);
     const posted: number[] = [];
