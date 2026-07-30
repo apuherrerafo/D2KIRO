@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
+import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { postSimulatorEvent } from "@/features/draft/manual-entry";
 import { buildSimulatorEnvelopes, runSimulatorPlayback, type SimulatorEnvelope } from "@/features/draft/simulator";
 import { SIMULATOR_SCENARIOS, SIMULATOR_SCENARIO_LABELS, type SimulatorScenarioId } from "@/features/draft/simulator-scripts";
@@ -67,7 +68,9 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
   const [teamGroupId, setTeamGroupId] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wait, setWait] = useState<{ id: number; ms: number } | null>(null);
   const cancelledRef = useRef(false);
+  const waitIdRef = useRef(0);
   const { data: savedPool } = useGetHeroPoolQuery();
   const { data: teamGroups = [] } = useGetTeamGroupsQuery();
   const setPartyContext = useDraftStore((s) => s.setPartyContext);
@@ -100,6 +103,14 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
     setTeamGroupId(null);
   }
 
+  // TSK-035: cada espera nueva recibe un id propio -- dos picks seguidos pueden compartir el
+  // mismo delayMs (ej. 3000ms en captainsMode), y DraftTimer se remonta por `key` para reiniciar
+  // igual, en vez de confiar en que el valor de `ms` haya cambiado.
+  function handleWaitStart(ms: number) {
+    waitIdRef.current += 1;
+    setWait({ id: waitIdRef.current, ms });
+  }
+
   function handleStart() {
     const newSessionId = crypto.randomUUID();
     const script = SIMULATOR_SCENARIOS[scenario];
@@ -112,6 +123,7 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
     setEnvelopes(built);
     setCursor(0);
     setError(null);
+    setWait(null);
     setPartyContext(toDraftTeamGroup(partySize, selectedGroup));
     onStart(newSessionId);
 
@@ -126,10 +138,15 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
         speed,
         post: postSimulatorEvent,
         isCancelled: () => cancelledRef.current,
+        onWaitStart: handleWaitStart,
       })
-        .then(() => setRunning(false))
+        .then(() => {
+          setRunning(false);
+          setWait(null);
+        })
         .catch(() => {
           setRunning(false);
+          setWait(null);
           setError("Se perdió la conexión con el motor a mitad de la reproducción -- revisa que esté corriendo.");
         });
     }
@@ -258,9 +275,12 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
       )}
 
       {hasStarted && mode === "velocidad" && (
-        <span className="text-caption text-content-secondary">
-          {running ? "Reproduciendo el draft..." : "Draft reproducido por completo."}
-        </span>
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-caption text-content-secondary">
+            {running ? "Reproduciendo el draft..." : "Draft reproducido por completo."}
+          </span>
+          {wait && <DraftTimer key={wait.id} waitMs={wait.ms} />}
+        </div>
       )}
 
       {hasStarted && mode === "paso_a_paso" && (
