@@ -11,6 +11,7 @@ interface NavLinkDef {
 const NAV_LINKS: NavLinkDef[] = [
   { href: "/draft", label: "Draft" },
   { href: "/hero-pool", label: "Mi pool" },
+  { href: "/team-groups", label: "Equipos" },
   { href: "/heroes", label: "Héroes" },
   { href: "/meta", label: "Meta" },
   { href: "/settings", label: "Configuración" },

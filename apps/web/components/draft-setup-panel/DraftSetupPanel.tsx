@@ -5,8 +5,10 @@ import { postSimulatorEvent } from "@/features/draft/manual-entry";
 import { buildSimulatorEnvelopes, runSimulatorPlayback, type SimulatorEnvelope } from "@/features/draft/simulator";
 import { SIMULATOR_SCENARIOS, SIMULATOR_SCENARIO_LABELS, type SimulatorScenarioId } from "@/features/draft/simulator-scripts";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
-import type { DraftStoreState } from "@/features/draft/store";
-import { useGetHeroPoolQuery } from "@/lib/engine-api";
+import { useDraftStore, type DraftStoreState } from "@/features/draft/store";
+import { DRAFT_PARTY_SIZE_OPTIONS } from "@/features/team-groups/constants";
+import type { DraftTeamGroup, PartySize, TeamGroupEntry } from "@/features/team-groups/types";
+import { useGetHeroPoolQuery, useGetTeamGroupsQuery } from "@/lib/engine-api";
 
 type PlaybackMode = "velocidad" | "paso_a_paso";
 const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
@@ -19,6 +21,29 @@ function scenarioButtonClassName(current: SimulatorScenarioId, target: Simulator
 function modeButtonClassName(current: PlaybackMode, target: PlaybackMode): string {
   if (current === target) return BUTTON_PRIMARY;
   return BUTTON_SECONDARY;
+}
+
+function toPartySize(value: string): PartySize {
+  const parsed = Number(value);
+  if (parsed === 1) return 1;
+  if (parsed === 3) return 3;
+  if (parsed === 5) return 5;
+  return 2;
+}
+
+function partyLabel(size: PartySize): string {
+  if (size === 1) return "Solo";
+  return `${size}`;
+}
+
+function toDraftTeamGroup(partySize: PartySize, group: TeamGroupEntry | null): DraftTeamGroup {
+  if (!group) return { id: null, name: "Party actual", partySize, members: [] };
+  return {
+    id: group.id,
+    name: group.name,
+    partySize: group.partySize,
+    members: group.members.map((member) => ({ slot: member.slot, name: member.name, heroPool: member.heroPool })),
+  };
 }
 
 interface DraftSetupPanelProps {
@@ -38,10 +63,14 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [envelopes, setEnvelopes] = useState<SimulatorEnvelope[] | null>(null);
   const [cursor, setCursor] = useState(0);
+  const [partySize, setPartySize] = useState<PartySize>(1);
+  const [teamGroupId, setTeamGroupId] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);
   const { data: savedPool } = useGetHeroPoolQuery();
+  const { data: teamGroups = [] } = useGetTeamGroupsQuery();
+  const setPartyContext = useDraftStore((s) => s.setPartyContext);
 
   function selectCaptainsMode() {
     setScenario("captainsMode");
@@ -58,18 +87,32 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
   function handleSpeedChange(event: ChangeEvent<HTMLSelectElement>) {
     setSpeed(Number(event.target.value));
   }
+  function handlePartySizeChange(event: ChangeEvent<HTMLSelectElement>) {
+    setPartySize(toPartySize(event.target.value));
+    setTeamGroupId(null);
+  }
+  function handleTeamGroupChange(event: ChangeEvent<HTMLSelectElement>) {
+    const parsed = Number(event.target.value);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      setTeamGroupId(parsed);
+      return;
+    }
+    setTeamGroupId(null);
+  }
 
   function handleStart() {
     const newSessionId = crypto.randomUUID();
     const script = SIMULATOR_SCENARIOS[scenario];
     const poolHeroes = (savedPool ?? []).map((entry) => entry.hero);
     const built = buildSimulatorEnvelopes(script, poolHeroes);
+    const selectedGroup = teamGroups.find((group) => group.id === teamGroupId) ?? null;
 
     cancelledRef.current = false;
     setSessionId(newSessionId);
     setEnvelopes(built);
     setCursor(0);
     setError(null);
+    setPartyContext(toDraftTeamGroup(partySize, selectedGroup));
     onStart(newSessionId);
 
     if (mode === "velocidad") {
@@ -115,6 +158,7 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
   const hasStarted = envelopes !== null;
   const total = envelopes?.length ?? 0;
   const stepsLeft = total - cursor;
+  const compatibleTeamGroups = teamGroups.filter((group) => group.partySize === partySize);
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
@@ -175,6 +219,37 @@ export function DraftSetupPanel({ connectionStatus, onStart, onClose }: DraftSet
               </select>
             </label>
           )}
+
+          <div className="flex flex-col gap-1">
+            <span className="text-caption text-content-secondary">Party</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={partySize}
+                onChange={handlePartySizeChange}
+                className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-caption text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+              >
+                {DRAFT_PARTY_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {partyLabel(option)}
+                  </option>
+                ))}
+              </select>
+              {partySize > 1 && (
+                <select
+                  value={teamGroupId ?? ""}
+                  onChange={handleTeamGroupChange}
+                  className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-caption text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+                >
+                  <option value="">Sin equipo guardado</option>
+                  {compatibleTeamGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
 
           <button type="button" onClick={handleStart} disabled={notReady} className={BUTTON_PRIMARY}>
             {notReady ? "Conectando..." : "Iniciar"}

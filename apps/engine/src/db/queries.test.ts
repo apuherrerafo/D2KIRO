@@ -1,8 +1,19 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPool, settings } from "./schema";
-import { getAllSettings, getHeroPool, getMatchupsForHero, replaceHeroPool, upsertSetting } from "./queries";
+import { heroes, heroMatchups, heroPool, settings, teamGroups, teamMembers } from "./schema";
+import {
+  createTeamGroup,
+  deleteTeamGroup,
+  getAllSettings,
+  getHeroPool,
+  getMatchupsForHero,
+  getTeamGroup,
+  getTeamGroups,
+  replaceHeroPool,
+  replaceTeamGroup,
+  upsertSetting,
+} from "./queries";
 
 function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -36,8 +47,22 @@ function createTestDb() {
       personal_games INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE team_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_group_id INTEGER NOT NULL,
+      slot INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      hero_pool TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
-  return drizzle(sqlite, { schema: { heroes, heroMatchups, settings, heroPool } });
+  return drizzle(sqlite, { schema: { heroes, heroMatchups, settings, heroPool, teamGroups, teamMembers } });
 }
 
 test("getMatchupsForHero devuelve solo los enfrentamientos del héroe pedido", () => {
@@ -175,4 +200,64 @@ test("replaceHeroPool es atómico: un fallo a mitad de la transacción no deja e
   const pool = getHeroPool(db);
   expect(pool).toHaveLength(1);
   expect(pool[0]!.heroId).toBe(1);
+});
+
+test("createTeamGroup guarda un equipo con miembros y getTeamGroups lo lista completo", () => {
+  const db = createTestDb();
+
+  const saved = createTeamGroup(db, {
+    name: "Stack viernes",
+    partySize: 3,
+    updatedAt: "2026-07-29",
+    members: [
+      { slot: 1, name: "Ana", heroPool: [1, 2], updatedAt: "2026-07-29" },
+      { slot: 2, name: "Bruno", heroPool: [3], updatedAt: "2026-07-29" },
+    ],
+  });
+
+  expect(saved.id).toBeGreaterThan(0);
+  expect(getTeamGroups(db)).toEqual([saved]);
+  expect(getTeamGroup(db, saved.id)).toEqual(saved);
+});
+
+test("replaceTeamGroup reemplaza datos y miembros completos", () => {
+  const db = createTestDb();
+  const saved = createTeamGroup(db, {
+    name: "Stack viernes",
+    partySize: 3,
+    updatedAt: "2026-07-29",
+    members: [
+      { slot: 1, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" },
+      { slot: 2, name: "Bruno", heroPool: [2], updatedAt: "2026-07-29" },
+    ],
+  });
+
+  const updated = replaceTeamGroup(db, saved.id, {
+    name: "Stack ranked",
+    partySize: 2,
+    updatedAt: "2026-07-30",
+    members: [{ slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
+  });
+
+  expect(updated).toEqual({
+    id: saved.id,
+    name: "Stack ranked",
+    partySize: 2,
+    updatedAt: "2026-07-30",
+    members: [{ id: expect.any(Number), teamGroupId: saved.id, slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
+  });
+});
+
+test("deleteTeamGroup borra el equipo y sus miembros", () => {
+  const db = createTestDb();
+  const saved = createTeamGroup(db, {
+    name: "Temporal",
+    partySize: 2,
+    updatedAt: "2026-07-29",
+    members: [{ slot: 1, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" }],
+  });
+
+  expect(deleteTeamGroup(db, saved.id)).toBe(true);
+  expect(getTeamGroup(db, saved.id)).toBeNull();
+  expect(getTeamGroups(db)).toEqual([]);
 });

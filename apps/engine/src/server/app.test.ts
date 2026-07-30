@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } from "../db/schema";
+import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
 import { OpenDotaClient } from "../meta/opendota-client";
 import { createApp } from "./app";
 
@@ -36,12 +36,23 @@ function createTestDb() {
       hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
       personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
     );
+    CREATE TABLE team_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+      party_size INTEGER NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL,
+      slot INTEGER NOT NULL, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, heroPool } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, heroPool, teamGroups, teamMembers } });
   db.insert(heroes)
     .values([
       { id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-07-27" },
       { id: 2, name: "h2", localizedName: "Hero Dos", imgUrl: "/h2.png", primaryAttr: "agi", attackType: "Ranged", roles: ["Support"], updatedAt: "2026-07-27" },
+      { id: 3, name: "h3", localizedName: "Hero Tres", imgUrl: "/h3.png", primaryAttr: "int", attackType: "Ranged", roles: ["Nuker"], updatedAt: "2026-07-27" },
+      { id: 4, name: "h4", localizedName: "Hero Cuatro", imgUrl: "/h4.png", primaryAttr: "all", attackType: "Melee", roles: ["Initiator"], updatedAt: "2026-07-27" },
+      { id: 5, name: "h5", localizedName: "Hero Cinco", imgUrl: "/h5.png", primaryAttr: "str", attackType: "Melee", roles: ["Durable"], updatedAt: "2026-07-27" },
     ])
     .run();
   return db;
@@ -284,6 +295,72 @@ describe("servidor Bun (TSK-010)", () => {
       method: "PUT",
       body: JSON.stringify({ entries: [{ hero: 1, source: "manual", personalWinrate: null, personalGames: -1 }] }),
     });
+    expect(res.status).toBe(400);
+  });
+
+  test("CRUD /api/team-groups crea, lista, edita y borra equipos completos", async () => {
+    const create = await fetch(`${baseUrl}/api/team-groups`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Stack viernes",
+        partySize: 3,
+        members: [
+          { slot: 1, name: "Ana", heroPool: [1, 2] },
+          { slot: 2, name: "Bruno", heroPool: [3] },
+        ],
+      }),
+    });
+    expect(create.status).toBe(201);
+    const created = await create.json();
+    expect(created).toMatchObject({ name: "Stack viernes", partySize: 3 });
+    expect(created.members).toHaveLength(2);
+
+    const list = await (await fetch(`${baseUrl}/api/team-groups`)).json();
+    expect(list).toHaveLength(1);
+
+    const update = await fetch(`${baseUrl}/api/team-groups/${created.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: "Stack ranked",
+        partySize: 2,
+        members: [{ slot: 1, name: "Carla", heroPool: [4, 5] }],
+      }),
+    });
+    expect(update.status).toBe(200);
+    const updated = await update.json();
+    expect(updated).toMatchObject({ id: created.id, name: "Stack ranked", partySize: 2 });
+    expect(updated.members.map((member: { name: string }) => member.name)).toEqual(["Carla"]);
+
+    const remove = await fetch(`${baseUrl}/api/team-groups/${created.id}`, { method: "DELETE" });
+    expect(remove.status).toBe(204);
+    expect(await (await fetch(`${baseUrl}/api/team-groups`)).json()).toEqual([]);
+  });
+
+  test("POST /api/team-groups rechaza partySize 4 y no crea equipo", async () => {
+    const res = await fetch(`${baseUrl}/api/team-groups`, {
+      method: "POST",
+      body: JSON.stringify({ name: "Invalido", partySize: 4, members: [] }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await (await fetch(`${baseUrl}/api/team-groups`)).json()).toEqual([]);
+  });
+
+  test("POST /api/team-groups exige miembros conocidos según partySize", async () => {
+    const res = await fetch(`${baseUrl}/api/team-groups`, {
+      method: "POST",
+      body: JSON.stringify({ name: "Incompleto", partySize: 3, members: [{ slot: 1, name: "Ana", heroPool: [1] }] }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  test("POST /api/team-groups rechaza héroes desconocidos en pools de compañeros", async () => {
+    const res = await fetch(`${baseUrl}/api/team-groups`, {
+      method: "POST",
+      body: JSON.stringify({ name: "Con bug", partySize: 2, members: [{ slot: 1, name: "Ana", heroPool: [9999] }] }),
+    });
+
     expect(res.status).toBe(400);
   });
 

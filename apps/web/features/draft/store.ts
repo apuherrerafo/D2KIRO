@@ -2,17 +2,20 @@ import { create } from "zustand";
 import { postManualEvent } from "./manual-entry";
 import type { DraftSocket, DraftState, ErrorPayload, HeroId, ScreenState, ServerMessage, SuggestionSet, TeamSide } from "./types";
 import { isValidServerMessage } from "./validation";
+import type { DraftTeamGroup } from "@/features/team-groups/types";
 
 export interface DraftStoreState {
   connectionStatus: "desconectado" | "conectando" | "conectado";
   sessionId: string | null;
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
+  partyContext: DraftTeamGroup | null;
   errorMessage: string | null;
   socket: DraftSocket | null;
   connect: (socket: DraftSocket, sessionId: string) => void;
   disconnect: () => void;
   clearError: () => void;
+  setPartyContext: (partyContext: DraftTeamGroup | null) => void;
   // Corrige un pick/ban de confianza baja -- mismo POST /api/session/manual y pick_reverted del
   // contrato de TSK-004, disponible desde cualquier componente sin pasar callbacks por props.
   correctHero: (hero: HeroId, side: TeamSide) => Promise<void>;
@@ -23,6 +26,7 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
   sessionId: null,
   draftState: null,
   suggestions: null,
+  partyContext: null,
   errorMessage: null,
   socket: null,
 
@@ -41,6 +45,10 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
 
   clearError() {
     set({ errorMessage: null });
+  },
+
+  setPartyContext(partyContext) {
+    set({ partyContext });
   },
 
   async correctHero(hero, side) {

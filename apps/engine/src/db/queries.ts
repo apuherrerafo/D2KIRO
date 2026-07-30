@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { heroMatchups, heroPool, settings } from "./schema";
+import { heroMatchups, heroPool, settings, teamGroups, teamMembers } from "./schema";
 
 export function getMatchupsForHero<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
@@ -50,4 +50,102 @@ export function replaceHeroPool<TSchema extends Record<string, unknown>>(
     tx.delete(heroPool).run();
     for (const entry of entries) tx.insert(heroPool).values(entry).run();
   });
+}
+
+export type PartySize = 1 | 2 | 3 | 5;
+
+export interface TeamMemberWriteRow {
+  slot: number;
+  name: string;
+  heroPool: number[];
+  updatedAt: string;
+}
+
+export interface TeamGroupWriteRow {
+  name: string;
+  partySize: PartySize;
+  updatedAt: string;
+  members: TeamMemberWriteRow[];
+}
+
+export interface TeamMemberReadRow extends TeamMemberWriteRow {
+  id: number;
+  teamGroupId: number;
+}
+
+export interface TeamGroupReadRow {
+  id: number;
+  name: string;
+  partySize: PartySize;
+  updatedAt: string;
+  members: TeamMemberReadRow[];
+}
+
+function attachMembers(groups: Omit<TeamGroupReadRow, "members">[], members: TeamMemberReadRow[]): TeamGroupReadRow[] {
+  return groups.map((group) => ({
+    ...group,
+    members: members.filter((member) => member.teamGroupId === group.id).sort((a, b) => a.slot - b.slot),
+  }));
+}
+
+export function getTeamGroups<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>): TeamGroupReadRow[] {
+  const groups = db.select().from(teamGroups).all();
+  const members = db.select().from(teamMembers).all();
+  return attachMembers(groups, members);
+}
+
+export function getTeamGroup<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  id: number,
+): TeamGroupReadRow | null {
+  const [group] = db.select().from(teamGroups).where(eq(teamGroups.id, id)).all();
+  if (!group) return null;
+  const members = db.select().from(teamMembers).where(eq(teamMembers.teamGroupId, id)).all();
+  return attachMembers([group], members)[0] ?? null;
+}
+
+function insertTeamMembers<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  teamGroupId: number,
+  members: TeamMemberWriteRow[],
+) {
+  for (const member of members) {
+    db.insert(teamMembers).values({ ...member, teamGroupId }).run();
+  }
+}
+
+export function createTeamGroup<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  input: TeamGroupWriteRow,
+): TeamGroupReadRow {
+  let id = 0;
+  db.transaction((tx) => {
+    const [created] = tx.insert(teamGroups).values({ name: input.name, partySize: input.partySize, updatedAt: input.updatedAt }).returning().all();
+    id = created!.id;
+    insertTeamMembers(tx, id, input.members);
+  });
+  return getTeamGroup(db, id)!;
+}
+
+export function replaceTeamGroup<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  id: number,
+  input: TeamGroupWriteRow,
+): TeamGroupReadRow | null {
+  if (!getTeamGroup(db, id)) return null;
+  db.transaction((tx) => {
+    tx.update(teamGroups).set({ name: input.name, partySize: input.partySize, updatedAt: input.updatedAt }).where(eq(teamGroups.id, id)).run();
+    tx.delete(teamMembers).where(eq(teamMembers.teamGroupId, id)).run();
+    insertTeamMembers(tx, id, input.members);
+  });
+  return getTeamGroup(db, id);
+}
+
+export function deleteTeamGroup<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>, id: number): boolean {
+  if (!getTeamGroup(db, id)) return false;
+  db.transaction((tx) => {
+    tx.delete(teamMembers).where(eq(teamMembers.teamGroupId, id)).run();
+    tx.delete(teamGroups).where(eq(teamGroups.id, id)).run();
+  });
+  return true;
 }

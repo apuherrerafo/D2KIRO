@@ -69,3 +69,21 @@ export const heroPool = sqliteTable("hero_pool", {
   personalGames: integer("personal_games").notNull().default(0),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const teamGroups = sqliteTable("team_groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  partySize: integer("party_size").notNull().$type<1 | 2 | 3 | 5>(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const teamMembers = sqliteTable("team_members", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  teamGroupId: integer("team_group_id")
+    .notNull()
+    .references(() => teamGroups.id),
+  slot: integer("slot").notNull(),
+  name: text("name").notNull(),
+  heroPool: text("hero_pool", { mode: "json" }).$type<number[]>().notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

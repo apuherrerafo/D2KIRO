@@ -5,7 +5,9 @@ import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftSetupPanel } from "@/components/draft-setup-panel/DraftSetupPanel";
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
+import { PartyPoolPanel } from "@/components/party-pool-panel/PartyPoolPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
+import type { DraftTeamGroup } from "@/features/team-groups/types";
 import { DEGRADATION_LABELS, SCREEN_STATE_GUIDANCE } from "./constants";
 import { createDraftSocket } from "./socket";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
@@ -69,11 +71,12 @@ function CaptureLostBanner({ onOpenManualEntry }: CaptureLostBannerProps) {
 interface ActiveDraftStateProps {
   draftState: DraftState;
   suggestions: SuggestionSet | null;
+  partyContext: DraftTeamGroup | null;
   heroCatalog: Map<number, HeroMeta>;
   onOpenManualEntry: () => void;
 }
 
-function ActiveDraftState({ draftState, suggestions, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
+function ActiveDraftState({ draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
   const primary = suggestions?.suggestions.find((s) => s.rank === 1);
   const alternatives = suggestions?.suggestions.filter((s) => s.rank !== 1) ?? [];
 
@@ -84,6 +87,7 @@ function ActiveDraftState({ draftState, suggestions, heroCatalog, onOpenManualEn
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
         <div className="flex flex-col gap-3">
+          <PartyPoolPanel partyContext={partyContext} draftState={draftState} heroCatalog={heroCatalog} />
           {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
           {suggestions?.comparison && (
             <ComparisonNote comparison={suggestions.comparison} heroMeta={heroCatalog.get(suggestions.comparison.vsHero)} />
@@ -100,11 +104,12 @@ function ActiveDraftState({ draftState, suggestions, heroCatalog, onOpenManualEn
 interface DegradedDraftStateProps {
   draftState: DraftState;
   suggestions: SuggestionSet;
+  partyContext: DraftTeamGroup | null;
   heroCatalog: Map<number, HeroMeta>;
   onOpenManualEntry: () => void;
 }
 
-function DegradedDraftState({ draftState, suggestions, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
+function DegradedDraftState({ draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
   return (
     <div className="flex flex-col gap-4">
       <StateGuidance state="degradado" />
@@ -115,7 +120,7 @@ function DegradedDraftState({ draftState, suggestions, heroCatalog, onOpenManual
           </span>
         ))}
       </div>
-      <ActiveDraftState draftState={draftState} suggestions={suggestions} heroCatalog={heroCatalog} onOpenManualEntry={onOpenManualEntry} />
+      <ActiveDraftState draftState={draftState} suggestions={suggestions} partyContext={partyContext} heroCatalog={heroCatalog} onOpenManualEntry={onOpenManualEntry} />
     </div>
   );
 }
@@ -186,6 +191,7 @@ interface DraftViewBodyProps {
   screenState: ScreenState;
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
+  partyContext: DraftTeamGroup | null;
   errorMessage: string | null;
   heroCatalog: Map<number, HeroMeta>;
   onReconnect: () => void;
@@ -206,6 +212,7 @@ function DraftViewBody(props: DraftViewBodyProps) {
         <ActiveDraftState
           draftState={props.draftState!}
           suggestions={props.suggestions}
+          partyContext={props.partyContext}
           heroCatalog={props.heroCatalog}
           onOpenManualEntry={props.onOpenManualEntry}
         />
@@ -215,6 +222,7 @@ function DraftViewBody(props: DraftViewBodyProps) {
         <DegradedDraftState
           draftState={props.draftState!}
           suggestions={props.suggestions!}
+          partyContext={props.partyContext}
           heroCatalog={props.heroCatalog}
           onOpenManualEntry={props.onOpenManualEntry}
         />
@@ -239,6 +247,7 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
   const connectionStatus = useDraftStore((s) => s.connectionStatus);
   const draftState = useDraftStore((s) => s.draftState);
   const suggestions = useDraftStore((s) => s.suggestions);
+  const partyContext = useDraftStore((s) => s.partyContext);
   const errorMessage = useDraftStore((s) => s.errorMessage);
   const connect = useDraftStore((s) => s.connect);
   const disconnect = useDraftStore((s) => s.disconnect);
@@ -293,6 +302,7 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
         screenState={screenState}
         draftState={draftState}
         suggestions={suggestions}
+        partyContext={partyContext}
         errorMessage={errorMessage}
         heroCatalog={heroCatalog}
         onReconnect={handleReconnect}
