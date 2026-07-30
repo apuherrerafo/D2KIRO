@@ -86,7 +86,8 @@ export async function runSimulator(script: DraftScript, opts: PlaybackOptions): 
 
   for (let i = 0; i < envelopes.length; i++) {
     if (opts.speed !== "instant") {
-      const delayMs = script.events[i]?.delayMs ?? 0;
+      const entry = script.events[i];
+      const delayMs = entry?.event.type === "hero_banned" ? 0 : (entry?.delayMs ?? 0);
       if (delayMs > 0) await sleep(delayMs / opts.speed);
     }
     await opts.emit(envelopes[i]!);

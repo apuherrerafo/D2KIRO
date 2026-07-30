@@ -62,7 +62,7 @@ describe("runSimulator", () => {
     expect(Date.now() - start).toBeLessThan(50);
   });
 
-  test("velocidad configurable: un multiplicador de 2x pide la mitad del delayMs original", async () => {
+  test("velocidad configurable: los baneos no esperan, los picks conservan delayMs/speed", async () => {
     const sleepCalls: number[] = [];
 
     await runSimulator(allPick, {
@@ -75,7 +75,9 @@ describe("runSimulator", () => {
       },
     });
 
-    const expectedDelays = allPick.events.filter((e) => (e.delayMs ?? 0) > 0).map((e) => (e.delayMs ?? 0) / 2);
+    const expectedDelays = allPick.events
+      .filter((e) => e.event.type !== "hero_banned" && (e.delayMs ?? 0) > 0)
+      .map((e) => (e.delayMs ?? 0) / 2);
     expect(sleepCalls).toEqual(expectedDelays);
   });
 });
