@@ -72,6 +72,42 @@ Fuente: `docs/specs/SPEC.md` (contrato de desarrollo, gana sobre cualquier otra 
   `process.env`, nunca hardcodeada) y limita a 20 eventos/segundo por sesión — el exceso se
   descarta con `429`.
 - Tras cada evento aplicado, el orden de push por WebSocket es siempre `draft_state` primero,
-  `suggestions` después — el tablero nunca espera al motor para reflejar el estado real.
+  `suggestions` después — el tablero nunca espera al motor para reflejar el estado real. Ningún
+  otro tipo de mensaje se suma a este push automático sin una decisión explícita (ver `draft_paths`
+  abajo, que deliberadamente queda afuera).
 - Al reconectar (`hello`), el servidor responde siempre con una instantánea completa
   (`snapshot`), nunca con deltas.
+
+## Fase 2 — Draft en equipo (construida vía `/kickoff` + Codex, sin `/blueprint` propio — sin
+número de sección de `SPEC.md`, documentado aquí como fuente de verdad)
+
+### Modo de equipo (`team_groups`/`team_members`)
+- `partySize` acepta únicamente `1 | 2 | 3 | 5` — **4 nunca es válido** (restricción real de la
+  cola de Dota 2, no una limitación técnica del proyecto). Validado en el borde en las dos capas
+  (`isPartySize` del servidor y las opciones del selector en `apps/web`).
+- El pool de héroes de cada compañero es dato manual (nombre + lista de hasta 5 héroes) — **nunca**
+  una cuenta de Steam de un tercero. Decisión explícita para no abrir el tema de datos personales
+  de más de una persona en esta fase (ver `security.md`).
+- `createTeamGroup`/`replaceTeamGroup`/`deleteTeamGroup` son transaccionales — grupo y miembros se
+  escriben o se borran juntos, nunca a medias, mismo principio que `replaceHeroPool` (S8).
+
+### Caminos de draft (`apps/engine/src/draft-paths/`) — capa paralela, no una señal más
+- **No es un `SignalScorer`**: no participa de `SCORING_WEIGHTS_V1/V2/V3`, no aparece en
+  `Suggestion.signals`, no afecta el ranking de `buildSuggestions`. Es un módulo aparte que
+  consume el mismo `DraftState`/`MetaSnapshot` pero produce una salida distinta (`DraftPath[]`).
+- **Cálculo bajo demanda, nunca por WebSocket automático**: `GET /api/session/:id/draft-paths` se
+  calcula solo cuando se pide — no se empuja en cada evento de draft como `suggestions`. Esto es
+  deliberado: calcular 3-4 caminos completos en cada pick/ban, cuando el usuario puede ni estar
+  mirando esa pantalla, sería gastar cómputo en algo exploratorio. La regla de orden de push
+  (`draft_state` → `suggestions`) sigue intacta, sin extenderse a un tercer paso.
+- `capabilities.json` (dato curado a mano por héroe: `hasInitiation`, `hasCatch`, `hasWaveclear`,
+  `structuralDamage`, `teamfight`, `scaling`, `damageType`) vive como archivo estático versionado
+  en el repo, **no en SQLite** — es dato de producto, no meta remota ni preferencia de usuario. Un
+  héroe sin entrada nunca rompe el cálculo: simplemente no participa como candidato (mismo espíritu
+  que `applicable: false` en el resto del motor).
+- Los gaps del draft propio (`initiation`, `catch`, `waveclear`, `structural_damage`, `teamfight`,
+  `scaling`, `damage_mix`) se calculan con umbrales exactos y numéricos (`LEVEL_SCORE`,
+  `GAP_THRESHOLD`) — nunca "pocas partidas" o "bajo conteo" sin definir el número.
+- `damage_mix` nunca asume que el equipo está desbalanceado hacia un tipo de daño fijo — compara
+  contra el tipo dominante real del equipo propio (`ownDamageTypes`), no un valor hardcodeado.
+  Corregido por hallazgo de `@redteam` en TSK-036: la primera versión asumía "physical" siempre.
