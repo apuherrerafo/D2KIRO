@@ -1,9 +1,12 @@
 # structure — dota2coach, Fase 1 (Draft Coach)
 
 Espejo de `docs/specs/SPEC.md` §2-3 (y §9 para fase 1b) para lectura nativa en Kiro. `CLAUDE.md` es
-la fuente canónica si hay discrepancia. **Nota de estado (2026-07-28)**: `apps/web` y
-`apps/engine` existen y fase 1 está completa (TSK-001 a TSK-016, done). Fase 1b (hero pool) tiene
-sus tickets en `backlog` (TSK-017 a TSK-026).
+la fuente canónica si hay discrepancia. **Nota de estado (2026-08-01)**: `apps/web` y
+`apps/engine` existen y fase 1 está completa (TSK-001 a TSK-016, done). Fase 1b (hero pool)
+completa y validada (TSK-017 a TSK-026, done). Bloque de feedback directo de producto también
+completo (TSK-027 a TSK-033, done). "Draft en equipo" (modo de party + equipos guardados + timer
+del simulador + caminos de draft, TSK-034/035/036) completo -- construido vía `/kickoff` + Codex,
+sin `SPEC.md` propio, ver `.claude/rules/*.md` para el detalle real.
 
 ## Monorepo — dos procesos locales
 ```
@@ -28,7 +31,12 @@ Se prueban antes que el comportamiento. Ningún componente se implementa sin su 
   `GET /api/meta/status`, `POST /api/meta/sync`, `POST /api/session/manual`,
   `GET`/`PUT /api/settings` — todo en `apps/engine`, solo `127.0.0.1`.
 - HTTP fase 1b: `GET`/`PUT /api/hero-pool`, `POST /api/hero-pool/calculate`.
-- WebSocket: `/ws/draft` — `ServerMessage`/`ClientMessage` tipados, schema `draft-ws/v1`.
+- HTTP "Draft en equipo" (sin número de SPEC, ver `.claude/rules/engine.md`):
+  `GET/POST /api/team-groups`, `GET/PUT/DELETE /api/team-groups/:id`,
+  `GET /api/session/:id/draft-paths` (bajo demanda, **nunca** por WebSocket).
+- WebSocket: `/ws/draft` — `ServerMessage`/`ClientMessage` tipados, schema `draft-ws/v1`. Orden de
+  push siempre `draft_state` → `suggestions` — `draft_paths` queda deliberadamente afuera de este
+  canal (ver arriba).
 
 ## Orden de tickets (SPEC §8) — frontera de dependencia
 1. Esqueleto del monorepo + Bun instalado

@@ -48,3 +48,16 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   hasta que se priorice explícitamente, y en ese momento pasa por `/gear-up`.
 - `PUT /api/hero-pool` reemplaza el pool completo dentro de una única transacción — cero escritura
   parcial, mismo principio que la sincronización de meta.
+
+## Fase 2 — Draft en equipo (construida vía `/kickoff` + Codex)
+- **Pools de compañeros de equipo (`team_members.heroPool`) NO son dato personal** — son texto
+  cargado a mano por el usuario (nombre + héroes), nunca una cuenta de Steam real de un tercero.
+  Decisión de alcance explícita para no expandir el primer dato personal del proyecto (`account_id`
+  de Steam, fase 1b) a más de una persona todavía. Si en el futuro se conecta la cuenta real de un
+  compañero, eso activa esta misma sección de nuevo, con el mismo nivel de cuidado que
+  `account_id`.
+- `capabilities.json` (Fase C) es dato de producto curado sobre héroes públicos de Dota 2 — no es
+  dato de usuario ni personal, vive versionado en el repo como cualquier otro archivo de código.
+- `GET /api/session/:id/draft-paths` es de solo lectura, sin escritura a SQLite, sin cabecera de
+  autenticación (mismo criterio que el resto de la API de lectura local — `apps/engine` solo
+  escucha en `127.0.0.1`, ese es el perímetro real). No abre superficie de ataque nueva.

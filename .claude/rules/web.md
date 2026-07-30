@@ -62,3 +62,20 @@ calla el sistema durante un draft.
 - Estados vacíos/de error del flujo de propuesta ("aún no calculaste nada", "ningún héroe pasa el
   mínimo", "OpenDota no respondió") explicados en llano — mismo estándar que los 6 estados de la
   vista de draft de fase 1, ninguno es un error genérico silencioso.
+
+## Fase 2 — Draft en equipo (construida vía `/kickoff` + Codex, sin número de sección de `SPEC.md`
+— documentado aquí, no ahí)
+- Gestión de equipos guardados (`/team-groups`, `TeamGroupsConfig.tsx`): régimen RTK Query
+  ("página normal"), mismo patrón que `HeroPoolConfig.tsx` — nunca WebSocket/Zustand.
+- `partyContext` (qué equipo/tamaño de party está activo en la sesión actual) sí vive en Zustand,
+  pero **no llega por WebSocket** — lo fija `DraftSetupPanel` localmente al arrancar un draft.
+  Matiza la "única excepción" de arriba: Zustand es para estado de sesión de draft en vivo en
+  general, no exclusivamente para datos empujados por WS.
+- **Panel exploratorio + costoso de calcular → cerrado por defecto, RTK Query con `skip`**: el
+  patrón de `DraftPathsCoverFlow` (Fase C) es el de referencia — `useGetDraftPathsQuery(sessionId,
+  { skip: !isOpen })`, nunca se dispara la consulta hasta que el usuario abre el panel. Aplicar el
+  mismo patrón a cualquier función futura que sea opcional y no forme parte del camino principal
+  de "ver mi próxima sugerencia".
+- Terminología de "caminos de draft": usar "le falta al draft", "win condition", "prioridades del
+  equipo" — **nunca** "needs-based drafting" (no es el término real que usa la comunidad
+  competitiva de Dota 2, confirmado por investigación antes de diseñar la función).
