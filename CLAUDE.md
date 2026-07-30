@@ -16,9 +16,16 @@ Dos procesos locales, no uno:
 - Captura de draft (fase 1): `simulator` y `manual` son capturadores de primera clase.
   `overwolf` y `ocr` quedan especificados como contrato, se construyen después (SPEC §0-D1).
 
-**Nota de estado (2026-07-28)**: fase 1 completa (TSK-001 a TSK-016, done), MVP validado. Fase 1b
-(personalización de hero pool, `docs/specs/SPEC.md` §9) tiene sus 10 tickets en `backlog`
-(TSK-017 a TSK-026).
+**Nota de estado (2026-08-01)**: fase 1 completa (TSK-001 a TSK-016, done), MVP validado. Fase 1b
+(personalización de hero pool, `docs/specs/SPEC.md` §9) completa y validada por el usuario con su
+cuenta real de Steam (TSK-017 a TSK-026, done). Bloque de feedback directo de producto tras probar
+fase 1b en vivo, también completo (TSK-027 a TSK-033, done): señal `role_safety` + priorización de
+support en picks tempranos, simulador personalizado al hero pool propio, home real + navegación
+compartida, persistencia de `account_id`, guion de bans de `allPick` ampliado a 16, comparación
+explícita entre sugerencias, y selector de ventana de días al calcular el pool. Fase 2 ("Draft en
+equipo": modo de party solo/2/3/5, hero pools de compañeros a mano, equipos guardados localmente)
+en curso vía `/kickoff` completado + ejecución en Codex — ver `docs/agents/PROGRESS.md` para el
+estado exacto y el siguiente paso.
 
 ## COMANDOS ESENCIALES
 - `bun run dev` → Iniciar servidor de desarrollo.
