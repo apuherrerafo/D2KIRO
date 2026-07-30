@@ -1,21 +1,29 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-Fase 2 (Draft en equipo) **completa**: Tareas A y B (TSK-034) + el timer visible del simulador
-(TSK-035), los 3 hechos y cerrados. El simulador ya no pausa entre baneos, muestra un contador
-regresivo mientras espera el próximo pick, y existe modo de party (1/2/3/5, nunca 4) con equipos
-guardados localmente y pools de compañeros a mano, visibles durante el draft. Tareas A/B
-construidas en Codex a partir del brief de `/kickoff`, revisadas de forma independiente por Claude
-Code (3 hallazgos reales corregidos antes de cerrar, uno crítico: la migración nunca se había
-registrado y no se habría aplicado en runtime real). El timer se construyó directo en Claude Code.
-Fase 1b y el bloque de feedback TSK-027 a TSK-033 siguen completos (ver historial).
+"Draft en equipo" **completa entera**: Fase A/B (TSK-034), timer del simulador (TSK-035) y Fase C
+-- caminos de draft (TSK-036) -- los 3 bloques hechos y cerrados. El simulador no pausa entre
+baneos y muestra un contador regresivo; existe modo de party (1/2/3/5, nunca 4) con equipos
+guardados localmente y pools de compañeros a mano, visibles durante el draft; y ahora también un
+panel "Explorar caminos" (cover-flow, cerrado por defecto) que muestra hasta 3 formas alternativas
+y coherentes de seguir el draft (push/teamfight/pickoff/scaling, arquetipos reales de la teoría
+competitiva de Dota 2, investigados antes de diseñar -- no inventados), cada una explicando qué le
+falta al equipo y qué héroe lo resuelve. Fase A/B y Fase C construidas en Codex a partir de briefs
+de `/kickoff` propios, revisadas de forma independiente por Claude Code en ambos casos (TSK-034:
+3 hallazgos reales, uno crítico -- migración nunca registrada; TSK-036: 2 hallazgos reales -- bug
+de lógica en el cálculo de mezcla de daño, y un test dependiente de datos reales en vez de un
+fixture). El timer (TSK-035) se construyó directo en Claude Code. Pendiente, no bloqueante: el
+usuario todavía tiene que revisar/corregir a mano `capabilities.json` (borrador de Codex, 55/126
+héroes) antes de considerarlo dato confiable. Fase 1b y el bloque de feedback TSK-027 a TSK-033
+siguen completos (ver historial).
 
 ## SIGUIENTE PASO
 Herramienta: el usuario decide primero
 Modelo: —
-Acción: Fase 2 (tal como se definió en su `/kickoff`) queda 100% cerrada. Único camino documentado
-pendiente: abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) --
-la pieza más grande e indefinida del pedido original de equipo, deliberadamente separada del resto
+Acción: "Draft en equipo" queda 100% cerrada. Caminos documentados sin decidir, sin orden fijo:
+(1) revisar/corregir `capabilities.json` a mano (pendiente explícito de TSK-036); (2) `/castoff`
+(deploy a Railway); (3) el spike de Overwolf (captura real); (4) cualquier idea nueva -- abrir un
+`/kickoff` propio si aparece.
 porque "se puede prestar a confusiones" mezclarla. También siguen abiertos, sin urgencia, los dos
 caminos de antes de fase 2: `/castoff` (deploy a Railway) y el spike de Overwolf (captura real).
 
