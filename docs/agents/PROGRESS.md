@@ -1,31 +1,41 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-"Draft en equipo" **completa entera**: Fase A/B (TSK-034), timer del simulador (TSK-035) y Fase C
--- caminos de draft (TSK-036) -- los 3 bloques hechos y cerrados. El simulador no pausa entre
-baneos y muestra un contador regresivo; existe modo de party (1/2/3/5, nunca 4) con equipos
-guardados localmente y pools de compañeros a mano, visibles durante el draft; y ahora también un
-panel "Explorar caminos" (cover-flow, cerrado por defecto) que muestra hasta 3 formas alternativas
-y coherentes de seguir el draft (push/teamfight/pickoff/scaling, arquetipos reales de la teoría
-competitiva de Dota 2, investigados antes de diseñar -- no inventados), cada una explicando qué le
-falta al equipo y qué héroe lo resuelve. Fase A/B y Fase C construidas en Codex a partir de briefs
-de `/kickoff` propios, revisadas de forma independiente por Claude Code en ambos casos (TSK-034:
-3 hallazgos reales, uno crítico -- migración nunca registrada; TSK-036: 2 hallazgos reales -- bug
-de lógica en el cálculo de mezcla de daño, y un test dependiente de datos reales en vez de un
-fixture). El timer (TSK-035) se construyó directo en Claude Code. Pendiente, no bloqueante: el
-usuario todavía tiene que revisar/corregir a mano `capabilities.json` (borrador de Codex, 55/126
-héroes) antes de considerarlo dato confiable. Fase 1b y el bloque de feedback TSK-027 a TSK-033
-siguen completos (ver historial).
+"Draft en equipo" **completa entera y validada**: Fase A/B (TSK-034), timer del simulador
+(TSK-035) y Fase C -- caminos de draft (TSK-036) -- los 3 bloques hechos y cerrados.
+`capabilities.json` ampliado de 55 a 124/127 héroes (2026-08-01, revisión propia de Claude Code
+sobre el borrador de Codex) -- solo quedan sin dato 3 héroes muy recientes (Kez, Largo,
+Ringmaster), a propósito, por falta de conocimiento confiable. Fase 1b y el bloque de feedback
+TSK-027 a TSK-033 siguen completos (ver historial).
+
+Se intentó `/castoff` (2026-08-01) y se detuvo en el paso de variables de entorno -- ver
+`journal.md` evt-20260801-017. Hallazgo real, no trivial: nunca existió `.env.example` ni
+configuración de Railway en el repo (el proyecto nunca se conectó a un proyecto real de Railway),
+y **`apps/engine` está atado a `127.0.0.1` por regla dura de seguridad** -- en un deploy real a
+Railway, `apps/web` y `apps/engine` correrían como servicios separados que jamás podrían hablarse
+por la red tal como está hoy. Es un cambio de trust boundary real (mismo tipo de gatillo que ya
+justificó Opus para el primer dato personal del proyecto), no una configuración trivial.
 
 ## SIGUIENTE PASO
-Herramienta: el usuario decide primero
-Modelo: —
-Acción: "Draft en equipo" queda 100% cerrada. Caminos documentados sin decidir, sin orden fijo:
-(1) revisar/corregir `capabilities.json` a mano (pendiente explícito de TSK-036); (2) `/castoff`
-(deploy a Railway); (3) el spike de Overwolf (captura real); (4) cualquier idea nueva -- abrir un
-`/kickoff` propio si aparece.
-porque "se puede prestar a confusiones" mezclarla. También siguen abiertos, sin urgencia, los dos
-caminos de antes de fase 2: `/castoff` (deploy a Railway) y el spike de Overwolf (captura real).
+Herramienta: el usuario decide primero -- dos decisiones distintas, no una sola
+Modelo: ver nota de Opus abajo
+
+**Decisión 1 -- arquitectura de deploy (bloqueante para cualquier deploy real)**: hay que decidir
+cómo `apps/web` va a hablarle a `apps/engine` en Railway sin romper la regla de `127.0.0.1` (ej.
+¿un solo servicio con ambos procesos? ¿exponerlo solo a la red interna de Railway, nunca pública?
+¿un proxy?). Esto cumple un gatillo objetivo de la Política de Modelos de `CLAUDE.md` (cambio de
+trust boundary) -- se puede activar Opus puntualmente para esta decisión específica, vía
+`/compass`, si el usuario lo confirma explícitamente. Candidato natural para Claude Code (necesita
+todo el contexto de seguridad del proyecto), no para Codex.
+
+**Decisión 2 -- qué sigue después de "Draft en equipo"**: no hay ninguna fase nueva ya briefeada
+en este momento. Caminos reales, documentados desde antes y nunca cerrados, sin orden fijo:
+(a) el spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`) -- sigue sin correrse, es el
+único capturador de fase 1 nunca validado contra una partida real (hoy solo hay `simulator` y
+`manual`); (b) el adaptador OCR -- especificado como contrato en `architecture.md`, nunca
+construido, condicional a cómo salga el spike de Overwolf; (c) predicción de rol/posición del
+rival -- documentada como dependencia futura de STRATZ desde fase 1b, nunca priorizada; (d)
+cualquier idea nueva del usuario -- abrir un `/kickoff` propio si aparece.
 
 ## HISTORIAL (append-only, no se borra)
 - [inicio] Proyecto creado, sin fase completada todavía.
