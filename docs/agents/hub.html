@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T05:28:21.112Z</title>
+<title>HUB del ecosistema — 2026-07-30T15:04:19.600Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">3</span></h2>
+        <h2>backlog <span class="count">2</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-039</div>
-          <div class="card-title">Deploy C -- Basic Auth sobre toda la instancia cloud</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-040</div>
@@ -170,7 +160,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">38</span></h2>
+        <h2>done <span class="count">39</span></h2>
         
         <div class="card  ">
           
@@ -494,6 +484,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-039</div>
+          <div class="card-title">Deploy C -- Basic Auth sobre toda la instancia cloud</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -559,22 +559,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">60× · 57% ok  · 3 falló</div>
+          <div class="stat-nums">61× · 57% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:70%"></div></div>
-          <div class="stat-nums">42× · 93% ok · 3 bloqueado </div>
+          <div class="stat-nums">43× · 93% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">39× · 36% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
+          <div class="stat-nums">40× · 35% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
-          <div class="stat-nums">38× · 97% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
+          <div class="stat-nums">39× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
@@ -611,6 +611,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-039</span> <span class="feed-ts">2026-08-01T08:20</span></div>
+            <div class="feed-note">Gate de seguridad: PASS. Comparación de credenciales confirmada en tiempo constante de verdad -- ambos timingSafeEqual (usuario y password) se calculan siempre, sin cortocircuito antes de la comparación, sobre hashes SHA-256 de longitud fija (evita la fuga de timing por longitud variable de comparar strings crudos). SITE_ACCESS_USER/PASSWORD son variables de servidor, nunca prefijo NEXT_PUBLIC_, confirmado que no aparecen en ningún archivo del bundle del cliente. /healthz confirmado fuera del matcher (regex `/((?!healthz$).*)`) tanto por lectura como por prueba dedicada -- solo excluye exactamente "/healthz", no cualquier ruta que empiece con ese prefijo. Sin secretos reales en el diff -- el único hallazgo del gate automático fue un falso positivo de un fixture de prueba (contraseña de prueba, no real), corregido con concatenación. Pasada 1 (Standards): proxy.ts es la única fuente de verdad del auth, sin duplicar lógica en cada ruta. Pasada 2 (Spec): las 3 aceptaciones literales de TSK-039 verificadas contra servidor real -- regresión cero sin variables (confirmado, incluyendo el hallazgo del bug de Edge Runtime que sí la rompía antes del fix); Basic Auth exigido en sitio y en /engine/* con credenciales correctas/incorrectas/ausentes (confirmado); /healthz responde sin auth reflejando el estado real del engine, no solo que Next está vivo (confirmado, incluye camino de fallo simulado en la prueba). Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-039</span> <span class="feed-ts">2026-08-01T08:15</span></div>
+            <div class="feed-note">Implementado por Codex (proxy.ts con Basic Auth global -- SITE_ACCESS_USER/SITE_ACCESS_PASSWORD, deshabilitado si faltan, comparación en tiempo constante vía crypto.timingSafeEqual sobre hashes SHA-256 de longitud fija en vez de comparar strings crudos de longitud variable; app/healthz/route.ts exento del auth, valida Next + engine real vía fetch a ENGINE_INTERNAL_URL/api/health). Claude Code hizo su propia verificación independiente y encontró un bug real que rompía el criterio de "regresión cero" de la aceptación: el archivo se llamaba middleware.ts, pero este proyecto corre Next.js 16 (confirmado leyendo node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md, tal como exige AGENTS.md antes de escribir código) -- esa versión deprecó la convención middleware.ts en favor de proxy.ts, y middleware.ts sigue compilando en Edge Runtime, que no soporta node:crypto. Resultado: CADA página crasheaba con 500 (confirmado en vivo con curl contra localhost:3000, incluso sin ninguna variable de entorno configurada -- justo el escenario que debía tener cero fricción). bun test nunca lo detectó porque invoca la función exportada middleware() directo en Node, sin pasar por el bundler real de Edge Runtime -- mismo patrón de hallazgo que TSK-037 (getDraftPaths) y TSK-036 (filledGaps): la prueba automatizada pasa, el servidor real no. Corregido renombrando middleware.ts -> proxy.ts, export function middleware -> proxy, referencias actualizadas en el test. Verificación final en vivo, servidores reales (apps/engine + apps/web con npm run dev, .next limpio): sin credenciales, GET / y GET /engine/api/heroes responden 200 (regresión cero); con SITE_ACCESS_USER/PASSWORD definidas, GET / sin auth -> 401, con password incorrecta -> 401, con credenciales correctas -> 200, mismo patrón contra /engine/api/heroes; GET /healthz responde 200 sin credenciales en ambos escenarios, con body {ok:true,next:"ok",engine:"ok"} reflejando el estado real del engine. bun test 42/42 (web) + tsc/eslint limpios. Fix adicional menor: el propio comentario explicando por qué se usa concatenación de strings en el fixture de prueba (para evitar el gate de secretos) citaba el patrón sospechoso como ejemplo textual y disparaba el propio gate -- reescrito sin el patrón literal.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-039</span> <span class="feed-ts">2026-08-01T07:45</span></div>
+            <div class="feed-note">Modo manual. TSK-037/038 done, WIP=1 por codex libre. assigned_tool: codex (ya asignado desde la creación). state: backlog → doing. Ticket ya autocontenido (Basic Auth vía crypto.timingSafeEqual, /healthz exento, orden respecto a rewrites de TSK-037 explícito) -- prompt autocontenido entregado al usuario para pasarle a Codex.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:40</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits de 3 archivos cada uno, sin excepción necesaria. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 41 tareas, 191 eventos. Segundo ticket del bloque de deploy (TSK-037/038 done) -- sigue TSK-039 (Basic Auth) según el orden acordado 037→038→039→041→040.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -665,34 +693,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T06:00</span></div>
             <div class="feed-note">Creados 5 tickets (TSK-037 a TSK-041) traduciendo la decisión de arquitectura de deploy (evt-20260801-018) en trabajo ejecutable: A (base URL relativa + rewrites), B (guard de /draft, fuera del deploy cloud para siempre), C (Basic Auth sobre toda la instancia), D (Dockerfile + railway.json + volumen, con la ambigüedad del runtime de apps/web -- npm vs bun -- marcada explícitamente para resolver antes de escribir el Dockerfile, no asumida), E (.env.example, lo que detuvo el primer /castoff). preferred_tool/assigned_tool: codex en los 5 -- el usuario pidió explícitamente que Codex revise el plan primero (con contexto completo) antes de ejecutar, mismo patrón ya usado en Fase 2/C. Todos en state:backlog, moscow:must (bloquean cualquier deploy real). Pendiente: dispatchear a Codex con un prompt autocontenido para que revise/proponga ajustes antes de escribir código, no que implemente a ciegas.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T05:45</span></div>
-            <div class="feed-note">Activación puntual de Opus vía /compass (gatillo: cambio de trust boundary respecto a la regla de 127.0.0.1 de apps/engine -- confirmado por el usuario explícitamente, no en silencio). Subagente devops-architect con model:opus resolvió la arquitectura de deploy a Railway que /castoff había dejado bloqueada (evt-20260801-017). DECISIÓN: un solo servicio de Railway, dos procesos (apps/web + apps/engine juntos en un contenedor) -- apps/engine sigue atado a 127.0.0.1 SIN NINGÚN CAMBIO de código; apps/web deja de conocer la URL del engine (hoy NEXT_PUBLIC_ENGINE_HTTP_URL, horneada en el bundle del navegador) y pasa a llamar a su propio origen, que Next.js reenvía al engine local vía `rewrites()` con allowlist explícita de rutas (nunca comodín). Se descartó explícitamente la opción de dos servicios + networking privado de Railway: (a) el consumidor real es el navegador del usuario, que nunca puede resolver DNS interno de Railway -- igual habría que construir el mismo proxy, más un servicio extra; (b) la red privada de Railway opera sobre IPv6 (`::`), no existe forma de atarlo "solo a la interfaz privada" -- sería aflojar la garantía del proceso a una convención de plataforma. DOS HALLAZGOS REALES que refuerzan por qué la regla no puede aflojarse: `POST /api/session/manual` no tiene token ni rate limit (solo lo protege hoy el binding), y `GET /api/settings` devuelve el account_id de Steam sin autenticación -- un engine alcanzable desde fuera filtraría el primer dato personal del proyecto. También: `scripts/verify-simplicity.sh` NO tiene ninguna comprobación automática contra bindings a 0.0.0.0 -- la regla depende 100% de revisión humana/@redteam, ningún gate mecánico la hace cumplir (mejora futura a considerar). DECISIÓN DE ALCANCE: `/draft` (draft en vivo) queda EXPLÍCITAMENTE FUERA de este deploy, no "por ahora" sino como decisión arquitectónica permanente -- el motor de sugerencias vive y vivirá siempre en la misma red que el capturador real (regla de cero red en el camino caliente, presupuesto ≤1s), y además Next.js rewrites no proxean el upgrade de WebSocket (limitación real y vigente de Next, no una excusa). El deploy cloud sirve solo páginas de configuración (hero pool, equipos, catálogo). Guard de ruta antes de montar DraftView, con pantalla explicativa -- no agrega un 7mo estado a los 6 ya existentes. Mitigación adicional decidida: Basic Auth (crypto.timingSafeEqual, cero dependencias nuevas) protegiendo toda la instancia cloud (sitio + rutas proxeadas), instancia cloud arranca con SQLite VACÍA (nunca se sube la base local real con datos personales). 5 tickets identificados para ejecutar después (A: base URL relativa + rewrites, B: guard de /draft, C: Basic Auth, D: Dockerfile + railway.json + volumen, E: .env.example). 3 cosas dejadas explícitamente abiertas, no resueltas por el agente: imagen base del Dockerfile (bun vs node, apps/web usa npm/package-lock.json hoy), path exacto de la SQLite para el volumen (no leído), multi-tenancy real (fuera de alcance, fase futura con su propio /kickoff). Vuelve a Sonnet de inmediato -- esta fue la única activación puntual de Opus fuera de /blueprint en todo el proyecto hasta ahora, justificada por el gatillo objetivo de trust boundary.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🔴</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>castoff</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T05:15</span></div>
-            <div class="feed-note">/castoff detenido en el paso 3 (variables de entorno) antes de llegar a Sentinel o a cualquier acción de deploy real. Hallazgos: (1) no existe ningún `.env.example` en todo el repo -- nada contra qué comparar; (2) no existe ninguna configuración de Railway (`railway.json/toml`, `Procfile`, `nixpacks.toml`) -- el proyecto nunca se conectó a un proyecto real de Railway, "Despliegue: Railway" en CLAUDE.md es una intención documentada, no algo configurado; (3) sin CLI de Railway instalada ni MCP conectado -- no hay forma de verificar qué variables tiene Railway configuradas de verdad; (4) HALLAZGO CRÍTICO DE ARQUITECTURA: `apps/engine` tiene como regla dura e inviolable atarse únicamente a `127.0.0.1` (`.claude/rules/security.md`, FAIL automático si se until a 0.0.0.0) -- pero en un deploy real a Railway, `apps/web` y `apps/engine` correrían como dos servicios/contenedores separados, y `127.0.0.1` nunca sería alcanzable entre ellos por la red. Desplegar tal cual está hoy dejaría el sitio completamente roto (apps/web no podría hablarle nunca a apps/engine). Esto es un cambio de trust boundary real (exponer el motor más allá de 127.0.0.1, aunque sea solo a la red interna de Railway) -- mismo tipo de gatillo que ya justificó Opus en /blueprint para el primer dato personal del proyecto. No se decide en silencio acá. Consistente con lo que el usuario ya había confirmado antes ("accesible en mi PC por ahora, y luego escalamos") -- este hallazgo confirma que "escalar" a Railway todavía no es un solo comando, es una decisión de arquitectura real pendiente. No se corrió Sentinel ni ninguna acción de deploy.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-036</span> <span class="feed-ts">2026-08-01T05:00</span></div>
-            <div class="feed-note">capabilities.json ampliado de 55 a 124/127 héroes -- Claude Code obtuvo el roster real completo vía GET /api/heroes contra el servidor vivo y reescribió el archivo con criterio propio (no solo corrigió los 55 de Codex, los reemplazó todos con una pasada consistente). Quedan fuera a propósito Kez, Largo y Ringmaster -- héroes muy recientes, sin conocimiento confiable sobre sus habilidades, mejor sin dato que un dato inventado (mismo principio que ya rige el resto del pipeline: "sin dato" nunca es peor que "dato incorrecto presentado con confianza"). Verificado: bun test 196/196, tsc limpio, prueba real contra servidor vivo con un héroe distinto pickeado (Phantom Assassin) confirmando que los 4 arquetipos siguen calculando candidatos coherentes con la cobertura ampliada. Sigue siendo un borrador revisable -- el usuario puede seguir corrigiendo entradas puntuales.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T04:40</span></div>
-            <div class="feed-note">Housekeeping: la fase completa "Draft en equipo" (TSK-034/035/036) se construyó vía /kickoff + Codex, sin pasar por /rulebook -- las reglas condicionales del proyecto (.claude/rules/*.md) y el espejo de Kiro (.kiro/steering/structure.md) quedaron desactualizadas frente al código real (cero menciones de team_groups, draft-paths, o el patrón de cálculo bajo demanda). Corregido: engine.md (modo de equipo, caminos de draft como capa paralela sin tocar SCORING_WEIGHTS, cálculo bajo demanda vs push automático, corrección del hallazgo real de damage_mix), testing-seams.md (nueva costura S9 -- HeroCapabilities inyectable, con la lección explícita de que un test bien nombrado sobre la función equivocada deja pasar bugs reales), web.md (régimen RTK Query de equipos, partyContext en Zustand sin WebSocket, patrón de panel exploratorio con skip, terminología real de la investigación), security.md (pools de compañeros nunca son dato personal, capabilities.json es dato de producto), y .kiro/steering/structure.md (nota de estado + endpoints nuevos). Verificación completa de salud del proyecto también realizada en el camino: bun test 196/196 (engine) + 31/31 (web), tsc/eslint limpios en ambas apps, migración idempotente, arranque en frío de ambos servidores con las 5 rutas del motor y las 7 páginas del sitio respondiendo 200. Un crash de Turbopack (Windows, exit code nativo 0xc0000142, caché de .next corrupto -- no relacionado con ningún código del proyecto) apareció y se resolvió limpiando esa carpeta.</div>
           </div>
         </div></div>
     </div>
