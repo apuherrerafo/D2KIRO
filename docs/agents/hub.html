@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T00:22:32.028Z</title>
+<title>HUB del ecosistema — 2026-07-30T00:46:20.204Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -54,7 +54,7 @@
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: por decidir — dos caminos sin orden fijo · Modelo: Sonnet (Claude Code) si el timer, estándar de Codex si se sigue con Fase C · Acción: (1) Construir el timer visible del draft -- decisión ya tomada con el usuario: simulador · primero (no el draft real, que depende del spike de Overwolf sin correr todavía), simple, pero · visualmente parecido al lobby real de Dota 2 -- pieza chica, no necesita su propio `/kickoff`. (2) · Abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) -- la pieza más · grande e indefinida del pedido original, deliberadamente separada del resto.</div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: el usuario decide primero · Modelo: — · Acción: Fase 2 (tal como se definió en su `/kickoff`) queda 100% cerrada. Único camino documentado · pendiente: abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) -- · la pieza más grande e indefinida del pedido original de equipo, deliberadamente separada del resto · porque "se puede prestar a confusiones" mezclarla. También siguen abiertos, sin urgencia, los dos · caminos de antes de fase 2: `/castoff` (deploy a Railway) y el spike de Overwolf (captura real).</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">34</span></h2>
+        <h2>done <span class="count">35</span></h2>
         
         <div class="card  ">
           
@@ -482,6 +482,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-035</div>
+          <div class="card-title">Timer visible en el simulador (modo velocidad)</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -489,22 +499,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">54× · 52% ok  · 3 falló</div>
+          <div class="stat-nums">55× · 53% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:69%"></div></div>
-          <div class="stat-nums">37× · 92% ok · 3 bloqueado </div>
+          <div class="stat-nums">38× · 92% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
-          <div class="stat-nums">36× · 39% ok  </div>
+          <div class="stat-nums">37× · 38% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">35× · 97% ok · 1 bloqueado </div>
+          <div class="stat-nums">36× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -536,6 +546,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:40</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits de 2 archivos cada uno, sin excepción. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 35 tareas, 174 eventos. Cierra el pendiente del timer que había quedado documentado en PROGRESS.md tras el kickoff de fase 2.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:35</span></div>
+            <div class="feed-note">Gate de seguridad: PASS (cero I/O nuevo, cero endpoint nuevo, puramente cliente). Pasada 1 (Standards): DraftTimer usa useEffect/setInterval de forma legítima -- sincroniza con tiempo real (Date.now()), no es estado derivable en render, mismo criterio que distingue este caso de los hallazgos previos de "set-state-in-effect" (TSK-016/024) que sí eran anti-patrón. Cleanup del interval en el return del efecto, sin fuga si el componente se desmonta a mitad de una espera (el panel entero se desmonta al cerrar, cortando el ciclo). handleWaitStart nombrado, no una función anónima inline (regla de web.md). Pasada 2 (Spec): recorrido a mano del caso límite explícito del ticket -- dos picks seguidos con delayMs=3000 en captainsMode -- confirmando que `key={wait.id}` (contador incremental, no el valor de ms) fuerza el remount de DraftTimer en cada uno, así que el timer reinicia a 3s aunque el valor de la espera no haya cambiado. Verificado también que un evento hero_banned nunca dispara onWaitStart (su delayMs ya se fuerza a 0 desde TSK-034, Tarea A). Sin hallazgos nuevos. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:25</span></div>
+            <div class="feed-note">TDD: 2 pruebas nuevas en simulator.test.ts escritas primero y confirmadas en rojo antes de implementar (onWaitStart no existía) -- verificado con bun test mostrando el fallo real, no asumido. Implementado: RunSimulatorPlaybackOptions gana onWaitStart(waitMs) opcional, invocado justo antes de cada sleep real (mismo ms) -- puramente aditivo, la prueba "sin onWaitStart, regresión cero" confirma que el comportamiento por defecto no cambió. apps/web/components/draft-timer/DraftTimer.tsx (nuevo): número de segundos + barra que se vacía (cambia de color según el % restante, mismos tokens semánticos del proyecto), con su propio useEffect/setInterval -- caso legítimo de sincronización con tiempo real, no estado derivable en render. DraftSetupPanel.tsx: handleWaitStart con un contador propio (waitIdRef) para que DraftTimer se remonte por `key` en cada espera nueva, incluso cuando dos picks seguidos comparten el mismo delayMs (ej. 3000ms en captainsMode) -- evita el bug de que el timer se quede "pegado" sin reiniciar. wait se limpia en start/then/catch de la reproducción. Solo aplica en modo Velocidad (Paso a paso no tiene espera que cronometrar, decisión ya tomada en el ticket). Verificado: bun test 29/29 en apps/web (2 nuevas), tsc/eslint limpios, servidor real arriba sin crash en /draft (SSR). Límite honesto: sin verificación visual del countdown en un navegador real (sin herramienta de automatización disponible en este entorno) -- verificado por lógica/tests, no por observación directa del tick visual. verify-simplicity.sh: 3 archivos/~90 líneas -- dentro de ambos límites, sin excepción.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:10</span></div>
+            <div class="feed-note">Modo manual. Ticket nuevo, decisión de diseño ya cerrada con el usuario durante el /kickoff de fase 2 (simulador primero, simple, visualmente parecido al lobby real). assigned_tool: claude-code (pieza chica, contexto fresco de la revisión de TSK-034 recién hecha, sin necesidad de otra ronda con Codex). state: backlog → doing directo. WIP=1 por claude-code libre.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -590,34 +628,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-08-01T00:25</span></div>
             <div class="feed-note">Gate de seguridad: PASS (sin input externo nuevo, sin secretos -- grep limpio; el motor sigue sin resolver nombres de héroe, respetando el límite de responsabilidad ya establecido). Pasada 1 (Standards): 1 hallazgo real de EXACTITUD de comentario/documentación, corregido en la misma revisión -- el comentario de `buildComparison` afirmaba que "si el #1 gana por puntaje total, la suma de deltas comparables es positiva" (matemáticamente falso en general: si la ventaja real del #1 vive en una señal que el #2 no tiene dato/aplicable, esa señal queda fuera de la comparación por diseño, y todos los deltas comparables pueden ser <=0 aunque el #1 sí gane por el total). El CÓDIGO ya maneja este caso correctamente (retorna `null`, nunca atribuye mérito a una señal comparable que no fue la razón real) -- fue solo el comentario el que sobre-afirmaba una garantía que no siempre se cumple. Corregido el comentario en mix.ts y la misma redacción en TSK-032.md § Diseño para no dejar el error documentado en dos lugares. Verificado con recálculo a mano: en el escenario donde top gana solo por una señal no comparable (ej. hero_pool_fit aplicable solo para el #1) y pierde o empata en todas las comparables, `bestFavoringSignal` correctamente encuentra `best.delta <= 0` y `buildComparison` retorna `null` -- comportamiento honesto, no un bug. Pasada 2 (Spec): las 4 aceptaciones literales del ticket verificadas con las pruebas ya escritas (señal exacta identificada con números calculados a mano; señal con `raw:null`/`applicable:false` de un solo lado nunca es candidata, 2 pruebas dedicadas; `comparison: null` con <2 sugerencias o empate exacto; `bun test` de apps/engine en verde incluidas las pruebas de regresión V1/V2/V3, 176/176). Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-08-01T00:15</span></div>
-            <div class="feed-note">Implementado en 3 unidades lógicas (commits b05f52d/a18e7ba/a14360b). Motor: `weightedContributions` extraído de `mixScore` (mismo cálculo, reutilizable, 0 cambios de número -- verificado por las 16 pruebas preexistentes de mix.test.ts sin tocar), `buildComparison`/`SuggestionComparison` nuevos, `SuggestionSet.comparison` adjuntado en ambas ramas de `buildSuggestions` (con y sin candidatos). Web: mirror de tipos + `SIGNAL_LABELS` exportado (evita duplicar el mapeo señal→etiqueta) + `ComparisonNote.tsx` nuevo + wiring en `DraftView.tsx` (visible solo cuando `suggestions?.comparison` existe, sin ternario de renderizado). Verificado: bun test en apps/engine (176 pass, 0 fail, incluidas 7 pruebas nuevas de `buildComparison` aisladas con fixtures + 2 de integración end-to-end vía `buildSuggestions`) y en apps/web (27 pass, 0 fail, sin regresión). tsc/eslint limpios en ambas apps. Verificación con servidor real (no solo unit tests): script WebSocket ad-hoc contra el motor vivo (POST /ingest/draft-event + `ws://127.0.0.1:4000/ws/draft`) confirma que el mensaje `suggestions` real incluye la clave `comparison` en el payload -- valor `null` en ese caso concreto (sesión recién arrancada, sin picks propios, ninguna señal con dato comparable en ambos lados todavía), comportamiento esperado y correcto, no un bug. verify-simplicity.sh: 3 commits, ninguno excede 3 archivos/200 líneas -- sin excepción necesaria en ningún caso. Cero cambios al reductor ni al contrato de eventos (fuera de alcance, respetado). TSK-032 sigue en state: doing, pasa a autorevisión adversarial antes de @shipcheck.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-032</span> <span class="feed-ts">2026-07-29T23:55</span></div>
-            <div class="feed-note">Modo manual. Ticket nuevo, creado ahora mismo: el usuario dio luz verde a avanzar el punto que había quedado explícitamente diferido al cierre de TSK-031 ("comparación explícita entre sugerencias"), sin pedir otra ronda de preguntas -- mismo patrón que "Sigamos"/"GO" del resto de la sesión, se decide el diseño y se documenta, no se vuelve a preguntar. assigned_tool: claude-code (toca apps/engine y apps/web en la misma unidad de producto, necesita journal.md/contexto del proyecto). state: backlog (ticket recién creado) → doing directo. WIP=1 por claude-code libre. Hallazgo real durante el diseño, antes de escribir código: `Suggestion.signals[i].weighted` nunca se popula con un número real en todo el pipeline -- cada SignalScorer devuelve `weighted: 0` por diseño (documentado como hallazgo no bloqueante en TSK-005, evt-20260727-020, "responsabilidad de la etapa de MEZCLA") pero `mix.ts`/`mixScore` nunca escribe ese valor de vuelta en los objetos `SignalContribution` -- solo devuelve un escalar total. Ese gap preexistente nunca se cerró; no es parte de este ticket cerrarlo (tocaría el wire format que ya consume `SignalBreakdown.tsx`, que de todos modos muestra `raw`, no `weighted` -- cambiarlo sería scope creep real). Para esta comparación se extrae un helper nuevo (`weightedContributions`) que calcula el mismo número internamente sin mutar los objetos existentes, evitando así heredar el hallazgo sin resolverlo ni expandir el alcance del ticket para arreglarlo.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:45</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 archivos/30 líneas -- dentro de ambos límites, sin excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado: 31 tareas, 160 eventos. Con esto se cierran los 5 tickets del bloque de feedback directo de producto (TSK-027 a TSK-031) abierto tras la primera verificación visual real de fase 1b.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:35</span></div>
-            <div class="feed-note">Gate de seguridad: PASS (cambio puramente de datos, sin I/O nuevo, sin input externo, sin secretos -- grep limpio; cero cambios a player.ts/reductor). Pasada 1 (Standards): sin abstracciones de más -- es literalmente el mismo patrón de evento que ya usaba el guion (mismo delayMs, misma forma), sin inventar un nuevo campo ni una nueva estructura. Pasada 2 (Spec): recalculado a mano el total (2 originales + 14 nuevos = 16, dentro de 14-18) y verificado que ningún heroId nuevo (100-113) colisiona con los picks del mismo guion ({18,19,20,21,23,24,25,26,27,28,30}) ni con los 2 bans originales (11,22) -- ningún duplicado en todo el guion. Confirmado que ambos espejos (apps/engine/src/simulator/scripts.json y apps/web/features/draft/simulator-scripts.ts) quedaron carácter por carácter equivalentes en la lista de eventos agregada (mismo heroId, mismo side, mismo delayMs en el mismo orden) -- un desincronismo entre ambos habría sido peor que no tocar ninguno, ya que un guion cambia lo que ve el usuario y el otro solo lo que ve un test. captainsMode intacto (fuera de alcance, confirmado por diff -- 0 líneas tocadas en ese bloque). Veredicto: APPROVED.</div>
           </div>
         </div></div>
     </div>

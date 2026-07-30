@@ -1,21 +1,23 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-Fase 2 (Draft en equipo), Tareas A y B **completas** (TSK-034, done): el simulador ya no pausa
-entre baneos, y existe modo de party (1/2/3/5, nunca 4) con equipos guardados localmente y pools
-de compañeros a mano, visibles durante el draft. Construida en Codex a partir del brief de
-`/kickoff`, revisada de forma independiente por Claude Code (3 hallazgos reales corregidos antes
-de cerrar, uno crítico: la migración nunca se había registrado y no se habría aplicado en
-runtime real). Fase 1b y el bloque de feedback TSK-027 a TSK-033 siguen completos (ver historial).
+Fase 2 (Draft en equipo) **completa**: Tareas A y B (TSK-034) + el timer visible del simulador
+(TSK-035), los 3 hechos y cerrados. El simulador ya no pausa entre baneos, muestra un contador
+regresivo mientras espera el próximo pick, y existe modo de party (1/2/3/5, nunca 4) con equipos
+guardados localmente y pools de compañeros a mano, visibles durante el draft. Tareas A/B
+construidas en Codex a partir del brief de `/kickoff`, revisadas de forma independiente por Claude
+Code (3 hallazgos reales corregidos antes de cerrar, uno crítico: la migración nunca se había
+registrado y no se habría aplicado en runtime real). El timer se construyó directo en Claude Code.
+Fase 1b y el bloque de feedback TSK-027 a TSK-033 siguen completos (ver historial).
 
 ## SIGUIENTE PASO
-Herramienta: por decidir — dos caminos sin orden fijo
-Modelo: Sonnet (Claude Code) si el timer, estándar de Codex si se sigue con Fase C
-Acción: (1) Construir el timer visible del draft -- decisión ya tomada con el usuario: simulador
-primero (no el draft real, que depende del spike de Overwolf sin correr todavía), simple, pero
-visualmente parecido al lobby real de Dota 2 -- pieza chica, no necesita su propio `/kickoff`. (2)
-Abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) -- la pieza más
-grande e indefinida del pedido original, deliberadamente separada del resto.
+Herramienta: el usuario decide primero
+Modelo: —
+Acción: Fase 2 (tal como se definió en su `/kickoff`) queda 100% cerrada. Único camino documentado
+pendiente: abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) --
+la pieza más grande e indefinida del pedido original de equipo, deliberadamente separada del resto
+porque "se puede prestar a confusiones" mezclarla. También siguen abiertos, sin urgencia, los dos
+caminos de antes de fase 2: `/castoff` (deploy a Railway) y el spike de Overwolf (captura real).
 
 ## HISTORIAL (append-only, no se borra)
 - [inicio] Proyecto creado, sin fase completada todavía.
