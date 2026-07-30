@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T15:04:19.600Z</title>
+<title>HUB del ecosistema — 2026-07-30T15:15:53.934Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,22 +120,12 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">2</span></h2>
+        <h2>backlog <span class="count">1</span></h2>
         
         <div class="card  ">
           
           <div class="card-id">TSK-040</div>
           <div class="card-title">Deploy D -- Dockerfile + railway.json + volumen para la SQLite</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-041</div>
-          <div class="card-title">Deploy E -- .env.example (nunca existió)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
@@ -160,7 +150,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">39</span></h2>
+        <h2>done <span class="count">40</span></h2>
         
         <div class="card  ">
           
@@ -494,6 +484,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-041</div>
+          <div class="card-title">Deploy E -- .env.example (nunca existió)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -559,22 +559,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">61× · 57% ok  · 3 falló</div>
+          <div class="stat-nums">62× · 58% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:70%"></div></div>
-          <div class="stat-nums">43× · 93% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:71%"></div></div>
+          <div class="stat-nums">44× · 93% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
-          <div class="stat-nums">40× · 35% ok  </div>
+          <div class="stat-nums">41× · 34% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
-          <div class="stat-nums">39× · 97% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
+          <div class="stat-nums">40× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
@@ -611,6 +611,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:50</span></div>
+            <div class="feed-note">Gate de seguridad: PASS. Confirmado que ningún valor real aparece en el archivo -- las 8 líneas terminan en `=` sin nada a la derecha. Grep del patrón de secretos de verify-simplicity.sh limpio. Pasada 1 (Standards): un solo archivo en la raíz, sigue la convención estándar de la industria para monorepos con procesos que comparten variables de infraestructura (ENGINE_INTERNAL_URL las conecta). Pasada 2 (Spec): la única aceptación literal de TSK-041 (coincidencia exacta código real <-> archivo) verificada de forma independiente, con la misma metodología que usó Codex más una segunda pasada con herramienta distinta (Grep tool vs grep de shell) para descartar falsos negativos por ruido de node_modules. Sin hallazgos. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:45</span></div>
+            <div class="feed-note">Implementado por Codex: .env.example en la raíz del repo, 8 variables (ENGINE_PORT, CAPTURE_TOKEN, ENGINE_DB_PATH, ENGINE_INTERNAL_URL, DRAFT_LIVE_ENABLED, SITE_ACCESS_USER, SITE_ACCESS_PASSWORD, NEXT_PUBLIC_ENGINE_WS_URL), solo nombres con comentario de una línea, valores vacíos. Claude Code verificó de forma independiente con grep de process\.env\.[A-Z_]+ propio (via Grep tool, que respeta .gitignore y excluye node_modules -- el primer intento con grep de bash trajo ruido falso desde archivos empaquetados dentro de node_modules) contra apps/engine/src (3 variables) y apps/web (5 variables): coincide exactamente con las 8 del archivo, ninguna de más ni de menos. Sin valores reales, sin secretos -- gate de verify-simplicity.sh limpio. No se corrió bun test/tsc/lint (cambio de documentación de entorno puro, sin código ejecutable). Con esto se cierran los 5 tickets del bloque de deploy (TSK-037/038/039/041) salvo TSK-040 (Dockerfile + railway.json), el único que falta antes de reintentar /castoff.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:30</span></div>
+            <div class="feed-note">Modo manual. TSK-037/038/039 done, WIP=1 por codex libre. assigned_tool: codex (ya asignado desde la creación). state: backlog → doing. Verificado con grep de process.env. contra apps/engine/src y apps/web (excluyendo node_modules) antes de dispatchear: la lista original del ticket omitía NEXT_PUBLIC_ENGINE_WS_URL (apps/web/features/draft/DraftView.tsx, default ws://127.0.0.1:4000/ws/draft) -- agregada al ticket antes de pasarlo a Codex, para que no fallara su propio criterio de aceptación (grep exhaustivo variable-por-variable). Prompt autocontenido entregado al usuario para pasarle a Codex.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-039</span> <span class="feed-ts">2026-08-01T08:25</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 1 commit de 3 archivos, sin excepción necesaria (falso positivo del gate de secretos sobre un fixture de prueba, corregido antes del commit final). Sin dependencias nuevas -- crypto.timingSafeEqual es built-in de Node. `bun scripts/hub.ts` regenerado: 41 tareas, 195 eventos. Tercer ticket del bloque de deploy (TSK-037/038/039 done) -- sigue TSK-041 (.env.example) según el orden acordado 037→038→039→041→040.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -665,34 +693,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-037</span> <span class="feed-ts">2026-08-01T06:55</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits de 3 archivos cada uno, sin excepción necesaria. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 41 tareas, 187 eventos. Primer ticket del bloque de deploy (TSK-037 a TSK-041) cerrado -- sigue TSK-038 (guard de /draft).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-037</span> <span class="feed-ts">2026-08-01T06:50</span></div>
-            <div class="feed-note">Gate de seguridad: PASS. Confirmado con grep + lectura directa que `apps/engine/src/index.ts` sigue atado a `127.0.0.1` sin ningún cambio -- exactamente lo que exigía el ticket. `ENGINE_INTERNAL_URL` (destino de los rewrites) es variable de servidor, nunca lleva prefijo `NEXT_PUBLIC_`, confirmado que no aparece en ningún archivo del bundle del cliente. Las 3 rutas sensibles (`/ingest/draft-event`, `/api/session/manual`, `/api/session/:id/draft-paths`) confirmadas ausentes del allowlist tanto por lectura del código como por la prueba negativa dedicada, verificada en verde. Pasada 1 (Standards): `engine-url.ts` es el único lugar que define ambas bases (proxeada y directa) -- consistente con el patrón ya establecido en el proyecto de "una sola fuente de verdad" (mismo criterio que `SCORING_WEIGHTS`, `GAP_LABELS`, etc.). Pasada 2 (Spec): las 3 aceptaciones literales de TSK-037 verificadas -- regresión cero en local (32/32 pruebas + verificación manual con servidor real), ninguna ruta sensible en `rewrites()`, `NEXT_PUBLIC_ENGINE_HTTP_URL` desaparecido del código. La prueba negativa que pedí explícitamente en la ronda de revisión de Codex está implementada y cubre exactamente lo pedido. Único hallazgo real de esta ronda: el ya corregido en evt-20260801-021 (`getDraftPaths` roto en silencio) -- no hay hallazgos nuevos en esta pasada final. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-037</span> <span class="feed-ts">2026-08-01T06:45</span></div>
-            <div class="feed-note">Implementado por Codex (engine-url.ts, next.config.ts con allowlist de 8 rutas explícitas -- correcto: los rewrites de Next son por PATH, no por método, así que GET/PUT sobre el mismo path comparten una sola entrada, no hacían falta 13 entradas separadas como sugería la redacción original del ticket; prueba negativa dedicada). Claude Code hizo su propia verificación independiente contra el servidor real (no confió en el reporte) y encontró un hallazgo real: `getDraftPaths` (RTK Query, TSK-036 "Caminos de draft") comparte el mismo `baseUrl` relativo "/engine" que el resto de `engineApi`, pero `/api/session/:id/draft-paths` está (correctamente) excluida del allowlist -- rompía en silencio una función que ya estaba verificada y funcionando en la sesión anterior, tanto en local como en cualquier deploy futuro. Confirmado con curl real contra el servidor vivo: `http://localhost:3000/engine/api/session/:id/draft-paths` devolvía 404 antes del fix. Corregido dándole a `getDraftPaths` una URL absoluta directa a `LOCAL_DRAFT_ENGINE_HTTP_BASE_URL` (mismo tratamiento que `manual-entry.ts` -- ambos son parte del draft en vivo, nunca pasan por el proxy compartido), confirmado con curl directo contra 127.0.0.1:4000 devolviendo 200 después del fix. Verificación final: bun test 32/32 (web, incluida la prueba negativa nueva) + 196/196 (engine, sin tocar), tsc/eslint limpios, curl real confirmando tanto la ruta proxeada (`/engine/api/heroes` -> 200) como la ruta directa corregida. `NEXT_PUBLIC_ENGINE_HTTP_URL` confirmado ausente de todo el código (grep limpio). Commiteado en 2 unidades lógicas (mecanismo de proxy, migración de consumidores + el fix).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T06:20</span></div>
-            <div class="feed-note">Revisión de Codex sobre los 5 tickets de deploy (TSK-037 a TSK-041), antes de escribir código, a pedido explícito del usuario. Codex leyó los 5 tickets completos y encontró 3 hallazgos reales: (1) TSK-037 dejaba la allowlist de rewrites con un "etc." -- verificado contra las rutas reales de app.ts (grep directo), la lista completa correcta son 13 rutas (heroes, meta status/sync, settings GET/PUT, hero-pool GET/PUT/calculate, team-groups GET/POST/GET-by-id/PUT/DELETE) -- corregido, ticket actualizado con la lista explícita y exhaustiva; (2) TSK-039 no fijaba la ruta exacta del healthcheck -- corregido a GET /healthz servido por apps/web, con fetch interno al health real del engine, exento del Basic Auth; (3) TSK-041 se ejecutaría antes de que las variables que documenta existieran en código real, contradiciendo su propio criterio de aceptación -- reordenado a después de 037/038/039. Codex también tomó 2 decisiones razonables que se aceptaron tal cual: mantener npm/Node para apps/web en vez de migrar a Bun (menor riesgo real, no tocar tooling que ya funciona) y usar path absoluto para el volumen (ENGINE_DB_PATH=/data/dota2coach.sqlite, montado en /data, cubre también los archivos -wal/-shm de SQLite). Aporte adicional valioso de Codex, incorporado: una prueba negativa obligatoria en TSK-037 que confirme para siempre que /ingest/draft-event y /api/session/manual nunca responden vía apps/web, como guardrail contra un cambio futuro descuidado (ej. alguien agregando un rewrite más amplio "para que el draft funcione"). Los 4 tickets actualizados y commiteados. Listo para dispatchear la implementación a Codex.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T06:00</span></div>
-            <div class="feed-note">Creados 5 tickets (TSK-037 a TSK-041) traduciendo la decisión de arquitectura de deploy (evt-20260801-018) en trabajo ejecutable: A (base URL relativa + rewrites), B (guard de /draft, fuera del deploy cloud para siempre), C (Basic Auth sobre toda la instancia), D (Dockerfile + railway.json + volumen, con la ambigüedad del runtime de apps/web -- npm vs bun -- marcada explícitamente para resolver antes de escribir el Dockerfile, no asumida), E (.env.example, lo que detuvo el primer /castoff). preferred_tool/assigned_tool: codex en los 5 -- el usuario pidió explícitamente que Codex revise el plan primero (con contexto completo) antes de ejecutar, mismo patrón ya usado en Fase 2/C. Todos en state:backlog, moscow:must (bloquean cualquier deploy real). Pendiente: dispatchear a Codex con un prompt autocontenido para que revise/proponga ajustes antes de escribir código, no que implemente a ciegas.</div>
           </div>
         </div></div>
     </div>
