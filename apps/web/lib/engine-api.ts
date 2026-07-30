@@ -3,8 +3,7 @@ import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { DraftPathSet } from "@/features/draft-paths/types";
 import type { CalculatePoolResult, HeroPoolEntry, HeroPoolPutEntry } from "@/features/hero-pool/types";
 import type { TeamGroupEntry, TeamGroupPutBody } from "@/features/team-groups/types";
-
-const ENGINE_HTTP_URL = process.env.NEXT_PUBLIC_ENGINE_HTTP_URL ?? "http://127.0.0.1:4000";
+import { ENGINE_HTTP_BASE_URL, LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "./engine-url";
 
 export interface MetaSyncAttempt {
   status: "running" | "ok" | "failed";
@@ -27,7 +26,7 @@ export interface SettingEntry {
 // draft en vivo (TSK-012) es la única excepción, nunca pasa por aquí.
 export const engineApi = createApi({
   reducerPath: "engineApi",
-  baseQuery: fetchBaseQuery({ baseUrl: ENGINE_HTTP_URL }),
+  baseQuery: fetchBaseQuery({ baseUrl: ENGINE_HTTP_BASE_URL }),
   tagTypes: ["MetaStatus", "Settings", "HeroPool", "TeamGroups", "DraftPaths"],
   endpoints: (builder) => ({
     getMetaStatus: builder.query<MetaStatus, void>({
@@ -79,8 +78,13 @@ export const engineApi = createApi({
       query: (id) => ({ url: `/api/team-groups/${id}`, method: "DELETE" }),
       invalidatesTags: ["TeamGroups"],
     }),
+    // TSK-036 vive fuera del proxy de páginas de configuración a propósito -- "caminos de draft"
+    // solo tiene sentido con un draft activo, y esa ruta nunca está en el allowlist de
+    // next.config.ts (regla dura, TSK-037/038: /draft en vivo siempre habla directo al engine
+    // local, nunca vía /engine). Se le da una URL absoluta -- fetchBaseQuery la usa tal cual, sin
+    // anteponerle el baseUrl relativo compartido con el resto de engineApi.
     getDraftPaths: builder.query<DraftPathSet, string>({
-      query: (sessionId) => `/api/session/${encodeURIComponent(sessionId)}/draft-paths`,
+      query: (sessionId) => `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/session/${encodeURIComponent(sessionId)}/draft-paths`,
       providesTags: ["DraftPaths"],
     }),
   }),

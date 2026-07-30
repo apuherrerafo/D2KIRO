@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 export interface HeroMeta {
   id: number;
@@ -11,8 +12,6 @@ export interface HeroMeta {
   attackType: string;
   roles: string[];
 }
-
-const ENGINE_HTTP_URL = process.env.NEXT_PUBLIC_ENGINE_HTTP_URL ?? "http://127.0.0.1:4000";
 
 // El catálogo de héroes (GET /api/heroes) es una "página normal" en el sentido de datos -- no es
 // estado de draft en vivo -- pero configurar RTK Query completo (2 dependencias nuevas, store,
@@ -27,7 +26,7 @@ export function useHeroCatalog(): { heroes: Map<number, HeroMeta>; loading: bool
 
     async function loadHeroCatalog() {
       try {
-        const response = await fetch(`${ENGINE_HTTP_URL}/api/heroes`);
+        const response = await fetch(`${ENGINE_HTTP_BASE_URL}/api/heroes`);
         const list = (await response.json()) as HeroMeta[];
         if (!cancelled) setHeroes(new Map(list.map((hero) => [hero.id, hero])));
       } catch {

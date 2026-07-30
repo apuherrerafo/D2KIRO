@@ -1,7 +1,6 @@
 import type { SimulatorEvent } from "./simulator-scripts";
 import type { DraftEvent } from "./types";
-
-const ENGINE_HTTP_URL = process.env.NEXT_PUBLIC_ENGINE_HTTP_URL ?? "http://127.0.0.1:4000";
+import { LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 export interface ManualEventResult {
   accepted: boolean;
@@ -20,7 +19,7 @@ async function postEvent(
   payload: DraftEvent | SimulatorEvent,
   source: CaptureSource,
 ): Promise<ManualEventResult> {
-  const response = await fetch(`${ENGINE_HTTP_URL}/api/session/manual`, {
+  const response = await fetch(`${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/session/manual`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
