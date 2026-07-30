@@ -26,7 +26,10 @@ COPY apps/web/components ./apps/web/components
 COPY apps/web/features ./apps/web/features
 COPY apps/web/lib ./apps/web/lib
 COPY apps/web/public ./apps/web/public
-COPY apps/web/eslint.config.mjs apps/web/next-env.d.ts apps/web/next.config.ts apps/web/postcss.config.mjs apps/web/proxy.ts apps/web/tsconfig.json ./apps/web/
+# next-env.d.ts nunca se copia -- vive en apps/web/.gitignore a proposito (Next.js lo
+# genera/actualiza solo en next dev/build/lint), asi que nunca existe en el contexto de build de
+# Railway (que construye desde GitHub, no desde el filesystem local). npm run build lo recrea.
+COPY apps/web/eslint.config.mjs apps/web/next.config.ts apps/web/postcss.config.mjs apps/web/proxy.ts apps/web/tsconfig.json ./apps/web/
 
 COPY scripts/start-railway.sh ./scripts/start-railway.sh
 COPY .env.example ./.env.example
