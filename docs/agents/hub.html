@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T04:42:50.855Z</title>
+<title>HUB del ecosistema — 2026-07-30T05:28:21.112Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">4</span></h2>
+        <h2>backlog <span class="count">3</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-038</div>
-          <div class="card-title">Deploy B -- guard de ruta: /draft queda fuera del deploy cloud</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-039</div>
@@ -180,7 +170,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">37</span></h2>
+        <h2>done <span class="count">38</span></h2>
         
         <div class="card  ">
           
@@ -494,6 +484,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-038</div>
+          <div class="card-title">Deploy B -- guard de ruta: /draft queda fuera del deploy cloud</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -559,22 +559,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">59× · 56% ok  · 3 falló</div>
+          <div class="stat-nums">60× · 57% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:69%"></div></div>
-          <div class="stat-nums">41× · 93% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:70%"></div></div>
+          <div class="stat-nums">42× · 93% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
-          <div class="stat-nums">38× · 37% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
+          <div class="stat-nums">39× · 36% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:63%"></div></div>
-          <div class="stat-nums">37× · 97% ok · 1 bloqueado </div>
+          <div class="stat-nums">38× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
@@ -611,6 +611,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:35</span></div>
+            <div class="feed-note">Gate de seguridad: PASS. Sin superficie nueva de red ni cambio a bindings -- guard es puro control de render del lado de `apps/web`, `apps/engine` no se toca. Sin dato personal nuevo. Pasada 1 (Standards): `isDraftLiveEnabled` es función pura e inyectable (mismo patrón que `buildNavLinks`), extracción limpia sin lógica de más en el componente. Pasada 2 (Spec): las 3 aceptaciones literales de TSK-038 verificadas contra servidor real -- `DRAFT_LIVE_ENABLED=false` nunca monta `DraftView` ni abre WebSocket (confirmado visualmente); sin definir la variable, comportamiento idéntico al actual (regresión cero, 36/36 + verificación manual); `NavBar` nunca lleva a una pantalla sin explicación (relabel "Draft local" verificado sitio-completo). Sin hallazgos nuevos. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:30</span></div>
+            <div class="feed-note">Implementado por Codex (`live-config.ts` con `isDraftLiveEnabled` pura/inyectable, default `true`; guard en `app/draft/page.tsx` vía `connection()` + `export const dynamic = "force-dynamic"` antes de montar `DraftView`, con pantalla explicativa; `NavBar` refactorizado a `buildNavLinks(draftLiveEnabled)` pura, relabel a "Draft local" cuando está apagado; `layout.tsx` fuerza render dinámico a nivel raíz y pasa `isDraftLiveEnabled()` al `NavBar`). Claude Code verificó de forma independiente: lectura completa de los 6 archivos confirmando que no se agregó un 7mo estado a los 6 ya existentes de la vista de draft, `npx tsc --noEmit` limpio, `bun run lint` limpio, `bun test` 36/36 (web) + 196/196 (engine, sin tocar). Verificación con servidores reales en ambos estados: con `DRAFT_LIVE_ENABLED` sin definir, `/draft` muestra la vista normal "Desconectado" (regresión cero); con `DRAFT_LIVE_ENABLED=false`, `/draft` muestra la pantalla "Draft en vivo local" explicativa y el `NavBar` en el sitio completo (confirmado también desde `/`) muestra "Draft local" -- validando que el `force-dynamic` a nivel de layout raíz evita que la etiqueta quede congelada en el build estático. Sin hallazgos nuevos esta ronda. Commiteado en 2 unidades lógicas (guard de `/draft`, `NavBar`+`layout`).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:00</span></div>
+            <div class="feed-note">Modo manual. Confirmado que TSK-038 seguía en backlog (Codex solo había entregado TSK-037). assigned_tool: codex (ya asignado desde la creación). state: backlog → doing. WIP=1 por codex libre (TSK-037 ya done). Prompt autocontenido entregado al usuario para pasarle a Codex.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-037</span> <span class="feed-ts">2026-08-01T06:55</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits de 3 archivos cada uno, sin excepción necesaria. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 41 tareas, 187 eventos. Primer ticket del bloque de deploy (TSK-037 a TSK-041) cerrado -- sigue TSK-038 (guard de /draft).</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -665,34 +693,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T04:40</span></div>
             <div class="feed-note">Housekeeping: la fase completa "Draft en equipo" (TSK-034/035/036) se construyó vía /kickoff + Codex, sin pasar por /rulebook -- las reglas condicionales del proyecto (.claude/rules/*.md) y el espejo de Kiro (.kiro/steering/structure.md) quedaron desactualizadas frente al código real (cero menciones de team_groups, draft-paths, o el patrón de cálculo bajo demanda). Corregido: engine.md (modo de equipo, caminos de draft como capa paralela sin tocar SCORING_WEIGHTS, cálculo bajo demanda vs push automático, corrección del hallazgo real de damage_mix), testing-seams.md (nueva costura S9 -- HeroCapabilities inyectable, con la lección explícita de que un test bien nombrado sobre la función equivocada deja pasar bugs reales), web.md (régimen RTK Query de equipos, partyContext en Zustand sin WebSocket, patrón de panel exploratorio con skip, terminología real de la investigación), security.md (pools de compañeros nunca son dato personal, capabilities.json es dato de producto), y .kiro/steering/structure.md (nota de estado + endpoints nuevos). Verificación completa de salud del proyecto también realizada en el camino: bun test 196/196 (engine) + 31/31 (web), tsc/eslint limpios en ambas apps, migración idempotente, arranque en frío de ambos servidores con las 5 rutas del motor y las 7 páginas del sitio respondiendo 200. Un crash de Turbopack (Windows, exit code nativo 0xc0000142, caché de .next corrupto -- no relacionado con ningún código del proyecto) apareció y se resolvió limpiando esa carpeta.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-036</span> <span class="feed-ts">2026-08-01T04:20</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits (motor 11 archivos, web 9 archivos), excepción documentada por adelantado en TSK-036.md. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 36 tareas, 178 eventos. Con esto se cierra la fase completa de "Draft en equipo" (Fase A/B/C, TSK-034/035/036) que arrancó con el pedido del usuario a mitad de una sesión de QA manual sobre fase 1b.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-036</span> <span class="feed-ts">2026-08-01T04:10</span></div>
-            <div class="feed-note">Gate de seguridad: PASS. apps/engine sigue atado únicamente a 127.0.0.1, sin cambios al binding. Endpoint nuevo GET /api/session/:id/draft-paths es de solo lectura (sin escritura a DB), CORS cubierto genéricamente igual que el resto de la API (verificado leyendo el wrapper de fetch en app.ts, no específico por ruta). sessionId de la URL nunca puede crashear el handler -- SessionStore.get() devuelve createIdleDraftState por defecto para cualquier id desconocido, nunca lanza (verificado leyendo session.ts). Sin dato personal nuevo -- capabilities.json es dato de producto curado sobre héroes públicos, no de usuarios. Grep de patrón de secretos: sin coincidencias. Pasada 1 (Standards): separación de responsabilidades limpia (types/gaps/capabilities/build-paths, cada uno con su prueba aislada, mismo patrón que signals/ del motor de sugerencias); nombres claros; sin abstracciones de más. El hallazgo de filledGaps (ver evt-012) es el ejemplo más claro de esta sesión de por qué una prueba con el nombre correcto ("damage_mix") no es lo mismo que una prueba que cubre la función correcta -- Codex probó detectDraftGaps pensando que cubría el pedido, cuando el bug real vivía en filledGaps. Pasada 2 (Spec): las 3 aceptaciones literales de TSK-036 verificadas -- capabilities.json parcial no bloquea (55/126 héroes, confirmado); GET nunca se dispara automático (confirmado leyendo pushSessionUpdate intacto + RTK Query con skip:!isOpen del lado del cliente); ningún camino con nextPick.score<3 aparece (verificado en build-paths.test.ts y en la llamada real contra el servidor vivo, todos los scores devueltos fueron >=8). Sin hallazgos nuevos en esta pasada final -- los 2 reales ya están corregidos y cubiertos por prueba (ver evt-012). Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-036</span> <span class="feed-ts">2026-08-01T04:00</span></div>
-            <div class="feed-note">Fase C (Caminos de draft) implementada en Codex tras 2 rondas de diseño ya acordadas (evt-20260801-011). Entrega: módulo apps/engine/src/draft-paths/ (capabilities.json curado a mano -- 55 héroes con entradas válidas de los ~126, no bloquea por completar el resto; gaps.ts detecta/llena gaps con umbrales exactos; build-paths.ts arma hasta 3 caminos con scoring por arquetipo) + GET /api/session/:id/draft-paths bajo demanda (nunca por WebSocket automático -- confirmado leyendo pushSessionUpdate sin cambios, sigue empujando exactamente draft_state→suggestions, la regla dura de engine.md queda intacta) + apps/web/features/draft-paths (cover-flow navegable, RTK Query con skip:!isOpen) + apps/web/components/draft-path-card. Claude Code hizo su propia verificación independiente (no confió en el reporte de Codex) y encontró 2 hallazgos reales, corregidos antes de commitear: (1) bug real de lógica en filledGaps -- asumía que el equipo siempre era monótono en daño "physical" (OR hardcodeado contra magical/pure/mixed), así que con un equipo monótono en "magical" un candidato físico (la elección correcta para diversificar) quedaba marcado como que NO resolvía el gap "damage_mix", y otro héroe mágico quedaba marcado como que SÍ lo resolvía -- empeorando el problema en vez de arreglarlo. El test de damage_mix que Codex escribió solo cubría la DETECCIÓN del gap (detectDraftGaps), nunca si un candidato realmente lo RESUELVE (filledGaps) -- ahí es donde vivía el bug, sin ninguna prueba que lo cubriera pese a que se pidió explícitamente "su propia prueba dedicada". Corregido exportando ownCapabilities desde gaps.ts, pasando el tipo de daño dominante real del equipo hasta filledGaps, con 4 pruebas nuevas que cubren ambas direcciones (monótono physical, monótono magical, y que un candidato "mixed" siempre resuelve el gap sin importar el tipo dominante). (2) El test de integración del endpoint (`GET /api/session/:id/draft-paths`) llamaba a loadHeroCapabilities() directo, sin inyección -- dependía de los datos REALES de capabilities.json (un borrador que el usuario todavía tiene que corregir a mano), así que el test se podía romper en silencio, o peor, cambiar de resultado sin que nadie lo notara, con cada edición futura del archivo -- viola el mismo principio de testing-seams.md que ya exige S2/S6/S7 (inyectar fakes, nunca depender de datos reales/mutables en pruebas). Corregido agregando heroCapabilities como campo opcional inyectable en AppDeps (mismo patrón que db/openDotaClient/captureToken), con un fixture propio de 2 héroes en app.test.ts que hace el test 100% determinístico. Verificación final independiente: bun test 196/196 (engine, incluidas 4 pruebas nuevas) + 31/31 (web), bunx tsc --noEmit limpio en ambas apps, eslint limpio en apps/web (apps/engine confirmado que nunca tuvo eslint configurado, no es una regresión de Codex). Servidor real: POST de 3 eventos reales + GET al endpoint contra 127.0.0.1:4000 vivo usando el capabilities.json real -- 3 caminos (push/teamfight/pickoff) calculados correctamente en 2ms, con héroes y razones coherentes. Commiteado en 2 unidades lógicas (motor 11 archivos, web 9 archivos), excepción de simplicidad documentada en TSK-036.md.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-036</span> <span class="feed-ts">2026-08-01T03:00</span></div>
-            <div class="feed-note">/kickoff de Fase C completado (investigación real vía WebSearch + investigación adicional traída por el usuario sobre teoría de draft competitiva de Dota 2 -- confirmó que la comunidad usa un vocabulario modular por ejes, no una taxonomía cerrada de "3 tipos"; alcance acotado con el usuario a solo el eje de plan macro para esta primera versión). Diseño llevado a Codex en 2 rondas de revisión antes de aprobar código: ronda 1 encontró 2 problemas de arquitectura reales -- violaba en silencio la regla dura de orden de push por WebSocket de engine.md (agregaba un 3er mensaje automático sin definir su lugar en el orden, además de cómputo caro en cada evento por algo exploratorio) y umbrales vagos sin números exactos ("bajo conteo", sin definir cuánto). Ronda 2 corrigió ambos: draft_paths pasa a ser cálculo bajo demanda vía GET /api/session/:id/draft-paths (nunca por WebSocket automático, la regla dura de push queda intacta sin modificar), y umbrales exactos con LEVEL_SCORE={low:0,medium:1,high:2} verificados a mano incluida la lógica más sutil (damage_mix, con su condición de "menos de 2 héroes conocidos nunca marca gap" para evitar sobrediagnosticar en el pick 1). assigned_tool: codex (mismo criterio que Fase 2 -- diseño ya revisado y acotado, ahora sí autocontenido para implementación). state: backlog (ticket creado ahora, retroactivo a la conversación de diseño) → doing. Pendiente: capabilities.json (primer borrador de Codex, el usuario lo corrige a mano después -- explícitamente no es dato final hasta esa revisión).</div>
           </div>
         </div></div>
     </div>
