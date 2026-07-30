@@ -6,6 +6,16 @@ cd "$(dirname "$0")/.."
 : "${PORT:=3000}"
 : "${ENGINE_PORT:=4000}"
 
+# TSK-039 dice literal "es la mitigacion que hace aceptable el resto del deploy -- sin ella, no se
+# despliega". proxy.ts deja pasar sin auth cuando faltan estas variables a proposito (regresion
+# cero para `bun run dev` local, TSK-039) -- pero ese mismo fail-open en esta imagen (el unico
+# punto de entrada real al deploy cloud) dejaria la instancia publica en Railway sin ninguna senal
+# si alguien olvida configurarlas. Bloqueo duro aca, donde de verdad importa, sin tocar proxy.ts.
+if [ -z "${SITE_ACCESS_USER:-}" ] || [ -z "${SITE_ACCESS_PASSWORD:-}" ]; then
+  echo "SITE_ACCESS_USER y SITE_ACCESS_PASSWORD son obligatorias para arrancar este contenedor -- sin ellas la instancia quedaria publica sin autenticacion." >&2
+  exit 1
+fi
+
 cd apps/engine
 bun run db:migrate
 
