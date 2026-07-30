@@ -17,6 +17,9 @@ import {
   type PartySize,
   type TeamGroupWriteRow,
 } from "../db/queries";
+import { buildDraftPaths } from "../draft-paths/build-paths";
+import { loadHeroCapabilities } from "../draft-paths/capabilities";
+import type { HeroCapabilities } from "../draft-paths/types";
 import { calculateProposedPool, type HeroPoolInputRow } from "../hero-pool/calculate-pool";
 import { getHealthStatus } from "../health";
 import { mapPlayerHero } from "../meta/mappers";
@@ -34,6 +37,11 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   db: Db<TSchema>;
   openDotaClient: OpenDotaClient;
   captureToken: string;
+  // TSK-036: inyectable para que las pruebas usen un fixture controlado en vez de depender del
+  // capabilities.json real -- ese archivo es un borrador vivo que se sigue corrigiendo a mano, un
+  // test que dependiera de su contenido real se rompería (o peor, cambiaría de resultado en
+  // silencio) cada vez que se edite, mismo criterio que S2/S6/S7 de testing-seams.md.
+  heroCapabilities?: HeroCapabilities[];
 }
 
 interface WsData {
@@ -367,6 +375,19 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return Number(match[1]);
   }
 
+  function parseDraftPathsSessionId(pathname: string): string | null {
+    const match = /^\/api\/session\/([^/]+)\/draft-paths$/.exec(pathname);
+    if (!match) return null;
+    return decodeURIComponent(match[1]!);
+  }
+
+  async function handleDraftPathsGet(sessionId: string): Promise<Response> {
+    const state = sessionStore.get(sessionId);
+    const meta = await buildMetaSnapshot(deps.db);
+    const capabilities = deps.heroCapabilities ?? loadHeroCapabilities();
+    return Response.json(buildDraftPaths(state, meta, capabilities));
+  }
+
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json(getHealthStatus(sessionStore.size));
@@ -418,6 +439,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (teamGroupId !== null && request.method === "DELETE") {
       return handleTeamGroupDelete(teamGroupId);
+    }
+    const draftPathsSessionId = parseDraftPathsSessionId(url.pathname);
+    if (draftPathsSessionId !== null && request.method === "GET") {
+      return handleDraftPathsGet(draftPathsSessionId);
     }
 
     return new Response("Not found", { status: 404 });

@@ -2,8 +2,19 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
+import type { HeroCapabilities } from "../draft-paths/types";
 import { OpenDotaClient } from "../meta/opendota-client";
 import { createApp } from "./app";
+
+// TSK-036: fixture propio en vez de depender de capabilities.json real -- ese archivo es un
+// borrador que se sigue corrigiendo a mano, un test que dependiera de su contenido cambiaría de
+// resultado en silencio cada vez que se edite (mismo criterio que S2/S6/S7 de testing-seams.md).
+// hero 1 sin ninguna capacidad (genera gaps reales al pickearlo), hero 2 con todo alto (candidato
+// que los resuelve todos) -- deliberadamente exagerado para que el test sea determinístico.
+const TEST_HERO_CAPABILITIES: HeroCapabilities[] = [
+  { hero: 1, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "low", teamfight: "low", scaling: "low" },
+  { hero: 2, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: true, structuralDamage: "high", teamfight: "high", scaling: "high" },
+];
 
 const PORT = 41234;
 const EXPECTED_HEADER = "test-capture-token";
@@ -97,7 +108,12 @@ describe("servidor Bun (TSK-010)", () => {
   let stop: () => void;
 
   beforeAll(() => {
-    const app = createApp({ db: createTestDb(), openDotaClient: new OpenDotaClient(), captureToken: EXPECTED_HEADER });
+    const app = createApp({
+      db: createTestDb(),
+      openDotaClient: new OpenDotaClient(),
+      captureToken: EXPECTED_HEADER,
+      heroCapabilities: TEST_HERO_CAPABILITIES,
+    });
     const server = app.start("127.0.0.1", PORT);
     baseUrl = `http://127.0.0.1:${server.port}`;
     stop = () => server.stop(true);
@@ -362,6 +378,34 @@ describe("servidor Bun (TSK-010)", () => {
     });
 
     expect(res.status).toBe(400);
+  });
+
+  test("GET /api/session/:id/draft-paths calcula caminos bajo demanda, sin WebSocket push nuevo", async () => {
+    const sessionId = "session-draft-paths";
+    const events = [
+      envelope({ sessionId, eventId: "paths-1", seq: 1, payload: { type: "session_started", format: "all_pick", patch: "7.36" } }),
+      envelope({ sessionId, eventId: "paths-2", seq: 2, payload: { type: "local_side_identified", side: "radiant" } }),
+      envelope({ sessionId, eventId: "paths-3", seq: 3, payload: { type: "hero_picked", hero: 1, side: "radiant" } }),
+    ];
+
+    for (const event of events) {
+      const accepted = await fetch(`${baseUrl}/api/session/manual`, { method: "POST", body: JSON.stringify(event) });
+      expect(accepted.status).toBe(202);
+    }
+
+    const res = await fetch(`${baseUrl}/api/session/${sessionId}/draft-paths`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.schema).toBe("draft-paths/v1");
+    expect(body.sessionId).toBe(sessionId);
+    expect(body.basedOnSeq).toBe(3);
+    // Determinístico gracias a TEST_HERO_CAPABILITIES (hero 1 sin nada, hero 2 con todo alto) --
+    // el héroe 2 debe aparecer como nextPick en cada camino que se forme, nunca el 1 (ya pickeado).
+    expect(body.paths.length).toBeGreaterThan(0);
+    expect(body.paths.length).toBeLessThanOrEqual(3);
+    for (const path of body.paths) {
+      expect(path.nextPick.hero).toBe(2);
+    }
   });
 
   test("CORS: un origin local (apps/web en otro puerto) recibe Access-Control-Allow-Origin (hallazgo @redteam)", async () => {
