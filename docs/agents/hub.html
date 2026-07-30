@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T04:22:18.542Z</title>
+<title>HUB del ecosistema — 2026-07-30T04:25:58.329Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,8 +120,58 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>backlog <span class="count">5</span></h2>
+        
+        <div class="card  ">
+          
+          <div class="card-id">TSK-037</div>
+          <div class="card-title">Deploy A -- base URL relativa en apps/web + rewrites hacia el engine local</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-038</div>
+          <div class="card-title">Deploy B -- guard de ruta: /draft queda fuera del deploy cloud</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-039</div>
+          <div class="card-title">Deploy C -- Basic Auth sobre toda la instancia cloud</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-040</div>
+          <div class="card-title">Deploy D -- Dockerfile + railway.json + volumen para la SQLite</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-041</div>
+          <div class="card-title">Deploy E -- .env.example (nunca existió)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -532,14 +582,14 @@
           <div class="stat-nums">3× · 100% ok  </div>
         </div>
         <div class="stat-row">
+          <div class="stat-name">rulebook</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">3× · 100% ok  </div>
+        </div>
+        <div class="stat-row">
           <div class="stat-name">launchpad</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
-          <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">depcheck</div>
@@ -561,6 +611,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T06:00</span></div>
+            <div class="feed-note">Creados 5 tickets (TSK-037 a TSK-041) traduciendo la decisión de arquitectura de deploy (evt-20260801-018) en trabajo ejecutable: A (base URL relativa + rewrites), B (guard de /draft, fuera del deploy cloud para siempre), C (Basic Auth sobre toda la instancia), D (Dockerfile + railway.json + volumen, con la ambigüedad del runtime de apps/web -- npm vs bun -- marcada explícitamente para resolver antes de escribir el Dockerfile, no asumida), E (.env.example, lo que detuvo el primer /castoff). preferred_tool/assigned_tool: codex en los 5 -- el usuario pidió explícitamente que Codex revise el plan primero (con contexto completo) antes de ejecutar, mismo patrón ya usado en Fase 2/C. Todos en state:backlog, moscow:must (bloquean cualquier deploy real). Pendiente: dispatchear a Codex con un prompt autocontenido para que revise/proponga ajustes antes de escribir código, no que implemente a ciegas.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -636,13 +693,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:25</span></div>
             <div class="feed-note">TDD: 2 pruebas nuevas en simulator.test.ts escritas primero y confirmadas en rojo antes de implementar (onWaitStart no existía) -- verificado con bun test mostrando el fallo real, no asumido. Implementado: RunSimulatorPlaybackOptions gana onWaitStart(waitMs) opcional, invocado justo antes de cada sleep real (mismo ms) -- puramente aditivo, la prueba "sin onWaitStart, regresión cero" confirma que el comportamiento por defecto no cambió. apps/web/components/draft-timer/DraftTimer.tsx (nuevo): número de segundos + barra que se vacía (cambia de color según el % restante, mismos tokens semánticos del proyecto), con su propio useEffect/setInterval -- caso legítimo de sincronización con tiempo real, no estado derivable en render. DraftSetupPanel.tsx: handleWaitStart con un contador propio (waitIdRef) para que DraftTimer se remonte por `key` en cada espera nueva, incluso cuando dos picks seguidos comparten el mismo delayMs (ej. 3000ms en captainsMode) -- evita el bug de que el timer se quede "pegado" sin reiniciar. wait se limpia en start/then/catch de la reproducción. Solo aplica en modo Velocidad (Paso a paso no tiene espera que cronometrar, decisión ya tomada en el ticket). Verificado: bun test 29/29 en apps/web (2 nuevas), tsc/eslint limpios, servidor real arriba sin crash en /draft (SSR). Límite honesto: sin verificación visual del countdown en un navegador real (sin herramienta de automatización disponible en este entorno) -- verificado por lógica/tests, no por observación directa del tick visual. verify-simplicity.sh: 3 archivos/~90 líneas -- dentro de ambos límites, sin excepción.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:10</span></div>
-            <div class="feed-note">Modo manual. Ticket nuevo, decisión de diseño ya cerrada con el usuario durante el /kickoff de fase 2 (simulador primero, simple, visualmente parecido al lobby real). assigned_tool: claude-code (pieza chica, contexto fresco de la revisión de TSK-034 recién hecha, sin necesidad de otra ronda con Codex). state: backlog → doing directo. WIP=1 por claude-code libre.</div>
           </div>
         </div></div>
     </div>
