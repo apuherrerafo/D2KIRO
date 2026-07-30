@@ -9,33 +9,32 @@ Ringmaster), a propósito, por falta de conocimiento confiable. Fase 1b y el blo
 TSK-027 a TSK-033 siguen completos (ver historial).
 
 Se intentó `/castoff` (2026-08-01) y se detuvo en el paso de variables de entorno -- ver
-`journal.md` evt-20260801-017. Hallazgo real, no trivial: nunca existió `.env.example` ni
-configuración de Railway en el repo (el proyecto nunca se conectó a un proyecto real de Railway),
-y **`apps/engine` está atado a `127.0.0.1` por regla dura de seguridad** -- en un deploy real a
-Railway, `apps/web` y `apps/engine` correrían como servicios separados que jamás podrían hablarse
-por la red tal como está hoy. Es un cambio de trust boundary real (mismo tipo de gatillo que ya
-justificó Opus para el primer dato personal del proyecto), no una configuración trivial.
+`journal.md` evt-20260801-017. La arquitectura de deploy ya se **decidió** (evt-20260801-018,
+única activación puntual de Opus fuera de `/blueprint` en todo el proyecto, gatillo de cambio de
+trust boundary, confirmado explícitamente por el usuario): un solo servicio de Railway con ambos
+procesos juntos, `apps/engine` sigue atado a `127.0.0.1` **sin ningún cambio de código** --
+`apps/web` deja de conocer la URL del engine y la reenvía vía `rewrites()` con allowlist explícita
+de rutas. `/draft` (draft en vivo) queda **explícitamente fuera de este deploy para siempre**, no
+"por ahora" -- el motor de sugerencias vive donde vive el capturador real, y Next.js rewrites no
+proxean WebSocket. El deploy cloud sirve solo páginas de configuración, detrás de Basic Auth,
+con SQLite vacía (nunca se sube la base local real). 5 tickets identificados (A-E, ver journal)
+todavía sin crear ni ejecutar.
 
 ## SIGUIENTE PASO
-Herramienta: el usuario decide primero -- dos decisiones distintas, no una sola
-Modelo: ver nota de Opus abajo
+Herramienta: Claude Code (Sonnet -- ya se volvió de Opus tras la decisión de arquitectura)
+Modelo: Sonnet
+Acción: Crear los 5 tickets de la arquitectura de deploy ya decidida (A: base URL relativa +
+`rewrites()`, B: guard de ruta para `/draft`, C: Basic Auth sobre toda la instancia cloud, D:
+Dockerfile + `railway.json` + volumen, E: `.env.example`) y ejecutarlos vía el ciclo normal
+(`@build` → `@redteam` → `@shipcheck`) antes de reintentar `/castoff`. Quedan 3 cosas abiertas que
+cada ticket relevante debe resolver, no asumidas: imagen base del Dockerfile (`apps/web` usa
+`npm`/`package-lock.json` hoy, no `bun`), el path exacto de la SQLite para el volumen, y que
+multi-tenancy real queda fuera de alcance (fase futura con su propio `/kickoff`).
 
-**Decisión 1 -- arquitectura de deploy (bloqueante para cualquier deploy real)**: hay que decidir
-cómo `apps/web` va a hablarle a `apps/engine` en Railway sin romper la regla de `127.0.0.1` (ej.
-¿un solo servicio con ambos procesos? ¿exponerlo solo a la red interna de Railway, nunca pública?
-¿un proxy?). Esto cumple un gatillo objetivo de la Política de Modelos de `CLAUDE.md` (cambio de
-trust boundary) -- se puede activar Opus puntualmente para esta decisión específica, vía
-`/compass`, si el usuario lo confirma explícitamente. Candidato natural para Claude Code (necesita
-todo el contexto de seguridad del proyecto), no para Codex.
-
-**Decisión 2 -- qué sigue después de "Draft en equipo"**: no hay ninguna fase nueva ya briefeada
-en este momento. Caminos reales, documentados desde antes y nunca cerrados, sin orden fijo:
-(a) el spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`) -- sigue sin correrse, es el
-único capturador de fase 1 nunca validado contra una partida real (hoy solo hay `simulator` y
-`manual`); (b) el adaptador OCR -- especificado como contrato en `architecture.md`, nunca
-construido, condicional a cómo salga el spike de Overwolf; (c) predicción de rol/posición del
-rival -- documentada como dependencia futura de STRATZ desde fase 1b, nunca priorizada; (d)
-cualquier idea nueva del usuario -- abrir un `/kickoff` propio si aparece.
+Caminos sin fecha, sin orden fijo, no bloqueantes: el spike de Overwolf (sigue sin correrse, único
+capturador de fase 1 nunca validado contra una partida real), el adaptador OCR (contrato
+especificado, nunca construido), predicción de rol/posición del rival (dependencia futura de
+STRATZ desde fase 1b, nunca priorizada).
 
 ## HISTORIAL (append-only, no se borra)
 - [inicio] Proyecto creado, sin fase completada todavía.

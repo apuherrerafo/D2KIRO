@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T04:11:39.526Z</title>
+<title>HUB del ecosistema — 2026-07-30T04:22:18.542Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -54,7 +54,7 @@
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: el usuario decide primero -- dos decisiones distintas, no una sola · Modelo: ver nota de Opus abajo ·  · **Decisión 1 -- arquitectura de deploy (bloqueante para cualquier deploy real)**: hay que decidir · cómo `apps/web` va a hablarle a `apps/engine` en Railway sin romper la regla de `127.0.0.1` (ej. · ¿un solo servicio con ambos procesos? ¿exponerlo solo a la red interna de Railway, nunca pública? · ¿un proxy?). Esto cumple un gatillo objetivo de la Política de Modelos de `CLAUDE.md` (cambio de · trust boundary) -- se puede activar Opus puntualmente para esta decisión específica, vía · `/compass`, si el usuario lo confirma explícitamente. Candidato natural para Claude Code (necesita · todo el contexto de seguridad del proyecto), no para Codex. ·  · **Decisión 2 -- qué sigue después de "Draft en equipo"**: no hay ninguna fase nueva ya briefeada · en este momento. Caminos reales, documentados desde antes y nunca cerrados, sin orden fijo: · (a) el spike de Overwolf (`scripts/spikes/overwolf-draft-probe/`) -- sigue sin correrse, es el · único capturador de fase 1 nunca validado contra una partida real (hoy solo hay `simulator` y · `manual`); (b) el adaptador OCR -- especificado como contrato en `architecture.md`, nunca · construido, condicional a cómo salga el spike de Overwolf; (c) predicción de rol/posición del · rival -- documentada como dependencia futura de STRATZ desde fase 1b, nunca priorizada; (d) · cualquier idea nueva del usuario -- abrir un `/kickoff` propio si aparece.</div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code (Sonnet -- ya se volvió de Opus tras la decisión de arquitectura) · Modelo: Sonnet · Acción: Crear los 5 tickets de la arquitectura de deploy ya decidida (A: base URL relativa + · `rewrites()`, B: guard de ruta para `/draft`, C: Basic Auth sobre toda la instancia cloud, D: · Dockerfile + `railway.json` + volumen, E: `.env.example`) y ejecutarlos vía el ciclo normal · (`@build` → `@redteam` → `@shipcheck`) antes de reintentar `/castoff`. Quedan 3 cosas abiertas que · cada ticket relevante debe resolver, no asumidas: imagen base del Dockerfile (`apps/web` usa · `npm`/`package-lock.json` hoy, no `bun`), el path exacto de la SQLite para el volumen, y que · multi-tenancy real queda fuera de alcance (fase futura con su propio `/kickoff`). ·  · Caminos sin fecha, sin orden fijo, no bloqueantes: el spike de Overwolf (sigue sin correrse, único · capturador de fase 1 nunca validado contra una partida real), el adaptador OCR (contrato · especificado, nunca construido), predicción de rol/posición del rival (dependencia futura de · STRATZ desde fase 1b, nunca priorizada).</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -527,14 +527,14 @@
           <div class="stat-nums">37× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
+          <div class="stat-name">blueprint</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">3× · 100% ok  </div>
+        </div>
+        <div class="stat-row">
           <div class="stat-name">launchpad</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
           <div class="stat-nums">2× · 50% ok  </div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
-          <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
@@ -561,6 +561,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-01T05:45</span></div>
+            <div class="feed-note">Activación puntual de Opus vía /compass (gatillo: cambio de trust boundary respecto a la regla de 127.0.0.1 de apps/engine -- confirmado por el usuario explícitamente, no en silencio). Subagente devops-architect con model:opus resolvió la arquitectura de deploy a Railway que /castoff había dejado bloqueada (evt-20260801-017). DECISIÓN: un solo servicio de Railway, dos procesos (apps/web + apps/engine juntos en un contenedor) -- apps/engine sigue atado a 127.0.0.1 SIN NINGÚN CAMBIO de código; apps/web deja de conocer la URL del engine (hoy NEXT_PUBLIC_ENGINE_HTTP_URL, horneada en el bundle del navegador) y pasa a llamar a su propio origen, que Next.js reenvía al engine local vía `rewrites()` con allowlist explícita de rutas (nunca comodín). Se descartó explícitamente la opción de dos servicios + networking privado de Railway: (a) el consumidor real es el navegador del usuario, que nunca puede resolver DNS interno de Railway -- igual habría que construir el mismo proxy, más un servicio extra; (b) la red privada de Railway opera sobre IPv6 (`::`), no existe forma de atarlo "solo a la interfaz privada" -- sería aflojar la garantía del proceso a una convención de plataforma. DOS HALLAZGOS REALES que refuerzan por qué la regla no puede aflojarse: `POST /api/session/manual` no tiene token ni rate limit (solo lo protege hoy el binding), y `GET /api/settings` devuelve el account_id de Steam sin autenticación -- un engine alcanzable desde fuera filtraría el primer dato personal del proyecto. También: `scripts/verify-simplicity.sh` NO tiene ninguna comprobación automática contra bindings a 0.0.0.0 -- la regla depende 100% de revisión humana/@redteam, ningún gate mecánico la hace cumplir (mejora futura a considerar). DECISIÓN DE ALCANCE: `/draft` (draft en vivo) queda EXPLÍCITAMENTE FUERA de este deploy, no "por ahora" sino como decisión arquitectónica permanente -- el motor de sugerencias vive y vivirá siempre en la misma red que el capturador real (regla de cero red en el camino caliente, presupuesto ≤1s), y además Next.js rewrites no proxean el upgrade de WebSocket (limitación real y vigente de Next, no una excusa). El deploy cloud sirve solo páginas de configuración (hero pool, equipos, catálogo). Guard de ruta antes de montar DraftView, con pantalla explicativa -- no agrega un 7mo estado a los 6 ya existentes. Mitigación adicional decidida: Basic Auth (crypto.timingSafeEqual, cero dependencias nuevas) protegiendo toda la instancia cloud (sitio + rutas proxeadas), instancia cloud arranca con SQLite VACÍA (nunca se sube la base local real con datos personales). 5 tickets identificados para ejecutar después (A: base URL relativa + rewrites, B: guard de /draft, C: Basic Auth, D: Dockerfile + railway.json + volumen, E: .env.example). 3 cosas dejadas explícitamente abiertas, no resueltas por el agente: imagen base del Dockerfile (bun vs node, apps/web usa npm/package-lock.json hoy), path exacto de la SQLite para el volumen (no leído), multi-tenancy real (fuera de alcance, fase futura con su propio /kickoff). Vuelve a Sonnet de inmediato -- esta fue la única activación puntual de Opus fuera de /blueprint en todo el proyecto hasta ahora, justificada por el gatillo objetivo de trust boundary.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">🔴</div>
           <div class="feed-body">
@@ -636,13 +643,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-08-01T02:10</span></div>
             <div class="feed-note">Modo manual. Ticket nuevo, decisión de diseño ya cerrada con el usuario durante el /kickoff de fase 2 (simulador primero, simple, visualmente parecido al lobby real). assigned_tool: claude-code (pieza chica, contexto fresco de la revisión de TSK-034 recién hecha, sin necesidad de otra ronda con Codex). state: backlog → doing directo. WIP=1 por claude-code libre.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-034</span> <span class="feed-ts">2026-08-01T02:00</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 commits (2 de 2 archivos cada uno, sin excepción; 1 de 19 archivos/1417 líneas, excepción documentada por adelantado en TSK-034.md). Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 34 tareas, 170 eventos. Primera vez en el proyecto que una feature completa llega vía Codex en vez de por tickets incrementales de Claude Code -- el patrón de revisión (verificación independiente, nunca confiar en el reporte de la otra herramienta) encontró 3 hallazgos reales, uno de ellos crítico (migración nunca aplicable en runtime real), que ninguna prueba automatizada podía haber detectado por sí sola.</div>
           </div>
         </div></div>
     </div>
