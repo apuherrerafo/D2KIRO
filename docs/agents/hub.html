@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-29T23:48:09.786Z</title>
+<title>HUB del ecosistema — 2026-07-30T00:22:32.028Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step step-active">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Codex (el usuario decidió llevarse el brief ahí, no se queda en Claude Code) · Modelo: estándar de Codex (equivalente a Sonnet del lado de OpenAI — esto es planificación, no · razonamiento profundo ni bug oculto; ver Política de Modelos en CLAUDE.md) · Acción: Con el brief ya armado ("dota2coach — Fase 2: Draft en equipo", Fase A + Fase B), pedirle · a Codex que primero proponga el diseño concreto (equivalente a `/pre-flight` -- qué tablas nuevas, · qué componentes, qué preguntas abiertas) antes de escribir código, usando el prompt autocontenido · que Claude Code le entregó en el chat. Fase C ("3 caminos completos de draft") queda fuera, · pendiente de su propia ronda de `/kickoff` después. Pendiente aparte, sin resolver: si el timer · de draft visible entra en esta fase o en otra -- no se retomó en las preguntas de kickoff.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: por decidir — dos caminos sin orden fijo · Modelo: Sonnet (Claude Code) si el timer, estándar de Codex si se sigue con Fase C · Acción: (1) Construir el timer visible del draft -- decisión ya tomada con el usuario: simulador · primero (no el draft real, que depende del spike de Overwolf sin correr todavía), simple, pero · visualmente parecido al lobby real de Dota 2 -- pieza chica, no necesita su propio `/kickoff`. (2) · Abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) -- la pieza más · grande e indefinida del pedido original, deliberadamente separada del resto.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">33</span></h2>
+        <h2>done <span class="count">34</span></h2>
         
         <div class="card  ">
           
@@ -434,6 +434,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-034</div>
+          <div class="card-title">Fase 2 (Draft en equipo): modo de party + equipos guardados + pools de compañeros</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -479,22 +489,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">53× · 51% ok  · 3 falló</div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:68%"></div></div>
-          <div class="stat-nums">36× · 39% ok  </div>
+          <div class="stat-nums">54× · 52% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:68%"></div></div>
-          <div class="stat-nums">36× · 92% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:69%"></div></div>
+          <div class="stat-nums">37× · 92% ok · 3 bloqueado </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">dispatch</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
+          <div class="stat-nums">36× · 39% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:64%"></div></div>
-          <div class="stat-nums">34× · 97% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
+          <div class="stat-nums">35× · 97% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">launchpad</div>
@@ -526,6 +536,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-034</span> <span class="feed-ts">2026-08-01T02:00</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 3 commits (2 de 2 archivos cada uno, sin excepción; 1 de 19 archivos/1417 líneas, excepción documentada por adelantado en TSK-034.md). Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 34 tareas, 170 eventos. Primera vez en el proyecto que una feature completa llega vía Codex en vez de por tickets incrementales de Claude Code -- el patrón de revisión (verificación independiente, nunca confiar en el reporte de la otra herramienta) encontró 3 hallazgos reales, uno de ellos crítico (migración nunca aplicable en runtime real), que ninguna prueba automatizada podía haber detectado por sí sola.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-034</span> <span class="feed-ts">2026-08-01T01:50</span></div>
+            <div class="feed-note">Gate de seguridad: PASS. apps/engine sigue atado únicamente a 127.0.0.1 (sin cambios al binding). Sin dato personal nuevo -- los pools de compañeros son texto/heroId a mano, sin cuenta de Steam de terceros, consistente con la decisión explícita tomada en /kickoff. teamBodyUsesKnownHeroes valida cada heroId contra el catálogo real antes de escribir (mismo estándar que hero_pool_fit/hero-pool). Consultas parametrizadas vía Drizzle en toda la superficie nueva, cero SQL concatenado. Sin dangerouslySetInnerHTML -- nombres de equipo/compañero son texto de React, escapados por defecto. Grep de patrón de secretos: sin coincidencias. Pasada 1 (Standards): partySize=4 explícitamente rechazado en 2 capas (isPartySize del lado del servidor + DRAFT_PARTY_SIZE_OPTIONS/PARTY_SIZE_OPTIONS del lado del cliente, ninguno ofrece 4 como opción), transaccional en las 3 operaciones de escritura (create/replace/delete, create+members o borrar+reinsertar, nunca a medias), arquitectura por features respetada (team-groups/{index,types,constants,Componente}.tsx, mismo patrón que hero-pool). Pasada 2 (Spec): las 6 piezas del brief de kickoff (Fase A + Fase B) están todas presentes y verificadas -- ritmo de bans corregido, tamaño de party 1/2/3/5, pools de compañeros a mano, equipos guardados localmente y editables, visibilidad durante el draft con baneados marcados aparte, sin sincronización entre clientes ni cuentas de terceros (fuera de alcance respetado). Hallazgos: los 3 ya documentados y corregidos en evt-20260801-004 (error de TypeScript real en apps/engine, bug de duplicado en handleSave, migración nunca registrada en el journal de Drizzle -- este último calificado como CRÍTICO, ya que sin corregirlo la feature entera habría fallado en runtime real pese a 183 pruebas en verde). Ningún hallazgo nuevo en esta pasada final. Veredicto: APPROVED, con nota: el hallazgo de la migración es el ejemplo más claro de esta sesión de por qué "los tests pasan" nunca reemplaza la verificación contra el sistema real -- ninguna prueba automatizada, ni las 183 que ya existían, podía detectar ese gap por cómo están diseñadas (DB en memoria, sin pasar por el migrador real).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-034</span> <span class="feed-ts">2026-08-01T01:40</span></div>
+            <div class="feed-note">Fase 2 (Draft en equipo) implementada en Codex a partir del brief de /kickoff (Tarea A: simulador sin pausa en baneos; Tarea B: modo de party + equipos guardados + pools de compañeros a mano). Codex propuso su propio diseño antes de codificar (2 tablas Drizzle normalizadas -- team_groups/team_members, endpoints CRUD siguiendo el patrón de hero-pool, componentes en apps/web/features/team-groups/ siguiendo el patrón de HeroPoolConfig.tsx) revisado por el usuario y Claude Code antes de aprobar la implementación (se agregó explícitamente el link faltante en NavBar, que Codex no había contemplado). Claude Code hizo su propia verificación independiente (no confió en el reporte de Codex) y encontró 3 hallazgos reales, los 3 corregidos antes de commitear: (1) error de TypeScript real en apps/engine/src/server/app.ts -- angostura de tipo de isPartySize perdida dentro de un closure de .every(), Codex nunca corrió tsc sobre apps/engine (solo reportó apps/web); (2) bug de UX en TeamGroupsConfig.tsx -- handleSave descartaba el resultado de createTeamGroup, un segundo "Guardar" sin recargar creaba un equipo duplicado en vez de actualizar; (3) HALLAZGO CRÍTICO -- la migración 0002_team_groups.sql (escrita a mano) nunca se registró en migrations/meta/_journal.json ni tenía snapshot -- drizzle-orm/bun-sqlite/migrator lee el journal para decidir qué aplicar, así que la migración real NUNCA se habría ejecutado contra la base de datos real pese a que las 183 pruebas pasaban en verde (los tests crean sus tablas a mano en SQLite en memoria, sin pasar por el migrador real -- ningún test podía detectar este gap por diseño). Corregido regenerando con `drizzle-kit generate` (SQL resultante idéntico byte a byte al de Codex, confirmando que el problema era puramente de registro) y aplicada de verdad contra data/dota2coach.sqlite -- verificado con consulta directa a sqlite_master y un CRUD real (POST 201, DELETE 204) contra el servidor vivo en 127.0.0.1:4000. Verificación final independiente: bun test 183/183 (engine) + 27/27 (web), bunx tsc --noEmit limpio en AMBAS apps (a diferencia del reporte de Codex), eslint limpio, grep de secretos sin coincidencias, /team-groups y /draft cargan sin crashear (SSR real). Commiteado en 3 unidades lógicas: Tarea A motor (2 archivos), Tarea A web (2 archivos), Tarea B completa (19 archivos, excepción de simplicidad documentada en TSK-034.md -- feature completa entregada como una sola unidad por herramienta externa, mismo criterio que la excepción de scaffolding de TSK-001).</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -587,27 +618,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:35</span></div>
             <div class="feed-note">Gate de seguridad: PASS (cambio puramente de datos, sin I/O nuevo, sin input externo, sin secretos -- grep limpio; cero cambios a player.ts/reductor). Pasada 1 (Standards): sin abstracciones de más -- es literalmente el mismo patrón de evento que ya usaba el guion (mismo delayMs, misma forma), sin inventar un nuevo campo ni una nueva estructura. Pasada 2 (Spec): recalculado a mano el total (2 originales + 14 nuevos = 16, dentro de 14-18) y verificado que ningún heroId nuevo (100-113) colisiona con los picks del mismo guion ({18,19,20,21,23,24,25,26,27,28,30}) ni con los 2 bans originales (11,22) -- ningún duplicado en todo el guion. Confirmado que ambos espejos (apps/engine/src/simulator/scripts.json y apps/web/features/draft/simulator-scripts.ts) quedaron carácter por carácter equivalentes en la lista de eventos agregada (mismo heroId, mismo side, mismo delayMs en el mismo orden) -- un desincronismo entre ambos habría sido peor que no tocar ninguno, ya que un guion cambia lo que ve el usuario y el otro solo lo que ve un test. captainsMode intacto (fuera de alcance, confirmado por diff -- 0 líneas tocadas en ese bloque). Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:20</span></div>
-            <div class="feed-note">Agregados 14 eventos hero_banned al guion allPick en AMBOS espejos (apps/engine/src/simulator/scripts.json y apps/web/features/draft/simulator-scripts.ts, ver hallazgo de alcance en evt-060) -- heroId 100 a 113, alternando dire/radiant/unknown (mismo patrón de reparto que ya usa el guion), delayMs:1500 idéntico al de los 2 bans existentes, insertados entre los bans originales (11 radiant, 22 unknown) y el primer hero_picked. Total: 16 bans (dentro del rango 14-18 pedido). Ningún heroId nuevo colisiona con los picks ya existentes del mismo guion ({18,19,20,21,23,24,25,26,27,28,30}) ni con los 2 bans originales -- verificado a mano contra el guion completo antes de escribir. Verificado: bun test en apps/engine (169 pass, 0 fail, sin cambios necesarios -- ninguna prueba asume una cantidad exacta de bans) y en apps/web (27 pass, 0 fail, mismo resultado). bunx tsc --noEmit limpio en ambas apps, eslint limpio en apps/web. Cero cambios a player.ts ni al reductor (fuera de alcance explícito del ticket, respetado). El guion captainsMode no se tocó. TSK-031 sigue en state: doing, pasa a autorevisión adversarial antes de @shipcheck.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-031</span> <span class="feed-ts">2026-07-29T23:10</span></div>
-            <div class="feed-note">Modo manual, último ticket del feedback de producto en curso (TSK-030 ya done). preferred_tool era codex -- assigned_tool se conserva en claude-code, mismo criterio de todo este bloque de tickets (evita repetir el patrón de créditos agotados 2/2 ya confirmado en TSK-002/003 al inicio del proyecto, y este hallazgo de alcance necesita el contexto completo). state: backlog → doing. WIP=1 por claude-code libre. HALLAZGO DE ALCANCE antes de tocar código, análogo al de TSK-029 (evt-051): el ticket dice literalmente "editar apps/engine/src/simulator/scripts.json", pero ese archivo NO se lee en runtime por ningún camino de producción -- grep confirma que el único consumidor es apps/engine/src/simulator/player.test.ts (fixture de prueba). El simulador que el usuario realmente usa en el navegador corre 100% en apps/web (simulator-scripts.ts + simulator.ts + DraftSetupPanel.tsx, TSK-016/028), que mantiene su propio guion mirror a mano (documentado en su propio header: "mismo patrón de sincronización a mano que types.ts"). Editar solo scripts.json de apps/engine no cambiaría nada de lo que el usuario ve -- el reporte real ("no me da los bans suficientes") solo se resuelve tocando TAMBIÉN apps/web/features/draft/simulator-scripts.ts con el mismo guion ampliado, manteniendo ambos espejos sincronizados como ya exige su propio comentario de cabecera. Decisión: se editan ambos archivos, no solo el nombrado literalmente en el ticket -- se documenta aquí por transparencia, no se oculta como si el ticket lo hubiera pedido tal cual. Verificado antes de escribir: ni apps/engine/src/simulator/player.test.ts ni apps/web/features/draft/simulator.test.ts hacen ninguna aserción sobre la cantidad exacta de eventos hero_banned de allPick (solo sobre picks, longitud total relativa a events.length, y filtros por tipo/lado) -- agregar bans no debería romper ninguna prueba existente.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-030</span> <span class="feed-ts">2026-07-29T23:00</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS (foco en dato personal, ver evt-058). verify-simplicity.sh: 2 archivos/27 líneas -- dentro de ambos límites, sin excepción. Sin dependencias nuevas, sin funciones innecesarias. `bun scripts/hub.ts` regenerado: 31 tareas, 156 eventos.</div>
           </div>
         </div></div>
     </div>
