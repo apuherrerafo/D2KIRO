@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-30T15:15:53.934Z</title>
+<title>HUB del ecosistema — 2026-07-30T19:41:02.524Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">1</span></h2>
-        
-        <div class="card  ">
-          
-          <div class="card-id">TSK-040</div>
-          <div class="card-title">Deploy D -- Dockerfile + railway.json + volumen para la SQLite</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
+        <h2>backlog <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -150,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">40</span></h2>
+        <h2>done <span class="count">41</span></h2>
         
         <div class="card  ">
           
@@ -484,6 +474,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-040</div>
+          <div class="card-title">Deploy D -- Dockerfile + railway.json + volumen para la SQLite</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-041</div>
           <div class="card-title">Deploy E -- .env.example (nunca existió)</div>
           <div class="card-meta">
@@ -559,22 +559,22 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">62× · 58% ok  · 3 falló</div>
+          <div class="stat-nums">63× · 57% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:71%"></div></div>
-          <div class="stat-nums">44× · 93% ok · 3 bloqueado </div>
+          <div class="stat-nums">45× · 93% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
-          <div class="stat-nums">41× · 34% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
+          <div class="stat-nums">42× · 33% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:65%"></div></div>
-          <div class="stat-nums">40× · 98% ok · 1 bloqueado </div>
+          <div class="stat-nums">41× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
@@ -611,6 +611,34 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-040</span> <span class="feed-ts">2026-08-01T09:45</span></div>
+            <div class="feed-note">Gate de seguridad: PASS. Confirmado por lectura que el Dockerfile nunca copia apps/engine/data (la SQLite local real del usuario nunca se hornea en la imagen -- solo código fuente explícito). Sin secretos en ningún archivo del diff -- CAPTURE_TOKEN/SITE_ACCESS_USER/PASSWORD usados en los docker run de prueba son valores efímeros pasados por -e en la terminal del usuario, nunca escritos a ningún archivo del repo. apps/engine sigue atado a 127.0.0.1 sin cambios (confirmado en TSK-039, sin tocar en este ticket). Verificación real completa por el usuario, con las credenciales corregidas de la sesión de PowerShell 5.1 (problema de escaping de comillas al pasarle JSON a curl.exe -- no un bug del código del proyecto, resuelto escribiendo el body a un archivo temporal y usando --data @archivo): docker build limpio (25/25 pasos, sin error); GET /healthz -> 200 {"ok":true,"next":"ok","engine":"ok"} (migración aplicada, ambos procesos respondiendo); PUT /engine/api/settings con Basic Auth -> 200, dato guardado; docker stop + docker run de nuevo (simulando un redeploy real) -> GET /healthz sigue en 200, y el dato guardado (deploy_smoke=persisted) SIGUE PRESENTE -- confirma que el volumen montado en /data persiste entre reinicios del contenedor, el criterio más importante del ticket. Los 3 criterios de aceptación literales de TSK-040 verificados con evidencia real, no solo revisión de código. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-040</span> <span class="feed-ts">2026-08-01T09:15</span></div>
+            <div class="feed-note">Implementado por Codex: Dockerfile en la raíz (instala ambos runtimes -- Node/npm para apps/web, Bun para apps/engine -- decisión ya cerrada; copia solo archivos fuente explícitos, nunca apps/engine/data, así la imagen nunca hornea la SQLite local real; npm run build en build time), scripts/start-railway.sh (migración en runtime, engine en background, polling real a /api/health con 60 reintentos y detección temprana de crash, luego apps/web), railway.json (builder DOCKERFILE, healthcheck /healthz, restart ON_FAILURE x10). Claude Code revisó el código completo por lectura (sin Docker disponible en su entorno, confirmado y acordado con el usuario antes de dispatchear) y encontró un bug real: el script terminaba con `exec npm run start ...`, que reemplaza el proceso bash y descarta el `trap cleanup INT TERM EXIT` ya definido -- en un redeploy real de Railway, el proceso de apps/engine en background quedaría huérfano, sin recibir el intento de apagado limpio, dependiendo solo del SIGKILL duro del contenedor tras el timeout. Corregido: ambos procesos (engine y web) ahora se lanzan en background con PID propio, `wait -n` espera a que cualquiera termine, y el `trap` sigue vivo para matar a ambos. Verificación empírica con bash real (sí disponible) de que el fix es correcto bajo `set -eu`: un primer intento de corrección tenía un bug sutil (un `kill` fallido dentro de una cadena `&&` aborta la función completa por errexit, dejando sin matar al segundo proceso) -- detectado con un script de prueba aislado antes de aplicar la versión final, confirmada con 3 pruebas dirigidas (kill exitoso, cortocircuito por PID vacío, kill fallido con guardia). `bash -n` limpio, LF confirmado, railway.json parsea como JSON válido. verify-simplicity.sh limpio (3 archivos, sin secretos). PENDIENTE: docker build/docker run reales los corre el usuario (sin Docker en este entorno) -- comandos entregados, ticket NO se marca done hasta su confirmación.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-040</span> <span class="feed-ts">2026-08-01T09:00</span></div>
+            <div class="feed-note">Modo manual. TSK-037/038/039/041 done, WIP=1 por codex libre. Último ticket del bloque de deploy. Hallazgo antes de dispatchear: Claude Code no tiene Docker disponible en su entorno (ni bash ni PowerShell) -- no puede correr docker build/docker run como exige la aceptación del ticket. Consultado con el usuario vía pregunta explícita: decide correr él mismo docker build/run con los comandos exactos que se le entreguen al cierre; Claude Code revisa el código por lectura (Dockerfile/start-railway.sh/railway.json) pero el ticket no se marca done sin esa confirmación real del usuario -- mismo estándar de "nunca cerrar sobre un reporte sin verificación real" del resto de la sesión. Nota agregada al cuerpo del ticket. state: backlog → doing. Prompt autocontenido entregado al usuario para pasarle a Codex.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:55</span></div>
+            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 1 commit de 1 archivo, sin excepción necesaria. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 41 tareas, 199 eventos. Cuarto ticket del bloque de deploy (TSK-037/038/039/041 done) -- solo falta TSK-040 (Dockerfile + railway.json) antes de poder reintentar /castoff.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -665,34 +693,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:40</span></div>
             <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits de 3 archivos cada uno, sin excepción necesaria. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 41 tareas, 191 eventos. Segundo ticket del bloque de deploy (TSK-037/038 done) -- sigue TSK-039 (Basic Auth) según el orden acordado 037→038→039→041→040.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:35</span></div>
-            <div class="feed-note">Gate de seguridad: PASS. Sin superficie nueva de red ni cambio a bindings -- guard es puro control de render del lado de `apps/web`, `apps/engine` no se toca. Sin dato personal nuevo. Pasada 1 (Standards): `isDraftLiveEnabled` es función pura e inyectable (mismo patrón que `buildNavLinks`), extracción limpia sin lógica de más en el componente. Pasada 2 (Spec): las 3 aceptaciones literales de TSK-038 verificadas contra servidor real -- `DRAFT_LIVE_ENABLED=false` nunca monta `DraftView` ni abre WebSocket (confirmado visualmente); sin definir la variable, comportamiento idéntico al actual (regresión cero, 36/36 + verificación manual); `NavBar` nunca lleva a una pantalla sin explicación (relabel "Draft local" verificado sitio-completo). Sin hallazgos nuevos. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:30</span></div>
-            <div class="feed-note">Implementado por Codex (`live-config.ts` con `isDraftLiveEnabled` pura/inyectable, default `true`; guard en `app/draft/page.tsx` vía `connection()` + `export const dynamic = "force-dynamic"` antes de montar `DraftView`, con pantalla explicativa; `NavBar` refactorizado a `buildNavLinks(draftLiveEnabled)` pura, relabel a "Draft local" cuando está apagado; `layout.tsx` fuerza render dinámico a nivel raíz y pasa `isDraftLiveEnabled()` al `NavBar`). Claude Code verificó de forma independiente: lectura completa de los 6 archivos confirmando que no se agregó un 7mo estado a los 6 ya existentes de la vista de draft, `npx tsc --noEmit` limpio, `bun run lint` limpio, `bun test` 36/36 (web) + 196/196 (engine, sin tocar). Verificación con servidores reales en ambos estados: con `DRAFT_LIVE_ENABLED` sin definir, `/draft` muestra la vista normal "Desconectado" (regresión cero); con `DRAFT_LIVE_ENABLED=false`, `/draft` muestra la pantalla "Draft en vivo local" explicativa y el `NavBar` en el sitio completo (confirmado también desde `/`) muestra "Draft local" -- validando que el `force-dynamic` a nivel de layout raíz evita que la etiqueta quede congelada en el build estático. Sin hallazgos nuevos esta ronda. Commiteado en 2 unidades lógicas (guard de `/draft`, `NavBar`+`layout`).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-038</span> <span class="feed-ts">2026-08-01T07:00</span></div>
-            <div class="feed-note">Modo manual. Confirmado que TSK-038 seguía en backlog (Codex solo había entregado TSK-037). assigned_tool: codex (ya asignado desde la creación). state: backlog → doing. WIP=1 por codex libre (TSK-037 ya done). Prompt autocontenido entregado al usuario para pasarle a Codex.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-037</span> <span class="feed-ts">2026-08-01T06:55</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 2 commits de 3 archivos cada uno, sin excepción necesaria. Sin dependencias nuevas. `bun scripts/hub.ts` regenerado: 41 tareas, 187 eventos. Primer ticket del bloque de deploy (TSK-037 a TSK-041) cerrado -- sigue TSK-038 (guard de /draft).</div>
           </div>
         </div></div>
     </div>
