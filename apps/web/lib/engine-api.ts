@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import type { DraftPathSet } from "@/features/draft-paths/types";
 import type { CalculatePoolResult, HeroPoolEntry, HeroPoolPutEntry } from "@/features/hero-pool/types";
 import type { TeamGroupEntry, TeamGroupPutBody } from "@/features/team-groups/types";
 
@@ -27,7 +28,7 @@ export interface SettingEntry {
 export const engineApi = createApi({
   reducerPath: "engineApi",
   baseQuery: fetchBaseQuery({ baseUrl: ENGINE_HTTP_URL }),
-  tagTypes: ["MetaStatus", "Settings", "HeroPool", "TeamGroups"],
+  tagTypes: ["MetaStatus", "Settings", "HeroPool", "TeamGroups", "DraftPaths"],
   endpoints: (builder) => ({
     getMetaStatus: builder.query<MetaStatus, void>({
       query: () => "/api/meta/status",
@@ -78,6 +79,10 @@ export const engineApi = createApi({
       query: (id) => ({ url: `/api/team-groups/${id}`, method: "DELETE" }),
       invalidatesTags: ["TeamGroups"],
     }),
+    getDraftPaths: builder.query<DraftPathSet, string>({
+      query: (sessionId) => `/api/session/${encodeURIComponent(sessionId)}/draft-paths`,
+      providesTags: ["DraftPaths"],
+    }),
   }),
 });
 
@@ -94,4 +99,5 @@ export const {
   useCreateTeamGroupMutation,
   useUpdateTeamGroupMutation,
   useDeleteTeamGroupMutation,
+  useGetDraftPathsQuery,
 } = engineApi;

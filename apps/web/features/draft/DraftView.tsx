@@ -7,6 +7,7 @@ import { DraftSetupPanel } from "@/components/draft-setup-panel/DraftSetupPanel"
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
 import { PartyPoolPanel } from "@/components/party-pool-panel/PartyPoolPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
+import { DraftPathsCoverFlow } from "@/features/draft-paths";
 import type { DraftTeamGroup } from "@/features/team-groups/types";
 import { DEGRADATION_LABELS, SCREEN_STATE_GUIDANCE } from "./constants";
 import { createDraftSocket } from "./socket";
@@ -69,6 +70,7 @@ function CaptureLostBanner({ onOpenManualEntry }: CaptureLostBannerProps) {
 }
 
 interface ActiveDraftStateProps {
+  sessionId: string;
   draftState: DraftState;
   suggestions: SuggestionSet | null;
   partyContext: DraftTeamGroup | null;
@@ -76,7 +78,7 @@ interface ActiveDraftStateProps {
   onOpenManualEntry: () => void;
 }
 
-function ActiveDraftState({ draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
+function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
   const primary = suggestions?.suggestions.find((s) => s.rank === 1);
   const alternatives = suggestions?.suggestions.filter((s) => s.rank !== 1) ?? [];
 
@@ -84,6 +86,7 @@ function ActiveDraftState({ draftState, suggestions, partyContext, heroCatalog, 
     <div className="flex flex-col gap-4">
       <StateGuidance state="activo" />
       {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
+      <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
         <div className="flex flex-col gap-3">
@@ -102,6 +105,7 @@ function ActiveDraftState({ draftState, suggestions, partyContext, heroCatalog, 
 }
 
 interface DegradedDraftStateProps {
+  sessionId: string;
   draftState: DraftState;
   suggestions: SuggestionSet;
   partyContext: DraftTeamGroup | null;
@@ -109,7 +113,7 @@ interface DegradedDraftStateProps {
   onOpenManualEntry: () => void;
 }
 
-function DegradedDraftState({ draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
+function DegradedDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
   return (
     <div className="flex flex-col gap-4">
       <StateGuidance state="degradado" />
@@ -120,7 +124,14 @@ function DegradedDraftState({ draftState, suggestions, partyContext, heroCatalog
           </span>
         ))}
       </div>
-      <ActiveDraftState draftState={draftState} suggestions={suggestions} partyContext={partyContext} heroCatalog={heroCatalog} onOpenManualEntry={onOpenManualEntry} />
+      <ActiveDraftState
+        sessionId={sessionId}
+        draftState={draftState}
+        suggestions={suggestions}
+        partyContext={partyContext}
+        heroCatalog={heroCatalog}
+        onOpenManualEntry={onOpenManualEntry}
+      />
     </div>
   );
 }
@@ -188,6 +199,7 @@ function DisconnectedState({ draftState, heroCatalog, onReconnect }: Disconnecte
 }
 
 interface DraftViewBodyProps {
+  sessionId: string;
   screenState: ScreenState;
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
@@ -211,6 +223,7 @@ function DraftViewBody(props: DraftViewBodyProps) {
       return (
         <ActiveDraftState
           draftState={props.draftState!}
+          sessionId={props.sessionId}
           suggestions={props.suggestions}
           partyContext={props.partyContext}
           heroCatalog={props.heroCatalog}
@@ -221,6 +234,7 @@ function DraftViewBody(props: DraftViewBodyProps) {
       return (
         <DegradedDraftState
           draftState={props.draftState!}
+          sessionId={props.sessionId}
           suggestions={props.suggestions!}
           partyContext={props.partyContext}
           heroCatalog={props.heroCatalog}
@@ -300,6 +314,7 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
     <div className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
       <DraftViewBody
         screenState={screenState}
+        sessionId={sessionId}
         draftState={draftState}
         suggestions={suggestions}
         partyContext={partyContext}
