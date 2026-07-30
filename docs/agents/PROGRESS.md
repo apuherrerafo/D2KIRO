@@ -1,21 +1,21 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-`/kickoff` de fase 2 (Draft en equipo) completado — brief generado, todavía sin `/pre-flight`.
-Fase 1b sigue completa y validada (ver historial). Además, un bloque de 7 tickets de feedback
-directo de producto (TSK-027 a TSK-033) encontrado y cerrado desde entonces, incluido uno
-(TSK-033) descubierto y resuelto en vivo durante una sesión de QA manual del usuario.
+Fase 2 (Draft en equipo), Tareas A y B **completas** (TSK-034, done): el simulador ya no pausa
+entre baneos, y existe modo de party (1/2/3/5, nunca 4) con equipos guardados localmente y pools
+de compañeros a mano, visibles durante el draft. Construida en Codex a partir del brief de
+`/kickoff`, revisada de forma independiente por Claude Code (3 hallazgos reales corregidos antes
+de cerrar, uno crítico: la migración nunca se había registrado y no se habría aplicado en
+runtime real). Fase 1b y el bloque de feedback TSK-027 a TSK-033 siguen completos (ver historial).
 
 ## SIGUIENTE PASO
-Herramienta: Codex (el usuario decidió llevarse el brief ahí, no se queda en Claude Code)
-Modelo: estándar de Codex (equivalente a Sonnet del lado de OpenAI — esto es planificación, no
-razonamiento profundo ni bug oculto; ver Política de Modelos en CLAUDE.md)
-Acción: Con el brief ya armado ("dota2coach — Fase 2: Draft en equipo", Fase A + Fase B), pedirle
-a Codex que primero proponga el diseño concreto (equivalente a `/pre-flight` -- qué tablas nuevas,
-qué componentes, qué preguntas abiertas) antes de escribir código, usando el prompt autocontenido
-que Claude Code le entregó en el chat. Fase C ("3 caminos completos de draft") queda fuera,
-pendiente de su propia ronda de `/kickoff` después. Pendiente aparte, sin resolver: si el timer
-de draft visible entra en esta fase o en otra -- no se retomó en las preguntas de kickoff.
+Herramienta: por decidir — dos caminos sin orden fijo
+Modelo: Sonnet (Claude Code) si el timer, estándar de Codex si se sigue con Fase C
+Acción: (1) Construir el timer visible del draft -- decisión ya tomada con el usuario: simulador
+primero (no el draft real, que depende del spike de Overwolf sin correr todavía), simple, pero
+visualmente parecido al lobby real de Dota 2 -- pieza chica, no necesita su propio `/kickoff`. (2)
+Abrir `/kickoff` de Fase C ("3 caminos completos de draft" tipo álbum/cover-flow) -- la pieza más
+grande e indefinida del pedido original, deliberadamente separada del resto.
 
 ## HISTORIAL (append-only, no se borra)
 - [inicio] Proyecto creado, sin fase completada todavía.
@@ -33,3 +33,4 @@ de draft visible entra en esta fase o en otra -- no se retomó en las preguntas 
 - [2026-07-29] Verificación visual real completada: se levantó apps/engine (migración hero_pool aplicada a la base de datos real, no una de prueba) y apps/web en local, con smoke test de curl confirmando el flujo completo del backend (GET/PUT /api/hero-pool persistiendo de verdad, POST /calculate validando accountId). El usuario probó "calcular desde mis partidas" con su cuenta real de Steam y confirmó que los héroes propuestos hacen sentido con su historial real -- primera validación de extremo a extremo por una persona, no solo por tests automatizados. Fase 1b queda completa y validada.
 - [2026-07-29/2026-08-01] Bloque de feedback directo de producto (TSK-027 a TSK-032) ejecutado completo vía /dispatch → @build → @redteam → @shipcheck: señal role_safety + SCORING_WEIGHTS_V3 (prioriza support en los primeros 2 picks propios), simulador personalizado al hero pool del usuario con fallback al guion original, home real + navegación compartida entre las 5 pantallas del sitio, persistencia del account_id de Steam, guion de bans de All Pick ampliado de 2 a 16, y comparación explícita entre el pick #1 y #2 ("le gana a X por Y"). Once hallazgos reales de @redteam corregidos en el camino (ninguno bloqueante más de 1 ronda). Cerrado con una sesión de QA manual guiada paso a paso del usuario contra los servidores reales, que encontró un gap real más (TSK-033: el mensaje "probá ampliar la ventana" no tenía ningún control detrás) -- resuelto en el mismo momento, mismo ciclo completo aplicado dentro de la sesión de prueba.
 - [2026-08-01] /kickoff de fase 2 (Draft en equipo) completado, disparado por feedback del usuario a mitad de la sesión de QA: modo de equipo (solo/2/3/5, nunca 4 -- restricción real de Dota 2), hero pools de compañeros cargados a mano (sin cuenta de Steam de terceros, decisión explícita para no abrir el tema de datos personales de más de una persona todavía), presets de equipo guardados localmente en la misma SQLite, y el simulador dejando de pausar entre baneos. Separado a propósito de una pieza mucho más grande e indefinida ("3 caminos completos de draft" tipo álbum) que el usuario prefirió no mezclar "porque se puede prestar a confusiones" -- queda documentada, pendiente de su propio /kickoff. El usuario decidió llevarse el brief a Codex en vez de continuar con /pre-flight en Claude Code.
+- [2026-08-01] TSK-034 completado: Codex propuso su propio diseño (2 tablas Drizzle, endpoints CRUD, componentes siguiendo el patrón de hero-pool) antes de codificar -- revisado por el usuario y Claude Code (se agregó el link de NavBar que faltaba) antes de aprobar. Implementado y reportado en verde por Codex (183+27 pruebas). Claude Code hizo su propia verificación independiente, sin confiar en el reporte, y encontró 3 hallazgos reales: un error de TypeScript real en apps/engine que Codex nunca detectó (no corrió tsc ahí), un bug de UX que duplicaba equipos al guardar dos veces sin recargar, y un hallazgo CRÍTICO -- la migración de la tabla nueva nunca se había registrado en el journal de Drizzle, así que jamás se habría aplicado contra la base de datos real pese a que todas las pruebas pasaban (los tests usan una DB en memoria que no pasa por el migrador real, ningún test podía detectar esto por diseño). Los 3 corregidos, migración aplicada de verdad y confirmada contra data/dota2coach.sqlite, CRUD real verificado contra el servidor vivo. Decidida también, por separado, la resolución del timer visible del draft (pendiente de construir): simulador primero, simple, visualmente parecido al lobby real de Dota.
