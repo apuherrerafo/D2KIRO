@@ -94,7 +94,8 @@ export async function runSimulatorPlayback(envelopes: SimulatorEnvelope[], opts:
 
   for (const envelope of envelopes) {
     if (opts.isCancelled?.()) return;
-    if (envelope.delayMs > 0) await sleep(envelope.delayMs / opts.speed);
+    const delayMs = envelope.payload.type === "hero_banned" ? 0 : envelope.delayMs;
+    if (delayMs > 0) await sleep(delayMs / opts.speed);
     if (opts.isCancelled?.()) return;
     await opts.post(opts.sessionId, envelope.seq, envelope.payload);
   }

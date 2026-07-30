@@ -86,7 +86,7 @@ describe("buildSimulatorEnvelopes", () => {
 });
 
 describe("runSimulatorPlayback", () => {
-  test("emite en orden, esperando delayMs/speed entre cada evento", async () => {
+  test("emite en orden: los baneos no esperan, los picks conservan delayMs/speed", async () => {
     const envelopes = buildSimulatorEnvelopes(allPick);
     const sleepCalls: number[] = [];
     const posted: { sessionId: string; seq: number }[] = [];
@@ -105,7 +105,7 @@ describe("runSimulatorPlayback", () => {
 
     expect(posted).toHaveLength(envelopes.length);
     expect(posted.map((p) => p.seq)).toEqual(envelopes.map((e) => e.seq));
-    const expectedDelays = envelopes.filter((e) => e.delayMs > 0).map((e) => e.delayMs / 2);
+    const expectedDelays = envelopes.filter((e) => e.payload.type !== "hero_banned" && e.delayMs > 0).map((e) => e.delayMs / 2);
     expect(sleepCalls).toEqual(expectedDelays);
   });
 
