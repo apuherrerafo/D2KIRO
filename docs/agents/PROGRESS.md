@@ -1,40 +1,50 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-"Draft en equipo" **completa entera y validada**: Fase A/B (TSK-034), timer del simulador
-(TSK-035) y Fase C -- caminos de draft (TSK-036) -- los 3 bloques hechos y cerrados.
-`capabilities.json` ampliado de 55 a 124/127 héroes (2026-08-01, revisión propia de Claude Code
-sobre el borrador de Codex) -- solo quedan sin dato 3 héroes muy recientes (Kez, Largo,
-Ringmaster), a propósito, por falta de conocimiento confiable. Fase 1b y el bloque de feedback
-TSK-027 a TSK-033 siguen completos (ver historial).
+**Deploy completo, validado y en producción real.** dota2coach corre en Railway:
+https://d2kiro-production.up.railway.app (proyecto "wonderful-embrace", servicio "D2KIRO",
+auto-deploy activado sobre `master`). Los 5 tickets de la arquitectura de deploy (TSK-037 a
+TSK-041) se ejecutaron, verificaron y cerraron completos, y el primer `/castoff` real (que se
+había detenido en 2026-08-01 por falta de `.env.example` y el hallazgo de arquitectura de
+`127.0.0.1`, ver evt-20260801-017/018) se reintentó y **pasó de punta a punta con verificación real
+contra la instancia pública**, no solo revisión de código: `/healthz` sano sin auth, Basic Auth
+real exigido en el resto del sitio, `/draft` correctamente deshabilitado en la nube ("Draft local"
+en el NavBar, nunca intenta WebSocket), proxy hacia el motor funcionando, y sincronización real con
+OpenDota trayendo los ~126 héroes tras un clic manual en "Sincronizar ahora" (la SQLite de la nube
+arranca vacía a propósito).
 
-Se intentó `/castoff` (2026-08-01) y se detuvo en el paso de variables de entorno -- ver
-`journal.md` evt-20260801-017. La arquitectura de deploy ya se **decidió** (evt-20260801-018,
-única activación puntual de Opus fuera de `/blueprint` en todo el proyecto, gatillo de cambio de
-trust boundary, confirmado explícitamente por el usuario): un solo servicio de Railway con ambos
-procesos juntos, `apps/engine` sigue atado a `127.0.0.1` **sin ningún cambio de código** --
-`apps/web` deja de conocer la URL del engine y la reenvía vía `rewrites()` con allowlist explícita
-de rutas. `/draft` (draft en vivo) queda **explícitamente fuera de este deploy para siempre**, no
-"por ahora" -- el motor de sugerencias vive donde vive el capturador real, y Next.js rewrites no
-proxean WebSocket. El deploy cloud sirve solo páginas de configuración, detrás de Basic Auth,
-con SQLite vacía (nunca se sube la base local real). 5 tickets identificados (A-E, ver journal)
-todavía sin crear ni ejecutar.
+En el camino, Sentinel (gate de seguridad de `/castoff`) encontró y se corrigió un hallazgo real:
+`proxy.ts` dejaba pasar tráfico sin autenticación (fail-open) si faltaban las variables de Basic
+Auth -- correcto para uso local, peligroso en el contenedor de deploy. Se agregó un bloqueo
+fail-closed en `scripts/start-railway.sh`, verificado en vivo. También se resolvieron 3 problemas
+de infraestructura ajenos al código del motor (commits nunca subidos a GitHub, `next-env.d.ts`
+gitignored rompiendo el build de Railway, la app de GitHub de Railway nunca instalada +
+auto-deploy apagado) -- documentados en `journal.md` evt-20260801-040/041 y en memoria del usuario
+para no repetirlos.
+
+Fase 1b, el bloque de feedback TSK-027 a TSK-033, y "Draft en equipo" completo (Fase A/B/C,
+TSK-034 a TSK-036) siguen completos (ver historial).
 
 ## SIGUIENTE PASO
-Herramienta: Claude Code (Sonnet -- ya se volvió de Opus tras la decisión de arquitectura)
-Modelo: Sonnet
-Acción: Crear los 5 tickets de la arquitectura de deploy ya decidida (A: base URL relativa +
-`rewrites()`, B: guard de ruta para `/draft`, C: Basic Auth sobre toda la instancia cloud, D:
-Dockerfile + `railway.json` + volumen, E: `.env.example`) y ejecutarlos vía el ciclo normal
-(`@build` → `@redteam` → `@shipcheck`) antes de reintentar `/castoff`. Quedan 3 cosas abiertas que
-cada ticket relevante debe resolver, no asumidas: imagen base del Dockerfile (`apps/web` usa
-`npm`/`package-lock.json` hoy, no `bun`), el path exacto de la SQLite para el volumen, y que
-multi-tenancy real queda fuera de alcance (fase futura con su propio `/kickoff`).
+Herramienta: (a decidir por el usuario)
+Modelo: (a decidir por el usuario)
+Acción: No hay ninguna tarea técnica obligatoria pendiente -- el producto está en producción y
+funcionando. Lo que sigue es una decisión de producto, no de ingeniería: elegir cuál de los
+caminos ya identificados y sin fecha se prioriza (o ninguno, y el proyecto queda en modo
+mantenimiento). Cualquiera de ellos arranca con `/kickoff` cuando el usuario lo decida:
+- El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una
+  partida real de Dota 2).
+- El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido).
+- Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase
+  1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo).
+- La pieza más grande y deliberadamente diferida del brainstorm original de "Fase C": el sistema
+  combinatorial completo de caminos de draft (eje de timing, forma de recursos, win conditions
+  primaria+secundaria) -- la v1 ya construida (TSK-036) solo cubrió el eje de plan macro, a
+  propósito, por decisión explícita del usuario de mantener el alcance acotado.
 
-Caminos sin fecha, sin orden fijo, no bloqueantes: el spike de Overwolf (sigue sin correrse, único
-capturador de fase 1 nunca validado contra una partida real), el adaptador OCR (contrato
-especificado, nunca construido), predicción de rol/posición del rival (dependencia futura de
-STRATZ desde fase 1b, nunca priorizada).
+Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile
+(imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron
+todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.
 
 ## HISTORIAL (append-only, no se borra)
 - [inicio] Proyecto creado, sin fase completada todavía.
@@ -53,3 +63,4 @@ STRATZ desde fase 1b, nunca priorizada).
 - [2026-07-29/2026-08-01] Bloque de feedback directo de producto (TSK-027 a TSK-032) ejecutado completo vía /dispatch → @build → @redteam → @shipcheck: señal role_safety + SCORING_WEIGHTS_V3 (prioriza support en los primeros 2 picks propios), simulador personalizado al hero pool del usuario con fallback al guion original, home real + navegación compartida entre las 5 pantallas del sitio, persistencia del account_id de Steam, guion de bans de All Pick ampliado de 2 a 16, y comparación explícita entre el pick #1 y #2 ("le gana a X por Y"). Once hallazgos reales de @redteam corregidos en el camino (ninguno bloqueante más de 1 ronda). Cerrado con una sesión de QA manual guiada paso a paso del usuario contra los servidores reales, que encontró un gap real más (TSK-033: el mensaje "probá ampliar la ventana" no tenía ningún control detrás) -- resuelto en el mismo momento, mismo ciclo completo aplicado dentro de la sesión de prueba.
 - [2026-08-01] /kickoff de fase 2 (Draft en equipo) completado, disparado por feedback del usuario a mitad de la sesión de QA: modo de equipo (solo/2/3/5, nunca 4 -- restricción real de Dota 2), hero pools de compañeros cargados a mano (sin cuenta de Steam de terceros, decisión explícita para no abrir el tema de datos personales de más de una persona todavía), presets de equipo guardados localmente en la misma SQLite, y el simulador dejando de pausar entre baneos. Separado a propósito de una pieza mucho más grande e indefinida ("3 caminos completos de draft" tipo álbum) que el usuario prefirió no mezclar "porque se puede prestar a confusiones" -- queda documentada, pendiente de su propio /kickoff. El usuario decidió llevarse el brief a Codex en vez de continuar con /pre-flight en Claude Code.
 - [2026-08-01] TSK-034 completado: Codex propuso su propio diseño (2 tablas Drizzle, endpoints CRUD, componentes siguiendo el patrón de hero-pool) antes de codificar -- revisado por el usuario y Claude Code (se agregó el link de NavBar que faltaba) antes de aprobar. Implementado y reportado en verde por Codex (183+27 pruebas). Claude Code hizo su propia verificación independiente, sin confiar en el reporte, y encontró 3 hallazgos reales: un error de TypeScript real en apps/engine que Codex nunca detectó (no corrió tsc ahí), un bug de UX que duplicaba equipos al guardar dos veces sin recargar, y un hallazgo CRÍTICO -- la migración de la tabla nueva nunca se había registrado en el journal de Drizzle, así que jamás se habría aplicado contra la base de datos real pese a que todas las pruebas pasaban (los tests usan una DB en memoria que no pasa por el migrador real, ningún test podía detectar esto por diseño). Los 3 corregidos, migración aplicada de verdad y confirmada contra data/dota2coach.sqlite, CRUD real verificado contra el servidor vivo. Decidida también, por separado, la resolución del timer visible del draft (pendiente de construir): simulador primero, simple, visualmente parecido al lobby real de Dota.
+- [2026-08-01] Bloque de deploy completo (TSK-037 a TSK-041) ejecutado y cerrado, y **primer `/castoff` exitoso del proyecto** -- dota2coach en producción real en https://d2kiro-production.up.railway.app. Los 5 tickets de la arquitectura ya decidida (evt-20260801-018) se construyeron vía Codex + revisión independiente de Claude Code, con hallazgos reales corregidos en 3 de ellos (regresión de `getDraftPaths` en TSK-037, `middleware.ts` crasheando en Edge Runtime por la convención `proxy.ts` de Next 16 en TSK-039, y una variable faltante en la lista de TSK-041 verificada antes de dispatchear). En el reintento real de `/castoff`, Sentinel (subagente de seguridad) encontró un hallazgo bloqueante real -- `proxy.ts` fail-open si faltan las credenciales de Basic Auth, contradiciendo el propio criterio "sin ella, no se despliega" de TSK-039 -- corregido con un guard fail-closed en `scripts/start-railway.sh`, verificado en un contenedor Docker real (instalado en la sesión, junto con WSL2, guiado paso a paso). El deploy real a Railway encontró y resolvió 3 problemas de infraestructura no relacionados con el código del motor: 145 commits nunca subidos a GitHub, `next-env.d.ts` (gitignored a propósito) rompiendo el build de Railway pese a funcionar en Docker local, y la app de GitHub de Railway nunca instalada correctamente + auto-deploy apagado. Verificado en producción real (no solo teoría): `/healthz` sano sin auth, Basic Auth exigido en el resto del sitio, `/draft` deshabilitado en la nube sin intentar WebSocket, proxy funcionando, y sincronización manual con OpenDota trayendo los ~126 héroes reales. Detalle completo en `journal.md` evt-20260801-017 a evt-20260801-041.
