@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-07-31T05:50:54.653Z</title>
+<title>HUB del ecosistema — 2026-07-31T06:15:48.058Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">1</span></h2>
-        
-        <div class="card  ">
-          
-          <div class="card-id">TSK-042</div>
-          <div class="card-title">Simulador de draft disponible en la nube (endpoints propios, sin WebSocket)</div>
-          <div class="card-meta">
-            <span class="tag tag-should">should</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
+        <h2>backlog <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -150,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">41</span></h2>
+        <h2>done <span class="count">42</span></h2>
         
         <div class="card  ">
           
@@ -562,6 +552,16 @@
             <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-042</div>
+          <div class="card-title">Simulador de draft disponible en la nube (endpoints propios, sin WebSocket)</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
       </div></div>
 
   <h3>Uso real — quién se activa más, y qué tan bien le fue</h3>
@@ -569,21 +569,21 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">63× · 57% ok  · 3 falló</div>
+          <div class="stat-nums">64× · 58% ok  · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:71%"></div></div>
-          <div class="stat-nums">45× · 93% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:72%"></div></div>
+          <div class="stat-nums">46× · 93% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
-          <div class="stat-nums">42× · 33% ok  </div>
+          <div class="stat-nums">43× · 33% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:67%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:66%"></div></div>
           <div class="stat-nums">42× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -621,6 +621,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-042</span> <span class="feed-ts">2026-08-01T12:35</span></div>
+            <div class="feed-note">Gate de seguridad: PASS. Confirmado que las 3 rutas reales de ingesta (/ingest/draft-event, /api/session/manual, /api/session/:id/draft-paths) siguen ausentes del allowlist -- ni el código ni la nueva aserción de la prueba negativa las tocan. sessionId del simulador generado con crypto.randomUUID() (no adivinable), nunca reutiliza sessionId de una sesión real. Sin secretos ni literales sospechosos en el diff. CORS: las respuestas nuevas pasan por el mismo wrapper de fetchHandler que ya agrega los headers correctos, sin caso especial. Pasada 1 (Standards): separación limpia motor/web, el simulador nunca importa el store/flujo de DraftView (confirmado por lectura, ningún import cruzado). Pasada 2 (Spec): las 5 aceptaciones literales de TSK-042 verificadas -- 3 rutas reales ausentes (test + lectura), 2 rutas del simulador presentes (test + curl real vía proxy), sessionId con TTL de 45min (lectura de cleanupSimulatorSessions, no cubierto por un test dedicado -- nota no bloqueante abajo), UI sin WebSocket (confirmado por lectura: simulator/page.tsx nunca importa socket.ts ni useDraftStore), verificado contra servidor real local de punta a punta (Railway pendiente del primer push). 2 notas no bloqueantes registradas, no bloquean el cierre de un ticket `should`: (a) si el servidor se reinicia (ej. un redeploy de Railway) mientras alguien tiene /simulator abierto, las sesiones en memoria se pierden y el polling sigue pegándole a un 404 indefinidamente sin que la UI lo comunique ni se recupere sola -- rough edge conocido, aceptable para una demo, se revisita si molesta en el uso real; (b) los caminos de 404/rate-limit/TTL del simulador están verificados por lectura y con curl real en esta revisión, pero no tienen una prueba automatizada dedicada en app.test.ts (el único test existente cubre el camino feliz). Ningún hallazgo bloqueante nuevo -- los 2 hallazgos reales de esta ronda (unhandled rejection, mojibake) ya están corregidos y verificados. Veredicto: APPROVED.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-042</span> <span class="feed-ts">2026-08-01T12:30</span></div>
+            <div class="feed-note">Implementado por Codex (endpoints POST /api/simulator/sessions + GET /api/simulator/sessions/:sessionId/state en apps/engine, aislados de la ingesta real; pantalla /simulator nueva en apps/web con RTK Query pollingInterval sin WebSocket, sessionStorage, pausa en pestaña oculta; allowlist de next.config.ts extendida solo con las 2 rutas nuevas; prueba negativa existente extendida confirmando presencia de las nuevas y ausencia de las 3 reales). Claude Code revisó el código completo (no confió en el reporte) y encontró 2 hallazgos reales: (1) CRÍTICO -- el fire-and-forget `void runSimulator(...).finally(...)` en handleSimulatorSessionPost no tenía `.catch()`; un fallo transitorio dentro del emit (ej. SQLite/Drizzle) se habría convertido en un rechazo de promesa sin manejar, y Bun (verificado empíricamente con un script aislado antes de aplicar el fix: un throw() dentro de una promesa con solo .finally() mata el proceso completo con exit code 1) tumba TODO apps/engine ante eso -- se habría llevado consigo el motor de sugerencias real y las sesiones de WebSocket activas del draft en vivo, no solo la sesión simulada nueva. Corregido agregando `.catch()` con log antes del `.finally()` ya existente. (2) 3 textos en apps/web/app/simulator/page.tsx tenían un bug real de doble codificación (UTF-8 interpretado como Latin-1 y reguardado como UTF-8) -- confirmado a nivel de bytes con xxd, no un artefacto de lectura: "pestaÃ±a estÃ¡"/"simulaciÃ³n"/"sesiÃ³n" en vez de "pestaña está"/"simulación"/"sesión", se habrían visto literalmente rotos para cualquier usuario real. Corregido en los 3 lugares más un cuarto cosmético en un nombre de prueba de apps/engine. Verificación final: bun test 197/197 (engine) + 42/42 (web), bunx tsc --noEmit limpio en ambas, eslint limpio, npm run build limpio. Servidores reales levantados: POST /api/simulator/sessions directo al motor -> sesión avanzando sola (16 eventos aplicados en 2s con speed:2); GET .../state con sessionId inventado -> 404 correcto; mismo flujo completo a través del proxy de apps/web (POST y GET vía /engine/api/simulator/...) -> 200; HTML real servido de /simulator confirmado sin bytes de mojibake ("Nueva simulación" renderizado correctamente). Commiteado en 2 unidades lógicas (motor 2 archivos, web 5 archivos con excepción de simplicidad ya declarada en TSK-042.md).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">ℹ️</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-042</span> <span class="feed-ts">2026-08-01T12:05</span></div>
+            <div class="feed-note">Modo manual. WIP=1 por codex libre. state: backlog → doing. Prompt autocontenido entregado al usuario para pasarle a Codex.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -682,27 +703,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:50</span></div>
             <div class="feed-note">Gate de seguridad: PASS. Confirmado que ningún valor real aparece en el archivo -- las 8 líneas terminan en `=` sin nada a la derecha. Grep del patrón de secretos de verify-simplicity.sh limpio. Pasada 1 (Standards): un solo archivo en la raíz, sigue la convención estándar de la industria para monorepos con procesos que comparten variables de infraestructura (ENGINE_INTERNAL_URL las conecta). Pasada 2 (Spec): la única aceptación literal de TSK-041 (coincidencia exacta código real <-> archivo) verificada de forma independiente, con la misma metodología que usó Codex más una segunda pasada con herramienta distinta (Grep tool vs grep de shell) para descartar falsos negativos por ruido de node_modules. Sin hallazgos. Veredicto: APPROVED.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:45</span></div>
-            <div class="feed-note">Implementado por Codex: .env.example en la raíz del repo, 8 variables (ENGINE_PORT, CAPTURE_TOKEN, ENGINE_DB_PATH, ENGINE_INTERNAL_URL, DRAFT_LIVE_ENABLED, SITE_ACCESS_USER, SITE_ACCESS_PASSWORD, NEXT_PUBLIC_ENGINE_WS_URL), solo nombres con comentario de una línea, valores vacíos. Claude Code verificó de forma independiente con grep de process\.env\.[A-Z_]+ propio (via Grep tool, que respeta .gitignore y excluye node_modules -- el primer intento con grep de bash trajo ruido falso desde archivos empaquetados dentro de node_modules) contra apps/engine/src (3 variables) y apps/web (5 variables): coincide exactamente con las 8 del archivo, ninguna de más ni de menos. Sin valores reales, sin secretos -- gate de verify-simplicity.sh limpio. No se corrió bun test/tsc/lint (cambio de documentación de entorno puro, sin código ejecutable). Con esto se cierran los 5 tickets del bloque de deploy (TSK-037/038/039/041) salvo TSK-040 (Dockerfile + railway.json), el único que falta antes de reintentar /castoff.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-041</span> <span class="feed-ts">2026-08-01T08:30</span></div>
-            <div class="feed-note">Modo manual. TSK-037/038/039 done, WIP=1 por codex libre. assigned_tool: codex (ya asignado desde la creación). state: backlog → doing. Verificado con grep de process.env. contra apps/engine/src y apps/web (excluyendo node_modules) antes de dispatchear: la lista original del ticket omitía NEXT_PUBLIC_ENGINE_WS_URL (apps/web/features/draft/DraftView.tsx, default ws://127.0.0.1:4000/ws/draft) -- agregada al ticket antes de pasarlo a Codex, para que no fallara su propio criterio de aceptación (grep exhaustivo variable-por-variable). Prompt autocontenido entregado al usuario para pasarle a Codex.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>shipcheck</strong> <span class="feed-ticket">TSK-039</span> <span class="feed-ts">2026-08-01T08:25</span></div>
-            <div class="feed-note">✅ Revisión crítica superada en 1 ronda (Standards + Spec). Gate de seguridad: PASS. verify-simplicity.sh: 1 commit de 3 archivos, sin excepción necesaria (falso positivo del gate de secretos sobre un fixture de prueba, corregido antes del commit final). Sin dependencias nuevas -- crypto.timingSafeEqual es built-in de Node. `bun scripts/hub.ts` regenerado: 41 tareas, 195 eventos. Tercer ticket del bloque de deploy (TSK-037/038/039 done) -- sigue TSK-041 (.env.example) según el orden acordado 037→038→039→041→040.</div>
           </div>
         </div></div>
     </div>
