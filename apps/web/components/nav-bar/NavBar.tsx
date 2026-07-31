@@ -12,6 +12,7 @@ export function buildNavLinks(draftLiveEnabled: boolean): NavLinkDef[] {
   const draftLabel = draftLiveEnabled ? "Draft" : "Draft local";
   return [
     { href: "/draft", label: draftLabel },
+    { href: "/simulator", label: "Simulador" },
     { href: "/hero-pool", label: "Mi pool" },
     { href: "/team-groups", label: "Equipos" },
     { href: "/heroes", label: "Héroes" },

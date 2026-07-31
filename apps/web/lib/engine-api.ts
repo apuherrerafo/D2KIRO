@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import type { DraftState, SuggestionSet } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { DraftPathSet } from "@/features/draft-paths/types";
 import type { CalculatePoolResult, HeroPoolEntry, HeroPoolPutEntry } from "@/features/hero-pool/types";
@@ -22,12 +23,21 @@ export interface SettingEntry {
   value: string;
 }
 
+export interface SimulatorSession {
+  sessionId: string;
+}
+
+export interface SimulatorState {
+  draftState: DraftState;
+  suggestions: SuggestionSet | null;
+}
+
 // Régimen de datos por defecto del sitio -- RTK Query contra apps/engine (web.md). La vista de
 // draft en vivo (TSK-012) es la única excepción, nunca pasa por aquí.
 export const engineApi = createApi({
   reducerPath: "engineApi",
   baseQuery: fetchBaseQuery({ baseUrl: ENGINE_HTTP_BASE_URL }),
-  tagTypes: ["MetaStatus", "Settings", "HeroPool", "TeamGroups", "DraftPaths"],
+  tagTypes: ["MetaStatus", "Settings", "HeroPool", "TeamGroups", "DraftPaths", "Simulator"],
   endpoints: (builder) => ({
     getMetaStatus: builder.query<MetaStatus, void>({
       query: () => "/api/meta/status",
@@ -78,6 +88,13 @@ export const engineApi = createApi({
       query: (id) => ({ url: `/api/team-groups/${id}`, method: "DELETE" }),
       invalidatesTags: ["TeamGroups"],
     }),
+    startSimulatorSession: builder.mutation<SimulatorSession, void>({
+      query: () => ({ url: "/api/simulator/sessions", method: "POST" }),
+    }),
+    getSimulatorState: builder.query<SimulatorState, string>({
+      query: (sessionId) => `/api/simulator/sessions/${encodeURIComponent(sessionId)}/state`,
+      providesTags: ["Simulator"],
+    }),
     // TSK-036 vive fuera del proxy de páginas de configuración a propósito -- "caminos de draft"
     // solo tiene sentido con un draft activo, y esa ruta nunca está en el allowlist de
     // next.config.ts (regla dura, TSK-037/038: /draft en vivo siempre habla directo al engine
@@ -103,5 +120,7 @@ export const {
   useCreateTeamGroupMutation,
   useUpdateTeamGroupMutation,
   useDeleteTeamGroupMutation,
+  useStartSimulatorSessionMutation,
+  useGetSimulatorStateQuery,
   useGetDraftPathsQuery,
 } = engineApi;

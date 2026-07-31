@@ -25,6 +25,8 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/settings");
     expect(sources).toContain("/engine/api/hero-pool");
     expect(sources).toContain("/engine/api/hero-pool/calculate");
+    expect(sources).toContain("/engine/api/simulator/sessions");
+    expect(sources).toContain("/engine/api/simulator/sessions/:sessionId/state");
     expect(sources).toContain("/engine/api/team-groups");
     expect(sources).toContain("/engine/api/team-groups/:id");
 

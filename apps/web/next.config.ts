@@ -9,6 +9,8 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/settings",
   "/engine/api/hero-pool",
   "/engine/api/hero-pool/calculate",
+  "/engine/api/simulator/sessions",
+  "/engine/api/simulator/sessions/:sessionId/state",
   "/engine/api/team-groups",
   "/engine/api/team-groups/:id",
 ] as const;
