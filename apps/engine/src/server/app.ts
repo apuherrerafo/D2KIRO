@@ -20,6 +20,7 @@ import {
 import { buildDraftPaths } from "../draft-paths/build-paths";
 import { loadHeroCapabilities } from "../draft-paths/capabilities";
 import type { HeroCapabilities } from "../draft-paths/types";
+import { applyDraftEvent, createIdleDraftState, type DraftState } from "../draft/reducer";
 import { calculateProposedPool, type HeroPoolInputRow } from "../hero-pool/calculate-pool";
 import { getHealthStatus } from "../health";
 import { mapPlayerHero } from "../meta/mappers";
@@ -27,7 +28,9 @@ import type { OpenDotaClient } from "../meta/opendota-client";
 import { buildMetaSnapshot, getAllHeroMeta, getMetaFreshness } from "../meta/provider";
 import { beginMetaSync, runMetaSync } from "../meta/sync";
 import { isValidRawPlayerHero, isValidSteamAccountId } from "../meta/validation";
-import { buildSuggestions } from "../signals/mix";
+import { buildSuggestions, type SuggestionSet } from "../signals/mix";
+import simulatorScripts from "../simulator/scripts.json";
+import { runSimulator, type DraftScript } from "../simulator/player";
 import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope } from "./edge";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
 
@@ -52,6 +55,10 @@ interface WsData {
 // real (eso ya lo da el binding), es solo lo mínimo para que el navegador acepte una respuesta
 // cross-origin de un proceso local en otro puerto (apps/web). Nunca refleja un origin remoto.
 const ALLOWED_ORIGIN_PATTERN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
+const SIMULATOR_SESSION_TTL_MS = 45 * 60 * 1000;
+const SIMULATOR_POST_WINDOW_MS = 60 * 1000;
+const SIMULATOR_POST_LIMIT = 20;
+const SIMULATOR_SCRIPT = simulatorScripts.captainsMode as DraftScript;
 
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin");
@@ -67,6 +74,11 @@ function corsHeaders(request: Request): Record<string, string> {
 export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps<TSchema>) {
   const sessionStore = new SessionStore();
   const rateLimiter = createSessionRateLimiter();
+  const simulatorSessions = new Map<
+    string,
+    { draftState: DraftState; suggestions: SuggestionSet | null; lastAccessedAt: number; running: boolean }
+  >();
+  const simulatorPostTimestamps: number[] = [];
   let server: Server<WsData>;
   // TSK-021: sin cola, sin reintento automático (§9.5) -- un flag por proceso alcanza para este
   // servidor local de un solo usuario. Un segundo POST mientras el primero sigue en vuelo se
@@ -82,6 +94,92 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     server.publish(sessionId, JSON.stringify(buildServerMessage("draft_state", state.lastSeq, state)));
     const suggestions = buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
     server.publish(sessionId, JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
+  }
+
+  function cleanupSimulatorSessions(now = Date.now()): void {
+    for (const [sessionId, session] of simulatorSessions) {
+      if (!session.running && now - session.lastAccessedAt > SIMULATOR_SESSION_TTL_MS) {
+        simulatorSessions.delete(sessionId);
+      }
+    }
+  }
+
+  function allowSimulatorSessionStart(now = Date.now()): boolean {
+    while (simulatorPostTimestamps.length > 0 && now - simulatorPostTimestamps[0]! > SIMULATOR_POST_WINDOW_MS) {
+      simulatorPostTimestamps.shift();
+    }
+    if (simulatorPostTimestamps.length >= SIMULATOR_POST_LIMIT) return false;
+    simulatorPostTimestamps.push(now);
+    return true;
+  }
+
+  async function updateSimulatorSession(sessionId: string): Promise<void> {
+    const session = simulatorSessions.get(sessionId);
+    if (!session) return;
+
+    const state = session.draftState;
+    const meta = await buildMetaSnapshot(deps.db);
+    const freshness = await getMetaFreshness(deps.db);
+    const suggestions = buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
+    session.suggestions = suggestions;
+    session.lastAccessedAt = Date.now();
+  }
+
+  function handleSimulatorSessionPost(): Response {
+    cleanupSimulatorSessions();
+    if (!allowSimulatorSessionStart()) {
+      return Response.json({ error: "too_many_simulator_sessions" }, { status: 429 });
+    }
+
+    const sessionId = crypto.randomUUID();
+    simulatorSessions.set(sessionId, {
+      draftState: createIdleDraftState(sessionId),
+      suggestions: null,
+      lastAccessedAt: Date.now(),
+      running: true,
+    });
+
+    // .catch() es obligatorio acá: sin él, un fallo transitorio dentro del emit (ej. SQLite/
+    // Drizzle) queda como un rechazo de promesa sin manejar -- Bun (igual que Node) termina TODO
+    // el proceso ante eso, tumbando también el motor de sugerencias real y las sesiones de
+    // WebSocket activas, no solo esta sesión simulada. Confirmado de forma empírica antes de este
+    // fix: un throw dentro de fails().finally(...) sin .catch() mata el proceso con exit code 1.
+    void runSimulator(SIMULATOR_SCRIPT, {
+      sessionId,
+      speed: 2,
+      emit: async (envelope) => {
+        const session = simulatorSessions.get(sessionId);
+        if (!session) return;
+        session.draftState = applyDraftEvent(session.draftState, envelope).state;
+        await updateSimulatorSession(sessionId);
+      },
+    })
+      .catch((error: unknown) => {
+        console.error(`[simulator] sesión ${sessionId} falló:`, error);
+      })
+      .finally(() => {
+        const session = simulatorSessions.get(sessionId);
+        if (session) {
+          session.running = false;
+          session.lastAccessedAt = Date.now();
+        }
+      });
+
+    return Response.json({ sessionId }, { status: 201 });
+  }
+
+  function parseSimulatorStateSessionId(pathname: string): string | null {
+    const match = /^\/api\/simulator\/sessions\/([^/]+)\/state$/.exec(pathname);
+    if (!match) return null;
+    return decodeURIComponent(match[1]!);
+  }
+
+  function handleSimulatorStateGet(sessionId: string): Response {
+    cleanupSimulatorSessions();
+    const session = simulatorSessions.get(sessionId);
+    if (!session) return Response.json({ error: "not_found" }, { status: 404 });
+    session.lastAccessedAt = Date.now();
+    return Response.json({ draftState: session.draftState, suggestions: session.suggestions });
   }
 
   async function handleDraftEvent(request: Request, opts: { requireToken: boolean; rateLimit: boolean }): Promise<Response> {
@@ -421,6 +519,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "POST" && url.pathname === "/api/hero-pool/calculate") {
       return handleHeroPoolCalculate(request);
+    }
+    if (request.method === "POST" && url.pathname === "/api/simulator/sessions") {
+      return handleSimulatorSessionPost();
+    }
+    const simulatorSessionId = parseSimulatorStateSessionId(url.pathname);
+    if (simulatorSessionId !== null && request.method === "GET") {
+      return handleSimulatorStateGet(simulatorSessionId);
     }
     if (request.method === "GET" && url.pathname === "/api/team-groups") {
       return Response.json(getTeamGroups(deps.db));

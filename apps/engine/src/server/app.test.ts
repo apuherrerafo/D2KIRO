@@ -103,6 +103,17 @@ function waitForOpen(ws: WebSocket): Promise<void> {
   });
 }
 
+async function waitForSimulatorState(baseUrl: string, sessionId: string): Promise<Record<string, unknown>> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const res = await fetch(`${baseUrl}/api/simulator/sessions/${sessionId}/state`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    if (body.suggestions) return body;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("timeout esperando estado del simulador");
+}
+
 describe("servidor Bun (TSK-010)", () => {
   let baseUrl: string;
   let stop: () => void;
@@ -207,6 +218,25 @@ describe("servidor Bun (TSK-010)", () => {
     const heroesList = await res.json();
     expect(Array.isArray(heroesList)).toBe(true);
     expect(heroesList[0]).toMatchObject({ id: 1, imgUrl: "/h1.png" });
+  });
+
+  test("POST/GET /api/simulator/sessions crea una sesión HTTP aislada, sin log completo", async () => {
+    const first = await fetch(`${baseUrl}/api/simulator/sessions`, { method: "POST" });
+    const second = await fetch(`${baseUrl}/api/simulator/sessions`, { method: "POST" });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+
+    const firstBody = (await first.json()) as { sessionId: string };
+    const secondBody = (await second.json()) as { sessionId: string };
+    expect(firstBody.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(secondBody.sessionId).not.toBe(firstBody.sessionId);
+
+    const stateBody = await waitForSimulatorState(baseUrl, firstBody.sessionId);
+    expect(stateBody).toHaveProperty("draftState");
+    expect(stateBody).toHaveProperty("suggestions");
+    expect(stateBody).not.toHaveProperty("events");
+    expect((stateBody.draftState as { sessionId: string }).sessionId).toBe(firstBody.sessionId);
+    expect((stateBody.suggestions as { sessionId: string }).sessionId).toBe(firstBody.sessionId);
   });
 
   test("PUT /api/settings guarda una preferencia y GET /api/settings la refleja", async () => {
