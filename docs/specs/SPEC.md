@@ -838,3 +838,329 @@ depende del spike de Overwolf — 1b y el capturador real avanzan en paralelo si
 8. Pantalla de configuración del pool (RTK Query) con íconos oficiales.
 9. Pantalla de propuesta/confirmación + los tres estados vacíos/de error.
 10. `SignalBreakdown` con las 5 señales y los tres textos nuevos.
+
+---
+
+# SPEC — Fase 3 (Posiciones reales en el motor de sugerencias)
+
+Síntesis de `docs/agents/architecture.md` § Fase 3 (Bloques 1-6, `/kickoff` + `/pre-flight`
+completos). Origen: QA manual real del usuario (2026-08-20) sobre el Random Draft Simulator --
+el motor sugiere composiciones estructuralmente inválidas (doble carry). Ver `journal.md`
+evt-20260820-047 y evt-20260821-048.
+
+## 10.0 — Qué de fases anteriores queda superado
+
+1. **`role_gap` deja de existir como señal.** Su lógica ("el equipo ya tiene 2 carries") vivía
+   sobre `roles[]` de OpenDota, donde 57% de los héroes están etiquetados `"Carry"` (Axe, Zeus,
+   Tidehunter incluidos) -- detectaba un solapamiento que casi nunca era real.
+2. **`role_safety` deja de existir como señal.** Su lógica ("support primero, revelar core
+   después", TSK-027) era correcta como intención de producto y se conserva completa dentro de
+   `position_fit` -- lo que se descarta es su implementación sobre la etiqueta `"Support"` (38%
+   de los héroes) y su ventana dura de 2 picks.
+3. **`SCORING_WEIGHTS_V3` deja de ser la constante activa** -- queda congelada por nombre, igual
+   que V1 y V2. La activa pasa a ser `SCORING_WEIGHTS_V4` (§10.3).
+4. **El candado de regresión cero de V2/V3 no se hereda.** V2 y V3 *agregaban* una señal y
+   escalaban proporcionalmente, de modo que con la señal nueva inaplicable se reproducían los
+   pesos anteriores. V4 **reemplaza dos señales por una**: no existe un estado "position_fit sin
+   configurar", así que no hay nada que reproducir. Es una diferencia deliberada respecto al
+   patrón de 1b -- si alguien busca ese candado y no lo encuentra, es por esto, no por olvido.
+
+## 10.1 — Decisiones cerradas
+
+| # | Pregunta | Decisión |
+|---|---|---|
+| P1 | ¿Arreglar `role_gap` o rediseñar? | **Fusionar `role_gap` + `role_safety` en `position_fit`.** Las dos responden la misma pregunta de fondo ("qué posición me falta y es buen momento de revelarla"); separadas competían entre sí dentro del mismo score en vez de resolver una decisión coherente. |
+| P2 | ¿Filtro duro o señal ponderada? | **Señal ponderada.** El único filtro duro del motor (`candidatePool`) es por hechos binarios (baneado/pickeado), nunca por juicio de calidad. `position_fit` no rompe ese invariante. La fuerza necesaria se consigue con el peso (§10.3), no descartando candidatos. |
+| P3 | Fuente del dato de posición | **Archivo estático curado, `hero-positions.json`**, versionado en el repo. Mismo patrón exacto que `capabilities.json` (Fase 2). Sin STRATZ, sin API nueva, sin `STRATZ_API_KEY`. |
+| P4 | Umbral de partidas para que una posición cuente | **200 partidas** en el bracket 7000+ MMR del parche activo. Sin este umbral, héroes con presencia marginal aparecen en las 5 posiciones (caso real verificado: Windranger). |
+| P5 | ¿Qué pasa con un héroe sin dato? | `raw: null` (hueco de datos), **nunca** `applicable: false` -- ese campo significa "función que el usuario no configuró" (hero_pool_fit) y `position_fit` no tiene configuración de usuario. Caso real hoy: Chen (1 de 127). |
+| P6 | Alcance | **Solo el motor + el espejo de tipos/etiquetas en `apps/web`.** El bot del Random Draft Simulator (que no usa `buildSuggestions`, ver `.claude/rules/engine.md`) y la queja de UX de "no veo qué ya se sacó" quedan fuera, cada uno para su propio turno. Decisión explícita del usuario. |
+
+## 10.2 — Costuras nuevas (antes que el comportamiento)
+
+| Costura | Frontera | Real en la prueba | Se reemplaza |
+|---|---|---|---|
+| **S10** — `HeroPositions` | `hero-positions.json` (dato curado) → `position-fit.ts` | La lógica de cobertura, necesidad, timing y mezcla -- función pura | El archivo real: `heroPositions` inyectado con un fixture propio y determinístico. **Ninguna prueba puede depender del contenido real de `hero-positions.json`** -- ese archivo se regenera cada parche grande, un test atado a su contenido se rompería en silencio con cada actualización. Mismo criterio literal que S9 (`capabilities.json`) ya estableció. |
+
+`position_fit` **no estrena costura como señal** -- es un `SignalScorer` más, cae en **S3** tal
+cual (función pura, archivo de prueba propio, aislado de las otras). S10 cubre únicamente su
+dependencia de datos, igual que S9 hace para los caminos de draft.
+
+**Mecanismo de inyección** (resuelto acá, no en `/build`): el contrato `SignalScorer.score(state,
+candidate, meta)` **no se modifica**. `position_fit` se construye con una fábrica que cierra
+sobre el dato:
+
+```typescript
+export function createPositionFitScorer(positions: HeroPositions): SignalScorer;
+```
+
+`buildSuggestions` gana un campo opcional en `BuildSuggestionsOptions` (mismo patrón que
+`now?`/`metaIsStale?` que ya existen ahí):
+
+```typescript
+export interface BuildSuggestionsOptions {
+  metaIsStale?: boolean;
+  now?: () => number;
+  heroPositions?: HeroPositions; // ausente -> carga el archivo real (loadHeroPositions())
+}
+```
+
+Así los llamadores existentes (`app.ts`) no cambian, y las pruebas inyectan su fixture.
+
+## 10.3 — C3 extendido: `SCORING_WEIGHTS_V4`
+
+```typescript
+export const SCORING_WEIGHTS_V4: Record<SignalId, number> = {
+  position_fit: 0.25,
+  counter: 0.27,
+  patch_meta: 0.17,
+  team_synergy: 0.14,
+  hero_pool_fit: 0.17,
+};
+```
+
+Suma exactamente `1.0` -- **prueba unitaria obligatoria**, mismo candado que V1/V2/V3 ya tienen.
+
+**Por qué 0.25 y no la suma de las dos señales viejas (0.108 + 0.10 = 0.208):** el problema real
+que dispara esta fase no es que `role_gap` estuviera mal calculada, es que **no pesaba lo
+suficiente para cambiar el resultado**. Un peso igual a la suma anterior reproduciría el mismo
+síntoma con mejor dato. 0.25 la pone por encima de `patch_meta`/`hero_pool_fit` y apenas debajo
+de `counter`, coherente con la jerarquía de decisión que documenta `architecture.md` § Fase 3
+Bloque 2 (posición > contrarresto > sinergia).
+
+**Los 4 pesos supervivientes conservan su orden y su proporción relativa** de V3 (counter >
+patch_meta = hero_pool_fit > team_synergy), redondeados a 2 decimales: en V3 la razón
+counter/patch_meta era 1.600, en V4 es 1.588; team_synergy/patch_meta era 0.800, ahora 0.824.
+
+**Efecto real en el pick temprano, verificado contra el código, no estimado**: `counter` devuelve
+`raw: null` mientras el rival no haya pickeado nada (`counter.ts`, `deltas.length === 0`), y
+`hero_pool_fit` devuelve `applicable: false` sin pool configurado. Con la redistribución
+proporcional que `mix.ts` ya hace, en el primer pick propio sin pool las señales con voto son
+`patch_meta` (0.17), `team_synergy` (0.14) y `position_fit` (0.25) -- **`position_fit` controla
+el 44.6% del score** (`0.25 / 0.56`) justo en el momento del draft donde más importa. No hace
+falta ningún caso especial para lograrlo.
+
+## 10.4 — C3 extendido: el `SignalScorer` `position_fit`
+
+### Contrato de datos
+
+```typescript
+export interface HeroPositionShare {
+  position: 1 | 2 | 3 | 4 | 5; // carry | mid | offlane | soft support | hard support
+  matches: number;             // >= 200 (P4), del bracket 7000+ del parche activo
+}
+
+export type HeroPositions = Record<HeroId, HeroPositionShare[]>;
+```
+
+Orden de `HeroPositionShare[]`: descendente por `matches`. La primera entrada es la posición
+primaria del héroe, pero **el algoritmo no la privilegia** -- usa el vector completo (§siguiente),
+que es lo que hace que un flex pick se comporte como flex pick.
+
+### Algoritmo (determinista, puro, sin I/O)
+
+Sea `h` el candidato, `own` los picks del lado propio, `n = own.length`.
+
+**1. Vector de posición** -- qué tan "suya" es cada posición para un héroe:
+
+```
+share(x, p) = matches(x, p) / Σ_q matches(x, q)
+```
+
+Ejemplos con el dato real ya recolectado: `Spectre = {1: 1.000}`,
+`Wraith King = {3: 0.588, 1: 0.412}`, `Crystal Maiden = {5: 0.828, 4: 0.172}`,
+`Pudge = {4: 0.419, 5: 0.284, 3: 0.242, 2: 0.055}`.
+
+**2. Cobertura del equipo propio** -- suma de los vectores ya pickeados:
+
+```
+coverage(p) = Σ_{x ∈ own} share(x, p)
+```
+
+Un héroe propio sin dato de posición aporta 0 a toda la cobertura -- degrada, nunca rompe.
+
+**3. Necesidad por posición** -- cada posición se llena una sola vez:
+
+```
+need(p) = max(0, 1 - coverage(p))
+```
+
+**4. Cobertura del candidato** (`fill`) -- producto punto, rango `[0, 1]`:
+
+```
+fill(h) = Σ_p share(h, p) · need(p)
+```
+
+**5. Seguridad del pick** (`safety`) -- cuánto del héroe es rol de apoyo, rango `[0, 1]`:
+
+```
+safety(h) = share(h, 4) + share(h, 5)
+```
+
+**6. Mezcla por momento del draft.** `t` es cuánto pesa "esconder información" frente a "llenar
+el hueco", y decae con cada pick propio -- **decae suave, no es la ventana dura de 2 picks que
+usaba `role_safety`**:
+
+```
+TIMING_BLEND = [0.50, 0.30, 0.15, 0.00]   // índice = n, saturado en 3
+t = TIMING_BLEND[min(n, 3)]
+
+raw = (1 - t) · fill(h) + t · safety(h)
+```
+
+`RAW_RANGE.position_fit = [0, 1]` en `mix.ts`.
+
+### Casos `raw: null` (los dos únicos)
+
+1. **El candidato no tiene entrada en `hero-positions.json`** (hoy: Chen). `explanation`: "Sin
+   datos de posición para este héroe este parche".
+2. **`state.localSide === "unknown"`**. Sin saber cuál equipo es el propio, `coverage` no se
+   puede calcular; devolver `fill` sobre cobertura vacía afirmaría "te falta todo", que puede
+   ser falso. **Cambio de comportamiento explícito** respecto a `role_gap`/`role_safety`, que
+   trataban ese caso como "sin picks propios" -- se corrige acá porque contradice la regla dura
+   del proyecto ("`raw: null` nunca es 0 ni 0.5"; una señal sin base no vota).
+
+`sampleSize` = total de partidas que respaldan el vector del candidato (`Σ_q matches(h, q)`).
+Cero solo cuando `raw` es `null`.
+
+### `explanation` (texto visible en el desglose de la UI)
+
+Determinista, en castellano, derivada del componente que domine:
+
+- `fill ≈ 0` con `n > 0` → "Repite una posición que tu equipo ya cubre" (el caso doble carry).
+- `t > 0` y `safety` alto → "Rol flexible: pick temprano seguro, no revela tu core".
+- `fill` alto → "Cubre la posición N que a tu equipo le falta" (N = la de mayor
+  `share(h,p) · need(p)`).
+- resto → "Encaja parcialmente en lo que le falta a tu equipo".
+
+## 10.5 — Ejemplos trabajados (con el dato real, no inventado)
+
+**Escenario A -- "no repitas rol"** (Spectre ya pickeado, `n = 1`, `t = 0.30`):
+
+| Candidato | `fill` | `safety` | `raw` |
+|---|---|---|---|
+| Crystal Maiden | 1.000 | 1.000 | **1.000** |
+| Pudge | 1.000 | 0.703 | **0.911** |
+| Wraith King | 0.588 | 0.000 | **0.412** |
+| Anti-Mage | 0.000 | 0.000 | **0.000** |
+
+**Escenario B -- "primero lo seguro"** (draft vacío, `n = 0`, `t = 0.50`; con `need(p) = 1` para
+toda `p`, `fill = 1.0` para todos, así que decide `safety`):
+
+| Candidato | `fill` | `safety` | `raw` |
+|---|---|---|---|
+| Crystal Maiden | 1.000 | 1.000 | **1.000** |
+| Pudge | 1.000 | 0.703 | **0.851** |
+| Invoker | 1.000 | 0.100 | **0.550** |
+| Anti-Mage | 1.000 | 0.000 | **0.500** |
+
+**Simetría, para que no se lea como "siempre prefiere supports"**: con 4 supports propios ya
+pickeados (Crystal Maiden, Lich, Dazzle, Oracle -- `n = 4`, `t = 0`, `need(1) = 1`), Anti-Mage da
+`fill = 1.000` → `raw = 1.000`, y Crystal Maiden da `fill = 0.094` → `raw = 0.094`. La señal se
+invierte sola cuando lo que falta es el carry.
+
+**Los tres bloques de números de §10.5 están verificados ejecutando la fórmula contra el archivo
+de posiciones real**, no calculados a mano -- son los valores exactos que las pruebas deben
+esperar.
+
+## 10.6 — El archivo de datos y su generación
+
+- **Ubicación**: `apps/engine/src/signals/hero-positions.json`, con `hero-positions.ts` como
+  cargador y validador de borde -- mismo par exacto que `capabilities.json`/`capabilities.ts`.
+- **Validación al cargar** (`loadHeroPositions()`): descarta entradas malformadas, `position`
+  fuera de `1..5`, `matches` no entero o `< 200`, y héroes duplicados. Un archivo corrupto
+  degrada a "sin datos de posición" (todos `raw: null`), **nunca** tira el motor.
+- **Estado actual del dato**: 126 de 127 héroes, recolectado y validado en la sesión de
+  `/pre-flight` (Dota2ProTracker, bracket 7000+ MMR, parche 7.41e). Único hueco: Chen.
+- **Regeneración**: script ad-hoc documentado, corrido a mano por el desarrollador tras un parche
+  grande. **No se agrega ninguna dependencia al `package.json` del proyecto** -- el script usa un
+  navegador headless instalado aparte, fuera del árbol de dependencias (igual que en la sesión de
+  `/pre-flight`). Esto mantiene intacta la regla de "sin dependencias nuevas sin `/gear-up`".
+- **`apps/engine` nunca llama a la red por este dato.** La regla dura de cero red en el camino
+  caliente queda intacta, y esta fase tampoco abre una excepción "de configuración" como sí hizo
+  `POST /api/hero-pool/calculate` en 1b.
+
+## 10.7 — C5: qué cambia en `apps/web`
+
+Esta fase **no es solo del motor**. Hay dos espejos que deben moverse en el mismo cambio o el
+tipado se rompe:
+
+1. **`apps/web/features/draft/types.ts`** -- la unión `SignalId` es un espejo a mano del contrato
+   del motor (documentado como tal en ese archivo). Quita `role_gap` y `role_safety`, agrega
+   `position_fit`.
+2. **`apps/web/components/signal-breakdown/SignalBreakdown.tsx`** -- `SIGNAL_LABELS` pierde
+   `"Solapamiento de rol"` y `"Seguridad del pick temprano"`, gana una etiqueta para
+   `position_fit`: **"Posición y momento del pick"**.
+
+`SignalBreakdown` pasa a mostrar **5 señales, no 6**. La distinción entre `raw: null` y
+`applicable: false` que 1b introdujo (§9.6) se mantiene sin cambios -- `position_fit` solo usa la
+primera.
+
+## 10.8 — Seguridad (extiende §5 y §9.7)
+
+- **Ningún cruce de frontera de confianza nuevo en runtime.** El único contacto con una fuente
+  externa es el script de regeneración, que corre a mano en la máquina del desarrollador, nunca
+  desde `apps/engine`, nunca programado.
+- **Ningún secreto nuevo.** La decisión P3 evita exactamente el `STRATZ_API_KEY` que 1b había
+  dejado documentado como condicional futuro (§9.7).
+- **Ningún dato personal.** Estadísticas públicas agregadas de héroes, misma naturaleza que
+  `patchStats`, que ya vive en el motor.
+- `hero-positions.json` es **input externo** en el sentido del proyecto: se valida en el borde al
+  cargarlo (§10.6), no se confía en su forma.
+
+## 10.9 — Criterios de aceptación
+
+1. `SCORING_WEIGHTS_V4` suma exactamente `1.0` (prueba unitaria). V1/V2/V3 siguen existiendo sin
+   modificar.
+2. Con un carry puro propio ya pickeado, otro carry puro da `raw = 0` en `position_fit`
+   (Escenario A, números exactos de §10.5).
+3. Con el draft vacío, un support puntúa estrictamente más alto que un carry puro
+   (Escenario B).
+4. Con 4 supports propios pickeados, la señal se invierte y el carry puntúa más alto (§10.5,
+   simetría: Anti-Mage `1.000` vs. Crystal Maiden `0.094`) -- **prueba dedicada**, no se infiere
+   de las dos anteriores. Sin ella, una implementación que solo premiara supports pasaría los
+   criterios 2 y 3 y seguiría estando rota.
+5. Un héroe sin dato de posición devuelve `raw: null`, nunca un número inventado, nunca una
+   excepción sin capturar.
+6. `state.localSide === "unknown"` devuelve `raw: null`.
+7. **Candado de regresión del bug original**: contra el pipeline completo (`buildSuggestions`, no
+   la señal aislada), reproducir Spectre pickeado + Wraith King disponible y verificar que Wraith
+   King **no** aparece en el top 3. Es la prueba de que el peso mueve el resultado final, no solo
+   el desglose.
+8. Ninguna prueba de `position_fit` lee `hero-positions.json` real (S10).
+9. `SignalBreakdown` muestra 5 señales con la etiqueta nueva; `bunx tsc --noEmit` limpio en
+   **ambos** paquetes (el espejo de `SignalId` es lo que lo prueba).
+
+## 10.10 — Lo que esta fase deja abierto a propósito
+
+- **Anti-patrones más allá del solapamiento de posición** (cero iniciación, cero stun, daño
+  mono-tipo, supports que necesitan farm): documentados en `architecture.md` § Fase 3 Bloque 2 a
+  partir del research, **no se construyen acá**. Nota: parte de esa información ya existe en
+  `capabilities.json` (Fase 2), hoy usada solo por los caminos de draft -- es el punto de partida
+  natural cuando se prioricen.
+- **`Δmatchup`/`Δsynergy` con la fórmula del research** (pesos ~1.3 a 1 entre contrarresto y
+  sinergia): `counter` y `team_synergy` siguen tal cual. Fuera de alcance.
+- **El bot del Random Draft Simulator sigue sin usar `buildSuggestions`** -- lo que se ve
+  draftear ahí seguirá sin reflejar estas mejoras hasta que se haga ese trabajo, que tiene su
+  propio turno. **Consecuencia operativa: el QA de esta fase se hace contra el Copilot real**
+  (`/draft` con entrada manual, o el simulador de guion fijo), nunca contra ese bot.
+- **La queja de UX** ("no veo en tiempo real qué ya se sacó") -- su propio turno.
+- **Predicción de la posición del rival** -- sigue fuera de alcance desde 1b (D12), sin cambios.
+- **Los números de `TIMING_BLEND`** son el primer candidato a ajustar durante el QA manual: son
+  defendibles y producen el orden correcto en los dos escenarios, pero no están calibrados contra
+  partidas reales. Cambiarlos es editar 4 números en una constante, no reescribir la señal.
+
+## 10.11 — Entrada para `/rulebook`
+
+Fronteras naturales de ticket, en orden de dependencia. **No son tickets todavía.**
+
+1. `hero-positions.json` + `hero-positions.ts` (cargador y validación de borde) -- **una unidad
+   lógica** con el archivo de datos y su fixture de prueba.
+2. `positionFitScorer` vía `createPositionFitScorer` (S3 + S10) -- archivo y prueba propios,
+   aislado del resto de las señales. Cubre los criterios 2-6 de §10.9.
+3. `SCORING_WEIGHTS_V4` + baja de `role_gap`/`role_safety` de `SCORERS` y `RAW_RANGE` en
+   `mix.ts` + `heroPositions` en `BuildSuggestionsOptions` + el candado de regresión (criterios
+   1 y 7).
+4. Espejo en `apps/web`: `SignalId` + `SIGNAL_LABELS` (criterio 9).
+5. Borrado de `role-gap.ts`/`role-safety.ts` y sus pruebas -- **último**, cuando nada los
+   referencie, nunca antes.

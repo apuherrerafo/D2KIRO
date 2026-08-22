@@ -61,3 +61,22 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
 - `GET /api/session/:id/draft-paths` es de solo lectura, sin escritura a SQLite, sin cabecera de
   autenticación (mismo criterio que el resto de la API de lectura local — `apps/engine` solo
   escucha en `127.0.0.1`, ese es el perímetro real). No abre superficie de ataque nueva.
+
+## Fase 3 — Posiciones reales (SPEC.md §10.8)
+
+- **Ningún cruce de frontera de confianza nuevo en runtime.** El único contacto con una fuente
+  externa (Dota2ProTracker) es el script de regeneración de `hero-positions.json`, que corre a
+  mano en la máquina del desarrollador — **nunca desde `apps/engine`, nunca programado, nunca
+  automático**. Si alguien propone automatizarlo dentro del motor, eso reabre esta sección.
+- **Ningún secreto nuevo.** La decisión de curar el dato a mano evita exactamente el
+  `STRATZ_API_KEY` que 1b había dejado documentado como dependencia condicional futura. Si en el
+  futuro se decide integrar STRATZ igual, pasa obligatoriamente por `/gear-up` primero.
+- **Ningún dato personal.** Estadísticas públicas agregadas de héroes, misma naturaleza que
+  `patchStats`, que ya vive en el motor desde fase 1.
+- `hero-positions.json` es **input externo** en el sentido del proyecto, igual que una respuesta
+  de OpenDota: se valida en el borde al cargarlo (`loadHeroPositions()`), nunca se confía en su
+  forma. Un archivo corrupto o manipulado degrada a "sin datos", jamás rompe el motor ni inyecta
+  valores arbitrarios en el scoring.
+- **Sin dependencias nuevas.** El script de regeneración usa un navegador headless instalado
+  aparte, fuera del árbol de dependencias del proyecto — no entra en ningún `package.json`. Si
+  alguien lo agrega como dependencia real, eso exige `/gear-up`/`@depcheck` como cualquier otra.

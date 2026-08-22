@@ -488,3 +488,155 @@ estar documentado oficialmente.
 
 **Siguiente paso:** `/rulebook` (o `/grill-me` para afinar el spike primero) parte esto en
 tickets con `preferred_tool`/límites de archivo, empezando por el Paso 0.
+
+# architecture.md — Fase 3 (Posiciones reales en el motor de sugerencias)
+
+Disparado por QA manual del usuario sobre el Random Draft Simulator (2026-08-20): el bot elige
+composiciones inválidas (dos carries seguidos), y el usuario lo describió sin filtro — "el
+drafter no funciona como un drafter, es como una mentira". Investigación confirmó la causa real
+antes de proponer ninguna solución (ver journal.md, evt del 2026-08-20).
+
+## Bloque 1 — Visión del Producto (Fase 3)
+
+- **Problema**: el motor no tiene ningún concepto de posición (pos 1-5). Usa etiquetas temáticas
+  de OpenDota (`roles[]`) que no representan roles reales — 57% de los héroes están marcados
+  "Carry" (Zeus, Axe, Tidehunter incluidos). La señal que debería frenar esto, `role_gap`, pesa
+  0.108 contra 0.288 de `counter` — aunque detecte el problema, casi no influye en el resultado.
+- **Usuario**: solo el usuario del proyecto, uso personal, hasta que funcione de verdad. No se
+  comparte con nadie más por ahora.
+- **Resultado esperado**: que el motor deje de sugerir composiciones estructuralmente inválidas
+  (doble carry, sin support temprano), usando datos reales de posición por héroe, y que ese
+  criterio realmente pese en el resultado final — no solo aparezca correcto en el desglose sin
+  cambiar nada.
+- **Qué NO es**: no predice la posición del rival (sigue fuera de alcance, ver sub-bloque de 1b
+  más arriba — sin cambios). No usa ML. No toca el bot del Random Draft Simulator (que tiene su
+  propio scoring, ver `engine.md`) ni la UX de "qué ya se sacó" — cada uno queda para su propio
+  turno, decisión explícita del usuario de ir paso a paso.
+
+## Bloque 2 — Dominio e Investigación (Fase 3)
+
+- **Qué dato hace falta**: posición real por héroe (pos 1-5: carry, mid, offlane, soft support,
+  hard support), del parche activo.
+- **STRATZ**: investigado a fondo (deep research externo del usuario, no generado por el
+  asistente). Técnicamente viable — API GraphQL activa, tier gratuito amplio (~10k
+  peticiones/día), términos que permiten cachear localmente. **Descartado igual**: un segundo
+  research (comparación de costo real) recomendó curar a mano en cambio — 6-8h armar una vez,
+  12-18h/año de mantenimiento, cero dependencia nueva, cero secreto nuevo, mismo patrón que
+  `capabilities.json` ya existente en el proyecto (Fase 2). Precedente de la industria confirmado:
+  proyectos open source comparables (`dota2-draft-frontend`, `dota-2-ban-pick-tool`) usan JSON
+  estático, no APIs en vivo.
+- **OpenDota, verificado de nuevo en esta sesión (no solo en 1b)**: la API pública real no tiene
+  campo de posición. El SQL Explorer público (mismo proveedor que ya usa el proyecto, sin API key)
+  tiene `lane_role` y `net_worth` a nivel de jugador, pero la tabla con ese detalle solo cubre
+  partidas parseadas manualmente (~138 en 10 días) — muestra insuficiente para 124 héroes.
+  `public_matches` (la tabla grande, la misma que alimenta `heroStats`) no tiene detalle por
+  jugador. Confirma que el segundo research tenía razón: no hay atajo automatizado vía OpenDota.
+- **Fuente real usada**: Dota2ProTracker (`dota2protracker.com/meta?position=pos+N`), bracket
+  7000+ MMR, parche 7.41e. Bloquea el fetch simple (`WebFetch`, 403) pero es accesible con un
+  navegador real (Playwright + Edge del sistema) con pausas entre página y página — Cloudflare
+  frena solo ante ráfagas rápidas, no ante el acceso en sí. **Dato real obtenido, no simulado**:
+  126 de 127 héroes con al menos una posición, filtrando con un mínimo de 200 partidas para
+  descartar ruido de baja muestra. Solo Chen quedó sin dato (por debajo del umbral en las 5).
+  Validado contra conocimiento real del juego (Anti-Mage solo Carry, Crystal Maiden Hard/Soft
+  Support, Tinker solo Mid, etc.) — sin sorpresas raras. El caso que arrancó todo (Spectre +
+  Wraith King) se confirma con datos reales: Spectre es carry puro, Wraith King es Offlane/Carry
+  — exactamente la superposición que el usuario vio draftear mal.
+- **Competidores/precedentes**: Dota Coach, STRATZ+, DotaPlus (herramientas de asistencia
+  reales); ninguna expone su modelo de scoring, se investigó su lógica conceptual, no su código.
+
+## Bloque 3 — Arquitectura e Ingeniería (Fase 3)
+
+- **Decisión central**: `role_gap` y `role_safety` (dos señales existentes, ambas ciegas por usar
+  `roles[]` de OpenDota) se **fusionan en una señal nueva, `position_fit`**, en vez de arreglarse
+  cada una por separado. Razón: las dos razonan sobre la misma pregunta de fondo ("qué posición
+  necesito, y es buen momento para revelarla") — separadas, competían entre sí en el número final
+  en vez de resolver una sola decisión coherente, mismo tipo de reasoning que usa un jugador real.
+- **Algoritmo** (a implementar en `/build`, aquí solo el contrato):
+  1. Cubre qué posiciones ya tiene el equipo propio (picks propios + `hero_positions.json`).
+  2. Calcula qué posición falta.
+  3. Usa el número de pick propio como proxy de "momento del draft" — temprano favorece
+     posiciones seguras/flexibles (support), tarde favorece comprometer lo que falta sin
+     importar el rol.
+  4. Para el candidato: en qué posición(es) suele jugarse (dato real, con volumen de partidas
+     como proxy de qué tan "primaria" es esa posición para ese héroe) — ¿llena un hueco real en
+     el momento correcto?
+  5. **Sigue siendo una señal ponderada, no un filtro duro** — nunca descarta un héroe de la
+     lista de candidatos (eso rompería el único invariante real del motor: "nunca 0/1"). El
+     único filtro duro que existe hoy (`candidatePool`) es por hechos binarios (baneado/pickeado),
+     no por juicio de calidad — `position_fit` no cambia eso.
+- **Peso**: necesita una constante nueva, `SCORING_WEIGHTS_V4` — reemplaza las entradas de
+  `role_gap` y `role_safety` por una sola de `position_fit`, con peso mayor a la suma de las dos
+  viejas (0.108 + su parte de `role_safety`), para que de verdad compita con `counter` (0.288) en
+  vez de perder siempre. Número exacto pendiente de `/blueprint`. `SCORING_WEIGHTS_V1/V2/V3`
+  **no se tocan** — quedan congeladas, mismo patrón que cada versión anterior.
+- **Dato fuente**: `hero_positions.json`, archivo estático versionado en el repo — mismo patrón
+  exacto que `capabilities.json` (Fase 2), **no en SQLite**, nunca se consulta contra una fuente
+  externa en runtime. Generado con un script de scraping vía navegador real (no HTTP simple),
+  corrido a mano por el usuario/desarrollador cuando decida actualizarlo (después de un parche
+  grande) — nunca automático, nunca desde `apps/engine`. El archivo real ya se armó y se validó
+  en esta sesión (ver `journal.md`); vive en el scratchpad hasta que `/build` lo mueva al repo.
+- **Sin tiempo real nuevo**: el cálculo de `position_fit` es tan síncrono como cualquier otro
+  `SignalScorer` — no cambia el presupuesto de 500ms del motor.
+- **Monolito**: se queda dentro de `apps/engine/src/signals/`, ningún proceso ni servicio nuevo.
+
+## Bloque 4 — Seguridad desde el diseño (Fase 3)
+
+- **Cruce de frontera de confianza**: uno solo, y no es en runtime — el script que genera
+  `hero_positions.json` toca una fuente externa (Dota2ProTracker) desde la máquina del
+  desarrollador, nunca desde `apps/engine`. Corre a mano, deliberado, nunca programado ni
+  automático. El motor en producción nunca hace esa llamada.
+- **Datos sensibles**: ninguno. Estadísticas públicas agregadas de héroes, mismo tipo de dato que
+  `patchStats` (picks/wins) que ya vive en el motor.
+- **Secretos**: ninguno nuevo — la decisión de curar a mano en vez de STRATZ evita exactamente el
+  secreto (`STRATZ_API_KEY`) que la Fase 1b había dejado como "condicional futuro".
+- **Privilegio**: el script de generación necesita salida a internet (solo cuando corre, nunca
+  automático); `apps/engine` no gana ningún privilegio nuevo — sigue leyendo un archivo estático
+  del repo, igual que `capabilities.json`.
+- **Regla dura que se mantiene intacta**: cero red en el camino caliente del motor. Esta fase no
+  la toca ni la debilita.
+
+## Bloque 5 — Stack Tecnológico (Fase 3)
+
+- **Sin stack nuevo.** `position_fit` es un `SignalScorer` más, mismo contrato S3 que los otros
+  cinco. El script de generación del archivo es una utilidad de desarrollo más, mismo patrón que
+  `scripts/hub.ts`/`scripts/verify-simplicity.sh` — no una dependencia del runtime del motor.
+- **Cero dependencias npm nuevas** — decisión explícita, evita `/gear-up` por completo.
+
+## Bloque 6 — Plan de Validación (Fase 3)
+
+Automatizado (pruebas unitarias, mismo patrón que cada `SignalScorer` existente):
+1. Con un carry puro ya elegido (Spectre, dato real) y otro carry puro como candidato (Wraith
+   King, dato real) → `position_fit` puntúa bajo/negativo por la superposición.
+2. Primer pick propio del draft (sin nada elegido todavía) → un héroe support puntúa más alto
+   que un carry puro en ese mismo momento.
+3. Héroe sin dato de posición (Chen, el único caso real) → `raw: null`, nunca un valor inventado,
+   nunca una excepción sin capturar.
+4. **Candado de regresión del bug original**: reproducir Spectre + Wraith King contra el
+   pipeline completo (`buildSuggestions`, no la señal aislada) y confirmar que Wraith King ya no
+   aparece en el top 3 — prueba que `SCORING_WEIGHTS_V4` mueve el resultado final, no solo el
+   desglose interno.
+
+Manual, guiado por el usuario, dos escenarios independientes con pasos numerados y resultado
+esperado explícito (ver journal.md para el detalle completo acordado con el usuario):
+- **Escenario A** ("no repitas rol"): con Spectre ya pickeado, ningún carry puro debería estar
+  en el top 3 de sugerencias del Copilot.
+- **Escenario B** ("primero lo seguro"): draft vacío → sugerencia #1 debería inclinarse a
+  support; una vez cubierto ese rol, debería abrirse a otros roles con normalidad.
+
+Explícitamente fuera de estos criterios: el bot del Random Draft Simulator (no usa el motor
+real todavía, ver `engine.md`) — el QA se hace contra el Copilot real (`/draft` o simulador de
+guion fijo), nunca contra ese bot.
+
+## Cierre — pendiente de `/blueprint`
+
+Números sin fijar hasta la síntesis formal: el peso exacto de `position_fit` dentro de
+`SCORING_WEIGHTS_V4` (propuesta de partida a validar: algo en el orden de 0.20-0.25, para que
+compita de verdad con `counter`), el umbral mínimo de partidas para que una posición cuente como
+real en `hero_positions.json` (ya aplicado en el dato recolectado: 200), y la fórmula exacta de
+cómo se combinan "cobertura de posición" + "timing del pick" dentro de una sola señal continua
+(el Bloque 3 da el contrato conceptual, no la fórmula matemática final).
+
+`/blueprint` corre en Opus por política del proyecto (única fase de razonamiento caro del
+proyecto). Esta fase no cruza ningún gatillo objetivo de los documentados en `CLAUDE.md` (no hay
+trust boundary nuevo, no hay migración irreversible, no cambia autenticación ni motor de DB) — es
+una decisión de scoring dentro del motor existente, corresponde el flujo normal.

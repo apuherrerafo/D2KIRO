@@ -1,12 +1,21 @@
-# structure — dota2coach, Fase 1 (Draft Coach)
+# structure — dota2coach (Draft Coach) — Fase 3 en curso
 
 Espejo de `docs/specs/SPEC.md` §2-3 (y §9 para fase 1b) para lectura nativa en Kiro. `CLAUDE.md` es
-la fuente canónica si hay discrepancia. **Nota de estado (2026-08-01)**: `apps/web` y
+la fuente canónica si hay discrepancia. **Nota de estado (2026-08-20)**: `apps/web` y
 `apps/engine` existen y fase 1 está completa (TSK-001 a TSK-016, done). Fase 1b (hero pool)
 completa y validada (TSK-017 a TSK-026, done). Bloque de feedback directo de producto también
-completo (TSK-027 a TSK-033, done). "Draft en equipo" (modo de party + equipos guardados + timer
-del simulador + caminos de draft, TSK-034/035/036) completo -- construido vía `/kickoff` + Codex,
-sin `SPEC.md` propio, ver `.claude/rules/*.md` para el detalle real.
+completo (TSK-027 a TSK-033, done). Fase 2 ("Draft en equipo": modo de party + equipos guardados +
+timer del simulador + caminos de draft, TSK-034/035/036, más el Random Draft Simulator -- spec
+nativo de Kiro, sin tickets propios) **completa** -- construida vía `/kickoff` + Codex/Claude Code,
+sin `SPEC.md` propio, ver `.claude/rules/*.md` para el detalle real. El Random Draft Simulator
+está verificado en navegador pero sin commitear ni pasar `@redteam` todavía -- en cola. **Deploy
+real completo**: dota2coach en producción en Railway. **Fase 3 en curso**: "Posiciones reales en
+el motor de sugerencias" -- planificación cerrada (`/kickoff` + `/pre-flight` + `/blueprint` +
+`/rulebook`), contrato en `docs/specs/SPEC.md` §10, tickets TSK-043 a TSK-047 en backlog,
+pendiente de ejecutar. Cambio central: `role_gap` y `role_safety` se fusionan en `position_fit`,
+que usa posiciones reales (`hero-positions.json`) en vez de las etiquetas `roles[]` de OpenDota
+-- 57% de los héroes están marcados "Carry" ahí, por eso el motor sugería doble carry. Ver
+`docs/agents/PROGRESS.md` para el estado exacto.
 
 ## Monorepo — dos procesos locales
 ```

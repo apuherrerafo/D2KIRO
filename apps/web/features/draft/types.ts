@@ -6,11 +6,15 @@ export type HeroId = number;
 export type TeamSide = "radiant" | "dire";
 export type DraftFormatId = "all_pick" | "captains_mode";
 
-// Payloads que apps/web puede EMITIR hacia el motor (entrada manual, TSK-013) -- subconjunto de
-// los 7 tipos de DraftEvent de apps/engine relevantes desde la UI (pick/ban/revert). Los demás
-// (session_started, local_side_identified, session_ended, capture_health) los emiten los
-// capturadores, no la vista.
+// Payloads que apps/web puede EMITIR hacia el motor (entrada manual, TSK-013). session_ended y
+// capture_health siguen siendo exclusivos de un capturador real (Overwolf/OCR, todavía no
+// construidos). session_started/local_side_identified SÍ los emite la entrada manual (TSK-053) --
+// sin ningún capturador automático corriendo todavía, una sesión que arranca por entrada manual
+// pura necesita poder bootstrapear su propia fase activa, igual que ya hace el simulador de guion
+// fijo (SPEC.md D1: "simulador y entrada manual son capturadores de primera clase").
 export type DraftEvent =
+  | { type: "session_started"; format: DraftFormatId | "unknown"; patch: string }
+  | { type: "local_side_identified"; side: TeamSide }
   | { type: "hero_banned"; hero: HeroId; side: TeamSide | "unknown" }
   | { type: "hero_picked"; hero: HeroId; side: TeamSide }
   | { type: "pick_reverted"; hero: HeroId; side: TeamSide };
@@ -30,7 +34,10 @@ export interface DraftState {
   updatedAt: string;
 }
 
-export type SignalId = "counter" | "patch_meta" | "team_synergy" | "role_gap" | "hero_pool_fit" | "role_safety";
+// TSK-046 (Fase 3, SPEC.md §10.7): las dos señales de rol de fase 1/1b se fusionan en
+// `position_fit` en el motor (apps/engine/src/signals/types.ts) -- el espejo se mueve en el mismo
+// bloque de trabajo.
+export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
 
 export interface SignalContribution {
   signal: SignalId;

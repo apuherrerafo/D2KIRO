@@ -18,6 +18,7 @@ aquí, no está listo para implementarse — no se escribe una prueba que no res
 | **S7** — Cálculo del pool propuesto (fase 1b) | OpenDota → propuesta de pool | El filtro por mínimo, el suavizado, el orden por winrate y el corte en 5 — función pura | El cliente HTTP: respuestas de `/players/{id}/heroes` grabadas en fixtures. **Cero red en las pruebas.** |
 | **S8** — Persistencia y edición del pool (fase 1b) | `apps/web` (configuración) → `apps/engine` → SQLite | La validación en el borde, el reemplazo transaccional y la lectura vía Drizzle, contra una SQLite en memoria | Nada más. `POST /calculate` no participa: leer/escribir el pool nunca llama a la red |
 | **S9** — `HeroCapabilities` (Fase 2, caminos de draft) | `capabilities.json` (borrador curado a mano) → `draft-paths/build-paths.ts` | La lógica de detección de gaps y scoring por arquetipo — función pura | El archivo real: `heroCapabilities` inyectable en `AppDeps` (mismo patrón que `db`/`openDotaClient`), con un fixture propio y determinístico en las pruebas de integración. `capabilities.json` real sigue siendo un borrador editable — ninguna prueba puede depender de su contenido exacto sin romperse en silencio con cada corrección |
+| **S10** — `HeroPositions` (Fase 3, `position_fit`) | `hero-positions.json` (dato curado por parche) → `signals/position-fit.ts` | La lógica de cobertura, necesidad, timing y mezcla — función pura | El archivo real: `heroPositions` inyectado vía `createPositionFitScorer(positions)` y vía `BuildSuggestionsOptions.heroPositions` para las pruebas de integración. **Ninguna prueba puede depender del contenido real de `hero-positions.json`** — ese archivo se regenera con cada parche grande, un test atado a su contenido se rompería en silencio con cada actualización (mismo criterio literal que S9, y misma razón) |
 
 `hero_pool_fit` (fase 1b) no estrena costura propia — es un `SignalScorer` más, cae en **S3** tal
 cual (función pura, su propio archivo de prueba, aislado de los otros cuatro). Los "caminos de
@@ -48,3 +49,21 @@ S9 en vez de S2.
   (`filledGaps`/`scoreCandidate`) — son responsabilidades separadas, cada una necesita su propia
   prueba dedicada (hallazgo real de `@redteam` en TSK-036: un test bien nombrado sobre la función
   equivocada dejó pasar un bug real).
+
+## Fase 3 — `position_fit` (S3 + S10) — SPEC.md §10.2, §10.9
+
+- `position_fit` **no estrena costura como señal** — es un `SignalScorer` más, cae en **S3** tal
+  cual (función pura, archivo de prueba propio, aislado de las otras cuatro). S10 cubre solo su
+  dependencia de datos, exactamente como S9 hace para los caminos de draft.
+- Las pruebas de S10 nunca leen `hero-positions.json` real — siempre un fixture inyectado.
+  Misma razón que S9, con un agravante: ese archivo se regenera por parche, así que un test
+  atado a su contenido no falla al cambiar el código, falla al cambiar el meta.
+- **Tres pruebas obligatorias, no dos** (criterios 2/3/4 de §10.9): "no repite rol ya cubierto",
+  "en el primer pick favorece rol de apoyo", y **"con 4 supports propios se invierte y favorece
+  al carry"**. La tercera no es redundante: sin ella, una implementación que simplemente premiara
+  supports siempre pasaría las dos primeras y seguiría estando rota. Mismo tipo de hallazgo que
+  `@redteam` encontró en TSK-036 (un test bien nombrado que no probaba lo que decía).
+- El candado de regresión del bug que originó la fase (criterio 7) se prueba contra
+  `buildSuggestions` completo, **no contra la señal aislada** — la señal aislada podría dar el
+  número correcto y el pipeline seguir rankeando mal si el peso no alcanza. Eso es exactamente
+  lo que pasaba con `role_gap` antes de esta fase.

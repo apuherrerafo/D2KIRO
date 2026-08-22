@@ -1,7 +1,11 @@
 import type { DraftState, HeroId } from "../draft/reducer";
 import type { Bracket } from "../meta/mappers";
 
-export type SignalId = "counter" | "patch_meta" | "team_synergy" | "role_gap" | "hero_pool_fit" | "role_safety";
+// TSK-045 (Fase 3, SPEC.md §10.0): `role_gap` y `role_safety` se fusionan en `position_fit` --
+// dejan de ser señales activas. V1/V2/V3 en weights.ts siguen congeladas con sus propios
+// literales históricos (no dependen de esta unión), así que perder esos dos nombres acá no las
+// rompe.
+export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
 
 export interface SignalContribution {
   signal: SignalId;

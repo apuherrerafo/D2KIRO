@@ -1,4 +1,4 @@
-# PROYECTO: dota2coach — Fase 1 (Draft Coach)
+# PROYECTO: dota2coach (Draft Coach) — Fase 3 en curso
 
 ## STACK ACTUAL
 Definido por `/pre-flight` (`docs/agents/architecture.md`, Bloque 5) y cerrado por `/blueprint`
@@ -16,16 +16,26 @@ Dos procesos locales, no uno:
 - Captura de draft (fase 1): `simulator` y `manual` son capturadores de primera clase.
   `overwolf` y `ocr` quedan especificados como contrato, se construyen después (SPEC §0-D1).
 
-**Nota de estado (2026-08-01)**: fase 1 completa (TSK-001 a TSK-016, done), MVP validado. Fase 1b
+**Nota de estado (2026-08-20)**: fase 1 completa (TSK-001 a TSK-016, done), MVP validado. Fase 1b
 (personalización de hero pool, `docs/specs/SPEC.md` §9) completa y validada por el usuario con su
 cuenta real de Steam (TSK-017 a TSK-026, done). Bloque de feedback directo de producto tras probar
 fase 1b en vivo, también completo (TSK-027 a TSK-033, done): señal `role_safety` + priorización de
 support en picks tempranos, simulador personalizado al hero pool propio, home real + navegación
 compartida, persistencia de `account_id`, guion de bans de `allPick` ampliado a 16, comparación
 explícita entre sugerencias, y selector de ventana de días al calcular el pool. Fase 2 ("Draft en
-equipo": modo de party solo/2/3/5, hero pools de compañeros a mano, equipos guardados localmente)
-en curso vía `/kickoff` completado + ejecución en Codex — ver `docs/agents/PROGRESS.md` para el
-estado exacto y el siguiente paso.
+equipo") **completa**: modo de party solo/2/3/5 + hero pools de compañeros a mano + equipos
+guardados localmente (TSK-034 a TSK-036, vía Codex), y el Random Draft Simulator (spec nativo de
+Kiro, sin tickets `TSK-XXX` propios — store + hook de sesión contra el motor real + UI completa en
+`/random-draft`; agregó `GET /api/meta/hero-stats`, solo lectura, ver `engine.md`). El simulador
+está construido y verificado en navegador pero **sin commitear y sin pasar `@redteam` todavía** —
+pendiente, en cola. **Deploy real completo**: dota2coach corre en producción en Railway
+(https://d2kiro-production.up.railway.app, auto-deploy activado sobre `master`), primer `/castoff`
+exitoso y verificado contra la instancia pública. **Fase 3 en curso** ("Posiciones reales en el
+motor de sugerencias"): QA manual reveló que el motor no tiene ningún concepto de posición (pos
+1-5) — usa etiquetas temáticas de OpenDota que no representan roles reales (57% de los héroes
+marcados "Carry"), lo que produce composiciones inválidas (doble carry). `/kickoff` cerrado:
+se resuelve curando posiciones a mano (mismo patrón que `capabilities.json`), sin STRATZ ni
+dependencias nuevas. Ver `docs/agents/PROGRESS.md` para el estado exacto y el siguiente paso.
 
 ## COMANDOS ESENCIALES
 - `bun run dev` → Iniciar servidor de desarrollo.
@@ -112,6 +122,32 @@ sección son los puntos que no se pueden violar sin romper el contrato, resumido
 - **Predicción de rol/posición del rival: fuera de alcance de 1b.** Documentada como dependencia
   condicional de STRATZ (contrato de señal descrito en `architecture.md`), no se construye hasta
   que se priorice explícitamente y pase por `/gear-up`.
+
+## REGLAS DE FASE 3 (posiciones reales) — desde `docs/specs/SPEC.md` §10
+Generadas por `/rulebook`, tercera ejecución del proyecto. Detalle completo en `.claude/rules/`
+(secciones "Fase 3" en `engine.md`, `web.md`, `security.md`, `testing-seams.md`) — esta sección
+son los puntos que no se pueden violar sin romper el contrato, resumidos:
+
+- **`roles[]` de OpenDota NO son posiciones.** 57% de los héroes están etiquetados `"Carry"`
+  (Zeus, Axe, Tidehunter incluidos), 38% `"Support"`. Prohibido usarlos para razonar sobre
+  posición, cobertura de rol o solapamiento de farm — para eso existe `hero-positions.json`.
+  Este error, no detectado durante 3 fases, es exactamente lo que originó esta fase.
+- **`role_gap` y `role_safety` dejan de existir**, fusionadas en `position_fit`. La intención de
+  producto de `role_safety` (support primero, revelar el core después) se conserva completa; lo
+  que se descarta es su implementación sobre etiquetas y su ventana dura de 2 picks.
+- **`SCORING_WEIGHTS_V4` es la activa; V1/V2/V3 quedan congeladas por nombre.** Prueba unitaria
+  obligatoria: los 5 pesos suman `1.0`. El candado de regresión cero de V2/V3 **no aplica** — V4
+  reemplaza dos señales por una, no hay estado "sin configurar" que reproducir.
+- **`position_fit` es señal ponderada, nunca filtro duro.** Un héroe que repite rol puntúa
+  `raw: 0`; no se elimina de `candidatePool`, que solo descarta por hechos binarios.
+- **El contrato `SignalScorer.score()` no se modifica** — el dato entra por fábrica y por
+  `BuildSuggestionsOptions.heroPositions?`, mismo patrón que `now?`/`metaIsStale?`.
+- **`hero-positions.json` se valida en el borde al cargarlo.** Umbral de 200 partidas por
+  posición, no negociable en silencio. Archivo corrupto → "sin datos", nunca tira el motor.
+- **El motor nunca llama a la red por este dato.** El script de regeneración corre a mano, fuera
+  de `apps/engine`. Cero dependencias nuevas: el navegador headless vive fuera del `package.json`.
+- **`SignalId` está espejado a mano en `apps/web`** — cambiar el set de señales del motor sin
+  mover ese espejo en el mismo cambio rompe el tipado.
 
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.

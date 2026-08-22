@@ -79,3 +79,21 @@ calla el sistema durante un draft.
 - Terminología de "caminos de draft": usar "le falta al draft", "win condition", "prioridades del
   equipo" — **nunca** "needs-based drafting" (no es el término real que usa la comunidad
   competitiva de Dota 2, confirmado por investigación antes de diseñar la función).
+
+## Fase 3 — `position_fit` (SPEC.md §10.7)
+
+- **`SignalId` en `apps/web/features/draft/types.ts` es un espejo a mano del contrato del motor**,
+  no un import — los dos procesos son independientes (ya está documentado así en ese archivo).
+  Cuando el motor cambia el set de señales, este espejo cambia en el **mismo** cambio o el tipado
+  se rompe. Fase 3: quita `role_gap` y `role_safety`, agrega `position_fit`. **No es el único
+  espejo** — `bot-drafter.ts` (Random Draft Simulator) también espeja su propia versión angosta
+  de `MetaSnapshot`/`MetaHeroEntry`/`HeroPatchStat`, documentado en `engine.md` (sección Random
+  Draft Simulator, hallazgo TSK-062). Un rename de campo en el motor toca los dos.
+- `SignalBreakdown` pasa a mostrar **5 señales, no 6**. `SIGNAL_LABELS` pierde `"Solapamiento de
+  rol"` y `"Seguridad del pick temprano"`, gana `position_fit` → **"Posición y momento del pick"**.
+- La distinción entre `raw: null` y `applicable: false` que 1b introdujo se mantiene sin cambios.
+  `position_fit` **solo** usa `raw: null` — nunca debe renderizarse con el texto de "función no
+  configurada", que es exclusivo de `hero_pool_fit`.
+- Terminología de posiciones, en castellano y consistente con cómo las nombra el usuario:
+  **hard support, support, offlane, midlane, carry**. Nunca "pos 1/2/3/4/5" a secas en texto
+  visible sin el nombre al lado — el número solo se usa internamente en el dato.

@@ -1,18 +1,18 @@
 import type { DraftState, HeroId } from "../draft/reducer";
 import { counterScorer } from "./counter";
 import { heroPoolFitScorer } from "./hero-pool-fit";
+import { loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { patchMetaScorer } from "./patch-meta";
-import { roleGapScorer } from "./role-gap";
-import { roleSafetyScorer } from "./role-safety";
+import { createPositionFitScorer } from "./position-fit";
 import { teamSynergyScorer } from "./team-synergy";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
-import { SCORING_WEIGHTS_V3 } from "./weights";
+import { SCORING_WEIGHTS_V4 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
   rank: 1 | 2 | 3;
   score: number;
-  signals: SignalContribution[]; // siempre las 6, incluidas las que dieron null o no aplican
+  signals: SignalContribution[]; // siempre las 5, incluidas las que dieron null o no aplican
   reason: string;
   confidence: "alta" | "media" | "baja";
 }
@@ -41,12 +41,19 @@ export interface SuggestionSet {
 export interface BuildSuggestionsOptions {
   metaIsStale?: boolean;
   now?: () => number; // inyectable para pruebas de rendimiento determinísticas
+  // TSK-045 (Fase 3, SPEC.md §10.2, costura S10): ausente -> carga hero-positions.json real
+  // (loadHeroPositions()). Las pruebas inyectan su propio fixture -- nunca dependen del archivo
+  // real, que se regenera por parche.
+  heroPositions?: HeroPositions;
 }
 
-// TSK-027: role_safety entra al pipeline real. SCORING_WEIGHTS_V1/V2 (weights.ts) quedan
-// intactos y congelados -- SCORING_WEIGHTS_V3 es la única constante que usa este archivo de aquí
-// en adelante.
-const SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, roleGapScorer, heroPoolFitScorer, roleSafetyScorer];
+// TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. Las 4 señales que no
+// necesitan configuración por llamada siguen siendo instancias únicas a nivel de módulo;
+// position_fit se construye por llamada dentro de buildSuggestions() porque depende del dato
+// inyectable de heroPositions (no puede ser un singleton de módulo, a diferencia del resto).
+// SCORING_WEIGHTS_V1/V2/V3 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V4 es la
+// única constante que usa este archivo de aquí en adelante.
+const STATIC_SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, heroPoolFitScorer];
 const TOP_N = 3;
 const HARD_CUTOFF_MS = 500;
 
@@ -57,9 +64,8 @@ const RAW_RANGE: Record<SignalId, [number, number]> = {
   counter: [-0.3, 0.3],
   patch_meta: [0.3, 0.7],
   team_synergy: [0, 1],
-  role_gap: [-1, 0],
   hero_pool_fit: [0, 1],
-  role_safety: [0, 1],
+  position_fit: [0, 1],
 };
 
 function normalize(signal: SignalId, raw: number): number {
@@ -91,10 +97,10 @@ function hasVote(signal: SignalContribution): boolean {
 // con valor 0 (0 sería indistinguible de "sin ventaja", cuando en realidad es "sin dato").
 function weightedContributions(signals: SignalContribution[]): Partial<Record<SignalId, number>> {
   const withData = signals.filter(hasVote);
-  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V3[s.signal], 0);
+  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V4[s.signal], 0);
   const result: Partial<Record<SignalId, number>> = {};
   for (const s of withData) {
-    const share = SCORING_WEIGHTS_V3[s.signal] / totalWeight; // redistribución proporcional
+    const share = SCORING_WEIGHTS_V4[s.signal] / totalWeight; // redistribución proporcional
     result[s.signal] = normalize(s.signal, s.raw as number) * share;
   }
   return result;
@@ -110,10 +116,6 @@ export function mixScore(signals: SignalContribution[]): number {
   return values.reduce((sum, v) => sum + v, 0);
 }
 
-// Candado de regresión cero, doble (§9.3, TSK-027): con hero_pool_fit no aplicable Y role_safety
-// fuera de ventana (raw:null), totalWeight en mixScore es 0.288+0.18+0.144+0.108=0.72 -- cada
-// share individual (ej. 0.288/0.72) reproduce exactamente los pesos de V1 (0.40/0.25/0.20/0.15).
-// Verificado con números exactos en mix.test.ts, no a ojo.
 function computeConfidence(signals: SignalContribution[], metaIsStale: boolean): Suggestion["confidence"] {
   // Una señal no aplicable no cuenta como null para la confianza -- "no configuraste la función"
   // no es lo mismo que "hay un hueco de datos" (D10). Sin esto, todo usuario sin pool vería su
@@ -128,7 +130,7 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 function buildReason(signals: SignalContribution[]): string {
   const informative = signals
     .filter(hasVote)
-    .sort((a, b) => SCORING_WEIGHTS_V3[b.signal] - SCORING_WEIGHTS_V3[a.signal])
+    .sort((a, b) => SCORING_WEIGHTS_V4[b.signal] - SCORING_WEIGHTS_V4[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
   if (informative.length > 0) return informative.join("; ");
@@ -184,6 +186,11 @@ export function buildSuggestions(
   if (state.quality.unconfirmed.length > 0) degraded.push("unconfirmed_state");
   if (state.format === "unknown") degraded.push("unknown_format");
 
+  // position_fit no puede ser un singleton de módulo como el resto -- depende del dato inyectable
+  // de heroPositions, así que se construye una vez por llamada (costura S10).
+  const heroPositions = options.heroPositions ?? loadHeroPositions();
+  const scorers: SignalScorer[] = [...STATIC_SCORERS, createPositionFitScorer(heroPositions)];
+
   const candidates = candidatePool(state, meta);
   if (candidates.length === 0) {
     return {
@@ -203,7 +210,7 @@ export function buildSuggestions(
       degraded.push("partial_signals");
       break;
     }
-    const signals = SCORERS.map((scorer) => safeScore(scorer, state, hero, meta));
+    const signals = scorers.map((scorer) => safeScore(scorer, state, hero, meta));
     scored.push({ hero, score: mixScore(signals), signals });
   }
 

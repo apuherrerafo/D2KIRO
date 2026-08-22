@@ -111,3 +111,81 @@ número de sección de `SPEC.md`, documentado aquí como fuente de verdad)
 - `damage_mix` nunca asume que el equipo está desbalanceado hacia un tipo de daño fijo — compara
   contra el tipo dominante real del equipo propio (`ownDamageTypes`), no un valor hardcodeado.
   Corregido por hallazgo de `@redteam` en TSK-036: la primera versión asumía "physical" siempre.
+
+### Random Draft Simulator (`apps/web/features/random-draft-simulator/`) — spec nativo de Kiro,
+sin `/blueprint` propio, documentado aquí como fuente de verdad (mismo criterio que "Draft en
+equipo" arriba)
+- **`GET /api/meta/hero-stats`** (solo lectura, sin auth, mismo criterio que `/api/heroes` y
+  `/api/meta/status`): expone `patchStats` (picks/wins por héroe, patch y bracket) ya calculado
+  por `buildMetaSnapshot`, agregado porque ningún endpoint existente lo exponía a `apps/web` —
+  `GET /api/heroes` solo trae nombre/ícono/roles. **No toca el camino caliente de sugerencias ni
+  el reductor** — nadie lo llama durante un draft en curso, solo al arrancar una sesión del
+  simulador. Debe estar en la allowlist de `apps/web/next.config.ts` (`ENGINE_REWRITE_SOURCES`).
+- El bot del simulador **no usa `buildSuggestions`** — tiene su propio scoring simplificado
+  (`apps/web/features/random-draft-simulator/bot-drafter.ts`, pick rate + ban rate de
+  `patchStats`) para que el pre-cálculo sea síncrono y determinístico sin depender de la
+  disponibilidad del motor. **Consecuencia real, no solo teórica**: el bot y el Copilot son dos
+  cerebros distintos — lo que se ve draftear al bot no refleja el motor de sugerencias real.
+  Confirmado como causa de una queja real de producto (QA manual, 2026-08-20) que disparó la
+  investigación de Fase 3 (posiciones reales) — ver `PROGRESS.md`. Sigue así hasta que se decida
+  explícitamente lo contrario (fuera de alcance del `/kickoff` de Fase 3 a propósito).
+- `metaBanPool` (orden de baneo del `BanPhaseResolver`) usa pick rate como proxy de tasa de ban —
+  **no existe dato de ban rate en ningún lado del proyecto** (OpenDota no lo expone, nunca se
+  sincronizó). No es un placeholder temporal sin justificar: es la mejor aproximación disponible
+  con los datos reales que hay.
+- **Segundo espejo de tipos, documentado a partir de TSK-062** (hallazgo 2.5 de "Radiografía de
+  dota2coach", auditoría de arquitectura 2026-08-21): `bot-drafter.ts:14-31` define su propia
+  versión angosta de `HeroPatchStat`/`MetaHeroEntry`/`MetaSnapshot` (sin `matchups` ni
+  `heroPool` — solo lo que el scoring del bot necesita), en vez de importar los tipos reales de
+  `apps/engine/src/signals/types.ts`. Es el mismo criterio que ya justifica el espejo de
+  `SignalId` en `apps/web/features/draft/types.ts` (web.md, §Fase 3) — los dos procesos son
+  independientes a propósito, `apps/web` nunca importa tipos de `apps/engine` — pero hasta este
+  ticket nadie lo había nombrado como espejo deliberado. Si el motor renombra un campo de
+  `MetaSnapshot`, hay dos lugares a corregir en el mismo cambio, no uno: `apps/web/features/
+  draft/types.ts` (ya documentado) y `apps/web/features/random-draft-simulator/bot-drafter.ts`
+  (documentado acá, ahora).
+
+## Fase 3 — `position_fit` (S3 + S10) — SPEC.md §10
+
+- **`roles[]` de OpenDota NO son posiciones.** Es la regla que originó toda esta fase: 57% de los
+  héroes están etiquetados `"Carry"` (Zeus, Axe, Tidehunter incluidos) y 38% `"Support"`. Son
+  etiquetas temáticas, no roles de línea. **Prohibido usar `roles[]` para razonar sobre posición,
+  cobertura de rol o solapamiento de farm** — para eso existe `hero-positions.json`. `roles[]`
+  sigue siendo válido para lo que sí describe (`team-synergy.ts` lo usa como heurística de
+  capacidades, eso no cambia).
+- **`role_gap` y `role_safety` dejan de existir.** Se fusionan en `position_fit` — las dos
+  respondían la misma pregunta de fondo ("qué posición me falta y es buen momento de revelarla") y
+  separadas competían entre sí dentro del mismo score. La intención de producto de `role_safety`
+  (support primero, revelar el core después, TSK-027) **se conserva completa** dentro de la señal
+  nueva; lo que se descarta es su implementación sobre etiquetas y su ventana dura de 2 picks.
+- **`SCORING_WEIGHTS_V4` es la constante activa.** V1/V2/V3 quedan congeladas por nombre, nunca se
+  editan ni se borran (mismo patrón de siempre). Prueba unitaria obligatoria: los 5 pesos suman
+  exactamente `1.0`. **El candado de regresión cero de V2/V3 no aplica acá** — V4 reemplaza dos
+  señales por una en vez de agregar una sexta, no existe un estado "sin configurar" que reproducir.
+  Si alguien lo busca y no lo encuentra, es deliberado, no un olvido.
+- **`position_fit` es señal ponderada, nunca filtro duro.** El único filtro duro del motor
+  (`candidatePool`) descarta por hechos binarios (baneado/pickeado), jamás por juicio de calidad.
+  Un héroe que repite rol puntúa `raw: 0`, **no** se elimina de la lista de candidatos.
+- **El contrato `SignalScorer.score(state, candidate, meta)` no se modifica.** El dato de posición
+  entra por fábrica (`createPositionFitScorer(positions)`) y por `BuildSuggestionsOptions
+  .heroPositions?` (ausente → carga el archivo real). Mismo patrón que `now?`/`metaIsStale?` ya
+  usan ahí — los llamadores existentes no cambian.
+- **Los dos únicos casos de `raw: null`**: candidato sin entrada en `hero-positions.json` (hoy:
+  Chen), y `state.localSide === "unknown"`. Este segundo es un **cambio de comportamiento
+  deliberado** respecto a `role_gap`/`role_safety`, que lo trataban como "sin picks propios" y
+  afirmaban implícitamente "te falta todo" sin base para hacerlo.
+- **Nunca `applicable: false` en `position_fit`.** Ese campo significa "función que el usuario no
+  configuró" (solo `hero_pool_fit` lo usa). Un héroe sin dato de posición es un hueco de datos:
+  `raw: null`.
+- `hero-positions.json` vive en `apps/engine/src/signals/`, archivo estático versionado en el
+  repo, **no en SQLite** — mismo criterio que `capabilities.json`. Se valida en el borde al
+  cargarlo (`loadHeroPositions()`): descarta entradas malformadas, `position` fuera de `1..5`,
+  `matches` no entero o `< 200`, y héroes duplicados. **Un archivo corrupto degrada a "sin datos
+  de posición" (todos `raw: null`), nunca tira el motor.**
+- **El umbral de 200 partidas no es negociable en silencio.** Sin él, héroes con presencia
+  marginal aparecen en las 5 posiciones (caso real verificado: Windranger). Si se cambia, se
+  cambia acá y en `SPEC.md` §10.1 P4, nunca solo en el código.
+- **El motor nunca llama a la red por este dato.** El script que regenera el archivo corre a mano,
+  fuera de `apps/engine`, nunca programado. La regla de cero red en el camino caliente queda
+  intacta — esta fase ni siquiera abre una excepción "de configuración" como sí hizo
+  `POST /api/hero-pool/calculate` en 1b.
