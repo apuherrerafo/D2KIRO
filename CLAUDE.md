@@ -135,9 +135,13 @@ son los puntos que no se pueden violar sin romper el contrato, resumidos:
 - **`role_gap` y `role_safety` dejan de existir**, fusionadas en `position_fit`. La intención de
   producto de `role_safety` (support primero, revelar el core después) se conserva completa; lo
   que se descarta es su implementación sobre etiquetas y su ventana dura de 2 picks.
-- **`SCORING_WEIGHTS_V4` es la activa; V1/V2/V3 quedan congeladas por nombre.** Prueba unitaria
-  obligatoria: los 5 pesos suman `1.0`. El candado de regresión cero de V2/V3 **no aplica** — V4
-  reemplaza dos señales por una, no hay estado "sin configurar" que reproducir.
+- **`SCORING_WEIGHTS_V5` es la activa; V1/V2/V3/V4 quedan congeladas por nombre.** V4 fue la que
+  introdujo `position_fit` en esta fase (reemplaza dos señales por una, no hay estado "sin
+  configurar" que reproducir, así que el candado de regresión cero de V2/V3 **no aplica** a
+  ninguna de las dos). V5 (auditoría 2026-08-22, TSK-065) no agrega ni quita señales sobre V4 —
+  recalibra `RAW_RANGE.counter` (nunca medido contra datos reales) y sube `position_fit` de 0.25 a
+  0.38 tras confirmar que un hard counter real casi empataba con un core que repite rol ya
+  cubierto. Prueba unitaria obligatoria en toda versión: los 5 pesos suman `1.0`.
 - **`position_fit` es señal ponderada, nunca filtro duro.** Un héroe que repite rol puntúa
   `raw: 0`; no se elimina de `candidatePool`, que solo descarta por hechos binarios.
 - **El contrato `SignalScorer.score()` no se modifica** — el dato entra por fábrica y por

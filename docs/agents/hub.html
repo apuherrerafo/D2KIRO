@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-22T21:05:25.995Z</title>
+<title>HUB del ecosistema — 2026-08-22T21:06:54.896Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -819,11 +819,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">95× · 68% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">96× · 69% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:60%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -881,6 +881,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-067</span> <span class="feed-ts">2026-08-22T22:15</span></div>
+            <div class="feed-note">Encontrado tercer lote de trabajo sin commitear de otra sesión de Kiro (rol "agent-auditor", timestamps 15:54-15:57 de hoy, antes de que esta sesión empezara): 14 archivos de contexto/gobernanza (`AGENTS.md`, `.claude/agents/sentinel.md`, 3 `SKILL.md`, `.kiro/steering/*`, `docs/agents/{USER,CONTEXT,MEMORY}.md`, `scripts/{verify-simplicity,sync-context}.ts`) reemplazando referencias obsoletas de plantilla (HTMX, daisyUI, `[nombre-del-proyecto]`) por el stack/reglas reales, y agregando `scripts/sync-context.ts` (chequeo de frescura de contexto, `process.exit(0)` siempre, nunca bloquea) como primer paso de `verify-simplicity.sh` + 3 invariantes duros nuevos sin excepción posible (`0.0.0.0` en `apps/engine/src/`, `fetch(` en `apps/engine/src/signals/`, `dangerouslySetInnerHTML` en `apps/web/`). Auditado archivo por archivo antes de dar por bueno, mismo criterio que TSK-066 -- no se asumió que el trabajo estuviera bien solo porque ya existía. **Hallazgo real, no cosmético**: `@build/SKILL.md`, `USER.md` y `MEMORY.md` (los tres, de forma independiente) reescribieron la regla de excepción de 200 líneas como "no preguntes por adelantado, ya se ajustó el patrón" -- pero el propio `MEMORY.md`, ANTES de su reescritura, decía literalmente "nunca asumir la respuesta de antemano". La sesión de Kiro leyó "la respuesta ha sido consistente" y concluyó "entonces dejá de preguntar", exactamente lo que esa regla existe para prohibir. Corregido en los 3 archivos: `@build` sigue avisando con `AskUserQuestion` en cuanto detecta que va a superar el límite (no se detiene a mitad de una unidad lógica para eso), nunca asume en silencio. Verificado antes de aceptar el hardening de `verify-simplicity.sh`: corridos los 3 `grep` exactos contra `git ls-files` de `apps/engine/src/`/`apps/web/` -- cero falsos positivos contra el código real actual. `scripts/sync-context.ts` ejecutado de verdad (no solo leído): funciona, encontró 2 señales legítimas (`plan.md` con 13 tickets ya `done` listados como si no lo estuvieran; `MEMORY.md` sin mencionar el ticket más reciente tras crear TSK-067, esperado). Creado `docs/agents/tasks/TSK-067.md` (`simplicity_exception: true`, mismo criterio que TSK-063/066 -- 14 archivos de un mismo pase de auditoría, partirlo dejaría el ecosistema en un estado intermedio inconsistente). `bun test` 240/240 sin cambios (nada de este ticket toca `apps/engine`/`apps/web`, es governance/docs/scripts). `COMMIT_TICKET="TSK-067" bash scripts/verify-simplicity.sh` -- ✅ superado (14 archivos/527 líneas, excepción reconocida). Commiteado en `1e7b27b`. state: → done (TSK-067).</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -956,13 +963,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T09:00</span></div>
             <div class="feed-note">Gate de seguridad del Random Draft Simulator (Hilo 1) completo, a pedido del usuario antes de commitear -- nunca había pasado por este gate (sin ticket TSK-XXX propio, spec nativo de Kiro). Alcance revisado: apps/web/features/random-draft-simulator/ completo (~30 archivos: store, orchestrator, bot-drafter, ban-phase, seeded-rng, use-random-draft-session, use-config-persistence, 6 componentes), apps/web/app/random-draft/page.tsx, apps/web/components/draft-feedback-box/DraftFeedbackBox.tsx, y la extensión de GET /api/meta/hero-stats en apps/engine (ya revisada aparte en TSK-063). Gate de seguridad: PASS -- grep limpio de dangerouslySetInnerHTML/eval/innerHTML/secretos hardcodeados en todo el árbol; localStorage validado en lectura (`validatePersistedConfig`, degrada a null sin lanzar); mensajes WS validados (`isValidServerMessage`) antes de aplicarse al store; imágenes de héroe vía `HeroIcon` (host ya validado contra el CDN de Valve, componente compartido de Fase 1, no nuevo); eventos del bot van por `postSimulatorEvent` -> mismo `/api/session/manual` ya revisado (sin `x-capture-token`, mismo perímetro 127.0.0.1, decisión de diseño ya documentada); `next.config.ts` allowlist actualizada correctamente para el endpoint extendido; sin dependencias nuevas en package.json. Pasada 1 (Standards): dispatch por mapa de objeto en vez de ternarios anidados (`PHASE_VIEWS`), reutiliza infraestructura existente (`HeroIcon`, `postEvent`, `createDraftSocket`) en vez de duplicarla, retry con backoff acotado en la emisión de eventos, manejo de fallo de red sin dejar botones colgados (mismo hallazgo ya aplicado en `ManualEntryPanel`/`DraftFeedbackBox`), tokens de diseño consistentes. Pasada 2 (Spec): contra `.kiro/specs/random-draft-simulator/tasks.md` -- ya verificado 17/17 completo con pruebas en navegador real y 2 bugs reales corregidos en el camino (PROGRESS.md, evt-20260820-047); nada en el diff se sale de lo que el spec pedía. Veredicto: **APPROVED**. Sin hallazgos bloqueantes.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-063</span> <span class="feed-ts">2026-08-21T20:35</span></div>
-            <div class="feed-note">Último ticket de la cadena de la auditoría de arquitectura. Reabre a propósito lo que Fase 3 había diferido explícitamente: el bot del Random Draft Simulator seguía usando `roles[]` de OpenDota para su bono de "complementa lo ya pickeado", el mismo error que originó toda Fase 3. `apps/engine`: `GET /api/meta/hero-stats` (`routes/meta.ts`) agrega `heroPositions` a la misma respuesta (reusa `loadHeroPositions()`, inyectable vía deps, costura S10 respetada), sin endpoint nuevo. `apps/web`: `bot-drafter.ts` gana `complementsBotPositions` (compara posición dominante real, nunca `roles[]`) reemplazando `complementsBotRoles`; `meta-loader.ts` pasa el dato al `MetaSnapshot` del bot. `bot-drafter.ts` no tenía ninguna prueba propia -- `bot-drafter.test.ts` nuevo, 3 casos incluido el candado de regresión pedido por el ticket (Spectre pickeado, Wraith King no recibe el bono por compartir posición dominante, Crystal Maiden sí por llenar un hueco real). Cambio cruza los dos procesos por naturaleza (dato en engine, consumidor en web) -- 6 archivos/704 líneas, `simplicity_exception: true` documentada por adelantado en el propio ticket con la justificación, mismo precedente que el espejo de SignalId en Fase 3. Autorevisión de seguridad a mano (sin sub-agente separado, pero con el mismo estándar): sin superficie nueva, mismo perímetro que ya tenía el endpoint, sin secretos/SQL/dependencias nuevas. `bun test` 232/232 (engine) + 87/87 (web), `tsc --noEmit` limpio en ambos. state: backlog → done. **Cadena completa de la auditoría de arquitectura terminada: TSK-048, TSK-055 a TSK-063 (10 tickets), más TSK-064 (bug crítico real hallado en el camino).**</div>
           </div>
         </div></div>
     </div>

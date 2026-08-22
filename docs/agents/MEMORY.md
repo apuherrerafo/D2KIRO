@@ -8,7 +8,7 @@ un mes de trabajo real que la vista vieja no reflejaba.
 
 ## Estado del proyecto
 
-**Los 66 tickets del repo (TSK-001 a TSK-066) están `done`.** Backlog en cero. Fase 1, Fase 1b
+**Los 67 tickets del repo (TSK-001 a TSK-067) están `done`.** Backlog en cero. Fase 1, Fase 1b
 (hero pool), el bloque de feedback directo de producto, Fase 2 ("Draft en equipo" + Random Draft
 Simulator), el deploy a Railway, Fase 3 (posiciones reales, `position_fit`) y una auditoría de
 arquitectura + recalibración de pesos posterior están todas completas y verificadas contra
@@ -100,7 +100,13 @@ grande pudiera dividirse en commits lógicos sin que el gate viera todo el árbo
 `scripts/sync-context.ts` (nuevo, 2026-08-22): detecta cuando `AGENTS.md`/`.kiro/steering/`
 quedan atrás del stack real, y cuando `plan.md`/`MEMORY.md` quedan atrás del estado real de los
 tickets — nace directamente de que `AGENTS.md` fue encontrado como plantilla genérica sin llenar
-(Bun+HTMX) casi un mes después de que `CLAUDE.md` documentara Next.js.
+(Bun+HTMX) casi un mes después de que `CLAUDE.md` documentara Next.js. **TSK-067**: cierra ese
+mismo hallazgo de punta a punta — `AGENTS.md`/Sentinel/`@redteam`/`.kiro/steering/*` calibrados
+contra el stack real, `USER.md`/`CONTEXT.md` poblados, este archivo regenerado. En el camino se
+encontró y corrigió una contradicción real entre `@build`/`USER.md`/`MEMORY.md`: los tres habían
+quedado escritos como "no preguntes por adelantado, el patrón ya se confirmó" — invirtiendo la
+regla real ("nunca asumas la respuesta de antemano, seguí preguntando aunque el patrón se repita").
+`CLAUDE.md` § REGLAS DE FASE 3 también se corrigió (`SCORING_WEIGHTS_V4` → `V5`, TSK-065).
 
 ## Decisiones de diseño no especificadas en SPEC.md, documentadas para referencia futura
 
