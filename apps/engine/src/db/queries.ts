@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { heroMatchups, heroPool, settings, teamGroups, teamMembers } from "./schema";
+import { draftFeedback, heroMatchups, heroPool, settings, teamGroups, teamMembers } from "./schema";
 
 export function getMatchupsForHero<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
@@ -148,4 +148,28 @@ export function deleteTeamGroup<TSchema extends Record<string, unknown>>(db: Bun
     tx.delete(teamGroups).where(eq(teamGroups.id, id)).run();
   });
   return true;
+}
+
+export interface DraftFeedbackWriteRow {
+  sessionId: string;
+  comment: string;
+  draftState: unknown;
+  suggestions: unknown | null;
+  createdAt: string;
+}
+
+// TSK-051: inbox append-only (TSK-050) -- sin update ni delete, mismo espíritu que journal.md.
+export function insertDraftFeedback<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  row: DraftFeedbackWriteRow,
+) {
+  db.insert(draftFeedback).values(row).run();
+}
+
+// Más nuevo primero -- para que una sesión de Claude Code futura lea los reportes pendientes
+// arriba, sin tener que hojear todo el historial. Ordena por `id`, no por `createdAt`: dos
+// reportes insertados dentro del mismo milisegundo (doble click, envíos rápidos) empatarían en
+// timestamp -- `id` autoincremental sí garantiza el orden real de inserción.
+export function getAllDraftFeedback<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>) {
+  return db.select().from(draftFeedback).orderBy(desc(draftFeedback.id)).all();
 }

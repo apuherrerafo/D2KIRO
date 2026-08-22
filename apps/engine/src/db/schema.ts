@@ -87,3 +87,15 @@ export const teamMembers = sqliteTable("team_members", {
   heroPool: text("hero_pool", { mode: "json" }).$type<number[]>().notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// TSK-050: inbox append-only de reportes de QA manual -- `draftState`/`suggestions` quedan sin
+// `$type<...>()` a propósito, ese contrato vive en apps/web y cambia con cada fase; tipar acá
+// acoplaría el motor a mantenerlo sincronizado sin necesidad real.
+export const draftFeedback = sqliteTable("draft_feedback", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: text("session_id").notNull(),
+  comment: text("comment").notNull(),
+  draftState: text("draft_state", { mode: "json" }).notNull(),
+  suggestions: text("suggestions", { mode: "json" }),
+  createdAt: text("created_at").notNull(),
+});
