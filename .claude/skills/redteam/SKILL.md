@@ -19,7 +19,7 @@ Haz dos pasadas explícitas y separadas sobre el mismo diff — no las mezcles e
 1. **Simplicidad estructural**: ¿hay abstracciones innecesarias? Aplica la prueba de deleción simulada.
 2. **Nomenclatura de dominio**: ¿usa el lenguaje del dominio?
 3. **Manejo de errores**: ¿contempla casos nulos, fallos de red, inputs vacíos?
-4. **Si el diff toca UI**: ¿usa `tokens.css`/clases de daisyUI o hay colores/espaciados hardcodeados? Esto no se relaja ni en prototipo — es la barrera contra la deuda de inconsistencia visual.
+4. **Si el diff toca UI**: ¿usa color por rol semántico (`--surface-*`, `--content-*`, `--accent-*`, `--signal-positive`/`--signal-negative`/`--signal-warning`) y la escala de espaciado de 4px (ver `.claude/rules/web.md`), o hay un hex/tamaño suelto hardcodeado en el componente? Esto no se relaja ni en prototipo — es la barrera contra la deuda de inconsistencia visual.
 5. **N+1 queries de Drizzle**: ¿hay `db.select()` (o equivalente) dentro de un `.map()`/`.forEach()`/loop? En SQLite local no duele todavía, pero es deuda de rendimiento silenciosa que se nota en cuanto sube el volumen. Márcalo aunque no bloquee — es una observación de Standards, no un gate de seguridad.
 
 **Pasada 2 — Spec** (¿hace lo que el ticket pedía, ni más ni menos?)

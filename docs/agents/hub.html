@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-22T20:48:42.050Z</title>
+<title>HUB del ecosistema — 2026-08-22T21:05:25.995Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -54,7 +54,7 @@
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code. Modelo: **Sonnet**. · Acción: **Ninguna acción técnica obligatoria pendiente.** Todo lo acumulado de esta sesión y de · las anteriores está commiteado y verificado en verde. Falta decisión de producto: si el usuario · quiere `git push` a `master` (Railway auto-despliega sobre esa rama -- confirmar antes de pushear · si corresponde `/castoff` primero, dado que hay cambios reales de superficie en `apps/engine`), o · si prefiere seguir trabajando local antes de subir. El resto son los mismos caminos sin fecha de · siempre (Overwolf, OCR, predicción de rol rival, sistema combinatorial completo de caminos de · draft) -- arrancan con `/kickoff` cuando el usuario lo decida. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · **Pendiente menor, no bloqueante (anotado a pedido del usuario para no perderlo)**: Chen es el · único héroe sin ninguna posición real en `hero-positions.json` (TSK-043) -- no llegó al umbral de · 200 partidas en ninguna de las 5. `position_fit` lo trata como `raw: null`, no rompe nada. Si se · quiere cerrar el hueco, se agrega su entrada a mano en el archivo (nota igual dejada en · `hero-positions.ts`) -- no hace falta rejugar la recolección completa por un solo héroe. ·  · Una vez resuelto lo de arriba, no hay ninguna otra tarea técnica obligatoria pendiente -- el resto · es la misma decisión de producto de antes: elegir cuál de los caminos ya identificados y sin fecha · se prioriza (o ninguno, y el proyecto queda en modo mantenimiento). Cualquiera de ellos arranca con · `/kickoff` cuando el usuario lo decida: · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - La pieza más grande y deliberadamente diferida del brainstorm original de "Fase C": el sistema ·   combinatorial completo de caminos de draft (eje de timing, forma de recursos, win conditions ·   primaria+secundaria) -- la v1 ya construida (TSK-036) solo cubrió el eje de plan macro, a ·   propósito, por decisión explícita del usuario de mantener el alcance acotado. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: --. Modelo: --. · Acción: **Ninguna acción técnica obligatoria pendiente.** Todo lo acumulado está commiteado, · verificado y en producción. Lo que sigue es decisión de producto: elegir cuál de los caminos ya · identificados y sin fecha se prioriza (o ninguno, y el proyecto sigue en mantenimiento). · Cualquiera de ellos arranca con `/kickoff` cuando el usuario lo decida: · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">66</span></h2>
+        <h2>done <span class="count">67</span></h2>
         
         <div class="card  ">
           
@@ -744,6 +744,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-067</div>
+          <div class="card-title">Calibración del ecosistema de agentes contra el stack real + hardening mecánico del gate</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-066</div>
           <div class="card-title">Engine & Web Performance Optimizations (integración de spec nativo de Kiro)</div>
           <div class="card-meta">
@@ -860,12 +870,24 @@
           <div class="stat-name">sentinel</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
           <div class="stat-nums">2× · 50% ok  · 1 falló</div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">compass</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
+          <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
   <div class="grid2">
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>compass</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T21:50</span></div>
+            <div class="feed-note">Housekeeping pedido por el usuario tras el reporte de pendientes (A1/A2/B1/B2). A1: `bun scripts/hub.ts` regenerado (66 tareas, 260 eventos). A2: `/compass` corrido de verdad -- `docs/agents/PROGRESS.md` tenía `FASE ACTUAL`/`SIGUIENTE PASO` desactualizados desde antes del deploy de esta sesión (seguían diciendo "falta decidir si hacer push"), reescritos para reflejar modo mantenimiento real; `HISTORIAL` (append-only) tenía un hueco real de varias sesiones nunca volcadas (última entrada databa de la cadena TSK-043/047, 2026-08-21) -- no se reconstruyó línea por línea (ya está en `journal.md`), se agregaron 2 líneas de catch-up que resumen el tramo faltante y apuntan a los rangos de eventos exactos. B2: tarea 11 de `.kiro/specs/engine-performance-optimizations/tasks.md` ("Final checkpoint") marcada `[x]` -- el trabajo ya estaba verificado en verde (evt-092 a evt-095), solo faltaba reflejarlo en el archivo de Kiro. **B1 (Chen) NO resuelto, bloqueado a propósito**: se intentó `WebFetch` contra `dota2protracker.com/meta?position=pos+5` para conseguir el dato real -- 403, mismo bloqueo de Cloudflare que ya documenta `journal.md` evt-20260821-048 (solo un navegador real tipo Playwright con pausas entre página pasó la vez original; esta sesión no tiene esa herramienta disponible). No se fabricó un `matches` falso para forzar la validación de `isValidShare` (`>= 200`) -- `engine.md` dice explícito "el umbral de 200 partidas no es negociable en silencio", justo la regla que esta fase entera existe para hacer cumplir. Anotado en `PROGRESS.md` como bloqueado, no técnico: necesita que el usuario corra la recolección real o decida explícitamente aceptar una entrada sin dato medido.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -941,13 +963,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-063</span> <span class="feed-ts">2026-08-21T20:35</span></div>
             <div class="feed-note">Último ticket de la cadena de la auditoría de arquitectura. Reabre a propósito lo que Fase 3 había diferido explícitamente: el bot del Random Draft Simulator seguía usando `roles[]` de OpenDota para su bono de "complementa lo ya pickeado", el mismo error que originó toda Fase 3. `apps/engine`: `GET /api/meta/hero-stats` (`routes/meta.ts`) agrega `heroPositions` a la misma respuesta (reusa `loadHeroPositions()`, inyectable vía deps, costura S10 respetada), sin endpoint nuevo. `apps/web`: `bot-drafter.ts` gana `complementsBotPositions` (compara posición dominante real, nunca `roles[]`) reemplazando `complementsBotRoles`; `meta-loader.ts` pasa el dato al `MetaSnapshot` del bot. `bot-drafter.ts` no tenía ninguna prueba propia -- `bot-drafter.test.ts` nuevo, 3 casos incluido el candado de regresión pedido por el ticket (Spectre pickeado, Wraith King no recibe el bono por compartir posición dominante, Crystal Maiden sí por llenar un hueco real). Cambio cruza los dos procesos por naturaleza (dato en engine, consumidor en web) -- 6 archivos/704 líneas, `simplicity_exception: true` documentada por adelantado en el propio ticket con la justificación, mismo precedente que el espejo de SignalId en Fase 3. Autorevisión de seguridad a mano (sin sub-agente separado, pero con el mismo estándar): sin superficie nueva, mismo perímetro que ya tenía el endpoint, sin secretos/SQL/dependencias nuevas. `bun test` 232/232 (engine) + 87/87 (web), `tsc --noEmit` limpio en ambos. state: backlog → done. **Cadena completa de la auditoría de arquitectura terminada: TSK-048, TSK-055 a TSK-063 (10 tickets), más TSK-064 (bug crítico real hallado en el camino).**</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-062</span> <span class="feed-ts">2026-08-21T20:15</span></div>
-            <div class="feed-note">Ticket de documentación pura. Se optó por documentar el segundo espejo de tipos (bot-drafter.ts) en vez de reducirlo vía import cruzado apps/web<->apps/engine -- ese cruce contradice a propósito la independencia entre procesos ya establecida para el espejo de SignalId. `.claude/rules/engine.md` (sección Random Draft Simulator) gana el bullet nombrando el espejo explícitamente; `.claude/rules/web.md` (bullet de SignalId) linkea de vuelta. Sin código tocado. state: backlog → done.</div>
           </div>
         </div></div>
     </div>

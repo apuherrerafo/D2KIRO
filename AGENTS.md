@@ -1,12 +1,26 @@
-# PROYECTO: [nombre-del-proyecto]
+# PROYECTO: dota2coach (Draft Coach)
+
+`CLAUDE.md` es la fuente canónica de este proyecto — este archivo es su espejo para Codex, que no
+lee `CLAUDE.md` por convención de herramienta. Si hay discrepancia entre ambos, gana `CLAUDE.md`.
+
+## ESTADO ACTUAL (no lo asumas desactualizado sin mirar `docs/agents/PROGRESS.md`)
+Dos procesos locales: `apps/engine` (Bun — motor de sugerencias, WebSocket, SQLite) y `apps/web`
+(Next.js — sitio + vista de draft en vivo). Fase 1, 1b, 2 y 3 completas; deploy real en Railway
+activo. `SCORING_WEIGHTS_V5` es la constante de pesos activa del motor (`position_fit` reemplazó
+`role_gap`/`role_safety`). Antes de asumir el estado de una fase, confirma en
+`docs/agents/PROGRESS.md`.
 
 ## STACK ACTUAL
-Definido por `/gear-up` y `/pre-flight`. No modificar manualmente.
-- Runtime: Bun
-- Frontend: HTMX
-- DB: SQLite + Drizzle ORM
-- Testing: Bun Test
-- Despliegue: Railway
+Definido por `/blueprint` (`docs/agents/architecture.md`) y `/pre-flight`. No modificar manualmente
+— si cambia, se regenera desde ahí.
+- **`apps/engine`** (Bun): motor de sugerencias, WebSocket, SQLite. Escucha únicamente en
+  `127.0.0.1`, nunca `0.0.0.0`. Cero red en el camino caliente del draft.
+- **`apps/web`** (Next.js App Router, TypeScript estricto): sitio + vista de draft en vivo.
+  RTK Query para páginas normales; WebSocket + Zustand como única excepción para el draft en vivo.
+  Tailwind + shadcn/ui.
+- DB: SQLite + Drizzle ORM (solo en `apps/engine`).
+- Testing: Bun Test.
+- Despliegue: Railway.
 
 ## COMANDOS ESENCIALES
 - `bun run dev` → Iniciar servidor de desarrollo.
@@ -31,7 +45,11 @@ No es un checklist al final. Es un gate que bloquea.
 
 - Todo input externo se valida antes de tocar la lógica de negocio (formularios, query params, body de API).
 - Toda query a la base de datos es parametrizada vía Drizzle. Nunca strings concatenados.
-- Todo HTML insertado dinámicamente (HTMX) se escapa. Cero `innerHTML` con datos sin sanear.
+- `dangerouslySetInnerHTML` prohibido en toda `apps/web` — React escapa por defecto, los nombres de héroe de OpenDota son input externo.
+- `img_url` de héroe: el host debe estar en la allowlist del CDN de Valve antes de renderizar — nunca una URL arbitraria de la respuesta de la API.
+- `apps/engine` escucha únicamente en `127.0.0.1` — un binding a `0.0.0.0` es FAIL automático.
+- `POST /ingest/draft-event` exige la cabecera `x-capture-token` (runtime, `process.env`) y limita a 20 eventos/seg por sesión.
+- `account_id` de Steam (Steam32) nunca se loguea, ni se eco en un error, ticket o `journal.md`.
 - Los secretos viven únicamente en variables de entorno (`process.env`). Un literal sospechoso en el diff es FAIL automático en `verify-simplicity.sh` y en Sentinel.
 - Cada agente y skill declara solo las `tools` que necesita (mínimo privilegio). Ver tabla de agentes abajo.
 - `/castoff` es obligatorio antes de cualquier deploy y no se puede saltar dentro del flujo automatizado.

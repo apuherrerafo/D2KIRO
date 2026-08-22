@@ -28,7 +28,9 @@ multiusuario con cuentas.
 3. **Velocidad**: `computedInMs` bajo 300ms p95, <2s extremo a extremo.
 4. **Simulador independiente**: un draft completo se reproduce sin Dota 2 abierto.
 
-**Estado (2026-07-28)**: fase 1 completa (TSK-001 a TSK-016), MVP validado contra sus 4 criterios.
+**Estado (2026-08-22)**: fase 1 completa (TSK-001 a TSK-016), MVP validado contra sus 4 criterios.
+Ver Fase 1b, Fase 3 y la auditoría de arquitectura abajo — fase 2 ("Draft en equipo" + Random
+Draft Simulator) y el deploy real en Railway también completos, ver `.kiro/steering/structure.md`.
 
 ## Fase 1b — Personalización de hero pool (SPEC.md §9)
 Espejo de `docs/specs/SPEC.md` §9 y el addendum "Fase 1b" de `architecture.md`.
@@ -43,3 +45,29 @@ Espejo de `docs/specs/SPEC.md` §9 y el addendum "Fase 1b" de `architecture.md`.
   cambia — verificado por prueba unitaria, no solo declarado.
 - **Primer dato personal del proyecto**: el `account_id` de Steam del usuario (para calcular el
   pool). Tratamiento en `.claude/rules/security.md`.
+
+## Fase 3 — Posiciones reales en el motor de sugerencias (SPEC.md §10) — completa
+Espejo de `docs/specs/SPEC.md` §10 y el addendum "Fase 3" de `architecture.md`.
+
+- **Problema de producto real**: QA manual reveló que el motor sugería doble carry (composiciones
+  inválidas) porque usaba `roles[]` de OpenDota para razonar sobre posición — 57% de los héroes
+  están etiquetados `"Carry"` ahí (Zeus, Axe, Tidehunter incluidos), son etiquetas temáticas, no
+  roles de línea real.
+- **Qué cambia**: `role_gap` y `role_safety` (dos señales viejas, ninguna existe ya en el motor) se
+  fusionan en `position_fit`, una señal nueva que usa posición real curada a mano
+  (`hero-positions.json`, umbral de 200 partidas por posición) en vez de `roles[]`. La intención de
+  producto de `role_safety` (support primero, revelar el core después) se conserva completa dentro
+  de `position_fit` — lo que se descarta es su implementación sobre etiquetas.
+- **Terminología visible**: hard support, support, offlane, midlane, carry — nunca "pos 1/2/3/4/5"
+  a secas sin el nombre al lado.
+- **Estado**: completa y validada con QA manual real contra el Copilot (dos escenarios de
+  `SPEC.md` §10.9, PASS). Ver `docs/agents/PROGRESS.md` para el detalle de ejecución.
+
+## Auditoría de arquitectura post-Fase 3 y recalibración de pesos (2026-08-22)
+Una auditoría de coherencia matemática encontró que `RAW_RANGE.counter` (rango de normalización
+del contrapick) nunca se había medido contra datos reales — un hard counter real casi empataba con
+`position_fit` pese a repetir un rol ya cubierto. Se recalibró el rango y se promovió
+`SCORING_WEIGHTS_V5` (`position_fit` sube a 0.38, el resto baja proporcionalmente) — el mismo
+patrón que ya corrigió `role_gap` una vez: el peso, no la fórmula, es el único lever real bajo la
+normalización lineal del motor. Detalle técnico completo en `.kiro/steering/tech.md` y
+`apps/engine/src/signals/weights.ts`.

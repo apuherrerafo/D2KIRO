@@ -9,7 +9,7 @@ description: Gate de pre-deploy. Verifica seguridad, dependencias, migraciones y
 Ser el último punto de control antes de que el código llegue a producción. Nadie despliega sin pasar por aquí.
 
 ## REGLAS
-1. Ejecuta `bash scripts/verify-simplicity.sh`. Si falla, DETENTE.
+1. Ejecuta `bash scripts/verify-simplicity.sh`. Si falla, DETENTE. Este script ya corre `bun scripts/sync-context.ts` como primer paso (informativo — avisa si `AGENTS.md`/`.kiro/steering/`/`plan.md`/`MEMORY.md` quedaron atrás del stack o los tickets reales, nunca bloquea el gate por sí solo) — si aparecen avisos, menciónalos en el resumen de deploy aunque no detengan el proceso.
 2. Invoca a **Sentinel**. Si devuelve `"veredicto": "FAIL"`, DETENTE — es bloqueante, no una sugerencia.
 3. Verifica variables de entorno requeridas: compara `.env.example` contra las variables que Railway tiene configuradas. Si falta una, avisa y detente.
 4. Si hay migraciones de Drizzle pendientes, confirma con el usuario que se aplicarán en el entorno de destino antes de continuar.

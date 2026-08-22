@@ -7,6 +7,15 @@ MAX_LINES=200   # Fuente única del límite. CLAUDE.md y las skills deben refere
 
 echo "🦴 Verificando simplicidad..."
 
+# --- Sincronización de contexto (informativo, nunca bloquea el gate) ---
+# scripts/sync-context.ts avisa si AGENTS.md/.kiro/steering/ quedaron atrás del stack real, o si
+# plan.md/MEMORY.md quedaron atrás del estado real de los tickets -- es mantenimiento de contexto,
+# no un gate de seguridad/correctitud, así que nunca suma a $ERRORS ni aborta el script.
+if command -v bun >/dev/null 2>&1 && [ -f scripts/sync-context.ts ]; then
+  bun scripts/sync-context.ts || true
+  echo ""
+fi
+
 # --- 0. Base de comparación ---
 # Repo sin ningún commit todavía (bootstrap): `git diff ... HEAD` no existe y aborta con
 # set -e (exit 128). Se usa el árbol vacío de Git como base en ese caso — mismo resultado
@@ -140,6 +149,34 @@ for f in docs/agents/journal*.md docs/agents/ledger.md; do
     ERRORS=$((ERRORS + 1))
   fi
 done
+
+# --- 7. Invariantes de arquitectura (hallazgo de auditoría 2026-08-22, ver CLAUDE.md/security.md) ---
+# A diferencia de 1-4 (que gatean el diff de este commit), estos tres son invariantes absolutos
+# del árbol completo -- no negociables por diseño, ninguno admite `simplicity_exception`. Se
+# escanean sobre archivos TRACKEADOS actuales (git ls-files), no solo el diff de este commit,
+# porque una violación ya presente (introducida antes de que este check existiera) también debe
+# bloquear, no solo una nueva.
+
+BIND_HIT=$(git ls-files -- 'apps/engine/src/*' 2>/dev/null | xargs -r grep -lF '0.0.0.0' 2>/dev/null) || true
+if [ -n "$BIND_HIT" ]; then
+  echo "❌ ERROR: '0.0.0.0' encontrado bajo apps/engine/src/ -- el motor solo puede atarse a 127.0.0.1."
+  printf '%s\n' "$BIND_HIT" | sed 's/^/   - /'
+  ERRORS=$((ERRORS + 1))
+fi
+
+FETCH_HIT=$(git ls-files -- 'apps/engine/src/signals/*' 2>/dev/null | xargs -r grep -lF 'fetch(' 2>/dev/null) || true
+if [ -n "$FETCH_HIT" ]; then
+  echo "❌ ERROR: 'fetch(' encontrado bajo apps/engine/src/signals/ -- cero red en el camino caliente, ningún SignalScorer llama a la red."
+  printf '%s\n' "$FETCH_HIT" | sed 's/^/   - /'
+  ERRORS=$((ERRORS + 1))
+fi
+
+DSIH_HIT=$(git ls-files -- 'apps/web/*' 2>/dev/null | xargs -r grep -lF 'dangerouslySetInnerHTML' 2>/dev/null) || true
+if [ -n "$DSIH_HIT" ]; then
+  echo "❌ ERROR: 'dangerouslySetInnerHTML' encontrado bajo apps/web/ -- prohibido en toda la app, React escapa por defecto."
+  printf '%s\n' "$DSIH_HIT" | sed 's/^/   - /'
+  ERRORS=$((ERRORS + 1))
+fi
 
 # --- Resultado ---
 if [ "$ERRORS" -eq 0 ]; then
