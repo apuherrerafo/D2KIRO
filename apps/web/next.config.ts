@@ -6,6 +6,7 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/heroes",
   "/engine/api/meta/status",
   "/engine/api/meta/sync",
+  "/engine/api/meta/hero-stats",
   "/engine/api/settings",
   "/engine/api/hero-pool",
   "/engine/api/hero-pool/calculate",
