@@ -3,7 +3,7 @@ import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "./hero-positions";
 import { buildComparison, buildSuggestions, mixScore, type Suggestion } from "./mix";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
-import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3, SCORING_WEIGHTS_V4 } from "./weights";
+import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3, SCORING_WEIGHTS_V4, SCORING_WEIGHTS_V5 } from "./weights";
 
 function fixtureSuggestion(rank: 1 | 2 | 3, hero: number, signals: SignalContribution[]): Suggestion {
   return { hero, rank, score: 0, signals, reason: "", confidence: "alta" };
@@ -114,14 +114,27 @@ describe("SCORING_WEIGHTS_V3 (congelada)", () => {
   });
 });
 
-// TSK-045 (Fase 3, SPEC.md §10.3, criterio de aceptación 3): el candado de regresión del bug que
-// originó toda la fase. El bug real no era que `role_gap` calculara mal -- era que pesaba tan poco
-// (0.108 contra 0.288 de `counter`) que perdía siempre. Probarlo contra `buildSuggestions`
-// COMPLETO es el punto: `position_fit` aislada puede dar el número correcto (position-fit.test.ts
-// ya lo prueba) y el ranking seguir mal si el peso no alcanza -- exactamente lo que pasaba antes.
-describe("SCORING_WEIGHTS_V4 — candado de regresión del bug original", () => {
+// TSK-045 (Fase 3, SPEC.md §10.3): el candado de regresión del bug que originó la fase 3 vivía
+// acá. Auditoría 2026-08-22: V4 quedó congelada (weights.ts) porque su propio peso de
+// `position_fit` resultó insuficiente frente a un core con counter real -- mismo patrón que el
+// bug original, un nivel más adelante. Los tests de comportamiento se movieron al bloque de V5
+// (abajo); acá solo queda el candado de que V4 siga sumando 1.0, igual que V1/V2/V3.
+describe("SCORING_WEIGHTS_V4 (congelada)", () => {
   test("los 5 pesos suman exactamente 1.0", () => {
     const sum = Object.values(SCORING_WEIGHTS_V4).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1, 10);
+  });
+});
+
+// Auditoría 2026-08-22 (Lead ML Engineer / Domain Systems Architect): con RAW_RANGE.counter ya
+// recalibrado, un core que repite un rol cubierto pero tiene un counter real (delta ~0.08) casi
+// empataba con el support que llena la posición faltante bajo V4 (margen ~1.5 puntos) -- la
+// prioridad de rol dejó de ser confiable. `position_fit` sube de 0.25 a 0.38; `counter` baja de
+// 0.27 a 0.24 (no se anula: sigue pudiendo decidir un empate); el resto baja proporcionalmente.
+// SCORING_WEIGHTS_V5 es la constante activa (mix.ts) de acá en adelante.
+describe("SCORING_WEIGHTS_V5 — candado de dominancia de posición sobre comodidad/matchup", () => {
+  test("los 5 pesos suman exactamente 1.0", () => {
+    const sum = Object.values(SCORING_WEIGHTS_V5).reduce((a, b) => a + b, 0);
     expect(sum).toBeCloseTo(1, 10);
   });
 
@@ -159,7 +172,7 @@ describe("SCORING_WEIGHTS_V4 — candado de regresión del bug original", () => 
     ],
   };
 
-  test("mixScore redistribuye proporcionalmente entre las señales con dato real (candado de mecanismo, no de 'reproduce V1')", () => {
+  test("mixScore redistribuye proporcionalmente entre las señales con dato real (candado de mecanismo, no de 'reproduce V4')", () => {
     // Números elegidos para que cada raw normalice a un valor distinto y verificable a mano:
     // counter->100 (tope de su rango), patch_meta->0 (piso), team_synergy->50, position_fit->75.
     // hero_pool_fit excluida (applicable:false) -- no vota, no se cuenta en totalWeight.
@@ -174,9 +187,9 @@ describe("SCORING_WEIGHTS_V4 — candado de regresión del bug original", () => 
     const score = mixScore(signals);
 
     const totalWeight =
-      SCORING_WEIGHTS_V4.counter + SCORING_WEIGHTS_V4.patch_meta + SCORING_WEIGHTS_V4.team_synergy + SCORING_WEIGHTS_V4.position_fit;
+      SCORING_WEIGHTS_V5.counter + SCORING_WEIGHTS_V5.patch_meta + SCORING_WEIGHTS_V5.team_synergy + SCORING_WEIGHTS_V5.position_fit;
     const expected =
-      (100 * SCORING_WEIGHTS_V4.counter + 0 * SCORING_WEIGHTS_V4.patch_meta + 50 * SCORING_WEIGHTS_V4.team_synergy + 75 * SCORING_WEIGHTS_V4.position_fit) /
+      (100 * SCORING_WEIGHTS_V5.counter + 0 * SCORING_WEIGHTS_V5.patch_meta + 50 * SCORING_WEIGHTS_V5.team_synergy + 75 * SCORING_WEIGHTS_V5.position_fit) /
       totalWeight;
     expect(score).toBeCloseTo(expected, 10);
   });
@@ -213,6 +226,53 @@ describe("SCORING_WEIGHTS_V4 — candado de regresión del bug original", () => 
     for (const suggestion of result.suggestions) {
       expect(suggestion.signals.some((s) => s.signal === "position_fit")).toBe(true);
     }
+  });
+
+  // Auditoría 2026-08-22, Tarea 2: el escenario adversarial exacto que motivó V5. Opción A llena
+  // la posición que le falta al equipo pero está fuera del pool del usuario; Opción B repite un
+  // rol que el equipo ya tiene cubierto pero trae un counter real (delta 0.08, ya recalibrado) y
+  // está dentro del pool. Calculado a mano contra la fórmula real de mixScore antes de escribir
+  // este test: A ≈ 58.9, B ≈ 40.7, margen ≈ 18.2 -- criterio de aceptación: al menos 15 puntos.
+  test("llenar la posición faltante le gana a repetir rol con counter real + comodidad de pool, por al menos 15 puntos", () => {
+    const optionA_fillsNeededPosition_outOfPool: SignalContribution[] = [
+      { signal: "patch_meta", raw: 0.45, weighted: 0, explanation: "", sampleSize: 500 },
+      { signal: "team_synergy", raw: 0.4, weighted: 0, explanation: "", sampleSize: 0 },
+      { signal: "hero_pool_fit", raw: 0.2, weighted: 0, explanation: "Fuera de tu pool de héroes", sampleSize: 0, applicable: true },
+      { signal: "position_fit", raw: 0.85, weighted: 0, explanation: "", sampleSize: 2000 },
+      // counter: sin dato registrado para este candidato (raw: null) -- se excluye, no vota.
+    ];
+    const optionB_repeatsRole_realCounter_inPool: SignalContribution[] = [
+      { signal: "counter", raw: 0.08, weighted: 0, explanation: "", sampleSize: 300 },
+      { signal: "patch_meta", raw: 0.54, weighted: 0, explanation: "", sampleSize: 500 },
+      { signal: "team_synergy", raw: 0.2, weighted: 0, explanation: "", sampleSize: 0 },
+      { signal: "hero_pool_fit", raw: 0.7, weighted: 0, explanation: "En tu pool", sampleSize: 200, applicable: true },
+      { signal: "position_fit", raw: 0.05, weighted: 0, explanation: "", sampleSize: 2000 },
+    ];
+
+    const scoreA = mixScore(optionA_fillsNeededPosition_outOfPool);
+    const scoreB = mixScore(optionB_repeatsRole_realCounter_inPool);
+
+    expect(scoreA - scoreB).toBeGreaterThan(15);
+  });
+});
+
+// Auditoría 2026-08-22: candado de regresión para la recalibración de RAW_RANGE.counter
+// ([-0.3, 0.3] -> [-0.12, 0.12]). Antes de este cambio, un hard counter real (delta ~0.08) perdía
+// contra un héroe simplemente popular sin ventaja de matchup (patch_meta alto) -- confirmado por
+// cálculo, no solo sospechado (ver auditoría, mixScore aislado sin position_fit/team_synergy/
+// hero_pool_fit de por medio). Este test fija el comportamiento correcto de forma permanente.
+describe("RAW_RANGE.counter recalibrado -- counter ya no queda ahogado por patch_meta", () => {
+  test("hard counter real (delta 0.08) le gana a un héroe popular sin ventaja de matchup (patch_meta 0.58)", () => {
+    const heroA: SignalContribution[] = [
+      { signal: "counter", raw: 0.08, weighted: 0, explanation: "", sampleSize: 300 },
+      { signal: "patch_meta", raw: 0.5, weighted: 0, explanation: "", sampleSize: 500 },
+    ];
+    const heroB: SignalContribution[] = [
+      { signal: "counter", raw: 0.0, weighted: 0, explanation: "", sampleSize: 300 },
+      { signal: "patch_meta", raw: 0.58, weighted: 0, explanation: "", sampleSize: 500 },
+    ];
+
+    expect(mixScore(heroA)).toBeGreaterThan(mixScore(heroB));
   });
 });
 
@@ -308,7 +368,7 @@ describe("buildSuggestions", () => {
     // vacío del lado propio), position_fit SÍ vota: hero 1 es carry puro (posición 1, 100% del
     // dato), need(1)=1 con equipo propio vacío -> fill=1, safety=0, t=TIMING_BLEND[0]=0.50 ->
     // raw = 0.5*1 + 0.5*0 = 0.5 -> normaliza a 50. counter normaliza a 100 (delta 0.4333 clamp a
-    // 0.3, ver cálculo abajo). El score final es la redistribución proporcional real de V4 sobre
+    // 0.12, ver cálculo abajo). El score final es la redistribución proporcional real de V5 sobre
     // las 2 señales con dato, calculada con las constantes reales (no un número mágico
     // hardcodeado, para que un cambio de peso futuro no rompa este test en silencio).
     const state = draftState({ picks: { radiant: [], dire: [50] } });
@@ -329,8 +389,8 @@ describe("buildSuggestions", () => {
     const suggestion = result.suggestions.find((s) => s.hero === 1);
 
     expect(suggestion).toBeDefined();
-    const totalWeight = SCORING_WEIGHTS_V4.counter + SCORING_WEIGHTS_V4.position_fit;
-    const expectedScore = (100 * SCORING_WEIGHTS_V4.counter + 50 * SCORING_WEIGHTS_V4.position_fit) / totalWeight;
+    const totalWeight = SCORING_WEIGHTS_V5.counter + SCORING_WEIGHTS_V5.position_fit;
+    const expectedScore = (100 * SCORING_WEIGHTS_V5.counter + 50 * SCORING_WEIGHTS_V5.position_fit) / totalWeight;
     expect(suggestion?.score).toBeCloseTo(expectedScore, 5);
     expect(suggestion?.confidence).toBe("baja"); // 2 señales en null (patch_meta, team_synergy)
     const nonNullSignals = suggestion?.signals.filter((s) => s.raw !== null) ?? [];
@@ -351,7 +411,7 @@ describe("buildSuggestions", () => {
     // buildReason muestra las 2 señales de mayor peso con dato real, no todas -- con solo 2
     // señales reales acá (counter/position_fit, ver test anterior), ambas entran.
     const topTwoByWeight = (suggestion?.signals.filter((s) => s.raw !== null) ?? [])
-      .sort((a, b) => SCORING_WEIGHTS_V4[b.signal] - SCORING_WEIGHTS_V4[a.signal])
+      .sort((a, b) => SCORING_WEIGHTS_V5[b.signal] - SCORING_WEIGHTS_V5[a.signal])
       .slice(0, 2);
     for (const signal of topTwoByWeight) {
       expect(suggestion?.reason).toContain(signal.explanation);

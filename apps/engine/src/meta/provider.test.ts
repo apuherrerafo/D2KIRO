@@ -64,12 +64,26 @@ test("buildMetaSnapshot agrupa matchups y patchStats por heroId con la forma exa
   expect(result.patchStats?.[1]).toEqual([{ patch: "7.36", bracket: "archon", picks: 500, wins: 260 }]);
 });
 
-test("con todas las tablas vacías, buildMetaSnapshot no lanza y devuelve records vacíos", async () => {
+// TSK-059/064 (provider.ts:64-86, Req 6.2): con hero_patch_stats vacía, patchStats cae al
+// fallback de seed-hero-stats.json en vez de quedar vacío -- comportamiento nuevo, documentado en
+// el propio provider.ts. heroes/matchups/heroPool/personalBaselineWinrate no tienen fallback, así
+// que siguen vacíos con sus tablas vacías. No se compara patchStats contra el contenido exacto del
+// seed -- ese archivo se regenera aparte y una prueba atada a sus números se rompería en silencio
+// con cada actualización (mismo criterio que S9/S10, testing-seams.md).
+test("con todas las tablas vacías, buildMetaSnapshot no lanza; patchStats cae al fallback de seed, el resto queda vacío", async () => {
   const db = createTestDb();
 
   const snapshot = await buildMetaSnapshot(db);
 
-  expect(snapshot).toEqual({ heroes: {}, matchups: {}, patchStats: {}, heroPool: [], personalBaselineWinrate: null });
+  expect(snapshot.heroes).toEqual({});
+  expect(snapshot.matchups).toEqual({});
+  expect(snapshot.heroPool).toEqual([]);
+  expect(snapshot.personalBaselineWinrate).toBeNull();
+
+  const patchStats = snapshot.patchStats ?? {};
+  expect(Object.keys(patchStats).length).toBeGreaterThan(0);
+  const firstHeroRows = Object.values(patchStats)[0] ?? [];
+  expect(firstHeroRows.every((row) => row.patch === "seed")).toBe(true);
 });
 
 // TSK-059-bug: candado de regresión del hallazgo real -- buildMetaSnapshot nunca leía hero_pool

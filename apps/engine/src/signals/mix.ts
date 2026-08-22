@@ -6,7 +6,7 @@ import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { teamSynergyScorer } from "./team-synergy";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
-import { SCORING_WEIGHTS_V4 } from "./weights";
+import { SCORING_WEIGHTS_V5 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
@@ -51,17 +51,29 @@ export interface BuildSuggestionsOptions {
 // necesitan configuración por llamada siguen siendo instancias únicas a nivel de módulo;
 // position_fit se construye por llamada dentro de buildSuggestions() porque depende del dato
 // inyectable de heroPositions (no puede ser un singleton de módulo, a diferencia del resto).
-// SCORING_WEIGHTS_V1/V2/V3 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V4 es la
-// única constante que usa este archivo de aquí en adelante.
+// SCORING_WEIGHTS_V1/V2/V3/V4 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V5 es
+// la única constante que usa este archivo de aquí en adelante (auditoría 2026-08-22).
 const STATIC_SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, heroPoolFitScorer];
+
+// Loaded once at module initialisation — hero-positions.json is never re-parsed per call.
+// Test seam S10: BuildSuggestionsOptions.heroPositions overrides this constant.
+const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
 const TOP_N = 3;
 const HARD_CUTOFF_MS = 500;
 
 // Cada señal tiene una escala de `raw` distinta (deltas de winrate, fracciones 0-1, penalizaciones
 // negativas) -- este rango define cómo se estira cada una a 0-100 antes de aplicar el peso. No hay
-// un estándar único: son rangos razonables documentados aquí, no medidos.
+// un estándar único: son rangos razonables documentados aquí, no medidos contra datos reales
+// sincronizados (pendiente: script offline de percentiles p5/p95 sobre heroMatchups/patchStats).
+//
+// `counter` recalibrado (auditoría 2026-08-22): el rango anterior [-0.3, 0.3] asumía deltas de
+// matchup que en la práctica casi no ocurren -- un hard counter real con muestra de 200+ partidas
+// rara vez supera ±0.10/±0.12. Con el rango viejo, un delta real de 0.08 normalizaba a solo ~63,
+// dejando que `patch_meta` (peso menor, 0.17 contra 0.27 de counter) le ganara por tener su propio
+// rango mejor calibrado a la varianza real de winrate. [-0.12, 0.12] es una estimación de dominio
+// más ajustada, todavía no medida -- candado de regresión en mix.test.ts.
 const RAW_RANGE: Record<SignalId, [number, number]> = {
-  counter: [-0.3, 0.3],
+  counter: [-0.12, 0.12],
   patch_meta: [0.3, 0.7],
   team_synergy: [0, 1],
   hero_pool_fit: [0, 1],
@@ -97,10 +109,10 @@ function hasVote(signal: SignalContribution): boolean {
 // con valor 0 (0 sería indistinguible de "sin ventaja", cuando en realidad es "sin dato").
 function weightedContributions(signals: SignalContribution[]): Partial<Record<SignalId, number>> {
   const withData = signals.filter(hasVote);
-  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V4[s.signal], 0);
+  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V5[s.signal], 0);
   const result: Partial<Record<SignalId, number>> = {};
   for (const s of withData) {
-    const share = SCORING_WEIGHTS_V4[s.signal] / totalWeight; // redistribución proporcional
+    const share = SCORING_WEIGHTS_V5[s.signal] / totalWeight; // redistribución proporcional
     result[s.signal] = normalize(s.signal, s.raw as number) * share;
   }
   return result;
@@ -130,7 +142,7 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 function buildReason(signals: SignalContribution[]): string {
   const informative = signals
     .filter(hasVote)
-    .sort((a, b) => SCORING_WEIGHTS_V4[b.signal] - SCORING_WEIGHTS_V4[a.signal])
+    .sort((a, b) => SCORING_WEIGHTS_V5[b.signal] - SCORING_WEIGHTS_V5[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
   if (informative.length > 0) return informative.join("; ");
@@ -188,7 +200,7 @@ export function buildSuggestions(
 
   // position_fit no puede ser un singleton de módulo como el resto -- depende del dato inyectable
   // de heroPositions, así que se construye una vez por llamada (costura S10).
-  const heroPositions = options.heroPositions ?? loadHeroPositions();
+  const heroPositions = options.heroPositions ?? MODULE_HERO_POSITIONS;
   const scorers: SignalScorer[] = [...STATIC_SCORERS, createPositionFitScorer(heroPositions)];
 
   const candidates = candidatePool(state, meta);
