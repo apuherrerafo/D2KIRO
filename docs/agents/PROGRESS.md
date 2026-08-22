@@ -188,19 +188,34 @@ corregido en Fase 3) sin un QA manual comparativo dedicado. Resumen de lo tocado
   archivos, cambio cruza los dos procesos por naturaleza).
 
 Estado final verificado: `apps/engine` 232/232 tests + `tsc` limpio, `apps/web` 87/87 tests +
-`tsc` limpio. **Nada de esto está commiteado todavía** -- decisión de la sesión de no commitear
-sin que el usuario lo pida explícitamente. Detalle completo de cada ticket en `journal.md`
-evt-20260821-076 a evt-20260821-085.
+`tsc` limpio. Detalle completo de cada ticket en `journal.md` evt-20260821-076 a evt-20260821-085.
+
+**Actualización 2026-08-22 -- los tres frentes, commiteados.** Antes de commitear el Hilo 1
+(Random Draft Simulator) se le hizo su gate de seguridad pendiente (`@redteam`, nunca hecho hasta
+ahora -- APPROVED, ver `journal.md` evt-20260822-086), a pedido explícito del usuario. Los ~79
+archivos acumulados de los tres frentes (Fase 3 + cadena de QA, TSK-043 a TSK-054; Hilo 1; y la
+auditoría de arquitectura, TSK-048/055-064) quedaron en **5 commits** por unidad lógica, cada uno
+con `simplicity_exception` documentada en el ticket que ancla el commit (mismo patrón que el
+catch-up de TSK-016) dado que ninguno se había commiteado incrementalmente entre tickets:
+1. `b56c24f` -- Fase 3: `position_fit` reemplaza `role_gap`/`role_safety` (TSK-043 a TSK-047).
+2. `34e1867` -- Reporte de QA: tabla `draft_feedback` + caja de texto (TSK-050 a TSK-052).
+3. `312f4aa` -- Entrada manual en draft activo + pick directo + bootstrap de sesión (TSK-049,
+   053, 054, 061).
+4. `c4bd304` -- Remediación del servidor de `apps/engine` (TSK-048, 055-060, 064).
+5. `da42ae8` -- Random Draft Simulator completo (Hilo 1) + bot con posición real (TSK-063).
+
+Working tree limpio, `git status` sin nada pendiente. Verificado en verde después de commitear
+(no solo antes): `apps/engine` 232/232, `apps/web` 87/87.
 
 ## SIGUIENTE PASO
 Herramienta: Claude Code. Modelo: **Sonnet**.
-Acción: **Decisión del usuario pendiente sobre cómo commitear todo lo acumulado.** El working
-tree tiene ahora tres frentes sin commitear, todos verificados en verde por separado pero nunca
-unificados en un solo `git add`: (1) Fase 3 + cadena de reporte de QA (TSK-043 a TSK-054), (2) el
-Random Draft Simulator (Hilo 1, pendiente también de su propio gate de seguridad), y (3) esta
-cadena de la auditoría de arquitectura (TSK-048, TSK-055 a TSK-064). Sugerido: `@shipcheck` por
-frente, en commits separados por unidad lógica -- nunca un solo commit gigante. El usuario decide
-el orden y si quiere revisar el diff de cada frente antes de commitear.
+Acción: **Ninguna acción técnica obligatoria pendiente.** Todo lo acumulado de esta sesión y de
+las anteriores está commiteado y verificado en verde. Falta decisión de producto: si el usuario
+quiere `git push` a `master` (Railway auto-despliega sobre esa rama -- confirmar antes de pushear
+si corresponde `/castoff` primero, dado que hay cambios reales de superficie en `apps/engine`), o
+si prefiere seguir trabajando local antes de subir. El resto son los mismos caminos sin fecha de
+siempre (Overwolf, OCR, predicción de rol rival, sistema combinatorial completo de caminos de
+draft) -- arrancan con `/kickoff` cuando el usuario lo decida.
 
 Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox`
 (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos
