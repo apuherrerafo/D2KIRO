@@ -204,8 +204,9 @@ Implementation language: **TypeScript** (Bun runtime for engine, Next.js 14 for 
     - Generate `SuggestionSet` pairs where a subset K of suggestions differ and subset M are reference-equal; assert exactly K `SuggestionCard` instances re-render and M do not
     - **Validates: Requirements 8.3**
 
-- [~] 11. Final checkpoint — Ensure all tests pass
+- [x] 11. Final checkpoint — Ensure all tests pass
   - Run the full engine test suite (`bun test` in `apps/engine`) and the web test suite (`vitest --run` in `apps/web`). Ensure all tests pass. Ask the user if questions arise.
+  - Cerrado 2026-08-22 (TSK-066, ver docs/agents/tasks/TSK-066.md): la corrida real usó `bun test` en ambas apps (no Vitest -- el proyecto usa `bun:test` en todo el repo, incluido `apps/web`). `bun test` 240/240 (engine, +2 fixes reales encontrados en el cierre: `provider.test.ts` desactualizado frente al fallback de seed, y `tokenRateLimiter` nunca conectado en `index.ts`) + 87/87 (web). `tsc --noEmit` limpio, `next build` limpio. Commiteado en `bb9d017`/`3cb3724`, pusheado a `master` en `94dad26`.
 
 ---
 
