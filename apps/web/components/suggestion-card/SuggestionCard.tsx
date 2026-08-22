@@ -4,8 +4,8 @@ import { useState } from "react";
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
 import { SignalBreakdown } from "@/components/signal-breakdown/SignalBreakdown";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
-import { BUTTON_GHOST } from "@/features/draft/styles";
-import type { Suggestion } from "@/features/draft/types";
+import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
+import type { HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
 function cardClassName(isPrimary: boolean): string {
@@ -19,19 +19,31 @@ function toggleLabel(expanded: boolean): string {
   return "Ver señales";
 }
 
+function pickButtonClassName(isPrimary: boolean): string {
+  if (isPrimary) return BUTTON_PRIMARY;
+  return BUTTON_SECONDARY;
+}
+
 interface SuggestionCardProps {
   suggestion: Suggestion;
   heroMeta: HeroMeta | undefined;
   isPrimary: boolean;
+  // TSK-054: ausente = sin botón de pick directo (uso en pruebas aisladas, o sin lado propio
+  // identificado -- no hay a quién atribuirle el pick).
+  onPick?: (hero: HeroId) => void;
 }
 
 // <Dominio><Cosa>: una sugerencia de pick, con sus señales expandibles (SignalBreakdown) — una
 // sugerencia de confianza baja se muestra igual, marcada como tal, nunca se oculta.
-export function SuggestionCard({ suggestion, heroMeta, isPrimary }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, heroMeta, isPrimary, onPick }: SuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   function toggleExpanded() {
     setExpanded((current) => !current);
+  }
+
+  function handlePick() {
+    onPick?.(suggestion.hero);
   }
 
   return (
@@ -43,9 +55,16 @@ export function SuggestionCard({ suggestion, heroMeta, isPrimary }: SuggestionCa
           <span className="text-caption text-content-secondary">{CONFIDENCE_LABELS[suggestion.confidence]}</span>
         </div>
       </div>
-      <button type="button" onClick={toggleExpanded} className={BUTTON_GHOST}>
-        {toggleLabel(expanded)}
-      </button>
+      <div className="flex gap-2">
+        {onPick && (
+          <button type="button" onClick={handlePick} className={pickButtonClassName(isPrimary)}>
+            Pickear
+          </button>
+        )}
+        <button type="button" onClick={toggleExpanded} className={BUTTON_GHOST}>
+          {toggleLabel(expanded)}
+        </button>
+      </div>
       {expanded && <SignalBreakdown signals={suggestion.signals} />}
     </div>
   );

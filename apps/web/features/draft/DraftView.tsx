@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react";
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
+import { DraftFeedbackBox } from "@/components/draft-feedback-box/DraftFeedbackBox";
 import { DraftSetupPanel } from "@/components/draft-setup-panel/DraftSetupPanel";
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
 import { PartyPoolPanel } from "@/components/party-pool-panel/PartyPoolPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { DraftPathsCoverFlow } from "@/features/draft-paths";
 import type { DraftTeamGroup } from "@/features/team-groups/types";
+import { bootstrapManualSession, shouldBootstrapManualSession } from "./bootstrap-session";
 import { DEGRADATION_LABELS, SCREEN_STATE_GUIDANCE } from "./constants";
+import { postManualEvent } from "./manual-entry";
 import { createDraftSocket } from "./socket";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { deriveScreenState, useDraftStore } from "./store";
-import type { DraftSocket, DraftState, ScreenState, SuggestionSet } from "./types";
+import type { DraftSocket, DraftState, HeroId, ScreenState, SuggestionSet } from "./types";
 import type { HeroMeta } from "./use-hero-catalog";
 import { useHeroCatalog } from "./use-hero-catalog";
 
@@ -81,23 +84,56 @@ interface ActiveDraftStateProps {
 function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
   const primary = suggestions?.suggestions.find((s) => s.rank === 1);
   const alternatives = suggestions?.suggestions.filter((s) => s.rank !== 1) ?? [];
+  const [pickError, setPickError] = useState<string | null>(null);
+
+  // TSK-054: pickear directo desde la tarjeta de sugerencia -- mismo mecanismo que
+  // ManualEntryPanel (postManualEvent), sin pasar por ese panel para el caso más común (aceptar
+  // la sugerencia tal cual). Sin lado propio identificado no hay a quién atribuirle el pick --
+  // undefined en vez de la función real oculta el botón (SuggestionCard).
+  async function handleQuickPick(hero: HeroId) {
+    if (draftState.localSide === "unknown") return;
+    setPickError(null);
+    let result: Awaited<ReturnType<typeof postManualEvent>>;
+    try {
+      result = await postManualEvent(sessionId, draftState.lastSeq, { type: "hero_picked", hero, side: draftState.localSide });
+    } catch {
+      setPickError("No se pudo contactar al motor -- inténtalo de nuevo.");
+      return;
+    }
+    if (!result.accepted) setPickError(`No se pudo pickear: ${result.rejected ?? "motivo desconocido"}`);
+  }
+
+  const quickPickHandler = draftState.localSide === "unknown" ? undefined : handleQuickPick;
 
   return (
     <div className="flex flex-col gap-4">
       <StateGuidance state="activo" />
       {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
-      <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
+      <div className="flex flex-wrap gap-3">
+        <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
+        <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
+          Entrada manual
+        </button>
+      </div>
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
         <div className="flex flex-col gap-3">
           <PartyPoolPanel partyContext={partyContext} draftState={draftState} heroCatalog={heroCatalog} />
-          {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
+          {pickError && <span className="text-caption text-signal-negative">{pickError}</span>}
+          {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary onPick={quickPickHandler} />}
           {suggestions?.comparison && (
             <ComparisonNote comparison={suggestions.comparison} heroMeta={heroCatalog.get(suggestions.comparison.vsHero)} />
           )}
           {alternatives.map((suggestion) => (
-            <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={false} />
+            <SuggestionCard
+              key={suggestion.hero}
+              suggestion={suggestion}
+              heroMeta={heroCatalog.get(suggestion.hero)}
+              isPrimary={false}
+              onPick={quickPickHandler}
+            />
           ))}
+          <DraftFeedbackBox sessionId={sessionId} draftState={draftState} suggestions={suggestions} />
         </div>
       </div>
     </div>
@@ -213,7 +249,10 @@ interface DraftViewBodyProps {
 
 // deriveScreenState (store.ts) garantiza draftState/suggestions no nulos en las ramas que los
 // exigen -- las aserciones `!` reflejan esa garantía, no una suposición del componente.
-function DraftViewBody(props: DraftViewBodyProps) {
+// TSK-061: exportada para que DraftView.test.ts pueda verificar el mapeo screenState -> componente
+// sin renderizar React -- llamar a la función directamente devuelve el elemento (`{ type, props }`)
+// que React construiría, suficiente para comparar `result.type` contra el componente esperado.
+export function DraftViewBody(props: DraftViewBodyProps) {
   switch (props.screenState) {
     case "desconectado":
       return <DisconnectedState draftState={props.draftState} heroCatalog={props.heroCatalog} onReconnect={props.onReconnect} />;
@@ -282,7 +321,15 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
     connect(socketFactory(wsUrl), sessionId);
   }
 
-  function openManualEntry() {
+  // TSK-053: una sesión que arranca por entrada manual pura nunca recibe un session_started de
+  // un capturador automático (ninguno existe todavía) -- sin esto, el motor rechaza el primer
+  // pick con "wrong_phase" porque phase se queda en "idle" para siempre. Una sesión ya activa
+  // (picks previos) nunca se toca -- reemitir session_started sobre un draft en curso lo
+  // reiniciaría.
+  async function openManualEntry() {
+    if (shouldBootstrapManualSession(draftState)) {
+      await bootstrapManualSession(sessionId);
+    }
     setManualEntryOpen(true);
   }
 
