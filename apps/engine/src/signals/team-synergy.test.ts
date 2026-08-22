@@ -76,4 +76,27 @@ describe("teamSynergyScorer", () => {
     expect(() => teamSynergyScorer.score(state, 42, snapshot)).not.toThrow();
     expect(teamSynergyScorer.score(state, 42, snapshot)).toEqual(teamSynergyScorer.score(state, 42, snapshot));
   });
+
+  // TSK-060: `covered` se cachea por (state, meta) juntos, no solo por `state` -- `teamSynergyScorer`
+  // es un singleton de módulo, así que el mismo objeto DraftState podría en teoría verse pasado con
+  // un `meta` distinto entre dos llamadas (dos snapshots de meta sobre el mismo estado). Sin la
+  // cache anidada por meta, la segunda llamada serviría el `covered` calculado contra el primer
+  // `meta`, ignorando que los roles del héroe 10 cambiaron.
+  test("el mismo state con dos meta distintos no comparte covered cacheado entre sí", () => {
+    const state = draftState({ picks: { radiant: [10], dire: [] } });
+    const metaA = meta({ 10: { id: 10, localizedName: "H", roles: ["Disabler"] } });
+    const metaB = meta({ 10: { id: 10, localizedName: "H", roles: ["Initiator"] } });
+
+    // candidato 20 solo aporta "iniciacion" -- con metaA (10 = Disabler) el equipo no lo cubre
+    // todavía, así que 20 debería sumar cobertura nueva; con metaB (10 = Initiator) esa misma
+    // capacidad ya está cubierta por el pick propio, así que 20 no debería aportar nada nuevo.
+    const snapshotWithCandidate = { heroes: { ...metaA.heroes, 20: { id: 20, localizedName: "C", roles: ["Initiator"] } }, matchups: {} };
+    const resultA = teamSynergyScorer.score(state, 20, snapshotWithCandidate);
+
+    const snapshotBWithCandidate = { heroes: { ...metaB.heroes, 20: { id: 20, localizedName: "C", roles: ["Initiator"] } }, matchups: {} };
+    const resultB = teamSynergyScorer.score(state, 20, snapshotBWithCandidate);
+
+    expect(resultA.raw).toBeGreaterThan(0);
+    expect(resultB.raw).toBe(0);
+  });
 });

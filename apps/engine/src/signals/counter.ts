@@ -10,6 +10,23 @@ function opposingSide(state: DraftState): TeamSide | null {
   return null;
 }
 
+// TSK-060: `buildSuggestions` llama a `score()` una vez por candidato sobre el MISMO `state` --
+// `knownEnemies` no depende del candidato. Seguro cachear solo por `state` (a diferencia de
+// team_synergy, esto no depende de `meta`): un WeakMap se autolimpia cuando el DraftState deja de
+// ser referenciado (el reductor nunca muta, siempre spread -- reducer.ts), y `counterScorer` es
+// un singleton de módulo, así que la cache vive mientras el proceso viva, sin crecer sin límite.
+const knownEnemiesCache = new WeakMap<DraftState, HeroId[]>();
+
+function cachedKnownEnemies(state: DraftState): HeroId[] {
+  let cached = knownEnemiesCache.get(state);
+  if (!cached) {
+    const enemySide = opposingSide(state);
+    cached = enemySide ? state.picks[enemySide] : [];
+    knownEnemiesCache.set(state, cached);
+  }
+  return cached;
+}
+
 function overallWinrate(matchups: HeroMatchupStat[]): number | null {
   const totalGames = matchups.reduce((sum, m) => sum + m.games, 0);
   if (totalGames === 0) return null;
@@ -40,8 +57,7 @@ function buildExplanation(meta: MetaSnapshot, deltas: EnemyDelta[]): string {
 export const counterScorer: SignalScorer = {
   id: "counter",
   score(state, candidate, meta): SignalContribution {
-    const enemySide = opposingSide(state);
-    const knownEnemies = enemySide ? state.picks[enemySide] : [];
+    const knownEnemies = cachedKnownEnemies(state);
     const candidateMatchups = meta.matchups[candidate] ?? [];
     const baseline = overallWinrate(candidateMatchups);
 

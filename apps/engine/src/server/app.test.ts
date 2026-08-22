@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
+import { draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { OpenDotaClient } from "../meta/opendota-client";
+import type { HeroPositions } from "../signals/hero-positions";
 import { createApp } from "./app";
 
 // TSK-036: fixture propio en vez de depender de capabilities.json real -- ese archivo es un
@@ -15,6 +16,13 @@ const TEST_HERO_CAPABILITIES: HeroCapabilities[] = [
   { hero: 1, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "low", teamfight: "low", scaling: "low" },
   { hero: 2, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: true, structuralDamage: "high", teamfight: "high", scaling: "high" },
 ];
+
+// TSK-063: mismo criterio que TEST_HERO_CAPABILITIES -- fixture propio, nunca hero-positions.json
+// real (costura S10, testing-seams.md).
+const TEST_HERO_POSITIONS: HeroPositions = {
+  1: [{ position: 1, matches: 1000 }],
+  2: [{ position: 5, matches: 800 }],
+};
 
 const PORT = 41234;
 const EXPECTED_HEADER = "test-capture-token";
@@ -55,8 +63,12 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL,
       slot INTEGER NOT NULL, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL
     );
+    CREATE TABLE draft_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, comment TEXT NOT NULL,
+      draft_state TEXT NOT NULL, suggestions TEXT, created_at TEXT NOT NULL
+    );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, heroPool, teamGroups, teamMembers } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, heroPool, teamGroups, teamMembers, draftFeedback } });
   db.insert(heroes)
     .values([
       { id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-07-27" },
@@ -65,6 +77,9 @@ function createTestDb() {
       { id: 4, name: "h4", localizedName: "Hero Cuatro", imgUrl: "/h4.png", primaryAttr: "all", attackType: "Melee", roles: ["Initiator"], updatedAt: "2026-07-27" },
       { id: 5, name: "h5", localizedName: "Hero Cinco", imgUrl: "/h5.png", primaryAttr: "str", attackType: "Melee", roles: ["Durable"], updatedAt: "2026-07-27" },
     ])
+    .run();
+  db.insert(heroPatchStats)
+    .values([{ heroId: 1, patch: "7.36", bracket: "all", picks: 500, wins: 260, updatedAt: "2026-07-27" }])
     .run();
   return db;
 }
@@ -124,6 +139,7 @@ describe("servidor Bun (TSK-010)", () => {
       openDotaClient: new OpenDotaClient(),
       captureToken: EXPECTED_HEADER,
       heroCapabilities: TEST_HERO_CAPABILITIES,
+      heroPositions: TEST_HERO_POSITIONS,
     });
     const server = app.start("127.0.0.1", PORT);
     baseUrl = `http://127.0.0.1:${server.port}`;
@@ -163,15 +179,16 @@ describe("servidor Bun (TSK-010)", () => {
     expect(statuses.filter((s) => s !== 429).length).toBe(20);
   });
 
-  test("tras un evento válido, el cliente WS recibe draft_state antes que suggestions, y hello siempre da un snapshot completo", async () => {
+  test("tras un evento válido, el cliente WS recibe draft_state antes que suggestions, y hello siempre da snapshot + suggestions frescos", async () => {
     const sessionId = "session-ws-1";
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/draft`);
     await waitForOpen(ws);
 
-    const helloReply = waitForMessages(ws, 1);
+    const helloReply = waitForMessages(ws, 2);
     ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
-    const [snapshot] = await helloReply;
+    const [snapshot, helloSuggestions] = await helloReply;
     expect(snapshot?.type).toBe("snapshot");
+    expect(helloSuggestions?.type).toBe("suggestions");
 
     const pushed = waitForMessages(ws, 2);
     const res = await fetch(`${baseUrl}/ingest/draft-event`, {
@@ -189,6 +206,34 @@ describe("servidor Bun (TSK-010)", () => {
     ws.close();
   });
 
+  // TSK-048: antes de este fix, reconectar a una sesión con picks/bans ya aplicados dejaba el
+  // tablero correcto pero sin ningún panel de sugerencia hasta el próximo evento real -- el
+  // handler "hello" solo reenviaba el snapshot de draftState, nunca recalculaba suggestions.
+  test("al reconectar a una sesión con picks ya aplicados, hello reenvía suggestions frescas sin esperar al próximo evento", async () => {
+    const sessionId = "session-ws-reconnect";
+    const res = await fetch(`${baseUrl}/ingest/draft-event`, {
+      method: "POST",
+      headers: { "x-capture-token": EXPECTED_HEADER },
+      body: JSON.stringify(envelope({ sessionId, eventId: "ws-reconnect-1", seq: 1 })),
+    });
+    expect(res.status).toBe(202);
+
+    // Reconexión: ninguna pestaña estaba escuchando cuando se aplicó el evento de arriba --
+    // simula un refresh de página a mitad de draft.
+    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/draft`);
+    await waitForOpen(ws);
+    const helloReply = waitForMessages(ws, 2);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
+    const [snapshot, suggestions] = await helloReply;
+
+    expect(snapshot?.type).toBe("snapshot");
+    expect((snapshot?.payload as Record<string, unknown> | undefined)?.phase).toBe("active");
+    expect(suggestions?.type).toBe("suggestions");
+    expect(suggestions?.payload).toBeTruthy();
+
+    ws.close();
+  });
+
   test("un hello con sessionId malformado se ignora sin corromper la conexión (hallazgo @redteam ronda 1)", async () => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/draft`);
     await waitForOpen(ws);
@@ -197,10 +242,11 @@ describe("servidor Bun (TSK-010)", () => {
 
     // Sin respuesta al hello inválido -- pero la conexión sigue viva y un hello válido después
     // funciona con normalidad, probando que el mensaje malformado no dejó la conexión en mal estado.
-    const helloReply = waitForMessages(ws, 1);
+    const helloReply = waitForMessages(ws, 2);
     ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId: "session-ws-recovery" }));
-    const [snapshot] = await helloReply;
+    const [snapshot, snapshotSuggestions] = await helloReply;
     expect(snapshot?.type).toBe("snapshot");
+    expect(snapshotSuggestions?.type).toBe("suggestions");
 
     ws.close();
   });
@@ -218,6 +264,28 @@ describe("servidor Bun (TSK-010)", () => {
     const heroesList = await res.json();
     expect(Array.isArray(heroesList)).toBe(true);
     expect(heroesList[0]).toMatchObject({ id: 1, imgUrl: "/h1.png" });
+  });
+
+  // random-draft-simulator: Bot_Drafter y Meta_Ban_Pool necesitan pick rate real fuera del motor
+  // sin duplicar la agregación de hero_patch_stats en apps/web -- mismo dato que buildSuggestions
+  // ya usa internamente, solo de lectura, sin tocar el camino caliente de sugerencias.
+  test("GET /api/meta/hero-stats devuelve patchStats agrupado por heroId", async () => {
+    const res = await fetch(`${baseUrl}/api/meta/hero-stats`);
+    const body = (await res.json()) as { patchStats: Record<string, unknown[]> };
+    expect(res.status).toBe(200);
+    expect(body.patchStats["1"]).toEqual([{ patch: "7.36", bracket: "all", picks: 500, wins: 260 }]);
+    expect(body.patchStats["2"]).toBeUndefined();
+  });
+
+  // TSK-063: heroPositions se agregó a la misma respuesta para que el bot del simulador (apps/web)
+  // pueda razonar sobre posición real en vez de roles[] -- inyectado vía el fixture del test, no
+  // el hero-positions.json real (costura S10).
+  test("GET /api/meta/hero-stats devuelve heroPositions (fixture inyectado, no el archivo real)", async () => {
+    const res = await fetch(`${baseUrl}/api/meta/hero-stats`);
+    const body = (await res.json()) as { heroPositions: Record<string, unknown[]> };
+    expect(res.status).toBe(200);
+    expect(body.heroPositions["1"]).toEqual([{ position: 1, matches: 1000 }]);
+    expect(body.heroPositions["2"]).toEqual([{ position: 5, matches: 800 }]);
   });
 
   test("POST/GET /api/simulator/sessions crea una sesión HTTP aislada, sin log completo", async () => {
@@ -436,6 +504,59 @@ describe("servidor Bun (TSK-010)", () => {
     for (const path of body.paths) {
       expect(path.nextPick.hero).toBe(2);
     }
+  });
+
+  test("POST /api/session/:id/feedback guarda el reporte y GET /api/feedback lo devuelve, más nuevo primero", async () => {
+    const draftStateSnapshot = { localSide: "radiant", picks: { radiant: [1], dire: [] } };
+    const suggestionsSnapshot = { suggestions: [{ hero: 2, rank: 1 }] };
+
+    const first = await fetch(`${baseUrl}/api/session/session-feedback/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ comment: "primer reporte", draftState: draftStateSnapshot, suggestions: null }),
+    });
+    expect(first.status).toBe(202);
+    expect(await first.json()).toEqual({ accepted: true });
+
+    const second = await fetch(`${baseUrl}/api/session/session-feedback/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ comment: "segundo reporte, con sugerencias", draftState: draftStateSnapshot, suggestions: suggestionsSnapshot }),
+    });
+    expect(second.status).toBe(202);
+
+    const list = await fetch(`${baseUrl}/api/feedback`);
+    expect(list.status).toBe(200);
+    const rows = await list.json();
+    expect(rows).toHaveLength(2);
+    expect(rows[0].comment).toBe("segundo reporte, con sugerencias");
+    expect(rows[0].suggestions).toEqual(suggestionsSnapshot);
+    expect(rows[1].comment).toBe("primer reporte");
+    expect(rows[1].suggestions).toBeNull();
+    expect(rows[0].draftState).toEqual(draftStateSnapshot);
+    expect(rows[0].sessionId).toBe("session-feedback");
+  });
+
+  test("POST /api/session/:id/feedback con comment vacío es rechazado (400), nada se inserta", async () => {
+    const res = await fetch(`${baseUrl}/api/session/session-feedback-empty/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ comment: "", draftState: { picks: {} }, suggestions: null }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("POST /api/session/:id/feedback sin draftState (no-objeto) es rechazado (400)", async () => {
+    const res = await fetch(`${baseUrl}/api/session/session-feedback-bad/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ comment: "algo", draftState: "no es un objeto", suggestions: null }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("POST /api/session/:id/feedback con comment de más de 4000 caracteres es rechazado (400)", async () => {
+    const res = await fetch(`${baseUrl}/api/session/session-feedback-long/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ comment: "a".repeat(4001), draftState: { picks: {} }, suggestions: null }),
+    });
+    expect(res.status).toBe(400);
   });
 
   test("CORS: un origin local (apps/web en otro puerto) recibe Access-Control-Allow-Origin (hallazgo @redteam)", async () => {

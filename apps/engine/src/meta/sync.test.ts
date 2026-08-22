@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, metaSync } from "../db/schema";
+import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } from "../db/schema";
 import { OpenDotaClient } from "./opendota-client";
+import { getCachedMetaSnapshot, invalidateMetaSnapshotCache } from "./provider";
 import { syncMeta } from "./sync";
 import heroesFixture from "./__fixtures__/heroes.json";
 import heroStatsFixture from "./__fixtures__/hero-stats.json";
@@ -47,8 +48,15 @@ function createTestDb() {
       rows_written INTEGER NOT NULL DEFAULT 0,
       error TEXT
     );
+    CREATE TABLE hero_pool (
+      hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
+      personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE settings (
+      key TEXT PRIMARY KEY, value TEXT NOT NULL
+    );
   `);
-  return drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync } });
+  return drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } });
 }
 
 function fixtureFetch(overrides: Record<string, () => Response> = {}): typeof fetch {
@@ -137,4 +145,40 @@ test("syncMeta marca meta_sync como failed y no toca el cache viejo si OpenDota 
   const syncRows = db.select().from(metaSync).all();
   expect(syncRows).toHaveLength(1);
   expect(syncRows[0]?.status).toBe("failed");
+});
+
+// TSK-059: la cache es un singleton a nivel de módulo -- se invalida después de cada prueba de
+// este archivo para no filtrar estado hacia otras pruebas del mismo proceso de `bun test`.
+afterEach(() => {
+  invalidateMetaSnapshotCache();
+});
+
+test("syncMeta invalida la cache de MetaSnapshot al terminar (ok) -- la siguiente lectura ya no es la cacheada", async () => {
+  const db = createTestDb();
+  const client = new OpenDotaClient({ fetchImpl: fixtureFetch(), sleepImpl: async () => {} });
+
+  const before = await getCachedMetaSnapshot(db);
+  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [1] });
+  const after = await getCachedMetaSnapshot(db);
+
+  expect(result.status).toBe("ok");
+  expect(after).not.toBe(before);
+  // La sync sí escribió héroes reales -- confirma que "distinta referencia" es "datos frescos
+  // reales", no solo un objeto reconstruido con el mismo contenido vacío.
+  expect(Object.keys(after.heroes).length).toBeGreaterThan(0);
+});
+
+test("syncMeta invalida la cache de MetaSnapshot incluso si la sync falla (escritura parcial posible)", async () => {
+  const db = createTestDb();
+  const client = new OpenDotaClient({
+    fetchImpl: (async () => new Response("{}", { status: 429 })) as unknown as typeof fetch,
+    sleepImpl: async () => {},
+  });
+
+  const before = await getCachedMetaSnapshot(db);
+  const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [] });
+  const after = await getCachedMetaSnapshot(db);
+
+  expect(result.status).toBe("failed");
+  expect(after).not.toBe(before);
 });

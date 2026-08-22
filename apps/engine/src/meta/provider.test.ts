@@ -1,8 +1,10 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, metaSync } from "../db/schema";
-import { buildMetaSnapshot, getMetaFreshness } from "./provider";
+import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } from "../db/schema";
+import { createIdleDraftState } from "../draft/reducer";
+import { heroPoolFitScorer } from "../signals/hero-pool-fit";
+import { buildMetaSnapshot, getCachedMetaSnapshot, getMetaFreshness, invalidateMetaSnapshotCache } from "./provider";
 
 function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -25,8 +27,15 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, started_at TEXT NOT NULL,
       finished_at TEXT, status TEXT NOT NULL, rows_written INTEGER NOT NULL DEFAULT 0, error TEXT
     );
+    CREATE TABLE hero_pool (
+      hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
+      personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE settings (
+      key TEXT PRIMARY KEY, value TEXT NOT NULL
+    );
   `);
-  return drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync } });
+  return drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } });
 }
 
 test("buildMetaSnapshot agrupa matchups y patchStats por heroId con la forma exacta esperada", async () => {
@@ -55,12 +64,91 @@ test("buildMetaSnapshot agrupa matchups y patchStats por heroId con la forma exa
   expect(result.patchStats?.[1]).toEqual([{ patch: "7.36", bracket: "archon", picks: 500, wins: 260 }]);
 });
 
-test("con las 4 tablas vacías, buildMetaSnapshot no lanza y devuelve records vacíos", async () => {
+test("con todas las tablas vacías, buildMetaSnapshot no lanza y devuelve records vacíos", async () => {
   const db = createTestDb();
 
   const snapshot = await buildMetaSnapshot(db);
 
-  expect(snapshot).toEqual({ heroes: {}, matchups: {}, patchStats: {} });
+  expect(snapshot).toEqual({ heroes: {}, matchups: {}, patchStats: {}, heroPool: [], personalBaselineWinrate: null });
+});
+
+// TSK-059-bug: candado de regresión del hallazgo real -- buildMetaSnapshot nunca leía hero_pool
+// ni settings, así que hero_pool_fit quedaba `applicable: false` en todo draft real. Ver
+// journal.md evt-20260821-080 / TSK-064 para el contexto completo del hallazgo.
+test("buildMetaSnapshot incluye el hero pool real, traduciendo heroId -> hero (contrato de dominio)", async () => {
+  const db = createTestDb();
+  db.insert(heroPool)
+    .values({ heroId: 1, source: "calculated", personalWinrate: 0.62, personalGames: 40, updatedAt: "2026-08-21" })
+    .run();
+
+  const result = await buildMetaSnapshot(db);
+
+  expect(result.heroPool).toEqual([{ hero: 1, source: "calculated", personalWinrate: 0.62, personalGames: 40, updatedAt: "2026-08-21" }]);
+});
+
+test("buildMetaSnapshot lee personal_baseline_winrate desde settings cuando existe", async () => {
+  const db = createTestDb();
+  db.insert(settings).values({ key: "personal_baseline_winrate", value: "0.52" }).run();
+
+  const result = await buildMetaSnapshot(db);
+
+  expect(result.personalBaselineWinrate).toBe(0.52);
+});
+
+test("buildMetaSnapshot degrada a null si personal_baseline_winrate en settings no es un número válido", async () => {
+  const db = createTestDb();
+  db.insert(settings).values({ key: "personal_baseline_winrate", value: "no-es-un-numero" }).run();
+
+  const result = await buildMetaSnapshot(db);
+
+  expect(result.personalBaselineWinrate).toBeNull();
+});
+
+// TSK-059-bug: candado de punta a punta -- no solo que buildMetaSnapshot devuelva el pool, sino
+// que ese snapshot real (salido de SQLite, no un fixture armado a mano) hace que hero_pool_fit
+// deje de ser `applicable: false`. Esto es exactamente lo que estaba roto en producción.
+test("un pool real guardado en SQLite hace que hero_pool_fit sea applicable:true contra el snapshot real", async () => {
+  const db = createTestDb();
+  db.insert(heroPool)
+    .values({ heroId: 7, source: "manual", personalWinrate: 0.58, personalGames: 25, updatedAt: "2026-08-21" })
+    .run();
+
+  const meta = await buildMetaSnapshot(db);
+  const contribution = heroPoolFitScorer.score(createIdleDraftState("session-1"), 7, meta);
+
+  expect(contribution.applicable).toBe(true);
+  expect(contribution.raw).not.toBeNull();
+});
+
+// TSK-059: la cache es un singleton a nivel de módulo (no de instancia) -- se invalida después de
+// cada prueba de este archivo para no dejar estado filtrado hacia otras pruebas que corran
+// después en el mismo proceso de `bun test`.
+afterEach(() => {
+  invalidateMetaSnapshotCache();
+});
+
+test("getCachedMetaSnapshot: dos llamadas seguidas sin invalidar devuelven la misma referencia (no vuelve a tocar SQLite)", async () => {
+  const db = createTestDb();
+  db.insert(heroes)
+    .values({ id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-08-21" })
+    .run();
+
+  const first = await getCachedMetaSnapshot(db);
+  const second = await getCachedMetaSnapshot(db);
+
+  expect(second).toBe(first);
+});
+
+test("invalidateMetaSnapshotCache: la siguiente llamada reconstruye desde SQLite, ya no es la misma referencia", async () => {
+  const db = createTestDb();
+
+  const first = await getCachedMetaSnapshot(db);
+  invalidateMetaSnapshotCache();
+  const second = await getCachedMetaSnapshot(db);
+
+  expect(second).not.toBe(first);
+  // Contenido sigue siendo correcto tras invalidar, no solo "una referencia distinta cualquiera".
+  expect(second).toEqual(first);
 });
 
 test("getMetaFreshness: sin ninguna sincronización -> syncedAt null, isStale true", async () => {

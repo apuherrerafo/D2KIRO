@@ -1,37 +1,20 @@
 import type { Server, ServerWebSocket } from "bun";
-import { desc } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../db/schema";
-import { metaSync } from "../db/schema";
-import {
-  createTeamGroup,
-  deleteTeamGroup,
-  getAllSettings,
-  getHeroPool,
-  getTeamGroup,
-  getTeamGroups,
-  replaceHeroPool,
-  replaceTeamGroup,
-  upsertSetting,
-  type HeroPoolWriteRow,
-  type PartySize,
-  type TeamGroupWriteRow,
-} from "../db/queries";
-import { buildDraftPaths } from "../draft-paths/build-paths";
-import { loadHeroCapabilities } from "../draft-paths/capabilities";
+import { getAllSettings, upsertSetting } from "../db/queries";
 import type { HeroCapabilities } from "../draft-paths/types";
-import { applyDraftEvent, createIdleDraftState, type DraftState } from "../draft/reducer";
-import { calculateProposedPool, type HeroPoolInputRow } from "../hero-pool/calculate-pool";
+import type { DraftState } from "../draft/reducer";
 import { getHealthStatus } from "../health";
-import { mapPlayerHero } from "../meta/mappers";
 import type { OpenDotaClient } from "../meta/opendota-client";
-import { buildMetaSnapshot, getAllHeroMeta, getMetaFreshness } from "../meta/provider";
-import { beginMetaSync, runMetaSync } from "../meta/sync";
-import { isValidRawPlayerHero, isValidSteamAccountId } from "../meta/validation";
+import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness } from "../meta/provider";
+import type { HeroPositions } from "../signals/hero-positions";
 import { buildSuggestions, type SuggestionSet } from "../signals/mix";
-import simulatorScripts from "../simulator/scripts.json";
-import { runSimulator, type DraftScript } from "../simulator/player";
 import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope } from "./edge";
+import { createDraftPathsRoutes } from "./routes/draft-paths";
+import { createHeroPoolRoutes } from "./routes/hero-pool";
+import { createMetaRoutes } from "./routes/meta";
+import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
+import { createTeamGroupRoutes } from "./routes/team-groups";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
@@ -45,6 +28,9 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   // test que dependiera de su contenido real se rompería (o peor, cambiaría de resultado en
   // silencio) cada vez que se edite, mismo criterio que S2/S6/S7 de testing-seams.md.
   heroCapabilities?: HeroCapabilities[];
+  // TSK-063: mismo criterio que heroCapabilities -- inyectable para pruebas, nunca el
+  // hero-positions.json real ahí (costura S10).
+  heroPositions?: HeroPositions;
 }
 
 interface WsData {
@@ -55,10 +41,6 @@ interface WsData {
 // real (eso ya lo da el binding), es solo lo mínimo para que el navegador acepte una respuesta
 // cross-origin de un proceso local en otro puerto (apps/web). Nunca refleja un origin remoto.
 const ALLOWED_ORIGIN_PATTERN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
-const SIMULATOR_SESSION_TTL_MS = 45 * 60 * 1000;
-const SIMULATOR_POST_WINDOW_MS = 60 * 1000;
-const SIMULATOR_POST_LIMIT = 20;
-const SIMULATOR_SCRIPT = simulatorScripts.captainsMode as DraftScript;
 
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin");
@@ -74,112 +56,28 @@ function corsHeaders(request: Request): Record<string, string> {
 export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps<TSchema>) {
   const sessionStore = new SessionStore();
   const rateLimiter = createSessionRateLimiter();
-  const simulatorSessions = new Map<
-    string,
-    { draftState: DraftState; suggestions: SuggestionSet | null; lastAccessedAt: number; running: boolean }
-  >();
-  const simulatorPostTimestamps: number[] = [];
+  const heroPoolRoutes = createHeroPoolRoutes({ db: deps.db, openDotaClient: deps.openDotaClient });
+  const teamGroupRoutes = createTeamGroupRoutes({ db: deps.db });
+  const simulatorRoutes = createSimulatorSessionRoutes({ db: deps.db });
+  const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions });
+  const draftPathsRoutes = createDraftPathsRoutes({ db: deps.db, sessionStore, heroCapabilities: deps.heroCapabilities });
   let server: Server<WsData>;
-  // TSK-021: sin cola, sin reintento automático (§9.5) -- un flag por proceso alcanza para este
-  // servidor local de un solo usuario. Un segundo POST mientras el primero sigue en vuelo se
-  // rechaza de inmediato con 409, nunca se encola.
-  let heroPoolCalculationInProgress = false;
+
+  // TSK-048: helper compartido entre el push automático (pushSessionUpdate) y el reenvío al
+  // reconectar (rama "hello" del WebSocket) -- una sola forma de calcular suggestions para un
+  // DraftState dado, nunca duplicada entre los dos caminos.
+  async function computeSuggestionsForState(state: DraftState): Promise<SuggestionSet> {
+    const meta = await getCachedMetaSnapshot(deps.db);
+    const freshness = await getMetaFreshness(deps.db);
+    return buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
+  }
 
   // Orden garantizado tras cada evento aplicado: draft_state primero, suggestions después (§C2).
   async function pushSessionUpdate(sessionId: string): Promise<void> {
     const state = sessionStore.get(sessionId);
-    const meta = await buildMetaSnapshot(deps.db);
-    const freshness = await getMetaFreshness(deps.db);
-
     server.publish(sessionId, JSON.stringify(buildServerMessage("draft_state", state.lastSeq, state)));
-    const suggestions = buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
+    const suggestions = await computeSuggestionsForState(state);
     server.publish(sessionId, JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
-  }
-
-  function cleanupSimulatorSessions(now = Date.now()): void {
-    for (const [sessionId, session] of simulatorSessions) {
-      if (!session.running && now - session.lastAccessedAt > SIMULATOR_SESSION_TTL_MS) {
-        simulatorSessions.delete(sessionId);
-      }
-    }
-  }
-
-  function allowSimulatorSessionStart(now = Date.now()): boolean {
-    while (simulatorPostTimestamps.length > 0 && now - simulatorPostTimestamps[0]! > SIMULATOR_POST_WINDOW_MS) {
-      simulatorPostTimestamps.shift();
-    }
-    if (simulatorPostTimestamps.length >= SIMULATOR_POST_LIMIT) return false;
-    simulatorPostTimestamps.push(now);
-    return true;
-  }
-
-  async function updateSimulatorSession(sessionId: string): Promise<void> {
-    const session = simulatorSessions.get(sessionId);
-    if (!session) return;
-
-    const state = session.draftState;
-    const meta = await buildMetaSnapshot(deps.db);
-    const freshness = await getMetaFreshness(deps.db);
-    const suggestions = buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
-    session.suggestions = suggestions;
-    session.lastAccessedAt = Date.now();
-  }
-
-  function handleSimulatorSessionPost(): Response {
-    cleanupSimulatorSessions();
-    if (!allowSimulatorSessionStart()) {
-      return Response.json({ error: "too_many_simulator_sessions" }, { status: 429 });
-    }
-
-    const sessionId = crypto.randomUUID();
-    simulatorSessions.set(sessionId, {
-      draftState: createIdleDraftState(sessionId),
-      suggestions: null,
-      lastAccessedAt: Date.now(),
-      running: true,
-    });
-
-    // .catch() es obligatorio acá: sin él, un fallo transitorio dentro del emit (ej. SQLite/
-    // Drizzle) queda como un rechazo de promesa sin manejar -- Bun (igual que Node) termina TODO
-    // el proceso ante eso, tumbando también el motor de sugerencias real y las sesiones de
-    // WebSocket activas, no solo esta sesión simulada. Confirmado de forma empírica antes de este
-    // fix: un throw dentro de fails().finally(...) sin .catch() mata el proceso con exit code 1.
-    void runSimulator(SIMULATOR_SCRIPT, {
-      sessionId,
-      speed: 2,
-      emit: async (envelope) => {
-        const session = simulatorSessions.get(sessionId);
-        if (!session) return;
-        session.draftState = applyDraftEvent(session.draftState, envelope).state;
-        await updateSimulatorSession(sessionId);
-      },
-    })
-      .catch((error: unknown) => {
-        console.error(`[simulator] sesión ${sessionId} falló:`, error);
-      })
-      .finally(() => {
-        const session = simulatorSessions.get(sessionId);
-        if (session) {
-          session.running = false;
-          session.lastAccessedAt = Date.now();
-        }
-      });
-
-    return Response.json({ sessionId }, { status: 201 });
-  }
-
-  function parseSimulatorStateSessionId(pathname: string): string | null {
-    const match = /^\/api\/simulator\/sessions\/([^/]+)\/state$/.exec(pathname);
-    if (!match) return null;
-    return decodeURIComponent(match[1]!);
-  }
-
-  function handleSimulatorStateGet(sessionId: string): Response {
-    cleanupSimulatorSessions();
-    const session = simulatorSessions.get(sessionId);
-    if (!session) return Response.json({ error: "not_found" }, { status: 404 });
-    session.lastAccessedAt = Date.now();
-    return Response.json({ draftState: session.draftState, suggestions: session.suggestions });
   }
 
   async function handleDraftEvent(request: Request, opts: { requireToken: boolean; rateLimit: boolean }): Promise<Response> {
@@ -195,6 +93,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return new Response(null, { status: 429 });
     }
 
+    // TSK-055: oportunista, igual que cleanupSimulatorSessions() -- sin scheduler propio.
+    sessionStore.evictStale();
     const { rejected } = sessionStore.apply(body);
     if (!rejected) await pushSessionUpdate(body.sessionId);
     return Response.json({ accepted: !rejected, rejected }, { status: 202 });
@@ -202,33 +102,6 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
 
   async function handleHeroes(): Promise<Response> {
     return Response.json(await getAllHeroMeta(deps.db));
-  }
-
-  async function handleMetaStatus(): Promise<Response> {
-    const freshness = await getMetaFreshness(deps.db);
-    const [lastAttempt] = deps.db.select().from(metaSync).orderBy(desc(metaSync.id)).limit(1).all();
-    return Response.json({
-      syncedAt: freshness.syncedAt,
-      isStale: freshness.isStale,
-      lastSync: lastAttempt ? { status: lastAttempt.status, finishedAt: lastAttempt.finishedAt, error: lastAttempt.error } : null,
-    });
-  }
-
-  // Asíncrono, no bloquea: crea la fila de meta_sync (rápido) y responde de inmediato con el
-  // syncId real; el trabajo lento (fetch a OpenDota + reintentos) sigue en segundo plano.
-  async function handleMetaSync(request: Request): Promise<Response> {
-    const body = (await request.json().catch(() => ({}))) as { patch?: string };
-    const patch = typeof body.patch === "string" ? body.patch : "";
-    const heroIdsForMatchups = deps.db
-      .select({ id: schema.heroes.id })
-      .from(schema.heroes)
-      .all()
-      .map((row) => row.id);
-
-    const syncId = beginMetaSync(deps.db);
-    void runMetaSync(deps.db, deps.openDotaClient, syncId, { patch, heroIdsForMatchups });
-
-    return Response.json({ syncId }, { status: 202 });
   }
 
   async function handleSettingsGet(): Promise<Response> {
@@ -251,241 +124,6 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return Response.json({ key: body.key, value: body.value }, { status: 200 });
   }
 
-  // TSK-020 (fase 1b, S8): GET/PUT /api/hero-pool. `hero` (no `heroId`) es el nombre de campo del
-  // contrato de dominio (SPEC.md §9.4/§9.5) -- se traduce a/desde `heroId` de la fila de SQLite
-  // solo en este borde, igual que el resto de la API nunca filtra nombres de columna hacia fuera.
-  interface HeroPoolEntry {
-    hero: number;
-    source: "manual" | "calculated";
-    personalWinrate: number | null;
-    personalGames: number;
-    updatedAt: string;
-  }
-
-  function toHeroPoolEntry(row: HeroPoolWriteRow): HeroPoolEntry {
-    return { hero: row.heroId, source: row.source, personalWinrate: row.personalWinrate, personalGames: row.personalGames, updatedAt: row.updatedAt };
-  }
-
-  interface HeroPoolPutEntry {
-    hero: number;
-    source: "manual" | "calculated";
-    personalWinrate: number | null;
-    personalGames: number;
-  }
-
-  function isValidHeroPoolPutEntry(value: unknown): value is HeroPoolPutEntry {
-    if (typeof value !== "object" || value === null) return false;
-    const entry = value as Record<string, unknown>;
-    if (typeof entry.hero !== "number") return false;
-    if (entry.source !== "manual" && entry.source !== "calculated") return false;
-    if (entry.personalWinrate !== null && (typeof entry.personalWinrate !== "number" || entry.personalWinrate < 0 || entry.personalWinrate > 1)) {
-      return false;
-    }
-    if (typeof entry.personalGames !== "number" || !Number.isInteger(entry.personalGames) || entry.personalGames < 0) return false;
-    return true;
-  }
-
-  function isValidHeroPoolPutBody(value: unknown): value is { entries: HeroPoolPutEntry[] } {
-    if (typeof value !== "object" || value === null) return false;
-    const body = value as Record<string, unknown>;
-    return Array.isArray(body.entries) && body.entries.every(isValidHeroPoolPutEntry);
-  }
-
-  async function handleHeroPoolGet(): Promise<Response> {
-    return Response.json(getHeroPool(deps.db).map(toHeroPoolEntry));
-  }
-
-  // Reemplaza el pool completo en una sola transacción (S8). Todas las validaciones corren antes
-  // de tocar la base de datos -- si algo falla, el pool guardado no se toca (§9.5).
-  async function handleHeroPoolPut(request: Request): Promise<Response> {
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidHeroPoolPutBody(body)) {
-      return Response.json({ error: "invalid_body" }, { status: 400 });
-    }
-    if (body.entries.length > 5) {
-      return Response.json({ error: "too_many_entries" }, { status: 400 });
-    }
-    const heroIds = body.entries.map((entry) => entry.hero);
-    if (new Set(heroIds).size !== heroIds.length) {
-      return Response.json({ error: "duplicate_hero" }, { status: 400 });
-    }
-    const knownHeroIds = new Set(deps.db.select({ id: schema.heroes.id }).from(schema.heroes).all().map((row) => row.id));
-    if (heroIds.some((id) => !knownHeroIds.has(id))) {
-      return Response.json({ error: "unknown_hero" }, { status: 400 });
-    }
-
-    // El servidor siempre estampa su propio reloj -- un cliente no dicta `updatedAt` (mismo
-    // principio que `applyDraftEvent`: el reloj se inyecta desde el lado de confianza, nunca desde
-    // input externo).
-    const updatedAt = new Date().toISOString();
-    const rows: HeroPoolWriteRow[] = body.entries.map((entry) => ({
-      heroId: entry.hero,
-      source: entry.source,
-      personalWinrate: entry.personalWinrate,
-      personalGames: entry.personalGames,
-      updatedAt,
-    }));
-    replaceHeroPool(deps.db, rows);
-
-    return Response.json(rows.map(toHeroPoolEntry), { status: 200 });
-  }
-
-  // TSK-021: único endpoint de 1b que toca la red. Conecta getPlayerHeroes (TSK-018) con el
-  // cálculo puro (TSK-019, S7) -- nunca escribe en SQLite, solo propone (PUT /api/hero-pool,
-  // TSK-020, sigue siendo el único camino de escritura). Reglas duras: el accountId nunca se
-  // ecoa en ningún error/log, y esta llamada vive fuera del pipeline de buildSuggestions -- no
-  // toca el camino caliente del draft.
-  async function handleHeroPoolCalculate(request: Request): Promise<Response> {
-    const body: unknown = await request.json().catch(() => null);
-    const accountId = typeof body === "object" && body !== null ? (body as Record<string, unknown>).accountId : undefined;
-    if (typeof accountId !== "string" || !isValidSteamAccountId(accountId)) {
-      return Response.json({ error: "invalid_account_id" }, { status: 400 });
-    }
-    const rawDays = typeof body === "object" && body !== null ? (body as Record<string, unknown>).days : undefined;
-    // Number.isFinite (no solo typeof number) descarta Infinity -- "rawDays > 0" por sí solo lo
-    // dejaba pasar (Infinity > 0 es true), colando date=Infinity en la URL hacia OpenDota.
-    const days = Number.isFinite(rawDays) && (rawDays as number) > 0 ? (rawDays as number) : 90;
-
-    if (heroPoolCalculationInProgress) {
-      return Response.json({ error: "calculation_in_progress" }, { status: 409 });
-    }
-
-    heroPoolCalculationInProgress = true;
-    try {
-      let raw: unknown;
-      try {
-        raw = await deps.openDotaClient.getPlayerHeroes(accountId, { days });
-      } catch {
-        raw = null;
-      }
-      if (!Array.isArray(raw)) {
-        return Response.json(
-          { error: "opendota_unavailable", message: "OpenDota no respondió. El pool guardado (si existe) sigue funcionando." },
-          { status: 502 },
-        );
-      }
-
-      // Bucle de filtrado (nota de @redteam de TSK-018, evt-20260729-007): las primitivas de una
-      // fila (isValidRawPlayerHero/mapPlayerHero) no descartan nada por sí solas -- este es el
-      // orquestador que itera el array crudo, igual que syncHeroes/syncMatchups en sync.ts.
-      const heroRows: HeroPoolInputRow[] = [];
-      for (const item of raw) {
-        if (isValidRawPlayerHero(item)) heroRows.push(mapPlayerHero(item));
-      }
-
-      const result = calculateProposedPool(heroRows, () => new Date().toISOString());
-      return Response.json({
-        proposed: result.proposed,
-        baselineWinrate: result.baselineWinrate,
-        consideredHeroes: result.consideredHeroes,
-        windowDays: days,
-      });
-    } finally {
-      heroPoolCalculationInProgress = false;
-    }
-  }
-
-  interface TeamMemberPutEntry {
-    slot: number;
-    name: string;
-    heroPool: number[];
-  }
-
-  interface TeamGroupPutBody {
-    name: string;
-    partySize: PartySize;
-    members: TeamMemberPutEntry[];
-  }
-
-  function isPartySize(value: unknown): value is PartySize {
-    return value === 1 || value === 2 || value === 3 || value === 5;
-  }
-
-  function isValidTeamMemberPutEntry(value: unknown): value is TeamMemberPutEntry {
-    if (typeof value !== "object" || value === null) return false;
-    const entry = value as Record<string, unknown>;
-    if (!Number.isInteger(entry.slot) || (entry.slot as number) < 1 || (entry.slot as number) > 4) return false;
-    if (typeof entry.name !== "string" || entry.name.trim().length === 0) return false;
-    if (!Array.isArray(entry.heroPool) || entry.heroPool.length > 5) return false;
-    if (!entry.heroPool.every((hero) => Number.isInteger(hero) && hero > 0)) return false;
-    return new Set(entry.heroPool).size === entry.heroPool.length;
-  }
-
-  function isValidTeamGroupPutBody(value: unknown): value is TeamGroupPutBody {
-    if (typeof value !== "object" || value === null) return false;
-    const body = value as Record<string, unknown>;
-    if (typeof body.name !== "string" || body.name.trim().length === 0) return false;
-    if (!isPartySize(body.partySize)) return false;
-    // Copiado a una variable local: la angostura de tipo de isPartySize no sobrevive dentro de los
-    // closures de abajo (.every()) cuando se sigue leyendo vía la propiedad `body.partySize`.
-    const partySize = body.partySize;
-    if (!Array.isArray(body.members) || !body.members.every(isValidTeamMemberPutEntry)) return false;
-    if (body.members.length !== partySize - 1) return false;
-    const slots = body.members.map((member) => member.slot);
-    if (new Set(slots).size !== slots.length) return false;
-    return slots.every((slot) => slot >= 1 && slot < partySize);
-  }
-
-  function teamBodyUsesKnownHeroes(body: TeamGroupPutBody): boolean {
-    const knownHeroIds = new Set(deps.db.select({ id: schema.heroes.id }).from(schema.heroes).all().map((row) => row.id));
-    return body.members.every((member) => member.heroPool.every((hero) => knownHeroIds.has(hero)));
-  }
-
-  function teamBodyToWriteRow(body: TeamGroupPutBody): TeamGroupWriteRow {
-    const updatedAt = new Date().toISOString();
-    return {
-      name: body.name.trim(),
-      partySize: body.partySize,
-      updatedAt,
-      members: body.members.map((member) => ({ slot: member.slot, name: member.name.trim(), heroPool: member.heroPool, updatedAt })),
-    };
-  }
-
-  async function readTeamGroupBody(request: Request): Promise<TeamGroupPutBody | null> {
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidTeamGroupPutBody(body)) return null;
-    if (!teamBodyUsesKnownHeroes(body)) return null;
-    return body;
-  }
-
-  async function handleTeamGroupPost(request: Request): Promise<Response> {
-    const body = await readTeamGroupBody(request);
-    if (!body) return Response.json({ error: "invalid_body" }, { status: 400 });
-    return Response.json(createTeamGroup(deps.db, teamBodyToWriteRow(body)), { status: 201 });
-  }
-
-  async function handleTeamGroupPut(request: Request, id: number): Promise<Response> {
-    const body = await readTeamGroupBody(request);
-    if (!body) return Response.json({ error: "invalid_body" }, { status: 400 });
-    const updated = replaceTeamGroup(deps.db, id, teamBodyToWriteRow(body));
-    if (!updated) return Response.json({ error: "not_found" }, { status: 404 });
-    return Response.json(updated, { status: 200 });
-  }
-
-  function handleTeamGroupDelete(id: number): Response {
-    if (!deleteTeamGroup(deps.db, id)) return Response.json({ error: "not_found" }, { status: 404 });
-    return new Response(null, { status: 204 });
-  }
-
-  function parseTeamGroupId(pathname: string): number | null {
-    const match = /^\/api\/team-groups\/([1-9]\d*)$/.exec(pathname);
-    if (!match) return null;
-    return Number(match[1]);
-  }
-
-  function parseDraftPathsSessionId(pathname: string): string | null {
-    const match = /^\/api\/session\/([^/]+)\/draft-paths$/.exec(pathname);
-    if (!match) return null;
-    return decodeURIComponent(match[1]!);
-  }
-
-  async function handleDraftPathsGet(sessionId: string): Promise<Response> {
-    const state = sessionStore.get(sessionId);
-    const meta = await buildMetaSnapshot(deps.db);
-    const capabilities = deps.heroCapabilities ?? loadHeroCapabilities();
-    return Response.json(buildDraftPaths(state, meta, capabilities));
-  }
-
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json(getHealthStatus(sessionStore.size));
@@ -500,10 +138,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return handleHeroes();
     }
     if (request.method === "GET" && url.pathname === "/api/meta/status") {
-      return handleMetaStatus();
+      return metaRoutes.status();
+    }
+    if (request.method === "GET" && url.pathname === "/api/meta/hero-stats") {
+      return metaRoutes.heroStats();
     }
     if (request.method === "POST" && url.pathname === "/api/meta/sync") {
-      return handleMetaSync(request);
+      return metaRoutes.sync(request);
     }
     if (request.method === "GET" && url.pathname === "/api/settings") {
       return handleSettingsGet();
@@ -512,42 +153,47 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return handleSettingsPut(request);
     }
     if (request.method === "GET" && url.pathname === "/api/hero-pool") {
-      return handleHeroPoolGet();
+      return heroPoolRoutes.get();
     }
     if (request.method === "PUT" && url.pathname === "/api/hero-pool") {
-      return handleHeroPoolPut(request);
+      return heroPoolRoutes.put(request);
     }
     if (request.method === "POST" && url.pathname === "/api/hero-pool/calculate") {
-      return handleHeroPoolCalculate(request);
+      return heroPoolRoutes.calculate(request);
     }
     if (request.method === "POST" && url.pathname === "/api/simulator/sessions") {
-      return handleSimulatorSessionPost();
+      return simulatorRoutes.post();
     }
-    const simulatorSessionId = parseSimulatorStateSessionId(url.pathname);
+    const simulatorSessionId = simulatorRoutes.parseStateSessionId(url.pathname);
     if (simulatorSessionId !== null && request.method === "GET") {
-      return handleSimulatorStateGet(simulatorSessionId);
+      return simulatorRoutes.stateGet(simulatorSessionId);
     }
     if (request.method === "GET" && url.pathname === "/api/team-groups") {
-      return Response.json(getTeamGroups(deps.db));
+      return teamGroupRoutes.list();
     }
     if (request.method === "POST" && url.pathname === "/api/team-groups") {
-      return handleTeamGroupPost(request);
+      return teamGroupRoutes.post(request);
     }
-    const teamGroupId = parseTeamGroupId(url.pathname);
+    const teamGroupId = teamGroupRoutes.parseId(url.pathname);
     if (teamGroupId !== null && request.method === "GET") {
-      const group = getTeamGroup(deps.db, teamGroupId);
-      if (!group) return Response.json({ error: "not_found" }, { status: 404 });
-      return Response.json(group);
+      return teamGroupRoutes.get(teamGroupId);
     }
     if (teamGroupId !== null && request.method === "PUT") {
-      return handleTeamGroupPut(request, teamGroupId);
+      return teamGroupRoutes.put(request, teamGroupId);
     }
     if (teamGroupId !== null && request.method === "DELETE") {
-      return handleTeamGroupDelete(teamGroupId);
+      return teamGroupRoutes.delete(teamGroupId);
     }
-    const draftPathsSessionId = parseDraftPathsSessionId(url.pathname);
+    const draftPathsSessionId = draftPathsRoutes.parseSessionId(url.pathname);
     if (draftPathsSessionId !== null && request.method === "GET") {
-      return handleDraftPathsGet(draftPathsSessionId);
+      return draftPathsRoutes.get(draftPathsSessionId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/feedback") {
+      return draftPathsRoutes.feedbackGet();
+    }
+    const feedbackSessionId = draftPathsRoutes.parseFeedbackSessionId(url.pathname);
+    if (feedbackSessionId !== null && request.method === "POST") {
+      return draftPathsRoutes.feedbackPost(request, feedbackSessionId);
     }
 
     return new Response("Not found", { status: 404 });
@@ -577,7 +223,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   }
 
   const websocketHandlers = {
-    message(ws: ServerWebSocket<WsData>, raw: string | Buffer) {
+    async message(ws: ServerWebSocket<WsData>, raw: string | Buffer) {
       let parsed: unknown;
       try {
         parsed = JSON.parse(String(raw));
@@ -594,6 +240,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
         const state = sessionStore.get(message.sessionId);
         // Al reconectar, siempre una instantánea completa -- nunca un delta (§3).
         ws.send(JSON.stringify(buildServerMessage("snapshot", state.lastSeq, state)));
+        // TSK-048: sin esto, un refresh a mitad de draft dejaba el tablero correcto pero sin
+        // ningún panel de sugerencia hasta el próximo pick/ban real.
+        const suggestions = await computeSuggestionsForState(state);
+        ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
       }
       // "ping": sin respuesta requerida -- solo mantiene viva la conexión.
     },

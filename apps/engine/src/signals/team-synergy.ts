@@ -1,4 +1,4 @@
-import type { HeroId, TeamSide } from "../draft/reducer";
+import type { DraftState, HeroId, TeamSide } from "../draft/reducer";
 import type { MetaSnapshot, SignalContribution, SignalScorer } from "./types";
 
 type Capability = "control" | "iniciacion" | "aguante" | "empuje" | "soporte";
@@ -39,6 +39,31 @@ function ownPicks(state: { localSide: TeamSide | "unknown"; picks: Record<TeamSi
   return state.localSide === "unknown" ? [] : state.picks[state.localSide];
 }
 
+// TSK-060: `covered` no depende del candidato, solo de `state` (vía los picks propios) y `meta`
+// (vía `heroCapabilities`) -- a diferencia de counter.ts, acá SÍ hace falta cachear por los dos
+// juntos: `teamSynergyScorer` es un singleton de módulo (parte de STATIC_SCORERS), así que el
+// mismo objeto `DraftState` podría en teoría verse pasado con un `meta` distinto en llamadas
+// distintas a `buildSuggestions` (dos snapshots de meta diferentes sobre el mismo estado, ej. en
+// pruebas). Un WeakMap anidado evita servir un `covered` calculado contra el `meta` equivocado.
+const coveredCache = new WeakMap<DraftState, WeakMap<MetaSnapshot, Set<Capability>>>();
+
+function cachedCovered(state: DraftState, meta: MetaSnapshot, picks: HeroId[]): Set<Capability> {
+  let byMeta = coveredCache.get(state);
+  if (!byMeta) {
+    byMeta = new WeakMap();
+    coveredCache.set(state, byMeta);
+  }
+  let covered = byMeta.get(meta);
+  if (!covered) {
+    covered = new Set<Capability>();
+    for (const hero of picks) {
+      for (const cap of heroCapabilities(meta, hero)) covered.add(cap);
+    }
+    byMeta.set(meta, covered);
+  }
+  return covered;
+}
+
 export const teamSynergyScorer: SignalScorer = {
   id: "team_synergy",
   score(state, candidate, meta): SignalContribution {
@@ -57,11 +82,7 @@ export const teamSynergyScorer: SignalScorer = {
       };
     }
 
-    const covered = new Set<Capability>();
-    for (const hero of picks) {
-      for (const cap of heroCapabilities(meta, hero)) covered.add(cap);
-    }
-
+    const covered = cachedCovered(state, meta, picks);
     const newlyFilled = [...heroCapabilities(meta, candidate)].filter((cap) => !covered.has(cap));
 
     return {

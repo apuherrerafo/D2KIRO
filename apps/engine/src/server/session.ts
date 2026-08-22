@@ -32,23 +32,47 @@ export function buildServerMessage(type: ServerMessage["type"], seq: number, pay
   return { schema: "draft-ws/v1", type, seq, sentAt: new Date().toISOString(), payload };
 }
 
+// TSK-055: mismo criterio de TTL que ya usa simulatorSessions (app.ts, SIMULATOR_SESSION_TTL_MS)
+// -- constante propia y no importada de ahí para no crear una dependencia entre los dos stores,
+// que son independientes a propósito.
+const SESSION_TTL_MS = 45 * 60 * 1000;
+
+interface SessionEntry {
+  state: DraftState;
+  lastAccessedAt: number;
+}
+
 // Estado de cada sesión de draft en curso, en memoria -- el motor no persiste sesiones a SQLite
 // (esa tabla solo guarda meta de OpenDota, C4). Un reinicio del proceso pierde sesiones activas,
 // comportamiento aceptado: el capturador reconecta y reenvía session_started.
 export class SessionStore {
-  private readonly states = new Map<string, DraftState>();
+  private readonly states = new Map<string, SessionEntry>();
 
-  get(sessionId: string): DraftState {
-    return this.states.get(sessionId) ?? createIdleDraftState(sessionId);
+  get(sessionId: string, now = Date.now()): DraftState {
+    const entry = this.states.get(sessionId);
+    if (!entry) return createIdleDraftState(sessionId);
+    entry.lastAccessedAt = now;
+    return entry.state;
   }
 
   get size(): number {
     return this.states.size;
   }
 
-  apply(envelope: DraftEventEnvelope): { state: DraftState; rejected?: RejectionReason } {
-    const result = applyDraftEvent(this.get(envelope.sessionId), envelope);
-    this.states.set(envelope.sessionId, result.state);
+  apply(envelope: DraftEventEnvelope, now = Date.now()): { state: DraftState; rejected?: RejectionReason } {
+    const result = applyDraftEvent(this.get(envelope.sessionId, now), envelope);
+    this.states.set(envelope.sessionId, { state: result.state, lastAccessedAt: now });
     return result;
+  }
+
+  // TSK-055: sin esto, toda sesión que alguna vez recibió un evento vivía en memoria para
+  // siempre -- el mismo patrón de TTL que simulatorSessions ya tenía nunca se retroaplicó acá.
+  // Llamado oportunistamente (ver app.ts), nunca con un scheduler propio.
+  evictStale(now = Date.now(), ttlMs = SESSION_TTL_MS): void {
+    for (const [sessionId, entry] of this.states) {
+      if (now - entry.lastAccessedAt > ttlMs) {
+        this.states.delete(sessionId);
+      }
+    }
   }
 }
