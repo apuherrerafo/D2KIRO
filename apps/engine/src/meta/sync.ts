@@ -62,7 +62,6 @@ export async function runMetaSync<TSchema extends Record<string, unknown>>(
       .set({ finishedAt: now(), status: "ok", rowsWritten, error: errorSummary })
       .where(eq(metaSync.id, syncId))
       .run();
-    invalidateMetaSnapshotCache();
 
     return { syncId, status: "ok", rowsWritten, error: errorSummary };
   } catch (error) {
@@ -71,13 +70,15 @@ export async function runMetaSync<TSchema extends Record<string, unknown>>(
       .set({ finishedAt: now(), status: "failed", rowsWritten, error: message })
       .where(eq(metaSync.id, syncId))
       .run();
-    // TSK-059: cada tabla (heroes/patchStats/matchups) escribe en su propia transacción -- si la
-    // falla ocurrió a mitad de camino, alguna ya pudo haberse commiteado antes de la excepción.
-    // Invalidar siempre, nunca solo en el camino "ok", es la única forma segura de no servir un
-    // cache que quedó desactualizado por una escritura parcial real.
-    invalidateMetaSnapshotCache();
 
     return { syncId, status: "failed", rowsWritten, error: message };
+  } finally {
+    // TSK-059 / Req 2.1: cada tabla (heroes/patchStats/matchups) escribe en su propia
+    // transacción -- si la falla ocurrió a mitad de camino, alguna ya pudo haberse commiteado
+    // antes de la excepción. Mover a `finally` garantiza estructuralmente que el cache se limpia
+    // en TODOS los caminos de salida (ok, failed, y cualquier excepción re-lanzada), haciendo
+    // imposible que un nuevo return path lo omita por accidente.
+    invalidateMetaSnapshotCache();
   }
 }
 

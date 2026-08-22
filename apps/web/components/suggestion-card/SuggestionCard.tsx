@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
 import { SignalBreakdown } from "@/components/signal-breakdown/SignalBreakdown";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
@@ -35,7 +35,7 @@ interface SuggestionCardProps {
 
 // <Dominio><Cosa>: una sugerencia de pick, con sus señales expandibles (SignalBreakdown) — una
 // sugerencia de confianza baja se muestra igual, marcada como tal, nunca se oculta.
-export function SuggestionCard({ suggestion, heroMeta, isPrimary, onPick }: SuggestionCardProps) {
+export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMeta, isPrimary, onPick }: SuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   function toggleExpanded() {
@@ -68,4 +68,4 @@ export function SuggestionCard({ suggestion, heroMeta, isPrimary, onPick }: Sugg
       {expanded && <SignalBreakdown signals={suggestion.signals} />}
     </div>
   );
-}
+});

@@ -1,0 +1,498 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Create migration file `apps/engine/src/db/migrations/0004_vs_hero_idx.sql`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490460
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409498889
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409932521
+      }
+    ],
+    "2.1 Add `invalidateMetaSnapshotCache()` call in `handleSettingsPut` in `apps/engine/src/server/app.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490600
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409501775
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409935906
+      }
+    ],
+    "2.2 Audit and harden `runMetaSync` in `apps/engine/src/meta/sync.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490629
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409504433
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409939093
+      }
+    ],
+    "3.1 Move `loadHeroPositions()` to a module-level constant in `apps/engine/src/signals/mix.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490674
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409507223
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409942242
+      }
+    ],
+    "4.1 Create `apps/engine/src/db/lru-cache.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490720
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409510292
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409945109
+      }
+    ],
+    "4.2 Integrate LRU into `apps/engine/src/meta/provider.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490755
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410860992
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787412140865
+      }
+    ],
+    "5. Checkpoint — engine data layer": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490789
+      }
+    ],
+    "6.1 Add `SnapshotUnavailableError` sentinel class and restructure `hello` handler in `apps/engine/src/server/app.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490821
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410864052
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423643421
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423713843
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423801213
+      }
+    ],
+    "7.1 Create `apps/engine/src/meta/seed-hero-stats.json` and `apps/engine/src/meta/seed.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490862
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409948643
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410847974
+      }
+    ],
+    "7.2 Integrate seed fallback into `buildMetaSnapshot` in `apps/engine/src/meta/provider.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490894
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410866957
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423646357
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423716643
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423804348
+      }
+    ],
+    "8.1 Add `TokenRateLimiter` interface and `createTokenRateLimiter` factory to `apps/engine/src/server/edge.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490958
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409951759
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410850980
+      }
+    ],
+    "8.2 Wire `TokenRateLimiter` into `AppDeps` and `handleDraftEvent` in `apps/engine/src/server/app.ts`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409490986
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410870086
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787412144642
+      }
+    ],
+    "9. Checkpoint — engine server layer": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409491019
+      }
+    ],
+    "10.1 Wrap `SuggestionCard` with `React.memo` in `apps/web/components/suggestion-card/SuggestionCard.tsx`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409491046
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409954704
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410854154
+      }
+    ],
+    "10.2 Wrap `DraftBoard` with `React.memo` in `apps/web/components/draft-board/DraftBoard.tsx`": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409491078
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409957343
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410857358
+      }
+    ],
+    "10.3 Stabilize `handleQuickPick` and `buildReason` derivation in `ActiveDraftState` inside `apps/web/features/draft/DraftView.tsx` (or the relevant component file)": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409491112
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787410874289
+      },
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787412148983
+      }
+    ],
+    "11. Final checkpoint — Ensure all tests pass": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409491143
+      }
+    ],
+    "1. SQLite index migration for hero_matchups(vs_hero_id)": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409932559
+      }
+    ],
+    "2. MetaSnapshot cache coherence": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409939125
+      }
+    ],
+    "3. Hero positions loaded once at module initialisation": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787409942281
+      }
+    ],
+    "4. LRU query cache for hero matchup winrates": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787412140899
+      }
+    ],
+    "8. Token-level rate limiting on /ingest/draft-event": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787412144678
+      }
+    ],
+    "10. React memoization of DraftBoard and SuggestionCard": [
+      {
+        "executionId": "428c76bc-3762-455c-b9aa-baf31ca0d5dc",
+        "chatSessionId": "sess_e72f3910-ff52-448d-9441-40f9d1645bc4",
+        "timestamp": 1787412149019
+      }
+    ],
+    "1.2 Write integration test for migration and index usage": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423649263
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423820178
+      }
+    ],
+    "2.3 Write unit tests for cache coherence": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423652072
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423822979
+      }
+    ],
+    "2.4 Write property test for cache reference identity (Property 1)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423654982
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423825955
+      }
+    ],
+    "3.2 Write unit test for single-load behaviour": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423661947
+      }
+    ],
+    "3.3 Write property test for hero positions override (Property 2)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423664653
+      }
+    ],
+    "3.4 Write property test for parseHeroPositions filtering (Property 3)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423667436
+      }
+    ],
+    "4.3 Write unit tests for LRU cache": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423670268
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423828838
+      }
+    ],
+    "4.4 Write property test for LRU eviction (Property 4)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423673010
+      }
+    ],
+    "4.5 Write property test for LRU cache hit (Property 5)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423675790
+      }
+    ],
+    "4.6 Write property test for LRU cache miss populates cache (Property 6)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423678479
+      }
+    ],
+    "8.3 Write unit tests for token rate limiting": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423681197
+      },
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423831888
+      }
+    ],
+    "8.4 Write property test for token rate limiter window reset (Property 8)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423683824
+      }
+    ],
+    "8.5 Write property test for cross-session token aggregation (Property 9)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423686447
+      }
+    ],
+    "10.4 Write unit tests for React memoization": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423689308
+      }
+    ],
+    "10.5 Write property test for React.memo skipping re-render on reference-equal props (Property 10)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423693204
+      }
+    ],
+    "10.6 Write property test for per-suggestion re-render isolation (Property 11)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423696336
+      }
+    ],
+    "6.2 Write unit tests for WebSocket reconnect resilience": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423700244
+      }
+    ],
+    "7.3 Write unit tests for seed fallback": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423703042
+      }
+    ],
+    "7.4 Write property test for DB rows precedence over seed (Property 7)": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423705801
+      }
+    ],
+    "6. MetaSnapshot cache coherence: WebSocket reconnect resilience": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423801386
+      }
+    ],
+    "7. Static meta fallback seed for empty hero_patch_stats": [
+      {
+        "executionId": "ab8fb733-08de-4c1b-a70c-edc93ca8e4f0",
+        "chatSessionId": "sess_24273286-713d-41f3-bf03-d5d6e9c77d1a",
+        "timestamp": 1787423804525
+      }
+    ]
+  }
+}

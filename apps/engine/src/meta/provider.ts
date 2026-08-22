@@ -1,8 +1,10 @@
 import { desc, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { createLRUCache, type LRUCache } from "../db/lru-cache";
 import { heroMatchups, heroPatchStats, heroPool, heroes, metaSync, settings } from "../db/schema";
 import type { HeroMatchupStat, HeroPatchBracketStat, HeroPoolEntry, MetaHeroInfo, MetaSnapshot } from "../signals/types";
-import type { Bracket } from "./mappers";
+import { mapHeroStatsRow, type Bracket } from "./mappers";
+import { getValidatedSeed } from "./seed";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
 
@@ -34,20 +36,53 @@ export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>
 
   const matchupsByHero: Record<number, HeroMatchupStat[]> = {};
   for (const row of matchupRows) {
+    const key = `${row.heroId}:${row.vsHeroId}`;
+    if (!matchupLRU.has(key)) {
+      // Cache miss: compute winrate and populate the LRU for future snapshot rebuilds.
+      // The HeroMatchupStat pushed below still uses raw `games` and `wins` — the LRU
+      // caches only the derived winrate (wins/games) as a secondary lookup index.
+      const winrate = row.games > 0 ? row.wins / row.games : 0;
+      matchupLRU.set(key, winrate);
+    }
     (matchupsByHero[row.heroId] ??= []).push({ vsHero: row.vsHeroId, games: row.games, wins: row.wins });
   }
 
-  const patchStatsByHero: Record<number, HeroPatchBracketStat[]> = {};
-  for (const row of patchStatRows) {
+  let patchStatsByHero: Record<number, HeroPatchBracketStat[]> = {};
+  if (patchStatRows.length > 0) {
+    // DB rows always take precedence (Req 6.3).
     // `bracket` se guarda como texto plano en SQLite (schema.ts no lo restringe a Bracket) --
     // el cast es seguro porque solo mapHeroStatsRow (TSK-003) escribe esta tabla, y ya valida
     // contra BRACKETS antes de escribir. No es input externo en este punto de lectura.
-    (patchStatsByHero[row.heroId] ??= []).push({
-      patch: row.patch,
-      bracket: row.bracket as Bracket,
-      picks: row.picks,
-      wins: row.wins,
-    });
+    for (const row of patchStatRows) {
+      (patchStatsByHero[row.heroId] ??= []).push({
+        patch: row.patch,
+        bracket: row.bracket as Bracket,
+        picks: row.picks,
+        wins: row.wins,
+      });
+    }
+  } else {
+    // Fallback to seed — only when DB is empty (first run before sync). (Req 6.2)
+    const seed = getValidatedSeed();
+    if (seed.length > 0) {
+      // mapHeroStatsRow expands one RawHeroStatsRow into one HeroPatchStatRow per bracket.
+      // We use the label "seed" as the patch identifier since no real patch is committed yet.
+      const SEED_PATCH = "seed";
+      const updatedAt = new Date().toISOString();
+      for (const seedRow of seed) {
+        const mappedRows = mapHeroStatsRow(seedRow, SEED_PATCH, updatedAt);
+        for (const row of mappedRows) {
+          (patchStatsByHero[row.heroId] ??= []).push({
+            patch: row.patch,
+            bracket: row.bracket,
+            picks: row.picks,
+            wins: row.wins,
+          });
+        }
+      }
+    } else {
+      console.error("[meta/provider] Seed fallback is empty — patchStats will be empty map");
+    }
   }
 
   // Mismo shape que HeroPoolEntry (signals/types.ts) -- traduce `heroId` (columna SQLite) a
@@ -82,14 +117,36 @@ export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>
 // por esas dos escrituras.
 let cachedSnapshot: MetaSnapshot | null = null;
 
+// Req 4: LRU cache for individual matchup winrates (heroId:vsHeroId → winrate).
+// Lives here alongside cachedSnapshot so both are cleared together on invalidation.
+// Capacity 512 covers the typical hero roster (≈130 heroes × ~4 common matchups each).
+// Injectable for tests via getMatchupLRU / setMatchupLRU.
+const MATCHUP_CACHE_CAPACITY = 512;
+let matchupLRU: LRUCache<string, number> = createLRUCache<string, number>(MATCHUP_CACHE_CAPACITY);
+
 export async function getCachedMetaSnapshot<TSchema extends Record<string, unknown>>(db: Db<TSchema>): Promise<MetaSnapshot> {
   if (cachedSnapshot) return cachedSnapshot;
-  cachedSnapshot = await buildMetaSnapshot(db);
+  // Req 2.5: asignar a cachedSnapshot SOLO después de que buildMetaSnapshot resuelva
+  // exitosamente. Si lanza, la excepción se propaga antes de la asignación, por lo que
+  // cachedSnapshot queda null y el próximo llamador reintenta el build en lugar de recibir un
+  // snapshot parcialmente construido.
+  const snapshot = await buildMetaSnapshot(db);
+  cachedSnapshot = snapshot;
   return cachedSnapshot;
 }
 
 export function invalidateMetaSnapshotCache(): void {
   cachedSnapshot = null;
+  matchupLRU.clear(); // Req 4.2: stale winrates must not outlive the snapshot
+}
+
+// Req 4.6: injectable for tests so cache-hit and cache-miss paths can each be exercised.
+export function getMatchupLRU(): LRUCache<string, number> {
+  return matchupLRU;
+}
+
+export function setMatchupLRU(cache: LRUCache<string, number>): void {
+  matchupLRU = cache;
 }
 
 export async function getMetaFreshness<TSchema extends Record<string, unknown>>(

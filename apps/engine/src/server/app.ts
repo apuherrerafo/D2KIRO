@@ -6,10 +6,10 @@ import type { HeroCapabilities } from "../draft-paths/types";
 import type { DraftState } from "../draft/reducer";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
-import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness } from "../meta/provider";
+import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness, invalidateMetaSnapshotCache } from "../meta/provider";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildSuggestions, type SuggestionSet } from "../signals/mix";
-import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope } from "./edge";
+import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope, type TokenRateLimiter } from "./edge";
 import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes } from "./routes/meta";
@@ -18,6 +18,16 @@ import { createTeamGroupRoutes } from "./routes/team-groups";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
+
+// Req 5 (§5.4): error centinela para distinguir un fallo de getCachedMetaSnapshot del resto de
+// errores de computeSuggestionsForState -- el cliente recibe un mensaje de error distinto en cada
+// caso y la conexión nunca se cierra.
+class SnapshotUnavailableError extends Error {
+  constructor() {
+    super("snapshot_unavailable");
+    this.name = "SnapshotUnavailableError";
+  }
+}
 
 export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema> {
   db: Db<TSchema>;
@@ -31,6 +41,8 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   // TSK-063: mismo criterio que heroCapabilities -- inyectable para pruebas, nunca el
   // hero-positions.json real ahí (costura S10).
   heroPositions?: HeroPositions;
+  // Req 7 (§7.6): inyectable para tests -- mismo patrón que SessionRateLimiter.
+  tokenRateLimiter?: TokenRateLimiter;
 }
 
 interface WsData {
@@ -66,8 +78,15 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   // TSK-048: helper compartido entre el push automático (pushSessionUpdate) y el reenvío al
   // reconectar (rama "hello" del WebSocket) -- una sola forma de calcular suggestions para un
   // DraftState dado, nunca duplicada entre los dos caminos.
+  // Req 5 (§5.4): si getCachedMetaSnapshot lanza, se relanza como SnapshotUnavailableError para
+  // que el llamador pueda distinguirlo de un fallo del pipeline de señales.
   async function computeSuggestionsForState(state: DraftState): Promise<SuggestionSet> {
-    const meta = await getCachedMetaSnapshot(deps.db);
+    let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
+    try {
+      meta = await getCachedMetaSnapshot(deps.db);
+    } catch {
+      throw new SnapshotUnavailableError();
+    }
     const freshness = await getMetaFreshness(deps.db);
     return buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
   }
@@ -89,8 +108,32 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (!isValidDraftEventEnvelope(body)) {
       return Response.json({ accepted: false }, { status: 400 });
     }
+
+    const sourceIp = request.headers.get("x-forwarded-for") ?? "unknown";
+
+    if (opts.rateLimit && deps.tokenRateLimiter) {
+      const incomingToken = request.headers.get("x-capture-token") ?? "";
+      if (!deps.tokenRateLimiter.allow(incomingToken)) {
+        console.log(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          event: "rate_limit_exceeded",
+          scope: "token",
+          sessionId: body.sessionId,
+          sourceIp,
+        }));
+        return Response.json({ error: "rate_limit_exceeded", scope: "token" }, { status: 429 });
+      }
+    }
+
     if (opts.rateLimit && !rateLimiter.allow(body.sessionId)) {
-      return new Response(null, { status: 429 });
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event: "rate_limit_exceeded",
+        scope: "session",
+        sessionId: body.sessionId,
+        sourceIp,
+      }));
+      return Response.json({ error: "rate_limit_exceeded", scope: "session" }, { status: 429 });
     }
 
     // TSK-055: oportunista, igual que cleanupSimulatorSessions() -- sin scheduler propio.
@@ -121,6 +164,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return Response.json({ error: "Se espera { key: string, value: string }" }, { status: 400 });
     }
     upsertSetting(deps.db, body.key, body.value);
+    if (body.key === "personal_baseline_winrate") {
+      invalidateMetaSnapshotCache();
+    }
     return Response.json({ key: body.key, value: body.value }, { status: 200 });
   }
 
@@ -238,12 +284,46 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
         ws.data.sessionId = message.sessionId;
         ws.subscribe(message.sessionId);
         const state = sessionStore.get(message.sessionId);
-        // Al reconectar, siempre una instantánea completa -- nunca un delta (§3).
+
+        // Req 5.1/5.5: snapshot siempre antes de intentar calcular sugerencias -- DraftState
+        // siempre disponible desde sessionStore.get() (nunca lanza). El cliente recupera el
+        // tablero aunque la etapa de sugerencias falle por completo.
         ws.send(JSON.stringify(buildServerMessage("snapshot", state.lastSeq, state)));
-        // TSK-048: sin esto, un refresh a mitad de draft dejaba el tablero correcto pero sin
-        // ningún panel de sugerencia hasta el próximo pick/ban real.
-        const suggestions = await computeSuggestionsForState(state);
-        ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
+
+        // Req 5.2/5.4: sugerencias con degradación controlada -- tres casos posibles:
+        //   1. computeSuggestionsForState resuelve → mensaje "suggestions" normal.
+        //   2. SnapshotUnavailableError (getCachedMetaSnapshot lanzó) → mensaje "error" con
+        //      code "snapshot_unavailable"; conexión permanece abierta.
+        //   3. Cualquier otro error → mensaje "suggestions" degradado vacío.
+        try {
+          const suggestions = await computeSuggestionsForState(state);
+          ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
+        } catch (err) {
+          if (err instanceof SnapshotUnavailableError) {
+            // Req 5.4: error tipado -- el cliente sabe que el snapshot de meta no está listo;
+            // la conexión NO se cierra para que el cliente pueda reintentar más adelante.
+            ws.send(
+              JSON.stringify(
+                buildServerMessage("error", state.lastSeq, {
+                  code: "snapshot_unavailable",
+                  message: "No se pudo construir el snapshot de meta -- reintentá en unos segundos",
+                }),
+              ),
+            );
+          } else {
+            // Req 5.2: fallo del pipeline de señales -- degradación parcial, nunca silencio.
+            const degradedSuggestions: SuggestionSet = {
+              schema: "suggestions/v1",
+              sessionId: state.sessionId,
+              basedOnSeq: state.lastSeq,
+              suggestions: [],
+              comparison: null,
+              degraded: ["partial_signals"],
+              computedInMs: 0,
+            };
+            ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, degradedSuggestions)));
+          }
+        }
       }
       // "ping": sin respuesta requerida -- solo mantiene viva la conexión.
     },

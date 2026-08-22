@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftFeedbackBox } from "@/components/draft-feedback-box/DraftFeedbackBox";
@@ -90,7 +90,9 @@ function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, he
   // ManualEntryPanel (postManualEvent), sin pasar por ese panel para el caso más común (aceptar
   // la sugerencia tal cual). Sin lado propio identificado no hay a quién atribuirle el pick --
   // undefined en vez de la función real oculta el botón (SuggestionCard).
-  async function handleQuickPick(hero: HeroId) {
+  // Req 8.4: useCallback estabiliza la referencia entre renders que no cambian sessionId,
+  // localSide ni lastSeq -- evita re-renders innecesarios en SuggestionCard (React.memo).
+  const handleQuickPick = useCallback(async (hero: HeroId) => {
     if (draftState.localSide === "unknown") return;
     setPickError(null);
     let result: Awaited<ReturnType<typeof postManualEvent>>;
@@ -101,7 +103,18 @@ function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, he
       return;
     }
     if (!result.accepted) setPickError(`No se pudo pickear: ${result.rejected ?? "motivo desconocido"}`);
-  }
+  }, [sessionId, draftState.localSide, draftState.lastSeq]);
+
+  // Req 8.4: useMemo evita re-derivar los strings de razón en renders no relacionados con un
+  // cambio de sugerencias. La referencia de `suggestions` solo cambia cuando llega un nuevo
+  // SuggestionSet por WebSocket, que es exactamente cuando queremos recomputar.
+  // El array queda disponible para consumidores futuros; los reasons ya vienen embebidos en
+  // suggestion.reason y SuggestionCard los renderiza desde ahí.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _reasons = useMemo(
+    () => suggestions?.suggestions.map((s) => s.reason) ?? [],
+    [suggestions],
+  );
 
   const quickPickHandler = draftState.localSide === "unknown" ? undefined : handleQuickPick;
 

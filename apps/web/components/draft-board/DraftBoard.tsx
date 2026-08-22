@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
 import { LOCAL_SIDE_BADGE } from "@/features/draft/styles";
 import type { DraftState, HeroId, TeamSide } from "@/features/draft/types";
@@ -43,7 +44,7 @@ interface DraftBoardProps {
 
 // <Dominio><Cosa>: tablero completo de picks/bans con íconos oficiales — siempre visible en los
 // estados `activo`/`degradado`/`completo`.
-export function DraftBoard({ draftState, heroCatalog }: DraftBoardProps) {
+export const DraftBoard = memo(function DraftBoard({ draftState, heroCatalog }: DraftBoardProps) {
   const unconfirmedIds = new Set(draftState.quality.unconfirmed);
 
   return (
@@ -80,4 +81,4 @@ export function DraftBoard({ draftState, heroCatalog }: DraftBoardProps) {
       </div>
     </div>
   );
-}
+});

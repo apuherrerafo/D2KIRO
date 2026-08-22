@@ -28,6 +28,29 @@ export function createSessionRateLimiter(): SessionRateLimiter {
   };
 }
 
+const TOKEN_RATE_WINDOW_MS = 1000;
+const MAX_EVENTS_PER_TOKEN_WINDOW = 200; // 200 eventos/segundo por token (§7)
+
+export interface TokenRateLimiter {
+  allow(token: string, now?: number): boolean;
+}
+
+export function createTokenRateLimiter(): TokenRateLimiter {
+  const hits = new Map<string, number[]>();
+  return {
+    allow(token: string, now: number = Date.now()): boolean {
+      const recent = (hits.get(token) ?? []).filter((t) => now - t < TOKEN_RATE_WINDOW_MS);
+      if (recent.length >= MAX_EVENTS_PER_TOKEN_WINDOW) {
+        hits.set(token, recent);
+        return false;
+      }
+      recent.push(now);
+      hits.set(token, recent);
+      return true;
+    },
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
