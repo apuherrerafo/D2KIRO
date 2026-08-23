@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
+import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
-import { HeroPicker } from "@/components/hero-picker/HeroPicker";
 import { useHeroCatalog, type HeroMeta } from "@/features/draft/use-hero-catalog";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { TeamSide } from "@/features/draft/types";
@@ -104,6 +104,52 @@ function BanListRow({ heroId, localizedName, imgUrl, onRemove }: BanListRowProps
   );
 }
 
+interface HeroPickerModalProps {
+  heroCatalog: Map<number, HeroMeta>;
+  unavailableHeroIds: ReadonlySet<HeroId>;
+  onSelect: (heroId: HeroId) => void;
+  onClose: () => void;
+}
+
+// <Dominio><Cosa>: overlay real (no un bloque inline que empuja la página) -- pedido explícito
+// del usuario para que elegir un héroe de la Personal_Ban_List se sienta "exactamente como la
+// pantalla principal de draft", mismo HeroGrid agrupado por atributo, ahora en un diálogo
+// centrado que no reordena el resto del formulario. Cierra por click afuera, Escape, o al elegir
+// un héroe -- las tres únicas salidas, ninguna deja el modal abierto sin explicación.
+function HeroPickerModal({ heroCatalog, unavailableHeroIds, onSelect, onClose }: HeroPickerModalProps) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget) onClose();
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Elegir héroe para la Personal_Ban_List"
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-base/80 p-4 backdrop-blur-sm"
+    >
+      <div className="flex max-h-[85vh] w-full max-w-4xl flex-col gap-4 overflow-y-auto rounded-lg border border-surface-border bg-surface-raised p-6 shadow-xl">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-heading text-content-primary">Elegí un héroe para tu Personal_Ban_List</span>
+          <button type="button" onClick={onClose} className={BUTTON_GHOST}>
+            Cerrar
+          </button>
+        </div>
+        <HeroGrid heroes={Array.from(heroCatalog.values())} unavailableHeroIds={unavailableHeroIds} onSelect={onSelect} />
+      </div>
+    </div>
+  );
+}
+
 interface PersonalBanListFieldProps {
   personalBanList: HeroId[];
   heroCatalog: Map<number, HeroMeta>;
@@ -117,6 +163,10 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
 
   function openPicker() {
     setPickerOpen(true);
+  }
+
+  function closePicker() {
+    setPickerOpen(false);
   }
 
   function handleSelect(heroId: number) {
@@ -144,12 +194,19 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
         ))}
       </div>
       {error && <span className="text-caption text-signal-negative">{error}</span>}
-      {personalBanList.length < MAX_BAN_LIST && !pickerOpen && (
+      {personalBanList.length < MAX_BAN_LIST && (
         <button type="button" onClick={openPicker} className={`self-start ${BUTTON_SECONDARY}`}>
           Agregar héroe
         </button>
       )}
-      {pickerOpen && <HeroPicker heroes={Array.from(heroCatalog.values())} onSelect={handleSelect} />}
+      {pickerOpen && (
+        <HeroPickerModal
+          heroCatalog={heroCatalog}
+          unavailableHeroIds={new Set(personalBanList)}
+          onSelect={handleSelect}
+          onClose={closePicker}
+        />
+      )}
     </div>
   );
 }
