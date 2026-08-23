@@ -13,4 +13,10 @@ describe("buildNavLinks", () => {
 
     expect(draftLink?.label).toBe("Draft local");
   });
+
+  test("incluye un acceso directo a /random-draft -- antes solo era accesible tipeando la URL", () => {
+    const randomDraftLink = buildNavLinks(true).find((link) => link.href === "/random-draft");
+
+    expect(randomDraftLink?.label).toBe("Simulador AP");
+  });
 });

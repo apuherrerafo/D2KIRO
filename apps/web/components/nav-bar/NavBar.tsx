@@ -13,6 +13,7 @@ export function buildNavLinks(draftLiveEnabled: boolean): NavLinkDef[] {
   return [
     { href: "/draft", label: draftLabel },
     { href: "/simulator", label: "Simulador" },
+    { href: "/random-draft", label: "Simulador AP" },
     { href: "/hero-pool", label: "Mi pool" },
     { href: "/team-groups", label: "Equipos" },
     { href: "/heroes", label: "Héroes" },
