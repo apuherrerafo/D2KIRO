@@ -1,4 +1,4 @@
-# PROYECTO: dota2coach (Draft Coach) — Fase 3 en curso
+# PROYECTO: dota2coach (Draft Coach) — Fase 4 en curso
 
 ## STACK ACTUAL
 Definido por `/pre-flight` (`docs/agents/architecture.md`, Bloque 5) y cerrado por `/blueprint`
@@ -30,12 +30,15 @@ Kiro, sin tickets `TSK-XXX` propios — store + hook de sesión contra el motor 
 está construido y verificado en navegador pero **sin commitear y sin pasar `@redteam` todavía** —
 pendiente, en cola. **Deploy real completo**: dota2coach corre en producción en Railway
 (https://d2kiro-production.up.railway.app, auto-deploy activado sobre `master`), primer `/castoff`
-exitoso y verificado contra la instancia pública. **Fase 3 en curso** ("Posiciones reales en el
-motor de sugerencias"): QA manual reveló que el motor no tiene ningún concepto de posición (pos
-1-5) — usa etiquetas temáticas de OpenDota que no representan roles reales (57% de los héroes
-marcados "Carry"), lo que produce composiciones inválidas (doble carry). `/kickoff` cerrado:
-se resuelve curando posiciones a mano (mismo patrón que `capabilities.json`), sin STRATZ ni
-dependencias nuevas. Ver `docs/agents/PROGRESS.md` para el estado exacto y el siguiente paso.
+exitoso y verificado contra la instancia pública. **Fase 3 completa** ("Posiciones reales en el
+motor de sugerencias"): `position_fit` fusiona `role_gap`/`role_safety`, `SCORING_WEIGHTS_V5` es
+la constante activa. **Fase 4 en curso** ("Intención de Draft, Sinergia en Cadena y
+Diversificación Estratégica"): el motor sigue dando un top-3 estático al inicio porque ninguna
+señal distingue candidatos con el draft vacío. `/blueprint` cerró el **sub-ticket 4.1 únicamente**
+(señal `archetype_fit`, aislada, sin integrar todavía al motor) — las otras 3 piezas de la fase
+(sinergia en cadena, denial de composición, diversificación) y los sub-tickets 4.2-4.8 quedan a
+nivel conceptual hasta su propio `/blueprint`. Ver `docs/agents/PROGRESS.md` para el estado exacto
+y el siguiente paso.
 
 ## COMANDOS ESENCIALES
 - `bun run dev` → Iniciar servidor de desarrollo.
@@ -49,7 +52,14 @@ Codificadas en `scripts/verify-simplicity.sh`. Si cambias un número aquí, cám
 
 - No añadir dependencias sin pasar por `/gear-up` o `@depcheck`.
 - Máximo 3 archivos modificados por tarea.
-- Máximo 200 líneas nuevas por tarea.
+- Máximo 200 líneas nuevas de código de producción por tarea (`.ts`/`.tsx` fuera de
+  `.test.ts`/`.spec.ts`/`.test.tsx`/`.spec.tsx`).
+- **Presupuesto propio para archivos de test: 200 → 350 líneas nuevas.** Fixtures y mocks
+  estáticos (p. ej. `DraftState`) cuestan más líneas por diseño; medirlos contra el mismo límite
+  que la producción castigaba el rigor de testing con fricción artificial. Sigue siendo un límite
+  real, no un aviso informativo: al superarlo, sigue exigiendo la misma excepción declarada de
+  abajo — nunca se auto-aprueba ni deja de preguntar en silencio (`journal.md` documenta por qué:
+  TSK-067 revirtió exactamente ese cambio una vez, hecho por otra herramienta del ecosistema).
 - **Excepción documentada:** una migración de esquema (Drizzle) cuenta como 1 unidad lógica aunque toque schema + migración + 1 query afectada.
 - **Excepción documentada, puntual, no generalizable:** el scaffolding inicial del monorepo (TSK-001 —
   `create-next-app` para `apps/web` + esqueleto a mano de `apps/engine`) contó como 1 unidad lógica
@@ -152,6 +162,30 @@ son los puntos que no se pueden violar sin romper el contrato, resumidos:
   de `apps/engine`. Cero dependencias nuevas: el navegador headless vive fuera del `package.json`.
 - **`SignalId` está espejado a mano en `apps/web`** — cambiar el set de señales del motor sin
   mover ese espejo en el mismo cambio rompe el tipado.
+
+## REGLAS DE FASE 4 (sub-ticket 4.1 — señal `archetype_fit`) — desde `docs/specs/SPEC.md` §11
+Generadas por `/rulebook`, cuarta ejecución del proyecto. **Alcance deliberadamente parcial**: solo
+el sub-ticket 4.1 pasó por `/blueprint` — las otras 3 piezas de la fase y los sub-tickets 4.2-4.8
+quedan documentados a nivel conceptual (sin números) hasta que cada uno tenga su propio
+`/blueprint`. Detalle completo en `.claude/rules/` (secciones "Fase 4" en `engine.md`,
+`security.md`, `testing-seams.md`) — esta sección son los puntos que no se pueden violar sin
+romper el contrato de 4.1, resumidos:
+
+- **`archetypeFitBonus` se reutiliza desde `draft-paths/build-paths.ts`, nunca se reimplementa.**
+  El concepto de arquetipo (`push`/`teamfight`/`pickoff`/`scaling`) ya existía en el motor desde
+  Fase 2 ("Caminos de draft") — el diseño original de esta fase iba a curar un
+  `archetype-affinity.json` nuevo; se descartó al descubrir la función existente.
+- **La normalización a `[0, 1]` ocurre dentro de `archetype-fit.ts`, nunca en `RAW_RANGE` de
+  `mix.ts`.** `archetypeFitBonus` no tiene escala uniforme entre arquetipos (0-2 salvo pickoff,
+  0-3) — un solo rango en `RAW_RANGE` no puede servir para los cuatro sin normalizar antes.
+- **`SignalId` NO se amplía en 4.1** — haría que `SCORING_WEIGHTS_V4`/`V5` (congeladas, `Record`
+  totales) dejen de compilar. 4.1 usa una vista de tipo derivada que desaparece sola en 4.2.
+- **`capabilities.json` no tiene cobertura completa** (124/126 héroes) — la rama `raw: null` por
+  falta de dato es alcanzable hoy, no defensiva. No se completa en 4.1.
+- **4.1 no toca `mix.ts`, `weights.ts` ni `apps/web`** — el motor no cambia de comportamiento
+  todavía. `SCORING_WEIGHTS_V5` sigue siendo la única activa.
+- **Hallazgo real, fuera de alcance**: `team_synergy` devuelve `raw: 0` (no `null`) para un héroe
+  sin capacidades — viola la regla dura de `engine.md`. Ticket aparte, no se corrige en 4.1.
 
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.

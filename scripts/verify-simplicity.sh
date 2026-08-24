@@ -3,7 +3,13 @@ set -euo pipefail
 
 ERRORS=0
 MAX_FILES=3
-MAX_LINES=200   # Fuente única del límite. CLAUDE.md y las skills deben referenciar esta constante, no repetirla.
+MAX_LINES=200        # Producción. Fuente única del límite. CLAUDE.md y las skills deben referenciar esta constante, no repetirla.
+MAX_TEST_LINES=350   # Test/spec (.test.ts/.spec.ts/.test.tsx/.spec.tsx) -- presupuesto propio, no el de producción.
+                      # Fixtures y mocks estáticos (p.ej. DraftState) cuestan más líneas por diseño; mezclarlos con el
+                      # límite de producción castigaba el rigor de testing. Sigue siendo un límite real: si se supera,
+                      # sigue pasando por la misma excepción declarada de abajo -- nunca deja de preguntar en silencio
+                      # (ver journal.md TSK-067: una sesión de Kiro ya reescribió esta regla para dejar de preguntar
+                      # por adelantado y se revirtió como hallazgo real, no cosmético).
 
 echo "🦴 Verificando simplicidad..."
 
@@ -48,7 +54,14 @@ ALL_FILES=$(git diff --cached --name-only "$DIFF_BASE" 2>/dev/null | grep -Ev "$
 
 FILES_TOUCHED=$(printf '%s\n' "$ALL_FILES" | grep -c '.') || true
 FILES_TOUCHED=${FILES_TOUCHED:-0}
-LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" '$3 !~ pat {sum += $1} END {print sum+0}')
+
+# Producción vs. test: mismo diff --cached, partido por nombre de archivo. Un .test.ts que además
+# cambiara una firma de producción seguiría siendo detectado como violación aparte si esa firma
+# vive en su propio archivo .ts -- este split nunca decide qué es "producción" por contenido, solo
+# por convención de nombre (igual de estricto que el resto del script).
+TEST_FILE_PATTERN='[.](test|spec)[.]tsx?$'
+PROD_LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" -v tpat="$TEST_FILE_PATTERN" '$3 !~ pat && $3 !~ tpat {sum += $1} END {print sum+0}')
+TEST_LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" -v tpat="$TEST_FILE_PATTERN" '$3 !~ pat && $3 ~ tpat {sum += $1} END {print sum+0}')
 
 # --- Excepción documentada de simplicidad ---
 # CLAUDE.md permite declarar por adelantado, dentro del propio ticket, que su alcance real supera
@@ -74,11 +87,20 @@ if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
   fi
 fi
 
-if [ "$LINES_ADDED" -gt "$MAX_LINES" ]; then
+if [ "$PROD_LINES_ADDED" -gt "$MAX_LINES" ]; then
   if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
-    echo "⚠️  $LINES_ADDED líneas añadidas (máximo $MAX_LINES) -- excepción declarada en $TICKET_FILE, no bloquea."
+    echo "⚠️  $PROD_LINES_ADDED líneas de producción añadidas (máximo $MAX_LINES) -- excepción declarada en $TICKET_FILE, no bloquea."
   else
-    echo "❌ ERROR: $LINES_ADDED líneas añadidas. Máximo: $MAX_LINES."
+    echo "❌ ERROR: $PROD_LINES_ADDED líneas de producción añadidas. Máximo: $MAX_LINES."
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+if [ "$TEST_LINES_ADDED" -gt "$MAX_TEST_LINES" ]; then
+  if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
+    echo "⚠️  $TEST_LINES_ADDED líneas de test añadidas (máximo $MAX_TEST_LINES) -- excepción declarada en $TICKET_FILE, no bloquea."
+  else
+    echo "❌ ERROR: $TEST_LINES_ADDED líneas de test añadidas. Máximo: $MAX_TEST_LINES."
     ERRORS=$((ERRORS + 1))
   fi
 fi
