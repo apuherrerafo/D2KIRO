@@ -17,6 +17,10 @@ function draftState(overrides: Partial<DraftState> = {}): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "2026-07-27T00:00:00Z",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
+    turn: null,
     ...overrides,
   };
 }
@@ -46,6 +50,7 @@ beforeEach(() => {
     suggestions: null,
     errorMessage: null,
     socket: null,
+    inputMode: { action: "pick", side: "unknown" },
   });
 });
 
@@ -147,6 +152,49 @@ describe("conexión (hello / snapshot)", () => {
   test("connect() guarda el sessionId en el store", () => {
     useDraftStore.getState().connect(new FakeSocket(), "session-correction");
     expect(useDraftStore.getState().sessionId).toBe("session-correction");
+  });
+});
+
+describe("inputMode (DraftInputMode, RCA post-TSK-076)", () => {
+  test("por defecto empieza en pick sin lado -- ninguna sesión hereda el lado de otra", () => {
+    expect(useDraftStore.getState().inputMode).toEqual({ action: "pick", side: "unknown" });
+  });
+
+  test("setInputMode actualiza solo el campo que se le pasa", () => {
+    useDraftStore.getState().setInputMode({ action: "ban" });
+    expect(useDraftStore.getState().inputMode).toEqual({ action: "ban", side: "unknown" });
+
+    useDraftStore.getState().setInputMode({ side: "dire" });
+    expect(useDraftStore.getState().inputMode).toEqual({ action: "ban", side: "dire" });
+  });
+
+  test("connect() reinicia inputMode a pick/unknown, aunque la sesión anterior tuviera un lado elegido", () => {
+    useDraftStore.getState().setInputMode({ side: "dire" });
+    useDraftStore.getState().connect(new FakeSocket(), "session-nueva");
+
+    expect(useDraftStore.getState().inputMode).toEqual({ action: "pick", side: "unknown" });
+  });
+
+  test("un draft_state con localSide conocido completa el lado UNA sola vez", () => {
+    const socket = new FakeSocket();
+    useDraftStore.getState().connect(socket, "s1");
+    socket.emit(serverMessage("draft_state", draftState({ localSide: "dire" })));
+
+    expect(useDraftStore.getState().inputMode).toEqual({ action: "pick", side: "dire" });
+  });
+
+  test("el auto-completado nunca pisa un lado ya elegido a mano", () => {
+    const socket = new FakeSocket();
+    useDraftStore.getState().connect(socket, "s1");
+    socket.emit(serverMessage("draft_state", draftState({ localSide: "radiant" })));
+    expect(useDraftStore.getState().inputMode.side).toBe("radiant");
+
+    // ManualEntryPanel: el usuario apunta deliberadamente al lado contrario para registrar un
+    // pick del rival -- un segundo draft_state con el mismo localSide no debe revertirlo.
+    useDraftStore.getState().setInputMode({ side: "dire" });
+    socket.emit(serverMessage("draft_state", draftState({ localSide: "radiant", lastSeq: 2 })));
+
+    expect(useDraftStore.getState().inputMode.side).toBe("dire");
   });
 });
 

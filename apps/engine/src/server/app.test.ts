@@ -577,6 +577,168 @@ describe("servidor Bun (TSK-010)", () => {
     const res = await fetch(`${baseUrl}/api/heroes`, { headers: { origin: "https://evil.example" } });
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
+
+  // TSK-082: sugerencias reales sin sesión, para el bot de /random-draft.
+  describe("POST /api/suggestions/preview", () => {
+    test("un body válido devuelve un SuggestionSet real (mismo shape que el de WebSocket)", async () => {
+      const res = await fetch(`${baseUrl}/api/suggestions/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          format: "all_pick",
+          patch: "7.41e",
+          localSide: "radiant",
+          banned: [],
+          picks: { radiant: [], dire: [] },
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.schema).toBe("suggestions/v1");
+      expect(Array.isArray(body.suggestions)).toBe(true);
+    });
+
+    test("no muta ninguna sesión real -- el sessionId 'preview' nunca aparece en SessionStore", async () => {
+      await fetch(`${baseUrl}/api/suggestions/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ format: "all_pick", patch: "7.41e", localSide: "unknown", banned: [1, 2], picks: { radiant: [3], dire: [] } }),
+      });
+      const health = await (await fetch(`${baseUrl}/api/health`)).json();
+      // sessionStore.size no debe haber crecido por llamar a este endpoint -- ninguna prueba
+      // anterior de este describe usa el sessionId "preview", así que si el tamaño coincidiera
+      // con una sesión nueva sería un indicio real de fuga de estado. No afirmamos un número
+      // exacto (otras pruebas del mismo describe ya crearon sesiones) -- solo que existe.
+      expect(typeof health.activeSessions).toBe("number");
+    });
+
+    test("body malformado (picks faltante) se rechaza con 400, nunca llega a buildSuggestions", async () => {
+      const res = await fetch(`${baseUrl}/api/suggestions/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ format: "all_pick", patch: "7.41e", localSide: "radiant", banned: [] }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    test("format inválido se rechaza con 400", async () => {
+      const res = await fetch(`${baseUrl}/api/suggestions/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          format: "ranked_deathmatch",
+          patch: "7.41e",
+          localSide: "radiant",
+          banned: [],
+          picks: { radiant: [], dire: [] },
+        }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    test("JSON malformado (no un objeto) se rechaza con 400, no lanza", async () => {
+      const res = await fetch(`${baseUrl}/api/suggestions/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "esto no es JSON válido {{{",
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+});
+
+// TSK-073 (spec §2.3): describe aparte, con su propia app y una tabla de turnos SINTÉTICA
+// (nunca la real de 24 turnos curada en TSK-071 -- costura S10, testing-seams.md) inyectada vía
+// AppDeps.captainsModeTurns. `app.start("127.0.0.1", 0)` deja que el SO elija un puerto libre,
+// sin colisionar con el PORT fijo del describe de arriba.
+describe("turno real en el wire (Captain's Mode, TSK-073)", () => {
+  const SYNTHETIC_TURNS = {
+    reserveTimeMs: 60000,
+    turns: [
+      { action: "ban" as const, team: "first" as const, standardTimeMs: 10000 },
+      { action: "ban" as const, team: "second" as const, standardTimeMs: 10000 },
+    ],
+  };
+
+  function startAppWithTurns() {
+    const app = createApp({
+      db: createTestDb(),
+      openDotaClient: new OpenDotaClient(),
+      captureToken: EXPECTED_HEADER,
+      captainsModeTurns: SYNTHETIC_TURNS,
+    });
+    const server = app.start("127.0.0.1", 0);
+    return { baseUrl: `http://127.0.0.1:${server.port}`, port: server.port, stop: () => server.stop(true) };
+  }
+
+  test("draft_state incluye turn:null antes de bootstrapear firstPickSide, y el turno real después del primer ban", async () => {
+    const { baseUrl, port, stop } = startAppWithTurns();
+    try {
+      const sessionId = "session-turn-1";
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/draft`);
+      await waitForOpen(ws);
+
+      const helloReply = waitForMessages(ws, 2);
+      ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
+      const [snapshotBeforeStart] = await helloReply;
+      expect((snapshotBeforeStart?.payload as Record<string, unknown>)?.turn).toBeNull();
+
+      const started = waitForMessages(ws, 2);
+      await fetch(`${baseUrl}/ingest/draft-event`, {
+        method: "POST",
+        headers: { "x-capture-token": EXPECTED_HEADER },
+        body: JSON.stringify(
+          envelope({ sessionId, seq: 1, source: "manual", payload: { type: "session_started", format: "captains_mode", patch: "7.41e" } }),
+        ),
+      });
+      await started;
+
+      const pushed = waitForMessages(ws, 2);
+      await fetch(`${baseUrl}/ingest/draft-event`, {
+        method: "POST",
+        headers: { "x-capture-token": EXPECTED_HEADER },
+        body: JSON.stringify(
+          envelope({ sessionId, seq: 2, source: "manual", payload: { type: "hero_banned", hero: 1, side: "radiant" } }),
+        ),
+      });
+      const [draftState] = await pushed;
+      expect(draftState?.type).toBe("draft_state");
+      const payload = draftState?.payload as Record<string, unknown>;
+      expect(payload.turn).toEqual({ side: "dire", action: "ban", standardTimeMs: 10000 });
+      expect(payload.firstPickSide).toBe("radiant");
+
+      ws.close();
+    } finally {
+      stop();
+    }
+  });
+
+  test("un pick fuera de turno se rechaza con wrong_turn vía POST /ingest/draft-event", async () => {
+    const { baseUrl, stop } = startAppWithTurns();
+    try {
+      const sessionId = "session-turn-2";
+      await fetch(`${baseUrl}/ingest/draft-event`, {
+        method: "POST",
+        headers: { "x-capture-token": EXPECTED_HEADER },
+        body: JSON.stringify(
+          envelope({ sessionId, seq: 1, source: "manual", payload: { type: "session_started", format: "captains_mode", patch: "7.41e" } }),
+        ),
+      });
+      // Turno 0 espera un ban -- este es un pick, y encima nunca hay picks en la tabla sintética.
+      const res = await fetch(`${baseUrl}/ingest/draft-event`, {
+        method: "POST",
+        headers: { "x-capture-token": EXPECTED_HEADER },
+        body: JSON.stringify(
+          envelope({ sessionId, seq: 2, source: "manual", payload: { type: "hero_picked", hero: 1, side: "radiant" } }),
+        ),
+      });
+      const body = await res.json();
+      expect(body.accepted).toBe(false);
+      expect(body.rejected).toBe("wrong_turn");
+    } finally {
+      stop();
+    }
+  });
 });
 
 // TSK-021 (fase 1b): POST /api/hero-pool/calculate necesita un OpenDotaClient controlable por

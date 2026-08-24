@@ -1,7 +1,6 @@
+import { CURRENT_PATCH } from "@/app/draft/live-config";
 import { postManualEvent } from "./manual-entry";
 import type { DraftState } from "./types";
-
-const DEFAULT_PATCH = "7.41e";
 
 // TSK-053: sin ningún capturador automático corriendo todavía, una sesión que arranca por entrada
 // manual pura nunca recibía su session_started -- el motor rechazaba el primer pick con
@@ -9,8 +8,12 @@ const DEFAULT_PATCH = "7.41e";
 // session_started). Se llama solo cuando el draft todavía está en phase:"idle" (DraftView.tsx),
 // nunca sobre una sesión ya activa. Lado propio fijo en "radiant" -- no hay selector en la UI
 // todavía, limitación conocida, fuera de alcance de este ticket.
+//
+// TSK-068: el parche ya no se hardcodea acá -- CURRENT_PATCH (live-config.ts) es el espejo web de
+// la misma constante que usa el motor como fallback al sincronizar, para que state.patch de una
+// sesión siempre pueda matchear contra hero_patch_stats.patch (patch-meta.ts).
 export async function bootstrapManualSession(sessionId: string): Promise<void> {
-  await postManualEvent(sessionId, 0, { type: "session_started", format: "all_pick", patch: DEFAULT_PATCH });
+  await postManualEvent(sessionId, 0, { type: "session_started", format: "all_pick", patch: CURRENT_PATCH });
   await postManualEvent(sessionId, 1, { type: "local_side_identified", side: "radiant" });
 }
 

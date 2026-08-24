@@ -4,6 +4,17 @@ import type { DraftSocket, DraftState, ErrorPayload, HeroId, ScreenState, Server
 import { isValidServerMessage } from "./validation";
 import type { DraftTeamGroup } from "@/features/team-groups/types";
 
+// RCA post-TSK-076 (auditoría de arquitectura, 2026-08-23): fuente de verdad única para "qué pasa
+// si toco un héroe ahora" -- antes, ManualEntryPanel tenía su propio useState de side/action y
+// HeroGrid (vía handleQuickPick en DraftView.tsx) hardcodeaba "siempre pick, siempre a localSide"
+// sin ningún selector visible. Dos modelos mentales distintos para la misma acción. `side:
+// "unknown"` solo es válido con `action: "ban"` -- un pick siempre necesita un lado real
+// (mismo contrato que ya exige DraftEvent.hero_picked en apps/engine/src/draft/reducer.ts).
+export interface DraftInputMode {
+  action: "pick" | "ban";
+  side: TeamSide | "unknown";
+}
+
 export interface DraftStoreState {
   connectionStatus: "desconectado" | "conectando" | "conectado";
   sessionId: string | null;
@@ -12,14 +23,18 @@ export interface DraftStoreState {
   partyContext: DraftTeamGroup | null;
   errorMessage: string | null;
   socket: DraftSocket | null;
+  inputMode: DraftInputMode;
   connect: (socket: DraftSocket, sessionId: string) => void;
   disconnect: () => void;
   clearError: () => void;
   setPartyContext: (partyContext: DraftTeamGroup | null) => void;
+  setInputMode: (mode: Partial<DraftInputMode>) => void;
   // Corrige un pick/ban de confianza baja -- mismo POST /api/session/manual y pick_reverted del
   // contrato de TSK-004, disponible desde cualquier componente sin pasar callbacks por props.
   correctHero: (hero: HeroId, side: TeamSide) => Promise<void>;
 }
+
+const DEFAULT_INPUT_MODE: DraftInputMode = { action: "pick", side: "unknown" };
 
 export const useDraftStore = create<DraftStoreState>((set, get) => ({
   connectionStatus: "desconectado",
@@ -29,13 +44,20 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
   partyContext: null,
   errorMessage: null,
   socket: null,
+  inputMode: DEFAULT_INPUT_MODE,
 
   connect(socket, sessionId) {
     get().socket?.close();
-    socket.onMessage((message) => applyServerMessage(set, message));
+    socket.onMessage((message) => applyServerMessage(set, get, message));
     socket.onClose(() => set({ connectionStatus: "desconectado", socket: null }));
-    set({ socket, sessionId, connectionStatus: "conectando", errorMessage: null });
+    // Una sesión nueva no hereda el lado de la sesión anterior -- vuelve a derivarse solo al
+    // llegar el próximo draft_state/snapshot (ver applyServerMessage, "auto-fill" de abajo).
+    set({ socket, sessionId, connectionStatus: "conectando", errorMessage: null, inputMode: DEFAULT_INPUT_MODE });
     socket.send({ schema: "draft-ws/v1", type: "hello", sessionId });
+  },
+
+  setInputMode(mode) {
+    set((current) => ({ inputMode: { ...current.inputMode, ...mode } }));
   },
 
   disconnect() {
@@ -67,16 +89,31 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
 
 // El estado anterior (draftState/suggestions) nunca se limpia al desconectar -- la regla dura del
 // estado `desconectado` es mostrar el último conocido, atenuado, no una pantalla vacía.
-function applyServerMessage(set: (partial: Partial<DraftStoreState>) => void, message: ServerMessage): void {
+function applyServerMessage(
+  set: (partial: Partial<DraftStoreState>) => void,
+  get: () => DraftStoreState,
+  message: ServerMessage,
+): void {
   // Input externo: un mensaje con forma inesperada se descarta en silencio -- nunca corrompe el
   // estado ya conocido (mismo principio que applyDraftEvent en el reductor de apps/engine).
   if (!isValidServerMessage(message)) return;
 
   switch (message.type) {
     case "snapshot":
-    case "draft_state":
-      set({ draftState: message.payload as DraftState, connectionStatus: "conectado", errorMessage: null });
+    case "draft_state": {
+      const draftState = message.payload as DraftState;
+      const patch: Partial<DraftStoreState> = { draftState, connectionStatus: "conectado", errorMessage: null };
+      // Auto-completa el lado del modo de entrada UNA sola vez, la primera vez que el motor
+      // identifica localSide -- nunca pisa una elección manual posterior (ManualEntryPanel puede
+      // apuntar deliberadamente al lado contrario). `connect()` ya reinicia inputMode a "unknown"
+      // en cada sesión nueva, así que este auto-fill vuelve a correr una vez por sesión.
+      const currentMode = get().inputMode;
+      if (currentMode.side === "unknown" && draftState.localSide !== "unknown") {
+        patch.inputMode = { ...currentMode, side: draftState.localSide };
+      }
+      set(patch);
       return;
+    }
     case "suggestions":
       set({ suggestions: message.payload as SuggestionSet });
       return;

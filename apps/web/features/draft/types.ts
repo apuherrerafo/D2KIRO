@@ -19,6 +19,16 @@ export type DraftEvent =
   | { type: "hero_picked"; hero: HeroId; side: TeamSide }
   | { type: "pick_reverted"; hero: HeroId; side: TeamSide };
 
+// TSK-073 (spec §2.3, specs/draft-native-experience.md): turno actual de Captain's Mode, ya
+// resuelto del lado del motor (turn-clock.ts) -- este proceso nunca recalcula la tabla de
+// turnos, solo consume el resultado. `null` cuando no hay tabla aplicable (formato distinto de
+// captains_mode, o `firstPickSide` sin bootstrapear todavía del lado del motor).
+export interface DraftTurn {
+  side: TeamSide;
+  action: "ban" | "pick";
+  standardTimeMs: number;
+}
+
 export interface DraftState {
   sessionId: string;
   schema: "draft-state/v1";
@@ -32,6 +42,13 @@ export interface DraftState {
   appliedEventIds: string[];
   quality: { unconfirmed: HeroId[]; captureStatus: "ok" | "degraded" | "lost" };
   updatedAt: string;
+  // TSK-072/073: espejo a mano de los mismos 3 campos que el motor agregó a su DraftState --
+  // solo tienen valor real con format:"captains_mode". `turn` es la proyección calculada del
+  // lado del motor (nunca se recalcula acá); los otros 3 viajan tal cual desde el reductor.
+  firstPickSide: TeamSide | null;
+  turnStartedAt: string | null;
+  reserveRemainingMs: { radiant: number; dire: number } | null;
+  turn: DraftTurn | null;
 }
 
 // TSK-046 (Fase 3, SPEC.md §10.7): las dos señales de rol de fase 1/1b se fusionan en
