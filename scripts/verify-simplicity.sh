@@ -241,6 +241,20 @@ if [ "${VERIFY_COMMIT_GATE:-0}" = "1" ]; then
         ERRORS=$((ERRORS + 1))
       fi
     fi
+
+    # Gobernanza 2.0 (evt-111 -> evt-112): scripts/ (fetch-daily-pro-drafts.ts y su .test.ts) no
+    # es un workspace con su propio package.json como apps/engine/apps/web -- usa el package.json
+    # de la raíz, así que el guard de arriba (`-f .../package.json`) no aplica igual. `-d scripts`
+    # es el equivalente real: existe siempre en este repo, y `bun test` corrido desde ahí ya
+    # resuelve los imports relativos a apps/engine/src sin problema (verificado antes de este
+    # cambio). Antes de esto, los 9 tests de fetch-daily-pro-drafts.test.ts pasaban solo si
+    # alguien los corría a mano -- el gate automatizado nunca los tocaba.
+    if [ -d scripts ]; then
+      if ! (cd scripts && "$BUN_BIN" test); then
+        echo "❌ ERROR: suite de tests de scripts/ falló (bun test)."
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
   fi
 fi
 
