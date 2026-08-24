@@ -1,86 +1,97 @@
 [
   {
-    "draftId": "pro-seed-001",
-    "patch": "7.35d",
-    "radiantHeroes": [1, 5, 8, 26, 75],
-    "direHeroes": [3, 17, 41, 68, 100],
-    "winningSide": "radiant"
-  },
-  {
-    "draftId": "pro-seed-002",
-    "patch": "7.35d",
-    "radiantHeroes": [6, 22, 33, 44, 90],
-    "direHeroes": [2, 21, 35, 67, 101],
+    "draftId": "8960991322",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      86,
+      2,
+      123,
+      8
+    ],
+    "direHeroes": [
+      3,
+      120,
+      9,
+      54,
+      55
+    ],
     "winningSide": "dire"
   },
   {
-    "draftId": "pro-seed-003",
-    "patch": "7.35d",
-    "radiantHeroes": [11, 14, 28, 51, 84],
-    "direHeroes": [7, 19, 39, 63, 106],
+    "draftId": "8960882635",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      69,
+      54,
+      9,
+      16
+    ],
+    "direHeroes": [
+      112,
+      96,
+      51,
+      46,
+      17
+    ],
     "winningSide": "radiant"
   },
   {
-    "draftId": "pro-seed-004",
-    "patch": "7.36",
-    "radiantHeroes": [1, 22, 8, 75, 26],
-    "direHeroes": [3, 17, 41, 68, 100],
-    "winningSide": "dire"
-  },
-  {
-    "draftId": "pro-seed-005",
-    "patch": "7.36",
-    "radiantHeroes": [6, 33, 44, 90, 5],
-    "direHeroes": [2, 35, 67, 101, 21],
+    "draftId": "8960762254",
+    "patch": "7.41",
+    "radiantHeroes": [
+      53,
+      119,
+      100,
+      2,
+      109
+    ],
+    "direHeroes": [
+      11,
+      58,
+      28,
+      120,
+      136
+    ],
     "winningSide": "radiant"
   },
   {
-    "draftId": "pro-seed-006",
-    "patch": "7.36",
-    "radiantHeroes": [11, 28, 51, 84, 14],
-    "direHeroes": [7, 39, 63, 106, 19],
-    "winningSide": "dire"
-  },
-  {
-    "draftId": "pro-seed-007",
-    "patch": "7.36",
-    "radiantHeroes": [1, 8, 26, 75, 33],
-    "direHeroes": [3, 41, 68, 100, 22],
+    "draftId": "8960655084",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      58,
+      86,
+      108,
+      54
+    ],
+    "direHeroes": [
+      11,
+      28,
+      123,
+      85,
+      2
+    ],
     "winningSide": "radiant"
   },
   {
-    "draftId": "pro-seed-008",
-    "patch": "7.36",
-    "radiantHeroes": [6, 44, 90, 5, 28],
-    "direHeroes": [2, 67, 101, 21, 39],
-    "winningSide": "radiant"
-  },
-  {
-    "draftId": "pro-seed-009",
-    "patch": "7.36b",
-    "radiantHeroes": [11, 51, 84, 14, 8],
-    "direHeroes": [7, 63, 106, 19, 41],
-    "winningSide": "dire"
-  },
-  {
-    "draftId": "pro-seed-010",
-    "patch": "7.36b",
-    "radiantHeroes": [1, 26, 75, 33, 44],
-    "direHeroes": [3, 68, 100, 22, 67],
-    "winningSide": "radiant"
-  },
-  {
-    "draftId": "pro-seed-011",
-    "patch": "7.36b",
-    "radiantHeroes": [6, 90, 5, 28, 51],
-    "direHeroes": [2, 101, 21, 39, 63],
-    "winningSide": "dire"
-  },
-  {
-    "draftId": "pro-seed-012",
-    "patch": "7.36b",
-    "radiantHeroes": [11, 84, 14, 8, 26],
-    "direHeroes": [7, 106, 19, 41, 68],
+    "draftId": "8960577698",
+    "patch": "7.41",
+    "radiantHeroes": [
+      93,
+      119,
+      11,
+      87,
+      85
+    ],
+    "direHeroes": [
+      106,
+      9,
+      91,
+      2,
+      123
+    ],
     "winningSide": "radiant"
   }
 ]

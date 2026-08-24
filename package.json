@@ -1,0 +1,10 @@
+{
+  "dependencies": {},
+  "devDependencies": {
+    "better-sqlite3": "^13.0.3"
+  },
+  "scripts": {
+    "corpus:sync": "bun run scripts/fetch-pro-drafts.ts",
+    "draft:test": "bun run scripts/test-pipeline.ts"
+  }
+}
