@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { postManualEvent } from "./manual-entry";
+import { describeRejection, postManualEvent } from "./manual-entry";
 
 const originalFetch = global.fetch;
 
@@ -39,5 +39,27 @@ describe("postManualEvent", () => {
     const result = await postManualEvent("session-1", 5, { type: "hero_picked", hero: 1, side: "radiant" });
 
     expect(result).toEqual({ accepted: false, rejected: "hero_already_taken" });
+  });
+});
+
+// TSK-071: ManualEntryPanel y el "Pickear" directo de DraftView (ActiveDraftState.handleQuickPick)
+// llaman a este mismo helper -- una sola prueba cubre a los dos puntos de entrada, en vez de
+// duplicar el candado de "nunca un código crudo en pantalla" en dos archivos de componente.
+describe("describeRejection", () => {
+  test("mapea cada RejectionReason real del motor a una frase sin el código crudo", () => {
+    const reasons = ["hero_already_taken", "wrong_phase", "stale_seq", "duplicate_event", "unknown_hero", "roster_full", "wrong_turn"];
+    for (const reason of reasons) {
+      const message = describeRejection(reason);
+      expect(message).not.toBe(reason);
+      expect(message.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("un motivo no reconocido no se traga en silencio -- se muestra igual, con contexto", () => {
+    expect(describeRejection("algo_nuevo_del_motor")).toContain("algo_nuevo_del_motor");
+  });
+
+  test("sin motivo (undefined) -> mensaje propio, nunca 'undefined' en pantalla", () => {
+    expect(describeRejection(undefined)).not.toContain("undefined");
   });
 });

@@ -48,3 +48,29 @@ export async function postManualEvent(sessionId: string, lastSeq: number, payloa
 export async function postSimulatorEvent(sessionId: string, seq: number, payload: SimulatorEvent): Promise<ManualEventResult> {
   return postEvent(sessionId, seq, payload, "simulator");
 }
+
+// TSK-071: única fuente de verdad para traducir un RejectionReason crudo del motor
+// (apps/engine/src/draft/reducer.ts) a lenguaje de producto -- vive acá, no en un componente,
+// porque los dos puntos de entrada de un pick manual (ManualEntryPanel y el "Pickear" directo de
+// SuggestionCard en DraftView.tsx) llaman a postManualEvent desde este mismo archivo y ambos
+// necesitan el mismo texto para el mismo motivo de rechazo. Espejado a mano, mismo criterio que
+// el resto de los contratos compartidos entre los dos procesos (web.md: SignalId) -- el motor no
+// expone estas 5 razones como texto, solo como código.
+const REJECTION_MESSAGES: Record<string, string> = {
+  hero_already_taken: "Ese héroe ya está baneado o pickeado en este draft.",
+  wrong_phase: "El draft todavía no arrancó -- esperá a que esté activo antes de marcar picks o bans.",
+  stale_seq: "Esto quedó desactualizado porque el draft avanzó mientras tanto -- volvé a intentarlo.",
+  duplicate_event: "Ese cambio ya se había aplicado, no hacía falta reenviarlo.",
+  unknown_hero: "Ese héroe no es válido.",
+  // RCA post-TSK-076 (reducer.ts, MAX_PICKS_PER_SIDE): este equipo no puede recibir un 6to pick.
+  roster_full: "Este equipo ya completó sus 5 picks.",
+  // TSK-072 (spec §2.2): solo puede pasar en Captain's Mode, cuando el evento no coincide con el
+  // turno esperado (lado o tipo de acción). Nunca aparece en All Pick -- sus bans y picks no
+  // tienen tabla de turnos que validar (spec §2.1).
+  wrong_turn: "No es el turno de este lado todavía en Captain's Mode.",
+};
+
+export function describeRejection(reason: string | undefined): string {
+  if (reason === undefined) return "No se pudo aplicar el cambio, por un motivo que el motor no informó.";
+  return REJECTION_MESSAGES[reason] ?? `No se pudo aplicar: ${reason}`;
+}
