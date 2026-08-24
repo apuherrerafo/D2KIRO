@@ -1,24 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftFeedbackBox } from "@/components/draft-feedback-box/DraftFeedbackBox";
+import { DraftLayout } from "@/components/draft-layout/DraftLayout";
 import { DraftSetupPanel } from "@/components/draft-setup-panel/DraftSetupPanel";
+import { HeroGrid, isRosterFull } from "@/components/hero-grid/HeroGrid";
+import { InputModeSelector } from "@/components/input-mode-selector/InputModeSelector";
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
+import { TurnStatusBar } from "@/components/turn-status-bar/TurnStatusBar";
 import { PartyPoolPanel } from "@/components/party-pool-panel/PartyPoolPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { DraftPathsCoverFlow } from "@/features/draft-paths";
 import type { DraftTeamGroup } from "@/features/team-groups/types";
 import { bootstrapManualSession, shouldBootstrapManualSession } from "./bootstrap-session";
 import { DEGRADATION_LABELS, SCREEN_STATE_GUIDANCE } from "./constants";
-import { postManualEvent } from "./manual-entry";
+import { describeRejection } from "./manual-entry";
 import { createDraftSocket } from "./socket";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { deriveScreenState, useDraftStore } from "./store";
 import type { DraftSocket, DraftState, HeroId, ScreenState, SuggestionSet } from "./types";
 import type { HeroMeta } from "./use-hero-catalog";
 import { useHeroCatalog } from "./use-hero-catalog";
+import { useSubmitDraftEvent } from "./use-submit-draft-event";
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_ENGINE_WS_URL ?? "ws://127.0.0.1:4000/ws/draft";
 
@@ -79,31 +84,56 @@ interface ActiveDraftStateProps {
   partyContext: DraftTeamGroup | null;
   heroCatalog: Map<number, HeroMeta>;
   onOpenManualEntry: () => void;
+  // TSK-080: DraftLayout ocupa h-screen -- DegradedDraftState ya no puede envolverlo en un div
+  // con contenido propio arriba (eso reintroduciría el mismo scroll de página completa que esta
+  // fase vino a corregir). El aviso de degradación entra acá, dentro del mismo topBar contenido.
+  extraTopBar?: ReactNode;
 }
 
-function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: ActiveDraftStateProps) {
+function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry, extraTopBar }: ActiveDraftStateProps) {
   const primary = suggestions?.suggestions.find((s) => s.rank === 1);
   const alternatives = suggestions?.suggestions.filter((s) => s.rank !== 1) ?? [];
   const [pickError, setPickError] = useState<string | null>(null);
+  const inputMode = useDraftStore((s) => s.inputMode);
 
-  // TSK-054: pickear directo desde la tarjeta de sugerencia -- mismo mecanismo que
-  // ManualEntryPanel (postManualEvent), sin pasar por ese panel para el caso más común (aceptar
-  // la sugerencia tal cual). Sin lado propio identificado no hay a quién atribuirle el pick --
-  // undefined en vez de la función real oculta el botón (SuggestionCard).
-  // Req 8.4: useCallback estabiliza la referencia entre renders que no cambian sessionId,
-  // localSide ni lastSeq -- evita re-renders innecesarios en SuggestionCard (React.memo).
+  // RCA post-TSK-076 (TSK-079): dos instancias del mismo hook, con modos distintos a propósito --
+  // ambas terminan en la misma tubería (useSubmitDraftEvent -> postManualEvent), pero
+  // `submitPick` fuerza "pick a mi propio lado" sin importar el modo global. El botón "Pickear"
+  // de SuggestionCard nunca debe poder banear porque el usuario dejó el modo global en "ban"
+  // dentro de ManualEntryPanel -- mismo comportamiento exacto que ya tenía el `handleQuickPick`
+  // original. `submitFromGrid` sí usa el modo global: para HeroGrid, "qué pasa si toco esto" es
+  // exactamente la pregunta que `DraftInputMode` existe para responder.
+  const submitPick = useSubmitDraftEvent(sessionId, { action: "pick", side: draftState.localSide });
+  const submitFromGrid = useSubmitDraftEvent(sessionId);
+
+  // TSK-054: pickear directo desde la tarjeta de sugerencia, sin pasar por ManualEntryPanel para
+  // el caso más común (aceptar la sugerencia tal cual). Sin lado propio identificado no hay a
+  // quién atribuirle el pick -- undefined en vez de la función real oculta el botón (SuggestionCard).
   const handleQuickPick = useCallback(async (hero: HeroId) => {
-    if (draftState.localSide === "unknown") return;
     setPickError(null);
-    let result: Awaited<ReturnType<typeof postManualEvent>>;
+    let result: Awaited<ReturnType<typeof submitPick>>;
     try {
-      result = await postManualEvent(sessionId, draftState.lastSeq, { type: "hero_picked", hero, side: draftState.localSide });
+      result = await submitPick(hero);
     } catch {
       setPickError("No se pudo contactar al motor -- inténtalo de nuevo.");
       return;
     }
-    if (!result.accepted) setPickError(`No se pudo pickear: ${result.rejected ?? "motivo desconocido"}`);
-  }, [sessionId, draftState.localSide, draftState.lastSeq]);
+    if (result === null) return;
+    if (!result.accepted) setPickError(describeRejection(result.rejected));
+  }, [submitPick]);
+
+  const handleGridSelect = useCallback(async (hero: HeroId) => {
+    setPickError(null);
+    let result: Awaited<ReturnType<typeof submitFromGrid>>;
+    try {
+      result = await submitFromGrid(hero);
+    } catch {
+      setPickError("No se pudo contactar al motor -- inténtalo de nuevo.");
+      return;
+    }
+    if (result === null) return;
+    if (!result.accepted) setPickError(describeRejection(result.rejected));
+  }, [submitFromGrid]);
 
   // Req 8.4: useMemo evita re-derivar los strings de razón en renders no relacionados con un
   // cambio de sugerencias. La referencia de `suggestions` solo cambia cuando llega un nuevo
@@ -118,19 +148,72 @@ function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, he
 
   const quickPickHandler = draftState.localSide === "unknown" ? undefined : handleQuickPick;
 
+  // TSK-076: la grilla nativa resalta exactamente los mismos candidatos que ya muestran las
+  // tarjetas de sugerencia -- ningún ranking nuevo, solo una segunda forma de ver y pickear el
+  // mismo top 3 del motor. `unavailableHeroIds` usa el mismo cálculo que ManualEntryPanel.
+  const highlightedHeroIds = useMemo(
+    () => new Set(suggestions?.suggestions.map((s) => s.hero) ?? []),
+    [suggestions],
+  );
+  const unavailableHeroIds = useMemo(
+    () => new Set([...draftState.banned, ...draftState.picks.radiant, ...draftState.picks.dire]),
+    [draftState.banned, draftState.picks],
+  );
+  // RCA post-TSK-076 (TSK-079): la grilla se rige por el modo global, no por `localSide` a secas
+  // -- en modo "ban" un lado desconocido sigue siendo válido (el contrato del motor lo permite),
+  // así que ocultar la grilla solo por `localSide === "unknown"` la habría escondido también
+  // cuando el usuario sí puede banear. `rosterFull` solo aplica en modo pick -- el motor
+  // (TSK-078) todavía no limita bans por cantidad.
+  const canSubmitFromGrid = inputMode.action === "ban" || inputMode.side !== "unknown";
+  const gridRosterFull = inputMode.action === "pick" && isRosterFull(draftState.picks, inputMode.side);
+
   return (
-    <div className="flex flex-col gap-4">
-      <StateGuidance state="activo" />
-      {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
-      <div className="flex flex-wrap gap-3">
-        <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
-        <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
-          Entrada manual
-        </button>
-      </div>
-      <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-        <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
-        <div className="flex flex-col gap-3">
+    <DraftLayout
+      banned={draftState.banned}
+      picks={draftState.picks}
+      localSide={draftState.localSide}
+      heroCatalog={heroCatalog}
+      topBar={
+        <div className="flex flex-col gap-3 pb-2">
+          {extraTopBar}
+          <StateGuidance state="activo" />
+          {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
+          <div className="flex flex-wrap gap-3">
+            <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
+            <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
+              Entrada manual
+            </button>
+          </div>
+        </div>
+      }
+      modeSelector={<InputModeSelector />}
+      turnStatusBar={
+        draftState.turn && draftState.turnStartedAt && draftState.reserveRemainingMs ? (
+          <TurnStatusBar
+            turn={draftState.turn}
+            turnStartedAt={draftState.turnStartedAt}
+            reserveRemainingMs={draftState.reserveRemainingMs}
+            localSide={draftState.localSide}
+          />
+        ) : null
+      }
+      grid={
+        canSubmitFromGrid ? (
+          <HeroGrid
+            heroes={Array.from(heroCatalog.values())}
+            onSelect={handleGridSelect}
+            highlightedHeroIds={highlightedHeroIds}
+            unavailableHeroIds={unavailableHeroIds}
+            rosterFull={gridRosterFull}
+          />
+        ) : (
+          <span className="text-caption text-content-muted">
+            Elegí &quot;Pick Radiant&quot; o &quot;Pick Dire&quot; arriba para empezar a pickear desde la grilla.
+          </span>
+        )
+      }
+      suggestionsRail={
+        <>
           <PartyPoolPanel partyContext={partyContext} draftState={draftState} heroCatalog={heroCatalog} />
           {pickError && <span className="text-caption text-signal-negative">{pickError}</span>}
           {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary onPick={quickPickHandler} />}
@@ -147,9 +230,9 @@ function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, he
             />
           ))}
           <DraftFeedbackBox sessionId={sessionId} draftState={draftState} suggestions={suggestions} />
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
 
@@ -164,24 +247,26 @@ interface DegradedDraftStateProps {
 
 function DegradedDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
   return (
-    <div className="flex flex-col gap-4">
-      <StateGuidance state="degradado" />
-      <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-4">
-        {suggestions.degraded.map((flag) => (
-          <span key={flag} className="text-caption text-signal-warning">
-            {DEGRADATION_LABELS[flag]}
-          </span>
-        ))}
-      </div>
-      <ActiveDraftState
-        sessionId={sessionId}
-        draftState={draftState}
-        suggestions={suggestions}
-        partyContext={partyContext}
-        heroCatalog={heroCatalog}
-        onOpenManualEntry={onOpenManualEntry}
-      />
-    </div>
+    <ActiveDraftState
+      sessionId={sessionId}
+      draftState={draftState}
+      suggestions={suggestions}
+      partyContext={partyContext}
+      heroCatalog={heroCatalog}
+      onOpenManualEntry={onOpenManualEntry}
+      extraTopBar={
+        <div className="flex flex-col gap-3">
+          <StateGuidance state="degradado" />
+          <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-4">
+            {suggestions.degraded.map((flag) => (
+              <span key={flag} className="text-caption text-signal-warning">
+                {DEGRADATION_LABELS[flag]}
+              </span>
+            ))}
+          </div>
+        </div>
+      }
+    />
   );
 }
 
@@ -387,8 +472,9 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
       {isManualEntryVisible && (
         <ManualEntryPanel
           sessionId={sessionId}
-          lastSeq={draftState?.lastSeq ?? 0}
           heroes={Array.from(heroCatalog.values())}
+          banned={draftState?.banned ?? []}
+          picks={draftState?.picks ?? { radiant: [], dire: [] }}
           onClose={closeManualEntry}
         />
       )}

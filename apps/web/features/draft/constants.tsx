@@ -1,8 +1,19 @@
-import type { DegradationFlag, ScreenState, SuggestionConfidence } from "./types";
+import type { DegradationFlag, ScreenState, SignalId, SuggestionConfidence } from "./types";
 
 // img_url de héroe: se valida que el host esté en esta lista antes de renderizar — nunca una
 // URL arbitraria tomada directo de la respuesta de la API (.claude/rules/web.md, security.md).
 export const ALLOWED_HERO_IMG_HOSTS = ["cdn.cloudflare.steamstatic.com"];
+
+// Espejo a mano de MAX_PICKS_PER_SIDE (apps/engine/src/draft/reducer.ts, TSK-078) — mismo
+// criterio que CURRENT_PATCH en live-config.ts: los dos procesos son independientes, sin import
+// directo. Usado solo para guardrails de UI (HeroGrid) — la fuente de verdad real es el motor.
+export const MAX_PICKS_PER_SIDE = 5;
+
+// Espejo a mano de captainsMode.reserveTimeMs (apps/engine/src/draft/draft-format-turns.json,
+// TSK-071/073) — el wire manda reserveRemainingMs (lo que queda), nunca el total; este valor solo
+// se usa para dibujar la barra de reserva como porcentaje (TSK-074), no participa de ninguna
+// validación real.
+export const CAPTAINS_MODE_RESERVE_TIME_MS = 130000;
 
 export const DEGRADATION_LABELS: Record<DegradationFlag, string> = {
   stale_meta: "Los datos de héroes/parche tienen más de 24 horas — puede no reflejar el meta actual.",
@@ -16,6 +27,14 @@ export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {
   media: "Confianza media",
   baja: "Confianza baja",
 };
+
+// TSK-077 (spec §1.3, specs/draft-native-experience.md): orden de PRESENTACIÓN en
+// SignalBreakdown, no de wire -- `Suggestion.signals` (el array real que manda el motor) no
+// cambia de orden. Las 3 señales tácticas (team_synergy/counter/position_fit -- "qué le falta al
+// equipo", "contra quién es fuerte", "qué posición cubre") primero; patch_meta/hero_pool_fit
+// (winrate/comodidad personal) al final -- para que el desglose se lea como una narrativa
+// táctica, no como una tabla de stats en orden de cableado.
+export const SIGNAL_DISPLAY_PRIORITY: SignalId[] = ["team_synergy", "counter", "position_fit", "patch_meta", "hero_pool_fit"];
 
 // Qué es este estado y qué puede hacer el usuario ahora -- ninguno de los 6 estados de TSK-012
 // se queda sin explicación en lenguaje llano (hallazgo real de TSK-016: el sistema nunca decía

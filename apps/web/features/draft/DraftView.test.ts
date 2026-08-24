@@ -23,6 +23,10 @@ function draftState(overrides: Partial<DraftState> = {}): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "2026-07-27T00:00:00Z",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
+    turn: null,
     ...overrides,
   };
 }
