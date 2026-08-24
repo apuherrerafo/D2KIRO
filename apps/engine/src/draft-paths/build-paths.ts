@@ -37,7 +37,7 @@ function takenHeroes(state: DraftState): Set<HeroId> {
   return new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
 }
 
-function archetypeFitBonus(archetype: DraftPathArchetype, candidate: HeroCapabilities): number {
+export function archetypeFitBonus(archetype: DraftPathArchetype, candidate: HeroCapabilities): number {
   if (archetype === "push") return levelScore(candidate.structuralDamage);
   if (archetype === "teamfight") return levelScore(candidate.teamfight);
   if (archetype === "pickoff") return (candidate.hasCatch ? 2 : 0) + (candidate.hasInitiation ? 1 : 0);
