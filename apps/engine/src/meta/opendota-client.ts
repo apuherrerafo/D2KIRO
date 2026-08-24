@@ -73,6 +73,14 @@ export class OpenDotaClient {
     return this.getJson("/constants/patch");
   }
 
+  // scripts/fetch-daily-pro-drafts.ts (ingesta incremental por torneo): lista completa de
+  // ligas/torneos con su `tier` real -- fuente para distinguir Tier 1 (`"premium"`) de Tier 2
+  // (`"professional"`), verificado contra la API real antes de escribir el script (10108 ligas,
+  // tiers reales: `professional`/`excluded`/`premium`/`amateur`/`null`, sin campo de fecha).
+  getLeagues(): Promise<unknown> {
+    return this.getJson("/leagues");
+  }
+
   private async getJson(path: string): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const response = await this.fetchWithRetry(url);

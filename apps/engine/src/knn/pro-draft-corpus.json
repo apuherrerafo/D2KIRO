@@ -9498,5 +9498,43 @@
       38
     ],
     "winningSide": "dire"
+  },
+  {
+    "draftId": "8946414154",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      21,
+      79,
+      19,
+      135
+    ],
+    "direHeroes": [
+      106,
+      131,
+      55,
+      100,
+      8
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8946161784",
+    "patch": "7.41",
+    "radiantHeroes": [
+      98,
+      80,
+      123,
+      85,
+      126
+    ],
+    "direHeroes": [
+      83,
+      86,
+      108,
+      25,
+      13
+    ],
+    "winningSide": "dire"
   }
 ]

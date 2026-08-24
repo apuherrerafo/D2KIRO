@@ -104,14 +104,20 @@ interface ProMatchSummary {
   readonly start_time: number;
 }
 
-interface MatchDetail {
+// Exportado -- scripts/fetch-daily-pro-drafts.ts (ingesta incremental por torneo) lo reutiliza tal
+// cual en vez de reimplementar el mismo mapeo picks_bans -> DraftCandidate. Ese script pre-filtra
+// por leagueid ANTES de llegar acá (solo torneos tier "premium", vía /leagues) -- el chequeo de
+// ACCEPTED_TIERS de abajo sigue corriendo igual, como validación defensiva de que `league.tier`
+// real del detalle coincide con lo que /leagues ya reportó para ese leagueid, nunca como filtro
+// primario duplicado.
+export interface MatchDetail {
   readonly patch: number;
   readonly radiant_win: boolean;
   readonly league?: { readonly tier?: string };
   readonly picks_bans?: readonly { readonly is_pick: boolean; readonly hero_id: number; readonly team: 0 | 1 }[];
 }
 
-function toDraftCandidate(matchId: number, detail: MatchDetail, patchName: string): DraftCandidate | null {
+export function toDraftCandidate(matchId: number, detail: MatchDetail, patchName: string): DraftCandidate | null {
   if (!detail.picks_bans) return null;
   if (!detail.league?.tier || !ACCEPTED_TIERS.has(detail.league.tier)) return null;
 
@@ -210,7 +216,14 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error("fetch-pro-drafts falló:", err);
-  process.exit(1);
-});
+// Guard real, no cosmético (hallazgo de fetch-daily-pro-drafts.ts, sesión Gobernanza 2.0): ese
+// script importa `toDraftCandidate`/`MatchDetail` de acá arriba -- sin `import.meta.main`, ESE
+// import por sí solo disparaba este `main()` completo (barrido sin tope, `--max-drafts=5000`
+// default) en paralelo dentro del mismo proceso, cada vez que se corría el otro script. Verificado
+// en vivo: la primera corrida real de fetch-daily-pro-drafts.ts arrancó los dos `main()` a la vez.
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error("fetch-pro-drafts falló:", err);
+    process.exit(1);
+  });
+}

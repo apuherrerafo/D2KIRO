@@ -162,3 +162,19 @@ test("getPatchConstants pide constants/patch sin parámetros", async () => {
   expect(calls).toEqual(["https://api.opendota.com/api/constants/patch"]);
   expect(result).toEqual([{ id: 60, name: "7.41", date: "2026-03-24T00:50:59.580Z" }]);
 });
+
+// scripts/fetch-daily-pro-drafts.ts: mismo criterio que getPatchConstants -- solo confirma la URL,
+// getJson/fetchWithRetry ya cubiertos arriba.
+test("getLeagues pide /leagues sin parámetros", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse([{ leagueid: 226, tier: "professional", name: "CIS Dota 2 League" }]);
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  const result = await client.getLeagues();
+
+  expect(calls).toEqual(["https://api.opendota.com/api/leagues"]);
+  expect(result).toEqual([{ leagueid: 226, tier: "professional", name: "CIS Dota 2 League" }]);
+});
