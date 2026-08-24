@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T13:26:16.527Z</title>
+<title>HUB del ecosistema — 2026-08-24T13:39:15.546Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">91</span></h2>
+        <h2>done <span class="count">92</span></h2>
         
         <div class="card  ">
           
@@ -210,6 +210,16 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-092</div>
+          <div class="card-title">Governance 2.0: recalibración de verify-simplicity.sh (límites a warning), política de dependencias por categoría, y consolidación del working tree</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -1059,7 +1069,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">123× · 75% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">124× · 75% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1131,6 +1141,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-092</span> <span class="feed-ts">2026-08-24T13:30</span></div>
+            <div class="feed-note">Governance 2.0: usuario pidió explícitamente anular TSK-067 (bajar MAX_FILES/MAX_LINES/MAX_TEST_LINES de bloqueo a aviso en verify-simplicity.sh), confirmado por pregunta directa (AskUserQuestion) antes de tocar el script — no es un cambio silencioso, es la diferencia real con TSK-067 (revertido porque otra herramienta lo hizo sin preguntar). Cambios: (1) los 3 checks de archivos/líneas nunca vuelven a sumar a $ERRORS, se elimina la lectura de `simplicity_exception` para ellos (queda muerta); (2) el check de dependencias distingue `dependencies` (producción, sigue exigiendo /gear-up/@depcheck + `// ALLOWED`) de `devDependencies` (bypass total) — reflejado en CLAUDE.md y security.md en el mismo commit para que Sentinel/@redteam no contradigan la política nueva; (3) sección nueva de hard gate real, sin excepción posible: `tsc --noEmit` + `bun test` en ambas apps, activado solo con `VERIFY_COMMIT_GATE=1` (pretooluse-guard.sh lo exporta en git commit/push; los hooks PostToolUse/SubagentStop siguen corriendo el camino rápido sin tipos/tests, para no cargar cada Edit/Write con la suite completa). Se agregó `typescript` como devDependency de apps/engine (primer caso real de la política nueva) porque el motor no tenía `tsc` disponible. Al correr el gate nuevo por primera vez sobre el repo real: `bun` no resolvía en $PATH del hook (solo `bunx`, symlink a ~/.bun/bin/bun) — se agregó resolución agnóstica al entorno (BUN_BIN) antes de asumir que el gate estaba roto. El gate encontró un hallazgo real pre-existente, no causado por esta sesión: 9 archivos de fixtures del motor (counter.test.ts, hero-pool-fit.test.ts, mix.test.ts, patch-meta.test.ts, position-fit.test.ts, team-synergy.test.ts, build-paths.test.ts, gaps.test.ts, batch-harness.ts) nunca incorporaron los 3 campos que TSK-072 agregó a DraftState (firstPickSide/turnStartedAt/reserveRemainingMs) — `tsc --noEmit` no compilaba sobre el estado real del repo hasta corregirlos. Corregido (mismo fix mecánico en los 9: agregar los 3 campos en `null`). Verificado en verde: `VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` — tipos limpios, 408/408 tests de apps/engine, 133/133 de apps/web. Ningún archivo del working tree previo (82 pendientes de TSK-068 a TSK-088 y la spec `/draft` nativo) fue descartado — el resto de esta sesión los organiza en commits lógicos por dominio, registrado en entradas siguientes.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1206,13 +1223,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-088</span> <span class="feed-ts">2026-08-23T22:40</span></div>
             <div class="feed-note">Ajuste rápido de UX pedido explícitamente antes de pasar a la reingeniería del motor de recomendaciones, dos frentes: (1) `NavBar.tsx` gana el link "Simulador AP" → `/random-draft` (antes solo accesible tipeando la URL a mano). (2) `Personal_Ban_List` de `ConfigPanel.tsx` -- ya usaba `HeroGrid` (portado en TSK-084) pero como bloque inline que empujaba el formulario -- pasa a `HeroPickerModal`, primer modal real del proyecto (`fixed inset-0` con backdrop, `role="dialog"`, cierre por click-afuera/Escape/selección). Mismo `HeroGrid` sin cambios internos, ninguna duplicación de la grilla por atributo. También se corrigió que el botón "Agregar héroe" desaparecía mientras el picker estaba abierto (ya no hace falta, el modal flota encima). 3 archivos, sin `simplicity_exception`. `tsc --noEmit` limpio, `bun test` 428/428 (1 test nuevo para el link del NavBar), `curl` 200 en /, /random-draft y /api/health del motor. Verificación visual pendiente del usuario.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-087</span> <span class="feed-ts">2026-08-23T18:20</span></div>
-            <div class="feed-note">Auto-avance de ronda en /random-draft, pedido explícito del usuario (captura de Ronda 1 con 2/2 picks ya elegidos, botón "Confirmar ronda" señalado como paso manual innecesario). `BlindRoundActive` (`BlindRoundPanel.tsx`) gana un `useEffect` con guard por `useRef` (`advancedRef`) que dispara `onConfirmRound()` en cuanto `slotsLeft === 0` -- se resetea a `false` si `slotsLeft` vuelve a subir (caso `Conflict_Ban`, que reabre la ronda). Botón "Confirmar ronda" eliminado, junto con el import ya sin uso de `BUTTON_PRIMARY`. 1 archivo, sin `simplicity_exception`. `tsc --noEmit` limpio, `bun test` 427/427 sin regresiones, `curl` 200 en /random-draft y /api/health del motor. Verificación visual pendiente del usuario.</div>
           </div>
         </div></div>
     </div>
