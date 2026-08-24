@@ -8,15 +8,11 @@ input=$(cat)
 cmd=$(printf '%s' "$input" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
 
 if printf '%s' "$cmd" | grep -qE 'git (commit|push)'; then
-  # Excepción de simplicidad (ver verify-simplicity.sh): si el mensaje del commit referencia un
-  # ticket (TSK-XXX), se lo pasamos como contexto -- el script decide si ese ticket ya declaró
-  # `simplicity_exception: true` de antemano en su frontmatter, esto solo lo hace disponible.
-  # Se busca sobre "$input" crudo, no sobre "$cmd": un commit -m con heredoc (patrón recomendado
-  # para mensajes multilínea) mete comillas dentro del propio comando, y la extracción de "$cmd" de
-  # arriba (regex ingenua sobre JSON) corta en la primera comilla interna -- "$input" no tiene ese
-  # problema porque un TSK-XXX nunca lleva comillas ni requiere unescapar nada.
-  ticket=$(printf '%s' "$input" | grep -oE 'TSK-[0-9]+' | head -1) || true
-  if ! COMMIT_TICKET="$ticket" bash scripts/verify-simplicity.sh; then
+  # Governance 2.0 (2026-08-24): VERIFY_COMMIT_GATE=1 activa el hard gate real de este camino
+  # (compilación/tipos + bun test) -- ver verify-simplicity.sh, sección 8. Los hooks
+  # PostToolUse/SubagentStop de .claude/settings.json llaman al mismo script sin este flag, así
+  # que solo el commit/push paga el costo de tsc+bun test completos.
+  if ! VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh; then
     echo "Bloqueado: scripts/verify-simplicity.sh falló. Corrige las violaciones antes de commitear/pushear." >&2
     exit 2
   fi

@@ -63,67 +63,48 @@ TEST_FILE_PATTERN='[.](test|spec)[.]tsx?$'
 PROD_LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" -v tpat="$TEST_FILE_PATTERN" '$3 !~ pat && $3 !~ tpat {sum += $1} END {print sum+0}')
 TEST_LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" -v tpat="$TEST_FILE_PATTERN" '$3 !~ pat && $3 ~ tpat {sum += $1} END {print sum+0}')
 
-# --- Excepción documentada de simplicidad ---
-# CLAUDE.md permite declarar por adelantado, dentro del propio ticket, que su alcance real supera
-# 3 archivos/200 líneas (ya usado en prosa en TSK-012/013/016 -- "excepción documentada por
-# adelantado"). Antes esto solo existía como confianza/nota en el ticket, sin que el gate pudiera
-# reconocerlo -- era todo o nada. `pretooluse-guard.sh` extrae un `TSK-XXX` del mensaje del commit
-# (si hay) en `$COMMIT_TICKET`; si ese ticket existe y su frontmatter ya trae
-# `simplicity_exception: true` ANTES de este commit, el exceso se avisa pero no bloquea.
-SIMPLICITY_EXCEPTION=0
-TICKET_FILE="docs/agents/tasks/${COMMIT_TICKET:-}.md"
-if [ -n "${COMMIT_TICKET:-}" ] && [ -f "$TICKET_FILE" ] && grep -qE '^simplicity_exception:[[:space:]]*true[[:space:]]*$' "$TICKET_FILE"; then
-  SIMPLICITY_EXCEPTION=1
-fi
-
+# --- Governance 2.0 (2026-08-24): límites de archivos/líneas dejan de bloquear ---
+# TSK-067 ya había intentado exactamente esto (bajar estos tres checks de bloqueo a aviso) y se
+# revirtió como hallazgo real -- no cosmético (ver comentario de MAX_TEST_LINES arriba). Esta vez
+# es una decisión explícita del usuario, confirmada por pregunta directa antes de tocar el
+# archivo, no un cambio silencioso de otra herramienta -- documentada en journal.md (TSK-092).
+# Los tres siguen siendo señal real ("¿es este commit atómico?"), pero ya no bloquean: lo que
+# sigue como bloqueo duro sin excepción posible es seguridad/arquitectura (secretos, invariantes,
+# WIP, journal append-only, tipos, tests) -- ver secciones de abajo.
 if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
-  if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
-    echo "⚠️  $FILES_TOUCHED archivos modificados (máximo $MAX_FILES) -- excepción declarada en $TICKET_FILE, no bloquea."
-    printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
-  else
-    echo "❌ ERROR: $FILES_TOUCHED archivos modificados. Máximo: $MAX_FILES."
-    printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
-    ERRORS=$((ERRORS + 1))
-  fi
+  echo "⚠️  Commit grande: $FILES_TOUCHED archivos modificados (máximo sugerido $MAX_FILES). Verifica si es atómico."
+  printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
 fi
 
 if [ "$PROD_LINES_ADDED" -gt "$MAX_LINES" ]; then
-  if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
-    echo "⚠️  $PROD_LINES_ADDED líneas de producción añadidas (máximo $MAX_LINES) -- excepción declarada en $TICKET_FILE, no bloquea."
-  else
-    echo "❌ ERROR: $PROD_LINES_ADDED líneas de producción añadidas. Máximo: $MAX_LINES."
-    ERRORS=$((ERRORS + 1))
-  fi
+  echo "⚠️  Commit grande: $PROD_LINES_ADDED líneas de producción añadidas (máximo sugerido $MAX_LINES). Verifica si es atómico."
 fi
 
 if [ "$TEST_LINES_ADDED" -gt "$MAX_TEST_LINES" ]; then
-  if [ "$SIMPLICITY_EXCEPTION" -eq 1 ]; then
-    echo "⚠️  $TEST_LINES_ADDED líneas de test añadidas (máximo $MAX_TEST_LINES) -- excepción declarada en $TICKET_FILE, no bloquea."
-  else
-    echo "❌ ERROR: $TEST_LINES_ADDED líneas de test añadidas. Máximo: $MAX_TEST_LINES."
-    ERRORS=$((ERRORS + 1))
-  fi
+  echo "⚠️  Commit grande: $TEST_LINES_ADDED líneas de test añadidas (máximo sugerido $MAX_TEST_LINES). Verifica si es atómico."
 fi
 
-# --- 3. Dependencias nuevas ---
-# El check anterior solo detectaba la CLAVE "dependencies" siendo añadida.
-# Este detecta cualquier línea nueva DENTRO de dependencies/devDependencies,
-# que es el caso real: un paquete más en un bloque que ya existía.
-# Monorepo: no hay package.json en la raíz del repo -- cada app tiene el suyo
-# (apps/*/package.json). El check original apuntaba a la raíz y por eso nunca se disparó
-# para ninguna dependencia añadida desde que existe el monorepo (TSK-001 en adelante).
+# --- 3. Dependencias nuevas de PRODUCCIÓN ("dependencies") ---
+# Governance 2.0 (2026-08-24): devDependencies queda con bypass total (tooling de infraestructura
+# rutinaria del stack Bun -- typescript, better-sqlite3, etc. -- no exige /gear-up/@depcheck ni
+# marca // ALLOWED). Solo dependencies de producción sigue exigiendo la ceremonia -- es lo que
+# termina en el bundle/runtime real, no una herramienta de desarrollo. El awk distingue la clave
+# exacta que abrió el bloque (`is_prod`) en vez de tratar ambas claves igual.
+# Monorepo: no hay package.json único en la raíz del repo -- cada app tiene el suyo
+# (apps/*/package.json), más el root nuevo (better-sqlite3/scripts del pipeline pro-drafter).
 PACKAGE_JSON_FILES=$(git ls-files -- '*/package.json' 'package.json' 2>/dev/null | grep -v node_modules) || true
 for pkg in $PACKAGE_JSON_FILES; do
   if git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | \
      awk '
        /^\+\+\+/ {next}
-       /"(dependencies|devDependencies)"[[:space:]]*:/ {in_block=1; next}
-       in_block && /^\+/ && /"[^"]+"[[:space:]]*:[[:space:]]*"[^"]+"/ {found=1}
+       /"devDependencies"[[:space:]]*:/ {in_block=1; is_prod=0; next}
+       /"dependencies"[[:space:]]*:/ {in_block=1; is_prod=1; next}
+       in_block && is_prod && /^\+/ && /"[^"]+"[[:space:]]*:[[:space:]]*"[^"]+"/ {found=1}
        in_block && /^[^+-]*}/ {in_block=0}
        END {exit !found}
      '; then
     if ! git diff --cached "$DIFF_BASE" -- "$pkg" 2>/dev/null | grep -q '// ALLOWED'; then
-      echo "❌ ERROR: Nueva(s) dependencia(s) detectada(s) en $pkg sin marcar // ALLOWED."
+      echo "❌ ERROR: Nueva(s) dependencia(s) de PRODUCCIÓN detectada(s) en $pkg sin marcar // ALLOWED."
       echo "   Pasa por /gear-up o @depcheck antes de continuar."
       ERRORS=$((ERRORS + 1))
     fi
@@ -198,6 +179,69 @@ if [ -n "$DSIH_HIT" ]; then
   echo "❌ ERROR: 'dangerouslySetInnerHTML' encontrado bajo apps/web/ -- prohibido en toda la app, React escapa por defecto."
   printf '%s\n' "$DSIH_HIT" | sed 's/^/   - /'
   ERRORS=$((ERRORS + 1))
+fi
+
+# --- 8. Governance 2.0: compilación/tipos + suite de tests -- solo en el camino de commit ---
+# Corre únicamente cuando VERIFY_COMMIT_GATE=1 (fijado por pretooluse-guard.sh en git commit/
+# push). Los hooks PostToolUse/SubagentStop de .claude/settings.json llaman a este mismo script en
+# caliente después de cada Edit/Write -- correr tsc+bun test completos ahí sería demasiado lento
+# para ese camino y no aporta nada que el commit gate no vaya a repetir de todas formas. Sin
+# excepción de ticket posible: a diferencia de 1-2, esto nunca se avisa y se deja pasar.
+if [ "${VERIFY_COMMIT_GATE:-0}" = "1" ]; then
+  echo ""
+  echo "🔎 Gate de commit: compilación/tipos + suite de tests (hard gate, sin excepción)"
+
+  # Resolución agnóstica al entorno: el binario real de bun no siempre está en $PATH en el
+  # contexto en que corre este hook (confirmado en esta máquina -- `bun` no resuelve pero
+  # `bunx`, symlink a ~/.bun/bin/bun, sí). BUN_BIN siempre termina apuntando al binario real de
+  # `bun` (nunca al wrapper `bunx`, que ya implica modo "x" y no sirve para `bun test`) -- se
+  # prueba `bun` en PATH, la ruta estándar de instalación, y resolver el symlink de `bunx` como
+  # último recurso. Sin esto, el gate fallaría por "command not found" en vez de por una razón
+  # real, exactamente el tipo de fragilidad entre entornos que se pidió evitar.
+  BUN_BIN=""
+  if command -v bun >/dev/null 2>&1; then
+    BUN_BIN="$(command -v bun)"
+  elif [ -x "$HOME/.bun/bin/bun" ]; then
+    BUN_BIN="$HOME/.bun/bin/bun"
+  elif command -v bunx >/dev/null 2>&1; then
+    BUNX_RESOLVED=$(readlink "$(command -v bunx)" 2>/dev/null) || true
+    if [ -n "$BUNX_RESOLVED" ] && [ -x "$BUNX_RESOLVED" ]; then
+      BUN_BIN="$BUNX_RESOLVED"
+    fi
+  fi
+
+  if [ -z "$BUN_BIN" ]; then
+    echo "❌ ERROR: no se encontró el binario de bun (ni 'bun' ni 'bunx' en PATH, ni ~/.bun/bin/bun)."
+    ERRORS=$((ERRORS + 1))
+  else
+    if [ -f apps/engine/tsconfig.json ]; then
+      if ! (cd apps/engine && "$BUN_BIN" x tsc --noEmit -p tsconfig.json); then
+        echo "❌ ERROR: apps/engine no compila (tsc --noEmit)."
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+
+    if [ -f apps/web/tsconfig.json ]; then
+      if ! (cd apps/web && "$BUN_BIN" x tsc --noEmit -p tsconfig.json); then
+        echo "❌ ERROR: apps/web no compila (tsc --noEmit)."
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+
+    if [ -f apps/engine/package.json ]; then
+      if ! (cd apps/engine && "$BUN_BIN" test); then
+        echo "❌ ERROR: suite de tests de apps/engine falló (bun test)."
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+
+    if [ -f apps/web/package.json ]; then
+      if ! (cd apps/web && "$BUN_BIN" test); then
+        echo "❌ ERROR: suite de tests de apps/web falló (bun test)."
+        ERRORS=$((ERRORS + 1))
+      fi
+    fi
+  fi
 fi
 
 # --- Resultado ---

@@ -31,8 +31,12 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   por sesión; el exceso se descarta con `429`.
 - **Datos personales**: ninguno en fase 1 — solo estadísticas públicas agregadas. Cualquier campo
   que identifique a una cuenta de Steam real es fuera de alcance hasta fase 1b.
-- **Dependencias nuevas**: nunca sin pasar por `/gear-up` o `@depcheck` — incluida cualquier
-  librería de validación de esquemas (SPEC §7.3 la deja abierta a propósito).
+- **Dependencias nuevas**: distinción por categoría desde Governance 2.0 (2026-08-24, ver
+  `CLAUDE.md`). Una `dependency` de producción nunca sin pasar por `/gear-up` o `@depcheck` —
+  incluida cualquier librería de validación de esquemas (SPEC §7.3 la deja abierta a propósito).
+  Una `devDependency` de tooling de infraestructura rutinaria (`typescript`, `better-sqlite3`,
+  generadores/linters del stack Bun) tiene bypass total — no es superficie de ataque en runtime,
+  Sentinel no la marca como hallazgo.
 
 ## Fase 1b — Primer dato personal del proyecto (SPEC.md §9.7)
 - **`account_id` de Steam**: validado en el borde como Steam32 (solo dígitos, `1`–`4294967295`)
@@ -80,3 +84,21 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
 - **Sin dependencias nuevas.** El script de regeneración usa un navegador headless instalado
   aparte, fuera del árbol de dependencias del proyecto — no entra en ningún `package.json`. Si
   alguien lo agrega como dependencia real, eso exige `/gear-up`/`@depcheck` como cualquier otra.
+
+## Fase 4 — Intención de draft, sub-ticket 4.1 (SPEC.md §11.8)
+
+- **Ningún cruce de frontera de confianza nuevo en runtime.** `archetype_fit` consume
+  exclusivamente `HeroCapabilities[]`, ya validado en el borde por `loadHeroCapabilities()` (S9),
+  y `DraftPathArchetype`, una unión cerrada de 4 literales interna al proceso. El diseño original
+  de esta fase (pieza 2, sinergia en cadena) iba a abrir un sync nuevo hacia OpenDota — se
+  descartó tras verificar contra el código fuente real de `odota/core` que esa partición de dato
+  no existe; el sub-ticket 4.1 no hereda ese riesgo.
+- **Ninguna dependencia nueva, ningún archivo de datos nuevo.** El diseño original de la pieza 1
+  iba a introducir `archetype-affinity.json` (con su propia validación de borde); se descartó a
+  favor de reutilizar `archetypeFitBonus`, ya existente — sin archivo nuevo, sin costura de
+  validación nueva.
+- **Ningún secreto nuevo, ningún dato personal.** Mismo tipo de dato agregado y público que el
+  resto del motor.
+- `intent` (la intención de draft) en 4.1 no llega desde la red ni de la UI — lo inyecta el
+  llamador de la fábrica. Su validación en el borde, cuando llegue por API en un sub-ticket
+  posterior, es responsabilidad de ese sub-ticket, no de 4.1.

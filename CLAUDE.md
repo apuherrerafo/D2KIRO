@@ -50,7 +50,13 @@ y el siguiente paso.
 ## REGLAS INVIOLABLES
 Codificadas en `scripts/verify-simplicity.sh`. Si cambias un número aquí, cámbialo también ahí.
 
-- No añadir dependencias sin pasar por `/gear-up` o `@depcheck`.
+- **Política de dependencias por categoría (Governance 2.0, 2026-08-24):** una `dependency` de
+  producción nueva (`package.json` → `dependencies`) sigue exigiendo pasar por `/gear-up` o
+  `@depcheck` y marcarse `// ALLOWED` — es lo que termina en el bundle/runtime real. Una
+  `devDependency` nueva (tooling de infraestructura rutinaria del stack Bun — p. ej.
+  `better-sqlite3`, `typescript`, linters, generadores de tipos) tiene **bypass total**: no exige
+  ticket de excepción, comando previo ni marca `// ALLOWED`. Verificado mecánicamente en
+  `scripts/verify-simplicity.sh` (sección 3), que distingue la clave exacta del `package.json`.
 - Máximo 3 archivos modificados por tarea.
 - Máximo 200 líneas nuevas de código de producción por tarea (`.ts`/`.tsx` fuera de
   `.test.ts`/`.spec.ts`/`.test.tsx`/`.spec.tsx`).
