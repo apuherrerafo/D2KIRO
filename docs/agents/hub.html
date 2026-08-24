@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T19:52:06.935Z</title>
+<title>HUB del ecosistema — 2026-08-24T23:47:32.120Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code. Modelo: Sonnet. · Acción: decisión de producto, no técnica obligatoria. Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step step-active">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code. · Modelo: Sonnet. · Acción: **antes que cualquier ticket** — confirmar que el servicio de Railway tiene un volumen · persistente montado en `ENGINE_DB_PATH` (prerrequisito de infraestructura, no de código; `SPEC.md` · §12.16-1). Resuelto eso, `/dispatch` de `TSK-094` (`accounts` + migración `0005`), primer ticket del · Bloque A — depende de nada más, es el punto de partida de la cadena de 13. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,8 +120,128 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>backlog <span class="count">12</span></h2>
+        
+        <div class="card  ">
+          
+          <div class="card-id">TSK-096</div>
+          <div class="card-title">Fase 5: buildMetaSnapshot(db, accountId) + cache partido</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-101</div>
+          <div class="card-title">Fase 5: rutas de auth — /login, callback Steam, logout</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-105</div>
+          <div class="card-title">Fase 5: scoping de team_groups/team_members por cuenta</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-104</div>
+          <div class="card-title">Fase 5: pantallas — HeroPoolConfig sin account_id manual, /settings → Mi cuenta</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-097</div>
+          <div class="card-title">Fase 5: server/account-token.ts — verificación de x-account-token (S13)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-100</div>
+          <div class="card-title">Fase 5: iron-session + verificación Steam OpenID (lib/session.ts, lib/steam-openid.ts)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-098</div>
+          <div class="card-title">Fase 5: conectar x-account-token a las rutas HTTP del motor</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-099</div>
+          <div class="card-title">Fase 5: WebSocket — accountToken en hello y dueño de sesión</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-103</div>
+          <div class="card-title">Fase 5: GET /api/auth/engine-token + wiring del WebSocket</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-095</div>
+          <div class="card-title">Fase 5: hero_pool a PK compuesta (accountId, heroId) + migración 0006</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-102</div>
+          <div class="card-title">Fase 5: proxy.ts sin Basic Auth + acuñado del token interno + guard fail-closed</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-106</div>
+          <div class="card-title">Fase 5: limpieza — retirar Basic Auth y el KV de settings, env vars finales</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -140,7 +260,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">93</span></h2>
+        <h2>done <span class="count">94</span></h2>
         
         <div class="card  ">
           
@@ -634,6 +754,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-094</div>
+          <div class="card-title">Fase 5: tabla accounts + migración 0005 (Drizzle)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-084</div>
           <div class="card-title">Portar HeroGrid a /random-draft (BlindRoundPanel + ConfigPanel), reemplaza HeroPicker</div>
           <div class="card-meta">
@@ -1079,7 +1209,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">136× · 77% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">137× · 77% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1093,16 +1223,16 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:32%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:31%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
-          <div class="stat-nums">6× · 100% ok  </div>
+          <div class="stat-name">rulebook</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">7× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">rulebook</div>
+          <div class="stat-name">blueprint</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
           <div class="stat-nums">6× · 100% ok  </div>
         </div>
@@ -1168,6 +1298,20 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-094</span> <span class="feed-ts">2026-08-24T23:47</span></div>
+            <div class="feed-note">Primer ticket de código de Fase 5: tabla `accounts` (Steam32 como PK) + migración `0005_accounts.sql`, TDD real (prueba escrita primero contra un archivo inexistente, confirmada en rojo con `ENOENT` antes de escribir la migración). Backfill del `steam_account_id` único que hoy vive en `settings` (fase 1b), con el mismo filtro `GLOB` de solo-dígitos + rango Steam32 ya usado por `isValidSteamAccountId` -- y confirma un hallazgo real de `/blueprint` (SPEC.md §12.15-E): `personal_baseline_winrate` nunca se escribió de verdad en `settings`, así que nace `null` en `accounts`, consistente con el comportamiento ya vigente. Corrección real durante `@build`: `CREATE TABLE` sin `IF NOT EXISTS` rompía la 4ª prueba obligatoria del ticket (idempotencia, correr la migración dos veces) -- agregado, sincronizado en el mismo cambio con `docs/specs/SPEC.md` §12.7 y el propio `docs/agents/tasks/TSK-094.md` (nunca en silencio, mismo criterio que el resto del proyecto). `@redteam`: **APPROVED, gate de seguridad PASS**. Verificado empíricamente (no asumido) el caso límite que más preocupaba de una migración que toca `settings.value` sin validar en el borde de la propia `PUT /api/settings` (endpoint genérico, sin formato exigido por key): un valor de solo-dígitos que desborda un entero de 64 bits (26 nueves) -- confirmado con un script real que SQLite **satura** al máximo de `int64` en vez de dar la vuelta a un número chico, así que el `BETWEEN 1 AND 4294967295` posterior lo sigue rechazando sin excepción. Agregada como quinta prueba permanente (candado de regresión), no solo verificación ad-hoc. `bun test`: 434/434 en `apps/engine` (430 previos + 5 nuevas − 1 duplicada por reconteo), `bunx tsc --noEmit` limpio. `scripts/verify-simplicity.sh`: con los 4 archivos de código reales stageados (`schema.ts`, `0005_accounts.sql`, `_journal.json`, `migration-0005.test.ts`, sin contar el ticket como bookkeeping), advertencia no bloqueante de "4 archivos > 3 sugeridos" (Governance 2.0, límites a warning desde TSK-092) -- dentro del espíritu de la excepción de migración ya documentada en `CLAUDE.md` (schema + migración + su prueba), sin necesitar `simplicity_exception: true` explícito. Producción real: 35 líneas (`schema.ts` 11 + SQL 17 + journal 7), muy por debajo del límite de 200. Nada usa `accounts` todavía -- ningún query, ninguna ruta (alcance explícito del ticket 5, `TSK-098`, en adelante). **Nada commiteado** -- el usuario no lo pidió, cambios quedan en el árbol de trabajo. `TSK-094` pasa a `state: done`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T20:40</span></div>
+            <div class="feed-note">Ciclo completo de planificación de Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario), pedido explícito del usuario para preparar el proyecto a jugadores reales, no solo el desarrollador. **Auditoría ad-hoc** (sin `/pre-flight` todavía): trazado el flujo real de `hero_pool_fit` de punta a punta, 3 hallazgos -- `hero_pool`/`settings` son tablas globales sin columna de dueño, `buildMetaSnapshot` cachea un único `MetaSnapshot` en singleton de módulo, y no existe ningún concepto real de sesión/usuario (`proxy.ts` es Basic Auth compartido, no identidad). Precedente útil: `team_groups`/`team_members` ya tiene el patrón de scoping por owner que falta aplicar al pool real. **`/pre-flight`** (los 6 bloques, `architecture.md`): decisiones cerradas por el usuario vía `AskUserQuestion` antes de investigar -- alcance multi-usuario real (no solo reemplazar el campo manual del desarrollador), login de Steam reemplaza el Basic Auth. Investigación con fuentes primarias (WebSearch): Steam usa OpenID 2.0, exige `check_authentication` server-a-servidor obligatorio (`passport-steam`, la librería más popular, tiene una vulnerabilidad real documentada de bypass de firma -- recomendada implementación manual del protocolo); fórmula SteamID64↔Steam32 confirmada; `iron-session` recomendada para sesión; contrato interno HMAC (`x-account-token`) recomendado, mismo patrón que `x-capture-token`. **`/blueprint`** (cuarta y quinta ejecución en Opus del proyecto contando Fase 4 -- delegado a un agente separado, la sesión principal siguió en Sonnet, mismo patrón que Fase 4): generó `SPEC.md` §12.0-§12.17 (910 líneas). Seis correcciones reales al `/pre-flight`, todas por leer el código real: `prepareHeaders` de `fetchBaseQuery` no puede firmar el token (el navegador no tiene `INTERNAL_AUTH_SECRET` ni puede leer una cookie `httpOnly`) -- corregido a acuñar en `proxy.ts` (servidor); la conversión SteamID64→Steam32 exige `BigInt`, con `Number()` pierde precisión y mapea al usuario a la cuenta de otra persona sin ningún error (verificado con un vector real: `52079950` vs `52079952`); `Map<accountId, MetaSnapshot>` estaba mal dimensionado (medido contra la DB real: 14850+2032 filas de meta pública son idénticas para todas las cuentas, solo 5 filas + 1 número varían por usuario) -- corregido a cache partido (capa compartida + overlay por cuenta); `settings` nunca tuvo realmente la clave `personal_baseline_winrate` (hueco preexistente desde 1b, `hero_pool_fit` usa `baseline=0.5` siempre, no se corrige en esta fase); el bot del simulador usa hoy el pool del humano sin que nadie lo decidiera (se fija `accountId: null` explícito); `calculationInProgress` es booleano por proceso, pasa a `Set<AccountId>`. Cerrados PK de `accounts` (Steam32 como PK, sin id sustituto), ventana/anti-replay del HMAC (60s+5s tolerancia, nonce de un solo uso), TTL de cookie (30 días, renovación deslizante desde los 7, tope 90), contrato exacto del header (`x-account-token`, vector de prueba calculado y verificado), y 13 tickets en 3 bloques de dependencia estricta. El agente devolvió 5 preguntas abiertas para el usuario, quien las confirmó todas en el mismo turno: (1) volumen persistente de Railway como prerrequisito de infraestructura antes de correr migraciones; (2) `team_groups`/`team_members` SÍ entran en el scoping de esta fase (recomendación fuerte del blueprint, aceptada); (3) exponer el motor a usuarios remotos queda deliberadamente FUERA de Fase 5 (hallazgo real: en producción el WS del motor no es alcanzable hoy -- `DRAFT_LIVE_ENABLED=false`, clientes apuntando a `127.0.0.1` del propio visitante); (4) `/settings` y su editor genérico de KV se retiran; (5) el MVP no muestra nombre/avatar de Steam. Estas 5 confirmaciones se incorporaron de vuelta a `SPEC.md` (sesión principal, Sonnet, sin necesitar Opus de nuevo -- extensión mecánica de un patrón ya diseñado, no nueva síntesis arquitectónica): nuevo apartado "`team_groups` con scoping por cuenta" en §12.7 (migración `0007`, columna `accountId` nullable sin cirugía de PK, `queries.ts`/`routes/team-groups.ts` con `404` para recursos ajenos en vez de `403`), fila nueva en la tabla de rutas de §12.10, criterio de aceptación 13 agregado a §12.14, y §12.16 reescrito de "pendiente de confirmación" a "confirmado". **`/rulebook`**: secciones "Fase 5" agregadas a las 4 reglas de `.claude/rules/` (`engine.md`: contrato de `accounts`/`hero_pool`/PK compuesta, `buildMetaSnapshot(db, accountId)` obligatorio no opcional, cache partido, orden de verificación del HMAC; `security.md`: las 3 fronteras de confianza nuevas con su mitigación, los 2 secretos nuevos, fail-closed en `start-railway.sh`; `web.md`: `proxy.ts` sin Basic Auth, `iron-session`, régimen de datos; `testing-seams.md`: costuras **S11** -identidad Steam, fixtures grabados de `check_authentication`- y **S13** -token interno, reloj/nonce inyectados-, salteando S12 ya reservado por Fase 4). `CLAUDE.md` gana "REGLAS DE FASE 5" (14 puntos inviolables) y su nota de estado se actualiza (Fase 4 pasa a "en pausa, sub-ticket 4.1 completo", Fase 5 "en curso"). **13 tickets creados, `TSK-094` a `TSK-106`**, todos `must`, en 3 bloques de dependencia estricta (A: el motor aprende qué es una cuenta, sin login todavía -- `accounts`+migración 0005, `hero_pool` a PK compuesta+migración 0006, `buildMetaSnapshot` multi-cuenta, `account-token.ts`/S13, conectar el token a las rutas HTTP, WebSocket; B: `apps/web` aprende quién sos -- `iron-session`+Steam OpenID/S11, rutas de auth, `proxy.ts` sin Basic Auth+guard fail-closed, `GET /api/auth/engine-token`, pantallas; C: `team_groups` scopeado + limpieza final, sin comportamiento, mismo criterio que TSK-047). Cada ticket autocontenido con criterios de aceptación numéricos tomados de `SPEC.md` §12.14, dentro de los límites de `CLAUDE.md` (excepción de migración documentada para los tickets 1/2/12). `preferred_tool`: `claude-code` para el Bloque A completo + tickets 9/13 (gate de seguridad/decisiones del SPEC), `codex` para los tickets 8/11 (acotados, autocontenidos). Tablero regenerado: 106 tareas, 309 eventos. Cero código de producción escrito en toda la sesión. Primer prerrequisito antes de cualquier ticket: confirmar el volumen persistente de Railway (no técnico, infraestructura del usuario). Siguiente: `/dispatch` de `TSK-094`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:06</span></div>
             <div class="feed-note">Audit & Limpieza de UX/UI en `apps/web` (Fase 4, sesión Gobernanza 2.0): consolidación del Simulador en una sola experiencia All Pick vs bot + integración de Pro-Drafter en tiempo real. Precedido por un audit-only (sin código) en el turno anterior: encontró que había **tres** simuladores distintos, no uno -- `/simulator` (Fase 1, HTTP polling, sin bot, sin mecánica de partida real), "Simular draft" dentro de `/draft` (`DraftSetupPanel`, reproduce un guion pre-grabado con selector de Captains Mode/party, herramienta de QA), y `/random-draft` (Random Draft Simulator, Blind Round real de All Pick + bot + Copilot -- ya el objetivo real). **Verificación de dependencias ANTES de borrar nada, no supuesta**: `buildSimulatorEnvelopes`/`runSimulatorPlayback`/`SimulatorEnvelope` (`features/draft/simulator.ts`) y `postSimulatorEvent` (`manual-entry.ts`) están compartidos entre `DraftSetupPanel` (a eliminar) Y `use-random-draft-session.ts` (a conservar) -- NO se tocaron. Dentro de `simulator-scripts.ts`, `SIMULATOR_SCENARIOS`/`SimulatorScenarioId` siguen vivos porque `simulator.test.ts` los usa como fixture real de `buildSimulatorEnvelopes` -- solo se eliminó `SIMULATOR_SCENARIO_LABELS` (las 2 etiquetas en castellano, único consumidor real era el selector visual de `DraftSetupPanel`). Sin este chequeo previo, borrar por asociación habría roto el Random Draft Simulator o su propia suite de tests. **Eliminado**: ruta `/simulator` completa; `DraftSetupPanel`/`PartyPoolPanel` (componentes completos, únicos consumidores confirmados vía grep antes de borrar); `SimulatorSession`/`SimulatorState`/`startSimulatorSession`/`getSimulatorState`/tag `"Simulator"` de `engine-api.ts`; `partyContext`/`setPartyContext` del store de Zustand (quedaban sin lector NI escritor tras quitar `PartyPoolPanel`/`DraftSetupPanel` -- verificado que `store.test.ts` no los cubre, cero riesgo de romper un test al quitarlos). `NavBar`: entrada "Simulador" vieja fuera, "Simulador AP" → "Simulador" (ya no hay ambigüedad con qué comparar) -- test nuevo que bloquea si `/simulator` reaparece en el nav. **Consecuencia real, no oculta**: `CompletedDraftState` (`/draft`, fase "completo") pierde el botón "Simular otro draft" -- su único mecanismo era `DraftSetupPanel`, ahora inexistente. Después de un draft real/manual completo, no queda un atajo en la página para arrancar uno nuevo (hay que recargar `/draft`, que genera sessionId nuevo por diseño ya existente). Gap de UX menor, anotado, no resuelto en este bloque -- no se inventó un reemplazo no pedido. **Integración de Pro-Drafter en tiempo real** (`CopilotPanel`, `/random-draft`): `ProDrafterEngineBadge`/`ProSuggestionRow` (antes privados en `ProDrafterPanel.tsx`) se exportaron y reutilizan tal cual -- mismo componente real, mismo criterio que ya aplicaba ese panel para `SuggestionCard`/`ComparisonNote`. Hook nuevo `useCopilotProDrafter` (`features/random-draft-simulator/`): a diferencia de `ProDrafterPanel` (click para ver, panel exploratorio cerrado por defecto), acá el pedido explícito era "en tiempo real mientras se pica" -- se re-dispara solo, vía `useEffect` keyed en `draftState.lastSeq`, nunca a mano. Gateado por `isProDrafterEnabled()` DENTRO del efecto (nunca antes de llamar al hook -- reglas de hooks) -- con el flag de cliente apagado (default), cero requests nuevos, `CopilotPanel` renderiza EXACTAMENTE como antes de esta fase (dispatch por early return, nunca un ternario de renderizado condicional, regla dura de `web.md`). Sin tracking de staleness a mano: RTK Query garantiza que `data` de la mutation siempre refleja el último `trigger()` de ese hook, un disparo anterior más lento no puede pisar uno más nuevo ya resuelto. **Sin test dedicado para `useCopilotProDrafter` -- decisión, no descuido**: este proyecto ya documentaba en `use-random-draft-session.test.ts` que no usa `renderHook`/testing-library (`testing-seams.md`) -- prueba solo funciones puras extraídas del hook. `useCopilotProDrafter` no tiene lógica pura extraíble más allá de la orquestación de efectos en sí (gate + trigger), así que cae fuera de esa costura tal como está definida hoy; agregar una dependencia de testing nueva solo para esto habría sido un `/gear-up` no pedido. **Verificación real, no solo `bun test`**: ambos dev servers levantados con los dos flags encendidos (mismo patrón que evt-110), confirmado con Playwright real: `/simulator` devuelve 404, `NavBar` muestra exactamente "Draft | Simulador | Mi pool | Equipos | Héroes | Meta | Configuración" (sin duplicado, sin sufijo "AP"), y `/random-draft` con un draft real en curso muestra el badge "Pro-Drafter (KNN 5v5)" + desglose de 3 señales dentro de `Copilot`, cero error de consola. `.env.local` borrado y ambos procesos detenidos por puerto al terminar, mismo protocolo de limpieza que evt-110. `bun test`: 423/423 `apps/engine` (sin tocar), 141/141 `apps/web` (140 antes + 1 test nuevo de regresión del NavBar), 9/9 `scripts/` (sin tocar) -- las tres dentro del mismo gate (evt-112). `tsc --noEmit` limpio en `apps/web` (se limpió `.next/` una vez por un tipo generado stale que apuntaba a la página ya borrada, no un error real). **Traducción a producto**: esto significa que la app ahora tiene un solo simulador real ("Simulador" → `/random-draft`, All Pick vs bot inteligente, panel central con Pro-Drafter en tiempo real cuando el flag está encendido) en vez de tres experiencias solapadas y confusas -- y ese simulador, cuando `ENABLE_PRO_DRAFTER`/`NEXT_PUBLIC_ENABLE_PRO_DRAFTER` se prendan en producción, mostrará exactamente el mismo motor y badge que ya se ve en el draft real, sin ninguna pieza nueva de UI que inventar entonces.</div>
           </div>
@@ -1219,20 +1363,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T15:15</span></div>
             <div class="feed-note">Paso 2 de la sesión de Gobernanza 2.0: harness de evaluación de Pro-Drafter contra v5. (1) Corpus real ampliado de 5 a 175 drafts únicos (`fetch-pro-drafts.ts` corrido contra OpenDota, patch 7.41, tiers premium/professional) — la corrida inicial se topó con 429 persistente de OpenDota (verificado con `curl` directo, no solo el script: rate-limit real del lado del proveedor, no un bug local); reintentada en background con un wait-loop que sondeaba `/api/proMatches` cada 45s, terminó completando sola antes de que el reintento hiciera falta. `docs/agents/tasks/TSK-093.md`... (nota: este bloque no crea ticket propio, mismo criterio que `batch-harness.ts` — script de diagnóstico offline, no cambia comportamiento de producción). (2) `scripts/evaluate-pro-drafter.ts` (nuevo): evaluación *leave-one-out* real — para cada uno de los 175 drafts, el índice KNN y el `MetaSnapshot` derivado del corpus para v5 EXCLUYEN el draft evaluado en cada corrida (si no, el propio draft sería su mejor vecino y el resultado quedaría inflado de forma artificial). Por cada draft se ocultan, uno a la vez, los 5 héroes del lado ganador (875 corridas totales, aunque el tamaño de muestra *independiente* real es 175 drafts, no 875 — las 5 corridas de un mismo draft están correlacionadas) y se mide si el motor rankea el pick real del profesional en su Top-1/Top-3. **Limitación documentada en la cabecera del script, no oculta**: v5 corre acá con un `MetaSnapshot` derivado solo del corpus (sin `patchStats`/`heroPool` reales) — `patch_meta` y `hero_pool_fit` quedan `null`/`applicable:false` casi siempre, y `counter` casi siempre `null` (`MIN_MATCHUP_GAMES=200`, un par de héroes específico casi nunca junta 200 partidas en 174 drafts leave-one-out). El v5 evaluado corre mayormente con `team_synergy` (capabilities.json real) + `position_fit` (hero-positions.json real), no sus 5 señales completas — no es el v5 de producción real (que sí tiene `patch_meta`/`counter` poblados desde SQLite/OpenDota sync). **Resultado real, no el esperado**: v5 (Top-3 hit rate 7.5%, 66/875, rank promedio 2.1 cuando aparece) superó a Pro-Drafter (Top-3 hit rate 3.9%, 34/875, mismo rank promedio 2.1) en esta prueba — contraintuitivo dado que Pro-Drafter fue diseñado específicamente sobre este tipo de dato. **Causa raíz encontrada, no solo el número**: diagnóstico agregado al harness (tasa de `raw:null` por señal, sobre los 2625 candidatos evaluados, no solo el Top 3) muestra `knn_similarity` en `null` el 96.5% de las veces (2534/2625) — la señal con más peso del pipeline (`knn_similarity: 0.4` en `pro-drafter-weights-v6.json`, más que `lane_score: 0.35` y `denial_score: 0.25` juntas relativamente) queda inerte casi siempre con un corpus de 174 drafts leave-one-out: la similitud de Jaccard sobre combinaciones específicas de héroes necesita un corpus mucho más grande para encontrar vecinos genuinamente parecidos (el propio `fetch-pro-drafts.ts` ya documentaba el objetivo de 2000-5000, todavía lejos incluso después de esta ampliación). Con `knn_similarity` inerte, el pipeline corre casi siempre solo con `lane_score`+`denial_score` reponderados — y ambos son señales más angostas que `position_fit`/`team_synergy` de v5: `evaluateLane2v2`/`calculateDenialScore` en `run-pipeline.ts` solo miran UN aliado (`own[0]`) y los primeros DOS rivales confirmados (`enemy1`/`enemy2`), descartando el resto del draft, mientras que `position_fit`/`team_synergy` de v5 consideran el estado completo (`state.picks.radiant`/`state.picks.dire` enteros). **Posible ajuste de pesos, no aplicado en esta sesión** (fuera de alcance de "documentar hallazgos" — cambiar `pro-drafter-weights-v6.json` o la lógica de selección de aliado/rivales en `run-pipeline.ts` es una decisión de producto/diseño que necesita su propio ticket, no una sesión de evaluación): (a) el hallazgo real no es "los pesos están mal calibrados" sino "el corpus es demasiado chico para que `knn_similarity` aporte algo" — subir su peso no ayudaría, bajarlo tampoco resuelve la causa; (b) la mejora con más impacto esperado sería ampliar `allyPartner`/`enemy1`/`enemy2` en `run-pipeline.ts` a considerar TODOS los aliados/rivales confirmados (mismo criterio que ya usan `position_fit`/`team_synergy`), no solo el primero de cada lado; (c) seguir ampliando el corpus (175 → 2000+) por fuera de esta sesión, cuando OpenDota lo permita sin rate-limit, antes de sacar conclusiones definitivas — n=175 (175 independientes, no 875) da un margen de error real amplio para una tasa del ~4-8%. Casos de borde cualitativos (`scripts/test-pipeline.ts`, ya corridos en evt-100, re-verificados en este bloque contra el corpus ampliado a 175): Early Push sigue devolviendo `knn_similarity: null` para los 3 candidatos del Top 3 (consistente con el 96.5% medido acá), Late Game Greedy y Flex-Pick muestran `denial_score` real y coherente (sube cuando hay más rivales confirmados con distribución de posición ambigua, exactamente el comportamiento que describe `pro-drafter-spec-v1.md`). `bun test` 408/408 sin cambios (el harness nuevo no tiene test propio — mismo criterio que `batch-harness.ts`, script de diagnóstico, no lógica de producto). Commiteado en `0ba303c` (corpus + harness) — **no se ejecutó `git push`** de este bloque todavía, se agrupa con TSK-093 (evt-105) antes de pushear el conjunto completo de la sesión.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-093</span> <span class="feed-ts">2026-08-24T14:30</span></div>
-            <div class="feed-note">Paso 3 de la sesión de Gobernanza 2.0 (continuación de TSK-091/092): wiring del endpoint experimental `POST /api/v1/draft/pro-recommendations` (TSK-091, dark-launched tras `ENABLE_PRO_DRAFTER`) en `apps/web`, 3 entregables pedidos por el usuario en el mismo bloque. (1) `features/pro-drafter/types.ts` (nuevo): espejo a mano de la respuesta del motor (`ProSignalId`, `ProSuggestion`, `ProDrafterResponse`) y del contrato de entrada (`ProDrafterRequest`/`buildProDrafterRequest`, mismo shape que `SuggestionsPreviewRequest`) — `ProSignalId` vive separado del `SignalId` de v5 a propósito, mismo motivo que el motor mantiene `PipelineSignalId` aparte de `SignalId` (`SIGNAL_LABELS`/`SCORING_WEIGHTS_V5` son `Record`s totales que se romperían al ampliar la unión). (2) `lib/engine-api.ts`: `postProRecommendations` como `mutation` (no `query`, el endpoint es POST con body) con URL absoluta a `LOCAL_DRAFT_ENGINE_HTTP_BASE_URL` — mismo criterio que `getDraftPaths`, la vista de draft en vivo nunca pasa por el proxy `/engine`/`next.config.ts` (regla dura TSK-037/038), así que `next.config.ts` queda intacto. (3) `app/draft/live-config.ts`: `isProDrafterEnabled()` lee `NEXT_PUBLIC_ENABLE_PRO_DRAFTER` (chequeo client-side, `DraftView.tsx` es `"use client"`) con polaridad invertida respecto a `isDraftLiveEnabled` — apagado por defecto, solo `"true"` explícito lo prende, coherente con que el flag del motor también es dark-launched por defecto. (4) `components/pro-drafter-panel/ProDrafterPanel.tsx` (nuevo): panel cerrado por defecto, mismo patrón visual que `DraftPathsCoverFlow` (Fase 2) pero disparando la mutation a mano en `handleOpen` en vez de `skip` de una query — renderiza el Top 3 con `HeroIcon` real (reutilizado de `DraftPathCard`, requisito duro de `web.md`) y el desglose `knn_similarity`/`lane_score`/`denial_score` con `PRO_SIGNAL_LABELS` propio, `raw: null` mostrado como "sin dato" nunca como 0. Insertado en `DraftView.tsx` junto a `DraftPathsCoverFlow`, gateado por `isProDrafterEnabled()`. **Cuando el flag está apagado (default), el árbol de render es exactamente el mismo que antes de este ticket** — el componente nuevo ni siquiera se monta. 8 archivos de producción/test (3 nuevos + 1 nuevo componente + 4 modificados) — por encima de 3/200, mismo patrón de excepción que TSK-090/091 (3 entregables bundleados por pedido explícito del usuario, interdependientes entre sí, partirlos no baja el riesgo real). `docs/agents/tasks/TSK-093.md` creado como registro con `simplicity_exception: true`. `COMMIT_TICKET=TSK-093 VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` — ✅ superado: tipos limpios (`tsc --noEmit` sin hallazgos nuevos en ninguno de los 8 archivos), `bun test` 408/408 en `apps/engine`, 137/137 en `apps/web` (133/133 antes de este bloque, +4 tests: 2 de `buildProDrafterRequest`, 2 de `isProDrafterEnabled`). Commiteado en `736f43a` (10 archivos incluyendo `docs/agents/hub.html` regenerado por `sync-context` y el propio `TSK-093.md`). **Traducción a producto**: esto significa que ahora existe una forma real de comparar visualmente, dentro del propio draft en vivo, lo que sugiere el motor Pro-Drafter (KNN/lane-sim/denial) contra las sugerencias v5 que ya se ven — pero solo prendiendo dos variables de entorno a propósito (`ENABLE_PRO_DRAFTER` del lado del motor, `NEXT_PUBLIC_ENABLE_PRO_DRAFTER` del lado del sitio); ningún usuario real ve el panel nuevo todavía. Verificación visual en navegador real (ambos flags encendidos, servidor + sitio corriendo, draft en vivo activo) queda pendiente del usuario. **No se ejecutó `git push`** de este commit todavía — se agrupa con el cierre del Paso 2 (harness de evaluación del corpus) antes de pushear el bloque completo.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T14:15</span></div>
-            <div class="feed-note">Cierre de Governance 2.0 (evt-103): los ~82 archivos pendientes de otras sesiones (TSK-068 a TSK-088, todos ya `state: done`, y `package.json`/`bun.lock`/corpus pro-drafter sin trackear) se organizaron en 14 commits atómicos por dominio lógico, cada uno con `bash scripts/verify-simplicity.sh` (camino rápido) en verde antes de comitear -- ningún archivo descartado. Hashes, en orden: `18719a8` (TSK-092, gates), `e82f90b` (TSK-071/072/078, máquina de turnos + fixtures), `d98ffd0` (TSK-069, team_synergy→capabilities.json), `52eea5f` (TSK-068, fix patch_meta), `83e0b05` (TSK-073, espejo de turno en wire+web), `ae2be57` (TSK-074, UI de timer/turno), `5c0ad1c` (TSK-070, UX defensiva entrada manual), `872342b` (useSubmitDraftEvent, RCA post-TSK-076), `96b8ad9` (TSK-077, jerarquía visual SuggestionCard), `210c951` (TSK-076/080/081, DraftLayout+InputModeSelector+HeroGrid), `363356c` (TSK-082/083/085/086/087/088, bot con motor real + paridad UI random-draft), `ff13b77` (pipeline de corpus pro-drafter), `73597ee` (backfill de docs/specs/21 tickets), `8ba2544` (regeneración de `hub.html`, vista derivada). `VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` corrido completo dos veces durante el bloque (antes de empezar a agrupar, y antes del commit de backfill de docs) -- ambas en verde (tipos limpios, 408/408 tests de apps/engine, 133/133 de apps/web). `git status` queda limpio (`nothing to commit, working tree clean`), 25 commits por delante de `origin/master`. **No se ejecutó `git push`** -- no fue pedido en esta sesión.</div>
           </div>
         </div></div>
     </div>

@@ -36,6 +36,13 @@
       "when": 1787500000000,
       "tag": "0004_vs_hero_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787600000000,
+      "tag": "0005_accounts",
+      "breakpoints": true
     }
   ]
 }

@@ -57,9 +57,18 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
 });
 
+// Fase 5 (TSK-094, SPEC.md §12.7): primera cuenta real del proyecto. Steam32 como PK, sin id
+// sustituto. `personal_baseline_winrate` migra acá desde `settings` (migración 0005) -- nace
+// `null` porque esa clave nunca se escribió realmente (hallazgo real de /blueprint, §12.15-E).
+export const accounts = sqliteTable("accounts", {
+  steamAccountId: integer("steam_account_id").primaryKey(),
+  personalBaselineWinrate: real("personal_baseline_winrate"),
+  createdAt: text("created_at").notNull(),
+});
+
 // Fase 1b (TSK-017, SPEC.md §9.4): hasta 5 héroes de comodidad del usuario local. `steam_account_id`
-// y `personal_baseline_winrate` viven como filas nuevas en `settings` (ya existente arriba), sin
-// cambio de esquema.
+// y `personal_baseline_winrate` vivían como filas de `settings` -- migradas a `accounts` en Fase 5
+// (migración 0005). `hero_pool` en sí sigue con PK simple hasta TSK-095 (migración 0006).
 export const heroPool = sqliteTable("hero_pool", {
   heroId: integer("hero_id")
     .primaryKey()
