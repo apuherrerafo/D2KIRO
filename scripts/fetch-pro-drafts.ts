@@ -55,7 +55,7 @@ function parseArgs(argv: readonly string[]): Args {
   return {
     patchOverride: flag("patch"),
     maxDrafts: Number(flag("max-drafts") ?? 5000),
-    delayMs: Number(flag("delay-ms") ?? 1500), // cortesía proactiva -- además del reintento del cliente
+    delayMs: Number(flag("delay-ms") ?? 3000), // cortesía proactiva -- además del reintento del cliente
     maxPages: Number(flag("max-pages") ?? 300), // safety cap -- nunca pagina sin límite
   };
 }
@@ -127,7 +127,16 @@ async function main(): Promise<void> {
 
   pageLoop: while (pagesScanned < args.maxPages && collected.length < args.maxDrafts) {
     await sleep(args.delayMs);
-    const page = (await client.getProMatches(cursor)) as ProMatchSummary[];
+
+    let page: ProMatchSummary[];
+    try {
+      page = (await client.getProMatches(cursor)) as ProMatchSummary[];
+    } catch (err) {
+      // OpenDota agotó los 3 reintentos del cliente (429/500 sostenido) -- se corta la paginación
+      // acá, nunca se crashea: se escribe lo que ya se juntó, nunca se fabrica el resto.
+      console.warn(`Página de proMatches falló tras reintentos, se corta acá: ${(err as Error).message}`);
+      break;
+    }
     pagesScanned++;
     if (page.length === 0) break;
 
