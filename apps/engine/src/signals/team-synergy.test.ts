@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
-import { teamSynergyScorer } from "./team-synergy";
-import type { MetaHeroInfo, MetaSnapshot } from "./types";
+import type { HeroCapabilities } from "../draft-paths/types";
+import { createTeamSynergyScorer } from "./team-synergy";
 
 function draftState(overrides: Partial<DraftState> = {}): DraftState {
   return {
     sessionId: "s1",
     schema: "draft-state/v1",
     format: "all_pick",
-    patch: "7.36",
+    patch: "7.41e",
     localSide: "radiant",
     phase: "active",
     banned: [],
@@ -17,86 +17,127 @@ function draftState(overrides: Partial<DraftState> = {}): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "2026-07-27T00:00:00Z",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
     ...overrides,
   };
 }
 
-function meta(heroes: Record<number, MetaHeroInfo>): MetaSnapshot {
-  return { heroes, matchups: {} };
+// Fixture propio, determinístico -- nunca draft-paths/capabilities.json real (mismo criterio que
+// gaps.test.ts y position-fit.test.ts, costura S9/S10: ese archivo se regenera por parche, un
+// test atado a su contenido se rompería en silencio al cambiar el meta, no al cambiar el código).
+function capability(overrides: Partial<HeroCapabilities> & { hero: number }): HeroCapabilities {
+  return {
+    damageType: "physical",
+    hasInitiation: false,
+    hasCatch: false,
+    hasWaveclear: false,
+    structuralDamage: "low",
+    teamfight: "low",
+    scaling: "low",
+    ...overrides,
+  };
 }
 
-describe("teamSynergyScorer", () => {
-  test("equipo propio vacío -> raw: null (sin cobertura previa que medir, es dato insuficiente)", () => {
-    const state = draftState({ picks: { radiant: [], dire: [] } });
-    const snapshot = meta({ 1: { id: 1, localizedName: "Anti-Mage", roles: ["Carry"] } });
+const INITIATOR = capability({ hero: 10, hasInitiation: true, damageType: "magical" });
+const WAVECLEARER = capability({ hero: 20, hasWaveclear: true, damageType: "magical" });
+const SCALER = capability({ hero: 21, scaling: "high", damageType: "physical" });
+const REDUNDANT_INITIATOR = capability({ hero: 30, hasInitiation: true, damageType: "physical" });
 
-    const result = teamSynergyScorer.score(state, 1, snapshot);
+describe("createTeamSynergyScorer", () => {
+  test("equipo propio vacío -> raw: null (sin cobertura previa que medir, es dato insuficiente)", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    const state = draftState({ picks: { radiant: [], dire: [] } });
+
+    const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
 
     expect(result.raw).toBeNull();
     expect(result.sampleSize).toBe(0);
   });
 
   test("localSide 'unknown' tampoco tiene equipo propio identificable -> raw: null", () => {
-    const state = draftState({ localSide: "unknown", picks: { radiant: [1], dire: [] } });
-    const snapshot = meta({ 1: { id: 1, localizedName: "Anti-Mage", roles: ["Carry"] } });
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    const state = draftState({ localSide: "unknown", picks: { radiant: [INITIATOR.hero], dire: [] } });
 
-    expect(teamSynergyScorer.score(state, 2, snapshot).raw).toBeNull();
+    expect(scorer.score(state, WAVECLEARER.hero, { heroes: {}, matchups: {} }).raw).toBeNull();
   });
 
-  test("equipo que ya cubre control/iniciación: candidato repetido puntúa más bajo que uno que llena un hueco", () => {
-    const state = draftState({ picks: { radiant: [10, 11], dire: [] } });
-    const snapshot = meta({
-      10: { id: 10, localizedName: "Disabler Hero", roles: ["Disabler"] },
-      11: { id: 11, localizedName: "Initiator Hero", roles: ["Initiator"] },
-      20: { id: 20, localizedName: "Redundante", roles: ["Disabler", "Initiator"] },
-      21: { id: 21, localizedName: "Aguante Hero", roles: ["Durable"] },
-    });
+  test("candidato sin entrada en capabilities.json -> raw: 0, nunca null (es un hueco de dato del candidato, no del equipo)", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
 
-    const redundant = teamSynergyScorer.score(state, 20, snapshot);
-    const gapFiller = teamSynergyScorer.score(state, 21, snapshot);
+    const result = scorer.score(state, 999, { heroes: {}, matchups: {} });
 
-    expect(redundant.raw).toBe(0);
-    expect(gapFiller.raw).toBeGreaterThan(redundant.raw as number);
-    expect(gapFiller.explanation).toContain("aguante");
+    expect(result.raw).toBe(0);
+    expect(result.explanation).toContain("Sin datos de capacidades");
   });
 
-  test("sampleSize es 0 en todos los casos", () => {
-    const emptyTeam = draftState({ picks: { radiant: [], dire: [] } });
-    const withTeam = draftState({ picks: { radiant: [10], dire: [] } });
-    const snapshot = meta({ 10: { id: 10, localizedName: "H", roles: ["Support"] } });
+  test("equipo sin iniciación: candidato que la aporta puntúa más que uno que repite algo ya cubierto", () => {
+    // Equipo propio: WAVECLEARER (aporta waveclear, nada de iniciación). Falta iniciación, catch,
+    // structural_damage, teamfight, scaling (todo salvo waveclear con un solo pick propio).
+    const state = draftState({ picks: { radiant: [WAVECLEARER.hero], dire: [] } });
+    const scorer = createTeamSynergyScorer([WAVECLEARER, INITIATOR, SCALER]);
 
-    expect(teamSynergyScorer.score(emptyTeam, 1, snapshot).sampleSize).toBe(0);
-    expect(teamSynergyScorer.score(withTeam, 1, snapshot).sampleSize).toBe(0);
+    const fillsInitiation = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
+    const fillsNothingNew = scorer.score(state, WAVECLEARER.hero, { heroes: {}, matchups: {} }); // ya picked, pero score() es pura, se puede volver a preguntar
+
+    expect(fillsInitiation.raw).toBeGreaterThan(0);
+    expect(fillsInitiation.explanation).toContain("initiation");
+    expect(fillsNothingNew.raw).toBe(0);
   });
 
-  test("candidato/héroes sin roles no lanza y es pura", () => {
-    const state = draftState({ picks: { radiant: [999], dire: [] } });
-    const snapshot = meta({});
+  test("gap de magnitud (scaling): la explicación cita el nivel real del candidato, no un genérico", () => {
+    const state = draftState({ picks: { radiant: [WAVECLEARER.hero], dire: [] } }); // scaling bajo -> gap
+    const scorer = createTeamSynergyScorer([WAVECLEARER, SCALER]);
 
-    expect(() => teamSynergyScorer.score(state, 42, snapshot)).not.toThrow();
-    expect(teamSynergyScorer.score(state, 42, snapshot)).toEqual(teamSynergyScorer.score(state, 42, snapshot));
+    const result = scorer.score(state, SCALER.hero, { heroes: {}, matchups: {} });
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.explanation).toContain("muy buen scaling");
   });
 
-  // TSK-060: `covered` se cachea por (state, meta) juntos, no solo por `state` -- `teamSynergyScorer`
-  // es un singleton de módulo, así que el mismo objeto DraftState podría en teoría verse pasado con
-  // un `meta` distinto entre dos llamadas (dos snapshots de meta sobre el mismo estado). Sin la
-  // cache anidada por meta, la segunda llamada serviría el `covered` calculado contra el primer
-  // `meta`, ignorando que los roles del héroe 10 cambiaron.
-  test("el mismo state con dos meta distintos no comparte covered cacheado entre sí", () => {
-    const state = draftState({ picks: { radiant: [10], dire: [] } });
-    const metaA = meta({ 10: { id: 10, localizedName: "H", roles: ["Disabler"] } });
-    const metaB = meta({ 10: { id: 10, localizedName: "H", roles: ["Initiator"] } });
+  test("damage_mix: con 2 picks propios del mismo tipo, un candidato de tipo distinto llena el hueco", () => {
+    const magicalOnly = draftState({ picks: { radiant: [INITIATOR.hero, WAVECLEARER.hero], dire: [] } }); // ambos "magical"
+    const scorer = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER]); // SCALER es "physical"
 
-    // candidato 20 solo aporta "iniciacion" -- con metaA (10 = Disabler) el equipo no lo cubre
-    // todavía, así que 20 debería sumar cobertura nueva; con metaB (10 = Initiator) esa misma
-    // capacidad ya está cubierta por el pick propio, así que 20 no debería aportar nada nuevo.
-    const snapshotWithCandidate = { heroes: { ...metaA.heroes, 20: { id: 20, localizedName: "C", roles: ["Initiator"] } }, matchups: {} };
-    const resultA = teamSynergyScorer.score(state, 20, snapshotWithCandidate);
+    const result = scorer.score(magicalOnly, SCALER.hero, { heroes: {}, matchups: {} });
 
-    const snapshotBWithCandidate = { heroes: { ...metaB.heroes, 20: { id: 20, localizedName: "C", roles: ["Initiator"] } }, matchups: {} };
-    const resultB = teamSynergyScorer.score(state, 20, snapshotBWithCandidate);
-
-    expect(resultA.raw).toBeGreaterThan(0);
-    expect(resultB.raw).toBe(0);
+    expect(result.explanation).toContain("daño físico");
   });
+
+  test("candidato que no llena ningún gap actual -> raw: 0, explicación honesta", () => {
+    const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
+    const scorer = createTeamSynergyScorer([INITIATOR, REDUNDANT_INITIATOR]);
+
+    const result = scorer.score(state, REDUNDANT_INITIATOR.hero, { heroes: {}, matchups: {} });
+
+    expect(result.raw).toBe(0);
+    expect(result.explanation).toBe("No aporta ninguna capacidad táctica que a tu equipo le falte todavía");
+  });
+
+  test("sampleSize es 0 en todos los casos (esta señal no reporta muestra propia)", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    const empty = draftState({ picks: { radiant: [], dire: [] } });
+    const withTeam = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
+
+    expect(scorer.score(empty, INITIATOR.hero, { heroes: {}, matchups: {} }).sampleSize).toBe(0);
+    expect(scorer.score(withTeam, WAVECLEARER.hero, { heroes: {}, matchups: {} }).sampleSize).toBe(0);
+  });
+
+  test("es pura: mismo state + mismo candidato -> mismo resultado, nunca lanza", () => {
+    const state = draftState({ picks: { radiant: [999], dire: [] } }); // pick propio sin entrada en capabilities
+    const scorer = createTeamSynergyScorer([]);
+
+    expect(() => scorer.score(state, 42, { heroes: {}, matchups: {} })).not.toThrow();
+    expect(scorer.score(state, 42, { heroes: {}, matchups: {} })).toEqual(scorer.score(state, 42, { heroes: {}, matchups: {} }));
+  });
+
+  // TSK-069: el candado de TSK-060 ("el mismo state con dos meta distintos no comparte covered
+  // cacheado entre sí") no tiene equivalente acá a propósito, no por olvido -- la versión anterior
+  // necesitaba ese candado porque `teamSynergyScorer` era un singleton de módulo reusado entre
+  // llamadas con distinto `meta`. `createTeamSynergyScorer(capabilities)` construye una cache
+  // nueva (WeakMap local al closure) por cada llamada a buildSuggestions -- dos instancias nunca
+  // comparten cache entre sí porque cada una tiene la suya propia, la clase de bug queda eliminada
+  // por construcción, no por un chequeo en runtime.
 });

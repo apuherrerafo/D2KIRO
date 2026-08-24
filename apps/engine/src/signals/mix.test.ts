@@ -23,6 +23,9 @@ function draftState(overrides: Partial<DraftState> = {}): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "2026-07-27T00:00:00Z",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
     ...overrides,
   };
 }
@@ -205,7 +208,11 @@ describe("SCORING_WEIGHTS_V5 — candado de dominancia de posición sobre comodi
       [ORACLE]: { id: ORACLE, localizedName: "Oracle" },
     });
 
-    const result = buildSuggestions(state, snapshot, { heroPositions: HERO_POSITIONS });
+    // heroCapabilities:[] (S9, TSK-069): con Spectre pickeado del lado propio, team_synergy ya no
+    // es null -- sin esto, el archivo real de capabilities.json decidiría parte de esta
+    // comparación en vez de dejarla 100% en manos de position_fit, que es la señal que este test
+    // dice estar probando (mismo criterio que heroPositions:{} en los tests de arriba).
+    const result = buildSuggestions(state, snapshot, { heroPositions: HERO_POSITIONS, heroCapabilities: [] });
 
     const top3Heroes = result.suggestions.map((s) => s.hero);
     expect(top3Heroes).not.toContain(WRAITH_KING);

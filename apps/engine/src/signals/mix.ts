@@ -1,10 +1,12 @@
 import type { DraftState, HeroId } from "../draft/reducer";
+import { loadHeroCapabilities } from "../draft-paths/capabilities";
+import type { HeroCapabilities } from "../draft-paths/types";
 import { counterScorer } from "./counter";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
-import { teamSynergyScorer } from "./team-synergy";
+import { createTeamSynergyScorer } from "./team-synergy";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V5 } from "./weights";
 
@@ -45,19 +47,26 @@ export interface BuildSuggestionsOptions {
   // (loadHeroPositions()). Las pruebas inyectan su propio fixture -- nunca dependen del archivo
   // real, que se regenera por parche.
   heroPositions?: HeroPositions;
+  // TSK-069 (Fase 2 de la auditoría de inteligencia del motor, misma costura S9 que ya usa
+  // draft-paths): ausente -> carga draft-paths/capabilities.json real (loadHeroCapabilities()).
+  // Las pruebas inyectan su propio fixture -- nunca dependen del archivo real.
+  heroCapabilities?: HeroCapabilities[];
 }
 
-// TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. Las 4 señales que no
-// necesitan configuración por llamada siguen siendo instancias únicas a nivel de módulo;
-// position_fit se construye por llamada dentro de buildSuggestions() porque depende del dato
-// inyectable de heroPositions (no puede ser un singleton de módulo, a diferencia del resto).
+// TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
+// deja de ser un singleton de módulo -- ahora depende de heroCapabilities inyectable, mismo
+// motivo que ya sacó a position_fit de STATIC_SCORERS. Las 3 señales que no necesitan
+// configuración por llamada siguen siendo instancias únicas a nivel de módulo; position_fit y
+// team_synergy se construyen por llamada dentro de buildSuggestions().
 // SCORING_WEIGHTS_V1/V2/V3/V4 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V5 es
 // la única constante que usa este archivo de aquí en adelante (auditoría 2026-08-22).
-const STATIC_SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, teamSynergyScorer, heroPoolFitScorer];
+const STATIC_SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, heroPoolFitScorer];
 
-// Loaded once at module initialisation — hero-positions.json is never re-parsed per call.
-// Test seam S10: BuildSuggestionsOptions.heroPositions overrides this constant.
+// Loaded once at module initialisation — ninguno de los dos archivos se re-parsea por llamada.
+// Costura S10/S9: BuildSuggestionsOptions.heroPositions/heroCapabilities sobrescriben estas
+// constantes en las pruebas.
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
+const MODULE_HERO_CAPABILITIES: HeroCapabilities[] = loadHeroCapabilities();
 const TOP_N = 3;
 const HARD_CUTOFF_MS = 500;
 
@@ -139,13 +148,23 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
   return "alta";
 }
 
+// TSK-069 (fase 3 de la auditoría de inteligencia): antes unía las 2 explicaciones con "; ",
+// leyéndose como una sola oración cortada a la mitad. Cerrar cada una en punto y unirlas con
+// espacio las deja como 2 oraciones completas -- sin tocar el contenido de cada `explanation`
+// (solo se le agrega un punto final si no lo tiene), así que `reason` sigue conteniendo el string
+// exacto de cada señal (candado de mix.test.ts, "Suggestion.reason es trazable a los signals").
+function asSentence(explanation: string): string {
+  if (explanation.length === 0 || explanation.endsWith(".")) return explanation;
+  return `${explanation}.`;
+}
+
 function buildReason(signals: SignalContribution[]): string {
   const informative = signals
     .filter(hasVote)
     .sort((a, b) => SCORING_WEIGHTS_V5[b.signal] - SCORING_WEIGHTS_V5[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
-  if (informative.length > 0) return informative.join("; ");
+  if (informative.length > 0) return informative.map(asSentence).join(" ");
   return signals[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
 }
 
@@ -198,10 +217,12 @@ export function buildSuggestions(
   if (state.quality.unconfirmed.length > 0) degraded.push("unconfirmed_state");
   if (state.format === "unknown") degraded.push("unknown_format");
 
-  // position_fit no puede ser un singleton de módulo como el resto -- depende del dato inyectable
-  // de heroPositions, así que se construye una vez por llamada (costura S10).
+  // position_fit y team_synergy no pueden ser singletons de módulo como el resto -- dependen de
+  // datos inyectables (heroPositions/heroCapabilities), así que se construyen una vez por llamada
+  // (costura S10/S9).
   const heroPositions = options.heroPositions ?? MODULE_HERO_POSITIONS;
-  const scorers: SignalScorer[] = [...STATIC_SCORERS, createPositionFitScorer(heroPositions)];
+  const heroCapabilities = options.heroCapabilities ?? MODULE_HERO_CAPABILITIES;
+  const scorers: SignalScorer[] = [...STATIC_SCORERS, createPositionFitScorer(heroPositions), createTeamSynergyScorer(heroCapabilities)];
 
   const candidates = candidatePool(state, meta);
   if (candidates.length === 0) {
