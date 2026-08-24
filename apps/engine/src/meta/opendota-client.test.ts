@@ -102,3 +102,63 @@ test("getPlayerHeroes respeta un days explícito distinto del default", async ()
 
   expect(calls).toEqual(["https://api.opendota.com/api/players/1/heroes?date=30"]);
 });
+
+// scripts/fetch-pro-drafts.ts (Fase 5): getJson/fetchWithRetry ya cubiertos arriba -- estas 3
+// pruebas solo confirman la URL construida por cada método nuevo, mismo criterio que
+// getPlayerHeroes. El candado real (429 → reintento) es el que faltaba antes de agregar estos
+// métodos: el script tenía su propio fetch sin reintento y un 429 real lo tumbó en producción.
+
+test("getProMatches sin cursor pide la primera página, sin query string", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse([{ match_id: 1 }]);
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  const result = await client.getProMatches();
+
+  expect(calls).toEqual(["https://api.opendota.com/api/proMatches"]);
+  expect(result).toEqual([{ match_id: 1 }]);
+});
+
+test("getProMatches con cursor arma less_than_match_id para paginar hacia atrás", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse([]);
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  await client.getProMatches(8960577698);
+
+  expect(calls).toEqual(["https://api.opendota.com/api/proMatches?less_than_match_id=8960577698"]);
+});
+
+test("getMatchDetail pide el detalle completo de un match_id puntual", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse({ patch: 60, radiant_win: true });
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  const result = await client.getMatchDetail(8960577698);
+
+  expect(calls).toEqual(["https://api.opendota.com/api/matches/8960577698"]);
+  expect(result).toEqual({ patch: 60, radiant_win: true });
+});
+
+test("getPatchConstants pide constants/patch sin parámetros", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse([{ id: 60, name: "7.41", date: "2026-03-24T00:50:59.580Z" }]);
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  const result = await client.getPatchConstants();
+
+  expect(calls).toEqual(["https://api.opendota.com/api/constants/patch"]);
+  expect(result).toEqual([{ id: 60, name: "7.41", date: "2026-03-24T00:50:59.580Z" }]);
+});

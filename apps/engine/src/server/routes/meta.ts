@@ -7,6 +7,14 @@ import { getCachedMetaSnapshot, getMetaFreshness } from "../../meta/provider";
 import { beginMetaSync, runMetaSync } from "../../meta/sync";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
+// TSK-068: única fuente de verdad del lado del motor para "qué parche está activo" -- OpenDota no
+// expone esta dimensión en /heroStats (patch es un rótulo que el proyecto le asigna a mano al
+// sincronizar, nunca un dato que venga en la respuesta). Espejado a mano en
+// apps/web/app/draft/live-config.ts (mismo patrón que el espejo de SignalId, web.md) -- los dos
+// procesos son independientes a propósito, actualizar el parche real es un cambio en los dos
+// lados a la vez.
+const CURRENT_PATCH = "7.41e";
+
 // TSK-058: extraído de apps/engine/src/server/app.ts (hallazgo 2.1 de "Radiografía de
 // dota2coach", parte 3/3 -- ver TSK-056 para contexto completo). Mismo comportamiento exacto,
 // verificado con la suite de integración existente de app.test.ts.
@@ -47,9 +55,16 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
 
   // Asíncrono, no bloquea: crea la fila de meta_sync (rápido) y responde de inmediato con el
   // syncId real; el trabajo lento (fetch a OpenDota + reintentos) sigue en segundo plano.
+  //
+  // TSK-068 (auditoría de inteligencia del motor, fase 1): sin CURRENT_PATCH, un sync sin `patch`
+  // explícito en el body (el único camino real -- apps/web nunca manda uno, ver engine-api.ts)
+  // guardaba hero_patch_stats.patch = "" -- un rótulo que ninguna sesión de draft podía volver a
+  // matchear contra su propio state.patch ("7.41e", bootstrap-session.ts), dejando patch_meta en
+  // raw: null siempre, sin importar cuántas veces se sincronizara. Un `patch` vacío explícito en
+  // el body cuenta igual que ausente -- ninguno de los dos es "el usuario eligió un parche real".
   async function sync(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => ({}))) as { patch?: string };
-    const patch = typeof body.patch === "string" ? body.patch : "";
+    const patch = typeof body.patch === "string" && body.patch.length > 0 ? body.patch : CURRENT_PATCH;
     const heroIdsForMatchups = deps.db
       .select({ id: schema.heroes.id })
       .from(schema.heroes)

@@ -56,6 +56,23 @@ export class OpenDotaClient {
     return this.getJson(`/players/${accountId}/heroes?date=${days}`);
   }
 
+  // scripts/fetch-pro-drafts.ts (ingesta manual del corpus del KNN, Fase 5): mismos 3 métodos,
+  // mismo patrón -- reutilizan getJson/fetchWithRetry en vez de que el script reimplemente su
+  // propio fetch sin reintento (el bug real que motivó agregar estos métodos acá: un 429 de
+  // OpenDota tumbaba el script entero en vez de reintentar con espera creciente).
+  getProMatches(lessThanMatchId?: number): Promise<unknown> {
+    const query = lessThanMatchId ? `?less_than_match_id=${lessThanMatchId}` : "";
+    return this.getJson(`/proMatches${query}`);
+  }
+
+  getMatchDetail(matchId: number): Promise<unknown> {
+    return this.getJson(`/matches/${matchId}`);
+  }
+
+  getPatchConstants(): Promise<unknown> {
+    return this.getJson("/constants/patch");
+  }
+
   private async getJson(path: string): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const response = await this.fetchWithRetry(url);
