@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T16:44:40.507Z</title>
+<title>HUB del ecosistema — 2026-08-24T17:09:11.328Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1079,11 +1079,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">128× · 76% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">129× · 76% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:45%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:44%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1093,7 +1093,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:33%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1151,6 +1151,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T17:08</span></div>
+            <div class="feed-note">Fase 2 (Performance & Resiliencia del Servidor, sesión Gobernanza 2.0): cache-aside + fallback transparente a v5 sobre `POST /api/v1/draft/pro-recommendations` (`routes/pro-drafter.ts`, dark-launched tras `ENABLE_PRO_DRAFTER` desde TSK-091, sin cambiar ese gate). **Cache-aside**: `Map<string, {response, expiresAt}>` en memoria por instancia -- mismo criterio que `SessionStore` (TSK-055), TTL 5 min, tope duro de 200 entradas con desalojo LRU real (un hit borra+reinserta la entrada al final del Map, un overflow desaloja la primera). Clave = fingerprint de la COMBINACIÓN de héroes (`format|patch|localSide|banned ordenado|radiant ordenado|dire ordenado`) -- los ids se ordenan a propósito para que el mismo conjunto de héroes en distinto orden de pick sea el MISMO hit de caché, decisión de diseño explícita, probada con un test dedicado. **Fallback a v5**: `runProDrafterPipeline` se ejecuta envuelto en try/catch + medición de presupuesto (`PIPELINE_TIMEOUT_MS=200`); si lanza o el tiempo transcurrido supera el presupuesto, la respuesta cae a v5 real (`computeSuggestionsForState`, ya existente en `app.ts` desde TSK-048, inyectado como `computeV5Fallback` porque `pro-drafter.ts` no tiene `db`) con `fallback_applied: true`, siempre HTTP 200, nunca 500. **Limitación real, documentada en el propio código, no oculta**: `runProDrafterPipeline` es síncrono -- JS de un solo hilo no puede interrumpirlo a mitad de cálculo sin workers (que este proyecto no tiene). El "timeout" mide el tiempo YA transcurrido después de que la llamada terminó, no la corta en vivo; lo que sí garantiza sin ambigüedad es que el CLIENTE nunca recibe una respuesta que se pasó del presupuesto -- si se pasó, se descarta igual y cae a v5, mismo resultado observable que un timeout preventivo real. Los tipos de señal de v5 (`SignalId`: position_fit/team_synergy/counter/patch_meta/hero_pool_fit) y Pro-Drafter (`PipelineSignalId`: knn_similarity/lane_score/denial_score) son vocabularios disjuntos ya documentados como tales (`web.md`) -- una sugerencia de fallback nunca fabrica un valor Pro-Drafter que v5 no calculó, viaja con `signals: []`. **Hallazgo real durante el gate, no anticipado**: el test nuevo (`pro-drafter.test.ts`) importaba `PipelineCandidateResult` desde `pipeline/run-pipeline` solo para tipar un fixture -- eso rompió la prueba de aislamiento de evt-099/evt-100 (`run-pipeline.test.ts`: "exactamente un archivo bajo `server/` importa `pipeline/`"), que ahora veía DOS (`routes/pro-drafter.ts` + el test nuevo). Corregido quitando los imports de tipo (`PipelineCandidateResult`, `SuggestionSet`) y dejando que TypeScript verifique la forma por *contextual typing* contra `ProDrafterRouteDeps` -- el chequeo estructural no necesita el nombre del tipo importado, la invariante real ("solo el punto de entrada deliberado toca `pipeline/`") queda intacta. **Tests nuevos** (`pro-drafter.test.ts`, 7 casos, `runPipeline`/`computeV5Fallback`/`now` inyectados, nunca corpus/hero-positions/pesos/perfiles reales en las aserciones aunque se cargan de verdad al construir la ruta -- mismo hueco preexistente que ya tenían `corpus`/`weights`/`profiles` sin inyección completa, no introducido ni corregido acá): cache miss inicial calcula (1 llamada al pipeline), un pedido idéntico repetido es cache hit (0 llamadas nuevas), dos rosters distintos no comparten entrada, el MISMO conjunto de héroes en otro orden SÍ comparte entrada (fingerprint ordena ids), excepción del pipeline → fallback con 200 (no 500), timeout simulado vía reloj inyectado (`now` fuerza 250ms medidos sin esperar de verdad) → fallback, y fallback sin `computeV5Fallback` inyectado → `suggestions: []` sin lanzar. **Latencia real medida** (corpus/pipeline reales, no fixtures, script descartable fuera del repo): primera solicitud (cache miss, pipeline completo) 27.21ms; segunda solicitud idéntica (cache hit) **0.17ms** -- muy por debajo del objetivo de <50ms pedido. `bun test`: 422/422 en `apps/engine` (415/415 antes + 7 nuevos), 137/137 en `apps/web` sin cambios. `tsc --noEmit` limpio. 3 archivos (`app.ts`: 1 línea de wiring, inyecta `computeV5Fallback` aprovechando que es una `function` declaration hoisted dentro de `createApp`; `routes/pro-drafter.ts`: +106 líneas netas; `pro-drafter.test.ts`: 177 líneas, dentro del presupuesto de test 200-350) -- sin necesidad de excepción de simplicidad. **Fuera de alcance a propósito, pedido explícito del usuario ("antes de la UI")**: el espejo de tipos en `apps/web/features/pro-drafter/types.ts` (`ProDrafterResponse`) no gana `fallback_applied`/`cache_hit` en este bloque -- son campos aditivos, no rompen el consumo actual (ningún campo existente cambió de forma), pero el panel (`ProDrafterPanel.tsx`) tampoco los muestra todavía; property real para un ticket propio si se quiere superficie visual de cuándo el motor cayó a v5. **Traducción a producto**: esto significa que ahora el endpoint experimental de Pro-Drafter responde casi instantáneo ante rosters repetidos (cache) y nunca deja a un usuario sin sugerencias si el pipeline KNN/lane-sim/denial falla o se demora -- cae solo a v5, invisible, sin error visible -- pero todavía apagado por defecto (`ENABLE_PRO_DRAFTER`), nadie lo ve en producción real todavía.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1226,13 +1233,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-089</span> <span class="feed-ts">2026-08-23T23:55</span></div>
             <div class="feed-note">Señal `archetype_fit` aislada (sub-ticket 4.1), TDD real: `archetype-fit.test.ts` escrito primero, confirmado en rojo (`Cannot find module`) antes de escribir `archetype-fit.ts`. `build-paths.ts`: `archetypeFitBonus` pasa a exportada, una línea, sin cambios de firma/cuerpo. `archetype-fit.ts` nuevo: `createArchetypeFitScorer(capabilities, intent)`, normalización a `[0,1]` vía `ARCHETYPE_MAX_BONUS` por arquetipo (dentro del scorer, no en `RAW_RANGE`), `SignalId` sin ampliar (vista de tipo derivada `ArchetypeFitContribution`). Hallazgo real durante la ejecución: `tsc --noEmit` ya fallaba en 9 archivos preexistentes (ninguno tocado por este ticket) por un drift real de `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que sus fixtures de test nunca actualizaron; corregido solo en el fixture nuevo de este ticket, los 8 archivos preexistentes quedan fuera de alcance (anotado, no arreglado de paso). Diff real 279→281 líneas contra el máximo de 200 -- el propio ticket ya anticipaba el escenario; confirmado con el usuario vía `AskUserQuestion` (no asumido) antes de declarar `simplicity_exception: true`, sin recortar ninguna de las 5 pruebas obligatorias. Autorevisión estilo `@redteam` sobre el diff final: gate de seguridad PASS (sin inputs sin validar, sin secretos, sin queries, señal no toca I/O); 1 hallazgo real de Standards (un `as Exclude<CapabilityLevel,"low">` que evitaba que el compilador probara la invariante) corregido sin necesitar otra ronda. `bun test`: 445/445 en todo el monorepo tras el fix, sin ninguna prueba existente modificada. Ticket no integra la señal al motor (`mix.ts`/`weights.ts`/`apps/web` intactos, `SCORING_WEIGHTS_V5` sigue siendo la única activa) -- eso es 4.2, explícitamente fuera de alcance. state: backlog → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">TSK-089</span> <span class="feed-ts">2026-08-23T23:50</span></div>
-            <div class="feed-note">Alcance deliberadamente parcial (solo 4.1). Secciones "Fase 4" en `.claude/rules/engine.md`/`security.md`/`testing-seams.md` (no `web.md`, 4.1 no toca `apps/web`). `CLAUDE.md` gana "REGLAS DE FASE 4 (sub-ticket 4.1)" y actualiza su nota de estado. `TSK-089` creado (backlog → doing al empezar `@build` en el mismo turno, por pedido explícito del usuario). Tablero regenerado: 89 tareas, 286 eventos. Hooks sin cambios.</div>
           </div>
         </div></div>
     </div>

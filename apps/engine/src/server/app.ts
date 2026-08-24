@@ -99,7 +99,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   // Dark launch (pro-drafter-spec-v1.md §3): apagado por defecto, gate real es ENABLE_PRO_DRAFTER
   // (chequeado en el dispatch de abajo), no la sola existencia de esta instancia -- construirla no
   // toca la red ni SQLite, solo carga archivos estáticos ya usados en otras partes del motor.
-  const proDrafterRoutes = createProDrafterRoutes({ heroPositions: deps.heroPositions });
+  // computeSuggestionsForState está declarada más abajo (function declaration, hoisted dentro de
+  // este mismo scope) -- Fase 2 (cache-aside + fallback, sesión Gobernanza 2.0): pro-drafter.ts no
+  // tiene `db`, así que el fallback real a v5 se inyecta desde acá.
+  const proDrafterRoutes = createProDrafterRoutes({ heroPositions: deps.heroPositions, computeV5Fallback: computeSuggestionsForState });
   let server: Server<WsData>;
 
   // TSK-048: helper compartido entre el push automático (pushSessionUpdate) y el reenvío al
