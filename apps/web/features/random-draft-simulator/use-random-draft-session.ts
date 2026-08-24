@@ -21,7 +21,7 @@ import type {
 import type { SeededRng } from "./seeded-rng";
 import { createSeededRng } from "./seeded-rng";
 import { initDraft, type OrchestratorResult } from "./orchestrator";
-import { botPickHero, type MetaSnapshot } from "./bot-drafter";
+import { botPickHeroFromEngine, type MetaSnapshot } from "./bot-drafter";
 import { BLIND_ROUND_SPECS } from "./constants";
 import { loadMetaSnapshot } from "./meta-loader";
 import { useRandomDraftStore, type RandomDraftActions, type RandomDraftState } from "./store";
@@ -142,17 +142,22 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     if (!sessionId) return;
     // Reintento con backoff -- Req. 9.6, mismo patrón que reconectar el WebSocket abajo.
     const delays = [0, 200, 400];
+    // Diagnóstico: el motivo real de rechazo (rejected) o "network_error" -- antes el log final
+    // solo mostraba el payload, una caja negra para diagnosticar por qué falló cada reintento.
+    let lastReason: string | undefined;
     for (const delay of delays) {
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
       try {
         const result = await postSimulatorEvent(sessionId, nextSeq(), payload);
         if (result.accepted) return;
+        lastReason = result.rejected ?? "rejected_no_reason";
       } catch {
         // Reintenta con el siguiente delay; si se agotan, el evento se pierde (no hay más
         // reintentos posibles sin bloquear indefinidamente la sesión).
+        lastReason = "network_error";
       }
     }
-    console.error("[useRandomDraftSession] no se pudo emitir el evento tras reintentos:", payload);
+    console.error("[useRandomDraftSession] no se pudo emitir el evento tras reintentos:", payload, "motivo:", lastReason);
   }
 
   function connectSocket(sessionId: string): void {
@@ -192,7 +197,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     metaRef.current = { meta, allHeroIds };
     rngRef.current = createSeededRng(config.draftSeed);
 
-    const orchestratorResult: OrchestratorResult = initDraft({
+    const orchestratorResult: OrchestratorResult = await initDraft({
       draftSeed: config.draftSeed,
       userSide: config.userSide,
       personalBanList: config.personalBanList,
@@ -316,7 +321,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
 
       const remainingUserPicks = userPicks.filter((heroId) => !collidedHeroes.includes(heroId));
       const remainingBotPicks = botPicks.filter((heroId) => !collidedHeroes.includes(heroId));
-      const newBotPicks = recalculateBotPicks(round, remainingBotPicks, collidedHeroes.length, rng, meta);
+      const newBotPicks = await recalculateBotPicks(round, remainingBotPicks, collidedHeroes.length, rng, meta);
 
       useRandomDraftStore.getState().retryRoundAfterConflict({
         pendingUserPicks: remainingUserPicks,
@@ -330,22 +335,24 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
 
     // Req. 5.4: 3ra colisión de la ronda -- el usuario conserva el héroe, el bot recalcula.
     const survivingBotPicks = botPicks.filter((heroId) => !collidedHeroes.includes(heroId));
-    const newBotPicks = recalculateBotPicks(round, survivingBotPicks, collidedHeroes.length, rng, meta);
+    const newBotPicks = await recalculateBotPicks(round, survivingBotPicks, collidedHeroes.length, rng, meta);
     useRandomDraftStore.getState().patchRevealedRound({ userPicks, botPicks: newBotPicks });
     await revealAndAdvance(round, userPicks, newBotPicks);
   }
 
-  function recalculateBotPicks(
+  // TSK-083: async -- cada pick recalculado le pide la sugerencia real al motor
+  // (botPickHeroFromEngine), con el mismo fallback al scoring simplificado que initDraft.
+  async function recalculateBotPicks(
     round: 1 | 2 | 3,
     survivingBotPicks: HeroId[],
     countNeeded: number,
     rng: SeededRng,
     meta: { meta: MetaSnapshot; allHeroIds: HeroId[] },
-  ): HeroId[] {
+  ): Promise<HeroId[]> {
     const state = useRandomDraftStore.getState();
     const result = [...survivingBotPicks];
     for (let i = 0; i < countNeeded; i++) {
-      const picked = botPickHero({
+      const picked = await botPickHeroFromEngine({
         draftState: buildBotDraftState(state, round, result),
         botSide: otherSide(state.config!.userSide),
         meta: meta.meta,
@@ -376,6 +383,12 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       appliedEventIds: [],
       quality: { unconfirmed: [], captureStatus: "ok" as const },
       updatedAt: new Date(0).toISOString(),
+      // TSK-073: siempre null -- este DraftState de precálculo es format:"all_pick", que nunca
+      // tiene tabla de turnos (spec §2.1).
+      firstPickSide: null,
+      turnStartedAt: null,
+      reserveRemainingMs: null,
+      turn: null,
     };
   }
 

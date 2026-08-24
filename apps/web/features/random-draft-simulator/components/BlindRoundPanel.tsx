@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
-import { DraftTimer } from "@/components/draft-timer/DraftTimer";
-import { HeroPicker } from "@/components/hero-picker/HeroPicker";
-import { BUTTON_GHOST, BUTTON_PRIMARY } from "@/features/draft/styles";
+import { HeroGrid } from "@/components/hero-grid/HeroGrid";
+import { BUTTON_GHOST } from "@/features/draft/styles";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { specForRound } from "../use-random-draft-session";
@@ -64,34 +64,58 @@ interface BlindRoundActiveProps {
   phase: BlindRoundPhase;
   draftState: DraftState | null;
   heroCatalog: Map<number, HeroMeta>;
+  // TSK-084: mismos candidatos que ya destaca el Copilot al lado -- un solo highlight dorado
+  // consistente entre las dos superficies, no una segunda heurística.
+  highlightedHeroIds: ReadonlySet<HeroId>;
   onConfirmPick: (heroId: HeroId) => void;
   onDeselectPick: (heroId: HeroId) => void;
   onConfirmRound: () => void;
 }
 
-function BlindRoundActive({ phase, draftState, heroCatalog, onConfirmPick, onDeselectPick, onConfirmRound }: BlindRoundActiveProps) {
+function BlindRoundActive({
+  phase,
+  draftState,
+  heroCatalog,
+  highlightedHeroIds,
+  onConfirmPick,
+  onDeselectPick,
+  onConfirmRound,
+}: BlindRoundActiveProps) {
   const spec = specForRound(phase.round);
   const unavailable = unavailableHeroIds(draftState, phase.pendingUserPicks);
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
   const slotsLeft = spec.picksPerTeam - phase.pendingUserPicks.length;
-  const canConfirm = slotsLeft === 0;
+  const readyToAdvance = slotsLeft === 0;
+
+  // TSK-087: auto-avanza en cuanto se completan los picks de la ronda -- pedido explícito del
+  // usuario ("si ya escogí 2, directo pasamos a lo siguiente"), el botón "Confirmar ronda" era un
+  // paso manual innecesario una vez que no queda nada más que elegir. `advancedRef` evita
+  // disparar dos veces para la misma ronda completa (el efecto se re-ejecuta en cada render
+  // mientras readyToAdvance siga en true, hasta que confirmRound cambia la fase y este componente
+  // deja de montarse).
+  const advancedRef = useRef(false);
+  useEffect(() => {
+    if (!readyToAdvance) {
+      advancedRef.current = false;
+      return;
+    }
+    if (advancedRef.current) return;
+    advancedRef.current = true;
+    onConfirmRound();
+  }, [readyToAdvance, onConfirmRound]);
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-heading text-content-primary">Ronda {phase.round} -- elegí {spec.picksPerTeam} héroe(s)</span>
-        <DraftTimer key={`${phase.round}-${phase.conflictCount}`} waitMs={spec.timerMs} />
-      </div>
+      {/* TSK-086: el timer de la ronda se ve ahora al centro de CompactBoard (page.tsx), no acá --
+          nunca dos timers en pantalla al mismo tiempo. */}
+      <span className="text-heading text-content-primary">Ronda {phase.round} -- elegí {spec.picksPerTeam} héroe(s)</span>
       <ConflictBanner conflictBans={phase.conflictBans} heroCatalog={heroCatalog} />
       <div className="flex flex-wrap gap-3">
         {phase.pendingUserPicks.map((heroId) => (
           <PendingPickRow key={heroId} heroId={heroId} heroMeta={heroCatalog.get(heroId)} onDeselect={onDeselectPick} />
         ))}
       </div>
-      {slotsLeft > 0 && <HeroPicker heroes={pickablePool} onSelect={onConfirmPick} />}
-      <button type="button" onClick={onConfirmRound} disabled={!canConfirm} className={`self-start ${BUTTON_PRIMARY}`}>
-        Confirmar ronda
-      </button>
+      {slotsLeft > 0 && <HeroGrid heroes={pickablePool} highlightedHeroIds={highlightedHeroIds} onSelect={onConfirmPick} />}
     </div>
   );
 }
@@ -137,20 +161,34 @@ export interface BlindRoundPanelProps {
   phase: BlindRoundPhase | RoundRevealedPhase;
   draftState: DraftState | null;
   heroCatalog: Map<number, HeroMeta>;
+  // TSK-084: opcional a propósito -- mismo criterio que HeroGrid.highlightedHeroIds, un caller
+  // sin sugerencias frescas todavía (o ninguna) simplemente no resalta nada.
+  highlightedHeroIds?: ReadonlySet<HeroId>;
   onConfirmPick: (heroId: HeroId) => void;
   onDeselectPick: (heroId: HeroId) => void;
   onConfirmRound: () => void;
 }
 
+const EMPTY_HIGHLIGHTED: ReadonlySet<HeroId> = new Set();
+
 // <Dominio><Cosa>: cubre las fases blind_round y round_revealed (Req. 3) -- selección a ciegas
 // con timer visible y revelación simultánea al confirmar, sin ternario para elegir la vista.
-export function BlindRoundPanel({ phase, draftState, heroCatalog, onConfirmPick, onDeselectPick, onConfirmRound }: BlindRoundPanelProps) {
+export function BlindRoundPanel({
+  phase,
+  draftState,
+  heroCatalog,
+  highlightedHeroIds = EMPTY_HIGHLIGHTED,
+  onConfirmPick,
+  onDeselectPick,
+  onConfirmRound,
+}: BlindRoundPanelProps) {
   if (phase.type === "round_revealed") {
     return <RoundRevealedView phase={phase} heroCatalog={heroCatalog} />;
   }
   return (
     <BlindRoundActive
       phase={phase}
+      highlightedHeroIds={highlightedHeroIds}
       draftState={draftState}
       heroCatalog={heroCatalog}
       onConfirmPick={onConfirmPick}

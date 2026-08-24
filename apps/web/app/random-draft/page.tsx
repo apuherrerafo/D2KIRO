@@ -1,6 +1,8 @@
 "use client";
 
 import type { JSX } from "react";
+import { CompactBoard } from "@/components/draft-layout/DraftLayout";
+import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
@@ -8,7 +10,7 @@ import { ConfigPanel } from "@/features/random-draft-simulator/components/Config
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
-import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
+import { specForRound, useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -38,6 +40,10 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, suggestions } = session.state;
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
 
+  // TSK-084: mismo criterio que DraftView.tsx en /draft -- los mismos candidatos que ya destaca
+  // el Copilot al lado, resaltados directo sobre la grilla, un solo highlight consistente.
+  const highlightedHeroIds = new Set(suggestions?.suggestions.map((s) => s.hero) ?? []);
+
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <div className="flex flex-col gap-4">
@@ -46,6 +52,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           phase={phase}
           draftState={draftState}
           heroCatalog={heroCatalog}
+          highlightedHeroIds={highlightedHeroIds}
           onConfirmPick={session.actions.confirmPick}
           onDeselectPick={session.actions.deselectPick}
           onConfirmRound={session.confirmRound}
@@ -81,10 +88,35 @@ export default function RandomDraftPage() {
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
 
+  const { phase, draftState } = session.state;
+
+  // TSK-086: mismo timer que antes vivía dentro de BlindRoundPanel, ahora armado acá para
+  // pasarlo como centerContent de CompactBoard -- solo durante blind_round (única fase con un
+  // timer de ronda real). En cualquier otra fase, undefined -- CompactBoard cae solo a su
+  // resumen de bans por defecto, nunca queda un hueco vacío.
+  const centerContent =
+    phase.type === "blind_round" ? (
+      <DraftTimer key={`${phase.round}-${phase.conflictCount}`} waitMs={specForRound(phase.round).timerMs} />
+    ) : undefined;
+
   return (
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
       <span className="text-heading text-content-primary">Random Draft Simulator</span>
       <StaleWarningBanner />
+      {/* TSK-085: persistente en todas las fases con sesión ya arrancada -- antes, los picks de
+          una ronda ya confirmada dejaban de verse en cuanto arrancaba la siguiente ronda (el
+          DraftState real los seguía teniendo, ningún componente los mostraba). Mismo componente
+          que ya usa DraftLayout en /draft -- Radiant a la izquierda, centro (bans o timer de
+          ronda), Dire a la derecha, siempre visible. */}
+      {draftState && (
+        <CompactBoard
+          banned={draftState.banned}
+          picks={draftState.picks}
+          localSide={draftState.localSide}
+          heroCatalog={heroCatalog}
+          centerContent={centerContent}
+        />
+      )}
       <ActivePanel session={session} heroCatalog={heroCatalog} />
     </main>
   );

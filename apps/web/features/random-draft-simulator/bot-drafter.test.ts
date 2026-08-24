@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "@/features/draft/types";
-import { botPickHero, type HeroPositions, type MetaSnapshot } from "./bot-drafter";
+import { botPickHero, botPickHeroFromEngine, type HeroPositions, type MetaSnapshot } from "./bot-drafter";
 import { createSeededRng } from "./seeded-rng";
+
+// TSK-083: fetchImpl falso -- nunca red real en las pruebas (costura S6/S7, testing-seams.md).
+function fakeFetch(handler: (url: string, init: RequestInit) => Promise<Response>): typeof fetch {
+  return handler as unknown as typeof fetch;
+}
 
 // TSK-063 (hallazgo 2.4 de "Radiografía de dota2coach"): el bot usaba roles[] de OpenDota para su
 // bono de "complementa lo que ya pickeé" -- esas etiquetas mal representan la posición real (57%
@@ -36,6 +41,10 @@ function draftState(overrides: Partial<DraftState> = {}): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "2026-08-21T00:00:00Z",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
+    turn: null,
     ...overrides,
   };
 }
@@ -110,5 +119,62 @@ describe("botPickHero -- complemento por posición real (TSK-063)", () => {
     expect(() =>
       botPickHero({ draftState: state, botSide: "radiant", meta: snapshot, rng: createSeededRng("AAAAAAAA"), conflictCount: 0 }),
     ).not.toThrow();
+  });
+});
+
+// TSK-083: el bot le pide la sugerencia real al motor (POST /api/suggestions/preview, TSK-082)
+// en vez del scoring simplificado -- con fallback a botPickHero ante cualquier fallo, para que
+// una caída del motor nunca trabe la sesión (mismo principio de degradación de todo el proyecto).
+describe("botPickHeroFromEngine (TSK-083)", () => {
+  function baseInput() {
+    return { draftState: draftState(), botSide: "dire" as const, meta: meta(), rng: createSeededRng("AAAAAAAA"), conflictCount: 0 };
+  }
+
+  test("con una respuesta real del motor, usa el rank 1 devuelto -- no el scoring simplificado", async () => {
+    const fetchImpl = fakeFetch(async () =>
+      Response.json({ schema: "suggestions/v1", suggestions: [{ hero: CRYSTAL_MAIDEN, rank: 1 }] }),
+    );
+
+    const result = await botPickHeroFromEngine(baseInput(), { fetchImpl, baseUrl: "http://fake-engine" });
+
+    expect(result).toEqual({ heroId: CRYSTAL_MAIDEN });
+  });
+
+  test("manda el body angosto correcto -- format/patch/localSide/banned/picks, localSide es el lado del bot", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    const fetchImpl = fakeFetch(async (_url, init) => {
+      capturedBody = JSON.parse(String(init.body));
+      return Response.json({ schema: "suggestions/v1", suggestions: [{ hero: SPECTRE, rank: 1 }] });
+    });
+
+    await botPickHeroFromEngine(baseInput(), { fetchImpl, baseUrl: "http://fake-engine" });
+
+    expect(capturedBody).toMatchObject({ format: "all_pick", patch: "7.36", localSide: "dire", banned: [], picks: { radiant: [], dire: [] } });
+  });
+
+  test("respuesta no-ok (4xx/5xx) cae al scoring simplificado, nunca lanza", async () => {
+    const fetchImpl = fakeFetch(async () => new Response(null, { status: 503 }));
+
+    const result = await botPickHeroFromEngine(baseInput(), { fetchImpl, baseUrl: "http://fake-engine" });
+
+    expect(result).not.toBeNull();
+  });
+
+  test("fetch que lanza (motor inalcanzable) cae al scoring simplificado, nunca lanza", async () => {
+    const fetchImpl = fakeFetch(async () => {
+      throw new TypeError("fetch failed");
+    });
+
+    const result = await botPickHeroFromEngine(baseInput(), { fetchImpl, baseUrl: "http://fake-engine" });
+
+    expect(result).not.toBeNull();
+  });
+
+  test("suggestions vacío cae al scoring simplificado, nunca lanza", async () => {
+    const fetchImpl = fakeFetch(async () => Response.json({ schema: "suggestions/v1", suggestions: [] }));
+
+    const result = await botPickHeroFromEngine(baseInput(), { fetchImpl, baseUrl: "http://fake-engine" });
+
+    expect(result).not.toBeNull();
   });
 });

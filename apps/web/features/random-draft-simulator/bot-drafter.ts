@@ -4,6 +4,7 @@
 // Requirements: 4.1, 4.2, 4.3
 
 import type { DraftState } from "@/features/draft/types";
+import { LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, TeamSide } from "./types";
 import type { SeededRng } from "./seeded-rng";
 
@@ -243,4 +244,53 @@ export function botPickHero(input: BotDrafterInput): BotDrafterResult | null {
   }
 
   return { heroId: bestEntry.heroId };
+}
+
+// ---------------------------------------------------------------------------
+// TSK-083: pick del bot vía el motor real (POST /api/suggestions/preview, TSK-082)
+// ---------------------------------------------------------------------------
+
+export interface RemoteBotPickOptions {
+  // Inyectables para probar sin red real (mismo patrón que OpenDotaClient del lado del motor).
+  fetchImpl?: typeof fetch;
+  baseUrl?: string;
+}
+
+interface SuggestionsPreviewResponse {
+  suggestions?: { hero: HeroId }[];
+}
+
+// El usuario pidió explícitamente que el bot use "las mejores sugerencias del motor" en vez del
+// scoring simplificado de arriba. Pide la sugerencia rank 1 real (buildSuggestions,
+// SCORING_WEIGHTS_V5) para el DraftState visible del bot. Nunca bloquea ni rompe la sesión --
+// cualquier fallo (motor caído, timeout, respuesta inválida, sin candidatos) cae a
+// `botPickHero` (el heurístico simplificado, sin tocar) -- mismo principio de degradación
+// controlada que ya rige todo el proyecto ("un draft nunca se queda sin sugerencias por una
+// dependencia caída").
+export async function botPickHeroFromEngine(input: BotDrafterInput, options: RemoteBotPickOptions = {}): Promise<BotDrafterResult | null> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const baseUrl = options.baseUrl ?? LOCAL_DRAFT_ENGINE_HTTP_BASE_URL;
+
+  try {
+    const response = await fetchImpl(`${baseUrl}/api/suggestions/preview`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        format: "all_pick",
+        patch: input.draftState.patch,
+        localSide: input.botSide,
+        banned: input.draftState.banned,
+        picks: input.draftState.picks,
+      }),
+    });
+    if (!response.ok) return botPickHero(input);
+
+    const body = (await response.json()) as SuggestionsPreviewResponse;
+    const top = body.suggestions?.[0];
+    if (!top) return botPickHero(input);
+
+    return { heroId: top.hero };
+  } catch {
+    return botPickHero(input);
+  }
 }

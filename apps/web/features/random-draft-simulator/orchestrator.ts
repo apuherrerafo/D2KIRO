@@ -1,14 +1,15 @@
 // apps/web/features/random-draft-simulator/orchestrator.ts
-// RandomDraftOrchestrator: función pura de inicialización del draft.
+// RandomDraftOrchestrator: inicialización del draft.
 // Resuelve la Ban_Phase y pre-calcula los picks del bot para las 3 rondas antes de que
 // arranque cualquier timer del usuario (Req. 2.1, 3.1, 3.2, 4.4).
+// TSK-083: ya no es pura -- initDraft le pide cada pick del bot al motor real (async).
 // Requirements: 2.1, 3.1, 3.2, 4.4
 
 import type { DraftState, TeamSide } from "@/features/draft/types";
 import type { HeroId } from "./types";
 import { createSeededRng } from "./seeded-rng";
 import { resolveBanPhase } from "./ban-phase";
-import { botPickHero, type MetaSnapshot } from "./bot-drafter";
+import { botPickHeroFromEngine, type MetaSnapshot, type RemoteBotPickOptions } from "./bot-drafter";
 import { BLIND_ROUND_SPECS, type BlindRoundSpec } from "./constants";
 
 export { BLIND_ROUND_SPECS };
@@ -29,6 +30,10 @@ export interface OrchestratorConfig {
   /** Héroes ordenados por tasa de ban descendente en el bracket activo */
   metaBanPool: HeroId[];
   patch: string;
+  // TSK-083: inyectable para pruebas (fetchImpl/baseUrl falsos, costura S6/S7 -- nunca red real
+  // en las pruebas). Ausente en producción real -- botPickHeroFromEngine usa sus propios
+  // defaults (fetch real, motor local).
+  remoteBotPick?: RemoteBotPickOptions;
 }
 
 export interface OrchestratorRound {
@@ -78,6 +83,12 @@ function buildPrecomputeDraftState(
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: new Date(0).toISOString(),
+    // TSK-073: siempre null -- este DraftState de precálculo es format:"all_pick", que nunca
+    // tiene tabla de turnos (spec §2.1, sus picks son por rondas simultáneas, no por turno).
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
+    turn: null,
   };
 }
 
@@ -87,12 +98,18 @@ function buildPrecomputeDraftState(
 
 /**
  * Inicializa una Draft_Session del Random_Draft_Simulator: resuelve la Ban_Phase completa y
- * pre-calcula todos los picks del bot para las 3 Blind_Rounds. Función pura — sin I/O, sin
- * reloj ni ids propios. El objetivo del bot es QA del motor (ver bot-drafter.ts), por lo que
- * sus picks se calculan sin conocer los picks reales del usuario.
+ * pre-calcula todos los picks del bot para las 3 Blind_Rounds. Sus picks se calculan sin
+ * conocer los picks reales del usuario.
+ *
+ * TSK-083: ya NO es una función pura -- cada pick del bot le pide la sugerencia real al motor
+ * (`botPickHeroFromEngine`, POST /api/suggestions/preview) en vez del scoring simplificado que
+ * usaba antes. Trade-off aceptado a propósito (confirmado con el usuario): se pierde la
+ * reproducibilidad bit a bit desde el mismo `draftSeed` -- ahora depende del estado real del
+ * motor/meta en el momento de la llamada, no solo del seed. La resolución de la Ban_Phase (arriba)
+ * sigue siendo 100% determinística, solo los picks del bot dejaron de serlo.
  */
-export function initDraft(config: OrchestratorConfig): OrchestratorResult {
-  const { draftSeed, userSide, personalBanList, meta, metaBanPool, patch } = config;
+export async function initDraft(config: OrchestratorConfig): Promise<OrchestratorResult> {
+  const { draftSeed, userSide, personalBanList, meta, metaBanPool, patch, remoteBotPick } = config;
   const botSide = otherSide(userSide);
   const rng = createSeededRng(draftSeed);
 
@@ -113,13 +130,16 @@ export function initDraft(config: OrchestratorConfig): OrchestratorResult {
 
     for (let slot = 0; slot < spec.picksPerTeam; slot++) {
       const draftState = buildPrecomputeDraftState(botSide, resolvedBans, botPicksSoFar, patch);
-      const picked = botPickHero({
-        draftState,
-        botSide,
-        meta,
-        rng,
-        conflictCount: 0,
-      });
+      const picked = await botPickHeroFromEngine(
+        {
+          draftState,
+          botSide,
+          meta,
+          rng,
+          conflictCount: 0,
+        },
+        remoteBotPick,
+      );
 
       if (picked === null) break; // Req. 4.3: pool agotado, se omite el pick sin detener la sesión
 
