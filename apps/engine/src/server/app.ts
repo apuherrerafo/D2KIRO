@@ -3,16 +3,26 @@ import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../db/schema";
 import { getAllSettings, upsertSetting } from "../db/queries";
 import type { HeroCapabilities } from "../draft-paths/types";
+import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
+import { currentCaptainsModeTurn } from "../draft/turn-clock";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
 import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness, invalidateMetaSnapshotCache } from "../meta/provider";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildSuggestions, type SuggestionSet } from "../signals/mix";
-import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope, type TokenRateLimiter } from "./edge";
+import {
+  checkCaptureToken,
+  createSessionRateLimiter,
+  isValidClientMessage,
+  isValidDraftEventEnvelope,
+  isValidSuggestionsPreviewRequest,
+  type TokenRateLimiter,
+} from "./edge";
 import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes } from "./routes/meta";
+import { createProDrafterRoutes } from "./routes/pro-drafter";
 import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
 import { createTeamGroupRoutes } from "./routes/team-groups";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
@@ -41,6 +51,9 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   // TSK-063: mismo criterio que heroCapabilities -- inyectable para pruebas, nunca el
   // hero-positions.json real ahí (costura S10).
   heroPositions?: HeroPositions;
+  // TSK-073: mismo criterio -- inyectable para pruebas, nunca la tabla real de 24 turnos
+  // curada en TSK-071 (costura S10, testing-seams.md: se regenera por parche).
+  captainsModeTurns?: CaptainsModeTurnTable | null;
   // Req 7 (§7.6): inyectable para tests -- mismo patrón que SessionRateLimiter.
   tokenRateLimiter?: TokenRateLimiter;
 }
@@ -66,6 +79,16 @@ function corsHeaders(request: Request): Record<string, string> {
 
 // Une C2 (reductor)/C3 (motor)/C4 (provider/sync) detrás de la API real de apps/engine (§3/§5).
 export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps<TSchema>) {
+  const captainsModeTurns = deps.captainsModeTurns !== undefined ? deps.captainsModeTurns : loadDraftFormatTurnData().captainsMode;
+
+  // TSK-073 (spec §2.3): `turn` nunca vive en el DraftState persistido (SessionStore/reducer.ts)
+  // -- es una proyección calculada al armar cada mensaje saliente, igual que ya se decidió en
+  // TSK-072 para no cachear un valor redundante. `draft_state` y `snapshot` lo llevan siempre;
+  // `suggestions` no lo necesita.
+  function withTurn(state: DraftState): DraftState & { turn: ReturnType<typeof currentCaptainsModeTurn> } {
+    return { ...state, turn: currentCaptainsModeTurn(state, captainsModeTurns) };
+  }
+
   const sessionStore = new SessionStore();
   const rateLimiter = createSessionRateLimiter();
   const heroPoolRoutes = createHeroPoolRoutes({ db: deps.db, openDotaClient: deps.openDotaClient });
@@ -73,6 +96,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const simulatorRoutes = createSimulatorSessionRoutes({ db: deps.db });
   const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions });
   const draftPathsRoutes = createDraftPathsRoutes({ db: deps.db, sessionStore, heroCapabilities: deps.heroCapabilities });
+  // Dark launch (pro-drafter-spec-v1.md §3): apagado por defecto, gate real es ENABLE_PRO_DRAFTER
+  // (chequeado en el dispatch de abajo), no la sola existencia de esta instancia -- construirla no
+  // toca la red ni SQLite, solo carga archivos estáticos ya usados en otras partes del motor.
+  const proDrafterRoutes = createProDrafterRoutes({ heroPositions: deps.heroPositions });
   let server: Server<WsData>;
 
   // TSK-048: helper compartido entre el push automático (pushSessionUpdate) y el reenvío al
@@ -91,10 +118,49 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
   }
 
+  // TSK-082: sugerencias reales sin sesión -- para el bot de /random-draft, que necesita el
+  // motor completo para un DraftState hipotético (sus picks durante una Blind_Round son ocultos
+  // a propósito, nunca se aplican a una sesión real hasta el reveal). Reusa
+  // computeSuggestionsForState tal cual -- ningún cálculo nuevo, solo un DraftState "de mentira"
+  // con los campos irrelevantes (sessionId/phase/turno) en valores neutros, mismo patrón que ya
+  // usa buildPrecomputeDraftState del lado de apps/web.
+  async function handleSuggestionsPreview(request: Request): Promise<Response> {
+    const body: unknown = await request.json().catch(() => null);
+    if (!isValidSuggestionsPreviewRequest(body)) {
+      return Response.json({ error: "invalid_preview_request" }, { status: 400 });
+    }
+    const previewState: DraftState = {
+      sessionId: "preview",
+      schema: "draft-state/v1",
+      format: body.format,
+      patch: body.patch,
+      localSide: body.localSide,
+      phase: "active",
+      banned: body.banned,
+      picks: body.picks,
+      lastSeq: 0,
+      appliedEventIds: [],
+      quality: { unconfirmed: [], captureStatus: "ok" },
+      updatedAt: new Date().toISOString(),
+      firstPickSide: null,
+      turnStartedAt: null,
+      reserveRemainingMs: null,
+    };
+    try {
+      const suggestions = await computeSuggestionsForState(previewState);
+      return Response.json(suggestions);
+    } catch (err) {
+      if (err instanceof SnapshotUnavailableError) {
+        return Response.json({ error: "snapshot_unavailable" }, { status: 503 });
+      }
+      return Response.json({ error: "suggestions_failed" }, { status: 500 });
+    }
+  }
+
   // Orden garantizado tras cada evento aplicado: draft_state primero, suggestions después (§C2).
   async function pushSessionUpdate(sessionId: string): Promise<void> {
     const state = sessionStore.get(sessionId);
-    server.publish(sessionId, JSON.stringify(buildServerMessage("draft_state", state.lastSeq, state)));
+    server.publish(sessionId, JSON.stringify(buildServerMessage("draft_state", state.lastSeq, withTurn(state))));
     const suggestions = await computeSuggestionsForState(state);
     server.publish(sessionId, JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
   }
@@ -179,6 +245,16 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "POST" && url.pathname === "/api/session/manual") {
       return handleDraftEvent(request, { requireToken: false, rateLimit: false });
+    }
+    if (request.method === "POST" && url.pathname === "/api/suggestions/preview") {
+      return handleSuggestionsPreview(request);
+    }
+    // Experimental (dark launch): mismo contrato de entrada que /api/suggestions/preview arriba.
+    // Con el flag en `false` (default), cae al handler v5 real -- ningún comportamiento de
+    // producción cambia hasta que alguien prenda ENABLE_PRO_DRAFTER explícitamente.
+    if (request.method === "POST" && url.pathname === "/api/v1/draft/pro-recommendations") {
+      if (process.env.ENABLE_PRO_DRAFTER !== "true") return handleSuggestionsPreview(request);
+      return proDrafterRoutes.postRecommendations(request);
     }
     if (request.method === "GET" && url.pathname === "/api/heroes") {
       return handleHeroes();
@@ -288,7 +364,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
         // Req 5.1/5.5: snapshot siempre antes de intentar calcular sugerencias -- DraftState
         // siempre disponible desde sessionStore.get() (nunca lanza). El cliente recupera el
         // tablero aunque la etapa de sugerencias falle por completo.
-        ws.send(JSON.stringify(buildServerMessage("snapshot", state.lastSeq, state)));
+        ws.send(JSON.stringify(buildServerMessage("snapshot", state.lastSeq, withTurn(state))));
 
         // Req 5.2/5.4: sugerencias con degradación controlada -- tres casos posibles:
         //   1. computeSuggestionsForState resuelve → mensaje "suggestions" normal.

@@ -152,17 +152,26 @@ test("pool de candidatos vacío (corpus vacío) -> [] sin lanzar", () => {
   expect(results).toEqual([]);
 });
 
-test("server/ no importa nada de pipeline/ -- el pipeline sigue apagado, no conectado a producción", () => {
+// Activación deliberada (sesión 2026-08-24, decisión explícita del usuario -- no un /blueprint
+// formal, esta sesión ES el gate): server/ ya no está completamente aislado de pipeline/, pero
+// sigue habiendo exactamente UN punto de entrada real (routes/pro-drafter.ts), nunca uno disperso
+// en app.ts u otro archivo. El gate real que mantiene "producción sin cambios" es el flag
+// ENABLE_PRO_DRAFTER en app.ts, no la ausencia total de imports -- verificado abajo.
+test("server/ importa pipeline/ solo desde el punto de entrada deliberado (routes/pro-drafter.ts)", () => {
   const serverDir = join(import.meta.dir, "..", "server");
   const files = readdirSync(serverDir, { recursive: true }) as string[];
   const tsFiles = files.filter((f) => f.endsWith(".ts"));
   expect(tsFiles.length).toBeGreaterThan(0);
 
   const importsPipeline = /from\s+["'][^"']*\/pipeline\/[^"']*["']/;
-  for (const file of tsFiles) {
-    const content = readFileSync(join(serverDir, file), "utf-8");
-    expect(importsPipeline.test(content)).toBe(false);
-  }
+  const filesImportingPipeline = tsFiles.filter((file) => importsPipeline.test(readFileSync(join(serverDir, file), "utf-8")));
+
+  expect(filesImportingPipeline).toEqual(["routes/pro-drafter.ts"]);
+});
+
+test("app.ts gatea el pipeline experimental tras ENABLE_PRO_DRAFTER -- nunca activo por default", () => {
+  const appContent = readFileSync(join(import.meta.dir, "..", "server", "app.ts"), "utf-8");
+  expect(appContent.includes('process.env.ENABLE_PRO_DRAFTER !== "true"')).toBe(true);
 });
 
 test("pipeline completo sobre un corpus sintético se mantiene rápido", () => {
