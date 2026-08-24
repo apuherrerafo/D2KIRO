@@ -1,0 +1,40 @@
+{
+  "captainsMode": {
+    "reserveTimeMs": 130000,
+    "turns": [
+      { "action": "ban", "team": "first", "standardTimeMs": 15000 },
+      { "action": "ban", "team": "first", "standardTimeMs": 15000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 15000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 15000 },
+      { "action": "ban", "team": "first", "standardTimeMs": 15000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 15000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 15000 },
+      { "action": "pick", "team": "first", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "second", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "first", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "first", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "second", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "first", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "first", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "second", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "first", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "second", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "first", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "first", "standardTimeMs": 30000 },
+      { "action": "ban", "team": "second", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "first", "standardTimeMs": 30000 },
+      { "action": "pick", "team": "second", "standardTimeMs": 30000 }
+    ]
+  },
+  "allPick": {
+    "banCount": 16,
+    "banSource": "player_ban_preferences",
+    "pickRounds": [
+      { "picksPerTeam": 2, "durationMs": 25000 },
+      { "picksPerTeam": 2, "durationMs": 25000 },
+      { "picksPerTeam": 1, "durationMs": 20000 }
+    ]
+  }
+}

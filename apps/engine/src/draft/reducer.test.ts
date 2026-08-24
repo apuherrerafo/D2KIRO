@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { CaptainsModeTurnTable } from "./draft-format-turns";
 import {
   applyDraftEvent,
   createIdleDraftState,
@@ -33,6 +34,33 @@ function active(sessionId = "session-1"): DraftState {
   const { state } = applyDraftEvent(
     idle(sessionId),
     envelope(1, { type: "session_started", format: "all_pick", patch: "7.36" }, { sessionId }),
+  );
+  return state;
+}
+
+// Tabla sintética minúscula, nunca la real curada en TSK-071 (costura S10, testing-seams.md: ese
+// archivo se regenera por parche, un test atado a su contenido exacto se rompería en silencio).
+const CM_TABLE: CaptainsModeTurnTable = {
+  reserveTimeMs: 60000,
+  turns: [
+    { action: "ban", team: "first", standardTimeMs: 10000 },
+    { action: "ban", team: "second", standardTimeMs: 10000 },
+    { action: "pick", team: "first", standardTimeMs: 20000 },
+    { action: "pick", team: "second", standardTimeMs: 20000 },
+  ],
+};
+
+// `source: "manual"` explícito -- el helper `envelope()` por defecto usa "simulator", que
+// TSK-072 exime a propósito de la validación de turno (guion artificial del simulador, TSK-016).
+function activeCaptainsMode(sessionId = "session-1"): DraftState {
+  const { state } = applyDraftEvent(
+    idle(sessionId),
+    envelope(
+      1,
+      { type: "session_started", format: "captains_mode", patch: "7.41e" },
+      { sessionId, source: "manual", emittedAt: "2026-07-27T00:00:00Z" },
+    ),
+    { captainsModeTurns: CM_TABLE },
   );
   return state;
 }
@@ -178,6 +206,45 @@ describe("cada RejectionReason", () => {
     expect(rejected).toBe("hero_already_taken");
     expect(state).toBe(banned);
   });
+
+  // RCA post-TSK-076: el reductor nunca validó el tamaño del roster -- checkHeroAvailable solo
+  // detectaba duplicados. Confirmado con HeroGrid en vivo: se podían pickear más de 5 héroes por
+  // lado sin ningún rechazo.
+  test("roster_full: un 6to pick para el mismo lado se rechaza, los 5 anteriores quedan intactos", () => {
+    let state = active();
+    for (const hero of [1, 2, 3, 4, 5]) {
+      const result = applyDraftEvent(state, envelope(hero + 1, { type: "hero_picked", hero, side: "radiant" }));
+      expect(result.rejected).toBeUndefined();
+      state = result.state;
+    }
+    expect(state.picks.radiant).toEqual([1, 2, 3, 4, 5]);
+
+    const { state: after, rejected } = applyDraftEvent(state, envelope(7, { type: "hero_picked", hero: 6, side: "radiant" }));
+    expect(rejected).toBe("roster_full");
+    expect(after).toBe(state);
+    expect(after.picks.radiant).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  test("roster_full es por lado -- 5 picks de radiant no bloquean el primer pick de dire", () => {
+    let state = active();
+    for (const hero of [1, 2, 3, 4, 5]) {
+      state = applyDraftEvent(state, envelope(hero + 1, { type: "hero_picked", hero, side: "radiant" })).state;
+    }
+    const { state: after, rejected } = applyDraftEvent(state, envelope(7, { type: "hero_picked", hero: 6, side: "dire" }));
+    expect(rejected).toBeUndefined();
+    expect(after.picks.dire).toEqual([6]);
+  });
+
+  test("roster_full no aplica a hero_banned -- el conteo de bans depende de formato, fuera de alcance acá", () => {
+    let state = active();
+    const bannedHeroes = [1, 2, 3, 4, 5, 6];
+    for (const [index, hero] of bannedHeroes.entries()) {
+      const result = applyDraftEvent(state, envelope(index + 2, { type: "hero_banned", hero, side: "radiant" }));
+      expect(result.rejected).toBeUndefined();
+      state = result.state;
+    }
+    expect(state.banned).toEqual(bannedHeroes);
+  });
 });
 
 describe("pureza y otros eventos", () => {
@@ -259,5 +326,140 @@ describe("quality.unconfirmed (TSK-013 -- confianza < 0.6, SPEC.md línea 127)",
       envelope(3, { type: "hero_banned", hero: 2, side: "unknown" }, { confidence: 0.2 }),
     );
     expect(state.quality.unconfirmed).toEqual([1, 2]);
+  });
+});
+
+// TSK-072 (spec §2.2, specs/draft-native-experience.md): la máquina de turnos solo aplica a
+// format:"captains_mode" con tabla cargada -- All Pick nunca la usa (spec §2.1: sus bans no son
+// por turnos, y sus picks son por rondas simultáneas ocultas, no alternadas -- mecanismo distinto
+// que esta fase no construye).
+describe("wrong_turn (Captain's Mode, TSK-072)", () => {
+  test("el primer ban con lado real bootstrapea firstPickSide y se acepta", () => {
+    const { state, rejected } = applyDraftEvent(
+      activeCaptainsMode(),
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBeUndefined();
+    expect(state.firstPickSide).toBe("radiant");
+    expect(state.banned).toEqual([1]);
+  });
+
+  test("el mismo lado que acaba de actuar no puede volver a actuar en el siguiente turno", () => {
+    const afterFirstBan = applyDraftEvent(
+      activeCaptainsMode(),
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    ).state;
+
+    const { state, rejected } = applyDraftEvent(
+      afterFirstBan,
+      envelope(3, { type: "hero_banned", hero: 2, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBe("wrong_turn");
+    expect(state).toBe(afterFirstBan);
+  });
+
+  test("el lado correcto en el turno correcto se acepta", () => {
+    const afterFirstBan = applyDraftEvent(
+      activeCaptainsMode(),
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    ).state;
+
+    const { state, rejected } = applyDraftEvent(
+      afterFirstBan,
+      envelope(3, { type: "hero_banned", hero: 2, side: "dire" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBeUndefined();
+    expect(state.banned).toEqual([1, 2]);
+  });
+
+  test("una acción del tipo equivocado (pick en el turno de un ban) se rechaza con wrong_turn aunque el lado sea correcto", () => {
+    const { state, rejected } = applyDraftEvent(
+      activeCaptainsMode(),
+      envelope(2, { type: "hero_picked", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBe("wrong_turn");
+    expect(state.picks.radiant).toEqual([]);
+  });
+
+  test("pick_reverted nunca se rechaza por wrong_turn, aunque el turno esperado sea de otro lado", () => {
+    let state = activeCaptainsMode();
+    state = applyDraftEvent(
+      state,
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    ).state;
+    // Turno actual esperado: dire. Revertir el ban de radiant no es "actuar fuera de turno".
+    const { state: reverted, rejected } = applyDraftEvent(
+      state,
+      envelope(3, { type: "pick_reverted", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBeUndefined();
+    expect(reverted.banned).toEqual([]);
+  });
+
+  test("source:'simulator' nunca se valida por turno -- el guion del simulador es artificial a propósito", () => {
+    // Mismo lado dos veces seguidas -- rechazado si fuera "manual" (ver test de arriba), aceptado
+    // acá porque envelope() usa source:"simulator" por defecto.
+    const afterFirstBan = applyDraftEvent(
+      activeCaptainsMode(),
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }),
+      { captainsModeTurns: CM_TABLE },
+    ).state;
+
+    const { rejected } = applyDraftEvent(
+      afterFirstBan,
+      envelope(3, { type: "hero_banned", hero: 2, side: "radiant" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBeUndefined();
+  });
+
+  test("format:'all_pick' nunca activa wrong_turn -- ni bans ni picks tienen tabla de turnos (spec §2.1)", () => {
+    // Mismo lado pickeando 2 veces seguidas -- inválido en Captain's Mode, legítimo en All Pick
+    // (spec: los picks de All Pick son por rondas simultáneas, no por turno alternado).
+    const afterOnePick = applyDraftEvent(
+      active(), // format: all_pick
+      envelope(2, { type: "hero_picked", hero: 1, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    ).state;
+
+    const { rejected } = applyDraftEvent(
+      afterOnePick,
+      envelope(3, { type: "hero_picked", hero: 2, side: "radiant" }, { source: "manual" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(rejected).toBeUndefined();
+  });
+
+  test("la reserva del lado que actuó se descuenta solo por el excedente sobre el tiempo estándar", () => {
+    const started = activeCaptainsMode(); // turnStartedAt = emittedAt de session_started (seq 1)
+    expect(started.reserveRemainingMs).toEqual({ radiant: 60000, dire: 60000 });
+
+    // CM_TABLE: turno 0 (ban, standardTimeMs: 10000). El ban llega 15s después de arrancado el
+    // turno -- 5s de excedente, se descuentan de la reserva de radiant (el lado que actuó).
+    const { state } = applyDraftEvent(
+      started,
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }, { source: "manual", emittedAt: "2026-07-27T00:00:15Z" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(state.reserveRemainingMs).toEqual({ radiant: 55000, dire: 60000 });
+  });
+
+  test("dentro del tiempo estándar, la reserva no se toca", () => {
+    const started = activeCaptainsMode();
+
+    const { state } = applyDraftEvent(
+      started,
+      envelope(2, { type: "hero_banned", hero: 1, side: "radiant" }, { source: "manual", emittedAt: "2026-07-27T00:00:05Z" }),
+      { captainsModeTurns: CM_TABLE },
+    );
+    expect(state.reserveRemainingMs).toEqual({ radiant: 60000, dire: 60000 });
   });
 });

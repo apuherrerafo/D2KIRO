@@ -145,6 +145,9 @@ function buildSyntheticState(rng: () => number, sessionIndex: number): DraftStat
     appliedEventIds: [],
     quality: { unconfirmed: unconfirmedCount > 0 ? [drawUnique()] : [], captureStatus: "ok" },
     updatedAt: new Date(0).toISOString(),
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
   };
 }
 

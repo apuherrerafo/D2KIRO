@@ -1,3 +1,6 @@
+import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "./draft-format-turns";
+import { captainsModeTurnIndex, checkCaptainsModeTurn, consumeReserveTime } from "./turn-clock";
+
 export type HeroId = number;
 export type TeamSide = "radiant" | "dire";
 export type DraftFormatId = "all_pick" | "captains_mode";
@@ -36,6 +39,17 @@ export interface DraftState {
   appliedEventIds: string[];
   quality: { unconfirmed: HeroId[]; captureStatus: "ok" | "degraded" | "lost" };
   updatedAt: string;
+  // TSK-072 (spec §2.2, specs/draft-native-experience.md): solo se usan cuando format ===
+  // "captains_mode" y hay tabla de turnos cargada -- en cualquier otro caso quedan en null, sin
+  // ningún efecto en el resto del reductor. `firstPickSide` es un hecho que se aprende UNA vez
+  // (bootstrap: el lado del primer ban/pick que llega con un lado real define qué lado real es
+  // "first" en la tabla relativa first/second de draft-format-turns.json) -- nunca se vuelve a
+  // pisar. Limitación conocida y documentada, no un bug silencioso: si esa primerísima acción se
+  // corrige con pick_reverted, `firstPickSide` no se des-bootstrapea -- un caso de borde raro
+  // (corregir la acción 1 de 24 de todo el draft) que no justificaba la complejidad de deshacerlo.
+  firstPickSide: TeamSide | null;
+  turnStartedAt: string | null;
+  reserveRemainingMs: { radiant: number; dire: number } | null;
 }
 
 export type RejectionReason =
@@ -43,7 +57,14 @@ export type RejectionReason =
   | "stale_seq"
   | "wrong_phase"
   | "unknown_hero"
-  | "hero_already_taken";
+  | "hero_already_taken"
+  | "roster_full"
+  | "wrong_turn";
+
+// RCA post-TSK-076 (auditoría de arquitectura, 2026-08-23): constante universal de Dota,
+// independiente de formato/parche -- a diferencia del conteo de bans (sí depende de formato,
+// correctamente diferido a la tabla de turnos de TSK-071-074), 5 picks por lado nunca cambia.
+export const MAX_PICKS_PER_SIDE = 5;
 
 export function createIdleDraftState(sessionId: string): DraftState {
   return {
@@ -59,7 +80,54 @@ export function createIdleDraftState(sessionId: string): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
   };
+}
+
+// Singleton de módulo -- el archivo curado se carga una sola vez por proceso (mismo patrón que
+// MODULE_HERO_POSITIONS en signals/mix.ts). Inyectable vía ApplyDraftEventOptions para que las
+// pruebas usen una tabla sintética propia, nunca el archivo real (costura S10,
+// testing-seams.md).
+const MODULE_TURN_DATA = loadDraftFormatTurnData();
+
+export interface ApplyDraftEventOptions {
+  captainsModeTurns?: CaptainsModeTurnTable | null;
+}
+
+// Solo se toca cuando format:"captains_mode" y hay tabla disponible -- arma el patch de
+// firstPickSide/turnStartedAt/reserveRemainingMs a partir del resultado de checkCaptainsModeTurn.
+// Separado de los dos `case` que lo llaman porque hero_banned y hero_picked lo necesitan idéntico.
+// `source: "simulator"` (guion fijo, TSK-016) nunca se valida contra la tabla de turnos real --
+// su guion es artificial a propósito (existe para demostrar la UI, no para replicar un draft real
+// de Captain's Mode turno por turno) y precede a esta feature. Mismo criterio ya documentado para
+// TSK-074: "el simulador sigue siendo dueño de su propio guion". Una captura real (manual/
+// overwolf/ocr) sí se valida siempre.
+function captainsModeTurnPatch(
+  working: DraftState,
+  envelope: DraftEventEnvelope,
+  action: "ban" | "pick",
+  side: TeamSide | "unknown",
+  table: CaptainsModeTurnTable | null,
+): { rejected?: "wrong_turn"; patch?: Partial<DraftState> } {
+  if (envelope.source === "simulator") return {};
+  const check = checkCaptainsModeTurn(working, table, action, side);
+  if (check.rejected) return { rejected: check.rejected };
+  if (!table || working.format !== "captains_mode") return {};
+
+  const patch: Partial<DraftState> = { turnStartedAt: envelope.emittedAt };
+  if (check.bootstrapSide) patch.firstPickSide = check.bootstrapSide;
+
+  const actingSide = check.bootstrapSide ?? (side === "unknown" ? null : side);
+  if (actingSide && working.turnStartedAt && working.reserveRemainingMs) {
+    const entry = table.turns[captainsModeTurnIndex(working)];
+    if (entry) {
+      const elapsedMs = new Date(envelope.emittedAt).getTime() - new Date(working.turnStartedAt).getTime();
+      patch.reserveRemainingMs = consumeReserveTime(working.reserveRemainingMs, actingSide, elapsedMs, entry.standardTimeMs);
+    }
+  }
+  return { patch };
 }
 
 function checkHeroAvailable(state: DraftState, hero: HeroId): RejectionReason | null {
@@ -113,8 +181,10 @@ function accept(
 export function applyDraftEvent(
   state: DraftState,
   envelope: DraftEventEnvelope,
+  options: ApplyDraftEventOptions = {},
 ): { state: DraftState; rejected?: RejectionReason } {
   const event = envelope.payload;
+  const turnTable = options.captainsModeTurns !== undefined ? options.captainsModeTurns : MODULE_TURN_DATA.captainsMode;
 
   // Una nueva sessionId en `session_started` vuelve el estado a idle antes de procesar — el resto
   // de los tipos de evento no revalidan sessionId (fuera del alcance del ticket: no hay una razón
@@ -137,24 +207,44 @@ export function applyDraftEvent(
   }
 
   switch (event.type) {
-    case "session_started":
-      return accept(working, envelope, { phase: "active", format: event.format, patch: event.patch });
+    case "session_started": {
+      const patch: Partial<DraftState> = { phase: "active", format: event.format, patch: event.patch };
+      if (event.format === "captains_mode" && turnTable) {
+        patch.firstPickSide = null;
+        patch.turnStartedAt = envelope.emittedAt;
+        patch.reserveRemainingMs = { radiant: turnTable.reserveTimeMs, dire: turnTable.reserveTimeMs };
+      } else {
+        patch.firstPickSide = null;
+        patch.turnStartedAt = null;
+        patch.reserveRemainingMs = null;
+      }
+      return accept(working, envelope, patch);
+    }
     case "local_side_identified":
       return accept(working, envelope, { localSide: event.side });
     case "hero_banned": {
       const rejection = checkHeroAvailable(working, event.hero);
       if (rejection) return { state, rejected: rejection };
+      const turnResult = captainsModeTurnPatch(working, envelope, "ban", event.side, turnTable);
+      if (turnResult.rejected) return { state, rejected: turnResult.rejected };
       return accept(working, envelope, {
         banned: [...working.banned, event.hero],
         quality: markUnconfirmed(working, envelope, event.hero),
+        ...turnResult.patch,
       });
     }
     case "hero_picked": {
       const rejection = checkHeroAvailable(working, event.hero);
       if (rejection) return { state, rejected: rejection };
+      if (working.picks[event.side].length >= MAX_PICKS_PER_SIDE) {
+        return { state, rejected: "roster_full" };
+      }
+      const turnResult = captainsModeTurnPatch(working, envelope, "pick", event.side, turnTable);
+      if (turnResult.rejected) return { state, rejected: turnResult.rejected };
       return accept(working, envelope, {
         picks: { ...working.picks, [event.side]: [...working.picks[event.side], event.hero] },
         quality: markUnconfirmed(working, envelope, event.hero),
+        ...turnResult.patch,
       });
     }
     case "pick_reverted": {

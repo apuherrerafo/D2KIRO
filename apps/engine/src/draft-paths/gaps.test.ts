@@ -17,6 +17,9 @@ function draftState(heroIds: number[]): DraftState {
     appliedEventIds: [],
     quality: { unconfirmed: [], captureStatus: "ok" },
     updatedAt: "2026-07-30T00:00:00Z",
+    firstPickSide: null,
+    turnStartedAt: null,
+    reserveRemainingMs: null,
   };
 }
 
