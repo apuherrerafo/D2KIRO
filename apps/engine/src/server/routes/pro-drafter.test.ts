@@ -59,11 +59,12 @@ describe("createProDrafterRoutes -- cache-aside", () => {
     });
 
     const response = await routes.postRecommendations(makeRequest());
-    const body = (await response.json()) as { cache_hit: boolean; fallback_applied: boolean };
+    const body = (await response.json()) as { cache_hit: boolean; fallback_applied: boolean; engine_version: string };
 
     expect(calls).toBe(1);
     expect(body.cache_hit).toBe(false);
     expect(body.fallback_applied).toBe(false);
+    expect(body.engine_version).toBe("pro-drafter");
   });
 
   test("una solicitud idéntica repetida responde desde caché sin recalcular la matriz", async () => {
@@ -132,10 +133,11 @@ describe("createProDrafterRoutes -- fallback transparente a v5", () => {
     });
 
     const response = await routes.postRecommendations(makeRequest());
-    const body = (await response.json()) as { fallback_applied: boolean; suggestions: { hero: HeroId }[] };
+    const body = (await response.json()) as { fallback_applied: boolean; engine_version: string; suggestions: { hero: HeroId }[] };
 
     expect(response.status).toBe(200);
     expect(body.fallback_applied).toBe(true);
+    expect(body.engine_version).toBe("v5");
     expect(body.suggestions[0]?.hero).toBe(101 as HeroId);
   });
 

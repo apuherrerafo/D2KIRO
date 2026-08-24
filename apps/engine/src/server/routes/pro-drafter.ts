@@ -50,11 +50,18 @@ interface ProDrafterSuggestion {
   signals: PipelineCandidateResult["signals"];
 }
 
+// Fase 3 (apps/web, sesión Gobernanza 2.0): redundante con `fallback_applied` a propósito -- el
+// consumidor (badge de motor en ProDrafterPanel) lo usa como fuente única en vez de invertir un
+// boolean, y queda derivado de `fallback_applied` en un solo punto (ver postRecommendations) para
+// que las dos banderas nunca puedan divergir.
+export type ProEngineVersion = "pro-drafter" | "v5";
+
 export interface ProDrafterResponse {
   schema: "pro-drafter-suggestions/v1";
   suggestions: ProDrafterSuggestion[];
   fallback_applied: boolean;
   cache_hit: boolean;
+  engine_version: ProEngineVersion;
 }
 
 interface CacheEntry {
@@ -165,12 +172,13 @@ export function createProDrafterRoutes(deps: ProDrafterRouteDeps = {}) {
     const proSuggestions = runPipelineWithBudget(state);
 
     const response: ProDrafterResponse = proSuggestions
-      ? { schema: "pro-drafter-suggestions/v1", suggestions: proSuggestions, fallback_applied: false, cache_hit: false }
+      ? { schema: "pro-drafter-suggestions/v1", suggestions: proSuggestions, fallback_applied: false, cache_hit: false, engine_version: "pro-drafter" }
       : {
           schema: "pro-drafter-suggestions/v1",
           suggestions: await buildFallbackSuggestions(state),
           fallback_applied: true,
           cache_hit: false,
+          engine_version: "v5",
         };
 
     cacheSet(key, response);

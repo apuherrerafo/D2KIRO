@@ -5,8 +5,8 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import type { DraftState, HeroId } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { BUTTON_SECONDARY } from "@/features/draft/styles";
-import { buildProDrafterRequest, PRO_SIGNAL_LABELS } from "@/features/pro-drafter/types";
-import type { ProSuggestion } from "@/features/pro-drafter/types";
+import { buildProDrafterRequest, ENGINE_VERSION_LABELS, PRO_SIGNAL_LABELS, toProDrafterView } from "@/features/pro-drafter/types";
+import type { ProEngineVersion, ProSuggestion } from "@/features/pro-drafter/types";
 import { usePostProRecommendationsMutation } from "@/lib/engine-api";
 
 interface ProDrafterPanelProps {
@@ -22,6 +22,32 @@ function heroName(hero: HeroMeta | undefined, heroId: HeroId): string {
 function formatRaw(raw: number | null): string {
   if (raw === null) return "sin dato";
   return raw.toFixed(2);
+}
+
+function engineBadgeClassName(engineVersion: ProEngineVersion): string {
+  if (engineVersion === "pro-drafter") return "border-signal-positive text-signal-positive";
+  return "border-signal-warning text-signal-warning";
+}
+
+interface ProDrafterEngineBadgeProps {
+  engineVersion: ProEngineVersion;
+  cacheHit: boolean;
+}
+
+// Fase 3 (sesión Gobernanza 2.0): transparencia en tiempo real de qué motor generó la sugerencia
+// -- nunca calla si el resultado en pantalla vino de v5 (fallback real, o el flag del motor está
+// apagado y esta URL responde con el shape legacy, ver toProDrafterView en features/pro-drafter).
+function ProDrafterEngineBadge({ engineVersion, cacheHit }: ProDrafterEngineBadgeProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`rounded-full border px-2 py-0.5 text-caption ${engineBadgeClassName(engineVersion)}`}>
+        {ENGINE_VERSION_LABELS[engineVersion]}
+      </span>
+      {cacheHit && (
+        <span className="rounded-full border border-surface-border px-2 py-0.5 text-caption text-content-muted">Caché</span>
+      )}
+    </div>
+  );
 }
 
 interface ProSuggestionRowProps {
@@ -61,6 +87,10 @@ function ProSuggestionRow({ suggestion, heroCatalog }: ProSuggestionRowProps) {
 export function ProDrafterPanel({ draftState, heroCatalog }: ProDrafterPanelProps) {
   const [isOpen, setOpen] = useState(false);
   const [triggerRecommendations, { data, isLoading, error }] = usePostProRecommendationsMutation();
+  // Retrocompatibilidad real (server/app.ts:258-260): `data` puede llegar en el shape v5 legacy
+  // si ENABLE_PRO_DRAFTER está apagado del lado del motor -- toProDrafterView normaliza las dos
+  // formas posibles antes de que este componente toque un solo campo.
+  const view = data ? toProDrafterView(data) : null;
 
   function handleOpen() {
     setOpen(true);
@@ -82,17 +112,20 @@ export function ProDrafterPanel({ draftState, heroCatalog }: ProDrafterPanelProp
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-heading text-content-primary">Pro-Drafter (experimental)</span>
+        <div className="flex items-center gap-3">
+          <span className="text-heading text-content-primary">Pro-Drafter (experimental)</span>
+          {view && <ProDrafterEngineBadge engineVersion={view.engineVersion} cacheHit={view.cacheHit} />}
+        </div>
         <button type="button" onClick={handleClose} className={BUTTON_SECONDARY}>
           Cerrar
         </button>
       </div>
       {isLoading && <span className="text-body text-content-secondary">Calculando...</span>}
       {error && <span className="text-body text-signal-negative">No se pudo calcular la recomendación experimental.</span>}
-      {data && data.suggestions.length === 0 && <span className="text-body text-content-secondary">Sin candidatos para el estado actual del draft.</span>}
-      {data && data.suggestions.length > 0 && (
+      {view && view.suggestions.length === 0 && <span className="text-body text-content-secondary">Sin candidatos para el estado actual del draft.</span>}
+      {view && view.suggestions.length > 0 && (
         <div className="flex flex-col gap-2">
-          {data.suggestions.map((suggestion) => (
+          {view.suggestions.map((suggestion) => (
             <ProSuggestionRow key={suggestion.hero} suggestion={suggestion} heroCatalog={heroCatalog} />
           ))}
         </div>
