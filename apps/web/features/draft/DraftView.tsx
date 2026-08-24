@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftFeedbackBox } from "@/components/draft-feedback-box/DraftFeedbackBox";
@@ -267,12 +268,18 @@ interface CompletedDraftStateProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+// TSK evt-114 (cierre del flujo tras la limpieza de UX de Fase 4): DraftSetupPanel/"Simular otro
+// draft" ya no existe -- este es su reemplazo real, un atajo directo al único simulador que queda
+// (/random-draft), en vez de dejar la pantalla final sin ninguna salida hacia una práctica nueva.
 function CompletedDraftState({ draftState, heroCatalog }: CompletedDraftStateProps) {
   return (
     <div className="flex flex-col gap-4">
       <span className="text-heading text-content-primary">Draft final</span>
       <StateGuidance state="completo" />
       <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
+      <Link href="/random-draft" className={`self-start ${BUTTON_SECONDARY}`}>
+        Simular en All Pick
+      </Link>
     </div>
   );
 }

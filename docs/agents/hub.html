@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T19:06:52.908Z</title>
+<title>HUB del ecosistema — 2026-08-24T19:16:13.811Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1079,11 +1079,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">134× · 77% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">135× · 77% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:43%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:42%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1151,6 +1151,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:15</span></div>
+            <div class="feed-note">Cierre del gap de UX anotado en evt-113: `CompletedDraftState` (`/draft`, fase "completo") gana un `Link` real ("Simular en All Pick", estilo `BUTTON_SECONDARY`, mismo patrón ya usado en `HeroPoolConfig.tsx` -- `<Link href="..." className={BUTTON_SECONDARY}>`) hacia `/random-draft`, el único simulador que quedó tras evt-113. **Dos hallazgos reales encontrados durante la verificación visual, no en el pedido original**: `SCREEN_STATE_GUIDANCE` (`constants.tsx`) todavía tenía DOS textos de guía mencionando botones ya eliminados en evt-113 -- `completo` decía literalmente `usa "Simular otro draft"` (el botón de `DraftSetupPanel`, borrado) y `esperando_draft` decía `usa "Simular draft"` (mismo botón, mismo estado eliminado). Ninguno de los dos se había tocado en evt-113 porque ese cambio se centró en los componentes/wiring, no en el copy de guía -- encontrado recién al completar un draft real de punta a punta en el navegador y leer el texto en pantalla, no por revisión de código. Corregidos los dos: `completo` ahora referencia "Simular en All Pick" (el botón real que este evento agrega), `esperando_draft` deja de nombrar un botón que ya no existe y en su lugar apunta al simulador desde el menú. Sin test roto -- ningún test de este repo afirma el contenido exacto de `SCREEN_STATE_GUIDANCE` (verificado con grep antes de tocar el archivo). **Verificación real, no solo `bun test`**: como llegar a `phase:"complete"` vía la UI exige un flujo de 10 picks + un evento `session_ended` que `ManualEntryPanel` no expone como botón, se armó la secuencia completa de eventos reales (`session_started`/`local_side_identified`/10×`hero_picked`/`session_ended`) contra `POST /api/session/manual` -- el mismo endpoint real que usa la UI, sin atajos internos -- y se cargó `/draft?session=<id>` en un navegador real (Playwright): el botón aparece, su `href` es `/random-draft`, el click navega ahí de verdad, cero error de consola, confirmado con captura antes y después del fix de copy. `bun test`: 423/423 `apps/engine` (sin tocar), 141/141 `apps/web` (sin cambio de conteo -- adición de JSX estática, mismo nivel de cobertura que ya tienen otros botones de este archivo, ninguno con test dedicado), 9/9 `scripts/` (sin tocar). `tsc --noEmit` limpio. 2 archivos (`DraftView.tsx`, `constants.tsx`), bien dentro de cualquier presupuesto. **Traducción a producto**: esto significa que terminar un draft real (o de entrada manual) en `/draft` ya no es un callejón sin salida -- un solo click lleva directo a practicar en el simulador All Pick vs bot, y el texto de guía en pantalla por fin coincide con los botones reales que existen hoy, no con los que evt-113 ya había borrado.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1226,13 +1233,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-092</span> <span class="feed-ts">2026-08-24T13:30</span></div>
             <div class="feed-note">Governance 2.0: usuario pidió explícitamente anular TSK-067 (bajar MAX_FILES/MAX_LINES/MAX_TEST_LINES de bloqueo a aviso en verify-simplicity.sh), confirmado por pregunta directa (AskUserQuestion) antes de tocar el script — no es un cambio silencioso, es la diferencia real con TSK-067 (revertido porque otra herramienta lo hizo sin preguntar). Cambios: (1) los 3 checks de archivos/líneas nunca vuelven a sumar a $ERRORS, se elimina la lectura de `simplicity_exception` para ellos (queda muerta); (2) el check de dependencias distingue `dependencies` (producción, sigue exigiendo /gear-up/@depcheck + `// ALLOWED`) de `devDependencies` (bypass total) — reflejado en CLAUDE.md y security.md en el mismo commit para que Sentinel/@redteam no contradigan la política nueva; (3) sección nueva de hard gate real, sin excepción posible: `tsc --noEmit` + `bun test` en ambas apps, activado solo con `VERIFY_COMMIT_GATE=1` (pretooluse-guard.sh lo exporta en git commit/push; los hooks PostToolUse/SubagentStop siguen corriendo el camino rápido sin tipos/tests, para no cargar cada Edit/Write con la suite completa). Se agregó `typescript` como devDependency de apps/engine (primer caso real de la política nueva) porque el motor no tenía `tsc` disponible. Al correr el gate nuevo por primera vez sobre el repo real: `bun` no resolvía en $PATH del hook (solo `bunx`, symlink a ~/.bun/bin/bun) — se agregó resolución agnóstica al entorno (BUN_BIN) antes de asumir que el gate estaba roto. El gate encontró un hallazgo real pre-existente, no causado por esta sesión: 9 archivos de fixtures del motor (counter.test.ts, hero-pool-fit.test.ts, mix.test.ts, patch-meta.test.ts, position-fit.test.ts, team-synergy.test.ts, build-paths.test.ts, gaps.test.ts, batch-harness.ts) nunca incorporaron los 3 campos que TSK-072 agregó a DraftState (firstPickSide/turnStartedAt/reserveRemainingMs) — `tsc --noEmit` no compilaba sobre el estado real del repo hasta corregirlos. Corregido (mismo fix mecánico en los 9: agregar los 3 campos en `null`). Verificado en verde: `VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` — tipos limpios, 408/408 tests de apps/engine, 133/133 de apps/web. Ningún archivo del working tree previo (82 pendientes de TSK-068 a TSK-088 y la spec `/draft` nativo) fue descartado — el resto de esta sesión los organiza en commits lógicos por dominio, registrado en entradas siguientes.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-091</span> <span class="feed-ts">2026-08-24T12:35</span></div>
-            <div class="feed-note">Hash de evt-101: commiteado en `a71b118` (5 archivos, 360 inserciones/8 eliminaciones -- `git commit` incluyó automáticamente el aviso estándar de Git sobre autor/email autoconfigurado, no relacionado con el contenido del commit). `COMMIT_TICKET=TSK-091 bash scripts/verify-simplicity.sh` -- ✅ superado, 2 excepciones reconocidas (4 archivos, 249L de producción) contra `TSK-091.md`. Working tree tras el commit: 82 archivos pendientes de otras sesiones (Fase 4/TSK-068 a TSK-088/spec `/draft` nativo), 5 menos que antes de este bloque -- exactamente los que se acaban de commitear, ninguno de los ajenos se tocó. `package.json` sigue sin trackear, tal como decidió el usuario. `bun test`/`tsc --noEmit` no se re-corrieron después del commit (ya se habían corrido justo antes, contra el estado exacto que se commiteó). No se ejecutó `git push`.</div>
           </div>
         </div></div>
     </div>
