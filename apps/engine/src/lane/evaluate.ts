@@ -71,3 +71,41 @@ export function evaluateLane2v2(
 
   return { laneScore: sigmoid(weightedSum), perDimension, confidence };
 }
+
+// Gobernanza 2.0 (ampliación 5v5, evt-107): generalización deliberada de evaluateLane2v2 a un
+// roster de tamaño variable -- `run-pipeline.ts` antes emparejaba el candidato solo con el
+// primer aliado propio y los dos primeros rivales confirmados (ventana fija 1v2), descartando el
+// resto del draft ya conocido. Acá Φ_k pasa de "(A1[k]+A2[k])/2 − (E1[k]+E2[k])/2" (interactions.ts,
+// fijo a 2v2, sigue existiendo tal cual para quien la use) a un promedio sobre TODOS los perfiles
+// confirmados de cada lado -- misma fórmula sigmoide(Σω·Φ), misma sustitución neutra 0.5 para un
+// héroe sin perfil curado. `evaluateLane2v2` NO se toca ni se reimplementa: sigue siendo el
+// primitivo 2v2 exacto que documenta pro-drafter-spec-v1.md §2.2, esta función es la única
+// consumidora nueva de `run-pipeline.ts`.
+function meanOfDimension(profiles: readonly HeroLineProfile[], dimension: LaneDimension): number {
+  if (profiles.length === 0) return NEUTRAL_VALUE; // lado sin ningún pick confirmado -- neutro, no 0
+  return profiles.reduce((sum, profile) => sum + profile[dimension], 0) / profiles.length;
+}
+
+export function evaluateLaneRoster(
+  ally: readonly (HeroLineProfile | undefined)[],
+  enemy: readonly (HeroLineProfile | undefined)[],
+  weights: readonly [number, number, number, number, number],
+): LaneInteractionResult {
+  const confidence: LaneConfidence = [...ally, ...enemy].every((profile) => profile !== undefined)
+    ? "full"
+    : "partial_signals";
+
+  const resolvedAlly = ally.map(resolveProfile);
+  const resolvedEnemy = enemy.map(resolveProfile);
+
+  const perDimension = {} as Record<LaneDimension, number>;
+  let weightedSum = 0;
+
+  LANE_DIMENSIONS.forEach((dimension, i) => {
+    const delta = meanOfDimension(resolvedAlly, dimension) - meanOfDimension(resolvedEnemy, dimension);
+    perDimension[dimension] = delta;
+    weightedSum += (weights[i] ?? 0) * delta;
+  });
+
+  return { laneScore: sigmoid(weightedSum), perDimension, confidence };
+}

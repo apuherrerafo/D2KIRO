@@ -9,7 +9,7 @@ import type { DraftState, HeroId } from "../draft/reducer";
 import { createJaccardEngine, defaultJaccardWeights } from "../knn/jaccard";
 import type { DraftCandidate } from "../knn/corpus";
 import type { InMemoryDraftIndex } from "../knn/draft-index";
-import { evaluateLane2v2 } from "../lane/evaluate";
+import { evaluateLaneRoster } from "../lane/evaluate";
 import { loadHeroLineProfiles } from "../lane/profiles";
 import type { HeroLineProfile } from "../lane/profiles";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -89,14 +89,20 @@ function earlyPressureFromProfiles(profiles: Map<HeroId, HeroLineProfile>) {
   return (heroId: HeroId): number => profiles.get(heroId)?.killPressure ?? 0;
 }
 
-// El rival a "denegar" es el de mayor entropía entre los picks rivales confirmados -- el flex
-// pick más ambiguo es el que más vale la pena atacar. Sin picks rivales -> undefined, y
-// denial_score cae a null para todos los candidatos (nunca se fabrica un objetivo).
-function rivalFlexTarget(state: DraftState, heroPositions: HeroPositions): FlexInferenceResult | undefined {
-  const enemies = enemyHeroes(state);
-  if (enemies.length === 0) return undefined;
-  const inferences = enemies.map((h) => inferFlexPick(h, heroPositions, DEFAULT_ENTROPY_THRESHOLD));
-  return inferences.reduce((max, cur) => (cur.distribution.entropy > max.distribution.entropy ? cur : max));
+// Gobernanza 2.0 (ampliación 5v5, evt-107): antes solo se "denegaba" al rival de mayor entropía
+// (single flex target) -- ahora se evalúa denial_score contra TODOS los rivales confirmados y se
+// promedia (nunca se suma: sumar sobre hasta 5 rivales rompería la calibración de
+// PIPELINE_RAW_RANGE.denial_score=[0,2] en pipeline/merge.ts, pensada para un único rival).
+// Precomputado UNA vez por corrida (no depende del candidato) -- memoización real: sin esto, cada
+// uno de los ~100+ candidatos volvería a llamar deriveFlexDistribution() por cada rival. Sin
+// picks rivales -> array vacío, y denial_score cae a null para todos los candidatos (nunca se
+// fabrica un objetivo).
+function rivalFlexTargets(state: DraftState, heroPositions: HeroPositions): FlexInferenceResult[] {
+  return enemyHeroes(state).map((h) => inferFlexPick(h, heroPositions, DEFAULT_ENTROPY_THRESHOLD));
+}
+
+function average(values: readonly number[]): number {
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 function resolveProfile(heroId: HeroId | undefined, profiles: Map<HeroId, HeroLineProfile>): HeroLineProfile | undefined {
@@ -141,24 +147,30 @@ export function runProDrafterPipeline(
   const own = ownHeroes(state);
   const knnScores = knnScoresByHero(own, index, heroPositions, candidates); // 2. KNN
 
-  // Sin inferencia real de asignación de línea (fuera de alcance, Fase 6 §2.2): el candidato se
-  // empareja con el primer pick propio conocido; el rival, con sus dos primeros picks conocidos.
-  const allyPartner = own[0];
-  const [enemy1, enemy2] = enemyHeroes(state);
+  // Gobernanza 2.0 (ampliación 5v5, evt-107): sin inferencia real de asignación de línea (fuera
+  // de alcance, Fase 6 §2.2) sigue sin resolverse -- pero antes el candidato solo se emparejaba
+  // con el PRIMER pick propio conocido y los DOS primeros rivales, descartando el resto del draft
+  // ya confirmado. Ahora lane_score/denial_score usan el roster COMPLETO de aliados/rivales
+  // confirmados. Ambos precomputados una sola vez por corrida (no dependen del candidato) --
+  // memoización real: sin esto, cada uno de los ~100+ candidatos repetiría la misma resolución de
+  // perfiles/distribuciones de posición para el mismo roster fijo.
+  const ownPartnerProfiles = own.map((h) => resolveProfile(h, profiles));
+  const enemyProfiles = enemyHeroes(state).map((h) => resolveProfile(h, profiles));
+  const flexTargets = rivalFlexTargets(state, heroPositions);
   const matchupWinrate = corpusMatchupWinrate(corpus);
   const earlyPressure = earlyPressureFromProfiles(profiles);
-  const flexTarget = rivalFlexTarget(state, heroPositions);
 
   const results: PipelineCandidateResult[] = candidates.map((candidateHero) => {
-    const laneResult = evaluateLane2v2(
-      [features.get(candidateHero), resolveProfile(allyPartner, profiles)], // 3. Lane Sim
-      [resolveProfile(enemy1, profiles), resolveProfile(enemy2, profiles)],
+    const laneResult = evaluateLaneRoster(
+      [features.get(candidateHero), ...ownPartnerProfiles], // 3. Lane Sim
+      enemyProfiles,
       LANE_WEIGHTS,
     );
 
-    const denialRaw = flexTarget // 4. Intent Decoder
-      ? calculateDenialScore(candidateHero, flexTarget, matchupWinrate, earlyPressure, DEFAULT_BETA)
-      : null;
+    const denialRaw = // 4. Intent Decoder
+      flexTargets.length === 0
+        ? null
+        : average(flexTargets.map((target) => calculateDenialScore(candidateHero, target, matchupWinrate, earlyPressure, DEFAULT_BETA)));
 
     const signals: PipelineSignalContribution[] = [
       { signal: "knn_similarity", raw: knnScores.get(candidateHero) ?? null },

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { evaluateLane2v2 } from "./evaluate";
+import { evaluateLane2v2, evaluateLaneRoster } from "./evaluate";
 import { LANE_DIMENSIONS } from "./profiles";
 import type { HeroLineProfile } from "./profiles";
 
@@ -110,4 +110,53 @@ test("el orden de los pesos corresponde exactamente al orden de LANE_DIMENSIONS"
   const result = evaluateLane2v2([ally, ally], [enemyProfile, enemyProfile], weightsOnKillPressure);
 
   expect(result.laneScore).toBe(0.5);
+});
+
+// evaluateLaneRoster (Gobernanza 2.0, ampliación 5v5): generaliza evaluateLane2v2 a un roster de
+// tamaño variable, misma fórmula sigmoide(Σω·Φ) y misma sustitución neutra 0.5.
+
+test("roster de 3 vs 3 promedia sobre TODOS los perfiles confirmados, no solo los primeros 2", () => {
+  const result = evaluateLaneRoster([STRONG, STRONG, WEAK], [WEAK, WEAK, WEAK], EQUAL_WEIGHTS);
+  // 5 dimensiones idénticas entre STRONG/WEAK: mean aliado (0.8+0.8+0.2)/3=0.6, mean rival 0.2 ->
+  // delta 0.4 por dimensión.
+  const expectedSum = 5 * 0.2 * 0.4;
+  const expectedScore = 1 / (1 + Math.exp(-expectedSum));
+
+  expect(result.laneScore).toBeCloseTo(expectedScore, 10);
+  expect(result.confidence).toBe("full");
+});
+
+test("roster desparejo (2 aliados vs 1 rival) promedia cada lado por separado -- no exige tamaños iguales", () => {
+  const result = evaluateLaneRoster([STRONG, WEAK], [STRONG], EQUAL_WEIGHTS);
+  // mean aliado (0.8+0.2)/2=0.5, mean rival 0.8 -> delta -0.3
+  const expectedSum = 5 * 0.2 * -0.3;
+  const expectedScore = 1 / (1 + Math.exp(-expectedSum));
+
+  expect(result.laneScore).toBeCloseTo(expectedScore, 10);
+});
+
+test("lado sin ningún pick confirmado (array vacío) -> neutro 0.5 por dimensión, nunca lanza", () => {
+  const result = evaluateLaneRoster([STRONG], [], EQUAL_WEIGHTS);
+  const expectedSum = 5 * 0.2 * (0.8 - 0.5); // mean rival vacío -> 0.5 neutro, nunca 0
+  const expectedScore = 1 / (1 + Math.exp(-expectedSum));
+
+  expect(result.laneScore).toBeCloseTo(expectedScore, 10);
+  expect(Number.isFinite(result.laneScore)).toBe(true);
+});
+
+test("falta el perfil de un héroe dentro de un roster más grande -> partial_signals, los demás perfiles reales sí cuentan", () => {
+  const result = evaluateLaneRoster([STRONG, undefined, STRONG], [WEAK, WEAK], EQUAL_WEIGHTS);
+
+  expect(result.confidence).toBe("partial_signals");
+  // mean aliado (0.8+0.5+0.8)/3=0.7 -- el undefined se sustituye por 0.5 neutro, los otros 2
+  // perfiles reales SÍ promedian con su valor real, no se descarta todo el lado por un hueco.
+  expect(result.perDimension.sustain).toBeCloseTo(0.7 - 0.2, 10);
+});
+
+test("con exactamente 2 aliados y 2 rivales, da el mismo resultado que evaluateLane2v2 (generalización sin regresión)", () => {
+  const roster = evaluateLaneRoster([STRONG, STRONG], [WEAK, WEAK], EQUAL_WEIGHTS);
+  const fixed = evaluateLane2v2([STRONG, STRONG], [WEAK, WEAK], EQUAL_WEIGHTS);
+
+  expect(roster.laneScore).toBeCloseTo(fixed.laneScore, 10);
+  expect(roster.confidence).toBe(fixed.confidence);
 });

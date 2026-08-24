@@ -51,6 +51,11 @@ const PROFILES = new Map<HeroId, HeroLineProfile>([
   [2, { heroId: 2, sustain: 0.8, killPressure: 0.2, harassRange: 0.3, dispelSave: 0.4, creepControl: 0.6 }],
   [10, { heroId: 10, sustain: 0.3, killPressure: 0.7, harassRange: 0.6, dispelSave: 0.2, creepControl: 0.3 }],
   [11, { heroId: 11, sustain: 0.4, killPressure: 0.5, harassRange: 0.4, dispelSave: 0.3, creepControl: 0.5 }],
+  // Perfiles opuestos a propósito (ver test "usa TODO el roster" más abajo) -- si el pipeline
+  // siguiera mirando solo el primer aliado/los dos primeros rivales, agregar estos dos picks no
+  // cambiaría ningún resultado.
+  [3, { heroId: 3, sustain: 0.1, killPressure: 0.9, harassRange: 0.1, dispelSave: 0.9, creepControl: 0.1 }],
+  [12, { heroId: 12, sustain: 0.9, killPressure: 0.1, harassRange: 0.9, dispelSave: 0.1, creepControl: 0.9 }],
 ]);
 
 const WEIGHTS: PipelineWeights = { knn_similarity: 0.4, lane_score: 0.35, denial_score: 0.25 };
@@ -77,9 +82,15 @@ test("candidato único con datos completos en las 3 etapas -- número final exac
   // sustain +0.30, killPressure -0.25, harassRange -0.10, dispelSave +0.20, creepControl +0.15
   const laneWeightedSum = 0.2 * (0.3 - 0.25 - 0.1 + 0.2 + 0.15);
   const laneRaw = 1 / (1 + Math.exp(-laneWeightedSum));
-  // matchupWinrate(2,10,*)=1.0 (único enfrentamiento registrado en el corpus, hero2 ganó);
-  // flexTarget=hero10 (entropía 1, mayor que hero11); earlyPressure(2)=killPressure=0.2
-  const denialRaw = 1.0 * 0.5 + 1.0 * 0.5 + 0.5 * 0.2 * 1;
+  // Gobernanza 2.0 (ampliación 5v5): denial_score ya no mira solo al rival de mayor entropía --
+  // promedia el denial contra CADA rival confirmado (acá los 2, hero10 y hero11).
+  // matchupWinrate(2,10,*)=1.0 (único enfrentamiento hero2 vs hero10 en el corpus, hero2 ganó);
+  // hero10 tiene 2 posiciones 50/50 (entropía 1); earlyPressure(2)=killPressure=0.2
+  const denialRaw10 = 1.0 * 0.5 + 1.0 * 0.5 + 0.5 * 0.2 * 1; // 1.1
+  // matchupWinrate(2,11,*)=1.0 (único enfrentamiento hero2 vs hero11, hero2 ganó); hero11 tiene
+  // una única posición registrada (pos5, 100% de probabilidad, entropía 0)
+  const denialRaw11 = 1.0 * 1.0 + 0.5 * 0.2 * 0; // 1.0
+  const denialRaw = (denialRaw10 + denialRaw11) / 2; // 1.05 -- promedio sobre los 2 rivales
 
   expect(hero2?.signals.find((s) => s.signal === "knn_similarity")?.raw).toBeCloseTo(knnRaw, 10);
   expect(hero2?.signals.find((s) => s.signal === "lane_score")?.raw).toBeCloseTo(laneRaw, 10);
@@ -90,6 +101,46 @@ test("candidato único con datos completos en las 3 etapas -- número final exac
     (laneRaw / 1) * 100 * WEIGHTS.lane_score +
     (denialRaw / 2) * 100 * WEIGHTS.denial_score;
   expect(hero2?.score).toBeCloseTo(expectedScore, 6);
+});
+
+test("lane_score usa TODO el roster confirmado, no solo el 1er aliado y los 2 primeros rivales (ampliación 5v5)", () => {
+  const corpus: DraftCandidate[] = [
+    { draftId: "m1", patch: "7.35d", radiantHeroes: [1, 2], direHeroes: [10, 11], winningSide: "radiant" },
+  ];
+  const index = buildDraftIndex(corpus, "7.35d");
+
+  const narrowState = draftState({ picks: { radiant: [1], dire: [10, 11] } });
+  // 3er aliado (hero3) y 3er rival (hero12) con perfiles OPUESTOS a los ya presentes (ver
+  // PROFILES) -- si el pipeline siguiera con la ventana fija de antes, agregarlos no cambiaría
+  // nada. Que sí cambie es la prueba real de que el roster completo entra al cálculo, no un
+  // número exacto (eso ya lo cubre lane/evaluate.test.ts para la aritmética pura de la mezcla).
+  const widerState = draftState({ picks: { radiant: [1, 3], dire: [10, 11, 12] } });
+
+  const narrowResults = runProDrafterPipeline(narrowState, index, corpus, HERO_POSITIONS, WEIGHTS, PROFILES);
+  const widerResults = runProDrafterPipeline(widerState, index, corpus, HERO_POSITIONS, WEIGHTS, PROFILES);
+
+  const narrowLane = narrowResults.find((r) => r.heroId === 2)?.signals.find((s) => s.signal === "lane_score")?.raw;
+  const widerLane = widerResults.find((r) => r.heroId === 2)?.signals.find((s) => s.signal === "lane_score")?.raw;
+
+  expect(narrowLane).not.toBeNull();
+  expect(widerLane).not.toBeNull();
+  expect(widerLane).not.toBeCloseTo(narrowLane ?? Number.NaN, 6);
+});
+
+test("denial_score promedia contra TODOS los rivales confirmados, no solo el de mayor entropía (ampliación 5v5)", () => {
+  const corpus: DraftCandidate[] = [
+    { draftId: "m1", patch: "7.35d", radiantHeroes: [1, 2], direHeroes: [10, 11], winningSide: "radiant" },
+  ];
+  const index = buildDraftIndex(corpus, "7.35d");
+  const state = draftState({ picks: { radiant: [1], dire: [10, 11] } });
+
+  const results = runProDrafterPipeline(state, index, corpus, HERO_POSITIONS, WEIGHTS, PROFILES);
+  const denialRaw = results.find((r) => r.heroId === 2)?.signals.find((s) => s.signal === "denial_score")?.raw;
+
+  // hero11 (entropía 0) antes quedaba totalmente descartado -- el promedio (1.05) es distinto de
+  // lo que daría mirar solo a hero10 (1.1, el de mayor entropía, comportamiento viejo).
+  expect(denialRaw).toBeCloseTo(1.05, 10);
+  expect(denialRaw).not.toBeCloseTo(1.1, 6);
 });
 
 test("nunca devuelve más de 3 candidatos, siempre ordenados descendente por score", () => {

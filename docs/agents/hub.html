@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T15:03:48.622Z</title>
+<title>HUB del ecosistema — 2026-08-24T15:17:28.615Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1079,7 +1079,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">126× · 75% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">127× · 76% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1088,7 +1088,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:37%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:36%"></div></div>
           <div class="stat-nums">46× · 33% ok  </div>
         </div>
         <div class="stat-row">
@@ -1151,6 +1151,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T15:15</span></div>
+            <div class="feed-note">Paso 2 de la sesión de Gobernanza 2.0: harness de evaluación de Pro-Drafter contra v5. (1) Corpus real ampliado de 5 a 175 drafts únicos (`fetch-pro-drafts.ts` corrido contra OpenDota, patch 7.41, tiers premium/professional) — la corrida inicial se topó con 429 persistente de OpenDota (verificado con `curl` directo, no solo el script: rate-limit real del lado del proveedor, no un bug local); reintentada en background con un wait-loop que sondeaba `/api/proMatches` cada 45s, terminó completando sola antes de que el reintento hiciera falta. `docs/agents/tasks/TSK-093.md`... (nota: este bloque no crea ticket propio, mismo criterio que `batch-harness.ts` — script de diagnóstico offline, no cambia comportamiento de producción). (2) `scripts/evaluate-pro-drafter.ts` (nuevo): evaluación *leave-one-out* real — para cada uno de los 175 drafts, el índice KNN y el `MetaSnapshot` derivado del corpus para v5 EXCLUYEN el draft evaluado en cada corrida (si no, el propio draft sería su mejor vecino y el resultado quedaría inflado de forma artificial). Por cada draft se ocultan, uno a la vez, los 5 héroes del lado ganador (875 corridas totales, aunque el tamaño de muestra *independiente* real es 175 drafts, no 875 — las 5 corridas de un mismo draft están correlacionadas) y se mide si el motor rankea el pick real del profesional en su Top-1/Top-3. **Limitación documentada en la cabecera del script, no oculta**: v5 corre acá con un `MetaSnapshot` derivado solo del corpus (sin `patchStats`/`heroPool` reales) — `patch_meta` y `hero_pool_fit` quedan `null`/`applicable:false` casi siempre, y `counter` casi siempre `null` (`MIN_MATCHUP_GAMES=200`, un par de héroes específico casi nunca junta 200 partidas en 174 drafts leave-one-out). El v5 evaluado corre mayormente con `team_synergy` (capabilities.json real) + `position_fit` (hero-positions.json real), no sus 5 señales completas — no es el v5 de producción real (que sí tiene `patch_meta`/`counter` poblados desde SQLite/OpenDota sync). **Resultado real, no el esperado**: v5 (Top-3 hit rate 7.5%, 66/875, rank promedio 2.1 cuando aparece) superó a Pro-Drafter (Top-3 hit rate 3.9%, 34/875, mismo rank promedio 2.1) en esta prueba — contraintuitivo dado que Pro-Drafter fue diseñado específicamente sobre este tipo de dato. **Causa raíz encontrada, no solo el número**: diagnóstico agregado al harness (tasa de `raw:null` por señal, sobre los 2625 candidatos evaluados, no solo el Top 3) muestra `knn_similarity` en `null` el 96.5% de las veces (2534/2625) — la señal con más peso del pipeline (`knn_similarity: 0.4` en `pro-drafter-weights-v6.json`, más que `lane_score: 0.35` y `denial_score: 0.25` juntas relativamente) queda inerte casi siempre con un corpus de 174 drafts leave-one-out: la similitud de Jaccard sobre combinaciones específicas de héroes necesita un corpus mucho más grande para encontrar vecinos genuinamente parecidos (el propio `fetch-pro-drafts.ts` ya documentaba el objetivo de 2000-5000, todavía lejos incluso después de esta ampliación). Con `knn_similarity` inerte, el pipeline corre casi siempre solo con `lane_score`+`denial_score` reponderados — y ambos son señales más angostas que `position_fit`/`team_synergy` de v5: `evaluateLane2v2`/`calculateDenialScore` en `run-pipeline.ts` solo miran UN aliado (`own[0]`) y los primeros DOS rivales confirmados (`enemy1`/`enemy2`), descartando el resto del draft, mientras que `position_fit`/`team_synergy` de v5 consideran el estado completo (`state.picks.radiant`/`state.picks.dire` enteros). **Posible ajuste de pesos, no aplicado en esta sesión** (fuera de alcance de "documentar hallazgos" — cambiar `pro-drafter-weights-v6.json` o la lógica de selección de aliado/rivales en `run-pipeline.ts` es una decisión de producto/diseño que necesita su propio ticket, no una sesión de evaluación): (a) el hallazgo real no es "los pesos están mal calibrados" sino "el corpus es demasiado chico para que `knn_similarity` aporte algo" — subir su peso no ayudaría, bajarlo tampoco resuelve la causa; (b) la mejora con más impacto esperado sería ampliar `allyPartner`/`enemy1`/`enemy2` en `run-pipeline.ts` a considerar TODOS los aliados/rivales confirmados (mismo criterio que ya usan `position_fit`/`team_synergy`), no solo el primero de cada lado; (c) seguir ampliando el corpus (175 → 2000+) por fuera de esta sesión, cuando OpenDota lo permita sin rate-limit, antes de sacar conclusiones definitivas — n=175 (175 independientes, no 875) da un margen de error real amplio para una tasa del ~4-8%. Casos de borde cualitativos (`scripts/test-pipeline.ts`, ya corridos en evt-100, re-verificados en este bloque contra el corpus ampliado a 175): Early Push sigue devolviendo `knn_similarity: null` para los 3 candidatos del Top 3 (consistente con el 96.5% medido acá), Late Game Greedy y Flex-Pick muestran `denial_score` real y coherente (sube cuando hay más rivales confirmados con distribución de posición ambigua, exactamente el comportamiento que describe `pro-drafter-spec-v1.md`). `bun test` 408/408 sin cambios (el harness nuevo no tiene test propio — mismo criterio que `batch-harness.ts`, script de diagnóstico, no lógica de producto). Commiteado en `0ba303c` (corpus + harness) — **no se ejecutó `git push`** de este bloque todavía, se agrupa con TSK-093 (evt-105) antes de pushear el conjunto completo de la sesión.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1226,13 +1233,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:35</span></div>
             <div class="feed-note">Usuario confirmó la reinterpretación de "Opción A". `/blueprint` de Fase 4 corrido en Opus (delegado a un agente separado -- la sesión principal corre en Sonnet, vuelve de inmediato al terminar), alcance deliberado: **solo el sub-ticket 4.1**, no toda la fase (decisión explícita del usuario, distinta al patrón de fases anteriores). `SPEC.md` §11.0-§11.12 generado. Tres correcciones más al `/pre-flight`, verificadas contra el código real: `archetypeFitBonus` no tiene escala uniforme entre arquetipos (0-2 salvo pickoff, 0-3) -- la normalización a `[0,1]` va dentro del scorer, no en `RAW_RANGE`; la firma propuesta (`createArchetypeFitScorer(intent)`) no podía funcionar sin `capabilities` inyectado; `capabilities.json` no tiene cobertura completa (124/126 héroes, faltan 131/145/155) -- la rama `raw: null` es alcanzable hoy. Decidido no ampliar `SignalId` en 4.1 (rompería `SCORING_WEIGHTS_V4`/`V5` congeladas) y exportar `archetypeFitBonus` en su lugar actual (no moverla a `gaps.ts`, por presupuesto real del gate). Hallazgo extra fuera de alcance: `team_synergy` devuelve `raw: 0` en vez de `null` para un héroe sin capacidades, contradice `engine.md`. Usuario confirmó las dos resoluciones (§11.6/§11.11) antes de pasar a `/rulebook`. Cero código de producción, cero commit.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>pre-flight</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:20</span></div>
-            <div class="feed-note">Los 6 bloques de Fase 4 en `architecture.md`. Dos hallazgos de investigación real cambiaron el plan que traía el usuario: (1) OpenDota no expone sinergia de compañeros ("with") -- verificado contra el código fuente real de `odota/core` (`HeroMatchupsResponse`: solo `hero_id`/`games_played`/`wins`) -- usuario resolvió vía `AskUserQuestion` derivarla de `capabilities.json`, sin sync/tabla nueva. (2) `draft-paths/build-paths.ts` (Fase 2) ya tiene el concepto de arquetipo exacto que pedía la pieza 1 (`DraftPathArchetype`, `archetypeFitBonus()`) -- sub-ticket 4.1 se redefinió para reutilizarlo en vez de curar un `archetype-affinity.json` nuevo, reinterpretando la "Opción A" ya aprobada por el usuario -- dejado marcado como pendiente de confirmación antes de `/blueprint`. Cero código escrito.</div>
           </div>
         </div></div>
     </div>
