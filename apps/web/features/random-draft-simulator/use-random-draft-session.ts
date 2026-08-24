@@ -18,11 +18,13 @@ import type {
   SuggestionSet,
   TeamSide,
 } from "@/features/draft/types";
+import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import type { SeededRng } from "./seeded-rng";
 import { createSeededRng } from "./seeded-rng";
 import { initDraft, type OrchestratorResult } from "./orchestrator";
 import { botPickHeroFromEngine, type MetaSnapshot } from "./bot-drafter";
 import { BLIND_ROUND_SPECS } from "./constants";
+import { useLowConfidenceStore } from "./low-confidence-store";
 import { loadMetaSnapshot } from "./meta-loader";
 import { useRandomDraftStore, type RandomDraftActions, type RandomDraftState } from "./store";
 import type { DraftConfig, HeroId } from "./types";
@@ -414,6 +416,19 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       beginRound(next.round);
     } else if (next.type === "complete") {
       await emit({ type: "session_ended", reason: "completed" }); // Req. 3.8
+
+      // Diagnóstico de curación de corpus (sesión Gobernanza 2.0): best-effort, nunca bloquea ni
+      // rompe el cierre real de la sesión de arriba -- postLowConfidenceReport ya atrapa sus
+      // propios errores. `getState()` en vez de una dependencia del hook: este flush corre una
+      // sola vez, al cerrar, no necesita re-suscribirse a cambios de `sightings` durante el draft.
+      const { sightings, reset } = useLowConfidenceStore.getState();
+      if (sightings.size > 0) {
+        // Hallazgo real (verificado en navegador, no supuesto): el DraftState del simulador puede
+        // traer `patch: ""` (string vacío, no null/undefined) -- `??` no lo cubre, `||` sí.
+        const patch = useRandomDraftStore.getState().draftState?.patch || "unknown";
+        void postLowConfidenceReport(sessionIdRef.current ?? "unknown", patch, [...sightings.values()]);
+        reset();
+      }
     }
   }
 

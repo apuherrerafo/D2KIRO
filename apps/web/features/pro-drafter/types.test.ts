@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "@/features/draft/types";
-import { buildProDrafterRequest, toProDrafterView } from "./types";
+import { buildProDrafterRequest, postLowConfidenceReport, toProDrafterView } from "./types";
 import type { LegacySuggestionSetResponse, ProDrafterResponse } from "./types";
 
 function draftState(overrides: Partial<DraftState> = {}): DraftState {
@@ -86,5 +86,42 @@ describe("toProDrafterView -- retrocompatibilidad con el flag del motor apagado/
     const view = toProDrafterView(legacy);
 
     expect(view.suggestions[0]?.signals).toEqual([]);
+  });
+});
+
+// Diagnóstico de curación de corpus (sesión Gobernanza 2.0).
+describe("postLowConfidenceReport -- diagnóstico best-effort, nunca bloquea el cierre real de la sesión", () => {
+  test("con entries vacío, nunca llama a fetch -- un reporte sin héroes no tiene sentido", async () => {
+    let called = false;
+    global.fetch = (async () => {
+      called = true;
+      return new Response("{}");
+    }) as unknown as typeof fetch;
+
+    await postLowConfidenceReport("session-1", "7.41", []);
+
+    expect(called).toBe(false);
+  });
+
+  test("con entries, llama al endpoint real con el body esperado", async () => {
+    const calls: { url: string; body: unknown }[] = [];
+    global.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: JSON.parse(init?.body as string) });
+      return new Response("{}");
+    }) as unknown as typeof fetch;
+
+    await postLowConfidenceReport("session-1", "7.41", [{ hero: 1, heroName: "Anti-Mage", rank: 1 }]);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe("http://127.0.0.1:4000/api/pro-drafter/low-confidence-report");
+    expect(calls[0]?.body).toEqual({ sessionId: "session-1", patch: "7.41", entries: [{ hero: 1, heroName: "Anti-Mage", rank: 1 }] });
+  });
+
+  test("un fallo de red nunca queda como una promesa rechazada sin capturar", async () => {
+    global.fetch = (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch;
+
+    await expect(postLowConfidenceReport("session-1", "7.41", [{ hero: 1, heroName: "Anti-Mage", rank: 1 }])).resolves.toBeUndefined();
   });
 });

@@ -22,7 +22,7 @@ import {
 import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes } from "./routes/meta";
-import { createProDrafterRoutes } from "./routes/pro-drafter";
+import { createProDrafterRoutes, handleLowConfidenceReport } from "./routes/pro-drafter";
 import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
 import { createTeamGroupRoutes } from "./routes/team-groups";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
@@ -258,6 +258,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "POST" && url.pathname === "/api/v1/draft/pro-recommendations") {
       if (process.env.ENABLE_PRO_DRAFTER !== "true") return handleSuggestionsPreview(request);
       return proDrafterRoutes.postRecommendations(request);
+    }
+    // Diagnóstico de curación de corpus (sesión Gobernanza 2.0): mismo gate que el endpoint de
+    // arriba -- sin Pro-Drafter activo no hay `knn_similarity` que reportar, así que esta ruta no
+    // tiene sentido con el flag apagado, apagada también.
+    if (request.method === "POST" && url.pathname === "/api/pro-drafter/low-confidence-report") {
+      if (process.env.ENABLE_PRO_DRAFTER !== "true") return Response.json({ error: "not_found" }, { status: 404 });
+      return handleLowConfidenceReport(request);
     }
     if (request.method === "GET" && url.pathname === "/api/heroes") {
       return handleHeroes();

@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createProDrafterRoutes } from "./pro-drafter";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  createProDrafterRoutes,
+  handleLowConfidenceReport,
+  isValidLowConfidenceReportRequest,
+} from "./pro-drafter";
 import type { HeroId } from "../../draft/reducer";
 
 // Fase 2 (Performance & Resiliencia, sesión Gobernanza 2.0): cache-aside + fallback a v5. Nunca el
@@ -175,5 +182,74 @@ describe("createProDrafterRoutes -- fallback transparente a v5", () => {
     expect(response.status).toBe(200);
     expect(body.fallback_applied).toBe(true);
     expect(body.suggestions).toEqual([]);
+  });
+});
+
+describe("isValidLowConfidenceReportRequest -- validación en el borde", () => {
+  test("rechaza un sessionId con caracteres fuera de [a-zA-Z0-9-] (nunca llega a formar una ruta de archivo)", () => {
+    const withPathTraversal = {
+      sessionId: "../../etc/passwd",
+      patch: "7.41",
+      entries: [{ hero: 1, heroName: "Anti-Mage", rank: 1 }],
+    };
+    expect(isValidLowConfidenceReportRequest(withPathTraversal)).toBe(false);
+  });
+
+  test("rechaza entries vacío -- un reporte sin héroes no tiene sentido, nunca se escribe", () => {
+    expect(isValidLowConfidenceReportRequest({ sessionId: "abc-123", patch: "7.41", entries: [] })).toBe(false);
+  });
+
+  test("rechaza un rank fuera de 1|2|3", () => {
+    const invalidRank = { sessionId: "abc-123", patch: "7.41", entries: [{ hero: 1, heroName: "Axe", rank: 4 }] };
+    expect(isValidLowConfidenceReportRequest(invalidRank)).toBe(false);
+  });
+
+  test("acepta un request bien formado", () => {
+    const valid = { sessionId: "abc-123", patch: "7.41", entries: [{ hero: 1, heroName: "Axe", rank: 1 }] };
+    expect(isValidLowConfidenceReportRequest(valid)).toBe(true);
+  });
+});
+
+describe("handleLowConfidenceReport -- escribe el reporte real a disco", () => {
+  test("un request válido se escribe como JSON en el directorio inyectado, con generatedAt agregado", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "low-confidence-report-"));
+    try {
+      const request = new Request("http://127.0.0.1/api/pro-drafter/low-confidence-report", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: "session-abc", patch: "7.41", entries: [{ hero: 101, heroName: "Ancient Apparition", rank: 1 }] }),
+      });
+
+      const response = await handleLowConfidenceReport(request, dir);
+      expect(response.status).toBe(201);
+
+      const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: dir }));
+      expect(files).toHaveLength(1);
+      expect(files[0]).toContain("session-abc");
+
+      const written = JSON.parse(await readFile(join(dir, files[0]!), "utf8"));
+      expect(written.sessionId).toBe("session-abc");
+      expect(written.entries).toEqual([{ hero: 101, heroName: "Ancient Apparition", rank: 1 }]);
+      expect(typeof written.generatedAt).toBe("string");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("un request inválido responde 400 y nunca toca el filesystem", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "low-confidence-report-"));
+    try {
+      const request = new Request("http://127.0.0.1/api/pro-drafter/low-confidence-report", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: "session-abc", patch: "7.41", entries: [] }),
+      });
+
+      const response = await handleLowConfidenceReport(request, dir);
+      expect(response.status).toBe(400);
+
+      const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: dir })).catch(() => []);
+      expect(files).toHaveLength(0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

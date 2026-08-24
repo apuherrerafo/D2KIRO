@@ -85,7 +85,7 @@ function V5CopilotBody({ draftState, suggestions, heroCatalog }: CopilotPanelBod
 // ProDrafterEngineBadge/ProSuggestionRow tal cual (componente real, no una réplica visual
 // distinta, mismo criterio que ya aplicaba SuggestionCard/ComparisonNote acá).
 function ProDrafterCopilotBody({ draftState, heroCatalog }: CopilotPanelBodyProps) {
-  const { view, isLoading, error } = useCopilotProDrafter(draftState);
+  const { view, isLoading, error } = useCopilotProDrafter(draftState, heroCatalog);
 
   return (
     <>

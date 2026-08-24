@@ -1,4 +1,5 @@
 import type { DraftFormatId, DraftState, HeroId, TeamSide } from "@/features/draft/types";
+import { LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 // Espejo a mano del contrato de POST /api/v1/draft/pro-recommendations
 // (apps/engine/src/server/routes/pro-drafter.ts) -- mismo criterio que `SignalId` en
@@ -103,3 +104,27 @@ export const ENGINE_VERSION_LABELS: Record<ProEngineVersion, string> = {
   "pro-drafter": "Pro-Drafter (KNN 5v5)",
   v5: "Fallback (v5)",
 };
+
+// Diagnóstico de curación de corpus (sesión Gobernanza 2.0) -- espejo del contrato de
+// POST /api/pro-drafter/low-confidence-report (apps/engine/src/server/routes/pro-drafter.ts).
+export interface LowConfidenceReportEntry {
+  hero: HeroId;
+  heroName: string;
+  rank: 1 | 2 | 3;
+}
+
+// Best-effort a propósito: un fallo acá nunca debe interrumpir el cierre real de la sesión de
+// draft (mismo criterio que correctHero en features/draft/store.ts) -- es telemetría interna para
+// el usuario, no una escritura que el flujo del draft dependa de que tenga éxito.
+export async function postLowConfidenceReport(sessionId: string, patch: string, entries: LowConfidenceReportEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  try {
+    await fetch(`${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/pro-drafter/low-confidence-report`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId, patch, entries }),
+    });
+  } catch (error) {
+    console.warn("[pro-drafter] no se pudo enviar el reporte de confianza baja:", error);
+  }
+}

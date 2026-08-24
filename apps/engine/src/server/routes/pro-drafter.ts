@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import type { DraftState, HeroId } from "../../draft/reducer";
 import { loadDraftCorpus, type DraftCandidate } from "../../knn/corpus";
 import { buildDraftIndex } from "../../knn/draft-index";
@@ -186,4 +187,67 @@ export function createProDrafterRoutes(deps: ProDrafterRouteDeps = {}) {
   }
 
   return { postRecommendations };
+}
+
+// Reporte de "confianza baja" (curación de corpus, sesión Gobernanza 2.0): diagnóstico interno
+// para el usuario, no para producto -- registra qué héroes salieron con `knn_similarity: null`
+// durante un draft del simulador, para priorizar a mano qué héroes necesitan más partidas
+// profesionales en el corpus. Deliberadamente NO cuelga de `createProDrafterRoutes` -- no
+// necesita `corpus`/`heroPositions`/`weights`/`profiles`, solo valida y escribe a disco.
+export interface LowConfidenceReportEntry {
+  readonly hero: HeroId;
+  readonly heroName: string;
+  readonly rank: 1 | 2 | 3;
+}
+
+export interface LowConfidenceReportRequest {
+  readonly sessionId: string;
+  readonly patch: string;
+  readonly entries: readonly LowConfidenceReportEntry[];
+}
+
+// `sessionId` se usa para construir un nombre de archivo -- input externo, se valida antes de
+// tocar el filesystem (nunca se confía en que sea un UUID solo porque el cliente siempre manda
+// uno real). Un `sessionId` con "/" o ".." nunca llega a formar parte de una ruta de archivo.
+const SAFE_SESSION_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
+const REPORTS_DIR = "./data/low-confidence-reports";
+
+// Exportada para pruebas -- misma razón que isValidSuggestionsPreviewRequest en edge.ts.
+export function isValidLowConfidenceReportEntry(value: unknown): value is LowConfidenceReportEntry {
+  if (typeof value !== "object" || value === null) return false;
+  const e = value as Record<string, unknown>;
+  return (
+    Number.isInteger(e.hero) &&
+    (e.hero as number) > 0 &&
+    typeof e.heroName === "string" &&
+    e.heroName.length > 0 &&
+    (e.rank === 1 || e.rank === 2 || e.rank === 3)
+  );
+}
+
+export function isValidLowConfidenceReportRequest(value: unknown): value is LowConfidenceReportRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const b = value as Record<string, unknown>;
+  if (typeof b.sessionId !== "string" || !SAFE_SESSION_ID_PATTERN.test(b.sessionId)) return false;
+  if (typeof b.patch !== "string" || b.patch.length === 0) return false;
+  if (!Array.isArray(b.entries) || b.entries.length === 0) return false;
+  return b.entries.every(isValidLowConfidenceReportEntry);
+}
+
+// `apps/engine/data/` ya existe como carpeta de datos locales no versionados (dota2coach.sqlite,
+// TSK-002) -- este reporte cae ahí mismo por el mismo criterio, nunca en el repo. `reportsDir`
+// inyectable -- mismo patrón de testing-seams que el resto del motor -- para que las pruebas
+// escriban a un directorio temporal, nunca a `./data/` real.
+export async function handleLowConfidenceReport(request: Request, reportsDir: string = REPORTS_DIR): Promise<Response> {
+  const body: unknown = await request.json().catch(() => null);
+  if (!isValidLowConfidenceReportRequest(body)) {
+    return Response.json({ error: "invalid_low_confidence_report" }, { status: 400 });
+  }
+
+  mkdirSync(reportsDir, { recursive: true });
+  const generatedAt = new Date().toISOString();
+  const fileName = `${generatedAt.replace(/[:.]/g, "-")}-${body.sessionId}.json`;
+  await Bun.write(`${reportsDir}/${fileName}`, `${JSON.stringify({ ...body, generatedAt }, null, 2)}\n`);
+
+  return Response.json({ written: true }, { status: 201 });
 }
