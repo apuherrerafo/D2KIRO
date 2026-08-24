@@ -29,7 +29,7 @@ function engineBadgeClassName(engineVersion: ProEngineVersion): string {
   return "border-signal-warning text-signal-warning";
 }
 
-interface ProDrafterEngineBadgeProps {
+export interface ProDrafterEngineBadgeProps {
   engineVersion: ProEngineVersion;
   cacheHit: boolean;
 }
@@ -37,7 +37,10 @@ interface ProDrafterEngineBadgeProps {
 // Fase 3 (sesión Gobernanza 2.0): transparencia en tiempo real de qué motor generó la sugerencia
 // -- nunca calla si el resultado en pantalla vino de v5 (fallback real, o el flag del motor está
 // apagado y esta URL responde con el shape legacy, ver toProDrafterView en features/pro-drafter).
-function ProDrafterEngineBadge({ engineVersion, cacheHit }: ProDrafterEngineBadgeProps) {
+// Exportado en Fase 4 (consolidación del Simulador): CopilotPanel (random-draft-simulator) lo
+// reutiliza tal cual -- mismo componente real, nunca una réplica visual distinta (mismo criterio
+// que ya aplicaba SuggestionCard/ComparisonNote en ese panel).
+export function ProDrafterEngineBadge({ engineVersion, cacheHit }: ProDrafterEngineBadgeProps) {
   return (
     <div className="flex items-center gap-2">
       <span className={`rounded-full border px-2 py-0.5 text-caption ${engineBadgeClassName(engineVersion)}`}>
@@ -50,12 +53,13 @@ function ProDrafterEngineBadge({ engineVersion, cacheHit }: ProDrafterEngineBadg
   );
 }
 
-interface ProSuggestionRowProps {
+export interface ProSuggestionRowProps {
   suggestion: ProSuggestion;
   heroCatalog: Map<HeroId, HeroMeta>;
 }
 
-function ProSuggestionRow({ suggestion, heroCatalog }: ProSuggestionRowProps) {
+// Exportado en Fase 4 -- mismo criterio que ProDrafterEngineBadge arriba.
+export function ProSuggestionRow({ suggestion, heroCatalog }: ProSuggestionRowProps) {
   const hero = heroCatalog.get(suggestion.hero);
   return (
     <div className="flex flex-col gap-2 rounded-md border border-surface-border bg-surface-overlay p-3">

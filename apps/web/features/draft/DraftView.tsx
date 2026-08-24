@@ -5,17 +5,14 @@ import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftFeedbackBox } from "@/components/draft-feedback-box/DraftFeedbackBox";
 import { DraftLayout } from "@/components/draft-layout/DraftLayout";
-import { DraftSetupPanel } from "@/components/draft-setup-panel/DraftSetupPanel";
 import { HeroGrid, isRosterFull } from "@/components/hero-grid/HeroGrid";
 import { InputModeSelector } from "@/components/input-mode-selector/InputModeSelector";
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
 import { TurnStatusBar } from "@/components/turn-status-bar/TurnStatusBar";
-import { PartyPoolPanel } from "@/components/party-pool-panel/PartyPoolPanel";
 import { ProDrafterPanel } from "@/components/pro-drafter-panel/ProDrafterPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { isProDrafterEnabled } from "@/app/draft/live-config";
 import { DraftPathsCoverFlow } from "@/features/draft-paths";
-import type { DraftTeamGroup } from "@/features/team-groups/types";
 import { bootstrapManualSession, shouldBootstrapManualSession } from "./bootstrap-session";
 import { DEGRADATION_LABELS, SCREEN_STATE_GUIDANCE } from "./constants";
 import { describeRejection } from "./manual-entry";
@@ -41,10 +38,9 @@ function StateGuidance({ state }: StateGuidanceProps) {
 
 interface WaitingForDraftStateProps {
   onOpenManualEntry: () => void;
-  onOpenSimulator: () => void;
 }
 
-function WaitingForDraftState({ onOpenManualEntry, onOpenSimulator }: WaitingForDraftStateProps) {
+function WaitingForDraftState({ onOpenManualEntry }: WaitingForDraftStateProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <span className="text-heading text-content-primary">Esperando a que empiece el draft</span>
@@ -52,9 +48,6 @@ function WaitingForDraftState({ onOpenManualEntry, onOpenSimulator }: WaitingFor
       <div className="flex gap-3">
         <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
           Entrada manual
-        </button>
-        <button type="button" onClick={onOpenSimulator} className={BUTTON_SECONDARY}>
-          Simular draft
         </button>
       </div>
     </div>
@@ -83,7 +76,6 @@ interface ActiveDraftStateProps {
   sessionId: string;
   draftState: DraftState;
   suggestions: SuggestionSet | null;
-  partyContext: DraftTeamGroup | null;
   heroCatalog: Map<number, HeroMeta>;
   onOpenManualEntry: () => void;
   // TSK-080: DraftLayout ocupa h-screen -- DegradedDraftState ya no puede envolverlo en un div
@@ -92,7 +84,7 @@ interface ActiveDraftStateProps {
   extraTopBar?: ReactNode;
 }
 
-function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry, extraTopBar }: ActiveDraftStateProps) {
+function ActiveDraftState({ sessionId, draftState, suggestions, heroCatalog, onOpenManualEntry, extraTopBar }: ActiveDraftStateProps) {
   const primary = suggestions?.suggestions.find((s) => s.rank === 1);
   const alternatives = suggestions?.suggestions.filter((s) => s.rank !== 1) ?? [];
   const [pickError, setPickError] = useState<string | null>(null);
@@ -217,7 +209,6 @@ function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, he
       }
       suggestionsRail={
         <>
-          <PartyPoolPanel partyContext={partyContext} draftState={draftState} heroCatalog={heroCatalog} />
           {pickError && <span className="text-caption text-signal-negative">{pickError}</span>}
           {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary onPick={quickPickHandler} />}
           {suggestions?.comparison && (
@@ -243,18 +234,16 @@ interface DegradedDraftStateProps {
   sessionId: string;
   draftState: DraftState;
   suggestions: SuggestionSet;
-  partyContext: DraftTeamGroup | null;
   heroCatalog: Map<number, HeroMeta>;
   onOpenManualEntry: () => void;
 }
 
-function DegradedDraftState({ sessionId, draftState, suggestions, partyContext, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
+function DegradedDraftState({ sessionId, draftState, suggestions, heroCatalog, onOpenManualEntry }: DegradedDraftStateProps) {
   return (
     <ActiveDraftState
       sessionId={sessionId}
       draftState={draftState}
       suggestions={suggestions}
-      partyContext={partyContext}
       heroCatalog={heroCatalog}
       onOpenManualEntry={onOpenManualEntry}
       extraTopBar={
@@ -276,18 +265,14 @@ function DegradedDraftState({ sessionId, draftState, suggestions, partyContext, 
 interface CompletedDraftStateProps {
   draftState: DraftState;
   heroCatalog: Map<number, HeroMeta>;
-  onOpenSimulator: () => void;
 }
 
-function CompletedDraftState({ draftState, heroCatalog, onOpenSimulator }: CompletedDraftStateProps) {
+function CompletedDraftState({ draftState, heroCatalog }: CompletedDraftStateProps) {
   return (
     <div className="flex flex-col gap-4">
       <span className="text-heading text-content-primary">Draft final</span>
       <StateGuidance state="completo" />
       <DraftBoard draftState={draftState} heroCatalog={heroCatalog} />
-      <button type="button" onClick={onOpenSimulator} className={`self-start ${BUTTON_SECONDARY}`}>
-        Simular otro draft
-      </button>
     </div>
   );
 }
@@ -340,12 +325,10 @@ interface DraftViewBodyProps {
   screenState: ScreenState;
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
-  partyContext: DraftTeamGroup | null;
   errorMessage: string | null;
   heroCatalog: Map<number, HeroMeta>;
   onReconnect: () => void;
   onOpenManualEntry: () => void;
-  onOpenSimulator: () => void;
 }
 
 // deriveScreenState (store.ts) garantiza draftState/suggestions no nulos en las ramas que los
@@ -358,14 +341,13 @@ export function DraftViewBody(props: DraftViewBodyProps) {
     case "desconectado":
       return <DisconnectedState draftState={props.draftState} heroCatalog={props.heroCatalog} onReconnect={props.onReconnect} />;
     case "esperando_draft":
-      return <WaitingForDraftState onOpenManualEntry={props.onOpenManualEntry} onOpenSimulator={props.onOpenSimulator} />;
+      return <WaitingForDraftState onOpenManualEntry={props.onOpenManualEntry} />;
     case "activo":
       return (
         <ActiveDraftState
           draftState={props.draftState!}
           sessionId={props.sessionId}
           suggestions={props.suggestions}
-          partyContext={props.partyContext}
           heroCatalog={props.heroCatalog}
           onOpenManualEntry={props.onOpenManualEntry}
         />
@@ -376,13 +358,12 @@ export function DraftViewBody(props: DraftViewBodyProps) {
           draftState={props.draftState!}
           sessionId={props.sessionId}
           suggestions={props.suggestions!}
-          partyContext={props.partyContext}
           heroCatalog={props.heroCatalog}
           onOpenManualEntry={props.onOpenManualEntry}
         />
       );
     case "completo":
-      return <CompletedDraftState draftState={props.draftState!} heroCatalog={props.heroCatalog} onOpenSimulator={props.onOpenSimulator} />;
+      return <CompletedDraftState draftState={props.draftState!} heroCatalog={props.heroCatalog} />;
     case "error":
       return <ErrorState message={props.errorMessage ?? "Error desconocido"} onRetry={props.onReconnect} />;
   }
@@ -401,15 +382,13 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
   const connectionStatus = useDraftStore((s) => s.connectionStatus);
   const draftState = useDraftStore((s) => s.draftState);
   const suggestions = useDraftStore((s) => s.suggestions);
-  const partyContext = useDraftStore((s) => s.partyContext);
   const errorMessage = useDraftStore((s) => s.errorMessage);
   const connect = useDraftStore((s) => s.connect);
   const disconnect = useDraftStore((s) => s.disconnect);
   const clearError = useDraftStore((s) => s.clearError);
   const { heroes: heroCatalog } = useHeroCatalog();
-  const [sessionId, setSessionId] = useState(initialSessionId);
+  const [sessionId] = useState(initialSessionId);
   const [isManualEntryOpen, setManualEntryOpen] = useState(false);
-  const [isSetupPanelOpen, setSetupPanelOpen] = useState(false);
 
   useEffect(() => {
     connect(socketFactory(wsUrl), sessionId);
@@ -438,20 +417,6 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
     setManualEntryOpen(false);
   }
 
-  function openSetupPanel() {
-    setSetupPanelOpen(true);
-  }
-
-  function closeSetupPanel() {
-    setSetupPanelOpen(false);
-  }
-
-  // Arrancar un escenario cambia de sesión (nunca reutiliza una sesión ya usada, para no
-  // acumular estado de una corrida anterior) -- el efecto de arriba reconecta el socket solo.
-  function startScenario(newSessionId: string) {
-    setSessionId(newSessionId);
-  }
-
   const screenState = deriveScreenState({ connectionStatus, draftState, suggestions, errorMessage });
   // La entrada manual existe para "cuando la detección automática falla o no existe" -- una vez
   // el draft termina, ya no tiene nada que corregir. Se deriva del estado en vez de sincronizarla
@@ -465,12 +430,10 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
         sessionId={sessionId}
         draftState={draftState}
         suggestions={suggestions}
-        partyContext={partyContext}
         errorMessage={errorMessage}
         heroCatalog={heroCatalog}
         onReconnect={handleReconnect}
         onOpenManualEntry={openManualEntry}
-        onOpenSimulator={openSetupPanel}
       />
       {isManualEntryVisible && (
         <ManualEntryPanel
@@ -480,9 +443,6 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
           picks={draftState?.picks ?? { radiant: [], dire: [] }}
           onClose={closeManualEntry}
         />
-      )}
-      {isSetupPanelOpen && (
-        <DraftSetupPanel connectionStatus={connectionStatus} onStart={startScenario} onClose={closeSetupPanel} />
       )}
     </div>
   );

@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { postManualEvent } from "./manual-entry";
 import type { DraftSocket, DraftState, ErrorPayload, HeroId, ScreenState, ServerMessage, SuggestionSet, TeamSide } from "./types";
 import { isValidServerMessage } from "./validation";
-import type { DraftTeamGroup } from "@/features/team-groups/types";
 
 // RCA post-TSK-076 (auditoría de arquitectura, 2026-08-23): fuente de verdad única para "qué pasa
 // si toco un héroe ahora" -- antes, ManualEntryPanel tenía su propio useState de side/action y
@@ -20,14 +19,12 @@ export interface DraftStoreState {
   sessionId: string | null;
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
-  partyContext: DraftTeamGroup | null;
   errorMessage: string | null;
   socket: DraftSocket | null;
   inputMode: DraftInputMode;
   connect: (socket: DraftSocket, sessionId: string) => void;
   disconnect: () => void;
   clearError: () => void;
-  setPartyContext: (partyContext: DraftTeamGroup | null) => void;
   setInputMode: (mode: Partial<DraftInputMode>) => void;
   // Corrige un pick/ban de confianza baja -- mismo POST /api/session/manual y pick_reverted del
   // contrato de TSK-004, disponible desde cualquier componente sin pasar callbacks por props.
@@ -41,7 +38,6 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
   sessionId: null,
   draftState: null,
   suggestions: null,
-  partyContext: null,
   errorMessage: null,
   socket: null,
   inputMode: DEFAULT_INPUT_MODE,
@@ -67,10 +63,6 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
 
   clearError() {
     set({ errorMessage: null });
-  },
-
-  setPartyContext(partyContext) {
-    set({ partyContext });
   },
 
   async correctHero(hero, side) {

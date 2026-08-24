@@ -23,12 +23,12 @@ export interface SimulatorScript {
   events: SimulatorScriptEntry[];
 }
 
+// SimulatorScenarioId/SIMULATOR_SCENARIOS quedan como fixture real para simulator.test.ts
+// (buildSimulatorEnvelopes) y como tipos base de SimulatorEvent/SimulatorScript, reutilizados por
+// el Random Draft Simulator -- el selector visual de escenario (DraftSetupPanel, "Simular draft"
+// dentro de /draft) se eliminó en la limpieza de UX (Fase 4, sesión Gobernanza 2.0), y con él
+// SIMULATOR_SCENARIO_LABELS, su único consumidor.
 export type SimulatorScenarioId = "captainsMode" | "allPick";
-
-export const SIMULATOR_SCENARIO_LABELS: Record<SimulatorScenarioId, string> = {
-  captainsMode: "Captain Mode",
-  allPick: "All Pick",
-};
 
 export const SIMULATOR_SCENARIOS: Record<SimulatorScenarioId, SimulatorScript> = {
   captainsMode: {

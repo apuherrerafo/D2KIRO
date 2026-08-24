@@ -17,6 +17,15 @@ describe("buildNavLinks", () => {
   test("incluye un acceso directo a /random-draft -- antes solo era accesible tipeando la URL", () => {
     const randomDraftLink = buildNavLinks(true).find((link) => link.href === "/random-draft");
 
-    expect(randomDraftLink?.label).toBe("Simulador AP");
+    expect(randomDraftLink?.label).toBe("Simulador");
+  });
+
+  // Fase 4 (limpieza de UX, sesión Gobernanza 2.0): /simulator (el simulador viejo, sin bot, sin
+  // mecánica de partida real) se eliminó -- /random-draft pasa a ser el único simulador, por eso
+  // pierde el sufijo "AP" (ya no hay ambigüedad con qué otra cosa comparar).
+  test("ya no incluye el simulador viejo (/simulator) -- consolidado en un solo simulador", () => {
+    const oldSimulatorLink = buildNavLinks(true).find((link) => link.href === "/simulator");
+
+    expect(oldSimulatorLink).toBeUndefined();
   });
 });

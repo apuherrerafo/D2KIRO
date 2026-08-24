@@ -52,12 +52,10 @@ function baseProps(screenState: ScreenState, overrides: Partial<Parameters<typeo
     screenState,
     draftState: null,
     suggestions: null,
-    partyContext: null,
     errorMessage: null,
     heroCatalog: new Map(),
     onReconnect: noop,
     onOpenManualEntry: noop,
-    onOpenSimulator: noop,
     ...overrides,
   };
 }
