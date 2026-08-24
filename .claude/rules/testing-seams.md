@@ -67,3 +67,22 @@ S9 en vez de S2.
   `buildSuggestions` completo, **no contra la señal aislada** — la señal aislada podría dar el
   número correcto y el pipeline seguir rankeando mal si el peso no alcanza. Eso es exactamente
   lo que pasaba con `role_gap` antes de esta fase.
+
+## Fase 4 — `archetype_fit` (S3, sub-ticket 4.1) — SPEC.md §11.3, §11.9
+
+- `archetype_fit` **no estrena costura propia, ni siquiera una nueva variante de S9.** Cae en
+  **S3** tal cual (función pura, archivo de prueba propio, aislado de las otras cinco) y depende
+  de **S9**, ya existente (`HeroCapabilities` inyectable) — no de un archivo nuevo, porque el
+  sub-ticket 4.1 no crea ningún `archetype-affinity.json`: reutiliza `archetypeFitBonus`
+  (`draft-paths/build-paths.ts`) sobre el mismo dato que S9 ya cubre.
+- Ninguna prueba de 4.1 lee `capabilities.json` real — fixture inline en `archetype-fit.test.ts`,
+  mismo criterio que S9/S10 (un archivo curado que se regenera por parche no puede ser la base de
+  un test que debe seguir pasando entre regeneraciones).
+- **Cinco pruebas obligatorias, no una genérica de "funciona"** (SPEC.md §11.9): sin intención →
+  `applicable: false` en los 4 arquetipos; intención `push` con orden real (Nature's Prophet >
+  Juggernaut > Anti-Mage); **la misma terna con intención `scaling` invierte el orden** (prueba
+  dedicada, no se infiere de la anterior — mismo tipo de hallazgo que `@redteam` encontró en
+  TSK-036: una implementación que devolviera un ranking fijo ignorando `intent` pasaría un test
+  de un solo arquetipo y seguiría rota); intención `pickoff` con la escala de 4 niveles (único
+  caso que detecta un denominador de normalización equivocado); candidato sin entrada en las
+  capacidades inyectadas → `raw: null`, nunca una excepción sin capturar.

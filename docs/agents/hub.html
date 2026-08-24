@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-22T21:06:54.896Z</title>
+<title>HUB del ecosistema — 2026-08-24T13:26:16.527Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -54,7 +54,7 @@
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: --. Modelo: --. · Acción: **Ninguna acción técnica obligatoria pendiente.** Todo lo acumulado está commiteado, · verificado y en producción. Lo que sigue es decisión de producto: elegir cuál de los caminos ya · identificados y sin fecha se prioriza (o ninguno, y el proyecto sigue en mantenimiento). · Cualquiera de ellos arranca con `/kickoff` cuando el usuario lo decida: · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code. Modelo: Sonnet. · Acción: decisión de producto, no técnica obligatoria. Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -140,7 +140,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">67</span></h2>
+        <h2>done <span class="count">91</span></h2>
         
         <div class="card  ">
           
@@ -170,6 +170,26 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-075</div>
+          <div class="card-title">HeroGrid nativo por atributo con highlight de sugerencias (rediseño UX /draft, punto 1, componente)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-086</div>
+          <div class="card-title">Timer de ronda al centro de CompactBoard en /random-draft (paridad visual con All Pick real)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -214,12 +234,32 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-071</div>
+          <div class="card-title">Curar tabla real de turnos + tiempo de reserva de Captain's Mode y All Pick (rediseño UX /draft, punto 2, dato base)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-020</div>
           <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-082</div>
+          <div class="card-title">POST /api/suggestions/preview — sugerencias reales sin sesión (para el bot de /random-draft)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -274,6 +314,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-083</div>
+          <div class="card-title">Bot de /random-draft usa el motor real (buildSuggestions) en vez del scoring simplificado</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-001</div>
           <div class="card-title">Esqueleto del monorepo (apps/web, apps/engine) + Bun instalado</div>
           <div class="card-meta">
@@ -314,6 +364,26 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-074</div>
+          <div class="card-title">UI de turno real + reloj de reserva en /draft (rediseño UX /draft, punto 2, interfaz)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-087</div>
+          <div class="card-title">Auto-avance de ronda en /random-draft -- quitar el botón manual Confirmar ronda</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-040</div>
           <div class="card-title">Deploy D -- Dockerfile + railway.json + volumen para la SQLite</div>
           <div class="card-meta">
@@ -334,6 +404,36 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-088</div>
+          <div class="card-title">Acceso al Simulador AP en el NavBar + picker visual de Personal_Ban_List como modal</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-089</div>
+          <div class="card-title">Fase 4: SignalScorer archetype_fit aislado (sub-ticket 4.1)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-069</div>
+          <div class="card-title">Migración de team_synergy a capabilities.json + explicaciones dinámicas (auditoría de inteligencia del motor, fases 2 y 3)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-038</div>
           <div class="card-title">Deploy B -- guard de ruta: /draft queda fuera del deploy cloud</div>
           <div class="card-meta">
@@ -350,6 +450,16 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-079</div>
+          <div class="card-title">DraftInputMode + useSubmitDraftEvent, tubería única de entrada (RCA post-TSK-076)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -394,6 +504,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-068</div>
+          <div class="card-title">Fix de sincronización de parche en patch_meta (auditoría de inteligencia del motor, fase 1)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-039</div>
           <div class="card-title">Deploy C -- Basic Auth sobre toda la instancia cloud</div>
           <div class="card-meta">
@@ -410,6 +530,16 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-078</div>
+          <div class="card-title">Guardrail de roster completo (max 5 picks/lado) en el reductor (RCA post-TSK-076)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -444,12 +574,32 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-080</div>
+          <div class="card-title">DraftLayout: tablero compacto + grilla contenida + panel de sugerencias flotante (RCA post-TSK-076)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-022</div>
           <div class="card-title">SignalScorer: hero_pool_fit (S3)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-073</div>
+          <div class="card-title">Turno actual en el protocolo de wire + espejo en apps/web (rediseño UX /draft, punto 2, protocolo)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -470,6 +620,26 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-084</div>
+          <div class="card-title">Portar HeroGrid a /random-draft (BlindRoundPanel + ConfigPanel), reemplaza HeroPicker</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-077</div>
+          <div class="card-title">Jerarquía visual táctica en SuggestionCard/SignalBreakdown (rediseño UX /draft, punto 3)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -534,6 +704,26 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-085</div>
+          <div class="card-title">CompactBoard persistente en /random-draft — arregla los picks que desaparecían entre rondas</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-076</div>
+          <div class="card-title">Wiring de HeroGrid en el flujo de pick de /draft (rediseño UX /draft, punto 1, integración)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-027</div>
           <div class="card-title">SignalScorer: role_safety + SCORING_WEIGHTS_V3 (feedback real de producto)</div>
           <div class="card-meta">
@@ -594,12 +784,32 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-081</div>
+          <div class="card-title">InputModeSelector visible sobre HeroGrid (Pick Radiant / Ban / Pick Dire)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-023</div>
           <div class="card-title">SCORING_WEIGHTS_V2 + applicable en mix.ts (candado de regresión cero)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-072</div>
+          <div class="card-title">Máquina de turnos en el reductor + rechazo duro fuera de orden (rediseño UX /draft, punto 2, lógica)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -664,6 +874,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-070</div>
+          <div class="card-title">UX defensiva y mapeo de errores de producto en la Entrada Manual del draft</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-035</div>
           <div class="card-title">Timer visible en el simulador (modo velocidad)</div>
           <div class="card-meta">
@@ -724,6 +944,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-090</div>
+          <div class="card-title">Motor Pro-Drafter v1.0 (Fases 5-8): KNN, lane simulator, intent decoder, pipeline</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-057</div>
           <div class="card-title">Partir app.ts (2/3): extraer el subsistema de sesiones del simulador a módulo propio</div>
           <div class="card-meta">
@@ -774,6 +1004,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-091</div>
+          <div class="card-title">Validación/integración Pro-Drafter v1.0: CLI runner + endpoint experimental (ENABLE_PRO_DRAFTER)</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-056</div>
           <div class="card-title">Partir app.ts (1/3): extraer rutas de hero-pool y team-groups a módulos propios</div>
           <div class="card-meta">
@@ -819,36 +1059,41 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">96× · 69% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">123× · 75% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:59%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:46%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:47%"></div></div>
-          <div class="stat-nums">45× · 31% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:37%"></div></div>
+          <div class="stat-nums">46× · 33% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:45%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:35%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">blueprint</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">6× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
-          <div class="stat-nums">5× · 100% ok  </div>
+          <div class="stat-nums">6× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
-          <div class="stat-nums">4× · 100% ok  </div>
+          <div class="stat-name">pre-flight</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
+          <div class="stat-nums">3× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">castoff</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:3%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
           <div class="stat-nums">3× · 33% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
@@ -862,17 +1107,22 @@
           <div class="stat-nums">2× · 100% ok  </div>
         </div>
         <div class="stat-row">
-          <div class="stat-name">pre-flight</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
-          <div class="stat-nums">2× · 100% ok  </div>
-        </div>
-        <div class="stat-row">
           <div class="stat-name">sentinel</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
           <div class="stat-nums">2× · 50% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">compass</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
+          <div class="stat-nums">1× · 100% ok  </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">root-cause</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
+          <div class="stat-nums">1× · 100% ok  </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-name">kickoff</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
@@ -884,85 +1134,85 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-067</span> <span class="feed-ts">2026-08-22T22:15</span></div>
-            <div class="feed-note">Encontrado tercer lote de trabajo sin commitear de otra sesión de Kiro (rol "agent-auditor", timestamps 15:54-15:57 de hoy, antes de que esta sesión empezara): 14 archivos de contexto/gobernanza (`AGENTS.md`, `.claude/agents/sentinel.md`, 3 `SKILL.md`, `.kiro/steering/*`, `docs/agents/{USER,CONTEXT,MEMORY}.md`, `scripts/{verify-simplicity,sync-context}.ts`) reemplazando referencias obsoletas de plantilla (HTMX, daisyUI, `[nombre-del-proyecto]`) por el stack/reglas reales, y agregando `scripts/sync-context.ts` (chequeo de frescura de contexto, `process.exit(0)` siempre, nunca bloquea) como primer paso de `verify-simplicity.sh` + 3 invariantes duros nuevos sin excepción posible (`0.0.0.0` en `apps/engine/src/`, `fetch(` en `apps/engine/src/signals/`, `dangerouslySetInnerHTML` en `apps/web/`). Auditado archivo por archivo antes de dar por bueno, mismo criterio que TSK-066 -- no se asumió que el trabajo estuviera bien solo porque ya existía. **Hallazgo real, no cosmético**: `@build/SKILL.md`, `USER.md` y `MEMORY.md` (los tres, de forma independiente) reescribieron la regla de excepción de 200 líneas como "no preguntes por adelantado, ya se ajustó el patrón" -- pero el propio `MEMORY.md`, ANTES de su reescritura, decía literalmente "nunca asumir la respuesta de antemano". La sesión de Kiro leyó "la respuesta ha sido consistente" y concluyó "entonces dejá de preguntar", exactamente lo que esa regla existe para prohibir. Corregido en los 3 archivos: `@build` sigue avisando con `AskUserQuestion` en cuanto detecta que va a superar el límite (no se detiene a mitad de una unidad lógica para eso), nunca asume en silencio. Verificado antes de aceptar el hardening de `verify-simplicity.sh`: corridos los 3 `grep` exactos contra `git ls-files` de `apps/engine/src/`/`apps/web/` -- cero falsos positivos contra el código real actual. `scripts/sync-context.ts` ejecutado de verdad (no solo leído): funciona, encontró 2 señales legítimas (`plan.md` con 13 tickets ya `done` listados como si no lo estuvieran; `MEMORY.md` sin mencionar el ticket más reciente tras crear TSK-067, esperado). Creado `docs/agents/tasks/TSK-067.md` (`simplicity_exception: true`, mismo criterio que TSK-063/066 -- 14 archivos de un mismo pase de auditoría, partirlo dejaría el ecosistema en un estado intermedio inconsistente). `bun test` 240/240 sin cambios (nada de este ticket toca `apps/engine`/`apps/web`, es governance/docs/scripts). `COMMIT_TICKET="TSK-067" bash scripts/verify-simplicity.sh` -- ✅ superado (14 archivos/527 líneas, excepción reconocida). Commiteado en `1e7b27b`. state: → done (TSK-067).</div>
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-091</span> <span class="feed-ts">2026-08-24T12:35</span></div>
+            <div class="feed-note">Hash de evt-101: commiteado en `a71b118` (5 archivos, 360 inserciones/8 eliminaciones -- `git commit` incluyó automáticamente el aviso estándar de Git sobre autor/email autoconfigurado, no relacionado con el contenido del commit). `COMMIT_TICKET=TSK-091 bash scripts/verify-simplicity.sh` -- ✅ superado, 2 excepciones reconocidas (4 archivos, 249L de producción) contra `TSK-091.md`. Working tree tras el commit: 82 archivos pendientes de otras sesiones (Fase 4/TSK-068 a TSK-088/spec `/draft` nativo), 5 menos que antes de este bloque -- exactamente los que se acaban de commitear, ninguno de los ajenos se tocó. `package.json` sigue sin trackear, tal como decidió el usuario. `bun test`/`tsc --noEmit` no se re-corrieron después del commit (ya se habían corrido justo antes, contra el estado exacto que se commiteó). No se ejecutó `git push`.</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>compass</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T21:50</span></div>
-            <div class="feed-note">Housekeeping pedido por el usuario tras el reporte de pendientes (A1/A2/B1/B2). A1: `bun scripts/hub.ts` regenerado (66 tareas, 260 eventos). A2: `/compass` corrido de verdad -- `docs/agents/PROGRESS.md` tenía `FASE ACTUAL`/`SIGUIENTE PASO` desactualizados desde antes del deploy de esta sesión (seguían diciendo "falta decidir si hacer push"), reescritos para reflejar modo mantenimiento real; `HISTORIAL` (append-only) tenía un hueco real de varias sesiones nunca volcadas (última entrada databa de la cadena TSK-043/047, 2026-08-21) -- no se reconstruyó línea por línea (ya está en `journal.md`), se agregaron 2 líneas de catch-up que resumen el tramo faltante y apuntan a los rangos de eventos exactos. B2: tarea 11 de `.kiro/specs/engine-performance-optimizations/tasks.md` ("Final checkpoint") marcada `[x]` -- el trabajo ya estaba verificado en verde (evt-092 a evt-095), solo faltaba reflejarlo en el archivo de Kiro. **B1 (Chen) NO resuelto, bloqueado a propósito**: se intentó `WebFetch` contra `dota2protracker.com/meta?position=pos+5` para conseguir el dato real -- 403, mismo bloqueo de Cloudflare que ya documenta `journal.md` evt-20260821-048 (solo un navegador real tipo Playwright con pausas entre página pasó la vez original; esta sesión no tiene esa herramienta disponible). No se fabricó un `matches` falso para forzar la validación de `isValidShare` (`>= 200`) -- `engine.md` dice explícito "el umbral de 200 partidas no es negociable en silencio", justo la regla que esta fase entera existe para hacer cumplir. Anotado en `PROGRESS.md` como bloqueado, no técnico: necesita que el usuario corra la recolección real o decida explícitamente aceptar una entrada sin dato medido.</div>
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-091</span> <span class="feed-ts">2026-08-24T12:30</span></div>
+            <div class="feed-note">Cierre de evt-100: usuario pidió consolidar el hito con un commit de 6 archivos. `bash scripts/verify-simplicity.sh` bloqueó dos veces antes de llegar a un commit limpio, ambos hallazgos reales, no ruido: (1) 5 archivos/259L de producción > 3/200 -- esperado, es la suma de 3 entregables en un solo commit por pedido explícito del usuario; resuelto creando `docs/agents/tasks/TSK-091.md` como registro retroactivo (`simplicity_exception: true`, mismo patrón que TSK-090) y commiteando con `COMMIT_TICKET=TSK-091`. (2) Dependencia nueva detectada en `package.json` raíz sin marca `// ALLOWED` -- investigado: es `better-sqlite3` (`devDependencies`), añadido en una sesión anterior para `corpus:sync`/`fetch-pro-drafts.ts`, sin ningún `/gear-up`/`@depcheck` encontrado en este `journal.md`. El archivo está sin trackear en git, así que incluirlo habría aprobado esa dependencia de facto solo por venir agrupada con trabajo ya revisado -- presentado al usuario vía `AskUserQuestion` (no asumido ni bloqueado en silencio), eligió dejar `package.json` fuera de este commit. **Commit final: 5 archivos, no 6** -- `scripts/test-pipeline.ts`, `apps/engine/src/server/routes/pro-drafter.ts`, `apps/engine/src/server/app.ts`, `apps/engine/src/pipeline/run-pipeline.test.ts`, `docs/agents/journal.md` (bookkeeping, no cuenta para el límite). `scripts/test-pipeline.ts` sigue 100% funcional invocado directo (`bun run scripts/test-pipeline.ts`); el atajo `bun run draft:test` queda pendiente de que `better-sqlite3` pase su propio `/gear-up`. `bun test` re-corrido justo antes de commitear (mismo criterio que evt-099 para evt-098): 408/408, contra el estado real que se iba a commitear. Staging aislado a propósito, igual que evt-099: el repo tiene ~87 archivos modificados de otras sesiones (Fase 4, spec `/draft` nativo, etc.) sin relación con este bloque -- se stagearon por nombre exacto (`git add <path>` repetido, nunca `-A`/`.`), verificado con `git status --short` antes y después de cada `add`. El hash del commit se registra en una nota de seguimiento inmediata (mismo patrón que evt-099→`b15417c` para evt-098), porque este mismo archivo es parte del commit -- no puede citarse a sí mismo antes de existir. El resto del working tree (Fase 4/TSK-068 a TSK-088/spec `/draft` nativo, y ahora también `package.json`) sigue exactamente como estaba, sin tocar. **No se ejecutó `git push`** -- no fue pedido.</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-066</span> <span class="feed-ts">2026-08-22T21:30</span></div>
-            <div class="feed-note">Creado `docs/agents/tasks/TSK-066.md` (`state: done`, `simplicity_exception: true`, justificación de 8 requirements interdependientes, mismo criterio que TSK-063) para desbloquear el commit de la spec de performance de Kiro. `COMMIT_TICKET="TSK-066" bash scripts/verify-simplicity.sh` -- ✅ superado (20 archivos/3337 líneas, excepción reconocida). Commiteado en `bb9d017`: `.kiro/specs/engine-performance-optimizations/` completo, `provider.ts`/`sync.ts`/`app.ts`/`edge.ts`/`index.ts`, migración `0004_vs_hero_idx.sql` + su test + `_journal.json`, `seed.ts`/`seed-hero-stats.json`, `lru-cache.ts`, los 3 componentes de memoización de `apps/web`, y `apps/web/bun.lock` (generado por el `bun install` de esta sesión, nunca había existido). Mismo problema de gobernanza apareció para TSK-065 (5 archivos contables, sin ticket propio pese a estar referenciado por ese número desde evt-088) -- se creó `docs/agents/tasks/TSK-065.md` con el mismo patrón de excepción, verificado en verde igual (`COMMIT_TICKET="TSK-065"`), commiteado en `3cb3724`. `bun test` 240/240 contra el estado ya commiteado (no solo el working tree). `git push origin master`: `71fea40..3cb3724`, exitoso. **Verificación post-deploy**: no hay CLI ni MCP de Railway conectado en este entorno (confirmado, `command -v railway` falla, `ToolSearch` no encuentra un MCP de Railway) -- no se revisaron logs ni estado del servicio post-deploy. Queda pendiente que el usuario revise el dashboard de Railway manualmente (regla 8 de `/castoff`: no inventar una revisión que no se hizo). state: → done (TSK-065, TSK-066).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🟡</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T21:15</span></div>
-            <div class="feed-note">`bash scripts/verify-simplicity.sh` corrido (regla 1 de `/castoff`) contra el staging real del commit "spec performance" que el usuario pidió armar: 19 archivos (10 de `apps/engine`, 3 de `apps/web`, 5 de `.kiro/specs/engine-performance-optimizations/`), 2327 líneas añadidas -- muy por encima del límite de 3/200. Sin `simplicity_exception: true` disponible: este trabajo no tiene ningún `docs/agents/tasks/TSK-XXX.md` (es spec nativo de Kiro, confirmado en evt-090), así que el mecanismo de excepción del propio script (que lee el frontmatter de un ticket real vía `COMMIT_TICKET`) no tiene dónde enganchar. Por la regla propia del script ("si falla, DETENTE"), no se armó el commit -- se hizo `git reset` para dejar el working tree como estaba antes del intento de staging. Decisión que le corresponde al usuario, no a esta sesión: crear uno o más tickets reales con la excepción declarada por adelantado (siguiendo el precedente de TSK-063), o partir el trabajo en commits más chicos por cada uno de los 8 requirements del spec. state: → 🟡 necesita decisión del usuario.</div>
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T12:25</span></div>
+            <div class="feed-note">Sesión de validación/integración del motor Pro-Drafter v1.0 (evt-098/099), 3 piezas pedidas por el usuario. (1) `scripts/test-pipeline.ts` + `bun run draft:test` (`package.json` raíz, mismo patrón que `corpus:sync`/`fetch-pro-drafts.ts`): corre `runProDrafterPipeline` contra el corpus/hero-positions/perfiles REALES (no fixtures) sobre 3 escenarios sintéticos (Early Push, Late Game Greedy, Flex-Pick Rival), imprime Top 3 con el desglose de `knn_similarity`/`lane_score`/`denial_score` -- ejecutado manualmente, confirmado imprimiendo resultados reales (incluye `null` genuino cuando corresponde, nunca fabricado). (2) `POST /api/v1/draft/pro-recommendations`: `routes/pro-drafter.ts` nuevo, reutiliza el contrato de entrada de `/api/suggestions/preview` (`SuggestionsPreviewRequest`/`isValidSuggestionsPreviewRequest` de `edge.ts`, sin duplicar validación) -- decisión deliberada para que el mismo body sirva a las dos rutas sin importar el estado del flag. Gate real en `app.ts`: `process.env.ENABLE_PRO_DRAFTER !== "true"` cae directo al handler v5 existente (mismo `handleSuggestionsPreview`, cero transformación); construir `proDrafterRoutes` en el closure de `createApp` no toca red ni SQLite (solo carga archivos estáticos ya usados en otras partes del motor), así que la instancia existir no es el gate -- el flag sí lo es. **Esto cruza a propósito el aislamiento server/↔pipeline/ que evt-098 dejó documentado como "decisión aparte, con su propio gate", sin que exista un `/blueprint` ni ticket formal para esta activación.** Antes de tocar `server/` se preguntó al usuario explícitamente (`AskUserQuestion`, no asumido) cómo proceder dado ese hueco de proceso -- confirmó "tu pedido es el gate, procede": esta sesión documenta esa confirmación como la decisión explícita que evt-098 pedía, mismo criterio de gobernanza ya usado para TSK-065/066/067 (trabajo real ejecutado antes de que exista su ticket formal). (3) El test de aislamiento de `run-pipeline.test.ts` (evt-098, línea "server/ no importa nada de pipeline/") ya no podía seguir afirmando cero imports -- se reemplazó por dos pruebas que verifican la invariante real nueva: exactamente un archivo bajo `server/` importa `pipeline/` (`routes/pro-drafter.ts`, ningún otro, vía `readdirSync`+regex sobre el disco real, no una lista mockeada) y `app.ts` sí gatea la ruta tras `ENABLE_PRO_DRAFTER`. Verificado además con un smoke test real contra `createApp(...).start()` (servidor Bun real, no solo `bun test`): flag apagado (default) devuelve el payload v5 real sin cambios (`schema: "suggestions/v1"`); flag encendido devuelve el payload nuevo del pipeline real (`schema: "pro-drafter-suggestions/v1"`) -- confirma que "producción no cambia con el flag en false" es un hecho verificado, no una promesa de comentario. `bun test`: 408/408 (403 antes de este bloque, +5 por las dos pruebas nuevas de aislamiento reemplazando la vieja). `tsc --noEmit`: mismos 9 archivos preexistentes rotos ya documentados en `PROGRESS.md` (drift de `DraftState`, TSK-072) -- ninguno de los 4 archivos tocados en esta sesión (`scripts/test-pipeline.ts`, `package.json` raíz, `server/routes/pro-drafter.ts`, `server/app.ts`, `pipeline/run-pipeline.test.ts`) aparece en esa lista, cero regresión nueva de tipos. **Traducción a producto**: esto significa que ahora existe una forma real (aunque apagada por default) de probar en producción si el motor Pro-Drafter sugiere mejor que `SCORING_WEIGHTS_V5` -- prender `ENABLE_PRO_DRAFTER=true` en el entorno expone el endpoint nuevo sin tocar ninguna sugerencia real que ya esté viendo un usuario. Cero commit ejecutado -- trabajo queda en el working tree, ningún `git add`/`commit` corrido (no fue pedido en esta sesión).</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>sentinel</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T21:10</span></div>
-            <div class="feed-note">Re-verificación de Sentinel sobre el mismo diff con el fix de evt-092 aplicado (no aceptó el reporte de texto como prueba, releyó `index.ts`/`app.ts`/`edge.ts` directamente y corrió `bun test` él mismo). **Veredicto: PASS, sin hallazgos.** Confirmado que `deps.tokenRateLimiter` ya no es `undefined` en el entrypoint real, que el límite de 20/seg por sesión sigue intacto, y que el resto del diff (provider/sync/seed/migración/LRU/memoización React/V5) no tiene vectores nuevos (grep dirigido: sin `0.0.0.0`, sin SQL concatenado, sin `dangerouslySetInnerHTML`, sin secretos, sin dependencias nuevas, migración aditiva sin `DROP`).</div>
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-090</span> <span class="feed-ts">2026-08-24T02:05</span></div>
+            <div class="feed-note">Commiteado el motor Pro-Drafter v1.0 (evt-098). `docs/agents/tasks/TSK-090.md` creado como registro retroactivo (`simplicity_exception: true`, `exception_reason` documentado -- mismo patrón que TSK-063/065/066/067: 14 sub-tareas que ya respetaban 200L/350L/3 archivos por separado, el excedente es la suma de las 14 en un solo commit). `COMMIT_TICKET="TSK-090" bash scripts/verify-simplicity.sh` -- ✅ superado (29 archivos/2306 líneas, excepción reconocida). Staging aislado a propósito: `journal.md`/`PROGRESS.md` tenían ~85 líneas de ediciones ajenas sin relación (trabajo de otras sesiones -- Fase 4, spec `/draft` nativo) ya sentadas en el working tree; se hizo `git stash push` solo sobre esos dos archivos para volver a su base limpia, se agregaron las notas de esta sesión ahí, y recién entonces se stagearon junto con los 29 archivos nuevos -- evita que este commit absorbiera silenciosamente trabajo ajeno bajo un mensaje que no lo describe. Commiteado en `59dafc1` (32 archivos, 2387 líneas: los 29 nuevos + `journal.md`/`PROGRESS.md`/`TSK-090.md`). `bun test` 403/403 y `tsc --noEmit` limpio corridos de nuevo justo antes del commit, contra el estado real que se iba a commitear. `git stash pop` restaura a continuación el trabajo ajeno de `journal.md`/`PROGRESS.md` tal como estaba. **No se ejecutó `git push`** -- no fue pedido, y el repo sigue teniendo ~80 archivos de otras sesiones sin commitear (Fase 4, TSK-068 a TSK-088, spec `/draft` nativo) que no son parte de este commit ni de esta decisión.</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T21:05</span></div>
-            <div class="feed-note">Aplicado el fix de una línea que pidió Sentinel: `index.ts` importa `createTokenRateLimiter` (`./server/edge`) y lo pasa como `tokenRateLimiter` a `createApp()`; confirmado que `opts.rateLimit` ya era `true` en el único llamador real (`/ingest/draft-event`, `app.ts:178`), así que no hacía falta tocar nada más. **Hallazgo propio, no de Sentinel**: al correr `tsc --noEmit` en `apps/engine` (chequeo que `bun test` no hace -- su transpiler no verifica tipos) apareció un error real preexistente en el mismo diff sin commitear: `app.ts:305` armaba el mensaje de error `SnapshotUnavailableError` con `{ code: "snapshot_unavailable" }`, sin el campo `message` que exige `ErrorPayload` (`session.ts:12-15`). Arreglado agregando `message: "No se pudo construir el snapshot de meta -- reintentá en unos segundos"`, mismo patrón que el único otro uso existente de `ErrorPayload` en el archivo (`app.ts:277`, `code: "invalid_json"`). `bun test` 240/240 y `tsc --noEmit` limpio en `apps/engine` después de ambos cambios. También corrida diligencia extra sobre `apps/web` (los 3 componentes de memoización de Requirement 8 también están sin commitear y no habían sido probados en esta sesión): `bun install`, `bun test` 87/87, `bun run build` (`next build`, Turbopack) compila limpio, las 11 rutas generan sin error. Efecto secundario del `bun install` de apps/web: quedó un `apps/web/bun.lock` nuevo sin trackear -- nunca existió antes, no se commiteó, queda para que el usuario decida si lo quiere versionado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🔴</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>sentinel</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T20:45</span></div>
-            <div class="feed-note">Gate de seguridad corrido sobre el diff completo sin commitear (engine-performance-optimizations + TSK-065), a pedido del usuario vía `/castoff`. **Veredicto: FAIL, hallazgo bloqueante.** Requirement 7.1/7.2 de la spec (límite de 200 eventos/seg por `x-capture-token` en `/ingest/draft-event`, pensado para que un cliente no pueda saturar el motor rotando `sessionId`) está bien implementado en `edge.ts`/`app.ts` (orden correcto respecto a `checkCaptureToken`, no debilita el límite existente de 20/seg por sesión) pero **nunca se conecta en producción**: `index.ts` (único entrypoint real, `bun run start`/`dev`) llama a `createApp()` sin pasar `tokenRateLimiter`, así que el control queda como código muerto fuera de los tests -- el escenario de abuso que el requirement fue escrito para mitigar sigue sin mitigación real. Fix sugerido por Sentinel: una línea en `index.ts` (`tokenRateLimiter: createTokenRateLimiter()`), seguida de re-correr `bun test` y volver a pasar Sentinel. Resto del diff (fallback de seed, migración `0004_vs_hero_idx.sql`, memoización React, recalibración V5) revisado y sin objeciones -- hallazgos no bloqueantes solo de limpieza menor. Por la regla del propio `/castoff` ("si Sentinel devuelve FAIL, DETENTE"), no se avanzó a `verify-simplicity.sh`/commits/push. state: → 🟡 necesita decisión del usuario (aplicar fix vs. otra dirección).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T20:40</span></div>
-            <div class="feed-note">Identificado el origen real de lo no commiteado que bloqueó evt-089: **no es TSK-059/064** (esos dos tickets ya están `state: done` y commiteados desde `c4bd304`, confirmado leyendo `docs/agents/tasks/TSK-059.md`/`TSK-064.md`). Es un spec nativo de Kiro sin ticket `TSK-XXX` propio, `.kiro/specs/engine-performance-optimizations/` (`requirements.md`/`design.md`/`tasks.md`/`tasks.meta.json`, mismo patrón que el Random Draft Simulator) -- 8 requerimientos de performance sobre `apps/engine`+`apps/web`, ejecutado en una sesión de Kiro separada (`tasks.meta.json` trae `chatSessionId` propio) hoy mismo, nunca journaleado. Alcance real 3 archivos más grande de lo que el usuario había descrito: también sin commitear `apps/web/components/{draft-board/DraftBoard,suggestion-card/SuggestionCard}.tsx` y `apps/web/features/draft/DraftView.tsx` (Requirement 8, memoización React) -- no estaban en ningún `git add` propuesto hasta ahora. El propio checklist de la spec (`tasks.md`, tarea 11 "Final checkpoint -- Ensure all tests pass") quedó sin marcar `[x]` -- coincide exactamente con que `provider.test.ts` estaba roto hasta el fix de evt-088: la sesión de Kiro se interrumpió antes de reconciliar esa expectativa, exactamente lo que evt-089 encontró de forma independiente.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">🟡</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-065</span> <span class="feed-ts">2026-08-22T20:15</span></div>
-            <div class="feed-note">Al preparar el commit de TSK-065 (evt-088), `git status` mostró `apps/engine/src/meta/provider.ts` y `sync.ts` modificados y `apps/engine/src/meta/seed.ts`/`seed-hero-stats.json`/`apps/engine/src/db/lru-cache.ts` sin trackear -- **contradice directamente** a evt-087 (09:20 hoy), que registró "Working tree limpio" tras los 5 commits de esa sesión. Alcance real de lo no commiteado, más allá de lo que evt-088 tocó: `provider.ts` (+74/-16, fallback a `seed-hero-stats.json` cuando `hero_patch_stats` está vacía), `sync.ts` (invalidación de cache movida a `finally`), `server/app.ts` (+91/-9), `server/edge.ts` (+23), `db/migrations/meta/_journal.json` (+7) y una migración nueva sin trackear (`0004_vs_hero_idx.sql` + `migration-0004.test.ts`) -- ninguno tocado por esta sesión ni por TSK-065. El test que se pidió arreglar en `provider.test.ts` (Tarea 1 del pedido del usuario) solo pasa *porque* ese `provider.ts` sin commitear ya está en el disco -- si se commitea `provider.test.ts` sin `provider.ts`/`sync.ts`/`seed.ts`/`lru-cache.ts`/la migración, el commit queda roto en cualquier clon limpio o en CI (test verde localmente, rojo en el commit real). No se ejecutó `git add`/`commit`/`push`: (1) el commit tal como lo pidió el usuario mezclaría dos unidades lógicas distintas sin relación (recalibración V5 de esta sesión + lo que parece ser continuación no documentada de TSK-059/064) bajo un solo mensaje/ticket, (2) el origen de los ~145 líneas sin commitear es desconocido para esta sesión (no se generaron en esta conversación), (3) `git push origin master` dispara auto-deploy a Railway (CLAUDE.md) y `/castoff` -- obligatorio antes de cualquier deploy, sin excepción documentada -- no corrió. Queda en manos del usuario decidir cómo separar/completar el staging antes de commitear. state: → 🟡 necesita decisión del usuario.</div>
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T01:52</span></div>
+            <div class="feed-note">Motor Pro-Drafter v1.0 (Fases 5-8, a partir de `docs/research/pro-drafter-spec-v1.md`, commit `d7da69b`) implementado completo vía TDD directo en Plan Mode, sin pasar por `/blueprint` formal. El doc de investigación es explícitamente no vinculante (nunca pasó por `/pre-flight` ni `/blueprint`, su propio encabezado lo dice) y tenía gaps reales, no solo de proceso: la función de interacción de línea (Φ_k) nunca definida, la fuente del corpus de drafts profesionales sin especificar, `MatchupWinrate` heredando el mismo hueco de STRATZ abierto desde Fase 1b sin resolverlo. Antes de escribir el plan de ejecución se preguntó al usuario explícitamente cómo proceder (AskUserQuestion): decidió avanzar igual, con esta sesión documentando cada supuesto de diseño como equivalente a lo que resolvería `/blueprint`, y que el diseño resultante **reemplaza** las piezas 2-4 del roadmap conceptual de Fase 4 (`archetype_fit`, pieza 1, TSK-089, sigue viva e intacta -- chain synergy/matriz de denial por arquetipo/diversificación quedan superadas por KNN/lane-sim/intent-decoder). 14 sub-tareas ejecutadas, cada una TDD estricto (RED confirmado -- módulo inexistente -- antes de escribir cada implementación), dentro de 200L producción/350L test/3 archivos por tarea, ninguna necesitó excepción declarada. **Fase 5** (`knn/`, 3 sub-tareas): índice invertido con bitmask real (`Uint32Array` + extracción de bits vía la técnica de Kernighan, no solo `Map`/`Set`) sobre un corpus curado seed (12 drafts, incompleto a propósito, mismo criterio que el hueco de 124/126 en `capabilities.json`); Jaccard ponderado comparando siempre contra `winningSide` (busca composiciones que ganaron); `alphaRole` resuelto reutilizando el share real de partidas por posición de `hero-positions.json` (S10) en vez de inventar una fuente nueva -- el peso de rol de un héroe es su mejor posición (`roleWeight` = máximo de `alphaRole` sobre las 5 posiciones). **Fase 6** (`lane/`, 3 sub-tareas): perfil 5D de héroe (seed de 15/126 héroes, mismo criterio de incompletitud documentada); Φ_k definida por primera vez en este proyecto como el promedio por bando en la dimensión (`(A1[k]+A2[k])/2 − (E1[k]+E2[k])/2`); sigmoide con paridad exacta en 0.5 verificada por test; perfil de héroe faltante se sustituye por 0.5 neutro ANTES del cálculo (nunca se reimplementa `interactionDelta` con una rama especial), `confidence: partial_signals` en vez de romper. **Fase 7** (`intent/`, 3 sub-tareas): belief propagation resuelta reutilizando `hero-positions.json` (S10) como prior real en vez de inventar infraestructura bayesiana sin corpus -- entropía de Shannon exacta, verificada contra `log2(5)≈2.32` (el propio número que da el doc como máxima incertidumbre); `DenialScore` excluye (nunca trata como 0 disfrazado) los términos donde `matchupWinrate` devuelve `null`, con un test dedicado que descarta específicamente el bug de `break` vs `continue` en el bucle de 5 posiciones. **Fase 8** (`pipeline/`, 4 sub-tareas): weight loader que SÍ lanza ante config inválida -- única excepción deliberada al patrón de degradación en silencio del resto del motor, documentada como tal (un archivo de pesos mal sumado es bug de configuración real, no hueco de dato parcial); `merge.ts` reimplementa el mecanismo de `mix.ts` en paralelo, nunca lo importa (`SignalId` está congelado como `Record` total en `SCORING_WEIGHTS_V4/V5`, ampliarlo rompería esa compilación -- mismo motivo que ya usa `archetype_fit`); `run-pipeline.ts` orquesta los 6 pasos estrictos (Feature Extractor → KNN → Lane Sim → Intent → Merger → Top 3) y resuelve dos gaps del doc con datos que YA existían en el proyecto en vez de inventar fuentes nuevas: `MatchupWinrate` real (no un stub que siempre devuelve `null`) derivado del propio corpus del KNN -- winrate agregado cuando dos héroes aparecieron en lados opuestos, ignorando `position` porque el corpus no la trae -- y `EarlyPressure` reutilizando `killPressure` de `HeroLineProfile`. Optimización real encontrada en el camino, no anticipada: `corpusMatchupWinrate` cachea por par (candidato, rival) porque `calculateDenialScore` la llama una vez por cada una de las 5 posiciones y el resultado no depende de `position` -- sin cache, 5x de escaneo redundante del corpus por candidato. **Verificación de aislamiento real, no solo declarada**: test que lee `apps/engine/src/server/` en disco (`readdirSync` recursivo + regex sobre cada `.ts`) y confirma que ningún archivo importa `pipeline/` -- **dark launch deliberado**: el pipeline está completo y probado pero apagado a propósito, nada lo conecta a `buildSuggestions`/WebSocket/producción todavía; activarlo (decidir si reemplaza o convive con `SCORING_WEIGHTS_V5`) es una decisión aparte, con su propio gate, fuera de alcance de esta sesión. **Traducción a producto**: esto significa que ahora el motor cuenta con una arquitectura de similitud KNN en memoria, un simulador estocástico de líneas 2v2, y un decodificador Bayesiano de intenciones de rival, 100% aislados y verificados con 403 tests pasando -- ninguno todavía visible en una sugerencia real de un draft en curso. `tsc --noEmit` limpio después de cada una de las 14 sub-tareas, `bun test` 403/403 al cierre (327/327 al empezar la sesión, +76 tests nuevos), cero regresión en ningún test preexistente en ningún punto del camino. 29 archivos nuevos bajo `apps/engine/src/{knn,lane,intent,pipeline}/`. No se creó ningún `docs/agents/tasks/TSK-XXX.md` -- trabajo ejecutado directo en Plan Mode a pedido explícito del usuario (mismo patrón de gobernanza ya usado para TSK-065/066/067 antes de que existieran sus tickets reales). state: → listo para commit (ver evento siguiente).</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-065</span> <span class="feed-ts">2026-08-22T20:10</span></div>
-            <div class="feed-note">Auditoría de coherencia matemática de `SCORING_WEIGHTS_V4`/`mix.ts` a pedido del usuario (panel de 3 roles: Data Systems Engineer, Distributed Systems Architect, QA/Red-Team Lead), seguida de dos rondas de corrección. Hallazgo raíz: `RAW_RANGE.counter` en `mix.ts` (±0.3) nunca se midió contra datos reales -- un hard counter real (delta ~0.08, muestra 200+ partidas) normalizaba a solo ~63, dejando que `patch_meta` (peso menor, 0.17 vs 0.27) le ganara por tener su propio rango mejor calibrado; confirmado por cálculo, no por sospecha. Fix 1: `RAW_RANGE.counter` recalibrado a `[-0.12, 0.12]` (estimación de dominio, todavía no medida contra percentiles reales -- pendiente como script offline futuro). Efecto secundario real detectado antes de aplicarlo a ciegas: el fix 1 por sí solo redujo el margen de `position_fit` sobre un core que repite rol pero tiene counter real de ~7 a ~1.5 puntos -- se probó primero subir el piso de `hero_pool_fit` (no alcanza, requeriría ~0.99, anulando la señal) y reformular `position_fit.raw` con penalización explícita (no-op matemático: `normalize()` es una transformación afín, cualquier reescalado lineal de `raw` da el mismo resultado normalizado). Único lever que funciona: peso. Fix 2: `SCORING_WEIGHTS_V5` nueva en `weights.ts` (`position_fit: 0.38, counter: 0.24, patch_meta: 0.13, team_synergy: 0.13, hero_pool_fit: 0.12`, suma 1.0, candado de test) -- V4 congelada, mismo patrón que V1/V2/V3. `mix.ts` migrado a V5 en los 3 puntos donde consulta pesos (`weightedContributions`, `buildReason`); un bug propio introducido por un `sed` a mitad de camino (línea mezclando `V5[b.signal] - V4[a.signal]`) se detectó y corrigió antes de seguir. `mix.test.ts`: bloque de comportamiento de V4 movido/actualizado a un bloque V5 nuevo (los tests que calculaban su "expected" citando `SCORING_WEIGHTS_V4` directamente habrían quedado comparando contra la constante equivocada); test nuevo de regresión de counter recalibrado (hard counter real le gana a popularidad, margen ~12.7 puntos); test nuevo de dominancia de posición (llenar posición faltante + fuera de pool vs. repetir rol + counter real + dentro de pool, margen calculado a mano ≈18.2, candado `> 15`). Creado `apps/engine/src/tools/batch-harness.ts` (nuevo, standalone, nunca se ejecuta desde apps/engine en runtime): corre N drafts sintéticos con PRNG determinista (mulberry32, seed fija) directo contra `buildSuggestions()` real, sin red ni SQLite -- cierra el hueco real de que el Random Draft Simulator (apps/web) nunca valida el motor real, solo su propio bot-drafter.ts (engine.md, TSK-062/063). Corrido con Bun real: N=100 (p95 0.97ms, p99 2.99ms, max 7.05ms) y N=1000 (p95 0.34ms, p99 0.86ms, max 2.53ms) -- 0% `degraded:partial_signals`, 0% excepciones no capturadas en ambos. Bun no estaba instalado en el entorno de esta sesión -- instalado vía `curl -fsSL https://bun.sh/install | bash`, autorizado explícitamente por el usuario. `bun test src/signals/` 74/74. **Nota**: no existe todavía `docs/agents/tasks/TSK-065.md` -- este evento referencia el ticket por el número que pidió el usuario, pero el archivo de ticket real (frontmatter YAML, fuente de verdad del Kanban) no se creó; `hub.ts` no lo va a mostrar hasta que exista.</div>
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-089</span> <span class="feed-ts">2026-08-23T23:55</span></div>
+            <div class="feed-note">Señal `archetype_fit` aislada (sub-ticket 4.1), TDD real: `archetype-fit.test.ts` escrito primero, confirmado en rojo (`Cannot find module`) antes de escribir `archetype-fit.ts`. `build-paths.ts`: `archetypeFitBonus` pasa a exportada, una línea, sin cambios de firma/cuerpo. `archetype-fit.ts` nuevo: `createArchetypeFitScorer(capabilities, intent)`, normalización a `[0,1]` vía `ARCHETYPE_MAX_BONUS` por arquetipo (dentro del scorer, no en `RAW_RANGE`), `SignalId` sin ampliar (vista de tipo derivada `ArchetypeFitContribution`). Hallazgo real durante la ejecución: `tsc --noEmit` ya fallaba en 9 archivos preexistentes (ninguno tocado por este ticket) por un drift real de `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que sus fixtures de test nunca actualizaron; corregido solo en el fixture nuevo de este ticket, los 8 archivos preexistentes quedan fuera de alcance (anotado, no arreglado de paso). Diff real 279→281 líneas contra el máximo de 200 -- el propio ticket ya anticipaba el escenario; confirmado con el usuario vía `AskUserQuestion` (no asumido) antes de declarar `simplicity_exception: true`, sin recortar ninguna de las 5 pruebas obligatorias. Autorevisión estilo `@redteam` sobre el diff final: gate de seguridad PASS (sin inputs sin validar, sin secretos, sin queries, señal no toca I/O); 1 hallazgo real de Standards (un `as Exclude<CapabilityLevel,"low">` que evitaba que el compilador probara la invariante) corregido sin necesitar otra ronda. `bun test`: 445/445 en todo el monorepo tras el fix, sin ninguna prueba existente modificada. Ticket no integra la señal al motor (`mix.ts`/`weights.ts`/`apps/web` intactos, `SCORING_WEIGHTS_V5` sigue siendo la única activa) -- eso es 4.2, explícitamente fuera de alcance. state: backlog → done.</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T09:20</span></div>
-            <div class="feed-note">Los tres frentes acumulados (Fase 3 + cadena de QA, Hilo 1, auditoría de arquitectura) commiteados en 5 commits por unidad lógica: b56c24f, 34e1867, 312f4aa, c4bd304, da42ae8. Working tree limpio. Verificado en verde después de commitear: apps/engine 232/232, apps/web 87/87. Detalle de cada commit y su justificación de simplicity_exception en PROGRESS.md.</div>
+            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">TSK-089</span> <span class="feed-ts">2026-08-23T23:50</span></div>
+            <div class="feed-note">Alcance deliberadamente parcial (solo 4.1). Secciones "Fase 4" en `.claude/rules/engine.md`/`security.md`/`testing-seams.md` (no `web.md`, 4.1 no toca `apps/web`). `CLAUDE.md` gana "REGLAS DE FASE 4 (sub-ticket 4.1)" y actualiza su nota de estado. `TSK-089` creado (backlog → doing al empezar `@build` en el mismo turno, por pedido explícito del usuario). Tablero regenerado: 89 tareas, 286 eventos. Hooks sin cambios.</div>
           </div>
         </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-22T09:00</span></div>
-            <div class="feed-note">Gate de seguridad del Random Draft Simulator (Hilo 1) completo, a pedido del usuario antes de commitear -- nunca había pasado por este gate (sin ticket TSK-XXX propio, spec nativo de Kiro). Alcance revisado: apps/web/features/random-draft-simulator/ completo (~30 archivos: store, orchestrator, bot-drafter, ban-phase, seeded-rng, use-random-draft-session, use-config-persistence, 6 componentes), apps/web/app/random-draft/page.tsx, apps/web/components/draft-feedback-box/DraftFeedbackBox.tsx, y la extensión de GET /api/meta/hero-stats en apps/engine (ya revisada aparte en TSK-063). Gate de seguridad: PASS -- grep limpio de dangerouslySetInnerHTML/eval/innerHTML/secretos hardcodeados en todo el árbol; localStorage validado en lectura (`validatePersistedConfig`, degrada a null sin lanzar); mensajes WS validados (`isValidServerMessage`) antes de aplicarse al store; imágenes de héroe vía `HeroIcon` (host ya validado contra el CDN de Valve, componente compartido de Fase 1, no nuevo); eventos del bot van por `postSimulatorEvent` -> mismo `/api/session/manual` ya revisado (sin `x-capture-token`, mismo perímetro 127.0.0.1, decisión de diseño ya documentada); `next.config.ts` allowlist actualizada correctamente para el endpoint extendido; sin dependencias nuevas en package.json. Pasada 1 (Standards): dispatch por mapa de objeto en vez de ternarios anidados (`PHASE_VIEWS`), reutiliza infraestructura existente (`HeroIcon`, `postEvent`, `createDraftSocket`) en vez de duplicarla, retry con backoff acotado en la emisión de eventos, manejo de fallo de red sin dejar botones colgados (mismo hallazgo ya aplicado en `ManualEntryPanel`/`DraftFeedbackBox`), tokens de diseño consistentes. Pasada 2 (Spec): contra `.kiro/specs/random-draft-simulator/tasks.md` -- ya verificado 17/17 completo con pruebas en navegador real y 2 bugs reales corregidos en el camino (PROGRESS.md, evt-20260820-047); nada en el diff se sale de lo que el spec pedía. Veredicto: **APPROVED**. Sin hallazgos bloqueantes.</div>
+            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:35</span></div>
+            <div class="feed-note">Usuario confirmó la reinterpretación de "Opción A". `/blueprint` de Fase 4 corrido en Opus (delegado a un agente separado -- la sesión principal corre en Sonnet, vuelve de inmediato al terminar), alcance deliberado: **solo el sub-ticket 4.1**, no toda la fase (decisión explícita del usuario, distinta al patrón de fases anteriores). `SPEC.md` §11.0-§11.12 generado. Tres correcciones más al `/pre-flight`, verificadas contra el código real: `archetypeFitBonus` no tiene escala uniforme entre arquetipos (0-2 salvo pickoff, 0-3) -- la normalización a `[0,1]` va dentro del scorer, no en `RAW_RANGE`; la firma propuesta (`createArchetypeFitScorer(intent)`) no podía funcionar sin `capabilities` inyectado; `capabilities.json` no tiene cobertura completa (124/126 héroes, faltan 131/145/155) -- la rama `raw: null` es alcanzable hoy. Decidido no ampliar `SignalId` en 4.1 (rompería `SCORING_WEIGHTS_V4`/`V5` congeladas) y exportar `archetypeFitBonus` en su lugar actual (no moverla a `gaps.ts`, por presupuesto real del gate). Hallazgo extra fuera de alcance: `team_synergy` devuelve `raw: 0` en vez de `null` para un héroe sin capacidades, contradice `engine.md`. Usuario confirmó las dos resoluciones (§11.6/§11.11) antes de pasar a `/rulebook`. Cero código de producción, cero commit.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>pre-flight</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:20</span></div>
+            <div class="feed-note">Los 6 bloques de Fase 4 en `architecture.md`. Dos hallazgos de investigación real cambiaron el plan que traía el usuario: (1) OpenDota no expone sinergia de compañeros ("with") -- verificado contra el código fuente real de `odota/core` (`HeroMatchupsResponse`: solo `hero_id`/`games_played`/`wins`) -- usuario resolvió vía `AskUserQuestion` derivarla de `capabilities.json`, sin sync/tabla nueva. (2) `draft-paths/build-paths.ts` (Fase 2) ya tiene el concepto de arquetipo exacto que pedía la pieza 1 (`DraftPathArchetype`, `archetypeFitBonus()`) -- sub-ticket 4.1 se redefinió para reutilizarlo en vez de curar un `archetype-affinity.json` nuevo, reinterpretando la "Opción A" ya aprobada por el usuario -- dejado marcado como pendiente de confirmación antes de `/blueprint`. Cero código escrito.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>kickoff</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:15</span></div>
+            <div class="feed-note">Usuario pidió cerrar TSK-088 (ya implementado sin commitear) antes de iniciar formalmente la Fase 4 ("Intención de Draft, Sinergia en Cadena y Diversificación Estratégica"). Commit único pedido por el usuario violaba `verify-simplicity.sh` (6 archivos/321 líneas contra 3/200) -- dividido en 4 commits lógicos (link de navbar, componente `HeroGrid`, sus tests, integración en `ConfigPanel`), cada uno PASS. Verificado además con Playwright headless real (instalado en la sesión) contra ambos servidores en dev: navegación completa del flujo, 4 columnas de atributo con retratos reales del CDN de Valve, cero errores de consola. `master` en `f2f006a`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-088</span> <span class="feed-ts">2026-08-23T22:40</span></div>
+            <div class="feed-note">Ajuste rápido de UX pedido explícitamente antes de pasar a la reingeniería del motor de recomendaciones, dos frentes: (1) `NavBar.tsx` gana el link "Simulador AP" → `/random-draft` (antes solo accesible tipeando la URL a mano). (2) `Personal_Ban_List` de `ConfigPanel.tsx` -- ya usaba `HeroGrid` (portado en TSK-084) pero como bloque inline que empujaba el formulario -- pasa a `HeroPickerModal`, primer modal real del proyecto (`fixed inset-0` con backdrop, `role="dialog"`, cierre por click-afuera/Escape/selección). Mismo `HeroGrid` sin cambios internos, ninguna duplicación de la grilla por atributo. También se corrigió que el botón "Agregar héroe" desaparecía mientras el picker estaba abierto (ya no hace falta, el modal flota encima). 3 archivos, sin `simplicity_exception`. `tsc --noEmit` limpio, `bun test` 428/428 (1 test nuevo para el link del NavBar), `curl` 200 en /, /random-draft y /api/health del motor. Verificación visual pendiente del usuario.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-087</span> <span class="feed-ts">2026-08-23T18:20</span></div>
+            <div class="feed-note">Auto-avance de ronda en /random-draft, pedido explícito del usuario (captura de Ronda 1 con 2/2 picks ya elegidos, botón "Confirmar ronda" señalado como paso manual innecesario). `BlindRoundActive` (`BlindRoundPanel.tsx`) gana un `useEffect` con guard por `useRef` (`advancedRef`) que dispara `onConfirmRound()` en cuanto `slotsLeft === 0` -- se resetea a `false` si `slotsLeft` vuelve a subir (caso `Conflict_Ban`, que reabre la ronda). Botón "Confirmar ronda" eliminado, junto con el import ya sin uso de `BUTTON_PRIMARY`. 1 archivo, sin `simplicity_exception`. `tsc --noEmit` limpio, `bun test` 427/427 sin regresiones, `curl` 200 en /random-draft y /api/health del motor. Verificación visual pendiente del usuario.</div>
           </div>
         </div></div>
     </div>

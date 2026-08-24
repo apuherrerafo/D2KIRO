@@ -1164,3 +1164,540 @@ Fronteras naturales de ticket, en orden de dependencia. **No son tickets todaví
 4. Espejo en `apps/web`: `SignalId` + `SIGNAL_LABELS` (criterio 9).
 5. Borrado de `role-gap.ts`/`role-safety.ts` y sus pruebas -- **último**, cuando nada los
    referencie, nunca antes.
+
+# SPEC — Fase 4 (Intención de Draft, Sinergia en Cadena y Diversificación Estratégica)
+
+Síntesis de `docs/agents/architecture.md` § Fase 4 (Bloques 1-6 + "Detalle de implementación --
+Sub-ticket 4.1"). Origen: feedback directo del usuario (2026-08-23) -- el motor da un top-3
+estático al inicio de cada draft porque pondera winrate general de forma aislada, sin ningún
+concepto de intención táctica. Ver `journal.md` de esta fase.
+
+## 11.0 — Alcance de este blueprint (leer primero)
+
+Este `/blueprint` **no cierra la Fase 4 completa**. Decisión de alcance explícita del usuario:
+se formaliza **únicamente el sub-ticket 4.1** (la señal `archetype_fit` en su forma aislada), al
+nivel de detalle sin ambigüedad que `/rulebook` necesita para generar un `TSK-XXX` ejecutable.
+
+- **§11.1 a §11.9 son contrato cerrado.** Cero números pendientes, cero "a confirmar". Lo que
+  está ahí se puede implementar sin volver a preguntar nada.
+- **§11.10 documenta las piezas 2-4 y los sub-tickets 4.2-4.8 al nivel conceptual que ya tiene
+  `architecture.md`** -- contratos e invariantes, **nunca los números**. Cada número que
+  corresponde a un sub-ticket posterior está marcado como *pendiente del blueprint de su propio
+  sub-ticket*, mismo criterio que la sección "Cierre" de `architecture.md` ya usa.
+
+Si alguien busca acá el peso de `SCORING_WEIGHTS_V6`, el ancho de la banda de diversificación, la
+matriz 4×4 de contras por arquetipo o la fórmula de sinergia par a par, **no están y es
+deliberado** -- no un olvido.
+
+## 11.1 — Qué de fases anteriores queda superado
+
+**Nada.** A diferencia de 1b (que agregó una quinta señal) y de Fase 3 (que fusionó dos señales en
+una y congeló `SCORING_WEIGHTS_V3`), el sub-ticket 4.1 **no toca ninguna señal existente, ningún
+peso, ningún archivo de `apps/web`, y no cambia el comportamiento observable del motor**. Al
+terminar 4.1, `buildSuggestions` devuelve exactamente lo mismo que antes: la señal existe, está
+probada, y todavía no está enchufada.
+
+Esto es intencional y es lo que hace que 4.1 quepa en el presupuesto de 3 archivos / 200 líneas
+(`scripts/verify-simplicity.sh`). La integración -- y con ella el único cambio de comportamiento
+real -- vive entera en 4.2.
+
+**`SCORING_WEIGHTS_V5` sigue siendo la constante activa durante todo 4.1.** V1/V2/V3/V4 siguen
+congeladas por nombre, sin tocar.
+
+## 11.2 — Decisiones cerradas (sub-ticket 4.1)
+
+| # | Pregunta | Decisión |
+|---|---|---|
+| P1 | ¿De dónde sale la afinidad héroe↔arquetipo? | **De `capabilities.json`, vía la función que ya existe**: `archetypeFitBonus()` (`draft-paths/build-paths.ts`), escrita, probada y en producción desde Fase 2. **No se crea `archetype-affinity.json`.** Materializar un segundo JSON duplicaría un dato que ya vive en `capabilities.json`. Confirma y fija el hallazgo 2 del Bloque 2 de `architecture.md` (la reinterpretación de "Opción A" que quedaba pendiente de confirmación). |
+| P2 | ¿`archetypeFitBonus` se exporta desde `build-paths.ts` o se mueve a `gaps.ts`? | **Se exporta tal cual desde `build-paths.ts`.** Ver §11.4, "Por qué exportar y no mover". |
+| P3 | ¿Cómo llega el dato de capacidades a la señal? | **Inyectado por fábrica**: `createArchetypeFitScorer(capabilities, intent)`. Mismo patrón exacto que `createTeamSynergyScorer(capabilities)` ya usa hoy. **Corrige la firma que proponía `architecture.md`** (§11.4). |
+| P4 | ¿Qué escala tiene `raw` y cuál es su `RAW_RANGE`? | **`raw ∈ [0, 1]`, normalizado dentro del scorer**, y `RAW_RANGE.archetype_fit = [0, 1]` en `mix.ts` (lo aplica 4.2). **No** se deja la escala cruda de `archetypeFitBonus`. Motivo forzado por el código real, no estético: ver §11.4, "Por qué la normalización va adentro". |
+| P5 | ¿`"archetype_fit"` entra en `SignalId` ya en 4.1? | **No. Entra en 4.2.** `architecture.md` recomendaba tentativamente adelantarlo ("probablemente sí"); **verificado contra el código real, es incorrecto** y rompería dos constantes congeladas. Ver §11.7. |
+| P6 | ¿Qué pasa con un candidato sin entrada en `capabilities.json`? | **`raw: null`** (hueco de datos), `applicable` ausente. Mismo criterio que P5 de Fase 3 (§10.1). **No es un caso hipotético: hoy hay 3 héroes así** (§11.6). |
+| P7 | ¿Qué pasa sin intención elegida? | **`raw: null` + `applicable: false`.** Es el único caso de `applicable: false` de la señal, y el segundo del motor entero tras `hero_pool_fit`. "El usuario no configuró esta función" -- exactamente el significado que 1b le dio al campo (§9.3). |
+| P8 | ¿La señal depende de `DraftState`? | **No.** `raw` es función pura de `(intent, capacidades del candidato)` y es constante durante todo el draft. Es la única señal del motor con esa propiedad, y es lo que la hace útil en el pick #1 (§11.4, "Invariante de independencia del estado"). |
+
+## 11.3 — Costuras: ninguna nueva
+
+**No se estrena costura en 4.1.** Confirmado tras leer el código real, coincidiendo con lo que
+`architecture.md` ya argumentaba:
+
+- `archetype_fit` es un `SignalScorer` más → cae en **S3** tal cual (función pura, archivo de
+  prueba propio, aislado de las otras cinco señales).
+- Su única dependencia de datos es `HeroCapabilities[]`, que ya tiene costura: **S9**
+  (`capabilities.json` → inyectado como fixture, nunca leído real en una prueba). La validación de
+  borde ya existe y no se toca (`loadHeroCapabilities()`, `draft-paths/capabilities.ts`).
+- **No hace falta una `S11`.** La primera propuesta de esta fase la asumía porque asumía un
+  archivo `archetype-affinity.json` nuevo con su propio `loadArchetypeAffinity()`; P1 elimina ese
+  archivo, y con él la frontera que habría necesitado costura propia.
+
+**Regla derivada, heredada literal de S9/S10**: ninguna prueba de `archetype-fit.test.ts` puede
+leer `capabilities.json` real. `capabilities.json` es un borrador curado, editable -- un test
+atado a su contenido se rompe en silencio con cada corrección de dominio. Los números de §11.5
+están calculados **contra el archivo real** para que sean realistas, pero se llevan al test **como
+fixture literal inline**, no como lectura del archivo.
+
+`S12` (RNG inyectable para la diversificación, pieza 4) **no se define acá** -- pertenece al
+sub-ticket que la use (§11.10).
+
+## 11.4 — Contrato de la señal `archetype_fit` (sub-ticket 4.1)
+
+### Tipo de la intención: reutilizado, no duplicado
+
+```typescript
+// draft-paths/types.ts -- ya existe, no se toca
+export type DraftPathArchetype = "push" | "teamfight" | "pickoff" | "scaling";
+```
+
+Un solo nombre de dominio para el mismo concepto, consumido por "Caminos de draft" (post-hoc:
+*qué le falta al draft*) y por `archetype_fit` (pre-hoc: *qué quiero que sea mi draft*). Importar
+directo entre `signals/` y `draft-paths/` es legítimo: ambos viven en el mismo proceso, y
+`team-synergy.ts` ya lo hace hoy (`import { detectDraftGaps, filledGaps, ownCapabilities } from
+"../draft-paths/gaps"`). La regla de "espejo a mano, nunca import directo" es exclusiva de la
+frontera `apps/engine` ↔ `apps/web`.
+
+### Firma de la fábrica
+
+```typescript
+export function createArchetypeFitScorer(
+  capabilities: HeroCapabilities[],
+  intent: DraftPathArchetype | undefined,
+): ArchetypeFitScorer;
+```
+
+**Corrección a `architecture.md`**, verificada contra el código: el detalle de sub-ticket 4.1
+proponía `createArchetypeFitScorer(intent)` a secas. Eso no puede funcionar --
+`SignalScorer.score(state, candidate, meta)` recibe el candidato como `HeroId`, y
+`capabilities.json` **no vive en `MetaSnapshot`**. Sin `capabilities` inyectado, el scorer no
+tiene forma de resolver `HeroId → HeroCapabilities`. El orden de parámetros (`capabilities`
+primero, `intent` después) espeja `createTeamSynergyScorer(capabilities)`.
+
+La resolución `HeroId → HeroCapabilities` usa **`capabilitiesByHero()`**, ya exportada de
+`draft-paths/gaps.ts` -- no se construye un `Map` a mano (`team-synergy.ts` sí lo hace inline hoy;
+no se toca, pero la señal nueva no repite ese detalle).
+
+### Tipado sin tocar `SignalId` (4.1)
+
+Como `"archetype_fit"` todavía no es un `SignalId` (P5, §11.7), el archivo declara su propia vista
+estrecha del contrato, **derivada de los tipos reales, no copiada a mano**:
+
+```typescript
+export type ArchetypeFitContribution =
+  Omit<SignalContribution, "signal"> & { signal: "archetype_fit" };
+
+export interface ArchetypeFitScorer {
+  id: "archetype_fit";
+  score(state: DraftState, candidate: HeroId, meta: MetaSnapshot): ArchetypeFitContribution;
+}
+```
+
+`Omit<SignalContribution, "signal">` y no una interfaz escrita de cero: si `SignalContribution`
+gana un campo, esta vista lo hereda sola. En 4.2, cuando `SignalId` incluya `"archetype_fit"`,
+estos dos alias se borran y las anotaciones pasan a `SignalContribution`/`SignalScorer` --
+**el cuerpo de `score()` no cambia una línea**, porque por tipado estructural el objeto ya
+satisface `SignalScorer` en cuanto la unión se amplía.
+
+### Algoritmo (determinista, puro, sin I/O, sin estado)
+
+Sea `h` el candidato e `i` la intención.
+
+**1. Bonus crudo** -- **la función ya existente, reutilizada sin reimplementar**:
+
+```typescript
+// draft-paths/build-paths.ts, hoy privada -> pasa a exportada. Sin cambios de firma ni de cuerpo.
+export function archetypeFitBonus(archetype: DraftPathArchetype, candidate: HeroCapabilities): number {
+  if (archetype === "push")      return levelScore(candidate.structuralDamage);  // 0 | 1 | 2
+  if (archetype === "teamfight") return levelScore(candidate.teamfight);         // 0 | 1 | 2
+  if (archetype === "pickoff")   return (candidate.hasCatch ? 2 : 0) + (candidate.hasInitiation ? 1 : 0); // 0..3
+  return levelScore(candidate.scaling);                                          // 0 | 1 | 2
+}
+```
+
+**2. Normalización por arquetipo** -- constante nueva, vive en `archetype-fit.ts`:
+
+```typescript
+const ARCHETYPE_MAX_BONUS: Record<DraftPathArchetype, number> = {
+  push: 2, teamfight: 2, pickoff: 3, scaling: 2,
+};
+
+raw = archetypeFitBonus(i, h) / ARCHETYPE_MAX_BONUS[i]      // ∈ [0, 1]
+```
+
+**3.** `RAW_RANGE.archetype_fit = [0, 1]` en `mix.ts` -- **lo agrega 4.2**, no 4.1 (4.1 no toca
+`mix.ts`). Queda fijado acá para que 4.2 no tenga que redecidirlo.
+
+#### Por qué la normalización va adentro del scorer (y no en `RAW_RANGE`)
+
+**Corrección a `architecture.md`**, medida contra el código real. El Cierre de `architecture.md`
+dice que "la escala natural de `archetypeFitBonus` hoy es 0-3". Es cierto sólo como cota global:
+la escala real es **distinta por arquetipo** -- `0..2` para `push`, `teamfight` y `scaling`, y
+`0..3` **sólo** para `pickoff`, que es el único que suma dos booleanos en vez de leer un
+`CapabilityLevel`.
+
+`RAW_RANGE` es `Record<SignalId, [number, number]>`: **un solo rango por señal, no por arquetipo**.
+No existe un valor que sirva para los cuatro:
+
+- `[0, 3]` → con intención `push`, el mejor héroe posible del juego normaliza a **66.7**, nunca a
+  100. Tres de los cuatro arquetipos quedan sistemáticamente subponderados frente al cuarto, por
+  un detalle de implementación de la función, no por dominio.
+- `[0, 2]` → `clamp` aplasta el `3` de `pickoff` contra el `2`, y se pierde la distinción entre
+  "tiene catch" (2) y "tiene catch **e** initiation" (3), que es justamente la información que
+  ese arquetipo aporta.
+
+Como el arquetipo sólo se conoce dentro del scorer, **la normalización tiene que ocurrir ahí**.
+Con `raw ∈ [0, 1]` la señal queda además alineada con `team_synergy`, `hero_pool_fit` y
+`position_fit`, que ya usan `[0, 1]` (`mix.ts`).
+
+#### Invariante de independencia del estado
+
+`raw` **no depende de `DraftState` ni de `MetaSnapshot`** -- es constante por par `(intent, hero)`
+durante todo el draft. `score()` recibe los tres parámetros por contrato, pero sólo usa
+`candidate`.
+
+No es un descuido: es exactamente lo que resuelve la queja de producto que originó la fase.
+`counter` devuelve `raw: null` sin picks rivales, `team_synergy` devuelve `raw: null` sin picks
+propios y `position_fit` reparte `need = 1` entre las cinco posiciones -- en el pick #1 casi nada
+distingue a un candidato de otro, y por eso el top-3 inicial es siempre el mismo. `archetype_fit`
+es la primera señal del motor que **sí** discrimina con el draft vacío.
+
+Su contracara (la señal sigue empujando en el pick #5 aunque el draft ya haya cumplido la
+intención) es una pregunta legítima de calibración, **registrada como abierta para 4.2/4.3**
+(§11.11). No se resuelve en 4.1.
+
+### Los tres resultados posibles de `score()`
+
+| Caso | `raw` | `applicable` | `sampleSize` | `explanation` |
+|---|---|---|---|---|
+| `intent === undefined` | `null` | **`false`** | `0` | `"Elegí una intención de draft para activar esta señal"` |
+| Candidato sin entrada en `capabilities.json` | `null` | ausente | `0` | `"Sin datos de capacidades tácticas para este héroe"` |
+| Normal | `[0, 1]` | ausente | `0` | ver abajo |
+
+`weighted: 0` siempre -- lo calcula `mix.ts`, igual que las otras cinco señales.
+
+`sampleSize: 0` **siempre, incluido el caso normal**: `capabilities.json` es dato de dominio
+curado a mano, no una muestra estadística. No hay ningún número de partidas que reportar, y
+poner uno inventado sería peor que el cero. Mismo criterio que `team_synergy` (que también deriva
+de `capabilities.json` y también reporta `0`).
+
+**Nunca `applicable: false` por falta de dato**, y **nunca un número por falta de intención**: son
+los dos errores que la distinción de 1b (§9.3) existe para evitar, y acá conviven los dos casos en
+la misma señal por primera vez.
+
+### `explanation` (texto visible en el desglose de la UI)
+
+Determinista, en castellano, mismo vocabulario que `GAP_LABELS`/`PATH_LABELS` (`build-paths.ts`)
+y `LEVEL_QUALIFIER` (`team-synergy.ts`) ya usan -- no se inventa terminología nueva:
+
+```
+ARCHETYPE_LABEL   = { push: "Push", teamfight: "Teamfight", pickoff: "Pickoff", scaling: "Scaling" }
+DIMENSION_LABEL   = { push: "daño a estructuras", teamfight: "teamfight", scaling: "scaling" }
+LEVEL_QUALIFIER   = { medium: "buen", high: "muy buen" }   // "low" nunca llega acá: da bonus 0
+```
+
+- `raw === 0` → `"No aporta a un draft de ${ARCHETYPE_LABEL[i]}"`
+- `push`/`teamfight`/`scaling` con `raw > 0` →
+  `"Aporta ${LEVEL_QUALIFIER[nivel]} ${DIMENSION_LABEL[i]} a tu draft de ${ARCHETYPE_LABEL[i]}"`
+- `pickoff` con `raw > 0` → `"Aporta ${lista} a tu draft de Pickoff"`, donde `lista` es
+  `"catch"`, `"initiation"` o `"catch e initiation"` según los dos booleanos.
+
+### Por qué exportar `archetypeFitBonus` y no moverla a `gaps.ts` (P2)
+
+`architecture.md` dejaba las dos abiertas. Se elige **exportar en su lugar actual**, y el motivo
+decisivo es el presupuesto real del gate, verificado leyendo `scripts/verify-simplicity.sh`:
+cuenta **todos los archivos staged** salvo bookkeeping, y **los archivos de prueba cuentan**.
+
+- Exportar en `build-paths.ts` → **1** archivo tocado. Total del ticket: **3** (§11.9). ✅
+- Mover a `gaps.ts` → **2** archivos (agregar en `gaps.ts` + quitar e importar en
+  `build-paths.ts`). Total del ticket: **4**. ❌ Bloquea, y obligaría a un
+  `simplicity_exception: true` para un refactor que 4.1 no necesita.
+
+Se reconoce el argumento de capas a favor de `gaps.ts` (es el módulo de primitivas puras que
+`signals/` ya consume, mientras que `build-paths.ts` es el que arma la salida `DraftPath`). Se
+descarta por presupuesto, no por técnica: **si el sub-ticket 4.4 termina necesitándola en
+`gaps.ts`, moverla ahí es un refactor mecánico y aislado, con su propio ticket**. Hacerlo ahora
+sería pagarlo con la prueba que sí importa.
+
+## 11.5 — Ejemplos trabajados (con el dato real, no inventado)
+
+Valores obtenidos **ejecutando `archetypeFitBonus` real contra `capabilities.json` real** y
+aplicando `ARCHETYPE_MAX_BONUS` -- son los números exactos que las pruebas deben esperar (mismo
+estándar que §10.5). Los héroes se llevan al test **como fixture inline** (S9), nunca leyendo el
+archivo.
+
+**Escenario A -- intención `push`** (`MAX = 2`):
+
+| Candidato | `structuralDamage` | bonus | `raw` |
+|---|---|---|---|
+| Nature's Prophet (53) | `high` | 2 | **1.000** |
+| Lycan (77) | `high` | 2 | **1.000** |
+| Juggernaut (8) | `medium` | 1 | **0.500** |
+| Anti-Mage (1) | `low` | 0 | **0.000** |
+
+**Escenario B -- los mismos héroes, intención `scaling`** (`MAX = 2`). Es el escenario que prueba
+que la señal sigue **la intención** y no una calidad intrínseca del héroe:
+
+| Candidato | `scaling` | bonus | `raw` |
+|---|---|---|---|
+| Anti-Mage (1) | `high` | 2 | **1.000** |
+| Juggernaut (8) | `high` | 2 | **1.000** |
+| Nature's Prophet (53) | `medium` | 1 | **0.500** |
+| Crystal Maiden (5) | `low` | 0 | **0.000** |
+
+**El orden se invierte por completo entre A y B** (Anti-Mage `0.000` → `1.000`; Nature's Prophet
+`1.000` → `0.500`), usando los mismos héroes y el mismo dato.
+
+**Escenario C -- intención `pickoff`** (`MAX = 3`, la única escala de cuatro niveles):
+
+| Candidato | `hasCatch` / `hasInitiation` | bonus | `raw` |
+|---|---|---|---|
+| Pudge (14) | sí / sí | 3 | **1.000** |
+| Lion (26) | sí / sí | 3 | **1.000** |
+| Crystal Maiden (5) | sí / no | 2 | **0.667** |
+| Axe (2) | no / sí | 1 | **0.333** |
+| Anti-Mage (1) | no / no | 0 | **0.000** |
+
+`0.667` y `0.333` sólo salen si el denominador es `3`. Es el escenario que detecta un
+`ARCHETYPE_MAX_BONUS` mal puesto (o un `RAW_RANGE` global de `[0,2]`/`[0,3]`), y por eso es
+prueba obligatoria y no un extra (§11.9).
+
+## 11.6 — Estado real de `capabilities.json` (corrección a `architecture.md`)
+
+`architecture.md` asumía "hoy: cobertura completa, a reconfirmar en `/blueprint`". **Reconfirmado:
+es falso.**
+
+- `capabilities.json`: **124** entradas, 124 héroes únicos.
+- `hero-positions.json` (el censo más reciente del motor, Fase 3): **126** héroes.
+- **Héroes en `hero-positions.json` sin entrada en `capabilities.json`: `131`, `145`, `155`** --
+  héroes agregados al juego después de que se curó `capabilities.json` en Fase 2.
+- Caso inverso: hero `66` (Chen) tiene capacidades pero no posiciones -- ya conocido y documentado
+  como el hueco de `position_fit` (§10.1 P5).
+
+**Consecuencias, todas para 4.1:**
+
+1. La rama `raw: null` de P6 **no es defensiva, es alcanzable con el dato real de hoy**. Deja de
+   ser un caso teórico y pasa a ser comportamiento observable.
+2. **No se completa `capabilities.json` en este ticket.** Curar 3 héroes es trabajo de dominio del
+   usuario (mismo tipo de dato que `PATH_PRIORITIES`), no de implementación, y consumiría archivo
+   y presupuesto del ticket. Va como su propio ticket, sin bloquear a 4.1 -- la señal degrada
+   correctamente mientras tanto.
+3. **Es también un hueco preexistente de `team_synergy` y de los caminos de draft**, no algo que
+   introduzca esta fase: esos 3 héroes ya no participan hoy como candidatos de `buildDraftPaths`.
+
+## 11.7 — Por qué `SignalId` **no** se toca en 4.1 (P5)
+
+`architecture.md` recomendaba tentativamente adelantarlo a 4.1 "para que el archivo de prueba
+compile con el tipo real". Verificado contra el código, **es la decisión equivocada**: `SignalId`
+se usa como clave de varios `Record` **totales**, así que ampliarlo no agrega un caso, **rompe la
+compilación en todo lo que lo indexa**:
+
+| Archivo | Uso | Qué pasa al ampliar `SignalId` |
+|---|---|---|
+| `signals/weights.ts` | `SCORING_WEIGHTS_V4: Record<SignalId, number>` | **No compila** (falta la clave) |
+| `signals/weights.ts` | `SCORING_WEIGHTS_V5: Record<SignalId, number>` | **No compila** (falta la clave) |
+| `signals/mix.ts` | `RAW_RANGE: Record<SignalId, [number, number]>` | **No compila** (falta la clave) |
+| `apps/web/.../SignalBreakdown.tsx` | `SIGNAL_LABELS: Record<SignalId, string>` | **No compila** (espejo, apps/web) |
+
+El problema de fondo no es el conteo de archivos: **V4 y V5 están congeladas por nombre**
+(`weights.ts`: *"Congelada, nunca se edita a partir de acá"*). Adelantar `SignalId` obligaría a
+editar dos constantes congeladas, para una señal que en 4.1 todavía no vota. Sumado a eso,
+llevaría el ticket a **5-6 archivos** contra un límite de 3.
+
+Se resuelve con la vista estrecha de §11.4 (`Omit<SignalContribution, "signal"> & { signal:
+"archetype_fit" }`), que compila hoy y desaparece en 4.2.
+
+**Prescripción para 4.2, decidida acá para que no se redescubra:** antes de ampliar `SignalId`,
+V4 y V5 pasan a tiparse con sus propios literales históricos -- exactamente el mecanismo que
+`weights.ts` ya estableció para V1/V2/V3 (`type SignalIdV1 = ...`):
+
+```typescript
+type SignalIdV5 = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
+// V4 y V5 pasan a Record<SignalIdV5, number>. Ningún valor cambia -- sólo el mecanismo de tipado,
+// igual que TSK-045 hizo con V1/V2/V3. Recién entonces SCORING_WEIGHTS_V6: Record<SignalId, number>.
+```
+
+Así una versión congelada deja de estar acoplada a qué señales existen hoy, que es justamente el
+motivo por el que ese patrón se introdujo en Fase 3.
+
+## 11.8 — Seguridad (hereda el Bloque 4 de `/pre-flight`; extiende §5, §9.7 y §10.8)
+
+Confirmado contra el código, no reinventado:
+
+- **Ningún cruce de frontera de confianza nuevo en runtime.** `archetype_fit` consume
+  exclusivamente `HeroCapabilities[]`, ya validado en el borde por `loadHeroCapabilities()`
+  (costura S9, `draft-paths/capabilities.ts`), y `DraftPathArchetype`, que es una unión cerrada de
+  4 literales interna al proceso. Cero superficie nueva.
+- **Ninguna dependencia nueva, ningún archivo de datos nuevo.** P1 elimina el
+  `archetype-affinity.json` que el diseño original iba a introducir, y con él su validación de
+  borde.
+- **Ningún secreto nuevo, ningún dato personal.** Mismo tipo de dato agregado y público que el
+  resto del motor.
+- **Cero red en el camino caliente, intacta.** `archetype-fit.ts` vive bajo
+  `apps/engine/src/signals/`, donde `verify-simplicity.sh` ya bloquea cualquier `fetch(` sobre el
+  árbol completo (invariante 7 del script). La señal no puede llamar a la red ni por accidente.
+- **`intent` es input de la propia UI, no de la red**, y en 4.1 ni siquiera llega desde afuera: lo
+  inyecta el llamador de la fábrica. Su validación en el borde (cuando llegue por API en 4.2+) es
+  responsabilidad del sub-ticket que abra ese camino, y está anotada en §11.10.
+- **`archetypeFitBonus` no gana lógica al exportarse** -- sólo visibilidad. El cambio es
+  `function` → `export function`, sin tocar firma ni cuerpo, así que no puede alterar el
+  comportamiento ya probado de `buildDraftPaths`.
+
+## 11.9 — Criterios de aceptación (sub-ticket 4.1)
+
+**Archivos exactos del ticket -- 3, dentro del límite:**
+
+| # | Archivo | Cambio | Líneas nuevas (est.) |
+|---|---|---|---|
+| 1 | `apps/engine/src/draft-paths/build-paths.ts` | `function archetypeFitBonus` → `export function archetypeFitBonus`. **Una línea, sin cambios de firma ni de cuerpo.** | ~1 |
+| 2 | `apps/engine/src/signals/archetype-fit.ts` | **Nuevo.** Fábrica, `ARCHETYPE_MAX_BONUS`, normalización, las 3 ramas de resultado y `explanation`. | ~75 |
+| 3 | `apps/engine/src/signals/archetype-fit.test.ts` | **Nuevo.** Los 5 casos obligatorios de abajo, con fixture inline. | ~95 |
+
+Total estimado: **~170 líneas nuevas / 3 archivos** (límites: 200 / 3). Si el archivo de prueba se
+pasa del presupuesto, **se declara `simplicity_exception: true` en el ticket -- nunca se recorta
+una de las 5 pruebas obligatorias** para entrar en el límite.
+
+**Criterios funcionales:**
+
+1. `mix.ts`, `weights.ts`, `signals/types.ts` y **todo `apps/web` quedan sin tocar**.
+   `SCORING_WEIGHTS_V5` sigue activa. `bunx tsc --noEmit` limpio en **ambos** paquetes, y
+   `bun test` sigue verde **sin que ninguna prueba existente cambie** -- el motor todavía no
+   cambia de comportamiento (§11.1).
+2. **Sin intención** (`intent === undefined`) → `raw: null` **y** `applicable: false`, para
+   candidatos de perfiles distintos. Nunca `raw: 0`, nunca `applicable: false` con un número.
+3. **Intención `push`** → Nature's Prophet `1.000` > Juggernaut `0.500` > Anti-Mage `0.000`
+   (Escenario A, §11.5).
+4. **Intención `scaling`, mismos héroes → el orden se invierte**: Anti-Mage `1.000` >
+   Nature's Prophet `0.500` (Escenario B). **Prueba dedicada, no se infiere del criterio 3.**
+   Sin ella, una implementación que devolviera un ranking fijo de "héroes buenos" ignorando
+   `intent` pasaría el criterio 3 y seguiría estando rota -- mismo tipo de hallazgo que §10.9
+   criterio 4 y que `@redteam` encontró en TSK-036.
+5. **Intención `pickoff` → la escala de 4 niveles**: Pudge `1.000`, Crystal Maiden `0.667`,
+   Axe `0.333`, Anti-Mage `0.000` (Escenario C). Es el único criterio que detecta un denominador
+   equivocado; con `MAX = 2` para todos, Crystal Maiden y Pudge empatan en `1.000` y los otros
+   criterios siguen pasando.
+6. **Candidato sin entrada en las capacidades inyectadas** → `raw: null`, `applicable` ausente
+   (nunca `false`), `explanation` de "sin datos", **nunca una excepción sin capturar** (contrato
+   de `safeScore`, `mix.ts`).
+7. **Ninguna prueba lee `capabilities.json` real** (S9, §11.3) -- fixture inline, verificable
+   leyendo el archivo de prueba.
+8. `archetypeFitBonus` **se reutiliza, no se reimplementa**: `archetype-fit.ts` la importa de
+   `build-paths.ts`. Una segunda copia de la fórmula es rechazo automático de revisión.
+
+## 11.10 — Piezas 2-4 y sub-tickets 4.2-4.8 (contrato conceptual, **sin números**)
+
+Nivel de detalle deliberadamente igual al de `architecture.md` Bloque 3: contratos e invariantes
+sí, números no. **Cada número marcado abajo se fija en el `/blueprint` de su propio sub-ticket**,
+no acá.
+
+### 4.2 — Integración de `archetype_fit` en el motor
+
+- Amplía `SignalId` con `"archetype_fit"`, **precedido del recongelado de V4/V5 con literales
+  históricos** (§11.7 -- prescripción ya decidida, no pendiente).
+- `SCORING_WEIGHTS_V6: Record<SignalId, number>`, 6 pesos. **Peso exacto de `archetype_fit` y
+  redistribución de los otros 5: pendiente del blueprint de 4.2.** Invariantes que sí quedan
+  fijos ahora: suman exactamente `1.0` (prueba unitaria obligatoria, como toda versión desde V1);
+  V1-V5 quedan congeladas por nombre; **`position_fit` sigue siendo la señal de mayor peso**
+  (Fase 3 no se reabre).
+- `RAW_RANGE.archetype_fit = [0, 1]` -- **ya fijado** (§11.4 P4), no vuelve a discutirse.
+- `BuildSuggestionsOptions.archetypeIntent?: DraftPathArchetype`, mismo patrón que
+  `now?`/`heroPositions?`/`heroCapabilities?`. Ausente → `applicable: false`.
+- **Candado de regresión V5→V6, del tipo V1→V2 de 1b** (no el de V4→V5, que no aplicaba): con
+  `archetypeIntent` ausente, `mixScore` sobre un set fijo de señales debe reproducir **los mismos
+  números exactos** que `SCORING_WEIGHTS_V5`. Candado numérico en `mix.test.ts`, no una
+  afirmación de que "no cambió nada". Es exigible porque V6 **agrega** una señal con estado "no
+  configurada" -- justo la forma que hace demostrable la regresión cero.
+- Espejo obligatorio en `apps/web` **en el mismo cambio** (`web.md`): `SignalId` en
+  `features/draft/types.ts`, `SIGNAL_LABELS` en `SignalBreakdown.tsx` (`Record<SignalId, string>`,
+  no compila si falta) y `SIGNAL_DISPLAY_PRIORITY` en `features/draft/constants.tsx`.
+  `SignalBreakdown` pasa a mostrar **6 señales**. Etiqueta visible de `archetype_fit`: **pendiente
+  del blueprint de 4.2** (terminología en castellano, `web.md`).
+- Cuando `intent` llegue desde `apps/web`, **se valida en el borde contra la unión cerrada de 4
+  literales** antes de tocar el motor (§5: todo input externo se valida en el borde). Un valor
+  inválido degrada a "sin intención" (`applicable: false`), nunca lanza.
+
+### 4.3 — QA manual y calibración
+
+Escenario base ya acordado (`architecture.md` Bloque 6): elegir "Push" con el draft vacío y
+confirmar que el top-3 se inclina hacia daño a estructuras/waveclear temprano **sin romper la
+prioridad de `position_fit`**. Guion exacto y umbrales: pendientes de su propio turno.
+
+### 4.4 — Pieza 2: sinergia en cadena (extiende `team_synergy.ts`, **no** señal nueva)
+
+- Se deriva de `capabilities.json`, **sin agregar campos nuevos** a `HeroCapabilities` en esta
+  fase. Cerrado por el hallazgo 1 del Bloque 2: OpenDota **no expone** sinergia de compañeros
+  (verificado contra `odota/core`, `HeroMatchupsResponse.ts`: el shape es sólo
+  `{ hero_id, games_played, wins }`, exclusivamente "against"). **Sin `MetaSnapshot.heroSynergy?`,
+  sin tabla SQLite nueva, sin sync nuevo, sin dependencia nueva.**
+- Generaliza `filledGaps` de "cuánto llena un hueco del equipo" a "cuánto complementa a un aliado
+  ya elegido" -- diferencia de granularidad (par a par vs. equipo agregado), no de fuente.
+- **Fórmula exacta (cómo pesar "complementa al último pick" vs. "complementa al equipo"):
+  pendiente del blueprint de 4.4.**
+- `SignalId: "team_synergy"` no cambia; cambia su cálculo interno y su `explanation`.
+
+### 4.5 — Pieza 3: denial de composición (extiende `counter.ts`, **no** señal nueva)
+
+- Segunda pasada agregada sobre `knownEnemies`: qué arquetipo insinúan los picks rivales
+  (reusando `archetypeFitBonus` contra héroes rivales, no sólo candidatos propios) y qué
+  candidatos puntúan bien contra **ese** arquetipo.
+- Necesita una **matriz 4×4 de contras por arquetipo**, dato de producto curado a mano, versionado
+  en el repo (mismo criterio que `PATH_PRIORITIES`/`capabilities.json`, **no** SQLite, **no**
+  fuente externa en runtime). **Contenido exacto de la matriz: pendiente del blueprint de 4.5** --
+  es dominio real del juego y **requiere validación directa del usuario**, no se infiere de ningún
+  dato existente.
+- `SignalId: "counter"` no cambia.
+
+### 4.6 — Pieza 4: diversificación (selección final en `mix.ts`, **no** el scoring)
+
+- No toca las 6 señales ni sus pesos. Aplica sólo a qué candidatos de `scored` (ya ordenado por
+  `mixScore`) entran al `TOP_N`: los que caen dentro de una banda de tolerancia respecto del líder
+  entran a un softmax de temperatura baja.
+- **Invariante duro que sí queda fijo ahora**: un líder que domina por margen amplio se muestra
+  **siempre** en el puesto 1 -- nunca se diversifica fuera una sugerencia claramente superior.
+- **Ancho de la banda de tolerancia y temperatura del softmax: pendientes del blueprint de 4.6.**
+- `BuildSuggestionsOptions.random?: () => number`, mismo patrón que `now?`. **Estrena la costura
+  S12** (RNG inyectable), que se define en el blueprint de ese sub-ticket, no acá.
+- `buildComparison`/`SuggestionComparison` no cambian de contrato: la diversificación ocurre
+  después de tener el ranking completo.
+
+### 4.7-4.8 — Sin contenido asignado todavía
+
+`architecture.md` deja la numeración abierta a propósito, tras eliminar el ticket de "cargar
+archivo JSON nuevo" que la primera propuesta incluía (P1). **Se asigna cuando 4.2-4.6 estén
+cerrados**, no antes.
+
+## 11.11 — Lo que esta fase deja abierto a propósito
+
+- **Todos los números de §11.10.** Repetido acá para que sea imposible tomarlos por olvido:
+  peso de `archetype_fit` en V6, banda de tolerancia y temperatura del softmax, matriz 4×4 de
+  contras, fórmula de sinergia par a par, etiqueta visible de la señal en `apps/web`.
+- **Decaimiento de `archetype_fit` a lo largo del draft.** La señal es constante por
+  `(intent, hero)` (§11.4): sigue empujando en el pick #5 aunque el draft ya haya cumplido la
+  intención. Pregunta legítima de calibración, **abierta para 4.2/4.3**. En 4.1 no se resuelve, y
+  no es un defecto de 4.1 -- es el comportamiento especificado.
+- **Los 3 héroes sin entrada en `capabilities.json`** (`131`, `145`, `155`, §11.6): ticket propio
+  de curación de dominio, no bloquea a 4.1.
+- **`team_synergy` devuelve `raw: 0` -- no `null` -- para un héroe sin capacidades**
+  (`team-synergy.ts`, rama `!candidateCapabilities`). Contradice la regla dura del proyecto
+  (`engine.md`: *"`raw: null` nunca es 0 ni 0.5"*) y, con el hueco real de §11.6, hoy se dispara
+  con 3 héroes. **Hallazgo de este blueprint, fuera de alcance de 4.1** (tocaría un 4º archivo):
+  queda registrado como ticket propio.
+- **El bot del Random Draft Simulator sigue sin usar `buildSuggestions`** -- sin cambios desde
+  Fase 3 (`engine.md`). El QA de esta fase se hace contra el Copilot real, nunca contra ese bot.
+- **Predicción de la posición del rival** -- fuera de alcance desde 1b (D12), sin cambios.
+- **Sin ML, sin recomendación de items/builds, sin reabrir Fase 3** (Bloque 1).
+
+## 11.12 — Entrada para `/rulebook`
+
+**Sólo el sub-ticket 4.1 está listo para generar ticket.** El resto espera su propio `/blueprint`.
+
+Una unidad lógica, un solo ticket, 3 archivos (§11.9):
+
+1. `archetypeFitBonus` exportada (`draft-paths/build-paths.ts`) + `createArchetypeFitScorer`
+   (`signals/archetype-fit.ts`) + su prueba aislada (`signals/archetype-fit.test.ts`).
+   Cubre los criterios 1-8 de §11.9. Costuras: **S3** (señal pura, aislada) sobre **S9**
+   (capacidades inyectadas). **Ninguna costura nueva.**
+
+**No se parte en dos tickets** (exportar / crear señal): exportar una función sin consumidor no es
+una unidad entregable, y partirlo duplicaría el bookkeeping sin bajar el riesgo.
+
+`preferred_tool` sugerido: **`claude-code`** -- toca el motor, exige `@redteam` y la trazabilidad
+de las decisiones de §11.4/§11.7 vive en `journal.md`.

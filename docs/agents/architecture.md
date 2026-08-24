@@ -640,3 +640,261 @@ cómo se combinan "cobertura de posición" + "timing del pick" dentro de una sol
 proyecto). Esta fase no cruza ningún gatillo objetivo de los documentados en `CLAUDE.md` (no hay
 trust boundary nuevo, no hay migración irreversible, no cambia autenticación ni motor de DB) — es
 una decisión de scoring dentro del motor existente, corresponde el flujo normal.
+
+---
+
+# architecture.md — Fase 4 (Intención de Draft, Sinergia en Cadena y Diversificación Estratégica)
+
+Disparado por feedback directo del usuario (product designer del proyecto, 2026-08-23): el motor
+da un top-3 estático al inicio de cada draft porque pondera winrate general/flex de forma aislada,
+sin ningún concepto de intención táctica ni de cómo un pick propio debería reencuadrar los
+siguientes. Alcance acordado en conversación previa a esta sesión de `/pre-flight`: 4 piezas,
+evaluadas ya contra el contrato real de `SignalScorer`/`mix.ts` antes de llegar acá.
+
+## Bloque 1 — Visión del Producto (Fase 4)
+
+- **Problema**: las sugerencias del pick #1 (y en general, cualquier pick) no reflejan ninguna
+  intención estratégica — el motor no distingue entre "quiero cerrar rápido con push" y "quiero
+  escalar a late game" hasta que ya hay picks propios de los que inferir gaps de capacidad
+  (`team_synergy`, `position_fit`). El usuario lo describe como "siempre los mismos 3 héroes de
+  soporte al inicio" — el problema no es solo falta de variedad, es falta de intención.
+- **Usuario**: mismo usuario único del proyecto (uso personal, ver Fase 1/3).
+- **Resultado esperado**: (1) poder declarar una intención de draft al arrancar la sesión y ver
+  que las sugerencias la reflejan de verdad, no solo en el desglose; (2) que un pick propio abra
+  cadenas de sinergia reales sobre los siguientes, no solo cobertura de gaps genérica; (3) que un
+  patrón de picks rivales insinuando una composición dispare contras a nivel de arquetipo, no solo
+  matchup héroe-a-héroe (`counter` ya cubre eso); (4) que el top-3 dentro de una banda de empate
+  real varíe entre corridas, en vez de ser siempre idéntico.
+- **Qué NO es**: no reemplaza ninguna señal existente (`position_fit` sigue siendo la de mayor
+  peso, Fase 3 no se reabre). No es un sistema de "recomendación de builds/items" — sigue siendo
+  exclusivamente picks/bans. No toca el bot del Random Draft Simulator (mismo criterio que Fase 3:
+  scoring separado, documentado en `engine.md`, fuera de alcance a propósito). No introduce ningún
+  modelo de ML — sigue siendo scoring determinista con datos curados, mismo espíritu que Fase 3.
+
+## Bloque 2 — Dominio e Investigación (Fase 4)
+
+- **Hallazgo 1 (invalida el plan original de la pieza 2)**: la propuesta previa a esta sesión
+  asumía que `GET /heroes/{hero_id}/matchups` de OpenDota expone una partición "with" (sinergia de
+  compañeros), reutilizando el mismo endpoint que ya consume `counter.ts` para "against". **Falso,
+  verificado contra el código fuente real de `odota/core`** (`svc/api/responses/
+  HeroMatchupsResponse.ts`, repo público): el shape de respuesta es exclusivamente `{ hero_id,
+  games_played, wins }` — solo resultados contra un rival, nunca junto a un aliado. No existe
+  endpoint público de sinergia héroe-héroe como compañeros de equipo en la API de OpenDota.
+  Consecuencia: la pieza 2 no puede apoyarse en un sync nuevo de OpenDota (`MetaSnapshot.
+  heroSynergy?`, tabla C4 nueva) — ese diseño queda descartado.
+- **Decisión del usuario sobre el hallazgo 1**: derivar la sinergia en cadena de `capabilities.json`
+  (mismo criterio que la pieza 1, "Opción A"), no de una fuente externa nueva. Sin sync nuevo, sin
+  tabla SQLite nueva, sin dependencia nueva — el sub-ticket 4.4 (ver Bloque 3) se simplifica
+  respecto al diseño original.
+- **Hallazgo 2 (redefine la pieza 1, buena noticia)**: `apps/engine/src/draft-paths/build-paths.ts`
+  (Fase 2, "Caminos de draft") **ya tiene exactamente el concepto de arquetipo que la pieza 1
+  necesita** — `DraftPathArchetype = "push" | "teamfight" | "pickoff" | "scaling"` (`draft-paths/
+  types.ts`), con una función ya escrita, probada y en producción (`archetypeFitBonus()`,
+  `build-paths.ts`) que puntúa cuánto encaja un candidato (`HeroCapabilities`) con cada uno de los
+  4 arquetipos — literalmente los 4 que pidió el usuario (Push/Fast Tempo, Teamfight Heavy, Late
+  Game Scaling, Pickoff/Catch), con distinto nombre pero mismo concepto de dominio. Esto significa
+  que "Opción A" (derivar de `capabilities.json` vía función pura) ya tiene una implementación de
+  referencia real en el repo — no hace falta escribir `archetype-affinity.json` como archivo
+  nuevo: la afinidad es barata de calcular al vuelo desde `HeroCapabilities`, materializarla como
+  un segundo JSON sería duplicar un dato que ya vive en `capabilities.json` sin necesidad. Ver
+  Bloque 3 y el detalle de sub-ticket 4.1 al final de este documento — **esto reinterpreta lo que
+  el usuario aprobó como "Opción A"**: mismo principio (derivar, no curar externo), mecanismo más
+  simple (función reutilizada, no archivo nuevo). Señalado explícitamente para que el usuario lo
+  confirme o lo corrija antes de que 4.1 pase a `/blueprint`.
+- **Precedente de producto**: `apps/web/features/draft-paths/` ya expone el vocabulario
+  "Push/Teamfight/Pickoff/Scaling" al usuario real, en el panel "Caminos de draft" (post-hoc: "qué
+  le falta al draft"). La intención de draft de esta fase (pre-hoc: "qué quiero que sea mi draft")
+  reutiliza el mismo lenguaje ya validado, en vez de inventar una taxonomía nueva que competiría
+  por atención con una que el usuario ya conoce.
+- **Dato que sigue sin existir en ningún lado** (pieza 3, denial de composición): un "quién le
+  gana a quién" a nivel de arquetipo (¿qué contrarresta a un draft de `push`?) no se deriva
+  directamente de `capabilities.json` — es una relación entre 4 arquetipos, no una propiedad de un
+  héroe. Necesita una matriz pequeña (4×4) curada a mano por el usuario (dominio real del juego,
+  no dato estadístico) — mismo criterio que cualquier constante de producto ya versionada en el
+  repo (`PATH_PRIORITIES` en `build-paths.ts` es del mismo tipo de dato). Detalle exacto pendiente
+  del sub-ticket 4.5 (Bloque 3).
+
+## Bloque 3 — Arquitectura e Ingeniería (Fase 4)
+
+### Pieza 1 — Intención de Draft → señal nueva `archetype_fit`
+
+- Tipo reutilizado sin duplicar: `DraftPathArchetype` (`draft-paths/types.ts`) pasa a ser también
+  el tipo de la intención de draft — un solo nombre de dominio para el mismo concepto, consumido
+  tanto por "Caminos de draft" (post-hoc) como por `archetype_fit` (pre-hoc, la intención elegida
+  por el usuario). Legítimo importarlo directo entre `signals/` y `draft-paths/`: ambos viven en
+  el mismo proceso (`apps/engine`) — la regla de "espejo a mano, nunca import directo" es
+  exclusiva de la frontera `apps/engine` ↔ `apps/web` (`team_synergy.ts` ya importa hoy de
+  `draft-paths/gaps.ts` con el mismo criterio).
+- 6ª señal, mismo contrato `SignalScorer` que las otras cinco: `score(state, candidate, meta)`,
+  puro, nunca I/O. `applicable: false` cuando no se eligió intención (ausente en
+  `BuildSuggestionsOptions.archetypeIntent?`) — nunca `raw: null` en ese caso, mismo criterio
+  exacto que `hero_pool_fit` (Fase 1b) para "función no configurada". `raw: null` reservado
+  exclusivamente para un candidato sin entrada en `capabilities.json` (hoy: cobertura completa, a
+  reconfirmar en `/blueprint`).
+- Construcción por llamada (no singleton de módulo), mismo patrón que `position_fit`/
+  `team_synergy`: depende de un dato inyectado por invocación (`archetypeIntent`), no solo de
+  archivos estáticos cargados una vez.
+- Detalle de implementación completo, listo para `/blueprint`, al final de este documento
+  (sub-ticket 4.1).
+
+### Pieza 2 — Sinergia en cadena → extensión de `team_synergy.ts` (no señal nueva)
+
+- Tras el hallazgo 1 (Bloque 2), se deriva de `capabilities.json`, **sin agregar campos nuevos**
+  al schema de `HeroCapabilities` en esta fase — reutiliza exactamente lo que ya existe
+  (`hasInitiation`, `hasCatch`, `hasWaveclear`, `structuralDamage`, `teamfight`, `scaling`,
+  `damageType`). `team_synergy.ts` ya puntúa cuánto un candidato llena gaps de capacidad del
+  equipo propio (`detectDraftGaps`/`filledGaps`); la extensión de esta pieza generaliza esa misma
+  lógica a "cuánto complementa a un aliado específico ya elegido", no solo "cuánto llena un hueco
+  del equipo en general" — la diferencia es de granularidad (par a par vs. equipo agregado), no de
+  fuente de dato. Fórmula exacta (cómo pesar "complementa al último pick" vs. "complementa al
+  equipo") pendiente de su propio sub-ticket (4.4) — no bloquea a 4.1.
+- Sin `MetaSnapshot.heroSynergy?` nuevo, sin sync C4 nuevo, sin tabla SQLite nueva — el diseño
+  original de esta pieza (que sí los necesitaba) queda descartado por el hallazgo 1.
+
+### Pieza 3 — Denial / counter de composición → extensión de `counter.ts` (no señal nueva)
+
+- `counter.ts` ya itera `knownEnemies` (picks rivales conocidos) para matchup héroe-a-héroe. Esta
+  pieza agrega una segunda pasada agregada: qué arquetipo dominante insinúan los picks rivales
+  (reusa `archetypeFit` de la pieza 1 contra los héroes rivales conocidos, no solo contra
+  candidatos propios) y qué candidatos puntúan bien contra ESE arquetipo, vía la matriz 4×4
+  mencionada en el Bloque 2 (curada a mano, sub-ticket 4.5).
+- No cambia la firma de `counter.ts` (`SignalId: "counter"` se mantiene) — extiende su cálculo
+  interno y su `explanation`, mismo criterio que ya se usó para incorporar `knownEnemies`.
+
+### Pieza 4 — Diversificación → cambio en la selección final de `mix.ts` (no en el scoring)
+
+- No toca las 6 señales ni sus pesos. Aplica exclusivamente a qué 3 candidatos de `scored`
+  (ya ordenado por `mixScore`) entran al `TOP_N` final: candidatos dentro de una banda de
+  tolerancia del líder (número exacto pendiente de `/blueprint`) entran a un softmax de
+  temperatura baja; un líder que domina por un margen amplio se sigue mostrando siempre en el
+  puesto 1 — nunca se diversifica fuera una sugerencia claramente superior.
+- `BuildSuggestionsOptions.random?: () => number` — mismo patrón exacto que `now?: () => number`
+  (determinismo inyectable en pruebas). Nueva costura de prueba **S12** (`testing-seams.md`).
+- `buildComparison`/`SuggestionComparison` no cambian de contrato — la diversificación ocurre
+  después de tener el ranking completo, `buildComparison` sigue operando sobre los primeros dos
+  puestos del resultado final tal cual hoy.
+
+## Bloque 4 — Seguridad desde el diseño (Fase 4)
+
+- **Cruce de frontera de confianza**: ninguno nuevo en runtime. Las 4 piezas consumen
+  exclusivamente datos que ya están validados en el borde (`capabilities.json` vía `loadHero
+  Capabilities()`, S9) o son puramente internos al proceso (`state`, RNG inyectado). El hallazgo 1
+  del Bloque 2 elimina el único cruce que el diseño original iba a introducir (sync nuevo hacia
+  OpenDota para sinergia de compañeros).
+- **Datos sensibles**: ninguno. Mismo tipo de dato agregado y público que el resto del motor.
+- **Secretos**: ninguno nuevo.
+- **Privilegio**: sin cambios — `apps/engine` no gana ningún acceso de red nuevo. La matriz 4×4 de
+  contras por arquetipo (pieza 3) es dato de producto curado a mano, versionado en el repo, mismo
+  criterio que `PATH_PRIORITIES`/`capabilities.json` — no en SQLite, no consultada contra ninguna
+  fuente externa en runtime.
+- **Regla dura que se mantiene intacta**: cero red en el camino caliente del motor. Ninguna de las
+  4 piezas la debilita — es, de hecho, más estricta que el diseño original de la pieza 2 (que sí
+  iba a abrir un sync nuevo).
+
+## Bloque 5 — Stack Tecnológico (Fase 4)
+
+- **Sin stack nuevo.** `archetype_fit` es un `SignalScorer` más (mismo contrato S3). La
+  diversificación es una función pura más dentro de `mix.ts`. Cero dependencias npm nuevas —
+  decisión explícita, evita `/gear-up` por completo, igual que Fase 3.
+
+## Bloque 6 — Plan de Validación (Fase 4)
+
+Automatizado, por sub-ticket (cada `SignalScorer`/extensión con su propio archivo de prueba
+aislado, mismo criterio que S3 ya exige):
+1. `archetype_fit` sin intención elegida → `applicable: false` en los 4 arquetipos, nunca
+   `raw: null`.
+2. `archetype_fit` con intención "push" → un candidato con `structuralDamage: "high"` puntúa más
+   alto que uno con `"low"`, manteniendo el mismo criterio que `archetypeFitBonus` ya prueba hoy
+   en `build-paths.test.ts`.
+3. **Candado de regresión V5→V6** (mismo criterio que V1→V2 en Fase 1b, no el de V4→V5): con
+   `archetypeIntent` ausente, `mixScore` sobre un set de señales fijo debe reproducir exactamente
+   los mismos números que `SCORING_WEIGHTS_V5` — candado numérico en `mix.test.ts`, no una
+   afirmación de que "el comportamiento no cambió".
+4. Diversificación: con un `random?` fijo (valores deterministas), dos corridas con el mismo
+   `DraftState`/`MetaSnapshot` producen el mismo `TOP_N` — determinismo real en la prueba, no
+   aleatoriedad real capturada por snapshot.
+5. **Candado de regresión de pipeline completo** (mismo criterio que Fase 3 con Spectre+Wraith
+   King): con una intención de draft elegida, `buildSuggestions` completo debe reflejarla en el
+   top-3 real, no solo en el desglose de `archetype_fit` aislado.
+
+Manual, guiado por el usuario (detalle exacto de escenarios pendiente de `/blueprint`, mismo
+criterio que Fase 3): elegir "Push" al arrancar un draft vacío y confirmar que el top-3 se inclina
+hacia héroes de daño a estructuras/waveclear tempranos, sin que eso rompa la prioridad de
+`position_fit` (Fase 3 no se reabre — `position_fit` sigue siendo la señal de mayor peso).
+
+## Cierre — pendiente de `/blueprint`
+
+Números y decisiones sin fijar hasta la síntesis formal:
+- Peso exacto de `archetype_fit` dentro de `SCORING_WEIGHTS_V6` y el `RAW_RANGE.archetype_fit`
+  correspondiente (la escala natural de `archetypeFitBonus` hoy es 0-3, sin normalizar — decidir
+  si se deja así, documentado como rango propio como ya hace `patch_meta`, o se normaliza a 0-1).
+- Ancho exacto de la "banda de tolerancia" para la diversificación (pieza 4) y la temperatura del
+  softmax.
+- Contenido exacto de la matriz 4×4 de contras por arquetipo (pieza 3, sub-ticket 4.5) — dominio
+  real del juego, requiere validación directa del usuario, no se infiere de ningún dato existente.
+- Fórmula exacta de "sinergia par a par" de la pieza 2 (sub-ticket 4.4) — el Bloque 3 da el
+  contrato conceptual (reutiliza campos existentes de `capabilities.json`, sin agregar ninguno
+  nuevo en esta fase), no la fórmula matemática final.
+- **Confirmación pendiente del usuario**: el hallazgo 2 del Bloque 2 reinterpreta "Opción A" (sin
+  archivo `archetype-affinity.json` nuevo, reusando `archetypeFitBonus` de `build-paths.ts` en su
+  lugar). El detalle de sub-ticket 4.1 más abajo ya asume esta reinterpretación — corresponde
+  confirmarla explícitamente antes de que `/blueprint` la fije en `SPEC.md` §11.
+- Ruta de sub-tickets 4.1-4.8: contenido reordenado respecto a la primera propuesta (ver detalle
+  de 4.1 abajo) para reflejar que ya no hace falta un ticket separado de "cargar archivo JSON
+  nuevo" — a confirmar junto con el punto anterior.
+
+`/blueprint` corre en Opus por política del proyecto. Esta fase no cruza ningún gatillo objetivo
+de `CLAUDE.md` (no hay trust boundary nuevo — el hallazgo 1 elimina el único que el diseño
+original iba a abrir; no hay migración irreversible; no cambia autenticación ni motor de DB) — es
+una extensión de scoring dentro del motor existente, corresponde el flujo normal en Sonnet hasta
+`/blueprint`.
+
+---
+
+## Detalle de implementación — Sub-ticket 4.1 (listo para revisión de `/blueprint`)
+
+**Objetivo**: señal `archetype_fit` funcionando de forma aislada (sin integrarse todavía a
+`mix.ts`/`SCORING_WEIGHTS_V6` — eso es 4.2), con su propio archivo de prueba, cumpliendo S3.
+
+**Archivos** (2, dentro del límite de 3/200 líneas):
+1. `apps/engine/src/draft-paths/build-paths.ts` — cambio de una línea: `archetypeFitBonus` pasa de
+   función privada a `export function archetypeFitBonus(...)`. Sin cambios de comportamiento, sin
+   cambios de firma — solo visibilidad, para que `signals/` pueda reutilizarla sin duplicar la
+   fórmula. (Si `/blueprint` prefiere no tocar `draft-paths/` desde `signals/` por separación de
+   capas, alternativa: mover `archetypeFitBonus` a `draft-paths/gaps.ts`, que ya es el módulo de
+   primitivas puras reutilizado por ambos — decisión menor, no cambia el resto del diseño.)
+2. `apps/engine/src/signals/archetype-fit.ts` — nuevo. Contenido:
+   - `createArchetypeFitScorer(intent: DraftPathArchetype | undefined): SignalScorer` — mismo
+     patrón de fábrica que `createPositionFitScorer`/`createTeamSynergyScorer`.
+   - `score(state, candidate, meta)`:
+     - `intent === undefined` → `{ signal: "archetype_fit", raw: null, weighted: 0, applicable:
+       false, explanation: "Elegí una intención de draft para activar esta señal", sampleSize: 0 }`
+       — nunca `raw: null` sin `applicable: false` en este caso (distinción de Fase 1b intacta).
+     - candidato sin entrada en `capabilities.json` → `raw: null` (hueco de dato real, único otro
+       caso, `applicable` ausente/`true`).
+     - caso normal → `raw: archetypeFitBonus(intent, candidate)` (reutilizada de `build-paths.ts`,
+       no reimplementada), `explanation` describe qué aporta el candidato a esa intención (mismo
+       vocabulario que `GAP_LABELS`/`PATH_LABELS` ya usan en `apps/web`).
+   - `id: "archetype_fit"` agregado a `SignalId` (`signals/types.ts`) — **no incluido en el
+     conteo de archivos de este sub-ticket si `types.ts` no se toca todavía**: el `SignalId` puede
+     ampliarse recién en 4.2 junto con `SCORING_WEIGHTS_V6`, ya que hasta que no se integre a
+     `mix.ts` esta señal no participa de ningún tipo compartido. A confirmar en `/blueprint` si
+     conviene adelantarlo acá para que el archivo de prueba compile con el tipo real desde el
+     principio (probablemente sí — un archivo de prueba que compila es parte del criterio de
+     aceptación de S3).
+3. `apps/engine/src/signals/archetype-fit.test.ts` — nuevo. Casos mínimos (S3, aislado de las
+   otras 5 señales): sin intención → `applicable: false` en los 4 arquetipos; con intención
+   "push" → candidato con alta `structuralDamage` puntúa más que uno bajo; candidato sin entrada
+   en `capabilities.json` → `raw: null`; nunca lanza una excepción sin capturar (mismo patrón que
+   `safeScore` en `mix.ts` ya exige de cualquier scorer).
+
+**Sin edge-validation nueva**: a diferencia del diseño original (que asumía un archivo
+`archetype-affinity.json` nuevo, necesitando su propio `loadArchetypeAffinity()` con validación de
+borde), esta versión reutiliza `HeroCapabilities[]` ya validado por `loadHeroCapabilities()` (S9,
+`draft-paths/capabilities.ts`) — no hay ningún dato nuevo cruzando ninguna frontera en este
+sub-ticket. Esto también significa que **no hace falta una costura S11 nueva** para 4.1 — la señal
+cae dentro de S3 (como cualquier `SignalScorer`) y depende de S9 (ya existente), sin costura
+propia adicional, a diferencia de lo que la primera propuesta de esta fase asumía.
+
+**Fuera de alcance de 4.1** (queda para 4.2 y siguientes): wiring en `mix.ts`, `BuildSuggestions
+Options.archetypeIntent?`, `SCORING_WEIGHTS_V6`, cualquier cambio en `apps/web`.
