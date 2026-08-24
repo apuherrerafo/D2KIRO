@@ -11,7 +11,9 @@ import { InputModeSelector } from "@/components/input-mode-selector/InputModeSel
 import { ManualEntryPanel } from "@/components/manual-entry-panel/ManualEntryPanel";
 import { TurnStatusBar } from "@/components/turn-status-bar/TurnStatusBar";
 import { PartyPoolPanel } from "@/components/party-pool-panel/PartyPoolPanel";
+import { ProDrafterPanel } from "@/components/pro-drafter-panel/ProDrafterPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
+import { isProDrafterEnabled } from "@/app/draft/live-config";
 import { DraftPathsCoverFlow } from "@/features/draft-paths";
 import type { DraftTeamGroup } from "@/features/team-groups/types";
 import { bootstrapManualSession, shouldBootstrapManualSession } from "./bootstrap-session";
@@ -180,6 +182,7 @@ function ActiveDraftState({ sessionId, draftState, suggestions, partyContext, he
           {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
           <div className="flex flex-wrap gap-3">
             <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
+            {isProDrafterEnabled() && <ProDrafterPanel draftState={draftState} heroCatalog={heroCatalog} />}
             <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
               Entrada manual
             </button>

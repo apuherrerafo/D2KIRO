@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T13:39:15.546Z</title>
+<title>HUB del ecosistema — 2026-08-24T13:58:18.071Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1069,7 +1069,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">124× · 75% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">125× · 75% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1083,7 +1083,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:35%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1141,6 +1141,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T14:15</span></div>
+            <div class="feed-note">Cierre de Governance 2.0 (evt-103): los ~82 archivos pendientes de otras sesiones (TSK-068 a TSK-088, todos ya `state: done`, y `package.json`/`bun.lock`/corpus pro-drafter sin trackear) se organizaron en 14 commits atómicos por dominio lógico, cada uno con `bash scripts/verify-simplicity.sh` (camino rápido) en verde antes de comitear -- ningún archivo descartado. Hashes, en orden: `18719a8` (TSK-092, gates), `e82f90b` (TSK-071/072/078, máquina de turnos + fixtures), `d98ffd0` (TSK-069, team_synergy→capabilities.json), `52eea5f` (TSK-068, fix patch_meta), `83e0b05` (TSK-073, espejo de turno en wire+web), `ae2be57` (TSK-074, UI de timer/turno), `5c0ad1c` (TSK-070, UX defensiva entrada manual), `872342b` (useSubmitDraftEvent, RCA post-TSK-076), `96b8ad9` (TSK-077, jerarquía visual SuggestionCard), `210c951` (TSK-076/080/081, DraftLayout+InputModeSelector+HeroGrid), `363356c` (TSK-082/083/085/086/087/088, bot con motor real + paridad UI random-draft), `ff13b77` (pipeline de corpus pro-drafter), `73597ee` (backfill de docs/specs/21 tickets), `8ba2544` (regeneración de `hub.html`, vista derivada). `VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` corrido completo dos veces durante el bloque (antes de empezar a agrupar, y antes del commit de backfill de docs) -- ambas en verde (tipos limpios, 408/408 tests de apps/engine, 133/133 de apps/web). `git status` queda limpio (`nothing to commit, working tree clean`), 25 commits por delante de `origin/master`. **No se ejecutó `git push`** -- no fue pedido en esta sesión.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1216,13 +1223,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>kickoff</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:15</span></div>
             <div class="feed-note">Usuario pidió cerrar TSK-088 (ya implementado sin commitear) antes de iniciar formalmente la Fase 4 ("Intención de Draft, Sinergia en Cadena y Diversificación Estratégica"). Commit único pedido por el usuario violaba `verify-simplicity.sh` (6 archivos/321 líneas contra 3/200) -- dividido en 4 commits lógicos (link de navbar, componente `HeroGrid`, sus tests, integración en `ConfigPanel`), cada uno PASS. Verificado además con Playwright headless real (instalado en la sesión) contra ambos servidores en dev: navegación completa del flujo, 4 columnas de atributo con retratos reales del CDN de Valve, cero errores de consola. `master` en `f2f006a`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-088</span> <span class="feed-ts">2026-08-23T22:40</span></div>
-            <div class="feed-note">Ajuste rápido de UX pedido explícitamente antes de pasar a la reingeniería del motor de recomendaciones, dos frentes: (1) `NavBar.tsx` gana el link "Simulador AP" → `/random-draft` (antes solo accesible tipeando la URL a mano). (2) `Personal_Ban_List` de `ConfigPanel.tsx` -- ya usaba `HeroGrid` (portado en TSK-084) pero como bloque inline que empujaba el formulario -- pasa a `HeroPickerModal`, primer modal real del proyecto (`fixed inset-0` con backdrop, `role="dialog"`, cierre por click-afuera/Escape/selección). Mismo `HeroGrid` sin cambios internos, ninguna duplicación de la grilla por atributo. También se corrigió que el botón "Agregar héroe" desaparecía mientras el picker estaba abierto (ya no hace falta, el modal flota encima). 3 archivos, sin `simplicity_exception`. `tsc --noEmit` limpio, `bun test` 428/428 (1 test nuevo para el link del NavBar), `curl` 200 en /, /random-draft y /api/health del motor. Verificación visual pendiente del usuario.</div>
           </div>
         </div></div>
     </div>

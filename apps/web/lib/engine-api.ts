@@ -3,6 +3,7 @@ import type { DraftState, SuggestionSet } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { DraftPathSet } from "@/features/draft-paths/types";
 import type { CalculatePoolResult, HeroPoolEntry, HeroPoolPutEntry } from "@/features/hero-pool/types";
+import type { ProDrafterRequest, ProDrafterResponse } from "@/features/pro-drafter/types";
 import type { TeamGroupEntry, TeamGroupPutBody } from "@/features/team-groups/types";
 import { ENGINE_HTTP_BASE_URL, LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "./engine-url";
 
@@ -104,6 +105,12 @@ export const engineApi = createApi({
       query: (sessionId) => `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/session/${encodeURIComponent(sessionId)}/draft-paths`,
       providesTags: ["DraftPaths"],
     }),
+    // Endpoint experimental tras ENABLE_PRO_DRAFTER (server/app.ts) -- mismo criterio que
+    // getDraftPaths: la vista de draft en vivo nunca pasa por el proxy /engine (regla dura,
+    // TSK-037/038), URL absoluta directa al motor local.
+    postProRecommendations: builder.mutation<ProDrafterResponse, ProDrafterRequest>({
+      query: (body) => ({ url: `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/v1/draft/pro-recommendations`, method: "POST", body }),
+    }),
   }),
 });
 
@@ -123,4 +130,5 @@ export const {
   useStartSimulatorSessionMutation,
   useGetSimulatorStateQuery,
   useGetDraftPathsQuery,
+  usePostProRecommendationsMutation,
 } = engineApi;

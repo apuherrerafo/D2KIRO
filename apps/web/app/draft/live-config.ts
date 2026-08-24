@@ -9,3 +9,12 @@ export function isDraftLiveEnabled(value: string | undefined = process.env.DRAFT
 // relación con el "" que el motor guardaba por defecto al sincronizar -- patch_meta nunca
 // encontraba una fila que matcheara. Actualizar acá y en el motor en el mismo cambio.
 export const CURRENT_PATCH = "7.41e";
+
+// Paso 3 (Gobernanza 2.0, Pro-Drafter): flag cliente -- NEXT_PUBLIC_ porque el chequeo ocurre
+// dentro de un componente "use client" (DraftView.tsx), no en una page server-side como
+// isDraftLiveEnabled de arriba. Apagado por defecto, al revés de isDraftLiveEnabled (que apaga
+// solo con "false" explícito): el endpoint del motor sigue dark-launched (ENABLE_PRO_DRAFTER),
+// nunca opt-out -- solo el valor "true" explícito lo prende.
+export function isProDrafterEnabled(value: string | undefined = process.env.NEXT_PUBLIC_ENABLE_PRO_DRAFTER): boolean {
+  return value === "true";
+}
