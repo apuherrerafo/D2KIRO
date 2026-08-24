@@ -1,0 +1,5 @@
+{
+  "knn_similarity": 0.4,
+  "lane_score": 0.35,
+  "denial_score": 0.25
+}

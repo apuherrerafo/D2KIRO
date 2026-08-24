@@ -1,0 +1,17 @@
+[
+  { "heroId": 1, "sustain": 0.3, "killPressure": 0.2, "harassRange": 0.1, "dispelSave": 0.1, "creepControl": 0.6 },
+  { "heroId": 2, "sustain": 0.4, "killPressure": 0.6, "harassRange": 0.2, "dispelSave": 0.3, "creepControl": 0.3 },
+  { "heroId": 3, "sustain": 0.3, "killPressure": 0.5, "harassRange": 0.4, "dispelSave": 0.2, "creepControl": 0.1 },
+  { "heroId": 5, "sustain": 0.2, "killPressure": 0.3, "harassRange": 0.7, "dispelSave": 0.1, "creepControl": 0.2 },
+  { "heroId": 6, "sustain": 0.2, "killPressure": 0.4, "harassRange": 0.8, "dispelSave": 0.1, "creepControl": 0.3 },
+  { "heroId": 7, "sustain": 0.2, "killPressure": 0.7, "harassRange": 0.3, "dispelSave": 0.1, "creepControl": 0.2 },
+  { "heroId": 8, "sustain": 0.7, "killPressure": 0.5, "harassRange": 0.2, "dispelSave": 0.6, "creepControl": 0.5 },
+  { "heroId": 9, "sustain": 0.3, "killPressure": 0.6, "harassRange": 0.6, "dispelSave": 0.1, "creepControl": 0.3 },
+  { "heroId": 10, "sustain": 0.6, "killPressure": 0.5, "harassRange": 0.4, "dispelSave": 0.4, "creepControl": 0.4 },
+  { "heroId": 11, "sustain": 0.3, "killPressure": 0.2, "harassRange": 0.5, "dispelSave": 0.1, "creepControl": 0.7 },
+  { "heroId": 13, "sustain": 0.4, "killPressure": 0.6, "harassRange": 0.5, "dispelSave": 0.3, "creepControl": 0.2 },
+  { "heroId": 14, "sustain": 0.5, "killPressure": 0.8, "harassRange": 0.6, "dispelSave": 0.2, "creepControl": 0.1 },
+  { "heroId": 16, "sustain": 0.3, "killPressure": 0.6, "harassRange": 0.3, "dispelSave": 0.2, "creepControl": 0.3 },
+  { "heroId": 17, "sustain": 0.4, "killPressure": 0.7, "harassRange": 0.4, "dispelSave": 0.3, "creepControl": 0.2 },
+  { "heroId": 18, "sustain": 0.4, "killPressure": 0.6, "harassRange": 0.2, "dispelSave": 0.5, "creepControl": 0.4 }
+]
