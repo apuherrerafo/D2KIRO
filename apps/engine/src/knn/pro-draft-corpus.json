@@ -1,5 +1,81 @@
 [
   {
+    "draftId": "8963127587",
+    "patch": "7.41",
+    "radiantHeroes": [
+      135,
+      96,
+      112,
+      109,
+      13
+    ],
+    "direHeroes": [
+      100,
+      11,
+      33,
+      97,
+      69
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8963071441",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      123,
+      96,
+      9,
+      70
+    ],
+    "direHeroes": [
+      62,
+      25,
+      105,
+      54,
+      2
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8962998009",
+    "patch": "7.41",
+    "radiantHeroes": [
+      91,
+      48,
+      14,
+      108,
+      25
+    ],
+    "direHeroes": [
+      101,
+      138,
+      21,
+      2,
+      109
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8962964580",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      62,
+      123,
+      55,
+      80
+    ],
+    "direHeroes": [
+      107,
+      9,
+      3,
+      108,
+      21
+    ],
+    "winningSide": "radiant"
+  },
+  {
     "draftId": "8962878132",
     "patch": "7.41",
     "radiantHeroes": [
@@ -1216,6 +1292,25 @@
     "winningSide": "dire"
   },
   {
+    "draftId": "8946740853",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      9,
+      54,
+      86,
+      36
+    ],
+    "direHeroes": [
+      90,
+      123,
+      108,
+      59,
+      19
+    ],
+    "winningSide": "radiant"
+  },
+  {
     "draftId": "8946735226",
     "patch": "7.41",
     "radiantHeroes": [
@@ -1425,25 +1520,6 @@
     "winningSide": "radiant"
   },
   {
-    "draftId": "8946414154",
-    "patch": "7.41",
-    "radiantHeroes": [
-      107,
-      21,
-      79,
-      19,
-      135
-    ],
-    "direHeroes": [
-      106,
-      131,
-      55,
-      100,
-      8
-    ],
-    "winningSide": "radiant"
-  },
-  {
     "draftId": "8946386614",
     "patch": "7.41",
     "radiantHeroes": [
@@ -1516,6 +1592,25 @@
       54,
       27,
       55
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8946303764",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      9,
+      69,
+      103,
+      19
+    ],
+    "direHeroes": [
+      112,
+      2,
+      123,
+      21,
+      47
     ],
     "winningSide": "dire"
   },
@@ -1687,25 +1782,6 @@
       30,
       17,
       55
-    ],
-    "winningSide": "dire"
-  },
-  {
-    "draftId": "8946161784",
-    "patch": "7.41",
-    "radiantHeroes": [
-      98,
-      80,
-      123,
-      85,
-      126
-    ],
-    "direHeroes": [
-      83,
-      86,
-      108,
-      25,
-      13
     ],
     "winningSide": "dire"
   },
@@ -3321,6 +3397,6105 @@
       53,
       96,
       93
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8938565057",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      14,
+      13,
+      72,
+      15
+    ],
+    "direHeroes": [
+      11,
+      9,
+      71,
+      18,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8938509987",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      38,
+      145,
+      71,
+      36
+    ],
+    "direHeroes": [
+      85,
+      63,
+      107,
+      56,
+      29
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8937822821",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      19,
+      121,
+      28,
+      135
+    ],
+    "direHeroes": [
+      9,
+      2,
+      107,
+      86,
+      54
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8937722788",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      30,
+      9,
+      17,
+      155
+    ],
+    "direHeroes": [
+      123,
+      108,
+      106,
+      68,
+      145
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8937631882",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      131,
+      13,
+      19,
+      155
+    ],
+    "direHeroes": [
+      38,
+      31,
+      26,
+      7,
+      54
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8937484593",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      25,
+      119,
+      19,
+      98
+    ],
+    "direHeroes": [
+      107,
+      53,
+      55,
+      9,
+      145
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8937335830",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      85,
+      9,
+      73,
+      135
+    ],
+    "direHeroes": [
+      3,
+      74,
+      119,
+      108,
+      114
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8937188618",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      155,
+      107,
+      15,
+      3
+    ],
+    "direHeroes": [
+      17,
+      105,
+      9,
+      29,
+      10
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8937080738",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      107,
+      33,
+      131,
+      18
+    ],
+    "direHeroes": [
+      90,
+      145,
+      87,
+      128,
+      60
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8936972010",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      100,
+      119,
+      129,
+      17
+    ],
+    "direHeroes": [
+      96,
+      123,
+      25,
+      31,
+      18
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8936825643",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      11,
+      123,
+      51,
+      33
+    ],
+    "direHeroes": [
+      74,
+      79,
+      9,
+      38,
+      48
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8936009381",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      107,
+      155,
+      26,
+      21
+    ],
+    "direHeroes": [
+      90,
+      17,
+      121,
+      48,
+      135
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8935913261",
+    "patch": "7.41",
+    "radiantHeroes": [
+      86,
+      100,
+      2,
+      126,
+      20
+    ],
+    "direHeroes": [
+      3,
+      74,
+      107,
+      19,
+      98
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8935755968",
+    "patch": "7.41",
+    "radiantHeroes": [
+      53,
+      3,
+      106,
+      121,
+      55
+    ],
+    "direHeroes": [
+      85,
+      120,
+      65,
+      93,
+      91
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8935608232",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      3,
+      21,
+      36,
+      17
+    ],
+    "direHeroes": [
+      85,
+      112,
+      145,
+      86,
+      106
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8935143596",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      100,
+      2,
+      128,
+      36
+    ],
+    "direHeroes": [
+      85,
+      21,
+      16,
+      20,
+      120
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8935039371",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      16,
+      155,
+      131,
+      138
+    ],
+    "direHeroes": [
+      90,
+      106,
+      9,
+      109,
+      108
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8934279386",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      9,
+      128,
+      74,
+      54
+    ],
+    "direHeroes": [
+      90,
+      123,
+      36,
+      100,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8934184387",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      126,
+      9,
+      21,
+      55
+    ],
+    "direHeroes": [
+      13,
+      155,
+      119,
+      19,
+      112
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8933988979",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      119,
+      36,
+      155,
+      106
+    ],
+    "direHeroes": [
+      11,
+      3,
+      107,
+      33,
+      13
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8933879286",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      123,
+      36,
+      131,
+      18
+    ],
+    "direHeroes": [
+      90,
+      87,
+      120,
+      69,
+      48
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8933704579",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      9,
+      3,
+      54,
+      135
+    ],
+    "direHeroes": [
+      107,
+      123,
+      96,
+      75,
+      48
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8933575351",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      25,
+      155,
+      51,
+      19
+    ],
+    "direHeroes": [
+      53,
+      107,
+      21,
+      96,
+      112
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8933453728",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      121,
+      100,
+      135,
+      19
+    ],
+    "direHeroes": [
+      80,
+      3,
+      7,
+      77,
+      86
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8933374169",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      9,
+      30,
+      106,
+      135
+    ],
+    "direHeroes": [
+      83,
+      96,
+      105,
+      36,
+      21
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8932835800",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      30,
+      51,
+      36,
+      18
+    ],
+    "direHeroes": [
+      96,
+      119,
+      145,
+      9,
+      69
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8932767341",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      123,
+      96,
+      87,
+      17
+    ],
+    "direHeroes": [
+      53,
+      112,
+      21,
+      2,
+      7
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8932657929",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      3,
+      21,
+      19,
+      155
+    ],
+    "direHeroes": [
+      96,
+      119,
+      38,
+      79,
+      135
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8932523868",
+    "patch": "7.41",
+    "radiantHeroes": [
+      105,
+      96,
+      86,
+      126,
+      48
+    ],
+    "direHeroes": [
+      74,
+      3,
+      36,
+      26,
+      61
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8932413808",
+    "patch": "7.41",
+    "radiantHeroes": [
+      58,
+      9,
+      54,
+      13,
+      65
+    ],
+    "direHeroes": [
+      105,
+      96,
+      123,
+      126,
+      48
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8932318084",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      58,
+      9,
+      61,
+      38
+    ],
+    "direHeroes": [
+      119,
+      30,
+      93,
+      69,
+      67
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8932181345",
+    "patch": "7.41",
+    "radiantHeroes": [
+      100,
+      9,
+      47,
+      19,
+      55
+    ],
+    "direHeroes": [
+      90,
+      112,
+      69,
+      53,
+      107
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8932085762",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      112,
+      100,
+      135,
+      46
+    ],
+    "direHeroes": [
+      74,
+      119,
+      58,
+      21,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8931981851",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      58,
+      48,
+      136,
+      77
+    ],
+    "direHeroes": [
+      74,
+      26,
+      112,
+      54,
+      33
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8931852727",
+    "patch": "7.41",
+    "radiantHeroes": [
+      108,
+      123,
+      13,
+      136,
+      56
+    ],
+    "direHeroes": [
+      80,
+      105,
+      119,
+      126,
+      29
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8931781241",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      9,
+      58,
+      17,
+      109
+    ],
+    "direHeroes": [
+      106,
+      30,
+      123,
+      29,
+      10
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8931183918",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      54,
+      51,
+      120,
+      36
+    ],
+    "direHeroes": [
+      96,
+      21,
+      101,
+      100,
+      17
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8931094863",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      111,
+      51,
+      80,
+      36
+    ],
+    "direHeroes": [
+      9,
+      106,
+      77,
+      100,
+      21
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8930940469",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      45,
+      123,
+      70,
+      15
+    ],
+    "direHeroes": [
+      98,
+      9,
+      18,
+      71,
+      13
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8930736914",
+    "patch": "7.41",
+    "radiantHeroes": [
+      78,
+      3,
+      9,
+      11,
+      7
+    ],
+    "direHeroes": [
+      123,
+      58,
+      69,
+      55,
+      120
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8930664368",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      19,
+      30,
+      108,
+      17
+    ],
+    "direHeroes": [
+      107,
+      123,
+      131,
+      36,
+      46
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8930615242",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      123,
+      69,
+      58,
+      2
+    ],
+    "direHeroes": [
+      78,
+      112,
+      17,
+      56,
+      119
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8930545836",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      96,
+      100,
+      123,
+      19
+    ],
+    "direHeroes": [
+      74,
+      18,
+      3,
+      55,
+      119
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8930398938",
+    "patch": "7.41",
+    "radiantHeroes": [
+      112,
+      74,
+      86,
+      136,
+      18
+    ],
+    "direHeroes": [
+      123,
+      88,
+      106,
+      155,
+      12
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8930387649",
+    "patch": "7.41",
+    "radiantHeroes": [
+      28,
+      123,
+      86,
+      80,
+      96
+    ],
+    "direHeroes": [
+      155,
+      131,
+      119,
+      106,
+      21
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8930324653",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      54,
+      23,
+      96,
+      68
+    ],
+    "direHeroes": [
+      155,
+      91,
+      100,
+      26,
+      18
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8930258778",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      9,
+      7,
+      131,
+      25
+    ],
+    "direHeroes": [
+      3,
+      16,
+      123,
+      54,
+      128
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8930248124",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      27,
+      54,
+      28,
+      108
+    ],
+    "direHeroes": [
+      123,
+      96,
+      9,
+      46,
+      7
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8930200713",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      98,
+      30,
+      106,
+      67
+    ],
+    "direHeroes": [
+      9,
+      19,
+      25,
+      65,
+      38
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8929365099",
+    "patch": "7.41",
+    "radiantHeroes": [
+      17,
+      112,
+      27,
+      136,
+      145
+    ],
+    "direHeroes": [
+      16,
+      119,
+      11,
+      131,
+      69
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8929364604",
+    "patch": "7.41",
+    "radiantHeroes": [
+      58,
+      98,
+      85,
+      73,
+      137
+    ],
+    "direHeroes": [
+      96,
+      30,
+      51,
+      13,
+      67
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8929276426",
+    "patch": "7.41",
+    "radiantHeroes": [
+      27,
+      13,
+      96,
+      110,
+      10
+    ],
+    "direHeroes": [
+      85,
+      16,
+      9,
+      11,
+      135
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8929260132",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      58,
+      98,
+      51,
+      20
+    ],
+    "direHeroes": [
+      9,
+      19,
+      119,
+      74,
+      69
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8929156216",
+    "patch": "7.41",
+    "radiantHeroes": [
+      36,
+      51,
+      19,
+      9,
+      28
+    ],
+    "direHeroes": [
+      107,
+      123,
+      131,
+      46,
+      96
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8929124210",
+    "patch": "7.41",
+    "radiantHeroes": [
+      78,
+      26,
+      112,
+      54,
+      107
+    ],
+    "direHeroes": [
+      96,
+      31,
+      128,
+      51,
+      67
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8929037896",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      123,
+      131,
+      138,
+      55
+    ],
+    "direHeroes": [
+      36,
+      51,
+      145,
+      30,
+      137
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8928953683",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      107,
+      99,
+      3,
+      53
+    ],
+    "direHeroes": [
+      80,
+      9,
+      100,
+      47,
+      17
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8928916055",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      155,
+      103,
+      106,
+      91
+    ],
+    "direHeroes": [
+      58,
+      21,
+      60,
+      145,
+      114
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8928851109",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      25,
+      58,
+      85,
+      89
+    ],
+    "direHeroes": [
+      13,
+      28,
+      105,
+      56,
+      9
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8928813748",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      9,
+      2,
+      103,
+      76
+    ],
+    "direHeroes": [
+      21,
+      33,
+      128,
+      19,
+      40
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8928712123",
+    "patch": "7.41",
+    "radiantHeroes": [
+      38,
+      21,
+      19,
+      128,
+      6
+    ],
+    "direHeroes": [
+      3,
+      80,
+      86,
+      106,
+      108
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8928216556",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      155,
+      18,
+      9,
+      7
+    ],
+    "direHeroes": [
+      85,
+      123,
+      96,
+      48,
+      128
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8928163118",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      3,
+      119,
+      16,
+      155
+    ],
+    "direHeroes": [
+      55,
+      51,
+      106,
+      11,
+      57
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8928118730",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      5,
+      100,
+      36,
+      17
+    ],
+    "direHeroes": [
+      96,
+      90,
+      112,
+      145,
+      47
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8928050264",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      48,
+      112,
+      33,
+      107
+    ],
+    "direHeroes": [
+      51,
+      9,
+      16,
+      128,
+      11
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8927998383",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      51,
+      123,
+      19,
+      108
+    ],
+    "direHeroes": [
+      11,
+      100,
+      9,
+      2,
+      86
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927926397",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      9,
+      31,
+      16,
+      135
+    ],
+    "direHeroes": [
+      47,
+      123,
+      55,
+      71,
+      11
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8927786392",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      9,
+      58,
+      2,
+      48
+    ],
+    "direHeroes": [
+      11,
+      28,
+      123,
+      96,
+      131
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927760296",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      96,
+      27,
+      17,
+      56
+    ],
+    "direHeroes": [
+      90,
+      69,
+      112,
+      145,
+      36
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927668869",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      9,
+      58,
+      2,
+      48
+    ],
+    "direHeroes": [
+      11,
+      123,
+      103,
+      28,
+      98
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927660975",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      27,
+      74,
+      19,
+      96
+    ],
+    "direHeroes": [
+      155,
+      9,
+      126,
+      86,
+      73
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927539264",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      112,
+      145,
+      86,
+      96
+    ],
+    "direHeroes": [
+      85,
+      55,
+      88,
+      48,
+      13
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927466440",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      51,
+      119,
+      106,
+      28
+    ],
+    "direHeroes": [
+      55,
+      88,
+      19,
+      53,
+      109
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8927380776",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      119,
+      137,
+      30,
+      46
+    ],
+    "direHeroes": [
+      83,
+      96,
+      25,
+      13,
+      105
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8927374543",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      88,
+      58,
+      145,
+      25
+    ],
+    "direHeroes": [
+      11,
+      65,
+      100,
+      155,
+      43
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927288399",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      119,
+      34,
+      85,
+      21
+    ],
+    "direHeroes": [
+      83,
+      7,
+      98,
+      13,
+      11
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8927232410",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      60,
+      26,
+      145,
+      19
+    ],
+    "direHeroes": [
+      13,
+      80,
+      110,
+      71,
+      112
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8927207054",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      51,
+      36,
+      110,
+      77
+    ],
+    "direHeroes": [
+      123,
+      96,
+      9,
+      106,
+      6
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8927177084",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      106,
+      121,
+      55,
+      48
+    ],
+    "direHeroes": [
+      107,
+      112,
+      145,
+      119,
+      7
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8926636219",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      87,
+      9,
+      155,
+      16
+    ],
+    "direHeroes": [
+      90,
+      123,
+      55,
+      71,
+      18
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8926523280",
+    "patch": "7.41",
+    "radiantHeroes": [
+      98,
+      13,
+      123,
+      131,
+      99
+    ],
+    "direHeroes": [
+      83,
+      48,
+      90,
+      33,
+      88
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8926381426",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      112,
+      26,
+      136,
+      106
+    ],
+    "direHeroes": [
+      135,
+      119,
+      25,
+      30,
+      145
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8926374521",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      51,
+      77,
+      36,
+      7
+    ],
+    "direHeroes": [
+      85,
+      86,
+      33,
+      109,
+      13
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8926236518",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      155,
+      39,
+      86,
+      73
+    ],
+    "direHeroes": [
+      9,
+      16,
+      119,
+      77,
+      46
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8926232913",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      155,
+      106,
+      119,
+      109
+    ],
+    "direHeroes": [
+      85,
+      26,
+      17,
+      25,
+      29
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8926048199",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      119,
+      45,
+      54,
+      120
+    ],
+    "direHeroes": [
+      25,
+      96,
+      100,
+      131,
+      145
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8926022375",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      26,
+      112,
+      135,
+      28
+    ],
+    "direHeroes": [
+      123,
+      3,
+      69,
+      13,
+      89
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8925909470",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      85,
+      106,
+      121,
+      98
+    ],
+    "direHeroes": [
+      107,
+      9,
+      119,
+      18,
+      15
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8925847726",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      145,
+      40,
+      69,
+      105
+    ],
+    "direHeroes": [
+      78,
+      65,
+      17,
+      31,
+      12
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925788830",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      62,
+      119,
+      106,
+      96
+    ],
+    "direHeroes": [
+      55,
+      112,
+      25,
+      26,
+      54
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925703946",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      112,
+      145,
+      98,
+      88
+    ],
+    "direHeroes": [
+      26,
+      25,
+      29,
+      131,
+      11
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925659440",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      3,
+      55,
+      106,
+      72
+    ],
+    "direHeroes": [
+      85,
+      119,
+      25,
+      38,
+      93
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8925564849",
+    "patch": "7.41",
+    "radiantHeroes": [
+      86,
+      108,
+      13,
+      58,
+      82
+    ],
+    "direHeroes": [
+      3,
+      11,
+      21,
+      28,
+      25
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925543582",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      56,
+      51,
+      26,
+      107
+    ],
+    "direHeroes": [
+      90,
+      120,
+      85,
+      6,
+      99
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925460065",
+    "patch": "7.41",
+    "radiantHeroes": [
+      112,
+      123,
+      28,
+      54,
+      106
+    ],
+    "direHeroes": [
+      51,
+      53,
+      96,
+      13,
+      40
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925425359",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      74,
+      36,
+      7,
+      56
+    ],
+    "direHeroes": [
+      123,
+      96,
+      3,
+      6,
+      65
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925308090",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      9,
+      88,
+      69,
+      98
+    ],
+    "direHeroes": [
+      107,
+      55,
+      128,
+      61,
+      112
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8925210898",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      96,
+      3,
+      106,
+      90
+    ],
+    "direHeroes": [
+      74,
+      123,
+      100,
+      19,
+      55
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924770688",
+    "patch": "7.41",
+    "radiantHeroes": [
+      112,
+      74,
+      19,
+      123,
+      38
+    ],
+    "direHeroes": [
+      155,
+      126,
+      119,
+      21,
+      100
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924695153",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      131,
+      19,
+      30,
+      96
+    ],
+    "direHeroes": [
+      3,
+      145,
+      123,
+      28,
+      21
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924616191",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      85,
+      2,
+      46,
+      34
+    ],
+    "direHeroes": [
+      96,
+      119,
+      25,
+      20,
+      67
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924592301",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      85,
+      16,
+      123,
+      135
+    ],
+    "direHeroes": [
+      51,
+      128,
+      53,
+      55,
+      19
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924530036",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      119,
+      112,
+      8,
+      137
+    ],
+    "direHeroes": [
+      53,
+      9,
+      51,
+      55,
+      7
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924468754",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      123,
+      109,
+      86,
+      59
+    ],
+    "direHeroes": [
+      25,
+      51,
+      9,
+      106,
+      96
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924391901",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      58,
+      19,
+      110,
+      129
+    ],
+    "direHeroes": [
+      107,
+      40,
+      88,
+      21,
+      135
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924367779",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      123,
+      51,
+      36,
+      65
+    ],
+    "direHeroes": [
+      28,
+      112,
+      38,
+      90,
+      72
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924328537",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      123,
+      78,
+      131,
+      73
+    ],
+    "direHeroes": [
+      106,
+      3,
+      119,
+      18,
+      38
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924259109",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      3,
+      77,
+      21,
+      93
+    ],
+    "direHeroes": [
+      11,
+      86,
+      112,
+      106,
+      38
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924222714",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      107,
+      123,
+      38,
+      10
+    ],
+    "direHeroes": [
+      13,
+      112,
+      119,
+      28,
+      73
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924128664",
+    "patch": "7.41",
+    "radiantHeroes": [
+      112,
+      138,
+      120,
+      36,
+      33
+    ],
+    "direHeroes": [
+      85,
+      119,
+      74,
+      6,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8924126326",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      123,
+      31,
+      106,
+      108
+    ],
+    "direHeroes": [
+      85,
+      26,
+      135,
+      93,
+      48
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924057168",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      119,
+      131,
+      52,
+      43
+    ],
+    "direHeroes": [
+      36,
+      112,
+      55,
+      71,
+      11
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8924005118",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      11,
+      31,
+      123,
+      29
+    ],
+    "direHeroes": [
+      74,
+      26,
+      112,
+      135,
+      145
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923992322",
+    "patch": "7.41",
+    "radiantHeroes": [
+      119,
+      19,
+      30,
+      77,
+      67
+    ],
+    "direHeroes": [
+      123,
+      96,
+      25,
+      106,
+      112
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8923899787",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      107,
+      11,
+      27,
+      30
+    ],
+    "direHeroes": [
+      74,
+      9,
+      111,
+      19,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923890717",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      9,
+      51,
+      60,
+      138
+    ],
+    "direHeroes": [
+      123,
+      155,
+      13,
+      131,
+      81
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923874259",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      100,
+      107,
+      56,
+      28
+    ],
+    "direHeroes": [
+      128,
+      51,
+      16,
+      31,
+      89
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8923804645",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      38,
+      106,
+      112,
+      12
+    ],
+    "direHeroes": [
+      25,
+      56,
+      123,
+      65,
+      111
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923790600",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      135,
+      65,
+      31,
+      106
+    ],
+    "direHeroes": [
+      11,
+      100,
+      120,
+      90,
+      93
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8923780137",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      107,
+      111,
+      98,
+      21
+    ],
+    "direHeroes": [
+      55,
+      83,
+      19,
+      9,
+      67
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8923708184",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      123,
+      47,
+      128,
+      91
+    ],
+    "direHeroes": [
+      36,
+      51,
+      53,
+      21,
+      33
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923704450",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      83,
+      90,
+      120,
+      69
+    ],
+    "direHeroes": [
+      25,
+      65,
+      135,
+      17,
+      112
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923643650",
+    "patch": "7.41",
+    "radiantHeroes": [
+      120,
+      9,
+      19,
+      31,
+      106
+    ],
+    "direHeroes": [
+      51,
+      112,
+      107,
+      98,
+      25
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8923614281",
+    "patch": "7.41",
+    "radiantHeroes": [
+      69,
+      107,
+      119,
+      30,
+      61
+    ],
+    "direHeroes": [
+      155,
+      86,
+      123,
+      106,
+      20
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923579943",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      7,
+      110,
+      98,
+      20
+    ],
+    "direHeroes": [
+      123,
+      100,
+      53,
+      96,
+      48
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923553900",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      119,
+      17,
+      90,
+      8
+    ],
+    "direHeroes": [
+      25,
+      3,
+      51,
+      96,
+      73
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923506996",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      51,
+      77,
+      53,
+      65
+    ],
+    "direHeroes": [
+      74,
+      3,
+      96,
+      36,
+      7
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923499263",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      109,
+      86,
+      30,
+      19
+    ],
+    "direHeroes": [
+      74,
+      64,
+      128,
+      89,
+      78
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923040358",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      123,
+      100,
+      7,
+      10
+    ],
+    "direHeroes": [
+      83,
+      63,
+      79,
+      36,
+      65
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8923000652",
+    "patch": "7.41",
+    "radiantHeroes": [
+      58,
+      51,
+      25,
+      96,
+      48
+    ],
+    "direHeroes": [
+      36,
+      123,
+      110,
+      54,
+      13
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922940920",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      51,
+      91,
+      30,
+      73
+    ],
+    "direHeroes": [
+      123,
+      18,
+      112,
+      47,
+      97
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8922914090",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      58,
+      96,
+      79,
+      19
+    ],
+    "direHeroes": [
+      36,
+      100,
+      131,
+      13,
+      80
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922818221",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      123,
+      16,
+      51,
+      46
+    ],
+    "direHeroes": [
+      3,
+      19,
+      121,
+      69,
+      17
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922795717",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      85,
+      119,
+      53,
+      7
+    ],
+    "direHeroes": [
+      11,
+      51,
+      112,
+      98,
+      120
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8922722577",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      123,
+      136,
+      36,
+      126
+    ],
+    "direHeroes": [
+      85,
+      90,
+      106,
+      21,
+      100
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8922693443",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      100,
+      9,
+      106,
+      33
+    ],
+    "direHeroes": [
+      55,
+      85,
+      119,
+      91,
+      76
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922602122",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      9,
+      30,
+      19,
+      2
+    ],
+    "direHeroes": [
+      17,
+      123,
+      96,
+      21,
+      67
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922552315",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      51,
+      74,
+      3,
+      65
+    ],
+    "direHeroes": [
+      25,
+      90,
+      85,
+      38,
+      126
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922444358",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      145,
+      100,
+      17,
+      2
+    ],
+    "direHeroes": [
+      155,
+      58,
+      107,
+      86,
+      114
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8922433138",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      155,
+      30,
+      36,
+      17
+    ],
+    "direHeroes": [
+      96,
+      51,
+      112,
+      48,
+      52
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8922400300",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      85,
+      55,
+      106,
+      67
+    ],
+    "direHeroes": [
+      11,
+      119,
+      112,
+      74,
+      108
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922339160",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      9,
+      53,
+      131,
+      109
+    ],
+    "direHeroes": [
+      25,
+      3,
+      51,
+      67,
+      2
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922327423",
+    "patch": "7.41",
+    "radiantHeroes": [
+      68,
+      47,
+      27,
+      21,
+      89
+    ],
+    "direHeroes": [
+      59,
+      31,
+      53,
+      77,
+      8
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922300474",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      107,
+      53,
+      112,
+      36
+    ],
+    "direHeroes": [
+      80,
+      85,
+      119,
+      135,
+      126
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922223454",
+    "patch": "7.41",
+    "radiantHeroes": [
+      112,
+      86,
+      54,
+      2,
+      17
+    ],
+    "direHeroes": [
+      85,
+      96,
+      79,
+      107,
+      53
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922211678",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      85,
+      56,
+      26,
+      33
+    ],
+    "direHeroes": [
+      123,
+      155,
+      106,
+      145,
+      30
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922186876",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      155,
+      119,
+      13,
+      53
+    ],
+    "direHeroes": [
+      86,
+      123,
+      54,
+      120,
+      2
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922137329",
+    "patch": "7.41",
+    "radiantHeroes": [
+      86,
+      38,
+      112,
+      145,
+      28
+    ],
+    "direHeroes": [
+      85,
+      96,
+      9,
+      72,
+      13
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922133239",
+    "patch": "7.41",
+    "radiantHeroes": [
+      120,
+      51,
+      25,
+      22,
+      108
+    ],
+    "direHeroes": [
+      74,
+      100,
+      9,
+      2,
+      6
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8922074642",
+    "patch": "7.41",
+    "radiantHeroes": [
+      108,
+      86,
+      48,
+      123,
+      107
+    ],
+    "direHeroes": [
+      80,
+      84,
+      9,
+      96,
+      47
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8922016200",
+    "patch": "7.41",
+    "radiantHeroes": [
+      31,
+      120,
+      119,
+      108,
+      70
+    ],
+    "direHeroes": [
+      96,
+      9,
+      51,
+      53,
+      38
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8921979012",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      31,
+      78,
+      26,
+      99
+    ],
+    "direHeroes": [
+      123,
+      106,
+      155,
+      77,
+      121
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8921949036",
+    "patch": "7.41",
+    "radiantHeroes": [
+      105,
+      120,
+      131,
+      135,
+      99
+    ],
+    "direHeroes": [
+      80,
+      51,
+      3,
+      96,
+      16
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8921931974",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      107,
+      91,
+      87,
+      72
+    ],
+    "direHeroes": [
+      74,
+      65,
+      31,
+      78,
+      56
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8921496603",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      85,
+      74,
+      54,
+      9
+    ],
+    "direHeroes": [
+      83,
+      107,
+      79,
+      108,
+      53
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8921416387",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      112,
+      51,
+      25,
+      47
+    ],
+    "direHeroes": [
+      107,
+      85,
+      97,
+      108,
+      114
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8921343589",
+    "patch": "7.41",
+    "radiantHeroes": [
+      36,
+      51,
+      9,
+      16,
+      54
+    ],
+    "direHeroes": [
+      128,
+      155,
+      123,
+      106,
+      20
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8921281044",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      58,
+      97,
+      20,
+      28
+    ],
+    "direHeroes": [
+      11,
+      71,
+      30,
+      96,
+      106
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8921245123",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      58,
+      96,
+      123,
+      70
+    ],
+    "direHeroes": [
+      80,
+      100,
+      9,
+      98,
+      7
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8921162227",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      85,
+      21,
+      145,
+      31
+    ],
+    "direHeroes": [
+      90,
+      123,
+      120,
+      2,
+      36
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8921134590",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      3,
+      128,
+      56,
+      20
+    ],
+    "direHeroes": [
+      25,
+      131,
+      85,
+      19,
+      2
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8921021224",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      2,
+      53,
+      50,
+      106
+    ],
+    "direHeroes": [
+      11,
+      100,
+      9,
+      69,
+      107
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8921002620",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      3,
+      121,
+      107,
+      18
+    ],
+    "direHeroes": [
+      17,
+      123,
+      77,
+      50,
+      67
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8920897425",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      3,
+      121,
+      25,
+      38
+    ],
+    "direHeroes": [
+      155,
+      90,
+      126,
+      30,
+      6
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8920872222",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      80,
+      121,
+      106,
+      69
+    ],
+    "direHeroes": [
+      55,
+      107,
+      112,
+      97,
+      11
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8920787889",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      123,
+      121,
+      36,
+      114
+    ],
+    "direHeroes": [
+      106,
+      119,
+      30,
+      25,
+      29
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8920770467",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      85,
+      95,
+      107,
+      108
+    ],
+    "direHeroes": [
+      55,
+      88,
+      25,
+      119,
+      120
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8920668670",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      21,
+      108,
+      35,
+      51
+    ],
+    "direHeroes": [
+      123,
+      131,
+      25,
+      69,
+      18
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8920655724",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      96,
+      48,
+      121,
+      128
+    ],
+    "direHeroes": [
+      105,
+      36,
+      131,
+      38,
+      120
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8920586322",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      121,
+      51,
+      106,
+      69
+    ],
+    "direHeroes": [
+      123,
+      105,
+      33,
+      19,
+      25
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8920584549",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      96,
+      119,
+      110,
+      17
+    ],
+    "direHeroes": [
+      123,
+      145,
+      112,
+      2,
+      107
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8919803916",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      155,
+      17,
+      64,
+      67
+    ],
+    "direHeroes": [
+      51,
+      69,
+      128,
+      54,
+      121
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8919685210",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      126,
+      135,
+      131,
+      145
+    ],
+    "direHeroes": [
+      74,
+      155,
+      51,
+      36,
+      21
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8919546613",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      106,
+      19,
+      9,
+      60
+    ],
+    "direHeroes": [
+      90,
+      96,
+      112,
+      7,
+      73
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8919404744",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      100,
+      96,
+      121,
+      36
+    ],
+    "direHeroes": [
+      85,
+      123,
+      119,
+      106,
+      19
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8919264561",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      25,
+      120,
+      51,
+      38
+    ],
+    "direHeroes": [
+      85,
+      107,
+      119,
+      21,
+      31
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8918176547",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      128,
+      107,
+      9,
+      21
+    ],
+    "direHeroes": [
+      105,
+      58,
+      48,
+      38,
+      25
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8918052500",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      105,
+      107,
+      48,
+      135
+    ],
+    "direHeroes": [
+      90,
+      96,
+      17,
+      131,
+      54
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8917853656",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      119,
+      77,
+      106,
+      9
+    ],
+    "direHeroes": [
+      11,
+      123,
+      28,
+      112,
+      17
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8917738415",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      155,
+      74,
+      58,
+      67
+    ],
+    "direHeroes": [
+      123,
+      48,
+      79,
+      120,
+      60
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8917675823",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      3,
+      90,
+      17,
+      109
+    ],
+    "direHeroes": [
+      128,
+      30,
+      155,
+      21,
+      36
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8917611319",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      17,
+      155,
+      21,
+      31
+    ],
+    "direHeroes": [
+      25,
+      3,
+      138,
+      38,
+      107
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8917547035",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      155,
+      27,
+      54,
+      30
+    ],
+    "direHeroes": [
+      106,
+      105,
+      2,
+      110,
+      41
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8916474664",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      105,
+      96,
+      64,
+      126
+    ],
+    "direHeroes": [
+      128,
+      51,
+      2,
+      54,
+      65
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8916384577",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      131,
+      85,
+      6,
+      107
+    ],
+    "direHeroes": [
+      25,
+      100,
+      119,
+      55,
+      36
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8916245727",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      3,
+      135,
+      48,
+      114
+    ],
+    "direHeroes": [
+      128,
+      80,
+      64,
+      38,
+      106
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8916102349",
+    "patch": "7.41",
+    "radiantHeroes": [
+      105,
+      53,
+      64,
+      38,
+      120
+    ],
+    "direHeroes": [
+      85,
+      119,
+      25,
+      96,
+      28
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8916041863",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      21,
+      58,
+      120,
+      29
+    ],
+    "direHeroes": [
+      77,
+      128,
+      121,
+      19,
+      34
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8915498965",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      100,
+      55,
+      79,
+      80
+    ],
+    "direHeroes": [
+      90,
+      48,
+      85,
+      120,
+      98
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8915390117",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      3,
+      2,
+      9,
+      109
+    ],
+    "direHeroes": [
+      25,
+      131,
+      128,
+      77,
+      54
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8915271266",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      9,
+      3,
+      54,
+      55
+    ],
+    "direHeroes": [
+      51,
+      96,
+      128,
+      46,
+      86
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8915137972",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      128,
+      107,
+      105,
+      19
+    ],
+    "direHeroes": [
+      11,
+      3,
+      136,
+      59,
+      33
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8915002841",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      123,
+      11,
+      136,
+      108
+    ],
+    "direHeroes": [
+      74,
+      105,
+      66,
+      60,
+      48
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8914885598",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      123,
+      33,
+      56,
+      106
+    ],
+    "direHeroes": [
+      11,
+      3,
+      96,
+      126,
+      21
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8914749408",
+    "patch": "7.41",
+    "radiantHeroes": [
+      53,
+      86,
+      100,
+      59,
+      69
+    ],
+    "direHeroes": [
+      135,
+      128,
+      13,
+      112,
+      19
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8914637220",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      96,
+      86,
+      74,
+      73
+    ],
+    "direHeroes": [
+      105,
+      19,
+      64,
+      106,
+      120
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8914520562",
+    "patch": "7.41",
+    "radiantHeroes": [
+      17,
+      123,
+      2,
+      64,
+      54
+    ],
+    "direHeroes": [
+      83,
+      119,
+      25,
+      73,
+      108
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8914414410",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      17,
+      108,
+      90,
+      73
+    ],
+    "direHeroes": [
+      105,
+      106,
+      131,
+      135,
+      19
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8913824141",
+    "patch": "7.41",
+    "radiantHeroes": [
+      6,
+      2,
+      110,
+      119,
+      25
+    ],
+    "direHeroes": [
+      51,
+      36,
+      123,
+      128,
+      108
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8913726962",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      123,
+      97,
+      25,
+      17
+    ],
+    "direHeroes": [
+      6,
+      105,
+      57,
+      120,
+      2
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8913598312",
+    "patch": "7.41",
+    "radiantHeroes": [
+      6,
+      119,
+      100,
+      47,
+      108
+    ],
+    "direHeroes": [
+      51,
+      128,
+      131,
+      53,
+      80
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8913422514",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      85,
+      123,
+      67,
+      30
+    ],
+    "direHeroes": [
+      80,
+      105,
+      126,
+      121,
+      135
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8913307206",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      77,
+      123,
+      38,
+      145
+    ],
+    "direHeroes": [
+      74,
+      96,
+      105,
+      12,
+      58
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8912974141",
+    "patch": "7.41",
+    "radiantHeroes": [
+      38,
+      90,
+      48,
+      51,
+      39
+    ],
+    "direHeroes": [
+      11,
+      123,
+      112,
+      120,
+      60
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8912831712",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      51,
+      19,
+      131,
+      126
+    ],
+    "direHeroes": [
+      11,
+      64,
+      123,
+      77,
+      17
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8912758286",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      100,
+      119,
+      98,
+      114
+    ],
+    "direHeroes": [
+      77,
+      128,
+      19,
+      131,
+      25
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8912622476",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      123,
+      135,
+      9,
+      36
+    ],
+    "direHeroes": [
+      51,
+      131,
+      53,
+      19,
+      108
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8912551235",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      123,
+      119,
+      13,
+      73
+    ],
+    "direHeroes": [
+      6,
+      106,
+      3,
+      128,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8912123729",
+    "patch": "7.41",
+    "radiantHeroes": [
+      36,
+      105,
+      2,
+      31,
+      145
+    ],
+    "direHeroes": [
+      106,
+      90,
+      30,
+      85,
+      73
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8912045230",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      120,
+      131,
+      54,
+      87
+    ],
+    "direHeroes": [
+      17,
+      105,
+      2,
+      119,
+      10
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911916389",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      107,
+      19,
+      9,
+      128
+    ],
+    "direHeroes": [
+      155,
+      123,
+      27,
+      36,
+      109
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911784562",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      105,
+      58,
+      98,
+      73
+    ],
+    "direHeroes": [
+      85,
+      119,
+      47,
+      48,
+      2
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8911654591",
+    "patch": "7.41",
+    "radiantHeroes": [
+      65,
+      121,
+      6,
+      111,
+      98
+    ],
+    "direHeroes": [
+      51,
+      107,
+      3,
+      97,
+      56
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911543304",
+    "patch": "7.41",
+    "radiantHeroes": [
+      65,
+      121,
+      3,
+      25,
+      78
+    ],
+    "direHeroes": [
+      51,
+      107,
+      123,
+      60,
+      56
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911423993",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      131,
+      21,
+      107,
+      60
+    ],
+    "direHeroes": [
+      65,
+      36,
+      96,
+      3,
+      105
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911277378",
+    "patch": "7.41",
+    "radiantHeroes": [
+      38,
+      123,
+      67,
+      37,
+      114
+    ],
+    "direHeroes": [
+      51,
+      131,
+      48,
+      106,
+      77
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911177078",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      96,
+      136,
+      131,
+      85
+    ],
+    "direHeroes": [
+      51,
+      107,
+      123,
+      56,
+      60
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8911066658",
+    "patch": "7.41",
+    "radiantHeroes": [
+      131,
+      123,
+      2,
+      25,
+      67
+    ],
+    "direHeroes": [
+      155,
+      119,
+      50,
+      106,
+      56
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8910982575",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      51,
+      27,
+      2,
+      138
+    ],
+    "direHeroes": [
+      96,
+      106,
+      123,
+      6,
+      131
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8910909413",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      96,
+      131,
+      93,
+      37
+    ],
+    "direHeroes": [
+      25,
+      3,
+      54,
+      9,
+      2
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8910670427",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      100,
+      86,
+      108,
+      6
+    ],
+    "direHeroes": [
+      123,
+      105,
+      120,
+      73,
+      28
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8910632054",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      3,
+      36,
+      131,
+      10
+    ],
+    "direHeroes": [
+      106,
+      30,
+      107,
+      67,
+      65
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8910589445",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      105,
+      60,
+      37,
+      109
+    ],
+    "direHeroes": [
+      13,
+      31,
+      86,
+      145,
+      28
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8910535715",
+    "patch": "7.41",
+    "radiantHeroes": [
+      17,
+      123,
+      30,
+      18,
+      29
+    ],
+    "direHeroes": [
+      3,
+      51,
+      55,
+      19,
+      36
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8910461593",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      155,
+      85,
+      107,
+      102
+    ],
+    "direHeroes": [
+      106,
+      3,
+      51,
+      96,
+      25
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8910344715",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      85,
+      105,
+      106,
+      6
+    ],
+    "direHeroes": [
+      3,
+      9,
+      155,
+      47,
+      21
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8910216725",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      71,
+      131,
+      106,
+      67
+    ],
+    "direHeroes": [
+      48,
+      3,
+      119,
+      36,
+      98
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8910104556",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      119,
+      97,
+      6,
+      74
+    ],
+    "direHeroes": [
+      48,
+      85,
+      90,
+      120,
+      2
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909904190",
+    "patch": "7.41",
+    "radiantHeroes": [
+      77,
+      119,
+      48,
+      155,
+      7
+    ],
+    "direHeroes": [
+      51,
+      21,
+      110,
+      107,
+      129
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909780227",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      121,
+      96,
+      21,
+      128
+    ],
+    "direHeroes": [
+      11,
+      79,
+      123,
+      28,
+      120
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8909658828",
+    "patch": "7.41",
+    "radiantHeroes": [
+      6,
+      3,
+      121,
+      78,
+      23
+    ],
+    "direHeroes": [
+      11,
+      96,
+      105,
+      74,
+      79
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909554256",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      3,
+      105,
+      74,
+      96
+    ],
+    "direHeroes": [
+      83,
+      155,
+      121,
+      25,
+      13
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909498494",
+    "patch": "7.41",
+    "radiantHeroes": [
+      2,
+      131,
+      85,
+      25,
+      21
+    ],
+    "direHeroes": [
+      90,
+      19,
+      30,
+      38,
+      120
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909443684",
+    "patch": "7.41",
+    "radiantHeroes": [
+      2,
+      123,
+      128,
+      131,
+      1
+    ],
+    "direHeroes": [
+      85,
+      6,
+      9,
+      106,
+      155
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8909388284",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      3,
+      56,
+      96,
+      114
+    ],
+    "direHeroes": [
+      2,
+      86,
+      51,
+      106,
+      53
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8909115244",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      100,
+      79,
+      96,
+      36
+    ],
+    "direHeroes": [
+      155,
+      48,
+      136,
+      39,
+      129
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909070432",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      131,
+      69,
+      136,
+      33
+    ],
+    "direHeroes": [
+      25,
+      79,
+      155,
+      48,
+      108
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8909014182",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      51,
+      56,
+      100,
+      36
+    ],
+    "direHeroes": [
+      25,
+      38,
+      131,
+      33,
+      57
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8908926344",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      30,
+      2,
+      131,
+      11
+    ],
+    "direHeroes": [
+      85,
+      119,
+      107,
+      19,
+      112
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8908830472",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      51,
+      135,
+      131,
+      109
+    ],
+    "direHeroes": [
+      11,
+      100,
+      9,
+      106,
+      77
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8908612824",
+    "patch": "7.41",
+    "radiantHeroes": [
+      69,
+      85,
+      105,
+      25,
+      16
+    ],
+    "direHeroes": [
+      155,
+      6,
+      100,
+      13,
+      15
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8908486051",
+    "patch": "7.41",
+    "radiantHeroes": [
+      36,
+      85,
+      119,
+      96,
+      21
+    ],
+    "direHeroes": [
+      128,
+      25,
+      100,
+      54,
+      110
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8908313996",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      13,
+      119,
+      38,
+      46
+    ],
+    "direHeroes": [
+      155,
+      25,
+      30,
+      107,
+      131
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8908178087",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      123,
+      23,
+      3,
+      6
+    ],
+    "direHeroes": [
+      51,
+      21,
+      26,
+      38,
+      98
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8908078817",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      21,
+      135,
+      86,
+      17
+    ],
+    "direHeroes": [
+      51,
+      55,
+      123,
+      106,
+      48
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8907997366",
+    "patch": "7.41",
+    "radiantHeroes": [
+      2,
+      119,
+      106,
+      3,
+      25
+    ],
+    "direHeroes": [
+      145,
+      112,
+      88,
+      128,
+      110
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8907942033",
+    "patch": "7.41",
+    "radiantHeroes": [
+      6,
+      100,
+      17,
+      26,
+      104
+    ],
+    "direHeroes": [
+      155,
+      123,
+      119,
+      106,
+      73
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8907510684",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      9,
+      25,
+      131,
+      73
+    ],
+    "direHeroes": [
+      90,
+      54,
+      87,
+      107,
+      38
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8907419340",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      47,
+      119,
+      19,
+      68
+    ],
+    "direHeroes": [
+      106,
+      123,
+      155,
+      50,
+      56
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8907319204",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      105,
+      100,
+      56,
+      28
+    ],
+    "direHeroes": [
+      25,
+      38,
+      51,
+      48,
+      128
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8907236730",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      2,
+      48,
+      131,
+      57
+    ],
+    "direHeroes": [
+      128,
+      96,
+      119,
+      19,
+      107
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8907114935",
+    "patch": "7.41",
+    "radiantHeroes": [
+      36,
+      111,
+      121,
+      96,
+      20
+    ],
+    "direHeroes": [
+      69,
+      105,
+      100,
+      25,
+      13
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8907021823",
+    "patch": "7.41",
+    "radiantHeroes": [
+      65,
+      121,
+      85,
+      25,
+      98
+    ],
+    "direHeroes": [
+      128,
+      119,
+      51,
+      19,
+      107
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8906911697",
+    "patch": "7.41",
+    "radiantHeroes": [
+      111,
+      107,
+      25,
+      55,
+      18
+    ],
+    "direHeroes": [
+      128,
+      120,
+      119,
+      19,
+      96
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8906814740",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      131,
+      96,
+      19,
+      25
+    ],
+    "direHeroes": [
+      74,
+      110,
+      2,
+      69,
+      128
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8906706819",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      131,
+      126,
+      54,
+      33
+    ],
+    "direHeroes": [
+      74,
+      2,
+      100,
+      59,
+      10
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8906626852",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      26,
+      37,
+      99,
+      93
+    ],
+    "direHeroes": [
+      74,
+      80,
+      64,
+      60,
+      27
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8906547471",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      51,
+      145,
+      74,
+      86
+    ],
+    "direHeroes": [
+      85,
+      96,
+      123,
+      120,
+      21
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8906479441",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      123,
+      31,
+      106,
+      137
+    ],
+    "direHeroes": [
+      55,
+      105,
+      17,
+      86,
+      19
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8906069414",
+    "patch": "7.41",
+    "radiantHeroes": [
+      6,
+      51,
+      135,
+      119,
+      120
+    ],
+    "direHeroes": [
+      11,
+      123,
+      77,
+      17,
+      3
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8905975768",
+    "patch": "7.41",
+    "radiantHeroes": [
+      123,
+      106,
+      135,
+      30,
+      4
+    ],
+    "direHeroes": [
+      155,
+      119,
+      131,
+      107,
+      109
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8905885788",
+    "patch": "7.41",
+    "radiantHeroes": [
+      11,
+      51,
+      128,
+      77,
+      79
+    ],
+    "direHeroes": [
+      121,
+      155,
+      111,
+      73,
+      23
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8905741721",
+    "patch": "7.41",
+    "radiantHeroes": [
+      155,
+      11,
+      119,
+      111,
+      23
+    ],
+    "direHeroes": [
+      83,
+      25,
+      86,
+      33,
+      48
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8905612460",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      51,
+      108,
+      26,
+      109
+    ],
+    "direHeroes": [
+      90,
+      120,
+      112,
+      54,
+      155
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8905490238",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      3,
+      119,
+      74,
+      109
+    ],
+    "direHeroes": [
+      11,
+      131,
+      100,
+      120,
+      135
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8905359313",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      13,
+      85,
+      119,
+      21
+    ],
+    "direHeroes": [
+      11,
+      26,
+      126,
+      77,
+      87
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8905233934",
+    "patch": "7.41",
+    "radiantHeroes": [
+      105,
+      28,
+      90,
+      120,
+      46
+    ],
+    "direHeroes": [
+      80,
+      110,
+      119,
+      36,
+      2
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8905164476",
+    "patch": "7.41",
+    "radiantHeroes": [
+      38,
+      105,
+      17,
+      37,
+      1
+    ],
+    "direHeroes": [
+      25,
+      131,
+      155,
+      36,
+      88
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8905093611",
+    "patch": "7.41",
+    "radiantHeroes": [
+      25,
+      100,
+      2,
+      123,
+      95
+    ],
+    "direHeroes": [
+      128,
+      119,
+      105,
+      19,
+      55
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8905035315",
+    "patch": "7.41",
+    "radiantHeroes": [
+      126,
+      19,
+      111,
+      86,
+      97
+    ],
+    "direHeroes": [
+      13,
+      119,
+      105,
+      54,
+      69
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8904419709",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      123,
+      54,
+      120,
+      28
+    ],
+    "direHeroes": [
+      74,
+      79,
+      96,
+      145,
+      87
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8904322271",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      38,
+      112,
+      145,
+      107
+    ],
+    "direHeroes": [
+      123,
+      119,
+      36,
+      13,
+      19
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8904157676",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      123,
+      96,
+      86,
+      54
+    ],
+    "direHeroes": [
+      6,
+      107,
+      3,
+      155,
+      21
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8904012666",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      90,
+      56,
+      28,
+      98
+    ],
+    "direHeroes": [
+      112,
+      119,
+      38,
+      106,
+      12
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8903789784",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      107,
+      5,
+      155,
+      119
+    ],
+    "direHeroes": [
+      33,
+      123,
+      19,
+      112,
+      7
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8903705555",
+    "patch": "7.41",
+    "radiantHeroes": [
+      19,
+      85,
+      106,
+      9,
+      69
+    ],
+    "direHeroes": [
+      53,
+      112,
+      2,
+      114,
+      145
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8902610619",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      112,
+      80,
+      2,
+      21
+    ],
+    "direHeroes": [
+      120,
+      90,
+      64,
+      33,
+      12
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8902431810",
+    "patch": "7.41",
+    "radiantHeroes": [
+      53,
+      90,
+      38,
+      106,
+      84
+    ],
+    "direHeroes": [
+      11,
+      123,
+      58,
+      23,
+      114
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8902338515",
+    "patch": "7.41",
+    "radiantHeroes": [
+      19,
+      123,
+      106,
+      119,
+      108
+    ],
+    "direHeroes": [
+      55,
+      9,
+      100,
+      28,
+      46
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8902173969",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      155,
+      27,
+      106,
+      21
+    ],
+    "direHeroes": [
+      90,
+      123,
+      17,
+      109,
+      60
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8902107148",
+    "patch": "7.41",
+    "radiantHeroes": [
+      38,
+      112,
+      100,
+      56,
+      36
+    ],
+    "direHeroes": [
+      80,
+      85,
+      123,
+      13,
+      28
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8900882416",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      27,
+      145,
+      85,
+      28
+    ],
+    "direHeroes": [
+      3,
+      123,
+      19,
+      98,
+      13
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8900771154",
+    "patch": "7.41",
+    "radiantHeroes": [
+      77,
+      123,
+      47,
+      85,
+      74
+    ],
+    "direHeroes": [
+      3,
+      25,
+      9,
+      89,
+      2
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8900623530",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      80,
+      90,
+      38,
+      93
+    ],
+    "direHeroes": [
+      51,
+      135,
+      131,
+      106,
+      72
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8900508749",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      128,
+      112,
+      21,
+      19
+    ],
+    "direHeroes": [
+      25,
+      100,
+      9,
+      67,
+      55
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8899420575",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      55,
+      112,
+      53,
+      120
+    ],
+    "direHeroes": [
+      83,
+      25,
+      86,
+      28,
+      128
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8899307453",
+    "patch": "7.41",
+    "radiantHeroes": [
+      31,
+      128,
+      53,
+      38,
+      109
+    ],
+    "direHeroes": [
+      11,
+      119,
+      51,
+      120,
+      135
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8899120700",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      120,
+      123,
+      41,
+      31
+    ],
+    "direHeroes": [
+      74,
+      96,
+      85,
+      105,
+      56
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8899028080",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      123,
+      145,
+      30,
+      29
+    ],
+    "direHeroes": [
+      53,
+      96,
+      85,
+      106,
+      9
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8898117600",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      90,
+      145,
+      96,
+      74
+    ],
+    "direHeroes": [
+      155,
+      121,
+      88,
+      17,
+      73
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8898084910",
+    "patch": "7.41",
+    "radiantHeroes": [
+      100,
+      9,
+      6,
+      2,
+      21
+    ],
+    "direHeroes": [
+      3,
+      155,
+      22,
+      19,
+      107
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8897971312",
+    "patch": "7.41",
+    "radiantHeroes": [
+      83,
+      69,
+      21,
+      107,
+      138
+    ],
+    "direHeroes": [
+      25,
+      155,
+      100,
+      86,
+      7
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8897841991",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      19,
+      9,
+      55,
+      13
+    ],
+    "direHeroes": [
+      96,
+      90,
+      46,
+      131,
+      107
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8897831774",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      131,
+      72,
+      107,
+      96
+    ],
+    "direHeroes": [
+      38,
+      123,
+      13,
+      111,
+      73
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8897696869",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      123,
+      30,
+      67,
+      38
+    ],
+    "direHeroes": [
+      51,
+      119,
+      29,
+      114,
+      10
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8897695379",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      31,
+      128,
+      65,
+      19
+    ],
+    "direHeroes": [
+      11,
+      25,
+      119,
+      2,
+      111
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8897588873",
+    "patch": "7.41",
+    "radiantHeroes": [
+      120,
+      131,
+      19,
+      30,
+      25
+    ],
+    "direHeroes": [
+      74,
+      9,
+      100,
+      36,
+      18
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8897585705",
+    "patch": "7.41",
+    "radiantHeroes": [
+      47,
+      96,
+      3,
+      64,
+      89
+    ],
+    "direHeroes": [
+      106,
+      31,
+      54,
+      86,
+      77
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8896731473",
+    "patch": "7.41",
+    "radiantHeroes": [
+      90,
+      114,
+      96,
+      121,
+      120
+    ],
+    "direHeroes": [
+      123,
+      155,
+      80,
+      13,
+      87
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8896645659",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      64,
+      100,
+      35,
+      108
+    ],
+    "direHeroes": [
+      59,
+      51,
+      55,
+      112,
+      70
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8896486914",
+    "patch": "7.41",
+    "radiantHeroes": [
+      9,
+      106,
+      19,
+      107,
+      98
+    ],
+    "direHeroes": [
+      123,
+      155,
+      7,
+      6,
+      96
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8896380183",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      131,
+      38,
+      90,
+      73
+    ],
+    "direHeroes": [
+      107,
+      119,
+      75,
+      19,
+      108
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8896267691",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      9,
+      73,
+      36,
+      55
+    ],
+    "direHeroes": [
+      96,
+      119,
+      131,
+      16,
+      56
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8896234088",
+    "patch": "7.41",
+    "radiantHeroes": [
+      13,
+      155,
+      19,
+      123,
+      31
+    ],
+    "direHeroes": [
+      107,
+      131,
+      51,
+      54,
+      38
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8896140998",
+    "patch": "7.41",
+    "radiantHeroes": [
+      55,
+      123,
+      7,
+      112,
+      56
+    ],
+    "direHeroes": [
+      11,
+      51,
+      106,
+      96,
+      30
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8896139222",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      3,
+      123,
+      54,
+      2
+    ],
+    "direHeroes": [
+      28,
+      131,
+      55,
+      64,
+      67
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8893253595",
+    "patch": "7.41",
+    "radiantHeroes": [
+      107,
+      119,
+      9,
+      109,
+      38
+    ],
+    "direHeroes": [
+      106,
+      155,
+      86,
+      64,
+      72
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8893208737",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      110,
+      21,
+      19,
+      128
+    ],
+    "direHeroes": [
+      33,
+      100,
+      13,
+      58,
+      18
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8893165071",
+    "patch": "7.41",
+    "radiantHeroes": [
+      96,
+      112,
+      9,
+      12,
+      7
+    ],
+    "direHeroes": [
+      2,
+      6,
+      51,
+      119,
+      39
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8893106015",
+    "patch": "7.41",
+    "radiantHeroes": [
+      3,
+      96,
+      119,
+      138,
+      120
+    ],
+    "direHeroes": [
+      19,
+      128,
+      36,
+      66,
+      47
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8893079555",
+    "patch": "7.41",
+    "radiantHeroes": [
+      51,
+      145,
+      112,
+      128,
+      33
+    ],
+    "direHeroes": [
+      3,
+      155,
+      123,
+      36,
+      17
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8893070561",
+    "patch": "7.41",
+    "radiantHeroes": [
+      80,
+      119,
+      107,
+      155,
+      31
+    ],
+    "direHeroes": [
+      96,
+      123,
+      25,
+      85,
+      28
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8892958964",
+    "patch": "7.41",
+    "radiantHeroes": [
+      128,
+      155,
+      38,
+      8,
+      87
+    ],
+    "direHeroes": [
+      107,
+      131,
+      58,
+      19,
+      25
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8892923329",
+    "patch": "7.41",
+    "radiantHeroes": [
+      17,
+      123,
+      38,
+      90,
+      21
+    ],
+    "direHeroes": [
+      114,
+      131,
+      14,
+      106,
+      65
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8892914077",
+    "patch": "7.41",
+    "radiantHeroes": [
+      86,
+      2,
+      13,
+      110,
+      89
+    ],
+    "direHeroes": [
+      119,
+      112,
+      145,
+      28,
+      120
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8892836635",
+    "patch": "7.41",
+    "radiantHeroes": [
+      145,
+      91,
+      121,
+      155,
+      60
+    ],
+    "direHeroes": [
+      3,
+      29,
+      119,
+      74,
+      10
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8892835652",
+    "patch": "7.41",
+    "radiantHeroes": [
+      85,
+      119,
+      128,
+      56,
+      3
+    ],
+    "direHeroes": [
+      80,
+      136,
+      25,
+      31,
+      65
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8892829232",
+    "patch": "7.41",
+    "radiantHeroes": [
+      74,
+      85,
+      65,
+      14,
+      12
+    ],
+    "direHeroes": [
+      51,
+      25,
+      123,
+      41,
+      38
+    ],
+    "winningSide": "dire"
+  },
+  {
+    "draftId": "8891519142",
+    "patch": "7.41",
+    "radiantHeroes": [
+      53,
+      123,
+      80,
+      100,
+      77
+    ],
+    "direHeroes": [
+      47,
+      2,
+      131,
+      17,
+      6
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8891497910",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      19,
+      9,
+      107,
+      96
+    ],
+    "direHeroes": [
+      13,
+      123,
+      64,
+      98,
+      21
+    ],
+    "winningSide": "radiant"
+  },
+  {
+    "draftId": "8891438996",
+    "patch": "7.41",
+    "radiantHeroes": [
+      106,
+      3,
+      51,
+      65,
+      72
+    ],
+    "direHeroes": [
+      11,
+      105,
+      123,
+      126,
+      38
     ],
     "winningSide": "dire"
   }

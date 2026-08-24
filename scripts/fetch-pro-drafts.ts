@@ -22,16 +22,26 @@
 // no expone ese dato. El corpus queda taggeado con el parche mayor real, más preciso que inventar
 // una letra.
 //
-// Volumen real: el rango de 2,000-5,000 drafts pedido asume que existen esa cantidad de partidas
-// profesionales Tier 1/2 en el parche activo -- en la práctica, un solo parche suele tener unos
-// pocos cientos de esas partidas mientras está vigente. Este script escribe TODAS las que
+// Volumen real: el rango de 2,000-5,000 drafts pedido originalmente asumía esa cantidad de
+// partidas profesionales Tier 1/2 en UN SOLO parche activo -- en la práctica, un solo parche
+// suele tener unos pocos cientos (confirmado: patch 7.41 solo dio 175). Gobernanza 2.0
+// (ampliación de corpus, evt-107): `--patches=N` (default 1, preserva el comportamiento
+// original) barre los últimos N parches de `constants/patch` en una sola pasada de paginación en
+// vez de N pasadas separadas -- el corpus resultante mezcla parches (cada `DraftCandidate` sigue
+// llevando su propio campo `patch`, el KNN nunca filtra ni pondera por él, verificado contra
+// knn/draft-index.ts y knn/jaccard.ts antes de este cambio). Este script escribe TODAS las que
 // encuentre (hasta --max-drafts), nunca rellena con datos falsos para llegar a un número.
 //
 // Reintentos: reutiliza OpenDotaClient (apps/engine/src/meta/opendota-client.ts) -- mismo
 // mecanismo ya probado que usa la sincronización real del motor (429 -> espera creciente 1s/4s/
 // 16s, máximo 3 reintentos). La primera versión de este script tenía su propio fetch sin
 // reintento y un 429 real de OpenDota lo tumbó a mitad de una corrida -- corregido reutilizando
-// el cliente existente en vez de reimplementar el mismo mecanismo peor.
+// el cliente existente en vez de reimplementar el mismo mecanismo peor. Ese contrato (1s/4s/16s,
+// 3 reintentos) es de `apps/engine` -- fijo en engine.md/security.md, NUNCA se toca acá.
+// Gobernanza 2.0 agrega una capa de resiliencia propia del SCRIPT (nunca del cliente
+// compartido): tras varios fallos consecutivos (una racha de 429 sostenidos que ya agotaron los
+// 3 reintentos del cliente cada uno), el script hace una pausa larga antes de seguir -- un 429
+// sostenido por varios minutos necesita más que el backoff de una sola petición.
 
 import { OpenDotaClient } from "../apps/engine/src/meta/opendota-client";
 import { parseDraftCorpus } from "../apps/engine/src/knn/corpus";
@@ -40,9 +50,12 @@ import type { DraftCandidate } from "../apps/engine/src/knn/corpus";
 const ACCEPTED_TIERS = new Set(["premium", "professional"]);
 const REQUIRED_PICKS_PER_SIDE = 5;
 const OUTPUT_PATH = new URL("../apps/engine/src/knn/pro-draft-corpus.json", import.meta.url);
+const CONSECUTIVE_FAILURES_BEFORE_COOLDOWN = 5;
+const COOLDOWN_MS = 60_000;
 
 interface Args {
   readonly patchOverride?: string;
+  readonly patchCount: number;
   readonly maxDrafts: number;
   readonly delayMs: number;
   readonly maxPages: number;
@@ -54,6 +67,7 @@ function parseArgs(argv: readonly string[]): Args {
 
   return {
     patchOverride: flag("patch"),
+    patchCount: Number(flag("patches") ?? 1), // 1 = comportamiento original, un solo parche
     maxDrafts: Number(flag("max-drafts") ?? 5000),
     delayMs: Number(flag("delay-ms") ?? 3000), // cortesía proactiva -- además del reintento del cliente
     maxPages: Number(flag("max-pages") ?? 300), // safety cap -- nunca pagina sin límite
@@ -70,16 +84,19 @@ interface PatchConstant {
   readonly date: string;
 }
 
-async function resolveTargetPatch(client: OpenDotaClient, override: string | undefined): Promise<PatchConstant> {
+// Devuelve los N parches objetivo, más viejo primero (mismo orden que ya entrega
+// constants/patch). `override` fija un único parche exacto -- un pedido explícito de parche no
+// se expande en silencio a una ventana de N, aunque `--patches` esté presente.
+async function resolveTargetPatches(client: OpenDotaClient, override: string | undefined, count: number): Promise<PatchConstant[]> {
   const patches = (await client.getPatchConstants()) as PatchConstant[];
   if (override) {
     const found = patches.find((p) => p.name === override);
     if (!found) throw new Error(`Parche "${override}" no existe en constants/patch de OpenDota`);
-    return found;
+    return [found];
   }
-  const latest = patches.at(-1);
-  if (!latest) throw new Error("constants/patch de OpenDota devolvió una lista vacía");
-  return latest;
+  const window = patches.slice(-Math.max(1, count));
+  if (window.length === 0) throw new Error("constants/patch de OpenDota devolvió una lista vacía");
+  return window;
 }
 
 interface ProMatchSummary {
@@ -114,16 +131,18 @@ function toDraftCandidate(matchId: number, detail: MatchDetail, patchName: strin
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const client = new OpenDotaClient();
-  const patch = await resolveTargetPatch(client, args.patchOverride);
-  const patchDate = new Date(patch.date).getTime() / 1000; // OpenDota da segundos epoch en start_time
+  const patches = await resolveTargetPatches(client, args.patchOverride, args.patchCount);
+  const patchNameById = new Map(patches.map((p) => [p.id, p.name] as const));
+  const oldestPatchDate = Math.min(...patches.map((p) => new Date(p.date).getTime() / 1000)); // segundos epoch
 
-  console.log(`Parche objetivo: ${patch.name} (id=${patch.id}, vigente desde ${patch.date})`);
+  console.log(`Parches objetivo: ${patches.map((p) => `${p.name} (id=${p.id}, desde ${p.date})`).join(", ")}`);
   console.log(`Tiers aceptados: ${[...ACCEPTED_TIERS].join(", ")}`);
 
   const collected: DraftCandidate[] = [];
   let cursor: number | undefined;
   let pagesScanned = 0;
   let matchesInspected = 0;
+  let consecutiveFailures = 0;
 
   pageLoop: while (pagesScanned < args.maxPages && collected.length < args.maxDrafts) {
     await sleep(args.delayMs);
@@ -140,8 +159,8 @@ async function main(): Promise<void> {
     pagesScanned++;
     if (page.length === 0) break;
 
-    const candidatesInPage = page.filter((m) => m.start_time >= patchDate);
-    if (candidatesInPage.length === 0) break; // toda la página es más vieja que el parche -- fin
+    const candidatesInPage = page.filter((m) => m.start_time >= oldestPatchDate);
+    if (candidatesInPage.length === 0) break; // toda la página es más vieja que el parche más viejo -- fin
 
     for (const summary of candidatesInPage) {
       if (collected.length >= args.maxDrafts) break pageLoop;
@@ -151,13 +170,25 @@ async function main(): Promise<void> {
       let detail: MatchDetail;
       try {
         detail = (await client.getMatchDetail(summary.match_id)) as MatchDetail;
+        consecutiveFailures = 0;
       } catch (err) {
         console.warn(`  match ${summary.match_id}: fetch falló, se omite (${(err as Error).message})`);
+        consecutiveFailures++;
+        // Los 3 reintentos del cliente (1s/4s/16s, contrato fijo de apps/engine) ya se agotaron
+        // para llegar hasta acá -- una racha de fallos consecutivos es un 429 sostenido por más
+        // de esos ~21s, no una falla puntual. Pausa larga adicional, propia del script, antes de
+        // seguir -- nunca se toca OpenDotaClient para esto.
+        if (consecutiveFailures >= CONSECUTIVE_FAILURES_BEFORE_COOLDOWN) {
+          console.warn(`  ${consecutiveFailures} fallos seguidos -- pausa de ${COOLDOWN_MS / 1000}s antes de seguir`);
+          await sleep(COOLDOWN_MS);
+          consecutiveFailures = 0;
+        }
         continue;
       }
 
-      if (detail.patch !== patch.id) continue; // start_time es un prefiltro barato, el patch real manda
-      const candidate = toDraftCandidate(summary.match_id, detail, patch.name);
+      const patchName = patchNameById.get(detail.patch);
+      if (!patchName) continue; // start_time es un prefiltro barato, el patch real manda
+      const candidate = toDraftCandidate(summary.match_id, detail, patchName);
       if (candidate) collected.push(candidate);
     }
 
@@ -171,10 +202,10 @@ async function main(): Promise<void> {
 
   console.log(`Partidas inspeccionadas: ${matchesInspected} (${pagesScanned} páginas de proMatches)`);
   console.log(`Drafts válidos escritos: ${validated.length} -> ${OUTPUT_PATH.pathname}`);
-  if (validated.length < 2000) {
+  if (validated.length < 1000) {
     console.log(
-      `Nota: por debajo del objetivo de 2000-5000 -- volumen real disponible en OpenDota para ` +
-        `${patch.name} con tier premium/professional. No se rellenó con datos falsos.`,
+      `Nota: por debajo del objetivo de ~1000-1500 -- volumen real disponible en OpenDota para ` +
+        `${patches.map((p) => p.name).join(", ")} con tier premium/professional. No se rellenó con datos falsos.`,
     );
   }
 }

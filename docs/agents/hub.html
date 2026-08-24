@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T15:17:28.615Z</title>
+<title>HUB del ecosistema — 2026-08-24T16:44:40.507Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1079,7 +1079,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">127× · 76% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">128× · 76% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1151,6 +1151,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T16:42</span></div>
+            <div class="feed-note">Continuación de evt-106: ampliación de corpus timeboxeada + re-evaluación leave-one-out, esta vez con el refactor 5v5 de `lane_score`/`denial_score` ya commiteado (`b7b27df`, previo a este bloque) -- primera medición real del efecto combinado de más densidad de corpus y el roster completo. **Decisión de alcance, pedida explícitamente por el usuario**: la corrida sin tope lanzada primero (`--patches=8`, ventana 7.34→7.41, defaults) se estimó en 8-16h reales (delay-ms=3000 aplicado antes de CADA página y CADA fetch de detalle, ~100 partidas/página ⇒ ~5 min/página, hasta 300 páginas de tope) -- no viable para el ciclo de desarrollo. Se evaluaron 3 alternativas vía `AskUserQuestion` (dejar correr completo / agregar guardado incremental al script y reiniciar / descartar y evaluar solo contra el corpus ya committeado de 175) antes de decidir el timebox, porque **el script no tiene ningún guardado incremental real** -- `collected` vive en memoria y se escribe una sola vez al final de `main()`, sin handler de `SIGINT`/`SIGTERM` -- un "graceful stop" tal como se pidió inicialmente no existía como capacidad real del código, y se comunicó así antes de matar nada. Usuario eligió timebox acotado. **Corrección real encontrada al armar el comando**: los flags que pidió el usuario (`--maxPages`, `--maxDrafts`) no existen -- el parser usa kebab-case exacto (`--max-pages`, `--max-drafts`); tipeados como los pidió habrían sido ignorados en silencio y la corrida habría corrido con el default de 300 páginas (~30h) en vez de acotarse. Corregido antes de ejecutar, no después. Corrida final: `bun run scripts/fetch-pro-drafts.ts --patches=8 --max-pages=12 --max-drafts=500 --delay-ms=800` (delay bajado de 3000→800ms -- cortesía propia del script, nunca toca el contrato fijo de reintentos de `OpenDotaClient`, documentado como ajustable por diseño desde que existe el flag). **Resultado más rápido de lo estimado**: tope de 500 drafts alcanzado en solo 6 páginas / 594 partidas inspeccionadas (~2.7 min reales, muy por debajo del timebox de 20 min), con 8 fallos de red descartados normalmente (4× 500, 4× 429 de OpenDota, ninguno disparó el cooldown de 5 fallos consecutivos). **Hallazgo real, no el buscado**: el corpus resultante (500 drafts) es **100% patch 7.41** -- la paginación de `/proMatches` es más-reciente-primero, y 6 páginas ni se acercan a alcanzar 7.34-7.40 (2023-2025). El objetivo real de esta sesión no era diversidad de parche (el KNN nunca filtra ni pondera por `patch`, confirmado en evt-098) sino volumen -- así que el resultado sigue sirviendo al propósito, pero **"multi-parche" como se pidió no se logró**, es un corpus de patch único 2.86x más grande (175→500). Si se quiere cobertura real de 7.34-7.40, hace falta paginar cada parche por separado con `--patch=X.XX` (fija fecha de corte por parche, no ventana acumulada) en corridas propias, no una sola pasada con tope de páginas bajo. **Re-evaluación leave-one-out** (`scripts/evaluate-pro-drafter.ts`, n=2500 = 500 drafts × 5 héroes ocultos c/u, mismo método que evt-106): v5 Top-1 2.4% (61/2500), Top-3 6.3% (157/2500), rank promedio 2.0 (157/2500 con dato); Pro-Drafter Top-1 2.4% (60/2500), Top-3 5.6% (141/2500), rank promedio 1.8 (141/2500 con dato). **`knn_similarity` en `null` bajó de 96.5% (2534/2625, evt-106, 175 drafts) a 82.7% (6203/7500, 500 drafts)** -- mejora real y medible, consistente con la hipótesis de evt-106 (más corpus = más vecinos Jaccard reales), aunque la señal de mayor peso del pipeline sigue inerte en la mayoría de los casos. `lane_score`/`denial_score` en 0% `null` en ambas corridas (ya lo eran antes del refactor 5v5, ese cambio afecta CÓMO se calculan con el roster completo, no si hay dato). **La brecha entre v5 y Pro-Drafter se achicó fuerte**: evt-106 tenía v5 con ventaja relativa ~1.92x sobre Pro-Drafter en Top-3 (7.5% vs 3.9%); acá la ventaja de v5 es ~1.13x (6.3% vs 5.6%) -- dirección consistente con "más densidad + roster completo ayuda a Pro-Drafter a cerrar terreno", pero **no es una comparación controlada**: son corpus distintos (175 vs 500 drafts, muestras de drafts diferentes), no el mismo conjunto evaluado dos veces, así que parte del movimiento en los números de v5 (7.5%→6.3%) es variación de muestra, no necesariamente una señal de que v5 empeoró. n=500 (2500 corridas correlacionadas en grupos de 5) sigue dando margen de error amplio para tasas del 2-6%. **Sin commit de código nuevo en el motor** -- este bloque es 100% datos (corpus) + diagnóstico (harness ya existía desde evt-106), ningún archivo bajo `apps/engine/src/{knn,lane,intent,pipeline,signals}/` se tocó. `bun test` re-corrido antes de commitear (ver detalle en el evento de cierre inmediato siguiente). **Próximo bloque sugerido, no ejecutado acá**: repetir con `--patch=7.40`, `--patch=7.39`, etc. por separado (cada uno timeboxeado igual) para juntar cobertura real de 7.34-7.40 sin depender de que la paginación acumulada los alcance sola.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1226,13 +1233,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">TSK-089</span> <span class="feed-ts">2026-08-23T23:50</span></div>
             <div class="feed-note">Alcance deliberadamente parcial (solo 4.1). Secciones "Fase 4" en `.claude/rules/engine.md`/`security.md`/`testing-seams.md` (no `web.md`, 4.1 no toca `apps/web`). `CLAUDE.md` gana "REGLAS DE FASE 4 (sub-ticket 4.1)" y actualiza su nota de estado. `TSK-089` creado (backlog → doing al empezar `@build` en el mismo turno, por pedido explícito del usuario). Tablero regenerado: 89 tareas, 286 eventos. Hooks sin cambios.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:35</span></div>
-            <div class="feed-note">Usuario confirmó la reinterpretación de "Opción A". `/blueprint` de Fase 4 corrido en Opus (delegado a un agente separado -- la sesión principal corre en Sonnet, vuelve de inmediato al terminar), alcance deliberado: **solo el sub-ticket 4.1**, no toda la fase (decisión explícita del usuario, distinta al patrón de fases anteriores). `SPEC.md` §11.0-§11.12 generado. Tres correcciones más al `/pre-flight`, verificadas contra el código real: `archetypeFitBonus` no tiene escala uniforme entre arquetipos (0-2 salvo pickoff, 0-3) -- la normalización a `[0,1]` va dentro del scorer, no en `RAW_RANGE`; la firma propuesta (`createArchetypeFitScorer(intent)`) no podía funcionar sin `capabilities` inyectado; `capabilities.json` no tiene cobertura completa (124/126 héroes, faltan 131/145/155) -- la rama `raw: null` es alcanzable hoy. Decidido no ampliar `SignalId` en 4.1 (rompería `SCORING_WEIGHTS_V4`/`V5` congeladas) y exportar `archetypeFitBonus` en su lugar actual (no moverla a `gaps.ts`, por presupuesto real del gate). Hallazgo extra fuera de alcance: `team_synergy` devuelve `raw: 0` en vez de `null` para un héroe sin capacidades, contradice `engine.md`. Usuario confirmó las dos resoluciones (§11.6/§11.11) antes de pasar a `/rulebook`. Cero código de producción, cero commit.</div>
           </div>
         </div></div>
     </div>
