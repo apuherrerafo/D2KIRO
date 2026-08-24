@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-24T13:59:15.227Z</title>
+<title>HUB del ecosistema — 2026-08-24T15:03:48.622Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1079,11 +1079,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">125× · 75% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">126× · 75% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:46%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:45%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1151,6 +1151,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-093</span> <span class="feed-ts">2026-08-24T14:30</span></div>
+            <div class="feed-note">Paso 3 de la sesión de Gobernanza 2.0 (continuación de TSK-091/092): wiring del endpoint experimental `POST /api/v1/draft/pro-recommendations` (TSK-091, dark-launched tras `ENABLE_PRO_DRAFTER`) en `apps/web`, 3 entregables pedidos por el usuario en el mismo bloque. (1) `features/pro-drafter/types.ts` (nuevo): espejo a mano de la respuesta del motor (`ProSignalId`, `ProSuggestion`, `ProDrafterResponse`) y del contrato de entrada (`ProDrafterRequest`/`buildProDrafterRequest`, mismo shape que `SuggestionsPreviewRequest`) — `ProSignalId` vive separado del `SignalId` de v5 a propósito, mismo motivo que el motor mantiene `PipelineSignalId` aparte de `SignalId` (`SIGNAL_LABELS`/`SCORING_WEIGHTS_V5` son `Record`s totales que se romperían al ampliar la unión). (2) `lib/engine-api.ts`: `postProRecommendations` como `mutation` (no `query`, el endpoint es POST con body) con URL absoluta a `LOCAL_DRAFT_ENGINE_HTTP_BASE_URL` — mismo criterio que `getDraftPaths`, la vista de draft en vivo nunca pasa por el proxy `/engine`/`next.config.ts` (regla dura TSK-037/038), así que `next.config.ts` queda intacto. (3) `app/draft/live-config.ts`: `isProDrafterEnabled()` lee `NEXT_PUBLIC_ENABLE_PRO_DRAFTER` (chequeo client-side, `DraftView.tsx` es `"use client"`) con polaridad invertida respecto a `isDraftLiveEnabled` — apagado por defecto, solo `"true"` explícito lo prende, coherente con que el flag del motor también es dark-launched por defecto. (4) `components/pro-drafter-panel/ProDrafterPanel.tsx` (nuevo): panel cerrado por defecto, mismo patrón visual que `DraftPathsCoverFlow` (Fase 2) pero disparando la mutation a mano en `handleOpen` en vez de `skip` de una query — renderiza el Top 3 con `HeroIcon` real (reutilizado de `DraftPathCard`, requisito duro de `web.md`) y el desglose `knn_similarity`/`lane_score`/`denial_score` con `PRO_SIGNAL_LABELS` propio, `raw: null` mostrado como "sin dato" nunca como 0. Insertado en `DraftView.tsx` junto a `DraftPathsCoverFlow`, gateado por `isProDrafterEnabled()`. **Cuando el flag está apagado (default), el árbol de render es exactamente el mismo que antes de este ticket** — el componente nuevo ni siquiera se monta. 8 archivos de producción/test (3 nuevos + 1 nuevo componente + 4 modificados) — por encima de 3/200, mismo patrón de excepción que TSK-090/091 (3 entregables bundleados por pedido explícito del usuario, interdependientes entre sí, partirlos no baja el riesgo real). `docs/agents/tasks/TSK-093.md` creado como registro con `simplicity_exception: true`. `COMMIT_TICKET=TSK-093 VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` — ✅ superado: tipos limpios (`tsc --noEmit` sin hallazgos nuevos en ninguno de los 8 archivos), `bun test` 408/408 en `apps/engine`, 137/137 en `apps/web` (133/133 antes de este bloque, +4 tests: 2 de `buildProDrafterRequest`, 2 de `isProDrafterEnabled`). Commiteado en `736f43a` (10 archivos incluyendo `docs/agents/hub.html` regenerado por `sync-context` y el propio `TSK-093.md`). **Traducción a producto**: esto significa que ahora existe una forma real de comparar visualmente, dentro del propio draft en vivo, lo que sugiere el motor Pro-Drafter (KNN/lane-sim/denial) contra las sugerencias v5 que ya se ven — pero solo prendiendo dos variables de entorno a propósito (`ENABLE_PRO_DRAFTER` del lado del motor, `NEXT_PUBLIC_ENABLE_PRO_DRAFTER` del lado del sitio); ningún usuario real ve el panel nuevo todavía. Verificación visual en navegador real (ambos flags encendidos, servidor + sitio corriendo, draft en vivo activo) queda pendiente del usuario. **No se ejecutó `git push`** de este commit todavía — se agrupa con el cierre del Paso 2 (harness de evaluación del corpus) antes de pushear el bloque completo.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1226,13 +1233,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>pre-flight</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:20</span></div>
             <div class="feed-note">Los 6 bloques de Fase 4 en `architecture.md`. Dos hallazgos de investigación real cambiaron el plan que traía el usuario: (1) OpenDota no expone sinergia de compañeros ("with") -- verificado contra el código fuente real de `odota/core` (`HeroMatchupsResponse`: solo `hero_id`/`games_played`/`wins`) -- usuario resolvió vía `AskUserQuestion` derivarla de `capabilities.json`, sin sync/tabla nueva. (2) `draft-paths/build-paths.ts` (Fase 2) ya tiene el concepto de arquetipo exacto que pedía la pieza 1 (`DraftPathArchetype`, `archetypeFitBonus()`) -- sub-ticket 4.1 se redefinió para reutilizarlo en vez de curar un `archetype-affinity.json` nuevo, reinterpretando la "Opción A" ya aprobada por el usuario -- dejado marcado como pendiente de confirmación antes de `/blueprint`. Cero código escrito.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>kickoff</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-23T23:15</span></div>
-            <div class="feed-note">Usuario pidió cerrar TSK-088 (ya implementado sin commitear) antes de iniciar formalmente la Fase 4 ("Intención de Draft, Sinergia en Cadena y Diversificación Estratégica"). Commit único pedido por el usuario violaba `verify-simplicity.sh` (6 archivos/321 líneas contra 3/200) -- dividido en 4 commits lógicos (link de navbar, componente `HeroGrid`, sus tests, integración en `ConfigPanel`), cada uno PASS. Verificado además con Playwright headless real (instalado en la sesión) contra ambos servidores en dev: navegación completa del flujo, 4 columnas de atributo con retratos reales del CDN de Valve, cero errores de consola. `master` en `f2f006a`.</div>
           </div>
         </div></div>
     </div>
