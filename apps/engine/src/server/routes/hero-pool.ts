@@ -1,11 +1,11 @@
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../../db/schema";
-import { getHeroPool, getSoleAccountId, replaceHeroPool, type HeroPoolWriteRow } from "../../db/queries";
+import { getHeroPool, replaceHeroPool, type HeroPoolWriteRow } from "../../db/queries";
 import { calculateProposedPool, type HeroPoolInputRow } from "../../hero-pool/calculate-pool";
 import { mapPlayerHero } from "../../meta/mappers";
 import type { OpenDotaClient } from "../../meta/opendota-client";
-import { invalidateAccountMetaCache } from "../../meta/provider";
-import { isValidRawPlayerHero, isValidSteamAccountId } from "../../meta/validation";
+import { invalidateAccountMetaCache, type AccountId } from "../../meta/provider";
+import { isValidRawPlayerHero } from "../../meta/validation";
 
 // TSK-056: extraído de apps/engine/src/server/app.ts (hallazgo 2.1 de "Radiografía de
 // dota2coach" -- app.ts había crecido a 669+ líneas mezclando 7+ responsabilidades). Mismo
@@ -59,22 +59,20 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
   // TSK-021: sin cola, sin reintento automático (§9.5) -- un flag por proceso alcanza para este
   // servidor local de un solo usuario. Un segundo POST mientras el primero sigue en vuelo se
   // rechaza de inmediato con 409, nunca se encola.
-  let calculationInProgress = false;
+  const calculationsInProgress = new Set<AccountId>();
 
   // TSK-095: bridge temporal, no auth real todavía -- `getSoleAccountId` resuelve la única cuenta
   // real que existe hoy en producción (migrada por TSK-094), para no romper el flujo de un solo
   // usuario que ya está en vivo mientras el resto de Fase 5 se termina de construir. `null` (sin
   // ninguna cuenta, ej. checkout limpio/CI) devuelve el pool vacío -- no hay nada que atribuir.
   // TSK-098 reemplaza esto por completo con el accountId real verificado por token.
-  async function get(): Promise<Response> {
-    const accountId = getSoleAccountId(deps.db);
-    if (accountId === null) return Response.json([]);
+  async function get(accountId: AccountId): Promise<Response> {
     return Response.json(getHeroPool(deps.db, accountId).map(toHeroPoolEntry));
   }
 
   // Reemplaza el pool completo en una sola transacción (S8). Todas las validaciones corren antes
   // de tocar la base de datos -- si algo falla, el pool guardado no se toca (§9.5).
-  async function put(request: Request): Promise<Response> {
+  async function put(request: Request, accountId: AccountId): Promise<Response> {
     const body: unknown = await request.json().catch(() => null);
     if (!isValidHeroPoolPutBody(body)) {
       return Response.json({ error: "invalid_body" }, { status: 400 });
@@ -90,14 +88,6 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
     if (heroIds.some((id) => !knownHeroIds.has(id))) {
       return Response.json({ error: "unknown_hero" }, { status: 400 });
     }
-    // TSK-095: mismo bridge temporal que `get()` -- sin ninguna cuenta todavía, no hay a quién
-    // atribuirle la escritura. No se inventa una cuenta nueva acá (eso es responsabilidad del
-    // flujo de login real, TSK-100/TSK-101).
-    const accountId = getSoleAccountId(deps.db);
-    if (accountId === null) {
-      return Response.json({ error: "no_account_configured" }, { status: 409 });
-    }
-
     // El servidor siempre estampa su propio reloj -- un cliente no dicta `updatedAt` (mismo
     // principio que `applyDraftEvent`: el reloj se inyecta desde el lado de confianza, nunca desde
     // input externo).
@@ -120,26 +110,22 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
   // cálculo puro (TSK-019, S7) -- nunca escribe en SQLite, solo propone (put, sigue siendo el
   // único camino de escritura). Reglas duras: el accountId nunca se ecoa en ningún error/log, y
   // esta llamada vive fuera del pipeline de buildSuggestions -- no toca el camino caliente.
-  async function calculate(request: Request): Promise<Response> {
+  async function calculate(request: Request, accountId: AccountId): Promise<Response> {
     const body: unknown = await request.json().catch(() => null);
-    const accountId = typeof body === "object" && body !== null ? (body as Record<string, unknown>).accountId : undefined;
-    if (typeof accountId !== "string" || !isValidSteamAccountId(accountId)) {
-      return Response.json({ error: "invalid_account_id" }, { status: 400 });
-    }
     const rawDays = typeof body === "object" && body !== null ? (body as Record<string, unknown>).days : undefined;
     // Number.isFinite (no solo typeof number) descarta Infinity -- "rawDays > 0" por sí solo lo
     // dejaba pasar (Infinity > 0 es true), colando date=Infinity en la URL hacia OpenDota.
     const days = Number.isFinite(rawDays) && (rawDays as number) > 0 ? (rawDays as number) : 90;
 
-    if (calculationInProgress) {
+    if (calculationsInProgress.has(accountId)) {
       return Response.json({ error: "calculation_in_progress" }, { status: 409 });
     }
 
-    calculationInProgress = true;
+    calculationsInProgress.add(accountId);
     try {
       let raw: unknown;
       try {
-        raw = await deps.openDotaClient.getPlayerHeroes(accountId, { days });
+        raw = await deps.openDotaClient.getPlayerHeroes(String(accountId), { days });
       } catch {
         raw = null;
       }
@@ -166,7 +152,7 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
         windowDays: days,
       });
     } finally {
-      calculationInProgress = false;
+      calculationsInProgress.delete(accountId);
     }
   }
 

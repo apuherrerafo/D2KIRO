@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { createHmac } from "node:crypto";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { accounts, draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
 import type { HeroCapabilities } from "../draft-paths/types";
@@ -26,6 +27,16 @@ const TEST_HERO_POSITIONS: HeroPositions = {
 
 const PORT = 41234;
 const EXPECTED_HEADER = "test-capture-token";
+const TEST_ACCOUNT_HMAC_KEY = "test-hmac-key-for-tsk-098-123456";
+const TEST_ACCOUNT_TIME = 1787500000000;
+let accountNonce = 0;
+
+function accountHeader(accountId: number): HeadersInit {
+  const nonce = (accountNonce++).toString(16).padStart(32, "0");
+  const payload = `${accountId}.${TEST_ACCOUNT_TIME}.${nonce}`;
+  const signature = createHmac("sha256", TEST_ACCOUNT_HMAC_KEY).update(`d2k-account-token/v1|${payload}`).digest("hex");
+  return { "x-account-token": `${payload}.${signature}` };
+}
 
 function createTestDb() {
   const sqlite = new Database(":memory:");
@@ -315,24 +326,13 @@ describe("servidor Bun (TSK-010)", () => {
     expect((stateBody.suggestions as { sessionId: string }).sessionId).toBe(firstBody.sessionId);
   });
 
-  test("PUT /api/settings guarda una preferencia y GET /api/settings la refleja", async () => {
-    const put = await fetch(`${baseUrl}/api/settings`, {
-      method: "PUT",
-      body: JSON.stringify({ key: "theme", value: "dark" }),
-    });
-    expect(put.status).toBe(200);
-
-    const get = await fetch(`${baseUrl}/api/settings`);
-    const all = await get.json();
-    expect(all).toContainEqual({ key: "theme", value: "dark" });
-  });
-
-  test("PUT /api/settings con forma inválida es rechazado con 400, sin lanzar", async () => {
+  test("GET/PUT /api/settings están retirados y responden 404", async () => {
+    expect((await fetch(`${baseUrl}/api/settings`)).status).toBe(404);
     const res = await fetch(`${baseUrl}/api/settings`, {
       method: "PUT",
       body: JSON.stringify({ key: 123 }),
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
   });
 
   // TSK-020 (fase 1b, S8): GET/PUT /api/hero-pool. El pool empieza vacío -- esta prueba corre
@@ -655,6 +655,48 @@ describe("servidor Bun (TSK-010)", () => {
   });
 });
 
+describe("cuentas HTTP multi-tenant (TSK-098)", () => {
+  let baseUrl: string;
+  let stop: () => void;
+
+  beforeAll(() => {
+    const app = createApp({
+      db: createTestDb(),
+      openDotaClient: new OpenDotaClient(),
+      captureToken: EXPECTED_HEADER,
+      internalAuthSecret: TEST_ACCOUNT_HMAC_KEY,
+      accountTokenNow: () => TEST_ACCOUNT_TIME,
+    });
+    const server = app.start("127.0.0.1", 0);
+    baseUrl = `http://127.0.0.1:${server.port}`;
+    stop = () => server.stop(true);
+  });
+
+  afterAll(() => stop());
+
+  test("sin x-account-token, GET /api/hero-pool responde missing_account_token", async () => {
+    const response = await fetch(`${baseUrl}/api/hero-pool`);
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "missing_account_token" });
+  });
+
+  test("dos cuentas ven solo su pool y POST /api/account crea de forma idempotente", async () => {
+    const accountB = 222222222;
+    expect((await fetch(`${baseUrl}/api/account`, { method: "POST", headers: accountHeader(accountB) })).status).toBe(201);
+    expect((await fetch(`${baseUrl}/api/account`, { method: "POST", headers: accountHeader(accountB) })).status).toBe(200);
+    await fetch(`${baseUrl}/api/hero-pool`, { method: "PUT", headers: { ...accountHeader(999999999), "content-type": "application/json" }, body: JSON.stringify({ entries: [{ hero: 1, source: "manual", personalWinrate: null, personalGames: 1 }] }) });
+    await fetch(`${baseUrl}/api/hero-pool`, { method: "PUT", headers: { ...accountHeader(accountB), "content-type": "application/json" }, body: JSON.stringify({ entries: [{ hero: 2, source: "manual", personalWinrate: null, personalGames: 1 }] }) });
+
+    expect(await (await fetch(`${baseUrl}/api/hero-pool`, { headers: accountHeader(999999999) })).json()).toHaveLength(1);
+    expect(await (await fetch(`${baseUrl}/api/hero-pool`, { headers: accountHeader(accountB) })).json()).toEqual(expect.arrayContaining([expect.objectContaining({ hero: 2 })]));
+  });
+
+  test("las rutas settings retiradas responden 404", async () => {
+    expect((await fetch(`${baseUrl}/api/settings`)).status).toBe(404);
+    expect((await fetch(`${baseUrl}/api/settings`, { method: "PUT" })).status).toBe(404);
+  });
+});
+
 // TSK-073 (spec §2.3): describe aparte, con su propia app y una tabla de turnos SINTÉTICA
 // (nunca la real de 24 turnos curada en TSK-071 -- costura S10, testing-seams.md) inyectada vía
 // AppDeps.captainsModeTurns. `app.start("127.0.0.1", 0)` deja que el SO elija un puerto libre,
@@ -764,7 +806,7 @@ describe("POST /api/hero-pool/calculate (TSK-021)", () => {
     return { url: `http://127.0.0.1:${server.port}`, stop: () => server.stop(true) };
   }
 
-  test("accountId con formato inválido -> 400 invalid_account_id, sin llamar a OpenDota", async () => {
+  test("accountId en el cuerpo se ignora; la cuenta sale del contexto autenticado", async () => {
     let called = false;
     const { url, stop } = startAppWithClient((async () => {
       called = true;
@@ -773,9 +815,8 @@ describe("POST /api/hero-pool/calculate (TSK-021)", () => {
 
     const res = await fetch(`${url}/api/hero-pool/calculate`, { method: "POST", body: JSON.stringify({ accountId: "abc" }) });
 
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_account_id");
-    expect(called).toBe(false);
+    expect(res.status).toBe(200);
+    expect(called).toBe(true);
     stop();
   });
 

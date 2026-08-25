@@ -1,14 +1,16 @@
 import type { Server, ServerWebSocket } from "bun";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../db/schema";
-import { getAllSettings, upsertSetting } from "../db/queries";
+import { getSoleAccountId } from "../db/queries";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
 import { currentCaptainsModeTurn } from "../draft/turn-clock";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
-import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness, invalidateMetaSnapshotCache } from "../meta/provider";
+import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness } from "../meta/provider";
+import { requireAccount } from "./require-account";
+import { createAccountRoutes } from "./routes/account";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildSuggestions, type SuggestionSet } from "../signals/mix";
 import {
@@ -56,6 +58,8 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   captainsModeTurns?: CaptainsModeTurnTable | null;
   // Req 7 (§7.6): inyectable para tests -- mismo patrón que SessionRateLimiter.
   tokenRateLimiter?: TokenRateLimiter;
+  internalAuthSecret?: string;
+  accountTokenNow?: () => number;
 }
 
 interface WsData {
@@ -73,7 +77,7 @@ function corsHeaders(request: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "content-type,x-capture-token",
+    "Access-Control-Allow-Headers": "content-type,x-capture-token,x-account-token",
   };
 }
 
@@ -91,7 +95,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
 
   const sessionStore = new SessionStore();
   const rateLimiter = createSessionRateLimiter();
+  const accountTokenNow = deps.accountTokenNow ?? Date.now;
+  const accountNonceStore = new Map<string, number>();
   const heroPoolRoutes = createHeroPoolRoutes({ db: deps.db, openDotaClient: deps.openDotaClient });
+  const accountRoutes = createAccountRoutes(deps.db);
   const teamGroupRoutes = createTeamGroupRoutes({ db: deps.db });
   const simulatorRoutes = createSimulatorSessionRoutes({ db: deps.db });
   const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions });
@@ -217,32 +224,17 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     return Response.json(await getAllHeroMeta(deps.db));
   }
 
-  async function handleSettingsGet(): Promise<Response> {
-    return Response.json(getAllSettings(deps.db));
-  }
-
-  function isValidSettingBody(value: unknown): value is { key: string; value: string } {
-    if (typeof value !== "object" || value === null) return false;
-    const body = value as Record<string, unknown>;
-    return typeof body.key === "string" && body.key.length > 0 && typeof body.value === "string";
-  }
-
-  // Input externo: se valida en el borde antes de tocar la DB, igual que cualquier otro envelope.
-  async function handleSettingsPut(request: Request): Promise<Response> {
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidSettingBody(body)) {
-      return Response.json({ error: "Se espera { key: string, value: string }" }, { status: 400 });
-    }
-    upsertSetting(deps.db, body.key, body.value);
-    if (body.key === "personal_baseline_winrate") {
-      invalidateMetaSnapshotCache();
-    }
-    return Response.json({ key: body.key, value: body.value }, { status: 200 });
+  function requireHttpAccount(request: Request, allowUnknown = false) {
+    if (deps.internalAuthSecret) return requireAccount(request, deps.internalAuthSecret, accountTokenNow, accountNonceStore, deps.db, allowUnknown);
+    const accountId = getSoleAccountId(deps.db);
+    return accountId === null
+      ? { ok: false as const, response: Response.json({ error: "unknown_account" }, { status: 401 }) }
+      : { ok: true as const, accountId };
   }
 
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
-      return Response.json(getHealthStatus(sessionStore.size));
+      return Response.json({ ...getHealthStatus(sessionStore.size), authMode: deps.internalAuthSecret ? "multi_tenant" : "single_tenant_local" });
     }
     if (request.method === "POST" && url.pathname === "/ingest/draft-event") {
       return handleDraftEvent(request, { requireToken: true, rateLimit: true });
@@ -277,22 +269,29 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return metaRoutes.heroStats();
     }
     if (request.method === "POST" && url.pathname === "/api/meta/sync") {
+      const auth = requireHttpAccount(request);
+      if (!auth.ok) return auth.response;
       return metaRoutes.sync(request);
     }
-    if (request.method === "GET" && url.pathname === "/api/settings") {
-      return handleSettingsGet();
+    if (request.method === "GET" && url.pathname === "/api/account") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? accountRoutes.get(auth.accountId) : auth.response;
     }
-    if (request.method === "PUT" && url.pathname === "/api/settings") {
-      return handleSettingsPut(request);
+    if (request.method === "POST" && url.pathname === "/api/account") {
+      const auth = requireHttpAccount(request, true);
+      return auth.ok ? accountRoutes.post(auth.accountId) : auth.response;
     }
     if (request.method === "GET" && url.pathname === "/api/hero-pool") {
-      return heroPoolRoutes.get();
+      const auth = requireHttpAccount(request);
+      return auth.ok ? heroPoolRoutes.get(auth.accountId) : auth.response;
     }
     if (request.method === "PUT" && url.pathname === "/api/hero-pool") {
-      return heroPoolRoutes.put(request);
+      const auth = requireHttpAccount(request);
+      return auth.ok ? heroPoolRoutes.put(request, auth.accountId) : auth.response;
     }
     if (request.method === "POST" && url.pathname === "/api/hero-pool/calculate") {
-      return heroPoolRoutes.calculate(request);
+      const auth = requireHttpAccount(request);
+      return auth.ok ? heroPoolRoutes.calculate(request, auth.accountId) : auth.response;
     }
     if (request.method === "POST" && url.pathname === "/api/simulator/sessions") {
       return simulatorRoutes.post();
