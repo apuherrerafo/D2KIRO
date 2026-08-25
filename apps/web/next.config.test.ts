@@ -23,7 +23,8 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/meta/status");
     expect(sources).toContain("/engine/api/meta/sync");
     expect(sources).toContain("/engine/api/meta/hero-stats");
-    expect(sources).toContain("/engine/api/settings");
+    expect(sources).toContain("/engine/api/account");
+    expect(sources).not.toContain("/engine/api/settings");
     expect(sources).toContain("/engine/api/hero-pool");
     expect(sources).toContain("/engine/api/hero-pool/calculate");
     expect(sources).toContain("/engine/api/simulator/sessions");

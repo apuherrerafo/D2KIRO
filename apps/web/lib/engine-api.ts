@@ -18,17 +18,12 @@ export interface MetaStatus {
   lastSync: MetaSyncAttempt | null;
 }
 
-export interface SettingEntry {
-  key: string;
-  value: string;
-}
-
 // Régimen de datos por defecto del sitio -- RTK Query contra apps/engine (web.md). La vista de
 // draft en vivo (TSK-012) es la única excepción, nunca pasa por aquí.
 export const engineApi = createApi({
   reducerPath: "engineApi",
   baseQuery: fetchBaseQuery({ baseUrl: ENGINE_HTTP_BASE_URL }),
-  tagTypes: ["MetaStatus", "Settings", "HeroPool", "TeamGroups", "DraftPaths"],
+  tagTypes: ["MetaStatus", "HeroPool", "TeamGroups", "DraftPaths"],
   endpoints: (builder) => ({
     getMetaStatus: builder.query<MetaStatus, void>({
       query: () => "/api/meta/status",
@@ -41,14 +36,6 @@ export const engineApi = createApi({
     getHeroes: builder.query<HeroMeta[], void>({
       query: () => "/api/heroes",
     }),
-    getSettings: builder.query<SettingEntry[], void>({
-      query: () => "/api/settings",
-      providesTags: ["Settings"],
-    }),
-    updateSetting: builder.mutation<SettingEntry, SettingEntry>({
-      query: (body) => ({ url: "/api/settings", method: "PUT", body }),
-      invalidatesTags: ["Settings"],
-    }),
     // TSK-024/025 (fase 1b): mismo régimen "página normal" -- el pool se edita en configuración,
     // nunca por WebSocket (web.md).
     getHeroPool: builder.query<HeroPoolEntry[], void>({
@@ -59,7 +46,7 @@ export const engineApi = createApi({
       query: (body) => ({ url: "/api/hero-pool", method: "PUT", body }),
       invalidatesTags: ["HeroPool"],
     }),
-    calculateHeroPool: builder.mutation<CalculatePoolResult, { accountId: string; days?: number }>({
+    calculateHeroPool: builder.mutation<CalculatePoolResult, { days?: number }>({
       query: (body) => ({ url: "/api/hero-pool/calculate", method: "POST", body }),
       // No invalida HeroPool -- TSK-021 nunca escribe en SQLite, solo propone.
     }),
@@ -104,8 +91,6 @@ export const {
   useGetMetaStatusQuery,
   useSyncMetaMutation,
   useGetHeroesQuery,
-  useGetSettingsQuery,
-  useUpdateSettingMutation,
   useGetHeroPoolQuery,
   useUpdateHeroPoolMutation,
   useCalculateHeroPoolMutation,

@@ -8,9 +8,7 @@ import {
   useCalculateHeroPoolMutation,
   useGetHeroesQuery,
   useGetHeroPoolQuery,
-  useGetSettingsQuery,
   useUpdateHeroPoolMutation,
-  useUpdateSettingMutation,
 } from "@/lib/engine-api";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
@@ -21,7 +19,6 @@ import {
   MAX_POOL_SIZE,
   POOL_FULL_MESSAGE,
   POOL_SAVED_MESSAGE,
-  STEAM_ACCOUNT_ID_KEY,
 } from "./constants";
 import { CalculateStatusMessage, HeroPoolProposalReview } from "./HeroPoolProposalReview";
 import type { CalculateStatus, HeroPoolEntry } from "./types";
@@ -73,13 +70,10 @@ function HeroPoolRow({ entry, hero, onRemove }: HeroPoolRowProps) {
 export function HeroPoolConfig() {
   const { data: savedPool, isLoading: poolLoading, error: poolError } = useGetHeroPoolQuery();
   const { data: heroes = [], isLoading: heroesLoading } = useGetHeroesQuery();
-  const { data: settings } = useGetSettingsQuery();
   const [updateHeroPool, { isLoading: isSaving }] = useUpdateHeroPoolMutation();
-  const [updateSetting] = useUpdateSettingMutation();
   const [calculatePool, { isLoading: isCalculating }] = useCalculateHeroPoolMutation();
 
   const [draftEntries, setDraftEntries] = useState<HeroPoolEntry[] | null>(null);
-  const [accountIdInput, setAccountIdInput] = useState<string | null>(null);
   const [windowDays, setWindowDays] = useState(DEFAULT_CALCULATE_WINDOW_DAYS);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [calculateStatus, setCalculateStatus] = useState<CalculateStatus>({ kind: "idle" });
@@ -89,16 +83,6 @@ export function HeroPoolConfig() {
   // manda y un refetch de RTK Query en segundo plano nunca la pisa sola.
   const entries = draftEntries ?? savedPool ?? [];
   const poolIsFull = entries.length >= MAX_POOL_SIZE;
-
-  // Mismo patrón que `entries` arriba (TSK-030): mientras el usuario no haya tocado el campo,
-  // se muestra el account_id ya guardado en settings (si existe); en cuanto escribe algo, su
-  // copia local manda -- nunca un efecto pisando lo que está tipeando a mitad de camino.
-  const savedAccountId = settings?.find((setting) => setting.key === STEAM_ACCOUNT_ID_KEY)?.value ?? "";
-  const accountId = accountIdInput ?? savedAccountId;
-
-  function handleAccountIdChange(event: ChangeEvent<HTMLInputElement>) {
-    setAccountIdInput(event.target.value);
-  }
 
   function handleWindowDaysChange(event: ChangeEvent<HTMLSelectElement>) {
     setWindowDays(Number(event.target.value));
@@ -138,17 +122,7 @@ export function HeroPoolConfig() {
   async function handleCalculate() {
     setCalculateStatus({ kind: "loading" });
     try {
-      const result = await calculatePool({ accountId, days: windowDays }).unwrap();
-      // El servidor solo llega hasta acá si accountId pasó isValidSteamAccountId (server/app.ts) --
-      // recién ahí vale la pena persistirlo, nunca antes (evita guardar un valor que después
-      // rechaza el borde). Nunca se loguea el valor mismo, solo se pasa a la mutación. Best-effort:
-      // si esta escritura falla, no debe tapar un cálculo que sí funcionó -- por eso su propio
-      // try/catch, separado del que interpreta errores de calculatePool más abajo.
-      try {
-        await updateSetting({ key: STEAM_ACCOUNT_ID_KEY, value: accountId }).unwrap();
-      } catch {
-        // No bloquea el flujo -- el peor caso es que el campo no quede pre-poblado la próxima vez.
-      }
+      const result = await calculatePool({ days: windowDays }).unwrap();
       if (result.proposed.length === 0) {
         setCalculateStatus({ kind: "empty" });
         return;
@@ -227,13 +201,6 @@ export function HeroPoolConfig() {
 
       <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-raised p-4">
         <span className="text-body text-content-primary">Calcular desde mis partidas</span>
-        <input
-          type="text"
-          value={accountId}
-          onChange={handleAccountIdChange}
-          placeholder="account_id de Steam"
-          className="rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
-        />
         <label className="flex items-center gap-2 text-caption text-content-secondary">
           Ventana de partidas
           <select
@@ -252,7 +219,7 @@ export function HeroPoolConfig() {
         <button
           type="button"
           onClick={handleCalculate}
-          disabled={isCalculating || accountId.length === 0}
+          disabled={isCalculating}
           className={BUTTON_SECONDARY}
         >
           {isCalculating ? "Calculando..." : "Calcular desde mis partidas"}
