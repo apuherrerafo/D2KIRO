@@ -15,6 +15,12 @@ import type { OrchestratorResult } from "./orchestrator";
 // Estado público
 // ---------------------------------------------------------------------------
 
+// Máquina explícita del Copilot -- nunca "actualizando" indefinido: "loading" mientras se espera
+// la respuesta del preview, "ready" cuando `suggestions` refleja el pedido vigente, "failed" si el
+// fetch respondió error/excepción (con retry disponible), "idle" antes del primer pedido o tras
+// resetSession.
+export type PreviewStatus = "idle" | "loading" | "ready" | "failed";
+
 export interface RandomDraftState {
   config: DraftConfig | null;
   phase: DraftPhase;
@@ -23,6 +29,7 @@ export interface RandomDraftState {
   suggestions: SuggestionSet | null;
   staleWarning: boolean;
   lastSyncedAt: string | null;
+  previewStatus: PreviewStatus;
 }
 
 export interface RandomDraftActions {
@@ -38,6 +45,9 @@ export interface RandomDraftActions {
   resetSession(): void;
   setDraftState(state: DraftState, suggestions: SuggestionSet | null): void;
   setStaleInfo(isStale: boolean, syncedAt: string | null): void;
+  setPreviewStatus(status: PreviewStatus): void;
+  /** Sustituye el plan oculto del bot por una respuesta calculada contra los picks del usuario. */
+  setBotPicksForRound(round: 1 | 2 | 3, botPicks: HeroId[]): void;
 
   // Las 3 acciones siguientes no están en la lista original de design.md (7 acciones) -- Req. 5
   // (Conflict_Ban) exige recalcular el pick del bot con SeededRng/MetaSnapshot en vivo, datos que
@@ -122,6 +132,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   suggestions: null,
   staleWarning: false,
   lastSyncedAt: null,
+  previewStatus: "idle",
   _internal: initialBookkeeping,
 
   startSession(config, sessionId, orchestratorResult) {
@@ -131,6 +142,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       draftState: null,
       suggestions: null,
       phase: { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
+      previewStatus: "idle",
       _internal: { precomputedRounds: orchestratorResult.rounds, revealedRounds: [] },
     });
   },
@@ -200,6 +212,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       sessionId: null,
       draftState: null,
       suggestions: null,
+      previewStatus: "idle",
       _internal: initialBookkeeping,
     });
   },
@@ -210,6 +223,20 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
 
   setStaleInfo(isStale, syncedAt) {
     set({ staleWarning: isStale, lastSyncedAt: syncedAt });
+  },
+
+  setPreviewStatus(status) {
+    set({ previewStatus: status });
+  },
+
+  setBotPicksForRound(round, botPicks) {
+    const { _internal } = get();
+    set({
+      _internal: {
+        ..._internal,
+        precomputedRounds: _internal.precomputedRounds.map((entry) => (entry.round === round ? { ...entry, botPicks } : entry)),
+      },
+    });
   },
 
   tickTimer(deltaMs) {

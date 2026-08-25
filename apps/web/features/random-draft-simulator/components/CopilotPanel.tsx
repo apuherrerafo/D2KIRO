@@ -3,24 +3,38 @@
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { ProDrafterEngineBadge, ProSuggestionRow } from "@/components/pro-drafter-panel/ProDrafterPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
+import { BUTTON_GHOST } from "@/features/draft/styles";
 import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 import { DEGRADATION_LABELS } from "@/features/draft/constants";
 import type { DraftState, SuggestionSet } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import type { PreviewStatus } from "../store";
 import { useCopilotProDrafter } from "../use-copilot-pro-drafter";
 
-interface UpdatingNoticeProps {
+interface PreviewStatusNoticeProps {
+  previewStatus: PreviewStatus;
   hasSuggestions: boolean;
+  onRetry: () => void;
 }
 
-// Req. 6.5: "Sin sugerencias disponibles" con indicador de actualizando -- se muestra mientras
-// no llegó ningún SuggestionSet todavía, o mientras el último conocido quedó atrás del draftState
-// (basedOnSeq !== lastSeq: hubo un pick/ban y el motor todavía no empujó las sugerencias nuevas
-// por WebSocket). Es la misma señal que ya usa DEGRADED_DRAFT_STATE en features/draft, aplicada
-// acá sin re-inventar un timer de 500ms en el frontend -- el motor ya corta a los 500ms (S3).
-function UpdatingNotice({ hasSuggestions }: UpdatingNoticeProps) {
-  if (hasSuggestions) return null;
-  return <span className="text-caption text-content-muted">Sin sugerencias disponibles -- actualizando...</span>;
+// Máquina explícita del Copilot (nunca "actualizando" indefinido): "loading" mientras se calcula,
+// "failed" ofrece reintentar en vez de quedarse congelado en silencio, "ready"/"idle" no agregan
+// texto propio -- el cuerpo de abajo ya decide qué mostrar con las sugerencias que tenga.
+function PreviewStatusNotice({ previewStatus, hasSuggestions, onRetry }: PreviewStatusNoticeProps) {
+  if (previewStatus === "failed") {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-signal-negative bg-surface-raised p-3">
+        <span className="text-caption text-signal-negative">No se pudo calcular la recomendación.</span>
+        <button type="button" onClick={onRetry} className={BUTTON_GHOST}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+  if (previewStatus === "loading" || !hasSuggestions) {
+    return <span className="text-caption text-content-muted">Calculando recomendación...</span>;
+  }
+  return null;
 }
 
 interface DegradedNoticeProps {
@@ -50,24 +64,28 @@ export interface CopilotPanelProps {
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
   heroCatalog: Map<number, HeroMeta>;
+  previewStatus?: PreviewStatus;
+  onRetryPreview?: () => void;
 }
 
 interface CopilotPanelBodyProps {
   draftState: DraftState | null;
   suggestions: SuggestionSet | null;
   heroCatalog: Map<number, HeroMeta>;
+  previewStatus: PreviewStatus;
+  onRetryPreview: () => void;
 }
 
 // v5 puro -- comportamiento sin cambios respecto a antes de Fase 4, es lo que se sigue mostrando
 // con ENABLE_PRO_DRAFTER apagado del lado del cliente (default, dark-launch intacto).
-function V5CopilotBody({ draftState, suggestions, heroCatalog }: CopilotPanelBodyProps) {
+function V5CopilotBody({ draftState, suggestions, heroCatalog, previewStatus, onRetryPreview }: CopilotPanelBodyProps) {
   const fresh = selectFreshSuggestions(draftState, suggestions);
   const primary = fresh?.suggestions.find((s) => s.rank === 1);
   const alternatives = fresh?.suggestions.filter((s) => s.rank !== 1) ?? [];
 
   return (
     <>
-      <UpdatingNotice hasSuggestions={fresh !== null} />
+      <PreviewStatusNotice previewStatus={previewStatus} hasSuggestions={fresh !== null} onRetry={onRetryPreview} />
       {fresh && <DegradedNotice degraded={fresh.degraded} />}
       {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
       {fresh?.comparison && <ComparisonNote comparison={fresh.comparison} heroMeta={heroCatalog.get(fresh.comparison.vsHero)} />}
@@ -109,12 +127,29 @@ function ProDrafterCopilotBody({ draftState, heroCatalog }: CopilotPanelBodyProp
 // del cliente, cambia a la vista de Pro-Drafter en tiempo real (Fase 4) -- apagado (default), el
 // árbol de render es exactamente el mismo que antes de esta fase. Early return, nunca un ternario
 // de renderizado condicional (regla dura de web.md).
-export function CopilotPanel({ draftState, suggestions, heroCatalog }: CopilotPanelProps) {
+function noop() {
+  // Sin sesión del simulador todavía conectada a un retry real (p. ej. Draft en Vivo, que no pasa
+  // onRetryPreview) -- botón inerte en vez de un handler faltante.
+}
+
+export function CopilotPanel({
+  draftState,
+  suggestions,
+  heroCatalog,
+  previewStatus = "idle",
+  onRetryPreview = noop,
+}: CopilotPanelProps) {
   if (isProDrafterEnabled()) {
     return (
       <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
         <span className="text-heading text-content-primary">Copilot</span>
-        <ProDrafterCopilotBody draftState={draftState} suggestions={suggestions} heroCatalog={heroCatalog} />
+        <ProDrafterCopilotBody
+          draftState={draftState}
+          suggestions={suggestions}
+          heroCatalog={heroCatalog}
+          previewStatus={previewStatus}
+          onRetryPreview={onRetryPreview}
+        />
       </div>
     );
   }
@@ -122,7 +157,13 @@ export function CopilotPanel({ draftState, suggestions, heroCatalog }: CopilotPa
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Copilot</span>
-      <V5CopilotBody draftState={draftState} suggestions={suggestions} heroCatalog={heroCatalog} />
+      <V5CopilotBody
+        draftState={draftState}
+        suggestions={suggestions}
+        heroCatalog={heroCatalog}
+        previewStatus={previewStatus}
+        onRetryPreview={onRetryPreview}
+      />
     </div>
   );
 }

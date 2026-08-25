@@ -89,6 +89,53 @@ test("confirmPick es idempotente: agregar el mismo héroe dos veces no lo duplic
   expect(phase.type === "blind_round" && phase.pendingUserPicks).toEqual([42]);
 });
 
+test("los picks ocultos del bot se pueden reemplazar antes de revelar la ronda", () => {
+  resetStore();
+  startBlindRound();
+  useRandomDraftStore.getState().confirmPick(20);
+  useRandomDraftStore.getState().confirmPick(21);
+
+  useRandomDraftStore.getState().setBotPicksForRound(1, [30, 31]);
+  useRandomDraftStore.getState().confirmRound();
+
+  const phase = useRandomDraftStore.getState().phase;
+  expect(phase.type).toBe("round_revealed");
+  if (phase.type === "round_revealed") {
+    expect(phase.userPicks).toEqual([20, 21]);
+    expect(phase.botPicks).toEqual([30, 31]);
+  }
+});
+
+test("resetSession descarta un draft parcial para poder empezar otro desde cero", () => {
+  resetStore();
+  startBlindRound();
+  useRandomDraftStore.getState().confirmPick(42);
+
+  useRandomDraftStore.getState().resetSession();
+
+  expect(useRandomDraftStore.getState()).toMatchObject({
+    config: null,
+    draftState: null,
+    sessionId: null,
+    suggestions: null,
+    phase: { type: "idle" },
+    previewStatus: "idle",
+  });
+});
+
+test("el estado del preview distingue carga, resultado y fallo recuperable", () => {
+  resetStore();
+
+  useRandomDraftStore.getState().setPreviewStatus("loading");
+  expect(useRandomDraftStore.getState().previewStatus).toBe("loading");
+
+  useRandomDraftStore.getState().setPreviewStatus("failed");
+  expect(useRandomDraftStore.getState().previewStatus).toBe("failed");
+
+  useRandomDraftStore.getState().setPreviewStatus("ready");
+  expect(useRandomDraftStore.getState().previewStatus).toBe("ready");
+});
+
 // ---------------------------------------------------------------------------
 // confirmRound: revelación y avance de ronda
 // ---------------------------------------------------------------------------

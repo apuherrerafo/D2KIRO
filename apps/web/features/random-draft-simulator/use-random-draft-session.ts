@@ -20,6 +20,7 @@ import type {
   TeamSide,
 } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
+import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { SeededRng } from "./seeded-rng";
 import { createSeededRng } from "./seeded-rng";
 import { initDraft, type OrchestratorResult } from "./orchestrator";
@@ -49,6 +50,84 @@ export function otherSide(side: TeamSide): TeamSide {
 
 export function specForRound(round: 1 | 2 | 3) {
   return BLIND_ROUND_SPECS.find((spec) => spec.round === round)!;
+}
+
+// La siguiente ronda no puede pedir un preview hasta que el motor haya confirmado los picks de
+// las rondas anteriores. Antes de esa confirmación, el Copilot calcularía contra el tablero viejo
+// y su respuesta quedaría inválida en cuanto llegue el WebSocket.
+export function isPreviewReadyForRound(draftState: EngineDraftState, userSide: TeamSide, round: 1 | 2 | 3): boolean {
+  if (round === 1) return true;
+  const expectedRevealedPicks = (round - 1) * 2;
+  const botSide = otherSide(userSide);
+  return draftState.picks[userSide].length >= expectedRevealedPicks
+    && draftState.picks[botSide].length >= expectedRevealedPicks;
+}
+
+// Los picks de una Blind_Round siguen siendo privados hasta la revelación. Esta proyección se
+// usa solo para pedir recomendaciones: incorpora lo que el usuario acaba de elegir, pero nunca
+// muta la sesión real del motor ni expone los picks ocultos del bot.
+export function buildPendingPickPreview(
+  draftState: EngineDraftState,
+  userSide: TeamSide,
+  previousPendingPicks: HeroId[],
+  pendingUserPicks: HeroId[],
+): EngineDraftState {
+  const pendingBefore = new Set(previousPendingPicks);
+  const visiblePicks = draftState.picks[userSide].filter((heroId) => !pendingBefore.has(heroId));
+  return {
+    ...draftState,
+    picks: {
+      ...draftState.picks,
+      [userSide]: [...visiblePicks, ...pendingUserPicks],
+    },
+  };
+}
+
+export function buildBotPickPreview(
+  draftState: EngineDraftState,
+  userSide: TeamSide,
+  userPicks: HeroId[],
+  botPicks: HeroId[],
+): EngineDraftState {
+  const botSide = otherSide(userSide);
+  const addUnique = (existing: HeroId[], additions: HeroId[]) => [...existing, ...additions.filter((heroId) => !existing.includes(heroId))];
+
+  return {
+    ...draftState,
+    localSide: botSide,
+    picks: {
+      radiant: botSide === "radiant" ? addUnique(draftState.picks.radiant, botPicks) : addUnique(draftState.picks.radiant, userPicks),
+      dire: botSide === "dire" ? addUnique(draftState.picks.dire, botPicks) : addUnique(draftState.picks.dire, userPicks),
+    },
+  };
+}
+
+function sameHeroIds(left: HeroId[], right: HeroId[]): boolean {
+  return left.length === right.length && left.every((heroId, index) => heroId === right[index]);
+}
+
+// La respuesta del preview llega por HTTP y el estado canónico por WS: no se compara identidad
+// de objeto porque el WS siempre deserializa otro objeto. Solo se aplica si el tablero todavía
+// representa exactamente el escenario que se pidió, evitando pintar una respuesta vieja.
+function matchesPreviewState(current: EngineDraftState, preview: EngineDraftState): boolean {
+  return (
+    current.localSide === preview.localSide &&
+    sameHeroIds(current.banned, preview.banned) &&
+    sameHeroIds(current.picks.radiant, preview.picks.radiant) &&
+    sameHeroIds(current.picks.dire, preview.picks.dire)
+  );
+}
+
+// Cuando el preview HTTP llega antes que el último draft_state del WS, el contenido sigue siendo
+// válido si el tablero es idéntico. Se adelanta solo la secuencia para que Copilot no lo descarte
+// como obsoleto; cualquier pick o ban distinto invalida el preview por completo.
+export function rebasePreviewSuggestions(
+  previewState: EngineDraftState,
+  websocketState: EngineDraftState,
+  suggestions: SuggestionSet,
+): SuggestionSet | null {
+  if (!matchesPreviewState(websocketState, previewState)) return null;
+  return { ...suggestions, sessionId: websocketState.sessionId, basedOnSeq: websocketState.lastSeq };
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +162,10 @@ export type StartDraftConfig = Omit<DraftConfig, "patch">;
 
 export interface UseRandomDraftSessionResult {
   state: RandomDraftState;
-  actions: Pick<RandomDraftActions, "confirmPick" | "deselectPick" | "resetSession">;
+  actions: Pick<RandomDraftActions, "confirmPick" | "deselectPick"> & {
+    resetDraft(): void;
+    retryPreview(): void;
+  };
   startDraft(config: StartDraftConfig): Promise<void>;
   confirmRound(): Promise<void>;
 }
@@ -107,6 +189,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const sessionId = useRandomDraftStore((s) => s.sessionId);
   const draftState = useRandomDraftStore((s) => s.draftState);
   const suggestions = useRandomDraftStore((s) => s.suggestions);
+  const previewStatus = useRandomDraftStore((s) => s.previewStatus);
   const staleWarning = useRandomDraftStore((s) => s.staleWarning);
   const lastSyncedAt = useRandomDraftStore((s) => s.lastSyncedAt);
   const confirmPick = useRandomDraftStore((s) => s.confirmPick);
@@ -120,6 +203,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const socketRef = useRef<DraftSocket | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resolvedBansRef = useRef<HeroId[]>([]);
+  const previewRequestKeyRef = useRef<string | null>(null);
+  const previewPendingRef = useRef<{ round: 1 | 2 | 3; picks: HeroId[] } | null>(null);
 
   const stopTimer = useCallback(function stopTimer(): void {
     if (timerIdRef.current !== null) {
@@ -127,6 +212,18 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       timerIdRef.current = null;
     }
   }, []);
+
+  // Un nuevo simulador no puede heredar el timer ni el WebSocket de la partida anterior.
+  // Al vaciar primero el ref de sesión, el onClose del socket no intentará reconectarlo.
+  const resetDraft = useCallback(function resetDraft(): void {
+    stopTimer();
+    sessionIdRef.current = null;
+    previewRequestKeyRef.current = null;
+    previewPendingRef.current = null;
+    socketRef.current?.close();
+    socketRef.current = null;
+    resetSession();
+  }, [resetSession, stopTimer]);
 
   useEffect(function cleanupOnUnmount() {
     return function cleanup() {
@@ -139,6 +236,132 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     seqRef.current += 1;
     return seqRef.current;
   }, []);
+
+  const refreshPendingPickPreview = useCallback(async function refreshPendingPickPreview(
+    previousPendingPicks: HeroId[],
+    pendingUserPicks: HeroId[],
+  ): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    if (!current.config || !current.sessionId) return;
+
+    const baseState = current.draftState ?? {
+      sessionId: current.sessionId,
+      schema: "draft-state/v1" as const,
+      format: "all_pick" as const,
+      patch: current.config.patch,
+      localSide: current.config.userSide,
+      phase: "active" as const,
+      banned: resolvedBansRef.current,
+      picks: { radiant: [], dire: [] },
+      lastSeq: 0,
+      appliedEventIds: [],
+      quality: { unconfirmed: [], captureStatus: "ok" as const },
+      updatedAt: new Date(0).toISOString(),
+      firstPickSide: null,
+      turnStartedAt: null,
+      reserveRemainingMs: null,
+      turn: null,
+    };
+
+    const previewState = buildPendingPickPreview(
+      baseState,
+      current.config.userSide,
+      previousPendingPicks,
+      pendingUserPicks,
+    );
+    // Mientras se calcula, las sugerencias anteriores no se presentan como si correspondieran
+    // al pick recién elegido. Copilot pasa a "loading" -- nunca queda en un "actualizando" sin
+    // salida: termina en "ready" o "failed" (con retry), nunca vuelve a colgarse en silencio.
+    useRandomDraftStore.getState().setDraftState(previewState, null);
+    useRandomDraftStore.getState().setPreviewStatus("loading");
+
+    function isStillCurrentRequest(): boolean {
+      const latest = useRandomDraftStore.getState();
+      if (!latest.draftState || !matchesPreviewState(latest.draftState, previewState)) return false;
+      if (latest.phase.type !== "blind_round") return false;
+      return latest.phase.pendingUserPicks.join(",") === pendingUserPicks.join(",");
+    }
+
+    try {
+      const response = await fetch(`${ENGINE_HTTP_BASE_URL}/api/suggestions/preview`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          format: previewState.format,
+          patch: previewState.patch,
+          localSide: previewState.localSide,
+          banned: previewState.banned,
+          picks: previewState.picks,
+          teamOpening: previewState.picks.radiant.length === 0 && previewState.picks.dire.length === 0,
+          diversitySeed: current.config.draftSeed,
+        }),
+      });
+      if (!response.ok) {
+        if (isStillCurrentRequest()) useRandomDraftStore.getState().setPreviewStatus("failed");
+        return;
+      }
+
+      const suggestions = (await response.json()) as SuggestionSet;
+      if (!isStillCurrentRequest()) return;
+      const latest = useRandomDraftStore.getState();
+      const draftStateForResponse = latest.draftState!;
+
+      useRandomDraftStore.getState().setDraftState(draftStateForResponse, {
+        ...suggestions,
+        sessionId: draftStateForResponse.sessionId,
+        basedOnSeq: draftStateForResponse.lastSeq,
+      });
+      useRandomDraftStore.getState().setPreviewStatus("ready");
+    } catch {
+      // La selección sigue siendo válida sin preview: el motor recalcula al revelar la ronda.
+      // El estado visible para el usuario es "failed" -- CopilotPanel ofrece reintentar, nunca
+      // se queda mostrando "actualizando" para siempre.
+      if (isStillCurrentRequest()) useRandomDraftStore.getState().setPreviewStatus("failed");
+    }
+  }, []);
+
+  // Único disparador de previews: cada cambio de ronda o pick pendiente solicita exactamente una
+  // recomendación. Para las rondas 2 y 3 espera el estado revelado del motor; así nunca queda una
+  // sugerencia asociada a una ronda anterior ni un Copilot esperando una llamada que nadie hizo.
+  useEffect(function refreshPreviewForBlindRound() {
+    if (!config || phase.type !== "blind_round") return;
+    if (phase.round > 1 && (!draftState || !isPreviewReadyForRound(draftState, config.userSide, phase.round))) return;
+
+    const requestKey = `${sessionId}:${phase.round}:${phase.pendingUserPicks.join(",")}`;
+    if (previewRequestKeyRef.current === requestKey) return;
+    previewRequestKeyRef.current = requestKey;
+    const previousPendingPicks = previewPendingRef.current?.round === phase.round
+      ? previewPendingRef.current.picks
+      : [];
+    previewPendingRef.current = { round: phase.round, picks: phase.pendingUserPicks };
+    void refreshPendingPickPreview(previousPendingPicks, phase.pendingUserPicks);
+  }, [config, draftState, phase, refreshPendingPickPreview, sessionId]);
+
+  // Reintento manual (Copilot "failed"): repite el mismo pedido de la ronda vigente sin esperar un
+  // nuevo pick/ban -- el guard de `refreshPreviewForBlindRound` de arriba solo dispara ante un
+  // cambio de estado, así que un reintento explícito necesita saltarlo a propósito.
+  const retryPreview = useCallback(function retryPreview(): void {
+    const { phase: currentPhase } = useRandomDraftStore.getState();
+    if (currentPhase.type !== "blind_round") return;
+    const previousPendingPicks = previewPendingRef.current?.round === currentPhase.round
+      ? previewPendingRef.current.picks
+      : [];
+    void refreshPendingPickPreview(previousPendingPicks, currentPhase.pendingUserPicks);
+  }, [refreshPendingPickPreview]);
+
+  const confirmPendingPick = useCallback(function confirmPendingPick(heroId: HeroId): void {
+    const before = useRandomDraftStore.getState().phase;
+    if (before.type !== "blind_round" || before.pendingUserPicks.includes(heroId)) return;
+
+    confirmPick(heroId);
+  }, [confirmPick]);
+
+  const deselectPendingPick = useCallback(function deselectPendingPick(heroId: HeroId): void {
+    const before = useRandomDraftStore.getState().phase;
+    if (before.type !== "blind_round" || !before.pendingUserPicks.includes(heroId)) return;
+
+    deselectPick(heroId);
+  }, [deselectPick]);
 
   async function emit(payload: SimulatorEvent): Promise<void> {
     const sessionId = sessionIdRef.current;
@@ -176,8 +399,16 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     socket.onMessage(function handleMessage(message: ServerMessage) {
       if (!isValidServerMessage(message)) return;
       if (message.type === "draft_state" || message.type === "snapshot") {
-        useRandomDraftStore.getState().setDraftState(message.payload as EngineDraftState, useRandomDraftStore.getState().suggestions);
+        const websocketState = message.payload as EngineDraftState;
+        const current = useRandomDraftStore.getState();
+        const rebased = current.config && current.draftState && current.suggestions
+          ? rebasePreviewSuggestions(current.draftState, websocketState, current.suggestions)
+          : null;
+        useRandomDraftStore.getState().setDraftState(websocketState, rebased ?? current.suggestions);
       } else if (message.type === "suggestions") {
+        // El simulador pide su preview autenticado (pool + rol + diversidad). Las sugerencias
+        // genéricas del WS no tienen ese contexto y nunca deben sobrescribirlo.
+        if (useRandomDraftStore.getState().config) return;
         const current = useRandomDraftStore.getState().draftState;
         if (current) useRandomDraftStore.getState().setDraftState(current, message.payload as SuggestionSet);
       }
@@ -201,6 +432,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const sessionId = crypto.randomUUID();
     sessionIdRef.current = sessionId;
     seqRef.current = 0;
+    previewRequestKeyRef.current = null;
+    previewPendingRef.current = null;
 
     const { meta, allHeroIds, metaBanPool, currentPatch } = await loadMetaSnapshot();
     const config: DraftConfig = { ...input, patch: currentPatch };
@@ -245,7 +478,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     });
     beginRound(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stopTimer/connectSocket/emit son estables por closure de refs
-  }, [stopTimer]);
+  }, [refreshPendingPickPreview, stopTimer]);
 
   // -------------------------------------------------------------------------
   // Timer de la Blind_Round activa
@@ -296,6 +529,17 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const before = useRandomDraftStore.getState().phase;
     if (before.type !== "blind_round") return;
 
+    const rng = rngRef.current;
+    const meta = metaRef.current;
+    if (!rng || !meta) return;
+
+    // El bot responde a los picks que el usuario acaba de cerrar. El plan original se generaba
+    // con un tablero vacío y por eso coincidía demasiado con las recomendaciones del Copilot.
+    const botPicks = await recalculateBotPicks(before.round, before.pendingUserPicks, [], specForRound(before.round).picksPerTeam, rng, meta);
+    const current = useRandomDraftStore.getState().phase;
+    if (current.type !== "blind_round" || current.round !== before.round) return;
+    useRandomDraftStore.getState().setBotPicksForRound(before.round, botPicks);
+
     useRandomDraftStore.getState().confirmRound(); // blind_round -> round_revealed
 
     const revealed = useRandomDraftStore.getState().phase;
@@ -331,7 +575,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
 
       const remainingUserPicks = userPicks.filter((heroId) => !collidedHeroes.includes(heroId));
       const remainingBotPicks = botPicks.filter((heroId) => !collidedHeroes.includes(heroId));
-      const newBotPicks = await recalculateBotPicks(round, remainingBotPicks, collidedHeroes.length, rng, meta);
+      const newBotPicks = await recalculateBotPicks(round, remainingUserPicks, remainingBotPicks, collidedHeroes.length, rng, meta);
 
       useRandomDraftStore.getState().retryRoundAfterConflict({
         pendingUserPicks: remainingUserPicks,
@@ -345,7 +589,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
 
     // Req. 5.4: 3ra colisión de la ronda -- el usuario conserva el héroe, el bot recalcula.
     const survivingBotPicks = botPicks.filter((heroId) => !collidedHeroes.includes(heroId));
-    const newBotPicks = await recalculateBotPicks(round, survivingBotPicks, collidedHeroes.length, rng, meta);
+    const newBotPicks = await recalculateBotPicks(round, userPicks, survivingBotPicks, collidedHeroes.length, rng, meta);
     useRandomDraftStore.getState().patchRevealedRound({ userPicks, botPicks: newBotPicks });
     await revealAndAdvance(round, userPicks, newBotPicks);
   }
@@ -354,6 +598,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   // (botPickHeroFromEngine), con el mismo fallback al scoring simplificado que initDraft.
   async function recalculateBotPicks(
     round: 1 | 2 | 3,
+    userPicks: HeroId[],
     survivingBotPicks: HeroId[],
     countNeeded: number,
     rng: SeededRng,
@@ -363,7 +608,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const result = [...survivingBotPicks];
     for (let i = 0; i < countNeeded; i++) {
       const picked = await botPickHeroFromEngine({
-        draftState: buildBotDraftState(state, round, result),
+        draftState: buildBotDraftState(state, userPicks, result),
         botSide: otherSide(state.config!.userSide),
         meta: meta.meta,
         rng,
@@ -375,31 +620,27 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     return result;
   }
 
-  function buildBotDraftState(state: RandomDraftState, round: 1 | 2 | 3, botPicksSoFar: HeroId[]) {
-    const botSide = otherSide(state.config!.userSide);
-    return {
+  function buildBotDraftState(state: RandomDraftState, userPicks: HeroId[], botPicksSoFar: HeroId[]) {
+    const visibleState = state.draftState;
+    const baseState: EngineDraftState = visibleState ?? {
       sessionId: sessionIdRef.current ?? "",
       schema: "draft-state/v1" as const,
       format: "all_pick" as const,
       patch: state.config!.patch,
-      localSide: botSide,
+      localSide: state.config!.userSide,
       phase: "active" as const,
       banned: resolvedBansRef.current,
-      picks: {
-        radiant: botSide === "radiant" ? botPicksSoFar : [],
-        dire: botSide === "dire" ? botPicksSoFar : [],
-      },
+      picks: { radiant: [], dire: [] },
       lastSeq: 0,
       appliedEventIds: [],
       quality: { unconfirmed: [], captureStatus: "ok" as const },
       updatedAt: new Date(0).toISOString(),
-      // TSK-073: siempre null -- este DraftState de precálculo es format:"all_pick", que nunca
-      // tiene tabla de turnos (spec §2.1).
       firstPickSide: null,
       turnStartedAt: null,
       reserveRemainingMs: null,
       turn: null,
     };
+    return buildBotPickPreview(baseState, state.config!.userSide, userPicks, botPicksSoFar);
   }
 
   // Emite los hero_picked de ambos lados y decide si sigue a la próxima ronda o cierra la sesión.
@@ -441,8 +682,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }
 
   return {
-    state: { config, phase, sessionId, draftState, suggestions, staleWarning, lastSyncedAt },
-    actions: { confirmPick, deselectPick, resetSession },
+    state: { config, phase, sessionId, draftState, suggestions, previewStatus, staleWarning, lastSyncedAt },
+    actions: { confirmPick: confirmPendingPick, deselectPick: deselectPendingPick, resetDraft, retryPreview },
     startDraft,
     confirmRound,
   };

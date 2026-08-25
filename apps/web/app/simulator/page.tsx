@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
+import { BUTTON_SECONDARY } from "@/features/draft/styles";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
@@ -37,7 +38,7 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, suggestions } = session.state;
+  const { phase, draftState, suggestions, previewStatus } = session.state;
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
 
   // TSK-084: mismo criterio que DraftView.tsx en /live-draft -- los mismos candidatos que ya destaca
@@ -58,7 +59,13 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           onConfirmRound={session.confirmRound}
         />
       </div>
-      <CopilotPanel draftState={draftState} suggestions={suggestions} heroCatalog={heroCatalog} />
+      <CopilotPanel
+        draftState={draftState}
+        suggestions={suggestions}
+        heroCatalog={heroCatalog}
+        previewStatus={previewStatus}
+        onRetryPreview={session.actions.retryPreview}
+      />
     </div>
   );
 }
@@ -66,7 +73,27 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
 function CompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
   if (session.state.phase.type !== "complete") return null;
   return (
-    <SessionSummaryPanel summary={session.state.phase.summary} heroCatalog={heroCatalog} onNewDraft={session.actions.resetSession} />
+    <SessionSummaryPanel summary={session.state.phase.summary} heroCatalog={heroCatalog} onNewDraft={session.actions.resetDraft} />
+  );
+}
+
+interface SimulatorHeaderProps {
+  canReset: boolean;
+  onReset(): void;
+}
+
+function SimulatorHeader({ canReset, onReset }: SimulatorHeaderProps) {
+  if (!canReset) {
+    return <span className="text-heading text-content-primary">Simulador de Draft</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="text-heading text-content-primary">Simulador de Draft</span>
+      <button className={BUTTON_SECONDARY} onClick={onReset} type="button">
+        Reiniciar draft
+      </button>
+    </div>
   );
 }
 
@@ -101,7 +128,7 @@ export default function RandomDraftPage() {
 
   return (
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
-      <span className="text-heading text-content-primary">Simulador de Draft</span>
+      <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} />
       <StaleWarningBanner />
       {/* TSK-085: persistente en todas las fases con sesión ya arrancada -- antes, los picks de
           una ronda ya confirmada dejaban de verse en cuanto arrancaba la siguiente ronda (el
