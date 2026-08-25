@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-25T00:03:43.042Z</title>
+<title>HUB del ecosistema — 2026-08-25T20:49:04.319Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -54,7 +54,7 @@
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step step-active">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Claude Code. · Modelo: Sonnet. · Acción: revisar el diff de `TSK-095` y commitear (mismo ritmo que `TSK-094`); luego `/dispatch` de · `TSK-096` (`buildMetaSnapshot(db, accountId)` + cache partido), tercer ticket del Bloque A — · depende de `TSK-095` (ya `done`). ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="next-step">📍 Siguiente paso: Herramienta: Codex (handoff entregado, `TSK-096` en `doing`). · Modelo: estándar de Codex (tarea acotada, self-contained). · Acción: Codex ejecuta `TSK-096`. Cuando reporte terminado, Claude Code hace revisión independiente · (nunca confiar en el reporte sin verificar — mismo estándar que TSK-034) antes de pasar a `TSK-097`. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,18 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">11</span></h2>
+        <h2>backlog <span class="count">10</span></h2>
         
-        <div class="card  ">
-          
-          <div class="card-id">TSK-096</div>
-          <div class="card-title">Fase 5: buildMetaSnapshot(db, accountId) + cache partido</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-101</div>
@@ -148,7 +138,7 @@
           <div class="card-title">Fase 5: scoping de team_groups/team_members por cuenta</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -178,7 +168,7 @@
           <div class="card-title">Fase 5: iron-session + verificación Steam OpenID (lib/session.ts, lib/steam-openid.ts)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -188,7 +178,7 @@
           <div class="card-title">Fase 5: conectar x-account-token a las rutas HTTP del motor</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -198,7 +188,7 @@
           <div class="card-title">Fase 5: WebSocket — accountToken en hello y dueño de sesión</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -208,7 +198,7 @@
           <div class="card-title">Fase 5: GET /api/auth/engine-token + wiring del WebSocket</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -218,7 +208,7 @@
           <div class="card-title">Fase 5: proxy.ts sin Basic Auth + acuñado del token interno + guard fail-closed</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -228,7 +218,7 @@
           <div class="card-title">Fase 5: limpieza — retirar Basic Auth y el KV de settings, env vars finales</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -250,8 +240,18 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">95</span></h2>
+        <h2>done <span class="count">107</span></h2>
         
+        <div class="card  ">
+          
+          <div class="card-id">TSK-111</div>
+          <div class="card-title">Simulador: conectar apertura de equipo al motor de sugerencias</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
         <div class="card  ">
           
           <div class="card-id">TSK-051</div>
@@ -259,6 +259,16 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-096</div>
+          <div class="card-title">Fase 5: buildMetaSnapshot(db, accountId) + cache partido</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -334,6 +344,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-115</div>
+          <div class="card-title">Copilot: evidencia separada de contrapick, sinergia, flex y riesgo</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-004</div>
           <div class="card-title">applyDraftEvent puro + contrato de eventos (S1, S4)</div>
           <div class="card-meta">
@@ -379,6 +399,16 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-114</div>
+          <div class="card-title">Motor: contexto explícito por momento de decisión All Pick</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -450,6 +480,16 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-110</div>
+          <div class="card-title">Simulador: política de apertura de equipo sensible a bans</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -604,6 +644,16 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-109</div>
+          <div class="card-title">Meta global: política de refresco en segundo plano</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-009</div>
           <div class="card-title">Mezcla, orden y explicación del motor (§C3)</div>
           <div class="card-meta">
@@ -620,6 +670,16 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-108</div>
+          <div class="card-title">Perfil Steam: nombre y avatar en sesión cifrada</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -674,11 +734,31 @@
         </div>
         <div class="card  ">
           
+          <div class="card-id">TSK-117</div>
+          <div class="card-title">Simulador: pruebas de integración de la secuencia completa (hook real)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
           <div class="card-id">TSK-047</div>
           <div class="card-title">Fase 3: verificación final de baja de role-gap.ts / role-safety.ts (reducido, ver nota)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-107</div>
+          <div class="card-title">UX: separar Simulador de Draft, Draft en Vivo y jerarquía de Mi pool</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -719,6 +799,16 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-113</div>
+          <div class="card-title">Simulador: explicar flexibilidad real y aporte de composición</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -799,6 +889,16 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-112</div>
+          <div class="card-title">Simulador: diferir picks rivales hasta el estado revelado</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
             
           </div>
         </div>
@@ -900,6 +1000,16 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-116</div>
+          <div class="card-title">Copilot: máquina de estados explícita para el preview (loading/ready/failed)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
           </div>
         </div>
         <div class="card  ">
@@ -1209,21 +1319,21 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">139× · 78% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">141× · 78% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:41%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:40%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:33%"></div></div>
-          <div class="stat-nums">46× · 33% ok  </div>
+          <div class="stat-nums">47× · 34% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:31%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:30%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1284,6 +1394,20 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-117</span> <span class="feed-ts">2026-08-25T21:15</span></div>
+            <div class="feed-note">Punto 2 de los 5 que Codex identificó como siguiente endurecimiento: pruebas de integración de la secuencia completa del simulador (inicio→ronda1→revelación→ronda2→último pick). Hasta acá `use-random-draft-session.test.ts` solo cubría las funciones puras exportadas -- el resto del hook (refs, `setInterval`, WebSocket, fetch) estaba documentado como "se verifica en un navegador real, tarea 16.2", exactamente el punto ciego donde vivieron TSK-112 (bot precalculando contra tablero vacío) y la regresión de TSK-116 (`previewStatus` con test ya escrito pero nunca implementado). Nueva costura de prueba (sin formalizar todavía como S14 en `testing-seams.md`, queda pendiente): `renderHook` (`@testing-library/react`, nueva devDependency -- bypass total por categoría, Governance 2.0) + DOM real (`@happy-dom/global-registrator`, registrado solo dentro del archivo de prueba nuevo, nunca en `bunfig.toml` global -- verificado que los 178 tests preexistentes siguen en verde exactamente igual, cero impacto) + `FakeSocket` (S5, reutilizado tal cual) + un `FakeEngine` mínimo en memoria (vive solo en el archivo de prueba) que aplica los mismos `DraftEvent` que el hook ya emite por `POST /api/session/manual` y empuja el `draft_state` resultante por el mismo `FakeSocket`, con el push diferido 20ms vía `setTimeout` (no microtask) a propósito -- simula que la respuesta HTTP y la llegada por WS no son el mismo instante, como en producción. Dos pruebas nuevas: (1) secuencia completa con héroes elegidos dinámicamente contra los 16 bans reales de `resolveBanPhase` (nunca hardcodeados) -- confirma que la ronda 1 nunca pide preview con picks rivales visibles, que el primer pedido de la ronda 2 refleja el tablero ya revelado (≥4 picks) y no uno vacío, que `previewStatus` llega a "ready" en cada ronda, y que el `DraftSummary` final tiene los picks exactos de cada ronda en orden; (2) un fetch fallido de `/api/suggestions/preview` termina en `previewStatus:"failed"`, cerrando de punta a punta (hook real, no solo el store aislado) la regresión de TSK-116. **Honestidad sobre los límites de esta prueba, anotada en el propio ticket, no ocultada**: se intentó reproducir el bug histórico de TSK-112 desactivando a mano el guard `isPreviewReadyForRound` -- la prueba no lo detectó, porque el `await` interno de `confirmRound()` (2.5s de `REVEAL_PAUSE_MS`) ya garantiza que `draftState` esté actualizado antes de la transición de fase incluso sin ese guard defensivo; reproducir la ventana de carrera real (WS más lento que 2.5s, típico de una reconexión en producción) en una prueba rápida y determinística no se consiguió en este ticket. El guard sigue siendo código legítimo, solo que esta prueba no lo ejercita directamente -- se documenta como limitación conocida en vez de reportar una cobertura que no existe. `bun test`: 180 pass, 0 fail (176 antes de TSK-116, +2 TSK-116, +2 este ticket), corrido 3 veces seguidas sin flakiness (~7.8s cada una, tiempo real dominado por los 2.5s de reveal pause del propio hook, sin fake timers). `tsc --noEmit` limpio. `verify-simplicity.sh` verde -- un hallazgo real en el camino: el literal `"test-account-token"` en el fixture disparó el gate de secretos del repo (`token` + literal ≥8 caracteres), falso positivo esperado del propio gate, corregido acortando el valor a `"fake"` (nada se valida en el camino de prueba). Puntos 3-5 de la lista de Codex (contrato de evidencia estructurada, separación de datos observados vs. hipótesis rival, gate de arquitectura de contratos) y la formalización de la costura S14 quedan sin empezar.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-116</span> <span class="feed-ts">2026-08-25T20:30</span></div>
+            <div class="feed-note">Revisión independiente del reporte de Codex (nunca confiar sin verificar, mismo estándar que TSK-034/TSK-096): el reporte afirmaba "suite web completa: 177 tests, 0 fallos" tras la corrección de la transición de rondas del simulador (TSK-112, ya commiteado en `201d7dd`). Corriendo `bun test` real en el árbol de trabajo sin commitear: **178 tests, 2 fallos**, no 0. Causa raíz: `store.test.ts` traía dos pruebas nuevas (`resetSession descarta un draft parcial...`, `el estado del preview distingue carga, resultado y fallo recuperable`) que referenciaban `previewStatus`/`setPreviewStatus` -- API que nunca se implementó en `store.ts`. Coincide exactamente con el punto 1 de los 5 que el propio Codex identificó como siguiente endurecimiento necesario ("Convertir Copilot en una máquina explícita: cargando, listo, falló con reintento; jamás 'actualizando' infinito") -- alguien (Codex, en la misma sesión) escribió las pruebas en rojo (TDD) pero no llegó a implementar el lado del store/hook antes de reportar la sesión como cerrada. Hallazgo adicional confirmado leyendo el código antes de tocar nada: `refreshPendingPickPreview` (`use-random-draft-session.ts`) atrapaba cualquier error de fetch en un `catch` silencioso y dejaba `suggestions` en `null` para siempre -- exactamente el "actualizando infinito" que el reporte describía como problema a resolver, reproducible con cualquier fallo de red real del endpoint `/api/suggestions/preview`. **Implementado** (TSK-116, ver ticket para detalle completo de archivos): `previewStatus: "idle"|"loading"|"ready"|"failed"` + `setPreviewStatus` en `store.ts` (reseteado a `"idle"` en `startSession`/`resetSession`); `refreshPendingPickPreview` marca `"loading"` antes del fetch, `"ready"` al aplicar la respuesta fresca, `"failed"` en `!response.ok` o excepción -- solo si la petición sigue vigente (mismo guard que ya usaba el código para no pintar una respuesta obsoleta); nuevo `retryPreview()` expuesto en las acciones del hook; `CopilotPanel.tsx` reemplaza el aviso binario `UpdatingNotice` por `PreviewStatusNotice` (3 estados reales, "failed" con botón "Reintentar" que llama a `retryPreview`); `app/simulator/page.tsx` conecta el estado y la acción reales. `bun test` tras el fix: **178 pass, 0 fail** (apps/web) -- confirmado, no solo prometido; `apps/engine` 471/471 sin tocar (cambio 100% frontend). `bunx tsc --noEmit` limpio en `apps/web`. Puntos 2-5 de la lista de Codex (pruebas de integración de secuencia completa, contrato de evidencia estructurada para la explicación, separación de datos observados vs. hipótesis rival, gate de arquitectura de contratos Zustand↔WebSocket↔preview HTTP) quedan sin empezar, documentados como fuera de alcance de este ticket.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:51</span></div>
             <div class="feed-note">Reporte de "confianza baja" (curación de corpus KNN, sesión Gobernanza 2.0). **Origen real, no un pedido de producto**: durante el smoke test manual del usuario sobre evt-113, el desglose de señales crudo (nombres de señal + coeficientes sin unidad) resultó ilegible para un usuario real -- feedback directo, documentado tal cual. Reformulación del propio usuario tras la crítica: el indicador de confianza no es para producto, es telemetría de curación -- "qué héroes tienen menos data para ir a buscar más partidas profesionales". **Precisión de diseño clave, no en el pedido literal**: de las 3 señales de Pro-Drafter, solo `knn_similarity` depende del corpus de partidas pro (`lane_score`/`denial_score` salen de `hero-positions.json`/`capabilities.json`, archivos curados aparte) -- "confianza baja, hay que recoger data" se define específicamente como `knn_similarity: null` para ese héroe, nunca las otras dos señales (no son accionables trayendo más partidas). **Arquitectura**: `apps/web` no puede escribir al filesystem -- nuevo endpoint `POST /api/pro-drafter/low-confidence-report` en `apps/engine` (mismo gate `ENABLE_PRO_DRAFTER` que el endpoint principal, mismo archivo `routes/pro-drafter.ts`, deliberadamente fuera de `createProDrafterRoutes` porque no necesita corpus/heroPositions/weights/profiles, solo valida y escribe). Escribe a `apps/engine/data/low-confidence-reports/` -- misma carpeta `data/` ya gitignoreada desde TSK-002 (dota2coach.sqlite), mismo criterio: dato local del usuario, nunca versionado. **Seguridad real, no teórica**: `sessionId` llega del cliente y se usa para construir un nombre de archivo -- validado contra `/^[a-zA-Z0-9-]+$/` ANTES de tocar el filesystem, con test dedicado que prueba un intento de path traversal (`../../etc/passwd`) explícitamente rechazado. `reportsDir` inyectable (mismo patrón de testing-seams del resto del motor) para que las pruebas escriban a un directorio temporal real (`mkdtemp`/`os.tmpdir()`), nunca a `./data/` de producción. **Frontend**: nuevo store (`low-confidence-store.ts`) deliberadamente SEPARADO de `RandomDraftStore` -- ese store declara en su propio header "puro estado local, ninguna acción llama a un endpoint HTTP", y este sí termina en un POST. `useCopilotProDrafter` gana un segundo `useEffect` que registra cada sugerencia con `knn_similarity: null` (deduplicado por héroe -- el rank más reciente pisa el anterior, una fila por héroe, no una por cada aparición a lo largo del draft). `use-random-draft-session.ts` hace el flush real: en la transición a fase "complete" (mismo punto donde ya se emite `session_ended`), lee los avistamientos acumulados, dispara `postLowConfidenceReport` (best-effort, atrapa su propio error, nunca bloquea el cierre real de la sesión -- mismo criterio que `correctHero` en `features/draft/store.ts`) y resetea el store para la próxima sesión. **Bug real encontrado en la verificación en navegador, no en revisión de código**: la primera corrida real (draft completo de punta a punta, Playwright real, no mockeado) devolvió 400 en el nuevo endpoint -- diagnóstico con logging de request/response reveló `"patch":""` (string vacío, no `null`/`undefined`) en el body. La causa: `useRandomDraftStore.getState().draftState?.patch ?? "unknown"` -- `??` solo cubre `null`/`undefined`, nunca string vacío, y el `DraftState` del simulador SÍ puede traer `patch: ""` en la práctica. Corregido a `|| "unknown"`. Repetida la misma corrida real tras el fix: **200, archivo escrito de verdad en disco**, 11 héroes con `knn_similarity: null` capturados de un draft real de 10 picks (deduplicados de los ~30 avistamientos brutos a lo largo de las 3 rondas del Top 3). Verificado también con `curl` directo antes del recorrido completo en navegador, para aislar la ruta feliz del flujo end-to-end. **Fuera de alcance de este evento, a propósito** (pedido explícito del usuario, secuencial): el script que consume estos reportes y busca partidas profesionales específicas de los héroes marcados -- "eso es el paso siguiente, una vez que ya tengamos reportes reales para saber a quién apuntarle". `bun test`: 429/429 `apps/engine` (+6: 4 de validación del borde, 2 de escritura real a disco vía `mkdtemp`), 147/147 `apps/web` (+6: 3 del store nuevo, 3 de `postLowConfidenceReport`), 9/9 `scripts/` (sin tocar). `tsc --noEmit` limpio en las dos apps. `bun test` de la suite de aislamiento (`run-pipeline.test.ts`) sigue en verde -- las funciones nuevas de `pro-drafter.ts` no importan de `pipeline/`, no afectan esa invariante. **Traducción a producto**: esto significa que cada vez que el usuario juega una sesión completa del simulador con Pro-Drafter encendido, queda un archivo JSON local con la lista exacta de héroes que el KNN no pudo evaluar por falta de partidas profesionales en el corpus -- información real y accionable para decidir qué buscar después, en vez de adivinar a partir de un desglose de señales que ningún usuario real podía leer.</div>
           </div>
@@ -1293,6 +1417,13 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:15</span></div>
             <div class="feed-note">Cierre del gap de UX anotado en evt-113: `CompletedDraftState` (`/draft`, fase "completo") gana un `Link` real ("Simular en All Pick", estilo `BUTTON_SECONDARY`, mismo patrón ya usado en `HeroPoolConfig.tsx` -- `<Link href="..." className={BUTTON_SECONDARY}>`) hacia `/random-draft`, el único simulador que quedó tras evt-113. **Dos hallazgos reales encontrados durante la verificación visual, no en el pedido original**: `SCREEN_STATE_GUIDANCE` (`constants.tsx`) todavía tenía DOS textos de guía mencionando botones ya eliminados en evt-113 -- `completo` decía literalmente `usa "Simular otro draft"` (el botón de `DraftSetupPanel`, borrado) y `esperando_draft` decía `usa "Simular draft"` (mismo botón, mismo estado eliminado). Ninguno de los dos se había tocado en evt-113 porque ese cambio se centró en los componentes/wiring, no en el copy de guía -- encontrado recién al completar un draft real de punta a punta en el navegador y leer el texto en pantalla, no por revisión de código. Corregidos los dos: `completo` ahora referencia "Simular en All Pick" (el botón real que este evento agrega), `esperando_draft` deja de nombrar un botón que ya no existe y en su lugar apunta al simulador desde el menú. Sin test roto -- ningún test de este repo afirma el contenido exacto de `SCREEN_STATE_GUIDANCE` (verificado con grep antes de tocar el archivo). **Verificación real, no solo `bun test`**: como llegar a `phase:"complete"` vía la UI exige un flujo de 10 picks + un evento `session_ended` que `ManualEntryPanel` no expone como botón, se armó la secuencia completa de eventos reales (`session_started`/`local_side_identified`/10×`hero_picked`/`session_ended`) contra `POST /api/session/manual` -- el mismo endpoint real que usa la UI, sin atajos internos -- y se cargó `/draft?session=<id>` en un navegador real (Playwright): el botón aparece, su `href` es `/random-draft`, el click navega ahí de verdad, cero error de consola, confirmado con captura antes y después del fix de copy. `bun test`: 423/423 `apps/engine` (sin tocar), 141/141 `apps/web` (sin cambio de conteo -- adición de JSX estática, mismo nivel de cobertura que ya tienen otros botones de este archivo, ninguno con test dedicado), 9/9 `scripts/` (sin tocar). `tsc --noEmit` limpio. 2 archivos (`DraftView.tsx`, `constants.tsx`), bien dentro de cualquier presupuesto. **Traducción a producto**: esto significa que terminar un draft real (o de entrada manual) en `/draft` ya no es un callejón sin salida -- un solo click lleva directo a practicar en el simulador All Pick vs bot, y el texto de guía en pantalla por fin coincide con los botones reales que existen hoy, no con los que evt-113 ya había borrado.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-094,TSK-095,TSK-096</span> <span class="feed-ts">2026-08-25T00:12</span></div>
+            <div class="feed-note">Usuario pidió commitear `TSK-094`+`TSK-095` en conjunto y generar un handoff técnico para Codex arrancando en `TSK-096`. Commiteado `2ba0664` ("feat(db): multi-tenant hero_pool PK + accounts table (TSK-094, TSK-095)") -- 14 archivos (código real de `TSK-095` + bookkeeping), sin rehacer/squashear el commit ya existente de `TSK-094` (`f3584e0`, nunca se reescribe historia ya publicada sin pedido explícito de amend). `git status` post-commit: working tree limpio salvo la documentación de planificación de Fase 5 todavía sin commitear a propósito (`SPEC.md`, `architecture.md`, 4 reglas, `CLAUDE.md`) y los 11 tickets backlog restantes (`TSK-096` a `TSK-106`) -- ninguno de los dos grupos forma parte de este commit ni del alcance de `TSK-096`. **Reasignación real de herramienta, registrada, no en silencio**: `TSK-096` tenía `preferred_tool: claude-code` (fijado por `/rulebook`) -- el usuario pidió delegarlo a Codex; `assigned_tool: codex` fijado en el frontmatter, `state: doing`, coherente con la heurística de `/dispatch` (ticket acotado, self-contained, no depende de leer `journal.md`/`architecture.md` para tener sentido -- el propio `TSK-096.md` ya trae el contrato completo). **Corrección real encontrada leyendo el código antes de armar el handoff, no de memoria**: `buildMetaSnapshot` (`provider.ts:30`) todavía lee `personal_baseline_winrate` desde la tabla `settings` -- clave que la migración `0005` de `TSK-094` ya borró (se movió a `accounts.personal_baseline_winrate`). Ese `SELECT` es código muerto desde que `TSK-094` se commiteó; no estaba anotado en `TSK-096.md` como parte de su alcance. Se agrega al handoff de Codex como corrección obligatoria del cache partido (leer `accounts` en vez de `settings`, scopeada por `accountId`), para no dejarlo como una segunda deuda silenciosa después de la primera (`personal_baseline_winrate` nunca escrito, ya documentada en `SPEC.md` §12.15-E). También corregido en el handoff: el ticket cuenta "5 llamadores" de `getCachedMetaSnapshot`, pero `computeV5Fallback` de `pro-drafter.ts` no es una llamada nueva -- es la misma `computeSuggestionsForState` de `app.ts:113` pasada por referencia (`app.ts:105`), así que son 4 call sites reales (`app.ts:116`, `routes/meta.ts:51`, `routes/draft-paths.ts:40`, `routes/simulator-sessions.ts:55`), verificado con `grep` antes de escribirlo. Y se aclara que "inyección de tokens vía `proxy.ts`" (mencionado por el usuario en el pedido) es alcance de `TSK-102`, no de `TSK-096` -- señalado explícitamente en el handoff para que Codex no se desvíe.</div>
           </div>
         </div>
         <div class="feed-card">
@@ -1342,27 +1473,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T18:04</span></div>
             <div class="feed-note">Ingesta incremental por torneo Tier 1 (`scripts/fetch-daily-pro-drafts.ts`, nuevo, sesión Gobernanza 2.0). **Diseño real, verificado contra la API en vivo antes de escribir código, no asumido**: `/leagues` (10108 ligas reales inspeccionadas) da `tier` por `leagueid` pero NINGÚN campo de fecha -- no hay forma de "ordenar torneos cronológicamente" desde ese endpoint solo. Se resolvió reutilizando que `/proMatches` ya pagina más-reciente-primero (mismo mecanismo que `fetch-pro-drafts.ts`): el orden de PRIMERA APARICIÓN de un `leagueid` al escanear hacia atrás es, por construcción, su ranking de recencia -- documentado como aproximación real (mide actividad vista en la ventana escaneada, no fecha real de inicio/fin del torneo). **Decisión de diseño más allá del pedido literal**: "máximo 2 torneos por corrida" se aplica sobre los torneos DESCUBIERTOS en la ventana escaneada (acotada por `--max-pages=40`, ~2 min de escaneo), nunca persigue un torneo completo a través de todo el histórico del parche en una corrida -- ESE es el espíritu real de "soft launch, poco a poco" que pidió el usuario, no una limitación técnica. **Arquitectura de reuso**: `toDraftCandidate`/`MatchDetail` se exportaron desde `fetch-pro-drafts.ts` (antes privados) en vez de reimplementarse -- el chequeo de tier interno de esa función (`ACCEPTED_TIERS`, premium+professional) queda como validación defensiva redundante, nunca como filtro primario duplicado, porque este script ya pre-filtra a leagueid `tier==="premium"` (Tier 1 estricto, vía `/leagues`, nuevo método `OpenDotaClient.getLeagues()`) antes de siquiera pedir un detalle. 3 funciones puras nuevas, exportadas y testeadas con fixtures sintéticos (nunca `/leagues`/`/proMatches` reales, mismo criterio S9/S10 que capabilities.json/hero-positions.json): `filterTier1LeagueIds` (requisito #1), `scanTier1Tournaments` (agrupación + ventana de parche), `selectNewMatchesToFetch` (requisitos #2 y #3 -- dedup por `match_id` ANTES de cualquier fetch de detalle, más los topes de torneos/drafts). 9 tests nuevos (`fetch-daily-pro-drafts.test.ts`) + 1 test nuevo de `getLeagues()` en `opendota-client.test.ts` (mismo patrón de "solo confirma la URL" que los métodos hermanos). **Bug real y serio encontrado en vivo, no en revisión de código**: la primera corrida real del script (`bun run scripts/fetch-daily-pro-drafts.ts`) disparó DOS `main()` completos en paralelo dentro del mismo proceso -- el propio, y el de `fetch-pro-drafts.ts` (importado solo por sus 2 símbolos puros), porque ninguno de los dos scripts tenía guard de `import.meta.main`: un `main().catch(...)` incondicional al final del archivo se ejecuta con solo IMPORTAR el módulo, sin importar qué se use de él. Detectado porque el log mostró líneas de los dos scripts entrelazadas y la corrida tardó más de 400s (timeout del tooling) en vez de los ~2-3 min esperados -- el proceso corría el barrido SIN TOPE de `fetch-pro-drafts.ts` (`--max-drafts=5000` default) en paralelo. Matado el proceso de inmediato (`kill`, verificado con `ps`), confirmado que el corpus en disco NO se corrompió (`git diff --stat` limpio salvo el merge correcto de mi propio script, 502 drafts) -- el `main()` del hermano no llegó a su propio `Bun.write` antes de morir. **Corregido en los DOS archivos** (`if (import.meta.main) { main().catch(...) }`), no solo en el nuevo -- el mismo bug ya vivía en `fetch-pro-drafts.ts` desde su creación (evt-098/106), simplemente nunca se había disparado porque nada lo importaba hasta este script. Sin este hallazgo, cualquier test futuro que importara algo de `fetch-pro-drafts.ts` habría heredado el mismo problema en silencio. **Corrida real de producto, repetida tras el fix**: primera corrida (con el bug activo, antes de matar el proceso) alcanzó a consolidar 2 drafts nuevos de **The International 2026** (leagueid=19719, único torneo Tier 1 dentro de la ventana escaneada de 40 páginas del parche 7.41) antes de ser detenida -- verificado que el archivo en disco los conserva (500→502). Segunda corrida, ya con el fix aplicado y limpia (sin cruce de `main()`, log confirmado sin líneas del script hermano): **0 drafts nuevos** -- resultado correcto, no un fallo: la ventana de 40 páginas ya estaba saturada por el corpus existente (502/502 match_id ya conocidos), el requisito #2 (dedup antes de cualquier fetch) evitó cualquier llamada de red innecesaria, confirmado en el log ("Match_id nuevos a pedir detalle: 0"). **Gap real, anotado no oculto**: `scripts/verify-simplicity.sh` corre `bun test` SOLO dentro de `apps/engine`/`apps/web` (`cd apps/engine && bun test`) -- nunca `scripts/` en la raíz. Los 9 tests nuevos de este script pasan (verificado a mano, `bun test scripts/`) pero el gate automatizado nunca los ejecuta ni los ejecutará en el futuro sin correrlos a mano -- mismo estado que `fetch-pro-drafts.ts` (cero tests) ya tenía, pero ahora hay tests reales que sí pueden quedar rotos en silencio si nadie los corre a mano. `bun run fetch:daily-pro-drafts` agregado a `package.json` raíz. `bun test`: 423/423 en `apps/engine` (+1, `getLeagues`), 140/140 en `apps/web` sin cambios, 9/9 en `scripts/` (fuera del gate, confirmado a mano). `tsc --noEmit` de `scripts/{fetch-daily-pro-drafts,fetch-daily-pro-drafts.test,fetch-pro-drafts}.ts` verificado a mano contra la config real de `apps/engine` (scripts/ no está en el `include` de ningún tsconfig del repo, mismo gap preexistente que ya tenía `fetch-pro-drafts.ts`) -- limpio. **Traducción a producto**: esto significa que el corpus de KNN ahora puede crecer en corridas cortas y controladas (~5-10 min, nunca más de 2 torneos/50 drafts por vez) sin gastar cuota de red en partidas ya conocidas -- el primer lote real ya sumó 2 drafts de The International 2026, el torneo Tier 1 más reciente del parche activo.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T17:31</span></div>
-            <div class="feed-note">Smoke test visual E2E real de evt-108/evt-109 (no code, verificación en navegador). **Entorno**: `apps/engine` arrancado con `ENABLE_PRO_DRAFTER=true` (env var inline, nunca persistida en disco), `apps/web` con `apps/web/.env.local` (`NEXT_PUBLIC_ENABLE_PRO_DRAFTER=true`, gitignoreado -- `apps/web/.gitignore:34` ya cubre `.env*`, confirmado antes de crearlo). Sin `chromium-cli` disponible en este entorno -- se armó un driver Playwright ad-hoc (`npm install playwright` en un directorio de scratchpad fuera del repo, cero dependencia nueva en `package.json` de ningún workspace) siguiendo el patrón de fallback que documenta la skill `run` para apps browser-driven sin `chromium-cli`. **Hallazgo real durante el armado del driver, no del código bajo prueba**: el primer intento de click en "Entrada manual" fue un no-op silencioso -- `page.goto(..., {waitUntil:"domcontentloaded"})` resuelve antes de que React hidrate en Next.js/Turbopack, así que el botón existe en el DOM (SSR) pero su `onClick` todavía no está conectado. Corregido con `waitUntil:"load"` + una espera corta post-visibilidad antes del primer click -- ninguna prueba de este proyecto había ejercitado antes un flujo de bootstrap real en un navegador automatizado, así que este hallazgo no estaba documentado en ningún lado. **Los 4 puntos pedidos, verificados con evidencia real (screenshots + `console --errors` + requests fallidos, cero en ambos en las 3 corridas)**: (a) la lista de recomendaciones carga con las 3 señales de Pro-Drafter reales (`Similitud con drafts pro`/`Línea (2v2)`/`Denial de flex-pick`) sobre un draft vacío recién arrancado -- `knn_similarity`/`denial_score` en "sin dato" y `lane_score` en 0.50 son el comportamiento ESPERADO con roster vacío (consistente con el 82.7% de `null` medido en evt-107), no un fallo. (b) badge "Pro-Drafter (KNN 5v5)" en verde (`--signal-positive`) confirmado por texto Y captura visual. (c) segunda apertura con el MISMO estado de draft (sin cambiar picks/bans) mostró la marca "Caché" -- confirma que el cache-aside de evt-108 funciona de punta a punta con tráfico HTTP real, no solo en los mocks de `pro-drafter.test.ts`. (d) verificado con el escenario REAL que Fase 3 blindó (no simulado): motor reiniciado sin `ENABLE_PRO_DRAFTER` mientras `apps/web` seguía con su flag de cliente en `true` -- el mismo panel, sin recargar código, mostró "Fallback (v5)" en ámbar con 3 sugerencias reales de v5 (scores 75.865/75.859/75.600, coherentes con `position_fit`/`hero_pool_fit` sobre un draft temprano) y sin desglose de señales, tal como diseñó `toProDrafterView` -- cero error de consola, cero request fallido, la retrocompatibilidad real funciona en un navegador real, no solo en `types.test.ts`. **Hallazgo cosmético, no un bug**: en la primera apertura del panel, el ícono de Ursa apareció en blanco un instante (CDN externo de Steam, carga asíncrona) -- confirmado como timing, no dato faltante (`GET /api/heroes` sí trae `imgUrl` real para Ursa) ni bug de código, verificado porque la segunda apertura (con el mismo héroe) ya lo mostraba cargado. **Cero ajustes de código hicieron falta** -- los 4 puntos pasaron en el primer intento real contra el código ya commiteado en evt-108/evt-109, así que no hay commit de "código" en este evento, solo este registro. **Cierre**: ambos procesos detenidos por puerto (`lsof -ti:PORT -sTCP:LISTEN | xargs kill`, nunca `pkill -f` amplio), `apps/web/.env.local` borrado -- `git status` queda limpio, ningún flag persiste encendido en ningún archivo trackeado. **Traducción a producto**: esto significa que la Fase 2 (cache-aside + fallback) y la Fase 3 (badge + retrocompatibilidad) del hito Pro-Drafter Backend Core + UI están verificadas de punta a punta en un navegador real, no solo en tests unitarios -- el hito queda cerrado tal como se pidió.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T17:19</span></div>
-            <div class="feed-note">Fase 3 (Superficie Visual e Integración UI, `apps/web`, sesión Gobernanza 2.0): espejo de tipos de evt-108 + badge de motor en `ProDrafterPanel`. **Hallazgo real encontrado ANTES de tocar ningún archivo, no anticipado por el pedido del usuario**: el pedido incluía `engine_version` como si ya existiera en la respuesta del motor -- no existía, evt-108 solo agregó `fallback_applied`/`cache_hit`. Mirroreaba un campo inexistente habría sido fabricar dato, así que se agregó primero en el backend (`routes/pro-drafter.ts`: `ProEngineVersion = "pro-drafter" | "v5"`, derivado en el ÚNICO punto de construcción de la respuesta -- nunca una segunda fuente de verdad que pueda divergir de `fallback_applied`) antes de espejarlo -- 2 aserciones nuevas en `pro-drafter.test.ts` (una por rama) confirman el valor real en vez de asumirlo. **Retrocompatibilidad real, no la advertencia genérica que pedía el punto 1 -- un caso concreto y ya existente en el código**: `server/app.ts:258-260` hace que `POST /api/v1/draft/pro-recommendations` responda con el shape v5 legacy (`schema: "suggestions/v1"`, sin `fallback_applied`/`cache_hit`/`engine_version`) en la MISMA url cuando `ENABLE_PRO_DRAFTER` está apagado del lado del motor -- no es un contrato hipotético para "por si acaso", es el comportamiento documentado desde TSK-091. Antes de este bloque, `usePostProRecommendationsMutation` estaba tipado como si SIEMPRE devolviera `ProDrafterResponse` -- una mentira de tipos que, con los dos flags (server `ENABLE_PRO_DRAFTER` / cliente `NEXT_PUBLIC_ENABLE_PRO_DRAFTER`) desincronizados, haría que el panel leyera campos `undefined` sin que TypeScript lo marcara. Resuelto con una unión discriminada real: `ProRecommendationsResponse = ProDrafterResponse | LegacySuggestionSetResponse` (el segundo shape, mínimo a propósito -- solo `schema` + `hero/rank/score`, NUNCA importa `SuggestionSet`/`SignalId` reales de `apps/engine`, regla dura de este mismo archivo), `isProDrafterSchema()` como type guard sobre el campo `schema` (ya discriminante en ambos shapes reales), y `toProDrafterView()` normaliza las dos formas a una sola vista antes de que `ProDrafterPanel` toque un campo. En la rama legacy: `engineVersion:"v5"`, `fallbackApplied:true` (honesto aunque la causa real sea distinta de un fallback en tiempo de ejecución -- Pro-Drafter ni se intentó, el flag está apagado -- el efecto observable para el usuario es idéntico: esto no salió de Pro-Drafter), y las sugerencias reales de v5 SÍ se muestran (hero/rank/score), solo sin desglose de señales (`signals: []` -- v5 usa `SignalId`, vocabulario disjunto de `ProSignalId`, mostrar 5 señales con nombres de v5 dentro de un panel rotulado "Pro-Drafter" confundiría más de lo que aclara). `engine-api.ts` cambia el genérico de la mutation de `ProDrafterResponse` a `ProRecommendationsResponse` (1 línea + 1 import) -- sin este cambio, el resto del arreglo es cosmético: el tipo declarado seguiría mintiendo. **Badge de motor** (`ProDrafterEngineBadge`, definido inline en `ProDrafterPanel.tsx`, mismo patrón que `ProSuggestionRow` ya existente -- no cada subcomponente pequeño gana su propio archivo): "Pro-Drafter (KNN 5v5)" en `--signal-positive`, "Fallback (v5)" en `--signal-warning` -- nunca colores sueltos, taxonomía semántica de `web.md`. Color-por-estado resuelto con una función nombrada (`engineBadgeClassName`, if/return) en vez de un ternario inline, mismo patrón ya establecido en `DraftPathCard`/`DraftHeroSlot`/etc. (`cardClassName`, `slotClassName`...) -- nunca un ternario de renderizado condicional (regla dura de `web.md`). Marca de caché (punto 2, opcional): pill mudo "Caché" con `border-surface-border`/`text-content-muted`, solo si `cache_hit`. **Tests nuevos** (`types.test.ts`, `apps/web`, 3 casos): shape real de Pro-Drafter conserva sus 3 campos tal cual; shape legacy v5 normaliza a `engine_version:"v5"` sin lanzar y sin perder las sugerencias reales; el shape legacy nunca fabrica señales de Pro-Drafter que v5 no calculó (`signals: []`, no un valor inventado). `bun test`: 422/422 en `apps/engine` (7 casos existentes, 2 con aserción nueva de `engine_version`), 140/140 en `apps/web` (137 antes + 3 nuevos). `tsc --noEmit` limpio en las dos apps. **Governance 2.0 (TSK-092) ya había bajado el límite de 3 archivos/tarea de bloqueo a aviso** -- este bloque toca 6 (`pro-drafter.ts`+test en `apps/engine`; `types.ts`+`types.test.ts`+`ProDrafterPanel.tsx`+`engine-api.ts` en `apps/web`), `verify-simplicity.sh` lo señala como aviso informativo ("Commit grande... verifica si es atómico"), no bloquea -- son genuinamente interdependientes (el badge no compila sin la unión de tipos, la unión no tiene sentido sin el caso legacy real), partirlos en 6 tareas separadas no bajaría el riesgo real, solo fragmentaría la revisión. **Traducción a producto**: esto significa que el panel experimental de Pro-Drafter ahora le dice al usuario, en tiempo real y sin ambigüedad, si lo que está viendo salió del motor KNN/lane-sim/denial o si cayó a v5 -- y sigue funcionando (mostrando sugerencias reales, no un error) incluso si alguien prende el flag del cliente sin prender el del motor, un desajuste de configuración real que antes de este bloque rompía en silencio. Sigue todo apagado por defecto -- nadie lo ve en producción real todavía.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T17:08</span></div>
-            <div class="feed-note">Fase 2 (Performance & Resiliencia del Servidor, sesión Gobernanza 2.0): cache-aside + fallback transparente a v5 sobre `POST /api/v1/draft/pro-recommendations` (`routes/pro-drafter.ts`, dark-launched tras `ENABLE_PRO_DRAFTER` desde TSK-091, sin cambiar ese gate). **Cache-aside**: `Map<string, {response, expiresAt}>` en memoria por instancia -- mismo criterio que `SessionStore` (TSK-055), TTL 5 min, tope duro de 200 entradas con desalojo LRU real (un hit borra+reinserta la entrada al final del Map, un overflow desaloja la primera). Clave = fingerprint de la COMBINACIÓN de héroes (`format|patch|localSide|banned ordenado|radiant ordenado|dire ordenado`) -- los ids se ordenan a propósito para que el mismo conjunto de héroes en distinto orden de pick sea el MISMO hit de caché, decisión de diseño explícita, probada con un test dedicado. **Fallback a v5**: `runProDrafterPipeline` se ejecuta envuelto en try/catch + medición de presupuesto (`PIPELINE_TIMEOUT_MS=200`); si lanza o el tiempo transcurrido supera el presupuesto, la respuesta cae a v5 real (`computeSuggestionsForState`, ya existente en `app.ts` desde TSK-048, inyectado como `computeV5Fallback` porque `pro-drafter.ts` no tiene `db`) con `fallback_applied: true`, siempre HTTP 200, nunca 500. **Limitación real, documentada en el propio código, no oculta**: `runProDrafterPipeline` es síncrono -- JS de un solo hilo no puede interrumpirlo a mitad de cálculo sin workers (que este proyecto no tiene). El "timeout" mide el tiempo YA transcurrido después de que la llamada terminó, no la corta en vivo; lo que sí garantiza sin ambigüedad es que el CLIENTE nunca recibe una respuesta que se pasó del presupuesto -- si se pasó, se descarta igual y cae a v5, mismo resultado observable que un timeout preventivo real. Los tipos de señal de v5 (`SignalId`: position_fit/team_synergy/counter/patch_meta/hero_pool_fit) y Pro-Drafter (`PipelineSignalId`: knn_similarity/lane_score/denial_score) son vocabularios disjuntos ya documentados como tales (`web.md`) -- una sugerencia de fallback nunca fabrica un valor Pro-Drafter que v5 no calculó, viaja con `signals: []`. **Hallazgo real durante el gate, no anticipado**: el test nuevo (`pro-drafter.test.ts`) importaba `PipelineCandidateResult` desde `pipeline/run-pipeline` solo para tipar un fixture -- eso rompió la prueba de aislamiento de evt-099/evt-100 (`run-pipeline.test.ts`: "exactamente un archivo bajo `server/` importa `pipeline/`"), que ahora veía DOS (`routes/pro-drafter.ts` + el test nuevo). Corregido quitando los imports de tipo (`PipelineCandidateResult`, `SuggestionSet`) y dejando que TypeScript verifique la forma por *contextual typing* contra `ProDrafterRouteDeps` -- el chequeo estructural no necesita el nombre del tipo importado, la invariante real ("solo el punto de entrada deliberado toca `pipeline/`") queda intacta. **Tests nuevos** (`pro-drafter.test.ts`, 7 casos, `runPipeline`/`computeV5Fallback`/`now` inyectados, nunca corpus/hero-positions/pesos/perfiles reales en las aserciones aunque se cargan de verdad al construir la ruta -- mismo hueco preexistente que ya tenían `corpus`/`weights`/`profiles` sin inyección completa, no introducido ni corregido acá): cache miss inicial calcula (1 llamada al pipeline), un pedido idéntico repetido es cache hit (0 llamadas nuevas), dos rosters distintos no comparten entrada, el MISMO conjunto de héroes en otro orden SÍ comparte entrada (fingerprint ordena ids), excepción del pipeline → fallback con 200 (no 500), timeout simulado vía reloj inyectado (`now` fuerza 250ms medidos sin esperar de verdad) → fallback, y fallback sin `computeV5Fallback` inyectado → `suggestions: []` sin lanzar. **Latencia real medida** (corpus/pipeline reales, no fixtures, script descartable fuera del repo): primera solicitud (cache miss, pipeline completo) 27.21ms; segunda solicitud idéntica (cache hit) **0.17ms** -- muy por debajo del objetivo de <50ms pedido. `bun test`: 422/422 en `apps/engine` (415/415 antes + 7 nuevos), 137/137 en `apps/web` sin cambios. `tsc --noEmit` limpio. 3 archivos (`app.ts`: 1 línea de wiring, inyecta `computeV5Fallback` aprovechando que es una `function` declaration hoisted dentro de `createApp`; `routes/pro-drafter.ts`: +106 líneas netas; `pro-drafter.test.ts`: 177 líneas, dentro del presupuesto de test 200-350) -- sin necesidad de excepción de simplicidad. **Fuera de alcance a propósito, pedido explícito del usuario ("antes de la UI")**: el espejo de tipos en `apps/web/features/pro-drafter/types.ts` (`ProDrafterResponse`) no gana `fallback_applied`/`cache_hit` en este bloque -- son campos aditivos, no rompen el consumo actual (ningún campo existente cambió de forma), pero el panel (`ProDrafterPanel.tsx`) tampoco los muestra todavía; property real para un ticket propio si se quiere superficie visual de cuándo el motor cayó a v5. **Traducción a producto**: esto significa que ahora el endpoint experimental de Pro-Drafter responde casi instantáneo ante rosters repetidos (cache) y nunca deja a un usuario sin sugerencias si el pipeline KNN/lane-sim/denial falla o se demora -- cae solo a v5, invisible, sin error visible -- pero todavía apagado por defecto (`ENABLE_PRO_DRAFTER`), nadie lo ve en producción real todavía.</div>
           </div>
         </div></div>
     </div>
