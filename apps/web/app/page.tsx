@@ -13,8 +13,11 @@ export default function Home() {
         propio pool de héroes.
       </span>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <Link href="/draft" className={BUTTON_PRIMARY}>
-          Ver el draft en vivo
+        <Link href="/simulator" className={BUTTON_PRIMARY}>
+          Abrir el simulador de draft
+        </Link>
+        <Link href="/live-draft" className={BUTTON_SECONDARY}>
+          Abrir el draft en vivo
         </Link>
         <Link href="/hero-pool" className={BUTTON_SECONDARY}>
           Configurar mi pool de héroes

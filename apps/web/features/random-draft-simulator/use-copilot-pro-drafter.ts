@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { isProDrafterEnabled } from "@/app/draft/live-config";
+import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { buildProDrafterRequest, toProDrafterView } from "@/features/pro-drafter/types";

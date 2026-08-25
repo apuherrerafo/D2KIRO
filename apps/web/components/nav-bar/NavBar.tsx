@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface NavLinkDef {
   href: string;
@@ -9,16 +10,20 @@ interface NavLinkDef {
 }
 
 export function buildNavLinks(draftLiveEnabled: boolean): NavLinkDef[] {
-  const draftLabel = draftLiveEnabled ? "Draft" : "Draft local";
+  const draftLabel = draftLiveEnabled ? "Draft en vivo" : "Draft en vivo local";
   return [
-    { href: "/draft", label: draftLabel },
-    { href: "/random-draft", label: "Simulador" },
+    { href: "/simulator", label: "Simulador de Draft" },
+    { href: "/live-draft", label: draftLabel },
     { href: "/hero-pool", label: "Mi pool" },
     { href: "/team-groups", label: "Equipos" },
     { href: "/heroes", label: "Héroes" },
     { href: "/meta", label: "Meta" },
     { href: "/settings", label: "Configuración" },
   ];
+}
+
+export function accountLabel(accountId: number | null): string {
+  return accountId === null ? "Mi cuenta" : `Cuenta · ${accountId}`;
 }
 
 const NAV_LINK_BASE =
@@ -42,6 +47,14 @@ interface NavBarProps {
 export function NavBar({ draftLiveEnabled }: NavBarProps) {
   const pathname = usePathname();
   const navLinks = buildNavLinks(draftLiveEnabled);
+  const [accountId, setAccountId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/engine/api/account", { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<{ steamAccountId: number }> : null)
+      .then((account) => setAccountId(account?.steamAccountId ?? null))
+      .catch(() => setAccountId(null));
+  }, []);
 
   return (
     <nav className="flex items-center gap-1 border-b border-surface-border bg-surface-raised px-4">
@@ -53,6 +66,9 @@ export function NavBar({ draftLiveEnabled }: NavBarProps) {
           {link.label}
         </Link>
       ))}
+      <Link href="/settings" className="ml-auto px-3 py-2 text-caption text-content-secondary hover:text-content-primary">
+        {accountLabel(accountId)}
+      </Link>
     </nav>
   );
 }

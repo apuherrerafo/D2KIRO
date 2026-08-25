@@ -1,4 +1,4 @@
-import { CURRENT_PATCH } from "@/app/draft/live-config";
+import { CURRENT_PATCH } from "@/app/live-draft/live-config";
 import { postManualEvent } from "./manual-entry";
 import type { DraftState } from "./types";
 

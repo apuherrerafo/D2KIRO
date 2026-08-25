@@ -2,8 +2,8 @@
 
 import { useState, type ChangeEvent } from "react";
 import Link from "next/link";
+import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
-import { HeroPicker } from "@/components/hero-picker/HeroPicker";
 import {
   useCalculateHeroPoolMutation,
   useGetHeroesQuery,
@@ -83,6 +83,8 @@ export function HeroPoolConfig() {
   // manda y un refetch de RTK Query en segundo plano nunca la pisa sola.
   const entries = draftEntries ?? savedPool ?? [];
   const poolIsFull = entries.length >= MAX_POOL_SIZE;
+  const activeHeroIds = new Set(entries.map((entry) => entry.hero));
+  const dimmedHeroIds = new Set(heroes.filter((hero) => !activeHeroIds.has(hero.id)).map((hero) => hero.id));
 
   function handleWindowDaysChange(event: ChangeEvent<HTMLSelectElement>) {
     setWindowDays(Number(event.target.value));
@@ -173,69 +175,74 @@ export function HeroPoolConfig() {
       {poolError && <span className="text-body text-signal-negative">No se pudo cargar tu pool de héroes.</span>}
 
       {!poolLoading && !poolError && (
-        <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-          {entries.length === 0 && <span className="text-caption text-content-muted">{EMPTY_POOL_MESSAGE}</span>}
+        <>
+          <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-raised p-4">
+            <span className="text-body text-content-primary">Calcular desde mis partidas</span>
+            <label className="flex items-center gap-2 text-caption text-content-secondary">
+              Ventana de partidas
+              <select
+                value={windowDays}
+                onChange={handleWindowDaysChange}
+                className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+              >
+                {CALCULATE_WINDOW_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    Últimos {option} días
+                  </option>
+                ))}
+              </select>
+            </label>
+            <CalculateStatusMessage status={calculateStatus} />
+            <button type="button" onClick={handleCalculate} disabled={isCalculating} className={BUTTON_SECONDARY}>
+              {isCalculating ? "Calculando..." : "Calcular desde mis partidas"}
+            </button>
+            {calculateStatus.kind === "proposal" && (
+              <HeroPoolProposalReview
+                result={calculateStatus.result}
+                heroes={heroes}
+                onConfirm={handleConfirmProposal}
+                onEdit={handleEditProposal}
+                onDiscard={handleDiscardProposal}
+                isConfirming={isSaving}
+              />
+            )}
+          </div>
 
-          {entries.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {entries.map((entry) => (
-                <HeroPoolRow key={entry.hero} entry={entry} hero={findHero(heroes, entry.hero)} onRemove={handleRemove} />
-              ))}
+          <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-body text-content-primary">Mi selección manual</span>
+              <span className="text-caption text-content-muted">Pool activo · {entries.length}/{MAX_POOL_SIZE}</span>
             </div>
-          )}
-
-          {poolIsFull && <span className="text-caption text-content-muted">{POOL_FULL_MESSAGE}</span>}
-          {!poolIsFull && !heroesLoading && <HeroPicker heroes={heroes} onSelect={handleAdd} />}
-
-          {saveMessage && <span className="text-caption text-content-secondary">{saveMessage}</span>}
-          <button type="button" onClick={handleSave} disabled={isSaving} className={BUTTON_PRIMARY}>
-            Guardar
-          </button>
-          {saveMessage === POOL_SAVED_MESSAGE && (
-            <Link href="/draft" className={BUTTON_SECONDARY}>
-              Ver el draft en vivo
-            </Link>
-          )}
-        </div>
+            {entries.length === 0 && <span className="text-caption text-content-muted">{EMPTY_POOL_MESSAGE}</span>}
+            {entries.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {entries.map((entry) => (
+                  <HeroPoolRow key={entry.hero} entry={entry} hero={findHero(heroes, entry.hero)} onRemove={handleRemove} />
+                ))}
+              </div>
+            )}
+            {poolIsFull && <span className="text-caption text-content-muted">{POOL_FULL_MESSAGE}</span>}
+            {!heroesLoading && (
+              <HeroGrid
+                heroes={heroes}
+                onSelect={handleAdd}
+                highlightedHeroIds={activeHeroIds}
+                dimmedHeroIds={dimmedHeroIds}
+                rosterFull={poolIsFull}
+              />
+            )}
+            {saveMessage && <span className="text-caption text-content-secondary">{saveMessage}</span>}
+            <button type="button" onClick={handleSave} disabled={isSaving} className={BUTTON_PRIMARY}>
+              Guardar
+            </button>
+            {saveMessage === POOL_SAVED_MESSAGE && (
+              <Link href="/live-draft" className={BUTTON_SECONDARY}>
+                Ver el draft en vivo
+              </Link>
+            )}
+          </div>
+        </>
       )}
-
-      <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-raised p-4">
-        <span className="text-body text-content-primary">Calcular desde mis partidas</span>
-        <label className="flex items-center gap-2 text-caption text-content-secondary">
-          Ventana de partidas
-          <select
-            value={windowDays}
-            onChange={handleWindowDaysChange}
-            className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
-          >
-            {CALCULATE_WINDOW_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                Últimos {option} días
-              </option>
-            ))}
-          </select>
-        </label>
-        <CalculateStatusMessage status={calculateStatus} />
-        <button
-          type="button"
-          onClick={handleCalculate}
-          disabled={isCalculating}
-          className={BUTTON_SECONDARY}
-        >
-          {isCalculating ? "Calculando..." : "Calcular desde mis partidas"}
-        </button>
-
-        {calculateStatus.kind === "proposal" && (
-          <HeroPoolProposalReview
-            result={calculateStatus.result}
-            heroes={heroes}
-            onConfirm={handleConfirmProposal}
-            onEdit={handleEditProposal}
-            onDiscard={handleDiscardProposal}
-            isConfirming={isSaving}
-          />
-        )}
-      </div>
     </main>
   );
 }

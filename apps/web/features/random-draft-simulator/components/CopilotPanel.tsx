@@ -3,7 +3,7 @@
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { ProDrafterEngineBadge, ProSuggestionRow } from "@/components/pro-drafter-panel/ProDrafterPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
-import { isProDrafterEnabled } from "@/app/draft/live-config";
+import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 import { DEGRADATION_LABELS } from "@/features/draft/constants";
 import type { DraftState, SuggestionSet } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";

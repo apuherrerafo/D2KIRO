@@ -59,7 +59,7 @@ export interface CompactBoardProps {
   localSide: TeamSide | "unknown";
   heroCatalog: Map<number, HeroMeta>;
   // TSK-086: columna central opcional -- por defecto (ausente) es el resumen de bans de siempre,
-  // comportamiento idéntico al de antes. `/draft` nunca pasa este prop. `/random-draft` lo usa
+  // comportamiento idéntico al de antes. `/live-draft` nunca pasa este prop. `/simulator` lo usa
   // para mostrar ahí el timer de la ronda en vez de bans (que ya viven, con más detalle, en
   // BanPhasePanel) -- mismo criterio de paridad visual con la pantalla real de All Pick de Dota.
   centerContent?: ReactNode;
@@ -82,7 +82,7 @@ function DefaultCenterContent({ banned, heroCatalog }: { banned: HeroId[]; heroC
 // <Dominio><Cosa>: franja superior fija -- resumen de contexto (quién pickeó qué, qué se baneó),
 // no el tablero completo. `DraftBoard` sigue existiendo tal cual para donde ya se usa; esto es un
 // componente nuevo, más chico, pensado para vivir arriba de la grilla sin competir por altura.
-// TSK-085: exportado -- /random-draft lo reusa tal cual para mostrar los picks persistentes de
+// TSK-085: exportado -- /simulator lo reusa tal cual para mostrar los picks persistentes de
 // rondas anteriores (antes no se veían más después de pasar de ronda, aunque el DraftState real
 // sí los conservaba -- era un hueco de renderizado, no de datos).
 export function CompactBoard({ banned, picks, localSide, heroCatalog, centerContent }: CompactBoardProps) {

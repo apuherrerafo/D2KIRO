@@ -34,25 +34,31 @@ describe("cellState", () => {
   test("un héroe sugerido se marca isSuggested sin estar deshabilitado", () => {
     const state = cellState(1, new Set([1]), new Set());
 
-    expect(state).toEqual({ isSuggested: true, isUnavailable: false });
+    expect(state).toEqual({ isSuggested: true, isUnavailable: false, isDimmed: false });
   });
 
   test("un héroe ya baneado/pickeado se marca isUnavailable, aunque también esté sugerido", () => {
     const state = cellState(1, new Set([1]), new Set([1]));
 
-    expect(state).toEqual({ isSuggested: true, isUnavailable: true });
+    expect(state).toEqual({ isSuggested: true, isUnavailable: true, isDimmed: false });
   });
 
   test("un héroe sin ninguna marca no es ni sugerido ni no disponible", () => {
     const state = cellState(1, new Set(), new Set());
 
-    expect(state).toEqual({ isSuggested: false, isUnavailable: false });
+    expect(state).toEqual({ isSuggested: false, isUnavailable: false, isDimmed: false });
   });
 
   test("rosterFull deshabilita incluso un héroe que no está tomado ni sugerido", () => {
     const state = cellState(99, new Set(), new Set(), true);
 
-    expect(state).toEqual({ isSuggested: false, isUnavailable: true });
+    expect(state).toEqual({ isSuggested: false, isUnavailable: true, isDimmed: false });
+  });
+
+  test("un héroe fuera del pool manual se atenúa sin quedar bloqueado", () => {
+    const state = cellState(99, new Set(), new Set(), false, new Set([99]));
+
+    expect(state).toEqual({ isSuggested: false, isUnavailable: false, isDimmed: true });
   });
 });
 

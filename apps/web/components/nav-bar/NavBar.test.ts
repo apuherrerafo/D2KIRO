@@ -1,31 +1,40 @@
 import { describe, expect, test } from "bun:test";
-import { buildNavLinks } from "./NavBar";
+import { accountLabel, buildNavLinks } from "./NavBar";
 
 describe("buildNavLinks", () => {
-  test("con draft habilitado conserva el link Draft normal", () => {
-    const draftLink = buildNavLinks(true).find((link) => link.href === "/draft");
+  test("con draft habilitado expone Draft en vivo en su ruta explícita", () => {
+    const draftLink = buildNavLinks(true).find((link) => link.href === "/live-draft");
 
-    expect(draftLink?.label).toBe("Draft");
+    expect(draftLink?.label).toBe("Draft en vivo");
   });
 
-  test("con draft apagado el NavBar refleja que el draft es local", () => {
-    const draftLink = buildNavLinks(false).find((link) => link.href === "/draft");
+  test("con draft apagado el NavBar conserva que el draft en vivo es local", () => {
+    const draftLink = buildNavLinks(false).find((link) => link.href === "/live-draft");
 
-    expect(draftLink?.label).toBe("Draft local");
+    expect(draftLink?.label).toBe("Draft en vivo local");
   });
 
-  test("incluye un acceso directo a /random-draft -- antes solo era accesible tipeando la URL", () => {
-    const randomDraftLink = buildNavLinks(true).find((link) => link.href === "/random-draft");
+  test("prioriza el Simulador de Draft en su ruta explícita", () => {
+    const randomDraftLink = buildNavLinks(true).find((link) => link.href === "/simulator");
 
-    expect(randomDraftLink?.label).toBe("Simulador");
+    expect(randomDraftLink?.label).toBe("Simulador de Draft");
   });
 
-  // Fase 4 (limpieza de UX, sesión Gobernanza 2.0): /simulator (el simulador viejo, sin bot, sin
-  // mecánica de partida real) se eliminó -- /random-draft pasa a ser el único simulador, por eso
-  // pierde el sufijo "AP" (ya no hay ambigüedad con qué otra cosa comparar).
-  test("ya no incluye el simulador viejo (/simulator) -- consolidado en un solo simulador", () => {
-    const oldSimulatorLink = buildNavLinks(true).find((link) => link.href === "/simulator");
+  test("no expone las rutas ambiguas anteriores", () => {
+    const oldDraftLink = buildNavLinks(true).find((link) => link.href === "/draft");
+    const oldSimulatorLink = buildNavLinks(true).find((link) => link.href === "/random-draft");
 
+    expect(oldDraftLink).toBeUndefined();
     expect(oldSimulatorLink).toBeUndefined();
+  });
+});
+
+describe("accountLabel", () => {
+  test("muestra el Steam32 activo sin nombre ni avatar externos", () => {
+    expect(accountLabel(35488109)).toBe("Cuenta · 35488109");
+  });
+
+  test("conserva una etiqueta neutra mientras carga la cuenta", () => {
+    expect(accountLabel(null)).toBe("Mi cuenta");
   });
 });

@@ -42,15 +42,21 @@ export function cellState(
   highlightedHeroIds: ReadonlySet<HeroId>,
   unavailableHeroIds: ReadonlySet<HeroId>,
   rosterFull = false,
-): { isSuggested: boolean; isUnavailable: boolean } {
-  return { isSuggested: highlightedHeroIds.has(heroId), isUnavailable: unavailableHeroIds.has(heroId) || rosterFull };
+  dimmedHeroIds: ReadonlySet<HeroId> = EMPTY_HERO_IDS,
+): { isSuggested: boolean; isUnavailable: boolean; isDimmed: boolean } {
+  return {
+    isSuggested: highlightedHeroIds.has(heroId),
+    isUnavailable: unavailableHeroIds.has(heroId) || rosterFull,
+    isDimmed: dimmedHeroIds.has(heroId),
+  };
 }
 
-function cellClassName(isSuggested: boolean, isUnavailable: boolean): string {
+function cellClassName(isSuggested: boolean, isUnavailable: boolean, isDimmed: boolean): string {
   const base =
     "flex flex-col items-center gap-1 rounded-md p-1 text-center transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary disabled:cursor-not-allowed";
   if (isUnavailable) return `${base} opacity-40 grayscale`;
   if (isSuggested) return `${base} ring-2 ring-accent-primary shadow-[0_0_12px_var(--accent-primary)] hover:scale-105`;
+  if (isDimmed) return `${base} opacity-40 hover:opacity-80`;
   return `${base} hover:scale-105 hover:ring-1 hover:ring-surface-border`;
 }
 
@@ -58,13 +64,14 @@ interface HeroGridCellProps {
   hero: HeroMeta;
   isSuggested: boolean;
   isUnavailable: boolean;
+  isDimmed: boolean;
   onSelect: (heroId: HeroId) => void;
 }
 
 // TSK-070: deshabilitado (no oculto) cuando ya está baneado/pickeado -- mismo criterio que
 // HeroPickerRow, `disabled` real en el <button> como única fuente de verdad de "no se puede
 // elegir", nunca solo un estilo.
-function HeroGridCell({ hero, isSuggested, isUnavailable, onSelect }: HeroGridCellProps) {
+function HeroGridCell({ hero, isSuggested, isUnavailable, isDimmed, onSelect }: HeroGridCellProps) {
   function handleClick() {
     onSelect(hero.id);
   }
@@ -74,7 +81,7 @@ function HeroGridCell({ hero, isSuggested, isUnavailable, onSelect }: HeroGridCe
       onClick={handleClick}
       disabled={isUnavailable}
       title={hero.localizedName}
-      className={cellClassName(isSuggested, isUnavailable)}
+      className={cellClassName(isSuggested, isUnavailable, isDimmed)}
     >
       <HeroIcon imgUrl={hero.imgUrl} alt={hero.localizedName} size={48} />
       <span className="w-full truncate text-caption text-content-secondary">{hero.localizedName}</span>
@@ -87,18 +94,19 @@ interface AttributeColumnProps {
   heroes: HeroMeta[];
   highlightedHeroIds: ReadonlySet<HeroId>;
   unavailableHeroIds: ReadonlySet<HeroId>;
+  dimmedHeroIds: ReadonlySet<HeroId>;
   rosterFull: boolean;
   onSelect: (heroId: HeroId) => void;
 }
 
-function AttributeColumn({ attribute, heroes, highlightedHeroIds, unavailableHeroIds, rosterFull, onSelect }: AttributeColumnProps) {
+function AttributeColumn({ attribute, heroes, highlightedHeroIds, unavailableHeroIds, dimmedHeroIds, rosterFull, onSelect }: AttributeColumnProps) {
   return (
     <div className="flex flex-col gap-2">
       <span className="text-caption font-semibold uppercase tracking-wide text-content-muted">{ATTRIBUTE_LABELS[attribute]}</span>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {heroes.map((hero) => {
-          const state = cellState(hero.id, highlightedHeroIds, unavailableHeroIds, rosterFull);
-          return <HeroGridCell key={hero.id} hero={hero} isSuggested={state.isSuggested} isUnavailable={state.isUnavailable} onSelect={onSelect} />;
+          const state = cellState(hero.id, highlightedHeroIds, unavailableHeroIds, rosterFull, dimmedHeroIds);
+          return <HeroGridCell key={hero.id} hero={hero} isSuggested={state.isSuggested} isUnavailable={state.isUnavailable} isDimmed={state.isDimmed} onSelect={onSelect} />;
         })}
       </div>
     </div>
@@ -116,6 +124,9 @@ export interface HeroGridProps {
   // Mismo patrón que HeroPicker.unavailableHeroIds (TSK-070) -- opcional a propósito, componente
   // atómico reutilizable fuera del draft en vivo.
   unavailableHeroIds?: ReadonlySet<HeroId>;
+  // HeroPoolConfig lo usa para distinguir visualmente el pool activo sin impedir que el usuario
+  // elija otro héroe. A diferencia de unavailableHeroIds, esta marca es solo presentación.
+  dimmedHeroIds?: ReadonlySet<HeroId>;
   // RCA post-TSK-076 (TSK-079): guardrail de UI -- el lado activo ya tiene 5 picks, ningún clic va
   // a lograr nada. Default false para los consumidores que no tienen este concepto (config/pool).
   rosterFull?: boolean;
@@ -130,6 +141,7 @@ export function HeroGrid({
   onSelect,
   highlightedHeroIds = EMPTY_HERO_IDS,
   unavailableHeroIds = EMPTY_HERO_IDS,
+  dimmedHeroIds = EMPTY_HERO_IDS,
   rosterFull = false,
 }: HeroGridProps) {
   const groups = groupHeroesByAttribute(heroes);
@@ -142,6 +154,7 @@ export function HeroGrid({
           heroes={groups[attribute]}
           highlightedHeroIds={highlightedHeroIds}
           unavailableHeroIds={unavailableHeroIds}
+          dimmedHeroIds={dimmedHeroIds}
           rosterFull={rosterFull}
           onSelect={onSelect}
         />
