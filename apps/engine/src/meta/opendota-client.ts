@@ -1,5 +1,6 @@
 const BASE_URL = "https://api.opendota.com/api";
 const RETRY_DELAYS_MS = [1000, 4000, 16000];
+const REQUEST_TIMEOUT_MS = 10_000;
 
 type FetchImpl = typeof fetch;
 
@@ -98,7 +99,7 @@ export class OpenDotaClient {
 
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
       try {
-        response = await this.fetchImpl(url);
+        response = await this.fetchImpl(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
         lastError = undefined;
       } catch (error) {
         lastError = error;

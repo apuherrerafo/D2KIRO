@@ -13,7 +13,7 @@ import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positi
 // apps/web/app/draft/live-config.ts (mismo patrón que el espejo de SignalId, web.md) -- los dos
 // procesos son independientes a propósito, actualizar el parche real es un cambio en los dos
 // lados a la vez.
-const CURRENT_PATCH = "7.41e";
+export const CURRENT_PATCH = "7.41e";
 
 // TSK-058: extraído de apps/engine/src/server/app.ts (hallazgo 2.1 de "Radiografía de
 // dota2coach", parte 3/3 -- ver TSK-056 para contexto completo). Mismo comportamiento exacto,
@@ -33,6 +33,7 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
     const [lastAttempt] = deps.db.select().from(metaSync).orderBy(desc(metaSync.id)).limit(1).all();
     return Response.json({
       syncedAt: freshness.syncedAt,
+      lastUpdatedAt: freshness.syncedAt,
       isStale: freshness.isStale,
       lastSync: lastAttempt ? { status: lastAttempt.status, finishedAt: lastAttempt.finishedAt, error: lastAttempt.error } : null,
     });

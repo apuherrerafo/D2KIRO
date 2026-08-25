@@ -31,6 +31,19 @@ test("getHeroes reintenta tras 429 y devuelve el resultado cuando OpenDota respo
   expect(sleeps).toEqual([1000, 4000]);
 });
 
+test("cada petición a OpenDota lleva un timeout para que una sincronización no quede running", async () => {
+  let signal: AbortSignal | undefined;
+  const client = new OpenDotaClient({
+    fetchImpl: (async (_url: string, init?: RequestInit) => {
+      signal = init?.signal ?? undefined;
+      return jsonResponse([]);
+    }) as typeof fetch,
+  });
+
+  await client.getHeroes();
+  expect(signal).toBeInstanceOf(AbortSignal);
+});
+
 test("getHeroes agota los 3 reintentos y lanza OpenDotaRequestError si OpenDota sigue en 429", async () => {
   const fetchImpl = (async () => jsonResponse({}, 429)) as unknown as typeof fetch;
   const sleeps: number[] = [];
