@@ -304,20 +304,25 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return simulatorRoutes.stateGet(simulatorSessionId);
     }
     if (request.method === "GET" && url.pathname === "/api/team-groups") {
-      return teamGroupRoutes.list();
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.list(auth.accountId) : auth.response;
     }
     if (request.method === "POST" && url.pathname === "/api/team-groups") {
-      return teamGroupRoutes.post(request);
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.post(request, auth.accountId) : auth.response;
     }
     const teamGroupId = teamGroupRoutes.parseId(url.pathname);
     if (teamGroupId !== null && request.method === "GET") {
-      return teamGroupRoutes.get(teamGroupId);
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.get(teamGroupId, auth.accountId) : auth.response;
     }
     if (teamGroupId !== null && request.method === "PUT") {
-      return teamGroupRoutes.put(request, teamGroupId);
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.put(request, teamGroupId, auth.accountId) : auth.response;
     }
     if (teamGroupId !== null && request.method === "DELETE") {
-      return teamGroupRoutes.delete(teamGroupId);
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.delete(teamGroupId, auth.accountId) : auth.response;
     }
     const draftPathsSessionId = draftPathsRoutes.parseSessionId(url.pathname);
     if (draftPathsSessionId !== null && request.method === "GET") {

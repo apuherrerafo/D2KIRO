@@ -58,10 +58,10 @@ function isValidTeamGroupPutBody(value: unknown): value is TeamGroupPutBody {
   return slots.every((slot) => slot >= 1 && slot < partySize);
 }
 
-function teamBodyToWriteRow(body: TeamGroupPutBody): TeamGroupWriteRow {
+function teamBodyToWriteRow(body: TeamGroupPutBody, accountId: number): TeamGroupWriteRow {
   const updatedAt = new Date().toISOString();
   return {
-    name: body.name.trim(),
+    accountId, name: body.name.trim(),
     partySize: body.partySize,
     updatedAt,
     members: body.members.map((member) => ({ slot: member.slot, name: member.name.trim(), heroPool: member.heroPool, updatedAt })),
@@ -81,32 +81,32 @@ export function createTeamGroupRoutes<TSchema extends Record<string, unknown>>(d
     return body;
   }
 
-  function list(): Response {
-    return Response.json(getTeamGroups(deps.db));
+  function list(accountId: number): Response {
+    return Response.json(getTeamGroups(deps.db, accountId));
   }
 
-  function get(id: number): Response {
-    const group = getTeamGroup(deps.db, id);
+  function get(id: number, accountId: number): Response {
+    const group = getTeamGroup(deps.db, id, accountId);
     if (!group) return Response.json({ error: "not_found" }, { status: 404 });
     return Response.json(group);
   }
 
-  async function post(request: Request): Promise<Response> {
+  async function post(request: Request, accountId: number): Promise<Response> {
     const body = await readTeamGroupBody(request);
     if (!body) return Response.json({ error: "invalid_body" }, { status: 400 });
-    return Response.json(createTeamGroup(deps.db, teamBodyToWriteRow(body)), { status: 201 });
+    return Response.json(createTeamGroup(deps.db, teamBodyToWriteRow(body, accountId)), { status: 201 });
   }
 
-  async function put(request: Request, id: number): Promise<Response> {
+  async function put(request: Request, id: number, accountId: number): Promise<Response> {
     const body = await readTeamGroupBody(request);
     if (!body) return Response.json({ error: "invalid_body" }, { status: 400 });
-    const updated = replaceTeamGroup(deps.db, id, teamBodyToWriteRow(body));
+    const updated = replaceTeamGroup(deps.db, id, accountId, teamBodyToWriteRow(body, accountId));
     if (!updated) return Response.json({ error: "not_found" }, { status: 404 });
     return Response.json(updated, { status: 200 });
   }
 
-  function del(id: number): Response {
-    if (!deleteTeamGroup(deps.db, id)) return Response.json({ error: "not_found" }, { status: 404 });
+  function del(id: number, accountId: number): Response {
+    if (!deleteTeamGroup(deps.db, id, accountId)) return Response.json({ error: "not_found" }, { status: 404 });
     return new Response(null, { status: 204 });
   }
 

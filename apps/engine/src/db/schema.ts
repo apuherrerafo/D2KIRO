@@ -91,6 +91,7 @@ export const heroPool = sqliteTable(
 
 export const teamGroups = sqliteTable("team_groups", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  accountId: integer("account_id").references(() => accounts.steamAccountId),
   name: text("name").notNull(),
   partySize: integer("party_size").notNull().$type<1 | 2 | 3 | 5>(),
   updatedAt: text("updated_at").notNull(),

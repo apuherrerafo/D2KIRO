@@ -71,7 +71,7 @@ function createTestDb() {
       PRIMARY KEY (account_id, hero_id)
     );
     CREATE TABLE team_groups (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL,
       party_size INTEGER NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE TABLE team_members (
@@ -694,6 +694,19 @@ describe("cuentas HTTP multi-tenant (TSK-098)", () => {
   test("las rutas settings retiradas responden 404", async () => {
     expect((await fetch(`${baseUrl}/api/settings`)).status).toBe(404);
     expect((await fetch(`${baseUrl}/api/settings`, { method: "PUT" })).status).toBe(404);
+  });
+
+  test("equipos quedan aislados: otro dueño recibe 404 y no los lista", async () => {
+    const accountB = 333333333;
+    await fetch(`${baseUrl}/api/account`, { method: "POST", headers: accountHeader(accountB) });
+    const created = await fetch(`${baseUrl}/api/team-groups`, { method: "POST", headers: { ...accountHeader(999999999), "content-type": "application/json" }, body: JSON.stringify({ name: "Privado", partySize: 2, members: [{ slot: 1, name: "Ana", heroPool: [1] }] }) });
+    const group = await created.json() as { id: number };
+    expect(created.status).toBe(201);
+    expect(await (await fetch(`${baseUrl}/api/team-groups`, { headers: accountHeader(accountB) })).json()).toEqual([]);
+    for (const method of ["GET", "PUT", "DELETE"]) {
+      const response = await fetch(`${baseUrl}/api/team-groups/${group.id}`, { method, headers: method === "PUT" ? { ...accountHeader(accountB), "content-type": "application/json" } : accountHeader(accountB), body: method === "PUT" ? JSON.stringify({ name: "No", partySize: 2, members: [{ slot: 1, name: "Ana", heroPool: [1] }] }) : undefined });
+      expect(response.status).toBe(404);
+    }
   });
 
   test("hello con token válido fija el dueño; token inválido se rechaza y no reasigna", async () => {

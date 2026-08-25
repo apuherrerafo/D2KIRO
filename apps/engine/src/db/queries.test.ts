@@ -57,6 +57,7 @@ function createTestDb() {
     );
     CREATE TABLE team_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER,
       name TEXT NOT NULL,
       party_size INTEGER NOT NULL,
       updated_at TEXT NOT NULL
@@ -79,6 +80,7 @@ function insertAccount(db: ReturnType<typeof createTestDb>, steamAccountId: numb
 
 test("getMatchupsForHero devuelve solo los enfrentamientos del héroe pedido", () => {
   const db = createTestDb();
+  insertAccount(db, 111);
 
   db.insert(heroes)
     .values([
@@ -273,7 +275,7 @@ test("createTeamGroup guarda un equipo con miembros y getTeamGroups lo lista com
   const db = createTestDb();
 
   const saved = createTeamGroup(db, {
-    name: "Stack viernes",
+    accountId: 111, name: "Stack viernes",
     partySize: 3,
     updatedAt: "2026-07-29",
     members: [
@@ -283,14 +285,15 @@ test("createTeamGroup guarda un equipo con miembros y getTeamGroups lo lista com
   });
 
   expect(saved.id).toBeGreaterThan(0);
-  expect(getTeamGroups(db)).toEqual([saved]);
-  expect(getTeamGroup(db, saved.id)).toEqual(saved);
+  expect(getTeamGroups(db, 111)).toEqual([saved]);
+  expect(getTeamGroup(db, saved.id, 111)).toEqual(saved);
 });
 
 test("replaceTeamGroup reemplaza datos y miembros completos", () => {
   const db = createTestDb();
+  insertAccount(db, 111);
   const saved = createTeamGroup(db, {
-    name: "Stack viernes",
+    accountId: 111, name: "Stack viernes",
     partySize: 3,
     updatedAt: "2026-07-29",
     members: [
@@ -299,8 +302,8 @@ test("replaceTeamGroup reemplaza datos y miembros completos", () => {
     ],
   });
 
-  const updated = replaceTeamGroup(db, saved.id, {
-    name: "Stack ranked",
+  const updated = replaceTeamGroup(db, saved.id, 111, {
+    accountId: 111, name: "Stack ranked",
     partySize: 2,
     updatedAt: "2026-07-30",
     members: [{ slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
@@ -308,23 +311,25 @@ test("replaceTeamGroup reemplaza datos y miembros completos", () => {
 
   expect(updated).toEqual({
     id: saved.id,
+    accountId: 111,
     name: "Stack ranked",
     partySize: 2,
     updatedAt: "2026-07-30",
-    members: [{ id: expect.any(Number), teamGroupId: saved.id, slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
+    members: [{ id: 3, teamGroupId: saved.id, slot: 1, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
   });
 });
 
 test("deleteTeamGroup borra el equipo y sus miembros", () => {
   const db = createTestDb();
+  insertAccount(db, 111);
   const saved = createTeamGroup(db, {
-    name: "Temporal",
+    accountId: 111, name: "Temporal",
     partySize: 2,
     updatedAt: "2026-07-29",
     members: [{ slot: 1, name: "Ana", heroPool: [1], updatedAt: "2026-07-29" }],
   });
 
-  expect(deleteTeamGroup(db, saved.id)).toBe(true);
-  expect(getTeamGroup(db, saved.id)).toBeNull();
-  expect(getTeamGroups(db)).toEqual([]);
+  expect(deleteTeamGroup(db, saved.id, 111)).toBe(true);
+  expect(getTeamGroup(db, saved.id, 111)).toBeNull();
+  expect(getTeamGroups(db, 111)).toEqual([]);
 });
