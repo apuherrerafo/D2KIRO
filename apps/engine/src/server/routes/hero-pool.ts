@@ -4,7 +4,7 @@ import { getHeroPool, getSoleAccountId, replaceHeroPool, type HeroPoolWriteRow }
 import { calculateProposedPool, type HeroPoolInputRow } from "../../hero-pool/calculate-pool";
 import { mapPlayerHero } from "../../meta/mappers";
 import type { OpenDotaClient } from "../../meta/opendota-client";
-import { invalidateMetaSnapshotCache } from "../../meta/provider";
+import { invalidateAccountMetaCache } from "../../meta/provider";
 import { isValidRawPlayerHero, isValidSteamAccountId } from "../../meta/validation";
 
 // TSK-056: extraído de apps/engine/src/server/app.ts (hallazgo 2.1 de "Radiografía de
@@ -110,9 +110,8 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
       updatedAt,
     }));
     replaceHeroPool(deps.db, accountId, rows);
-    // TSK-059: hero_pool_fit lee a través del mismo MetaSnapshot cacheado -- sin esto, un pool
-    // recién guardado seguiría invisible para las sugerencias hasta la próxima sincronización.
-    invalidateMetaSnapshotCache();
+    // TSK-096: solo el overlay de esta cuenta cambia; la meta compartida y los demás pools siguen cacheados.
+    invalidateAccountMetaCache(accountId);
 
     return Response.json(rows.map(toHeroPoolEntry), { status: 200 });
   }

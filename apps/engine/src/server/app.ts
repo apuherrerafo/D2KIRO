@@ -113,7 +113,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   async function computeSuggestionsForState(state: DraftState): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
     try {
-      meta = await getCachedMetaSnapshot(deps.db);
+      // TSK-098: reemplazar por el accountId de la sesión.
+      meta = await getCachedMetaSnapshot(deps.db, null);
     } catch {
       throw new SnapshotUnavailableError();
     }

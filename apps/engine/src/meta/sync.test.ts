@@ -157,9 +157,9 @@ test("syncMeta invalida la cache de MetaSnapshot al terminar (ok) -- la siguient
   const db = createTestDb();
   const client = new OpenDotaClient({ fetchImpl: fixtureFetch(), sleepImpl: async () => {} });
 
-  const before = await getCachedMetaSnapshot(db);
+  const before = await getCachedMetaSnapshot(db, null);
   const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [1] });
-  const after = await getCachedMetaSnapshot(db);
+  const after = await getCachedMetaSnapshot(db, null);
 
   expect(result.status).toBe("ok");
   expect(after).not.toBe(before);
@@ -175,9 +175,9 @@ test("syncMeta invalida la cache de MetaSnapshot incluso si la sync falla (escri
     sleepImpl: async () => {},
   });
 
-  const before = await getCachedMetaSnapshot(db);
+  const before = await getCachedMetaSnapshot(db, null);
   const result = await syncMeta(db, client, { patch: "7.36", heroIdsForMatchups: [] });
-  const after = await getCachedMetaSnapshot(db);
+  const after = await getCachedMetaSnapshot(db, null);
 
   expect(result.status).toBe("failed");
   expect(after).not.toBe(before);

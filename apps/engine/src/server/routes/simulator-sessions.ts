@@ -52,7 +52,7 @@ export function createSimulatorSessionRoutes<TSchema extends Record<string, unkn
     if (!session) return;
 
     const state = session.draftState;
-    const meta = await getCachedMetaSnapshot(deps.db);
+    const meta = await getCachedMetaSnapshot(deps.db, null);
     const freshness = await getMetaFreshness(deps.db);
     const suggestions = buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
     session.suggestions = suggestions;

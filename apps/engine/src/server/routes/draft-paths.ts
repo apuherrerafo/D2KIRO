@@ -37,7 +37,7 @@ export function createDraftPathsRoutes<TSchema extends Record<string, unknown>>(
 
   async function get(sessionId: string): Promise<Response> {
     const state = deps.sessionStore.get(sessionId);
-    const meta = await getCachedMetaSnapshot(deps.db);
+    const meta = await getCachedMetaSnapshot(deps.db, null);
     const capabilities = deps.heroCapabilities ?? loadHeroCapabilities();
     return Response.json(buildDraftPaths(state, meta, capabilities));
   }

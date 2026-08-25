@@ -1,12 +1,19 @@
 import { afterEach, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } from "../db/schema";
+import { accounts, heroes, heroMatchups, heroPatchStats, heroPool, metaSync } from "../db/schema";
 import { createIdleDraftState } from "../draft/reducer";
 import { heroPoolFitScorer } from "../signals/hero-pool-fit";
-import { buildMetaSnapshot, getCachedMetaSnapshot, getMetaFreshness, invalidateMetaSnapshotCache } from "./provider";
+import {
+  buildMetaSnapshot,
+  getCachedMetaSnapshot,
+  getMetaFreshness,
+  invalidateAccountMetaCache,
+  invalidateMetaSnapshotCache,
+} from "./provider";
 
-function createTestDb() {
+function createTestDb(onStatement?: (sql: string) => void) {
   const sqlite = new Database(":memory:");
   sqlite.exec(`
     CREATE TABLE heroes (
@@ -32,15 +39,28 @@ function createTestDb() {
       personal_winrate REAL, personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
       PRIMARY KEY (account_id, hero_id)
     );
-    CREATE TABLE settings (
-      key TEXT PRIMARY KEY, value TEXT NOT NULL
+    CREATE TABLE accounts (
+      steam_account_id INTEGER PRIMARY KEY, personal_baseline_winrate REAL,
+      created_at TEXT NOT NULL
     );
   `);
-  return drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings } });
+  const instrumentedSqlite = new Proxy(sqlite, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if ((property === "query" || property === "prepare") && typeof value === "function") {
+        return (sql: string, ...params: unknown[]) => {
+          onStatement?.(sql);
+          return Reflect.apply(value, target, [sql, ...params]);
+        };
+      }
+      return value;
+    },
+  });
+  return { db: drizzle(instrumentedSqlite, { schema: { accounts, heroes, heroMatchups, heroPatchStats, heroPool, metaSync } }), sqlite };
 }
 
 test("buildMetaSnapshot agrupa matchups y patchStats por heroId con la forma exacta esperada", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
   db.insert(heroes)
     .values({
       id: 1,
@@ -58,7 +78,7 @@ test("buildMetaSnapshot agrupa matchups y patchStats por heroId con la forma exa
     .values({ heroId: 1, patch: "7.36", bracket: "archon", picks: 500, wins: 260, updatedAt: "2026-07-27" })
     .run();
 
-  const result = await buildMetaSnapshot(db);
+  const result = await buildMetaSnapshot(db, null);
 
   expect(result.heroes[1]).toEqual({ id: 1, localizedName: "Lina", roles: ["Support", "Nuker"] });
   expect(result.matchups[1]).toEqual([{ vsHero: 2, games: 300, wins: 150 }]);
@@ -72,9 +92,9 @@ test("buildMetaSnapshot agrupa matchups y patchStats por heroId con la forma exa
 // seed -- ese archivo se regenera aparte y una prueba atada a sus números se rompería en silencio
 // con cada actualización (mismo criterio que S9/S10, testing-seams.md).
 test("con todas las tablas vacías, buildMetaSnapshot no lanza; patchStats cae al fallback de seed, el resto queda vacío", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
 
-  const snapshot = await buildMetaSnapshot(db);
+  const snapshot = await buildMetaSnapshot(db, null);
 
   expect(snapshot.heroes).toEqual({});
   expect(snapshot.matchups).toEqual({});
@@ -90,47 +110,38 @@ test("con todas las tablas vacías, buildMetaSnapshot no lanza; patchStats cae a
 // TSK-059-bug: candado de regresión del hallazgo real -- buildMetaSnapshot nunca leía hero_pool
 // ni settings, así que hero_pool_fit quedaba `applicable: false` en todo draft real. Ver
 // journal.md evt-20260821-080 / TSK-064 para el contexto completo del hallazgo.
-test("buildMetaSnapshot incluye el hero pool real, traduciendo heroId -> hero (contrato de dominio)", async () => {
-  const db = createTestDb();
-  // TSK-095: accountId ya es obligatorio en el schema, pero buildMetaSnapshot(db) todavía no
-  // scopea por cuenta (eso es TSK-096) -- el valor en sí es irrelevante para esta prueba.
+test("buildMetaSnapshot incluye solo el hero pool de la cuenta solicitada", async () => {
+  const { db } = createTestDb();
+  db.insert(accounts).values({ steamAccountId: 1, createdAt: "2026-08-24" }).run();
   db.insert(heroPool)
     .values({ accountId: 1, heroId: 1, source: "calculated", personalWinrate: 0.62, personalGames: 40, updatedAt: "2026-08-21" })
     .run();
 
-  const result = await buildMetaSnapshot(db);
+  const result = await buildMetaSnapshot(db, 1);
 
   expect(result.heroPool).toEqual([{ hero: 1, source: "calculated", personalWinrate: 0.62, personalGames: 40, updatedAt: "2026-08-21" }]);
 });
 
-test("buildMetaSnapshot lee personal_baseline_winrate desde settings cuando existe", async () => {
-  const db = createTestDb();
-  db.insert(settings).values({ key: "personal_baseline_winrate", value: "0.52" }).run();
+test("buildMetaSnapshot lee el baseline personal de la cuenta solicitada", async () => {
+  const { db } = createTestDb();
+  db.insert(accounts).values({ steamAccountId: 1, personalBaselineWinrate: 0.52, createdAt: "2026-08-24" }).run();
 
-  const result = await buildMetaSnapshot(db);
+  const result = await buildMetaSnapshot(db, 1);
 
   expect(result.personalBaselineWinrate).toBe(0.52);
-});
-
-test("buildMetaSnapshot degrada a null si personal_baseline_winrate en settings no es un número válido", async () => {
-  const db = createTestDb();
-  db.insert(settings).values({ key: "personal_baseline_winrate", value: "no-es-un-numero" }).run();
-
-  const result = await buildMetaSnapshot(db);
-
-  expect(result.personalBaselineWinrate).toBeNull();
 });
 
 // TSK-059-bug: candado de punta a punta -- no solo que buildMetaSnapshot devuelva el pool, sino
 // que ese snapshot real (salido de SQLite, no un fixture armado a mano) hace que hero_pool_fit
 // deje de ser `applicable: false`. Esto es exactamente lo que estaba roto en producción.
 test("un pool real guardado en SQLite hace que hero_pool_fit sea applicable:true contra el snapshot real", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
+  db.insert(accounts).values({ steamAccountId: 1, createdAt: "2026-08-24" }).run();
   db.insert(heroPool)
     .values({ accountId: 1, heroId: 7, source: "manual", personalWinrate: 0.58, personalGames: 25, updatedAt: "2026-08-21" })
     .run();
 
-  const meta = await buildMetaSnapshot(db);
+  const meta = await buildMetaSnapshot(db, 1);
   const contribution = heroPoolFitScorer.score(createIdleDraftState("session-1"), 7, meta);
 
   expect(contribution.applicable).toBe(true);
@@ -142,34 +153,116 @@ test("un pool real guardado en SQLite hace que hero_pool_fit sea applicable:true
 // después en el mismo proceso de `bun test`.
 afterEach(() => {
   invalidateMetaSnapshotCache();
+  invalidateAccountMetaCache(1);
+  invalidateAccountMetaCache(2);
 });
 
-test("getCachedMetaSnapshot: dos llamadas seguidas sin invalidar devuelven la misma referencia (no vuelve a tocar SQLite)", async () => {
-  const db = createTestDb();
+test("getCachedMetaSnapshot: dos llamadas seguidas sin invalidar devuelven contenido cacheado", async () => {
+  const { db } = createTestDb();
   db.insert(heroes)
     .values({ id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-08-21" })
     .run();
 
-  const first = await getCachedMetaSnapshot(db);
-  const second = await getCachedMetaSnapshot(db);
+  const first = await getCachedMetaSnapshot(db, null);
+  const second = await getCachedMetaSnapshot(db, null);
 
-  expect(second).toBe(first);
+  expect(second).toEqual(first);
 });
 
 test("invalidateMetaSnapshotCache: la siguiente llamada reconstruye desde SQLite, ya no es la misma referencia", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
 
-  const first = await getCachedMetaSnapshot(db);
+  const first = await getCachedMetaSnapshot(db, null);
   invalidateMetaSnapshotCache();
-  const second = await getCachedMetaSnapshot(db);
+  const second = await getCachedMetaSnapshot(db, null);
 
   expect(second).not.toBe(first);
   // Contenido sigue siendo correcto tras invalidar, no solo "una referencia distinta cualquiera".
   expect(second).toEqual(first);
 });
 
+test("getCachedMetaSnapshot aísla overlays por cuenta y reutiliza las queries compartidas", async () => {
+  let sharedQueryCount = 0;
+  const { db } = createTestDb((sql) => {
+    if (sql.includes('"hero_matchups"') || sql.includes('"hero_patch_stats"')) sharedQueryCount += 1;
+  });
+  db.insert(accounts)
+    .values([
+      { steamAccountId: 1, personalBaselineWinrate: 0.51, createdAt: "2026-08-24" },
+      { steamAccountId: 2, personalBaselineWinrate: 0.62, createdAt: "2026-08-24" },
+    ])
+    .run();
+  db.insert(heroPool)
+    .values([
+      { accountId: 1, heroId: 1, source: "manual", personalGames: 10, updatedAt: "2026-08-24" },
+      { accountId: 2, heroId: 2, source: "calculated", personalGames: 20, updatedAt: "2026-08-24" },
+    ])
+    .run();
+
+  const first = await getCachedMetaSnapshot(db, 1);
+  const second = await getCachedMetaSnapshot(db, 2);
+
+  expect(first.heroPool).toEqual([{ hero: 1, source: "manual", personalWinrate: null, personalGames: 10, updatedAt: "2026-08-24" }]);
+  expect(first.personalBaselineWinrate).toBe(0.51);
+  expect(second.heroPool).toEqual([{ hero: 2, source: "calculated", personalWinrate: null, personalGames: 20, updatedAt: "2026-08-24" }]);
+  expect(second.personalBaselineWinrate).toBe(0.62);
+  expect(sharedQueryCount).toBe(2);
+});
+
+test("invalidateAccountMetaCache solo borra el overlay de la cuenta indicada", async () => {
+  const { db } = createTestDb();
+  db.insert(accounts)
+    .values([
+      { steamAccountId: 1, createdAt: "2026-08-24" },
+      { steamAccountId: 2, createdAt: "2026-08-24" },
+    ])
+    .run();
+  db.insert(heroPool)
+    .values([
+      { accountId: 1, heroId: 1, source: "manual", personalGames: 1, updatedAt: "before" },
+      { accountId: 2, heroId: 2, source: "manual", personalGames: 2, updatedAt: "before" },
+    ])
+    .run();
+  await getCachedMetaSnapshot(db, 1);
+  await getCachedMetaSnapshot(db, 2);
+  db.update(heroPool).set({ updatedAt: "after" }).where(eq(heroPool.accountId, 1)).run();
+
+  invalidateAccountMetaCache(1);
+
+  const refreshedAccountOne = await getCachedMetaSnapshot(db, 1);
+  const cachedAccountTwo = await getCachedMetaSnapshot(db, 2);
+  expect(refreshedAccountOne.heroPool?.[0]?.updatedAt).toBe("after");
+  expect(cachedAccountTwo.heroPool?.[0]?.updatedAt).toBe("before");
+});
+
+test("invalidateMetaSnapshotCache reconstruye lo compartido sin borrar overlays", async () => {
+  const { db } = createTestDb();
+  db.insert(accounts).values({ steamAccountId: 1, createdAt: "2026-08-24" }).run();
+  db.insert(heroPool).values({ accountId: 1, heroId: 1, source: "manual", personalGames: 1, updatedAt: "before" }).run();
+  await getCachedMetaSnapshot(db, 1);
+  db.update(heroPool).set({ updatedAt: "after" }).where(eq(heroPool.accountId, 1)).run();
+
+  invalidateMetaSnapshotCache();
+
+  const snapshotAfterMetaSync = await getCachedMetaSnapshot(db, 1);
+  expect(snapshotAfterMetaSync.heroPool?.[0]?.updatedAt).toBe("before");
+});
+
+test("accountId null devuelve un overlay vacío y hero_pool_fit no aplica", async () => {
+  const { db } = createTestDb();
+  db.insert(accounts).values({ steamAccountId: 1, personalBaselineWinrate: 0.6, createdAt: "2026-08-24" }).run();
+  db.insert(heroPool).values({ accountId: 1, heroId: 7, source: "manual", personalGames: 25, updatedAt: "2026-08-24" }).run();
+
+  const meta = await getCachedMetaSnapshot(db, null);
+  const contribution = heroPoolFitScorer.score(createIdleDraftState("session-1"), 7, meta);
+
+  expect(meta.heroPool).toEqual([]);
+  expect(meta.personalBaselineWinrate).toBeNull();
+  expect(contribution.applicable).toBe(false);
+});
+
 test("getMetaFreshness: sin ninguna sincronización -> syncedAt null, isStale true", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
 
   const freshness = await getMetaFreshness(db);
 
@@ -177,7 +270,7 @@ test("getMetaFreshness: sin ninguna sincronización -> syncedAt null, isStale tr
 });
 
 test("getMetaFreshness: sync exitosa reciente (<24h) -> isStale false", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
   db.insert(metaSync)
     .values({ source: "opendota", startedAt: "2026-07-26T00:00:00Z", finishedAt: "2026-07-26T23:00:00Z", status: "ok", rowsWritten: 10 })
     .run();
@@ -189,7 +282,7 @@ test("getMetaFreshness: sync exitosa reciente (<24h) -> isStale false", async ()
 });
 
 test("getMetaFreshness: sync exitosa vieja (>24h) -> isStale true, ignora syncs fallidas más recientes", async () => {
-  const db = createTestDb();
+  const { db } = createTestDb();
   db.insert(metaSync)
     .values({ source: "opendota", startedAt: "2026-07-01T00:00:00Z", finishedAt: "2026-07-01T00:00:00Z", status: "ok", rowsWritten: 10 })
     .run();

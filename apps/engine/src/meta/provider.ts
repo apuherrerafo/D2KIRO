@@ -1,12 +1,15 @@
 import { desc, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { createLRUCache, type LRUCache } from "../db/lru-cache";
-import { heroMatchups, heroPatchStats, heroPool, heroes, metaSync, settings } from "../db/schema";
+import { accounts, heroMatchups, heroPatchStats, heroPool, heroes, metaSync } from "../db/schema";
 import type { HeroMatchupStat, HeroPatchBracketStat, HeroPoolEntry, MetaHeroInfo, MetaSnapshot } from "../signals/types";
 import { mapHeroStatsRow, type Bracket } from "./mappers";
 import { getValidatedSeed } from "./seed";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
+export type AccountId = number;
+type SharedMetaSnapshot = Pick<MetaSnapshot, "heroes" | "matchups" | "patchStats">;
+type AccountMetaOverlay = Pick<MetaSnapshot, "heroPool" | "personalBaselineWinrate">;
 
 // Ventana de frescura del cache de meta (docs/specs/SPEC.md línea 329).
 const FRESHNESS_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -22,12 +25,10 @@ const FRESHNESS_WINDOW_MS = 24 * 60 * 60 * 1000;
 // que ya traían heroPool armado a mano (hero-pool-fit.test.ts, mix.test.ts), y las pruebas de la
 // API de hero-pool (app.test.ts) nunca verificaban el efecto en una sugerencia real. Confirmado
 // con el usuario antes de arreglarlo -- ver journal.md evt-20260821-080 / TSK-064.
-export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>(db: Db<TSchema>): Promise<MetaSnapshot> {
+async function buildSharedMetaSnapshot<TSchema extends Record<string, unknown>>(db: Db<TSchema>): Promise<SharedMetaSnapshot> {
   const heroRows = db.select().from(heroes).all();
   const matchupRows = db.select().from(heroMatchups).all();
   const patchStatRows = db.select().from(heroPatchStats).all();
-  const heroPoolRows = db.select().from(heroPool).all();
-  const [baselineSetting] = db.select().from(settings).where(eq(settings.key, "personal_baseline_winrate")).limit(1).all();
 
   const heroesById: Record<number, MetaHeroInfo> = {};
   for (const row of heroRows) {
@@ -85,59 +86,89 @@ export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>
     }
   }
 
-  // Mismo shape que HeroPoolEntry (signals/types.ts) -- traduce `heroId` (columna SQLite) a
-  // `hero` (contrato de dominio), mismo criterio que toHeroPoolEntry en routes/hero-pool.ts.
-  const heroPoolEntries: HeroPoolEntry[] = heroPoolRows.map((row) => ({
-    hero: row.heroId,
-    source: row.source,
-    personalWinrate: row.personalWinrate,
-    personalGames: row.personalGames,
-    updatedAt: row.updatedAt,
-  }));
-
-  const rawBaseline = baselineSetting ? Number(baselineSetting.value) : null;
-  const personalBaselineWinrate = rawBaseline !== null && Number.isFinite(rawBaseline) ? rawBaseline : null;
-
   return {
     heroes: heroesById,
     matchups: matchupsByHero,
     patchStats: patchStatsByHero,
-    heroPool: heroPoolEntries,
-    personalBaselineWinrate,
   };
 }
 
+async function buildAccountMetaOverlay<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  accountId: AccountId | null,
+): Promise<AccountMetaOverlay> {
+  if (accountId === null) return { heroPool: [], personalBaselineWinrate: null };
+
+  const heroPoolRows = db.select().from(heroPool).where(eq(heroPool.accountId, accountId)).all();
+  const [account] = db
+    .select({ personalBaselineWinrate: accounts.personalBaselineWinrate })
+    .from(accounts)
+    .where(eq(accounts.steamAccountId, accountId))
+    .limit(1)
+    .all();
+  const rawBaseline = account?.personalBaselineWinrate ?? null;
+
+  return {
+    heroPool: heroPoolRows.map((row): HeroPoolEntry => ({
+      hero: row.heroId,
+      source: row.source,
+      personalWinrate: row.personalWinrate,
+      personalGames: row.personalGames,
+      updatedAt: row.updatedAt,
+    })),
+    personalBaselineWinrate: rawBaseline !== null && Number.isFinite(rawBaseline) ? rawBaseline : null,
+  };
+}
+
+export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  accountId: AccountId | null,
+): Promise<MetaSnapshot> {
+  const [shared, overlay] = await Promise.all([buildSharedMetaSnapshot(db), buildAccountMetaOverlay(db, accountId)]);
+  return { ...shared, ...overlay };
+}
+
 // TSK-059: cache en memoria a nivel de módulo -- los datos subyacentes (heroes/matchups/
-// patchStats/hero_pool/settings) solo cambian cuando termina una sincronización manual o se
-// reemplaza el pool, no en cada pick/ban. Sin esto, 4 call sites distintos reconstruían el
+// patchStats) solo cambian cuando termina una sincronización manual, no en cada pick/ban. Los
+// overlays de hero_pool/accounts se cachean por cuenta e invalidan por separado. Sin esto, 4
+// call sites distintos reconstruían el
 // snapshot completo desde SQLite en cada evento de draft, pese a que `buildMetaSnapshot` ya
 // existe específicamente para evitar ese costo en el camino caliente (comentario original de la
 // función). Invalidada explícitamente desde `runMetaSync` (sync.ts) y desde `replaceHeroPool`
 // (routes/hero-pool.ts) -- nunca por TTL, porque no hay forma de que quede desactualizada salvo
 // por esas dos escrituras.
-let cachedSnapshot: MetaSnapshot | null = null;
+let sharedSnapshot: SharedMetaSnapshot | null = null;
+const accountOverlays = new Map<AccountId, AccountMetaOverlay>();
 
 // Req 4: LRU cache for individual matchup winrates (heroId:vsHeroId → winrate).
-// Lives here alongside cachedSnapshot so both are cleared together on invalidation.
+// Lives here alongside sharedSnapshot so both are cleared together on invalidation.
 // Capacity 512 covers the typical hero roster (≈130 heroes × ~4 common matchups each).
 // Injectable for tests via getMatchupLRU / setMatchupLRU.
 const MATCHUP_CACHE_CAPACITY = 512;
 let matchupLRU: LRUCache<string, number> = createLRUCache<string, number>(MATCHUP_CACHE_CAPACITY);
 
-export async function getCachedMetaSnapshot<TSchema extends Record<string, unknown>>(db: Db<TSchema>): Promise<MetaSnapshot> {
-  if (cachedSnapshot) return cachedSnapshot;
-  // Req 2.5: asignar a cachedSnapshot SOLO después de que buildMetaSnapshot resuelva
-  // exitosamente. Si lanza, la excepción se propaga antes de la asignación, por lo que
-  // cachedSnapshot queda null y el próximo llamador reintenta el build en lugar de recibir un
-  // snapshot parcialmente construido.
-  const snapshot = await buildMetaSnapshot(db);
-  cachedSnapshot = snapshot;
-  return cachedSnapshot;
+export async function getCachedMetaSnapshot<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  accountId: AccountId | null,
+): Promise<MetaSnapshot> {
+  if (!sharedSnapshot) sharedSnapshot = await buildSharedMetaSnapshot(db);
+  if (accountId === null) return { ...sharedSnapshot, heroPool: [], personalBaselineWinrate: null };
+
+  let overlay = accountOverlays.get(accountId);
+  if (!overlay) {
+    overlay = await buildAccountMetaOverlay(db, accountId);
+    accountOverlays.set(accountId, overlay);
+  }
+  return { ...sharedSnapshot, ...overlay };
 }
 
 export function invalidateMetaSnapshotCache(): void {
-  cachedSnapshot = null;
+  sharedSnapshot = null;
   matchupLRU.clear(); // Req 4.2: stale winrates must not outlive the snapshot
+}
+
+export function invalidateAccountMetaCache(accountId: AccountId): void {
+  accountOverlays.delete(accountId);
 }
 
 // Req 4.6: injectable for tests so cache-hit and cache-miss paths can each be exercised.

@@ -48,7 +48,7 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
   // mismo dato curado que ya usa position_fit (hero-positions.json), sin abrir superficie HTTP
   // nueva. Sigue sin auth, sigue sin tocar SQLite, mismo criterio de seguridad ya documentado.
   async function heroStats(): Promise<Response> {
-    const meta = await getCachedMetaSnapshot(deps.db);
+    const meta = await getCachedMetaSnapshot(deps.db, null);
     const heroPositions = deps.heroPositions ?? loadHeroPositions();
     return Response.json({ patchStats: meta.patchStats, heroPositions });
   }
