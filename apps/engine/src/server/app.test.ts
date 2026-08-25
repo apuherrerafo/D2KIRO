@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
+import { accounts, draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { OpenDotaClient } from "../meta/opendota-client";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -51,9 +51,13 @@ function createTestDb() {
     CREATE TABLE settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL
     );
+    CREATE TABLE accounts (
+      steam_account_id INTEGER PRIMARY KEY, personal_baseline_winrate REAL, created_at TEXT NOT NULL
+    );
     CREATE TABLE hero_pool (
-      hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
-      personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+      account_id INTEGER NOT NULL, hero_id INTEGER NOT NULL, source TEXT NOT NULL,
+      personal_winrate REAL, personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+      PRIMARY KEY (account_id, hero_id)
     );
     CREATE TABLE team_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
@@ -68,7 +72,11 @@ function createTestDb() {
       draft_state TEXT NOT NULL, suggestions TEXT, created_at TEXT NOT NULL
     );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, heroPool, teamGroups, teamMembers, draftFeedback } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, accounts, heroPool, teamGroups, teamMembers, draftFeedback } });
+  // TSK-095 (Fase 5): bridge temporal de las rutas HTTP de hero-pool -- `getSoleAccountId` necesita
+  // una cuenta real para que las pruebas de GET/PUT /api/hero-pool ya existentes se comporten
+  // exactamente igual que antes de esta fase (TSK-098 la reemplaza con el accountId real del token).
+  db.insert(accounts).values({ steamAccountId: 999999999, personalBaselineWinrate: null, createdAt: "2026-07-27T00:00:00.000Z" }).run();
   db.insert(heroes)
     .values([
       { id: 1, name: "h1", localizedName: "Hero Uno", imgUrl: "/h1.png", primaryAttr: "str", attackType: "Melee", roles: ["Carry"], updatedAt: "2026-07-27" },

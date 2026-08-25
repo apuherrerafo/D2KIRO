@@ -68,16 +68,26 @@ export const accounts = sqliteTable("accounts", {
 
 // Fase 1b (TSK-017, SPEC.md §9.4): hasta 5 héroes de comodidad del usuario local. `steam_account_id`
 // y `personal_baseline_winrate` vivían como filas de `settings` -- migradas a `accounts` en Fase 5
-// (migración 0005). `hero_pool` en sí sigue con PK simple hasta TSK-095 (migración 0006).
-export const heroPool = sqliteTable("hero_pool", {
-  heroId: integer("hero_id")
-    .primaryKey()
-    .references(() => heroes.id),
-  source: text("source").notNull().$type<"manual" | "calculated">(),
-  personalWinrate: real("personal_winrate"),
-  personalGames: integer("personal_games").notNull().default(0),
-  updatedAt: text("updated_at").notNull(),
-});
+// (migración 0005).
+// Fase 5 (TSK-095, SPEC.md §12.7): PK compuesta `(accountId, heroId)` -- un pool por cuenta, no un
+// solo pool global (migración 0006, tabla-nueva/copiar/drop/rename porque SQLite no soporta ALTER
+// TABLE para cambiar una PK).
+export const heroPool = sqliteTable(
+  "hero_pool",
+  {
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => accounts.steamAccountId),
+    heroId: integer("hero_id")
+      .notNull()
+      .references(() => heroes.id),
+    source: text("source").notNull().$type<"manual" | "calculated">(),
+    personalWinrate: real("personal_winrate"),
+    personalGames: integer("personal_games").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.heroId] })],
+);
 
 export const teamGroups = sqliteTable("team_groups", {
   id: integer("id").primaryKey({ autoIncrement: true }),

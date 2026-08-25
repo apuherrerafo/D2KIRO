@@ -28,8 +28,9 @@ function createTestDb() {
       finished_at TEXT, status TEXT NOT NULL, rows_written INTEGER NOT NULL DEFAULT 0, error TEXT
     );
     CREATE TABLE hero_pool (
-      hero_id INTEGER PRIMARY KEY, source TEXT NOT NULL, personal_winrate REAL,
-      personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+      account_id INTEGER NOT NULL, hero_id INTEGER NOT NULL, source TEXT NOT NULL,
+      personal_winrate REAL, personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+      PRIMARY KEY (account_id, hero_id)
     );
     CREATE TABLE settings (
       key TEXT PRIMARY KEY, value TEXT NOT NULL
@@ -91,8 +92,10 @@ test("con todas las tablas vacías, buildMetaSnapshot no lanza; patchStats cae a
 // journal.md evt-20260821-080 / TSK-064 para el contexto completo del hallazgo.
 test("buildMetaSnapshot incluye el hero pool real, traduciendo heroId -> hero (contrato de dominio)", async () => {
   const db = createTestDb();
+  // TSK-095: accountId ya es obligatorio en el schema, pero buildMetaSnapshot(db) todavía no
+  // scopea por cuenta (eso es TSK-096) -- el valor en sí es irrelevante para esta prueba.
   db.insert(heroPool)
-    .values({ heroId: 1, source: "calculated", personalWinrate: 0.62, personalGames: 40, updatedAt: "2026-08-21" })
+    .values({ accountId: 1, heroId: 1, source: "calculated", personalWinrate: 0.62, personalGames: 40, updatedAt: "2026-08-21" })
     .run();
 
   const result = await buildMetaSnapshot(db);
@@ -124,7 +127,7 @@ test("buildMetaSnapshot degrada a null si personal_baseline_winrate en settings 
 test("un pool real guardado en SQLite hace que hero_pool_fit sea applicable:true contra el snapshot real", async () => {
   const db = createTestDb();
   db.insert(heroPool)
-    .values({ heroId: 7, source: "manual", personalWinrate: 0.58, personalGames: 25, updatedAt: "2026-08-21" })
+    .values({ accountId: 1, heroId: 7, source: "manual", personalWinrate: 0.58, personalGames: 25, updatedAt: "2026-08-21" })
     .run();
 
   const meta = await buildMetaSnapshot(db);

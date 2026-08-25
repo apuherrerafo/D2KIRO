@@ -1,6 +1,6 @@
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import * as schema from "../../db/schema";
-import { getHeroPool, replaceHeroPool, type HeroPoolWriteRow } from "../../db/queries";
+import { getHeroPool, getSoleAccountId, replaceHeroPool, type HeroPoolWriteRow } from "../../db/queries";
 import { calculateProposedPool, type HeroPoolInputRow } from "../../hero-pool/calculate-pool";
 import { mapPlayerHero } from "../../meta/mappers";
 import type { OpenDotaClient } from "../../meta/opendota-client";
@@ -61,8 +61,15 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
   // rechaza de inmediato con 409, nunca se encola.
   let calculationInProgress = false;
 
+  // TSK-095: bridge temporal, no auth real todavía -- `getSoleAccountId` resuelve la única cuenta
+  // real que existe hoy en producción (migrada por TSK-094), para no romper el flujo de un solo
+  // usuario que ya está en vivo mientras el resto de Fase 5 se termina de construir. `null` (sin
+  // ninguna cuenta, ej. checkout limpio/CI) devuelve el pool vacío -- no hay nada que atribuir.
+  // TSK-098 reemplaza esto por completo con el accountId real verificado por token.
   async function get(): Promise<Response> {
-    return Response.json(getHeroPool(deps.db).map(toHeroPoolEntry));
+    const accountId = getSoleAccountId(deps.db);
+    if (accountId === null) return Response.json([]);
+    return Response.json(getHeroPool(deps.db, accountId).map(toHeroPoolEntry));
   }
 
   // Reemplaza el pool completo en una sola transacción (S8). Todas las validaciones corren antes
@@ -83,6 +90,13 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
     if (heroIds.some((id) => !knownHeroIds.has(id))) {
       return Response.json({ error: "unknown_hero" }, { status: 400 });
     }
+    // TSK-095: mismo bridge temporal que `get()` -- sin ninguna cuenta todavía, no hay a quién
+    // atribuirle la escritura. No se inventa una cuenta nueva acá (eso es responsabilidad del
+    // flujo de login real, TSK-100/TSK-101).
+    const accountId = getSoleAccountId(deps.db);
+    if (accountId === null) {
+      return Response.json({ error: "no_account_configured" }, { status: 409 });
+    }
 
     // El servidor siempre estampa su propio reloj -- un cliente no dicta `updatedAt` (mismo
     // principio que `applyDraftEvent`: el reloj se inyecta desde el lado de confianza, nunca desde
@@ -95,7 +109,7 @@ export function createHeroPoolRoutes<TSchema extends Record<string, unknown>>(de
       personalGames: entry.personalGames,
       updatedAt,
     }));
-    replaceHeroPool(deps.db, rows);
+    replaceHeroPool(deps.db, accountId, rows);
     // TSK-059: hero_pool_fit lee a través del mismo MetaSnapshot cacheado -- sin esto, un pool
     // recién guardado seguiría invisible para las sugerencias hasta la próxima sincronización.
     invalidateMetaSnapshotCache();

@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { draftFeedback, heroMatchups, heroPool, settings, teamGroups, teamMembers } from "./schema";
+import { accounts, draftFeedback, heroMatchups, heroPool, settings, teamGroups, teamMembers } from "./schema";
 
 export function getMatchupsForHero<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
@@ -26,8 +26,13 @@ export function upsertSetting<TSchema extends Record<string, unknown>>(
 // TSK-017 (fase 1b, S8 la usará luego): la "1 query afectada" de la excepción de migración
 // documentada en CLAUDE.md. Solo lectura -- el reemplazo transaccional del pool completo es
 // responsabilidad de TSK-020, no de este ticket.
-export function getHeroPool<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>) {
-  return db.select().from(heroPool).all();
+// TSK-095 (Fase 5, SPEC.md §12.7): `accountId` es obligatorio, no opcional -- un pool es siempre
+// el de una cuenta, nunca "el" pool global. Nunca devuelve filas de otra cuenta.
+export function getHeroPool<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  accountId: number,
+) {
+  return db.select().from(heroPool).where(eq(heroPool.accountId, accountId)).all();
 }
 
 export interface HeroPoolWriteRow {
@@ -42,14 +47,29 @@ export interface HeroPoolWriteRow {
 // entradas dentro de la misma transacción de Drizzle. Un fallo a mitad de camino (ej. una fila
 // inválida) nunca deja el pool a medio reemplazar, mismo principio que la sincronización de meta
 // (S6) en sync.ts.
+// TSK-095: el borrado se scopea a la cuenta -- reemplazar el pool de una cuenta nunca toca las
+// filas de otra.
 export function replaceHeroPool<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
+  accountId: number,
   entries: HeroPoolWriteRow[],
 ) {
   db.transaction((tx) => {
-    tx.delete(heroPool).run();
-    for (const entry of entries) tx.insert(heroPool).values(entry).run();
+    tx.delete(heroPool).where(eq(heroPool.accountId, accountId)).run();
+    for (const entry of entries) tx.insert(heroPool).values({ ...entry, accountId }).run();
   });
+}
+
+// TSK-095: bridge temporal -- hasta TSK-098 (token real por request), las rutas HTTP de hero-pool
+// siguen sirviendo a la única cuenta real que existe hoy en producción (migrada por TSK-094), en
+// vez de romper el flujo de un solo usuario que ya está en vivo. `null` si `accounts` está vacía
+// (checkout limpio/CI) -- el llamador decide qué hacer, esta función nunca inventa una cuenta.
+// TSK-098 la reemplaza por completo, tomando el accountId real del token verificado.
+export function getSoleAccountId<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+): number | null {
+  const [row] = db.select({ id: accounts.steamAccountId }).from(accounts).limit(1).all();
+  return row?.id ?? null;
 }
 
 export type PartySize = 1 | 2 | 3 | 5;

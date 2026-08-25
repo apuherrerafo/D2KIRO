@@ -3,7 +3,9 @@
 ## FASE ACTUAL
 **Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario) — `/pre-flight`, `/blueprint`
 (`docs/specs/SPEC.md` §12) y `/rulebook` completos. `TSK-094` (`accounts` + migración `0005`)
-`done`, primer código real de la fase, commiteado. 12 tickets en backlog (`TSK-095` a `TSK-106`).**
+`done` y commiteado (`f3584e0`). `TSK-095` (`hero_pool` a PK compuesta + migración `0006`) `done`,
+sin commitear todavía -- pendiente de revisión del usuario. 11 tickets en backlog (`TSK-096` a
+`TSK-106`).**
 
 Fase 4 (sub-ticket 4.1, señal `archetype_fit` aislada) sigue `state: done`, en pausa — ver nota de
 abajo, todavía sin commitear. Fase 5 es una iniciativa nueva y separada (Auth/multi-usuario), no una
@@ -16,8 +18,9 @@ volumen persistente montado en `ENGINE_DB_PATH` (`SPEC.md` §12.16-1) — necesa
 ## SIGUIENTE PASO
 Herramienta: Claude Code.
 Modelo: Sonnet.
-Acción: `/dispatch` de `TSK-095` (`hero_pool` a PK compuesta `(accountId, heroId)` + migración
-`0006`), segundo ticket del Bloque A — depende de `TSK-094` (ya `done`).
+Acción: revisar el diff de `TSK-095` y commitear (mismo ritmo que `TSK-094`); luego `/dispatch` de
+`TSK-096` (`buildMetaSnapshot(db, accountId)` + cache partido), tercer ticket del Bloque A —
+depende de `TSK-095` (ya `done`).
 
 ## NOTA — Fase 4 (previa a Fase 5)
 **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.**
