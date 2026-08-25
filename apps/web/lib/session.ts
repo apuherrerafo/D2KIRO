@@ -9,6 +9,14 @@ export interface SessionData {
   accountId: number;
   issuedAt: number;
   firstLoginAt: number;
+  personaName?: string;
+  avatarUrl?: string | null;
+}
+
+export interface SessionProfile {
+  accountId: number;
+  personaName: string;
+  avatarUrl: string | null;
 }
 
 export interface SessionCookieStore {
@@ -51,7 +59,9 @@ export async function renewSessionIfNeeded(session: IronSession<SessionData>, no
     && Number.isSafeInteger(session.firstLoginAt)
     && session.firstLoginAt >= 0
     && session.firstLoginAt <= session.issuedAt
-    && session.issuedAt <= now;
+    && session.issuedAt <= now
+    && (session.personaName === undefined || (typeof session.personaName === "string" && session.personaName.length > 0 && session.personaName.length <= 100))
+    && (session.avatarUrl === undefined || session.avatarUrl === null || typeof session.avatarUrl === "string");
   if (!isValid || now - session.firstLoginAt > SESSION_MAX_AGE_MS) {
     session.destroy();
     return false;
@@ -62,4 +72,12 @@ export async function renewSessionIfNeeded(session: IronSession<SessionData>, no
     await session.save();
   }
   return true;
+}
+
+export function getSessionProfile(session: SessionData): SessionProfile {
+  return {
+    accountId: session.accountId,
+    personaName: session.personaName ?? `Steam ${session.accountId}`,
+    avatarUrl: session.avatarUrl ?? null,
+  };
 }

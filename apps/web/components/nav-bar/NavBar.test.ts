@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { accountLabel, buildNavLinks } from "./NavBar";
+import { accountLabel, buildNavLinks, profileLabel } from "./NavBar";
 
 describe("buildNavLinks", () => {
   test("con draft habilitado expone Draft en vivo en su ruta explícita", () => {
@@ -36,5 +36,21 @@ describe("accountLabel", () => {
 
   test("conserva una etiqueta neutra mientras carga la cuenta", () => {
     expect(accountLabel(null)).toBe("Mi cuenta");
+  });
+});
+
+describe("profileLabel", () => {
+  test("muestra el nombre de Steam y conserva el Steam32 como identidad secundaria", () => {
+    expect(profileLabel({ accountId: 35488109, personaName: "Kiro", avatarUrl: "https://avatars.steamstatic.com/avatar.jpg" })).toEqual({
+      displayName: "Kiro",
+      accountIdLabel: "35488109",
+    });
+  });
+
+  test("sin perfil remoto conserva el fallback legible basado en Steam32", () => {
+    expect(profileLabel({ accountId: 35488109, personaName: `Steam 35488109`, avatarUrl: null })).toEqual({
+      displayName: "Steam 35488109",
+      accountIdLabel: "35488109",
+    });
   });
 });

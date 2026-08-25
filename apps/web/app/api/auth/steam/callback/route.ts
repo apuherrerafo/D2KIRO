@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { mintAccountToken } from "@/lib/account-token";
 import { getSession } from "@/lib/session";
 import { steamId64ToSteam32, verifySteamCallback } from "@/lib/steam-openid";
+import { getSteamPlayerProfile, type SteamPlayerProfile } from "@/lib/steam-profile";
 
 const LOGIN_NONCE_COOKIE = "d2k_login_nonce";
 type SteamVerification = Awaited<ReturnType<typeof verifySteamCallback>>;
@@ -12,7 +13,8 @@ interface CallbackDependencies {
   clearNonce: () => void;
   verify: (params: URLSearchParams) => Promise<SteamVerification>;
   createAccount: (accountId: number, token: string) => Promise<boolean>;
-  startSession: (accountId: number) => Promise<void>;
+  getProfile: (accountId: number, steamId64: bigint) => Promise<SteamPlayerProfile>;
+  startSession: (accountId: number, profile: SteamPlayerProfile) => Promise<void>;
   createToken: (accountId: number) => string;
 }
 
@@ -37,7 +39,8 @@ export function createCallbackHandler(dependencies: CallbackDependencies) {
       if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(request);
       if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(request);
 
-      await dependencies.startSession(accountId);
+      const profile = await dependencies.getProfile(accountId, verification.steamId64);
+      await dependencies.startSession(accountId, profile);
       return NextResponse.redirect(new URL("/", request.url));
     } catch {
       return loginError(request);
@@ -63,10 +66,11 @@ export async function GET(request: Request) {
       });
       return response.ok;
     },
-    startSession: async (accountId) => {
+    getProfile: (accountId, steamId64) => getSteamPlayerProfile({ accountId, steamId64, apiKey: process.env.STEAM_WEB_API_KEY }),
+    startSession: async (accountId, profile) => {
       const now = Date.now();
       const session = await getSession();
-      Object.assign(session, { accountId, issuedAt: now, firstLoginAt: now });
+      Object.assign(session, { accountId, issuedAt: now, firstLoginAt: now, ...profile });
       await session.save();
     },
     createToken: (accountId) => mintAccountToken(accountId, internalSecret),
