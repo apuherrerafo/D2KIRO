@@ -1,5 +1,6 @@
 import { applyDraftEvent, createIdleDraftState, type DraftEventEnvelope, type DraftState, type RejectionReason } from "../draft/reducer";
 import type { SuggestionSet } from "../signals/mix";
+import type { AccountId } from "../meta/provider";
 
 // CaptureStatus/ErrorPayload no están definidos en ningún lado del repo ni de SPEC.md más allá
 // de nombrarse en la unión de ServerMessage.payload -- se definen aquí con el alcance mínimo:
@@ -26,6 +27,7 @@ export interface ClientMessage {
   schema: "draft-ws/v1";
   type: "hello" | "ping";
   sessionId?: string;
+  accountToken?: string;
 }
 
 export function buildServerMessage(type: ServerMessage["type"], seq: number, payload: ServerMessage["payload"]): ServerMessage {
@@ -40,6 +42,7 @@ const SESSION_TTL_MS = 45 * 60 * 1000;
 interface SessionEntry {
   state: DraftState;
   lastAccessedAt: number;
+  ownerAccountId: AccountId | null;
 }
 
 // Estado de cada sesión de draft en curso, en memoria -- el motor no persiste sesiones a SQLite
@@ -61,8 +64,23 @@ export class SessionStore {
 
   apply(envelope: DraftEventEnvelope, now = Date.now()): { state: DraftState; rejected?: RejectionReason } {
     const result = applyDraftEvent(this.get(envelope.sessionId, now), envelope);
-    this.states.set(envelope.sessionId, { state: result.state, lastAccessedAt: now });
+    this.states.set(envelope.sessionId, { state: result.state, lastAccessedAt: now, ownerAccountId: this.states.get(envelope.sessionId)?.ownerAccountId ?? null });
     return result;
+  }
+
+  claimOwner(sessionId: string, accountId: AccountId): boolean {
+    const entry = this.states.get(sessionId);
+    if (!entry) {
+      this.states.set(sessionId, { state: createIdleDraftState(sessionId), lastAccessedAt: Date.now(), ownerAccountId: accountId });
+      return true;
+    }
+    if (entry.ownerAccountId !== null && entry.ownerAccountId !== accountId) return false;
+    entry.ownerAccountId = accountId;
+    return true;
+  }
+
+  ownerAccountId(sessionId: string): AccountId | null {
+    return this.states.get(sessionId)?.ownerAccountId ?? null;
   }
 
   // TSK-055: sin esto, toda sesión que alguna vez recibió un evento vivía en memoria para

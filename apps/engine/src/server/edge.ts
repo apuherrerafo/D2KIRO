@@ -113,7 +113,7 @@ export function isValidClientMessage(value: unknown): value is ClientMessage {
   if (!isRecord(value) || value.schema !== "draft-ws/v1") return false;
   if (value.type !== "hello" && value.type !== "ping") return false;
   if (value.type === "hello" && (typeof value.sessionId !== "string" || value.sessionId.length === 0)) return false;
-  return value.sessionId === undefined || typeof value.sessionId === "string";
+  return (value.sessionId === undefined || typeof value.sessionId === "string") && (value.accountToken === undefined || typeof value.accountToken === "string");
 }
 
 // TSK-082: contrato de entrada de POST /api/suggestions/preview -- deliberadamente MÁS ANGOSTO

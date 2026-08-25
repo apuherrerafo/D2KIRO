@@ -1,6 +1,9 @@
 import type { Server, ServerWebSocket } from "bun";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { eq } from "drizzle-orm";
 import * as schema from "../db/schema";
+import { accounts } from "../db/schema";
+import { verifyAccountToken } from "./account-token";
 import { getSoleAccountId } from "../db/queries";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
@@ -117,11 +120,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   // DraftState dado, nunca duplicada entre los dos caminos.
   // Req 5 (§5.4): si getCachedMetaSnapshot lanza, se relanza como SnapshotUnavailableError para
   // que el llamador pueda distinguirlo de un fallo del pipeline de señales.
-  async function computeSuggestionsForState(state: DraftState): Promise<SuggestionSet> {
+  async function computeSuggestionsForState(state: DraftState, accountId: number | null = null): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
     try {
       // TSK-098: reemplazar por el accountId de la sesión.
-      meta = await getCachedMetaSnapshot(deps.db, null);
+      meta = await getCachedMetaSnapshot<TSchema>(deps.db, accountId);
     } catch {
       throw new SnapshotUnavailableError();
     }
@@ -367,6 +370,15 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       const message: ClientMessage = parsed;
 
       if (message.type === "hello" && message.sessionId) {
+        if (deps.internalAuthSecret) {
+          const verified = verifyAccountToken(message.accountToken, deps.internalAuthSecret, accountTokenNow, accountNonceStore);
+          const known = verified.ok && deps.db.select({ id: accounts.steamAccountId }).from(accounts).where(eq(accounts.steamAccountId, verified.accountId)).limit(1).all().length > 0;
+          if (!verified.ok || !known || !sessionStore.claimOwner(message.sessionId, verified.accountId)) {
+            ws.send(JSON.stringify(buildServerMessage("error", 0, { code: "unauthorized", message: "Sesión no válida — volvé a iniciar sesión" })));
+            ws.close(1008, "unauthorized");
+            return;
+          }
+        }
         ws.data.sessionId = message.sessionId;
         ws.subscribe(message.sessionId);
         const state = sessionStore.get(message.sessionId);
@@ -382,7 +394,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
         //      code "snapshot_unavailable"; conexión permanece abierta.
         //   3. Cualquier otro error → mensaje "suggestions" degradado vacío.
         try {
-          const suggestions = await computeSuggestionsForState(state);
+          const suggestions = await computeSuggestionsForState(state, sessionStore.ownerAccountId(message.sessionId));
           ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
         } catch (err) {
           if (err instanceof SnapshotUnavailableError) {

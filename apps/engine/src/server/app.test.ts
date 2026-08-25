@@ -31,7 +31,7 @@ const TEST_ACCOUNT_HMAC_KEY = "test-hmac-key-for-tsk-098-123456";
 const TEST_ACCOUNT_TIME = 1787500000000;
 let accountNonce = 0;
 
-function accountHeader(accountId: number): HeadersInit {
+function accountHeader(accountId: number): Record<string, string> {
   const nonce = (accountNonce++).toString(16).padStart(32, "0");
   const payload = `${accountId}.${TEST_ACCOUNT_TIME}.${nonce}`;
   const signature = createHmac("sha256", TEST_ACCOUNT_HMAC_KEY).update(`d2k-account-token/v1|${payload}`).digest("hex");
@@ -694,6 +694,28 @@ describe("cuentas HTTP multi-tenant (TSK-098)", () => {
   test("las rutas settings retiradas responden 404", async () => {
     expect((await fetch(`${baseUrl}/api/settings`)).status).toBe(404);
     expect((await fetch(`${baseUrl}/api/settings`, { method: "PUT" })).status).toBe(404);
+  });
+
+  test("hello con token válido fija el dueño; token inválido se rechaza y no reasigna", async () => {
+    const sessionId = "session-authenticated-ws";
+    const validHeader = accountHeader(999999999);
+    const validToken = validHeader["x-account-token"] as string;
+    const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
+    await waitForOpen(ws);
+    const messages = waitForMessages(ws, 2);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId, accountToken: validToken }));
+    expect((await messages)[0]?.type).toBe("snapshot");
+    ws.close();
+
+    const rejected = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
+    await waitForOpen(rejected);
+    const unauthorized = waitForMessages(rejected, 1);
+    const closed = new Promise<number>((resolve) => {
+      rejected.onclose = (event) => resolve(event.code);
+    });
+    rejected.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId, accountToken: "invalid" }));
+    expect((await unauthorized)[0]?.type).toBe("error");
+    expect(await closed).toBe(1008);
   });
 });
 
