@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Monorepo sin bun workspaces (ver docs/agents/journal.md): apps/engine, apps/web y la raíz
+# (scripts/) son 3 árboles de instalación independientes, cada uno con su propio bun.lock -- por
+# eso la matriz corre `bun install` y los comandos con `working-directory` propio por target, en
+# vez de un solo `bun install` en la raíz.
+jobs:
+  test:
+    name: test (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: engine
+            dir: apps/engine
+            typecheck: true
+            lint: false
+            test_args: ""
+          - target: web
+            dir: apps/web
+            typecheck: true
+            lint: true
+            test_args: ""
+          - target: root
+            dir: .
+            # Sin tsconfig.json ni ESLint propio -- scripts/ solo tiene su propia suite de pruebas
+            # (ver hallazgo de la auditoría de CI, docs/agents/journal.md). No se inventa un
+            # typecheck/lint que el proyecto nunca configuró para esta carpeta.
+            typecheck: false
+            lint: false
+            test_args: "scripts/"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun install store
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.dir }}
+        run: bun install
+
+      - name: Type-check
+        if: matrix.typecheck
+        working-directory: ${{ matrix.dir }}
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        if: matrix.lint
+        working-directory: ${{ matrix.dir }}
+        run: bun run lint
+
+      - name: Test
+        working-directory: ${{ matrix.dir }}
+        run: bun test ${{ matrix.test_args }}
+
+  verify-simplicity:
+    name: verify-simplicity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # El gate necesita historia real para calcular el diff contra la rama base de un PR
+          # (ver scripts/verify-simplicity.sh, sección "Base de comparación adaptativa") -- un
+          # checkout superficial (fetch-depth: 1, el default) dejaría `git merge-base` sin nada
+          # que encontrar.
+          fetch-depth: 100
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run project simplicity/security gate
+        run: bash scripts/verify-simplicity.sh

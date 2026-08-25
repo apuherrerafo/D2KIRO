@@ -1,9 +1,12 @@
 {
   "dependencies": {},
   "devDependencies": {
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0"
   },
   "scripts": {
+    "prepare": "husky",
     "corpus:sync": "bun run scripts/fetch-pro-drafts.ts",
     "fetch:daily-pro-drafts": "bun run scripts/fetch-daily-pro-drafts.ts",
     "draft:test": "bun run scripts/test-pipeline.ts"

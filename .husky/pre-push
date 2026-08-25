@@ -1,0 +1,22 @@
+# Batería completa antes de que el commit salga de la máquina -- pre-commit (lint-staged) ya dio
+# el primer aviso rápido por archivo tocado; acá corre test+tipos+lint de cada subapp completa,
+# sin importar qué archivos cambiaron, porque un tipo roto en un archivo puede romper otro que
+# nadie tocó en este commit.
+
+echo "[pre-push] apps/engine: bun test"
+(cd apps/engine && bun test)
+
+echo "[pre-push] apps/engine: tsc --noEmit"
+(cd apps/engine && bunx tsc --noEmit)
+
+echo "[pre-push] apps/web: bun test"
+(cd apps/web && bun test)
+
+echo "[pre-push] apps/web: tsc --noEmit"
+(cd apps/web && bunx tsc --noEmit)
+
+echo "[pre-push] apps/web: lint"
+(cd apps/web && bun run lint)
+
+echo "[pre-push] scripts: bun test"
+bun test scripts/

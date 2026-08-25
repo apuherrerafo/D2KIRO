@@ -31,8 +31,13 @@ export function computeRemainingMs(waitMs: number, startedAtMs: number, nowMs: n
 // Captain's Mode (TSK-074, con `startedAt` = DraftState.turnStartedAt real). Sincroniza con
 // tiempo real vía setInterval, caso legítimo de useEffect (no es estado derivable en render).
 export function DraftTimer({ waitMs, startedAt }: DraftTimerProps) {
-  const startedAtMs = startedAt ? new Date(startedAt).getTime() : Date.now();
-  const [remainingMs, setRemainingMs] = useState(() => computeRemainingMs(waitMs, startedAtMs, Date.now()));
+  // startedAtMs se calcula dentro del inicializador perezoso -- React solo lo llama al montar,
+  // nunca en cada render, así que Date.now()/new Date() nunca se invoca en el cuerpo del render
+  // (hallazgo real de la nueva regla react-hooks/purity, TSK-118).
+  const [remainingMs, setRemainingMs] = useState(() => {
+    const startedAtMs = startedAt ? new Date(startedAt).getTime() : Date.now();
+    return computeRemainingMs(waitMs, startedAtMs, Date.now());
+  });
 
   useEffect(() => {
     const effectStartedAtMs = startedAt ? new Date(startedAt).getTime() : Date.now();

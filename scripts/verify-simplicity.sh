@@ -14,12 +14,43 @@ if command -v bun >/dev/null 2>&1 && [ -f scripts/sync-context.ts ]; then
   echo ""
 fi
 
-# --- 0. Base de comparación ---
+# --- 0. Base de comparación adaptativa (local vs. CI) ---
 # Repo sin ningún commit todavía (bootstrap): `git diff ... HEAD` no existe y aborta con
 # set -e (exit 128). Se usa el árbol vacío de Git como base en ese caso — mismo resultado
 # práctico (todo lo trackeado cuenta como "añadido"), sin depender de que exista HEAD.
 EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-if git rev-parse --verify -q HEAD >/dev/null; then
+
+# Local (sesiones de Claude Code vía hooks PostToolUse/SubagentStop, o invocación manual): el
+# gate siempre miró el diff sin commitear contra HEAD -- eso NO cambia acá. Cambiarlo a
+# origin/master rompería el uso real que ya tiene (revisar cambios en curso antes de commitear),
+# documentado en CLAUDE.md y usado en cada sesión de esta fase.
+#
+# CI (GITHUB_ACTIONS=true): un checkout de Actions no tiene diff sin commitear -- `git diff HEAD`
+# siempre daría vacío y el gate pasaría en falso sin revisar nada del PR. Ahí la base correcta es
+# el merge-base con la rama destino (GITHUB_BASE_REF, solo presente en eventos pull_request) o,
+# en un push directo a la rama por defecto, el commit anterior (HEAD~1).
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  if [ -n "${GITHUB_BASE_REF:-}" ]; then
+    # fetch-depth:100 (ver .github/workflows/ci.yml) alcanza para un PR normal; si la rama base
+    # se movió más de 100 commits desde que se abrió el PR, el fetch dirigido de abajo lo resuelve
+    # igual sin depender de que ya esté en el checkout superficial.
+    git fetch --no-tags --depth=100 origin "$GITHUB_BASE_REF" >/dev/null 2>&1 || true
+    if git rev-parse --verify -q "origin/$GITHUB_BASE_REF" >/dev/null \
+       && MERGE_BASE=$(git merge-base "origin/$GITHUB_BASE_REF" HEAD 2>/dev/null); then
+      DIFF_BASE="$MERGE_BASE"
+    elif git rev-parse --verify -q "HEAD~1" >/dev/null; then
+      # El fetch dirigido falló (rama base inalcanzable, red caída) -- HEAD~1 es peor que un
+      # merge-base real pero mejor que dejar pasar el gate en falso.
+      DIFF_BASE="HEAD~1"
+    else
+      DIFF_BASE="$EMPTY_TREE"
+    fi
+  elif git rev-parse --verify -q "HEAD~1" >/dev/null; then
+    DIFF_BASE="HEAD~1"
+  else
+    DIFF_BASE="$EMPTY_TREE"
+  fi
+elif git rev-parse --verify -q HEAD >/dev/null; then
   DIFF_BASE="HEAD"
 else
   DIFF_BASE="$EMPTY_TREE"
