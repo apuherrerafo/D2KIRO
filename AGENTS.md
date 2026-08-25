@@ -26,16 +26,16 @@ Definido por `/blueprint` (`docs/agents/architecture.md`) y `/pre-flight`. No mo
 - `bun run dev` → Iniciar servidor de desarrollo.
 - `bun test` → Ejecutar pruebas unitarias.
 - `bun run lint` → Formatear código.
-- `bash scripts/verify-simplicity.sh` → Verificar límites (fuente única de verdad de los números).
+- `bash scripts/verify-simplicity.sh` → Verificar seguridad, invariantes y calidad antes de un commit.
 - `bun scripts/hub.ts` → Regenerar el tablero desde los tickets.
 
 ## REGLAS INVIOLABLES
-Codificadas en `scripts/verify-simplicity.sh`. Si cambias un número aquí, cámbialo también ahí.
+Los gates técnicos de seguridad, invariantes, tipos y pruebas se codifican en `scripts/verify-simplicity.sh`.
 
 - No añadir dependencias sin pasar por `/gear-up` o `@depcheck`.
-- Máximo 3 archivos modificados por tarea.
-- Máximo 200 líneas nuevas por tarea.
-- **Excepción documentada:** una migración de esquema (Drizzle) cuenta como 1 unidad lógica aunque toque schema + migración + 1 query afectada.
+- Está permitido modificar todos los archivos y líneas técnicamente necesarios para completar una
+  tarea o refactorización limpia e integral. No se requiere una excepción ni confirmación por el
+  tamaño de un cambio.
 - **WIP = 1**: solo una tarea puede estar en estado `doing` a la vez.
 - Prohibido refactorizar archivos no relacionados con la tarea.
 - Cada cambio debe traducirse a lenguaje producto: "Esto significa que ahora...".

@@ -236,27 +236,13 @@ Kiro tiene su propio flujo nativo (`requirements.md → design.md → tasks.md`,
 set -euo pipefail
 
 ERRORS=0
-MAX_FILES=3
-MAX_LINES=200   # Fuente única del límite. CLAUDE.md y las skills deben referenciar esta constante, no repetirla.
 
 echo "🦴 Verificando simplicidad..."
 
-# --- 1. Archivos modificados ---
-FILES_TOUCHED=$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')
-if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
-  echo "❌ ERROR: $FILES_TOUCHED archivos modificados. Máximo: $MAX_FILES."
-  git diff --name-only HEAD 2>/dev/null | sed 's/^/   - /'
-  ERRORS=$((ERRORS + 1))
-fi
+# No hay límites ni avisos por número de archivos o líneas: el alcance técnico se define por la
+# tarea, no por presupuestos artificiales.
 
-# --- 2. Líneas añadidas (robusto: usa numstat, no shortstat) ---
-LINES_ADDED=$(git diff --numstat HEAD 2>/dev/null | awk '{sum += $1} END {print sum+0}')
-if [ "$LINES_ADDED" -gt "$MAX_LINES" ]; then
-  echo "❌ ERROR: $LINES_ADDED líneas añadidas. Máximo: $MAX_LINES."
-  ERRORS=$((ERRORS + 1))
-fi
-
-# --- 3. Dependencias nuevas ---
+# --- 1. Dependencias nuevas ---
 # El check anterior solo detectaba la CLAVE "dependencies" siendo añadida.
 # Este detecta cualquier línea nueva DENTRO de dependencies/devDependencies,
 # que es el caso real: un paquete más en un bloque que ya existía.

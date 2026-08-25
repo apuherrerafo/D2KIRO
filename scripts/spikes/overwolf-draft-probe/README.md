@@ -2,7 +2,7 @@
 
 Paso 0 del plan persistido en `docs/agents/architecture.md` ("Addendum (2026-07-28) —
 Capturador real: Overwolf primero, OCR condicional"). **Esto no es producción**: no pasa por
-`@redteam`/`@shipcheck`, no cuenta contra el límite de 3 archivos/200 líneas, y no se instala
+`@redteam`/`@shipcheck`, y no se instala
 como parte de dota2coach. Es un app mínimo de Overwolf, desechable, para responder dos preguntas
 antes de construir el adapter `overwolf` real.
 

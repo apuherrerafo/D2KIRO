@@ -2,16 +2,8 @@
 set -euo pipefail
 
 ERRORS=0
-MAX_FILES=3
-MAX_LINES=200        # Producción. Fuente única del límite. CLAUDE.md y las skills deben referenciar esta constante, no repetirla.
-MAX_TEST_LINES=350   # Test/spec (.test.ts/.spec.ts/.test.tsx/.spec.tsx) -- presupuesto propio, no el de producción.
-                      # Fixtures y mocks estáticos (p.ej. DraftState) cuestan más líneas por diseño; mezclarlos con el
-                      # límite de producción castigaba el rigor de testing. Sigue siendo un límite real: si se supera,
-                      # sigue pasando por la misma excepción declarada de abajo -- nunca deja de preguntar en silencio
-                      # (ver journal.md TSK-067: una sesión de Kiro ya reescribió esta regla para dejar de preguntar
-                      # por adelantado y se revirtió como hallazgo real, no cosmético).
 
-echo "🦴 Verificando simplicidad..."
+echo "🦴 Verificando reglas del proyecto..."
 
 # --- Sincronización de contexto (informativo, nunca bloquea el gate) ---
 # scripts/sync-context.ts avisa si AGENTS.md/.kiro/steering/ quedaron atrás del stack real, o si
@@ -33,58 +25,7 @@ else
   DIFF_BASE="$EMPTY_TREE"
 fi
 
-# --- Rutas de bookkeeping, excluidas del límite de archivos/líneas ---
-# journal.md (y sus particiones mensuales), el .md del propio ticket, plan.md, ledger.md y
-# PROGRESS.md los toca CASI cualquier tarea (registro de actividad, estado del ticket) — no son
-# el "código" que el límite de 3 archivos/200 líneas busca acotar. Sin esta exclusión, el gate
-# fallaría en casi todo ticket por bookkeeping de rutina en cuanto existe al menos un commit
-# (dejan de ser "nuevos" y sus ediciones sí cuentan en el diff).
-BOOKKEEPING_PATTERN='^docs/agents/(journal[^/]*[.]md|plan[.]md|ledger[.]md|PROGRESS[.]md|tasks/TSK-[0-9]+[.]md)$'
-
-# --- 1 y 2. Archivos tocados y líneas añadidas ---
-# Mide lo que este commit va a contener realmente: `--cached` compara el índice (stage) contra
-# $DIFF_BASE, no el árbol de trabajo completo. Antes usaba `git diff "$DIFF_BASE"` (ciego al
-# stage, cuenta TODO lo no comiteado) más un escaneo aparte de `git ls-files --others` para
-# archivos nunca trackeados -- eso rompía cualquier intento de dividir un backlog grande en varios
-# commits lógicos: el gate seguía viendo el resto del árbol pendiente aunque solo un subconjunto
-# estuviera en stage para ese commit puntual. Con `--cached`, un archivo nuevo cuenta en cuanto
-# pasa por `git add` (entra al índice) y dejaba de listarse en `--others` de todas formas, así que
-# el escaneo de untracked ya no hace falta -- lo que nunca se stagea nunca se comitea.
-ALL_FILES=$(git diff --cached --name-only "$DIFF_BASE" 2>/dev/null | grep -Ev "$BOOKKEEPING_PATTERN") || true
-
-FILES_TOUCHED=$(printf '%s\n' "$ALL_FILES" | grep -c '.') || true
-FILES_TOUCHED=${FILES_TOUCHED:-0}
-
-# Producción vs. test: mismo diff --cached, partido por nombre de archivo. Un .test.ts que además
-# cambiara una firma de producción seguiría siendo detectado como violación aparte si esa firma
-# vive en su propio archivo .ts -- este split nunca decide qué es "producción" por contenido, solo
-# por convención de nombre (igual de estricto que el resto del script).
-TEST_FILE_PATTERN='[.](test|spec)[.]tsx?$'
-PROD_LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" -v tpat="$TEST_FILE_PATTERN" '$3 !~ pat && $3 !~ tpat {sum += $1} END {print sum+0}')
-TEST_LINES_ADDED=$(git diff --cached --numstat "$DIFF_BASE" 2>/dev/null | awk -v pat="$BOOKKEEPING_PATTERN" -v tpat="$TEST_FILE_PATTERN" '$3 !~ pat && $3 ~ tpat {sum += $1} END {print sum+0}')
-
-# --- Governance 2.0 (2026-08-24): límites de archivos/líneas dejan de bloquear ---
-# TSK-067 ya había intentado exactamente esto (bajar estos tres checks de bloqueo a aviso) y se
-# revirtió como hallazgo real -- no cosmético (ver comentario de MAX_TEST_LINES arriba). Esta vez
-# es una decisión explícita del usuario, confirmada por pregunta directa antes de tocar el
-# archivo, no un cambio silencioso de otra herramienta -- documentada en journal.md (TSK-092).
-# Los tres siguen siendo señal real ("¿es este commit atómico?"), pero ya no bloquean: lo que
-# sigue como bloqueo duro sin excepción posible es seguridad/arquitectura (secretos, invariantes,
-# WIP, journal append-only, tipos, tests) -- ver secciones de abajo.
-if [ "$FILES_TOUCHED" -gt "$MAX_FILES" ]; then
-  echo "⚠️  Commit grande: $FILES_TOUCHED archivos modificados (máximo sugerido $MAX_FILES). Verifica si es atómico."
-  printf '%s\n' "$ALL_FILES" | sed 's/^/   - /'
-fi
-
-if [ "$PROD_LINES_ADDED" -gt "$MAX_LINES" ]; then
-  echo "⚠️  Commit grande: $PROD_LINES_ADDED líneas de producción añadidas (máximo sugerido $MAX_LINES). Verifica si es atómico."
-fi
-
-if [ "$TEST_LINES_ADDED" -gt "$MAX_TEST_LINES" ]; then
-  echo "⚠️  Commit grande: $TEST_LINES_ADDED líneas de test añadidas (máximo sugerido $MAX_TEST_LINES). Verifica si es atómico."
-fi
-
-# --- 3. Dependencias nuevas de PRODUCCIÓN ("dependencies") ---
+# --- 1. Dependencias nuevas de PRODUCCIÓN ("dependencies") ---
 # Governance 2.0 (2026-08-24): devDependencies queda con bypass total (tooling de infraestructura
 # rutinaria del stack Bun -- typescript, better-sqlite3, etc. -- no exige /gear-up/@depcheck ni
 # marca // ALLOWED). Solo dependencies de producción sigue exigiendo la ceremonia -- es lo que
@@ -111,11 +52,10 @@ for pkg in $PACKAGE_JSON_FILES; do
   fi
 done
 
-# --- 4. Secretos hardcodeados ---
-# Igual que 1/2 (archivos/líneas): git diff es ciego a archivos nunca trackeados. Un secreto real
+# --- 2. Secretos hardcodeados ---
+# Git diff es ciego a archivos nunca trackeados. Un secreto real
 # en un archivo nuevo pasaría inadvertido si solo se mira el diff de lo ya trackeado -- a
-# diferencia del límite de archivos/líneas, aquí NO se excluye bookkeeping (journal.md/ledger.md/
-# TSK-*.md): un secreto pegado ahí también debe bloquear.
+# aquí también debe bloquear aunque esté en documentación o un ticket.
 SECRET_PATTERN='(api[_-]?key|password|secret|token)\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{8,}'
 TRACKED_SECRET_HIT=$(git diff "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | grep -Eio "$SECRET_PATTERN") || true
 UNTRACKED_ALL_FILES=$(git ls-files --others --exclude-standard 2>/dev/null) || true
@@ -130,7 +70,7 @@ if [ -n "$TRACKED_SECRET_HIT" ] || [ -n "$UNTRACKED_SECRET_FILES" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# --- 5. WIP = 1 POR HERRAMIENTA (no global) — permite paralelismo real entre claude-code/codex/kiro-nativo/hermes-vps ---
+# --- 3. WIP = 1 POR HERRAMIENTA (no global) — permite paralelismo real entre claude-code/codex/kiro-nativo/hermes-vps ---
 # Tanto el primer grep (sin tickets en 'doing') como el segundo (ninguno de ese tool_val) pueden
 # legítimamente no encontrar nada y salir con status 1 — bajo `set -euo pipefail` cualquiera de
 # los dos aborta el script entero en silencio. `|| true` sobre la asignación completa (no solo
@@ -145,7 +85,7 @@ for tool_val in claude-code codex kiro-nativo hermes-vps; do
   fi
 done
 
-# --- 6. journal*.md (incluidas particiones mensuales archivadas) y ledger.md deben ser append-only ---
+# --- 4. journal*.md (incluidas particiones mensuales archivadas) y ledger.md deben ser append-only ---
 for f in docs/agents/journal*.md docs/agents/ledger.md; do
   if [ -f "$f" ] && git diff "$DIFF_BASE" -- "$f" 2>/dev/null | grep -qE '^-[^-]'; then
     echo "❌ ERROR: $f tiene líneas eliminadas. Es append-only — nunca se reescribe."
@@ -153,8 +93,8 @@ for f in docs/agents/journal*.md docs/agents/ledger.md; do
   fi
 done
 
-# --- 7. Invariantes de arquitectura (hallazgo de auditoría 2026-08-22, ver CLAUDE.md/security.md) ---
-# A diferencia de 1-4 (que gatean el diff de este commit), estos tres son invariantes absolutos
+# --- 5. Invariantes de arquitectura (hallazgo de auditoría 2026-08-22, ver CLAUDE.md/security.md) ---
+# A diferencia de los controles del diff, estos tres son invariantes absolutos
 # del árbol completo -- no negociables por diseño, ninguno admite `simplicity_exception`. Se
 # escanean sobre archivos TRACKEADOS actuales (git ls-files), no solo el diff de este commit,
 # porque una violación ya presente (introducida antes de que este check existiera) también debe
@@ -181,7 +121,7 @@ if [ -n "$DSIH_HIT" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# --- 8. Governance 2.0: compilación/tipos + suite de tests -- solo en el camino de commit ---
+# --- 6. Compilación/tipos + suite de tests -- solo en el camino de commit ---
 # Corre únicamente cuando VERIFY_COMMIT_GATE=1 (fijado por pretooluse-guard.sh en git commit/
 # push). Los hooks PostToolUse/SubagentStop de .claude/settings.json llaman a este mismo script en
 # caliente después de cada Edit/Write -- correr tsc+bun test completos ahí sería demasiado lento

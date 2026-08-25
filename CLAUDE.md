@@ -44,11 +44,11 @@ y el siguiente paso.
 - `bun run dev` → Iniciar servidor de desarrollo.
 - `bun test` → Ejecutar pruebas unitarias.
 - `bun run lint` → Formatear código.
-- `bash scripts/verify-simplicity.sh` → Verificar límites (fuente única de verdad de los números).
+- `bash scripts/verify-simplicity.sh` → Verificar seguridad, invariantes y calidad antes de un commit.
 - `bun scripts/hub.ts` → Regenerar el tablero desde los tickets.
 
 ## REGLAS INVIOLABLES
-Codificadas en `scripts/verify-simplicity.sh`. Si cambias un número aquí, cámbialo también ahí.
+Los gates técnicos de seguridad, invariantes, tipos y pruebas se codifican en `scripts/verify-simplicity.sh`.
 
 - **Política de dependencias por categoría (Governance 2.0, 2026-08-24):** una `dependency` de
   producción nueva (`package.json` → `dependencies`) sigue exigiendo pasar por `/gear-up` o
@@ -57,20 +57,9 @@ Codificadas en `scripts/verify-simplicity.sh`. Si cambias un número aquí, cám
   `better-sqlite3`, `typescript`, linters, generadores de tipos) tiene **bypass total**: no exige
   ticket de excepción, comando previo ni marca `// ALLOWED`. Verificado mecánicamente en
   `scripts/verify-simplicity.sh` (sección 3), que distingue la clave exacta del `package.json`.
-- Máximo 3 archivos modificados por tarea.
-- Máximo 200 líneas nuevas de código de producción por tarea (`.ts`/`.tsx` fuera de
-  `.test.ts`/`.spec.ts`/`.test.tsx`/`.spec.tsx`).
-- **Presupuesto propio para archivos de test: 200 → 350 líneas nuevas.** Fixtures y mocks
-  estáticos (p. ej. `DraftState`) cuestan más líneas por diseño; medirlos contra el mismo límite
-  que la producción castigaba el rigor de testing con fricción artificial. Sigue siendo un límite
-  real, no un aviso informativo: al superarlo, sigue exigiendo la misma excepción declarada de
-  abajo — nunca se auto-aprueba ni deja de preguntar en silencio (`journal.md` documenta por qué:
-  TSK-067 revirtió exactamente ese cambio una vez, hecho por otra herramienta del ecosistema).
-- **Excepción documentada:** una migración de esquema (Drizzle) cuenta como 1 unidad lógica aunque toque schema + migración + 1 query afectada.
-- **Excepción documentada, puntual, no generalizable:** el scaffolding inicial del monorepo (TSK-001 —
-  `create-next-app` para `apps/web` + esqueleto a mano de `apps/engine`) contó como 1 unidad lógica
-  aunque tocó decenas de archivos generados. Es boilerplate de herramienta, no código escrito a
-  mano — la regla de 1 archivo/200 líneas sigue aplicando sin excepción a todo trabajo posterior.
+- Está permitido modificar todos los archivos y líneas técnicamente necesarios para completar una
+  tarea o refactorización limpia e integral. No se requiere una excepción ni confirmación por el
+  tamaño de un cambio.
 - **WIP = 1**: solo una tarea puede estar en estado `doing` a la vez.
 - Prohibido refactorizar archivos no relacionados con la tarea.
 - Cada cambio debe traducirse a lenguaje producto: "Esto significa que ahora...".

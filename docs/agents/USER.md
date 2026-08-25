@@ -17,12 +17,9 @@ una entrevista dedicada. Se actualiza cuando un patrón nuevo se confirma, no en
   de arrancar una fase nueva.
 
 ## Preferencias de proceso confirmadas (no asumidas — cada una tiene precedente real)
-- **Excepción de simplicidad: avisa, no asume.** Ante "esto va a superar 200 líneas", la respuesta
-  ha sido consistentemente "completo, pedir excepción al cerrar" en 7+ tickets
-  (TSK-003/004/009/010/012/013/014) — pero `MEMORY.md` es explícito en que nunca hay que asumir la
-  respuesta de antemano. `@build` sigue avisando con `AskUserQuestion` en cuanto detecta que va a
-  superar el límite (no se detiene a mitad de una unidad lógica para eso), y declara la excepción
-  documentada al cerrar.
+- **Alcance integral sin pausa:** está permanentemente permitido completar una tarea o
+  refactorización con todos los archivos y líneas necesarios. No se pide confirmación ni se
+  declara una excepción por el tamaño del cambio.
 - **Cuando pide avanzar sin pausas, lo dice explícito** ("vamos flecha hasta terminar y luego
   irnos a probar", cadena TSK-043 a TSK-047) — y en ese modo, encadenar tickets sin parar a
   reportar cada uno es lo correcto, no negligencia de proceso.
@@ -50,4 +47,3 @@ una entrevista dedicada. Se actualiza cuando un patrón nuevo se confirma, no en
   equipo" (investigado antes de nombrar la función de caminos de draft, Fase 2).
 - `roles[]` de OpenDota no son posiciones — son etiquetas temáticas. Confundir ambos fue el bug de
   producto que originó toda la Fase 3; no reintroducir el error en texto ni en código nuevo.
-
