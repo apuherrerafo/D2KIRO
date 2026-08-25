@@ -1,12 +1,10 @@
-import { createHmac, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { mintAccountToken } from "@/lib/account-token";
 import { getSession } from "@/lib/session";
 import { steamId64ToSteam32, verifySteamCallback } from "@/lib/steam-openid";
 
 const LOGIN_NONCE_COOKIE = "d2k_login_nonce";
-const ACCOUNT_TOKEN_DOMAIN = "d2k-account-token/v1";
-
 type SteamVerification = Awaited<ReturnType<typeof verifySteamCallback>>;
 
 interface CallbackDependencies {
@@ -22,11 +20,7 @@ function loginError(request: Request): NextResponse {
   return NextResponse.redirect(new URL("/login?error=auth_failed", request.url));
 }
 
-export function createAccountToken(accountId: number, secret: string, issuedAtMs: number, nonce: string): string {
-  const payload = `${accountId}.${issuedAtMs}.${nonce}`;
-  const signature = createHmac("sha256", secret).update(`${ACCOUNT_TOKEN_DOMAIN}|${payload}`).digest("hex");
-  return `${payload}.${signature}`;
-}
+export { mintAccountToken as createAccountToken } from "@/lib/account-token";
 
 export function createCallbackHandler(dependencies: CallbackDependencies) {
   return async (request: Request): Promise<NextResponse> => {
@@ -75,6 +69,6 @@ export async function GET(request: Request) {
       Object.assign(session, { accountId, issuedAt: now, firstLoginAt: now });
       await session.save();
     },
-    createToken: (accountId) => createAccountToken(accountId, internalSecret, Date.now(), randomBytes(16).toString("hex")),
+    createToken: (accountId) => mintAccountToken(accountId, internalSecret),
   })(request);
 }
