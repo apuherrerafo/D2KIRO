@@ -1,43 +1,6 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { mintAccountToken } from "./lib/account-token";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
-
-const REALM = "dota2coach";
-
-function configuredCredentials() {
-  const user = process.env.SITE_ACCESS_USER;
-  const password = process.env.SITE_ACCESS_PASSWORD;
-  if (!user || !password) return null;
-  return { user, password };
-}
-
-function sha256(value: string): Buffer {
-  return createHash("sha256").update(value, "utf8").digest();
-}
-
-export function isValidBasicAuth(header: string | null, expectedUser: string, expectedPassword: string): boolean {
-  if (!header?.startsWith("Basic ")) return false;
-
-  const decoded = Buffer.from(header.slice("Basic ".length), "base64").toString("utf8");
-  const separator = decoded.indexOf(":");
-  if (separator < 0) return false;
-
-  const user = decoded.slice(0, separator);
-  const password = decoded.slice(separator + 1);
-  const userMatches = timingSafeEqual(sha256(user), sha256(expectedUser));
-  const passwordMatches = timingSafeEqual(sha256(password), sha256(expectedPassword));
-  return userMatches && passwordMatches;
-}
-
-function unauthorized() {
-  return new NextResponse("Authentication required", {
-    status: 401,
-    headers: {
-      "www-authenticate": `Basic realm="${REALM}", charset="UTF-8"`,
-    },
-  });
-}
 
 function isPublicPath(pathname: string): boolean {
   return pathname === "/login" || pathname === "/healthz" || pathname.startsWith("/api/auth/");

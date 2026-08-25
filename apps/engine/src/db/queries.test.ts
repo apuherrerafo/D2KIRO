@@ -5,7 +5,6 @@ import { accounts, heroes, heroMatchups, heroPool, settings, teamGroups, teamMem
 import {
   createTeamGroup,
   deleteTeamGroup,
-  getAllSettings,
   getHeroPool,
   getMatchupsForHero,
   getSoleAccountId,
@@ -13,7 +12,6 @@ import {
   getTeamGroups,
   replaceHeroPool,
   replaceTeamGroup,
-  upsertSetting,
 } from "./queries";
 
 function createTestDb() {
@@ -110,43 +108,6 @@ test("getMatchupsForHero devuelve vacío para un héroe sin enfrentamientos regi
   const matchups = getMatchupsForHero(db, 999);
 
   expect(matchups).toHaveLength(0);
-});
-
-test("upsertSetting inserta una clave nueva y getAllSettings la devuelve", () => {
-  const db = createTestDb();
-
-  upsertSetting(db, "theme", "dark");
-
-  expect(getAllSettings(db)).toEqual([{ key: "theme", value: "dark" }]);
-});
-
-test("upsertSetting sobre una clave existente actualiza el valor, no duplica la fila", () => {
-  const db = createTestDb();
-
-  upsertSetting(db, "theme", "dark");
-  upsertSetting(db, "theme", "light");
-
-  const all = getAllSettings(db);
-  expect(all).toHaveLength(1);
-  expect(all[0]).toEqual({ key: "theme", value: "light" });
-});
-
-// TSK-017 (fase 1b): claves nuevas de settings, sin cambio de esquema -- son solo filas sobre la
-// misma tabla key/value que ya existía, mismas funciones genéricas de arriba.
-test("steam_account_id y personal_baseline_winrate se guardan y leen como cualquier otra clave de settings", () => {
-  const db = createTestDb();
-
-  upsertSetting(db, "steam_account_id", "123456789");
-  upsertSetting(db, "personal_baseline_winrate", "0.52");
-
-  const all = getAllSettings(db);
-  expect(all).toHaveLength(2);
-  expect(all).toEqual(
-    expect.arrayContaining([
-      { key: "steam_account_id", value: "123456789" },
-      { key: "personal_baseline_winrate", value: "0.52" },
-    ]),
-  );
 });
 
 // TSK-017 (fase 1b): tabla nueva hero_pool -- la "1 query afectada" de la excepción documentada.
