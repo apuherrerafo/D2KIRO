@@ -12,6 +12,7 @@ import { isValidServerMessage } from "@/features/draft/validation";
 import type { SimulatorEvent } from "@/features/draft/simulator-scripts";
 import type {
   DraftSocket,
+  DraftSocketFactory,
   DraftState as EngineDraftState,
   HeroId as EngineHeroId,
   ServerMessage,
@@ -91,7 +92,7 @@ export interface UseRandomDraftSessionOptions {
   wsUrl?: string;
   // Costura S5 (testing-seams.md): mismo patrón que DraftViewProps.socketFactory -- inyectable
   // para pruebas (FakeSocket), por defecto el WebSocket real del navegador.
-  socketFactory?: (url: string) => DraftSocket;
+  socketFactory?: DraftSocketFactory;
 }
 
 export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}): UseRandomDraftSessionResult {
@@ -162,9 +163,16 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     console.error("[useRandomDraftSession] no se pudo emitir el evento tras reintentos:", payload, "motivo:", lastReason);
   }
 
-  function connectSocket(sessionId: string): void {
+  async function connectSocket(sessionId: string): Promise<void> {
     socketRef.current?.close();
-    const socket = socketFactory(wsUrl);
+    let socket: DraftSocket;
+    let accountToken: string;
+    try {
+      ({ socket, accountToken } = await socketFactory(wsUrl));
+    } catch {
+      console.error("[useRandomDraftSession] no se pudo autenticar la conexión de draft");
+      return;
+    }
     socket.onMessage(function handleMessage(message: ServerMessage) {
       if (!isValidServerMessage(message)) return;
       if (message.type === "draft_state" || message.type === "snapshot") {
@@ -178,9 +186,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     // encola el primer mensaje si el WS todavía está CONNECTING (ver socket.ts).
     socket.onClose(function handleClose() {
       if (sessionIdRef.current !== sessionId) return; // sesión ya se cerró/cambió, no reconectar
-      connectSocket(sessionId);
+      void connectSocket(sessionId);
     });
-    socket.send({ schema: "draft-ws/v1", type: "hello", sessionId });
+    socket.send({ schema: "draft-ws/v1", type: "hello", sessionId, accountToken });
     socketRef.current = socket;
   }
 
@@ -210,7 +218,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     resolvedBansRef.current = orchestratorResult.resolvedBans;
 
     useRandomDraftStore.getState().startSession(config, sessionId, orchestratorResult);
-    connectSocket(sessionId);
+    void connectSocket(sessionId);
 
     await emit({ type: "session_started", format: "all_pick", patch: config.patch });
     await emit({ type: "local_side_identified", side: config.userSide });

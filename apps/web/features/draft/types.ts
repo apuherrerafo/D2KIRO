@@ -122,6 +122,7 @@ export interface ClientMessage {
   schema: "draft-ws/v1";
   type: "hello" | "ping";
   sessionId?: string;
+  accountToken?: string;
 }
 
 // Los 6 estados de pantalla (S5) — derivados, no un valor guardado directo del store.
@@ -135,3 +136,10 @@ export interface DraftSocket {
   onMessage(handler: (message: ServerMessage) => void): void;
   onClose(handler: () => void): void;
 }
+
+export interface DraftConnection {
+  socket: DraftSocket;
+  accountToken: string;
+}
+
+export type DraftSocketFactory = (url: string) => DraftConnection | Promise<DraftConnection>;

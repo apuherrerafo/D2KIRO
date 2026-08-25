@@ -22,7 +22,7 @@ export interface DraftStoreState {
   errorMessage: string | null;
   socket: DraftSocket | null;
   inputMode: DraftInputMode;
-  connect: (socket: DraftSocket, sessionId: string) => void;
+  connect: (socket: DraftSocket, sessionId: string, accountToken: string) => void;
   disconnect: () => void;
   clearError: () => void;
   setInputMode: (mode: Partial<DraftInputMode>) => void;
@@ -42,14 +42,14 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
   socket: null,
   inputMode: DEFAULT_INPUT_MODE,
 
-  connect(socket, sessionId) {
+  connect(socket, sessionId, accountToken) {
     get().socket?.close();
     socket.onMessage((message) => applyServerMessage(set, get, message));
     socket.onClose(() => set({ connectionStatus: "desconectado", socket: null }));
     // Una sesión nueva no hereda el lado de la sesión anterior -- vuelve a derivarse solo al
     // llegar el próximo draft_state/snapshot (ver applyServerMessage, "auto-fill" de abajo).
     set({ socket, sessionId, connectionStatus: "conectando", errorMessage: null, inputMode: DEFAULT_INPUT_MODE });
-    socket.send({ schema: "draft-ws/v1", type: "hello", sessionId });
+    socket.send({ schema: "draft-ws/v1", type: "hello", sessionId, accountToken });
   },
 
   setInputMode(mode) {

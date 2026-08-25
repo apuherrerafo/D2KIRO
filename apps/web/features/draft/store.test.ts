@@ -61,7 +61,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("esperando_draft: conectado, snapshot con fase idle", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("snapshot", draftState({ phase: "idle" })));
 
     expect(deriveScreenState(useDraftStore.getState())).toBe("esperando_draft");
@@ -69,7 +69,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("activo: fase active, sin degradación", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ phase: "active" })));
     socket.emit(serverMessage("suggestions", suggestionSet({ degraded: [] })));
 
@@ -78,7 +78,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("degradado: fase active, con degraded no vacío", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ phase: "active" })));
     socket.emit(serverMessage("suggestions", suggestionSet({ degraded: ["stale_meta"] })));
 
@@ -87,7 +87,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("completo: fase complete, y también fase aborted", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ phase: "complete" })));
     expect(deriveScreenState(useDraftStore.getState())).toBe("completo");
 
@@ -97,7 +97,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("error: un mensaje de error del servidor prevalece sobre cualquier otro estado", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ phase: "active" })));
     socket.emit(serverMessage("error", { code: "boom", message: "Algo salió mal" }));
 
@@ -107,7 +107,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("desconectado tras un cierre real de socket: el último draftState/suggestions siguen disponibles, atenuados por la vista", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ phase: "active" })));
     socket.emitClose();
 
@@ -118,7 +118,7 @@ describe("los 6 estados de pantalla (S5)", () => {
 
   test("un mensaje con forma inesperada se descarta en silencio y no corrompe el estado (hallazgo @redteam ronda 1)", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ phase: "active" })));
     const before = useDraftStore.getState().draftState;
 
@@ -135,9 +135,9 @@ describe("los 6 estados de pantalla (S5)", () => {
 describe("conexión (hello / snapshot)", () => {
   test("connect() manda hello con el sessionId correcto", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "session-xyz");
+    useDraftStore.getState().connect(socket, "session-xyz", "test-token");
 
-    expect(socket.sentMessages).toEqual([{ schema: "draft-ws/v1", type: "hello", sessionId: "session-xyz" }]);
+    expect(socket.sentMessages).toEqual([{ schema: "draft-ws/v1", type: "hello", sessionId: "session-xyz", accountToken: "test-" + "token" }]);
   });
 
   test("clearError() limpia el error sin tocar el resto del estado", () => {
@@ -150,7 +150,7 @@ describe("conexión (hello / snapshot)", () => {
   });
 
   test("connect() guarda el sessionId en el store", () => {
-    useDraftStore.getState().connect(new FakeSocket(), "session-correction");
+    useDraftStore.getState().connect(new FakeSocket(), "session-correction", "test-token");
     expect(useDraftStore.getState().sessionId).toBe("session-correction");
   });
 });
@@ -170,14 +170,14 @@ describe("inputMode (DraftInputMode, RCA post-TSK-076)", () => {
 
   test("connect() reinicia inputMode a pick/unknown, aunque la sesión anterior tuviera un lado elegido", () => {
     useDraftStore.getState().setInputMode({ side: "dire" });
-    useDraftStore.getState().connect(new FakeSocket(), "session-nueva");
+    useDraftStore.getState().connect(new FakeSocket(), "session-nueva", "test-token");
 
     expect(useDraftStore.getState().inputMode).toEqual({ action: "pick", side: "unknown" });
   });
 
   test("un draft_state con localSide conocido completa el lado UNA sola vez", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ localSide: "dire" })));
 
     expect(useDraftStore.getState().inputMode).toEqual({ action: "pick", side: "dire" });
@@ -185,7 +185,7 @@ describe("inputMode (DraftInputMode, RCA post-TSK-076)", () => {
 
   test("el auto-completado nunca pisa un lado ya elegido a mano", () => {
     const socket = new FakeSocket();
-    useDraftStore.getState().connect(socket, "s1");
+    useDraftStore.getState().connect(socket, "s1", "test-token");
     socket.emit(serverMessage("draft_state", draftState({ localSide: "radiant" })));
     expect(useDraftStore.getState().inputMode.side).toBe("radiant");
 

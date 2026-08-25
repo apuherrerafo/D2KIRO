@@ -1,8 +1,28 @@
-import type { ClientMessage, DraftSocket, ServerMessage } from "./types";
+import type { ClientMessage, DraftConnection, DraftSocket, ServerMessage } from "./types";
+
+export interface EngineTokenResponse {
+  token: string;
+  expiresAt: number;
+}
+
+type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+export async function requestEngineToken(fetcher: Fetcher = fetch): Promise<string> {
+  const response = await fetcher("/api/auth/engine-token", { credentials: "same-origin", cache: "no-store" });
+  if (!response.ok) throw new Error("No se pudo autenticar la conexión de draft");
+
+  const body = await response.json() as Partial<EngineTokenResponse>;
+  if (typeof body.token !== "string" || typeof body.expiresAt !== "number" || body.expiresAt <= Date.now()) {
+    throw new Error("Respuesta de autenticación inválida");
+  }
+  return body.token;
+}
 
 // Implementación real de DraftSocket sobre el WebSocket del navegador sobre /ws/draft
 // (apps/engine, TSK-010). En pruebas se usa FakeSocket en su lugar (costura S5).
-export function createDraftSocket(url: string): DraftSocket {
+export async function createDraftSocket(url: string): Promise<DraftConnection> {
+  // Se acuña justo antes de abrir cada socket; no hay caché ni almacenamiento persistente.
+  const accountToken = await requestEngineToken();
   const ws = new WebSocket(url);
   let messageHandler: ((message: ServerMessage) => void) | null = null;
   let closeHandler: (() => void) | null = null;
@@ -26,7 +46,7 @@ export function createDraftSocket(url: string): DraftSocket {
   ws.addEventListener("close", () => closeHandler?.());
   ws.addEventListener("error", () => closeHandler?.());
 
-  return {
+  const socket: DraftSocket = {
     send(message: ClientMessage): void {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
       else if (ws.readyState === WebSocket.CONNECTING) pending.push(message);
@@ -41,4 +61,5 @@ export function createDraftSocket(url: string): DraftSocket {
       closeHandler = next;
     },
   };
+  return { socket, accountToken };
 }

@@ -20,7 +20,7 @@ import { describeRejection } from "./manual-entry";
 import { createDraftSocket } from "./socket";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { deriveScreenState, useDraftStore } from "./store";
-import type { DraftSocket, DraftState, HeroId, ScreenState, SuggestionSet } from "./types";
+import type { DraftSocketFactory, DraftState, HeroId, ScreenState, SuggestionSet } from "./types";
 import type { HeroMeta } from "./use-hero-catalog";
 import { useHeroCatalog } from "./use-hero-catalog";
 import { useSubmitDraftEvent } from "./use-submit-draft-event";
@@ -379,7 +379,7 @@ export function DraftViewBody(props: DraftViewBodyProps) {
 export interface DraftViewProps {
   sessionId: string;
   wsUrl?: string;
-  socketFactory?: (url: string) => DraftSocket; // inyectable para pruebas (FakeSocket, costura S5)
+  socketFactory?: DraftSocketFactory; // inyectable para pruebas (FakeSocket, costura S5)
 }
 
 // Única excepción de datos en apps/web: WebSocket + Zustand, nunca RTK Query, para el estado de
@@ -397,15 +397,24 @@ export function DraftView({ sessionId: initialSessionId, wsUrl = DEFAULT_WS_URL,
   const [sessionId] = useState(initialSessionId);
   const [isManualEntryOpen, setManualEntryOpen] = useState(false);
 
+  async function connectSocket(): Promise<void> {
+    try {
+      const { socket, accountToken } = await socketFactory(wsUrl);
+      connect(socket, sessionId, accountToken);
+    } catch {
+      useDraftStore.setState({ connectionStatus: "desconectado", errorMessage: "No se pudo autenticar la conexión de draft" });
+    }
+  }
+
   useEffect(() => {
-    connect(socketFactory(wsUrl), sessionId);
+    void connectSocket();
     return disconnect;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- socketFactory/connect/disconnect son estables
   }, [wsUrl, sessionId]);
 
   function handleReconnect() {
     clearError();
-    connect(socketFactory(wsUrl), sessionId);
+    void connectSocket();
   }
 
   // TSK-053: una sesión que arranca por entrada manual pura nunca recibe un session_started de
