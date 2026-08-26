@@ -1,5 +1,7 @@
 # Guía Práctica — Ecosistema Caveman
 
+<!-- test/ci-indexing: cambio trivial para disparar el pipeline de CI (TSK-118). Sin contenido real. -->
+
 **Si solo vas a recordar una cosa de este documento**: `/start` · `/plan` · `/build` · `/fix` · `/review` · `/ship` — y `/compass` cuando no sepas cuál toca. `/dispatch` decide internamente cuál de las 25 skills específicas corresponde. La tabla de abajo es la referencia completa para cuando quieras el detalle, no algo que tengas que memorizar.
 
 ## El flujo, de principio a fin
