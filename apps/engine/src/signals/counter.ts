@@ -1,14 +1,9 @@
-import type { DraftState, HeroId, TeamSide } from "../draft/reducer";
+import { observedDraftFacts } from "../drafter/observed-draft";
+import type { DraftState, HeroId } from "../draft/reducer";
 import type { HeroMatchupStat, MetaSnapshot, SignalContribution, SignalScorer } from "./types";
 
 const MIN_MATCHUP_GAMES = 200;
 const MAX_NAMED_ENEMIES = 2;
-
-function opposingSide(state: DraftState): TeamSide | null {
-  if (state.localSide === "radiant") return "dire";
-  if (state.localSide === "dire") return "radiant";
-  return null;
-}
 
 // TSK-060: `buildSuggestions` llama a `score()` una vez por candidato sobre el MISMO `state` --
 // `knownEnemies` no depende del candidato. Seguro cachear solo por `state` (a diferencia de
@@ -20,8 +15,7 @@ const knownEnemiesCache = new WeakMap<DraftState, HeroId[]>();
 function cachedKnownEnemies(state: DraftState): HeroId[] {
   let cached = knownEnemiesCache.get(state);
   if (!cached) {
-    const enemySide = opposingSide(state);
-    cached = enemySide ? state.picks[enemySide] : [];
+    cached = [...observedDraftFacts(state).revealedEnemyPicks];
     knownEnemiesCache.set(state, cached);
   }
   return cached;

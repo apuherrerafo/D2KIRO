@@ -40,6 +40,21 @@ test("una respuesta sin ventaja verificable contra los dos rivales revelados dec
   ]));
 });
 
+test("sin rivales revelados, matchups favorables hipotéticos no generan evidencia de contrapick", () => {
+  const state = {
+    ...createIdleDraftState("blind-counter"), phase: "active" as const, format: "all_pick" as const, localSide: "radiant" as const,
+    picks: { radiant: [1], dire: [] },
+  };
+  const result = buildSuggestions(state, {
+    heroes: { 1: { id: 1, localizedName: "Uno" }, 3: { id: 3, localizedName: "Tres" }, 10: { id: 10, localizedName: "Hipotético" } },
+    matchups: { 3: [{ vsHero: 10, games: 400, wins: 320 }] },
+  }, { heroPositions: {}, heroCapabilities: [] });
+
+  const candidate = result.suggestions.find((suggestion) => suggestion.hero === 3)!;
+  expect(candidate.signals.find((signal) => signal.signal === "counter")?.raw).toBeNull();
+  expect(candidate.evidence?.filter((item) => item.kind === "counter")).toHaveLength(0);
+});
+
 test("el cierre declara composición y riesgo cuando faltan datos de contrapick", () => {
   const state = {
     ...createIdleDraftState("closing-risk"), phase: "active" as const, format: "all_pick" as const, localSide: "radiant" as const,
