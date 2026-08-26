@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-26T00:48:39.247Z</title>
+<title>HUB del ecosistema — 2026-08-26T01:36:37.209Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step step-active">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Herramienta: Codex (handoff entregado, `TSK-096` en `doing`). · Modelo: estándar de Codex (tarea acotada, self-contained). · Acción: Codex ejecuta `TSK-096`. Cuando reporte terminado, Claude Code hace revisión independiente · (nunca confiar en el reporte sin verificar — mismo estándar que TSK-034) antes de pasar a `TSK-097`. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: Acción: realizar QA manual end-to-end del simulador y del login Steam contra los procesos locales; · convertir cualquier hallazgo reproducible en un ticket nuevo antes de modificar el motor. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,108 +120,8 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">10</span></h2>
-        
-        <div class="card  ">
-          
-          <div class="card-id">TSK-101</div>
-          <div class="card-title">Fase 5: rutas de auth — /login, callback Steam, logout</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-105</div>
-          <div class="card-title">Fase 5: scoping de team_groups/team_members por cuenta</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-104</div>
-          <div class="card-title">Fase 5: pantallas — HeroPoolConfig sin account_id manual, /settings → Mi cuenta</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-097</div>
-          <div class="card-title">Fase 5: server/account-token.ts — verificación de x-account-token (S13)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-100</div>
-          <div class="card-title">Fase 5: iron-session + verificación Steam OpenID (lib/session.ts, lib/steam-openid.ts)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-098</div>
-          <div class="card-title">Fase 5: conectar x-account-token a las rutas HTTP del motor</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-099</div>
-          <div class="card-title">Fase 5: WebSocket — accountToken en hello y dueño de sesión</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-103</div>
-          <div class="card-title">Fase 5: GET /api/auth/engine-token + wiring del WebSocket</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-102</div>
-          <div class="card-title">Fase 5: proxy.ts sin Basic Auth + acuñado del token interno + guard fail-closed</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
-        <div class="card  ">
-          
-          <div class="card-id">TSK-106</div>
-          <div class="card-title">Fase 5: limpieza — retirar Basic Auth y el KV de settings, env vars finales</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-            
-          </div>
-        </div>
+        <h2>backlog <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -240,40 +140,33 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">109</span></h2>
+        <h2>done <span class="count">119</span></h2>
         
         <div class="card  ">
-          
           <div class="card-id">TSK-111</div>
           <div class="card-title">Simulador: conectar apertura de equipo al motor de sugerencias</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-051</div>
           <div class="card-title">Reporte de QA: endpoints POST /api/session/:id/feedback + GET /api/feedback</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-096</div>
           <div class="card-title">Fase 5: buildMetaSnapshot(db, accountId) + cache partido</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-034</div>
           <div class="card-title">Fase 2 (Draft en equipo): modo de party + equipos guardados + pools de compañeros</div>
           <div class="card-meta">
@@ -283,7 +176,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-024</div>
           <div class="card-title">Pantalla de configuración: Mi pool de héroes (RTK Query)</div>
           <div class="card-meta">
@@ -293,37 +185,38 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-075</div>
           <div class="card-title">HeroGrid nativo por atributo con highlight de sugerencias (rediseño UX /draft, punto 1, componente)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-086</div>
           <div class="card-title">Timer de ronda al centro de CompactBoard en /random-draft (paridad visual con All Pick real)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-041</div>
           <div class="card-title">Deploy E -- .env.example (nunca existió)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-101</div>
+          <div class="card-title">Fase 5: rutas de auth — /login, callback Steam, logout</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-010</div>
           <div class="card-title">Servidor Bun: ingreso HTTP + WebSocket + seguridad (§5)</div>
           <div class="card-meta">
@@ -333,27 +226,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-092</div>
           <div class="card-title">Governance 2.0: recalibración de verify-simplicity.sh (límites a warning), política de dependencias por categoría, y consolidación del working tree</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-115</div>
           <div class="card-title">Copilot: evidencia separada de contrapick, sinergia, flex y riesgo</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-004</div>
           <div class="card-title">applyDraftEvent puro + contrato de eventos (S1, S4)</div>
           <div class="card-meta">
@@ -363,27 +251,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-045</div>
           <div class="card-title">Fase 3: SCORING_WEIGHTS_V4 + integración en mix.ts + candado de regresión</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-105</div>
+          <div class="card-title">Fase 5: scoping de team_groups/team_members por cuenta</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-071</div>
           <div class="card-title">Curar tabla real de turnos + tiempo de reserva de Captain's Mode y All Pick (rediseño UX /draft, punto 2, dato base)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-020</div>
           <div class="card-title">Endpoints GET/PUT /api/hero-pool + escritura transaccional (S8)</div>
           <div class="card-meta">
@@ -393,37 +284,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-082</div>
           <div class="card-title">POST /api/suggestions/preview — sugerencias reales sin sesión (para el bot de /random-draft)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-114</div>
           <div class="card-title">Motor: contexto explícito por momento de decisión All Pick</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-054</div>
           <div class="card-title">Pickear directo desde la tarjeta de sugerencia (sin volver a Entrada manual)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-005</div>
           <div class="card-title">SignalScorer: counter (contrapick, S3)</div>
           <div class="card-meta">
@@ -433,7 +317,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-015</div>
           <div class="card-title">SqliteMetaProvider: puente SQLite -> MetaSnapshot (S2/C4)</div>
           <div class="card-meta">
@@ -443,17 +326,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-044</div>
           <div class="card-title">Fase 3: SignalScorer position_fit (fusiona role_gap + role_safety)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-104</div>
+          <div class="card-title">Fase 5: pantallas — HeroPoolConfig sin account_id manual, /settings → Mi cuenta</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-021</div>
           <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
           <div class="card-meta">
@@ -463,17 +351,14 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-083</div>
           <div class="card-title">Bot de /random-draft usa el motor real (buildSuggestions) en vez del scoring simplificado</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-001</div>
           <div class="card-title">Esqueleto del monorepo (apps/web, apps/engine) + Bun instalado</div>
           <div class="card-meta">
@@ -483,37 +368,38 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-110</div>
           <div class="card-title">Simulador: política de apertura de equipo sensible a bans</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-050</div>
           <div class="card-title">Reporte de QA: migración draft_feedback (tabla + esquema)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-097</div>
+          <div class="card-title">Fase 5: server/account-token.ts — verificación de x-account-token (S13)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-064</div>
           <div class="card-title">[BUG CRÍTICO] buildMetaSnapshot nunca incluía el hero pool -- hero_pool_fit inerte en todo draft real desde Fase 1b</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-025</div>
           <div class="card-title">Pantalla de propuesta/confirmación del pool calculado</div>
           <div class="card-meta">
@@ -523,37 +409,38 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-074</div>
           <div class="card-title">UI de turno real + reloj de reserva en /draft (rediseño UX /draft, punto 2, interfaz)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-087</div>
           <div class="card-title">Auto-avance de ronda en /random-draft -- quitar el botón manual Confirmar ronda</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-040</div>
           <div class="card-title">Deploy D -- Dockerfile + railway.json + volumen para la SQLite</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-100</div>
+          <div class="card-title">Fase 5: iron-session + verificación Steam OpenID (lib/session.ts, lib/steam-openid.ts)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-011</div>
           <div class="card-title">Simulador de draft + guiones de prueba</div>
           <div class="card-meta">
@@ -563,47 +450,54 @@
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-098</div>
+          <div class="card-title">Fase 5: conectar x-account-token a las rutas HTTP del motor</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-088</div>
           <div class="card-title">Acceso al Simulador AP en el NavBar + picker visual de Personal_Ban_List como modal</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-099</div>
+          <div class="card-title">Fase 5: WebSocket — accountToken en hello y dueño de sesión</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-089</div>
           <div class="card-title">Fase 4: SignalScorer archetype_fit aislado (sub-ticket 4.1)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-069</div>
           <div class="card-title">Migración de team_synergy a capabilities.json + explicaciones dinámicas (auditoría de inteligencia del motor, fases 2 y 3)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-038</div>
           <div class="card-title">Deploy B -- guard de ruta: /draft queda fuera del deploy cloud</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-028</div>
           <div class="card-title">Simulador: el lado del usuario saca héroes de su pool configurado</div>
           <div class="card-meta">
@@ -613,27 +507,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-079</div>
           <div class="card-title">DraftInputMode + useSubmitDraftEvent, tubería única de entrada (RCA post-TSK-076)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-119</div>
           <div class="card-title">CI: instalar apps/engine para el type-check cruzado de apps/web</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-008</div>
           <div class="card-title">SignalScorer: role_gap (S3)</div>
           <div class="card-meta">
@@ -643,7 +532,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-018</div>
           <div class="card-title">OpenDotaClient.getPlayerHeroes + validación en el borde (S7)</div>
           <div class="card-meta">
@@ -653,27 +541,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-109</div>
           <div class="card-title">Meta global: política de refresco en segundo plano</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-118</div>
           <div class="card-title">Infraestructura CI/CD: GitHub Actions + Husky/lint-staged + verify-simplicity.sh adaptativo</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-009</div>
           <div class="card-title">Mezcla, orden y explicación del motor (§C3)</div>
           <div class="card-meta">
@@ -683,7 +566,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-019</div>
           <div class="card-title">Cálculo puro del pool propuesto (S7)</div>
           <div class="card-meta">
@@ -693,37 +575,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-108</div>
           <div class="card-title">Perfil Steam: nombre y avatar en sesión cifrada</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-068</div>
           <div class="card-title">Fix de sincronización de parche en patch_meta (auditoría de inteligencia del motor, fase 1)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-039</div>
           <div class="card-title">Deploy C -- Basic Auth sobre toda la instancia cloud</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-029</div>
           <div class="card-title">Pantalla de inicio real + navegación compartida entre pantallas</div>
           <div class="card-meta">
@@ -733,17 +608,14 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-078</div>
           <div class="card-title">Guardrail de roster completo (max 5 picks/lado) en el reductor (RCA post-TSK-076)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-006</div>
           <div class="card-title">SignalScorer: patch_meta (S3)</div>
           <div class="card-meta">
@@ -753,37 +625,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-117</div>
           <div class="card-title">Simulador: pruebas de integración de la secuencia completa (hook real)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-047</div>
           <div class="card-title">Fase 3: verificación final de baja de role-gap.ts / role-safety.ts (reducido, ver nota)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-107</div>
           <div class="card-title">UX: separar Simulador de Draft, Draft en Vivo y jerarquía de Mi pool</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-016</div>
           <div class="card-title">Ambiente de pruebas comprensible — simulador visible, configuración previa y guía de estado</div>
           <div class="card-meta">
@@ -793,17 +658,14 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-080</div>
           <div class="card-title">DraftLayout: tablero compacto + grilla contenida + panel de sugerencias flotante (RCA post-TSK-076)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-022</div>
           <div class="card-title">SignalScorer: hero_pool_fit (S3)</div>
           <div class="card-meta">
@@ -813,37 +675,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-073</div>
           <div class="card-title">Turno actual en el protocolo de wire + espejo en apps/web (rediseño UX /draft, punto 2, protocolo)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-113</div>
           <div class="card-title">Simulador: explicar flexibilidad real y aporte de composición</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-053</div>
           <div class="card-title">La entrada manual nunca puede arrancar un draft desde cero (falta session_started)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-002</div>
           <div class="card-title">Esquema SQLite/Drizzle (C4)</div>
           <div class="card-meta">
@@ -853,37 +708,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-094</div>
           <div class="card-title">Fase 5: tabla accounts + migración 0005 (Drizzle)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-084</div>
           <div class="card-title">Portar HeroGrid a /random-draft (BlindRoundPanel + ConfigPanel), reemplaza HeroPicker</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-077</div>
           <div class="card-title">Jerarquía visual táctica en SuggestionCard/SignalBreakdown (rediseño UX /draft, punto 3)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-026</div>
           <div class="card-title">SignalBreakdown con las 5 señales + textos de hero_pool_fit</div>
           <div class="card-meta">
@@ -893,7 +741,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-012</div>
           <div class="card-title">Vista de draft en Next.js (S5) con sus 6 estados</div>
           <div class="card-meta">
@@ -903,37 +750,38 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-043</div>
           <div class="card-title">Fase 3: hero-positions.json + cargador con validación de borde (S10)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-103</div>
+          <div class="card-title">Fase 5: GET /api/auth/engine-token + wiring del WebSocket</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-112</div>
           <div class="card-title">Simulador: diferir picks rivales hasta el estado revelado</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-052</div>
           <div class="card-title">Reporte de QA: caja de texto en /draft (captura draftState + suggestions automático)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-003</div>
           <div class="card-title">OpenDotaClient + sincronización de meta (S6)</div>
           <div class="card-meta">
@@ -943,7 +791,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-037</div>
           <div class="card-title">Deploy A -- base URL relativa en apps/web + rewrites hacia el engine local</div>
           <div class="card-meta">
@@ -953,37 +800,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-095</div>
           <div class="card-title">Fase 5: hero_pool a PK compuesta (accountId, heroId) + migración 0006</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-085</div>
           <div class="card-title">CompactBoard persistente en /random-draft — arregla los picks que desaparecían entre rondas</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-076</div>
           <div class="card-title">Wiring de HeroGrid en el flujo de pick de /draft (rediseño UX /draft, punto 1, integración)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-027</div>
           <div class="card-title">SignalScorer: role_safety + SCORING_WEIGHTS_V3 (feedback real de producto)</div>
           <div class="card-meta">
@@ -993,7 +833,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-013</div>
           <div class="card-title">Entrada manual y camino de degradación</div>
           <div class="card-meta">
@@ -1003,7 +842,14 @@
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-102</div>
+          <div class="card-title">Fase 5: proxy.ts sin Basic Auth + acuñado del token interno + guard fail-closed</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-033</div>
           <div class="card-title">Selector de ventana de días en 'Calcular desde mis partidas'</div>
           <div class="card-meta">
@@ -1013,7 +859,6 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-007</div>
           <div class="card-title">SignalScorer: team_synergy (S3)</div>
           <div class="card-meta">
@@ -1023,27 +868,30 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-116</div>
           <div class="card-title">Copilot: máquina de estados explícita para el preview (loading/ready/failed)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-046</div>
           <div class="card-title">Fase 3: espejo de SignalId + etiqueta de position_fit en apps/web</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
+          <div class="card-id">TSK-106</div>
+          <div class="card-title">Fase 5: limpieza — retirar Basic Auth y el KV de settings, env vars finales</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-017</div>
           <div class="card-title">Migración hero_pool + claves de settings (§9.4)</div>
           <div class="card-meta">
@@ -1053,17 +901,14 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-081</div>
           <div class="card-title">InputModeSelector visible sobre HeroGrid (Pick Radiant / Ban / Pick Dire)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-023</div>
           <div class="card-title">SCORING_WEIGHTS_V2 + applicable en mix.ts (candado de regresión cero)</div>
           <div class="card-meta">
@@ -1073,27 +918,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-072</div>
           <div class="card-title">Máquina de turnos en el reductor + rechazo duro fuera de orden (rediseño UX /draft, punto 2, lógica)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-065</div>
           <div class="card-title">Recalibración de RAW_RANGE.counter y promoción a SCORING_WEIGHTS_V5</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-030</div>
           <div class="card-title">Persistir account_id en /hero-pool vía /api/settings</div>
           <div class="card-meta">
@@ -1103,27 +943,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-061</div>
           <div class="card-title">Cobertura de prueba: bootstrap de sesión manual y cableado de estado de pantalla en DraftView</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-055</div>
           <div class="card-title">SessionStore de apps/engine nunca expira sesiones abandonadas</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -1133,17 +968,14 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-093</div>
           <div class="card-title">Wiring experimental de Pro-Drafter en apps/web, detrás de ENABLE_PRO_DRAFTER/NEXT_PUBLIC_ENABLE_PRO_DRAFTER</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-031</div>
           <div class="card-title">Ampliar el guion de bans de allPick en scripts.json</div>
           <div class="card-meta">
@@ -1153,17 +985,14 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-070</div>
           <div class="card-title">UX defensiva y mapeo de errores de producto en la Entrada Manual del draft</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-035</div>
           <div class="card-title">Timer visible en el simulador (modo velocidad)</div>
           <div class="card-meta">
@@ -1173,47 +1002,38 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-049</div>
           <div class="card-title">[UI] Sin botón de entrada manual visible una vez el draft está activo</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-058</div>
           <div class="card-title">Partir app.ts (3/3): extraer rutas de meta/draft-paths/draft-feedback, dejar app.ts como wiring</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-048</div>
           <div class="card-title">[UI] WebSocket no reenvía suggestions al reconectar (solo snapshot de draftState)</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-063</div>
           <div class="card-title">Bot del Random Draft Simulator: reemplazar roles[] por hero-positions.json en el bono de complemento</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-032</div>
           <div class="card-title">Comparación explícita entre las 2 mejores sugerencias</div>
           <div class="card-meta">
@@ -1223,27 +1043,22 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-090</div>
           <div class="card-title">Motor Pro-Drafter v1.0 (Fases 5-8): KNN, lane simulator, intent decoder, pipeline</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-057</div>
           <div class="card-title">Partir app.ts (2/3): extraer el subsistema de sesiones del simulador a módulo propio</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-036</div>
           <div class="card-title">Fase C: Caminos de draft (arquetipos push/teamfight/pickoff/scaling)</div>
           <div class="card-meta">
@@ -1253,83 +1068,67 @@
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-067</div>
           <div class="card-title">Calibración del ecosistema de agentes contra el stack real + hardening mecánico del gate</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-066</div>
           <div class="card-title">Engine & Web Performance Optimizations (integración de spec nativo de Kiro)</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-042</div>
           <div class="card-title">Simulador de draft disponible en la nube (endpoints propios, sin WebSocket)</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">codex</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-091</div>
           <div class="card-title">Validación/integración Pro-Drafter v1.0: CLI runner + endpoint experimental (ENABLE_PRO_DRAFTER)</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-056</div>
           <div class="card-title">Partir app.ts (1/3): extraer rutas de hero-pool y team-groups a módulos propios</div>
           <div class="card-meta">
             <span class="tag tag-should">should</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-060</div>
           <div class="card-title">Memoizar el estado por-draft (no por-candidato) dentro de position_fit, counter y team_synergy</div>
           <div class="card-meta">
             <span class="tag tag-could">could</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-059</div>
           <div class="card-title">Cachear el MetaSnapshot en apps/engine, invalidar al terminar el sync</div>
           <div class="card-meta">
             <span class="tag tag-could">could</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
         <div class="card  ">
-          
           <div class="card-id">TSK-062</div>
           <div class="card-title">Documentar el tercer espejo de tipos del bot del simulador en web.md</div>
           <div class="card-meta">
             <span class="tag tag-could">could</span>
             <span class="tag tag-tool">claude-code</span>
-            
           </div>
         </div>
       </div></div>

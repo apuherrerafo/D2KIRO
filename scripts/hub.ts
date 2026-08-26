@@ -181,14 +181,14 @@ function render(
       .sort((a, b) => (MOSCOW_ORDER[a.moscow] ?? 9) - (MOSCOW_ORDER[b.moscow] ?? 9));
     const needsHuman = state === "review" || state === "blocked";
     const cards = items.map((t) => `
-        <div class="card ${t.attempts >= 3 ? "card-warn" : ""} ${needsHuman ? "card-needs-human" : ""}">
-          ${needsHuman ? '<div class="human-flag">🟡 necesita tu decisión</div>' : ""}
+        <div class="card ${t.attempts >= 3 ? "card-warn" : ""} ${needsHuman ? "card-needs-human" : ""}">${needsHuman ? `
+          <div class="human-flag">🟡 necesita tu decisión</div>` : ""}
           <div class="card-id">${t.id}</div>
           <div class="card-title">${t.title}</div>
           <div class="card-meta">
             <span class="tag tag-${t.moscow}">${t.moscow}</span>
-            <span class="tag tag-tool">${t.tool}</span>
-            ${t.attempts > 0 ? `<span class="tag tag-attempts">intentos: ${t.attempts}</span>` : ""}
+            <span class="tag tag-tool">${t.tool}</span>${t.attempts > 0 ? `
+            <span class="tag tag-attempts">intentos: ${t.attempts}</span>` : ""}
           </div>
         </div>`).join("");
     return `

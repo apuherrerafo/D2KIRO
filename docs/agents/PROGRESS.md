@@ -1,26 +1,19 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario) — `/pre-flight`, `/blueprint`
-(`docs/specs/SPEC.md` §12) y `/rulebook` completos. `TSK-094` (`accounts` + migración `0005`)
-`done` y commiteado (`f3584e0`). `TSK-095` (`hero_pool` a PK compuesta + migración `0006`) `done`,
-sin commitear todavía -- pendiente de revisión del usuario. 11 tickets en backlog (`TSK-096` a
-`TSK-106`).**
+**Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario) está completada.** Los tickets
+`TSK-094` a `TSK-106` están `done` y sus cambios fueron integrados en `master`: cuentas y pool
+multi-tenant, token HMAC para HTTP y WebSocket, Steam OpenID/sesión cifrada, proxy fail-closed,
+scoping de equipos y retiro de Basic Auth/settings legacy.
 
-Fase 4 (sub-ticket 4.1, señal `archetype_fit` aislada) sigue `state: done`, en pausa — ver nota de
-abajo, todavía sin commitear. Fase 5 es una iniciativa nueva y separada (Auth/multi-usuario), no una
-continuación de Fase 4.
-
-**Pendiente, no bloqueante para seguir codificando**: confirmar que el servicio de Railway tiene un
-volumen persistente montado en `ENGINE_DB_PATH` (`SPEC.md` §12.16-1) — necesario antes del primer
-*deploy* de esta fase, no antes de escribir/probar código local. El usuario lo está revisando.
+El trabajo posterior de producto e infraestructura, `TSK-107` a `TSK-119`, también está `done`:
+rutas de simulador/draft en vivo, perfil Steam, meta global, motor de apertura contextual,
+explicaciones con evidencia, fiabilidad del Copilot y CI/CD. No hay ticket activo ni backlog
+registrado en el tablero.
 
 ## SIGUIENTE PASO
-Herramienta: Claude Code.
-Modelo: Sonnet.
-Acción: revisar el diff de `TSK-095` y commitear (mismo ritmo que `TSK-094`); luego `/dispatch` de
-`TSK-096` (`buildMetaSnapshot(db, accountId)` + cache partido), tercer ticket del Bloque A —
-depende de `TSK-095` (ya `done`).
+Acción: realizar QA manual end-to-end del simulador y del login Steam contra los procesos locales;
+convertir cualquier hallazgo reproducible en un ticket nuevo antes de modificar el motor.
 
 ## NOTA — Fase 4 (previa a Fase 5)
 **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.**
