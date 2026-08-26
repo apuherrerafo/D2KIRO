@@ -8,7 +8,7 @@ import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
-import { deriveDecisionContext, type DraftDecisionContext } from "../drafter/decision-context";
+import { deriveDecisionPolicy, type DraftDecisionPolicy } from "../drafter/decision-context";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V5 } from "./weights";
 
@@ -218,26 +218,22 @@ function flexibilityReason(hero: HeroId, positions: HeroPositions): string | nul
   return `Puede flexearse entre ${joinSpanish(labels)} y mantiene abierta la composición.`;
 }
 
-function contextReason(context: DraftDecisionContext): string {
-  if (context === "team_opening") return "Apertura de equipo: todavía no hay picks rivales revelados.";
-  if (context === "blind_second_pick") return "Ronda ciega: todavía no hay picks rivales revelados; prioriza cohesión y flexibilidad.";
-  if (context === "response_pick") return "Con los picks rivales revelados, combina contrapick con la composición propia.";
-  return "Cierre de draft: con cuatro rivales revelados, prioriza cubrir riesgos y completar la composición.";
-}
-
-function buildEvidence(signals: SignalContribution[], flexReason: string | null, context: DraftDecisionContext): SuggestionEvidence[] {
+function buildEvidence(signals: SignalContribution[], flexReason: string | null, policy: DraftDecisionPolicy): SuggestionEvidence[] {
   const evidence: SuggestionEvidence[] = [];
   const counter = signals.find((signal) => signal.signal === "counter");
   const synergy = signals.find((signal) => signal.signal === "team_synergy");
-  if (counter?.raw !== null && counter?.raw !== undefined && counter.raw > 0) {
+  if (policy.usesRevealedCounterEvidence && counter?.raw !== null && counter?.raw !== undefined && counter.raw > 0) {
     evidence.push({ kind: "counter", text: counter.explanation });
   }
   if (synergy?.raw !== null && synergy?.raw !== undefined && synergy.raw > 0) {
     evidence.push({ kind: "synergy", text: synergy.explanation });
   }
   if (flexReason !== null) evidence.push({ kind: "flex", text: flexReason });
-  if (context === "closing_pick" && (counter?.raw === null || counter === undefined)) {
-    evidence.push({ kind: "risk", text: "Sin datos suficientes de contrapick para cerrar este draft con certeza." });
+  if (policy.usesRevealedCounterEvidence && (counter?.raw === null || counter?.raw === undefined || counter.raw <= 0)) {
+    evidence.push({ kind: "risk", text: "No hay una ventaja de contrapick verificable contra los rivales revelados; evita tratar esta respuesta como segura." });
+  }
+  if (policy.closesComposition && (synergy?.raw === null || synergy?.raw === undefined || synergy.raw <= 0)) {
+    evidence.push({ kind: "risk", text: "No hay evidencia suficiente de que complete una necesidad táctica pendiente del equipo." });
   }
   return evidence;
 }
@@ -378,7 +374,7 @@ export function buildSuggestions(
 
   scored.sort((a, b) => b.score - a.score);
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
-  const decisionContext = deriveDecisionContext(state, isTeamOpening);
+  const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
   const teamOpening = isTeamOpening
     ? recommendTeamOpeners({
         candidates: scored.map((entry) => ({
@@ -403,7 +399,7 @@ export function buildSuggestions(
     score: entry.score,
     signals: entry.signals,
     reason: [
-      contextReason(decisionContext),
+      decisionPolicy.headline,
       entry.openingReason,
       buildReason(
         entry.signals,
@@ -413,7 +409,7 @@ export function buildSuggestions(
       .filter(Boolean)
       .join(" "),
     confidence: computeConfidence(entry.signals, options.metaIsStale ?? false),
-    evidence: buildEvidence(entry.signals, roleReason, decisionContext),
+    evidence: buildEvidence(entry.signals, roleReason, decisionPolicy),
   };
   });
 
