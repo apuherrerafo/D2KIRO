@@ -57,6 +57,19 @@ jobs:
         working-directory: ${{ matrix.dir }}
         run: bun install
 
+      # apps/web tiene 2 imports relativos deliberados hacia apps/engine (proxy.test.ts,
+      # app/api/auth/engine-token/route.test.ts) -- el "candado compartido" de x-account-token
+      # documentado en testing-seams.md (S13): la misma verificación HMAC se prueba desde el lado
+      # que la acuña y desde el lado que la verifica. `tsc --noEmit` sigue ese import y compila
+      # apps/engine/src/server/account-token.ts (y transitivamente db/schema.ts, meta/provider.ts,
+      # que dependen de drizzle-orm) como parte del mismo chequeo de tipos -- sin instalar también
+      # las dependencias de apps/engine acá, esta compilación falla con "Cannot find module
+      # 'drizzle-orm'" (reproducido y confirmado en un contenedor Linux limpio, TSK-119).
+      - name: Install apps/engine dependencies (needed by apps/web's cross-app type-check)
+        if: matrix.target == 'web'
+        working-directory: apps/engine
+        run: bun install
+
       - name: Type-check
         if: matrix.typecheck
         working-directory: ${{ matrix.dir }}

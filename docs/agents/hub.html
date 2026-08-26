@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-25T21:26:47.843Z</title>
+<title>HUB del ecosistema — 2026-08-26T00:48:39.247Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -240,7 +240,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">108</span></h2>
+        <h2>done <span class="count">109</span></h2>
         
         <div class="card  ">
           
@@ -616,6 +616,16 @@
           
           <div class="card-id">TSK-079</div>
           <div class="card-title">DraftInputMode + useSubmitDraftEvent, tubería única de entrada (RCA post-TSK-076)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            
+          </div>
+        </div>
+        <div class="card  ">
+          
+          <div class="card-id">TSK-119</div>
+          <div class="card-title">CI: instalar apps/engine para el type-check cruzado de apps/web</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1329,7 +1339,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">142× · 78% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">143× · 78% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1401,6 +1411,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-119</span> <span class="feed-ts">2026-08-26T00:35</span></div>
+            <div class="feed-note">Primer PR real contra la infraestructura de CI (`test/ci-indexing`) falló en el job `test (web)`. No reproducible con `cd apps/web && bun run lint && bun test` en macOS local (node_modules ya instalado) -- pasó limpio, señal de que era un problema de entorno fresco, no de lógica. Reproducido el entorno real en un contenedor Linux (`oven/bun:latest`, instalación limpia desde `bun.lock`, monorepo completo preservado). **Causa raíz real**: `apps/web` tiene 2 imports relativos deliberados hacia `apps/engine` (`proxy.test.ts`, `app/api/auth/engine-token/route.test.ts`, ambos importan `verifyAccountToken` de `apps/engine/src/server/account-token`) -- el "candado compartido" de `x-account-token` documentado en `testing-seams.md` S13: la misma verificación HMAC se prueba desde quien la acuña (web) y quien la verifica (engine), a propósito, no un descuido. `bunx tsc --noEmit` en `apps/web` sigue ese import y compila transitivamente `apps/engine/src/db/schema.ts`/`meta/provider.ts` (dependen de `drizzle-orm`) como parte del mismo chequeo -- el workflow de TSK-118 solo instalaba `apps/web` para el target `web`, sin `apps/engine/node_modules` `drizzle-orm` no resuelve, `tsc` falla con `TS2307`. Corregido: paso nuevo en `ci.yml`, condicionado a `matrix.target == 'web'`, que instala `apps/engine` antes del type-check -- cero cambio de código de aplicación, el import cruzado es intencional, el gap estaba en el entorno de CI. **Dos falsos positivos descartados explícitamente en el camino, no ocultados** (mismo estándar de "no parches, soluciones" que ya usa este proyecto en `/root-cause`): un primer intento de repro copiando solo `apps/web` sin `apps/engine` al lado dio un error de módulo distinto -- artefacto de la reproducción (en CI real el checkout siempre trae el monorepo completo), descartado tras verificar que el checkout real de `actions/checkout@v4` no tiene ese problema. Un segundo intento (`bun test proxy.test.ts` aislado) dio un fallo real distinto ("el arranque Railway falla cerrado", exit 127 en vez de 1) -- artefacto de haber olvidado copiar `scripts/` junto con `apps/` en ese contenedor puntual (`start-railway.sh` vive en la raíz del repo, no dentro de `apps/`); corregido copiando `scripts/` también, el test pasa limpio sin tocar nada. Verificación final, faithful, de punta a punta en contenedor Linux limpio (Debian trixie): `tsc --noEmit` limpio (antes: 8 errores), `bun run lint` 0 errores/2 warnings preexistentes (TSK-118), `bun test` 180/180. Commiteado y pusheado a `test/ci-indexing` para que el PR real re-corra CI con el fix.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1476,13 +1493,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:06</span></div>
             <div class="feed-note">Audit & Limpieza de UX/UI en `apps/web` (Fase 4, sesión Gobernanza 2.0): consolidación del Simulador en una sola experiencia All Pick vs bot + integración de Pro-Drafter en tiempo real. Precedido por un audit-only (sin código) en el turno anterior: encontró que había **tres** simuladores distintos, no uno -- `/simulator` (Fase 1, HTTP polling, sin bot, sin mecánica de partida real), "Simular draft" dentro de `/draft` (`DraftSetupPanel`, reproduce un guion pre-grabado con selector de Captains Mode/party, herramienta de QA), y `/random-draft` (Random Draft Simulator, Blind Round real de All Pick + bot + Copilot -- ya el objetivo real). **Verificación de dependencias ANTES de borrar nada, no supuesta**: `buildSimulatorEnvelopes`/`runSimulatorPlayback`/`SimulatorEnvelope` (`features/draft/simulator.ts`) y `postSimulatorEvent` (`manual-entry.ts`) están compartidos entre `DraftSetupPanel` (a eliminar) Y `use-random-draft-session.ts` (a conservar) -- NO se tocaron. Dentro de `simulator-scripts.ts`, `SIMULATOR_SCENARIOS`/`SimulatorScenarioId` siguen vivos porque `simulator.test.ts` los usa como fixture real de `buildSimulatorEnvelopes` -- solo se eliminó `SIMULATOR_SCENARIO_LABELS` (las 2 etiquetas en castellano, único consumidor real era el selector visual de `DraftSetupPanel`). Sin este chequeo previo, borrar por asociación habría roto el Random Draft Simulator o su propia suite de tests. **Eliminado**: ruta `/simulator` completa; `DraftSetupPanel`/`PartyPoolPanel` (componentes completos, únicos consumidores confirmados vía grep antes de borrar); `SimulatorSession`/`SimulatorState`/`startSimulatorSession`/`getSimulatorState`/tag `"Simulator"` de `engine-api.ts`; `partyContext`/`setPartyContext` del store de Zustand (quedaban sin lector NI escritor tras quitar `PartyPoolPanel`/`DraftSetupPanel` -- verificado que `store.test.ts` no los cubre, cero riesgo de romper un test al quitarlos). `NavBar`: entrada "Simulador" vieja fuera, "Simulador AP" → "Simulador" (ya no hay ambigüedad con qué comparar) -- test nuevo que bloquea si `/simulator` reaparece en el nav. **Consecuencia real, no oculta**: `CompletedDraftState` (`/draft`, fase "completo") pierde el botón "Simular otro draft" -- su único mecanismo era `DraftSetupPanel`, ahora inexistente. Después de un draft real/manual completo, no queda un atajo en la página para arrancar uno nuevo (hay que recargar `/draft`, que genera sessionId nuevo por diseño ya existente). Gap de UX menor, anotado, no resuelto en este bloque -- no se inventó un reemplazo no pedido. **Integración de Pro-Drafter en tiempo real** (`CopilotPanel`, `/random-draft`): `ProDrafterEngineBadge`/`ProSuggestionRow` (antes privados en `ProDrafterPanel.tsx`) se exportaron y reutilizan tal cual -- mismo componente real, mismo criterio que ya aplicaba ese panel para `SuggestionCard`/`ComparisonNote`. Hook nuevo `useCopilotProDrafter` (`features/random-draft-simulator/`): a diferencia de `ProDrafterPanel` (click para ver, panel exploratorio cerrado por defecto), acá el pedido explícito era "en tiempo real mientras se pica" -- se re-dispara solo, vía `useEffect` keyed en `draftState.lastSeq`, nunca a mano. Gateado por `isProDrafterEnabled()` DENTRO del efecto (nunca antes de llamar al hook -- reglas de hooks) -- con el flag de cliente apagado (default), cero requests nuevos, `CopilotPanel` renderiza EXACTAMENTE como antes de esta fase (dispatch por early return, nunca un ternario de renderizado condicional, regla dura de `web.md`). Sin tracking de staleness a mano: RTK Query garantiza que `data` de la mutation siempre refleja el último `trigger()` de ese hook, un disparo anterior más lento no puede pisar uno más nuevo ya resuelto. **Sin test dedicado para `useCopilotProDrafter` -- decisión, no descuido**: este proyecto ya documentaba en `use-random-draft-session.test.ts` que no usa `renderHook`/testing-library (`testing-seams.md`) -- prueba solo funciones puras extraídas del hook. `useCopilotProDrafter` no tiene lógica pura extraíble más allá de la orquestación de efectos en sí (gate + trigger), así que cae fuera de esa costura tal como está definida hoy; agregar una dependencia de testing nueva solo para esto habría sido un `/gear-up` no pedido. **Verificación real, no solo `bun test`**: ambos dev servers levantados con los dos flags encendidos (mismo patrón que evt-110), confirmado con Playwright real: `/simulator` devuelve 404, `NavBar` muestra exactamente "Draft | Simulador | Mi pool | Equipos | Héroes | Meta | Configuración" (sin duplicado, sin sufijo "AP"), y `/random-draft` con un draft real en curso muestra el badge "Pro-Drafter (KNN 5v5)" + desglose de 3 señales dentro de `Copilot`, cero error de consola. `.env.local` borrado y ambos procesos detenidos por puerto al terminar, mismo protocolo de limpieza que evt-110. `bun test`: 423/423 `apps/engine` (sin tocar), 141/141 `apps/web` (140 antes + 1 test nuevo de regresión del NavBar), 9/9 `scripts/` (sin tocar) -- las tres dentro del mismo gate (evt-112). `tsc --noEmit` limpio en `apps/web` (se limpió `.next/` una vez por un tipo generado stale que apuntaba a la página ya borrada, no un error real). **Traducción a producto**: esto significa que la app ahora tiene un solo simulador real ("Simulador" → `/random-draft`, All Pick vs bot inteligente, panel central con Pro-Drafter en tiempo real cuando el flag está encendido) en vez de tres experiencias solapadas y confusas -- y ese simulador, cuando `ENABLE_PRO_DRAFTER`/`NEXT_PUBLIC_ENABLE_PRO_DRAFTER` se prendan en producción, mostrará exactamente el mismo motor y badge que ya se ve en el draft real, sin ninguna pieza nueva de UI que inventar entonces.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T18:10</span></div>
-            <div class="feed-note">Cierre de la deuda técnica anotada en evt-111: `scripts/verify-simplicity.sh` corría `bun test` solo dentro de `apps/engine`/`apps/web` (`cd apps/X && bun test`, guardado por `-f apps/X/package.json`), nunca `scripts/` -- los 9 tests de `fetch-daily-pro-drafts.test.ts` pasaban si alguien los corría a mano, pero el gate oficial nunca los tocaba. Agregado un tercer bloque al mismo paso de "Gate de commit" (sección 8, `VERIFY_COMMIT_GATE=1`), con un guard distinto a propósito: `scripts/` no es un workspace con `package.json` propio (usa el de la raíz), así que `-f scripts/package.json` habría sido `false` siempre -- el guard real y equivalente es `-d scripts` (el directorio existe siempre en este repo). Verificado que `cd scripts && bun test` resuelve bien los imports relativos hacia `apps/engine/src/` (mismo patrón que ya usa `fetch-daily-pro-drafts.ts` para importar `OpenDotaClient`/`loadDraftCorpus`) antes de escribir el cambio, no asumido. **Verificación real de que el gate ahora bloquea de verdad, no solo que el caso feliz pasa**: se rompió a propósito una aserción de `filterTier1LeagueIds` (`toEqual(new Set([999]))` en vez de `new Set([1, 6])`), se corrió `VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh` con el test roto -- salida real: `❌ ERROR: suite de tests de scripts/ falló (bun test)`, `🔥 1 violación(es)`, **exit code 1** -- confirmado con el código de salida real del proceso, no solo leyendo el texto. Restaurado el archivo original desde backup (`cp` antes de tocarlo), verificado con `git diff` que quedó byte-idéntico al commiteado en evt-111 antes de seguir. Corrida limpia final: `apps/engine` 423/423, `apps/web` 140/140, `scripts/` 9/9 -- las tres suites dentro de la MISMA invocación del gate de commit, ninguna corrida a mano por separado. **Alcance deliberadamente acotado al pedido literal**: el usuario pidió cubrir "la suite de tests unitarios", no `tsc --noEmit` -- `scripts/` sigue sin estar en el `include` de ningún `tsconfig.json` del repo (gap ya anotado en evt-111, `fetch-pro-drafts.ts` lo tenía desde su creación), este evento no lo toca; si se completa después, es un cambio aparte. 1 archivo modificado (`scripts/verify-simplicity.sh`, ~12 líneas nuevas) -- dentro de cualquier presupuesto, ni cerca del límite (ahora aviso, no bloqueo, desde Governance 2.0/TSK-092). **Traducción a producto**: esto significa que la verificación automatizada de este repo ahora cubre oficialmente las tres partes del código que corren pruebas (`apps/engine`, `apps/web`, `scripts/`) en un solo gate -- un test roto en cualquiera de las tres bloquea el commit por igual, sin excepción de ticket posible (mismo criterio duro que ya regía para las primeras dos).</div>
           </div>
         </div></div>
     </div>
