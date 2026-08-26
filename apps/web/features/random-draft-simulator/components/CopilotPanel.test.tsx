@@ -1,5 +1,4 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-GlobalRegistrator.register();
+import "@/test-support/happy-dom";
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";

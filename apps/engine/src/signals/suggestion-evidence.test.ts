@@ -21,7 +21,9 @@ test("expone contrapick, sinergia y flex como evidencia separada", () => {
 
   const earthshaker = result.suggestions.find((suggestion) => suggestion.hero === 3)!;
   expect(earthshaker.evidence?.map((item) => item.kind)).toEqual(expect.arrayContaining(["counter", "synergy", "flex"]));
-  expect(earthshaker.reason).toContain("Pick 3/4");
+  // El momento (Pick 3/4) lo declara `decisionContext` una sola vez -- `reason` no lo repite
+  // (TSK-124: el encabezado de fase clonado en cada tarjeta era el bug real, no una prueba).
+  expect(result.decisionContext).toBe("response_pick");
 });
 
 test("una respuesta sin ventaja verificable contra los dos rivales revelados declara el riesgo", () => {
@@ -34,7 +36,7 @@ test("una respuesta sin ventaja verificable contra los dos rivales revelados dec
     matchups: { 3: [{ vsHero: 10, games: 300, wins: 150 }, { vsHero: 11, games: 300, wins: 150 }] },
   }, { heroPositions: {}, heroCapabilities: [] });
 
-  expect(result.suggestions[0]?.reason).toContain("Pick 3/4");
+  expect(result.decisionContext).toBe("response_pick");
   expect(result.suggestions[0]?.evidence).toEqual(expect.arrayContaining([
     expect.objectContaining({ kind: "risk", text: expect.stringContaining("contrapick verificable") }),
   ]));
@@ -65,6 +67,6 @@ test("el cierre declara composición y riesgo cuando faltan datos de contrapick"
     matchups: {},
   }, { heroPositions: {}, heroCapabilities: [] });
 
-  expect(result.suggestions[0]?.reason).toContain("Cierre");
+  expect(result.decisionContext).toBe("closing_pick");
   expect(result.suggestions[0]?.evidence?.filter((item) => item.kind === "risk").length).toBeGreaterThan(0);
 });

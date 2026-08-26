@@ -38,6 +38,7 @@ test("la apertura de equipo entrega cinco opciones, ignora rol/pool personal y e
   const relieved = result.suggestions.find((suggestion) => suggestion.hero === 1)!;
   const baseline = withoutCounterBan.suggestions.find((suggestion) => suggestion.hero === 1)!;
   expect(relieved.score).toBeGreaterThan(baseline.score);
-  expect(relieved.reason).toContain("reduce una exposición conocida");
+  expect(relieved.reason).toContain("Héroe 99 está baneado");
+  expect(relieved.reason).toContain("Hero 1 pierde una respuesta adversa identificada por el matchup");
   expect(relieved.reason).not.toContain("seguro");
 });

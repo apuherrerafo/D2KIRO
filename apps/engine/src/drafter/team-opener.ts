@@ -32,6 +32,10 @@ export interface TeamOpenerOption {
 export interface TeamOpenerRequest {
   candidates: TeamOpenerCandidate[];
   banned: HeroId[];
+  // La explicación de apertura debe hablar de hechos legibles, no de un "ban relevante"
+  // anónimo. El snapshot ya contiene estos nombres; se inyectan para que esta política siga
+  // siendo pura y testeable.
+  heroNames?: Record<HeroId, string>;
   limit?: number;
 }
 
@@ -52,16 +56,34 @@ function reliefScore(candidate: TeamOpenerCandidate, evidence: OpenerEvidence[])
   );
 }
 
-function summary(evidence: OpenerEvidence[]): string {
-  if (evidence.length === 0) return "Opción disponible para abrir una composición de equipo.";
-  return "Un ban relevante reduce una exposición conocida; sigue siendo necesario evaluar los demás matchups y la composición.";
+function strategySummary(candidate: TeamOpenerCandidate, heroNames: Record<HeroId, string> | undefined): string {
+  const heroName = heroNames?.[candidate.hero] ?? `Héroe ${candidate.hero}`;
+  if (candidate.strategy === "push") return `${heroName} abre un plan de presión a estructuras.`;
+  if (candidate.strategy === "pickoff") return `${heroName} abre un plan de pickoff e iniciación.`;
+  if (candidate.strategy === "teamfight") return `${heroName} abre un plan de peleas de equipo.`;
+  return `${heroName} abre un plan de escalado para la composición.`;
+}
+
+function summary(
+  candidate: TeamOpenerCandidate,
+  evidence: OpenerEvidence[],
+  heroNames: Record<HeroId, string> | undefined,
+): string {
+  const strategy = strategySummary(candidate, heroNames);
+  if (evidence.length === 0) return strategy;
+
+  const counterNames = evidence.map((item) => heroNames?.[item.hero] ?? `Héroe ${item.hero}`);
+  const counterList = counterNames.length === 1 ? counterNames[0]! : `${counterNames.slice(0, -1).join(", ")} y ${counterNames.at(-1)}`;
+  const verb = counterNames.length === 1 ? "está baneado" : "están baneados";
+  const heroName = heroNames?.[candidate.hero] ?? `Héroe ${candidate.hero}`;
+  return `${counterList} ${verb}; ${heroName} pierde una respuesta adversa identificada por el matchup. ${strategy}`;
 }
 
 // Política pura para la apertura (antes de que All Pick revele picks rivales). La disponibilidad
 // es una restricción dura; los bans adversos aportan una señal acotada y explicable, no una
 // afirmación de seguridad. La diversidad se aplica después de puntuar, para no convertir cinco
 // copias del mismo plan de equipo en las cinco opciones de apertura.
-export function recommendTeamOpeners({ candidates, banned, limit = 5 }: TeamOpenerRequest): TeamOpenerOption[] {
+export function recommendTeamOpeners({ candidates, banned, heroNames, limit = 5 }: TeamOpenerRequest): TeamOpenerOption[] {
   const bannedSet = new Set(banned);
   const scored = candidates
     .filter((candidate) => !bannedSet.has(candidate.hero))
@@ -72,7 +94,7 @@ export function recommendTeamOpeners({ candidates, banned, limit = 5 }: TeamOpen
         strategy: candidate.strategy,
         score: candidate.baseScore + reliefScore(candidate, evidence),
         evidence,
-        summary: summary(evidence),
+        summary: summary(candidate, evidence, heroNames),
       };
     })
     .sort((left, right) => right.score - left.score || left.hero - right.hero);

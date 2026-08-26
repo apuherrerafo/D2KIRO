@@ -16,8 +16,7 @@
 // use-random-draft-session.ts ya emite por HTTP (POST /api/session/manual) y empuja el
 // draft_state resultante por el mismo FakeSocket -- nunca el motor real de apps/engine.
 
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
-GlobalRegistrator.register();
+import "@/test-support/happy-dom";
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "bun:test";

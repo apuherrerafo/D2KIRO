@@ -392,6 +392,7 @@ export function buildSuggestions(
           matchups: meta.matchups[entry.hero] ?? [],
         })),
         banned: state.banned,
+        heroNames: Object.fromEntries(Object.values(meta.heroes).map((entry) => [entry.id, entry.localizedName])),
       })
     : null;
   const scoreByHero = new Map(scored.map((entry) => [entry.hero, entry]));
@@ -406,8 +407,10 @@ export function buildSuggestions(
     rank: (index + 1) as Suggestion["rank"],
     score: entry.score,
     signals: entry.signals,
+    // decisionPolicy.headline NO se repite acá -- ya lo comunica `decisionContext` (arriba, una
+    // sola vez por SuggestionSet). Repetirlo en cada `reason` clonaba el mismo encabezado en las
+    // 5 tarjetas de la ronda, el hallazgo real de producto que originó TSK-124.
     reason: [
-      decisionPolicy.headline,
       entry.openingReason,
       buildReason(
         entry.signals,

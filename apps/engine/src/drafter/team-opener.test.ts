@@ -37,13 +37,18 @@ describe("recommendTeamOpeners", () => {
 
   test("eleva un candidato cuando un matchup adverso con muestra suficiente ya está baneado", () => {
     const withoutBan = recommendTeamOpeners({ candidates, banned: [] });
-    const withCounterBanned = recommendTeamOpeners({ candidates, banned: [90] });
+    const withCounterBanned = recommendTeamOpeners({
+      candidates,
+      banned: [90],
+      heroNames: { 1: "Warlock", 90: "Silencer" },
+    });
 
     const before = withoutBan.find((option) => option.hero === 1)!;
     const after = withCounterBanned.find((option) => option.hero === 1)!;
     expect(after.score).toBeGreaterThan(before.score);
     expect(after.evidence).toContainEqual({ kind: "counter_relief", hero: 90 });
-    expect(after.summary).toContain("reduce una exposición conocida");
+    expect(after.summary).toContain("Silencer está baneado");
+    expect(after.summary).toContain("Warlock");
   });
 
   test("no inventa alivio cuando el ban no era un matchup adverso", () => {
@@ -58,5 +63,20 @@ describe("recommendTeamOpeners", () => {
     const result = recommendTeamOpeners({ candidates, banned: [], limit: 3 });
 
     expect(result.map((option) => option.strategy)).toEqual(["push", "pickoff", "teamfight"]);
+  });
+
+  test("da una razón de apertura propia a cada plan, sin reutilizar una plantilla genérica", () => {
+    const result = recommendTeamOpeners({
+      candidates,
+      banned: [],
+      limit: 3,
+      heroNames: { 1: "Warlock", 2: "Leshrac", 3: "Spirit Breaker" },
+    });
+
+    expect(result.map((option) => option.summary)).toEqual([
+      "Leshrac abre un plan de presión a estructuras.",
+      "Spirit Breaker abre un plan de pickoff e iniciación.",
+      "Warlock abre un plan de peleas de equipo.",
+    ]);
   });
 });
