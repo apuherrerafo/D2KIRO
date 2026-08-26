@@ -30,6 +30,7 @@ function suggestionSet(overrides: Partial<SuggestionSet> = {}): SuggestionSet {
     schema: "suggestions/v1",
     sessionId: "s1",
     basedOnSeq: 1,
+    decisionContext: "blind_second_pick",
     suggestions: [],
     comparison: null,
     degraded: [],

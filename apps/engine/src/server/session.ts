@@ -1,4 +1,5 @@
 import { applyDraftEvent, createIdleDraftState, type DraftEventEnvelope, type DraftState, type RejectionReason } from "../draft/reducer";
+import type { DraftTurn } from "../draft/turn-clock";
 import type { SuggestionSet } from "../signals/mix";
 import type { AccountId } from "../meta/provider";
 
@@ -15,13 +16,24 @@ export interface ErrorPayload {
   message: string;
 }
 
-export interface ServerMessage {
+export type WireDraftState = DraftState & { turn: DraftTurn | null };
+
+interface ServerMessageBase<TType extends string, TPayload> {
   schema: "draft-ws/v1";
-  type: "snapshot" | "draft_state" | "suggestions" | "capture_status" | "error";
+  type: TType;
   seq: number;
   sentAt: string;
-  payload: DraftState | SuggestionSet | CaptureStatus | ErrorPayload;
+  payload: TPayload;
 }
+
+// Unión discriminada: el compilador impide emitir un DraftState sin `turn`, o una suggestion
+// como si fuera un snapshot. Esta es la mitad servidor del gate de contrato con Zustand.
+export type ServerMessage =
+  | ServerMessageBase<"snapshot", WireDraftState>
+  | ServerMessageBase<"draft_state", WireDraftState>
+  | ServerMessageBase<"suggestions", SuggestionSet>
+  | ServerMessageBase<"capture_status", CaptureStatus>
+  | ServerMessageBase<"error", ErrorPayload>;
 
 export interface ClientMessage {
   schema: "draft-ws/v1";
@@ -30,8 +42,14 @@ export interface ClientMessage {
   accountToken?: string;
 }
 
-export function buildServerMessage(type: ServerMessage["type"], seq: number, payload: ServerMessage["payload"]): ServerMessage {
-  return { schema: "draft-ws/v1", type, seq, sentAt: new Date().toISOString(), payload };
+type ServerMessageFor<TType extends ServerMessage["type"]> = Extract<ServerMessage, { type: TType }>;
+
+export function buildServerMessage<TType extends ServerMessage["type"]>(
+  type: TType,
+  seq: number,
+  payload: ServerMessageFor<TType>["payload"],
+): ServerMessageFor<TType> {
+  return { schema: "draft-ws/v1", type, seq, sentAt: new Date().toISOString(), payload } as ServerMessageFor<TType>;
 }
 
 // TSK-055: mismo criterio de TTL que ya usa simulatorSessions (app.ts, SIMULATOR_SESSION_TTL_MS)

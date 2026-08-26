@@ -122,6 +122,7 @@ class FakeEngine {
       schema: "suggestions/v1",
       sessionId: this.state.sessionId,
       basedOnSeq: this.state.lastSeq,
+      decisionContext: "blind_second_pick",
       suggestions: [
         { hero, rank: 1, score: 1, signals: [], reason: "fixture", confidence: "alta" },
       ],

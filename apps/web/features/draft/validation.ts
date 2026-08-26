@@ -7,19 +7,80 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNonnegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isHeroId(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+function isHeroIdArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every(isHeroId);
+}
+
+function isTeamSide(value: unknown): value is "radiant" | "dire" {
+  return value === "radiant" || value === "dire";
+}
+
+function isSignalId(value: unknown): boolean {
+  return value === "counter" || value === "patch_meta" || value === "team_synergy" || value === "hero_pool_fit" || value === "position_fit";
+}
+
+function isDegradationFlag(value: unknown): boolean {
+  return value === "stale_meta" || value === "partial_signals" || value === "unconfirmed_state" || value === "unknown_format";
+}
+
+function isDecisionContext(value: unknown): boolean {
+  return value === "team_opening" || value === "blind_second_pick" || value === "response_pick" || value === "closing_pick";
+}
+
+function isDraftTurn(value: unknown): boolean {
+  return isRecord(value) && isTeamSide(value.side) && (value.action === "ban" || value.action === "pick") && isFiniteNumber(value.standardTimeMs) && value.standardTimeMs >= 0;
+}
+
 function isDraftState(value: unknown): value is DraftState {
   if (!isRecord(value) || value.schema !== "draft-state/v1") return false;
   if (typeof value.sessionId !== "string" || typeof value.patch !== "string") return false;
+  if (value.format !== "all_pick" && value.format !== "captains_mode" && value.format !== "unknown") return false;
+  if (!isTeamSide(value.localSide) && value.localSide !== "unknown") return false;
   if (value.phase !== "idle" && value.phase !== "active" && value.phase !== "complete" && value.phase !== "aborted") return false;
-  if (!Array.isArray(value.banned) || typeof value.lastSeq !== "number") return false;
-  if (!isRecord(value.picks) || !Array.isArray(value.picks.radiant) || !Array.isArray(value.picks.dire)) return false;
-  if (!isRecord(value.quality) || !Array.isArray(value.quality.unconfirmed)) return false;
+  if (!isHeroIdArray(value.banned) || !isNonnegativeInteger(value.lastSeq)) return false;
+  if (!isRecord(value.picks) || !isHeroIdArray(value.picks.radiant) || !isHeroIdArray(value.picks.dire)) return false;
+  if (!Array.isArray(value.appliedEventIds) || !value.appliedEventIds.every((id) => typeof id === "string")) return false;
+  if (!isRecord(value.quality) || !isHeroIdArray(value.quality.unconfirmed)) return false;
   const { captureStatus } = value.quality;
-  return captureStatus === "ok" || captureStatus === "degraded" || captureStatus === "lost";
+  if (captureStatus !== "ok" && captureStatus !== "degraded" && captureStatus !== "lost") return false;
+  if (typeof value.updatedAt !== "string") return false;
+  if (value.firstPickSide !== null && !isTeamSide(value.firstPickSide)) return false;
+  if (value.turnStartedAt !== null && typeof value.turnStartedAt !== "string") return false;
+  if (value.reserveRemainingMs !== null) {
+    if (!isRecord(value.reserveRemainingMs) || !isFiniteNumber(value.reserveRemainingMs.radiant) || !isFiniteNumber(value.reserveRemainingMs.dire)) return false;
+  }
+  return value.turn === null || isDraftTurn(value.turn);
 }
 
-function isSuggestionSet(value: unknown): value is SuggestionSet {
-  return isRecord(value) && value.schema === "suggestions/v1" && Array.isArray(value.suggestions) && Array.isArray(value.degraded);
+function isSignalContribution(value: unknown): boolean {
+  return isRecord(value) && isSignalId(value.signal) && (value.raw === null || isFiniteNumber(value.raw)) && isFiniteNumber(value.weighted) && typeof value.explanation === "string" && isFiniteNumber(value.sampleSize) && (value.applicable === undefined || typeof value.applicable === "boolean");
+}
+
+function isSuggestion(value: unknown): boolean {
+  if (!isRecord(value) || !isHeroId(value.hero) || ![1, 2, 3, 4, 5].includes(value.rank as number)) return false;
+  if (!isFiniteNumber(value.score) || typeof value.reason !== "string" || !Array.isArray(value.signals) || !value.signals.every(isSignalContribution)) return false;
+  if (value.confidence !== "alta" && value.confidence !== "media" && value.confidence !== "baja") return false;
+  return value.evidence === undefined || (Array.isArray(value.evidence) && value.evidence.every((item) => isRecord(item) && (item.kind === "opening" || item.kind === "counter" || item.kind === "synergy" || item.kind === "flex" || item.kind === "risk") && typeof item.text === "string"));
+}
+
+export function isValidSuggestionSet(value: unknown): value is SuggestionSet {
+  if (!isRecord(value) || value.schema !== "suggestions/v1") return false;
+  if (typeof value.sessionId !== "string" || !isNonnegativeInteger(value.basedOnSeq) || !isDecisionContext(value.decisionContext)) return false;
+  if (!Array.isArray(value.suggestions) || !value.suggestions.every(isSuggestion) || !Array.isArray(value.degraded) || !value.degraded.every(isDegradationFlag)) return false;
+  if (value.comparison !== null && (!isRecord(value.comparison) || !isHeroId(value.comparison.vsHero) || !isSignalId(value.comparison.signal) || !isFiniteNumber(value.comparison.delta))) return false;
+  return isFiniteNumber(value.computedInMs) && value.computedInMs >= 0;
 }
 
 function isErrorPayload(value: unknown): value is ErrorPayload {
@@ -27,18 +88,18 @@ function isErrorPayload(value: unknown): value is ErrorPayload {
 }
 
 function isCaptureStatus(value: unknown): value is CaptureStatus {
-  return isRecord(value) && (value.status === "ok" || value.status === "degraded" || value.status === "lost");
+  return isRecord(value) && (value.status === "ok" || value.status === "degraded" || value.status === "lost") && (value.detail === undefined || typeof value.detail === "string");
 }
 
 export function isValidServerMessage(value: unknown): value is ServerMessage {
   if (!isRecord(value) || value.schema !== "draft-ws/v1") return false;
-  if (typeof value.seq !== "number" || typeof value.sentAt !== "string") return false;
+  if (!isNonnegativeInteger(value.seq) || typeof value.sentAt !== "string") return false;
   switch (value.type) {
     case "snapshot":
     case "draft_state":
       return isDraftState(value.payload);
     case "suggestions":
-      return isSuggestionSet(value.payload);
+      return isValidSuggestionSet(value.payload);
     case "capture_status":
       return isCaptureStatus(value.payload);
     case "error":

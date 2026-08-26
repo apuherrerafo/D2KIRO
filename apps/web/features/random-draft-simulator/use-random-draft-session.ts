@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { postSimulatorEvent } from "@/features/draft/manual-entry";
 import { createDraftSocket } from "@/features/draft/socket";
-import { isValidServerMessage } from "@/features/draft/validation";
+import { isValidServerMessage, isValidSuggestionSet } from "@/features/draft/validation";
 import type { SimulatorEvent } from "@/features/draft/simulator-scripts";
 import type {
   DraftSocket,
@@ -46,6 +46,14 @@ const MAX_CONFLICT_BANS_PER_ROUND = 2;
 // motor real en el navegador).
 export function otherSide(side: TeamSide): TeamSide {
   return side === "radiant" ? "dire" : "radiant";
+}
+
+// El preview HTTP no comparte el seq/sessionId de la sesión viva. Solo se vincula al estado
+// local después de validar el payload real del engine; un cambio de contrato no llega a Zustand
+// como una suggestion parcialmente tipada.
+export function bindPreviewSuggestions(payload: unknown, draftState: Pick<EngineDraftState, "sessionId" | "lastSeq">): SuggestionSet | null {
+  if (!isValidSuggestionSet(payload)) return null;
+  return { ...payload, sessionId: draftState.sessionId, basedOnSeq: draftState.lastSeq };
 }
 
 export function specForRound(round: 1 | 2 | 3) {
@@ -301,16 +309,17 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         return;
       }
 
-      const suggestions = (await response.json()) as SuggestionSet;
+      const payload: unknown = await response.json();
       if (!isStillCurrentRequest()) return;
       const latest = useRandomDraftStore.getState();
       const draftStateForResponse = latest.draftState!;
+      const suggestions = bindPreviewSuggestions(payload, draftStateForResponse);
+      if (suggestions === null) {
+        useRandomDraftStore.getState().setPreviewStatus("failed");
+        return;
+      }
 
-      useRandomDraftStore.getState().setDraftState(draftStateForResponse, {
-        ...suggestions,
-        sessionId: draftStateForResponse.sessionId,
-        basedOnSeq: draftStateForResponse.lastSeq,
-      });
+      useRandomDraftStore.getState().setDraftState(draftStateForResponse, suggestions);
       useRandomDraftStore.getState().setPreviewStatus("ready");
     } catch {
       // La selección sigue siendo válida sin preview: el motor recalcula al revelar la ronda.
