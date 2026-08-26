@@ -69,6 +69,7 @@ export interface SignalContribution {
 }
 
 export type SuggestionConfidence = "alta" | "media" | "baja";
+export type DraftDecisionContext = "team_opening" | "blind_second_pick" | "response_pick" | "closing_pick";
 
 export interface Suggestion {
   hero: HeroId;
@@ -77,7 +78,7 @@ export interface Suggestion {
   signals: SignalContribution[];
   reason: string;
   confidence: SuggestionConfidence;
-  evidence?: { kind: "counter" | "synergy" | "flex" | "risk"; text: string }[];
+  evidence?: { kind: "opening" | "counter" | "synergy" | "flex" | "risk"; text: string }[];
 }
 
 // TSK-032: comparación explícita entre el pick #1 y el #2 -- `signal` es la señal con mayor
@@ -95,6 +96,7 @@ export interface SuggestionSet {
   schema: "suggestions/v1";
   sessionId: string;
   basedOnSeq: number;
+  decisionContext?: DraftDecisionContext;
   suggestions: Suggestion[];
   comparison: SuggestionComparison | null;
   degraded: DegradationFlag[];

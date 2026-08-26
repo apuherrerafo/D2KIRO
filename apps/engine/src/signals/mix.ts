@@ -8,7 +8,7 @@ import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
-import { deriveDecisionPolicy, type DraftDecisionPolicy } from "../drafter/decision-context";
+import { deriveDecisionPolicy, type DraftDecisionContext, type DraftDecisionPolicy } from "../drafter/decision-context";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V5 } from "./weights";
 
@@ -23,7 +23,7 @@ export interface Suggestion {
 }
 
 export interface SuggestionEvidence {
-  kind: "counter" | "synergy" | "flex" | "risk";
+  kind: "opening" | "counter" | "synergy" | "flex" | "risk";
   text: string;
 }
 
@@ -42,6 +42,7 @@ export interface SuggestionSet {
   schema: "suggestions/v1";
   sessionId: string;
   basedOnSeq: number;
+  decisionContext: DraftDecisionContext;
   suggestions: Suggestion[];
   comparison: SuggestionComparison | null;
   degraded: DegradationFlag[];
@@ -218,10 +219,16 @@ function flexibilityReason(hero: HeroId, positions: HeroPositions): string | nul
   return `Puede flexearse entre ${joinSpanish(labels)} y mantiene abierta la composición.`;
 }
 
-function buildEvidence(signals: SignalContribution[], flexReason: string | null, policy: DraftDecisionPolicy): SuggestionEvidence[] {
+function buildEvidence(
+  signals: SignalContribution[],
+  flexReason: string | null,
+  policy: DraftDecisionPolicy,
+  openingReason: string | null,
+): SuggestionEvidence[] {
   const evidence: SuggestionEvidence[] = [];
   const counter = signals.find((signal) => signal.signal === "counter");
   const synergy = signals.find((signal) => signal.signal === "team_synergy");
+  if (openingReason !== null) evidence.push({ kind: "opening", text: openingReason });
   if (policy.usesRevealedCounterEvidence && counter?.raw !== null && counter?.raw !== undefined && counter.raw > 0) {
     evidence.push({ kind: "counter", text: counter.explanation });
   }
@@ -348,6 +355,8 @@ export function buildSuggestions(
   // armando para cinco jugadores; no es un cambio de peso sino una restricción de contexto.
   const baseScorers = options.teamOpening ? STATIC_SCORERS.filter((scorer) => scorer.id !== "hero_pool_fit") : STATIC_SCORERS;
   const scorers: SignalScorer[] = [...baseScorers, createPositionFitScorer(heroPositions), createTeamSynergyScorer(heroCapabilities)];
+  const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
+  const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
 
   const candidates = candidatePool(state, meta, options);
   if (candidates.length === 0) {
@@ -355,6 +364,7 @@ export function buildSuggestions(
       schema: "suggestions/v1",
       sessionId: state.sessionId,
       basedOnSeq: state.lastSeq,
+      decisionContext: decisionPolicy.context,
       suggestions: [],
       comparison: null,
       degraded,
@@ -373,8 +383,6 @@ export function buildSuggestions(
   }
 
   scored.sort((a, b) => b.score - a.score);
-  const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
-  const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
   const teamOpening = isTeamOpening
     ? recommendTeamOpeners({
         candidates: scored.map((entry) => ({
@@ -409,7 +417,7 @@ export function buildSuggestions(
       .filter(Boolean)
       .join(" "),
     confidence: computeConfidence(entry.signals, options.metaIsStale ?? false),
-    evidence: buildEvidence(entry.signals, roleReason, decisionPolicy),
+    evidence: buildEvidence(entry.signals, roleReason, decisionPolicy, entry.openingReason),
   };
   });
 
@@ -417,6 +425,7 @@ export function buildSuggestions(
     schema: "suggestions/v1",
     sessionId: state.sessionId,
     basedOnSeq: state.lastSeq,
+    decisionContext: decisionPolicy.context,
     suggestions,
     comparison: buildComparison(suggestions),
     degraded,

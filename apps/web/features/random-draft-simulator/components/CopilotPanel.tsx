@@ -6,7 +6,7 @@ import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { BUTTON_GHOST } from "@/features/draft/styles";
 import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 import { DEGRADATION_LABELS } from "@/features/draft/constants";
-import type { DraftState, SuggestionSet } from "@/features/draft/types";
+import type { DraftDecisionContext, DraftState, SuggestionSet } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
 import { useCopilotProDrafter } from "../use-copilot-pro-drafter";
@@ -54,6 +54,18 @@ function DegradedNotice({ degraded }: DegradedNoticeProps) {
   );
 }
 
+const DECISION_CONTEXT_LABELS: Record<DraftDecisionContext, string> = {
+  team_opening: "Apertura de equipo",
+  blind_second_pick: "Pick 2 — información ciega",
+  response_pick: "Pick 3/4 — respuesta a rivales revelados",
+  closing_pick: "Cierre — composición y riesgos",
+};
+
+function DecisionContextNotice({ decisionContext }: Pick<SuggestionSet, "decisionContext">) {
+  if (decisionContext === undefined) return null;
+  return <span className="text-caption font-semibold text-accent-primary">{DECISION_CONTEXT_LABELS[decisionContext]}</span>;
+}
+
 function selectFreshSuggestions(draftState: DraftState | null, suggestions: SuggestionSet | null): SuggestionSet | null {
   if (!draftState || !suggestions) return null;
   if (suggestions.basedOnSeq !== draftState.lastSeq) return null;
@@ -87,6 +99,7 @@ function V5CopilotBody({ draftState, suggestions, heroCatalog, previewStatus, on
     <>
       <PreviewStatusNotice previewStatus={previewStatus} hasSuggestions={fresh !== null} onRetry={onRetryPreview} />
       {fresh && <DegradedNotice degraded={fresh.degraded} />}
+      {fresh && <DecisionContextNotice decisionContext={fresh.decisionContext} />}
       {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
       {fresh?.comparison && <ComparisonNote comparison={fresh.comparison} heroMeta={heroCatalog.get(fresh.comparison.vsHero)} />}
       {alternatives.map((suggestion) => (

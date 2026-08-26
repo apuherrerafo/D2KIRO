@@ -8,6 +8,7 @@ import { getSoleAccountId } from "../db/queries";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
+import { deriveDecisionContext } from "../drafter/decision-context";
 import { currentCaptainsModeTurn } from "../draft/turn-clock";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
@@ -430,6 +431,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
               schema: "suggestions/v1",
               sessionId: state.sessionId,
               basedOnSeq: state.lastSeq,
+              decisionContext: deriveDecisionContext(state, false),
               suggestions: [],
               comparison: null,
               degraded: ["partial_signals"],

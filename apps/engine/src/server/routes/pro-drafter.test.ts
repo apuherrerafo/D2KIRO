@@ -39,6 +39,7 @@ function fakeV5Set() {
     schema: "suggestions/v1" as const,
     sessionId: "pro-drafter-experimental",
     basedOnSeq: 0,
+    decisionContext: "response_pick" as const,
     suggestions: [fakeV5Suggestion(101 as HeroId, 1)],
     comparison: null,
     degraded: [],

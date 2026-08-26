@@ -35,5 +35,7 @@ test("la razón de una sugerencia comunica el momento visible, sin inventar pick
   }, { heroPositions: {}, heroCapabilities: [] });
 
   expect(response.suggestions[0]?.reason).toContain("picks rivales revelados");
+  expect(response.decisionContext).toBe("response_pick");
   expect(blind.suggestions[0]?.reason).toContain("Pick 2 ciego");
+  expect(blind.decisionContext).toBe("blind_second_pick");
 });
