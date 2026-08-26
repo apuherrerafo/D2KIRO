@@ -7,16 +7,24 @@ import { loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
+import { recommendTeamOpeners } from "../drafter/team-opener";
+import { deriveDecisionContext, type DraftDecisionContext } from "../drafter/decision-context";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V5 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3;
+  rank: 1 | 2 | 3 | 4 | 5;
   score: number;
   signals: SignalContribution[]; // siempre las 5, incluidas las que dieron null o no aplican
   reason: string;
   confidence: "alta" | "media" | "baja";
+  evidence?: SuggestionEvidence[];
+}
+
+export interface SuggestionEvidence {
+  kind: "counter" | "synergy" | "flex" | "risk";
+  text: string;
 }
 
 export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format";
@@ -51,6 +59,15 @@ export interface BuildSuggestionsOptions {
   // draft-paths): ausente -> carga draft-paths/capabilities.json real (loadHeroCapabilities()).
   // Las pruebas inyectan su propio fixture -- nunca dependen del archivo real.
   heroCapabilities?: HeroCapabilities[];
+  targetPosition?: 1 | 2 | 3 | 4 | 5;
+  usePersonalPool?: boolean;
+  // El simulador abre una composición completa bajo el control del capitán. No tiene sentido
+  // aplicar todavía el rol personal ni el pool de una sola persona; esos filtros siguen siendo
+  // válidos para la vista de draft individual fuera de esta política.
+  teamOpening?: boolean;
+  // Solo para el simulador: rota alternativas dentro de una banda de calidad equivalente. La
+  // misma semilla y el mismo estado producen el mismo orden; un draft nuevo explora otra terna.
+  diversitySeed?: string;
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -158,14 +175,82 @@ function asSentence(explanation: string): string {
   return `${explanation}.`;
 }
 
-function buildReason(signals: SignalContribution[]): string {
+const POSITION_LABELS = {
+  1: "carry",
+  2: "midlane",
+  3: "offlane",
+  4: "support",
+  5: "hard support",
+} as const;
+
+function joinSpanish(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} y ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} y ${items.at(-1)}`;
+}
+
+// El position_fit explica la necesidad global del equipo; no sabe que el usuario eligió un rol
+// para practicar. Este prefijo completa ese contexto sin alterar la señal ni inventar un flex:
+// solo nombra posiciones presentes en el catálogo curado de 200+ partidas.
+function targetPositionReason(hero: HeroId, options: BuildSuggestionsOptions): string | null {
+  if (options.targetPosition === undefined) return null;
+  const shares = (options.heroPositions ?? MODULE_HERO_POSITIONS)[hero] ?? [];
+  const flexPositions = shares
+    .filter((share) => share.position !== options.targetPosition)
+    .sort((a, b) => b.matches - a.matches)
+    .map((share) => POSITION_LABELS[share.position]);
+  const target = POSITION_LABELS[options.targetPosition];
+  if (flexPositions.length === 0) return `Encaja en tu posición elegida: ${target}.`;
+  return `Encaja en tu posición elegida: ${target}. También puede flexearse a ${joinSpanish(flexPositions)}.`;
+}
+
+// Sin un rol individual impuesto (caso del capitán en el simulador), la flexibilidad sigue siendo
+// información útil, pero solo si el catálogo curado registra al héroe en dos o más posiciones.
+// No inferimos posiciones desde las etiquetas ruidosas de OpenDota ni llamamos "flex" a un héroe
+// de una sola posición.
+function flexibilityReason(hero: HeroId, positions: HeroPositions): string | null {
+  const shares = positions[hero] ?? [];
+  if (shares.length < 2) return null;
+  const labels = shares
+    .slice()
+    .sort((left, right) => right.matches - left.matches)
+    .map((share) => POSITION_LABELS[share.position]);
+  return `Puede flexearse entre ${joinSpanish(labels)} y mantiene abierta la composición.`;
+}
+
+function contextReason(context: DraftDecisionContext): string {
+  if (context === "team_opening") return "Apertura de equipo: todavía no hay picks rivales revelados.";
+  if (context === "blind_second_pick") return "Ronda ciega: todavía no hay picks rivales revelados; prioriza cohesión y flexibilidad.";
+  if (context === "response_pick") return "Con los picks rivales revelados, combina contrapick con la composición propia.";
+  return "Cierre de draft: con cuatro rivales revelados, prioriza cubrir riesgos y completar la composición.";
+}
+
+function buildEvidence(signals: SignalContribution[], flexReason: string | null, context: DraftDecisionContext): SuggestionEvidence[] {
+  const evidence: SuggestionEvidence[] = [];
+  const counter = signals.find((signal) => signal.signal === "counter");
+  const synergy = signals.find((signal) => signal.signal === "team_synergy");
+  if (counter?.raw !== null && counter?.raw !== undefined && counter.raw > 0) {
+    evidence.push({ kind: "counter", text: counter.explanation });
+  }
+  if (synergy?.raw !== null && synergy?.raw !== undefined && synergy.raw > 0) {
+    evidence.push({ kind: "synergy", text: synergy.explanation });
+  }
+  if (flexReason !== null) evidence.push({ kind: "flex", text: flexReason });
+  if (context === "closing_pick" && (counter?.raw === null || counter === undefined)) {
+    evidence.push({ kind: "risk", text: "Sin datos suficientes de contrapick para cerrar este draft con certeza." });
+  }
+  return evidence;
+}
+
+function buildReason(signals: SignalContribution[], positionReason: string | null): string {
   const informative = signals
     .filter(hasVote)
     .sort((a, b) => SCORING_WEIGHTS_V5[b.signal] - SCORING_WEIGHTS_V5[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
-  if (informative.length > 0) return informative.map(asSentence).join(" ");
-  return signals[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
+  const signalReason = informative.length > 0 ? informative.map(asSentence).join(" ") : signals[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
+  if (positionReason === null) return signalReason;
+  return `${positionReason} ${signalReason}`;
 }
 
 // Solo señales con voto real en AMBOS candidatos son comparables -- comparar contra un `raw:
@@ -198,11 +283,51 @@ export function buildComparison(suggestions: Suggestion[]): SuggestionComparison
   return { vsHero: second.hero, signal: best.signal, delta: best.delta };
 }
 
-function candidatePool(state: DraftState, meta: MetaSnapshot): HeroId[] {
+function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSuggestionsOptions): HeroId[] {
   const excluded = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
-  return Object.keys(meta.heroes)
+  let candidates = Object.keys(meta.heroes)
     .map(Number)
     .filter((hero) => !excluded.has(hero));
+  if (options.teamOpening || options.targetPosition === undefined) return candidates;
+
+  const positions = options.heroPositions ?? MODULE_HERO_POSITIONS;
+  candidates = candidates.filter((hero) => positions[hero]?.some((share) => share.position === options.targetPosition));
+  if (!options.usePersonalPool) return candidates;
+
+  const personalPool = new Set(meta.heroPool?.map((entry) => entry.hero) ?? []);
+  const poolCandidates = candidates.filter((hero) => personalPool.has(hero));
+  return poolCandidates.length > 0 ? poolCandidates : candidates;
+}
+
+function openingStrategy(hero: HeroId, capabilities: HeroCapabilities[]): "push" | "teamfight" | "pickoff" | "scaling" {
+  const capability = capabilities.find((entry) => entry.hero === hero);
+  if (!capability) return "scaling";
+  if (capability.structuralDamage === "high") return "push";
+  if (capability.teamfight === "high") return "teamfight";
+  if (capability.hasInitiation && capability.hasCatch) return "pickoff";
+  return "scaling";
+}
+
+function stableSeedOffset(seed: string, length: number): number {
+  let hash = 0;
+  for (const character of seed) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return hash % length;
+}
+
+// La apertura no debe proponer el mismo trío por el simple desempate de ID. Solo se rota una
+// frontera de calidad equivalente (máximo 3 puntos del mejor score); un candidato claramente
+// superior conserva su prioridad y el resultado nunca cambia al re-renderizar la misma partida.
+function diversifyEquivalentCandidates(
+  scored: { hero: HeroId; score: number; signals: SignalContribution[] }[],
+  diversitySeed: string | undefined,
+): { hero: HeroId; score: number; signals: SignalContribution[] }[] {
+  if (diversitySeed === undefined || scored.length <= TOP_N) return scored;
+  const frontier = scored.filter((entry) => scored[0]!.score - entry.score <= 3);
+  if (frontier.length <= TOP_N) return scored;
+  const offset = stableSeedOffset(diversitySeed, frontier.length);
+  const rotated = [...frontier.slice(offset), ...frontier.slice(0, offset)];
+  const frontierHeroes = new Set(frontier.map((entry) => entry.hero));
+  return [...rotated, ...scored.filter((entry) => !frontierHeroes.has(entry.hero))];
 }
 
 export function buildSuggestions(
@@ -222,9 +347,13 @@ export function buildSuggestions(
   // (costura S10/S9).
   const heroPositions = options.heroPositions ?? MODULE_HERO_POSITIONS;
   const heroCapabilities = options.heroCapabilities ?? MODULE_HERO_CAPABILITIES;
-  const scorers: SignalScorer[] = [...STATIC_SCORERS, createPositionFitScorer(heroPositions), createTeamSynergyScorer(heroCapabilities)];
+  // Al abrir un draft de equipo no existe todavía un "héroe del usuario". Excluir la señal de
+  // hero pool evita que la comodidad de una sola cuenta decida la composición que el capitán está
+  // armando para cinco jugadores; no es un cambio de peso sino una restricción de contexto.
+  const baseScorers = options.teamOpening ? STATIC_SCORERS.filter((scorer) => scorer.id !== "hero_pool_fit") : STATIC_SCORERS;
+  const scorers: SignalScorer[] = [...baseScorers, createPositionFitScorer(heroPositions), createTeamSynergyScorer(heroCapabilities)];
 
-  const candidates = candidatePool(state, meta);
+  const candidates = candidatePool(state, meta, options);
   if (candidates.length === 0) {
     return {
       schema: "suggestions/v1",
@@ -248,14 +377,45 @@ export function buildSuggestions(
   }
 
   scored.sort((a, b) => b.score - a.score);
-  const suggestions: Suggestion[] = scored.slice(0, TOP_N).map((entry, index) => ({
+  const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
+  const decisionContext = deriveDecisionContext(state, isTeamOpening);
+  const teamOpening = isTeamOpening
+    ? recommendTeamOpeners({
+        candidates: scored.map((entry) => ({
+          hero: entry.hero,
+          baseScore: entry.score / 100,
+          strategy: openingStrategy(entry.hero, heroCapabilities),
+          matchups: meta.matchups[entry.hero] ?? [],
+        })),
+        banned: state.banned,
+      })
+    : null;
+  const scoreByHero = new Map(scored.map((entry) => [entry.hero, entry]));
+  const ranked = teamOpening
+    ? teamOpening.map((option) => ({ ...scoreByHero.get(option.hero)!, score: option.score * 100, openingReason: option.summary }))
+    : diversifyEquivalentCandidates(scored, options.diversitySeed).map((entry) => ({ ...entry, openingReason: null }));
+  const limit = teamOpening ? 5 : TOP_N;
+  const suggestions: Suggestion[] = ranked.slice(0, limit).map((entry, index) => {
+    const roleReason = targetPositionReason(entry.hero, options.teamOpening ? {} : options) ?? flexibilityReason(entry.hero, heroPositions);
+    return {
     hero: entry.hero,
-    rank: (index + 1) as 1 | 2 | 3,
+    rank: (index + 1) as Suggestion["rank"],
     score: entry.score,
     signals: entry.signals,
-    reason: buildReason(entry.signals),
+    reason: [
+      contextReason(decisionContext),
+      entry.openingReason,
+      buildReason(
+        entry.signals,
+        roleReason,
+      ),
+    ]
+      .filter(Boolean)
+      .join(" "),
     confidence: computeConfidence(entry.signals, options.metaIsStale ?? false),
-  }));
+    evidence: buildEvidence(entry.signals, roleReason, decisionContext),
+  };
+  });
 
   return {
     schema: "suggestions/v1",

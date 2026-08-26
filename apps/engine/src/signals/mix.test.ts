@@ -34,6 +34,57 @@ function meta(heroes: Record<number, MetaHeroInfo>, overrides: Partial<MetaSnaps
   return { heroes, matchups: {}, ...overrides };
 }
 
+test("targetPosition con pool personal limita las sugerencias a héroes compatibles del pool", () => {
+  const result = buildSuggestions(
+    draftState(),
+    meta(
+      { 1: { id: 1, localizedName: "Carry del pool" }, 2: { id: 2, localizedName: "Support externo" }, 3: { id: 3, localizedName: "Support del pool" } },
+      { heroPool: [{ hero: 1, source: "manual", personalWinrate: null, personalGames: 10, updatedAt: "now" }, { hero: 3, source: "manual", personalWinrate: null, personalGames: 10, updatedAt: "now" }] },
+    ),
+    { targetPosition: 5, usePersonalPool: true, heroPositions: { 1: [{ position: 1, matches: 500 }], 2: [{ position: 5, matches: 500 }], 3: [{ position: 5, matches: 500 }] } },
+  );
+
+  expect(result.suggestions.map((suggestion) => suggestion.hero)).toEqual([3]);
+});
+
+test("la sugerencia para la posición elegida explica el flex real del héroe", () => {
+  const result = buildSuggestions(
+    draftState(),
+    meta({ 7: { id: 7, localizedName: "Earthshaker" } }),
+    {
+      targetPosition: 2,
+      heroPositions: {
+        7: [
+          { position: 2, matches: 900 },
+          { position: 4, matches: 700 },
+          { position: 3, matches: 600 },
+        ],
+      },
+    },
+  );
+
+  expect(result.suggestions[0]?.reason).toContain("Encaja en tu posición elegida: midlane");
+  expect(result.suggestions[0]?.reason).toContain("flexearse a support y offlane");
+});
+
+test("semillas distintas rotan alternativas de calidad equivalente sin volver inestable una misma partida", () => {
+  const snapshot = meta({
+    1: { id: 1, localizedName: "Uno" },
+    2: { id: 2, localizedName: "Dos" },
+    3: { id: 3, localizedName: "Tres" },
+    4: { id: 4, localizedName: "Cuatro" },
+    5: { id: 5, localizedName: "Cinco" },
+  });
+  const options = { heroPositions: {} };
+
+  const firstDraft = buildSuggestions(draftState(), snapshot, { ...options, diversitySeed: "draft-alpha" });
+  const sameDraft = buildSuggestions(draftState(), snapshot, { ...options, diversitySeed: "draft-alpha" });
+  const nextDraft = buildSuggestions(draftState(), snapshot, { ...options, diversitySeed: "draft-beta" });
+
+  expect(sameDraft.suggestions.map((suggestion) => suggestion.hero)).toEqual(firstDraft.suggestions.map((suggestion) => suggestion.hero));
+  expect(nextDraft.suggestions.map((suggestion) => suggestion.hero)).not.toEqual(firstDraft.suggestions.map((suggestion) => suggestion.hero));
+});
+
 describe("SCORING_WEIGHTS_V1", () => {
   test("los 4 pesos suman exactamente 1.0", () => {
     const sum = Object.values(SCORING_WEIGHTS_V1).reduce((a, b) => a + b, 0);

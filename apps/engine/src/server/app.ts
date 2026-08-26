@@ -120,7 +120,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   // DraftState dado, nunca duplicada entre los dos caminos.
   // Req 5 (§5.4): si getCachedMetaSnapshot lanza, se relanza como SnapshotUnavailableError para
   // que el llamador pueda distinguirlo de un fallo del pipeline de señales.
-  async function computeSuggestionsForState(state: DraftState, accountId: number | null = null): Promise<SuggestionSet> {
+  async function computeSuggestionsForState(
+    state: DraftState,
+    accountId: number | null = null,
+    options: { targetPosition?: 1 | 2 | 3 | 4 | 5; usePersonalPool?: boolean; teamOpening?: boolean; diversitySeed?: string } = {},
+  ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
     try {
       // TSK-098: reemplazar por el accountId de la sesión.
@@ -129,7 +133,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       throw new SnapshotUnavailableError();
     }
     const freshness = await getMetaFreshness(deps.db);
-    return buildSuggestions(state, meta, { metaIsStale: freshness.isStale });
+    return buildSuggestions(state, meta, { metaIsStale: freshness.isStale, heroPositions: deps.heroPositions, ...options });
   }
 
   // TSK-082: sugerencias reales sin sesión -- para el bot de /random-draft, que necesita el
@@ -143,6 +147,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (!isValidSuggestionsPreviewRequest(body)) {
       return Response.json({ error: "invalid_preview_request" }, { status: 400 });
     }
+    const auth = body.usePersonalPool && !body.teamOpening ? requireHttpAccount(request) : { ok: true as const, accountId: null };
+    if (!auth.ok) return auth.response;
     const previewState: DraftState = {
       sessionId: "preview",
       schema: "draft-state/v1",
@@ -161,7 +167,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       reserveRemainingMs: null,
     };
     try {
-      const suggestions = await computeSuggestionsForState(previewState);
+      const suggestions = await computeSuggestionsForState(previewState, auth.accountId, {
+        targetPosition: body.targetPosition,
+        usePersonalPool: body.usePersonalPool,
+        teamOpening: body.teamOpening,
+        diversitySeed: body.diversitySeed,
+      });
       return Response.json(suggestions);
     } catch (err) {
       if (err instanceof SnapshotUnavailableError) {

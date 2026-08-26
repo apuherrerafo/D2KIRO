@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope } from "./edge";
+import { checkCaptureToken, createSessionRateLimiter, isValidClientMessage, isValidDraftEventEnvelope, isValidSuggestionsPreviewRequest } from "./edge";
 
 function envelope(overrides: Record<string, unknown> = {}) {
   return {
@@ -94,5 +94,24 @@ describe("isValidClientMessage", () => {
     expect(isValidClientMessage(123)).toBe(false);
     expect(isValidClientMessage({ schema: "otro", type: "hello", sessionId: "s1" })).toBe(false);
     expect(isValidClientMessage({ schema: "draft-ws/v1", type: "unknown" })).toBe(false);
+  });
+});
+
+describe("isValidSuggestionsPreviewRequest", () => {
+  const validPreview = {
+    format: "all_pick",
+    patch: "7.41e",
+    localSide: "radiant",
+    banned: [],
+    picks: { radiant: [], dire: [] },
+  };
+
+  test("acepta una semilla acotada para diversificar solo el simulador", () => {
+    expect(isValidSuggestionsPreviewRequest({ ...validPreview, diversitySeed: "draft-alpha" })).toBe(true);
+  });
+
+  test("rechaza una semilla vacía o desproporcionada antes de llegar al motor", () => {
+    expect(isValidSuggestionsPreviewRequest({ ...validPreview, diversitySeed: "" })).toBe(false);
+    expect(isValidSuggestionsPreviewRequest({ ...validPreview, diversitySeed: "x".repeat(129) })).toBe(false);
   });
 });

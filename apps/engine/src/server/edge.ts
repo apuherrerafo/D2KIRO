@@ -126,6 +126,10 @@ export interface SuggestionsPreviewRequest {
   localSide: TeamSide | "unknown";
   banned: HeroId[];
   picks: { radiant: HeroId[]; dire: HeroId[] };
+  targetPosition?: 1 | 2 | 3 | 4 | 5;
+  usePersonalPool?: boolean;
+  teamOpening?: boolean;
+  diversitySeed?: string;
 }
 
 function isHeroIdArray(value: unknown): value is HeroId[] {
@@ -142,5 +146,9 @@ export function isValidSuggestionsPreviewRequest(value: unknown): value is Sugge
   if (!isTeamSide(value.localSide) && value.localSide !== "unknown") return false;
   if (!isHeroIdArray(value.banned)) return false;
   if (!isRecord(value.picks)) return false;
-  return isHeroIdArray(value.picks.radiant) && isHeroIdArray(value.picks.dire);
+  if (!isHeroIdArray(value.picks.radiant) || !isHeroIdArray(value.picks.dire)) return false;
+  if (value.targetPosition !== undefined && ![1, 2, 3, 4, 5].includes(value.targetPosition as number)) return false;
+  if (value.usePersonalPool !== undefined && typeof value.usePersonalPool !== "boolean") return false;
+  if (value.teamOpening !== undefined && typeof value.teamOpening !== "boolean") return false;
+  return value.diversitySeed === undefined || (typeof value.diversitySeed === "string" && value.diversitySeed.length > 0 && value.diversitySeed.length <= 128);
 }

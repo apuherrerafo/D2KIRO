@@ -156,7 +156,11 @@ export function createProDrafterRoutes(deps: ProDrafterRouteDeps = {}) {
   async function buildFallbackSuggestions(state: DraftState): Promise<ProDrafterSuggestion[]> {
     if (!deps.computeV5Fallback) return [];
     const v5 = await deps.computeV5Fallback(state);
-    return v5.suggestions.map((s) => ({ hero: s.hero, rank: s.rank, score: s.score, signals: [] }));
+    // Pro-Drafter conserva su contrato de tres alternativas. La apertura de equipo del
+    // simulador puede tener cinco, pero nunca viaja por este fallback experimental.
+    return v5.suggestions
+      .filter((suggestion) => suggestion.rank <= 3)
+      .map((suggestion) => ({ hero: suggestion.hero, rank: suggestion.rank as 1 | 2 | 3, score: suggestion.score, signals: [] }));
   }
 
   async function postRecommendations(request: Request): Promise<Response> {

@@ -72,11 +72,12 @@ export type SuggestionConfidence = "alta" | "media" | "baja";
 
 export interface Suggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3;
+  rank: 1 | 2 | 3 | 4 | 5;
   score: number;
   signals: SignalContribution[];
   reason: string;
   confidence: SuggestionConfidence;
+  evidence?: { kind: "counter" | "synergy" | "flex" | "risk"; text: string }[];
 }
 
 // TSK-032: comparación explícita entre el pick #1 y el #2 -- `signal` es la señal con mayor

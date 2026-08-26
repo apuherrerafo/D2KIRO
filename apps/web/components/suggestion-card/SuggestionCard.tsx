@@ -8,6 +8,8 @@ import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft
 import type { HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
+const EVIDENCE_LABELS = { counter: "Contrapick", synergy: "Sinergia", flex: "Flex", risk: "Riesgo" } as const;
+
 function cardClassName(isPrimary: boolean): string {
   const base = "flex flex-col gap-2 rounded-lg border p-4";
   if (isPrimary) return `${base} border-accent-primary bg-surface-raised`;
@@ -73,6 +75,13 @@ export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMet
             {suggestion.reason}
           </span>
           <span className="text-caption text-content-muted">{CONFIDENCE_LABELS[suggestion.confidence]}</span>
+          {suggestion.evidence && suggestion.evidence.length > 0 && (
+            <ul className="flex flex-col gap-1 text-caption text-content-secondary">
+              {suggestion.evidence.map((item) => (
+                <li key={`${item.kind}-${item.text}`}><span className="font-semibold text-content-primary">{EVIDENCE_LABELS[item.kind]}:</span> {item.text}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
       <div className="flex gap-2">
