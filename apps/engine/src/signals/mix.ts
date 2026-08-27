@@ -1,5 +1,6 @@
 import type { DraftState, HeroId } from "../draft/reducer";
 import { loadHeroCapabilities } from "../draft-paths/capabilities";
+import { openingStrategy } from "../draft-paths/strategy";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { counterScorer } from "./counter";
 import { heroPoolFitScorer } from "./hero-pool-fit";
@@ -300,15 +301,6 @@ function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSugg
   const personalPool = new Set(meta.heroPool?.map((entry) => entry.hero) ?? []);
   const poolCandidates = candidates.filter((hero) => personalPool.has(hero));
   return poolCandidates.length > 0 ? poolCandidates : candidates;
-}
-
-function openingStrategy(hero: HeroId, capabilities: HeroCapabilities[]): "push" | "teamfight" | "pickoff" | "scaling" {
-  const capability = capabilities.find((entry) => entry.hero === hero);
-  if (!capability) return "scaling";
-  if (capability.structuralDamage === "high") return "push";
-  if (capability.teamfight === "high") return "teamfight";
-  if (capability.hasInitiation && capability.hasCatch) return "pickoff";
-  return "scaling";
 }
 
 function stableSeedOffset(seed: string, length: number): number {
