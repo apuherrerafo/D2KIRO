@@ -19,6 +19,8 @@ aquí, no está listo para implementarse — no se escribe una prueba que no res
 | **S8** — Persistencia y edición del pool (fase 1b) | `apps/web` (configuración) → `apps/engine` → SQLite | La validación en el borde, el reemplazo transaccional y la lectura vía Drizzle, contra una SQLite en memoria | Nada más. `POST /calculate` no participa: leer/escribir el pool nunca llama a la red |
 | **S9** — `HeroCapabilities` (Fase 2, caminos de draft) | `capabilities.json` (borrador curado a mano) → `draft-paths/build-paths.ts` | La lógica de detección de gaps y scoring por arquetipo — función pura | El archivo real: `heroCapabilities` inyectable en `AppDeps` (mismo patrón que `db`/`openDotaClient`), con un fixture propio y determinístico en las pruebas de integración. `capabilities.json` real sigue siendo un borrador editable — ninguna prueba puede depender de su contenido exacto sin romperse en silencio con cada corrección |
 | **S10** — `HeroPositions` (Fase 3, `position_fit`) | `hero-positions.json` (dato curado por parche) → `signals/position-fit.ts` | La lógica de cobertura, necesidad, timing y mezcla — función pura | El archivo real: `heroPositions` inyectado vía `createPositionFitScorer(positions)` y vía `BuildSuggestionsOptions.heroPositions` para las pruebas de integración. **Ninguna prueba puede depender del contenido real de `hero-positions.json`** — ese archivo se regenera con cada parche grande, un test atado a su contenido se rompería en silencio con cada actualización (mismo criterio literal que S9, y misma razón) |
+| **S11** — Identidad Steam (Fase 5, login OpenID) | Steam (`check_authentication`) → `apps/web` (`lib/steam-openid.ts`) | La lógica de verificación de firma, anclaje de host, y conversión SteamID64→Steam32 — funciones puras dado un payload `openid.*` | Steam mismo: fixtures **grabados** de respuestas reales de `check_authentication` (`is_valid:true`/`is_valid:false`, malformadas, con host distinto). **Cero red real en las pruebas** — mismo principio que S6/S7 |
+| **S13** — Token interno de cuenta (Fase 5, `x-account-token`) | `apps/web` (acuñado) → `apps/engine` (`server/account-token.ts`, verificado) | La verificación completa: forma, firma, ventana, rango de `accountId`, nonce — función pura | El reloj y el store de nonces se inyectan como parámetros (mismo principio que S4 con `applyDraftEvent`) — ninguna prueba depende de `Date.now()` real ni de un store de nonces compartido entre tests. Costura **S12 salteada a propósito**: ya reservada por Fase 4 (§11.10) para el RNG de diversificación |
 
 `hero_pool_fit` (fase 1b) no estrena costura propia — es un `SignalScorer` más, cae en **S3** tal
 cual (función pura, su propio archivo de prueba, aislado de los otros cuatro). Los "caminos de
@@ -86,3 +88,54 @@ S9 en vez de S2.
   de un solo arquetipo y seguiría rota); intención `pickoff` con la escala de 4 niveles (único
   caso que detecta un denominador de normalización equivocado); candidato sin entrada en las
   capacidades inyectadas → `raw: null`, nunca una excepción sin capturar.
+
+## Fase 5 — Auth & Personal Hero Pool multi-usuario (SPEC.md §12.14)
+
+- Las pruebas de S11 nunca hacen una llamada de red real a Steam — fixtures grabados de
+  `check_authentication`, incluido el caso `is_valid:false` (un callback fabricado no debe crear
+  sesión, criterio 5 de SPEC.md §12.14). Misma razón que S6/S7: no depender de que Steam esté arriba
+  para que `bun test` pase.
+- Las pruebas de S13 inyectan reloj y nonce — **dos pruebas de replay, no una** (criterio 6): un
+  token reenviado dentro de su ventana de 60 s se rechaza como `replayed_account_token`; uno
+  reenviado fuera de la ventana, como `expired_account_token`. Un solo test de "token vencido"
+  pasaría igual con anti-replay inexistente — mismo tipo de hallazgo que ya costó TSK-036.
+- **Prueba dedicada obligatoria para la conversión SteamID64→Steam32 con `BigInt`** (criterio 10):
+  documenta, en el mismo test, el valor que daría la conversión ingenua con `Number()` junto al
+  valor correcto — sin este contraste explícito, un refactor futuro puede reintroducir el bug sin
+  que ningún test lo note (la aritmética con `Number` no lanza, solo da un resultado distinto).
+- **El vector de prueba de `x-account-token` (SPEC.md §12.6) es un candado compartido, no una
+  prueba más**: la misma firma HMAC debe reproducirse en `apps/web` (donde se acuña) y en
+  `apps/engine` (donde se verifica) — criterio 9, mismo tipo de candado que ya usa el proyecto para
+  el espejo de `SignalId` entre procesos.
+- El aislamiento entre cuentas (criterio 2) se prueba contra `buildSuggestions`/`buildMetaSnapshot`
+  completos, **con dos cuentas cacheadas a la vez** — nunca solo contra la query aislada. Mismo
+  principio que ya exige el candado de regresión de Fase 3 contra el pipeline completo, no la señal
+  sola.
+- Ninguna prueba de esta fase depende de `capabilities.json`/`hero-positions.json` real ni cambia
+  ninguna fórmula de scoring existente (SPEC.md §12.15-F) — Fase 5 no reabre S9/S10.
+
+## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13.3)
+
+**No estrena ninguna costura.** Cada pieza nueva cae dentro de una ya definida arriba:
+
+| Pieza nueva | Costura | Qué se inyecta |
+|---|---|---|
+| `pipeline/phase-decay.ts` | Ninguna — función pura sin frontera de datos | Nada, recibe `PipelineWeights` y dos enteros |
+| `pipeline/meta-matchup.ts` | **S2** | `Record<HeroId, HeroMatchupStat[]>` como fixture literal. Cero red, cero SQLite |
+| `pipeline/ban-relief.ts` | **S2 + S10** | `matchups` fixture literal + `HeroPositions` inyectado. Ninguna prueba lee `hero-positions.json` real |
+| `extractCandidateStrategies` (`feature-extractor.ts`) | **S9** | `HeroCapabilities[]` inyectado. Ninguna prueba lee `capabilities.json` real |
+| Modo `teamOpening` de `run-pipeline.ts` | **S2 + S9 + S10 combinadas** | Corpus, `HeroPositions`, `matchups`, `HeroCapabilities` y perfiles de línea, todos fixtures |
+
+`S12` sigue reservada (Fase 4, RNG de diversificación). `S14` queda libre — la diversificación de
+esta fase es determinista (penalización, no sorteo), no consume ninguna reserva.
+
+- **El candado de sensibilidad (el criterio de éxito real de la fase) se prueba contra el pipeline
+  completo, nunca contra `ban-relief.ts` aislado** — mismo criterio literal que Fase 3 (§10.9-7) y
+  Fase 5 (§12.14-2): el adaptador puede dar el número correcto y el ranking seguir sin moverse si
+  el peso no alcanza, que es exactamente lo que pasa hoy con `MAX_COUNTER_RELIEF`.
+- El candado de regresión del camino normal (sin `teamOpening`) también corre contra el pipeline
+  completo — debe seguir devolviendo 3 resultados.
+- Ninguna prueba de esta fase lee `hero-positions.json`, `capabilities.json`,
+  `hero-line-profiles.json`, `pro-draft-corpus.json` ni la SQLite real — los números de
+  `SPEC.md` §13.11 se **midieron** contra esos archivos, y por eso mismo no pueden ser el sustrato
+  de un test (se regeneran con cada patch/curación).

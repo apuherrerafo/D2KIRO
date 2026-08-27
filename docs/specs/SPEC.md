@@ -1197,9 +1197,8 @@ peso, ningún archivo de `apps/web`, y no cambia el comportamiento observable de
 terminar 4.1, `buildSuggestions` devuelve exactamente lo mismo que antes: la señal existe, está
 probada, y todavía no está enchufada.
 
-Esto es intencional y es lo que hace que 4.1 quepa en el presupuesto de 3 archivos / 200 líneas
-(`scripts/verify-simplicity.sh`). La integración -- y con ella el único cambio de comportamiento
-real -- vive entera en 4.2.
+Esto es intencional: 4.1 aísla la nueva señal antes de la integración. La integración -- y con
+ella el único cambio de comportamiento real -- vive entera en 4.2.
 
 **`SCORING_WEIGHTS_V5` sigue siendo la constante activa durante todo 4.1.** V1/V2/V3/V4 siguen
 congeladas por nombre, sin tocar.
@@ -1701,3 +1700,1945 @@ una unidad entregable, y partirlo duplicaría el bookkeeping sin bajar el riesgo
 
 `preferred_tool` sugerido: **`claude-code`** -- toca el motor, exige `@redteam` y la trazabilidad
 de las decisiones de §11.4/§11.7 vive en `journal.md`.
+
+---
+
+# SPEC — Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario)
+
+Síntesis de `docs/agents/architecture.md` § Fase 5 (Bloques 1-6, `/pre-flight` completo, 2026-08-24).
+**Quinta ejecución en Opus del proyecto**, delegada a un agente separado (mismo patrón que Fase 4).
+No es una excepción nueva: el Bloque 4 de `/pre-flight` confirma **dos** gatillos objetivos ya
+documentados en `CLAUDE.md` — *cambio de trust boundary* y *modificación de autenticación o
+permisos*. De aquí en adelante, Sonnet otra vez.
+
+Mismo estatuto que las fases anteriores: esto es contrato. Lo que no esté aquí, no es Fase 5.
+
+## 12.0 — Alcance de este blueprint (leer primero)
+
+- **§12.1 a §12.14 son contrato cerrado.** Números fijados, formatos byte a byte, DDL exacto.
+- **§12.15 son correcciones a `architecture.md`**, todas por leer el código real (mismo estándar
+  que §11.6 de Fase 4). Tres de ellas invalidan un mecanismo que el `/pre-flight` daba por bueno.
+- **§12.16 son las preguntas que NO se deciden acá.** No son números por fijar: son decisiones de
+  producto/infraestructura que exigen confirmación del usuario antes de `/rulebook`. Están
+  marcadas con `PENDIENTE DE CONFIRMACIÓN` y ninguna se resolvió en silencio.
+- Lo que Fase 5 **no** es (Bloque 1, sin cambios): no toca la captura del draft en vivo, no cambia
+  ninguna señal del motor más allá de scopearla por cuenta, no hay roles/permisos/admin, no
+  extiende el hero pool de compañeros (Fase 2) a cuentas de Steam reales, no hay perfil social.
+
+---
+
+## 12.1 — Qué de fases anteriores queda superado
+
+Todo lo demás sigue vigente. Solo estas siete cosas se mueven:
+
+| Fase anterior decía | Fase 5 lo cambia a |
+|---|---|
+| §9.4: `hero_pool` con PK simple `hero_id` | PK compuesta `(account_id, hero_id)` + FK a `accounts` (§12.7) |
+| §9.4: `steam_account_id` y `personal_baseline_winrate` viven como claves de `settings` | Columnas de `accounts`. Las dos claves de `settings` se migran y se borran (§12.7) |
+| §9.5: `POST /api/hero-pool/calculate` recibe `{ accountId }` en el cuerpo | El `accountId` **nunca** llega por el cuerpo: sale del token verificado (§12.10). El campo se elimina del contrato |
+| §9.5 (nota de deriva): `GET`/`PUT /api/settings` quedan registrados como API real | **Se retiran** — un KV global escribible por cualquier cliente no sobrevive a multi-usuario (§12.10, P7) |
+| §C4/§9.4: `buildMetaSnapshot(db)` | `buildMetaSnapshot(db, accountId)`, con el cache partido en dos capas (§12.8) |
+| §C5/`web.md`: el acceso al sitio es Basic Auth compartido (`proxy.ts`) | Login de Steam, única puerta. `proxy.ts` pierde el Basic Auth por completo (§12.11) |
+| §5: "el perímetro real es el binding a `127.0.0.1`" | Sigue siendo cierto **y ya no alcanza**: dentro de ese perímetro ahora conviven varias personas. Se suma el token interno por cuenta (§12.6) |
+
+**Lo que NO se toca, y es deliberado**: `SCORING_WEIGHTS_V5` sigue siendo la activa, ninguna señal
+cambia de fórmula, `SignalId` no se amplía, `applyDraftEvent` sigue siendo puro, el orden de push
+`draft_state` → `suggestions` no cambia, y `POST /ingest/draft-event` sigue autenticándose con
+`x-capture-token` (es otro contrato, con otro actor — el capturador no es una persona logueada).
+
+---
+
+## 12.2 — Decisiones cerradas
+
+| # | Decisión | Razón |
+|---|---|---|
+| P1 | **PK de `accounts` = el propio Steam32 (`steam_account_id`, integer), sin id sustituto.** | Es único, inmutable y ya es la clave natural que el proyecto usa en todos lados (`isValidSteamAccountId`, la URL de OpenDota, el `settings` de hoy). Un id sustituto obligaría a un join para resolver identidad en cada request y a decidir *cuál* de los dos ids viaja firmado en el token. Cero beneficio, dos formas de nombrar a la misma persona. |
+| P2 | **`personal_baseline_winrate` pasa a columna de `accounts`. No se crea `account_settings`.** | Es un valor por cuenta, nullable, sin historial. Una tabla aparte para una columna es ceremonia. Precedente propio: `team_groups` guarda sus campos en su fila, no en un KV lateral. |
+| P3 | **`settings` (tabla) sobrevive vacía; `GET`/`PUT /api/settings` se retiran.** | La tabla no se dropea (migración destructiva sin beneficio). Su API sí: es un KV global sin dueño, de escritura libre — en multi-usuario, cualquiera podría leer el Steam32 ajeno o pisar configuración de instancia. Reemplazada por `GET /api/account`, scopeada (§12.10). |
+| P4 | **Steam OpenID implementado a mano, sin Passport ni wrapper.** | Confirmado en `/pre-flight` Bloque 2: la librería más popular tiene un bypass de firma documentado. El protocolo real son dos cosas: construir una URL y hacer un POST de verificación. Mismo principio que ya llevó a curar `hero-positions.json` a mano en Fase 3. |
+| P5 | **`iron-session` es la única dependencia de producción nueva** (en `apps/web`). | Confirmada contra la doc oficial del Next.js instalado (`01-app/02-guides/authentication.md`, línea 526: recomienda `iron-session` o `jose`). Pasa por `/gear-up`/`@depcheck` y se marca `// ALLOWED`, como cualquier `dependency`. |
+| P6 | **El token interno se acuña en `proxy.ts` y viaja como header inyectado al destino del rewrite** — no en `fetchBaseQuery`. | **Corrección forzada por el código real** (§12.15-A): el navegador no puede firmar (no tiene el secreto) ni leer la cookie `httpOnly`. `proxy.ts` corre en runtime Node en Next 16 y su `NextResponse.next({ request: { headers } })` alcanza los destinos de `rewrites` (verificado en la doc del binario instalado). |
+| P7 | **Ventana del token: 60 s. Anti-replay: nonce de un solo uso**, no solo timestamp. | Con acuñado por request, la latencia entre firma y verificación es de milisegundos: 60 s ya es holgado. Solo-timestamp dejaría un token capturado reutilizable durante toda la ventana; el criterio 6 del Bloque 6 exige probar replay, no solo firma inválida. |
+| P8 | **Cookie de sesión: 30 días de TTL, con renovación deslizante a partir de los 7 días de antigüedad y tope absoluto de 90 días.** | Quedarse sin sesión en mitad de un draft es un costo de producto real; re-loguear obliga a rebotar por Steam. La renovación es gratis (`proxy.ts` ya desencripta la sesión en cada request). El tope absoluto de 90 días evita la sesión eterna. |
+| P9 | **El MVP no guarda nada del perfil público de Steam** (nombre, avatar). | Traerlos exige la Steam Web API, que **sí** requiere una API key propia — un secreto nuevo que el Bloque 4 no contempló, más dato personal de terceros. La UI identifica al usuario por su propio Steam32, que ya ve hoy. |
+| P10 | **Conversión SteamID64 → Steam32 obligatoriamente con `BigInt`.** | **No es una preferencia de estilo**: `76561197960265728 > Number.MAX_SAFE_INTEGER`. Verificado ejecutándolo (§12.15-C): la resta con `Number` devuelve un Steam32 **equivocado y silencioso**, que mapearía a la cuenta de otra persona. |
+| P11 | **El motor tiene dos modos: `multi_tenant` (con `INTERNAL_AUTH_SECRET`) y `single_tenant_local` (sin él).** | Regresión cero para `bun run dev` y para el motor local del usuario, que hoy no manda ningún token. El fail-open queda acotado exactamente igual que el precedente de `proxy.ts`: un guard fail-closed en `scripts/start-railway.sh` hace imposible arrancar el contenedor de producción sin el secreto (§12.12). |
+| P12 | **En `single_tenant_local`, la cuenta activa es la única fila de `accounts`** — con 0 o ≥2 filas, no hay cuenta (`accountId: null`). | Determinista, sin inventar una cuenta centinela ni una variable de entorno nueva. Con `null`, `hero_pool_fit` cae en `applicable: false`, que es un camino ya especificado (§9.3) y con candado de regresión propio. |
+| P13 | **Una sesión de draft tiene un dueño (`ownerAccountId`), fijado por el primer `hello` autenticado.** | `pushSessionUpdate` publica a un topic compartido: sin dueño único, dos cuentas suscritas al mismo `sessionId` recibirían las sugerencias personalizadas de la otra. Un `hello` de otra cuenta sobre una sesión con dueño se rechaza. |
+| P14 | **`POST /api/suggestions/preview` y `/api/v1/draft/pro-recommendations` computan siempre con `accountId: null`.** | Son el cerebro del **bot rival** del simulador. Hoy usan el `MetaSnapshot` global y por lo tanto el hero pool del usuario local: el bot juega, sin que nadie lo decidiera, con la comodidad del humano que tiene enfrente. En multi-usuario no existe una cuenta defendible que usar ahí, así que se fija `null` explícito. |
+| P15 | **El cache de `MetaSnapshot` se parte en dos: compartido (héroes/matchups/patchStats) + overlay por cuenta (pool + baseline).** | **Corrección de dimensionamiento** al `Map<accountId, MetaSnapshot>` del Bloque 3 (§12.15-D). Medido contra la base real: 14 850 filas de `hero_matchups` + 2 032 de `hero_patch_stats` son idénticas para todos; lo que varía por cuenta son **5 filas y un número**. |
+
+---
+
+## 12.3 — Costuras nuevas (antes que el comportamiento)
+
+Dos costuras nuevas. **Se saltea el número `S12` a propósito**: §11.10 ya lo reservó por nombre
+para el RNG inyectable de la pieza 4 de Fase 4, y una costura reservada por escrito no se
+reutiliza para otra cosa.
+
+| Costura | Frontera | Qué es real en la prueba | Qué se reemplaza |
+|---|---|---|---|
+| **S11 — Identidad verificada de Steam (OpenID 2.0)** | navegador / Steam → `apps/web` | La construcción de la URL de login, el parseo y validación de los `openid.*` de vuelta, la lectura de la respuesta de `check_authentication`, la conversión SteamID64→Steam32 y la decisión de crear o no la sesión — todo como **funciones puras** | El `fetch` a `steamcommunity.com`: respuestas de `check_authentication` **grabadas en fixtures** (`is_valid:true` y `is_valid:false`, byte a byte). **Cero red en las pruebas**, mismo criterio que S6/S7 |
+| **S13 — Token interno de cuenta (`x-account-token`)** | `apps/web` → `apps/engine` (HTTP **y** WebSocket) | El acuñado y la verificación completos: formato, firma HMAC, ventana de validez, rechazo por replay. Función pura salvo el store de nonces, que es una `Map` en memoria del proceso | **Nada externo**: el reloj y el generador de nonce se **inyectan como parámetros**, igual que `applyDraftEvent` (S4) ya hace con `now`/ids. Una prueba de expiración que dependa de `Date.now()` real es rechazo automático de revisión |
+
+**S8 (persistencia del pool) no se reemplaza: se extiende** con la dimensión de cuenta. Sus
+pruebas siguen corriendo contra una SQLite en memoria, y ganan el caso que hoy no existe: *dos
+cuentas, dos pools, ninguna ve la otra*.
+
+**Reglas derivadas:**
+
+- Ninguna prueba de S11 hace una llamada real a Steam. Un test que dependa de que
+  `steamcommunity.com` esté arriba es rechazo automático (misma razón literal que S6).
+- Ninguna prueba de S13 usa el reloj real ni un nonce aleatorio real. Sin inyección no hay forma
+  de probar "token vencido hace 1 ms" ni "el mismo nonce dos veces" de forma reproducible.
+- **El vector de prueba de §12.6 es obligatorio en los dos lados** (`apps/web` y `apps/engine`).
+  Es el único mecanismo que tiene el proyecto para detectar que el espejo a mano se desincronizó:
+  los dos procesos no comparten código, así que no hay tipo ni import que lo garantice.
+- La prueba de aislamiento entre cuentas (§12.14, criterio 2) corre **contra `buildSuggestions`
+  completo**, no contra la query aislada — mismo criterio que §10.9 criterio 7: la query puede
+  filtrar bien y el pipeline seguir sirviendo un snapshot cacheado de otra cuenta.
+
+---
+
+## 12.4 — Autenticación con Steam (OpenID 2.0)
+
+Todo esto vive en `apps/web`. **`apps/engine` nunca ve el flujo de OpenID** y sigue atado a
+`127.0.0.1` sin excepción.
+
+### Rutas
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/login` | Página pública. Un botón, cero formularios, cero contraseñas propias |
+| `GET` | `/api/auth/steam/login` | Genera el nonce de login, lo deja en cookie, y responde `302` hacia Steam |
+| `GET` | `/api/auth/steam/callback` | Punto de retorno de Steam. Verifica, crea la cuenta si hace falta, abre la sesión |
+| `POST` | `/api/auth/logout` | Destruye la sesión y redirige a `/login` |
+| `GET` | `/api/auth/engine-token` | Acuña un token de cuenta para que el **navegador** lo mande en el `hello` del WebSocket (§12.9). Exige sesión válida |
+
+### Redirección a Steam (`/api/auth/steam/login`)
+
+`https://steamcommunity.com/openid/login` con exactamente estos parámetros:
+
+```
+openid.ns          = http://specs.openid.net/auth/2.0
+openid.mode        = checkid_setup
+openid.return_to   = {PUBLIC_BASE_URL}/api/auth/steam/callback?state={nonce}
+openid.realm       = {PUBLIC_BASE_URL}
+openid.identity    = http://specs.openid.net/auth/2.0/identifier_select
+openid.claimed_id  = http://specs.openid.net/auth/2.0/identifier_select
+```
+
+- `PUBLIC_BASE_URL` es **variable de entorno obligatoria**, no se deriva de las cabeceras del
+  request. Motivo duro, no estético: `return_to` tiene que ser **byte a byte idéntico** entre la
+  ida y el `check_authentication` de vuelta, y detrás del proxy de Railway el origin reconstruido
+  desde el request no es confiable (`x-forwarded-proto`/`host`).
+- `nonce`: 32 caracteres hex (16 bytes de `crypto.getRandomValues`). Se guarda además en la cookie
+  `d2k_login_nonce` (`httpOnly`, `sameSite: lax`, `maxAge` 600 s). Cierra el *login CSRF*: sin esto,
+  un tercero puede forzar a una víctima a quedar logueada en **la cuenta del atacante** y verle
+  escribir su hero pool ahí.
+
+### Callback (`/api/auth/steam/callback`) — orden estricto, sin atajos
+
+1. `openid.mode === "cancel"` → redirige a `/login` con un mensaje en llano. **No es un error.**
+2. `openid.mode` debe ser exactamente `id_res`. Cualquier otro valor → `400`, sin sesión.
+3. `state` del query debe coincidir con la cookie `d2k_login_nonce` (comparación de igualdad
+   simple; no es un secreto de larga vida). No coincide o falta → `400`. La cookie se borra
+   siempre, coincida o no.
+4. `openid.claimed_id` **y** `openid.identity` deben cumplir
+   `^https://steamcommunity\.com/openid/id/([0-9]{17})$` — anclado a los dos extremos, host en
+   lista permitida, exactamente el mismo principio que ya rige `img_url` del CDN de Valve
+   (`web.md`). Nunca se hace `split("/").pop()` sobre una URL arbitraria.
+5. `openid.return_to` recibido debe ser igual al que se construyó en el paso de ida (incluido el
+   `state`). Distinto → `400`.
+6. **`check_authentication` — obligatorio, sin excepción.** `POST` a
+   `https://steamcommunity.com/openid/login`, `content-type: application/x-www-form-urlencoded`,
+   con **todos** los parámetros `openid.*` recibidos tal cual (incluidos `openid.sig`,
+   `openid.signed`, `openid.assoc_handle`, `openid.response_nonce`) y `openid.mode` reemplazado por
+   `check_authentication`. La respuesta es texto de líneas `clave:valor`; **solo** se acepta si
+   contiene la línea exacta `is_valid:true`. Timeout **5 s** (`AbortSignal.timeout`), **sin
+   reintentos** (a diferencia de OpenDota: acá el usuario reintenta con un click, y reintentar
+   automáticamente una verificación de identidad no aporta nada). Fallo de red, timeout, `is_valid:false`
+   o cuerpo inesperado → `401`, **sin sesión**, mensaje en llano.
+7. `steamId32 = Number(BigInt(steamId64) - 76561197960265728n)`. **`BigInt` es obligatorio** (P10,
+   §12.15-C).
+8. El `steamId32` resultante se valida como Steam32 (solo dígitos, `1`–`4294967295`) — el mismo
+   contrato de 1b, aplicado a un dato que ahora llega de otra fuente. Fuera de rango → `401`.
+9. `POST {ENGINE_INTERNAL_URL}/api/account` con el header `x-account-token` recién acuñado para esa
+   cuenta (§12.6). El motor hace el `INSERT ... ON CONFLICT DO NOTHING` y devuelve la fila. Es una
+   llamada de servidor a servidor, directa, sin pasar por el rewrite `/engine/*` — mismo patrón que
+   ya usa `app/healthz/route.ts`.
+10. Se abre la sesión (§12.5) y se redirige a `/`.
+
+**Nada de lo anterior puede saltarse el paso 6.** Un callback que crea sesión leyendo
+`openid.claimed_id` sin verificar es exactamente la vulnerabilidad documentada de `passport-steam`
+(Bloque 2) y es **rechazo automático de `@redteam`**, no un hallazgo ponderable.
+
+---
+
+## 12.5 — Sesión en `apps/web` (`iron-session`)
+
+```ts
+// apps/web/lib/session.ts
+export interface SessionData {
+  accountId: number;     // Steam32 verificado. Nada más: ni SteamID64, ni nombre, ni avatar.
+  issuedAt: number;      // ms epoch — base de la renovación deslizante
+  firstLoginAt: number;  // ms epoch — base del tope absoluto
+}
+
+export const sessionOptions = {
+  password: process.env.SESSION_SECRET,      // ≥32 caracteres, solo entorno
+  cookieName: "d2k_session",
+  ttl: 60 * 60 * 24 * 30,                    // 30 días (P8)
+  cookieOptions: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  },
+};
+```
+
+| Parámetro | Valor | Por qué |
+|---|---|---|
+| Nombre de cookie | `d2k_session` | Corto, sin dato personal en el propio nombre |
+| TTL | **30 días** | P8 |
+| Renovación | **Deslizante**, cuando `now - issuedAt > 7 días`: se reescribe la cookie con `issuedAt` nuevo. Se hace en `proxy.ts`, que ya desencripta la sesión en cada request | Evita un `Set-Cookie` por request y a la vez evita la expiración sorpresa |
+| Tope absoluto | **90 días** desde `firstLoginAt`. Superado: la sesión se destruye y se redirige a `/login`, aunque el usuario haya estado activo | Ninguna sesión eterna |
+| `sameSite` | `lax` | El retorno de Steam es una navegación *top-level* cross-site; `strict` es fricción sin beneficio acá |
+| `secure` | `true` en producción | Railway sirve HTTPS. En `bun run dev` (http://localhost) tiene que ser `false` o la cookie nunca se setea |
+| Contenido | **Solo** los 3 campos de arriba | Todo lo demás se lee de SQLite vía el motor, con el `accountId` verificado |
+
+**La cookie nunca se reenvía a `apps/engine`.** El motor no conoce el formato de sesión de
+`apps/web` ni comparte su clave de cifrado — esa era la opción (a) del Bloque 2 y se descarta por
+acoplamiento, igual que ahí.
+
+---
+
+## 12.6 — Token interno de cuenta (`x-account-token`)
+
+La frontera de confianza #2 y #3 del Bloque 4 son la misma frontera con dos transportes, así que
+tienen **un solo formato**.
+
+### Formato, byte a byte
+
+```
+payload = "{accountId}.{issuedAtMs}.{nonce}"
+firma   = hex( HMAC_SHA256( INTERNAL_AUTH_SECRET, "d2k-account-token/v1|" + payload ) )
+token   = "{payload}.{firma}"
+```
+
+| Campo | Forma exacta | Nota |
+|---|---|---|
+| `accountId` | 1–10 dígitos decimales, `1`–`4294967295` | El Steam32 verificado |
+| `issuedAtMs` | 13 dígitos decimales (ms epoch) | Lo estampa quien acuña, nunca el cliente |
+| `nonce` | 32 caracteres `[0-9a-f]` (16 bytes) | `crypto.getRandomValues`, uno por token |
+| `firma` | 64 caracteres `[0-9a-f]` | HMAC-SHA256 en hex |
+
+El prefijo `d2k-account-token/v1|` es **separación de dominio**: garantiza que el mismo secreto
+nunca pueda usarse para forjar otro tipo de mensaje si algún día se firma algo más.
+Regex de forma, previa a todo lo demás:
+`^[0-9]{1,10}\.[0-9]{13}\.[0-9a-f]{32}\.[0-9a-f]{64}$`.
+
+**Vector de prueba obligatorio** (calculado ejecutando la fórmula real, no inventado — obligatorio
+en el test de los dos procesos, §12.3):
+
+| Entrada | Valor |
+|---|---|
+| clave HMAC del vector (32 chars, existe solo dentro del test) | `d2k-test-vector-key-0123456789ab` |
+| `accountId` | `123456789` |
+| `issuedAtMs` | `1787500000000` |
+| `nonce` | `0123456789abcdef0123456789abcdef` |
+| **firma esperada** | `033834d055eb3497adbe0188a53b636815f15e9f7e6836b0e66e9228a7f0be98` |
+
+### Verificación en `apps/engine` — orden estricto
+
+1. **Forma** (la regex de arriba). Antes que nada: `timingSafeEqual` lanza `RangeError` si los
+   buffers tienen largos distintos, así que comparar sin validar forma primero convierte un token
+   basura en una excepción, no en un `401`.
+2. **Firma**, con `timingSafeEqual` sobre los dos buffers de 32 bytes. Nunca `===`.
+3. **Ventana**: `issuedAt ∈ [now - 60_000, now + 5_000]`. Los +5 s son tolerancia de reloj; en
+   producción los dos procesos comparten contenedor y el desfase real es ~0.
+4. **Rango de `accountId`** (`1`–`4294967295`).
+5. **Nonce**: si ya está en el store → rechazo por replay. Si no, se registra con vencimiento
+   `issuedAt + 60_000`.
+
+**El orden 2 → 5 no es negociable**: tocar el store de nonces antes de verificar la firma deja que
+cualquiera llene memoria del motor sin autenticarse.
+
+### Store de nonces
+
+`Map<string, number>` (nonce → vencimiento) en memoria del proceso. Evicción **oportunista**, igual
+que `SessionStore.evictStale()` y `cleanupSimulatorSessions()` — sin scheduler propio: en cada
+inserción, si `size > 5000`, se barren los vencidos. Cota real: los tokens viven 60 s, así que a 20
+req/s el store no pasa de ~1200 entradas. Un reinicio del motor vacía el store; la consecuencia es
+que un token de ≤60 s podría reusarse justo después de un reinicio — aceptado y anotado, misma
+naturaleza que perder las sesiones de draft en memoria al reiniciar.
+
+### Los dos modos del motor (P11)
+
+| Modo | Condición | Comportamiento |
+|---|---|---|
+| `multi_tenant` | `INTERNAL_AUTH_SECRET` presente | Toda ruta de cuenta exige token válido. WS: `hello` sin token válido se rechaza |
+| `single_tenant_local` | `INTERNAL_AUTH_SECRET` ausente | El token se ignora. `accountId` = la única fila de `accounts`, o `null` con 0 o ≥2 filas (P12) |
+
+El modo se decide **una vez al arrancar**, se imprime en el log de arranque (sin el secreto, obvio)
+y se expone como `authMode` en `GET /api/health`. `scripts/start-railway.sh` **falla al arrancar**
+si falta `INTERNAL_AUTH_SECRET` o `SESSION_SECRET` — mismo guard fail-closed que hoy protege
+`SITE_ACCESS_*`, que es exactamente el hallazgo que Sentinel bloqueó en el primer `/castoff`.
+
+### Espejo a mano, el tercero del proyecto
+
+`apps/web/lib/account-token.ts` (acuña) y `apps/engine/src/server/account-token.ts` (verifica) son
+**un espejo a mano**, no código compartido — los dos procesos son independientes a propósito y
+`apps/web` nunca importa de `apps/engine`. Se suma a los dos ya documentados (`SignalId` en
+`features/draft/types.ts`, `web.md`; `MetaSnapshot` angosto en `bot-drafter.ts`, `engine.md`). Un
+cambio de formato toca **los dos archivos y los dos tests en el mismo cambio**. El vector de prueba
+de arriba es el candado.
+
+Lo mismo aplica a la validación de Steam32: `apps/web` necesita la suya (paso 8 de §12.4) y no
+puede importar `isValidSteamAccountId` del motor. Cuarto espejo, mismo régimen.
+
+---
+
+## 12.7 — Esquema y migración (Drizzle)
+
+### Tabla nueva `accounts`
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `steam_account_id` | `integer PRIMARY KEY NOT NULL` | Steam32 (P1). SQLite guarda enteros de 64 bits: `4294967295` entra sin problema |
+| `personal_baseline_winrate` | `real`, nullable | Migrado desde `settings` (P2). `null` = nunca calculado, mismo significado que hoy |
+| `created_at` | `text NOT NULL` | ISO-8601 |
+
+**No lleva `last_login_at`.** Es dato de comportamiento sin ningún consumidor en esta fase;
+agregarlo sería funcionalidad no pedida.
+
+```ts
+export const accounts = sqliteTable("accounts", {
+  steamAccountId: integer("steam_account_id").primaryKey(),
+  personalBaselineWinrate: real("personal_baseline_winrate"),
+  createdAt: text("created_at").notNull(),
+});
+```
+
+### `hero_pool` con PK compuesta
+
+```ts
+export const heroPool = sqliteTable(
+  "hero_pool",
+  {
+    accountId: integer("account_id").notNull().references(() => accounts.steamAccountId),
+    heroId: integer("hero_id").notNull().references(() => heroes.id),
+    source: text("source").notNull().$type<"manual" | "calculated">(),
+    personalWinrate: real("personal_winrate"),
+    personalGames: integer("personal_games").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.accountId, table.heroId] })],
+);
+```
+
+> **`PRAGMA foreign_keys` está apagado** en este proyecto (`db/client.ts` solo activa WAL). Las FK
+> son documentación del modelo, **no** una defensa en runtime. El aislamiento entre cuentas lo da
+> exclusivamente el `WHERE account_id = ?` de cada query, y por eso las pruebas de §12.14 son sobre
+> el comportamiento observable, no sobre la constraint.
+
+### Migración `0005_accounts.sql` — crear y llenar
+
+```sql
+CREATE TABLE IF NOT EXISTS `accounts` (
+	`steam_account_id` integer PRIMARY KEY NOT NULL,
+	`personal_baseline_winrate` real,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+INSERT OR IGNORE INTO `accounts` (`steam_account_id`, `personal_baseline_winrate`, `created_at`)
+SELECT CAST(s.`value` AS INTEGER),
+       (SELECT CAST(b.`value` AS REAL) FROM `settings` b WHERE b.`key` = 'personal_baseline_winrate'),
+       strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+FROM `settings` s
+WHERE s.`key` = 'steam_account_id'
+  AND s.`value` GLOB '[0-9]*'
+  AND s.`value` NOT GLOB '*[^0-9]*'
+  AND CAST(s.`value` AS INTEGER) BETWEEN 1 AND 4294967295;
+--> statement-breakpoint
+DELETE FROM `settings` WHERE `key` IN ('steam_account_id', 'personal_baseline_winrate');
+```
+
+- Los dos `GLOB` juntos son "solo dígitos": `GLOB '[0-9]*'` sin el segundo dejaría pasar `1abc`.
+  Es el mismo contrato de `isValidSteamAccountId`, escrito en SQL porque acá no hay TypeScript.
+- Si la clave no existe o está corrupta, `accounts` queda vacía y la migración **no falla** — un
+  checkout limpio nunca tuvo esa fila.
+- `strftime('%Y-%m-%dT%H:%M:%fZ','now')` produce ISO-8601 con milisegundos, el mismo formato que
+  usa todo el resto del proyecto (`new Date().toISOString()`).
+
+### Migración `0006_hero_pool_account.sql` — recrear con PK compuesta
+
+SQLite no puede cambiar una PK con `ALTER TABLE`; es el patrón estándar tabla-nueva/copiar/drop/rename.
+
+```sql
+CREATE TABLE `hero_pool_new` (
+	`account_id` integer NOT NULL,
+	`hero_id` integer NOT NULL,
+	`source` text NOT NULL,
+	`personal_winrate` real,
+	`personal_games` integer DEFAULT 0 NOT NULL,
+	`updated_at` text NOT NULL,
+	PRIMARY KEY(`account_id`, `hero_id`),
+	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`steam_account_id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`hero_id`) REFERENCES `heroes`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+INSERT INTO `hero_pool_new` (`account_id`, `hero_id`, `source`, `personal_winrate`, `personal_games`, `updated_at`)
+SELECT (SELECT `steam_account_id` FROM `accounts` LIMIT 1),
+       `hero_id`, `source`, `personal_winrate`, `personal_games`, `updated_at`
+FROM `hero_pool`
+WHERE (SELECT COUNT(*) FROM `accounts`) = 1;
+--> statement-breakpoint
+DROP TABLE `hero_pool`;
+--> statement-breakpoint
+ALTER TABLE `hero_pool_new` RENAME TO `hero_pool`;
+```
+
+El `WHERE (SELECT COUNT(*) FROM accounts) = 1` es el corazón de la seguridad de esta migración:
+
+- **1 cuenta** (el caso real de producción hoy): las filas del pool se le asignan a ella. Es el
+  criterio 3 del Bloque 6.
+- **0 cuentas** (checkout limpio, o instancia sin `steam_account_id` guardado): las filas del pool
+  quedarían huérfanas, así que **no se copian**. En un checkout limpio el pool está vacío de todas
+  formas; si no lo estuviera, adivinar un dueño sería peor que perderlo.
+- **≥2 cuentas**: imposible hoy, pero si pasara no se adivina. No se copia nada.
+
+**`_journal.json` se actualiza a mano** con las dos entradas nuevas (`idx` 5 y 6), exactamente como
+ya se hizo con `0004_vs_hero_idx` — que también es una migración escrita a mano, con `when`
+fijado a mano. No es un atajo: es el precedente del proyecto.
+
+### `team_groups` con scoping por cuenta (confirmado, §12.16-2)
+
+A diferencia de `hero_pool`, **no hace falta cirugía de PK**: `team_groups` ya tiene un `id`
+autoincremental propio (`schema.ts:73-78`) — el scoping es una columna nueva, no un cambio de
+clave primaria. `team_members` no gana columna propia: hereda el scope de forma transitiva vía su
+`teamGroupId` existente (`schema.ts:80-89`), evitando duplicar `accountId` en dos tablas para el
+mismo dato.
+
+```ts
+export const teamGroups = sqliteTable("team_groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  accountId: integer("account_id").references(() => accounts.steamAccountId), // NUEVO
+  name: text("name").notNull(),
+  partySize: integer("party_size").notNull().$type<1 | 2 | 3 | 5>(),
+  updatedAt: text("updated_at").notNull(),
+});
+```
+
+**Nullable, no `.notNull()` a nivel de columna** — mismo criterio ya establecido para `hero_pool`
+(`PRAGMA foreign_keys` apagado, §12.7): la FK es documentación, el aislamiento real lo da el
+`WHERE account_id = ?` de cada query. Un `NOT NULL` real exigiría el mismo patrón de tabla-nueva/
+copiar/drop/rename que `0006`, que acá es esfuerzo sin beneficio — toda fila creada después de este
+ticket pasa por `createTeamGroup`, que a partir de acá exige token válido (§12.10) y siempre escribe
+un `accountId` real; ninguna fila nueva puede quedar huérfana.
+
+### Migración `0007_team_groups_account.sql` — agregar columna y hacer backfill
+
+```sql
+ALTER TABLE `team_groups` ADD COLUMN `account_id` integer REFERENCES `accounts`(`steam_account_id`);
+--> statement-breakpoint
+UPDATE `team_groups`
+SET `account_id` = (SELECT `steam_account_id` FROM `accounts` LIMIT 1)
+WHERE (SELECT COUNT(*) FROM `accounts`) = 1;
+```
+
+Mismo criterio exacto que `0006` para 0/1/≥2 cuentas: con una sola cuenta real (el caso de
+producción hoy), todos los equipos guardados se le asignan; con cero o más de una, no se adivina y
+la fila queda con `account_id NULL` — indistinguible de un checkout limpio, nunca un dato falso.
+`_journal.json` gana la entrada `idx: 7`, mismo patrón manual que `0004`/`0005`/`0006`.
+
+### `queries.ts` y `routes/team-groups.ts` — scoping en las 5 funciones
+
+`getTeamGroups(db)` → `getTeamGroups(db, accountId)`, con `WHERE account_id = ?`. `getTeamGroup`/
+`replaceTeamGroup`/`deleteTeamGroup` (que hoy reciben un `id` de fila) pasan a recibir también
+`accountId` y verifican que la fila encontrada pertenezca a esa cuenta **antes** de devolver/
+modificar/borrar — un `id` válido de otra cuenta responde `404`, nunca `403` (no confirma que el
+recurso existe, mismo principio que ya usa el resto de la API para no filtrar existencia entre
+cuentas). `createTeamGroup` exige `accountId` como campo obligatorio de la fila a insertar, nunca
+opcional. Las rutas HTTP (`server/routes/team-groups.ts`) ganan `requireAccount` (el mismo helper
+del ticket 5 de §12.17) delante de las 5 operaciones — `/api/team-groups` pasa de "sin auth" a
+exigir `x-account-token`, cerrando tanto el acceso anónimo (ya cerrado por la medida interina) como
+la fuga entre cuentas logueadas (lo que quedaba abierto hasta este ticket).
+
+### Estrategia de despliegue, paso a paso
+
+Esto **no** es "correr `db:migrate` y ver qué pasa". Orden obligatorio, dentro de `/castoff`:
+
+1. **Antes de desplegar**: copia de respaldo del archivo SQLite de producción (`ENGINE_DB_PATH`),
+   fuera del contenedor. Sin respaldo, no se despliega.
+2. **Antes de desplegar**: verificación de solo lectura contra la base real de producción —
+   ¿existe la fila `settings.steam_account_id`? ¿cuántas filas tiene `hero_pool`? ¿cuántas filas
+   tiene `team_groups`? Los tres números se anotan. **No se escriben en `journal.md` ni en el
+   ticket el valor del `steam_account_id`** (regla de 1b, sigue vigente y ahora vale para todas las
+   cuentas).
+3. Si la fila **no existe** pero `hero_pool`/`team_groups` tiene filas: **parar**. Esa combinación
+   significa que el pool o los equipos guardados de producción se perderían. Se resuelve insertando
+   la fila de `settings` a mano antes de migrar, no relajando la migración.
+4. Desplegar. `scripts/start-railway.sh` ya corre `bun run db:migrate` antes de levantar el motor —
+   corre `0005`, `0006` y `0007` en ese orden, dentro de la misma pasada.
+5. **Después de desplegar**: verificar que `accounts` tiene 1 fila, que `hero_pool` conserva
+   exactamente la misma cantidad de filas que en el paso 2 (todas con ese `account_id`), y que
+   `team_groups` conserva su misma cantidad de filas con `account_id` no nulo.
+
+---
+
+## 12.8 — Motor multi-cuenta: `buildMetaSnapshot` y el cache partido
+
+### Firma real de hoy
+
+```ts
+// apps/engine/src/meta/provider.ts (actual)
+export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+): Promise<MetaSnapshot>
+```
+
+### Firma de Fase 5
+
+```ts
+export type AccountId = number; // Steam32
+
+export async function buildMetaSnapshot<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  accountId: AccountId | null,
+): Promise<MetaSnapshot>
+
+export async function getCachedMetaSnapshot<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  accountId: AccountId | null,
+): Promise<MetaSnapshot>
+
+export function invalidateMetaSnapshotCache(): void;              // sin cambio de firma
+export function invalidateAccountMetaCache(accountId: AccountId): void;   // nueva
+```
+
+**`accountId` es obligatorio, no opcional con default.** Un `accountId?` con default `null` haría
+que cualquier llamador nuevo que se olvide de pasarlo obtenga silenciosamente "sin pool" — un bug
+invisible exactamente del tipo que ya costó una fase entera (`hero_pool_fit` inerte desde 1b hasta
+TSK-064). Que rompa la compilación es la funcionalidad.
+
+`accountId: null` significa **"no hay cuenta en contexto"** y produce `heroPool: []` +
+`personalBaselineWinrate: null` → `hero_pool_fit` devuelve `applicable: false`. Es un camino ya
+especificado (§9.3) y con candado de regresión propio; **no es `raw: null`** y no baja la confianza.
+
+### El cache, partido en dos (P15)
+
+```ts
+// Capa 1 — compartida: idéntica para todas las cuentas. Una sola en memoria, como hoy.
+//   heroes (127 filas) + hero_matchups (14 850) + hero_patch_stats (2 032)  [medido, base real]
+let sharedSnapshot: SharedMetaSnapshot | null = null;
+
+// Capa 2 — por cuenta: hero_pool (≤5 filas) + personal_baseline_winrate (1 número).
+const accountOverlays = new Map<AccountId, AccountMetaOverlay>();
+```
+
+`getCachedMetaSnapshot(db, accountId)` compone `{ ...shared, ...overlay }` y devuelve un
+`MetaSnapshot` con la forma exacta de hoy — **ningún consumidor cambia**: ni `buildSuggestions`, ni
+las señales, ni `RAW_RANGE`, ni los pesos.
+
+**Invalidación, con la responsabilidad separada:**
+
+| Evento | Qué se invalida |
+|---|---|
+| Fin de `runMetaSync` (`meta/sync.ts`) | `sharedSnapshot` + el LRU de matchups. **Los overlays no** — una sincronización de meta no cambia el pool de nadie |
+| `PUT /api/hero-pool` de la cuenta X | Solo `accountOverlays.delete(X)`. Ninguna otra sesión activa paga un recálculo |
+| `POST /api/account` que cambia el baseline de X | Solo el overlay de X |
+
+Esto cumple mejor el objetivo declarado en el Bloque 3 ("nunca borrar el mapa entero para no
+penalizar a otras sesiones") que el `Map<accountId, MetaSnapshot>` que proponía: con un mapa de
+snapshots completos, una sincronización de meta **obliga** a tirar todas las entradas, y cada
+usuario nuevo relee las 14 850 filas de matchups (§12.15-D).
+
+**Cota de memoria de los overlays**: sin límite explícito. Cada entrada son ≤5 filas + un número
+(orden de 500 bytes); mil cuentas activas simultáneas serían menos de 1 MB. Si algún día hiciera
+falta, el LRU ya existente (`db/lru-cache.ts`) se aplica sin cambiar nada más — no se hace ahora
+porque sería complejidad sin problema.
+
+### Los llamadores de `getCachedMetaSnapshot`, uno por uno
+
+| Llamador | Pasa | Por qué |
+|---|---|---|
+| `computeSuggestionsForState` (`server/app.ts`) — push del draft en vivo | El `ownerAccountId` de la sesión (§12.9) | Es el único camino donde el pool personal debe pesar |
+| `routes/meta.ts` → `GET /api/meta/hero-stats` | `null` | Solo lee `patchStats` |
+| `routes/draft-paths.ts` | `null` | Solo lee `heroes` y las capacidades |
+| `routes/simulator-sessions.ts` | `null` | Solo lee `patchStats` |
+| `POST /api/suggestions/preview` y `/api/v1/draft/pro-recommendations` | `null` **explícito** | P14: es el bot rival. Hoy usa el pool del humano sin que nadie lo decidiera |
+
+`computeV5Fallback` que hoy se inyecta en `createProDrafterRoutes` pasa a ser
+`(state) => computeSuggestionsForState(state, null)` — se ata `null` en el punto de cableado, sin
+cambiar la firma que espera `pro-drafter.ts`.
+
+---
+
+## 12.9 — WebSocket: cuenta en el `hello` y dueño de sesión
+
+### `ClientMessage` (`server/session.ts`)
+
+```ts
+export interface ClientMessage {
+  schema: "draft-ws/v1";
+  type: "hello" | "ping";
+  sessionId?: string;
+  accountToken?: string;   // NUEVO. Opcional en el tipo: en single_tenant_local no viaja.
+}
+```
+
+`isValidClientMessage` (`server/edge.ts`) acepta `accountToken` solo si es `string`; **no** valida
+el formato ahí (eso es responsabilidad de `account-token.ts`, que ya tiene su regex y su prueba).
+
+**El esquema del mensaje no cambia de versión** (`draft-ws/v1`): es un campo aditivo y opcional, un
+cliente viejo sigue conectando en modo local. Un `hello` sin `accountToken` contra un motor en
+`multi_tenant` **sí** se rechaza — eso no es retrocompatibilidad, es el punto de la fase.
+
+### Dueño de sesión (P13)
+
+`SessionStore` gana `ownerAccountId: AccountId | null` por sesión:
+
+- Lo fija el **primer `hello` autenticado** (o el primer `POST /api/session/manual` autenticado).
+- Un `hello` de otra cuenta sobre una sesión que ya tiene dueño → se rechaza, no se suscribe.
+- `POST /ingest/draft-event` (el capturador, `x-capture-token`) **no** fija dueño: no representa a
+  una persona logueada. Una sesión creada solo por el capturador tiene `ownerAccountId: null`
+  hasta que alguien haga `hello`, y mientras tanto sus sugerencias se calculan con `null`.
+- El dueño viaja con la entrada del `SessionStore` y se descarta con ella en `evictStale()` — sin
+  ciclo de vida propio.
+
+### Rechazo, sin tirar nada
+
+Un `hello` con token ausente/inválido/vencido/repetido en modo `multi_tenant`:
+
+```ts
+buildServerMessage("error", 0, { code: "unauthorized", message: "Sesión no válida — volvé a iniciar sesión" })
+```
+
+…y **se cierra el socket con código 1008** (violación de política). No se suscribe al topic, no se
+manda `snapshot`, no se calcula nada. La conexión se cierra a propósito — a diferencia de
+`snapshot_unavailable` (§5.4 de fase 1), que sí deja la conexión viva porque es una degradación
+temporal del servidor; acá el problema es del cliente y reintentar sin re-autenticar no puede
+funcionar.
+
+`ErrorPayload` ya existe y no cambia de forma. `code: "unauthorized"` es el único valor nuevo.
+
+### Cómo consigue el navegador su token
+
+`GET /api/auth/engine-token` (en `apps/web`, exige sesión) devuelve
+`{ token: string, expiresAt: number }`. El cliente lo pide **inmediatamente antes de cada
+conexión**, incluida cada reconexión — nunca lo guarda en `localStorage` ni lo reutiliza. Vive 60 s
+y es de un solo uso, así que un token guardado no sirve para nada dos veces.
+
+> El token queda al alcance del JS de la página. Es aceptado y consciente: autoriza exactamente lo
+> que ese usuario ya puede hacer, dura 60 s y muere al primer uso. La alternativa (cookie
+> reenviada por el WebSocket) es justamente la que el Bloque 2 descartó por no ser confiable entre
+> orígenes distintos.
+
+---
+
+## 12.10 — API: qué cambia, qué se retira, y los errores
+
+### Rutas que exigen `x-account-token` (modo `multi_tenant`)
+
+| Método | Ruta | Qué cambia |
+|---|---|---|
+| `GET` | `/api/hero-pool` | Devuelve **solo** el pool de la cuenta del token |
+| `PUT` | `/api/hero-pool` | Reemplaza **solo** el pool de esa cuenta, en una transacción (S8 sin cambios) |
+| `POST` | `/api/hero-pool/calculate` | **El campo `accountId` del cuerpo se elimina del contrato.** El Steam32 sale del token. El cuerpo queda en `{ days?: number }` |
+| `GET` | `/api/account` | **Nueva.** → `{ steamAccountId, personalBaselineWinrate, createdAt }` de la cuenta del token |
+| `POST` | `/api/account` | **Nueva.** Idempotente (`INSERT ... ON CONFLICT DO NOTHING`). La usa el callback de OpenID (§12.4, paso 9). Única ruta que acepta un token de una cuenta que todavía no existe |
+| `POST` | `/api/meta/sync` | Exige token. Es una operación global y cara (sincroniza OpenDota entero): que cualquiera la dispare a voluntad deja de ser aceptable con varios usuarios |
+| `GET/POST/PUT/DELETE` | `/api/team-groups` | Confirmado en §12.16-2. Cada operación se scopea por la cuenta del token (§12.7, "`team_groups` con scoping por cuenta") — un `id` de equipo de otra cuenta responde `404`, nunca `403` |
+
+### Rutas que **no** exigen token
+
+`GET /api/health`, `GET /api/heroes`, `GET /api/meta/status`, `GET /api/meta/hero-stats`,
+`/api/simulator/*`, `/api/session/:id/draft-paths`, `/api/session/:id/feedback`,
+`POST /api/suggestions/preview`. Ninguna devuelve dato de cuenta. `POST /ingest/draft-event` sigue
+con `x-capture-token`, sin cambios.
+
+`POST /api/session/manual` acepta el token de forma **opcional**: si viene y es válido, fija el
+dueño de la sesión (§12.9); si no viene, la sesión queda sin dueño. No lo exige porque es una ruta
+que solo se alcanza contra el motor local (nunca estuvo en la allowlist de `next.config.ts`, y es
+regla dura que siga así).
+
+### Rutas retiradas
+
+`GET /api/settings` y `PUT /api/settings` (P3). Se van de `server/app.ts`, de
+`ENGINE_REWRITE_SOURCES` en `next.config.ts` y de `lib/engine-api.ts`. `getAllSettings`/
+`upsertSetting` en `db/queries.ts` quedan sin llamadores: **se borran en el ticket de limpieza**,
+nunca en el mismo diff que un cambio de comportamiento (criterio de TSK-047).
+
+### Errores del token, explícitos
+
+| Situación | Respuesta |
+|---|---|
+| Falta el header | `401 { error: "missing_account_token" }` |
+| Forma o firma inválidas | `401 { error: "invalid_account_token" }` |
+| Fuera de la ventana de 60 s | `401 { error: "expired_account_token" }` |
+| Nonce ya usado | `401 { error: "replayed_account_token" }` |
+| Token válido, cuenta inexistente en `accounts` (salvo en `POST /api/account`) | `401 { error: "unknown_account" }` |
+
+**Ninguno de estos cuerpos ni ninguno de sus logs incluye el `accountId`.** La regla de 1b
+("prohibido ecoarlo en un error") ahora vale para todas las cuentas, no solo la del desarrollador.
+
+### Otro cambio forzado: `calculationInProgress`
+
+`routes/hero-pool.ts` guarda hoy un booleano por proceso: con varios usuarios, el cálculo de uno
+le devuelve `409 calculation_in_progress` a todos los demás. Pasa a ser
+`Set<AccountId>` — un cálculo en curso bloquea solo a su propia cuenta.
+
+---
+
+## 12.11 — `apps/web`: proxy, pantallas y régimen de datos
+
+### `proxy.ts` — deja de ser Basic Auth
+
+Se retira `isValidBasicAuth` y las variables `SITE_ACCESS_USER`/`SITE_ACCESS_PASSWORD`. El nuevo
+`proxy.ts` hace, en este orden:
+
+1. Rutas públicas (`/healthz`, `/login`, `/api/auth/*`) → pasar sin tocar.
+2. Leer la sesión (`iron-session`). Sin sesión válida:
+   - petición a `/engine/*` → `401` JSON. **Nunca un redirect**: RTK Query lo seguiría y parsearía
+     el HTML del login como si fuera la respuesta.
+   - cualquier otra → `redirect` a `/login`.
+3. Si `now - firstLoginAt > 90 días` → destruir sesión y redirigir a `/login`.
+4. Si `now - issuedAt > 7 días` → renovar (reescribir la cookie con `issuedAt` nuevo).
+5. Si la ruta es `/engine/*` → acuñar el token (§12.6) e inyectarlo:
+   `NextResponse.next({ request: { headers } })` con `x-account-token`.
+
+**Esto funciona porque el orden de ejecución de Next 16 es: Proxy (3) → `beforeFiles` (4) →
+filesystem (5) → `afterFiles` (6)**, y los `rewrites()` de `next.config.ts` son `afterFiles`
+(verificado en la doc del binario instalado: `01-app/03-api-reference/03-file-conventions/proxy.md`,
+"Execution order", y "Set request headers for API Routes, getServerSideProps, and **rewrite
+destinations**"). Proxy corre en **runtime Node** por defecto desde Next 16 — `node:crypto` y
+`iron-session` funcionan ahí, y el `runtime` no se puede configurar (lanza error si se intenta).
+
+> **Criterio de aceptación dedicado, no un supuesto** (§12.14, criterio 8): que el header inyectado
+> llegue de verdad al destino externo del rewrite se verifica contra el binario real antes de
+> construir el resto. **Plan B si no llega**: reemplazar `rewrites()` por un Route Handler
+> `app/engine/[...path]/route.ts` que lea la sesión, firme y reenvíe a `ENGINE_INTERNAL_URL`.
+> Mismo contrato de cara al navegador, un archivo más, cero cambios en `apps/engine`.
+
+### `next.config.ts`
+
+`ENGINE_REWRITE_SOURCES`: se quita `/engine/api/settings`, se agrega `/engine/api/account`. El
+test existente (`next.config.test.ts`) se actualiza en el mismo cambio.
+
+### Pantallas
+
+Régimen **RTK Query** en todo lo de acá ("páginas normales", `web.md`); nada de esto es la vista de
+draft en vivo.
+
+- **`/login`** (nueva, pública): un botón "Iniciar sesión con Steam", el estado de error del
+  callback explicado en llano ("Steam no confirmó tu inicio de sesión — probá de nuevo"), y nada
+  más. Su propio error boundary y estado de carga, como toda feature (`web.md`).
+- **`/settings` pasa a ser "Mi cuenta"**: el editor genérico de clave/valor desaparece con la API
+  que lo alimentaba. Muestra el Steam32 de la sesión (visible **solo para su dueño**, nunca en un
+  log ni en un error) y el baseline si existe, más el botón de cerrar sesión.
+- **`HeroPoolConfig.tsx`**: desaparece el input de `account_id` y la escritura de
+  `steam_account_id` vía `updateSetting`. "Calcular desde mis partidas" ya no pide nada: usa la
+  cuenta con la que iniciaste sesión. Todo lo demás de 1b (nunca auto-aplica, confirmar/editar/
+  descartar, los tres estados vacíos) queda **exactamente igual**.
+- **`DraftView.tsx` y `use-random-draft-session.ts`**: piden `GET /api/auth/engine-token` antes de
+  abrir el socket y en cada reconexión, y lo mandan en el `hello`. El estado `desconectado` de los
+  6 obligatorios (`web.md`) cubre también "sesión vencida": se muestra, no se calla.
+
+---
+
+## 12.12 — Seguridad (extiende §5, §9.7, §10.8 y §11.8)
+
+| Requisito | Cómo se cumple en Fase 5 |
+|---|---|
+| **Frontera #1 — navegador/Steam → `apps/web`** | `check_authentication` obligatorio (§12.4 paso 6), host de `claimed_id` anclado por regex, `return_to` verificado, nonce anti-CSRF de login. Saltarse cualquiera de los cuatro es rechazo automático de `@redteam` |
+| **Frontera #2/#3 — `apps/web` → `apps/engine` (HTTP y WS)** | HMAC-SHA256 con secreto compartido que nunca toca el navegador, ventana de 60 s, nonce de un solo uso, comparación en tiempo constante, y verificación de firma **antes** de tocar el store de nonces |
+| **`apps/engine` sigue en `127.0.0.1`** | Sin cambios. Un binding a `0.0.0.0` sigue siendo FAIL automático. Fase 5 **no** expone el motor a la red (§12.16-3) |
+| **Dato personal, ahora a escala** | El `account_id` de Steam deja de ser "el del desarrollador" y pasa a ser el de cada persona real. Toda la regla de 1b sigue vigente **multiplicada**: nunca en logs, `journal.md`, tickets, `meta_sync.error`, `/api/health` ni en el cuerpo de ningún error. Se agrega: nunca en el mensaje de un ticket de migración (§12.7, paso 2) |
+| **Secretos nuevos** | `SESSION_SECRET` (≥32 chars, `iron-session`) e `INTERNAL_AUTH_SECRET` (≥32 chars, HMAC). Solo `process.env`, nunca literal, nunca default de fallback en el repo — mismo régimen exacto que `CAPTURE_TOKEN`. Steam OpenID **no** exige credencial del sitio (no es OAuth2: no hay `client_id`/`client_secret` que registrar) |
+| **Fail-closed en producción** | `scripts/start-railway.sh` aborta si falta `SESSION_SECRET`, `INTERNAL_AUTH_SECRET` o `PUBLIC_BASE_URL`. Reemplaza el guard actual sobre `SITE_ACCESS_*` — mismo mecanismo, mismo motivo (hallazgo de Sentinel del primer `/castoff`) |
+| **Privilegio mínimo** | Toda ruta de cuenta responde `401` sin token válido. Hoy `GET /api/settings` devuelve todo a cualquiera que llegue al puerto — ese hallazgo se cierra retirando la ruta (P3) |
+| **Validación de input externo** | Los `openid.*` son input externo puro y se validan antes de tocar lógica: modo, host, forma del id, `return_to`, `state`. El `accountId` nunca se acepta desde el cuerpo/query de una request (§12.10) |
+| **Consultas parametrizadas** | Todo por Drizzle, incluidas las nuevas por `account_id`. Las migraciones son SQL fijo sin interpolación de ningún dato externo |
+| **Dependencias nuevas** | Una: `iron-session` (`dependency` de producción en `apps/web`) → `/gear-up`/`@depcheck` + `// ALLOWED`. Cero en `apps/engine`: HMAC con `node:crypto`, ya disponible |
+| **Sin `dangerouslySetInnerHTML`** | Sin cambios. Ningún dato de Steam se renderiza como HTML; el Steam32 es un número |
+
+**Superficie que Fase 5 abre y no cerraba antes**: cualquier persona con una cuenta de Steam puede
+crear una cuenta en la instancia. No hay lista de invitados ni límite de registro. Es consecuencia
+directa del Bloque 1 ("cualquier jugador de Dota 2 con cuenta de Steam") y queda anotada como tal
+en §12.16-6, no resuelta con un mecanismo que nadie pidió.
+
+---
+
+## 12.13 — Rendimiento
+
+| Restricción | Número | Cómo se verifica |
+|---|---|---|
+| Verificación del token | **< 1 ms p95**, y **fuera** del presupuesto de 500 ms del motor (ocurre antes de calcular nada) | Micro-benchmark en el ticket de S13: N verificaciones seguidas con reloj inyectado. Medido, no asumido (criterio 5 del Bloque 6) |
+| `check_authentication` contra Steam | Timeout duro **5 s**, sin reintentos | Solo en el login. **Nunca** en el camino caliente del draft: la regla de "cero red en el camino caliente" queda intacta, esta llamada vive incluso más lejos que `POST /api/hero-pool/calculate` |
+| Composición del snapshot por cuenta | Un *spread* de objeto por cálculo de sugerencias (no por candidato) | El costo real que se evita es el otro: sin el cache partido, cada cuenta nueva relee 14 850 filas de `hero_matchups` |
+| Presupuesto del motor | **Sin cambios**: 300 ms normal, corte duro a 500 ms | Ninguna señal cambia de fórmula |
+| Store de nonces | ≤ ~1200 entradas en régimen normal; barrido a partir de 5000 | Cota derivada de 60 s de vida × el límite de 20 req/s ya existente |
+
+---
+
+## 12.14 — Criterios de aceptación
+
+| # | Criterio | Verificación |
+|---|---|---|
+| 1 | **Login real** | Un usuario con cuenta de Steam entra sin contraseña propia; sin sesión, toda ruta salvo `/login`, `/api/auth/*` y `/healthz` redirige a login. Basic Auth **retirado por completo** (Bloque 6-4) |
+| 2 | **Aislamiento entre cuentas** | Dos cuentas distintas guardan pools distintos; las sugerencias de una **nunca** reflejan el pool de la otra. Probado contra `buildSuggestions` completo y **con las dos cacheadas a la vez** (Bloque 6-2) — no contra la query aislada |
+| 3 | **Usuario nuevo arranca vacío** | Una cuenta recién creada ve `hero_pool` vacío y `hero_pool_fit` con `applicable: false`, nunca el pool de otro (Bloque 6-1) |
+| 4 | **Migración sin pérdida** | La cuenta real de producción conserva sus filas de `hero_pool` con `account_id` correcto, verificado contra el dato real y con los conteos de §12.7 antes/después (Bloque 6-3) |
+| 5 | **Firma verificada de verdad** | Un callback con `openid.claimed_id` fabricado y `check_authentication` respondiendo `is_valid:false` **no** crea sesión. Fixture grabado, S11 |
+| 6 | **Replay rechazado** | Un token válido reenviado dentro de su ventana se rechaza con `replayed_account_token`; uno reenviado fuera de la ventana, con `expired_account_token`. **Dos pruebas, no una** — un solo test de "token vencido" pasaría igual con anti-replay inexistente (Bloque 6-6) |
+| 7 | **Latencia** | La verificación del token no suma latencia perceptible al presupuesto del motor, medido (§12.13, Bloque 6-5) |
+| 8 | **El header llega al motor** | Verificación contra el binario real de Next 16: un header inyectado en `proxy.ts` llega al destino externo del rewrite. Si no llega, se aplica el Plan B de §12.11 **antes** de construir el resto |
+| 9 | **Vector de prueba en los dos lados** | El vector de §12.6 produce la misma firma en `apps/web` y en `apps/engine`. Es el único candado del tercer espejo a mano |
+| 10 | **Precisión de la conversión** | Prueba dedicada: un SteamID64 real convertido con `BigInt` da el Steam32 correcto, y la prueba documenta el valor que daría la conversión ingenua. Sin esta prueba, el bug de §12.15-C vuelve en el primer refactor |
+| 11 | **El bot no usa el pool de nadie** | `POST /api/suggestions/preview` devuelve lo mismo con y sin pool configurado en la base (P14) |
+| 12 | **Regresión cero del motor** | `SCORING_WEIGHTS_V5` intacta, los 5 pesos siguen sumando `1.0`, y las suites de `apps/engine`/`apps/web` pasan sin excepciones nuevas |
+| 13 | **Aislamiento de `team_groups`** (§12.16-2) | Dos cuentas distintas crean equipos con el mismo `partySize`/nombre; ninguna ve, edita ni borra los equipos de la otra. Un `id` de equipo válido pero ajeno responde `404` |
+
+---
+
+## 12.15 — Correcciones a `architecture.md` (Fase 5), todas por leer el código real
+
+**A. `fetchBaseQuery`/`prepareHeaders` no puede firmar el token.** El Bloque 3 dice: *"`fetchBaseQuery`
+de `apps/web/lib/engine-api.ts` gana `prepareHeaders` para adjuntar el token HMAC en cada llamada a
+`apps/engine`, leyendo el `accountId` de la sesión activa"*. **No es implementable**: `engine-api.ts`
+corre en el navegador, que no tiene `INTERNAL_AUTH_SECRET` (y no puede tenerlo) ni puede leer una
+cookie `httpOnly`. Además `ENGINE_HTTP_BASE_URL` es `/engine`, es decir el rewrite server-side de
+Next: el navegador nunca habla directo con `apps/engine` por ese camino. Corregido a P6: el token se
+acuña en `proxy.ts` (servidor) y se inyecta como header de request hacia el destino del rewrite.
+
+**B. La cookie tampoco puede viajar en el `hello` del WebSocket, pero por otra razón que la del
+Bloque 3.** El Bloque 3 acierta en descartar la cookie; lo que no dice es que el navegador tampoco
+puede firmar el token él mismo. Corregido: hay un endpoint dedicado, `GET /api/auth/engine-token`,
+que acuña del lado del servidor y entrega un token de 60 s y un solo uso (§12.9).
+
+**C. La fórmula SteamID64→Steam32 es correcta; la aritmética ingenua de JavaScript no.**
+`76561197960265728 > Number.MAX_SAFE_INTEGER (9007199254740991)`. Verificado ejecutándolo en este
+mismo blueprint, con un SteamID64 sintético:
+
+| Método | Resultado |
+|---|---|
+| `BigInt("76561198012345678") - 76561197960265728n` | `52079950` ✅ |
+| `Number("76561198012345678") - 76561197960265728` | `52079952` ❌ |
+
+Dos de diferencia, **sin ningún error, sin ninguna excepción**: mapearía al usuario a la cuenta de
+otra persona. De ahí P10 y el criterio 10.
+
+**D. `Map<accountId, MetaSnapshot>` está mal dimensionado.** Medido contra la base real del
+proyecto: `hero_matchups` tiene **14 850** filas y `hero_patch_stats` **2 032**, idénticas para
+todas las cuentas; `hero_pool` tiene **5**. Un snapshot completo por cuenta multiplica memoria y
+obliga a que cada cuenta nueva relea las 14 850 filas — y además obliga a vaciar el mapa entero en
+cada sincronización de meta, que es justo lo que el Bloque 3 quería evitar. Corregido a P15.
+
+**E. `settings` no tiene hoy la clave `personal_baseline_winrate`, y nada la escribe nunca.**
+Verificado contra la base real: la tabla `settings` tiene **una sola** clave, `steam_account_id`.
+`PUT /api/hero-pool` **no** persiste el `baselineWinrate` que §9.5 describía (`isValidHeroPoolPutBody`
+solo valida `entries`, y `put()` ignora cualquier otro campo), y ninguna pantalla lo escribe por
+`PUT /api/settings`. Consecuencia real: `hero_pool_fit` viene usando `baseline = 0.5` desde 1b,
+siempre. Para Fase 5 esto **facilita** la migración (la columna nace `null`, que es lo que ya hay),
+pero es un hueco funcional preexistente y **no se arregla acá** — ticket aparte (§12.16-7).
+
+**F. `capabilities.json`, `hero-positions.json` y el motor de señales no se tocan.** El Bloque 3
+no lo pedía, y se deja escrito para que nadie lo interprete como implícito: Fase 5 no cambia
+ninguna fórmula de scoring.
+
+---
+
+## 12.16 — Lo que Fase 5 deja abierto, y lo que exige confirmación antes de `/rulebook`
+
+### Confirmado por el usuario (2026-08-24), antes de `/rulebook`
+
+1. **Volumen persistente en Railway.** Confirmado como prerrequisito de infraestructura: se
+   verifica/resuelve la existencia del volumen montado en `ENGINE_DB_PATH` **antes** de correr las
+   migraciones `0005`/`0006`/`0007` en producción — mismo lugar exacto donde ya vive el paso 1 de
+   "Estrategia de despliegue" (§12.7). No es un ticket de código de esta fase; es un gate manual
+   previo, igual de obligatorio que el respaldo del paso 1.
+
+2. **`team_groups`/`team_members` se scopean por cuenta en esta fase.** Aceptada la recomendación
+   fuerte del Bloque 3: aislamiento multi-tenant total, ninguna tabla queda global salvo `heroes`/
+   `hero_matchups`/`hero_patch_stats` (dato compartido por diseño, capa 1 del cache de §12.8). Deja
+   de ser condicional — diseño completo en el nuevo apartado "`team_groups` con scoping por cuenta"
+   de §12.7, y el ticket 12 de §12.17 pasa de condicional a firme.
+
+3. **Exponer el motor a usuarios remotos queda deliberadamente fuera de Fase 5.** Confirmado: esta
+   fase se limita a identidad, esquema multi-usuario y personalización del hero pool/motor local —
+   no a hacer que el WebSocket de sugerencias en vivo sea alcanzable para un visitante remoto. El
+   hallazgo del Bloque 2 (`DRAFT_LIVE_ENABLED=false`, `/ws/draft` fuera de `ENGINE_REWRITE_SOURCES`,
+   clientes apuntando a `127.0.0.1` del propio visitante) queda documentado como **no-goal
+   explícito** de esta fase, no como una laguna accidental — es trabajo de una fase futura propia
+   (su propia frontera de confianza: autenticación de la conexión, límite de sesiones, y qué pasa
+   con la regla dura de `127.0.0.1` de `apps/engine`). Los criterios de aceptación de §12.14 se
+   verifican contra el motor local/simulador, igual que ya hacían las fases 3 y 4.
+
+4. **`GET`/`PUT /api/settings` y el editor genérico de `/settings` se retiran.** Confirmado, sin
+   scoping alternativo del KV — coincide con lo que ya especificaba el ticket 13 de §12.17 (P3):
+   se centraliza todo en `GET`/`POST /api/account` y la pantalla "Mi cuenta" (§12.11).
+
+5. **El MVP no consulta ni muestra nombre/avatar de Steam.** Confirmado — sin Steam Web API key,
+   sin secreto nuevo más allá de los dos ya contemplados (§12.12). La UI sigue identificando al
+   usuario por su Steam32, igual que hoy.
+
+### Abierto a propósito, sin bloquear
+
+6. **Registro abierto.** Cualquiera con cuenta de Steam puede crear cuenta en la instancia. No hay
+   lista de invitados, ni límite de cuentas, ni verificación de nada más. Es lo que pide el Bloque
+   1; si se quisiera restringir, es una decisión de producto posterior.
+7. **`personal_baseline_winrate` sigue sin escribirse nunca** (§12.15-E). La columna existe, el
+   contrato de §9.3 la usa, y sigue valiendo `null` → `0.5`. Ticket propio, fuera de Fase 5.
+8. **Sin borrado de cuenta.** No hay ruta para "borrá mis datos". No se inventa una: cuando se
+   priorice, define su propio alcance (¿borra el pool? ¿los equipos? ¿el feedback?).
+9. **Sin límite de tasa en `POST /api/hero-pool/calculate` por cuenta.** Con varios usuarios,
+   varios cálculos concurrentes pegan a OpenDota desde la misma IP. Hoy hay un `409` por cuenta
+   (§12.10) pero ningún enfriamiento entre cálculos sucesivos. Anotado, no resuelto — inventar el
+   número acá sería adivinar.
+10. **`GET /api/session/:id/draft-paths` no verifica dueño de sesión.** Es una ruta que solo se
+    alcanza contra el motor local (nunca estuvo en la allowlist del rewrite). Si algún día el motor
+    se expone (punto 3), esta ruta entra en el mismo régimen que el `hello`.
+11. **Rotación de `INTERNAL_AUTH_SECRET`/`SESSION_SECRET`.** Rotar el primero invalida los tokens
+    en vuelo (≤60 s, irrelevante); rotar el segundo desloguea a todos. No hace falta un mecanismo
+    de doble clave para esto, pero queda dicho para que no sorprenda.
+
+---
+
+## 12.17 — Entrada para `/rulebook`
+
+Fronteras naturales de ticket, en orden estricto de dependencia. **No son tickets todavía.** Cada
+uno es compilable y testeable por sí mismo; ninguno deja el árbol roto esperando al siguiente.
+
+**Bloque A — el motor aprende qué es una cuenta (sin login todavía)**
+
+1. **`accounts` + migración `0005`** (`db/schema.ts`, `0005_accounts.sql`, `_journal.json`, + su
+   prueba de migración con el precedente de `migration-0004.test.ts`). Una unidad lógica por la
+   excepción de migración de `CLAUDE.md`. **Cero cambio de comportamiento.**
+2. **`hero_pool` con PK compuesta + migración `0006` + `queries.ts` + los llamadores de
+   `routes/hero-pool.ts`.** Unidad lógica de migración (schema + migración + queries afectadas).
+   El `accountId` entra como **parámetro** de las funciones de ruta, resuelto todavía por P12.
+3. **`buildMetaSnapshot(db, accountId)` + cache partido + `invalidateAccountMetaCache`**
+   (`meta/provider.ts` + los 5 llamadores, todos de una línea). Es un cambio mecánico de firma:
+   va **solo**, sin mezclarse con comportamiento nuevo (criterio de TSK-047).
+4. **`server/account-token.ts`: verificación + store de nonces + su prueba** (costura **S13**,
+   con reloj y nonce inyectados). Sin conectar a ninguna ruta todavía. Incluye el vector de §12.6.
+5. **Conectar el token a las rutas HTTP del motor**: helper `requireAccount`, `401` tipados,
+   `routes/account.ts` nuevo, `calculate` sin `accountId` en el cuerpo, `calculationInProgress`
+   por cuenta, retiro de `/api/settings`, `authMode` en `/api/health`.
+6. **WebSocket**: `accountToken` en `hello`, `ownerAccountId` en `SessionStore`, rechazo
+   `unauthorized` + cierre 1008, `pushSessionUpdate` con la cuenta dueña.
+
+**Bloque B — `apps/web` aprende quién sos**
+
+7. **`iron-session` (`/gear-up` + `// ALLOWED`) + `lib/session.ts` + `lib/steam-openid.ts`** con
+   fixtures grabados de `check_authentication` (costura **S11**), incluida la prueba de `BigInt`
+   del criterio 10.
+8. **Rutas de auth**: `/login`, `/api/auth/steam/login`, `/api/auth/steam/callback`,
+   `/api/auth/logout`.
+9. **`proxy.ts` nuevo** (sesión + renovación + inyección del token) + `lib/account-token.ts`
+   (acuñado, con el mismo vector de prueba) + guard fail-closed en `scripts/start-railway.sh`.
+   **Este es el ticket donde el Basic Auth deja de existir**, y por eso va junto con el guard.
+10. **`GET /api/auth/engine-token`** + `DraftView.tsx`/`use-random-draft-session.ts` pidiéndolo
+    antes de cada conexión y reconexión.
+11. **Pantallas**: `HeroPoolConfig.tsx` sin el input de `account_id`, `/settings` → "Mi cuenta",
+    `lib/engine-api.ts` y `next.config.ts` alineados.
+
+**Bloque C — cierre**
+
+12. **Scoping de `team_groups`/`team_members` por cuenta** (confirmado, §12.16-2): `db/schema.ts`
+    (columna `accountId`) + `0007_team_groups_account.sql` + `_journal.json` + las 5 funciones de
+    `queries.ts` + `routes/team-groups.ts` con `requireAccount`. Una unidad lógica de migración
+    (mismo criterio que el ticket 2 — schema + migración + queries afectadas), depende del helper
+    `requireAccount` del ticket 5. **Va después del Bloque A y B completos** — necesita `accounts`
+    poblada y `requireAccount` ya construido, no puede adelantarse.
+13. **Limpieza, sin comportamiento**: borrar `isValidBasicAuth`, `getAllSettings`/`upsertSetting`,
+    `SITE_ACCESS_*` de `.env.example`, y agregar `SESSION_SECRET`, `INTERNAL_AUTH_SECRET`,
+    `PUBLIC_BASE_URL`. Va al final y solo, mismo criterio que TSK-047: si algo se rompe acá, es
+    inequívocamente la limpieza.
+
+**Variables de entorno, resumen**: se agregan `SESSION_SECRET`, `INTERNAL_AUTH_SECRET` y
+`PUBLIC_BASE_URL`; se retiran `SITE_ACCESS_USER` y `SITE_ACCESS_PASSWORD`. `.env.example` es la
+fuente y se actualiza en el ticket 13.
+
+`preferred_tool` sugerido: **`claude-code`** para todo el Bloque A y para los tickets 9 y 13 (tocan
+el gate de seguridad, `journal.md` y decisiones que viven en este SPEC); **`codex`** es razonable
+para los tickets 8 y 11, que son acotados y autocontenidos una vez que §12.4 y §12.11 están
+escritos. Ningún ticket de esta fase es candidato a `hermes-vps`: todos tocan autenticación.
+
+---
+
+# SPEC — Fase 6 (Formalizar Pro-Drafter: apertura de equipo consciente de bans)
+
+Síntesis de `docs/agents/architecture.md` § Fase 6 (Bloques 1-6, `/pre-flight` completo,
+2026-08-26) y del plan aprobado en `/Users/usuario/.claude/plans/system-prompt-act-parsed-reef.md`
+(fases 0-4). **Sexta ejecución en Opus del proyecto**, delegada a un agente separado (mismo patrón
+que Fase 4 y Fase 5). El Bloque 4 de `/pre-flight` confirma que esta fase **no cruza ningún gatillo
+objetivo** de `CLAUDE.md`: no hay frontera de confianza nueva, ni migración, ni cambio de auth. El
+uso de Opus acá es el lugar designado por política (`/blueprint`, una vez por fase), no una
+excepción. De aquí en adelante, Sonnet otra vez.
+
+Mismo estatuto que las fases anteriores: esto es contrato. Lo que no esté aquí, no es Fase 6.
+
+## 13.0 — Alcance de este blueprint (leer primero)
+
+- **§13.1 a §13.15 son contrato cerrado.** Números fijados, fórmulas exactas, contratos de tipo
+  literales.
+- **§13.16 son correcciones a `architecture.md`/al plan**, todas por leer el código real y por
+  medir contra el dato real (mismo estándar que §11.6 y §12.15). **Tres de ellas invalidan una
+  afirmación que el `/pre-flight` daba por buena** — la más grave es que `knn_similarity` *no*
+  discrimina con cero picks propios, al revés de lo que el Bloque 3 y el plan asumen.
+- **§13.17 es lo que queda abierto.** Deliberadamente corto: esta fase cierra números, no los
+  delega.
+- Lo que Fase 6 **no** es (Bloque 1, sin cambios): no reescribe `SCORING_WEIGHTS_V5` (sigue
+  congelada, y sigue siendo la única activa en producción); no amplía `SignalId`; no construye una
+  tabla `heroSynergy` ni ningún sync nuevo; no unifica `capabilities.json` con
+  `lane/hero-line-profiles.json`; no introduce Python ni ninguna dependencia nueva; no toca el bot
+  del Random Draft Simulator (`bot-drafter.ts`); no agrega pantallas ni telemetría; y **no prende
+  `ENABLE_PRO_DRAFTER`** — la promoción es un segundo blueprint, más angosto, alimentado por la
+  evidencia de §13.15.
+
+---
+
+## 13.1 — Qué de fases anteriores queda superado
+
+Todo lo demás sigue vigente. Solo estas cinco cosas se mueven, y **ninguna toca producción con el
+flag apagado**:
+
+| Antes decía | Fase 6 lo cambia a |
+|---|---|
+| `pipeline/run-pipeline.ts`: `TOP_N = 3` es el único tamaño de salida posible | `TOP_N = 3` sigue siendo el del camino normal; el modo `teamOpening` devuelve `OPENING_TOP_N = 5` (§13.8) |
+| `pipeline/run-pipeline.ts`: `corpusMatchupWinrate` (proxy sobre el corpus) es la única fuente de `MatchupWinrate` | `createMetaMatchupWinrate(meta.matchups)` cuando el llamador inyecta `matchups`; el adaptador de corpus sobrevive como fallback explícito para el script de evaluación (§13.5) |
+| `pipeline/merge.ts`: los 3 pesos de `PipelineWeights` son fijos durante todo el draft | Se derivan por fase con `deriveContinuousPipelineWeights` (§13.4). `PipelineWeights` y `PIPELINE_RAW_RANGE` **no cambian de forma** |
+| `signals/mix.ts`: `openingStrategy()` es una función privada | Se mueve tal cual a `draft-paths/strategy.ts` y se exporta (§13.7). Cuerpo y semántica idénticos — mismo movimiento de una línea que Fase 4.1 hizo con `archetypeFitBonus` |
+| `server/routes/pro-drafter.ts`: `ProDrafterSuggestion.rank: 1 \| 2 \| 3` | `1 \| 2 \| 3 \| 4 \| 5`, más los dos espejos a mano de `apps/web` (§13.10) |
+
+**Lo que NO se toca, y es deliberado**: `SignalId`, `SCORING_WEIGHTS_V1`-`V5`, `RAW_RANGE` de
+`mix.ts`, `applyDraftEvent`, el orden de push `draft_state` → `suggestions`,
+`intent/denial-score.ts` (ni una línea), `intent/position-prior.ts`, `intent/flex-inference.ts`,
+`knn/jaccard.ts`, `lane/*`, `drafter/decision-context.ts`, y `drafter/team-opener.ts` — que
+conserva `MAX_COUNTER_RELIEF = 0.12` hasta que la evaluación de §13.15 autorice su retiro (P9).
+
+---
+
+## 13.2 — Decisiones cerradas
+
+| # | Decisión | Razón |
+|---|---|---|
+| **P1** | **En modo `teamOpening`, `knn_similarity` es `raw: null` para *todos* los candidatos y la etapa KNN no se ejecuta.** | **Corrección forzada por el código real** (§13.16-A). Con `own = []`, `similarity()` (`knn/jaccard.ts`) da numerador 0 contra cualquier draft del corpus → `sim = 0` para los 502. `nearestNeighbors` devuelve entonces los **primeros 10 del archivo**, y `knnScoresByHero` les asigna `raw: 0` a los héroes ganadores de esos 10 — mientras el resto queda en `null`. `0` normaliza a 0 y `null` se redistribuye: el resultado es una **penalización arbitraria, dependiente del orden del JSON**, a ~50 héroes. No es una señal débil: es ruido con signo. |
+| **P2** | **El término ban-aware reutiliza `calculateDenialScore` sin editarla, cambiando únicamente las dos funciones que ya recibe inyectadas** (`matchupWinrate`, `earlyPressure`) **y el `flexHero`, que pasa a ser un héroe baneado.** | La fórmula ya es la formalización correcta (Bloque 3). Sus dos dependencias son parámetros — cambiar qué significan es exactamente el punto de extensión que la firma ofrece. Una segunda copia de la fórmula es rechazo automático de revisión, mismo criterio que `archetypeFitBonus` en 4.1. |
+| **P3** | **El insumo de `matchupWinrate` en modo apertura es el *alivio* (`max(0, 0.5 − winrate)`), no el winrate crudo**, escalado por el solapamiento posicional candidato↔baneado. | Un ban no es un rival: ganarle a un héroe que ya no está no vale nada. Lo que vale es que un héroe **al que el candidato le perdía** desapareció. `max(0, 0.5 − wr)` es literalmente el primitivo que `team-opener.ts` ya usa (`reliefScore`), lo que hace que el reemplazo eventual de `MAX_COUNTER_RELIEF` sea una sustitución comparable, no un salto a otra escala. |
+| **P4** | **`POSITION_OVERLAP_GAIN = 5`**, exactamente `1 / UNIFORM_PROBABILITY` de `intent/position-prior.ts`. | Es el ancla de calibración: un candidato **sin dato de posición** cae en la distribución uniforme (`0.2` en las 5), y `Σ_p P(ban=p)·5·0.2·alivio = alivio` — es decir, reproduce **exactamente** el alivio plano de `team-opener.ts`. Un hueco de datos nunca penaliza; solo deja de premiar. |
+| **P5** | **`earlyPressure` en modo apertura se reemplaza por `positionalCommitment(c) = 1 − H(c)/log₂5`**, derivado de `deriveFlexDistribution` sobre `hero-positions.json`. | **Medido**: `lane/hero-line-profiles.json` tiene **15 de 126** héroes. `earlyPressureFromProfiles` devuelve `0` para los otros 111 → el término `β·EarlyPressure·H(F)` sería **inerte para el 88% del pool**, y toda la fase se reduciría al alivio plano de siempre. `hero-positions.json` cubre 126/126 y ya está validado en el borde (S10). Semántica: un ban vuelve *seguro comprometerse*; el candidato que sí tiene un rol definido es el que convierte esa certeza en plan. |
+| **P6** | **`BETA_OPENING = 0.04`** (constante propia; `DEFAULT_BETA = 0.5` sigue intacta para el camino normal). | **Calibrado contra el dato real, no elegido a ojo** (§13.11). Con 16 bans: `Σ_b H(b)` medido = 9.47 de media, rango `[3.90, 15.79]` sobre 200 sorteos → el término de entropía abarca `[0, 0.38]` de media. El término de alivio, medido sobre las 15 984 filas reales de `hero_matchups`, llega a 0.35 de media y 0.57 en p90. Los dos sub-términos quedan en el mismo orden de magnitud: ninguno puede volver invisible al otro. Con `DEFAULT_BETA = 0.5` la entropía dominaría ~12:1. |
+| **P7** | **Los bans se combinan por SUMA, no por promedio** — al revés del camino normal, que promedia sobre rivales. | El promedio sobre 16 bans divide el alivio por 16 y lo vuelve un decimal de tercer orden (medido: media 0.019 vs. máximo 0.35). El motivo por el que el camino normal promedia está escrito en `run-pipeline.ts` — preservar la calibración `[0, 2]` de `PIPELINE_RAW_RANGE.denial_score` con hasta 5 rivales — y **acá se preserva igual, pero por calibración de `BETA_OPENING`**: el `raw` medido sobre 30 sorteos × ~110 candidatos va de `0` a **1.170**, nunca cerca de 2. `PIPELINE_RAW_RANGE` no se toca. |
+| **P8** | **`OPENING_REPEAT_STRATEGY_PENALTY = 4.0`, no `0.04`.** | `REPEAT_STRATEGY_PENALTY = 0.04` de `team-opener.ts` opera sobre `baseScore = score / 100`, escala `[0, 1]`. `mergePipelineSignals` devuelve escala `[0, 100]`. Copiar el número tal cual haría la penalización **25 veces más débil** y la diversificación sería decorativa. `4.0` es el **mismo 4% del rango** — misma conducta de producto, otra unidad. |
+| **P9** | **`MAX_COUNTER_RELIEF` de `team-opener.ts` NO se retira en esta fase.** Su retiro es un ticket propio, posterior y condicionado a §13.15. | Con `ENABLE_PRO_DRAFTER` apagado (default, y no cambia acá), `team-opener.ts` es el **único** camino de apertura vivo. Retirarle el mecanismo antes de que el reemplazo esté encendido es una regresión garantizada a cambio de nada. Cierra la pregunta abierta del "Cierre" de `architecture.md`: **ticket de limpieza posterior, nunca el mismo commit.** |
+| **P10** | **`openingStrategy` se mueve a `draft-paths/strategy.ts`, no se exporta desde `mix.ts`.** | `pipeline/` no debe importar `signals/mix.ts` — es la separación deliberada que documenta `merge.ts`. `draft-paths/` ya es el tercer lugar neutral del que ambos árboles consumen (`archetypeFitBonus`, `capabilitiesByHero`, `DraftPathArchetype`): mismo precedente exacto que Fase 4.1. |
+| **P11** | **`deriveContinuousPipelineWeights` satura en `own + enemy ≥ 4`.** | No es un número inventado: es exactamente donde `deriveDecisionContext` (`drafter/decision-context.ts`) declara terminada la fase ciega (`enemy >= 2 && own >= 2` → `response_pick`). El blend continuo llega a 0 en la misma frontera que el gate discreto que el proyecto ya usa. |
+| **P12** | **El modo `teamOpening` entra por un 7º parámetro de opciones de `runProDrafterPipeline`, no por una función exportada aparte.** | `ProDrafterRouteDeps.runPipeline` está tipado `typeof runProDrafterPipeline`: un parámetro opcional al final mantiene esa inyección válida sin tocar la costura de pruebas de la ruta. Mismo patrón que `BuildSuggestionsOptions` en `mix.ts`. |
+| **P13** | **La lectura de `MetaSnapshot.matchups` en la ruta ocurre ANTES de arrancar el cronómetro de `PIPELINE_TIMEOUT_MS`,** y si falla se cae a v5 con `fallback_applied: true`. | El presupuesto de 200 ms está escrito para medir el pipeline, no una lectura de SQLite en frío. `getCachedMetaSnapshot` normalmente es un hit en memoria; la primera llamada del proceso no lo es. Nunca un 500. |
+| **P14** | **La ruta pide el snapshot con `accountId: null`, siempre.** | No es una decisión nueva: es §12 P14 ya vigente. `/api/v1/draft/pro-recommendations` es el cerebro del bot rival del simulador — no representa a ninguna persona logueada. |
+
+---
+
+## 13.3 — Costuras: ninguna nueva
+
+**Fase 6 no estrena costura.** Cada pieza cae dentro de una costura ya definida en
+`.claude/rules/testing-seams.md`, y se deja escrito para que nadie invente una:
+
+| Pieza nueva | Costura existente | Qué es real en la prueba | Qué se inyecta |
+|---|---|---|---|
+| `pipeline/phase-decay.ts` | **Ninguna** — función pura sin frontera de datos | La función completa | Nada. Recibe `PipelineWeights` y dos enteros |
+| `pipeline/meta-matchup.ts` (`createMetaMatchupWinrate`) | **S2** (`MetaProvider`) | La lógica de umbral y de cache por par | `Record<HeroId, HeroMatchupStat[]>` como fixture literal. **Cero red, cero SQLite** |
+| `pipeline/ban-relief.ts` (`createBanReliefWinrate`, `createPositionalCommitment`) | **S2** + **S10** (`HeroPositions`) | La fórmula de alivio, el factor de solapamiento, la conversión entropía→compromiso | `matchups` como fixture literal y `HeroPositions` inyectado. **Ninguna prueba lee `hero-positions.json` real** |
+| `extractCandidateStrategies` (`pipeline/feature-extractor.ts`) | **S9** (`HeroCapabilities`) | La clasificación por arquetipo | `HeroCapabilities[]` inyectado. **Ninguna prueba lee `capabilities.json` real** |
+| Modo `teamOpening` de `run-pipeline.ts` | **S2 + S9 + S10** combinadas | El pipeline completo de apertura, incluida la diversificación | Corpus, `HeroPositions`, `matchups`, `HeroCapabilities` y perfiles de línea, todos como fixtures — igual que las pruebas actuales de ese archivo |
+
+**El número `S12` sigue reservado** por §11.10 para el RNG inyectable de la pieza 4 de Fase 4, y
+**`S14` queda libre**: la diversificación de esta fase es determinista (penalización, no sorteo), así
+que no consume ninguna reserva.
+
+**Reglas derivadas (obligatorias):**
+
+- Ninguna prueba de Fase 6 lee `hero-positions.json`, `capabilities.json`,
+  `hero-line-profiles.json`, `pro-draft-corpus.json` ni la SQLite real. Es la misma regla de S9/S10
+  de siempre, con un agravante propio de esta fase: los números de §13.11 se **midieron** contra
+  esos archivos reales, y por eso mismo no pueden ser el sustrato de un test — se regeneran.
+- El candado de sensibilidad (§13.14, criterio 3) se prueba contra **el pipeline completo**, nunca
+  contra el adaptador de alivio aislado. Mismo criterio literal que §10.9-7 y §12.14-2: el
+  adaptador puede dar el número correcto y el ranking seguir sin moverse si el peso no alcanza —
+  que es exactamente lo que pasa hoy con `MAX_COUNTER_RELIEF`.
+- El candado de regresión del camino normal (§13.14, criterio 6) también corre contra el pipeline
+  completo, con `teamOpening` ausente y `matchups` ausente: debe devolver **3** resultados.
+
+---
+
+## 13.4 — `pipeline/phase-decay.ts` (archivo nuevo)
+
+Generaliza el precedente de `TIMING_BLEND` (`signals/position-fit.ts`, `[0.5, 0.3, 0.15, 0.0]`
+indexado por picks propios) a un blend **continuo** sobre los 3 pesos de `PipelineWeights`.
+
+```ts
+import type { PipelineWeights } from "./weight-loader";
+
+// Frontera de saturación = la misma que deriveDecisionContext usa para declarar terminada la fase
+// ciega (enemy >= 2 && own >= 2 -> "response_pick", drafter/decision-context.ts). No es un número
+// nuevo: es el gate discreto que el proyecto ya tiene, leído como frontera continua.
+export const OPENING_SPAN = 4;
+
+// [0, 1]. 1 = draft vacío (apertura pura), 0 = 4 o más picks confirmados entre los dos lados.
+export function openingBlend(ownPickCount: number, enemyPickCount: number): number {
+  const confirmed = ownPickCount + enemyPickCount;
+  return Math.max(0, 1 - confirmed / OPENING_SPAN);
+}
+
+export function deriveContinuousPipelineWeights(
+  base: PipelineWeights,
+  ownPickCount: number,
+  enemyPickCount: number,
+): PipelineWeights;
+```
+
+**Fórmula exacta**:
+
+```
+t                = openingBlend(own, enemy)                  // 1.0, 0.75, 0.5, 0.25, 0.0, 0.0, ...
+knn_similarity'  = base.knn_similarity * (1 - t)
+lane_score'      = base.lane_score                            // no cambia: no depende de picks
+denial_score'    = 1 - knn_similarity' - lane_score'          // por RESTA, nunca sumando el sobrante
+```
+
+- **Por qué `denial_score` sale por resta y no por suma**: sumar el peso liberado
+  (`base.denial_score + base.knn_similarity * t`) da el mismo número en aritmética exacta, pero
+  acumula error de punto flotante en dos operaciones distintas. Derivar el tercero por resta hace
+  que la suma sea 1.0 **por construcción**, no por casualidad numérica.
+- **Invariante obligatorio**: para cualquier par `(ownPickCount, enemyPickCount)` de enteros ≥ 0,
+  `|knn' + lane' + denial' − 1| ≤ SUM_EPSILON`, con **`SUM_EPSILON = 1e-9`, el mismo valor exacto
+  que ya usa `parsePipelineWeights`** (`weight-loader.ts`). Nunca `=== 1`: en IEEE-754 la igualdad
+  exacta no está garantizada ni siquiera derivando por resta, y el proyecto ya fijó su tolerancia.
+- Con `base = pro-drafter-weights-v6.json` (`0.40 / 0.35 / 0.25`), los valores son exactamente:
+
+| own + enemy | t | knn_similarity | lane_score | denial_score |
+|---|---|---|---|---|
+| 0 (apertura) | 1.00 | 0.00 | 0.35 | **0.65** |
+| 1 | 0.75 | 0.10 | 0.35 | 0.55 |
+| 2 | 0.50 | 0.20 | 0.35 | 0.45 |
+| 3 | 0.25 | 0.30 | 0.35 | 0.35 |
+| ≥ 4 | 0.00 | 0.40 | 0.35 | **0.25** = base |
+
+- **Consecuencia declarada, no incidental**: con 4 o más picks confirmados, `deriveContinuousPipelineWeights`
+  devuelve exactamente `base` — el camino normal del pipeline en fase media/tardía no cambia en
+  nada. Los únicos drafts cuyo peso cambia son los de ≤ 3 picks confirmados, que es precisamente
+  donde el KNN tiene poco con qué comparar.
+- **Impacto conocido en una prueba existente**: `run-pipeline.test.ts` usa
+  `STATE = picks { radiant: [1], dire: [10, 11] }` → `own = 1`, `enemy = 2`, `t = 0.25`. Los números
+  exactos trazados a mano de ese archivo cambian y **deben actualizarse en el mismo ticket**. No es
+  una regresión: es el cambio de comportamiento que esta sección especifica.
+
+---
+
+## 13.5 — `pipeline/meta-matchup.ts` (archivo nuevo): la fuente real de `MatchupWinrate`
+
+```ts
+import type { HeroId } from "../draft/reducer";
+import type { HeroMatchupStat } from "../signals/types";
+
+// Mismo valor y misma razón que en signals/counter.ts y drafter/team-opener.ts, declarado local
+// como ya hacen esos dos archivos -- el proyecto nunca cruza-importa esta constante entre capas.
+export const MIN_MATCHUP_GAMES = 200;
+
+export type MatchupWinrateFn = (
+  candidate: HeroId,
+  rival: HeroId,
+  position: 1 | 2 | 3 | 4 | 5,
+) => number | null;
+
+export function createMetaMatchupWinrate(
+  matchups: Record<HeroId, HeroMatchupStat[]>,
+): MatchupWinrateFn;
+```
+
+**Contrato exacto**:
+
+1. Se construye un índice `Map<HeroId, Map<HeroId, HeroMatchupStat>>` **una vez** al crear la
+   función — no un `Array.find` por llamada. `calculateDenialScore` invoca esta función 5 veces por
+   par `(candidato, rival)`, y el pool de apertura es de ~110 candidatos.
+2. `row` ausente → **`null`**.
+3. `row.games < MIN_MATCHUP_GAMES` → **`null`**. Mismo umbral y misma semántica que `counter.ts`:
+   sin volumen no hay dato, y `null` nunca se disfraza de `0` (regla dura de `engine.md`).
+4. En otro caso → `row.wins / row.games`, un número en `[0, 1]`.
+5. **`position` se ignora por completo** (parámetro `_position`). `hero_matchups` no tiene columna
+   de posición y OpenDota no la expone — es el hueco heredado desde 1b que `denial-score.ts` ya
+   documenta. Se conserva el parámetro porque la interfaz de `calculateDenialScore` lo exige, y se
+   deja escrito acá para que nadie lo lea como un olvido.
+
+**Regla de selección de fuente en `run-pipeline.ts`** (§13.8): si el llamador inyecta
+`options.matchups`, se usa `createMetaMatchupWinrate`; si no, se usa `corpusMatchupWinrate` **sin
+cambios**. `corpusMatchupWinrate` no se borra: `scripts/evaluate-pro-drafter.ts` corre una
+evaluación *leave-one-out* deliberadamente restringida al corpus, y darle datos de OpenDota
+invalidaría su metodología. Dos fuentes, una regla explícita, ningún default silencioso.
+
+**Dato real medido (2026-08-26, contra `apps/engine/data/dota2coach.sqlite`)**: `hero_matchups`
+tiene **15 984** filas; solo **1 200 (7.5%)** alcanzan `games ≥ 200`. De esas, **593** son adversas
+(`wr < 0.5`), repartidas en **73** héroes. Es decir: el umbral de 200 no es una formalidad — recorta
+el 92.5% de las filas. Esto explica, junto con el tamaño de `MAX_COUNTER_RELIEF`, por qué el alivio
+por ban actual casi nunca reordena nada.
+
+---
+
+## 13.6 — `pipeline/ban-relief.ts` (archivo nuevo): el término ban-aware
+
+Es el corazón de la fase. **`intent/denial-score.ts` no se edita**: se le cambian los dos
+parámetros inyectados y el `flexHero`.
+
+### Fórmula
+
+Para un candidato `c` y el conjunto de héroes baneados `B = state.banned`:
+
+```
+BanAwareRaw(c) = Σ           calculateDenialScore( c, target(b), banRelief, commitment, BETA_OPENING )
+                 b ∈ B
+
+donde, desarrollado:
+
+calculateDenialScore(c, target(b), …) =  Σ  P(Pos_b = p) · banRelief(c, b, p)
+                                         p∈1..5
+                                      +  BETA_OPENING · commitment(c) · H(b)
+```
+
+con:
+
+| Símbolo | Definición exacta | Origen |
+|---|---|---|
+| `target(b)` | `inferFlexPick(b, heroPositions, DEFAULT_ENTROPY_THRESHOLD)` | `intent/flex-inference.ts`, sin cambios. Su campo `isFlex` **no lo lee `calculateDenialScore`** — se reutiliza la función entera igual, en vez de duplicar la construcción del `FlexInferenceResult` |
+| `P(Pos_b = p)` | `target(b).distribution.probabilities[p]` | `deriveFlexDistribution` (`intent/position-prior.ts`), sin cambios. Héroe sin dato → uniforme `0.2` |
+| `H(b)` | `target(b).distribution.entropy`, entropía de Shannon en bits, `[0, log₂5 = 2.3219]` | ídem |
+| `banRelief(c, b, p)` | ver abajo | **nuevo** |
+| `commitment(c)` | `1 − H(c) / log₂5`, en `[0, 1]` | **nuevo**, sobre `deriveFlexDistribution(c, heroPositions)` |
+| `BETA_OPENING` | **`0.04`** | **nuevo** (P6) |
+
+### `createBanReliefWinrate`
+
+```ts
+import { deriveFlexDistribution } from "../intent/position-prior";
+import { MIN_MATCHUP_GAMES, type MatchupWinrateFn } from "./meta-matchup";
+import type { HeroId } from "../draft/reducer";
+import type { HeroPositions } from "../signals/hero-positions";
+import type { HeroMatchupStat } from "../signals/types";
+
+// 1 / UNIFORM_PROBABILITY de intent/position-prior.ts. Un candidato sin dato de posición cae en la
+// uniforme (0.2 en las cinco) y este factor lo devuelve exactamente a 1.0 -- el alivio plano de
+// team-opener.ts, ni más ni menos. Un hueco de datos nunca penaliza.
+export const POSITION_OVERLAP_GAIN = 5;
+
+export const BETA_OPENING = 0.04;
+
+export function createBanReliefWinrate(
+  matchups: Record<HeroId, HeroMatchupStat[]>,
+  heroPositions: HeroPositions,
+): MatchupWinrateFn;
+
+export function createPositionalCommitment(
+  heroPositions: HeroPositions,
+): (heroId: HeroId) => number;
+```
+
+`banRelief(c, b, p)`, exactamente:
+
+1. `row = matchups[c]?.find(m => m.vsHero === b)` — vía el mismo índice `Map` de §13.5,
+   construido una sola vez.
+2. `row` ausente **o** `row.games < MIN_MATCHUP_GAMES (200)` → **`null`**.
+   `calculateDenialScore` excluye esa posición de la suma; con `null` en las 5, el término de
+   matchup vale exactamente 0 (no un 0 fabricado: la posición se saltea, ver el comentario ya
+   escrito en `denial-score.ts`).
+3. `relief = Math.max(0, 0.5 − row.wins / row.games)`. **Idéntico al primitivo de `reliefScore`
+   en `team-opener.ts`.** Un matchup favorable al candidato aporta `0`, nunca negativo: un ban
+   sobre un héroe al que ya le ganabas no es un alivio.
+4. `return POSITION_OVERLAP_GAIN * P(Pos_c = p) * relief`.
+
+**Qué produce esto al sumarse dentro de la fórmula**:
+
+```
+Σ P(Pos_b = p) · 5 · P(Pos_c = p) · relief(c,b)  =  5 · overlap(c,b) · relief(c,b)
+p
+     con overlap(c,b) = Σ P(Pos_b = p) · P(Pos_c = p)  ∈ [0, 1]
+```
+
+Es decir: **el alivio cuenta en proporción a que el héroe baneado hubiera jugado la misma posición
+que el candidato quiere jugar.** Un mid baneado al que le perdías vale si estás abriendo con un
+mid; no vale si estás abriendo con un hard support. Esa es la información que
+`MAX_COUNTER_RELIEF = 0.12` — un bono plano — no tiene forma de expresar, y es la mitad de la queja
+de producto que originó la fase.
+
+`createPositionalCommitment(c)`:
+
+```
+1 − deriveFlexDistribution(c, heroPositions).entropy / Math.log2(5)
+```
+
+Rango cerrado `[0, 1]`: un héroe con una sola posición ≥ 200 partidas da `1`; un héroe sin entrada
+en `hero-positions.json` cae en la uniforme y da exactamente `0`. **Nunca negativo, nunca > 1** —
+no hace falta un `clamp`, la entropía de Shannon sobre 5 símbolos está acotada por `log₂5` por
+definición. Memoizado en un `Map<HeroId, number>` por corrida: se consulta una vez por par
+`(candidato, ban)`, es decir hasta 1 760 veces en una apertura de 16 bans, para ~110 valores
+distintos.
+
+### Qué pasa sin bans
+
+`B` vacío → **`denial_score` es `raw: null` para todos los candidatos**, nunca `0`. Es el mismo
+criterio, literal, que ya aplica `run-pipeline.ts` cuando `flexTargets.length === 0`: sin insumo no
+hay señal, y `null` se redistribuye proporcionalmente en `mergePipelineSignals` en vez de arrastrar
+a todos por igual. Con `knn_similarity` también `null` en apertura (P1), el ranking queda entonces
+determinado solo por `lane_score` — resultado honesto y explícito para un draft sin bans, no un
+número inventado.
+
+---
+
+## 13.7 — `pipeline/feature-extractor.ts` extendido, y `openingStrategy` movido
+
+### El movimiento (P10)
+
+`draft-paths/strategy.ts`, archivo nuevo de una sola función, **cuerpo copiado tal cual** desde
+`signals/mix.ts:305-312`:
+
+```ts
+import type { DraftPathArchetype, HeroCapabilities } from "./types";
+import type { HeroId } from "../draft/reducer";
+
+export function openingStrategy(hero: HeroId, capabilities: HeroCapabilities[]): DraftPathArchetype {
+  const capability = capabilities.find((entry) => entry.hero === hero);
+  if (!capability) return "scaling";
+  if (capability.structuralDamage === "high") return "push";
+  if (capability.teamfight === "high") return "teamfight";
+  if (capability.hasInitiation && capability.hasCatch) return "pickoff";
+  return "scaling";
+}
+```
+
+`signals/mix.ts` borra la función privada e importa esta. El tipo de retorno pasa de la unión
+literal `"push" | "teamfight" | "pickoff" | "scaling"` a `DraftPathArchetype`, que es **la misma
+unión** (`draft-paths/types.ts`) — `mix.ts` compila sin ningún otro cambio. Es el mismo movimiento
+de una línea que Fase 4.1 hizo con `archetypeFitBonus`: privada → exportada, sin tocar firma ni
+cuerpo. **Una segunda copia de esta clasificación es rechazo automático de revisión.**
+
+### La extensión
+
+`extractCandidateFeatures` **conserva su firma y su tipo de retorno exactos** — cero regresión, sus
+pruebas actuales no se tocan. El archivo gana un segundo export:
+
+```ts
+import { openingStrategy } from "../draft-paths/strategy";
+import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
+
+export function extractCandidateStrategies(
+  candidates: readonly HeroId[],
+  capabilities: readonly HeroCapabilities[],
+): Map<HeroId, DraftPathArchetype>;
+```
+
+- Devuelve **una entrada por candidato, siempre** — nunca omite héroes, a diferencia de
+  `extractCandidateFeatures`, que descarta a los que no tienen perfil de línea. Un héroe sin
+  entrada en `capabilities.json` recibe `"scaling"`, que es exactamente lo que `openingStrategy`
+  ya devuelve hoy para ese caso en `mix.ts` (y lo que `team-opener.ts` ya consume en producción).
+- **No filtra por `state`**: la exclusión de baneados/pickeados ya la hizo quien construyó
+  `candidates`. Duplicar el filtro sería una segunda copia de `candidatePool`, que es justo lo que
+  el comentario de cabecera de `feature-extractor.ts` explica que no debe pasar.
+- `capabilities` es **obligatorio** en esta función, no opcional con default. Un default que cargue
+  `capabilities.json` real acoplaría cualquier prueba futura al archivo curado (regla S9) y
+  repetiría el tipo de bug silencioso que `engine.md` ya prohíbe explícitamente para
+  `buildMetaSnapshot(db, accountId)`. La inyección del archivo real se hace **una sola vez**, en la
+  ruta (§13.10).
+
+**Cobertura real medida (2026-08-26)**: de los **124** héroes distintos del corpus del KNN, **121**
+tienen entrada en `capabilities.json`, **123** en `hero-positions.json` y **15** en
+`hero-line-profiles.json`. Los tres huecos son alcanzables hoy, no defensivos.
+
+---
+
+## 13.8 — `pipeline/run-pipeline.ts`: el modo `teamOpening`
+
+### Contrato de entrada y salida
+
+```ts
+export interface ProDrafterPipelineOptions {
+  // Ausente o false -> camino normal, 3 resultados, comportamiento de hoy salvo el peso por fase.
+  readonly teamOpening?: boolean;
+  // Ausente -> corpusMatchupWinrate (sin cambios). Presente -> createMetaMatchupWinrate (§13.5).
+  readonly matchups?: Record<HeroId, HeroMatchupStat[]>;
+  // Obligatorio en la práctica para el modo teamOpening: sin capacidades no hay diversificación.
+  // Ausente -> todos los candidatos caen en "scaling" y la penalización se aplica igual.
+  readonly heroCapabilities?: readonly HeroCapabilities[];
+}
+
+export function runProDrafterPipeline(
+  state: DraftState,
+  index: InMemoryDraftIndex,
+  corpus: readonly DraftCandidate[],
+  heroPositions: HeroPositions,
+  weights: PipelineWeights,
+  profiles?: Map<HeroId, HeroLineProfile>,
+  options?: ProDrafterPipelineOptions,          // <- 7º parámetro, nuevo
+): readonly PipelineCandidateResult[];
+```
+
+`PipelineCandidateResult` **no cambia de forma**. `PipelineSignalId` **no gana una cuarta clave**:
+el término ban-aware alimenta el `raw` de `denial_score`, no una señal nueva.
+
+### La condición de apertura, exacta
+
+```ts
+const OPENING_TOP_N = 5;
+
+const isTeamOpening =
+  options?.teamOpening === true &&
+  state.picks.radiant.length === 0 &&
+  state.picks.dire.length === 0;
+```
+
+**Byte a byte la misma guarda que `signals/mix.ts` ya usa** (`isTeamOpening`, verificado en el
+código). Deliberadamente **no** se usa `deriveDecisionContext(state, true) === "team_opening"`:
+esa función pasa por `observedDraftFacts`, que con `state.localSide === "unknown"` devuelve dos
+arrays vacíos y reportaría `"team_opening"` sobre un tablero que ya tiene 10 héroes pickeados
+(§13.16-C). La guarda cruda mira los dos arrays reales y no puede engañarse.
+
+Si `options.teamOpening === true` pero ya hay picks, se cae al camino normal (3 resultados) sin
+error — misma tolerancia que `mix.ts`.
+
+### Etapas, en modo apertura
+
+| # | Etapa | Qué hace en apertura |
+|---|---|---|
+| 1 | Feature Extractor | `extractCandidateFeatures` igual que hoy, más `extractCandidateStrategies(candidates, options.heroCapabilities ?? [])` |
+| 2 | KNN | **No se ejecuta** (P1). `knn_similarity` → `raw: null` para todos. Se ahorran además 502 cálculos de `similarity` que darían 0 |
+| 3 | Lane Sim | `evaluateLaneRoster([features.get(c)], [], LANE_WEIGHTS)` — igual que hoy. Con el lado rival vacío, `meanOfDimension` devuelve `NEUTRAL_VALUE = 0.5` (verificado), así que un candidato sin perfil da `laneScore = 0.5` exacto y uno con perfil se separa de ahí |
+| 4 | Intent Decoder | `denial_score` = `BanAwareRaw(c)` de §13.6. Con `state.banned` vacío → `null` |
+| 5 | Merger | `mergePipelineSignals(signals, deriveContinuousPipelineWeights(weights, 0, 0))` → pesos `0.00 / 0.35 / 0.65`; con `knn_similarity: null`, la redistribución de `merge.ts` deja `lane 0.35 / denial 0.65` |
+| 6 | Selección | Orden por score **con desempate explícito** (abajo), luego diversificación por estrategia (§13.9), corte en `OPENING_TOP_N = 5` |
+
+### Desempate obligatorio
+
+```ts
+results.sort((a, b) => b.score - a.score || a.heroId - b.heroId);
+```
+
+El camino normal hoy ordena solo por score. Con ~110 candidatos y un `lane_score` idéntico para los
+111 héroes sin perfil de línea, los empates en apertura son **la norma, no la excepción**: sin
+desempate, el orden lo decidiría el orden de iteración del `Set` construido desde el corpus. El
+desempate por `heroId` es el mismo que `team-opener.ts` ya usa (`left.hero - right.hero`) y es
+condición necesaria del criterio de determinismo (§13.14-2).
+
+### Precomputación obligatoria (fuera del bucle de candidatos)
+
+Mismo criterio de memoización que el archivo ya documenta para `rivalFlexTargets` y
+`corpusMatchupWinrate`:
+
+- `banTargets = state.banned.map(b => inferFlexPick(b, heroPositions, DEFAULT_ENTROPY_THRESHOLD))`
+  — hasta 16 llamadas por corrida, nunca 110 × 16.
+- El índice `Map<HeroId, Map<HeroId, HeroMatchupStat>>` de `createMetaMatchupWinrate`/
+  `createBanReliefWinrate` — una vez.
+- `commitment` memoizado por héroe.
+
+Costo resultante en apertura: 110 candidatos × 16 bans × 5 posiciones = **8 800** lecturas de `Map`
+más 110 entropías. Holgado dentro de `PIPELINE_TIMEOUT_MS = 200` (§13.13).
+
+---
+
+## 13.9 — Diversificación por estrategia
+
+Selección greedy idéntica en forma a `recommendTeamOpeners`, sobre la escala del pipeline:
+
+```ts
+export const OPENING_REPEAT_STRATEGY_PENALTY = 4.0;
+```
+
+```
+selected = []
+remaining = [...sorted]                      // ya ordenado por score desc, desempate por heroId
+while selected.length < OPENING_TOP_N && remaining.length > 0:
+    used = new Set(selected.map(strategyOf))
+    remaining.sort by  (score − (used.has(strategyOf(x)) ? OPENING_REPEAT_STRATEGY_PENALTY : 0)) desc,
+                       heroId asc
+    selected.push(remaining.shift())
+```
+
+- **`4.0`, no `0.04`** (P8): `mergePipelineSignals` devuelve `[0, 100]`, `team-opener.ts` opera
+  sobre `[0, 1]`. Es el mismo 4% del rango; copiar el literal sería debilitar la diversificación 25
+  veces.
+- **La penalización es acumulativa por presencia, no por conteo**: se penaliza igual la segunda
+  aparición de una estrategia que la tercera, exactamente como hace `team-opener.ts` hoy
+  (`usedStrategies` es un `Set`). No se inventa un escalado nuevo.
+- **Nunca es un filtro duro**: si las 5 mejores opciones son todas `"scaling"`, se devuelven las 5.
+  Misma regla que rige `position_fit` (§10.4) y `team-opener.ts`: penalizar, jamás eliminar
+  candidatos por juicio de calidad.
+- `strategyOf` sale de `extractCandidateStrategies` (§13.7). Sin `heroCapabilities`, todos son
+  `"scaling"` y la penalización se aplica de todas formas, dejando el orden por score intacto —
+  degradación limpia, no una rama especial.
+
+---
+
+## 13.10 — `server/routes/pro-drafter.ts` y los espejos de `apps/web`
+
+### Lo que NO cambia
+
+- **`ENABLE_PRO_DRAFTER` sigue siendo el único gate, sin tocar** (`app.ts:267`). Apagado por
+  defecto; con el flag en `false`, `/api/v1/draft/pro-recommendations` sigue cayendo en
+  `handleSuggestionsPreview` (v5) exactamente como hoy.
+- **El contrato de request no cambia en absoluto.** `SuggestionsPreviewRequest` **ya tiene**
+  `teamOpening?: boolean` y `isValidSuggestionsPreviewRequest` **ya lo valida** (verificado en
+  `server/edge.ts`). Fase 6 no toca la validación de borde.
+- `PIPELINE_TIMEOUT_MS = 200`, `CACHE_TTL_MS`, `CACHE_MAX_ENTRIES`, la política LRU y el fallback
+  transparente a v5: sin cambios.
+
+### Lo que cambia
+
+**1. `ProDrafterSuggestion.rank` se ensancha:**
+
+```ts
+interface ProDrafterSuggestion {
+  hero: HeroId;
+  rank: 1 | 2 | 3 | 4 | 5;      // antes: 1 | 2 | 3
+  score: number;
+  signals: PipelineCandidateResult["signals"];
+}
+```
+
+**2. `ProDrafterRouteDeps` gana dos inyecciones y ensancha una:**
+
+```ts
+export interface ProDrafterRouteDeps {
+  corpus?: readonly DraftCandidate[];
+  heroPositions?: HeroPositions;
+  heroCapabilities?: HeroCapabilities[];                        // NUEVO, default loadHeroCapabilities()
+  getMetaMatchups?: () => Promise<Record<HeroId, HeroMatchupStat[]>>;  // NUEVO
+  runPipeline?: typeof runProDrafterPipeline;
+  computeV5Fallback?: (
+    state: DraftState,
+    accountId: number | null,
+    options: { teamOpening?: boolean },
+  ) => Promise<SuggestionSet>;                                  // ENSANCHADA
+  now?: () => number;
+}
+```
+
+En `server/app.ts`, `createProDrafterRoutes` pasa a recibir:
+
+```ts
+createProDrafterRoutes({
+  heroPositions: deps.heroPositions,
+  heroCapabilities: deps.heroCapabilities,
+  getMetaMatchups: async () => (await getCachedMetaSnapshot<TSchema>(deps.db, null)).matchups,
+  computeV5Fallback: computeSuggestionsForState,
+})
+```
+
+`accountId: null` siempre (P14 / §12 P14). `computeSuggestionsForState` ya tiene exactamente esa
+firma (`state, accountId = null, options = {}`), así que la inyección compila sin adaptador.
+
+**3. `fingerprint()` incorpora `teamOpening`:**
+
+```ts
+return [
+  body.format, body.patch, body.localSide,
+  `opening:${body.teamOpening === true}`,          // NUEVO
+  `banned:${sortedIds(body.banned)}`,
+  `radiant:${sortedIds(body.picks.radiant)}`,
+  `dire:${sortedIds(body.picks.dire)}`,
+].join("|");
+```
+
+**Sin esto hay un bug real, no hipotético**: dos requests con los mismos héroes y distinto
+`teamOpening` comparten clave, y la segunda recibe del cache la respuesta de 3 sugerencias de la
+primera. (`targetPosition`/`usePersonalPool` siguen fuera del fingerprint y afectan al camino de
+fallback v5 — hueco **preexistente**, anotado en §13.17-3, no se arregla acá.)
+
+**4. `runPipelineWithBudget` recibe las opciones, y el snapshot se lee antes del cronómetro:**
+
+```
+matchups = null
+try { matchups = await deps.getMetaMatchups?.() } catch { matchups = null }   // P13
+start = now()
+results = pipelineImpl(state, index, corpus, heroPositions, weights, profiles, {
+  teamOpening: body.teamOpening === true,
+  matchups: matchups ?? undefined,
+  heroCapabilities,
+})
+if (now() - start > PIPELINE_TIMEOUT_MS) return null
+```
+
+Un fallo al leer el snapshot **no** tira la request ni fuerza el fallback: degrada a
+`corpusMatchupWinrate`, que es el comportamiento de hoy. Un fallo del pipeline sigue cayendo a v5
+con `fallback_applied: true`, sin cambios.
+
+**5. `buildFallbackSuggestions` deja de recortar a 3 cuando la request es de apertura:**
+
+```ts
+async function buildFallbackSuggestions(state, teamOpening: boolean) {
+  if (!deps.computeV5Fallback) return [];
+  const v5 = await deps.computeV5Fallback(state, null, { teamOpening });
+  const limit = teamOpening ? 5 : 3;
+  return v5.suggestions.filter((s) => s.rank <= limit).map(…);
+}
+```
+
+El comentario actual (*"Pro-Drafter conserva su contrato de tres alternativas. La apertura de
+equipo del simulador puede tener cinco, pero nunca viaja por este fallback experimental"*) deja de
+ser cierto en esta fase y **se reemplaza**, no se deja contradiciendo al código.
+
+### Los dos espejos a mano de `apps/web` (`features/pro-drafter/types.ts`)
+
+Cambian **en el mismo cambio** que el motor, o el tipado miente:
+
+```ts
+export interface ProSuggestion {
+  hero: HeroId;
+  rank: 1 | 2 | 3 | 4 | 5;      // antes: 1 | 2 | 3
+  score: number;
+  signals: ProSignalContribution[];
+}
+
+export interface LegacySuggestionSetResponse {
+  schema: "suggestions/v1";
+  suggestions: { hero: HeroId; rank: 1 | 2 | 3 | 4 | 5; score: number }[];   // antes: 1 | 2 | 3
+}
+```
+
+**`LegacySuggestionSetResponse` ya está mal hoy, antes de esta fase** (§13.16-D): con
+`ENABLE_PRO_DRAFTER` apagado y `teamOpening: true`, `app.ts` responde en esa misma URL con el
+`SuggestionSet` de v5, que **ya trae ranks 4 y 5**. Es una mentira de tipo preexistente que esta
+fase corrige de paso porque toca exactamente esa línea.
+
+**Nada más de `apps/web` cambia.** Sin pantallas nuevas, sin `ProDrafterPanel` reescrito, sin
+`bot-drafter.ts` tocado. `ProDrafterPanel` renderiza la lista que recibe; 5 elementos en vez de 3 no
+exigen ningún cambio de componente.
+
+---
+
+## 13.11 — Números medidos contra el dato real (no estimados)
+
+Todo lo de esta sección se midió el 2026-08-26 contra `apps/engine/data/dota2coach.sqlite`,
+`signals/hero-positions.json`, `draft-paths/capabilities.json`, `lane/hero-line-profiles.json` y
+`knn/pro-draft-corpus.json` **reales**. Está acá para justificar `BETA_OPENING` y para fijar la
+barra de §13.15 — **ninguna prueba puede depender de estos números** (S9/S10: los archivos se
+regeneran).
+
+**Entropía de posición (`hero-positions.json`, 126 héroes):**
+
+| | valor |
+|---|---|
+| `H` mínimo / máximo | `0.0000` / `2.1736` (tope teórico `log₂5 = 2.3219`) |
+| `H` medio / mediana | `0.6052` / `0.6329` |
+| Héroes con `H = 0` (una sola posición ≥ 200 partidas) | **51 de 126** |
+| `commitment = 1 − H/log₂5` medio | `0.7394` |
+
+**Alivio por matchup (`hero_matchups`, 15 984 filas):**
+
+| | valor |
+|---|---|
+| Filas con `games ≥ 200` | **1 200 (7.5%)** |
+| De esas, adversas (`wr < 0.5`) | **593 (49.4%)** — en 73 héroes |
+| `relief = 0.5 − wr` medio / mediana / p95 / máximo | `0.0293` / `0.0240` / `0.0750` / `0.1140` |
+
+**Simulación de apertura (200 sorteos de 16 bans, candidatos = los 124 héroes del corpus):**
+
+| | valor |
+|---|---|
+| Candidatos con algún alivio (de ~110) | **27** — el 75% del pool no recibe ninguno |
+| `Σ_b 5·overlap·relief` máximo por draft: media / p90 | `0.3484` / `0.5718` |
+| `Σ_b H(b)` sobre 16 bans: media / mín / máx | `9.468` / `3.896` / `15.792` |
+
+**Calibración de `BETA_OPENING = 0.04`** (P6): el término de entropía vale
+`0.04 · commitment(c) · Σ_b H(b)`, que con los rangos medidos abarca `[0.156, 0.632]` según qué
+tan comprometidos de rol sean los héroes baneados — contra un término de alivio que llega a
+`0.35`-`0.57`. **Los dos sub-términos son del mismo orden**, y el conjunto de bans mueve tanto el
+alivio (por candidato, reordena) como el peso relativo del compromiso (escalar, cambia quién le
+gana a quién). Con `DEFAULT_BETA = 0.5` la entropía valdría hasta `7.9` y borraría al alivio.
+
+**`raw` resultante de `denial_score` en apertura** (30 sorteos × ~110 candidatos):
+mínimo `0.0000`, media `0.2985`, p99 `0.6624`, **máximo `1.1703`**. Dentro de
+`PIPELINE_RAW_RANGE.denial_score = [0, 2]` con margen; el `clamp` de `normalize()` nunca se activó
+en la muestra. **`PIPELINE_RAW_RANGE` no se toca.**
+
+**Sensibilidad del top-5** (300 pares de conjuntos de 16 bans, con los pesos de apertura
+`0.35 / 0.65` de §13.4 y la diversificación de §13.9):
+
+| Métrica | Resultado |
+|---|---|
+| Héroes distintos entre los dos top-5 (de 5) | media **3.29**, mínimo **1** |
+| Pares con ≥ 1 héroe distinto | **100.0%** |
+| Pares con ≥ 2 héroes distintos | **97.0%** |
+| El héroe de rank 1 cambia | **89.0%** |
+| Posiciones del ranking que cambian (de 5) | media **4.61**, mínimo **2** |
+| Jaccard del top-5 | media **0.225**, máximo `0.667` |
+
+---
+
+## 13.12 — Seguridad (hereda el Bloque 4; extiende §5, §9.7, §10.8, §11.8 y §12.12)
+
+Se documenta explícitamente, no se da por sobreentendido:
+
+- **Ninguna frontera de confianza nueva.** Las tres entradas de datos de esta fase ya están
+  validadas en el borde por loaders existentes: `hero-positions.json` por `loadHeroPositions()`
+  (S10), `capabilities.json` por `loadHeroCapabilities()` (S9), y `MetaSnapshot.matchups` por la
+  validación de borde de la sincronización con OpenDota (S6) más el `parse` de `meta/mappers`.
+  Fase 6 no lee ningún archivo nuevo ni ningún origen nuevo. La decisión de descartar `heroSynergy`
+  (Bloque 2) eliminó el único sync/tabla nueva que el diseño original iba a abrir: esta fase tiene
+  **menos** superficie nueva que el plan que la originó, no más.
+- **Cero red en el camino caliente, intacto y reforzado.** Nada de lo que se agrega hace `fetch`.
+  La única lectura nueva de la ruta es `getCachedMetaSnapshot(db, null)` — SQLite y cache en
+  memoria, exactamente la misma llamada que el fallback a v5 ya hacía en ese mismo handler. El
+  script de evaluación (§13.15) sigue siendo un script de desarrollador, manual, nunca invocado
+  desde el motor ni desde CI.
+- **Ningún secreto nuevo.** Ni variable de entorno nueva. `ENABLE_PRO_DRAFTER` es el único gate y no
+  cambia de semántica ni de default (`!== "true"` → apagado).
+- **Ningún dato personal.** Estadísticas públicas agregadas de héroes, misma naturaleza que
+  `patchStats` desde fase 1. La ruta computa con `accountId: null` por contrato (P14): ningún
+  `hero_pool` de ninguna cuenta entra en este camino, y por lo tanto **ningún Steam32 puede
+  aparecer en un log, un error o un ticket de esta fase** — la regla de 1b/§12.12 se cumple por
+  construcción, no por vigilancia.
+- **Ninguna dependencia nueva** (`dependencies` ni `devDependencies`). Sin `/gear-up`, sin
+  `@depcheck`, sin marca `// ALLOWED`. Cero runtime nuevo: sin Python, decisión explícita del
+  usuario (Bloque 5).
+- **`apps/engine` sigue atado a `127.0.0.1`.** Esta fase no expone ninguna ruta nueva ni cambia el
+  binding. No agrega ninguna ruta HTTP: reutiliza `/api/v1/draft/pro-recommendations`, que ya
+  existe y ya está gateada.
+- **Privilegio sin cambios**: nadie que no tuviera acceso a la ruta lo gana. Con el flag apagado, el
+  comportamiento observable de producción es idéntico byte a byte al de hoy.
+
+---
+
+## 13.13 — Rendimiento
+
+- **Presupuesto**: `PIPELINE_TIMEOUT_MS = 200` sin cambios, medido como hoy (después de la llamada
+  síncrona; el mecanismo real es "nunca entregar una respuesta que se pasó", ya documentado en la
+  cabecera de `pro-drafter.ts`).
+- **Costo en apertura**: ~110 candidatos × 16 bans × 5 posiciones = **8 800** lecturas de `Map`, más
+  110 entropías memoizadas y 16 `inferFlexPick`. Contra eso, se **ahorran** los 502 cálculos de
+  `similarity` del KNN, que en apertura daban 0 (P1). El neto no debería superar el orden de
+  magnitud del camino normal.
+- **Prueba de rendimiento obligatoria**: el modo `teamOpening` entra en la misma prueba de "se
+  mantiene rápido" que ya existe en `run-pipeline.test.ts`, con el mismo margen generoso y el mismo
+  motivo escrito ahí (probar ausencia de regresión de orden de magnitud, no un número exacto que se
+  vuelva flaky en CI).
+- **Cache de la ruta**: sin cambios de política. Con `teamOpening` incorporado al fingerprint
+  (§13.10-3), una sesión del simulador que consulte la apertura varias veces con los mismos bans
+  paga el pipeline una sola vez por TTL.
+
+---
+
+## 13.14 — Criterios de aceptación
+
+| # | Criterio | Verificación |
+|---|---|---|
+| 1 | **La apertura devuelve 5, no 3** | Con `own = []`, `enemy = []`, `teamOpening: true` y un corpus fixture con ≥ 6 candidatos, `runProDrafterPipeline` devuelve exactamente 5 resultados (Bloque 6-2) |
+| 2 | **Determinismo** | El mismo `DraftState` y el mismo conjunto de bans producen el **mismo orden y los mismos scores**, en dos corridas y con el mismo fixture. Exige el desempate por `heroId` de §13.8 |
+| 3 | **Candado de sensibilidad — criterio de éxito real de toda la fase** | Sobre el mismo `DraftState` de apertura y el mismo fixture, **dos conjuntos de bans construidos deliberadamente contrastantes** (uno con héroes de `H = 0` que son counters reales de los mejores candidatos; otro con héroes de `H` alta sin matchup adverso ≥ 200 partidas) producen top-5 que difieren en **≥ 2 de los 5 héroes** *y* en el héroe de **rank 1**. Contra el pipeline completo, nunca contra el adaptador aislado. Referencia medida sobre el dato real: ≥ 2 héroes distintos en el 97.0% de los pares aleatorios, rank 1 distinto en el 89.0% (§13.11) |
+| 4 | **Sin bans no se inventa señal** | Con `state.banned = []`, los 5 resultados traen `denial_score` con `raw: null` — nunca `0` (Bloque 6, regla dura de `engine.md`) |
+| 5 | **`knn_similarity` es `null` en apertura, para todos** | Ningún candidato sale con `raw: 0` en `knn_similarity` cuando `own = []`. **Prueba dedicada**: sin ella, la regresión de §13.16-A vuelve sin que nada falle (P1) |
+| 6 | **Regresión cero del camino normal** | Con `teamOpening` ausente: 3 resultados, mismas señales, y `deriveContinuousPipelineWeights` devuelve `base` **idéntico** para `own + enemy ≥ 4`. Los casos de ≤ 3 picks cambian a propósito (§13.4) y sus números esperados se actualizan en el mismo ticket |
+| 7 | **Los pesos siguen sumando 1.0** | `deriveContinuousPipelineWeights` cumple `\|Σ − 1\| ≤ 1e-9` para **toda** combinación de `(own, enemy)` en `0..5 × 0..5`, con el mismo `SUM_EPSILON` de `weight-loader.ts` (Bloque 6-1) |
+| 8 | **`raw` de `denial_score` dentro del rango calibrado** | Con el fixture del candado de sensibilidad, ningún `raw` de `denial_score` supera `2` — es decir, `normalize()` nunca clampea. Referencia medida: máximo `1.1703` (§13.11) |
+| 9 | **Diversificación real** | Con 5 candidatos de la misma estrategia y uno claramente peor de otra, el sexto entra al top-5 solo si su desventaja de score es menor que `OPENING_REPEAT_STRATEGY_PENALTY = 4.0`. **Dos pruebas, no una**: una donde entra y otra donde no. Un solo test pasaría igual con la penalización en cualquier valor > 0 |
+| 10 | **`openingStrategy` tiene una sola implementación** | `signals/mix.ts` no contiene ninguna función que clasifique arquetipos; importa `draft-paths/strategy.ts`. `bun test` de `mix` y de `team-opener` pasa sin cambios de expectativa |
+| 11 | **Fallback y gate intactos** | Con `ENABLE_PRO_DRAFTER` apagado, `/api/v1/draft/pro-recommendations` responde exactamente lo que responde hoy (incluidas 5 sugerencias en apertura, por el camino v5). Con el flag encendido y el pipeline lanzando, `fallback_applied: true` y 5 sugerencias v5 cuando `teamOpening: true` |
+| 12 | **El cache no cruza modos** | Dos requests con los mismos héroes y distinto `teamOpening` devuelven 3 y 5 sugerencias respectivamente, en cualquier orden de llegada (§13.10-3) |
+| 13 | **Aislamiento de árboles intacto** | La prueba ya existente de `run-pipeline.test.ts` sigue verde: `server/` importa `pipeline/` **solo** desde `routes/pro-drafter.ts`. Ningún archivo nuevo de `pipeline/` importa `signals/mix.ts` ni `signals/weights.ts` ni `SignalId` |
+| 14 | **`SCORING_WEIGHTS_V5` intacta** | Los 5 pesos siguen sumando `1.0`, `SignalId` sigue con 5 miembros, y las suites de `apps/engine`/`apps/web` pasan sin excepciones nuevas |
+
+---
+
+## 13.15 — El paquete de evidencia (Fase 4 del plan) y la barra numérica
+
+Extensión de `scripts/evaluate-pro-drafter.ts`, **modo nuevo, no reemplazo del existente**. Sigue
+siendo un script de desarrollador manual (`#!/usr/bin/env bun`), nunca en CI, nunca invocado desde
+el motor.
+
+**Qué mide**: para una muestra de al menos **50** drafts del corpus, se generan **2 variantes de
+conjunto de bans** por draft (16 héroes cada una, muestreadas del propio corpus, semilla fija y
+declarada para que la corrida sea reproducible). Para cada variante se calcula el top-5 de apertura
+por los dos caminos:
+
+- **V5**: `buildSuggestions(state, meta, { teamOpening: true })` → pasa por `recommendTeamOpeners`.
+- **Pro-Drafter**: `runProDrafterPipeline(..., { teamOpening: true, matchups, heroCapabilities })`.
+
+**Métrica**: índice de Jaccard del top-5 entre las dos variantes de ban del mismo draft,
+`|A ∩ B| / |A ∪ B|`. Más bajo = más sensible a los bans. Se reporta la media por camino, más el
+número de héroes distintos (de 5) y el porcentaje de casos en que cambia el rank 1 — las tres, no
+solo la primera, porque un Jaccard bajo con el rank 1 fijo no resuelve la queja de producto tal
+como el usuario la formuló ("las mismas sugerencias primarias").
+
+**Barra de aceptación, cerrada acá** — se considera superada si se cumplen **las tres**:
+
+1. **Jaccard medio del top-5 de Pro-Drafter ≤ 0.35.** Referencia simulada en este blueprint contra
+   el dato real: `0.225` (§13.11). El margen entre `0.225` y `0.35` cubre que el corpus real de
+   bans no es uniforme como el sorteo de la simulación.
+2. **Jaccard medio de Pro-Drafter estrictamente menor que el de V5 sobre la misma muestra**, con una
+   diferencia absoluta de al menos **0.15**. Es la comparación que convierte "se siente repetitivo"
+   en un número: no alcanza con ser sensible, hay que ser *más* sensible que el mecanismo que se
+   propone reemplazar.
+3. **El héroe de rank 1 cambia en al menos el 60% de los pares de variantes.** Referencia simulada:
+   `89.0%`. Es el criterio que habla el idioma de la queja original.
+
+**Qué NO decide este script**: no prende `ENABLE_PRO_DRAFTER`, no retira `MAX_COUNTER_RELIEF`, no
+promueve nada. Es el insumo de un **segundo `/blueprint`, más angosto**, que decidirá entre tres
+salidas: (a) prender el flag solo para el caso de apertura, (b) portar únicamente el término
+ban-aware a `team-opener.ts` sin adoptar el resto de Pro-Drafter, o (c) dejarlo dark y curar más
+datos. Las tres siguen siendo posibles al terminar Fase 6.
+
+---
+
+## 13.16 — Correcciones a `architecture.md` y al plan (Fase 6), todas por leer el código y medir el dato real
+
+**A. `knn_similarity` NO discrimina con cero picks propios.** El Bloque 3 dice
+*"combinando `knn_similarity` (sin cambios)"* y el plan afirma *"ya discrimina con cero picks
+propios"*. **Es falso, verificado en `knn/jaccard.ts`**: `similarity(own, candidate, weights)`
+calcula el numerador solo sobre `ownSet ∩ candidateSet`; con `own = []` la intersección es vacía y
+el numerador es `0` para **los 502 drafts del corpus**. `nearestNeighbors` entonces ordena 502
+empates en `0` y devuelve los **primeros 10 en orden de archivo**; `knnScoresByHero` le pone
+`raw: 0` a los héroes ganadores de esos 10 y deja `null` al resto. Como `0` normaliza a `0` y `null`
+se redistribuye, el efecto neto es **penalizar a ~50 héroes elegidos por el orden del JSON**. De ahí
+P1: en apertura la etapa KNN no se ejecuta y `knn_similarity` es `null` para todos.
+
+**B. `earlyPressure` es inerte para el 88% del pool.** El Bloque 3 propone aplicar
+`β·EarlyPressure(h*)·H(F)` contra los bans sin observar que `earlyPressureFromProfiles` lee
+`lane/hero-line-profiles.json`, que tiene **15 de 126** héroes (medido) y devuelve `0` para el
+resto. El término de entropía —la mitad de la fase— habría sido exactamente `0` para 111 candidatos
+y la apertura habría quedado igual de plana que hoy. De ahí P5:
+`positionalCommitment = 1 − H/log₂5`, sobre `hero-positions.json`, que cubre 126/126.
+
+**C. `deriveDecisionContext` no sirve como guarda de apertura.** El Bloque 3 lo señala como el
+precedente del gate discreto. Lo es conceptualmente, pero **no puede usarse como condición**:
+`observedDraftFacts` devuelve `ownPicks: []` y `revealedEnemyPicks: []` cuando
+`state.localSide === "unknown"`, así que `deriveDecisionContext(state, true)` reporta
+`"team_opening"` sobre un tablero con 10 héroes ya pickeados. `signals/mix.ts` ya evita esa trampa
+con una guarda cruda sobre los dos arrays; §13.8 usa esa misma guarda, byte a byte.
+
+**D. Un espejo de `apps/web` ya está mal hoy, antes de esta fase.**
+`LegacySuggestionSetResponse.suggestions[].rank` está tipado `1 | 2 | 3` en
+`apps/web/features/pro-drafter/types.ts`. Pero con `ENABLE_PRO_DRAFTER` apagado —el default—
+`app.ts:267` responde en esa URL con el `SuggestionSet` de v5, y `buildSuggestions` con
+`teamOpening: true` devuelve **5** sugerencias, ranks 4 y 5 incluidos. Es una mentira de tipo que
+existe desde antes; se corrige acá porque §13.10 toca esa línea.
+
+**E. El corpus tiene 502 drafts, no ~175.** El plan y la cabecera de
+`scripts/evaluate-pro-drafter.ts` hablan de "~175 drafts". Contado sobre
+`knn/pro-draft-corpus.json`: **502**, con **124** héroes distintos. No cambia ninguna decisión, pero
+la cabecera del script queda desactualizada y se corrige en el mismo ticket que lo extienda.
+
+**F. `REPEAT_STRATEGY_PENALTY` no se puede reutilizar por valor.** El Bloque 3 dice *"mismo criterio
+que `team-opener.ts` ya usa hoy"*. El criterio sí; el número no: `0.04` vive en escala `[0, 1]` y el
+pipeline puntúa en `[0, 100]`. De ahí P8 y `OPENING_REPEAT_STRATEGY_PENALTY = 4.0`.
+
+**G. El umbral de 200 partidas recorta el 92.5% de los matchups.** No es una corrección a un texto,
+sino un dato que ningún documento previo tenía: de las 15 984 filas de `hero_matchups`, solo 1 200
+llegan a `games ≥ 200`, y solo 593 son adversas. La causa raíz de "los bans no mueven nada" no es
+únicamente que `MAX_COUNTER_RELIEF = 0.12` sea chico: es que el dato que lo dispara casi nunca
+existe. El factor de solapamiento posicional (P4) y el término de entropía (P5/P6) son lo que hace
+que la apertura reaccione a **todos** los bans, no solo a los 7.5% con volumen suficiente.
+
+**H. El corpus del KNN, no `meta.heroes`, define el universo de candidatos.**
+`candidatesFromCorpus` deriva los candidatos de los héroes que aparecen en el corpus — **124**, no
+los 126 de `hero-positions.json` ni los que tenga `meta.heroes`. Ningún documento previo lo decía.
+Consecuencia real: dos héroes que existen en el juego nunca pueden aparecer en una sugerencia de
+Pro-Drafter mientras no estén en el corpus. No se corrige en esta fase (es curación de corpus,
+§13.17-1), pero deja de ser invisible.
+
+---
+
+## 13.17 — Lo que esta fase deja abierto
+
+Deliberadamente corto. Solo los dos primeros piden algo del usuario, y ninguno bloquea `/rulebook`.
+
+### Pide confirmación del usuario (no bloqueante, pero conviene antes de ejecutar)
+
+1. **`BETA_OPENING = 0.04` y `POSITION_OVERLAP_GAIN = 5` quedan fijados acá con justificación
+   medida (§13.11).** `POSITION_OVERLAP_GAIN` no es negociable: es el ancla que hace que un héroe
+   sin dato de posición reproduzca exactamente el alivio de `team-opener.ts`. `BETA_OPENING` sí es
+   una perilla de producto: subirlo hace que el compromiso de rol pese más que el counter
+   neutralizado, bajarlo lo contrario. Si al ver el resultado el usuario prefiere otro balance, se
+   cambia **acá y en el código**, nunca solo en el código — misma regla que el umbral de 200
+   partidas de §10.
+
+2. **La barra de §13.15 (Jaccard ≤ 0.35, delta ≥ 0.15 contra V5, rank 1 cambia ≥ 60%) es una
+   propuesta con referencia simulada, no una medición del sistema real terminado.** Es lo mejor que
+   se puede fijar antes de que exista el código; si la corrida real queda cerca del borde, la
+   decisión de si eso "resolvió la queja" es del usuario, no del número.
+
+### Abierto a propósito, sin bloquear
+
+3. **`fingerprint()` sigue sin incluir `targetPosition` ni `usePersonalPool`** — hueco preexistente
+   que afecta al camino de fallback v5 del cache de la ruta. Fase 6 agrega `teamOpening` porque sin
+   eso su propia función se rompe; arreglar los otros dos es un ticket propio, chico, fuera de
+   alcance.
+4. **El camino normal del pipeline (no apertura) sigue sin desempate por `heroId`.** Se agrega solo
+   en la rama de apertura, donde los empates son la norma. Cambiar el orden del camino normal
+   movería los números de sus pruebas actuales por una razón ajena a esta fase.
+5. **`team_synergy` sigue devolviendo `raw: 0` (no `null`) para un héroe sin capacidades** —
+   hallazgo de Fase 4.1 (§11.6), todavía sin ticket propio. Fase 6 no lo toca: no pasa por
+   `mix.ts`.
+6. **Cobertura de datos curados**: `capabilities.json` 124/126, `lane/hero-line-profiles.json`
+   15/126, corpus 124 héroes distintos. Los tres huecos son reales y alcanzables. Completarlos es
+   curación manual de dominio, no código — ticket aparte, y es el insumo que más subiría la calidad
+   de `lane_score` en apertura, hoy prácticamente constante para el 88% del pool.
+7. **`MAX_COUNTER_RELIEF` sigue vivo en `team-opener.ts`** (P9), y seguirá hasta que §13.15 diga lo
+   contrario. Su retiro es un ticket posterior con su propio candado de regresión.
+8. **`ENABLE_PRO_DRAFTER` sigue apagado por defecto.** Prenderlo —incluso solo para el caso de
+   apertura— es el segundo `/blueprint` de §13.15, no una decisión de esta fase.
+
+---
+
+## 13.18 — Entrada para `/rulebook`
+
+Fronteras naturales de ticket, en orden estricto de dependencia. **No son tickets todavía.** Cada
+uno es compilable y testeable por sí mismo; ninguno deja el árbol roto esperando al siguiente, y
+**ninguno cambia el comportamiento observable de producción** (el flag sigue apagado).
+
+**Bloque A — piezas puras, nadie las consume todavía**
+
+1. **`draft-paths/strategy.ts`**: mover `openingStrategy` desde `signals/mix.ts` (privada →
+   exportada, cuerpo intacto) + importarla en `mix.ts`. Cambio mecánico, va **solo**, mismo criterio
+   que TSK-047: si algo se rompe acá, es inequívocamente el movimiento. Criterio 10.
+2. **`pipeline/phase-decay.ts` + `phase-decay.test.ts`**: `openingBlend`,
+   `deriveContinuousPipelineWeights`, invariante de suma con `SUM_EPSILON`. Sin conectar a nada
+   todavía. Criterio 7.
+3. **`pipeline/meta-matchup.ts` + su prueba** (`createMetaMatchupWinrate`, índice `Map`, umbral
+   200, `position` ignorada). Costura S2, fixture literal. Sin conectar.
+4. **`pipeline/ban-relief.ts` + su prueba** (`createBanReliefWinrate`,
+   `createPositionalCommitment`, `BETA_OPENING`, `POSITION_OVERLAP_GAIN`). Costuras S2 + S10,
+   fixtures inyectados. **Incluye la prueba del ancla de P4**: candidato sin dato de posición →
+   el término reproduce exactamente el alivio plano. Sin conectar.
+5. **`extractCandidateStrategies` en `pipeline/feature-extractor.ts` + su prueba** (costura S9).
+   `extractCandidateFeatures` no se toca. Depende del ticket 1.
+
+**Bloque B — el pipeline aprende a abrir**
+
+6. **`run-pipeline.ts`: 7º parámetro de opciones + pesos por fase + selección de fuente de
+   matchups**, sin el modo apertura todavía. Es donde se actualizan los números trazados a mano de
+   `run-pipeline.test.ts` (§13.4). Criterio 6. Depende de 2 y 3.
+7. **`run-pipeline.ts`: el modo `teamOpening` completo** — guarda de apertura, KNN saltado,
+   `denial_score` ban-aware, desempate por `heroId`, diversificación, `OPENING_TOP_N = 5`.
+   **Es el ticket que resuelve la queja**: incluye los criterios 1, 2, 3, 4, 5, 8 y 9. Depende de
+   4, 5 y 6.
+
+**Bloque C — la ruta y los espejos**
+
+8. **`server/routes/pro-drafter.ts` + `server/app.ts`**: `rank` ensanchado, `getMetaMatchups`,
+   `heroCapabilities`, `computeV5Fallback` ensanchada, `fingerprint` con `teamOpening`,
+   `buildFallbackSuggestions` sin el recorte a 3. Criterios 11, 12, 13. Depende de 7.
+9. **Los dos espejos de `apps/web/features/pro-drafter/types.ts`** (`ProSuggestion.rank`,
+   `LegacySuggestionSetResponse`). Chico y autocontenido, pero **debe ir en el mismo PR que el 8**
+   o el espejo queda desincronizado — que es exactamente el fallo que §13.16-D documenta.
+
+**Bloque D — evidencia**
+
+10. **`scripts/evaluate-pro-drafter.ts`: modo de sensibilidad a bans** (§13.15) + corrección de la
+    cabecera desactualizada (§13.16-E). Script manual, sin CI. Depende de 7 y 8.
+
+**Variables de entorno**: ninguna nueva, ninguna retirada. `.env.example` no cambia.
+
+`preferred_tool` sugerido: **`claude-code`** para los tickets 4, 7 y 10 (la fórmula calibrada, el
+modo de apertura completo y la barra de evidencia — los tres viven en decisiones de este SPEC y
+necesitan memoria del proyecto); **`codex`** es razonable para 1, 2, 3, 5, 8 y 9, que son acotados y
+autocontenidos una vez escrito §13.4-§13.10. Ningún ticket de esta fase es candidato a
+`hermes-vps`: todos tocan el motor de scoring, y ninguno es de volumen.

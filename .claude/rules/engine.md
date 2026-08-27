@@ -190,6 +190,59 @@ equipo" arriba)
   intacta — esta fase ni siquiera abre una excepción "de configuración" como sí hizo
   `POST /api/hero-pool/calculate` en 1b.
 
+## Fase 5 — Auth & Personal Hero Pool multi-usuario — SPEC.md §12
+
+- **`PRAGMA foreign_keys` sigue apagado.** Las FK de `accounts`/`hero_pool`/`team_groups` son
+  documentación del modelo, no una defensa en runtime — el aislamiento real entre cuentas lo da
+  exclusivamente el `WHERE account_id = ?` de cada query. Nunca asumir que la constraint impide
+  nada.
+- **`hero_pool` pasa a PK compuesta `(accountId, heroId)`** vía migración `0006` (tabla-nueva/
+  copiar/drop/rename — SQLite no soporta `ALTER TABLE` para cambiar una PK). `team_groups` gana
+  `accountId` como columna **nullable** (migración `0007`) — no necesita cirugía de PK porque ya
+  tiene `id` autoincremental propio; `team_members` no gana columna propia, hereda el scope vía su
+  `teamGroupId` existente.
+- **`buildMetaSnapshot(db, accountId)` — `accountId: AccountId | null` es obligatorio, nunca
+  opcional con default.** Un parámetro opcional con default `null` dejaría que cualquier llamador
+  nuevo que se olvide de pasarlo obtenga silenciosamente "sin pool" — el mismo tipo de bug invisible
+  que ya costó una fase entera (`hero_pool_fit` inerte desde 1b hasta TSK-064). Que rompa la
+  compilación es la funcionalidad, no un defecto a suavizar.
+- **El cache de `MetaSnapshot` está partido en dos capas, nunca un solo `Map<accountId,
+  MetaSnapshot>`.** Capa compartida (`sharedSnapshot`: `heroes`/`hero_matchups`/`hero_patch_stats`,
+  idéntica para todas las cuentas) + capa por cuenta (`accountOverlays: Map<AccountId,
+  AccountMetaOverlay>`: solo `hero_pool`/`personal_baseline_winrate`). Invalidación separada por
+  responsabilidad: fin de `runMetaSync` invalida solo la capa compartida (nunca los overlays — una
+  sync de meta no cambia el pool de nadie); `PUT /api/hero-pool` de la cuenta X invalida solo
+  `accountOverlays.delete(X)` (nunca el mapa entero — ninguna otra sesión activa paga un recálculo
+  ajeno).
+- **`x-account-token` — contrato exacto**: `{accountId}.{issuedAtMs}.{nonce}.{firmaHMAC}`, HMAC-
+  SHA256 sobre `"d2k-account-token/v1|" + payload` con `INTERNAL_AUTH_SECRET`. Verificación en
+  **este orden exacto, sin saltarse ninguno**: forma → firma (comparación en tiempo constante) →
+  ventana (60 s + 5 s de tolerancia de reloj) → rango del `accountId` (Steam32 válido) → nonce (un
+  solo uso, store en memoria con evicción oportunista, mismo patrón que `SessionStore.evictStale`).
+  El token se **acuña únicamente en `apps/web`** (`proxy.ts`/`GET /api/auth/engine-token`) —
+  `apps/engine` solo verifica, nunca firma.
+- **`accountId` nunca se acepta desde el cuerpo o el query string de una request.** Sale
+  exclusivamente del token verificado (`x-account-token` en HTTP, `accountToken` en el `hello` de
+  WebSocket). `POST /api/hero-pool/calculate` pierde el campo `accountId` de su contrato — el Steam32
+  sale del token, el cuerpo queda en `{ days?: number }`.
+- **`calculationInProgress` es `Set<AccountId>`, nunca un booleano por proceso.** Con varios
+  usuarios, un booleano global le devolvería `409` a todos por el cálculo de uno solo.
+- **`SessionStore` gana `ownerAccountId: AccountId | null` por sesión.** Lo fija el primer `hello`
+  autenticado; un `hello` de otra cuenta sobre una sesión que ya tiene dueño se rechaza, nunca
+  reasigna el dueño. `POST /ingest/draft-event` (capturador, `x-capture-token`) no fija dueño — no
+  representa a una persona logueada.
+- **Ninguna ruta de cuenta responde con el `accountId` en un mensaje de error.** Los 5 errores de
+  token (`missing_account_token`, `invalid_account_token`, `expired_account_token`,
+  `replayed_account_token`, `unknown_account`) nunca incluyen el valor — misma regla de 1b
+  (`account_id` nunca se ecoa en un error), ahora vale para todas las cuentas, no solo la del
+  desarrollador.
+- **`apps/engine` sigue atado a `127.0.0.1`, sin excepción.** El callback de Steam OpenID necesita
+  una URL pública — solo puede terminar en `apps/web`. `apps/engine` nunca ve el flujo de login
+  directamente, solo recibe el `accountId` ya verificado vía el token.
+- **Fase 5 no expone el WebSocket del motor a la red** — decisión explícita, no una laguna. Un
+  usuario remoto logueado tiene cuenta y `hero_pool` guardado, pero las sugerencias en vivo siguen
+  requiriendo el motor local del propio visitante, sin cambios respecto a hoy.
+
 ## Fase 4 — `archetype_fit` (S3, sub-ticket 4.1) — SPEC.md §11
 
 Esta fase tiene 4 piezas (intención de draft, sinergia en cadena, denial de composición,
@@ -233,3 +286,35 @@ números, hasta que cada una tenga su propio `/blueprint` (SPEC.md §11.10).
   `raw: null`) para un héroe sin capacidades — viola la regla dura de este mismo archivo ("`raw:
   null` nunca es 0 ni 0.5") y hoy se dispara con los mismos 3 héroes sin entrada en
   `capabilities.json`. Necesita su propio ticket, no se corrige de paso en 4.1.
+
+## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13)
+
+- **`SignalId`/`SCORING_WEIGHTS_V1`-`V5` no se tocan en esta fase.** Toda dimensión nueva vive en
+  el universo ya separado de `pipeline/merge.ts` (`PipelineSignalId = "knn_similarity"|
+  "lane_score"|"denial_score"`) — el término ban-aware alimenta el `raw` de `denial_score`, no
+  agrega una cuarta clave.
+- **`intent/denial-score.ts` no se edita.** El nuevo `pipeline/ban-relief.ts` solo le cambia los
+  parámetros inyectados (héroes baneados en vez de picks rivales revelados) — la fórmula
+  (`Σ P(pos)·MatchupWinrate + β·EarlyPressure·H(F)`) es la formalización correcta, ya existente.
+- **`POSITION_OVERLAP_GAIN = 5` es el ancla, no negociable**: un candidato sin dato de posición
+  reproduce exactamente el alivio plano de `team-opener.ts` — un hueco de datos nunca penaliza.
+  `BETA_OPENING = 0.04` sí es una perilla de producto, fijada con justificación medida (SPEC.md
+  §13.11), ajustable si el resultado real lo pide.
+- **`knn_similarity` no corre en el modo `teamOpening`.** Con `own=[]`, los 502 drafts del corpus
+  empatan en 0 y el desempate quedaría arbitrario por orden de archivo — en apertura, esa señal es
+  `raw: null` para todos, nunca un `0` fabricado.
+- **`MAX_COUNTER_RELIEF` de `team-opener.ts` no se toca ni se retira en esta fase.** Sigue siendo
+  el único camino de apertura con `ENABLE_PRO_DRAFTER` apagado (el default). Su reemplazo depende
+  de que el paquete de evidencia de `scripts/evaluate-pro-drafter.ts` (SPEC.md §13.15) supere la
+  barra fijada, y es decisión de un segundo `/blueprint`, más angosto.
+- **Sin tabla `heroSynergy` ni recolección de datos de sinergia de aliados nueva** — mismo
+  precedente que Fase 4: OpenDota no expone ese endpoint (verificado dos veces, en Fase 4 y en
+  Fase 6). Si algún día hace falta sinergia par a par, se deriva de `capabilities.json`, no de una
+  fuente estadística nueva.
+- **`openingStrategy` tiene una sola implementación real**, en `draft-paths/strategy.ts` — `mix.ts`
+  la importa, no la duplica. Una segunda copia de esta clasificación en cualquier archivo es
+  rechazo automático de revisión.
+- **El umbral `MIN_MATCHUP_GAMES = 200` recorta el 92.5% de `hero_matchups`** (medido: 1200 de
+  15984 filas llegan al umbral) — no es un detalle menor, es la razón real por la que un alivio
+  por ban plano casi nunca tenía con qué disparar. El factor de solapamiento posicional + entropía
+  de rol es lo que hace que la apertura reaccione a todos los bans, no solo al 7.5% con volumen.

@@ -85,6 +85,49 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   aparte, fuera del árbol de dependencias del proyecto — no entra en ningún `package.json`. Si
   alguien lo agrega como dependencia real, eso exige `/gear-up`/`@depcheck` como cualquier otra.
 
+## Fase 5 — Auth & Personal Hero Pool multi-usuario (SPEC.md §12.12)
+
+- **Tres fronteras de confianza nuevas, cada una con mitigación obligatoria — ninguna es opcional:**
+  1. **Navegador/Steam → `apps/web`** (callback OpenID): `check_authentication` server-a-server
+     contra Steam es **obligatorio**, nunca opcional — sin él, cualquiera puede fabricar una
+     respuesta de "login exitoso" con el `steamid64` que quiera (es exactamente la vulnerabilidad
+     real y documentada que tiene `passport-steam`, la librería más popular para esto). Además: host
+     de `openid.claimed_id` anclado por regex, `return_to` verificado, nonce anti-CSRF de login.
+     Saltarse cualquiera de los cuatro es rechazo automático de `@redteam`.
+  2. **`apps/web` → `apps/engine`, HTTP** (`x-account-token`): HMAC-SHA256, secreto que nunca toca
+     el navegador, ventana de 60 s, nonce de un solo uso, comparación en tiempo constante, firma
+     verificada **antes** de tocar el store de nonces.
+  3. **`apps/web` → `apps/engine`, WebSocket** (`accountToken` en `hello`): mismo mecanismo y misma
+     mitigación que la frontera 2 — es la misma frontera, otro transporte.
+- **La conversión SteamID64 → Steam32 exige `BigInt`, nunca aritmética `Number` nativa.**
+  `76561197960265728 > Number.MAX_SAFE_INTEGER` — con `Number()`, la resta pierde precisión y
+  produce un Steam32 distinto **sin ningún error ni excepción**, mapeando al usuario a la cuenta de
+  otra persona. Prueba dedicada obligatoria (criterio 10 de SPEC.md §12.14): documenta el valor que
+  daría la conversión ingenua junto al valor correcto, para que el bug no vuelva en un refactor.
+- **Dato personal, ahora a escala real.** El `account_id` de Steam deja de ser "el del desarrollador"
+  y pasa a ser el de cada persona real logueada. Toda la regla de 1b sigue vigente, multiplicada:
+  nunca en logs, `journal.md`, tickets, `meta_sync.error`, `/api/health` ni en el cuerpo de ningún
+  error — para **todas** las cuentas, no solo una. Se agrega: nunca en el mensaje de un ticket de
+  migración.
+- **Dos secretos nuevos, ambos `process.env`, nunca literal ni default de fallback en el repo**:
+  `SESSION_SECRET` (≥32 caracteres, `iron-session`) e `INTERNAL_AUTH_SECRET` (≥32 caracteres, HMAC
+  del token interno). Steam OpenID **no** exige credencial del sitio — no es OAuth2, no hay
+  `client_id`/`client_secret` que registrar ni gestionar.
+- **`scripts/start-railway.sh` falla cerrado si falta `SESSION_SECRET`, `INTERNAL_AUTH_SECRET` o
+  `PUBLIC_BASE_URL`.** Reemplaza el guard actual sobre `SITE_ACCESS_*` (Basic Auth, retirado en esta
+  fase) — mismo mecanismo, mismo motivo original (hallazgo real de Sentinel en el primer
+  `/castoff`): sin los tres, el proceso no debe levantar en producción.
+- **Toda ruta de cuenta responde `401` sin token válido.** Cierra un hallazgo real de la auditoría
+  previa a esta fase: `GET /api/settings` devolvía todo sin filtrar a cualquiera que llegara al
+  puerto — se cierra retirando la ruta, no agregándole un guard.
+- **`iron-session` es la única dependencia de producción nueva** (`apps/web`) — exige `/gear-up`/
+  `@depcheck` y `// ALLOWED`. Cero dependencia nueva en `apps/engine`: el HMAC del token interno usa
+  `node:crypto`, ya disponible.
+- **Registro abierto, decisión de producto explícita, no un hallazgo de seguridad**: cualquier
+  persona con cuenta de Steam puede crear cuenta en la instancia. Sin lista de invitados ni límite
+  de registro — coherente con el alcance declarado ("cualquier jugador de Dota 2"), no se restringe
+  en silencio.
+
 ## Fase 4 — Intención de draft, sub-ticket 4.1 (SPEC.md §11.8)
 
 - **Ningún cruce de frontera de confianza nuevo en runtime.** `archetype_fit` consume
@@ -102,3 +145,24 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
 - `intent` (la intención de draft) en 4.1 no llega desde la red ni de la UI — lo inyecta el
   llamador de la fábrica. Su validación en el borde, cuando llegue por API en un sub-ticket
   posterior, es responsabilidad de ese sub-ticket, no de 4.1.
+
+## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13.12)
+
+- **Ninguna frontera de confianza nueva.** Las tres entradas de datos de esta fase ya están
+  validadas en el borde por loaders existentes: `hero-positions.json` (S10), `capabilities.json`
+  (S9), `MetaSnapshot.matchups` (S6, ya sincronizado). Descartar `heroSynergy` (mismo precedente
+  de Fase 4) elimina el único sync/tabla nueva que el diseño original iba a abrir — esta fase tiene
+  **menos** superficie nueva que el plan que la originó, no más.
+- **Cero red en el camino caliente, reforzado.** La única lectura nueva de la ruta es
+  `getCachedMetaSnapshot(db, null)` — SQLite y cache en memoria, la misma llamada que el fallback a
+  v5 ya hacía en ese handler. `scripts/evaluate-pro-drafter.ts` sigue siendo un script de
+  desarrollador manual, nunca invocado desde el motor ni desde CI.
+- **Ningún secreto nuevo, ninguna variable de entorno nueva.** `ENABLE_PRO_DRAFTER` es el único
+  gate y no cambia de semántica ni de default.
+- **Ningún dato personal.** La ruta computa con `accountId: null` por contrato — ningún
+  `hero_pool` de ninguna cuenta entra en este camino, así que ningún Steam32 puede aparecer en un
+  log/error/ticket de esta fase, por construcción, no por vigilancia.
+- **Ninguna dependencia nueva** (`dependencies` ni `devDependencies`) — sin Python, decisión
+  explícita del usuario. Sin `/gear-up`, sin `@depcheck`.
+- **`apps/engine` sigue atado a `127.0.0.1`.** Esta fase reutiliza `/api/v1/draft/pro-recommendations`,
+  que ya existe y ya está gateada — no agrega ninguna ruta HTTP nueva.

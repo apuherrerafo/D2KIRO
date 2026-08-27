@@ -856,7 +856,7 @@ una extensión de scoring dentro del motor existente, corresponde el flujo norma
 **Objetivo**: señal `archetype_fit` funcionando de forma aislada (sin integrarse todavía a
 `mix.ts`/`SCORING_WEIGHTS_V6` — eso es 4.2), con su propio archivo de prueba, cumpliendo S3.
 
-**Archivos** (2, dentro del límite de 3/200 líneas):
+**Archivos previstos** (2):
 1. `apps/engine/src/draft-paths/build-paths.ts` — cambio de una línea: `archetypeFitBonus` pasa de
    función privada a `export function archetypeFitBonus(...)`. Sin cambios de comportamiento, sin
    cambios de firma — solo visibilidad, para que `signals/` pueda reutilizarla sin duplicar la
@@ -898,3 +898,414 @@ propia adicional, a diferencia de lo que la primera propuesta de esta fase asum�
 
 **Fuera de alcance de 4.1** (queda para 4.2 y siguientes): wiring en `mix.ts`, `BuildSuggestions
 Options.archetypeIntent?`, `SCORING_WEIGHTS_V6`, cualquier cambio en `apps/web`.
+
+---
+
+# architecture.md — Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario)
+
+Disparado por decisión de producto del usuario (2026-08-24): preparar dota2coach para que jugadores
+reales (no solo el propio desarrollador) puedan loguearse con su cuenta de Steam y recibir
+sugerencias personalizadas con su propio `hero_pool_fit`. Insumo de entrada: auditoría de
+arquitectura completa del flujo actual de hero pool hecha en esta misma sesión (ver Bloque 2/3 —no
+se repite el detalle de archivo:línea acá, se referencia). Alcance confirmado por el usuario vía
+`AskUserQuestion` antes de investigar: **multi-usuario real** (no solo reemplazar el campo manual
+del propio desarrollador), y **el login de Steam reemplaza el Basic Auth compartido de `proxy.ts`**
+como único gate de acceso al sitio.
+
+## Bloque 1 — Visión del Producto (Fase 5)
+
+- **Problema**: hoy `dota2coach` es de un solo usuario de facto — el `account_id` de Steam se pega
+  a mano en una pantalla de configuración, y el acceso al sitio entero está detrás de una sola
+  contraseña compartida (`proxy.ts`). Ningún jugador real distinto del desarrollador puede tener su
+  propio hero pool ni sus propias sugerencias personalizadas.
+- **Usuario**: cualquier jugador de Dota 2 con cuenta de Steam — primera vez que el proyecto
+  atiende a alguien más que el propio desarrollador (`architecture.md` Bloque 1 original ya
+  anticipaba esta visión: "ofrecerlo como servicio a otros jugadores, con cuentas/login").
+- **Resultado esperado**: login real con Steam (sin contraseña propia que gestionar), cada cuenta
+  con su propio `hero_pool` y su propio `hero_pool_fit` en las sugerencias, sin que el pool o los
+  datos de un usuario se filtren a otro.
+- **Qué NO es esta fase**: no toca la captura del draft en vivo ni el motor de señales más allá del
+  *scoping* por cuenta (`position_fit`/`counter`/etc. no cambian de comportamiento). No es un
+  sistema de roles/permisos — todo usuario logueado tiene el mismo nivel de acceso, no hay
+  admin/moderación. No extiende el hero pool de compañeros de equipo (Fase 2) a cuentas de Steam
+  reales de terceros — sigue siendo dato manual, decisión ya cerrada en `security.md`, no se
+  reabre acá. No incluye el flujo de "invitar a un amigo" ni ningún tipo de perfil social.
+
+## Bloque 2 — Dominio e Investigación (Fase 5)
+
+**Verificado con fuentes primarias en esta sesión (WebSearch):**
+
+- **Steam usa OpenID 2.0, no OAuth2/OIDC.** Flujo real: `apps/web` redirige el navegador a
+  `https://steamcommunity.com/openid/login` con un `return_to` propio; tras el login del usuario en
+  el dominio de Steam, Steam redirige de vuelta con parámetros `openid.*` — el relevante es
+  `openid.claimed_id`, con forma `https://steamcommunity.com/openid/id/{steamid64}`. **La firma debe
+  verificarse con una segunda llamada de servidor a servidor** (`openid.mode=check_authentication`,
+  POST de vuelta a Steam) — sin ese paso, cualquiera puede fabricar una respuesta de "login exitoso"
+  con el SteamID que quiera. [Steamworks — User Authentication and Ownership](https://partner.steamgames.com/doc/features/auth),
+  [Setting up Steam Authentication using OpenID](https://dev.to/emma/setting-up-steam-authentication-using-openid-20ma).
+- **Hallazgo de seguridad real, no hipotético**: la librería más popular para esto en Node
+  (`passport-steam`, de `liamcurry`) tiene una vulnerabilidad documentada que permite autenticarse
+  como cualquier cuenta de Steam — múltiples forks parcheados existen precisamente por esto
+  (`@dessly/passport-steam`, `passport-steam-openid`, `modern-passport-steam`). El protocolo real
+  (un redirect + un POST de verificación) es simple; envolver eso en Passport (que el proyecto no
+  usa en ningún otro lado) más una dependencia de terceros con historial real de este tipo de bug es
+  el mismo tipo de costo que ya llevó al proyecto a curar `hero-positions.json` a mano en vez de
+  integrar STRATZ (Fase 3) — mismo principio, se recomienda **implementación manual del protocolo**
+  (fetch + verificación de firma), no una librería. [passport-steam-openid](https://github.com/danocmx/passport-steam-openid),
+  [@dessly/passport-steam](https://www.npmjs.com/package/@dessly/passport-steam).
+- **Conversión SteamID64 ↔ Steam32**: `steamId32 = steamId64 - 76561197960265728` (offset fijo de
+  la codificación de Valve; reversible sumando la misma constante). El proyecto ya valida y persiste
+  en formato Steam32 (`isValidSteamAccountId()`, fase 1b) — el login de Steam entrega SteamID64 (la
+  parte final de `openid.claimed_id`), así que esta conversión es un paso obligatorio antes de
+  reutilizar cualquier validación/persistencia ya existente, no un dato nuevo que inventar.
+  [Valve Developer Community — SteamID](https://developer.valvesoftware.com/wiki/SteamID).
+- **Estrategia de sesión**: `iron-session` (vvo/iron-session) es la opción activa, mantenida, y la
+  que la propia documentación oficial de Next.js referencia para sesiones basadas en cookie —
+  cifra y firma los datos de sesión dentro de una cookie `httpOnly`, sin necesitar tabla ni servidor
+  de sesiones propio. Encaja directo con la restricción real del proyecto ("SQLite es la única
+  persistencia, sin infraestructura nueva"). Alternativa evaluada y descartada: implementar el
+  cifrado/firma a mano con `node:crypto` para no sumar ninguna dependencia — se descarta porque
+  reimplementaría exactamente lo que `iron-session` ya resuelve (nonce, expiración, cifrado
+  autenticado) en código de seguridad propio, mayor superficie de bug que una dependencia madura de
+  bajo peso. [vvo/iron-session](https://github.com/vvo/iron-session).
+- **Contrato `apps/web` → `apps/engine` para propagar el `accountId` verificado**: `apps/engine` no
+  tiene hoy ningún concepto de "request autenticado" — solo el `x-capture-token` estático del
+  capturador. Evaluadas tres opciones: (a) reenviar la cookie de `iron-session` tal cual — descartada,
+  acopla a `apps/engine` con el formato de sesión de `apps/web`, y `apps/engine` tendría que conocer
+  el mismo secreto de cifrado de sesión (usado para muchas otras cosas), mezclando responsabilidades;
+  (b) un JWT corto firmado (`jose`) — viable, pero suma una dependencia más y una librería más a
+  mantener en un proceso (`apps/engine`) que hoy no tiene ninguna dependencia de auth; (c) **un
+  token interno corto, HMAC-SHA256 sobre `accountId + timestamp`, firmado con un secreto compartido
+  nuevo (`INTERNAL_AUTH_SECRET`, env)** — mismo principio exacto que el `x-capture-token` ya
+  existente (secreto en `process.env`, header custom, verificado en el borde), sin dependencia nueva
+  en `apps/engine` (`node:crypto`/`Bun.CryptoHasher` ya están disponibles). Recomendada: (c), por
+  consistencia con el patrón ya establecido y cero dependencia nueva en el proceso más sensible
+  (`apps/engine`, `127.0.0.1`-only).
+- **Migración segura desde el estado global actual**: hoy hay exactamente **una cuenta real en
+  producción** — el propio usuario, con su `hero_pool` ya calculado y confirmado (`journal.md`,
+  2026-07-29). La migración no parte de cero: crea `accounts`, inserta una fila para esa cuenta
+  leyendo el `steam_account_id` ya guardado en `settings`, agrega una columna `account_id` a
+  `hero_pool` con *backfill* a esa única cuenta existente, y solo entonces cambia la PK a compuesta.
+  SQLite no soporta `ALTER TABLE` para cambiar una PK directamente — `drizzle-kit` genera el patrón
+  estándar (tabla nueva + copia + drop + rename), viable sin riesgo real dado el volumen bajísimo de
+  filas hoy (un puñado de héroes en el pool de una sola cuenta).
+
+## Bloque 3 — Arquitectura e Ingeniería (Fase 5)
+
+- **Los dos procesos siguen separados, sin cambios en esa frontera**: el callback de OpenID
+  necesita una URL pública — solo puede terminar en `apps/web` (público). `apps/engine` sigue
+  atado a `127.0.0.1` por regla dura, sin excepción — nunca ve el flujo de login de Steam
+  directamente, solo recibe el `accountId` ya verificado vía el token interno del Bloque 2.
+
+```
+Navegador                apps/web (Next.js, público)         Steam                apps/engine (127.0.0.1)
+    │  GET /login               │                              │                        │
+    ├──────────────────────────►│                              │                        │
+    │                           │ redirect a                   │                        │
+    │                           │ steamcommunity.com/openid/... │                        │
+    │◄──────────────────────────┤                              │                        │
+    │  (login en dominio de Steam, fuera del control de dota2coach)                      │
+    │──────────────────────────────────────────────────────────►│                        │
+    │◄─────────────────────────────────────────────────────────┤ redirect de vuelta con  │
+    │                           │  openid.claimed_id=...        │ openid.* firmado        │
+    ├──────────────────────────►│                              │                        │
+    │                           │──────────────────────────────►│ check_authentication    │
+    │                           │◄──────────────────────────────┤ (verifica firma real)   │
+    │                           │  steamId64 → steamId32        │                        │
+    │                           │  crea sesión iron-session      │                        │
+    │                           │  (cookie httpOnly)             │                        │
+    │◄──────────────────────────┤                              │                        │
+    │  cookie de sesión seteada │                              │                        │
+    │                           │  cada request a /api/*        │                        │
+    │                           │  genera token HMAC(accountId, │                        │
+    │                           │  ts) con INTERNAL_AUTH_SECRET  │                        │
+    │                           ├───────────────────────────────────────────────────────►│
+    │                           │            x-account-token: <hmac>                     │
+    │                           │◄───────────────────────────────────────────────────────┤
+```
+
+- **`apps/web`**: `iron-session` gestiona la cookie de sesión (contiene `accountId`/Steam32, nunca
+  el SteamID64 crudo ni datos de perfil). El middleware que hoy hace Basic Auth (`proxy.ts`) se
+  reemplaza por una verificación de sesión — sin cookie válida, cualquier ruta (salvo `/login` y
+  `/healthz`) redirige a login. `fetchBaseQuery` de `apps/web/lib/engine-api.ts` gana
+  `prepareHeaders` para adjuntar el token HMAC en cada llamada a `apps/engine`, leyendo el
+  `accountId` de la sesión activa — nunca del estado de un componente (a diferencia del flujo actual
+  en `HeroPoolConfig.tsx`, que hoy pide el `accountId` a mano en un input).
+- **`apps/engine`**: cada ruta que hoy lee/escribe `hero_pool`/`settings` sin ningún control de
+  acceso pasa a exigir el header `x-account-token`, lo verifica (HMAC + ventana de tiempo corta
+  contra repetición) y usa el `accountId` verificado para *scopear* la consulta — nunca confía en un
+  `accountId` que venga en el cuerpo/query de la request. `POST /ingest/draft-event` (el capturador)
+  no cambia — sigue usando `x-capture-token`, es un contrato completamente distinto.
+- **`buildMetaSnapshot(db, accountId)`** gana el parámetro que hoy no tiene — las consultas a
+  `hero_pool`/`settings` (líneas ya identificadas en la auditoría de esta sesión) se filtran por esa
+  cuenta. **`cachedSnapshot` (singleton de módulo) pasa a `Map<accountId, MetaSnapshot>`** —
+  invalidación exactamente igual que hoy (`invalidateMetaSnapshotCache`), pero recibe `accountId` y
+  borra solo la entrada de esa cuenta del mapa, nunca el mapa entero (para no penalizar a otras
+  sesiones activas en paralelo con un recálculo innecesario).
+- **Handshake de WebSocket** (`apps/web/features/draft/socket.ts` → `apps/engine/src/server/
+  session.ts`): el mensaje `hello` gana `accountId` + el mismo token HMAC del Bloque 2 (no una
+  cookie — WebSocket no reenvía cookies HttpOnly de forma transparente entre orígenes distintos de
+  forma confiable). `apps/engine` verifica el token en el momento del `hello`, antes de aceptar la
+  conexión — un `hello` con token inválido/vencido se rechaza con el mismo mecanismo de error ya
+  usado para otras validaciones de borde del reductor (nunca tira el proceso).
+- **Schema (Drizzle)**: tabla nueva `accounts` (PK `id` autogenerada o el propio `steamId32` como
+  PK, a fijar en `/blueprint`; columnas mínimas: `steamId32`, `createdAt`). `hero_pool` cambia de PK
+  simple (`heroId`) a compuesta (`accountId`, `heroId`), con FK a `accounts`. `settings` dejaría de
+  ser el lugar del `steam_account_id`/`personal_baseline_winrate` — esos dos valores pasan a vivir
+  como columnas de `accounts` (uno por cuenta, no una fila global) o de un `account_settings` propio
+  — decisión de detalle para `/blueprint`, no una ambigüedad de fondo.
+
+## Bloque 4 — Seguridad desde el diseño (Fase 5)
+
+- **Frontera de confianza nueva #1**: navegador → `apps/web`, en el callback de OpenID. Dato
+  hostil posible: una respuesta de "login exitoso" fabricada con cualquier `steamid64`. Mitigación:
+  la verificación `check_authentication` (Bloque 2) es obligatoria, no opcional — sin ella, este
+  cruce queda completamente abierto (es exactamente la vulnerabilidad real ya documentada de
+  `passport-steam`). Nunca confiar en `openid.claimed_id` sin la verificación de vuelta a Steam.
+- **Frontera de confianza nueva #2**: `apps/web` → `apps/engine`, el token interno HMAC. Dato
+  hostil posible: un cliente que hable directo con `apps/engine` (ambos en la misma red local)
+  intentando falsificar el `accountId` de otra cuenta. Mitigación: el HMAC usa un secreto que solo
+  conocen los dos procesos (`INTERNAL_AUTH_SECRET`, nunca expuesto al navegador), con ventana de
+  tiempo corta para evitar reuso de un token capturado (replay).
+- **Frontera de confianza nueva #3**: el `hello` de WebSocket. Mismo mecanismo y misma mitigación
+  que #2 — es la misma frontera, otro transporte.
+- **Dato personal, ahora a escala real**: hasta hoy el único `account_id` del proyecto era el del
+  propio desarrollador. Con multi-usuario real, cada cuenta logueada es una persona real distinta.
+  Sigue siendo un dato de naturaleza pública (cualquiera puede consultar el perfil de Steam de
+  cualquier `accountId`), pero el sistema ahora los administra a escala — se mantiene el mismo
+  cuidado que ya rige `account_id` desde fase 1b (nunca en logs/`journal.md`/tickets/errores),
+  extendido a *todas* las cuentas, no solo la del desarrollador.
+- **Secretos nuevos**: `INTERNAL_AUTH_SECRET` (compartido entre `apps/web`/`apps/engine`, HMAC) y el
+  `password`/`SESSION_SECRET` que `iron-session` exige (mínimo 32 caracteres). Ninguno requiere una
+  cuenta ni una API key externa — Steam OpenID no exige credencial alguna del sitio para el login
+  básico (a diferencia de OAuth2, no hay `client_id`/`client_secret` que registrar). Ambos viven
+  únicamente en `process.env`, nunca en el repo — mismo principio ya vigente.
+- **Privilegio**: `apps/engine` gana la responsabilidad de rechazar con `401` cualquier request a
+  `hero-pool`/`settings` sin token interno válido — hoy esas rutas son de lectura/escritura sin
+  ningún control de acceso (hallazgo real de la auditoría de esta sesión: `GET /api/settings`
+  devuelve todo sin filtrar a cualquiera que llegue al puerto). El binding a `127.0.0.1` no cambia.
+- **`proxy.ts` (Basic Auth)**: se retira por completo, confirmado por el usuario — el login de Steam
+  pasa a ser el único gate de acceso al sitio. Evita mantener dos mecanismos de auth en paralelo.
+
+## Bloque 5 — Stack Tecnológico (Fase 5)
+
+**Opción A (recomendada, la más simple y la que sigue el patrón ya usado por el proyecto):**
+- `iron-session` — única dependencia de producción nueva en `apps/web` (sesión por cookie).
+- Verificación del protocolo Steam OpenID **implementada a mano** (un `fetch` para construir la URL
+  de login, un `fetch` de servidor a servidor para `check_authentication`) — cero dependencia nueva
+  para esto, evita el historial real de bugs de las librerías de terceros (Bloque 2).
+- Token interno HMAC con `node:crypto`/`Bun.CryptoHasher` — ya disponible, cero dependencia nueva en
+  `apps/engine`.
+- `drizzle-kit` para la migración de schema — ya es `devDependency` existente, bypass total de
+  Governance 2.0, sin pasar por `/gear-up`.
+- **Total: 1 dependencia de producción nueva** (`iron-session`) — exige pasar por `/gear-up`/
+  `@depcheck` y marcarse `// ALLOWED`, como cualquier `dependency` nueva.
+
+**Opción B (descartada, mencionada para que quede el porqué):** `passport` + `passport-steam-openid`
+(o algún fork parcheado) — 2-3 dependencias más, introduce una capa de abstracción (Passport) que el
+proyecto no usa en ningún otro lado, para un protocolo que en sí mismo es un redirect y un POST de
+verificación. Mismo principio que ya aplicó el proyecto en Fase 3 (curar a mano en vez de sumar un
+proveedor/dependencia cuando el costo real de hacerlo a mano es bajo y controlable).
+
+## Bloque 6 — Plan de Validación (Fase 5)
+
+1. Un usuario nuevo (cuenta de Steam distinta a la del desarrollador) puede loguearse y ve su propio
+   `hero_pool` vacío al principio — nunca el pool del desarrollador ni de ningún otro usuario.
+2. Dos cuentas reales distintas configuran/calculan cada una su propio pool en paralelo; las
+   sugerencias de una nunca reflejan el pool de la otra — prueba explícita de aislamiento, con y sin
+   `MetaSnapshot` cacheado simultáneamente para ambas.
+3. La cuenta ya real en producción (el propio desarrollador) migra sin perder su `hero_pool` ya
+   calculado — criterio de aceptación verificado contra el dato real, no solo contra un fixture.
+4. Sin sesión válida, cualquier ruta del sitio (salvo `/login`/`/healthz`) redirige a login —
+   `proxy.ts`/Basic Auth queda completamente retirado, confirmado.
+5. La verificación HMAC del contrato interno no suma latencia perceptible al presupuesto de 500ms
+   del motor — medido, no asumido (mismo estándar que ya exige `engine.md` para cualquier señal).
+6. Un token interno capturado y reenviado fuera de su ventana de validez es rechazado — prueba
+   explícita de replay, no solo de "el HMAC no coincide".
+
+## Cierre — pendiente de `/blueprint`
+
+Números y decisiones sin fijar hasta la síntesis formal:
+- PK exacta de `accounts` (`id` autogenerado vs. `steamId32` como PK directa) y si
+  `personal_baseline_winrate`/`steam_account_id` migran a columnas de `accounts` o a un
+  `account_settings` propio.
+- Ventana de validez exacta del token HMAC interno (segundos) y el mecanismo exacto anti-replay
+  (nonce vs. solo timestamp).
+- TTL de la cookie de `iron-session` y si hay renovación silenciosa o el usuario tiene que
+  re-loguearse tras vencer.
+- Si se guarda algo del perfil público de Steam (nombre, avatar) para mostrarlo en la UI, o el MVP
+  se queda solo con el `accountId` — implica o no una llamada extra a la Steam Web API (que sí
+  requiere una API key propia, secreto nuevo no contemplado en el Bloque 4 de este documento si se
+  decide que sí).
+- Nombre exacto del header interno (`x-account-token` usado como placeholder en el Bloque 3) y
+  forma exacta del payload firmado.
+- Orden exacto de los tickets de migración (¿la tabla `accounts` y el *backfill* van en un ticket
+  separado del cambio de PK de `hero_pool`, o es una sola unidad lógica con excepción documentada
+  de migración de schema, mismo criterio que ya usa `CLAUDE.md` para migraciones Drizzle?).
+
+**Gatillos de Opus confirmados para `/blueprint`** (`CLAUDE.md`, sección de excepciones
+documentadas): esta fase cruza **dos** de los gatillos objetivos listados — cambio de trust boundary
+respecto a lo que definía `architecture.md` hasta ahora (login real + multi-cuenta) y modificación
+de autenticación/permisos (literal). No es una decisión ambigua ni una excepción a justificar caso
+por caso — corresponde razonamiento caro en `/blueprint`, una sola vez, igual que en fase 1, 1b, y
+Fase 3.
+
+---
+
+# architecture.md — Fase 6 (Formalizar Pro-Drafter: apertura de equipo consciente de bans)
+
+## Bloque 1 — Visión del Producto (Fase 6)
+
+- **Problema**: el top-5 de apertura de equipo del Copilot (simulador) se siente repetitivo entre
+  drafts distintos, aunque los bans cambien ronda a ronda — feedback directo del usuario probando
+  el simulador, con evidencia concreta (captura de pantalla + diagnóstico propio de Codex a mitad
+  de un fix). Dos causas menores ya se corrigieron en la sesión que originó esta fase: el
+  encabezado de fase repetido idéntico en las 5 tarjetas (TSK-124), y el wording genérico del bono
+  por ban (fix de Codex, terminado). Queda la causa de fondo: `MAX_COUNTER_RELIEF = 0.12` en
+  `drafter/team-opener.ts` es chico frente al peso dominante de `position_fit` (0.38 de
+  `SCORING_WEIGHTS_V5`) — casi ningún ban reordena el top-5 real, solo cambia el texto que lo
+  justifica.
+- **Usuario**: mismo usuario único del proyecto.
+- **Resultado esperado**: que el top-5 de apertura reaccione de verdad a qué se baneó — un ban que
+  elimina a un héroe de rol comprometido (baja entropía de posición) debe pesar distinto que un ban
+  sobre un héroe flexible (alta entropía), no solo un bono plano igual para cualquier counter
+  neutralizado.
+- **Qué NO es**: no reescribe `SCORING_WEIGHTS_V5` (sigue congelada, sin tocar). No es la
+  arquitectura de matrices $C$/$S$/vector de 8 dimensiones propuesta originalmente por el
+  usuario vía un system-prompt de rearquitectura — esa propuesta se contrastó contra el código real
+  y se descartó en favor de formalizar lo que ya existe (Bloque 2). No introduce Python ni ningún
+  runtime nuevo. No construye una matriz de sinergia de aliados nueva (ver hallazgo del precedente
+  de Fase 4 en el Bloque 2) ni unifica `capabilities.json`/`lane/hero-line-profiles.json` en un solo
+  esquema. No toca el bot del Random Draft Simulator (mismo criterio que fases anteriores).
+
+## Bloque 2 — Dominio e Investigación (Fase 6)
+
+- **Hallazgo 1 (decisivo)**: ya existe un segundo motor de scoring completo, construido y probado,
+  apagado detrás de `ENABLE_PRO_DRAFTER` (`apps/engine/src/pipeline/`, `knn/`, `lane/`, `intent/`,
+  spec'd en `docs/research/pro-drafter-spec-v1.md`, explícitamente "no vinculante"). Su
+  `intent/denial-score.ts` (`DenialScore = Σ_p P(pos)·MatchupWinrate + β·EarlyPressure·H(F)`,
+  entropía de Shannon sobre la distribución de posición) es, matemáticamente, la formalización más
+  cercana que existe hoy a lo que el usuario pedía como "Threat Release/Un-countered Window" — pero
+  **nunca corre en el momento de apertura de equipo**: `pipeline/run-pipeline.ts` tiene
+  `TOP_N = 3` hardcodeado (línea confirmada leyendo el código: `.slice(0, TOP_N)`) y, sin picks
+  rivales revelados, `flexTargets.length === 0` hace que `denial_score` degrade a neutro/null para
+  todos los candidatos. Formalizar Pro-Drafter en el vacío no arreglaría la queja real — hace falta
+  construirle un camino de apertura que hoy no existe.
+- **Hallazgo 2 (repite un precedente ya cerrado en Fase 4, verificado de nuevo, no solo recordado)**:
+  no existe ningún endpoint de OpenDota que exponga sinergia de aliados (confirmado por dos vías
+  independientes en esta sesión: búsqueda web actual, y el hallazgo ya documentado en la Fase 4 de
+  este mismo archivo contra el código fuente real de `odota/core`, `HeroMatchupsResponse.ts`: el
+  shape es exclusivamente `{hero_id, games_played, wins}` contra un rival, nunca junto a un
+  aliado). Fase 4 ya decidió, ante el mismo problema, derivar sinergia de `capabilities.json` en
+  vez de recolectar un dato estadístico nuevo — Fase 6 sigue el mismo criterio: **se descarta
+  construir una tabla `heroSynergy`/script de recolección nuevo** (simplifica el plan original de
+  esta fase). El contador ($C$) tampoco necesita nada nuevo — `MetaSnapshot.matchups` ya lo cubre,
+  sincronizado y en producción desde antes de esta fase.
+- **Hallazgo 3**: los "vectores de atributos tácticos" ya existen, repartidos en dos datasets con
+  escalas distintas — `capabilities.json` (7 campos ordinales/booleanos, 124/126 héroes) y
+  `lane/hero-line-profiles.json` (5 dimensiones continuas `[0,1]`, solo 15/126 héroes, dark). Se
+  mantienen separados a propósito (responden preguntas distintas en momentos distintos del draft:
+  clasificación de arquetipo de partida completa vs. modelo de interacción de lane 2v2) — unificar
+  en un solo esquema de 8 dimensiones tocaría `archetype-fit.ts`, `build-paths.ts` y
+  `openingStrategy` de `mix.ts` a la vez sin beneficio comprobado.
+- **Hallazgo 4**: el sistema de "buckets tácticos" (push/teamfight/pickoff/scaling) ya está
+  construido, probado y reusado en 3 lugares (`draft-paths/build-paths.ts::archetypeFitBonus`,
+  `signals/archetype-fit.ts`, `mix.ts::openingStrategy`) — no se reinventa ni se duplica.
+- **Decisión del usuario sobre el mecanismo de relief**: si la Fase 4 de evaluación (ver Bloque 6)
+  confirma que el término ban-aware nuevo mejora sobre el mecanismo actual, **reemplaza
+  eventualmente** `MAX_COUNTER_RELIEF` en `team-opener.ts` — no quedan V5 y Pro-Drafter con dos
+  mecanismos de relief por ban compitiendo indefinidamente.
+
+## Bloque 3 — Arquitectura e Ingeniería (Fase 6)
+
+- `intent/denial-score.ts` **no se edita** — la fórmula ya es la formalización correcta. Solo
+  cambia su fuente de `MatchupWinrate`: de `run-pipeline.ts`'s `corpusMatchupWinrate` (proxy sobre
+  el corpus chico de ~175 drafts, ignora posición) a un adaptador respaldado por
+  `MetaSnapshot.matchups` (real, ya sincronizado), misma firma.
+- `pipeline/run-pipeline.ts` gana un modo `teamOpening`: 5 opciones diversificadas en vez del
+  `TOP_N = 3` hardcodeado, combinando `knn_similarity` (sin cambios) con un término de relief
+  ban-aware de la misma forma que `calculateDenialScore`, aplicado contra la distribución de
+  posición inferida de los **héroes baneados** (vía la maquinaria de entropía ya existente en
+  `intent/position-prior.ts`) en vez de picks rivales revelados — reemplazo directo del bono plano
+  actual. Diversifica por `openingStrategy`/`archetypeFitBonus` (Hallazgo 4), mismo criterio que
+  `team-opener.ts` ya usa hoy.
+- `pipeline/feature-extractor.ts` se extiende para aceptar `HeroCapabilities[]` opcional (hoy nunca
+  las lee) y exponer el bucket de arquetipo de cada candidato — necesario para la diversificación
+  de arriba.
+- Archivo nuevo `pipeline/phase-decay.ts`: generaliza el precedente de `TIMING_BLEND` de
+  `position-fit.ts` (`[.5,.3,.15,0]`) a un blend continuo aplicado a los 3 pesos de
+  `PipelineWeights`, indexado por conteo de picks propios/rivales. `decision-context.ts` se lee
+  como precedente del gate discreto de 4 fases, no se edita.
+- `server/routes/pro-drafter.ts`: extiende para devolver 5 sugerencias en el caso de apertura,
+  siempre detrás de `ENABLE_PRO_DRAFTER`, con el mismo fallback a V5 ya existente si el pipeline
+  falla o excede el timeout.
+- **`SignalId`/`SCORING_WEIGHTS_V1`-`V5` no se tocan.** Toda dimensión nueva vive en el universo ya
+  separado de `pipeline/merge.ts` (`PipelineSignalId = "knn_similarity"|"lane_score"|
+  "denial_score"`) — el término ban-aware alimenta el insumo crudo de `denial_score`, no agrega una
+  cuarta clave.
+
+## Bloque 4 — Seguridad desde el diseño (Fase 6)
+
+- **Cruce de frontera de confianza**: ninguno nuevo. La decisión de descartar `heroSynergy`
+  (Hallazgo 2) elimina el único sync/tabla SQLite nueva que el diseño original de esta fase iba a
+  introducir. Todo lo que se toca consume datos que ya están validados en el borde
+  (`capabilities.json` vía su loader existente, `MetaSnapshot.matchups` ya sincronizado desde
+  OpenDota, `hero-positions.json` vía su loader existente).
+- **Datos sensibles**: ninguno. Mismo tipo de dato agregado y público que el resto del motor.
+- **Secretos**: ninguno nuevo.
+- **Privilegio**: sin cambios. `ENABLE_PRO_DRAFTER` sigue siendo el único gate — esta fase no
+  expone la ruta a nadie que no la tuviera ya, ni agrega ningún acceso de red nuevo a `apps/engine`.
+- **Regla dura que se mantiene intacta, reforzada**: cero red en el camino caliente. Descartar
+  `heroSynergy` deja esta fase con menos superficie nueva que el diseño original, no más.
+
+## Bloque 5 — Stack Tecnológico (Fase 6)
+
+- **Sin stack nuevo.** Bun/TypeScript únicamente — decisión explícita del usuario, confirmada
+  contra el hecho verificado de que el proyecto no tiene Python en ningún lado hoy y de que
+  introducirlo exigiría un toolchain nuevo sin beneficio (ver investigación previa a este
+  `/pre-flight`). Cero dependencias npm/bun nuevas: todo el trabajo reusa `OpenDotaClient` y los
+  módulos ya existentes de Pro-Drafter. Sin necesidad de `/gear-up`.
+
+## Bloque 6 — Plan de Validación (Fase 6)
+
+Automatizado, por extensión, cada una con su propio archivo de prueba aislado (mismo criterio S3/
+S9/S10 de `testing-seams.md`):
+1. `phase-decay.ts`: los pesos generalizados siguen sumando exactamente 1.0 para cualquier
+   combinación de conteos de picks propios/rivales.
+2. `run-pipeline.ts` modo `teamOpening`: con `own=[]`/`enemy=[]`, produce 5 opciones, no 3.
+3. **Candado de sensibilidad — el criterio de éxito real de toda la fase**: dos conjuntos de bans
+   distintos sobre el mismo estado producen un top-5 medible mente distinto (comparación numérica
+   exacta, mismo criterio que ya usa `mix.test.ts` para V4→V5, aplicado al revés: probar
+   sensibilidad, no invarianza).
+4. Diversificación por estrategia: las 5 opciones no repiten la misma estrategia más allá del
+   criterio ya probado en `team-opener.test.ts`.
+5. Fallback intacto: con `ENABLE_PRO_DRAFTER` apagado, el camino de apertura sigue siendo
+   exactamente el de `team-opener.ts`/V5 — cero regresión, candado numérico, no solo "no rompió
+   nada a ojo".
+
+Manual, guiado por el usuario: correr el script de evaluación extendido
+(`scripts/evaluate-pro-drafter.ts`, nuevo modo de la Fase 4 del plan) sobre una muestra real de
+bans variados y confirmar que la métrica de repetición baja de forma perceptible frente a V5 —
+convierte "se siente repetitivo" en un número, antes de considerar cualquier promoción.
+
+## Cierre — pendiente de `/blueprint`
+
+Números y decisiones sin fijar hasta la síntesis formal:
+- Peso exacto del término ban-aware dentro de `PipelineWeights`/`phase-decay.ts` (la forma de la
+  fórmula ya está fijada por el Bloque 3, el número no).
+- Umbral/criterio exacto de "cuánto debe diferir el top-5 entre dos conjuntos de bans" para
+  considerar superada la evaluación de la Fase 4 del plan.
+- Momento exacto en que `team-opener.ts` pierde `MAX_COUNTER_RELIEF` una vez confirmado el
+  reemplazo (¿mismo commit que activa el nuevo mecanismo, o un ticket de limpieza posterior?).
+- Confirmar que extender `feature-extractor.ts`/`run-pipeline.ts` no rompe el contrato de 3
+  sugerencias del modo normal (no team-opening) — candado de regresión de pipeline completo, mismo
+  criterio que otras fases.
+- Alcance exacto de los sub-tickets (cuántos, en qué orden) — el plan guardado en
+  `/Users/usuario/.claude/plans/system-prompt-act-parsed-reef.md` da la secuencia de fases
+  conceptual (0-4), `/blueprint` la convierte en tickets `TSK-XXX` reales.
+
+**Gatillos de Opus** (`CLAUDE.md`, sección de excepciones documentadas): esta fase **no** cruza
+ningún gatillo objetivo — la decisión de descartar `heroSynergy` (Hallazgo 2) elimina el único
+cruce de frontera de confianza nuevo que el diseño original iba a abrir; no hay migración
+irreversible, no cambia autenticación ni motor de base de datos. Corresponde el flujo normal en
+Sonnet hasta `/blueprint`, mismo criterio que Fase 4 bajo circunstancias equivalentes.

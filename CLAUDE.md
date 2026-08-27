@@ -16,29 +16,27 @@ Dos procesos locales, no uno:
 - Captura de draft (fase 1): `simulator` y `manual` son capturadores de primera clase.
   `overwolf` y `ocr` quedan especificados como contrato, se construyen después (SPEC §0-D1).
 
-**Nota de estado (2026-08-20)**: fase 1 completa (TSK-001 a TSK-016, done), MVP validado. Fase 1b
-(personalización de hero pool, `docs/specs/SPEC.md` §9) completa y validada por el usuario con su
-cuenta real de Steam (TSK-017 a TSK-026, done). Bloque de feedback directo de producto tras probar
-fase 1b en vivo, también completo (TSK-027 a TSK-033, done): señal `role_safety` + priorización de
-support en picks tempranos, simulador personalizado al hero pool propio, home real + navegación
-compartida, persistencia de `account_id`, guion de bans de `allPick` ampliado a 16, comparación
-explícita entre sugerencias, y selector de ventana de días al calcular el pool. Fase 2 ("Draft en
-equipo") **completa**: modo de party solo/2/3/5 + hero pools de compañeros a mano + equipos
-guardados localmente (TSK-034 a TSK-036, vía Codex), y el Random Draft Simulator (spec nativo de
-Kiro, sin tickets `TSK-XXX` propios — store + hook de sesión contra el motor real + UI completa en
-`/random-draft`; agregó `GET /api/meta/hero-stats`, solo lectura, ver `engine.md`). El simulador
-está construido y verificado en navegador pero **sin commitear y sin pasar `@redteam` todavía** —
-pendiente, en cola. **Deploy real completo**: dota2coach corre en producción en Railway
-(https://d2kiro-production.up.railway.app, auto-deploy activado sobre `master`), primer `/castoff`
-exitoso y verificado contra la instancia pública. **Fase 3 completa** ("Posiciones reales en el
-motor de sugerencias"): `position_fit` fusiona `role_gap`/`role_safety`, `SCORING_WEIGHTS_V5` es
-la constante activa. **Fase 4 en curso** ("Intención de Draft, Sinergia en Cadena y
-Diversificación Estratégica"): el motor sigue dando un top-3 estático al inicio porque ninguna
-señal distingue candidatos con el draft vacío. `/blueprint` cerró el **sub-ticket 4.1 únicamente**
-(señal `archetype_fit`, aislada, sin integrar todavía al motor) — las otras 3 piezas de la fase
-(sinergia en cadena, denial de composición, diversificación) y los sub-tickets 4.2-4.8 quedan a
-nivel conceptual hasta su propio `/blueprint`. Ver `docs/agents/PROGRESS.md` para el estado exacto
-y el siguiente paso.
+**Nota de estado (2026-08-26)**: fases 1, 1b, 2 y 3 completas y en producción (Railway,
+https://d2kiro-production.up.railway.app, auto-deploy sobre `master`), sin cambios de fondo desde
+la nota anterior. **Fase 4 sigue en pausa, sub-ticket 4.1 completo** — señal `archetype_fit`
+aislada (`TSK-089`), sin integrar al motor (4.2, sin fecha). **Fase 5 completa** ("MVP de
+Producción: Auth & Personal Hero Pool multi-usuario"): los 13 tickets originales (`TSK-094` a
+`TSK-106`) más el trabajo posterior de producto/infraestructura hasta `TSK-125` están `done` e
+integrados en `master` — login real con Steam, esquema multi-cuenta, CI/CD (GitHub Actions +
+Husky), y el motor Pro-Drafter (KNN + simulador de línea + decodificador de intención bayesiano,
+`apps/engine/src/{pipeline,knn,lane,intent}/`) construido y probado, dark detrás de
+`ENABLE_PRO_DRAFTER`. **Fase 6 en curso** ("Formalizar Pro-Drafter: apertura de equipo consciente
+de bans", `docs/specs/SPEC.md` §13): origen — el top-5 de apertura del Copilot se sentía
+repetitivo entre bans distintos porque el bono actual (`MAX_COUNTER_RELIEF=0.12` en
+`team-opener.ts`) es chico frente al peso dominante de `position_fit`. `/pre-flight` y `/blueprint`
+completos, `/rulebook` recién cerrado con 10 tickets (`TSK-126` a `TSK-135`, orden estricto de
+dependencia) — le da al motor Pro-Drafter, ya construido pero nunca conectado a la apertura de
+equipo, un camino real que reacciona al solapamiento posicional y la entropía de rol de los héroes
+baneados, reutilizando `intent/denial-score.ts` sin editarlo. `ENABLE_PRO_DRAFTER` sigue apagado
+por defecto durante toda la fase — nada de esto cambia el comportamiento observable de producción
+hasta un segundo `/blueprint`, condicionado a un paquete de evidencia numérico (`TSK-135`). Cero
+código de esta fase escrito todavía. Ver `docs/agents/PROGRESS.md` para el estado exacto y el
+siguiente paso.
 
 ## COMANDOS ESENCIALES
 - `bun run dev` → Iniciar servidor de desarrollo.
@@ -181,6 +179,78 @@ romper el contrato de 4.1, resumidos:
   todavía. `SCORING_WEIGHTS_V5` sigue siendo la única activa.
 - **Hallazgo real, fuera de alcance**: `team_synergy` devuelve `raw: 0` (no `null`) para un héroe
   sin capacidades — viola la regla dura de `engine.md`. Ticket aparte, no se corrige en 4.1.
+
+## REGLAS DE FASE 5 (Auth & Personal Hero Pool multi-usuario) — desde `docs/specs/SPEC.md` §12
+Generadas por `/rulebook`, quinta ejecución del proyecto. Alcance: login real con Steam (OpenID
+2.0), esquema multi-cuenta, y personalización de `hero_pool_fit` por usuario real — no solo el
+propio desarrollador. Detalle completo en `.claude/rules/` (secciones "Fase 5" en `engine.md`,
+`security.md`, `web.md`, `testing-seams.md`) — esta sección son los puntos que no se pueden violar
+sin romper el contrato, resumidos:
+
+- **`apps/engine` sigue en `127.0.0.1`, sin excepción.** El callback de Steam OpenID necesita una
+  URL pública — solo puede terminar en `apps/web`. `apps/engine` nunca ve el login directamente,
+  solo el `accountId` ya verificado vía `x-account-token`.
+- **`check_authentication` de Steam es obligatorio, no opcional.** Sin esa verificación server-a-
+  servidor, cualquiera puede fabricar un "login exitoso" con el `steamid64` que quiera — es la
+  vulnerabilidad real y documentada de `passport-steam`, la librería más popular para esto. Por eso
+  el protocolo se implementa a mano, sin Passport.
+- **La conversión SteamID64 → Steam32 exige `BigInt`, nunca aritmética `Number`.** El offset
+  (`76561197960265728`) excede `Number.MAX_SAFE_INTEGER` — con `Number()` la resta pierde precisión
+  y mapea al usuario a la cuenta de otra persona, **sin ningún error**. Prueba dedicada obligatoria.
+- **`buildMetaSnapshot(db, accountId)` — `accountId` es obligatorio, nunca opcional con default.**
+  Evita el mismo tipo de bug silencioso que dejó `hero_pool_fit` inerte desde Fase 1b hasta TSK-064.
+- **El cache de meta está partido en dos capas** (compartida + overlay por cuenta), nunca un
+  `Map<accountId, MetaSnapshot>` de snapshots completos — medido contra la base real: lo que varía
+  por cuenta son 5 filas y un número, no las 17 000 filas de meta pública.
+- **`accountId` nunca se acepta desde el cuerpo o el query de una request** — sale exclusivamente
+  del token verificado (`x-account-token` en HTTP, `accountToken` en el `hello` de WebSocket).
+- **`PRAGMA foreign_keys` sigue apagado** — el aislamiento entre cuentas lo da el `WHERE
+  account_id = ?` de cada query, nunca la constraint de la FK.
+- **`hero_pool` pasa a PK compuesta `(accountId, heroId)`; `team_groups` gana `accountId` nullable
+  (sin cirugía de PK); `team_members` hereda el scope vía `teamGroupId`, sin columna propia.**
+- **Basic Auth (`proxy.ts`) se retira por completo** — el login de Steam es el único gate de acceso
+  al sitio. Nunca conviven los dos mecanismos.
+- **Ningún `accountId`/Steam32 se loguea, se ecoa en un error, ni aparece en `journal.md`/tickets**
+  — regla de 1b, ahora vale para todas las cuentas, no solo la del desarrollador.
+- **Fase 5 no expone el WebSocket del motor a la red** — decisión explícita de alcance, no una
+  laguna. Un usuario remoto tiene cuenta y pool guardado, pero las sugerencias en vivo siguen
+  dependiendo del motor local del propio visitante.
+- **Dos secretos nuevos, ambos `process.env`**: `SESSION_SECRET` (`iron-session`) e
+  `INTERNAL_AUTH_SECRET` (HMAC del token interno). Steam OpenID no exige credencial del sitio.
+- **`iron-session` es la única dependencia de producción nueva** — pasa por `/gear-up`/`@depcheck`.
+
+## REGLAS DE FASE 6 (Formalizar Pro-Drafter: apertura consciente de bans) — desde `docs/specs/SPEC.md` §13
+
+Generadas por `/rulebook`, sexta ejecución del proyecto. Alcance: darle al motor Pro-Drafter (ya
+construido, dark detrás de `ENABLE_PRO_DRAFTER`) un camino real de apertura de equipo, que hoy no
+existe (`TOP_N=3` hardcodeado, `denial_score` degrada a null sin picks rivales). Detalle completo
+en `.claude/rules/` (secciones "Fase 6" en `engine.md`, `security.md`, `testing-seams.md`,
+`web.md`) — esta sección son los puntos que no se pueden violar sin romper el contrato, resumidos:
+
+- **`SignalId`/`SCORING_WEIGHTS_V1`-`V5` no se tocan.** Toda dimensión nueva vive en
+  `pipeline/merge.ts`'s `PipelineSignalId`, ya separado — el término ban-aware alimenta el `raw`
+  de `denial_score`, no agrega una cuarta clave.
+- **`intent/denial-score.ts` no se edita.** Se formaliza reutilizándolo contra héroes baneados
+  (nuevo `pipeline/ban-relief.ts`), nunca reimplementando la fórmula.
+- **Sin tabla `heroSynergy` ni recolección de sinergia de aliados nueva** — mismo precedente que
+  Fase 4 (OpenDota no expone ese endpoint, verificado dos veces).
+- **Sin Python, sin runtime nuevo.** Bun/TypeScript únicamente, cero dependencia nueva.
+- **`MAX_COUNTER_RELIEF` de `team-opener.ts` no se retira en esta fase** — sigue siendo el único
+  camino de apertura con el flag apagado (el default). Su reemplazo depende del paquete de
+  evidencia (`TSK-135`) y de un segundo `/blueprint`, más angosto.
+- **`ENABLE_PRO_DRAFTER` sigue apagado por defecto durante toda la fase.** Ningún ticket de esta
+  fase cambia el comportamiento observable de producción.
+- **`POSITION_OVERLAP_GAIN=5` es un ancla matemática, no una perilla**: garantiza que un candidato
+  sin dato de posición reproduzca exactamente el alivio plano actual. `BETA_OPENING=0.04` sí es una
+  perilla de producto real, ajustable tras ver el resultado.
+- **El umbral `MIN_MATCHUP_GAMES=200` recorta el 92.5% de los matchups reales** (1200 de 15984
+  filas) — la causa raíz de "los bans no mueven nada" no es solo el bono chico, es que el dato que
+  lo dispara casi nunca existe.
+- **El candado de sensibilidad (dos conjuntos de bans producen un top-5 medible mente distinto) se
+  prueba contra el pipeline completo, nunca contra el adaptador aislado** — mismo criterio que ya
+  exigen Fase 3 y Fase 5.
+- **`openingStrategy` tiene una sola implementación**, movida a `draft-paths/strategy.ts` — una
+  segunda copia es rechazo automático de revisión.
 
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.
