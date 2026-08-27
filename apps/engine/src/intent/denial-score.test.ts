@@ -46,6 +46,12 @@ test("beta=0 anula por completo el término de presión/entropía", () => {
   expect(score).toBeCloseTo(expected, 10);
 });
 
+test("el escalón de beta incrementa linealmente la presión de entropía", () => {
+  const low = calculateDenialScore(7, FLEX_HERO, () => null, () => 0.3, 0.5);
+  const high = calculateDenialScore(7, FLEX_HERO, () => null, () => 0.3, 0.7);
+  expect(high / low).toBeCloseTo(1.4, 10);
+});
+
 test("exclusión mixta con probabilidad no nula DESPUÉS de una posición null -- nunca corta el resto", () => {
   // Guarda contra un bug real y plausible: cortar el bucle en el primer null (`break`) en vez de
   // saltarlo y seguir (`continue`) -- mismo tipo de hallazgo que TSK-036. Acá la probabilidad no
