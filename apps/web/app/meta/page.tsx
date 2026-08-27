@@ -27,7 +27,7 @@ function StaleBadge({ isStale }: StaleBadgeProps) {
 // Página normal del sitio: RTK Query contra apps/engine (web.md) -- nunca WebSocket/Zustand,
 // esa es la única excepción de TSK-012 para la vista de draft en vivo.
 export default function MetaStatusPage() {
-  const { data, isLoading, error } = useGetMetaStatusQuery();
+  const { data, isLoading, error } = useGetMetaStatusQuery(undefined, { pollingInterval: 1_000 });
   const [syncMeta, { isLoading: isSyncing }] = useSyncMetaMutation();
 
   function handleSyncClick() {

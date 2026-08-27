@@ -119,21 +119,7 @@ test("resetSession descarta un draft parcial para poder empezar otro desde cero"
     sessionId: null,
     suggestions: null,
     phase: { type: "idle" },
-    previewStatus: "idle",
   });
-});
-
-test("el estado del preview distingue carga, resultado y fallo recuperable", () => {
-  resetStore();
-
-  useRandomDraftStore.getState().setPreviewStatus("loading");
-  expect(useRandomDraftStore.getState().previewStatus).toBe("loading");
-
-  useRandomDraftStore.getState().setPreviewStatus("failed");
-  expect(useRandomDraftStore.getState().previewStatus).toBe("failed");
-
-  useRandomDraftStore.getState().setPreviewStatus("ready");
-  expect(useRandomDraftStore.getState().previewStatus).toBe("ready");
 });
 
 // ---------------------------------------------------------------------------

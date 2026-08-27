@@ -1,6 +1,7 @@
 "use client";
 
 import type { JSX } from "react";
+import { useState } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
@@ -14,6 +15,7 @@ import { StaleWarningBanner } from "@/features/random-draft-simulator/components
 import { specForRound, useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 
 type Session = ReturnType<typeof useRandomDraftSession>;
 
@@ -39,11 +41,13 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, suggestions, previewStatus } = session.state;
+  const proDrafterEnabled = isProDrafterEnabled();
+  const [proHeroIds, setProHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
 
   // TSK-084: mismo criterio que DraftView.tsx en /live-draft -- los mismos candidatos que ya destaca
   // el Copilot al lado, resaltados directo sobre la grilla, un solo highlight consistente.
-  const highlightedHeroIds = new Set(suggestions?.suggestions.map((s) => s.hero) ?? []);
+  const highlightedHeroIds = proDrafterEnabled ? proHeroIds : new Set(suggestions?.suggestions.map((s) => s.hero) ?? []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -65,6 +69,8 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         heroCatalog={heroCatalog}
         previewStatus={previewStatus}
         onRetryPreview={session.actions.retryPreview}
+        onSuggestedHeroIdsChange={proDrafterEnabled ? setProHeroIds : undefined}
+        playerPosition={session.state.config?.playerPosition}
       />
     </div>
   );

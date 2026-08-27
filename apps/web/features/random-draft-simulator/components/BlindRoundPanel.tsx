@@ -108,7 +108,9 @@ function BlindRoundActive({
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       {/* TSK-086: el timer de la ronda se ve ahora al centro de CompactBoard (page.tsx), no acá --
           nunca dos timers en pantalla al mismo tiempo. */}
-      <span className="text-heading text-content-primary">Ronda {phase.round} -- elegí {spec.picksPerTeam} héroe(s)</span>
+      <span className="text-heading text-content-primary">
+        Ronda {phase.round} -- {phase.pendingUserPicks.length} de {spec.picksPerTeam} héroe(s) seleccionados
+      </span>
       <ConflictBanner conflictBans={phase.conflictBans} heroCatalog={heroCatalog} />
       <div className="flex flex-wrap gap-3">
         {phase.pendingUserPicks.map((heroId) => (

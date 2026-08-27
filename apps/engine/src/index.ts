@@ -38,6 +38,7 @@ const app = createApp({
   db,
   openDotaClient,
   captureToken,
+  internalAuthSecret: process.env.INTERNAL_AUTH_SECRET,
   // Req 7.1/7.2 (.kiro/specs/engine-performance-optimizations): sin esto, createApp() recibe
   // tokenRateLimiter undefined y el límite de 200 eventos/seg por x-capture-token (edge.ts) nunca
   // se evalúa en producción -- el límite de 20/seg por sesión (rateLimiter, incondicional en

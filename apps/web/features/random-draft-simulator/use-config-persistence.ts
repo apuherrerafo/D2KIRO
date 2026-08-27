@@ -14,6 +14,7 @@ import { STORAGE_KEY } from "./constants";
 
 export interface PersistedConfig {
   userSide: "radiant" | "dire";
+  playerPosition: 1 | 2 | 3 | 4 | 5;
   personalBanList: HeroId[];
 }
 
@@ -42,6 +43,10 @@ export function validatePersistedConfig(raw: unknown): PersistedConfig | null {
     return null;
   }
 
+  if (![1, 2, 3, 4, 5].includes(obj["playerPosition"] as number)) {
+    return null;
+  }
+
   if (!Array.isArray(obj["personalBanList"])) {
     return null;
   }
@@ -53,9 +58,9 @@ export function validatePersistedConfig(raw: unknown): PersistedConfig | null {
   if (!obj["personalBanList"].every(isPositiveInteger)) {
     return null;
   }
-
   return {
     userSide: obj["userSide"],
+    playerPosition: obj["playerPosition"] as 1 | 2 | 3 | 4 | 5,
     personalBanList: obj["personalBanList"] as HeroId[],
   };
 }
@@ -80,17 +85,17 @@ function parseAndValidate(raw: string): PersistedConfig | null {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    console.error("[useConfigPersistence] JSON parse error:", err);
+    // La configuración es un dato local descartable: un valor corrupto no debe tumbar la UI.
+    console.warn("[useConfigPersistence] JSON parse error; se ignorará la configuración guardada");
     return null;
   }
 
   const validated = validatePersistedConfig(parsed);
 
   if (validated === null) {
-    console.error(
-      "[useConfigPersistence] Validation failed — estructura inválida en localStorage:",
-      parsed,
-    );
+    // Versiones anteriores no tenían playerPosition. Se ignoran y el usuario puede configurar
+    // una sesión nueva; nunca se muestra como error de Next.js ni se bloquea el simulador.
+    console.warn("[useConfigPersistence] configuración local obsoleta; se solicitará una nueva");
   }
 
   return validated;

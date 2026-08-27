@@ -34,7 +34,21 @@ describe("buildProDrafterRequest", () => {
       localSide: "radiant",
       banned: [1, 2],
       picks: { radiant: [3], dire: [4, 5] },
+      teamOpening: false,
+      targetPosition: 4,
     });
+  });
+
+  test("marca la apertura cuando aún no hay picks para activar sus señales de bans", () => {
+    const request = buildProDrafterRequest(draftState({ picks: { radiant: [], dire: [] } }));
+    expect(request.teamOpening).toBe(true);
+    expect(request.targetPosition).toBe(5);
+  });
+
+  test("usa la posición elegida por el jugador en todas las fases", () => {
+    const request = buildProDrafterRequest(draftState({ picks: { radiant: [3], dire: [] } }), 5);
+    expect(request.targetPosition).toBe(4);
+    expect(request.playerPosition).toBe(5);
   });
 
   test("format y localSide \"unknown\" viajan tal cual, mismo contrato que acepta el motor", () => {

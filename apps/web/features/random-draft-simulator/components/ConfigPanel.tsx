@@ -25,6 +25,14 @@ interface SideSelectorProps {
   onSelect: (side: TeamSide) => void;
 }
 
+const POSITION_OPTIONS: { value: 1 | 2 | 3 | 4 | 5; label: string }[] = [
+  { value: 1, label: "1 — Carry" },
+  { value: 2, label: "2 — Midlane" },
+  { value: 3, label: "3 — Offlane" },
+  { value: 4, label: "4 — Support" },
+  { value: 5, label: "5 — Hard support" },
+];
+
 function SideSelector({ userSide, onSelect }: SideSelectorProps) {
   function selectRadiant() {
     onSelect("radiant");
@@ -226,11 +234,18 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const [banListError, setBanListError] = useState<string | null>(null);
 
   const userSide = config?.userSide ?? "radiant";
+  const playerPosition = config?.playerPosition;
   const personalBanList = config?.personalBanList ?? [];
   const isSeedValid = SEED_PATTERN.test(draftSeed);
 
   function selectSide(side: TeamSide) {
-    setConfig({ userSide: side, personalBanList });
+    if (playerPosition === undefined) return;
+    setConfig({ userSide: side, playerPosition, personalBanList });
+  }
+
+  function selectPosition(event: ChangeEvent<HTMLSelectElement>) {
+    const position = Number(event.target.value) as 1 | 2 | 3 | 4 | 5;
+    if ([1, 2, 3, 4, 5].includes(position)) setConfig({ userSide, playerPosition: position, personalBanList });
   }
 
   function regenerateSeed() {
@@ -244,23 +259,33 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       return;
     }
     setBanListError(null);
-    setConfig({ userSide, personalBanList: result.list });
+    if (playerPosition === undefined) return;
+    setConfig({ userSide, playerPosition, personalBanList: result.list });
   }
 
   function removeBanHero(heroId: HeroId) {
     setBanListError(null);
-    setConfig({ userSide, personalBanList: removeHeroFromBanList(personalBanList, heroId) });
+    if (playerPosition === undefined) return;
+    setConfig({ userSide, playerPosition, personalBanList: removeHeroFromBanList(personalBanList, heroId) });
   }
 
   function handleStart() {
     if (!isSeedValid) return;
-    onStart({ draftSeed, userSide, personalBanList });
+    if (playerPosition === undefined) return;
+    onStart({ draftSeed, userSide, playerPosition, personalBanList });
   }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Configurar Random Draft</span>
       <SideSelector userSide={userSide} onSelect={selectSide} />
+      <label className="flex flex-col gap-1" htmlFor="player-position">
+        <span className="text-caption text-content-secondary">La posición que vas a jugar</span>
+        <select id="player-position" value={playerPosition ?? ""} onChange={selectPosition} className="w-fit rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary">
+          <option value="" disabled>Selecciona una posición</option>
+          {POSITION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
       <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
       <PersonalBanListField
         personalBanList={personalBanList}
@@ -269,7 +294,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
         onAdd={addBanHero}
         onRemove={removeBanHero}
       />
-      <button type="button" onClick={handleStart} disabled={!isSeedValid} className={`self-start ${BUTTON_PRIMARY}`}>
+      <button type="button" onClick={handleStart} disabled={!isSeedValid || playerPosition === undefined} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft
       </button>
     </div>

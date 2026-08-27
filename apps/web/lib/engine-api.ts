@@ -23,7 +23,7 @@ export interface MetaStatus {
 export const engineApi = createApi({
   reducerPath: "engineApi",
   baseQuery: fetchBaseQuery({ baseUrl: ENGINE_HTTP_BASE_URL }),
-  tagTypes: ["MetaStatus", "HeroPool", "TeamGroups", "DraftPaths"],
+  tagTypes: ["MetaStatus", "Heroes", "HeroPool", "TeamGroups", "DraftPaths"],
   endpoints: (builder) => ({
     getMetaStatus: builder.query<MetaStatus, void>({
       query: () => "/api/meta/status",
@@ -31,10 +31,11 @@ export const engineApi = createApi({
     }),
     syncMeta: builder.mutation<{ syncId: number }, void>({
       query: () => ({ url: "/api/meta/sync", method: "POST" }),
-      invalidatesTags: ["MetaStatus"],
+      invalidatesTags: ["MetaStatus", "Heroes"],
     }),
     getHeroes: builder.query<HeroMeta[], void>({
       query: () => "/api/heroes",
+      providesTags: ["Heroes"],
     }),
     // TSK-024/025 (fase 1b): mismo régimen "página normal" -- el pool se edita en configuración,
     // nunca por WebSocket (web.md).
@@ -81,8 +82,12 @@ export const engineApi = createApi({
     // (unión, no solo `ProDrafterResponse`) -- retrocompatibilidad real: con el flag apagado del
     // lado del motor esta misma URL responde con el shape v5 (`suggestions/v1`), no una hipótesis
     // (ver server/app.ts:258-260 y features/pro-drafter/types.ts).
-    postProRecommendations: builder.mutation<ProRecommendationsResponse, ProDrafterRequest>({
-      query: (body) => ({ url: `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/v1/draft/pro-recommendations`, method: "POST", body }),
+    postProRecommendations: builder.mutation<ProRecommendationsResponse, ProDrafterRequest | { body: ProDrafterRequest; accountToken: string }>({
+      query: (arg) => {
+        const body = "body" in arg ? arg.body : arg;
+        const accountToken = "body" in arg ? arg.accountToken : undefined;
+        return { url: `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/v1/draft/pro-recommendations`, method: "POST", body, ...(accountToken ? { headers: { "x-account-token": accountToken } } : {}) };
+      },
     }),
   }),
 });

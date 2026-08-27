@@ -16,9 +16,18 @@ export interface ProSignalContribution {
 
 export interface ProSuggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3;
+  rank: 1 | 2 | 3 | 4 | 5;
   score: number;
   signals: ProSignalContribution[];
+  evidence?: {
+    observedEnemyCount: number;
+    counterMatchups: number;
+    counterConfidence: number | null;
+    synergy: "available" | "unavailable";
+    synergyPairs: number;
+    synergyConfidence: number | null;
+    position: "applied" | "unavailable";
+  };
 }
 
 export type ProEngineVersion = "pro-drafter" | "v5";
@@ -40,7 +49,7 @@ export interface ProDrafterResponse {
 // rotulado "Pro-Drafter" sin confundir, así que se descarta a propósito (ver toProDrafterView).
 export interface LegacySuggestionSetResponse {
   schema: "suggestions/v1";
-  suggestions: { hero: HeroId; rank: 1 | 2 | 3; score: number }[];
+  suggestions: { hero: HeroId; rank: 1 | 2 | 3 | 4 | 5; score: number }[];
 }
 
 export type ProRecommendationsResponse = ProDrafterResponse | LegacySuggestionSetResponse;
@@ -82,15 +91,24 @@ export interface ProDrafterRequest {
   localSide: TeamSide | "unknown";
   banned: HeroId[];
   picks: { radiant: HeroId[]; dire: HeroId[] };
+  targetPosition?: 1 | 2 | 3 | 4 | 5;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  /** Activa la política de apertura (5 candidatos y señales de bans) en el engine. */
+  teamOpening?: boolean;
 }
 
-export function buildProDrafterRequest(draftState: DraftState): ProDrafterRequest {
+export function buildProDrafterRequest(draftState: DraftState, playerPosition?: 1 | 2 | 3 | 4 | 5): ProDrafterRequest {
+  const ownPickCount = draftState.picks[draftState.localSide === "dire" ? "dire" : "radiant"].length;
+  const targetPosition = ownPickCount < 5 ? ([5, 4, 3, 2, 1] as const)[ownPickCount] : undefined;
   return {
     format: draftState.format,
     patch: draftState.patch,
     localSide: draftState.localSide,
     banned: draftState.banned,
     picks: draftState.picks,
+    teamOpening: draftState.picks.radiant.length === 0 && draftState.picks.dire.length === 0,
+    targetPosition,
+    ...(playerPosition === undefined ? {} : { playerPosition }),
   };
 }
 

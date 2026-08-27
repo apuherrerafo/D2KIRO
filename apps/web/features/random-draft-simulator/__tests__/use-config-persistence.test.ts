@@ -20,7 +20,7 @@ function randomPersistedConfig(caseIndex: number): PersistedConfig {
   const userSide = caseIndex % 2 === 0 ? "radiant" : "dire";
   const listSize = caseIndex % 5; // 0-4
   const personalBanList: HeroId[] = Array.from({ length: listSize }, (_, i) => i + 1);
-  return { userSide, personalBanList };
+  return { userSide, playerPosition: ((caseIndex % 5) + 1) as 1 | 2 | 3 | 4 | 5, personalBanList };
 }
 
 // ---------------------------------------------------------------------------

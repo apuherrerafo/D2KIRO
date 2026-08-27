@@ -30,7 +30,7 @@ function fakeResult(heroId: HeroId) {
   return { heroId, score: 0.5, signals: [{ signal: "knn_similarity" as const, raw: 0.5 }] };
 }
 
-function fakeV5Suggestion(hero: HeroId, rank: 1 | 2 | 3) {
+function fakeV5Suggestion(hero: HeroId, rank: 1 | 2 | 3 | 4 | 5) {
   return { hero, rank, score: 0.3, signals: [], reason: "v5-fallback-fixture", confidence: "media" as const };
 }
 
@@ -40,7 +40,13 @@ function fakeV5Set() {
     sessionId: "pro-drafter-experimental",
     basedOnSeq: 0,
     decisionContext: "response_pick" as const,
-    suggestions: [fakeV5Suggestion(101 as HeroId, 1)],
+    suggestions: [
+      fakeV5Suggestion(101 as HeroId, 1),
+      fakeV5Suggestion(102 as HeroId, 2),
+      fakeV5Suggestion(103 as HeroId, 3),
+      fakeV5Suggestion(104 as HeroId, 4),
+      fakeV5Suggestion(105 as HeroId, 5),
+    ],
     comparison: null,
     degraded: [],
     computedInMs: 1,
@@ -55,6 +61,27 @@ function makeRequest(body: unknown = EMPTY_BODY): Request {
 }
 
 describe("createProDrafterRoutes -- cache-aside", () => {
+  test("el fingerprint separa apertura de equipo del camino normal", async () => {
+    let calls = 0;
+    const routes = createProDrafterRoutes({
+      corpus: [],
+      heroPositions: {},
+      runPipeline: () => {
+        calls++;
+        return [fakeResult(101 as HeroId)];
+      },
+      computeV5Fallback: async () => fakeV5Set(),
+    });
+
+    const normal = await routes.postRecommendations(makeRequest(EMPTY_BODY));
+    const opening = await routes.postRecommendations(makeRequest({ ...EMPTY_BODY, teamOpening: true }));
+    const normalBody = (await normal.json()) as { cache_hit: boolean };
+    const openingBody = (await opening.json()) as { cache_hit: boolean };
+
+    expect(calls).toBe(2);
+    expect(normalBody.cache_hit).toBe(false);
+    expect(openingBody.cache_hit).toBe(false);
+  });
   test("primera solicitud es cache miss y calcula la matriz 5v5", async () => {
     let calls = 0;
     const routes = createProDrafterRoutes({
@@ -73,6 +100,32 @@ describe("createProDrafterRoutes -- cache-aside", () => {
     expect(body.cache_hit).toBe(false);
     expect(body.fallback_applied).toBe(false);
     expect(body.engine_version).toBe("pro-drafter");
+  });
+
+  test("expone evidencia estructurada y no inventa counter sin matchup observado", async () => {
+    const routes = createProDrafterRoutes({
+      corpus: [],
+      heroPositions: {},
+      runPipeline: () => [fakeResult(101 as HeroId)],
+      getMetaMatchups: async () => ({}),
+    });
+
+    const response = await routes.postRecommendations(makeRequest());
+    const body = (await response.json()) as { suggestions: { evidence?: { observedEnemyCount: number; counterMatchups: number; synergy: string } }[] };
+    expect(body.suggestions[0]?.evidence).toMatchObject({ observedEnemyCount: 3, counterMatchups: 0, synergy: "unavailable", synergyPairs: 0 });
+  });
+
+  test("expone sinergia solo con aliados confirmados y muestra suficiente", async () => {
+    const routes = createProDrafterRoutes({
+      corpus: [],
+      heroPositions: {},
+      runPipeline: () => [fakeResult(101 as HeroId)],
+      getSynergies: async () => ({ 101: [{ withHero: 1, games: 100, wins: 60, expectedWinrate: 0.5 }] }),
+    });
+
+    const response = await routes.postRecommendations(makeRequest({ ...EMPTY_BODY, picks: { radiant: [1, 2, 3], dire: [4, 5, 6] } }));
+    const body = (await response.json()) as { suggestions: { evidence?: { synergy: string; synergyPairs: number } }[] };
+    expect(body.suggestions[0]?.evidence).toMatchObject({ synergy: "available", synergyPairs: 1 });
   });
 
   test("una solicitud idéntica repetida responde desde caché sin recalcular la matriz", async () => {
@@ -130,6 +183,46 @@ describe("createProDrafterRoutes -- cache-aside", () => {
 });
 
 describe("createProDrafterRoutes -- fallback transparente a v5", () => {
+  test("el fallback conserva las cinco sugerencias cuando la solicitud es una apertura", async () => {
+    const routes = createProDrafterRoutes({
+      corpus: [],
+      heroPositions: {},
+      runPipeline: () => {
+        throw new Error("fallo simulado");
+      },
+      computeV5Fallback: async () => fakeV5Set(),
+    });
+
+    const response = await routes.postRecommendations(makeRequest({ ...EMPTY_BODY, teamOpening: true }));
+    const body = (await response.json()) as { suggestions: { rank: number }[] };
+
+    expect(body.suggestions).toHaveLength(5);
+    expect(body.suggestions.map((suggestion) => suggestion.rank)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  test("propaga teamOpening, matchups y heroCapabilities al pipeline", async () => {
+    let received: unknown;
+    const routes = createProDrafterRoutes({
+      corpus: [],
+      heroPositions: {},
+      heroCapabilities: [],
+      getMetaMatchups: async () => ({ 101: [{ vsHero: 202, games: 400, wins: 300 }] }),
+      runPipeline: (...args) => {
+        received = args[6];
+        return [fakeResult(101 as HeroId)];
+      },
+    });
+
+    await routes.postRecommendations(makeRequest({ ...EMPTY_BODY, teamOpening: true }));
+
+    expect(received).toEqual({
+      teamOpening: true,
+      targetPosition: undefined,
+      topN: 5,
+      matchups: { 101: [{ vsHero: 202, games: 400, wins: 300 }] },
+      heroCapabilities: [],
+    });
+  });
   test("si Pro-Drafter lanza una excepción, cae a v5 con fallback_applied:true y sin 500", async () => {
     const routes = createProDrafterRoutes({
       corpus: [],

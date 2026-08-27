@@ -10,9 +10,7 @@ const MAX_FEEDBACK_COMMENT_LENGTH = 4000;
 
 // TSK-058: extraído de apps/engine/src/server/app.ts (hallazgo 2.1 de "Radiografía de
 // dota2coach", parte 3/3). Draft-paths y draft-feedback comparten módulo a propósito: ambos son
-// endpoints de solo-sesión de bajo tráfico (`/api/session/:id/...`), y separarlos habría sumado
-// un cuarto archivo a este ticket, pasándose del límite de 3 archivos/tarea que el proyecto
-// exige (`scripts/verify-simplicity.sh`). Mismo comportamiento exacto que antes de extraer,
+// endpoints de solo-sesión de bajo tráfico (`/api/session/:id/...`). Mismo comportamiento exacto que antes de extraer,
 // verificado con la suite de integración existente de app.test.ts.
 export interface DraftPathsRouteDeps<TSchema extends Record<string, unknown>> {
   db: BunSQLiteDatabase<TSchema>;

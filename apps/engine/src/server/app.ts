@@ -113,7 +113,14 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   // computeSuggestionsForState está declarada más abajo (function declaration, hoisted dentro de
   // este mismo scope) -- Fase 2 (cache-aside + fallback, sesión Gobernanza 2.0): pro-drafter.ts no
   // tiene `db`, así que el fallback real a v5 se inyecta desde acá.
-  const proDrafterRoutes = createProDrafterRoutes({ heroPositions: deps.heroPositions, computeV5Fallback: computeSuggestionsForState });
+  const proDrafterRoutes = createProDrafterRoutes({
+    heroPositions: deps.heroPositions,
+    heroCapabilities: deps.heroCapabilities,
+    // P14 (SPEC.md §12/§13): esta ruta es el cerebro del bot rival del simulador, nunca representa
+    // a una cuenta logueada -- accountId SIEMPRE null, igual que /api/suggestions/preview.
+    getMetaMatchups: async () => (await getCachedMetaSnapshot<TSchema>(deps.db, null)).matchups,
+    computeV5Fallback: (state, options) => computeSuggestionsForState(state, null, { teamOpening: options?.teamOpening }),
+  });
   let server: Server<WsData>;
 
   // TSK-048: helper compartido entre el push automático (pushSessionUpdate) y el reenvío al

@@ -98,7 +98,13 @@ export function ProDrafterPanel({ draftState, heroCatalog }: ProDrafterPanelProp
 
   function handleOpen() {
     setOpen(true);
-    void triggerRecommendations(buildProDrafterRequest(draftState));
+    void fetch("/api/auth/engine-token", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<{ token?: string }> : Promise.reject(new Error("engine_token_unavailable")))
+      .then(({ token }) => {
+        if (!token) throw new Error("engine_token_unavailable");
+        return triggerRecommendations({ body: buildProDrafterRequest(draftState), accountToken: token });
+      })
+      .catch(() => undefined);
   }
 
   function handleClose() {

@@ -23,16 +23,29 @@ export interface CopilotProDrafterResult {
 // proyecto. RTK Query garantiza que `data` siempre refleja el ÚLTIMO `trigger()` de este hook (un
 // disparo anterior más lento no puede pisar uno más nuevo que ya resolvió) -- no hace falta
 // trackear staleness a mano.
-export function useCopilotProDrafter(draftState: DraftState | null, heroCatalog: Map<number, HeroMeta>): CopilotProDrafterResult {
+export function useCopilotProDrafter(
+  draftState: DraftState | null,
+  heroCatalog: Map<number, HeroMeta>,
+  playerPosition?: 1 | 2 | 3 | 4 | 5,
+): CopilotProDrafterResult {
   const enabled = isProDrafterEnabled();
   const [trigger, { data, isLoading, error }] = usePostProRecommendationsMutation();
   const recordLowConfidence = useLowConfidenceStore((s) => s.record);
+  const draftFingerprint = draftState
+    ? `${draftState.lastSeq}|${draftState.banned.join(",")}|${draftState.picks.radiant.join(",")}|${draftState.picks.dire.join(",")}`
+    : "none";
 
   useEffect(() => {
     if (!enabled || !draftState) return;
-    void trigger(buildProDrafterRequest(draftState));
+    void fetch("/api/auth/engine-token", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<{ token?: string }> : Promise.reject(new Error("engine_token_unavailable")))
+      .then(({ token }) => {
+        if (!token) throw new Error("engine_token_unavailable");
+        return trigger({ body: buildProDrafterRequest(draftState, playerPosition), accountToken: token });
+      })
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- trigger es estable (RTK Query); solo un pick/ban nuevo debe re-disparar
-  }, [enabled, draftState?.lastSeq]);
+  }, [enabled, draftFingerprint, playerPosition]);
 
   const view = data ? toProDrafterView(data) : null;
 
@@ -44,9 +57,12 @@ export function useCopilotProDrafter(draftState: DraftState | null, heroCatalog:
     if (!view) return;
     for (const suggestion of view.suggestions) {
       const knn = suggestion.signals.find((s) => s.signal === "knn_similarity");
-      if (knn && knn.raw === null) {
+      const reportRank = suggestion.rank === 1 || suggestion.rank === 2 || suggestion.rank === 3 ? suggestion.rank : null;
+      // El reporte de baja confianza conserva su contrato histórico Top-3; las aperturas pueden
+      // traer ranks 4 y 5 para la UI, pero no se envían a ese endpoint diagnóstico.
+      if (knn && knn.raw === null && reportRank !== null) {
         const heroName = heroCatalog.get(suggestion.hero)?.localizedName ?? `Héroe ${suggestion.hero}`;
-        recordLowConfidence({ hero: suggestion.hero, heroName, rank: suggestion.rank });
+        recordLowConfidence({ hero: suggestion.hero, heroName, rank: reportRank });
       }
     }
   }, [view, heroCatalog, recordLowConfidence]);

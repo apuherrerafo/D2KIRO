@@ -5,8 +5,13 @@ import { buildDraftIndex } from "../../knn/draft-index";
 import { loadHeroLineProfiles } from "../../lane/profiles";
 import { loadPipelineWeights } from "../../pipeline/weight-loader";
 import { runProDrafterPipeline, type PipelineCandidateResult } from "../../pipeline/run-pipeline";
+import { loadHeroCapabilities } from "../../draft-paths/capabilities";
+import type { HeroCapabilities } from "../../draft-paths/types";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
+import type { HeroMatchupStat } from "../../signals/types";
 import type { SuggestionSet } from "../../signals/mix";
+import { createRelationshipIndex } from "../../signals/relationship-index";
+import { createSynergyIndex, type SynergyStat } from "../../signals/synergy-index";
 import { isValidSuggestionsPreviewRequest, type SuggestionsPreviewRequest } from "../edge";
 
 // Endpoint experimental (tras ENABLE_PRO_DRAFTER, ver server/app.ts): expone `runProDrafterPipeline`
@@ -35,7 +40,10 @@ export interface ProDrafterRouteDeps {
   runPipeline?: typeof runProDrafterPipeline;
   // v5 real (buildSuggestions + MetaSnapshot vía SQLite) -- este módulo no tiene `db`, así que el
   // fallback se inyecta desde server/app.ts (computeSuggestionsForState ya existe ahí, TSK-048).
-  computeV5Fallback?: (state: DraftState) => Promise<SuggestionSet>;
+  computeV5Fallback?: (state: DraftState, options?: { teamOpening?: boolean }) => Promise<SuggestionSet>;
+  heroCapabilities?: readonly HeroCapabilities[];
+  getMetaMatchups?: () => Promise<Record<HeroId, HeroMatchupStat[]>>;
+  getSynergies?: () => Promise<Record<HeroId, SynergyStat[]>>;
   // Reloj inyectable -- mismo patrón que el resto del motor (engine.md: nunca Date.now() propio
   // sin poder inyectarlo), usado tanto para medir el presupuesto de 200ms como el TTL de caché.
   now?: () => number;
@@ -43,12 +51,21 @@ export interface ProDrafterRouteDeps {
 
 interface ProDrafterSuggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3;
+  rank: 1 | 2 | 3 | 4 | 5;
   score: number;
   // [] en fallback -- v5 usa SignalId (position_fit/team_synergy/counter/patch_meta/hero_pool_fit),
   // vocabulario disjunto del de Pro-Drafter (knn_similarity/lane_score/denial_score, ver
   // signals/types.ts vs pipeline/run-pipeline.ts). Nunca se fabrica un valor que v5 no calculó.
   signals: PipelineCandidateResult["signals"];
+  evidence?: {
+    observedEnemyCount: number;
+    counterMatchups: number;
+    counterConfidence: number | null;
+    synergy: "available" | "unavailable";
+    synergyPairs: number;
+    synergyConfidence: number | null;
+    position: "applied" | "unavailable";
+  };
 }
 
 // Fase 3 (apps/web, sesión Gobernanza 2.0): redundante con `fallback_applied` a propósito -- el
@@ -82,6 +99,8 @@ function fingerprint(body: SuggestionsPreviewRequest): string {
     `banned:${sortedIds(body.banned)}`,
     `radiant:${sortedIds(body.picks.radiant)}`,
     `dire:${sortedIds(body.picks.dire)}`,
+    `opening:${body.teamOpening === true}`,
+    `targetPosition:${body.targetPosition ?? "none"}`,
   ].join("|");
 }
 
@@ -112,6 +131,7 @@ export function createProDrafterRoutes(deps: ProDrafterRouteDeps = {}) {
   const profiles = loadHeroLineProfiles();
   const index = buildDraftIndex(corpus, corpus[0]?.patch ?? "unknown");
   const pipelineImpl = deps.runPipeline ?? runProDrafterPipeline;
+  const heroCapabilities = deps.heroCapabilities ?? loadHeroCapabilities();
   const now = deps.now ?? Date.now;
 
   // Cache-aside en memoria, propia de esta instancia -- Map preserva orden de inserción: un hit
@@ -142,25 +162,60 @@ export function createProDrafterRoutes(deps: ProDrafterRouteDeps = {}) {
 
   // null = Pro-Drafter falló o se pasó del presupuesto -- el llamador cae a v5, nunca deja
   // pasar una respuesta a medio calcular ni relanza el error como 500.
-  function runPipelineWithBudget(state: DraftState): ProDrafterSuggestion[] | null {
+  async function runPipelineWithBudget(state: DraftState, teamOpening: boolean, targetPosition: 1 | 2 | 3 | 4 | 5 | undefined): Promise<ProDrafterSuggestion[] | null> {
+    let matchups: Record<HeroId, HeroMatchupStat[]> | undefined;
+    let synergies: Record<HeroId, SynergyStat[]> | undefined;
+    try {
+      matchups = await deps.getMetaMatchups?.();
+      synergies = await deps.getSynergies?.();
+    } catch {
+      matchups = undefined;
+    }
     const start = now();
     try {
-      const results = pipelineImpl(state, index, corpus, heroPositions, weights, profiles);
+      const results = pipelineImpl(state, index, corpus, heroPositions, weights, profiles, {
+        teamOpening,
+        targetPosition,
+        topN: 5,
+        matchups,
+        heroCapabilities,
+      });
       if (now() - start > PIPELINE_TIMEOUT_MS) return null;
-      return results.map((r, i) => ({ hero: r.heroId, rank: (i + 1) as 1 | 2 | 3, score: r.score, signals: r.signals }));
+      const enemySide = state.localSide === "radiant" ? "dire" : state.localSide === "dire" ? "radiant" : null;
+      const observedEnemies = enemySide ? state.picks[enemySide] : [];
+      const relationshipIndex = createRelationshipIndex(matchups ?? {});
+      const synergyIndex = createSynergyIndex(synergies ?? {});
+      return results.map((r, i) => {
+        const counterEvidence = relationshipIndex.counterRows(r.heroId, observedEnemies);
+        const synergyEvidence = synergyIndex.synergyRows(r.heroId, state.localSide === "unknown" ? [] : state.picks[state.localSide]);
+        return {
+          hero: r.heroId,
+          rank: (i + 1) as 1 | 2 | 3 | 4 | 5,
+          score: r.score,
+          signals: r.signals,
+          evidence: {
+            observedEnemyCount: observedEnemies.length,
+            counterMatchups: counterEvidence.length,
+            counterConfidence: counterEvidence.length === 0 ? null : Math.min(...counterEvidence.map((row) => row.confidence)),
+            synergy: synergyEvidence.length === 0 ? "unavailable" as const : "available" as const,
+            synergyPairs: synergyEvidence.length,
+            synergyConfidence: synergyEvidence.length === 0 ? null : Math.min(...synergyEvidence.map((row) => row.confidence)),
+            position: targetPosition === undefined ? "unavailable" as const : "applied" as const,
+          },
+        };
+      });
     } catch {
       return null;
     }
   }
 
-  async function buildFallbackSuggestions(state: DraftState): Promise<ProDrafterSuggestion[]> {
+  async function buildFallbackSuggestions(state: DraftState, teamOpening: boolean): Promise<ProDrafterSuggestion[]> {
     if (!deps.computeV5Fallback) return [];
-    const v5 = await deps.computeV5Fallback(state);
-    // Pro-Drafter conserva su contrato de tres alternativas. La apertura de equipo del
-    // simulador puede tener cinco, pero nunca viaja por este fallback experimental.
+    const v5 = await deps.computeV5Fallback(state, { teamOpening });
+    const maxRank = 5;
     return v5.suggestions
-      .filter((suggestion) => suggestion.rank <= 3)
-      .map((suggestion) => ({ hero: suggestion.hero, rank: suggestion.rank as 1 | 2 | 3, score: suggestion.score, signals: [] }));
+      .filter((suggestion) => suggestion.rank <= maxRank)
+      .map((suggestion) => ({ hero: suggestion.hero, rank: suggestion.rank as 1 | 2 | 3 | 4 | 5, score: suggestion.score, signals: [] }));
   }
 
   async function postRecommendations(request: Request): Promise<Response> {
@@ -174,13 +229,13 @@ export function createProDrafterRoutes(deps: ProDrafterRouteDeps = {}) {
     if (cached) return Response.json(cached);
 
     const state = previewStateFrom(body);
-    const proSuggestions = runPipelineWithBudget(state);
+    const proSuggestions = await runPipelineWithBudget(state, body.teamOpening === true, body.targetPosition);
 
     const response: ProDrafterResponse = proSuggestions
       ? { schema: "pro-drafter-suggestions/v1", suggestions: proSuggestions, fallback_applied: false, cache_hit: false, engine_version: "pro-drafter" }
       : {
           schema: "pro-drafter-suggestions/v1",
-          suggestions: await buildFallbackSuggestions(state),
+          suggestions: await buildFallbackSuggestions(state, body.teamOpening === true),
           fallback_applied: true,
           cache_hit: false,
           engine_version: "v5",

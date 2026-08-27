@@ -33,7 +33,7 @@ export interface OrchestratorConfig {
 
 export interface OrchestratorRound {
   round: 1 | 2 | 3;
-  /** Picks pre-calculados del bot, ocultos hasta la revelación de la ronda (Req. 3.2) */
+  /** Vacío al iniciar; el hook escribe la respuesta básica del bot solo al cerrar esta ronda. */
   botPicks: HeroId[];
 }
 

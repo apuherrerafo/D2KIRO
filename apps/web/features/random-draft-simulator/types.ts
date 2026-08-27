@@ -37,6 +37,8 @@ export interface DraftConfig {
   /** 8 chars A-Z0-9 */
   draftSeed: string;
   userSide: TeamSide;
+  /** Posición que el usuario jugará (1 carry ... 5 hard support). */
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
   personalBanList: HeroId[];
   patch: string;
 }

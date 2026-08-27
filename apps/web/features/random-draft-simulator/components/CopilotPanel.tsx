@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { ProDrafterEngineBadge, ProSuggestionRow } from "@/components/pro-drafter-panel/ProDrafterPanel";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { BUTTON_GHOST } from "@/features/draft/styles";
 import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 import { DEGRADATION_LABELS } from "@/features/draft/constants";
-import type { DraftDecisionContext, DraftState, SuggestionSet } from "@/features/draft/types";
+import type { DraftDecisionContext, DraftState, HeroId, SuggestionSet } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
 import { useCopilotProDrafter } from "../use-copilot-pro-drafter";
@@ -78,6 +79,8 @@ export interface CopilotPanelProps {
   heroCatalog: Map<number, HeroMeta>;
   previewStatus?: PreviewStatus;
   onRetryPreview?: () => void;
+  onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
 }
 
 interface CopilotPanelBodyProps {
@@ -86,6 +89,7 @@ interface CopilotPanelBodyProps {
   heroCatalog: Map<number, HeroMeta>;
   previewStatus: PreviewStatus;
   onRetryPreview: () => void;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
 }
 
 // v5 puro -- comportamiento sin cambios respecto a antes de Fase 4, es lo que se sigue mostrando
@@ -115,8 +119,23 @@ function V5CopilotBody({ draftState, suggestions, heroCatalog, previewStatus, on
 // o retrocompatibilidad si el flag del motor está apagado -- ver toProDrafterView). Reutiliza
 // ProDrafterEngineBadge/ProSuggestionRow tal cual (componente real, no una réplica visual
 // distinta, mismo criterio que ya aplicaba SuggestionCard/ComparisonNote acá).
-function ProDrafterCopilotBody({ draftState, heroCatalog }: CopilotPanelBodyProps) {
-  const { view, isLoading, error } = useCopilotProDrafter(draftState, heroCatalog);
+function ProDrafterCopilotBody({ draftState, heroCatalog, playerPosition, onSuggestedHeroIdsChange }: CopilotPanelBodyProps & {
+  onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
+}) {
+  const { view, isLoading, error } = useCopilotProDrafter(draftState, heroCatalog, playerPosition);
+  const suggestedHeroKey = view?.suggestions.map((suggestion) => suggestion.hero).join(",") ?? "";
+
+  // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta. Mientras llega la
+  // respuesta del nuevo estado no conservamos resaltados del estado anterior.
+  useEffect(() => {
+    if (!onSuggestedHeroIdsChange) return;
+    if (isLoading || !view) {
+      onSuggestedHeroIdsChange(new Set());
+      return;
+    }
+    onSuggestedHeroIdsChange(new Set(view.suggestions.map((suggestion) => suggestion.hero)));
+    // suggestedHeroKey estabiliza el view derivado y evita un efecto infinito.
+  }, [isLoading, onSuggestedHeroIdsChange, suggestedHeroKey]);
 
   return (
     <>
@@ -151,6 +170,8 @@ export function CopilotPanel({
   heroCatalog,
   previewStatus = "idle",
   onRetryPreview = noop,
+  onSuggestedHeroIdsChange,
+  playerPosition,
 }: CopilotPanelProps) {
   if (isProDrafterEnabled()) {
     return (
@@ -162,6 +183,8 @@ export function CopilotPanel({
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={onRetryPreview}
+          onSuggestedHeroIdsChange={onSuggestedHeroIdsChange}
+          playerPosition={playerPosition}
         />
       </div>
     );
