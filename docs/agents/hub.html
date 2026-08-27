@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-26T04:07:25.580Z</title>
+<title>HUB del ecosistema — 2026-08-27T17:20:14.558Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -53,8 +53,8 @@
   <h1>HUB del ecosistema</h1>
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
-  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step ">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: Acción: realizar QA manual end-to-end del simulador y del login Steam contra los procesos locales; · convertir cualquier hallazgo reproducible en un ticket nuevo antes de modificar el motor. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
+  <div class="next-step">📍 Siguiente paso: **Fase 6 está completa e integrada (`TSK-126` a `TSK-142`, `TSK-144`, `TSK-145`, todos `done`, · 15 commits atómicos reconstruidos por `TSK-146` el 2026-08-27 tras encontrar 2 commits locales · rotos — ver `journal.md` evt-20260827-002).** `ENABLE_PRO_DRAFTER` sigue apagado por gobernanza: · el benchmark de sensibilidad no pasa (Jaccard 0.480 contra barra ≤0.35, rank-1 28% contra ≥60%, · estabilidad Role-Pressure 27.3% contra ≥80%). Causa raíz declarada: volumen de datos — solo · 1.200 de 15.984 filas de `hero_matchups` superan el piso de 200 partidas. ·  · **Fase 7 (línea de datos profesionales Tier 1) está ticketeada** — 17 tickets, `TSK-146` a · `TSK-162`, 4 gates de ejecución (G1 contratos+ingesta, G2 normalización+patrones, G3 · analyzer+benchmarks, G4 integración opcional condicionada a que G3 pase). Hallazgo que reordena · el trabajo: `GET /api/matches/{id}` de OpenDota ya devuelve el 95% de lo que la fase necesita · (orden de picks/bans, posición estimada, equipos, liga) y `scripts/fetch-pro-drafts.ts` lo · descartaba — es un problema de retención, no de adquisición. Sin STRATZ, sin scraping, sin · dependencia nueva. ·  · Herramienta: Claude Code para los tickets de mayor riesgo/memoria (146-150, 153-161), Codex para · los acotados y autocontenidos (151, 152, 157). Modelo: Sonnet. · Acción: **10 decisiones de producto bloquean G1** (umbral de muestra, volumen de ingesta, · exclusión de Liquipedia, entre otras — documentadas dentro de cada ticket que bloquean, resumen en · el plan de `/blueprint`). Aprobarlas, luego `/dispatch` de `TSK-147` (`TSK-146` ya cerrado). ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -120,8 +120,136 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>backlog <span class="count">16</span></h2>
+        
+        <div class="card  ">
+          <div class="card-id">TSK-150</div>
+          <div class="card-title">Fase 7 G1: scripts/pro/ingest-drafts.ts — ingesta cruda con retención total</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-154</div>
+          <div class="card-title">Fase 7 G2: combinatorios — parejas, tríos y respuestas a ban (umbral 10, exploratory)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-160</div>
+          <div class="card-title">Fase 7 G3: benchmarks separados por fuente + diversidad de torneos y estabilidad temporal</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-155</div>
+          <div class="card-title">Fase 7 G2: compilador pro-patterns.json + loader validado en el borde (S14)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-161</div>
+          <div class="card-title">Fase 7 G3: re-corrida del gate de Fase 6 + paquete de decisión</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-151</div>
+          <div class="card-title">Fase 7 G1: normalización de drafts — turno a fase, slot a posición</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-148</div>
+          <div class="card-title">Fase 7 G1: contratos de tipo + esquema de pro-drafts.sqlite</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-149</div>
+          <div class="card-title">Fase 7 G1: scripts/pro/ingest-tournaments.ts — catálogo de torneos</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-156</div>
+          <div class="card-title">Fase 7 G2: apps/engine/src/pro/query.ts — índice contextual de drafts</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-152</div>
+          <div class="card-title">Fase 7 G2: política reproducible de clasificación Tier</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-153</div>
+          <div class="card-title">Fase 7 G2: agregados por héroe x posición x parche x tier + positionConfidence e isFlexible</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-147</div>
+          <div class="card-title">Fase 7 G1: docs/research/pro-data-sources.md — matriz de fuentes verificada</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-157</div>
+          <div class="card-title">Fase 7 G3: pro/analyzer.ts + scripts/pro/analyze.ts — QA interno, nunca en producción</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-158</div>
+          <div class="card-title">Fase 7 G4: señal pro_evidence aislada, sin cablear</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-159</div>
+          <div class="card-title">Fase 7 G4: cablear pro_evidence al pipeline Pro-Drafter</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-162</div>
+          <div class="card-title">Fase 7 G4: spike de embeddings — criterios cuantitativos de salida, cero código</div>
+          <div class="card-meta">
+            <span class="tag tag-could">could</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>ready <span class="count">0</span></h2>
@@ -140,8 +268,16 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">125</span></h2>
+        <h2>done <span class="count">145</span></h2>
         
+        <div class="card  ">
+          <div class="card-id">TSK-140</div>
+          <div class="card-title">FlexScore por entropía y penalización de revelación</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
         <div class="card  ">
           <div class="card-id">TSK-111</div>
           <div class="card-title">Simulador: conectar apertura de equipo al motor de sugerencias</div>
@@ -190,6 +326,14 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-135</div>
+          <div class="card-title">Fase 6: scripts/evaluate-pro-drafter.ts — modo de sensibilidad a bans</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -283,6 +427,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-131</div>
+          <div class="card-title">Fase 6: run-pipeline.ts — 7º parámetro, pesos por fase y fuente de matchups</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-071</div>
           <div class="card-title">Curar tabla real de turnos + tiempo de reserva de Captain's Mode y All Pick (rediseño UX /draft, punto 2, dato base)</div>
           <div class="card-meta">
@@ -366,6 +518,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-130</div>
+          <div class="card-title">Fase 6: extractCandidateStrategies en pipeline/feature-extractor.ts</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-021</div>
           <div class="card-title">Endpoint POST /api/hero-pool/calculate + sus errores</div>
           <div class="card-meta">
@@ -380,6 +540,14 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-141</div>
+          <div class="card-title">Overrides tácticos Tier-1 deterministas para apertura</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -438,6 +606,14 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-134</div>
+          <div class="card-title">Fase 6: espejos de apps/web/features/pro-drafter/types.ts</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -522,6 +698,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-129</div>
+          <div class="card-title">Fase 6: pipeline/ban-relief.ts — el término ban-aware</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-038</div>
           <div class="card-title">Deploy B -- guard de ruta: /draft queda fuera del deploy cloud</div>
           <div class="card-meta">
@@ -536,6 +720,14 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-139</div>
+          <div class="card-title">Matriz dinámica de pesos por fase del draft</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -623,6 +815,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-128</div>
+          <div class="card-title">Fase 6: pipeline/meta-matchup.ts — fuente real de MatchupWinrate</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-039</div>
           <div class="card-title">Deploy C -- Basic Auth sobre toda la instancia cloud</div>
           <div class="card-meta">
@@ -640,6 +840,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-138</div>
+          <div class="card-title">Eliminar ghost counters e introducir opportunity windows en teamOpening</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-078</div>
           <div class="card-title">Guardrail de roster completo (max 5 picks/lado) en el reductor (RCA post-TSK-076)</div>
           <div class="card-meta">
@@ -653,6 +861,14 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-146</div>
+          <div class="card-title">Fase 7 G1: higiene — árbol de git, tablero, memoria y tsc limpio</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
           </div>
         </div>
         <div class="card  ">
@@ -715,6 +931,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-133</div>
+          <div class="card-title">Fase 6: server/routes/pro-drafter.ts + server/app.ts — apertura de 5</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-073</div>
           <div class="card-title">Turno actual en el protocolo de wire + espejo en apps/web (rediseño UX /draft, punto 2, protocolo)</div>
           <div class="card-meta">
@@ -739,12 +963,28 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-142</div>
+          <div class="card-title">Calibración Role-Pressure Sensitivity del benchmark</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-002</div>
           <div class="card-title">Esquema SQLite/Drizzle (C4)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-127</div>
+          <div class="card-title">Fase 6: pipeline/phase-decay.ts — blend continuo de pesos por fase</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -840,6 +1080,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-126</div>
+          <div class="card-title">Fase 6: mover openingStrategy a draft-paths/strategy.ts</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-095</div>
           <div class="card-title">Fase 5: hero_pool a PK compuesta (accountId, heroId) + migración 0006</div>
           <div class="card-meta">
@@ -853,6 +1101,14 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-136</div>
+          <div class="card-title">Fase 6: calibración de hiperparámetros de apertura</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -963,6 +1219,14 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-132</div>
+          <div class="card-title">Fase 6: run-pipeline.ts — el modo teamOpening completo (resuelve la queja)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
           </div>
         </div>
         <div class="card  ">
@@ -1124,6 +1388,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-137</div>
+          <div class="card-title">Fase 6: ampliar cobertura de matchups para calibración de apertura</div>
+          <div class="card-meta">
+            <span class="tag tag-should">should</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-066</div>
           <div class="card-title">Engine & Web Performance Optimizations (integración de spec nativo de Kiro)</div>
           <div class="card-meta">
@@ -1156,11 +1428,27 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-144</div>
+          <div class="card-title">Confianza estadística para el índice de relaciones</div>
+          <div class="card-meta">
+            <span class="tag tag-could">could</span>
+            <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-060</div>
           <div class="card-title">Memoizar el estado por-draft (no por-candidato) dentro de position_fit, counter y team_synergy</div>
           <div class="card-meta">
             <span class="tag tag-could">could</span>
             <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-145</div>
+          <div class="card-title">Índice de sinergias entre aliados confirmados</div>
+          <div class="card-meta">
+            <span class="tag tag-could">could</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -1186,21 +1474,21 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">145× · 79% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">151× · 79% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:39%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:38%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:32%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:31%"></div></div>
           <div class="stat-nums">47× · 34% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:30%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:28%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1261,6 +1549,48 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-146</span> <span class="feed-ts">2026-08-27T11:00</span></div>
+            <div class="feed-note">Higiene de repo previa a Fase 7 (línea de datos profesionales Tier 1), pedida explícitamente por el usuario con 5 condiciones antes de aprobar el plan. **Hallazgo 1, mecánico**: los 2 últimos commits locales (`388a070`, `c7adbec`, nunca pusheados — `origin/master` en `10638ff`, 2 commits atrás) estaban rotos — `c7adbec` commiteó `ban-relief.ts` (TSK-129) importando `./meta-matchup` (TSK-128), que nunca se había commiteado; `run-pipeline.ts` en el mismo commit importaba `extractCandidateStrategies` antes de que `feature-extractor.ts` lo exportara. Verificado restaurando el árbol a HEAD puro (`git stash` + `tsc`): 2 módulos inexistentes. Corregido con `git reset --soft origin/master` (seguro, nada pusheado) y reconstrucción completa de 15 commits atómicos en orden de dependencia real (TSK-126→145 + docs de blueprint/rulebook), cada uno verificado con `tsc --noEmit` limpio antes de avanzar al siguiente — nunca reescritura de historia publicada, ambos commits eran solo locales. **Hallazgo 2, con decisión del usuario**: el árbol de trabajo traía, sin ticket ni test de integración, `playerPosition`+`heroPool`+un `poolBonus` en `run-pipeline.ts`, cableados en `app.ts` vía `requireHttpAccount(request)` — `/api/v1/draft/pro-recommendations` pasaba a computar con el `accountId` real de la cuenta logueada, violando textualmente `SPEC.md` §12/§13 P14 ("esta ruta es el cerebro del bot rival del simulador, computa siempre con `accountId: null`"). Presentado al usuario vía `AskUserQuestion`: decidió revertir, conservando `targetPosition`/`topN:5` (legítimos, TSK-133) y retirando `playerPosition`/`heroPool`/`poolBonus`/`requireHttpAccount` de esta ruta. Revertido antes de commitear (`app.ts`, `edge.ts`, `routes/pro-drafter.ts`, `run-pipeline.ts`), documentado en el commit `fdf774e`. Consecuencia real sin resolver a propósito: `apps/web` sigue enviando `playerPosition` (selector de posición en `ConfigPanel` del simulador, con tests) pero el servidor ya no lo lee — queda como UI inerte hasta que se decida en un ticket aparte si la personalización vuelve con su propio `/blueprint` o si el selector se retira. **Hallazgo 3, aparte, no bloqueante**: `index.ts` nunca pasaba `internalAuthSecret: process.env.INTERNAL_AUTH_SECRET` a `createApp()` — el motor nunca activaba `multi_tenant` en producción pese a que Fase 5 está completa; corregido en el mismo commit, verificado que no reabre el hallazgo 2 (esta ruta ya no usa `requireHttpAccount`). **Hallazgo 4, verificado y descartado**: la deriva de `tsc --noEmit` de 9 archivos que el propio ticket esperaba encontrar (heredada de `TSK-072`) ya no existe — `tsc --noEmit` pasa limpio en `apps/engine` y `apps/web` sin cambios; el hallazgo del audit previo estaba desactualizado. `bun test`: 543/543 (engine) + 190/190 (web). `verify-simplicity.sh`: PASS. 15 commits nuevos + 1 de los 17 tickets de Fase 7 (`TSK-146`→`TSK-162`, ver evento siguiente). Siguiente: aprobación de las 10 decisiones de producto que bloquean G1 (`docs/agents/tasks/TSK-149.md`/`TSK-150.md`/`TSK-153.md` en particular), luego `/dispatch` de `TSK-147`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-144,TSK-145</span> <span class="feed-ts">2026-08-27T09:00</span></div>
+            <div class="feed-note">TSK-144: `signals/relationship-index.ts` (`RELATIONSHIP_MIN_GAMES=200`, `wilsonInterval`, `createRelationshipIndex(matchups).counterRows`), `signals/counter.ts` reescrito para consumirlo vía WeakMap-cache por `MetaSnapshot` en vez de calcular deltas a mano — mismo resultado, ahora con intervalo de confianza real. Declara fuera de alcance, textual: "Sinergias, datos profesionales, embeddings y cambios de UI se implementarán en tickets separados" — única mención de "embeddings" en el repo hasta esta sesión. TSK-145: `signals/synergy-index.ts` (`SYNERGY_MIN_GAMES=100`, solo aliados confirmados, nunca hipotéticos), consumido por la evidencia de TSK-133 pero sin integrarse todavía al ranking global — integración declarada como ticket posterior, nunca creado hasta esta sesión (ver TSK-146 y el roadmap de Fase 7).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-138,TSK-139,TSK-140,TSK-141,TSK-142</span> <span class="feed-ts">2026-08-26T20:30</span></div>
+            <div class="feed-note">Overhaul táctico + calibración de Role-Pressure. TSK-138: ghost counters → opportunity windows (`MatchupScore` contra un héroe baneado es exactamente 0, `createOpportunityWindowScore` reemplaza el alivio plano). TSK-139: matriz dinámica de pesos por fase (fase 1: rol/flex 0.55, matchup/oportunidad 0.25, sinergia 0.20; fase 2: matchup 0.45, rol/denial 0.30, sinergia 0.25). TSK-140: `pipeline/flex-score.ts` (entropía normalizada, `revealPenalty`, `adjustOpeningFlexScore`). TSK-141: `pipeline/tactical-overrides.ts` (`DEFAULT_TACTICAL_OVERRIDES` declarativo — tier1Flex, early aggressors, macro strategies, save supports — nunca reintroduce un héroe baneado). TSK-142: `scripts/role-pressure.ts` reemplaza a Jaccard como gate primario (`rolePressure`, `profileDistance`, `calibrateRolePressure`). Resultado registrado: 27.3% de estabilidad ante bans irrelevantes / 94.9% de cambio ante bans pivotales, contra barra 80%/50% — no cumplida. `ENABLE_PRO_DRAFTER` sigue apagado. Commit `c7adbec`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-133,TSK-134,TSK-135,TSK-136,TSK-137</span> <span class="feed-ts">2026-08-26T20:04</span></div>
+            <div class="feed-note">Bloque C+D de Fase 6. TSK-133: `ProDrafterSuggestion.rank` ensancha `1|2|3`→`1|2|3|4|5`, `ProDrafterRouteDeps` gana `heroCapabilities`/`getSynergies`, `fingerprint()` gana `targetPosition` (cierra el hueco de colisión de caché de §13.17-3), `buildFallbackSuggestions` corta en 5 para apertura, respuesta gana `evidence{}` por sugerencia (rivales observados, matchups con muestra, confianza Wilson mínima vía `relationship-index`/`synergy-index`, si la posición se aplicó). TSK-134: espejo de `apps/web/features/pro-drafter/types.ts` en el mismo PR — corrige el type-lie preexistente (con el flag apagado y `teamOpening:true` la ruta ya respondía ranks 4/5 contra un tipo que solo declaraba 1|2|3). TSK-135: modo `--ban-sensitivity` de `evaluate-pro-drafter.ts` (≥50 drafts, 2 variantes de 16 bans, seed `135_2026`, Jaccard+distinct-hero+rank-1 change rate, V5 vs Pro-Drafter), corrige el header desactualizado ("~175"→"502 drafts/124 héroes"). TSK-136: calibración real — `BETA_OPENING` 0.04→0.5 (Jaccard 0.690→0.480; 0.65/0.7 empeoraron, descartados como sobreajuste). Barra de TSK-135 (Jaccard≤0.35, rank-1≥60%) NO cumplida — bloqueado por volumen de datos, motiva Fase 7. TSK-137: `OpenDotaClient.getExplorer(sql)` + `scripts/fetch-expanded-matchups.ts` — ingesta Explorer sobre `public_matches` (avg_rank_tier≥60, ventana 90 días), `MIN_MATCHUP_GAMES=200` preservado, escritura opt-in (`--write-db`). Corrida real: 102-104 pares válidos. `ENABLE_PRO_DRAFTER` sigue apagado.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-131,TSK-132</span> <span class="feed-ts">2026-08-26T06:25</span></div>
+            <div class="feed-note">Bloque B de Fase 6 completo: TSK-131 conectó `deriveContinuousPipelineWeights` (TSK-127) y la selección de fuente de matchups (TSK-128) en `run-pipeline.ts`, sin el modo apertura todavía -- 7º parámetro `options?: ProDrafterPipelineOptions` agregado, el número trazado a mano de `run-pipeline.test.ts` actualizado con la tabla exacta de `SPEC.md` §13.4 (own=1/enemy=2 -> t=0.25 -> pesos 0.30/0.35/0.35), más 2 pruebas nuevas (pesos idénticos a `base` con own+enemy>=4; `options.matchups` inyectado cambia el resultado vs. el proxy del corpus). **TSK-132 -- el ticket que resuelve la queja de producto original**: el modo `teamOpening` completo en `run-pipeline.ts`. Guarda de apertura byte a byte igual a la de `signals/mix.ts` (nunca `deriveDecisionContext`, por el hallazgo real de `SPEC.md` §13.16-C); KNN saltado en apertura (`knn_similarity: raw:null` para todos); el término de "denial" pasa a operar contra los héroes BANEADOS (no picks rivales) vía `ban-relief.ts` (TSK-129), combinados por SUMA en vez de promedio (al revés del camino normal); desempate por `heroId` y diversificación por estrategia (`extractCandidateStrategies`, TSK-130) exclusivos de esta rama, corte en `OPENING_TOP_N=5`. Diseño de fixture real y verificado empíricamente (no solo hand-waved): 11 héroes candidatos con posiciones/perfiles curados a propósito para que 2 conjuntos de bans contrastantes (uno con un counter real de bajo-entropía compartiendo posición con 2 candidatos fuera del top-5 baseline; otro con un héroe alta-entropía sin dato de matchup) produzcan un top-5 que difiere en 4 héroes (2 entran, 2 salen) y en el héroe de rank 1 -- el candado de sensibilidad real, probado contra el pipeline completo, nunca contra `ban-relief.ts` aislado (mismo criterio que Fase 3/5). 12 pruebas nuevas cubriendo los criterios 1,2,3,4,5,8,9 de `SPEC.md` §13.14 (incluidas las 2 pruebas de diversificación -- una donde el candidato de otra estrategia entra por estar dentro del margen de `OPENING_REPEAT_STRATEGY_PENALTY=4.0`, y una donde NO entra por excederlo, mismo criterio de "dos pruebas, no una" que ya exige el propio SPEC). `bun test` (apps/engine): 518-519/519 (1 fallo intermitente confirmado ajeno a esta sesión -- `knn/jaccard.test.ts`, prueba de rendimiento preexistente con margen de 15ms, pasa limpio en aislamiento y en 2 de 3 corridas completas bajo la carga de esta sesión; nunca se tocó ese archivo). `tsc --noEmit` limpio. Bloque B completo -- todavía nada conectado a `server/routes/pro-drafter.ts` ni a `apps/web` (Bloque C, TSK-133/134), `ENABLE_PRO_DRAFTER` sigue apagado. Siguiente: Bloque C (`TSK-133`+`TSK-134`, mismo PR) y Bloque D (`TSK-135`, paquete de evidencia).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-126,TSK-127,TSK-128,TSK-129,TSK-130</span> <span class="feed-ts">2026-08-26T05:58</span></div>
+            <div class="feed-note">Bloque A completo de Fase 6 (piezas puras, ninguna conectada a producción todavía): TSK-126 movió `openingStrategy` de `signals/mix.ts` a `draft-paths/strategy.ts` (cuerpo intacto, `mix.ts` importa en vez de duplicar) con 6 pruebas nuevas verificando cada rama de clasificación. TSK-127 agregó `pipeline/phase-decay.ts` (`openingBlend`/`deriveContinuousPipelineWeights`), generalizando `TIMING_BLEND` de `position-fit.ts` a un blend continuo de los 3 pesos de `PipelineWeights` — 5 pruebas, incluida la tabla exacta de `SPEC.md` §13.4 y el invariante de suma 1.0 sobre las 36 combinaciones de `(own,enemy)` en `0..5×0..5`. TSK-128 agregó `pipeline/meta-matchup.ts` (`createMetaMatchupWinrate`), la fuente real de `MatchupWinrate` respaldada por `MetaSnapshot.matchups` en vez del proxy chico del corpus — 5 pruebas. TSK-129 agregó `pipeline/ban-relief.ts` (`createBanReliefWinrate`/`createPositionalCommitment`, `POSITION_OVERLAP_GAIN=5`, `BETA_OPENING=0.04`) — el corazón matemático de la fase, reutilizando `intent/denial-score.ts` sin editarlo. 10 pruebas, incluida la del ancla obligatoria (candidato sin dato de posición reproduce exactamente el alivio plano de `team-opener.ts`, verificado numéricamente, no solo afirmado). TSK-130 extendió `pipeline/feature-extractor.ts` con `extractCandidateStrategies` (nunca omite héroes, `capabilities` obligatorio sin default silencioso, mismo criterio que `buildMetaSnapshot(db, accountId)`), reusando `openingStrategy` de TSK-126 — 3 pruebas nuevas. `bun test` (apps/engine): 509 pass, 0 fail (486 tras TSK-126, subiendo con cada ticket). `tsc --noEmit` limpio en cada ticket. Ningún archivo de producción existente cambió de comportamiento — Bloque A es infraestructura pura, sin conectar. Siguiente: Bloque B (`TSK-131` conecta pesos por fase + fuente de matchups; `TSK-132`, el modo `teamOpening` completo, es el ticket que resuelve la queja de producto original).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-125</span> <span class="feed-ts">2026-08-26T04:20</span></div>
             <div class="feed-note">Bloqueado al intentar commitear TSK-124: el hook de Claude Code corrió la suite completa antes del commit y encontró un fallo real que no existía momentos antes -- `Failed to register. Happy DOM has already been globally registered.` en `use-random-draft-session.integration.test.ts`. Causa: `CopilotPanel.test.tsx` (llegado en paralelo junto con TSK-123, el trabajo de Codex sobre el punto 5 de su propia lista) también registra happy-dom en su propio archivo -- con dos archivos que necesitan DOM real corriendo en el mismo proceso de `bun test`, el singleton de `GlobalRegistrator` lanza en el segundo registro. Corregido con un helper compartido (`apps/web/test-support/happy-dom.ts`) que registra una sola vez, guardado por `GlobalRegistrator.isRegistered` -- ambos archivos pasan de llamar `.register()` inline a `import "@/test-support/happy-dom"`, apoyándose en el cacheo de módulos de Bun. `bun test`: 188 pass, 0 fail (antes: 186 pass, 1 fail, 1 error). `tsc --noEmit`/`bun run lint`: limpios.</div>
           </div>
@@ -1298,48 +1628,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-116</span> <span class="feed-ts">2026-08-25T20:30</span></div>
             <div class="feed-note">Revisión independiente del reporte de Codex (nunca confiar sin verificar, mismo estándar que TSK-034/TSK-096): el reporte afirmaba "suite web completa: 177 tests, 0 fallos" tras la corrección de la transición de rondas del simulador (TSK-112, ya commiteado en `201d7dd`). Corriendo `bun test` real en el árbol de trabajo sin commitear: **178 tests, 2 fallos**, no 0. Causa raíz: `store.test.ts` traía dos pruebas nuevas (`resetSession descarta un draft parcial...`, `el estado del preview distingue carga, resultado y fallo recuperable`) que referenciaban `previewStatus`/`setPreviewStatus` -- API que nunca se implementó en `store.ts`. Coincide exactamente con el punto 1 de los 5 que el propio Codex identificó como siguiente endurecimiento necesario ("Convertir Copilot en una máquina explícita: cargando, listo, falló con reintento; jamás 'actualizando' infinito") -- alguien (Codex, en la misma sesión) escribió las pruebas en rojo (TDD) pero no llegó a implementar el lado del store/hook antes de reportar la sesión como cerrada. Hallazgo adicional confirmado leyendo el código antes de tocar nada: `refreshPendingPickPreview` (`use-random-draft-session.ts`) atrapaba cualquier error de fetch en un `catch` silencioso y dejaba `suggestions` en `null` para siempre -- exactamente el "actualizando infinito" que el reporte describía como problema a resolver, reproducible con cualquier fallo de red real del endpoint `/api/suggestions/preview`. **Implementado** (TSK-116, ver ticket para detalle completo de archivos): `previewStatus: "idle"|"loading"|"ready"|"failed"` + `setPreviewStatus` en `store.ts` (reseteado a `"idle"` en `startSession`/`resetSession`); `refreshPendingPickPreview` marca `"loading"` antes del fetch, `"ready"` al aplicar la respuesta fresca, `"failed"` en `!response.ok` o excepción -- solo si la petición sigue vigente (mismo guard que ya usaba el código para no pintar una respuesta obsoleta); nuevo `retryPreview()` expuesto en las acciones del hook; `CopilotPanel.tsx` reemplaza el aviso binario `UpdatingNotice` por `PreviewStatusNotice` (3 estados reales, "failed" con botón "Reintentar" que llama a `retryPreview`); `app/simulator/page.tsx` conecta el estado y la acción reales. `bun test` tras el fix: **178 pass, 0 fail** (apps/web) -- confirmado, no solo prometido; `apps/engine` 471/471 sin tocar (cambio 100% frontend). `bunx tsc --noEmit` limpio en `apps/web`. Puntos 2-5 de la lista de Codex (pruebas de integración de secuencia completa, contrato de evidencia estructurada para la explicación, separación de datos observados vs. hipótesis rival, gate de arquitectura de contratos Zustand↔WebSocket↔preview HTTP) quedan sin empezar, documentados como fuera de alcance de este ticket.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:51</span></div>
-            <div class="feed-note">Reporte de "confianza baja" (curación de corpus KNN, sesión Gobernanza 2.0). **Origen real, no un pedido de producto**: durante el smoke test manual del usuario sobre evt-113, el desglose de señales crudo (nombres de señal + coeficientes sin unidad) resultó ilegible para un usuario real -- feedback directo, documentado tal cual. Reformulación del propio usuario tras la crítica: el indicador de confianza no es para producto, es telemetría de curación -- "qué héroes tienen menos data para ir a buscar más partidas profesionales". **Precisión de diseño clave, no en el pedido literal**: de las 3 señales de Pro-Drafter, solo `knn_similarity` depende del corpus de partidas pro (`lane_score`/`denial_score` salen de `hero-positions.json`/`capabilities.json`, archivos curados aparte) -- "confianza baja, hay que recoger data" se define específicamente como `knn_similarity: null` para ese héroe, nunca las otras dos señales (no son accionables trayendo más partidas). **Arquitectura**: `apps/web` no puede escribir al filesystem -- nuevo endpoint `POST /api/pro-drafter/low-confidence-report` en `apps/engine` (mismo gate `ENABLE_PRO_DRAFTER` que el endpoint principal, mismo archivo `routes/pro-drafter.ts`, deliberadamente fuera de `createProDrafterRoutes` porque no necesita corpus/heroPositions/weights/profiles, solo valida y escribe). Escribe a `apps/engine/data/low-confidence-reports/` -- misma carpeta `data/` ya gitignoreada desde TSK-002 (dota2coach.sqlite), mismo criterio: dato local del usuario, nunca versionado. **Seguridad real, no teórica**: `sessionId` llega del cliente y se usa para construir un nombre de archivo -- validado contra `/^[a-zA-Z0-9-]+$/` ANTES de tocar el filesystem, con test dedicado que prueba un intento de path traversal (`../../etc/passwd`) explícitamente rechazado. `reportsDir` inyectable (mismo patrón de testing-seams del resto del motor) para que las pruebas escriban a un directorio temporal real (`mkdtemp`/`os.tmpdir()`), nunca a `./data/` de producción. **Frontend**: nuevo store (`low-confidence-store.ts`) deliberadamente SEPARADO de `RandomDraftStore` -- ese store declara en su propio header "puro estado local, ninguna acción llama a un endpoint HTTP", y este sí termina en un POST. `useCopilotProDrafter` gana un segundo `useEffect` que registra cada sugerencia con `knn_similarity: null` (deduplicado por héroe -- el rank más reciente pisa el anterior, una fila por héroe, no una por cada aparición a lo largo del draft). `use-random-draft-session.ts` hace el flush real: en la transición a fase "complete" (mismo punto donde ya se emite `session_ended`), lee los avistamientos acumulados, dispara `postLowConfidenceReport` (best-effort, atrapa su propio error, nunca bloquea el cierre real de la sesión -- mismo criterio que `correctHero` en `features/draft/store.ts`) y resetea el store para la próxima sesión. **Bug real encontrado en la verificación en navegador, no en revisión de código**: la primera corrida real (draft completo de punta a punta, Playwright real, no mockeado) devolvió 400 en el nuevo endpoint -- diagnóstico con logging de request/response reveló `"patch":""` (string vacío, no `null`/`undefined`) en el body. La causa: `useRandomDraftStore.getState().draftState?.patch ?? "unknown"` -- `??` solo cubre `null`/`undefined`, nunca string vacío, y el `DraftState` del simulador SÍ puede traer `patch: ""` en la práctica. Corregido a `|| "unknown"`. Repetida la misma corrida real tras el fix: **200, archivo escrito de verdad en disco**, 11 héroes con `knn_similarity: null` capturados de un draft real de 10 picks (deduplicados de los ~30 avistamientos brutos a lo largo de las 3 rondas del Top 3). Verificado también con `curl` directo antes del recorrido completo en navegador, para aislar la ruta feliz del flujo end-to-end. **Fuera de alcance de este evento, a propósito** (pedido explícito del usuario, secuencial): el script que consume estos reportes y busca partidas profesionales específicas de los héroes marcados -- "eso es el paso siguiente, una vez que ya tengamos reportes reales para saber a quién apuntarle". `bun test`: 429/429 `apps/engine` (+6: 4 de validación del borde, 2 de escritura real a disco vía `mkdtemp`), 147/147 `apps/web` (+6: 3 del store nuevo, 3 de `postLowConfidenceReport`), 9/9 `scripts/` (sin tocar). `tsc --noEmit` limpio en las dos apps. `bun test` de la suite de aislamiento (`run-pipeline.test.ts`) sigue en verde -- las funciones nuevas de `pro-drafter.ts` no importan de `pipeline/`, no afectan esa invariante. **Traducción a producto**: esto significa que cada vez que el usuario juega una sesión completa del simulador con Pro-Drafter encendido, queda un archivo JSON local con la lista exacta de héroes que el KNN no pudo evaluar por falta de partidas profesionales en el corpus -- información real y accionable para decidir qué buscar después, en vez de adivinar a partir de un desglose de señales que ningún usuario real podía leer.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-24T19:15</span></div>
-            <div class="feed-note">Cierre del gap de UX anotado en evt-113: `CompletedDraftState` (`/draft`, fase "completo") gana un `Link` real ("Simular en All Pick", estilo `BUTTON_SECONDARY`, mismo patrón ya usado en `HeroPoolConfig.tsx` -- `<Link href="..." className={BUTTON_SECONDARY}>`) hacia `/random-draft`, el único simulador que quedó tras evt-113. **Dos hallazgos reales encontrados durante la verificación visual, no en el pedido original**: `SCREEN_STATE_GUIDANCE` (`constants.tsx`) todavía tenía DOS textos de guía mencionando botones ya eliminados en evt-113 -- `completo` decía literalmente `usa "Simular otro draft"` (el botón de `DraftSetupPanel`, borrado) y `esperando_draft` decía `usa "Simular draft"` (mismo botón, mismo estado eliminado). Ninguno de los dos se había tocado en evt-113 porque ese cambio se centró en los componentes/wiring, no en el copy de guía -- encontrado recién al completar un draft real de punta a punta en el navegador y leer el texto en pantalla, no por revisión de código. Corregidos los dos: `completo` ahora referencia "Simular en All Pick" (el botón real que este evento agrega), `esperando_draft` deja de nombrar un botón que ya no existe y en su lugar apunta al simulador desde el menú. Sin test roto -- ningún test de este repo afirma el contenido exacto de `SCREEN_STATE_GUIDANCE` (verificado con grep antes de tocar el archivo). **Verificación real, no solo `bun test`**: como llegar a `phase:"complete"` vía la UI exige un flujo de 10 picks + un evento `session_ended` que `ManualEntryPanel` no expone como botón, se armó la secuencia completa de eventos reales (`session_started`/`local_side_identified`/10×`hero_picked`/`session_ended`) contra `POST /api/session/manual` -- el mismo endpoint real que usa la UI, sin atajos internos -- y se cargó `/draft?session=<id>` en un navegador real (Playwright): el botón aparece, su `href` es `/random-draft`, el click navega ahí de verdad, cero error de consola, confirmado con captura antes y después del fix de copy. `bun test`: 423/423 `apps/engine` (sin tocar), 141/141 `apps/web` (sin cambio de conteo -- adición de JSX estática, mismo nivel de cobertura que ya tienen otros botones de este archivo, ninguno con test dedicado), 9/9 `scripts/` (sin tocar). `tsc --noEmit` limpio. 2 archivos (`DraftView.tsx`, `constants.tsx`), bien dentro de cualquier presupuesto. **Traducción a producto**: esto significa que terminar un draft real (o de entrada manual) en `/draft` ya no es un callejón sin salida -- un solo click lleva directo a practicar en el simulador All Pick vs bot, y el texto de guía en pantalla por fin coincide con los botones reales que existen hoy, no con los que evt-113 ya había borrado.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>dispatch</strong> <span class="feed-ticket">TSK-094,TSK-095,TSK-096</span> <span class="feed-ts">2026-08-25T00:12</span></div>
-            <div class="feed-note">Usuario pidió commitear `TSK-094`+`TSK-095` en conjunto y generar un handoff técnico para Codex arrancando en `TSK-096`. Commiteado `2ba0664` ("feat(db): multi-tenant hero_pool PK + accounts table (TSK-094, TSK-095)") -- 14 archivos (código real de `TSK-095` + bookkeeping), sin rehacer/squashear el commit ya existente de `TSK-094` (`f3584e0`, nunca se reescribe historia ya publicada sin pedido explícito de amend). `git status` post-commit: working tree limpio salvo la documentación de planificación de Fase 5 todavía sin commitear a propósito (`SPEC.md`, `architecture.md`, 4 reglas, `CLAUDE.md`) y los 11 tickets backlog restantes (`TSK-096` a `TSK-106`) -- ninguno de los dos grupos forma parte de este commit ni del alcance de `TSK-096`. **Reasignación real de herramienta, registrada, no en silencio**: `TSK-096` tenía `preferred_tool: claude-code` (fijado por `/rulebook`) -- el usuario pidió delegarlo a Codex; `assigned_tool: codex` fijado en el frontmatter, `state: doing`, coherente con la heurística de `/dispatch` (ticket acotado, self-contained, no depende de leer `journal.md`/`architecture.md` para tener sentido -- el propio `TSK-096.md` ya trae el contrato completo). **Corrección real encontrada leyendo el código antes de armar el handoff, no de memoria**: `buildMetaSnapshot` (`provider.ts:30`) todavía lee `personal_baseline_winrate` desde la tabla `settings` -- clave que la migración `0005` de `TSK-094` ya borró (se movió a `accounts.personal_baseline_winrate`). Ese `SELECT` es código muerto desde que `TSK-094` se commiteó; no estaba anotado en `TSK-096.md` como parte de su alcance. Se agrega al handoff de Codex como corrección obligatoria del cache partido (leer `accounts` en vez de `settings`, scopeada por `accountId`), para no dejarlo como una segunda deuda silenciosa después de la primera (`personal_baseline_winrate` nunca escrito, ya documentada en `SPEC.md` §12.15-E). También corregido en el handoff: el ticket cuenta "5 llamadores" de `getCachedMetaSnapshot`, pero `computeV5Fallback` de `pro-drafter.ts` no es una llamada nueva -- es la misma `computeSuggestionsForState` de `app.ts:113` pasada por referencia (`app.ts:105`), así que son 4 call sites reales (`app.ts:116`, `routes/meta.ts:51`, `routes/draft-paths.ts:40`, `routes/simulator-sessions.ts:55`), verificado con `grep` antes de escribirlo. Y se aclara que "inyección de tokens vía `proxy.ts`" (mencionado por el usuario en el pedido) es alcance de `TSK-102`, no de `TSK-096` -- señalado explícitamente en el handoff para que Codex no se desvíe.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-095</span> <span class="feed-ts">2026-08-25T00:03</span></div>
-            <div class="feed-note">Segundo ticket de código de Fase 5: `hero_pool` pasa de PK simple (`heroId`) a compuesta `(accountId, heroId)`, migración `0006_hero_pool_account.sql` (tabla-nueva/copiar/drop/rename, mismo patrón que `0006` ya documentaba). TDD real: 3 archivos de test escritos/actualizados antes que la implementación (`migration-0006.test.ts` nuevo, confirmado en rojo con `ENOENT`; `queries.test.ts` con 6 tests existentes que dejaron de compilar al exigir `accountId`). **Ripple no anticipado en el ticket original, descubierto por `tsc --noEmit`, nunca en silencio**: dos archivos de prueba de integración (`apps/engine/src/meta/provider.test.ts`, `apps/engine/src/server/app.test.ts`) crean su propia tabla `hero_pool` cruda (sin pasar por Drizzle) para levantar un motor de pruebas aislado -- el cambio de PK en `schema.ts` rompió su compilación/ejecución. Corregidos: `account_id` agregado a sus `CREATE TABLE` crudas, y `app.test.ts` además necesitó sembrar una cuenta real (`accounts`) para que las pruebas ya existentes de `GET`/`PUT /api/hero-pool` siguieran pasando exactamente igual que antes de esta fase. Diseño nuevo real: `getSoleAccountId(db)` (`queries.ts`) -- bridge deliberadamente temporal (documentado en comentarios y en el propio ticket) que resuelve la única cuenta real que existe hoy en producción para que las rutas HTTP de hero-pool (`get`/`put`) no rompan el flujo de un solo usuario ya en vivo mientras el resto de Fase 5 (TSK-096 a TSK-098, auth real) se termina de construir -- `null` si `accounts` está vacía, nunca inventa una cuenta; `put()` responde `409 no_account_configured` en ese caso. `calculate()` no se tocó -- nunca toca la tabla `hero_pool` directamente, confirmado leyendo el código real antes de asumirlo. `@redteam`: **APPROVED, gate de seguridad PASS, sin hallazgos** -- verificado en particular que el `DELETE` dentro de `replaceHeroPool` está scopeado por `accountId` (no un borrado global disfrazado), y que `getSoleAccountId` no toma ningún input externo que pudiera filtrar la cuenta de otro. `simplicity_exception: true` declarado en el ticket (9 archivos reales contra el máximo sugerido de 3 -- más ancho de lo estimado por el ripple de los 2 archivos de test no anticipados, pero dentro del espíritu de la excepción de migración; producción real ~90 líneas, muy por debajo de 200). `bun test`: 440/440. `tsc --noEmit`: limpio. **Nada commiteado todavía** -- pendiente de revisión del usuario, mismo ritmo que `TSK-094`. `TSK-095` pasa a `state: done`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-094</span> <span class="feed-ts">2026-08-25T00:03</span></div>
-            <div class="feed-note">Usuario pidió pausar para revisar el diff y commitear `TSK-094` antes de seguir. Commiteado solo lo de este ticket (`f3584e0`, 9 archivos: código real + su propio ticket + bookkeeping) -- deliberadamente sin los 12 tickets restantes de Fase 5 ni los documentos de planificación (`SPEC.md`, `architecture.md`, 4 reglas, `CLAUDE.md`), que el usuario no pidió commitear todavía y quedan en el árbol de trabajo para un commit aparte. `PROGRESS.md` actualizado antes del commit para que `SIGUIENTE PASO` apunte a `TSK-095`, no al chequeo de Railway (que sigue pendiente pero ya no bloquea seguir codificando localmente).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-094</span> <span class="feed-ts">2026-08-24T23:47</span></div>
-            <div class="feed-note">Primer ticket de código de Fase 5: tabla `accounts` (Steam32 como PK) + migración `0005_accounts.sql`, TDD real (prueba escrita primero contra un archivo inexistente, confirmada en rojo con `ENOENT` antes de escribir la migración). Backfill del `steam_account_id` único que hoy vive en `settings` (fase 1b), con el mismo filtro `GLOB` de solo-dígitos + rango Steam32 ya usado por `isValidSteamAccountId` -- y confirma un hallazgo real de `/blueprint` (SPEC.md §12.15-E): `personal_baseline_winrate` nunca se escribió de verdad en `settings`, así que nace `null` en `accounts`, consistente con el comportamiento ya vigente. Corrección real durante `@build`: `CREATE TABLE` sin `IF NOT EXISTS` rompía la 4ª prueba obligatoria del ticket (idempotencia, correr la migración dos veces) -- agregado, sincronizado en el mismo cambio con `docs/specs/SPEC.md` §12.7 y el propio `docs/agents/tasks/TSK-094.md` (nunca en silencio, mismo criterio que el resto del proyecto). `@redteam`: **APPROVED, gate de seguridad PASS**. Verificado empíricamente (no asumido) el caso límite que más preocupaba de una migración que toca `settings.value` sin validar en el borde de la propia `PUT /api/settings` (endpoint genérico, sin formato exigido por key): un valor de solo-dígitos que desborda un entero de 64 bits (26 nueves) -- confirmado con un script real que SQLite **satura** al máximo de `int64` en vez de dar la vuelta a un número chico, así que el `BETWEEN 1 AND 4294967295` posterior lo sigue rechazando sin excepción. Agregada como quinta prueba permanente (candado de regresión), no solo verificación ad-hoc. `bun test`: 434/434 en `apps/engine` (430 previos + 5 nuevas − 1 duplicada por reconteo), `bunx tsc --noEmit` limpio. `scripts/verify-simplicity.sh`: con los 4 archivos de código reales stageados (`schema.ts`, `0005_accounts.sql`, `_journal.json`, `migration-0005.test.ts`, sin contar el ticket como bookkeeping), advertencia no bloqueante de "4 archivos > 3 sugeridos" (Governance 2.0, límites a warning desde TSK-092) -- dentro del espíritu de la excepción de migración ya documentada en `CLAUDE.md` (schema + migración + su prueba), sin necesitar `simplicity_exception: true` explícito. Producción real: 35 líneas (`schema.ts` 11 + SQL 17 + journal 7), muy por debajo del límite de 200. Nada usa `accounts` todavía -- ningún query, ninguna ruta (alcance explícito del ticket 5, `TSK-098`, en adelante). **Nada commiteado** -- el usuario no lo pidió, cambios quedan en el árbol de trabajo. `TSK-094` pasa a `state: done`.</div>
           </div>
         </div></div>
     </div>

@@ -1,14 +1,22 @@
 # MEMORY.md — vista comprimida y regenerable de `journal.md`
 
-Regenerado el 2026-08-22 a partir de `journal.md` completo (645 líneas, eventos evt-20260726-001
-a evt-20260822-094+) y `docs/agents/PROGRESS.md`. Esta vista es descartable y regenerable — la
+Regenerado el 2026-08-26 a partir de `journal.md` y `docs/agents/PROGRESS.md`. Esta vista es
+descartable y regenerable — la
 fuente de verdad sigue siendo `journal.md` (append-only, nunca se comprime ni se borra).
 Regeneración anterior: 2026-07-28 (cubría hasta evt-20260727-067) — este reemplazo incorpora casi
 un mes de trabajo real que la vista vieja no reflejaba.
 
 ## Estado del proyecto
 
-**Los 67 tickets del repo (TSK-001 a TSK-067) están `done`.** Backlog en cero. Fase 1, Fase 1b
+**Fase 6 (Formalizar Pro-Drafter, `TSK-126` a `TSK-142`+`144`+`145`) está `done` e integrada** —
+reconstruida en 15 commits atómicos por `TSK-146` (2026-08-27) tras encontrar 2 commits locales
+rotos (`ban-relief.ts` importaba un módulo nunca commiteado). El overhaul de apertura separa ghost
+counters de opportunity windows, usa FlexScore y overrides Tier-1 deterministas, y el benchmark
+primario ahora mide Role-Pressure. La corrida de referencia mostró 27.3% de estabilidad ante bans
+irrelevantes y 94.9% de cambio ante bans pivotales; por ello `ENABLE_PRO_DRAFTER` permanece
+apagado. **Fase 7 (línea de datos profesionales Tier 1) está ticketeada, 17 tickets (`TSK-146` a
+`TSK-162`), en backlog salvo `TSK-146` ya cerrado.** **144 tickets `TSK-001` a `TSK-145` están
+`done`; `TSK-143` es un hueco huérfano permanente, nunca reutilizado.** Fase 1, Fase 1b
 (hero pool), el bloque de feedback directo de producto, Fase 2 ("Draft en equipo" + Random Draft
 Simulator), el deploy a Railway, Fase 3 (posiciones reales, `position_fit`) y una auditoría de
 arquitectura + recalibración de pesos posterior están todas completas y verificadas contra
