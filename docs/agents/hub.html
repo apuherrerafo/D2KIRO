@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-27T17:47:51.886Z</title>
+<title>HUB del ecosistema — 2026-08-27T17:52:28.251Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -240,16 +240,8 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>doing <span class="count">1</span></h2>
-        
-        <div class="card  ">
-          <div class="card-id">TSK-148</div>
-          <div class="card-title">Fase 7 G1: contratos de tipo + esquema de pro-drafts.sqlite</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-          </div>
-        </div>
+        <h2>doing <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>review <span class="count">0</span></h2>
@@ -260,7 +252,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">146</span></h2>
+        <h2>done <span class="count">147</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -736,6 +728,14 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-148</div>
+          <div class="card-title">Fase 7 G1: contratos de tipo + esquema de pro-drafts.sqlite</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -1474,16 +1474,16 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">152× · 80% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">153× · 80% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:38%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:37%"></div></div>
           <div class="stat-nums">57× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:32%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:31%"></div></div>
           <div class="stat-nums">48× · 35% ok  </div>
         </div>
         <div class="stat-row">
@@ -1546,6 +1546,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-148</span> <span class="feed-ts">2026-08-27T13:10</span></div>
+            <div class="feed-note">Codex entregó `apps/engine/src/pro/types.ts` + `scripts/pro/schema.sql` + `.gitignore` en paralelo con `TSK-147` (cero solapamiento de archivos, confirmado en ambas direcciones). Verificado independientemente antes de cerrar, no aceptado del reporte de Codex sin comprobar: `tsc --noEmit` limpio, esquema aplicado 2 veces sobre SQLite en memoria sin error, `bun test` verde. El "13 fallos EADDRINUSE" que reportó Codex no se reprodujo (543/543 en la corrida propia) — carrera de puertos puntual en su entorno, no regresión real. Hallazgo real: el prompt dado a Codex se contradecía (2 archivos exactos vs. pedir una prueba de tipos) — Codex priorizó correctamente el límite de archivos y omitió la prueba; se agregó `apps/engine/src/pro/types.test.ts` (4 pruebas con `@ts-expect-error`) para no dejar la garantía central del contrato (`source`/`confidence` obligatorios, `Confidence` cerrada a 4 miembros, `region` literal) viviendo solo en la prosa del ticket. `bun test` final: 547/547. Gate 1 de Fase 7 con 3 de 6 tickets cerrados (`146`, `147`, `148`); `TSK-149` queda desbloqueado.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1621,13 +1628,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-119</span> <span class="feed-ts">2026-08-26T00:35</span></div>
             <div class="feed-note">Primer PR real contra la infraestructura de CI (`test/ci-indexing`) falló en el job `test (web)`. No reproducible con `cd apps/web && bun run lint && bun test` en macOS local (node_modules ya instalado) -- pasó limpio, señal de que era un problema de entorno fresco, no de lógica. Reproducido el entorno real en un contenedor Linux (`oven/bun:latest`, instalación limpia desde `bun.lock`, monorepo completo preservado). **Causa raíz real**: `apps/web` tiene 2 imports relativos deliberados hacia `apps/engine` (`proxy.test.ts`, `app/api/auth/engine-token/route.test.ts`, ambos importan `verifyAccountToken` de `apps/engine/src/server/account-token`) -- el "candado compartido" de `x-account-token` documentado en `testing-seams.md` S13: la misma verificación HMAC se prueba desde quien la acuña (web) y quien la verifica (engine), a propósito, no un descuido. `bunx tsc --noEmit` en `apps/web` sigue ese import y compila transitivamente `apps/engine/src/db/schema.ts`/`meta/provider.ts` (dependen de `drizzle-orm`) como parte del mismo chequeo -- el workflow de TSK-118 solo instalaba `apps/web` para el target `web`, sin `apps/engine/node_modules` `drizzle-orm` no resuelve, `tsc` falla con `TS2307`. Corregido: paso nuevo en `ci.yml`, condicionado a `matrix.target == 'web'`, que instala `apps/engine` antes del type-check -- cero cambio de código de aplicación, el import cruzado es intencional, el gap estaba en el entorno de CI. **Dos falsos positivos descartados explícitamente en el camino, no ocultados** (mismo estándar de "no parches, soluciones" que ya usa este proyecto en `/root-cause`): un primer intento de repro copiando solo `apps/web` sin `apps/engine` al lado dio un error de módulo distinto -- artefacto de la reproducción (en CI real el checkout siempre trae el monorepo completo), descartado tras verificar que el checkout real de `actions/checkout@v4` no tiene ese problema. Un segundo intento (`bun test proxy.test.ts` aislado) dio un fallo real distinto ("el arranque Railway falla cerrado", exit 127 en vez de 1) -- artefacto de haber olvidado copiar `scripts/` junto con `apps/` en ese contenedor puntual (`start-railway.sh` vive en la raíz del repo, no dentro de `apps/`); corregido copiando `scripts/` también, el test pasa limpio sin tocar nada. Verificación final, faithful, de punta a punta en contenedor Linux limpio (Debian trixie): `tsc --noEmit` limpio (antes: 8 errores), `bun run lint` 0 errores/2 warnings preexistentes (TSK-118), `bun test` 180/180. Commiteado y pusheado a `test/ci-indexing` para que el PR real re-corra CI con el fix.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-118</span> <span class="feed-ts">2026-08-25T21:30</span></div>
-            <div class="feed-note">Auditoría previa (misma sesión) confirmó que el repo no tenía ningún pipeline de CI/CD: sin `.github/workflows/`, sin Husky/lint-staged, sin git hooks locales activos -- lo único parecido a un gate (`scripts/verify-simplicity.sh`) solo corría dentro de sesiones de Claude Code (`PostToolUse`/`SubagentStop` de `.claude/settings.json`), nunca en un `git push` normal ni en un PR de GitHub, porque no había ningún workflow remoto que lo disparara ahí. Implementado: (1) `.github/workflows/ci.yml`, matriz paralela de 3 targets (`engine`, `web`, `root`/`scripts`) -- cada uno con su propio `bun install`, confirmado en la auditoría que el monorepo NO usa bun workspaces (3 `bun.lock` independientes: raíz, `apps/engine`, `apps/web`); `oven-sh/setup-bun@v2` + cache de `~/.bun/install/cache` por hash de `**/bun.lock`; job independiente `verify-simplicity` con `fetch-depth: 100`. (2) `scripts/verify-simplicity.sh` con base de comparación adaptativa: local sigue comparando contra `HEAD` (sin cambios -- es el uso real que ya tenían las sesiones de Claude Code, cambiarlo a `origin/master` lo hubiera roto); en CI (`GITHUB_ACTIONS=true`), con `GITHUB_BASE_REF` (evento `pull_request`) hace fetch dirigido de la rama base y usa el merge-base real (`git merge-base origin/$GITHUB_BASE_REF HEAD`, nunca la rama base a secas, para no arrastrar commits ajenos que la rama destino sumó después de abrirse el PR); sin `GITHUB_BASE_REF` (push directo) usa `HEAD~1`. Probados explícitamente los 4 caminos: local, CI-push, CI-PR con merge-base real (fetch de verdad contra `origin`, resuelto a `4106cfa...`), CI-PR con rama base inalcanzable (fallback sin romper). (3) Husky 9 + lint-staged como devDependencies de la raíz (bypass total por categoría, Governance 2.0): mecanismo real de Husky v9 verificado leyendo `node_modules/husky/index.js` antes de asumir cómo funciona (ya no es el shim `._/husky.sh` de v8, deprecado -- v9 usa `core.hooksPath=.husky/_` con shims internos que despachan a `.husky/<hook>` si existe). `lint-staged.config.js`: `apps/web` corre ESLint real (el único linter del proyecto); `apps/engine` corre `tsc --noEmit` de proyecto completo (función que ignora los filenames -- un chequeo de tipos por archivo aislado no es confiable); `scripts/` corre su propia suite de tests (sin linter ni tsconfig.json propio, es el único chequeo real que existe hoy ahí). `.husky/pre-commit` → `bunx lint-staged`; `.husky/pre-push` → batería completa de cada subapp sin importar qué archivos cambiaron. **Hallazgo real durante la verificación, corregido en el mismo ticket**: `bun run lint` en `apps/web` tenía 1 error preexistente -- confirmado con `git log`/`git status` que el archivo (`DraftTimer.tsx`) no aparecía en ningún diff sin commitear de esta sesión, viene de TSK-074 hace tiempo. `Date.now()`/`new Date()` llamados en el cuerpo del render violaban `react-hooks/purity` (React 19) -- nadie lo había notado porque ESLint nunca corrió como gate obligatorio en ningún lado, exactamente el tipo de brecha que este ticket cierra. Presentado al usuario vía pregunta explícita (3 opciones: corregir ahora, dejar bloqueado con ticket aparte, bajar a warning) -- eligió corregir. Movido el cálculo de `startedAtMs` dentro del inicializador perezoso de `useState` ya existente (mismo patrón que la línea siguiente) -- cero cambio de comportamiento, la función solo deja de invocarse en cada render. **Verificación real, no solo prometida**: `bunx lint-staged` corrido con un archivo real de cada glob (marcador temporal en `scripts/sync-context.ts`, revertido después de confirmar); `.husky/pre-push` corrido de punta a punta -- `apps/engine` 471/471 + tsc limpio, `apps/web` 180/180 + tsc limpio + lint 0 errores (2 warnings preexistentes sin tocar, fuera de alcance), `scripts` 9/9, `EXIT=0`. `bash scripts/verify-simplicity.sh` verde en los 4 modos probados. Puntos 3-5 de la lista de Codex sobre el simulador siguen sin empezar, no forman parte de este ticket.</div>
           </div>
         </div></div>
     </div>
