@@ -25,7 +25,6 @@ const TEST_HERO_POSITIONS: HeroPositions = {
   2: [{ position: 5, matches: 800 }],
 };
 
-const PORT = 41234;
 const EXPECTED_HEADER = "test-capture-token";
 const TEST_ACCOUNT_HMAC_KEY = "test-hmac-key-for-tsk-098-123456";
 const TEST_ACCOUNT_TIME = 1787500000000;
@@ -160,7 +159,7 @@ describe("servidor Bun (TSK-010)", () => {
       heroCapabilities: TEST_HERO_CAPABILITIES,
       heroPositions: TEST_HERO_POSITIONS,
     });
-    const server = app.start("127.0.0.1", PORT);
+    const server = app.start("127.0.0.1", 0);
     baseUrl = `http://127.0.0.1:${server.port}`;
     stop = () => server.stop(true);
   });
@@ -200,7 +199,7 @@ describe("servidor Bun (TSK-010)", () => {
 
   test("tras un evento válido, el cliente WS recibe draft_state antes que suggestions, y hello siempre da snapshot + suggestions frescos", async () => {
     const sessionId = "session-ws-1";
-    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/draft`);
+    const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
     await waitForOpen(ws);
 
     const helloReply = waitForMessages(ws, 2);
@@ -239,7 +238,7 @@ describe("servidor Bun (TSK-010)", () => {
 
     // Reconexión: ninguna pestaña estaba escuchando cuando se aplicó el evento de arriba --
     // simula un refresh de página a mitad de draft.
-    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/draft`);
+    const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
     await waitForOpen(ws);
     const helloReply = waitForMessages(ws, 2);
     ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
@@ -254,7 +253,7 @@ describe("servidor Bun (TSK-010)", () => {
   });
 
   test("un hello con sessionId malformado se ignora sin corromper la conexión (hallazgo @redteam ronda 1)", async () => {
-    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws/draft`);
+    const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
     await waitForOpen(ws);
 
     ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId: 123 }));
