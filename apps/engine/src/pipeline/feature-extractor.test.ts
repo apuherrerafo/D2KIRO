@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
-import { extractCandidateFeatures } from "./feature-extractor";
+import { extractCandidateFeatures, extractCandidateStrategies } from "./feature-extractor";
 import type { HeroLineProfile } from "../lane/profiles";
+import type { HeroCapabilities } from "../draft-paths/types";
 import type { DraftState, HeroId } from "../draft/reducer";
 
 // Local builder, autocontenido por archivo (mismo criterio que el resto del motor,
@@ -79,4 +80,36 @@ test("con el archivo real (sin fixture inyectado) no lanza y respeta la forma de
   for (const [heroId, profile] of result) {
     expect(profile.heroId).toBe(heroId);
   }
+});
+
+// extractCandidateStrategies (SPEC.md §13.7) -- fixture propio, nunca capabilities.json real.
+const FIXTURE_CAPABILITIES: HeroCapabilities[] = [
+  {
+    hero: 1,
+    damageType: "physical",
+    hasInitiation: false,
+    hasCatch: false,
+    hasWaveclear: false,
+    structuralDamage: "high",
+    teamfight: "low",
+    scaling: "low",
+  },
+];
+
+test("extractCandidateStrategies: devuelve una entrada por candidato, siempre", () => {
+  const result = extractCandidateStrategies([1, 2], FIXTURE_CAPABILITIES);
+  expect(result.size).toBe(2);
+  expect(result.get(1)).toBe("push");
+  expect(result.get(2)).toBe("scaling"); // sin entrada en capabilities -> scaling
+});
+
+test("extractCandidateStrategies: no filtra por state -- devuelve estrategia igual para cualquier candidato dado", () => {
+  const result = extractCandidateStrategies([1, 2, 3], []);
+  expect(result.size).toBe(3);
+  for (const strategy of result.values()) expect(strategy).toBe("scaling");
+});
+
+test("extractCandidateStrategies: con capabilities=[] todos caen en scaling", () => {
+  const result = extractCandidateStrategies([10, 20], []);
+  expect([...result.values()]).toEqual(["scaling", "scaling"]);
 });
