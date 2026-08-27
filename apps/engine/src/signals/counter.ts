@@ -1,8 +1,8 @@
 import { observedDraftFacts } from "../drafter/observed-draft";
 import type { DraftState, HeroId } from "../draft/reducer";
-import type { HeroMatchupStat, MetaSnapshot, SignalContribution, SignalScorer } from "./types";
+import { createRelationshipIndex } from "./relationship-index";
+import type { MetaSnapshot, SignalContribution, SignalScorer } from "./types";
 
-const MIN_MATCHUP_GAMES = 200;
 const MAX_NAMED_ENEMIES = 2;
 
 // TSK-060: `buildSuggestions` llama a `score()` una vez por candidato sobre el MISMO `state` --
@@ -11,6 +11,7 @@ const MAX_NAMED_ENEMIES = 2;
 // ser referenciado (el reductor nunca muta, siempre spread -- reducer.ts), y `counterScorer` es
 // un singleton de módulo, así que la cache vive mientras el proceso viva, sin crecer sin límite.
 const knownEnemiesCache = new WeakMap<DraftState, HeroId[]>();
+const relationshipIndexCache = new WeakMap<MetaSnapshot, ReturnType<typeof createRelationshipIndex>>();
 
 function cachedKnownEnemies(state: DraftState): HeroId[] {
   let cached = knownEnemiesCache.get(state);
@@ -21,11 +22,13 @@ function cachedKnownEnemies(state: DraftState): HeroId[] {
   return cached;
 }
 
-function overallWinrate(matchups: HeroMatchupStat[]): number | null {
-  const totalGames = matchups.reduce((sum, m) => sum + m.games, 0);
-  if (totalGames === 0) return null;
-  const totalWins = matchups.reduce((sum, m) => sum + m.wins, 0);
-  return totalWins / totalGames;
+function cachedRelationshipIndex(meta: MetaSnapshot): ReturnType<typeof createRelationshipIndex> {
+  let cached = relationshipIndexCache.get(meta);
+  if (!cached) {
+    cached = createRelationshipIndex(meta.matchups);
+    relationshipIndexCache.set(meta, cached);
+  }
+  return cached;
 }
 
 function heroName(meta: MetaSnapshot, hero: HeroId): string {
@@ -52,17 +55,9 @@ export const counterScorer: SignalScorer = {
   id: "counter",
   score(state, candidate, meta): SignalContribution {
     const knownEnemies = cachedKnownEnemies(state);
-    const candidateMatchups = meta.matchups[candidate] ?? [];
-    const baseline = overallWinrate(candidateMatchups);
-
-    const deltas: EnemyDelta[] = [];
-    if (baseline !== null) {
-      for (const enemy of knownEnemies) {
-        const row = candidateMatchups.find((m) => m.vsHero === enemy);
-        if (!row || row.games < MIN_MATCHUP_GAMES) continue;
-        deltas.push({ vsHero: enemy, delta: row.wins / row.games - baseline, games: row.games });
-      }
-    }
+    const deltas: EnemyDelta[] = cachedRelationshipIndex(meta)
+      .counterRows(candidate, knownEnemies)
+      .map((row) => ({ vsHero: row.rival, delta: row.delta, games: row.games }));
 
     if (deltas.length === 0) {
       return {
