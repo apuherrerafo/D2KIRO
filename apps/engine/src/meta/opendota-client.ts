@@ -82,6 +82,12 @@ export class OpenDotaClient {
     return this.getJson("/leagues");
   }
 
+  // Explorador SQL para scripts offline de agregación. La consulta se codifica como parámetro
+  // mediante URLSearchParams; nunca se construye una URL concatenando datos de usuarios.
+  getExplorer(sql: string): Promise<unknown> {
+    return this.getJson(`/explorer?${new URLSearchParams({ sql }).toString()}`);
+  }
+
   private async getJson(path: string): Promise<unknown> {
     const url = `${this.baseUrl}${path}`;
     const response = await this.fetchWithRetry(url);

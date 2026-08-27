@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // Paso 2 (sesión Gobernanza 2.0, continuación de TSK-090/091/093): evaluación offline
 // leave-one-out del pipeline Pro-Drafter contra v5 (buildSuggestions) sobre el corpus real de
-// drafts profesionales (175 drafts tras la ampliación de esta misma sesión, patch 7.41). Script
+// drafts profesionales (502 drafts / 124 héroes distintos, patch 7.41). Script
 // de desarrollador, nunca invocado desde el motor -- mismo criterio que test-pipeline.ts/
 // batch-harness.ts/fetch-pro-drafts.ts. Cero red: todo el dato es el corpus ya sincronizado.
 //
@@ -32,9 +32,11 @@ import { loadHeroPositions } from "../apps/engine/src/signals/hero-positions";
 import { loadDraftCorpus, type DraftCandidate } from "../apps/engine/src/knn/corpus";
 import { buildDraftIndex } from "../apps/engine/src/knn/draft-index";
 import { loadHeroLineProfiles } from "../apps/engine/src/lane/profiles";
+import { loadHeroCapabilities } from "../apps/engine/src/draft-paths/capabilities";
 import { loadPipelineWeights } from "../apps/engine/src/pipeline/weight-loader";
 import { runProDrafterPipeline } from "../apps/engine/src/pipeline/run-pipeline";
 import type { DraftState, HeroId } from "../apps/engine/src/draft/reducer";
+import { calibrateRolePressure, profileDistance, rolePressure } from "./role-pressure";
 
 function baseDraftState(overrides: Partial<DraftState>): DraftState {
   return {
@@ -191,4 +193,138 @@ function main(): void {
   );
 }
 
-main();
+// TSK-135: sensibilidad de la apertura a los bans. Es un modo manual separado del benchmark
+// leave-one-out: no cambia pesos ni flags y siempre usa una semilla fija para que dos corridas
+// produzcan exactamente el mismo diagnóstico.
+const BAN_SENSITIVITY_SEED = 135_2026;
+const BAN_VARIANT_SIZE = 16;
+const BAN_SAMPLE_SIZE = 50;
+
+interface SensitivityPair {
+  first: readonly HeroId[];
+  second: readonly HeroId[];
+}
+
+interface SensitivityMetrics {
+  meanJaccard: number;
+  meanDistinctPerTop5: number;
+  rankOneChanges: number;
+  pairs: number;
+}
+
+interface RolePressurePair {
+  banPressureDelta: number;
+  outputPressureDelta: number;
+}
+
+function nextRandom(seed: number): number {
+  let value = seed >>> 0;
+  value ^= value << 13;
+  value ^= value >>> 17;
+  value ^= value << 5;
+  return value >>> 0;
+}
+
+function sampleBans(heroIds: readonly HeroId[], seed: number): HeroId[] {
+  const shuffled = [...heroIds];
+  let state = seed;
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    state = nextRandom(state);
+    const j = state % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  }
+  return shuffled.slice(0, BAN_VARIANT_SIZE);
+}
+
+function jaccard(left: readonly HeroId[], right: readonly HeroId[]): number {
+  const a = new Set(left);
+  const b = new Set(right);
+  const union = new Set([...a, ...b]);
+  if (union.size === 0) return 1;
+  return [...a].filter((hero) => b.has(hero)).length / union.size;
+}
+
+function evaluateSensitivityPath(
+  pairs: readonly SensitivityPair[],
+  calculate: (bans: readonly HeroId[], draft: DraftCandidate) => readonly HeroId[],
+  drafts: readonly DraftCandidate[],
+): SensitivityMetrics {
+  let jaccardTotal = 0;
+  let distinctTotal = 0;
+  let rankOneChanges = 0;
+  pairs.forEach((pair, index) => {
+    const draft = drafts[index]!;
+    const first = calculate(pair.first, draft);
+    const second = calculate(pair.second, draft);
+    jaccardTotal += jaccard(first, second);
+    distinctTotal += (new Set(first).size + new Set(second).size) / 2;
+    if (first[0] !== second[0]) rankOneChanges += 1;
+  });
+  return {
+    meanJaccard: jaccardTotal / pairs.length,
+    meanDistinctPerTop5: distinctTotal / pairs.length,
+    rankOneChanges,
+    pairs: pairs.length,
+  };
+}
+
+function runBanSensitivity(): void {
+  const fullCorpus = loadDraftCorpus();
+  if (fullCorpus.length < BAN_SAMPLE_SIZE) throw new Error(`Se necesitan al menos ${BAN_SAMPLE_SIZE} drafts; hay ${fullCorpus.length}`);
+  const drafts = fullCorpus.slice(0, BAN_SAMPLE_SIZE);
+  const heroIds = [...new Set(fullCorpus.flatMap((draft) => [...draft.radiantHeroes, ...draft.direHeroes]))];
+  const pairs = drafts.map((_, index) => ({
+    first: sampleBans(heroIds, BAN_SENSITIVITY_SEED + index * 2),
+    second: sampleBans(heroIds, BAN_SENSITIVITY_SEED + index * 2 + 1),
+  }));
+  const heroPositions = loadHeroPositions();
+  const heroCapabilities = loadHeroCapabilities();
+  const weights = loadPipelineWeights();
+  const profiles = loadHeroLineProfiles();
+  const index = buildDraftIndex(fullCorpus, drafts[0]!.patch);
+  const meta = buildMetaFromCorpus(fullCorpus);
+
+  const stateFor = (draft: DraftCandidate, bans: readonly HeroId[]): DraftState => baseDraftState({
+    patch: draft.patch,
+    banned: [...bans],
+    picks: { radiant: [], dire: [] },
+  });
+  const v5 = evaluateSensitivityPath(pairs, (bans, draft) => buildSuggestions(stateFor(draft, bans), meta, { teamOpening: true }).suggestions.map((s) => s.hero), drafts);
+  const pro = evaluateSensitivityPath(pairs, (bans, draft) => runProDrafterPipeline(stateFor(draft, bans), index, fullCorpus, heroPositions, weights, profiles, {
+    teamOpening: true,
+    matchups: meta.matchups,
+    heroCapabilities,
+  }).slice(0, 5).map((result) => result.heroId), drafts);
+
+  const rolePressurePairs: RolePressurePair[] = pairs.map((pair, index) => {
+    const draft = drafts[index]!;
+    const firstV5 = runProDrafterPipeline(stateFor(draft, pair.first), index, fullCorpus, heroPositions, weights, profiles, {
+      teamOpening: true, matchups: meta.matchups, heroCapabilities,
+    }).slice(0, 5).map((result) => result.heroId);
+    const secondV5 = runProDrafterPipeline(stateFor(draft, pair.second), index, fullCorpus, heroPositions, weights, profiles, {
+      teamOpening: true, matchups: meta.matchups, heroCapabilities,
+    }).slice(0, 5).map((result) => result.heroId);
+    return {
+      banPressureDelta: profileDistance(rolePressure(pair.first, heroPositions), rolePressure(pair.second, heroPositions)),
+      outputPressureDelta: profileDistance(rolePressure(firstV5, heroPositions), rolePressure(secondV5, heroPositions)),
+    };
+  });
+  const roleCalibration = calibrateRolePressure(rolePressurePairs);
+
+  console.log(`Ban sensitivity (seed=${BAN_SENSITIVITY_SEED}, drafts=${drafts.length}, bans por variante=${BAN_VARIANT_SIZE})`);
+  for (const metrics of [v5, pro]) {
+    const label = metrics === v5 ? "v5" : "pro-drafter";
+    console.log(`  ${label}: Jaccard medio=${metrics.meanJaccard.toFixed(3)}, héroes distintos Top-5=${metrics.meanDistinctPerTop5.toFixed(1)}/5, rank 1 cambia=${((metrics.rankOneChanges / metrics.pairs) * 100).toFixed(1)}%`);
+  }
+  console.log(`  Role-Pressure: bans irrelevantes=${roleCalibration.irrelevantPairs}, estabilidad=${(roleCalibration.stableIrrelevantRate * 100).toFixed(1)}%; bans pivotales=${roleCalibration.pivotalPairs}, cambio dinámico=${(roleCalibration.dynamicPivotalRate * 100).toFixed(1)}%`);
+  const sensitivityPassed = roleCalibration.stableIrrelevantRate >= 0.8
+    && roleCalibration.dynamicPivotalRate >= 0.5
+    && roleCalibration.irrelevantPairs > 0
+    && roleCalibration.pivotalPairs > 0;
+  console.log(`  Jaccard (diagnóstico histórico): pro-drafter=${pro.meanJaccard.toFixed(3)}, v5=${v5.meanJaccard.toFixed(3)}`);
+  console.log(`  gate Role-Pressure: estabilidad irrelevante >= 80%, cambio pivotal >= 50%`);
+  console.log(`  estado de calibración: ${sensitivityPassed ? "objetivos alcanzados" : "objetivos aún no alcanzados; ENABLE_PRO_DRAFTER permanece apagado"}`);
+}
+
+if (Bun.argv.includes("--ban-sensitivity")) runBanSensitivity();
+else main();

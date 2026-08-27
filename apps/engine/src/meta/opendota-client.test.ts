@@ -191,3 +191,18 @@ test("getLeagues pide /leagues sin parámetros", async () => {
   expect(calls).toEqual(["https://api.opendota.com/api/leagues"]);
   expect(result).toEqual([{ leagueid: 226, tier: "professional", name: "CIS Dota 2 League" }]);
 });
+
+test("getExplorer codifica la consulta SQL como parámetro", async () => {
+  const calls: string[] = [];
+  const fetchImpl = (async (url: string) => {
+    calls.push(url);
+    return jsonResponse({ rows: [{ hero_id: 1, vs_hero_id: 2, games: 300, wins: 160 }] });
+  }) as typeof fetch;
+
+  const client = new OpenDotaClient({ fetchImpl, sleepImpl: async () => {} });
+  const result = await client.getExplorer("SELECT 1 WHERE games >= 200");
+
+  expect(new URL(calls[0]!).pathname).toBe("/api/explorer");
+  expect(new URL(calls[0]!).searchParams.get("sql")).toBe("SELECT 1 WHERE games >= 200");
+  expect(result).toEqual({ rows: [{ hero_id: 1, vs_hero_id: 2, games: 300, wins: 160 }] });
+});
