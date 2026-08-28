@@ -45,9 +45,29 @@ el benchmark de sensibilidad no pasa (Jaccard 0.480 contra barra ≤0.35, rank-1
 estabilidad Role-Pressure 27.3% contra ≥80%). Causa raíz declarada: volumen de datos — solo
 1.200 de 15.984 filas de `hero_matchups` superan el piso de 200 partidas.
 
-**Fase 7 (línea de datos profesionales Tier 1) está ticketeada** — 17 tickets, `TSK-146` a
-`TSK-162`, 4 gates de ejecución (G1 contratos+ingesta, G2 normalización+patrones, G3
-analyzer+benchmarks, G4 integración opcional condicionada a que G3 pase). Hallazgo que reordena
+**Fase 7 (línea de datos profesionales Tier 1) está en ejecución** — `TSK-146` a `TSK-156` están
+`done` (contratos, catálogo/ingesta cruda, normalización, clasificación, agregados, combinatorios,
+compilador de patrones, consulta contextual pura, analyzer QA determinista, métricas de benchmark
+offline y paquete de evidencia del Gate 3). El Gate 3 no pasa por estabilidad ante bans irrelevantes
+(27.3% vs 80%); `ENABLE_PRO_DRAFTER` sigue apagado y G4 no arranca hasta un segundo blueprint.
+El spike de embeddings TSK-162 también se cerró sin código: fallan cobertura, estabilidad y tamaño
+de corpus, por lo que la evidencia explícita sigue siendo prioritaria.
+TSK-163 añade la comparación determinista de snapshots por señal para diagnosticar la sensibilidad
+sin tocar el scoring.
+TSK-164 añade la auditoría de patrones con muestras débiles; ambos diagnósticos son offline y no
+activan el Pro-Drafter.
+TSK-168 deja la ingesta reanudable con objetivo configurable de 3.000 drafts; la ejecución masiva
+queda pendiente como corrida de fondo.
+TSK-169 deja preparada la recompilación determinista de `pro-patterns.json`; la corrida masiva se
+ejecutará cuando finalice la ingesta ampliada.
+TSK-170 repitió el Gate 3 sin alterar constantes: Jaccard 0.278 y rank-1 90% pasan, pero la
+estabilidad irrelevante sigue en 27.3%; se requiere la corrida posterior con corpus ampliado.
+TSK-165 añade shrinkage beta-binomial aislado para evidencia profesional débil; muestras menores
+de 10 devuelven `null` y todavía no se integra al scoring. TSK-166 añade escalado aislado del peso
+de ban por pick-rate, también pendiente de validación antes de integrarse.
+TSK-167 define la guarda de evidencia mínima (30 observaciones y confianza >0.6), aún aislada del
+scoring.
+Hallazgo que reordena
 el trabajo: `GET /api/matches/{id}` de OpenDota ya devuelve el 95% de lo que la fase necesita
 (orden de picks/bans, posición estimada, equipos, liga) y `scripts/fetch-pro-drafts.ts` lo
 descartaba — es un problema de retención, no de adquisición. Sin STRATZ, sin scraping, sin

@@ -144,6 +144,44 @@ regla real ("nunca asumas la respuesta de antemano, seguí preguntando aunque el
 
 ## Referencias
 
+- TSK-163 completado: `scripts/pro/signal-stability.ts` compara snapshots por señal de forma pura
+  y determinista para diagnosticar la sensibilidad del Pro-Drafter; no modifica scoring ni flags.
+- TSK-164 completado: `scripts/pro/confidence-audit.ts` detecta patrones bajo el mínimo de muestra,
+  incluyendo filas exploratory, sin activar ni modificar el scoring.
+- TSK-165 completado: `apps/engine/src/pro/shrinkage.ts` regulariza estimaciones con prior y devuelve
+  `null` para muestras débiles; permanece aislado del scoring.
+- TSK-166 completado: `apps/engine/src/pro/ban-relevance.ts` atenúa pesos de ban por pick-rate,
+  con techo en el peso base y sin integración al scoring.
+- TSK-167 completado: `apps/engine/src/pro/evidence-gate.ts` exige mínimo 30 muestras y confianza
+  estrictamente mayor a 0.6 para habilitar evidencia profesional.
+- TSK-168 completado: `scripts/pro/ingest-drafts.ts` admite objetivo configurable de 3.000 drafts y
+  reanudación por checkpoint; la descarga masiva no se ejecutó automáticamente.
+- TSK-169 completado: `writeCompiledPatterns` y la CLI recompilan patrones determinísticamente desde
+  agregados inyectados; la ejecución masiva queda pendiente de la ingesta.
+- TSK-170 completado: Gate 3 re-ejecutado con corpus 502; Jaccard 0.278 y rank-1 90% pasan, pero
+  estabilidad irrelevante 27.3% falla, por lo que el flag sigue apagado.
+- TSK-171 completado: `analyzeSignalContributions` y `instability-report.ts` muestran que
+  `denial_score` domina la variación observada (delta 0.279966; contribución 0.069992; 43/50),
+  mientras lane/KNN permanecen estables; no modifica pesos ni scoring.
+- TSK-172 completado: el diagnóstico separa presión de rol; `denial_score` sigue variando incluso
+  en el grupo etiquetado irrelevante (delta 0.494974, 10/11 pares), por lo que aún no se calibran
+  pesos y se requiere auditar la clasificación/fuente de bans.
+- TSK-173 completado: `classifyBanRelevance` exige presión de rol o matchup con evidencia para
+  marcar un ban como pivotal; ausencias y valores inválidos permanecen irrelevantes.
+- TSK-174 en progreso: diagnóstico no destructivo confirma que el entorno actual no resuelve
+  `api.opendota.com` (DNS); posteriormente un entorno autorizado respondió HTTP 200 y un lote
+  mínimo persistió 2 drafts completos, 7 rechazados y checkpoint `8946563158`.
+- TSK-175 completado: `validateDraftShape` rechaza drafts sin 24 turnos, orden inválido, héroes
+  fuera del catálogo curado de OpenDota o metadatos mínimos; queda listo para integrarse a la ingesta.
+- TSK-176 completado: la ingesta usa concurrencia secuencial, 500 requests por sesión y pausa
+  configurable (`--delay-ms`, 2.5s por defecto); `429` termina de forma reanudable.
+- TSK-177 completado: el catálogo de validación se curó desde `/api/heroes` (127 IDs, incluyendo
+  136 y 155; conserva huecos de Valve), eliminando el falso rechazo por el límite histórico 127.
+  Lote posterior de 20 requests: 19 nuevos drafts, 21 completos acumulados y checkpoint
+  `8946563158`; permanecen 7 rechazos históricos para revisión posterior.
+  La ingesta controlada posterior alcanzó 500 partidas procesadas: 414 `complete` y 86 excluidas
+  por `tier_not_accepted`; el corpus utilizable mantiene únicamente los drafts profesionales.
+
 Ver `docs/agents/USER.md` para preferencias de proceso confirmadas del usuario (excepciones al
 cierre, verificación real vs. solo tests, terminología de posiciones) y `docs/agents/CONTEXT.md`
 para el glosario de dominio y el stack cerrado.
