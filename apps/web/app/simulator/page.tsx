@@ -8,6 +8,7 @@ import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
 import { BUTTON_SECONDARY } from "@/features/draft/styles";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
+import { DraftIntentSelector } from "@/components/draft-intent-selector/DraftIntentSelector";
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
@@ -26,7 +27,13 @@ interface PhaseViewProps {
 
 // Req. 1.1-1.4, 8.1, 8.4: configuración previa a cualquier draft.
 function IdlePhaseView({ session }: PhaseViewProps) {
-  return <ConfigPanel onStart={session.startDraft} />;
+  return (
+    <div className="flex flex-col gap-4">
+      {/* TSK-182 (Fase 4.3b): elegir la intención de draft antes de arrancar; el Copilot la usa. */}
+      <DraftIntentSelector value={session.state.archetypeIntent} onChange={session.actions.setArchetypeIntent} />
+      <ConfigPanel onStart={session.startDraft} />
+    </div>
+  );
 }
 
 // Transitorio -- el hook emite los 16 hero_banned justo después de esto y arranca la ronda 1
@@ -63,15 +70,18 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           onConfirmRound={session.confirmRound}
         />
       </div>
-      <CopilotPanel
-        draftState={draftState}
-        suggestions={suggestions}
-        heroCatalog={heroCatalog}
-        previewStatus={previewStatus}
-        onRetryPreview={session.actions.retryPreview}
-        onSuggestedHeroIdsChange={proDrafterEnabled ? setProHeroIds : undefined}
-        playerPosition={session.state.config?.playerPosition}
-      />
+      <div className="flex flex-col gap-4">
+        <DraftIntentSelector value={session.state.archetypeIntent} onChange={session.actions.setArchetypeIntent} />
+        <CopilotPanel
+          draftState={draftState}
+          suggestions={suggestions}
+          heroCatalog={heroCatalog}
+          previewStatus={previewStatus}
+          onRetryPreview={session.actions.retryPreview}
+          onSuggestedHeroIdsChange={proDrafterEnabled ? setProHeroIds : undefined}
+          playerPosition={session.state.config?.playerPosition}
+        />
+      </div>
     </div>
   );
 }

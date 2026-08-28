@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
 import { DraftBoard } from "@/components/draft-board/DraftBoard";
 import { DraftFeedbackBox } from "@/components/draft-feedback-box/DraftFeedbackBox";
+import { DraftIntentSelectorConnected } from "@/components/draft-intent-selector/DraftIntentSelector";
 import { DraftLayout } from "@/components/draft-layout/DraftLayout";
 import { HeroGrid, isRosterFull } from "@/components/hero-grid/HeroGrid";
 import { InputModeSelector } from "@/components/input-mode-selector/InputModeSelector";
@@ -46,6 +47,8 @@ function WaitingForDraftState({ onOpenManualEntry }: WaitingForDraftStateProps) 
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <span className="text-heading text-content-primary">Esperando a que empiece el draft</span>
       <StateGuidance state="esperando_draft" />
+      {/* TSK-181 (Fase 4.3): fijar la intención de draft ANTES del pick #1 -- persiste al arrancar. */}
+      <DraftIntentSelectorConnected />
       <div className="flex gap-3">
         <button type="button" onClick={onOpenManualEntry} className={BUTTON_SECONDARY}>
           Entrada manual
@@ -173,6 +176,7 @@ function ActiveDraftState({ sessionId, draftState, suggestions, heroCatalog, onO
           {extraTopBar}
           <StateGuidance state="activo" />
           {draftState.quality.captureStatus === "lost" && <CaptureLostBanner onOpenManualEntry={onOpenManualEntry} />}
+          <DraftIntentSelectorConnected />
           <div className="flex flex-wrap gap-3">
             <DraftPathsCoverFlow sessionId={sessionId} heroCatalog={heroCatalog} />
             {isProDrafterEnabled() && <ProDrafterPanel draftState={draftState} heroCatalog={heroCatalog} />}

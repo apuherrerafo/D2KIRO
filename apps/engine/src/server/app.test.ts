@@ -269,6 +269,67 @@ describe("servidor Bun (TSK-010)", () => {
     ws.close();
   });
 
+  // TSK-181 (Fase 4.3): set_intent viaja por el WS, se guarda en SessionStore y dispara un
+  // recálculo + push de SÓLO `suggestions` (el tablero no cambió). Contra el app real, no la señal.
+  test("set_intent activa/limpia archetype_fit y hace no-op si el valor no cambió", async () => {
+    const sessionId = "session-ws-intent";
+    const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
+    await waitForOpen(ws);
+
+    const helloReply = waitForMessages(ws, 2);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
+    const [, helloSuggestions] = await helloReply;
+    // La 1ª sugerencia siempre trae las 6 señales (mix.ts) -- se mira archetype_fit ahí, sin
+    // depender de qué héroe quedó primero.
+    const topArchetypeSignal = (msg: Record<string, unknown>) =>
+      (msg.payload as { suggestions: { signals: { signal: string; raw: number | null; applicable?: boolean }[] }[] }).suggestions[0]?.signals
+        .find((s) => s.signal === "archetype_fit");
+    // Sin intención: archetype_fit no aplicable, raw null.
+    expect(topArchetypeSignal(helloSuggestions!)?.applicable).toBe(false);
+    expect(topArchetypeSignal(helloSuggestions!)?.raw).toBeNull();
+
+    // set_intent "push" -> un solo mensaje suggestions, y ahora archetype_fit tiene raw numérico.
+    const afterPush = waitForMessages(ws, 1);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: "push" }));
+    const [pushMsg] = await afterPush;
+    expect(pushMsg?.type).toBe("suggestions");
+    expect(typeof topArchetypeSignal(pushMsg!)?.raw).toBe("number");
+    expect(topArchetypeSignal(pushMsg!)?.applicable).not.toBe(false);
+
+    // Reenviar el MISMO valor -> no-op: no llega ningún mensaje nuevo.
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: "push" }));
+    await expect(waitForMessages(ws, 1, 400)).rejects.toThrow();
+
+    // Limpiar -> otro push, archetype_fit vuelve a no aplicable.
+    const afterClear = waitForMessages(ws, 1);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: null }));
+    const [clearMsg] = await afterClear;
+    expect(clearMsg?.type).toBe("suggestions");
+    expect(topArchetypeSignal(clearMsg!)?.applicable).toBe(false);
+
+    ws.close();
+  });
+
+  test("set_intent malformado (arquetipo fuera de la unión) se ignora sin corromper la conexión", async () => {
+    const sessionId = "session-ws-intent-bad";
+    const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
+    await waitForOpen(ws);
+    const helloReply = waitForMessages(ws, 2);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
+    await helloReply;
+
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: "carry" }));
+    await expect(waitForMessages(ws, 1, 400)).rejects.toThrow();
+
+    // La conexión sigue viva: un set_intent válido después sí produce un push.
+    const afterValid = waitForMessages(ws, 1);
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: "teamfight" }));
+    const [msg] = await afterValid;
+    expect(msg?.type).toBe("suggestions");
+
+    ws.close();
+  });
+
   test("POST /api/session/manual no exige x-capture-token", async () => {
     const res = await fetch(`${baseUrl}/api/session/manual`, {
       method: "POST",

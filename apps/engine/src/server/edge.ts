@@ -1,4 +1,5 @@
 import type { DraftEvent, DraftEventEnvelope, DraftFormatId, HeroId, TeamSide } from "../draft/reducer";
+import type { DraftPathArchetype } from "../draft-paths/types";
 import type { ClientMessage } from "./session";
 
 const RATE_WINDOW_MS = 1000;
@@ -59,6 +60,14 @@ function isTeamSide(value: unknown): value is TeamSide {
   return value === "radiant" || value === "dire";
 }
 
+// TSK-181 (Fase 4.3, SPEC.md §11.14): la intención de draft llega del cliente (mensaje WS
+// set_intent y body de /api/suggestions/preview) -- se valida en el borde contra la unión cerrada
+// de 4 literales antes de tocar SessionStore/buildSuggestions. Un valor fuera de la unión nunca
+// llega a ARCHETYPE_MAX_BONUS (que daría raw: NaN -- hallazgo de @redteam en TSK-180).
+function isArchetypeIntent(value: unknown): value is DraftPathArchetype {
+  return value === "push" || value === "teamfight" || value === "pickoff" || value === "scaling";
+}
+
 // Todo DraftEventEnvelope entrante es input externo -- se valida en el borde antes de tocar el
 // reductor (TSK-004), igual que un formulario (security.md).
 function isValidPayload(value: unknown): value is DraftEvent {
@@ -111,8 +120,14 @@ export function isValidDraftEventEnvelope(value: unknown): value is DraftEventEn
 // @redteam ronda 1, TSK-010).
 export function isValidClientMessage(value: unknown): value is ClientMessage {
   if (!isRecord(value) || value.schema !== "draft-ws/v1") return false;
-  if (value.type !== "hello" && value.type !== "ping") return false;
+  if (value.type !== "hello" && value.type !== "ping" && value.type !== "set_intent") return false;
   if (value.type === "hello" && (typeof value.sessionId !== "string" || value.sessionId.length === 0)) return false;
+  // TSK-181 (Fase 4.3): set_intent exige sessionId y una intención válida o null (limpiar). Un
+  // mensaje malformado se descarta en silencio, igual que cualquier ClientMessage inválido (TSK-010).
+  if (value.type === "set_intent") {
+    if (typeof value.sessionId !== "string" || value.sessionId.length === 0) return false;
+    if (value.archetypeIntent !== null && !isArchetypeIntent(value.archetypeIntent)) return false;
+  }
   return (value.sessionId === undefined || typeof value.sessionId === "string") && (value.accountToken === undefined || typeof value.accountToken === "string");
 }
 
@@ -130,6 +145,9 @@ export interface SuggestionsPreviewRequest {
   usePersonalPool?: boolean;
   teamOpening?: boolean;
   diversitySeed?: string;
+  // TSK-181 (Fase 4.3): intención de draft. Lo usa el bot del simulador / panel Pro-Drafter; la
+  // vista de draft en vivo va por el mensaje WS set_intent, no por este endpoint.
+  archetypeIntent?: DraftPathArchetype;
 }
 
 function isHeroIdArray(value: unknown): value is HeroId[] {
@@ -150,5 +168,6 @@ export function isValidSuggestionsPreviewRequest(value: unknown): value is Sugge
   if (value.targetPosition !== undefined && ![1, 2, 3, 4, 5].includes(value.targetPosition as number)) return false;
   if (value.usePersonalPool !== undefined && typeof value.usePersonalPool !== "boolean") return false;
   if (value.teamOpening !== undefined && typeof value.teamOpening !== "boolean") return false;
+  if (value.archetypeIntent !== undefined && !isArchetypeIntent(value.archetypeIntent)) return false;
   return value.diversitySeed === undefined || (typeof value.diversitySeed === "string" && value.diversitySeed.length > 0 && value.diversitySeed.length <= 128);
 }

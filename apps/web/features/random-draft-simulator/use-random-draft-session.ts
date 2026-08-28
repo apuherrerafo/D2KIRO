@@ -5,7 +5,8 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { DraftArchetype } from "@/features/draft/types";
 import { postSimulatorEvent } from "@/features/draft/manual-entry";
 import { createDraftSocket } from "@/features/draft/socket";
 import { isValidServerMessage, isValidSuggestionSet } from "@/features/draft/validation";
@@ -169,10 +170,11 @@ export function randomPickForSlots(
 export type StartDraftConfig = Omit<DraftConfig, "patch">;
 
 export interface UseRandomDraftSessionResult {
-  state: RandomDraftState;
+  state: RandomDraftState & { archetypeIntent: DraftArchetype | null };
   actions: Pick<RandomDraftActions, "confirmPick" | "deselectPick"> & {
     resetDraft(): void;
     retryPreview(): void;
+    setArchetypeIntent(intent: DraftArchetype | null): void;
   };
   startDraft(config: StartDraftConfig): Promise<void>;
   confirmRound(): Promise<void>;
@@ -213,6 +215,11 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const resolvedBansRef = useRef<HeroId[]>([]);
   const previewRequestKeyRef = useRef<string | null>(null);
   const previewPendingRef = useRef<{ round: 1 | 2 | 3; picks: HeroId[] } | null>(null);
+  // TSK-182 (Fase 4.3b): intención de draft del usuario para archetype_fit. Ref para que
+  // refreshPendingPickPreview (useCallback [], 100% imperativo) lea el valor vigente; state
+  // para que el selector de la UI se pinte. `null` = sin intención.
+  const archetypeIntentRef = useRef<DraftArchetype | null>(null);
+  const [archetypeIntent, setArchetypeIntentState] = useState<DraftArchetype | null>(null);
 
   const stopTimer = useCallback(function stopTimer(): void {
     if (timerIdRef.current !== null) {
@@ -228,6 +235,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     sessionIdRef.current = null;
     previewRequestKeyRef.current = null;
     previewPendingRef.current = null;
+    archetypeIntentRef.current = null;
+    setArchetypeIntentState(null);
     socketRef.current?.close();
     socketRef.current = null;
     resetSession();
@@ -302,6 +311,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
           picks: previewState.picks,
           teamOpening: previewState.picks.radiant.length === 0 && previewState.picks.dire.length === 0,
           diversitySeed: current.config.draftSeed,
+          archetypeIntent: archetypeIntentRef.current ?? undefined,
         }),
       });
       if (!response.ok) {
@@ -350,6 +360,20 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   // nuevo pick/ban -- el guard de `refreshPreviewForBlindRound` de arriba solo dispara ante un
   // cambio de estado, así que un reintento explícito necesita saltarlo a propósito.
   const retryPreview = useCallback(function retryPreview(): void {
+    const { phase: currentPhase } = useRandomDraftStore.getState();
+    if (currentPhase.type !== "blind_round") return;
+    const previousPendingPicks = previewPendingRef.current?.round === currentPhase.round
+      ? previewPendingRef.current.picks
+      : [];
+    void refreshPendingPickPreview(previousPendingPicks, currentPhase.pendingUserPicks);
+  }, [refreshPendingPickPreview]);
+
+  // TSK-182 (Fase 4.3b): elegir/limpiar la intención re-pide la sugerencia de la ronda vigente
+  // con el arquetipo nuevo en el body (bypass del dedup, igual que retryPreview). En idle/ban
+  // sólo guarda el valor -- el próximo preview natural lo toma del ref.
+  const setArchetypeIntent = useCallback(function setArchetypeIntent(next: DraftArchetype | null): void {
+    archetypeIntentRef.current = next;
+    setArchetypeIntentState(next);
     const { phase: currentPhase } = useRandomDraftStore.getState();
     if (currentPhase.type !== "blind_round") return;
     const previousPendingPicks = previewPendingRef.current?.round === currentPhase.round
@@ -691,8 +715,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }
 
   return {
-    state: { config, phase, sessionId, draftState, suggestions, previewStatus, staleWarning, lastSyncedAt },
-    actions: { confirmPick: confirmPendingPick, deselectPick: deselectPendingPick, resetDraft, retryPreview },
+    state: { config, phase, sessionId, draftState, suggestions, previewStatus, staleWarning, lastSyncedAt, archetypeIntent },
+    actions: { confirmPick: confirmPendingPick, deselectPick: deselectPendingPick, resetDraft, retryPreview, setArchetypeIntent },
     startDraft,
     confirmRound,
   };

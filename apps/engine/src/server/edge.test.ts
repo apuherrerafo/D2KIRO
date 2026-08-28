@@ -95,6 +95,21 @@ describe("isValidClientMessage", () => {
     expect(isValidClientMessage({ schema: "otro", type: "hello", sessionId: "s1" })).toBe(false);
     expect(isValidClientMessage({ schema: "draft-ws/v1", type: "unknown" })).toBe(false);
   });
+
+  // TSK-181 (Fase 4.3): set_intent exige sessionId y una intención de la unión cerrada o null.
+  test("acepta set_intent con un arquetipo válido o null", () => {
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: "push" })).toBe(true);
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: "scaling" })).toBe(true);
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: null })).toBe(true);
+  });
+
+  test("rechaza set_intent con intención fuera de la unión, o sin sessionId, sin lanzar", () => {
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: "carry" })).toBe(false);
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: 123 })).toBe(false);
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: {} })).toBe(false);
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", archetypeIntent: "push" })).toBe(false);
+    expect(isValidClientMessage({ schema: "draft-ws/v1", type: "set_intent", sessionId: "" })).toBe(false);
+  });
 });
 
 describe("isValidSuggestionsPreviewRequest", () => {
@@ -113,5 +128,13 @@ describe("isValidSuggestionsPreviewRequest", () => {
   test("rechaza una semilla vacía o desproporcionada antes de llegar al motor", () => {
     expect(isValidSuggestionsPreviewRequest({ ...validPreview, diversitySeed: "" })).toBe(false);
     expect(isValidSuggestionsPreviewRequest({ ...validPreview, diversitySeed: "x".repeat(129) })).toBe(false);
+  });
+
+  // TSK-181 (Fase 4.3): archetypeIntent opcional, pero si está debe ser uno de los 4 literales.
+  test("acepta archetypeIntent válido y rechaza uno fuera de la unión (-> 400 en el handler)", () => {
+    expect(isValidSuggestionsPreviewRequest({ ...validPreview, archetypeIntent: "teamfight" })).toBe(true);
+    expect(isValidSuggestionsPreviewRequest(validPreview)).toBe(true);
+    expect(isValidSuggestionsPreviewRequest({ ...validPreview, archetypeIntent: "carry" })).toBe(false);
+    expect(isValidSuggestionsPreviewRequest({ ...validPreview, archetypeIntent: null })).toBe(false);
   });
 });

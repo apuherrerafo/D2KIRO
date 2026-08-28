@@ -52,6 +52,7 @@ beforeEach(() => {
     errorMessage: null,
     socket: null,
     inputMode: { action: "pick", side: "unknown" },
+    archetypeIntent: null,
   });
 });
 
@@ -196,6 +197,52 @@ describe("inputMode (DraftInputMode, RCA post-TSK-076)", () => {
     socket.emit(serverMessage("draft_state", draftState({ localSide: "radiant", lastSeq: 2 })));
 
     expect(useDraftStore.getState().inputMode.side).toBe("dire");
+  });
+});
+
+describe("intención de draft (TSK-181, Fase 4.3)", () => {
+  test("por defecto es null", () => {
+    expect(useDraftStore.getState().archetypeIntent).toBeNull();
+  });
+
+  test("setArchetypeIntent fija el estado local y manda set_intent por el socket", () => {
+    const socket = new FakeSocket();
+    useDraftStore.getState().connect(socket, "s1", "test-token");
+    socket.sentMessages.length = 0; // descartar el hello
+
+    useDraftStore.getState().setArchetypeIntent("push");
+    expect(useDraftStore.getState().archetypeIntent).toBe("push");
+    expect(socket.sentMessages).toEqual([{ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: "push" }]);
+  });
+
+  test("setArchetypeIntent(null) limpia y manda set_intent con null", () => {
+    const socket = new FakeSocket();
+    useDraftStore.getState().connect(socket, "s1", "test-token");
+    useDraftStore.getState().setArchetypeIntent("teamfight");
+    socket.sentMessages.length = 0;
+
+    useDraftStore.getState().setArchetypeIntent(null);
+    expect(useDraftStore.getState().archetypeIntent).toBeNull();
+    expect(socket.sentMessages).toEqual([{ schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: null }]);
+  });
+
+  test("connect() re-envía la intención tras el hello si hay una puesta", () => {
+    const first = new FakeSocket();
+    useDraftStore.getState().connect(first, "s1", "test-token");
+    useDraftStore.getState().setArchetypeIntent("pickoff");
+
+    const reconnect = new FakeSocket();
+    useDraftStore.getState().connect(reconnect, "s1", "test-token");
+    expect(reconnect.sentMessages).toEqual([
+      { schema: "draft-ws/v1", type: "hello", sessionId: "s1", accountToken: "test-" + "token" },
+      { schema: "draft-ws/v1", type: "set_intent", sessionId: "s1", archetypeIntent: "pickoff" },
+    ]);
+  });
+
+  test("connect() sin intención puesta manda sólo el hello (no un set_intent espurio)", () => {
+    const socket = new FakeSocket();
+    useDraftStore.getState().connect(socket, "s1", "test-token");
+    expect(socket.sentMessages).toEqual([{ schema: "draft-ws/v1", type: "hello", sessionId: "s1", accountToken: "test-" + "token" }]);
   });
 });
 

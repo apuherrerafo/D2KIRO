@@ -123,11 +123,17 @@ export interface ServerMessage {
   payload: DraftState | SuggestionSet | CaptureStatus | ErrorPayload;
 }
 
+// TSK-181 (Fase 4.3): espejo a mano de DraftPathArchetype (apps/engine/src/draft-paths/types.ts)
+// -- los dos procesos son independientes, sin import directo, mismo criterio que `SignalId`.
+export type DraftArchetype = "push" | "teamfight" | "pickoff" | "scaling";
+
 export interface ClientMessage {
   schema: "draft-ws/v1";
-  type: "hello" | "ping";
+  type: "hello" | "ping" | "set_intent";
   sessionId?: string;
   accountToken?: string;
+  // Sólo en set_intent. `null` limpia la intención elegida.
+  archetypeIntent?: DraftArchetype | null;
 }
 
 // Los 6 estados de pantalla (S5) — derivados, no un valor guardado directo del store.

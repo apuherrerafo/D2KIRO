@@ -1,5 +1,6 @@
 import { applyDraftEvent, createIdleDraftState, type DraftEventEnvelope, type DraftState, type RejectionReason } from "../draft/reducer";
 import type { DraftTurn } from "../draft/turn-clock";
+import type { DraftPathArchetype } from "../draft-paths/types";
 import type { SuggestionSet } from "../signals/mix";
 import type { AccountId } from "../meta/provider";
 
@@ -37,9 +38,11 @@ export type ServerMessage =
 
 export interface ClientMessage {
   schema: "draft-ws/v1";
-  type: "hello" | "ping";
+  type: "hello" | "ping" | "set_intent";
   sessionId?: string;
   accountToken?: string;
+  // TSK-181 (Fase 4.3, SPEC.md §11.14): sólo en set_intent. `null` limpia la intención.
+  archetypeIntent?: DraftPathArchetype | null;
 }
 
 type ServerMessageFor<TType extends ServerMessage["type"]> = Extract<ServerMessage, { type: TType }>;
@@ -61,6 +64,10 @@ interface SessionEntry {
   state: DraftState;
   lastAccessedAt: number;
   ownerAccountId: AccountId | null;
+  // TSK-181 (Fase 4.3, SPEC.md §11.14): intención de draft elegida por el usuario para la señal
+  // archetype_fit. `null` = sin intención (la señal queda applicable: false). Vive sólo en memoria,
+  // nunca en SQLite; se pierde con la sesión (mismo criterio que ownerAccountId).
+  archetypeIntent: DraftPathArchetype | null;
 }
 
 // Estado de cada sesión de draft en curso, en memoria -- el motor no persiste sesiones a SQLite
@@ -82,14 +89,20 @@ export class SessionStore {
 
   apply(envelope: DraftEventEnvelope, now = Date.now()): { state: DraftState; rejected?: RejectionReason } {
     const result = applyDraftEvent(this.get(envelope.sessionId, now), envelope);
-    this.states.set(envelope.sessionId, { state: result.state, lastAccessedAt: now, ownerAccountId: this.states.get(envelope.sessionId)?.ownerAccountId ?? null });
+    const previous = this.states.get(envelope.sessionId);
+    this.states.set(envelope.sessionId, {
+      state: result.state,
+      lastAccessedAt: now,
+      ownerAccountId: previous?.ownerAccountId ?? null,
+      archetypeIntent: previous?.archetypeIntent ?? null,
+    });
     return result;
   }
 
   claimOwner(sessionId: string, accountId: AccountId): boolean {
     const entry = this.states.get(sessionId);
     if (!entry) {
-      this.states.set(sessionId, { state: createIdleDraftState(sessionId), lastAccessedAt: Date.now(), ownerAccountId: accountId });
+      this.states.set(sessionId, { state: createIdleDraftState(sessionId), lastAccessedAt: Date.now(), ownerAccountId: accountId, archetypeIntent: null });
       return true;
     }
     if (entry.ownerAccountId !== null && entry.ownerAccountId !== accountId) return false;
@@ -99,6 +112,22 @@ export class SessionStore {
 
   ownerAccountId(sessionId: string): AccountId | null {
     return this.states.get(sessionId)?.ownerAccountId ?? null;
+  }
+
+  // TSK-181 (Fase 4.3): crea la entrada si aún no existe -- con auth apagada (tests) el hello no
+  // pasa por claimOwner, así que la sesión puede no tener entrada todavía cuando llega el primer
+  // set_intent. El handler filtra por ws.data.sessionId, así que nunca se fija sobre una ajena.
+  setArchetypeIntent(sessionId: string, intent: DraftPathArchetype | null): void {
+    const entry = this.states.get(sessionId);
+    if (entry) {
+      entry.archetypeIntent = intent;
+      return;
+    }
+    this.states.set(sessionId, { state: createIdleDraftState(sessionId), lastAccessedAt: Date.now(), ownerAccountId: null, archetypeIntent: intent });
+  }
+
+  archetypeIntent(sessionId: string): DraftPathArchetype | null {
+    return this.states.get(sessionId)?.archetypeIntent ?? null;
   }
 
   // TSK-055: sin esto, toda sesión que alguna vez recibió un evento vivía en memoria para

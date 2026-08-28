@@ -1,4 +1,4 @@
-import type { DegradationFlag, ScreenState, SignalId, SuggestionConfidence } from "./types";
+import type { DegradationFlag, DraftArchetype, ScreenState, SignalId, SuggestionConfidence } from "./types";
 
 // img_url de héroe: se valida que el host esté en esta lista antes de renderizar — nunca una
 // URL arbitraria tomada directo de la respuesta de la API (.claude/rules/web.md, security.md).
@@ -37,6 +37,17 @@ export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {
 // TSK-180 (Fase 4.2): `archetype_fit` va al final -- señal gruesa (3-4 niveles), menor densidad
 // informativa que las tácticas y que winrate/comodidad personal.
 export const SIGNAL_DISPLAY_PRIORITY: SignalId[] = ["team_synergy", "counter", "position_fit", "patch_meta", "hero_pool_fit", "archetype_fit"];
+
+// TSK-181 (Fase 4.3): opciones del selector de intención de draft. Etiquetas = mismo vocabulario
+// que las `explanation` del motor ("tu draft de Push", archetype-fit.ts), no se inventa nada nuevo.
+export const ARCHETYPE_OPTIONS: DraftArchetype[] = ["push", "teamfight", "pickoff", "scaling"];
+
+export const ARCHETYPE_LABELS: Record<DraftArchetype, string> = {
+  push: "Push",
+  teamfight: "Teamfight",
+  pickoff: "Pickoff",
+  scaling: "Scaling",
+};
 
 // Qué es este estado y qué puede hacer el usuario ahora -- ninguno de los 6 estados de TSK-012
 // se queda sin explicación en lenguaje llano (hallazgo real de TSK-016: el sistema nunca decía

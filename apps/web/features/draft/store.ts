@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { postManualEvent } from "./manual-entry";
-import type { DraftSocket, DraftState, ErrorPayload, HeroId, ScreenState, ServerMessage, SuggestionSet, TeamSide } from "./types";
+import type { DraftArchetype, DraftSocket, DraftState, ErrorPayload, HeroId, ScreenState, ServerMessage, SuggestionSet, TeamSide } from "./types";
 import { isValidServerMessage } from "./validation";
 
 // RCA post-TSK-076 (auditoría de arquitectura, 2026-08-23): fuente de verdad única para "qué pasa
@@ -22,10 +22,15 @@ export interface DraftStoreState {
   errorMessage: string | null;
   socket: DraftSocket | null;
   inputMode: DraftInputMode;
+  // TSK-181 (Fase 4.3): intención de draft elegida para la señal archetype_fit. `null` = sin
+  // intención. No se resetea al reconectar -- el motor la mantiene en SessionStore y el cliente
+  // la re-envía tras el hello (un reinicio del motor la perdería).
+  archetypeIntent: DraftArchetype | null;
   connect: (socket: DraftSocket, sessionId: string, accountToken: string) => void;
   disconnect: () => void;
   clearError: () => void;
   setInputMode: (mode: Partial<DraftInputMode>) => void;
+  setArchetypeIntent: (intent: DraftArchetype | null) => void;
   // Corrige un pick/ban de confianza baja -- mismo POST /api/session/manual y pick_reverted del
   // contrato de TSK-004, disponible desde cualquier componente sin pasar callbacks por props.
   correctHero: (hero: HeroId, side: TeamSide) => Promise<void>;
@@ -41,6 +46,7 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
   errorMessage: null,
   socket: null,
   inputMode: DEFAULT_INPUT_MODE,
+  archetypeIntent: null,
 
   connect(socket, sessionId, accountToken) {
     get().socket?.close();
@@ -50,10 +56,20 @@ export const useDraftStore = create<DraftStoreState>((set, get) => ({
     // llegar el próximo draft_state/snapshot (ver applyServerMessage, "auto-fill" de abajo).
     set({ socket, sessionId, connectionStatus: "conectando", errorMessage: null, inputMode: DEFAULT_INPUT_MODE });
     socket.send({ schema: "draft-ws/v1", type: "hello", sessionId, accountToken });
+    // TSK-181: re-enviar la intención tras el hello -- el motor la mantiene en SessionStore, pero
+    // un reinicio del proceso la pierde; esto la restablece en cada (re)conexión.
+    const intent = get().archetypeIntent;
+    if (intent !== null) socket.send({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: intent });
   },
 
   setInputMode(mode) {
     set((current) => ({ inputMode: { ...current.inputMode, ...mode } }));
+  },
+
+  setArchetypeIntent(intent) {
+    const { socket, sessionId } = get();
+    set({ archetypeIntent: intent });
+    if (socket && sessionId) socket.send({ schema: "draft-ws/v1", type: "set_intent", sessionId, archetypeIntent: intent });
   },
 
   disconnect() {

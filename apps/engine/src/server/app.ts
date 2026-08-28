@@ -5,7 +5,7 @@ import * as schema from "../db/schema";
 import { accounts } from "../db/schema";
 import { verifyAccountToken } from "./account-token";
 import { getSoleAccountId } from "../db/queries";
-import type { HeroCapabilities } from "../draft-paths/types";
+import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
 import { deriveDecisionContext } from "../drafter/decision-context";
@@ -131,7 +131,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   async function computeSuggestionsForState(
     state: DraftState,
     accountId: number | null = null,
-    options: { targetPosition?: 1 | 2 | 3 | 4 | 5; usePersonalPool?: boolean; teamOpening?: boolean; diversitySeed?: string } = {},
+    options: { targetPosition?: 1 | 2 | 3 | 4 | 5; usePersonalPool?: boolean; teamOpening?: boolean; diversitySeed?: string; archetypeIntent?: DraftPathArchetype } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
     try {
@@ -142,6 +142,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     const freshness = await getMetaFreshness(deps.db);
     return buildSuggestions(state, meta, { metaIsStale: freshness.isStale, heroPositions: deps.heroPositions, ...options });
+  }
+
+  // TSK-181 (Fase 4.3): SessionStore guarda la intención como `DraftPathArchetype | null` (null =
+  // limpiada explícitamente); el contrato del motor la quiere como `DraftPathArchetype | undefined`
+  // (ausente = sin intención). Ambos casos son "la señal queda applicable: false".
+  function sessionIntent(sessionId: string): DraftPathArchetype | undefined {
+    return sessionStore.archetypeIntent(sessionId) ?? undefined;
   }
 
   // TSK-082: sugerencias reales sin sesión -- para el bot de /random-draft, que necesita el
@@ -180,6 +187,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
         usePersonalPool: body.usePersonalPool,
         teamOpening: body.teamOpening,
         diversitySeed: body.diversitySeed,
+        archetypeIntent: body.archetypeIntent,
       });
       return Response.json(suggestions);
     } catch (err) {
@@ -194,7 +202,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   async function pushSessionUpdate(sessionId: string): Promise<void> {
     const state = sessionStore.get(sessionId);
     server.publish(sessionId, JSON.stringify(buildServerMessage("draft_state", state.lastSeq, withTurn(state))));
-    const suggestions = await computeSuggestionsForState(state);
+    // TSK-181 (Fase 4.3): el recálculo lee la intención guardada en SessionStore -- así este push
+    // automático la respeta sin ningún parámetro extra desde el capturador. `accountId` sigue en
+    // null acá, igual que antes (el scoping por cuenta de este push es un TODO aparte, TSK-098).
+    const suggestions = await computeSuggestionsForState(state, null, {
+      archetypeIntent: sessionIntent(sessionId),
+    });
     server.publish(sessionId, JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
   }
 
@@ -418,7 +431,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
         //      code "snapshot_unavailable"; conexión permanece abierta.
         //   3. Cualquier otro error → mensaje "suggestions" degradado vacío.
         try {
-          const suggestions = await computeSuggestionsForState(state, sessionStore.ownerAccountId(message.sessionId));
+          const suggestions = await computeSuggestionsForState(state, sessionStore.ownerAccountId(message.sessionId), {
+            archetypeIntent: sessionIntent(message.sessionId),
+          });
           ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
         } catch (err) {
           if (err instanceof SnapshotUnavailableError) {
@@ -446,6 +461,25 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
             };
             ws.send(JSON.stringify(buildServerMessage("suggestions", state.lastSeq, degradedSuggestions)));
           }
+        }
+      }
+
+      // TSK-181 (Fase 4.3): el usuario eligió/limpió su intención de draft. Sólo se acepta para la
+      // sesión que este socket ya reclamó con hello. Si el valor no cambió -> no-op (ni recálculo
+      // ni push). Si cambió -> se guarda y se empuja SÓLO `suggestions` (el tablero no cambió, así
+      // que no van snapshot ni draft_state -- excepción explícita al orden de push, como draft_paths).
+      if (message.type === "set_intent" && message.sessionId && ws.data.sessionId === message.sessionId) {
+        const next = message.archetypeIntent ?? null;
+        if (sessionStore.archetypeIntent(message.sessionId) === next) return;
+        sessionStore.setArchetypeIntent(message.sessionId, next);
+        const state = sessionStore.get(message.sessionId);
+        try {
+          const suggestions = await computeSuggestionsForState(state, sessionStore.ownerAccountId(message.sessionId), { archetypeIntent: next ?? undefined });
+          server.publish(message.sessionId, JSON.stringify(buildServerMessage("suggestions", state.lastSeq, suggestions)));
+        } catch {
+          // Un fallo del pipeline no tira la conexión ni pierde la intención guardada -- el próximo
+          // draft-event (o un hello de reconexión) vuelve a intentar el cálculo con la intención ya
+          // persistida en SessionStore.
         }
       }
       // "ping": sin respuesta requerida -- solo mantiene viva la conexión.

@@ -38,7 +38,7 @@ class FakeEngine {
   private state: EngineDraftState;
   private seq = 0;
   private nextBotHeroId = RESERVED_BOT_HERO_START;
-  readonly copilotPreviewRequests: { picks: EngineDraftState["picks"]; banned: EngineHeroId[] }[] = [];
+  readonly copilotPreviewRequests: { picks: EngineDraftState["picks"]; banned: EngineHeroId[]; archetypeIntent?: string }[] = [];
 
   constructor(private readonly socket: FakeSocket) {
     this.state = {
@@ -110,9 +110,9 @@ class FakeEngine {
   // presente únicamente en el pedido del Copilot. Cada llamada devuelve un héroe reservado nuevo:
   // el bot nunca repite ni colisiona con lo que el usuario ya escogió.
   handleSuggestionsPreview(body: unknown): SuggestionSet {
-    const request = body as { picks: EngineDraftState["picks"]; banned: EngineHeroId[]; diversitySeed?: string };
+    const request = body as { picks: EngineDraftState["picks"]; banned: EngineHeroId[]; diversitySeed?: string; archetypeIntent?: string };
     if (request.diversitySeed !== undefined) {
-      this.copilotPreviewRequests.push({ picks: request.picks, banned: request.banned });
+      this.copilotPreviewRequests.push({ picks: request.picks, banned: request.banned, archetypeIntent: request.archetypeIntent });
     }
 
     const hero = this.nextBotHeroId;
@@ -322,3 +322,39 @@ test("un fetch fallido del preview termina en previewStatus:'failed', nunca en '
 
   unmount();
 }, 10000);
+
+// TSK-182 (Fase 4.3b): elegir la intención de draft en el simulador re-pide la sugerencia del
+// Copilot con `archetypeIntent` en el body de POST /api/suggestions/preview; limpiarla lo saca.
+test("setArchetypeIntent re-pide el preview del Copilot con la intención en el body", async () => {
+  const fakeSocket = new FakeSocket();
+  const engine = new FakeEngine(fakeSocket);
+  installFetchMock(engine);
+
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ socketFactory: fakeSocketFactory(fakeSocket) }));
+
+  await act(async () => {
+    await result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] });
+  });
+  expect(result.current.state.phase.type).toBe("blind_round");
+  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(0));
+  const before = engine.copilotPreviewRequests.length;
+  // Sin intención elegida, el body no lleva archetypeIntent.
+  expect(engine.copilotPreviewRequests[before - 1]?.archetypeIntent).toBeUndefined();
+
+  await act(async () => {
+    result.current.actions.setArchetypeIntent("push");
+  });
+  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(before));
+  expect(engine.copilotPreviewRequests.at(-1)?.archetypeIntent).toBe("push");
+  expect(result.current.state.archetypeIntent).toBe("push");
+
+  const afterPush = engine.copilotPreviewRequests.length;
+  await act(async () => {
+    result.current.actions.setArchetypeIntent(null);
+  });
+  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(afterPush));
+  expect(engine.copilotPreviewRequests.at(-1)?.archetypeIntent).toBeUndefined();
+  expect(result.current.state.archetypeIntent).toBeNull();
+
+  unmount();
+}, 15000);
