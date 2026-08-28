@@ -1703,6 +1703,229 @@ de las decisiones de §11.4/§11.7 vive en `journal.md`.
 
 ---
 
+## 11.13 — Blueprint del sub-ticket 4.2 (integración de `archetype_fit` en el motor)
+
+Sexto `/blueprint` de sub-ticket del proyecto. Corrido en **Sonnet por decisión explícita del
+usuario (2026-08-28)** -- desviación consciente de la política de modelos (`/blueprint` = nivel
+razonamiento/Opus), no un gatillo de la lista de `CLAUDE.md`. Anotada en `journal.md`. Todo lo que
+sigue (`/rulebook` en adelante) es Sonnet igual que siempre.
+
+### 11.13.0 — Alcance (leer primero)
+
+**Sólo la integración en el motor.** `archetype_fit` pasa de señal aislada (4.1) a la **sexta
+señal ponderada** de `buildSuggestions`, alimentada por una opción inyectada
+(`BuildSuggestionsOptions.archetypeIntent`). **Fuera de 4.2, va a 4.3:** el selector de intención
+en `apps/web`, el transporte (campo en el request de sugerencias y en el `hello` del WS) y la
+validación de borde de ese input. `apps/web` en 4.2 se toca **sólo** para el espejo de tipos y
+para que `SignalBreakdown` renderice la sexta fila -- que mostrará `applicable: false` ("elegí una
+intención") hasta que 4.3 conecte el selector.
+
+- **§11.13.1 a §11.13.8 son contrato cerrado.** Cero números pendientes.
+- **§11.13.9 lista lo que 4.2 deja abierto para 4.3** -- explícito para que no se tome por olvido.
+
+### 11.13.1 — Qué de fases anteriores queda superado
+
+| Antes | 4.2 lo cambia a |
+|---|---|
+| §10.3 / §11.1: `SCORING_WEIGHTS_V5` es la constante activa | **`SCORING_WEIGHTS_V6`** es la activa. V1-V5 quedan congeladas por nombre, nunca se editan |
+| `weights.ts`: `SCORING_WEIGHTS_V4`/`V5: Record<SignalId, number>` | `Record<SignalIdV5, number>` -- literales históricos propios, **valores intactos**, mismo mecanismo que TSK-045 usó para V1/V2/V3 (§11.7). Es el paso previo obligatorio a ampliar `SignalId` |
+| `signals/types.ts`: `SignalId` = 5 literales | 6 literales (`… \| "archetype_fit"`) |
+| §11.4: `archetype-fit.ts` declara la vista estrecha `ArchetypeFitContribution`/`ArchetypeFitScorer` | Los dos alias **se borran**; las anotaciones pasan a `SignalContribution`/`SignalScorer`. **El cuerpo de `score()` no cambia una línea** (§11.4 lo previó) |
+| §11.1: el motor no cambia de comportamiento observable | 4.2 **es** el cambio de comportamiento -- pero sólo cuando hay `archetypeIntent`; sin él, salida byte a byte idéntica a V5 (candado, §11.13.5) |
+
+`applyDraftEvent` sigue puro, el orden de push no cambia, `position_fit` sigue siendo la señal de
+mayor peso, Fase 3 no se reabre.
+
+### 11.13.2 — Decisiones cerradas
+
+| # | Pregunta | Decisión (usuario, 2026-08-28) |
+|---|---|---|
+| Q1 | ¿Alcance de 4.2? | **Sólo motor.** UI + transporte + validación de borde = 4.3 (§11.13.0). |
+| Q2 | ¿Peso de `archetype_fit` en V6? | **`0.10`.** Los otros 5 pesos = su valor de V5 × `0.90`. Mismo criterio de precedente que `role_safety` (§9 / `weights.ts`): señal opt-in que sólo vota si el usuario eligió intención. |
+| Q3 | ¿Decaimiento de la señal a lo largo del draft? | **No en 4.2.** `raw` sigue constante por `(intent, hero)` como en 4.1. El posible sobre-empuje en picks tardíos se mide en el QA de 4.3 y se resuelve ahí si es real -- no se le mete una dependencia de `DraftState` al scorer sin datos que la respalden. |
+| Q4 | Etiqueta visible en `apps/web` | **"Intención de draft"** (`SIGNAL_LABELS`, `SignalBreakdown.tsx`). Al final de `SIGNAL_DISPLAY_PRIORITY` -- señal gruesa (3-4 niveles), menor densidad informativa que las tácticas. |
+| Q5 | `RAW_RANGE.archetype_fit` | **`[0, 1]`** -- ya fijado en §11.4 P4, no se rediscute. |
+
+### 11.13.3 — Costuras: ninguna nueva
+
+- `archetype_fit` ya es un `SignalScorer` puro con archivo de prueba propio → **S3**, sin cambios
+  respecto de 4.1. Su dependencia de datos sigue siendo **S9** (`HeroCapabilities[]` inyectado).
+- **El candado de regresión V5→V6 se prueba en `mix.test.ts` contra `mixScore(SignalContribution[])`
+  directamente**, con un set fijo de contribuciones -- nunca reconstruido vía `buildSuggestions`.
+  Mismo patrón exacto que el candado V1→V2 de 1b (§9.3) y V1→V3 de TSK-027. Es exigible porque V6
+  **agrega** una señal con estado "no configurada", que es justo la forma que hace demostrable la
+  regresión cero (a diferencia de V4→V5, que reemplazaba señales y por eso no llevaba candado).
+- El candado de sensibilidad ("con `archetypeIntent` el top-3 se mueve") se prueba contra
+  **`buildSuggestions` completo**, no la señal aislada -- mismo criterio literal que §10.9-7 y
+  §12.14-2: la señal puede dar el número correcto y el ranking no moverse si el peso no alcanza.
+- **`S12` sigue reservada** para el RNG de diversificación (4.6). 4.2 no la toca.
+
+### 11.13.4 — Contrato de datos
+
+**`signals/weights.ts`** -- primero el re-tipado (valores sin tocar), después V6:
+
+```typescript
+type SignalIdV5 = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
+// SCORING_WEIGHTS_V4 y V5 pasan a Record<SignalIdV5, number>. Ni una coma cambia -- sólo el tipo,
+// igual que TSK-045 hizo con V1/V2/V3. Una versión congelada no debe seguir acoplada a qué
+// señales existen hoy.
+
+// V6 = V5 escalada por 0.90 + archetype_fit 0.10. Con archetype_fit sin voto (sin intención), la
+// redistribución proporcional de mix.ts sobre las otras 5 reproduce V5 EXACTO:
+//   (V5ᵢ · 0.90) / Σ(V5 · 0.90)  ==  V5ᵢ / Σ V5   para todo i.
+// Candado numérico en mix.test.ts, no una afirmación a ojo (§11.13.5).
+export const SCORING_WEIGHTS_V6: Record<SignalId, number> = {
+  position_fit:  0.342,   // 0.38 · 0.90 — sigue siendo la de mayor peso
+  counter:       0.216,   // 0.24 · 0.90
+  patch_meta:    0.117,   // 0.13 · 0.90
+  team_synergy:  0.117,   // 0.13 · 0.90
+  hero_pool_fit: 0.108,   // 0.12 · 0.90
+  archetype_fit: 0.10,
+};
+// Σ = 1.000 — prueba unitaria obligatoria en mix.test.ts, como toda versión desde V1.
+```
+
+**`signals/types.ts`**: `SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" |
+"position_fit" | "archetype_fit"`. `SignalContribution`/`SignalScorer` no cambian de forma.
+
+**`signals/archetype-fit.ts`**: se borran `ArchetypeFitContribution` y `ArchetypeFitScorer`;
+`createArchetypeFitScorer` pasa a devolver `SignalScorer` y `score()` a devolver
+`SignalContribution`. **Cuerpo, normalización, `ARCHETYPE_MAX_BONUS`, `explanation` y las 3 ramas
+de resultado: sin cambios** (ya son los de §11.4). Por tipado estructural el objeto ya satisface
+`SignalScorer` en cuanto la unión se amplía.
+
+**`signals/mix.ts`**:
+
+```typescript
+import { SCORING_WEIGHTS_V6 } from "./weights";   // reemplaza el import de V5
+// weightedContributions() y buildReason() pasan a indexar SCORING_WEIGHTS_V6. Ningún otro cambio
+// de lógica: la redistribución proporcional de hasVote() ya maneja una señal que no vota.
+
+const RAW_RANGE: Record<SignalId, [number, number]> = {
+  counter: [-0.12, 0.12], patch_meta: [0.3, 0.7], team_synergy: [0, 1],
+  hero_pool_fit: [0, 1], position_fit: [0, 1],
+  archetype_fit: [0, 1],                           // nuevo — raw ya viene normalizado del scorer
+};
+
+export interface BuildSuggestionsOptions {
+  // …existentes…
+  // Ausente -> el scorer recibe intent === undefined -> applicable: false (nunca vota, nunca baja
+  // la confianza). Presente -> la señal entra a la mezcla. Mismo patrón que heroPositions?/
+  // heroCapabilities?/now?. En 4.2 lo fija sólo el llamador; por request/WS es 4.3.
+  archetypeIntent?: DraftPathArchetype;
+}
+```
+
+Ensamblado dentro de `buildSuggestions`, junto a los otros dos scorers por-llamada:
+
+```typescript
+const scorers: SignalScorer[] = [
+  ...baseScorers,
+  createPositionFitScorer(heroPositions),
+  createTeamSynergyScorer(heroCapabilities),
+  createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),   // nuevo
+];
+```
+
+`safeScore` ya envuelve toda excepción del scorer en `raw: null`; `computeConfidence` ya ignora
+`applicable === false`. No hay ramas nuevas de manejo de error.
+
+### 11.13.5 — Candado de regresión cero (números exactos)
+
+Sea `S` un set fijo de `SignalContribution[]` con voto real en las 5 señales de V5 (`raw` fijos,
+elegidos en el test) y una sexta contribución `archetype_fit` con `applicable: false`.
+
+- `hasVote()` descarta la de `archetype_fit` en ambas versiones.
+- Con **V5**: `share_i = V5_i / Σ(V5)` sobre las 5.
+- Con **V6**: `share_i = (V5_i · 0.90) / Σ(V5 · 0.90) = V5_i / Σ(V5)` sobre las mismas 5 -- el
+  factor `0.90` se cancela.
+- ⇒ `mixScore(S)` con V6 **==** `mixScore(S)` con V5, al bit.
+
+`mix.test.ts` fija `S` con números concretos, calcula el `mixScore` esperado a mano y verifica la
+igualdad exacta con ambas constantes (se importa `SCORING_WEIGHTS_V5` sólo para el test). Con
+`archetypeIntent` presente y un candidato con `raw ∈ [0,1]`, el `mixScore` **sí** difiere -- ese
+es el caso que el criterio 3 de §11.13.8 cubre.
+
+### 11.13.6 — Espejo obligatorio en `apps/web` (mismo cambio, `web.md`)
+
+| Archivo | Cambio |
+|---|---|
+| `features/draft/types.ts` | `SignalId` += `"archetype_fit"` |
+| `features/draft/validation.ts` | `isSignalId` (cadena `value === …`) += `\|\| value === "archetype_fit"` |
+| `features/draft/constants.tsx` | `SIGNAL_DISPLAY_PRIORITY` += `"archetype_fit"` **al final** |
+| `components/signal-breakdown/SignalBreakdown.tsx` | `SIGNAL_LABELS: Record<SignalId, string>` += `archetype_fit: "Intención de draft"` -- es un `Record` total, **no compila sin la clave** |
+
+`SignalBreakdown` pasa a mostrar **6 filas**. Sin intención, la sexta cae en la fila
+`SignalBreakdownRowNotApplicable` ya existente (TSK-026), con el `explanation` que manda el motor
+(`"Elegí una intención de draft para activar esta señal"`) -- **nunca** el texto de "Sin datos
+suficientes", que es exclusivo de `raw: null`. Un candidato de los 3 sin entrada en
+`capabilities.json` con intención elegida sí usa la fila de `raw: null`.
+
+### 11.13.7 — Seguridad (hereda §11.8; sin frontera nueva)
+
+- **Ningún cruce de frontera de confianza nuevo en runtime.** En 4.2 `archetypeIntent` sólo entra
+  por `BuildSuggestionsOptions`, que fija el llamador dentro del proceso -- no llega de la red. La
+  validación de borde contra la unión cerrada de 4 literales (`push`/`teamfight`/`pickoff`/
+  `scaling`), con degradado a "sin intención" ante un valor inválido y sin lanzar nunca, es
+  responsabilidad de **4.3**, cuando el input llegue por request/`hello` (§5, §11.8).
+- Ninguna dependencia nueva, ningún archivo de datos nuevo, ningún secreto, ningún dato personal.
+- `archetype-fit.ts` vive bajo `apps/engine/src/signals/`, donde `verify-simplicity.sh` ya bloquea
+  cualquier `fetch(` sobre el árbol completo. Cero red en el camino caliente, intacta.
+
+### 11.13.8 — Criterios de aceptación
+
+**Archivos (≈9-10) -- se declara `simplicity_exception: true` en el ticket.** Es una integración
+transversal (motor + espejo `apps/web` + dos candados de prueba), no una unidad de 3 archivos.
+**Nunca se recorta una prueba obligatoria para entrar en un límite.**
+
+- Motor: `signals/types.ts`, `signals/weights.ts`, `signals/mix.ts`, `signals/archetype-fit.ts`,
+  `signals/mix.test.ts`, `signals/archetype-fit.test.ts`.
+- `apps/web`: `features/draft/types.ts`, `features/draft/validation.ts`,
+  `features/draft/constants.tsx`, `components/signal-breakdown/SignalBreakdown.tsx`
+  (+ su `.test.ts` si el conteo de filas está aseverado).
+
+**Funcionales:**
+
+1. `bunx tsc --noEmit` limpio en **`apps/engine` y `apps/web`**. `SCORING_WEIGHTS_V1..V5` sin un
+   solo valor cambiado. Prueba de que los 6 pesos de V6 suman `1.0`.
+2. **Candado de regresión cero numérico** (`mix.test.ts`): con `archetypeIntent` ausente,
+   `mixScore(S)` sobre un set fijo `S` da **el mismo número exacto** con V6 que con V5. No "no
+   cambió a ojo" (§11.13.5).
+3. **Candado de sensibilidad** contra `buildSuggestions` completo: con `archetypeIntent: "push"`
+   y draft vacío, el top-3 se inclina hacia héroes de `structuralDamage` alto respecto del top-3
+   sin intención. Prueba dedicada con `scaling` que **invierte** la inclinación (mismo tipo de
+   hallazgo que §11.9 criterio 4).
+4. **`position_fit` sigue siendo el mayor peso de V6** (`0.342` > todos) -- aserción explícita.
+5. Candidato sin entrada en las capacidades inyectadas + intención elegida → `raw: null` para
+   `archetype_fit`, las otras 5 se calculan igual, **nunca una excepción sin capturar**.
+6. `SignalBreakdown` renderiza 6 filas; sin intención la sexta usa la fila "no aplica" con el
+   texto del motor, jamás "Sin datos suficientes".
+7. Ninguna prueba lee `capabilities.json`/`hero-positions.json` real (S9/S10) -- fixtures inline.
+8. El espejo de `apps/web` se mueve **en el mismo cambio**: si el motor amplía `SignalId` y
+   `apps/web` no, `tsc` de `apps/web` rompe. Es la funcionalidad, no un defecto a suavizar.
+
+### 11.13.9 — Lo que 4.2 deja abierto (para 4.3)
+
+- **Selector de intención en `apps/web` + transporte + validación de borde.** 4.3 pasa de "sólo
+  QA manual" (§11.10) a "UI del selector + campo en el request de sugerencias y en el `hello` del
+  WS + validación de borde contra los 4 literales + QA + calibración".
+- **Decaimiento de `archetype_fit` a lo largo del draft** (§11.11) -- se mide primero en el QA de
+  4.3; sólo si el sobre-empuje en picks tardíos es real se le agrega dependencia de `DraftState`.
+- **Ajuste fino de `w = 0.10`** tras ver el resultado real del QA de 4.3. Es una perilla de
+  producto, no un ancla.
+- Los 3 héroes sin `capabilities.json` (`131`/`145`/`155`) y el bug de `team_synergy` que devuelve
+  `raw: 0` en vez de `null` (§11.11) -- tickets propios, sin cambios, no bloquean 4.2.
+
+### 11.13.10 — Entrada para `/rulebook`
+
+**Un solo ticket** (4.2), `simplicity_exception: true`, `preferred_tool: claude-code` -- toca el
+motor y el espejo `apps/web`, exige `@redteam`, y la trazabilidad de Q1-Q5 vive en `journal.md`.
+No se parte en "re-tipar V4/V5" + "ampliar `SignalId`" + "espejo web": el re-tipado sin la
+ampliación no compila como unidad entregable y partirlo triplica el bookkeeping sin bajar el
+riesgo. Costuras: **S3** sobre **S9** (ya existentes). **Ninguna costura nueva.**
+
+---
+
 # SPEC — Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario)
 
 Síntesis de `docs/agents/architecture.md` § Fase 5 (Bloques 1-6, `/pre-flight` completo, 2026-08-24).

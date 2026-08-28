@@ -132,6 +132,27 @@ calla el sistema durante un draft.
   pedir el token de 60 s justo antes de conectar/reconectar el draft, no el resto del flujo de
   cuenta.
 
+## Fase 4.2 — espejo de `archetype_fit` en `apps/web` (SPEC.md §11.13.6)
+
+El motor amplía `SignalId`; `apps/web` lo espeja **en el mismo cambio** o `tsc` de `apps/web`
+rompe (mismo criterio que el espejo de Fase 3). Cuatro archivos, ninguno opcional:
+
+- **`features/draft/types.ts`**: `SignalId` += `"archetype_fit"` — espejo a mano del contrato del
+  motor, nunca un import (los dos procesos son independientes).
+- **`features/draft/validation.ts`**: el type guard `isSignalId` (cadena `value === …`) gana
+  `|| value === "archetype_fit"`.
+- **`features/draft/constants.tsx`**: `SIGNAL_DISPLAY_PRIORITY` gana `"archetype_fit"` **al
+  final** — señal gruesa (3-4 niveles), menor densidad que las tácticas.
+- **`components/signal-breakdown/SignalBreakdown.tsx`**: `SIGNAL_LABELS: Record<SignalId, string>`
+  gana `archetype_fit: "Intención de draft"` — es un `Record` total, no compila sin la clave.
+- **`SignalBreakdown` pasa a mostrar 6 filas.** Sin intención elegida, la sexta cae en la fila
+  `SignalBreakdownRowNotApplicable` (TSK-026) con el `explanation` del motor ("Elegí una intención
+  de draft para activar esta señal") — **nunca** el texto de "Sin datos suficientes" (exclusivo
+  de `raw: null`).
+- **Nada más de `apps/web` cambia en 4.2.** Sin selector de intención, sin estado en Zustand, sin
+  tocar el request de sugerencias — eso es 4.3. Terminología en castellano: "intención de draft",
+  nunca "arquetipo" a secas en texto visible.
+
 ## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13.10)
 
 - **`apps/web/features/pro-drafter/types.ts` tiene 2 espejos a mano que se ensanchan en el mismo

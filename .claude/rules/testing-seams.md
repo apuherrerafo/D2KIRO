@@ -89,6 +89,27 @@ S9 en vez de S2.
   caso que detecta un denominador de normalización equivocado); candidato sin entrada en las
   capacidades inyectadas → `raw: null`, nunca una excepción sin capturar.
 
+## Fase 4.2 — `archetype_fit` entra al motor (SPEC.md §11.13.3, §11.13.5, §11.13.8)
+
+**No estrena costura.** `archetype_fit` sigue cayendo en **S3** (señal pura, archivo propio) sobre
+**S9** (`HeroCapabilities` inyectado). `S12` sigue reservada para el RNG de diversificación (4.6).
+
+- **Candado de regresión cero V5→V6, del tipo V1→V2 de 1b** (no el de V4→V5, que no aplicaba):
+  con `archetypeIntent` ausente, `mixScore()` sobre un set fijo de `SignalContribution[]` debe dar
+  **el mismo número exacto** con `SCORING_WEIGHTS_V6` que con `V5`. Se prueba contra `mixScore`
+  directo (importando `SCORING_WEIGHTS_V5` sólo para el test), nunca reconstruido vía
+  `buildSuggestions`. Números concretos, no "no cambió a ojo".
+- **Candado de sensibilidad contra `buildSuggestions` completo**, nunca la señal aislada (mismo
+  criterio que §10.9-7 y §12.14-2): con `archetypeIntent: "push"` y draft vacío el top-3 se
+  inclina hacia `structuralDamage` alto respecto del top-3 sin intención; **prueba dedicada con
+  `scaling` que invierte la inclinación** — una implementación que ignore `intent` pasa la primera
+  y sigue rota (hallazgo tipo TSK-036).
+- **`position_fit` sigue siendo el mayor peso de V6** (`0.342`) — aserción explícita en
+  `mix.test.ts`, más la prueba de que los 6 pesos suman `1.0`.
+- Ninguna prueba lee `capabilities.json`/`hero-positions.json` real — fixtures inline (S9/S10).
+- `SignalBreakdown` con 6 filas: sin intención, la sexta usa la fila "no aplica" con el texto del
+  motor, jamás "Sin datos suficientes".
+
 ## Fase 5 — Auth & Personal Hero Pool multi-usuario (SPEC.md §12.14)
 
 - Las pruebas de S11 nunca hacen una llamada de red real a Steam — fixtures grabados de

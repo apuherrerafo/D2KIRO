@@ -146,6 +146,20 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   llamador de la fábrica. Su validación en el borde, cuando llegue por API en un sub-ticket
   posterior, es responsabilidad de ese sub-ticket, no de 4.1.
 
+## Fase 4.2 — Integración de `archetype_fit` en el motor (SPEC.md §11.13.7)
+
+- **Ninguna frontera de confianza nueva en runtime.** En 4.2 `archetypeIntent` sólo entra por
+  `BuildSuggestionsOptions`, que fija el llamador dentro del proceso — no llega de la red ni de la
+  UI todavía. La validación de borde de ese input (contra la unión cerrada
+  `push`/`teamfight`/`pickoff`/`scaling`, degradado a "sin intención" ante un valor inválido, sin
+  lanzar nunca) es responsabilidad de **4.3**, cuando llegue por request/`hello`.
+- **Ninguna dependencia nueva, ningún archivo de datos nuevo, ningún secreto, ningún dato
+  personal.** Mismo dato agregado y público que el resto del motor (`capabilities.json`, ya
+  validado en el borde por `loadHeroCapabilities()`, costura S9).
+- **Cero red en el camino caliente, intacta.** `archetype-fit.ts` vive bajo
+  `apps/engine/src/signals/`, donde `verify-simplicity.sh` ya bloquea cualquier `fetch(` sobre el
+  árbol completo.
+
 ## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13.12)
 
 - **Ninguna frontera de confianza nueva.** Las tres entradas de datos de esta fase ya están

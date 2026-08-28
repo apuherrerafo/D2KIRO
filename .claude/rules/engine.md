@@ -287,6 +287,41 @@ números, hasta que cada una tenga su propio `/blueprint` (SPEC.md §11.10).
   null` nunca es 0 ni 0.5") y hoy se dispara con los mismos 3 héroes sin entrada en
   `capabilities.json`. Necesita su propio ticket, no se corrige de paso en 4.1.
 
+## Fase 4.2 — `archetype_fit` entra al motor (S3) — SPEC.md §11.13
+
+Integración de la señal aislada en 4.1. **`SCORING_WEIGHTS_V6` pasa a ser la constante activa**;
+V1-V5 quedan congeladas por nombre, sin editar un solo valor.
+
+- **`SCORING_WEIGHTS_V6: Record<SignalId, number>`, 6 pesos, suman `1.0`** (prueba unitaria
+  obligatoria, como toda versión desde V1). `archetype_fit: 0.10`; los otros 5 = su valor de V5 ×
+  `0.90` exacto (`position_fit 0.342`, `counter 0.216`, `patch_meta 0.117`, `team_synergy 0.117`,
+  `hero_pool_fit 0.108`). El factor `0.90` no es negociable: es lo que hace que la redistribución
+  proporcional de `mix.ts` reproduzca V5 **al bit** cuando `archetype_fit` no vota.
+- **Antes de ampliar `SignalId`, `SCORING_WEIGHTS_V4` y `V5` pasan a `Record<SignalIdV5, number>`**
+  (literales históricos propios, mismo mecanismo que TSK-045 usó para V1/V2/V3). Sin ese re-tipado
+  no compila. Los valores de V4/V5 no cambian una coma.
+- **`SignalId` gana `"archetype_fit"` (6º literal).** `SignalContribution`/`SignalScorer` no
+  cambian de forma. Los alias `ArchetypeFitContribution`/`ArchetypeFitScorer` de
+  `archetype-fit.ts` **se borran**; el cuerpo de `score()` no cambia una línea (tipado
+  estructural — §11.4 lo previó).
+- **`RAW_RANGE.archetype_fit = [0, 1]` en `mix.ts`** — `raw` ya viene normalizado del scorer
+  (`ARCHETYPE_MAX_BONUS` por arquetipo). Nunca se deja la escala cruda de `archetypeFitBonus` en
+  `RAW_RANGE`, que es un rango único por señal y no puede representar uno distinto por arquetipo.
+- **`BuildSuggestionsOptions.archetypeIntent?: DraftPathArchetype`**, mismo patrón que
+  `now?`/`heroPositions?`/`heroCapabilities?`. Ausente → el scorer recibe `intent === undefined`
+  → `applicable: false` (nunca vota, nunca baja la confianza). En 4.2 lo fija **sólo el llamador
+  dentro del proceso** — el transporte por request/WS y su validación de borde son 4.3.
+- **`createArchetypeFitScorer(heroCapabilities, options.archetypeIntent)` se ensambla por
+  llamada** en `buildSuggestions`, junto a `position_fit`/`team_synergy` (no es singleton de
+  módulo: depende de datos inyectables). `safeScore`/`computeConfidence` ya cubren `raw: null` y
+  `applicable: false` — sin ramas de error nuevas.
+- **Sin decaimiento en 4.2.** `raw` sigue constante por `(intent, hero)` como en 4.1. El posible
+  sobre-empuje en picks tardíos es calibración de 4.3 — no se le agrega dependencia de
+  `DraftState` al scorer sin datos de QA que la respalden.
+- **`position_fit` sigue siendo el peso más alto de V6** (`0.342`). Fase 3 no se reabre.
+- **4.2 no toca `intent/`, `pipeline/`, `knn/`, `lane/` ni `ENABLE_PRO_DRAFTER`** — el Pro-Drafter
+  dark es otro universo, sin relación con esta señal.
+
 ## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13)
 
 - **`SignalId`/`SCORING_WEIGHTS_V1`-`V5` no se tocan en esta fase.** Toda dimensión nueva vive en
