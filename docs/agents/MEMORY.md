@@ -1,10 +1,9 @@
 # MEMORY.md — vista comprimida y regenerable de `journal.md`
 
-Regenerado el 2026-08-26 a partir de `journal.md` y `docs/agents/PROGRESS.md`. Esta vista es
-descartable y regenerable — la
-fuente de verdad sigue siendo `journal.md` (append-only, nunca se comprime ni se borra).
-Regeneración anterior: 2026-07-28 (cubría hasta evt-20260727-067) — este reemplazo incorpora casi
-un mes de trabajo real que la vista vieja no reflejaba.
+Regenerado el 2026-08-28 a partir de `journal.md` (hasta evt-20260828-179) y
+`docs/agents/PROGRESS.md`. Esta vista es descartable y regenerable — la fuente de verdad sigue
+siendo `journal.md` (append-only, nunca se comprime ni se borra). Regeneración anterior:
+2026-08-26 (cubría hasta evt-20260827-177c).
 
 ## Estado del proyecto
 
@@ -14,9 +13,17 @@ rotos (`ban-relief.ts` importaba un módulo nunca commiteado). El overhaul de ap
 counters de opportunity windows, usa FlexScore y overrides Tier-1 deterministas, y el benchmark
 primario ahora mide Role-Pressure. La corrida de referencia mostró 27.3% de estabilidad ante bans
 irrelevantes y 94.9% de cambio ante bans pivotales; por ello `ENABLE_PRO_DRAFTER` permanece
-apagado. **Fase 7 (línea de datos profesionales Tier 1) está ticketeada, 17 tickets (`TSK-146` a
-`TSK-162`), en backlog salvo `TSK-146` ya cerrado.** **144 tickets `TSK-001` a `TSK-145` están
-`done`; `TSK-143` es un hueco huérfano permanente, nunca reutilizado.** Fase 1, Fase 1b
+apagado. **Fase 7 (línea de datos profesionales Tier 1) está en ejecución: `TSK-146` a `TSK-179`
+creados; todos `done` salvo `TSK-174` (`in_progress`, ampliación de corpus a 3.000 drafts, corre
+solo desde un entorno con red real) y `TSK-179` (`backlog`, bloqueado por `TSK-174`).** El pipeline
+offline está construido y probado (contratos, ingesta/normalización/clasificación, agregados y
+combinatorios, compilador de patrones, consulta contextual pura, analyzer QA, benchmark, shrinkage,
+ban-scaling, evidence-gate, y en `TSK-178` la recuperación de los slots de Dire que la ingesta
+vieja descartaba). **Gate 3 sigue sin pasar por estabilidad ante bans irrelevantes (27,3% vs
+80%); `ENABLE_PRO_DRAFTER` permanece apagado y G4 no arranca hasta un segundo `/blueprint`.** El
+2026-08-28 se consolidó en Git todo el árbol pendiente de Fase 6 tardía + Fase 7 en 6 commits
+locales (aún sin push). **144 tickets `TSK-001` a `TSK-145` están `done`; `TSK-143` es un hueco
+huérfano permanente, nunca reutilizado.** Fase 1, Fase 1b
 (hero pool), el bloque de feedback directo de producto, Fase 2 ("Draft en equipo" + Random Draft
 Simulator), el deploy a Railway, Fase 3 (posiciones reales, `position_fit`) y una auditoría de
 arquitectura + recalibración de pesos posterior están todas completas y verificadas contra
@@ -181,6 +188,19 @@ regla real ("nunca asumas la respuesta de antemano, seguí preguntando aunque el
   `8946563158`; permanecen 7 rechazos históricos para revisión posterior.
   La ingesta controlada posterior alcanzó 500 partidas procesadas: 414 `complete` y 86 excluidas
   por `tier_not_accepted`; el corpus utilizable mantiene únicamente los drafts profesionales.
+- Sesión de agregación (sin ticket previo): `scripts/pro/aggregate-from-db.ts` lee los drafts
+  `complete` de `pro-drafts.sqlite` (readonly), reconstruye `ProDraft`/turnos/slots, reutiliza
+  `aggregate.ts`/`classify-tier`/`normalize` y emite un JSON provisional determinista con metadata
+  (`source`/`fetchedAt`/`sampleSize`/`confidence`) y resumen de cobertura; no sobrescribe
+  `pro-patterns.json`.
+- TSK-178 completado (código/esquema): la ingesta guardaba solo los 5 slots de Radiant por partida
+  porque escribía `team = slot.team ?? 0` y la PK `(match_id, team, position_est)` descartaba el
+  lado Dire. Ahora `ingest-drafts.ts` deriva `team` de `isRadiant`/`player_slot`, la PK de
+  `pro_draft_slots` pasa a `(match_id, team, hero_id)`, y `scripts/pro/backfill-slots.ts`
+  (idempotente, offline, reconstruye desde `raw_json`) recupera Dire. Verificado sobre una copia
+  full-size: slots 10.855 → 21.710, posiciones elegibles del agregador 68 → 108. El backfill sobre
+  la SQLite de producción es `TSK-179`, bloqueado por `TSK-174` (no correrlo mientras codex
+  escribe el mismo archivo).
 
 Ver `docs/agents/USER.md` para preferencias de proceso confirmadas del usuario (excepciones al
 cierre, verificación real vs. solo tests, terminología de posiciones) y `docs/agents/CONTEXT.md`
