@@ -5,3 +5,6 @@ node_modules/
 *.log
 .DS_Store
 apps/engine/data/pro-drafts.sqlite
+
+# Artefactos de sesiones Codex (no forman parte del repo)
+.codex/
