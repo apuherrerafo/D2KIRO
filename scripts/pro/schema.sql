@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS tournaments (
   league_id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   tier TEXT NOT NULL CHECK (tier IN ('premium', 'professional', 'excluded', 'amateur', 'unknown')),
-  first_seen_at TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL,
+  first_seen_at TEXT,
+  last_seen_at TEXT,
   region TEXT NOT NULL CHECK (region = 'unknown'),
   source TEXT NOT NULL CHECK (source IN ('opendota_match', 'opendota_league', 'opendota_position_est')),
   fetched_at TEXT NOT NULL,
@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS pro_drafts (
   source TEXT NOT NULL CHECK (source IN ('opendota_match', 'opendota_league', 'opendota_position_est')),
   fetched_at TEXT NOT NULL,
   sample_size INTEGER NOT NULL CHECK (sample_size >= 0),
+  ingest_status TEXT NOT NULL DEFAULT 'complete' CHECK (ingest_status IN ('complete', 'unclassifiable')),
+  ingest_reason TEXT,
+  raw_json TEXT NOT NULL,
+  has_gcdata INTEGER NOT NULL DEFAULT 0 CHECK (has_gcdata IN (0, 1)),
+  has_parsed INTEGER NOT NULL DEFAULT 0 CHECK (has_parsed IN (0, 1)),
   FOREIGN KEY (league_id) REFERENCES tournaments(league_id)
 );
 
@@ -46,7 +51,9 @@ CREATE TABLE IF NOT EXISTS pro_draft_slots (
   lane_role INTEGER NOT NULL,
   is_roaming INTEGER NOT NULL CHECK (is_roaming IN (0, 1)),
   net_worth INTEGER NOT NULL,
-  PRIMARY KEY (match_id, team, position_est),
+  -- PK por héroe (único por partida), no por (team, position_est): OpenDota entrega
+  -- position_est duplicado o nulo en ~0.5% de los drafts y esa colisión descartaba filas.
+  PRIMARY KEY (match_id, team, hero_id),
   FOREIGN KEY (match_id) REFERENCES pro_drafts(match_id) ON DELETE CASCADE
 );
 
