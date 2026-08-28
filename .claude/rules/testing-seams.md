@@ -110,6 +110,31 @@ S9 en vez de S2.
 - `SignalBreakdown` con 6 filas: sin intención, la sexta usa la fila "no aplica" con el texto del
   motor, jamás "Sin datos suficientes".
 
+## Fase 4.3 — `archetype_fit` usable: transporte + selector (SPEC.md §11.14.3, §11.14.9)
+
+**No estrena costura.** El mensaje `set_intent` cae en **S5** (transporte WebSocket — `FakeSocket`
+emitiendo/recibiendo `ClientMessage`/`ServerMessage` tipados, nunca un WS real). `S13` sigue
+reservada (RNG de diversificación, 4.6).
+
+- **Candado de no-regresión en el camino WS**: sin intención puesta, `hello` devuelve exactamente
+  las mismas `suggestions` que antes de 4.3 — probado contra el camino de `app.ts` (`SessionStore`
+  real + `buildSuggestions` real + snapshot cacheado, cero red).
+- **`set_intent` con arquetipo válido → el motor empuja `suggestions` frescas** donde
+  `archetype_fit` vota y el top-3 se mueve; **`set_intent` con `null` → vuelve al orden sin
+  intención**. Ambos contra `app.ts` completo, no la señal aislada (mismo criterio que §10.9-7 /
+  §12.14-2).
+- **`set_intent` malformado** (`"carry"`, `123`, `{}`, sin `sessionId`) → mensaje descartado, la
+  sesión no cambia, no lanza, no hay push. Prueba unitaria de `isValidClientMessage`.
+- **`archetypeIntent` inválido en `SuggestionsPreviewRequest`** → `400`. Prueba unitaria de
+  `isValidSuggestionsPreviewRequest`.
+- **Reconexión** tras fijar la intención → sigue aplicada (server-side); el cliente re-envía
+  `set_intent` tras el `hello` — prueba del store con `FakeSocket`.
+- **`<DraftIntentSelector>`**: elegir un chip llama `setArchetypeIntent` y manda el `set_intent`
+  por el `FakeSocket`; se renderiza en `esperando_draft` y en `activo`/`degradado`. Prueba de
+  componente/store con `FakeSocket`, nunca un WS real.
+- El QA de calibración de `w` (§11.14.8) es un **protocolo manual** registrado en `journal.md`, no
+  una prueba automatizada.
+
 ## Fase 5 — Auth & Personal Hero Pool multi-usuario (SPEC.md §12.14)
 
 - Las pruebas de S11 nunca hacen una llamada de red real a Steam — fixtures grabados de

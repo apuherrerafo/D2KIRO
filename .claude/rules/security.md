@@ -160,6 +160,26 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   `apps/engine/src/signals/`, donde `verify-simplicity.sh` ya bloquea cualquier `fetch(` sobre el
   árbol completo.
 
+## Fase 4.3 — `archetype_fit` usable: nueva frontera de confianza (SPEC.md §11.14.6)
+
+- **Frontera de confianza nueva, con mitigación obligatoria.** En 4.3 `archetypeIntent` **sí llega
+  desde el cliente** — por el mensaje WS `set_intent` **y** por el body de
+  `POST /api/suggestions/preview`. Es input externo → se valida en el borde contra la unión cerrada
+  de 4 literales (`isValidClientMessage` / `isValidSuggestionsPreviewRequest`) **antes** de tocar
+  `SessionStore` o `buildSuggestions`. Un valor inválido: en WS se descarta el mensaje (sin
+  cambiar la sesión, sin lanzar), en HTTP es `400`. Saltarse esa validación es rechazo automático
+  de `@redteam`.
+- **Cierra el hallazgo #2 de `@redteam` en TSK-180**: un valor fuera de la unión llegaría a
+  `ARCHETYPE_MAX_BONUS[intent]` como `undefined` → `raw: NaN`. La validación de borde lo hace
+  inalcanzable.
+- **Sin ruta HTTP nueva** — el WS reutiliza el socket ya autenticado; el único toque HTTP es un
+  campo opcional en un endpoint existente.
+- **Sin secreto nuevo, sin dato personal, sin escritura a SQLite.** `SessionStore` es memoria; la
+  intención nunca se persiste ni se loguea.
+- **DoS**: un `set_intent` cuyo valor es igual al almacenado es no-op (ni recálculo ni push). El
+  WS del motor sigue atado a `127.0.0.1`, no expuesto a la red (Fase 5 no lo cambió) — `set_intent`
+  no es superficie nueva más allá de lo que `ping` ya es.
+
 ## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13.12)
 
 - **Ninguna frontera de confianza nueva.** Las tres entradas de datos de esta fase ya están

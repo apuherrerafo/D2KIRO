@@ -1926,6 +1926,254 @@ riesgo. Costuras: **S3** sobre **S9** (ya existentes). **Ninguna costura nueva.*
 
 ---
 
+## 11.14 — Blueprint del sub-ticket 4.3 (`archetype_fit` usable: selector + transporte + QA)
+
+Séptimo `/blueprint` de sub-ticket. Corrido en **Sonnet por decisión explícita del usuario
+(2026-08-28)** -- misma desviación consciente de la política de modelos que §11.13, anotada en
+`journal.md`. `/rulebook` en adelante, Sonnet.
+
+### 11.14.0 — Alcance
+
+4.2 (TSK-180) integró `archetype_fit` al motor pero **inerte**: sin `archetypeIntent`, la señal es
+`applicable: false` y no hay forma de elegir una intención desde la app. 4.3 la hace **usable de
+punta a punta**:
+
+1. Selector de intención de draft en `apps/web` (4 arquetipos + "sin intención").
+2. Transporte: mensaje WS `set_intent` + estado por sesión en `SessionStore`, **y** campo
+   `archetypeIntent?` en `POST /api/suggestions/preview`.
+3. Validación de borde de ese input (unión cerrada de 4 literales) -- cierra el hallazgo de
+   `@redteam` de TSK-180 (un valor fuera de la unión daría `raw: NaN`).
+4. Protocolo de QA manual para confirmar/ajustar el peso `w = 0.10`.
+
+**Fuera de 4.3:** tocar `SCORING_WEIGHTS_V6` (ver §11.14.7 -- si el QA pide otro `w`, es un
+follow-up que acuña `V7`), el decaimiento de la señal a lo largo del draft (§11.11, sigue
+abierto), y persistir la intención más allá de la vida de la sesión en memoria.
+
+### 11.14.1 — Qué de fases anteriores queda superado
+
+| Antes | 4.3 lo cambia a |
+|---|---|
+| §C5 / `session.ts`: `SessionEntry` = `{ state, lastAccessedAt, ownerAccountId }` | + `archetypeIntent: DraftPathArchetype \| null` (default `null`), preservado entre `applyDraftEvent` igual que `ownerAccountId` |
+| `edge.ts`: `ClientMessage.type` = `"hello" \| "ping"` | + `"set_intent"` |
+| §C5 / `edge.ts` §"SuggestionsPreviewRequest": 8 campos | + `archetypeIntent?: DraftPathArchetype` (9º campo, opcional) |
+| `app.ts`: `computeSuggestionsForState(state, accountId, options)` con `options` de 4 campos, y el push del camino en vivo (`hello` / cada draft-event) **no pasaba ninguno** | `options` gana `archetypeIntent?`; los caminos en vivo lo leen de `SessionStore` en cada recálculo |
+| El push automático por WS es `draft_state` → `suggestions` | `set_intent` dispara **sólo** `suggestions` (el tablero no cambió) -- excepción explícita al orden de push, como ya lo es el cálculo de `draft_paths` |
+
+Nada más se mueve. `applyDraftEvent` sigue puro, `SCORING_WEIGHTS_V6` intacta, ninguna señal
+cambia de fórmula.
+
+### 11.14.2 — Decisiones cerradas
+
+| # | Pregunta | Decisión (usuario, 2026-08-28) |
+|---|---|---|
+| Q1 | ¿Cómo llega la intención al motor en el camino en vivo? | **Mensaje WS `set_intent` + estado en `SessionStore`.** Nuevo mensaje de cliente ligero; `SessionStore` gana `archetypeIntent` por sesión (mismo patrón que `ownerAccountId`). `computeSuggestionsForState` lo lee del store, así **todos** los caminos de recálculo (hello, cada draft-event, reconexión) lo respetan sin tocarlos uno por uno. No se agrega ruta HTTP nueva. |
+| Q2 | ¿Dónde puede elegirse? | **También en `esperando_draft`**, además de `activo`/`degradado`. `archetype_fit` es la primera señal que discrimina con el tablero vacío -- fijar la dirección antes del pick #1 es el caso de uso central. Persiste al arrancar el draft. |
+| Q3 | ¿4.3 retoca `w`? | **No.** El QA mide si `w = 0.10` es correcto; si no lo es, un follow-up acuña `SCORING_WEIGHTS_V7` con la misma estructura `× (1 − w)` (§11.14.7). 4.3 no abre `weights.ts`. |
+| Q4 | ¿Persistencia de la intención? | Vive en `SessionStore` (memoria, TTL 45 min) -- sobrevive una reconexión del cliente mientras la sesión viva. El cliente además la re-envía tras cada `hello` (cinturón y tiradores: un reinicio del motor la pierde). No se persiste en SQLite. |
+
+### 11.14.3 — Costuras: ninguna nueva
+
+- El mensaje `set_intent` cae en **S5** (transporte WebSocket -- `FakeSocket` emitiendo/recibiendo
+  `ClientMessage`/`ServerMessage` tipados). La prueba del store verifica que `setArchetypeIntent`
+  manda el `set_intent` por el `FakeSocket`; nunca un WebSocket real.
+- El handler del motor cae en el patrón de integración de `app.ts` ya existente (`SessionStore`
+  real + `buildSuggestions` real + snapshot cacheado, cero red).
+- La validación de borde (`isValidClientMessage` rama `set_intent`, `isValidSuggestionsPreviewRequest`
+  campo nuevo) son funciones puras -- pruebas en `edge.test.ts`, mismo criterio que las que ya
+  tiene.
+- **`S13` sigue reservada** (RNG de diversificación, 4.6). 4.3 no la toca.
+- El QA de calibración es un **protocolo manual** (§11.14.8), no una costura.
+
+### 11.14.4 — Contratos de datos
+
+**`server/session.ts`:**
+
+```typescript
+// mirror de draft-paths/types.ts -- import directo legítimo (mismo proceso), no espejo a mano
+import type { DraftPathArchetype } from "../draft-paths/types";
+
+interface SessionEntry {
+  state: DraftState;
+  lastAccessedAt: number;
+  ownerAccountId: AccountId | null;
+  archetypeIntent: DraftPathArchetype | null;   // NUEVO -- default null
+}
+
+// En SessionStore:
+setArchetypeIntent(sessionId: string, intent: DraftPathArchetype | null): void; // no-op si no existe la sesión
+archetypeIntent(sessionId: string): DraftPathArchetype | null;                  // null si no existe
+
+// El merge de applyDraftEvent (hoy: `ownerAccountId: this.states.get(id)?.ownerAccountId ?? null`)
+// gana `archetypeIntent: this.states.get(id)?.archetypeIntent ?? null` -- se preserva igual.
+
+// ClientMessage: la unión gana el mensaje set_intent
+export interface ClientMessage {
+  schema: "draft-ws/v1";
+  type: "hello" | "ping" | "set_intent";
+  sessionId?: string;
+  accountToken?: string;
+  archetypeIntent?: DraftPathArchetype | null;   // sólo en set_intent
+}
+```
+
+**`server/edge.ts`:**
+
+```typescript
+// isValidClientMessage: rama nueva -- input externo (JSON.parse -> any), se valida en el borde.
+//   type === "set_intent"  =>  sessionId string no vacío  &&
+//     archetypeIntent ∈ {"push","teamfight","pickoff","scaling", null}
+// Un set_intent malformado se descarta en silencio (return), igual que cualquier ClientMessage
+// inválido hoy (hallazgo de @redteam ronda 1, TSK-010).
+
+export interface SuggestionsPreviewRequest {
+  // …8 campos existentes…
+  archetypeIntent?: DraftPathArchetype;   // 9º -- ausente => sin intención
+}
+// isValidSuggestionsPreviewRequest: si archetypeIntent !== undefined, debe ser uno de los 4
+// literales; si no, el body es inválido -> 400 (mismo criterio que targetPosition).
+```
+
+**`server/app.ts`:**
+
+```typescript
+async function computeSuggestionsForState(
+  state, accountId = null,
+  options: { targetPosition?; usePersonalPool?; teamOpening?; diversitySeed?; archetypeIntent?: DraftPathArchetype } = {},
+): Promise<SuggestionSet> { /* …pasa ...options a buildSuggestions, sin otro cambio… */ }
+```
+
+- **Camino en vivo** (`hello`, push tras cada `/ingest/draft-event`, reconexión): cada llamada a
+  `computeSuggestionsForState` pasa `archetypeIntent: sessionStore.archetypeIntent(sessionId)`.
+- **Handler `set_intent`**: sobre una sesión suscrita → `sessionStore.setArchetypeIntent(...)` →
+  **si el valor cambió** recalcula `computeSuggestionsForState(state, owner, { archetypeIntent })`
+  y publica `suggestions` (no `snapshot`, no `draft_state`). Si el valor es igual al almacenado,
+  **no-op** -- ni recálculo ni push (guarda de idempotencia; evita que un cliente que reenvía
+  fuerce recálculos).
+- **`handleSuggestionsPreview`**: pasa `body.archetypeIntent` en `options`.
+- **`computeV5Fallback`** (ruta `pro-drafter.ts`): no cambia -- ese camino no representa una
+  sesión con intención elegida (mismo criterio que ya usa para no pasar `targetPosition`).
+
+**`apps/web`:**
+
+```typescript
+// features/draft/types.ts -- mirror a mano de draft-paths/types.ts (frontera apps/engine ↔ apps/web)
+export type DraftArchetype = "push" | "teamfight" | "pickoff" | "scaling";
+// y el mirror de ClientMessage gana "set_intent" + archetypeIntent
+
+// features/draft/store.ts (useDraftStore) -- estado + acción
+archetypeIntent: DraftArchetype | null;                 // default null
+setArchetypeIntent(intent: DraftArchetype | null): void; // (1) set local  (2) socket.send({type:"set_intent", sessionId, archetypeIntent: intent})
+// connect(): tras el hello, si archetypeIntent !== null, re-enviar set_intent
+```
+
+- **`components/draft-intent-selector/DraftIntentSelector.tsx`** (nuevo): 4 chips
+  (`Push`/`Teamfight`/`Pickoff`/`Scaling`) + affordance "Sin intención" para limpiar. Handlers
+  nombrados, sin funciones anónimas inline, sin ternario para render condicional (`web.md`). Color
+  por rol semántico (`--surface-*`/`--content-*`/`--accent-*`), escala de 4 px, `text-caption`.
+  Etiquetas en `features/draft/constants.tsx` (`ARCHETYPE_LABELS`), mismo vocabulario que las
+  `explanation` del motor ("tu draft de Push").
+- **`DraftView.tsx`**: monta `<DraftIntentSelector>` en `WaitingForDraftState` (esperando_draft)
+  y en `ActiveDraftState`/`DegradedDraftState` (cerca de `modeSelector`/`extraTopBar`).
+
+### 11.14.5 — Estados y transiciones
+
+| Trigger | Efecto |
+|---|---|
+| Usuario elige un arquetipo | store local ← arquetipo; socket envía `set_intent`; motor guarda en `SessionStore` y (si cambió) empuja `suggestions` con `archetype_fit` votando |
+| Usuario limpia ("Sin intención") | `set_intent` con `archetypeIntent: null`; motor guarda `null` y empuja `suggestions` con `archetype_fit` de vuelta en `applicable: false` -- el top-3 vuelve al orden sin intención |
+| Cada pick/ban aplicado | el push automático (`draft_state` → `suggestions`) ya recalcula leyendo la intención del store; sin cambios de código en ese punto salvo pasar el campo |
+| Reconexión (`hello`) | el motor mantiene la intención en `SessionStore` (si la sesión vive); el cliente re-envía `set_intent` por si el motor se reinició |
+| Sesión expira (TTL 45 min) / motor reinicia | la intención se pierde con la sesión -- una sesión nueva arranca en `null` |
+
+### 11.14.6 — Seguridad (hereda §11.8 / §11.13.7; §5)
+
+- **Nueva frontera de confianza, con mitigación obligatoria:** `archetypeIntent` ahora **sí llega
+  desde el cliente** (mensaje WS `set_intent` y body de `/api/suggestions/preview`). Es input
+  externo → se valida en el borde contra la unión cerrada de 4 literales (`isValidClientMessage`
+  / `isValidSuggestionsPreviewRequest`) **antes** de tocar `SessionStore` o `buildSuggestions`. Un
+  valor inválido: en WS se descarta el mensaje (sin cambiar la sesión, sin lanzar), en HTTP es
+  `400`. Nunca llega un valor fuera de la unión a `archetypeFitBonus` -- **cierra el hallazgo #2
+  de `@redteam` en TSK-180** (`ARCHETYPE_MAX_BONUS[intent]` undefined → `NaN`).
+- **Sin ruta HTTP nueva** -- el WS reutiliza el socket ya autenticado; el único toque HTTP es un
+  campo opcional en un endpoint existente.
+- **Sin secreto nuevo, sin dato personal, sin escritura a SQLite** -- `SessionStore` es memoria.
+- **DoS:** un `set_intent` cuyo valor es igual al almacenado es no-op (ni recálculo ni push). El
+  WS del motor sigue atado a `127.0.0.1` y no expuesto a la red (Fase 5 no lo cambió), así que
+  `set_intent` no es superficie nueva más allá de lo que `ping` ya es.
+- **Cero red en el camino caliente, intacta.**
+
+### 11.14.7 — Gobernanza del peso `w`
+
+`SCORING_WEIGHTS_V6` (TSK-180) es la constante activa con `archetype_fit: 0.10`. 4.3 **no la
+toca**. El QA de §11.14.8 mide si `0.10` es el valor correcto de producto:
+
+- Si el resultado es bueno → V6 queda como está y se considera "pasada por QA".
+- Si `archetype_fit` sobre- o sub-empuja → **follow-up ticket que acuña `SCORING_WEIGHTS_V7`**:
+  mismos 5 pesos heredados = `V5 × (1 − w_new)`, `archetype_fit: w_new`. El candado de regresión
+  cero (`mix.test.ts`) se re-corre con los números nuevos; la estructura `× (1 − w)` se conserva,
+  así que V7-sin-intención sigue ≡ V5 al bit. V6 queda congelada por nombre igual que V1-V5.
+
+### 11.14.8 — Protocolo de QA manual (parte del ticket)
+
+Contra `bun run dev` o Railway, en la vista de draft (entrada manual), **no** contra el bot del
+simulador (que no usa `buildSuggestions`, `engine.md`):
+
+1. Draft vacío, elegir cada uno de los 4 arquetipos por turno. Anotar el top-3 y compararlo con el
+   top-3 sin intención. Esperado: se inclina hacia la dimensión del arquetipo (push → daño a
+   estructuras; pickoff → catch/initiation; etc.).
+2. Con 2-3 picks propios que **ya cumplen** la intención + un candidato con hard counter real
+   contra un rival revelado: confirmar que el counter (o la posición faltante) **sigue ganando** --
+   `archetype_fit` no debe dar vuelta una ventaja táctica real (`position_fit` sigue siendo el
+   mayor peso).
+3. Limpiar la intención a mitad del draft → el top-3 vuelve exactamente al que daría sin intención.
+4. Reconectar (recargar la página) con una intención puesta → sigue aplicada.
+5. Juicio de producto: ¿`w = 0.10` mueve lo justo, o de más/de menos? Registrar la respuesta; si
+   pide cambio, abrir el ticket de `V7` (§11.14.7).
+
+### 11.14.9 — Criterios de aceptación
+
+**Archivos (~10-12) -- `simplicity_exception: true`.** Motor: `server/session.ts`,
+`server/edge.ts`, `server/app.ts` + `server/edge.test.ts` + `server/app.test.ts` (o
+`session.test.ts`). `apps/web`: `features/draft/store.ts`, `features/draft/types.ts`,
+`features/draft/constants.tsx`, `components/draft-intent-selector/DraftIntentSelector.tsx` (+
+`.test.ts`), `features/draft/DraftView.tsx`.
+
+1. `bunx tsc --noEmit` limpio en `apps/engine` y `apps/web`. **Sin intención puesta, la vista de
+   draft en vivo devuelve exactamente las mismas `suggestions` que antes de 4.3** (candado de
+   no-regresión, heredado de TSK-180 pero re-aseverado en el camino WS).
+2. `set_intent` con un arquetipo válido → el motor empuja `suggestions` frescas donde
+   `archetype_fit` vota y el top-3 se mueve. Probado contra el camino de `app.ts` (`SessionStore`
+   real + `buildSuggestions` real), **no** la señal aislada.
+3. `set_intent` con `archetypeIntent: null` → `archetype_fit` vuelve a `applicable: false`, el
+   top-3 vuelve al orden sin intención.
+4. `set_intent` malformado (`"carry"`, `123`, `{}`, sin `sessionId`) → mensaje descartado, la
+   sesión no cambia, no lanza, no hay push. Prueba unitaria de `isValidClientMessage`.
+5. `archetypeIntent` inválido en `SuggestionsPreviewRequest` → `400`. Prueba unitaria de
+   `isValidSuggestionsPreviewRequest`.
+6. Reconexión tras fijar la intención → sigue aplicada (server-side); el cliente re-envía
+   `set_intent` tras el `hello` (prueba del store con `FakeSocket`).
+7. `<DraftIntentSelector>` se renderiza en `esperando_draft` y en `activo`/`degradado`; elegir un
+   chip llama `setArchetypeIntent` y manda el `set_intent` por el `FakeSocket`; el chip elegido
+   muestra estado seleccionado; "Sin intención" limpia.
+8. El selector usa color por rol semántico + escala de 4 px + tipografía por rol -- ni un hex/px
+   suelto (`web.md`, `@redteam` pasada 1).
+9. La 6ª fila de `SignalBreakdown` (TSK-180) muestra valor y `explanation` reales una vez puesta
+   la intención.
+10. QA manual de §11.14.8 corrido y registrado en `journal.md`; si pide otro `w`, ticket de `V7`
+    abierto.
+
+### 11.14.10 — Entrada para `/rulebook`
+
+**Un solo ticket** (4.3), `simplicity_exception: true`, `preferred_tool: claude-code` -- toca el
+motor (`server/`) y `apps/web` (transporte + componente nuevo), exige `@redteam` (nueva frontera
+de confianza), y la trazabilidad de Q1-Q4 vive en `journal.md`. No se parte en "transporte motor" +
+"UI" + "validación": el selector sin transporte no es entregable y la validación de borde es
+inseparable del transporte. Costuras: **S5** (ya existente). **Ninguna nueva.** El QA de
+calibración es un paso manual dentro del mismo ticket, no un ticket aparte -- salvo que dispare el
+follow-up de `V7`.
+
+---
+
 # SPEC — Fase 5 (MVP de Producción: Auth & Personal Hero Pool multi-usuario)
 
 Síntesis de `docs/agents/architecture.md` § Fase 5 (Bloques 1-6, `/pre-flight` completo, 2026-08-24).

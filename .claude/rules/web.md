@@ -153,6 +153,33 @@ rompe (mismo criterio que el espejo de Fase 3). Cuatro archivos, ninguno opciona
   tocar el request de sugerencias — eso es 4.3. Terminología en castellano: "intención de draft",
   nunca "arquetipo" a secas en texto visible.
 
+## Fase 4.3 — selector de intención de draft (SPEC.md §11.14)
+
+- **`<DraftIntentSelector>`** (nuevo, `components/draft-intent-selector/`): 4 chips
+  (`Push`/`Teamfight`/`Pickoff`/`Scaling`) + affordance "Sin intención" para limpiar. Handlers
+  **nombrados**, sin funciones anónimas inline, sin ternario para render condicional (early return
+  o subcomponente). Color por rol semántico (`--surface-*`/`--content-*`/`--accent-*`), escala de
+  4 px, `text-caption`/`text-body` — **ni un hex ni un px suelto** (gate de `@redteam` pasada 1).
+- **Etiquetas en `features/draft/constants.tsx`** (`ARCHETYPE_LABELS`), mismo vocabulario que las
+  `explanation` del motor ("tu draft de Push") — no se inventa terminología nueva.
+- **`useDraftStore` (`store.ts`)** gana `archetypeIntent: DraftArchetype | null` (default `null`) y
+  la acción `setArchetypeIntent(intent)` que: (1) fija el estado local, (2) manda
+  `{ schema:"draft-ws/v1", type:"set_intent", sessionId, archetypeIntent: intent }` por el socket.
+  En `connect()`, **tras el `hello`**, si `archetypeIntent !== null` se re-envía el `set_intent`
+  (el motor lo mantiene en `SessionStore`, pero un reinicio del motor lo pierde).
+- **`features/draft/types.ts`**: `type DraftArchetype = "push"|"teamfight"|"pickoff"|"scaling"` —
+  **espejo a mano** de `draft-paths/types.ts` (frontera `apps/engine ↔ apps/web`), con el
+  comentario de espejo. El mirror de `ClientMessage` gana `"set_intent"` + `archetypeIntent`.
+- **`DraftView.tsx`**: monta `<DraftIntentSelector>` en `WaitingForDraftState` (`esperando_draft`)
+  **y** en `ActiveDraftState`/`DegradedDraftState`, cerca de `modeSelector`/`extraTopBar`. El
+  usuario puede fijar la dirección **antes** del pick #1 y persiste al arrancar.
+- **Régimen de datos**: la intención es estado de sesión de draft en vivo → Zustand + WebSocket,
+  **nunca RTK Query**. Es la misma excepción que ya cubre el resto de la vista de draft en vivo.
+- **Nada de RTK Query nuevo, sin pantallas nuevas fuera del selector.** El request de
+  `/api/suggestions/preview` gana `archetypeIntent?` sólo en el contrato del motor — `apps/web`
+  no lo usa en 4.3 (ese endpoint lo consume el bot del simulador y el panel Pro-Drafter, no la
+  vista en vivo).
+
 ## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13.10)
 
 - **`apps/web/features/pro-drafter/types.ts` tiene 2 espejos a mano que se ensanchan en el mismo

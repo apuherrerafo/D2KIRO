@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-28T06:22:52.247Z</title>
+<title>HUB del ecosistema — 2026-08-28T14:02:59.789Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -54,7 +54,7 @@
   <div class="subtitle">Todo se regenera solo desde PROGRESS.md, docs/agents/tasks/, journal.md y evolve-report.md — nada aquí se edita a mano.</div>
 
   <div class="stepper"><div class="step ">kickoff</div><div class="step-arrow">→</div><div class="step step-active">pre-flight</div><div class="step-arrow">→</div><div class="step ">blueprint</div><div class="step-arrow">→</div><div class="step ">rulebook</div><div class="step-arrow">→</div><div class="step ">ejecución</div><div class="step-arrow">→</div><div class="step ">castoff</div></div>
-  <div class="next-step">📍 Siguiente paso: **Fase 6 está completa e integrada (`TSK-126` a `TSK-142`, `TSK-144`, `TSK-145`, todos `done`, · 15 commits atómicos reconstruidos por `TSK-146` el 2026-08-27 tras encontrar 2 commits locales · rotos — ver `journal.md` evt-20260827-002).** `ENABLE_PRO_DRAFTER` sigue apagado por gobernanza: · el benchmark de sensibilidad no pasa (Jaccard 0.480 contra barra ≤0.35, rank-1 28% contra ≥60%, · estabilidad Role-Pressure 27.3% contra ≥80%). Causa raíz declarada: volumen de datos — solo · 1.200 de 15.984 filas de `hero_matchups` superan el piso de 200 partidas. ·  · **Fase 7 (línea de datos profesionales Tier 1) está en ejecución** — `TSK-146` a `TSK-156` están · `done` (contratos, catálogo/ingesta cruda, normalización, clasificación, agregados, combinatorios, · compilador de patrones, consulta contextual pura, analyzer QA determinista, métricas de benchmark · offline y paquete de evidencia del Gate 3). El Gate 3 no pasa por estabilidad ante bans irrelevantes · (27.3% vs 80%); `ENABLE_PRO_DRAFTER` sigue apagado y G4 no arranca hasta un segundo blueprint. · El spike de embeddings TSK-162 también se cerró sin código: fallan cobertura, estabilidad y tamaño · de corpus, por lo que la evidencia explícita sigue siendo prioritaria. · TSK-163 añade la comparación determinista de snapshots por señal para diagnosticar la sensibilidad · sin tocar el scoring. · TSK-164 añade la auditoría de patrones con muestras débiles; ambos diagnósticos son offline y no · activan el Pro-Drafter. · TSK-168 deja la ingesta reanudable con objetivo configurable de 3.000 drafts; la ejecución masiva · queda pendiente como corrida de fondo. · TSK-169 deja preparada la recompilación determinista de `pro-patterns.json`; la corrida masiva se · ejecutará cuando finalice la ingesta ampliada. · TSK-170 repitió el Gate 3 sin alterar constantes: Jaccard 0.278 y rank-1 90% pasan, pero la · estabilidad irrelevante sigue en 27.3%; se requiere la corrida posterior con corpus ampliado. · TSK-165 añade shrinkage beta-binomial aislado para evidencia profesional débil; muestras menores · de 10 devuelven `null` y todavía no se integra al scoring. TSK-166 añade escalado aislado del peso · de ban por pick-rate, también pendiente de validación antes de integrarse. · TSK-167 define la guarda de evidencia mínima (30 observaciones y confianza >0.6), aún aislada del · scoring. · Hallazgo que reordena · el trabajo: `GET /api/matches/{id}` de OpenDota ya devuelve el 95% de lo que la fase necesita · (orden de picks/bans, posición estimada, equipos, liga) y `scripts/fetch-pro-drafts.ts` lo · descartaba — es un problema de retención, no de adquisición. Sin STRATZ, sin scraping, sin · dependencia nueva. ·  · **Estado al 2026-08-28**: `TSK-146` a `TSK-179` creados; todos `done` salvo `TSK-174` · (`in_progress`, ampliación de corpus a 3.000 drafts, solo desde un entorno con red real) y · `TSK-179` (`backlog`, bloqueado por `TSK-174`: backfill de slots Dire en producción → regen de · agregados → re-run Gate 3). `TSK-178` cerró la recuperación de los slots de Dire (código + esquema · + `scripts/pro/backfill-slots.ts`, verificado sobre una copia full-size). Todo el árbol pendiente · de Fase 6 tardía + Fase 7 se consolidó en Git en 7 commits locales (`acafd38`..`bdc8d77`), **sin · push todavía** — el push queda como acción explícita del usuario. `docs/agents/MEMORY.md` · regenerado hasta `evt-181`. ·  · **Fase 4 sub-ticket 4.2**: `/blueprint` (SPEC.md §11.13) y `/rulebook` completos, ambos en Sonnet · (blueprint corrido en Sonnet por decisión explícita del usuario). Reglas "Fase 4.2" en las 4 · `.claude/rules/` + `CLAUDE.md`. **`TSK-180` creado** (`backlog`, `claude-code`, · `simplicity_exception`): integra `archetype_fit` como sexta señal ponderada — · `SCORING_WEIGHTS_V6` con `archetype_fit: 0.10` (los otros 5 = V5 × 0.90, candado de regresión · cero), `RAW_RANGE.archetype_fit = [0,1]`, `BuildSuggestionsOptions.archetypeIntent`, espejo · `apps/web` en el mismo PR. Alcance solo-motor (selector UI + transporte + validación de borde = · 4.3), sin decaimiento. ~9-10 archivos. ·  · Herramienta: Claude Code. Modelo: Sonnet. · Acción: **`/dispatch` → `@build` de `TSK-180`** — implementar la integración de `archetype_fit` · al motor según `SPEC.md` §11.13 y los criterios del ticket; `@redteam` obligatorio al cerrar. En · paralelo, cuando el usuario lo apruebe: `git push origin master` (7 commits, ahora 8 con lo de · esta ronda de docs), y cuando `TSK-174` cierre: ejecutar `TSK-179`. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
+  <div class="next-step">📍 Siguiente paso: **Fase 6 está completa e integrada (`TSK-126` a `TSK-142`, `TSK-144`, `TSK-145`, todos `done`, · 15 commits atómicos reconstruidos por `TSK-146` el 2026-08-27 tras encontrar 2 commits locales · rotos — ver `journal.md` evt-20260827-002).** `ENABLE_PRO_DRAFTER` sigue apagado por gobernanza: · el benchmark de sensibilidad no pasa (Jaccard 0.480 contra barra ≤0.35, rank-1 28% contra ≥60%, · estabilidad Role-Pressure 27.3% contra ≥80%). Causa raíz declarada: volumen de datos — solo · 1.200 de 15.984 filas de `hero_matchups` superan el piso de 200 partidas. ·  · **Fase 7 (línea de datos profesionales Tier 1) está en ejecución** — `TSK-146` a `TSK-156` están · `done` (contratos, catálogo/ingesta cruda, normalización, clasificación, agregados, combinatorios, · compilador de patrones, consulta contextual pura, analyzer QA determinista, métricas de benchmark · offline y paquete de evidencia del Gate 3). El Gate 3 no pasa por estabilidad ante bans irrelevantes · (27.3% vs 80%); `ENABLE_PRO_DRAFTER` sigue apagado y G4 no arranca hasta un segundo blueprint. · El spike de embeddings TSK-162 también se cerró sin código: fallan cobertura, estabilidad y tamaño · de corpus, por lo que la evidencia explícita sigue siendo prioritaria. · TSK-163 añade la comparación determinista de snapshots por señal para diagnosticar la sensibilidad · sin tocar el scoring. · TSK-164 añade la auditoría de patrones con muestras débiles; ambos diagnósticos son offline y no · activan el Pro-Drafter. · TSK-168 deja la ingesta reanudable con objetivo configurable de 3.000 drafts; la ejecución masiva · queda pendiente como corrida de fondo. · TSK-169 deja preparada la recompilación determinista de `pro-patterns.json`; la corrida masiva se · ejecutará cuando finalice la ingesta ampliada. · TSK-170 repitió el Gate 3 sin alterar constantes: Jaccard 0.278 y rank-1 90% pasan, pero la · estabilidad irrelevante sigue en 27.3%; se requiere la corrida posterior con corpus ampliado. · TSK-165 añade shrinkage beta-binomial aislado para evidencia profesional débil; muestras menores · de 10 devuelven `null` y todavía no se integra al scoring. TSK-166 añade escalado aislado del peso · de ban por pick-rate, también pendiente de validación antes de integrarse. · TSK-167 define la guarda de evidencia mínima (30 observaciones y confianza >0.6), aún aislada del · scoring. · Hallazgo que reordena · el trabajo: `GET /api/matches/{id}` de OpenDota ya devuelve el 95% de lo que la fase necesita · (orden de picks/bans, posición estimada, equipos, liga) y `scripts/fetch-pro-drafts.ts` lo · descartaba — es un problema de retención, no de adquisición. Sin STRATZ, sin scraping, sin · dependencia nueva. ·  · **Estado al 2026-08-28**: `TSK-146` a `TSK-179` creados; todos `done` salvo `TSK-174` · (`in_progress`, ampliación de corpus a 3.000 drafts, solo desde un entorno con red real) y · `TSK-179` (`backlog`, bloqueado por `TSK-174`: backfill de slots Dire en producción → regen de · agregados → re-run Gate 3). `TSK-178` cerró la recuperación de los slots de Dire (código + esquema · + `scripts/pro/backfill-slots.ts`, verificado sobre una copia full-size). Todo el árbol pendiente · de Fase 6 tardía + Fase 7 se consolidó en Git en 7 commits locales (`acafd38`..`bdc8d77`), **sin · push todavía** — el push queda como acción explícita del usuario. `docs/agents/MEMORY.md` · regenerado hasta `evt-181`. ·  · **Fase 4 sub-ticket 4.2**: `/blueprint` (SPEC.md §11.13), `/rulebook` y `@build` completos — · **`TSK-180` `done`**, `@redteam` APPROVED / gate PASS. `archetype_fit` es la 6ª señal ponderada del · motor (`SCORING_WEIGHTS_V6`, `archetype_fit: 0.10`, candado de regresión cero verificado); espejo · `apps/web` movido; `SignalBreakdown` pasa a 6 filas. **Inerte hasta que haya un selector de · intención** — eso es 4.3. Commiteado en `bbb31f5` (código) + `4b25e75` (blueprint/reglas). ·  · **Fase 4 sub-ticket 4.3**: `/blueprint` completo (SPEC.md §11.14, corrido en Sonnet por decisión · del usuario). Hace usable `archetype_fit` de punta a punta: selector de intención en `apps/web` · (4 arquetipos + "sin intención"), transporte por mensaje WS `set_intent` + campo `archetypeIntent` · por sesión en `SessionStore` (patrón `ownerAccountId`; `computeSuggestionsForState` lo lee del · store), campo `archetypeIntent?` en `POST /api/suggestions/preview`, validación de borde contra la · unión de 4 literales (cierra el hallazgo de `@redteam` de TSK-180), y protocolo de QA manual para · `w=0.10`. Selector disponible también en `esperando_draft`. 4.3 no toca `SCORING_WEIGHTS_V6` (si el · QA pide otro `w`, follow-up que acuña `V7`). ~10-12 archivos, `simplicity_exception`, nueva · frontera de confianza → `@redteam` obligatorio. Cero código escrito. ·  · Herramienta: Claude Code. Modelo: Sonnet. · Acción: **`/rulebook` del sub-ticket 4.3** — traducir SPEC.md §11.14 a un ticket `TSK-XXX` · ejecutable + secciones "Fase 4.3" en `.claude/rules/` y `CLAUDE.md`. Después: `/dispatch` → `@build` · → `@redteam` → QA manual. En paralelo, cuando el usuario lo apruebe: `git push origin master` · (28 commits), y cuando `TSK-174` cierre: ejecutar `TSK-179`. ·  · ## NOTA — Fase 4 (previa a Fase 5) · **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.** ·  · La señal existe, tiene 17 pruebas propias y no toca nada más — **todavía no cambia lo que sugiere · el motor**: `mix.ts`, `weights.ts` y `apps/web` siguen intactos, `SCORING_WEIGHTS_V5` sigue siendo · la única activa. Eso es sub-ticket 4.2, que — mismo patrón que 4.1 — necesita su propio · `/blueprint` antes de codificarse; no se blueprintea la fase completa de una sola vez. ·  · **Hallazgo real durante la ejecución, sin resolver a propósito**: `bunx tsc --noEmit` en · `apps/engine` tiene **9 archivos preexistentes rotos** (ninguno de Fase 4) por un drift real de · `DraftState` -- ganó 3 campos (`firstPickSide`/`turnStartedAt`/`reserveRemainingMs`, TSK-072) que · varios fixtures de test nunca actualizaron. `TSK-089` corrigió solo su propio fixture nuevo (fuera · de alcance tocar los otros 8) -- el motor sigue compilando y `bun test` sigue en verde (445/445), · pero `tsc --noEmit` global no está limpio. Necesita su propio ticket de limpieza, todavía sin crear · -- decisión del usuario, no de este agente. ·  · Las 66 tareas de fase 1, 1b, 2 y 3, más el hilo de performance/scoring (TSK-065/TSK-066) siguen · `state: done`, en producción -- sin cambios. ·  · **Caminos de Fase 4 todavía abiertos, sin fecha, no forman parte de Fase 5 (ver SIGUIENTE PASO · arriba, que es la prioridad actual del usuario):** decisión de producto, no técnica obligatoria. · Tres caminos abiertos, ninguno con fecha: · (a) `/blueprint` sobre sub-ticket 4.2 (integrar `archetype_fit` al motor de verdad -- `SignalId`, · `SCORING_WEIGHTS_V6`, `mix.ts`); (b) abrir el ticket de limpieza del drift de `tsc` encontrado · arriba; (c) revisar y commitear el trabajo pendiente de esta sesión (ver abajo) antes de seguir · sumando cambios sin confirmar. ·  · **Nada de esto se commiteó todavía**: `TSK-089` (3 archivos de código), toda la documentación de · Fase 4 (`architecture.md`, `SPEC.md` §11, las 3 reglas de `.claude/rules/`, `CLAUDE.md`, · `TSK-089.md`, `journal.md`, `PROGRESS.md`, `hub.html`). El usuario no pidió commitear este bloque · explícitamente -- sigue en el working tree, junto con el resto del trabajo previo sin commitear de · otras sesiones (TSK-068 a TSK-088 aprox.) que tampoco se tocó. ·  · Caminos previos identificados y sin fecha (siguen abiertos, sin cambios, no forman parte de esta · fase): · - El spike de Overwolf (sigue sin correrse -- único capturador de fase 1 nunca validado contra una ·   partida real de Dota 2). · - El adaptador OCR (contrato ya especificado en `architecture.md`, nunca construido). · - Predicción de rol/posición del rival (dependencia condicional de STRATZ, documentada desde fase ·   1b, nunca priorizada -- necesita su propia evaluación de costo/beneficio del API key nuevo). · - El sistema combinatorial completo de caminos de draft (eje de timing, forma de recursos, win ·   conditions primaria+secundaria) -- la v1 (TSK-036) solo cubrió el eje de plan macro, a propósito. ·  · **Bloqueado, no técnico**: Chen sigue sin posición real en `hero-positions.json` (único héroe bajo · el umbral de 200 partidas). Intentado en esta sesión conseguir el dato real vía `WebFetch` contra · `dota2protracker.com` -- **403, mismo bloqueo de Cloudflare ya documentado** (solo un navegador · real con pausas, tipo Playwright, pasó la vez original -- esta sesión no tiene esa herramienta · disponible). No se fabricó un `matches` falso para forzar la validación: `engine.md` dice · explícito que el umbral de 200 "no es negociable en silencio". Necesita que el usuario corra la · recolección real (Playwright, mismo procedimiento documentado en `hero-positions.ts`) o decida · explícitamente aceptar una entrada sin dato medido -- ninguna de las dos es algo que este agente · deba decidir solo. ·  · Nota vieja, ya resuelta -- el ciclo anterior de QA manual de draft completo con `DraftFeedbackBox` · (reportes en `draft_feedback`, leídos vía `GET /api/feedback`) generó TSK-053/TSK-054, ambos · `done`. Si el usuario retoma esa ronda de QA, misma mecánica: leer los reportes con su · `draftState`/`suggestions` exactos antes de convertir cualquiera en ticket. ·  · Nota vieja, ya resuelta -- las 3 cosas que habían quedado abiertas en el diseño del Dockerfile · (imagen base npm/no-bun, path exacto del volumen, multi-tenancy fuera de alcance) se cerraron · todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.</div>
 
   <h3>Mapa de arquitectura (fijo — así están conectadas las piezas)</h3>
   <div class="panel">
@@ -152,8 +152,16 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>doing <span class="count">0</span></h2>
-        <div class="empty">—</div>
+        <h2>doing <span class="count">1</span></h2>
+        
+        <div class="card  ">
+          <div class="card-id">TSK-182</div>
+          <div class="card-title">Fase 4.3b — llevar el selector de intención al Simulador de Draft</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
       </div>
       <div class="column ">
         <h2>review <span class="count">0</span></h2>
@@ -164,7 +172,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">175</span></h2>
+        <h2>done <span class="count">176</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -896,6 +904,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-181</div>
+          <div class="card-title">Fase 4.3 — archetype_fit usable: selector de intención + transporte WS set_intent + validación de borde</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-146</div>
           <div class="card-title">Fase 7 G1: higiene — árbol de git, tablero, memoria y tsc limpio</div>
           <div class="card-meta">
@@ -1610,37 +1626,37 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">162× · 81% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">166× · 81% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:36%"></div></div>
-          <div class="stat-nums">58× · 95% ok · 3 bloqueado </div>
+          <div class="stat-nums">59× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:30%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:29%"></div></div>
           <div class="stat-nums">48× · 35% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:27%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:26%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">codex</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:15%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:14%"></div></div>
           <div class="stat-nums">24× · 96% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
-          <div class="stat-nums">8× · 100% ok  </div>
+          <div class="stat-nums">9× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
-          <div class="stat-nums">7× · 100% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">8× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">pre-flight</div>
@@ -1695,6 +1711,55 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-182</span> <span class="feed-ts">2026-08-28T20:45</span></div>
+            <div class="feed-note">Fase 4.3b: selector de intención llevado al Simulador de Draft. DraftIntentSelector refactor a prop-driven (value/onChange) + DraftIntentSelectorConnected para /live-draft (DraftView usa el conectado). use-random-draft-session.ts: estado+ref archetypeIntent, acción setArchetypeIntent (fija ref+state y re-pide el preview de la ronda vigente, bypass del dedup como retryPreview), archetypeIntent en el body de POST /api/suggestions/preview, limpiado en resetDraft, expuesto en state/actions. app/simulator/page.tsx: <DraftIntentSelector> montado en IdlePhaseView (junto a ConfigPanel) y en ActiveRoundPhaseView (columna del CopilotPanel). Tests: DraftIntentSelector.test.tsx (prop-driven + smoke del conectado), integración use-random-draft-session (FakeEngine registra archetypeIntent; setArchetypeIntent -> el próximo preview lleva la intención; null -> la saca). tsc web limpio, bun test web 202, engine 572, scripts 82.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-181</span> <span class="feed-ts">2026-08-28T20:40</span></div>
+            <div class="feed-note">cerrado. Código de 4.3 (transporte WS set_intent + validación de borde) completo y @redteam APPROVED. El QA manual (criterio 10) + el juicio de w=0.10 NO se corren en /live-draft: se trasladan al Simulador de Draft vía TSK-182 (Fase 4.3b), que es donde el usuario draftea de verdad. El selector queda también en /live-draft (inofensivo, ya probado).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-181</span> <span class="feed-ts">2026-08-28T20:10</span></div>
+            <div class="feed-note">QA de transporte contra el motor REAL corriendo (no fixtures). WS smoke: hello -> archetype_fit applicable:false ("Elegí una intención..."); set_intent "push" -> suggestions frescas, archetype_fit raw:1 ("Aporta muy buen daño a estructuras a tu draft de Push"), top-3 cambia a [113,49,108]; set_intent "push" repetido -> no-op sin push; set_intent "scaling" -> top-3 distinto [42,67,104] (la inversión funciona con meta real); set_intent null -> vuelve a applicable:false; set_intent "carry" (inválido) -> ignorado, conexión viva. apps/engine (127.0.0.1:4000, authMode multi_tenant) y apps/web (localhost:3000, /healthz engine:ok) levantados y dejados corriendo para el QA visual del usuario (pids /tmp/d2k-{engine,web}.pid). Pendiente del usuario: chequeo visual de <DraftIntentSelector> en el navegador (tras login Steam) y juicio de producto sobre w=0.10 -> si pide cambio, ticket de SCORING_WEIGHTS_V7.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-181</span> <span class="feed-ts">2026-08-28T19:45</span></div>
+            <div class="feed-note">APPROVED, gate_seguridad PASS. archetypeIntent del cliente validado en el borde (isValidClientMessage rama set_intent, isValidSuggestionsPreviewRequest) antes de tocar SessionStore/buildSuggestions; inválido -> mensaje descartado (WS) / 400 (HTTP). Cierra el hallazgo #2 de TSK-180 (raw NaN inalcanzable). set_intent guarda ws.data.sessionId, no-op si no cambia, publica sólo suggestions. Sin ruta HTTP nueva, sin secreto (el "test-token" del test se dividió con el patrón "test-"+"token" ya usado en el archivo), sin query nueva. Pasada Standards: DraftIntentSelector reusa BUTTON_PRIMARY/SECONDARY (tokens semánticos), cero hex/px suelto; isIntentActive puro exportado como isModeActive. Pasada Spec: diff coincide con TSK-181/§11.14. 3 hallazgos no bloqueantes: (1) ArchetypeChip es un wrapper fino sobre IntentOption sólo para nombrar el handler (aceptable por la regla anti-arrow-inline); (2) QA manual (criterio 10) pendiente -- no es defecto de código, el ticket no cierra sin correrlo; (3) setArchetypeIntent crea una entrada idle para una sesión desconocida en el camino auth-off, acotado y con TTL.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-181</span> <span class="feed-ts">2026-08-28T19:40</span></div>
+            <div class="feed-note">Fase 4.3: archetype_fit usable. session.ts: SessionEntry.archetypeIntent + set_intent en ClientMessage + setArchetypeIntent/archetypeIntent (preserva en apply, crea entrada si falta). edge.ts: isArchetypeIntent + rama set_intent en isValidClientMessage + archetypeIntent? en SuggestionsPreviewRequest y su validador. app.ts: computeSuggestionsForState gana archetypeIntent; hello + pushSessionUpdate + handleSuggestionsPreview lo pasan; handler set_intent (guard ws.data.sessionId, no-op si no cambió, publica sólo suggestions). apps/web: DraftArchetype (espejo) + ClientMessage; store archetypeIntent + setArchetypeIntent + re-envío tras hello; ARCHETYPE_OPTIONS/LABELS; componente DraftIntentSelector (chips + "Sin intención", BUTTON_PRIMARY/SECONDARY, aria-pressed); montado en esperando_draft y activo/degradado. Tests: edge (set_intent válido/inválido, preview archetypeIntent), app.test.ts (set_intent activa/limpia/no-op, malformado ignorado), store.test.ts (setArchetypeIntent + re-envío), DraftIntentSelector.test.tsx (render + click + aria). tsc limpio engine+web; bun test engine 572, web 200, scripts 82. verify-simplicity gate completo verde.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">TSK-181</span> <span class="feed-ts">2026-08-28T18:45</span></div>
+            <div class="feed-note">/rulebook de Fase 4.3: secciones "Fase 4.3" en las 4 reglas de .claude/rules/ + bloque "REGLAS DE FASE 4.3" en CLAUDE.md. 1 ticket (TSK-181, backlog, claude-code, simplicity_exception): selector de intención + transporte WS set_intent + SessionStore.archetypeIntent + validación de borde + QA de calibración. Costura S5, ninguna nueva. @redteam obligatorio. Cero código. Siguiente: /dispatch -> @build de TSK-181.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-28T18:20</span></div>
+            <div class="feed-note">/blueprint del sub-ticket 4.3 (archetype_fit usable): SPEC.md §11.14 nueva. Sonnet por decisión del usuario (misma desviación que §11.13). Decisiones cerradas: transporte = mensaje WS set_intent + campo archetypeIntent por sesión en SessionStore (mismo patrón que ownerAccountId; computeSuggestionsForState lo lee del store, todos los caminos de recálculo lo respetan sin tocarlos uno por uno), sin ruta HTTP nueva; selector disponible también en esperando_draft (fijar dirección antes del pick #1); 4.3 NO toca SCORING_WEIGHTS_V6 (si el QA pide otro w, follow-up que acuña V7 con la misma estructura x(1-w)); intención vive en SessionStore (memoria, TTL 45min), el cliente la re-envía tras cada hello. Validación de borde de archetypeIntent contra la unión de 4 literales cierra el hallazgo #2 de @redteam en TSK-180 (raw NaN). Nueva frontera de confianza (archetypeIntent llega del cliente) -> @redteam obligatorio. ~10-12 archivos, simplicity_exception, costura S5 (ya existente). Siguiente: /rulebook en Sonnet.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-180</span> <span class="feed-ts">2026-08-28T17:35</span></div>
             <div class="feed-note">APPROVED, gate_seguridad PASS. Sin inputs sin validar (archetypeIntent no tiene ruta de red en 4.2 — la validación de borde es 4.3 por SPEC §11.13.7), sin secretos, sin queries, sin privilegios de más. Pasada Standards: re-tipado SignalIdV5 necesario, V6 sin abstracción de más, cero hex/spacing suelto en la UI tocada. Pasada Spec: diff coincide línea por línea con TSK-180/§11.13; V4/V5 sin cambio de valor verificado; candado de regresión cero es numérico real, candado de sensibilidad contra buildSuggestions completo. 3 hallazgos no bloqueantes: (1) comentario "siempre las 5" corregido a 6; (2) archetypeIntent fuera de la unión daría raw NaN vía ARCHETYPE_MAX_BONUS[intent] undefined — no alcanzable en 4.2, anotado para la validación de borde de 4.3; (3) el test de sensibilidad usa un escenario de una sola señal (satisface el criterio, una versión con señales mixtas sería más fuerte).</div>
           </div>
@@ -1725,55 +1790,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>helm</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-28T15:20</span></div>
             <div class="feed-note">checkpoint: MEMORY.md regenerado hasta evt-179 (Fase 7 en ejecución, Gate 3 sin pasar, consolidación Git en 6 commits), tablero regenerado, verify-simplicity y sync-context verdes</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>helm</strong> <span class="feed-ticket">TSK-179</span> <span class="feed-ts">2026-08-28T14:45</span></div>
-            <div class="feed-note">creado ticket de seguimiento (backlog, claude-code, blocked_by TSK-174): backfill de slots en producción + regen de agregados + re-run Gate 3, con checklist en orden</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-178</span> <span class="feed-ts">2026-08-28T14:30</span></div>
-            <div class="feed-note">slots de Dire recuperados: ingest deriva team de isRadiant/player_slot, PK pro_draft_slots pasa a (match_id,team,hero_id), backfill-slots.ts reconstruye desde raw_json (idempotente, offline). Copia full-size: slots 10855->21710, posiciones elegibles 68->108. Backfill de producción pendiente por TSK-174. Sin commit.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-177</span> <span class="feed-ts">2026-08-28T02:10</span></div>
-            <div class="feed-note">volumen objetivo alcanzado: 500 partidas procesadas, 414 completas y 86 excluidas por tier no aceptado; solo las completas alimentan el corpus</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-177</span> <span class="feed-ts">2026-08-28T01:55</span></div>
-            <div class="feed-note">lote controlado de 20 requests incorpora 19 drafts y deja 21 completos acumulados; checkpoint reanudable persistido</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-177</span> <span class="feed-ts">2026-08-27T00:00</span></div>
-            <div class="feed-note">catálogo curado desde OpenDota reemplaza límite 1..127; acepta IDs vigentes 136/155 y rechaza huecos</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-176</span> <span class="feed-ts">2026-08-27T00:00</span></div>
-            <div class="feed-note">rate limiting secuencial y tope de 500 requests por sesión; tests de ingesta verdes</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-175</span> <span class="feed-ts">2026-08-27T00:00</span></div>
-            <div class="feed-note">validador puro de integridad de drafts añadido y probado; listo para el próximo lote de ingesta</div>
           </div>
         </div></div>
     </div>
