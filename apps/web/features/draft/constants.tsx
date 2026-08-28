@@ -34,7 +34,9 @@ export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {
 // equipo", "contra quién es fuerte", "qué posición cubre") primero; patch_meta/hero_pool_fit
 // (winrate/comodidad personal) al final -- para que el desglose se lea como una narrativa
 // táctica, no como una tabla de stats en orden de cableado.
-export const SIGNAL_DISPLAY_PRIORITY: SignalId[] = ["team_synergy", "counter", "position_fit", "patch_meta", "hero_pool_fit"];
+// TSK-180 (Fase 4.2): `archetype_fit` va al final -- señal gruesa (3-4 niveles), menor densidad
+// informativa que las tácticas y que winrate/comodidad personal.
+export const SIGNAL_DISPLAY_PRIORITY: SignalId[] = ["team_synergy", "counter", "position_fit", "patch_meta", "hero_pool_fit", "archetype_fit"];
 
 // Qué es este estado y qué puede hacer el usuario ahora -- ninguno de los 6 estados de TSK-012
 // se queda sin explicación en lenguaje llano (hallazgo real de TSK-016: el sistema nunca decía

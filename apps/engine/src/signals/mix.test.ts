@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "./hero-positions";
+import type { HeroCapabilities } from "../draft-paths/types";
 import { buildComparison, buildSuggestions, mixScore, type Suggestion } from "./mix";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
-import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3, SCORING_WEIGHTS_V4, SCORING_WEIGHTS_V5 } from "./weights";
+import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3, SCORING_WEIGHTS_V4, SCORING_WEIGHTS_V5, SCORING_WEIGHTS_V6 } from "./weights";
 
 function fixtureSuggestion(rank: 1 | 2 | 3, hero: number, signals: SignalContribution[]): Suggestion {
   return { hero, rank, score: 0, signals, reason: "", confidence: "alta" };
@@ -314,6 +315,81 @@ describe("SCORING_WEIGHTS_V5 — candado de dominancia de posición sobre comodi
   });
 });
 
+// TSK-180 (Fase 4.2, SPEC.md §11.13.5 / §11.13.8): `archetype_fit` entra como 6ª señal ponderada.
+// SCORING_WEIGHTS_V6 = V5 × 0.90 + archetype_fit 0.10. Candado de regresión cero del tipo V1→V2 de
+// 1b (V6 *agrega* una señal con estado "no configurada"), no el de V4→V5.
+describe("SCORING_WEIGHTS_V6 — archetype_fit integrado (candado de regresión cero + sensibilidad)", () => {
+  const NAT_PROPHET = 1; // structuralDamage high, scaling low
+  const ANTI_MAGE = 2; // structuralDamage low, scaling high
+  const MID = 3; // structuralDamage medium, scaling medium
+  const CAPS: HeroCapabilities[] = [
+    { hero: NAT_PROPHET, damageType: "magical", hasInitiation: false, hasCatch: false, hasWaveclear: true, structuralDamage: "high", teamfight: "low", scaling: "low" },
+    { hero: ANTI_MAGE, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: true, structuralDamage: "low", teamfight: "low", scaling: "high" },
+    { hero: MID, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: true, structuralDamage: "medium", teamfight: "low", scaling: "medium" },
+  ];
+  const THREE_HEROES: Record<number, MetaHeroInfo> = {
+    [NAT_PROPHET]: { id: NAT_PROPHET, localizedName: "Nature's Prophet" },
+    [ANTI_MAGE]: { id: ANTI_MAGE, localizedName: "Anti-Mage" },
+    [MID]: { id: MID, localizedName: "Neutro" },
+  };
+
+  test("los 6 pesos suman exactamente 1.0", () => {
+    const sum = Object.values(SCORING_WEIGHTS_V6).reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1, 10);
+  });
+
+  test("position_fit sigue siendo el mayor peso de V6 (Fase 3 no se reabre)", () => {
+    const max = Math.max(...Object.values(SCORING_WEIGHTS_V6));
+    expect(SCORING_WEIGHTS_V6.position_fit).toBe(max);
+  });
+
+  // Candado de regresión cero, con números exactos (SPEC.md §11.13.5): con archetype_fit sin voto
+  // (applicable: false), mixScore con V6 reproduce el mismo número que la redistribución de V5.
+  test("sin intención, mixScore reproduce la redistribución de V5 al bit", () => {
+    const signals: SignalContribution[] = [
+      { signal: "counter", raw: 0.12, weighted: 0, explanation: "", sampleSize: 0 }, // -> 100
+      { signal: "patch_meta", raw: 0.3, weighted: 0, explanation: "", sampleSize: 0 }, // -> 0
+      { signal: "team_synergy", raw: 0.5, weighted: 0, explanation: "", sampleSize: 0 }, // -> 50
+      { signal: "hero_pool_fit", raw: 0.8, weighted: 0, explanation: "", sampleSize: 0 }, // -> 80
+      { signal: "position_fit", raw: 0.75, weighted: 0, explanation: "", sampleSize: 0 }, // -> 75
+      { signal: "archetype_fit", raw: null, weighted: 0, applicable: false, explanation: "", sampleSize: 0 },
+    ];
+    const norm = { counter: 100, patch_meta: 0, team_synergy: 50, hero_pool_fit: 80, position_fit: 75 } as const;
+    const totalV5 =
+      SCORING_WEIGHTS_V5.counter + SCORING_WEIGHTS_V5.patch_meta + SCORING_WEIGHTS_V5.team_synergy + SCORING_WEIGHTS_V5.hero_pool_fit + SCORING_WEIGHTS_V5.position_fit;
+    const expected =
+      (norm.counter * SCORING_WEIGHTS_V5.counter +
+        norm.patch_meta * SCORING_WEIGHTS_V5.patch_meta +
+        norm.team_synergy * SCORING_WEIGHTS_V5.team_synergy +
+        norm.hero_pool_fit * SCORING_WEIGHTS_V5.hero_pool_fit +
+        norm.position_fit * SCORING_WEIGHTS_V5.position_fit) /
+      totalV5;
+    expect(mixScore(signals)).toBeCloseTo(expected, 10);
+  });
+
+  // Candado de sensibilidad contra buildSuggestions COMPLETO (SPEC.md §11.13.8 crit. 3), no la
+  // señal aislada: con intención el top-1 cambia, y "scaling" invierte "push". Sin esta prueba,
+  // una implementación que ignore `intent` pasaría el resto y seguiría rota (hallazgo tipo TSK-036).
+  test("archetypeIntent inclina el top-3 y 'scaling' invierte 'push'", () => {
+    const base = { heroPositions: {} as HeroPositions, heroCapabilities: CAPS };
+    const push = buildSuggestions(draftState(), meta(THREE_HEROES), { ...base, archetypeIntent: "push" });
+    const scaling = buildSuggestions(draftState(), meta(THREE_HEROES), { ...base, archetypeIntent: "scaling" });
+    expect(push.suggestions[0]?.hero).toBe(NAT_PROPHET);
+    expect(scaling.suggestions[0]?.hero).toBe(ANTI_MAGE);
+  });
+
+  test("archetype_fit aparece en signals[]: applicable:false sin intención, número con intención", () => {
+    const base = { heroPositions: {} as HeroPositions, heroCapabilities: CAPS };
+    const noIntent = buildSuggestions(draftState(), meta(THREE_HEROES), base);
+    const withIntent = buildSuggestions(draftState(), meta(THREE_HEROES), { ...base, archetypeIntent: "push" });
+    const sNo = noIntent.suggestions[0]?.signals.find((s) => s.signal === "archetype_fit");
+    const sYes = withIntent.suggestions.find((s) => s.hero === NAT_PROPHET)?.signals.find((s) => s.signal === "archetype_fit");
+    expect(sNo?.raw).toBeNull();
+    expect(sNo?.applicable).toBe(false);
+    expect(typeof sYes?.raw).toBe("number");
+  });
+});
+
 // Auditoría 2026-08-22: candado de regresión para la recalibración de RAW_RANGE.counter
 // ([-0.3, 0.3] -> [-0.12, 0.12]). Antes de este cambio, un hard counter real (delta ~0.08) perdía
 // contra un héroe simplemente popular sin ventaja de matchup (patch_meta alto) -- confirmado por
@@ -469,7 +545,7 @@ describe("buildSuggestions", () => {
     // buildReason muestra las 2 señales de mayor peso con dato real, no todas -- con solo 2
     // señales reales acá (counter/position_fit, ver test anterior), ambas entran.
     const topTwoByWeight = (suggestion?.signals.filter((s) => s.raw !== null) ?? [])
-      .sort((a, b) => SCORING_WEIGHTS_V5[b.signal] - SCORING_WEIGHTS_V5[a.signal])
+      .sort((a, b) => SCORING_WEIGHTS_V6[b.signal] - SCORING_WEIGHTS_V6[a.signal])
       .slice(0, 2);
     for (const signal of topTwoByWeight) {
       expect(suggestion?.reason).toContain(signal.explanation);

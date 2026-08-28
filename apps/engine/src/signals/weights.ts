@@ -50,6 +50,12 @@ export const SCORING_WEIGHTS_V3: Record<SignalIdV3, number> = {
   role_safety: 0.1,
 };
 
+// TSK-180 (Fase 4.2, SPEC.md §11.13 / §11.7): V4 y V5 pasan a tiparse con su propio literal
+// histórico -- exactamente el mecanismo que ya usan V1/V2/V3 arriba. Sin esto, ampliar `SignalId`
+// con `"archetype_fit"` (types.ts) rompería la compilación de dos constantes congeladas. Los
+// valores de V4/V5 no cambian una coma.
+type SignalIdV5 = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
+
 // TSK-045 (Fase 3, SPEC.md §10.3): `role_gap` y `role_safety` se fusionan en `position_fit`.
 // **El candado de regresión cero de V2/V3 NO se hereda**: esas versiones *agregaban* una señal y
 // escalaban proporcionalmente, de modo que con la señal nueva inaplicable se reproducían los
@@ -68,7 +74,7 @@ export const SCORING_WEIGHTS_V3: Record<SignalIdV3, number> = {
 // core que repite rol con counter real cayó de ~7 a ~1.5 puntos -- el mismo patrón que ya se vio
 // una vez con `role_gap`: el peso, no el cálculo, es insuficiente. SCORING_WEIGHTS_V5 es la
 // constante activa de acá en adelante.
-export const SCORING_WEIGHTS_V4: Record<SignalId, number> = {
+export const SCORING_WEIGHTS_V4: Record<SignalIdV5, number> = {
   position_fit: 0.25,
   counter: 0.27,
   patch_meta: 0.17,
@@ -89,10 +95,27 @@ export const SCORING_WEIGHTS_V4: Record<SignalId, number> = {
 // mix.test.ts: con estos pesos, llenar la posición faltante le gana a repetir rol con counter real
 // por ~18 puntos (antes: ~1.5), sin necesitar tocar el piso de `hero_pool_fit` (D10 de fase 1b
 // sigue intacto: el pool sigue siendo una preferencia de comodidad, no un filtro duro).
-export const SCORING_WEIGHTS_V5: Record<SignalId, number> = {
+export const SCORING_WEIGHTS_V5: Record<SignalIdV5, number> = {
   position_fit: 0.38,
   counter: 0.24,
   patch_meta: 0.13,
   team_synergy: 0.13,
   hero_pool_fit: 0.12,
+};
+
+// TSK-180 (Fase 4.2, SPEC.md §11.13): `archetype_fit` entra como 6ª señal ponderada. V6 = V5
+// escalada por 0.90 + `archetype_fit: 0.10`. El factor 0.90 es un ANCLA, no una perilla: con
+// `archetype_fit` sin voto (sin intención de draft elegida), la redistribución proporcional de
+// `mix.ts` sobre las otras 5 reproduce V5 EXACTO -- (V5ᵢ·0.90) / Σ(V5·0.90) == V5ᵢ / Σ V5. Es el
+// mismo candado de regresión cero que V1→V2 de fase 1b (V6 *agrega* una señal con estado "no
+// configurada"), no el de V4→V5 (que *reemplazaba* señales y por eso no lo llevaba). Candado
+// numérico en mix.test.ts. `position_fit` sigue siendo el peso más alto -- Fase 3 no se reabre.
+// **Congelada por nombre, nunca se edita a partir de acá** -- mismo criterio que V1-V5.
+export const SCORING_WEIGHTS_V6: Record<SignalId, number> = {
+  position_fit: 0.342, // 0.38 · 0.90
+  counter: 0.216, // 0.24 · 0.90
+  patch_meta: 0.117, // 0.13 · 0.90
+  team_synergy: 0.117, // 0.13 · 0.90
+  hero_pool_fit: 0.108, // 0.12 · 0.90
+  archetype_fit: 0.1,
 };

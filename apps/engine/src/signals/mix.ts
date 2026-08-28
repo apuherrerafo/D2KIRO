@@ -1,7 +1,8 @@
 import type { DraftState, HeroId } from "../draft/reducer";
 import { loadHeroCapabilities } from "../draft-paths/capabilities";
 import { openingStrategy } from "../draft-paths/strategy";
-import type { HeroCapabilities } from "../draft-paths/types";
+import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
+import { createArchetypeFitScorer } from "./archetype-fit";
 import { counterScorer } from "./counter";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { loadHeroPositions, type HeroPositions } from "./hero-positions";
@@ -11,13 +12,13 @@ import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
 import { deriveDecisionPolicy, type DraftDecisionContext, type DraftDecisionPolicy } from "../drafter/decision-context";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
-import { SCORING_WEIGHTS_V5 } from "./weights";
+import { SCORING_WEIGHTS_V6 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
   rank: 1 | 2 | 3 | 4 | 5;
   score: number;
-  signals: SignalContribution[]; // siempre las 5, incluidas las que dieron null o no aplican
+  signals: SignalContribution[]; // siempre las 6, incluidas las que dieron null o no aplican
   reason: string;
   confidence: "alta" | "media" | "baja";
   evidence?: SuggestionEvidence[];
@@ -70,6 +71,11 @@ export interface BuildSuggestionsOptions {
   // Solo para el simulador: rota alternativas dentro de una banda de calidad equivalente. La
   // misma semilla y el mismo estado producen el mismo orden; un draft nuevo explora otra terna.
   diversitySeed?: string;
+  // TSK-180 (Fase 4.2, SPEC.md §11.13): intención de draft para la señal archetype_fit. Ausente ->
+  // el scorer recibe intent === undefined -> applicable: false (nunca vota, nunca baja la
+  // confianza). En 4.2 lo fija sólo el llamador dentro del proceso; el transporte por request/WS y
+  // su validación de borde contra la unión cerrada de 4 literales son 4.3.
+  archetypeIntent?: DraftPathArchetype;
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -77,8 +83,8 @@ export interface BuildSuggestionsOptions {
 // motivo que ya sacó a position_fit de STATIC_SCORERS. Las 3 señales que no necesitan
 // configuración por llamada siguen siendo instancias únicas a nivel de módulo; position_fit y
 // team_synergy se construyen por llamada dentro de buildSuggestions().
-// SCORING_WEIGHTS_V1/V2/V3/V4 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V5 es
-// la única constante que usa este archivo de aquí en adelante (auditoría 2026-08-22).
+// SCORING_WEIGHTS_V1..V5 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V6
+// (TSK-180, Fase 4.2) es la única constante que usa este archivo de aquí en adelante.
 const STATIC_SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, heroPoolFitScorer];
 
 // Loaded once at module initialisation — ninguno de los dos archivos se re-parsea por llamada.
@@ -106,6 +112,10 @@ const RAW_RANGE: Record<SignalId, [number, number]> = {
   team_synergy: [0, 1],
   hero_pool_fit: [0, 1],
   position_fit: [0, 1],
+  // TSK-180 (Fase 4.2, SPEC.md §11.13 P4): `raw` ya viene normalizado a [0,1] DENTRO de
+  // archetype-fit.ts (ARCHETYPE_MAX_BONUS por arquetipo) -- `archetypeFitBonus` no tiene escala
+  // uniforme entre los 4 arquetipos, y RAW_RANGE es un rango único por señal.
+  archetype_fit: [0, 1],
 };
 
 function normalize(signal: SignalId, raw: number): number {
@@ -137,10 +147,10 @@ function hasVote(signal: SignalContribution): boolean {
 // con valor 0 (0 sería indistinguible de "sin ventaja", cuando en realidad es "sin dato").
 function weightedContributions(signals: SignalContribution[]): Partial<Record<SignalId, number>> {
   const withData = signals.filter(hasVote);
-  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V5[s.signal], 0);
+  const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V6[s.signal], 0);
   const result: Partial<Record<SignalId, number>> = {};
   for (const s of withData) {
-    const share = SCORING_WEIGHTS_V5[s.signal] / totalWeight; // redistribución proporcional
+    const share = SCORING_WEIGHTS_V6[s.signal] / totalWeight; // redistribución proporcional
     result[s.signal] = normalize(s.signal, s.raw as number) * share;
   }
   return result;
@@ -249,7 +259,7 @@ function buildEvidence(
 function buildReason(signals: SignalContribution[], positionReason: string | null): string {
   const informative = signals
     .filter(hasVote)
-    .sort((a, b) => SCORING_WEIGHTS_V5[b.signal] - SCORING_WEIGHTS_V5[a.signal])
+    .sort((a, b) => SCORING_WEIGHTS_V6[b.signal] - SCORING_WEIGHTS_V6[a.signal])
     .slice(0, 2)
     .map((s) => s.explanation);
   const signalReason = informative.length > 0 ? informative.map(asSentence).join(" ") : signals[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
@@ -346,7 +356,14 @@ export function buildSuggestions(
   // hero pool evita que la comodidad de una sola cuenta decida la composición que el capitán está
   // armando para cinco jugadores; no es un cambio de peso sino una restricción de contexto.
   const baseScorers = options.teamOpening ? STATIC_SCORERS.filter((scorer) => scorer.id !== "hero_pool_fit") : STATIC_SCORERS;
-  const scorers: SignalScorer[] = [...baseScorers, createPositionFitScorer(heroPositions), createTeamSynergyScorer(heroCapabilities)];
+  // position_fit, team_synergy y archetype_fit no pueden ser singletons de módulo: dependen de
+  // datos inyectables (heroPositions/heroCapabilities/archetypeIntent). Se construyen por llamada.
+  const scorers: SignalScorer[] = [
+    ...baseScorers,
+    createPositionFitScorer(heroPositions),
+    createTeamSynergyScorer(heroCapabilities),
+    createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
+  ];
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
   const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
 

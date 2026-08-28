@@ -54,7 +54,9 @@ export interface DraftState {
 // TSK-046 (Fase 3, SPEC.md §10.7): las dos señales de rol de fase 1/1b se fusionan en
 // `position_fit` en el motor (apps/engine/src/signals/types.ts) -- el espejo se mueve en el mismo
 // bloque de trabajo.
-export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
+// TSK-180 (Fase 4.2, SPEC.md §11.13.6): el motor gana la 6ª señal `archetype_fit` -- el espejo se
+// mueve en el mismo PR o `tsc` de apps/web rompe.
+export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit" | "archetype_fit";
 
 export interface SignalContribution {
   signal: SignalId;

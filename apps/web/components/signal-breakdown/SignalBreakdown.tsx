@@ -9,6 +9,10 @@ export const SIGNAL_LABELS: Record<SignalId, string> = {
   team_synergy: "Sinergia de equipo",
   hero_pool_fit: "Tu pool de héroes",
   position_fit: "Posición y momento del pick",
+  // TSK-180 (Fase 4.2): sin intención elegida, esta fila cae en SignalBreakdownRowNotApplicable
+  // con el texto del motor ("Elegí una intención de draft para activar esta señal"), nunca el de
+  // "Sin datos suficientes" (exclusivo de raw: null).
+  archetype_fit: "Intención de draft",
 };
 
 // TSK-077 (spec §1.3): pura, exportada para probarla sin renderizar nada -- reordena solo la

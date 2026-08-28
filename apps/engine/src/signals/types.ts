@@ -5,7 +5,10 @@ import type { Bracket } from "../meta/mappers";
 // dejan de ser señales activas. V1/V2/V3 en weights.ts siguen congeladas con sus propios
 // literales históricos (no dependen de esta unión), así que perder esos dos nombres acá no las
 // rompe.
-export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit";
+// TSK-180 (Fase 4.2, SPEC.md §11.13): `archetype_fit` se integra como 6ª señal ponderada.
+// SCORING_WEIGHTS_V4/V5 pasan a tiparse con `SignalIdV5` propio (weights.ts) ANTES de este
+// cambio, para que ampliar la unión no rompa esas dos constantes congeladas.
+export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fit" | "position_fit" | "archetype_fit";
 
 export interface SignalContribution {
   signal: SignalId;

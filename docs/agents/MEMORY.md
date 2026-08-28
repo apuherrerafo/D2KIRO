@@ -201,6 +201,20 @@ regla real ("nunca asumas la respuesta de antemano, seguí preguntando aunque el
   full-size: slots 10.855 → 21.710, posiciones elegibles del agregador 68 → 108. El backfill sobre
   la SQLite de producción es `TSK-179`, bloqueado por `TSK-174` (no correrlo mientras codex
   escribe el mismo archivo).
+- TSK-179 creado (`backlog`, bloqueado por `TSK-174`): checklist post-ingesta -- backfill de slots
+  Dire en producción → regen de agregados → recompilar patrones a ruta provisional → re-run Gate 3
+  → decisión de `ENABLE_PRO_DRAFTER`.
+- TSK-180 completado (Fase 4.2, SPEC.md §11.13 -- `/blueprint` en Sonnet por decisión del usuario):
+  `archetype_fit` deja de estar aislada y entra al motor como 6ª señal ponderada.
+  `SCORING_WEIGHTS_V6` pasa a ser la constante activa (`archetype_fit: 0.10`, los otros 5 = V5 ×
+  0.90 -- ancla que garantiza regresión cero al bit vía la redistribución proporcional de `mix.ts`
+  cuando no hay intención; candado numérico en `mix.test.ts`). V1-V5 congeladas; V4/V5 re-tipadas
+  con `SignalIdV5` propio antes de ampliar `SignalId`. `RAW_RANGE.archetype_fit = [0,1]`,
+  `BuildSuggestionsOptions.archetypeIntent?` (ausente → `applicable: false`, no vota). Espejo
+  `apps/web` en el mismo PR (4 archivos, `SignalBreakdown` pasa a 6 filas, etiqueta "Intención de
+  draft"). Alcance solo-motor: el selector de intención en la UI, el transporte y la validación de
+  borde son 4.2 → **4.3**. `position_fit` sigue siendo el mayor peso. `@redteam` APPROVED, gate
+  PASS. `tsc` limpio en ambos paquetes; `bun test` engine 567/567, web 190/190.
 
 Ver `docs/agents/USER.md` para preferencias de proceso confirmadas del usuario (excepciones al
 cierre, verificación real vs. solo tests, terminología de posiciones) y `docs/agents/CONTEXT.md`

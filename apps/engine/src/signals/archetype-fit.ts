@@ -1,19 +1,13 @@
-import type { DraftState, HeroId } from "../draft/reducer";
 import { archetypeFitBonus } from "../draft-paths/build-paths";
 import { capabilitiesByHero } from "../draft-paths/gaps";
 import type { CapabilityLevel, DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
-import type { MetaSnapshot, SignalContribution } from "./types";
+import type { MetaSnapshot, SignalContribution, SignalScorer } from "./types";
 
-// TSK-089 (Fase 4, SPEC.md §11.4): reutiliza archetypeFitBonus (draft-paths/build-paths.ts, ya
-// probada en producción por "Caminos de draft") en vez de reimplementarla. `SignalId` NO se
-// amplía todavía (rompería SCORING_WEIGHTS_V4/V5, ambas congeladas) -- esta vista de tipo derivada
-// desaparece sola en el sub-ticket que sí lo haga, por tipado estructural.
-export type ArchetypeFitContribution = Omit<SignalContribution, "signal"> & { signal: "archetype_fit" };
-
-export interface ArchetypeFitScorer {
-  id: "archetype_fit";
-  score(state: DraftState, candidate: HeroId, meta: MetaSnapshot): ArchetypeFitContribution;
-}
+// TSK-089 (Fase 4.1, SPEC.md §11.4): reutiliza archetypeFitBonus (draft-paths/build-paths.ts, ya
+// probada en producción por "Caminos de draft") en vez de reimplementarla.
+// TSK-180 (Fase 4.2, SPEC.md §11.13): `"archetype_fit"` ya es un `SignalId` -- la vista de tipo
+// estrecha de 4.1 (`ArchetypeFitContribution`/`ArchetypeFitScorer`) se retiró; por tipado
+// estructural el objeto satisface `SignalScorer` sin cambiar el cuerpo de `score()`.
 
 // archetypeFitBonus no tiene escala uniforme entre arquetipos (0-2 salvo pickoff, que suma dos
 // booleanos y llega a 0-3) -- la normalización a [0,1] tiene que vivir acá, nunca en un RAW_RANGE
@@ -65,7 +59,7 @@ function buildExplanation(archetype: DraftPathArchetype, raw: number, candidate:
 export function createArchetypeFitScorer(
   capabilities: HeroCapabilities[],
   intent: DraftPathArchetype | undefined,
-): ArchetypeFitScorer {
+): SignalScorer {
   const byHero = capabilitiesByHero(capabilities);
 
   return {
@@ -73,7 +67,7 @@ export function createArchetypeFitScorer(
     // `raw` no depende de `state` ni de `meta` (SPEC.md §11.4) -- es constante por (intent, hero).
     // Firma más corta que la interfaz (2 params, no 3): TS acepta una función con menos parámetros
     // como compatible con un tipo que declara más, mismo patrón que ya usa position-fit.ts.
-    score(_state, candidate): ArchetypeFitContribution {
+    score(_state, candidate): SignalContribution {
       if (intent === undefined) {
         return {
           signal: "archetype_fit",

@@ -28,7 +28,14 @@ function isTeamSide(value: unknown): value is "radiant" | "dire" {
 }
 
 function isSignalId(value: unknown): boolean {
-  return value === "counter" || value === "patch_meta" || value === "team_synergy" || value === "hero_pool_fit" || value === "position_fit";
+  return (
+    value === "counter" ||
+    value === "patch_meta" ||
+    value === "team_synergy" ||
+    value === "hero_pool_fit" ||
+    value === "position_fit" ||
+    value === "archetype_fit"
+  );
 }
 
 function isDegradationFlag(value: unknown): boolean {
