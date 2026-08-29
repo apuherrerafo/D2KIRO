@@ -1,0 +1,106 @@
+// Fase 9.0 — formatea el resultado de los dos benchmarks a un reporte legible (SPEC.md §15.4.3).
+// Puro: recibe los objetos de resultado, devuelve un string markdown. Sin I/O.
+
+import type { EngineQualityResult } from "./benchmark-engine-quality";
+import type { ProAgreementResult } from "./benchmark-pro-agreement";
+
+const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
+const n3 = (x: number): string => x.toFixed(3);
+
+export interface ReportMeta {
+  generatedAt: string;
+  commit: string;
+  splitHash: string;
+  snapshotSyncedAt: string | null;
+  corpusSize: { drafts: number; tournaments: number; goldenCases: number };
+}
+
+export function renderReport(meta: ReportMeta, quality: EngineQualityResult, agreement: ProAgreementResult): string {
+  const lines: string[] = [];
+  lines.push(`# Reporte de evaluación — V6-medido`);
+  lines.push("");
+  lines.push(
+    `> **INSTRUMENTO COMPARATIVO, NO PREDICTIVO** (ADR-002). No existe snapshot de meta ` +
+      `point-in-time. El valor absoluto de cualquier métrica no es interpretable — sólo el delta ` +
+      `entre baselines de la misma corrida. "Professional Pick Agreement" NO es "accuracy".`,
+  );
+  lines.push("");
+  lines.push(`- Commit: \`${meta.commit}\``);
+  lines.push(`- Generado: ${meta.generatedAt}`);
+  lines.push(`- Split congelado: \`${meta.splitHash}\``);
+  lines.push(`- Snapshot de meta sincronizado: ${meta.snapshotSyncedAt ?? "desconocido"}`);
+  lines.push(
+    `- Corpus: ${meta.corpusSize.drafts} drafts / ${meta.corpusSize.tournaments} torneos / ` +
+      `${meta.corpusSize.goldenCases} casos Golden`,
+  );
+  lines.push("");
+
+  // ---- Benchmark A ----
+  lines.push(`## Benchmark A — Engine Quality (PRINCIPAL, Golden Dataset)`);
+  lines.push("");
+  if (!quality.valid) {
+    lines.push(`**CORRIDA INVÁLIDA** — ConstraintViolationRate = ${pct(quality.constraintViolationRate)} > 0.`);
+    lines.push(`Primeras violaciones: ${quality.violations.slice(0, 5).map((v) => `${v.ranker}:${v.hero}`).join(", ")}`);
+  } else if (quality.corpus.cases === 0) {
+    lines.push(`_Golden Dataset vacío — se re-corre tras la curación (TSK-206)._`);
+  } else {
+    lines.push(`| ranker | NDCG@5 | Bad Pick Rate@5 | Pairwise Acc |`);
+    lines.push(`|---|---|---|---|`);
+    for (const [id, seg] of Object.entries(quality.perRanker)) {
+      lines.push(`| ${id} | ${n3(seg.overall.ndcg5)} | ${pct(seg.overall.badPickRate5)} | ${pct(seg.overall.pairwiseAccuracy)} |`);
+    }
+    if (quality.bootstrap) {
+      lines.push("");
+      lines.push(`NDCG@5 (v6Full) IC95 bootstrap sobre casos: **${n3(quality.bootstrap.point)}** [${n3(quality.bootstrap.lo)}, ${n3(quality.bootstrap.hi)}]`);
+    }
+    lines.push("");
+    lines.push(`### v6Full por contexto de decisión`);
+    lines.push(`| contexto | n | NDCG@5 | Bad Pick@5 |`);
+    lines.push(`|---|---|---|---|`);
+    for (const [ctx, s] of Object.entries(quality.perRanker.v6Full.byDecisionContext)) {
+      lines.push(`| ${ctx} | ${s.n} | ${n3(s.ndcg5)} | ${pct(s.badPickRate5)} |`);
+    }
+    lines.push("");
+    lines.push(`### v6Full por estrato`);
+    lines.push(`| estrato | n | NDCG@5 | Bad Pick@5 |`);
+    lines.push(`|---|---|---|---|`);
+    for (const [str, s] of Object.entries(quality.perRanker.v6Full.byStratum)) {
+      if (s.n > 0) lines.push(`| ${str} | ${s.n} | ${n3(s.ndcg5)} | ${pct(s.badPickRate5)} |`);
+    }
+  }
+  lines.push("");
+
+  // ---- Benchmark B ----
+  lines.push(`## Benchmark B — Professional Pick Agreement (SECUNDARIO, ${agreement.corpus.cases} casos)`);
+  lines.push("");
+  lines.push(`_Techo de Recall en @${agreement.recallCeilingK} (TOP_N de buildSuggestions). @k>${agreement.recallCeilingK} == @${agreement.recallCeilingK}._`);
+  lines.push("");
+  if (!agreement.valid) {
+    lines.push(`**CORRIDA INVÁLIDA** — ConstraintViolationRate = ${pct(agreement.constraintViolationRate)} > 0.`);
+  } else {
+    lines.push(`| baseline | R@1 | R@3 | R@5 | R@6 | MRR |`);
+    lines.push(`|---|---|---|---|---|---|`);
+    for (const [id, seg] of Object.entries(agreement.perBaseline)) {
+      const r = seg.overall.recall;
+      lines.push(`| ${id} | ${pct(r[1])} | ${pct(r[3])} | ${pct(r[5])} | ${pct(r[6])} | ${n3(seg.overall.mrr)} |`);
+    }
+    lines.push("");
+    for (const ci of agreement.bootstrap) {
+      lines.push(`- ${ci.metric} — IC95 a nivel ${ci.level}: **${pct(ci.point)}** [${pct(ci.lo)}, ${pct(ci.hi)}]${ci.note ? ` — ${ci.note}` : ""}`);
+    }
+    lines.push("");
+    lines.push(`### v6Full por contexto × tier`);
+    lines.push(`| contexto | R@3 (n) | tier | R@3 (n) |`);
+    for (const [ctx, s] of Object.entries(agreement.perBaseline.v6Full.byDecisionContext)) {
+      lines.push(`| ${ctx} | ${pct(s.recall[3])} (${s.n}) | | |`);
+    }
+    for (const [tier, s] of Object.entries(agreement.perBaseline.v6Full.byTier)) {
+      lines.push(`| | | ${tier} | ${pct(s.recall[3])} (${s.n}) |`);
+    }
+  }
+  lines.push("");
+  lines.push(`### Baselines omitidos`);
+  for (const o of agreement.omittedBaselines) lines.push(`- \`${o.id}\`: ${o.reason}`);
+  lines.push("");
+  return `${lines.join("\n")}\n`;
+}

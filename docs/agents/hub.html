@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:56:42.523Z</title>
+<title>HUB del ecosistema — 2026-08-29T20:09:39.221Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,19 +120,11 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">8</span></h2>
+        <h2>backlog <span class="count">7</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
           <div class="card-title">Fase 9.0-E · Cierre del gate: curar el Golden Dataset (≥30 casos) + congelar v6-measured.json</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-202</div>
-          <div class="card-title">Fase 9.0-C · Orquestador `bun run eval` + reporte segmentado + baseline congelado v6-measured.json</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -204,7 +196,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">196</span></h2>
+        <h2>done <span class="count">197</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -446,6 +438,14 @@
         <div class="card  ">
           <div class="card-id">TSK-193</div>
           <div class="card-title">Fase 9.0-A · Estructura del harness (eval/ + data/ + docs/adr/) + 4 ADRs iniciales</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-202</div>
+          <div class="card-title">Fase 9.0-C · Orquestador `bun run eval` + reporte segmentado + baseline congelado v6-measured.json</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">187× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">188× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-202</span> <span class="feed-ts">2026-08-29T22:40</span></div>
+            <div class="feed-note">Fase 9.0 bloque C, ticket 3. **Bloque C COMPLETO** (200-202). `scripts/eval/run.ts` + `package.json` `"eval": "bun run scripts/eval/run.ts"`. Corre los 2 benchmarks sobre el corpus REAL, emite `eval/baselines/v6-measured.json` (congelado, se versiona — `stableStringify` claves ordenadas, SIN `generatedAt` para byte-determinismo; lleva `commit`/`splitHash`/`snapshotSyncedAt`/`corpusSize`/`skippedDrafts`) + `eval/reports/<ts>.md` legible (con la advertencia de ADR-002 arriba, NO se versiona). `loadMeta` réplica directa tabla→struct de `buildSharedMetaSnapshot` (heroes/matchups/patchStats, overlay vacío con accountId:null), SQLite `readonly:true`. Gate: `ConstraintViolationRate>0` en cualquier benchmark → exit 1, NO escribe el baseline (reporte igual se emite). `split.json` creado una vez, nunca regenerado. Paths por env (`D2K_*`) leídos DENTRO de `main()` para que los tests los sobrescriban. Tests: `run.test.ts`, 3 casos con SQLite de fixture en temp dir — corrida válida escribe baseline+reporte (exit 0, advertencia ADR-002 presente), determinismo (2 corridas byte-idénticas), split no se regenera. `(cd scripts && bun test)` 144/144. NO toca apps/.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-201</span> <span class="feed-ts">2026-08-29T22:05</span></div>
             <div class="feed-note">Fase 9.0 bloque C, ticket 2. `scripts/eval/benchmark-engine-quality.ts` — `runEngineQuality(cases: GoldenCase[], meta, opts): EngineQualityResult`. Por caso: `hydrateState` rehidrata el `DraftState` completo desde el subconjunto serializado del Golden (`createIdleDraftState` + merge), corre `buildSuggestions(state, meta, {})` → ranking, calcula **NDCG@5** (titular, `toGradedMap`), **Bad Pick Rate@5** (`toMetricLabels`; héroe no etiquetado = desconocido, fuera del denominador), **Pairwise Accuracy**. Agrega media + IC bootstrap sobre casos (resample con reemplazo, sólo NDCG@5 de v6Full). Corre los 4 baselines de `baselines.ts` (`positionFitOnly` omitido, documentado). **Segmentación `decisionContext × strata`** — un caso multi-estrato cuenta en cada estrato suyo. Gate `ConstraintViolationRate=0`: héroe baneado/pickeado/inexistente → `valid:false`, `perRanker:{}`. `opts.rankers` override sólo para tests. Tests: `benchmark-engine-quality.test.ts`, 6 casos — estructura+segmentación, 3 excellent puestos 1-2-3 → NDCG@5==1, un bad en top-1 → BadPickRate@5≥0.2 visible en el segmento `punishability`, gate duro con ranker roto, `hydrateState` completo, determinismo (`JSON.stringify` idéntico entre corridas). `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 141/141 (+6). NO toca apps/. state: doing → done.</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-193</span> <span class="feed-ts">2026-08-29T19:00</span></div>
             <div class="feed-note">Fase 9.0 bloque A, ticket 1. Estructura del harness: `eval/{golden,scenarios,baselines,reports}/`, `data/{curated,generated,schemas,metadata}/`, `docs/adr/` (con `.gitkeep`). Los 4 ADRs iniciales redactados con el contenido ya decidido en SPEC §15: **ADR-001** jerarquía de autoridad L0 contratos duros > L1 ADR > L2 architecture > L3 SPEC > L4 código > L5 investigación > L6 memoria (journal.md ortogonal, append-only); **ADR-002** el pick profesional no es ground truth + no hay snapshot point-in-time → Benchmark B comparativo nunca predictivo, se llama "Professional Pick Agreement" jamás "accuracy"; **ADR-003** frontera `data/curated/` (humano) vs `data/generated/` (script) + hook mecánico + procedencia obligatoria en `data/metadata/`; **ADR-004** percentiles empíricos reemplazan la normalización lineal de RAW_RANGE, cutover diferido al gate de 9.1 (9.0 sólo mide vía profile-signals.ts), RAW_RANGE no se toca en 9.0, `raw:null` sigue sagrado. `docs/adr/README.md` con formato + índice. `data/schemas/README.md` + `data/metadata/README.md` (formato de procedencia: source/generatedAt/generatorVersion/sampleWindow/patch/rowCount/schemaVersion). `.gitignore`: `eval/reports/*` ignorado (salvo `.gitkeep`); `eval/baselines/` + `data/generated/` + `data/metadata/` se versionan (candado de regresión + procedencia). Sin código, sin .ts nuevo — tsc sin cambios. `verify-simplicity.sh` verde. Los 3 JSON curados existentes NO se movieron (ticket propio post-gate, §15.10). state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-29T18:30</span></div>
-            <div class="feed-note">Fase 9 (V6-medido → V6-contextual) planificada de punta a punta. **`/pre-flight` (Sonnet)** cerró las 9 bifurcaciones contra el repo real → `architecture.md` §Fase 9. Entrada: 3 informes externos del usuario consolidados en `docs/research/fase9-research-consolidation.md` (48 ideas, IDs `R1-1`…`R3-15`, cada una con disposición CORE/DIFERIDO/DESCARTADO + regla de trazabilidad §8). **`/blueprint` corrido en OPUS** (una sola vez) — **gatillo aplicado**: "cambio de mecanismo central del motor" (percentiles empíricos reemplazan la normalización lineal de `RAW_RANGE`) + cambio de contrato (`SignalContribution` gana `normalized`/`evidenceConfidence`) + estrena `SCORING_WEIGHTS_V7`. Es el uso canónico del tier "Razonamiento", no una excepción a la política. Opus apagado inmediatamente después. Produjo `SPEC.md` §15.0-§15.11. **El valor del blueprint fueron 7 correcciones por MEDIR `pro-drafts.sqlite` y `dota2coach.sqlite`** (§15.1): C1 corpus utilizable 2.164 no 2.179, los 826 `tier_not_accepted` entran con `tier` como covariable (no son defecto de dato); C2 los slots Dire no participan de ninguna métrica → `TSK-174`/`TSK-179` deja de bloquear Fase 9; C3 corpus mono-parche (`patch=60`) → eje `patch` del fallback jerárquico inerte; C4 no existe snapshot de meta point-in-time → Benchmark B es comparativo, nunca predictivo (ADR-002); C5 la pendiente efectiva de R1-1 debe multiplicarse por la SD intra-estado del `raw`; C6 matchups `p90=175`/máx 712 → `δ_AB` muy encogido en 9.2 (esperado); C7 el eje `bracket` sí estratifica. Alcance del blueprint acotado a propósito a 9.0 (9.1 con números diferidos a su gate; 9.2-9.5 conceptuales — precedente Fase 4 §11.10). 5 costuras nuevas S15-S19. **`/rulebook` (Sonnet)**: secciones "Fase 9" en las 4 reglas de `.claude/rules/` + `## REGLAS DE FASE 9` en `CLAUDE.md`; **14 tickets `TSK-193`→`TSK-206`, `state: backlog`, sólo de 9.0**, en 5 bloques (A harness · B replay+métricas puras · C runners · D diagnóstico · E cierre del gate), cada uno con `write_scope` e `implements:[Rx-y]`. Context7 instalado como MCP dev-only agent-scoped (`.mcp.json` + `.claude/rules/context7.md`, sólo Artisan). Cero código de producción escrito. `bun test` engine 596 / web 205, `verify-simplicity` verde. Fase 8 (`TSK-183`→`TSK-192`) commiteada en `4b9f660` como precondición del baseline "V6-medido".</div>
           </div>
         </div></div>
     </div>

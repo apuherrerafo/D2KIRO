@@ -8,6 +8,7 @@
   "scripts": {
     "prepare": "husky",
     "pro:sync": "bun run scripts/pro/ingest-drafts.ts",
-    "draft:test": "bun run scripts/test-pipeline.ts"
+    "draft:test": "bun run scripts/test-pipeline.ts",
+    "eval": "bun run scripts/eval/run.ts"
   }
 }
