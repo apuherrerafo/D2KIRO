@@ -510,3 +510,51 @@ con números diferidos a su gate; 9.2–9.5 son conceptuales (cada una abre su `
   Se carga **una vez al iniciar el módulo** (patrón `MODULE_HERO_*`), nunca por llamada.
 - `SCORING_WEIGHTS_V7` **sólo en 9.5**, regularizado hacia V6, con el split congelado de §15.4.3.
   V1–V6 congeladas por nombre.
+
+## Fase 9.1 — comparabilidad + calibración empírica (SPEC.md §16)
+
+9.1 **sí toca `apps/engine/src/signals/`** (a diferencia de 9.0). Cambia el mecanismo de
+normalización y de mezcla. **No toca `weights.ts`** — `SCORING_WEIGHTS_V6` sigue activa; V7 es 9.5.
+`counter` NO se parte en 3 (eso es 9.3). Empirical Bayes es 9.2. Gating contextual es 9.3.
+
+- **`raw: null` sigue sagrado** — nunca 0/0.5/50. 9.1 agrega un campo `contribution` separado y un
+  relleno `μ` que **jamás** se escribe en `raw`. El desglose de una señal sin dato sigue diciendo
+  "sin datos suficientes".
+- **`SignalContribution` gana `normalized: number | null` y `evidenceConfidence: number`**
+  (aditivo, ningún campo se borra). El contrato `SignalScorer.score()` **no cambia de firma** —
+  esos dos campos los agrega `mix.ts`/`enrich()` después de llamar a cada scorer.
+  - `normalized = raw === null ? null : clamp((raw − p05)/(p95 − p05), 0, 1) * 100`, con
+    `p05`/`p95` de `data/generated/percentiles.json` (`byBracket` del estado si existe, si no
+    `global`, si no falta el archivo → `RAW_RANGE[signal]`).
+  - `evidenceConfidence`: estadísticas (`counter`/`patch_meta`/`position_fit`) →
+    `raw === null ? 0 : sampleSize/(sampleSize + K)` con `K_position_fit=200`, `K_counter=20`,
+    `K_patch_meta=200` (arranque, QA-tuneable). Categóricas (`team_synergy`/`hero_pool_fit`/
+    `archetype_fit`) → `raw === null ? 0 : 1`.
+- **Calibración empírica (S18)**: `loadCalibration()` valida en el borde (esquema, `p05 < p95`,
+  no NaN, `SignalId` conocido); archivo corrupto/ausente/forma inesperada → **fallback a
+  `RAW_RANGE`**, byte-idéntico a V6, **nunca lanza**. Se carga **una vez al iniciar el módulo**
+  (patrón `MODULE_HERO_*`). Los percentiles se congelan sobre folds de **train** del `split.json`
+  de 9.0 — nunca el fold held-out.
+- **Fin de la redistribución candidate-specific → mezcla por estado** (`mix.ts`):
+  1. `A(S)` = señales estructuralmente aplicables al estado `S`, **igual para todo candidato de
+     `S`**: `position_fit` siempre (salvo `localSide === "unknown"`); `counter` si hay rivales
+     revelados o un counter curado sobre un baneado; `team_synergy` si hay picks propios;
+     `patch_meta` si hay calibración de `patch_meta`; `hero_pool_fit` si `meta.heroPool` no vacío;
+     `archetype_fit` si hay `archetypeIntent`.
+  2. `wᵢ' = SCORING_WEIGHTS_V6[i] / Σ_{j∈A(S)} SCORING_WEIGHTS_V6[j]` — **mismo denominador para
+     todo candidato de `S`**.
+  3. `μᵢ(S)` = media de `normalizedᵢ(h)` sobre los candidatos de `S` con `rawᵢ(h) ≠ null`.
+     Si ninguno tiene dato → `μᵢ(S) = 50` (**único lugar donde aparece un neutro, nunca en `raw`**).
+  4. `contributionᵢ(h)`: `i ∉ A(S)` → 0; `rawᵢ(h) ≠ null` → `wᵢ'·normalizedᵢ(h)`;
+     `rawᵢ(h) = null` → `wᵢ'·μᵢ(S)`.
+  5. `score(h) = Σ contributionᵢ(h)` ∈ `[0, 100]`.
+- **`EvidenceCoverage(h) = Σ_{i∈A(S), rawᵢ(h)≠null} wᵢ'`**; **`GuessingIndex(h) = 1 − EvidenceCoverage(h)`**.
+  `computeConfidence` pasa a derivarse de `EvidenceCoverage`: `alta` si `≥ 0.75` y meta no stale;
+  `media` si `≥ 0.5` o meta stale; `baja` si `< 0.5` (umbrales de arranque).
+- **`Suggestion` gana `evidenceCoverage` y `guessingIndex` (0–1).** **No se renderiza en 9.1** (UI
+  diferida, D4) — sólo el tipo y los reportes de eval.
+- **Candado de regresión cero (obligatorio)**: con `loadCalibration()` en fallback + `A(S)` =
+  "señales con `raw ≠ null` para el candidato" (legacy) + sin usar `μᵢ(S)`, `mixScore` y
+  `buildSuggestions` reproducen V6 **byte a byte**. Prueba con números concretos en `mix.test.ts`.
+- Presupuesto intacto: 300 ms / corte 500 ms. `μᵢ(S)` exige una segunda pasada por candidato por
+  estado — despreciable con ~110 candidatos × 6 señales.

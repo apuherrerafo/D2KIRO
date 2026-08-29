@@ -221,3 +221,22 @@ rompe (mismo criterio que el espejo de Fase 3). Cuatro archivos, ninguno opciona
   (backtest + logs) hasta que un QA con datos reales decida si se muestra y cómo.
 - Fase 9 **no toca ninguna otra cosa de `apps/web`**: selector de intención, Simulador, hero pool,
   nav — todo queda igual.
+
+## Fase 9.1 — espejo de `SignalContribution` v2 (SPEC.md §16.9)
+
+El motor amplía `SignalContribution`; `apps/web` lo espeja **en el mismo cambio** o `tsc` de
+`apps/web` rompe (mismo criterio que Fase 3 y Fase 4.2). Archivos:
+
+- **`features/draft/types.ts`**: `SignalContribution` gana `normalized: number | null` y
+  `evidenceConfidence: number`. `Suggestion` gana `evidenceCoverage: number` y
+  `guessingIndex: number`. Espejo a mano, con el comentario de espejo — nunca un import (los dos
+  procesos son independientes).
+- **`features/draft/validation.ts`**: `isSignalContribution` valida
+  `(value.normalized === null || isFiniteNumber(value.normalized))` **y**
+  `isFiniteNumber(value.evidenceConfidence)`. `isSuggestion` valida `evidenceCoverage` y
+  `guessingIndex` como `isFiniteNumber` en `[0, 1]`.
+- **`SignalBreakdown.tsx`**: **sin cambio visual en 9.1**. Sigue mostrando `raw`/`weighted`.
+  `normalized` y `guessingIndex` quedan disponibles en el tipo para la UI de un follow-up (D4).
+- **`bot-drafter.ts`** (Random Draft Simulator): no consume `SignalContribution` — **no cambia**.
+- Fase 9.1 **no toca ninguna otra cosa de `apps/web`**: sin pantallas nuevas, sin estado nuevo,
+  sin RTK Query nuevo. Sólo el espejo de tipos + su validación.

@@ -89,6 +89,7 @@ por TSK-196 para mantener `CLAUDE.md` < 200 líneas; contenido verbatim, verific
 - **Fase 6** — Formalizar Pro-Drafter: apertura consciente de bans: `.claude/rules/fase-6.md`
 - **Fase 8** — rehabilitar `counter` + higiene de superficie: `.claude/rules/fase-8.md`
 - **Fase 9** — V6-medido → V6-contextual: evaluación offline, calibración empírica, inteligencia contextual: `.claude/rules/fase-9.md`
+- **Fase 9.1** — comparabilidad + calibración empírica: `.claude/rules/fase-9.1.md`
 
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.

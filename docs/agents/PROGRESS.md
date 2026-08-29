@@ -134,16 +134,14 @@ commiteado. QA manual del Simulador todavía pendiente del usuario. `git push or
 commits) sigue como acción explícita del usuario.
 
 ## SIGUIENTE PASO
-Herramienta: Claude Code. Modelo: **Sonnet**.
-Acción: **`/rulebook` de 9.1** — escribir la sección "Fase 9.1" en las 4 reglas de `.claude/rules/`
-+ el índice en `CLAUDE.md`, y crear los 6 tickets de `SPEC.md` §16.13 en orden de dependencia
-(A patch-fix del backtest ‖ B `build-percentiles.ts` → C `calibration.ts` + `SignalContribution`
-v2 → D `mix.ts` mezcla por estado; E espejo `apps/web` depende de C; F gate `--enforce` depende de
-D+E). Cada ticket con `write_scope` e `implements:[Ex]`. `@redteam` obligatorio en C/D/E (cambian
-el contrato de señal y el scoring activo).
+Herramienta: Claude Code. Modelo: Sonnet.
+Acción: **`/helm` → `/dispatch` para arrancar Fase 9.1.** Primer ticket ejecutable: **`TSK-207`**
+(patch-fix del backtest, sin `blocked_by`, sólo `scripts/eval/` — no toca el motor). Orden:
+`TSK-207` → `TSK-208` → `TSK-209` → `TSK-210`; `TSK-211` en paralelo tras `TSK-209`; `TSK-212`
+cierra (depende de 210+211). `@redteam` obligatorio en `TSK-209`/`210`/`211`.
 
-Pendiente en paralelo, sin bloquear: `git push origin master` (acción manual del usuario — ~25
-commits de Fase 8 + Fase 9.0 sin pushear).
+Pendiente en paralelo, sin bloquear: `git push origin master` (~28 commits sin pushear).
+
 
 --- histórico ---
 ## SIGUIENTE PASO (previo)

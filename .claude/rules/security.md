@@ -243,3 +243,24 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
 - **Dos agentes nuevos** (`data-stat-engineer`, `evaluation-engineer`): `tools` mínimas, **veto
   explícito de escritura** sobre `apps/engine/src/signals/**`, cualquier archivo de scoring y
   `apps/web/**`. **No reciben `mcp__context7`** (R3-14: tener la capacidad no implica concederla).
+
+## Fase 9.1 — comparabilidad + calibración empírica (SPEC.md §16.11)
+
+- **Ninguna frontera de confianza nueva.** `data/generated/percentiles.json` es dato generado del
+  repo — input externo en el sentido del proyecto: `loadCalibration()` valida en el borde
+  (esquema, `p05 < p95`, no NaN, `SignalId` conocido); corrupto/ausente/forma inesperada →
+  **fallback a `RAW_RANGE`**, byte-idéntico a V6, nunca lanza, nunca inyecta un rango arbitrario.
+  Mismo criterio literal que `loadHeroPositions()` / `loadHeroCounters()`.
+- **Sin secreto nuevo, sin dependencia nueva, sin variable de entorno nueva.** El generador de
+  percentiles (`scripts/stats/build-percentiles.ts`) es offline, SQLite **`readonly: true`**,
+  cero red, y **nunca se importa desde `apps/`** — verificable mecánicamente.
+- **El fix del mismatch de patch del backtest (§16.4) vive SÓLO en `scripts/eval/`** — un
+  `patchOverride` en el reconstructor de `ReplayCase`. **No toca `apps/engine`.** `patchMetaScorer`
+  queda sin cambios (en producción los drafts llevan el patch semántico correcto).
+- **Cero PII.** Percentiles y perfil se calculan sobre datos públicos agregados. Ningún `hero_pool`
+  de ninguna cuenta entra en este camino.
+- `apps/engine` sigue atado a `127.0.0.1`. Cero red en el camino caliente: `verify-simplicity.sh`
+  ya bloquea `fetch(` bajo `apps/engine/src/`.
+- **`gate.ts` pasa a `--enforce`** en el camino de commit de 9.1 (en 9.0 era informativo): un
+  cambio que baje NDCG@5 más que la tolerancia, suba Bad Pick Rate@5 más que la tolerancia, o
+  produzca `ConstraintViolationRate > 0` **bloquea el commit**.

@@ -251,3 +251,33 @@ reservada (RNG de diversificación, Fase 4).
   ninguna otra métrica.
 - **Determinismo**: misma semilla + mismo split + mismo snapshot ⇒ artefactos **byte-idénticos**
   entre dos corridas. Un runner no determinista es FAIL de revisión.
+
+## Fase 9.1 — comparabilidad + calibración empírica (SPEC.md §16.3)
+
+`S18` (artefacto de calibración, ya definida en §15.3) es la costura de carga. 9.1 estrena dos
+apoyos, ninguna costura nueva de tipo:
+
+| Pieza | Costura | Qué se inyecta |
+|---|---|---|
+| `loadCalibration()` (`apps/engine/src/signals/calibration.ts`) | **S18** | `data/generated/percentiles.json` como fixture inline. Corrupto/ausente → fallback a `RAW_RANGE`, byte-idéntico a V6 |
+| `enrich()` — agrega `normalized`/`evidenceConfidence` a una `SignalContribution` | **S3** | Cada scorer sigue probándose solo; la aserción nueva: dados `raw` + `sampleSize` + un fixture de calibración, `normalized`/`evidenceConfidence` salen bien |
+| `mix.ts` — `A(S)`, redistribución por estado, `μᵢ(S)`, `EvidenceCoverage` | **S3 (nivel pipeline)** | `SignalContribution[]` fijos + un `MetaSnapshot` fixture. **Cero SQLite, cero percentiles.json real** |
+| `build-percentiles.ts` (`scripts/stats/`) | Ninguna — función pura | Un perfil de `raw` por señal + el split, como fixture literal |
+
+- **Ninguna prueba lee `data/generated/percentiles.json` real ni las SQLite** — fixtures inline,
+  mismo criterio que S9/S10 y toda Fase 9.
+- **Candado de regresión cero — dos pruebas obligatorias** (mismo patrón que V1→V2 de 1b y
+  V5→V6 de 4.2):
+  1. `mix.test.ts`: con calibración en fallback + `A(S)` legacy + sin `μᵢ(S)`, `mixScore` sobre un
+     set fijo de `SignalContribution[]` da el **mismo número exacto** que V6.
+  2. `mix.test.ts`: `buildSuggestions` sobre un fixture fijo con opciones legacy **no mueve el
+     ranking ni un `signals[].weighted`**.
+- **Prueba dedicada de degradación (S18)**: `loadCalibration()` con archivo corrupto → el ranking
+  de `buildSuggestions` es byte-idéntico a V6, cero excepción.
+- **Prueba de `μᵢ(S)`**: un estado con dos candidatos, uno con `counter.raw` numérico y otro con
+  `counter.raw: null` — el segundo recibe `contribution` = `w'·μ` (no 0, no excluido), y su
+  `raw` sigue `null` en el desglose.
+- **Prueba de `EvidenceCoverage`**: un candidato con 3/3 señales de `A(S)` con dato → `EvCov = 1`;
+  uno con 1/3 → `EvCov` = `w'` de esa señal; `GuessingIndex = 1 − EvCov` en ambos.
+- El QA final de 9.1 corre `bun run eval --enforce` sobre el **fold held-out** (nunca usado para
+  congelar percentiles) y verifica PASS contra el `v6-measured.json` de referencia (§16.4).
