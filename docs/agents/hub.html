@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:33:25.674Z</title>
+<title>HUB del ecosistema — 2026-08-29T19:35:57.713Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">14</span></h2>
+        <h2>backlog <span class="count">13</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -149,14 +149,6 @@
         <div class="card  ">
           <div class="card-id">TSK-203</div>
           <div class="card-title">Fase 9.0-D · profile-signals.ts: influencia realizada (pendiente × SD intra-estado) + ablación + tasa raw:null</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-196</div>
-          <div class="card-title">Fase 9.0-A · Partir CLAUDE.md (<200 líneas): bloques REGLAS DE FASE X → .claude/rules/fase-N.md (verbatim)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -252,7 +244,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">190</span></h2>
+        <h2>done <span class="count">191</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -723,6 +715,14 @@
         <div class="card  ">
           <div class="card-id">TSK-087</div>
           <div class="card-title">Auto-avance de ronda en /random-draft -- quitar el botón manual Confirmar ronda</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-196</div>
+          <div class="card-title">Fase 9.0-A · Partir CLAUDE.md (<200 líneas): bloques REGLAS DE FASE X → .claude/rules/fase-N.md (verbatim)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1818,16 +1818,16 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">181× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">182× · 83% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
-          <div class="stat-nums">62× · 95% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:35%"></div></div>
+          <div class="stat-nums">63× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:28%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:27%"></div></div>
           <div class="stat-nums">50× · 38% ok  </div>
         </div>
         <div class="stat-row">
@@ -1842,7 +1842,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">10× · 100% ok  </div>
         </div>
         <div class="stat-row">
@@ -1900,6 +1900,20 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-196</span> <span class="feed-ts">2026-08-29T20:12</span></div>
+            <div class="feed-note">Fase 9.0 bloque A, ticket 4. `CLAUDE.md` 514 → **195 líneas**. Los 10 bloques `## REGLAS DE FASE {1,1b,3,4,4.2,4.3,5,6,8,9}` movidos **verbatim** a `.claude/rules/fase-{1,1b,3,4,4.2,4.3,5,6,8,9}.md` (contenido byte-idéntico), reemplazados por `## REGLAS POR FASE` + un índice de una línea por fase. Ninguna otra sección de `CLAUDE.md` tocada. `.claude/rules/{engine,web,security,testing-seams,context7}.md` intactos (son reglas por tipo de archivo, no por fase — no colisionan con `fase-*.md`). `scripts/verify-claude-md-split.sh` + `.expected` (fixture verbatim de los 336 líneas pre-split): verifica con `grep -qxF` que cada línea no vacía sigue presente en la concatenación de `fase-*.md`, y exige `wc -l CLAUDE.md < 200`. Corre → OK. `verify-simplicity.sh` verde. tsc sin cambios (no hay `.ts`). Reversible. `@redteam` APPROVED (evt-215). state: doing → done. **Bloque A de Fase 9.0 COMPLETO** (TSK-193→196).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-196</span> <span class="feed-ts">2026-08-29T20:10</span></div>
+            <div class="feed-note">APPROVED, gate_seguridad PASS. Revisión del diff real: CLAUDE.md sólo pierde los 10 headers `## REGLAS DE FASE X` (líneas de contenido borradas: 325, **0 huérfanas** — todas presentes byte a byte en `.claude/rules/fase-*.md`), gana 1 header `## REGLAS POR FASE` + índice. `fase-9.md` verificado idéntico al bloque original. `scripts/verify-claude-md-split.sh`: `bash -n` OK, sin `eval`/`curl`/`rm`/`sudo`/redirects peligrosos; `grep -qxF -- "$line"` con `--` (no hay inyección de opción por líneas que empiezan con `-`); lee archivos locales, cero red, cero secreto, cero query. Standards: script simple, una responsabilidad, nombre de dominio, maneja fixture/archivos ausentes y cuenta problemas. Spec: hace exactamente lo de TSK-196, nada extra; `CLAUDE.md` 195 < 200. Sin observaciones de N+1 ni UI.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1968,20 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-183</span> <span class="feed-ts">2026-08-29T01:10</span></div>
             <div class="feed-note">`hero-counters.json` pasa de borrador de 29 héroes al **catálogo completo de 127** (deep research en 6 tandas + re-pasada de 12 discutibles, validada tanda por tanda contra `parseHeroCounters` + `CURATED_HERO_IDS` + resolución de nombres). Final: 127/127 víctimas, **0 con <3 counters**, 0 con >5, 527 entradas (dist: 3→2, 4→104, 5→21), **85/127 con al menos un `hard`** (42 sin hard = supports/utilidad/iniciadores durables sin hard counter real, confirmado en la re-pasada). Acentos/ñ restaurados (192+44+6 strings). `why` más largo = 133 chars (< 140). **1 regresión detectada y arreglada**: `suggestion-evidence.test.ts` llamaba a `buildSuggestions` sin inyectar `heroCounters` → tomaba el `MODULE_HERO_COUNTERS` real; con el archivo ampliado, Bane(3) ahora counterea a Morphling(10) en el mapa curado y `counter.raw` dejaba de ser neutro → violaba S9 ("ninguna prueba lee hero-counters.json real"). Fix: `heroCounters: new Map()` en las 4 llamadas de esa suite (misma costura S9 que ya usan para `heroPositions`/`heroCapabilities`). `bunx tsc --noEmit` limpio; `bun test` engine 592/592, web 203/203, scripts 82/82; `verify-simplicity.sh` verde. Engine reiniciado con el archivo completo. TSK-183 queda cerrado de dominio (revisión del usuario hecha por tandas).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-188</span> <span class="feed-ts">2026-08-29T00:05</span></div>
-            <div class="feed-note">APPROVED, gate_seguridad PASS. `state.banned` / `observedDraftFacts(state).bannedHeroes` = fuente validada por el reductor (mismo nivel que `state.picks`), sin input externo nuevo, sin secretos, sin queries, sin red. Pasada Standards: `cachedBannedHeroes` espejo exacto de `cachedKnownEnemies`; `buildBanReliefClause` puro y acotado; el `BAN_RELIEF_CAP` NO es redundante con el clamp final — limita cuánto puede un panorama de bans favorable *compensar un hard counter revelado real* (con cap: AA revelado −0.12 + 4 counters baneados +0.06 → −0.06 neto negativo; sin cap sería +0.04, "pick favorable" con un hard counter mirándote). Nulos cubiertos: `BAN_RELIEF[level]` es Record total sobre `"hard"|"medium"` tipado; `buildBanReliefClause` nunca se llama con `names` vacío (los dos caminos garantizan ≥1). Pasada Spec: coincide línea por línea con §14.13 — vota desde pick 1 (loop fuera del de `knownEnemies`), `raw:null` sii `contribs` vacío ∧ `banRelief===0`, `banRelief===0` → `raw=meanRevealed` sin clamp (candado §14.7 byte-idéntico, verificado: el test del singleton y el nuevo `toEqual` con/sin bans pasan), `sampleSize` solo estadístico, explanation 3 ramas con singular/plural. `SignalId`/`weights.ts`/`RAW_RANGE`/`mix.ts`/`relationship-index.ts` fuera del diff. 3 hallazgos no bloqueantes: (1) `counter` ahora aporta valor no-nulo en pick 1 cuando los bans favorecen al candidato → cuenta para `computeConfidence`, sube un poco la confianza temprana (intencional, decisión 2); (2) magnitudes son valores de arranque, calibración = follow-up sin reabrir SPEC; (3) el loop de alivio es O(counters_del_candidato × bans) ≈ 3×14, despreciable. state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-188</span> <span class="feed-ts">2026-08-28T23:55</span></div>
-            <div class="feed-note">Fase 8 addendum (SPEC.md §14.13): `counter` gana el término positivo "tus counters están baneados = pick más libre". Solo `counter.ts` + `counter.test.ts`. `BAN_RELIEF = {hard:0.04, medium:0.02}`, `BAN_RELIEF_CAP = 0.06`. `banRelief = min(CAP, Σ BAN_RELIEF[level])` sobre `curated.get(candidate)` ∩ `observedDraftFacts(state).bannedHeroes` (nuevo `cachedBannedHeroes`, espejo de `cachedKnownEnemies`). **Vota desde el pick 1** — no necesita rivales revelados. `raw: null` sii `contribs` vacío **y** `banRelief === 0`. `banRelief === 0` → `raw = meanRevealed` **sin clamp** (candado §14.7 byte-idéntico, el fixture da 0.12222 > M.hard); `banRelief > 0` → `raw = clamp(meanRevealed + banRelief, -0.12, 0.12)`. `sampleSize` sin cambios (el alivio no aporta). `explanation`: cláusula "N de sus counters están baneados: <hasta 2 nombres>" anexada al `why` de 8A si hubo rival revelado, o sola. Solo dirección positiva. 5 tests nuevos (pick 1 con 1 counter baneado → +0.04; 2 topan el cap → +0.06; ninguno baneado → null; revelado -0.12 + baneado +0.04 → -0.08 con explanation anexada; regresión §14.7 con bans en el state + params legacy → `toEqual` sin bans). Demo real: Morphling con Silencer baneado → raw +0.040 "1 de sus counters está baneado: Silencer". `SignalId`/`SCORING_WEIGHTS_V1`-`V6`/`RAW_RANGE.counter`/`weights.ts`/`mix.ts`/`relationship-index.ts` **sin tocar**. `bunx tsc --noEmit` limpio; `bun test apps/engine` 592/592 (+5, cero regresión); `verify-simplicity.sh` verde. state: doing → done. Siguiente: `@redteam`.</div>
           </div>
         </div></div>
     </div>
