@@ -1,4 +1,5 @@
 {
+  "//": "Fase 9.0 — tsc estricto SÓLO para los módulos puros de eval (S15/S16/S17): sin bun:sqlite, sin drizzle. Los runners (benchmark-*/baselines/split/run/propose-golden-cases/null-perturbation/gate) siguen la convención de scripts/pro/: los valida `bun test` + la ejecución real, no tsc (apps/engine/tsconfig sólo cubre src/**).",
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
@@ -14,5 +15,5 @@
     "typeRoots": ["../../apps/engine/node_modules/@types"],
     "types": ["bun"]
   },
-  "include": ["**/*.ts"]
+  "include": ["types.ts", "replay.ts", "replay.test.ts", "metrics.ts", "metrics.test.ts", "golden.ts", "golden.test.ts"]
 }
