@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Golden Dataset (Fase 9.0, S17)",
+  "description": "Casos de draft etiquetados a mano para el Benchmark A (Engine Quality). Un caso malformado lo descarta loadGoldenDataset() con motivo; el archivo entero nunca tira el runner.",
+  "type": "object",
+  "required": ["schemaVersion", "cases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "state", "side", "decisionContext", "strata", "labels", "reasoningTags", "labeledAt", "labeledBy"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "source": {
+            "oneOf": [
+              { "type": "object", "required": ["kind", "matchId", "turnIndex"], "properties": { "kind": { "const": "replay" }, "matchId": { "type": "string" }, "turnIndex": { "type": "integer", "minimum": 0 } } },
+              { "type": "object", "required": ["kind", "note"], "properties": { "kind": { "const": "synthetic" }, "note": { "type": "string" } } }
+            ]
+          },
+          "state": {
+            "type": "object",
+            "required": ["schema", "format", "patch", "localSide", "phase", "banned", "picks", "lastSeq"],
+            "properties": {
+              "schema": { "const": "draft-state/v1" },
+              "format": { "enum": ["all_pick", "captains_mode", "unknown"] },
+              "patch": { "type": "string" },
+              "localSide": { "enum": ["radiant", "dire", "unknown"] },
+              "phase": { "enum": ["idle", "active", "complete", "aborted"] },
+              "banned": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+              "picks": {
+                "type": "object",
+                "required": ["radiant", "dire"],
+                "properties": {
+                  "radiant": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+                  "dire": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+                }
+              },
+              "lastSeq": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "side": { "enum": ["radiant", "dire"] },
+          "decisionContext": { "enum": ["team_opening", "blind_second_pick", "response_pick", "closing_pick"] },
+          "strata": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["hard_counter", "flexibility", "role_scarcity", "team_needs", "composition", "punishability", "historical_failure"] }
+          },
+          "labels": {
+            "type": "object",
+            "required": ["excellent", "acceptable", "bad"],
+            "properties": {
+              "excellent": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/labelEntry" } },
+              "acceptable": { "type": "array", "items": { "$ref": "#/definitions/labelEntry" } },
+              "bad": { "type": "array", "items": { "$ref": "#/definitions/labelEntry" } }
+            }
+          },
+          "reasoningTags": { "type": "array", "items": { "type": "string" } },
+          "labeledAt": { "type": "string" },
+          "labeledBy": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "labelEntry": {
+      "type": "object",
+      "required": ["hero", "why"],
+      "properties": {
+        "hero": { "type": "integer", "minimum": 1 },
+        "why": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:41:56.670Z</title>
+<title>HUB del ecosistema — 2026-08-29T19:44:21.075Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">11</span></h2>
+        <h2>backlog <span class="count">10</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -144,14 +144,6 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-199</div>
-          <div class="card-title">Fase 9.0-B · S17: loader validado del Golden Dataset + esquema JSON</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -228,7 +220,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">193</span></h2>
+        <h2>done <span class="count">194</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -764,6 +756,14 @@
         <div class="card  ">
           <div class="card-id">TSK-189</div>
           <div class="card-title">Simulador — conectar rol + hero pool al Copilot (preview autenticado)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-199</div>
+          <div class="card-title">Fase 9.0-B · S17: loader validado del Golden Dataset + esquema JSON</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">184× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">185× · 83% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-199</span> <span class="feed-ts">2026-08-29T21:10</span></div>
+            <div class="feed-note">Fase 9.0 bloque B, ticket 3 (S17). **Bloque B COMPLETO** (197-199). `scripts/eval/golden.ts` — `loadGoldenDataset(raw: unknown, opts?: {knownHeroIds?}): {cases, rejected}`. Valida en el borde, **descarta el CASO con motivo, nunca el archivo**: `id` ausente/duplicado, `source` no `replay{matchId,turnIndex}`/`synthetic{note}`, `state` malformado (schema≠`draft-state/v1`, format/localSide/phase inválidos, banned/picks no arrays de héroe, lastSeq no entero≥0), `side`∉{radiant,dire}, `decisionContext` fuera de la unión de 4, `strata` vacío o con valor no reconocido (7 estratos), `labels.excellent` vacío, héroe en dos listas, `why` vacío, `reasoningTags`/`labeledAt`/`labeledBy` ausentes. Raíz ausente / JSON roto / `schemaVersion`≠1 / `cases` no lista → `{cases:[], rejected:[...]}`, **nunca lanza**. `knownHeroIds` opcional (inyectable: el runner pasa el set real del meta, los tests el suyo; sin él sólo se exige entero>0 — no hay catálogo sin SQLite). Helpers `toMetricLabels`/`toGradedMap` para el Benchmark A. `data/schemas/golden.schema.json` (JSON Schema draft-07). `eval/golden/README.md` (cómo se etiqueta multi-label, la regla de que ninguna prueba lo lee real salvo la de forma de TSK-206). Tests: `scripts/eval/golden.test.ts`, 8 casos con fixtures inline — cada tipo de malformación descarta sólo su caso; id duplicado; JSON roto sin excepción; schemaVersion desconocida; raíz no-objeto; string JSON válido. `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 123/123 (+8). state: doing → done.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-198</span> <span class="feed-ts">2026-08-29T20:50</span></div>
             <div class="feed-note">Fase 9.0 bloque B, ticket 2 (S16). `scripts/eval/metrics.ts` — 7 funciones **puras** de métrica: `ndcg5(ranking, graded: Map<HeroId, 0|1|2>)` (ganancia excellent=2/acceptable=1/bad=0, descuento `log2(pos+1)`, IDCG sobre el orden ideal de TODAS las ganancias conocidas cortado a 5, héroe no etiquetado = ganancia 0 y NO se excluye, IDCG=0 → 0); `recallAtK(ranking, target, k)` → 0|1; `mrr(ranking, target)` → 1/pos o 0; `badPickRateAt5(ranking, labels)` (fracción de las primeras 5 marcadas `bad`; héroe **no etiquetado** en ninguna lista = desconocido → fuera del denominador, nunca cuenta como bad; top-5 sin etiquetados → 0); `pairwiseAccuracy(ranking, labels)` (de los pares (mejor,peor) que excellent>acceptable>bad permite ordenar, fracción bien ordenada; etiquetado ausente del ranking = el peor; sin pares → 1); `jaccardAtK(a,b,k)` = |A∩B|/|A∪B| sobre top-k; `kendallTau(a,b)` (τ-a sobre la intersección; <2 comunes → 1). Tests: `scripts/eval/metrics.test.ts`, 16 casos con resultado calculado a mano — **el caso NDCG@5 que detecta un denominador equivocado** (ranking `[acceptable, excellent]` → NDCG = 2.2618595/2.6309298 = 0.859713, un IDCG mal calculado daría 1.0), Recall/MRR con target en pos 3, Bad Pick 2/3 con desconocidos fuera del denominador, Pairwise 2/3 con un par mal ordenado, Jaccard 2/4, Kendall 1/3 con un swap y -1 con orden inverso. `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 115/115 (+16). Sin I/O, sin imports de `apps/` salvo el tipo `HeroId`. state: doing → done.</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-191</span> <span class="feed-ts">2026-08-29T03:40</span></div>
             <div class="feed-note">QA: el top-5 de "Apertura de equipo" (Ronda 1) del Simulador era casi el mismo en cada draft pese a los 16 bans distintos. Causa: `mix.ts` rankea la apertura por `baseScore + reliefScore(bans)`; `baseScore` (position_fit + patch_meta) no cambia con bans, y `reliefScore` (`team-opener.ts`) estaba capado a `MAX_COUNTER_RELIEF=0.12` y sólo miraba matchups estadísticos ≥200 partidas (recorta el 92%) → nunca alcanzaba a mover el top-5. Es la queja original de Fase 6 (arreglo grande dark tras `ENABLE_PRO_DRAFTER`). **Decisión del usuario**: subir la reactividad del opening ahora, sin encender el Pro-Drafter — levanta explícitamente la restricción de Fase 6 "MAX_COUNTER_RELIEF no se toca" (perilla de producto, reversible, no reabre SPEC.md §13). **Cambio** (`team-opener.ts` + wiring en `mix.ts`): `counterRelief` ahora usa **la capa curada `hero-counters.json`** (127 héroes, de Fase 8) además de la estadística — por cada counter curado del candidato que esté baneado, evidencia `{source:"curated", level}` con peso `CURATED_RELIEF` (`hard 0.12`, `medium 0.06`, espeja `M` de `counter.ts`); prioridad curada sobre estadística, dedup por héroe. `MAX_COUNTER_RELIEF` 0.12 → **0.30** (arranque QA-tuneable). `OpenerEvidence` gana `source`. `mix.ts` pasa `curatedCounters` desde `MODULE_HERO_COUNTERS`. Tests: 3 nuevos en `team-opener.test.ts` (counter curado baneado eleva y reordena el top; prioridad curada = cuenta una vez; sensibilidad: dos sets de bans → top-5 distinto). e2e contra el motor real: SET A de bans → `[50,111,102,27,88]`, SET B distinto → `[40,27,68,9,88]` (reordena de verdad). `bunx tsc --noEmit` limpio; `bun test apps/engine` 596/596 (+3, `mix.test.ts` opening + candado de pipeline Fase 8 sin cambios); `verify-simplicity.sh` verde. Engine reiniciado. state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-190</span> <span class="feed-ts">2026-08-29T02:55</span></div>
-            <div class="feed-note">QA de TSK-189: con `usePersonalPool: true` el Copilot del Simulador mostraba **sólo héroes del pool** del pick 3 al 5. El usuario quiere el pool como señal blanda (empuja los cómodos, no tapa el resto). Causa: acoplamiento en `handleSuggestionsPreview` — el overlay de cuenta (que llena `meta.heroPool` para que `hero_pool_fit` puntúe) sólo cargaba con `usePersonalPool: true`, y ese mismo flag dispara el filtro duro de `candidatePool`. **Fix motor** (`app.ts`): `const hasAccountToken = request.headers.get("x-account-token") !== null; const auth = hasAccountToken || (usePersonalPool && !teamOpening) ? requireHttpAccount(request) : {ok:true, accountId:null}` — el overlay carga con cualquier token válido; `usePersonalPool` queda sólo como el flag del filtro duro (lo usa la vista de draft en vivo, no el simulador). Token inválido → 401 (sin cambio). **Fix cliente** (`use-random-draft-session.ts`): el preview deja de mandar `usePersonalPool` — sólo `x-account-token` (señal blanda) + `targetPosition` (filtro por rol, ese sí). Tests: `app.test.ts` nuevo (token + sin `usePersonalPool` → `hero_pool_fit` con `raw` numérico + hero fuera del pool sigue en el top → sin filtro duro); integración de `use-random-draft-session` actualizada (`usePersonalPool` undefined, `accountToken` presente). e2e contra el motor real: sin token → `hero_pool_fit applicable:false`, top varía por posición `[114,41,80]`. `bunx tsc --noEmit` limpio ambos; `bun test` engine 593/593 (+1), web 204/204; `verify-simplicity.sh` verde. Ambos servidores reiniciados. state: doing → done.</div>
           </div>
         </div></div>
     </div>
