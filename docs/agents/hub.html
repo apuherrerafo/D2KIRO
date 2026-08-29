@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:35:57.713Z</title>
+<title>HUB del ecosistema — 2026-08-29T19:39:51.694Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">13</span></h2>
+        <h2>backlog <span class="count">12</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -128,14 +128,6 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-197</div>
-          <div class="card-title">Fase 9.0-B · S15: reconstructor de ReplayCase desde ProDraftTurn[] (función pura)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
           </div>
         </div>
         <div class="card  ">
@@ -244,7 +236,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">191</span></h2>
+        <h2>done <span class="count">192</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -331,6 +323,14 @@
         <div class="card  ">
           <div class="card-id">TSK-086</div>
           <div class="card-title">Timer de ronda al centro de CompactBoard en /random-draft (paridad visual con All Pick real)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-197</div>
+          <div class="card-title">Fase 9.0-B · S15: reconstructor de ReplayCase desde ProDraftTurn[] (función pura)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1818,11 +1818,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">182× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">183× · 83% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:35%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
           <div class="stat-nums">63× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1832,7 +1832,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:24%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:23%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1900,6 +1900,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-197</span> <span class="feed-ts">2026-08-29T20:35</span></div>
+            <div class="feed-note">Fase 9.0 bloque B, ticket 1 (S15). `scripts/eval/replay.ts` — `buildReplayCases(turns: ProDraftTurn[], meta: ReplayMeta): BuildReplayResult` **pura**, sin I/O. Reconstruye el `DraftState` justo antes de cada turno `is_pick`: `state.localSide` = equipo que actúa (0→radiant, 1→dire), `banned`/`picks` = prefijo EXACTO `[0, turnIndex)` clasificado por `isPick`/`team`, `format:"captains_mode"`, `phase:"active"`, `lastSeq:turnIndex`. Sólo emite caso para picks (bans alimentan `state.banned`, no se predicen). Shape inválido (≠24 turnos, `draft_order` fuera de 0..23 o duplicado, `team`∉{0,1}, hero_id≤0, héroe pickeado dos veces) → `{cases:[], skipped:[{matchId,reason}]}`, nunca repara. Entrada sin ordenar → se ordena por `order`. **`decisionContext`**: se deriva con `deriveDecisionContext(state, noPicksYet)` donde `noPicksYet = radiant.length===0 && dire.length===0` — así el corpus produce los 4 buckets (team_opening en el primerísimo pick, blind/response/closing después) en vez de colapsar los primeros en "blind". `scripts/eval/types.ts` (`ProDraftTurn`/`ReplayMeta`/`ReplayCase`/`BuildReplayResult`). `scripts/eval/tsconfig.json` nuevo (strict, `typeRoots` → `apps/engine/node_modules/@types` para resolver `@types/bun`, ya que el repo raíz no tiene deps). Tests: `scripts/eval/replay.test.ts`, 7 casos — **prueba de no-fuga obligatoria** (el estado en `turnIndex` no contiene ningún héroe de `[turnIndex,24)`, y tiene exactamente `turnIndex` acciones), localSide dire, los 3 contextos forzados a mano (team_opening/response/closing en turnos 6/10/14), shape inválido (23 turnos + héroe duplicado), bans nunca son caso, entrada desordenada idempotente. `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 99/99 (+7). Ninguna prueba abre `pro-drafts.sqlite`. write_scope ampliado a `scripts/eval/**` (el tsconfig no estaba en la lista original). state: doing → done.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-189</span> <span class="feed-ts">2026-08-29T02:10</span></div>
             <div class="feed-note">QA de Fase 8 destapó que el Copilot del Simulador **no respetaba rol ni hero pool** ("siempre las mismas recomendaciones"). Auditoría del flujo completo: la única conexión faltante estaba en el body de `POST /api/suggestions/preview` de `use-random-draft-session.ts` — nunca mandaba `targetPosition` ni `usePersonalPool`, ni el header `x-account-token`. Sin eso `position_fit` no discriminaba, `candidatePool` no filtraba por posición (`mix.ts:313`) y `hero_pool_fit` quedaba `applicable:false` siempre → en picks tempranos sólo votaba `patch_meta` → top-N = "los más pickeados", igual en cada draft. El motor ya aceptaba todo (`handleSuggestionsPreview` → `requireHttpAccount` → `computeSuggestionsForState`), cero cambios de motor. **Fix (1 archivo `apps/web`)**: helper `fetchEngineToken()` (best-effort, mismo endpoint `/api/auth/engine-token` que ya usa el Pro-Drafter dark); el body gana `targetPosition: config.playerPosition` + `usePersonalPool: token!==null && !teamOpening`; header `x-account-token` cuando hay token; en `teamOpening` no se pide token (el motor ignora el pool ahí). Test de integración: `FakeEngine` captura `targetPosition`/`usePersonalPool`/`teamOpening`/`accountToken`; test nuevo verifica que en ronda 2 el preview lleva los 3 (rol 2 + pool + token) y en la apertura no. **Hallazgo de aislamiento**: el store Zustand es singleton de módulo — un preview asíncrono en vuelo de un test anterior ensuciaba las aserciones del siguiente; agregado `resetSession()` en `afterEach`. e2e contra el motor real corriendo: `targetPosition:2` sin pool → top-3 = midlaners reales `[14,26,101]` (antes: lista genérica); `usePersonalPool:true` sin token → 401 (por eso el guard); `teamOpening:true` + pool → 200 (ignorado). `bunx tsc --noEmit` limpio en `apps/web`; `bun test apps/web` 204/204 (+1); `verify-simplicity.sh` verde. **Auditoría del resto del flujo: sin más gaps** — `archetypeIntent`, `diversitySeed`, `counter` (Fase 8), `team_synergy`, `patch_meta`, sync de estado por WS y el cerebro separado del bot están todos conectados como fueron diseñados. state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-183</span> <span class="feed-ts">2026-08-29T01:10</span></div>
-            <div class="feed-note">`hero-counters.json` pasa de borrador de 29 héroes al **catálogo completo de 127** (deep research en 6 tandas + re-pasada de 12 discutibles, validada tanda por tanda contra `parseHeroCounters` + `CURATED_HERO_IDS` + resolución de nombres). Final: 127/127 víctimas, **0 con <3 counters**, 0 con >5, 527 entradas (dist: 3→2, 4→104, 5→21), **85/127 con al menos un `hard`** (42 sin hard = supports/utilidad/iniciadores durables sin hard counter real, confirmado en la re-pasada). Acentos/ñ restaurados (192+44+6 strings). `why` más largo = 133 chars (< 140). **1 regresión detectada y arreglada**: `suggestion-evidence.test.ts` llamaba a `buildSuggestions` sin inyectar `heroCounters` → tomaba el `MODULE_HERO_COUNTERS` real; con el archivo ampliado, Bane(3) ahora counterea a Morphling(10) en el mapa curado y `counter.raw` dejaba de ser neutro → violaba S9 ("ninguna prueba lee hero-counters.json real"). Fix: `heroCounters: new Map()` en las 4 llamadas de esa suite (misma costura S9 que ya usan para `heroPositions`/`heroCapabilities`). `bunx tsc --noEmit` limpio; `bun test` engine 592/592, web 203/203, scripts 82/82; `verify-simplicity.sh` verde. Engine reiniciado con el archivo completo. TSK-183 queda cerrado de dominio (revisión del usuario hecha por tandas).</div>
           </div>
         </div></div>
     </div>
