@@ -1,18 +1,51 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 9 (V6-medido → V6-contextual) — `/pre-flight` + `/blueprint` + `/rulebook` COMPLETOS.**
-`/rulebook` (Sonnet, décima ejecución): secciones "Fase 9" en las 4 reglas de `.claude/rules/` +
-bloque `## REGLAS DE FASE 9` en `CLAUDE.md`. **14 tickets `TSK-193`→`TSK-206`, todos `backlog`,
-sólo de 9.0**, en 5 bloques por dependencia — **A** harness (193-196: estructura `eval/`+`data/`+
-`docs/adr/` + 4 ADRs · 2 hooks + regla de paralelismo/worktree · 2 agentes nuevos · partir
-`CLAUDE.md` a <200 líneas) · **B** puras/candidatas a codex (197-199: S15 replay · S16 métricas ·
-S17 loader Golden) · **C** runners (200-202: Benchmark B Professional Pick Agreement · Benchmark A
-Engine Quality NDCG@5 · orquestador `bun run eval` + `v6-measured.json` con `commit`) · **D**
-diagnóstico (203-205: `profile-signals.ts` influencia realizada · `propose-golden-cases.ts` ·
-null-perturbation + `gate.ts` informativo) · **E** cierre (206: curar ≥30 casos del Golden Dataset +
-congelar baseline — 9.1 no arranca hasta acá). Cada ticket declara `write_scope` e `implements:[Rx-y]`.
-Hub regenerado (205 tareas). `verify-simplicity` verde. Cero código escrito.
+**Fase 9.0 — 13 de 14 tickets DONE (`TSK-193`→`TSK-205`), commiteados. Sólo falta `TSK-206`
+(curación del Golden Dataset — trabajo del usuario).** `apps/engine`/`apps/web` sin un solo cambio
+(criterio de aceptación #2, verificado). `bun test` scripts 163/163.
+
+- **Bloque A — harness** (193-196): `eval/`+`data/{curated,generated,schemas,metadata}/`+`docs/adr/`
+  con 4 ADRs; 2 hooks `PreToolUse` (`write-scope-guard` + `data-boundary-guard`, wrapper
+  `pretooluse-edit-guard.sh`, `_hook_lib.py`) registrados en `.claude/settings.json` **pero
+  activos recién la próxima sesión** (settings.json se carga al inicio); `CONTRIBUTING-tickets.md`
+  con la regla de paralelismo/worktree; agentes `data-stat-engineer` + `evaluation-engineer` (sin
+  MCP); **`CLAUDE.md` 514→195 líneas** (bloques `REGLAS DE FASE X` → `.claude/rules/fase-N.md`
+  verbatim, `scripts/verify-claude-md-split.sh`). `@redteam` APPROVED en TSK-196.
+- **Bloque B — puras** (197-199): S15 `buildReplayCases` (prueba de no-fuga); S16 métricas
+  (NDCG@5, Recall@k, MRR, Bad Pick Rate, Pairwise, Jaccard, Kendall-τ); S17 `loadGoldenDataset`.
+- **Bloque C — runners** (200-202): Benchmark B `runProAgreement` + `loadReplayCasesFromDb`
+  (readonly); Benchmark A `runEngineQuality`; orquestador `bun run eval` → `eval/baselines/
+  v6-measured.json` (congelado, byte-determinista) + `eval/reports/` (no versionado). `@redteam`
+  APPROVED en TSK-200 (4 obs no bloqueantes). **Corrió contra el corpus real.**
+- **Bloque D — diagnóstico** (203-205): `scripts/stats/profile-signals.ts` →
+  `data/generated/signal-profile.json`; `propose-golden-cases.ts` → `eval/scenarios/` (gitignored);
+  `null-perturbation.ts` → `data/generated/tolerance.json`; `gate.ts` (informativo, exit 0 en 9.0).
+
+### HALLAZGOS de las corridas reales (para el `/blueprint` de 9.1)
+
+1. **Professional Pick Agreement de V6** (2157 drafts): `v6Full` R@1 1.8% / R@3 5.0% / R@6 10.2%.
+   **`patchMetaOnly` lo supera** en R@3-6 (6.8% / 13.2%); `random` da R@3 2.9%. Lectura (ADR-002):
+   el valor absoluto no es interpretable; el delta relativo dice que el scoring completo de V6 se
+   aleja del consenso de meta más que el baseline trivial. El juez de calidad es el Benchmark A
+   (Golden Dataset), todavía vacío.
+2. **`profile-signals.ts`: en el backtest V6 es un motor de 3 señales.** `realizedInfluence` =
+   pendiente × SD-intra-estado: **position_fit 8.73** (dominante) · **counter 1.87** (slope 90
+   pero SD-intra 0.021 — R1-1/C5 confirmado) · **team_synergy 0.82** · **patch_meta / hero_pool_fit
+   / archetype_fit = 0.000**. Ablación: position_fit mueve ~15 pts, counter ~5.9, team_synergy
+   ~4.3, las otras 3 exactamente 0.
+3. **`patch_meta` 100% null en el backtest — causa raíz**: `patchMetaScorer` filtra
+   `row.patch === state.patch`; los drafts del corpus tienen `patch="60"` (id numérico de OpenDota)
+   y `meta.patchStats` tiene `"7.41e"`/`""` → nunca matchea. **NO es bug de producción** (los
+   drafts en vivo llevan el patch semántico). Es fidelidad del backtest: **Benchmark B mide un V6
+   DEGRADADO** (patch_meta muerto por mismatch de formato; hero_pool_fit/archetype_fit inertes por
+   contexto). **9.1 tiene que normalizar el patch del replay antes de que la calibración signifique
+   algo — o asumir el caveat explícitamente.**
+4. `counter` sigue **31% null** post-Fase-8 (mejor que el ~93% previo, pero un tercio de las veces
+   no vota). Tolerancia de null-perturbation para Recall@3 = 0.0046 (perturbar el ranking casi no
+   lo mueve — la mayoría ya no acierta el pick pro).
+
+El `v6-measured.json` actual es **PRELIMINAR** — `TSK-206` lo re-congela tras curar el Golden.
 `SPEC.md` §15.0-§15.11 generado en **Opus** (2026-08-29, una sola vez; gatillo documentado: cambia
 el mecanismo de normalización de señales + el contrato `SignalContribution` + estrena
 `SCORING_WEIGHTS_V7`). **Opus apagado a partir de acá — todo lo que sigue es Sonnet.**
@@ -73,8 +106,21 @@ commiteado. QA manual del Simulador todavía pendiente del usuario. `git push or
 commits) sigue como acción explícita del usuario.
 
 ## SIGUIENTE PASO
-Herramienta: Claude Code. Modelo: **Sonnet** (Opus apagado — no vuelve en esta fase).
-Acción: **commitear Fase 8** (`TSK-183`→`TSK-192` + el fix de
+Herramienta: **el usuario** (experto de dominio) + Claude Code de apoyo. Modelo: Sonnet.
+Acción: **`TSK-206` — curar el Golden Dataset**. Correr `bun run scripts/eval/propose-golden-cases.ts`
+(ya genera 30 propuestas ordenadas por informatividad + 5 sintéticas de hard-counter), revisar los
+candidatos y escribir las etiquetas multi-label (`excellent`/`acceptable`/`bad` + `why` por héroe +
+`reasoningTags`) en `eval/golden/dataset.json` hasta ≥30 casos que pasen `loadGoldenDataset` sin
+rechazos, con ≥1 por combinación `decisionContext × estrato prioritario`. Después: `bun run eval`
+re-congela `v6-measured.json` (ahora CON Benchmark A real), `gate.ts` informativo, y `journal.md`.
+**9.1 no arranca hasta que esto cierre.** Su `/blueprint` angosto tiene que decidir qué hacer con
+el mismatch de patch del backtest (hallazgo #3) antes de calibrar.
+
+Pendiente en paralelo, sin bloquear: `git push origin master` (acción manual del usuario — ~20
+commits de Fase 8 + Fase 9 sin pushear).
+
+--- histórico: commitear Fase 8 ---
+Acción original: **commitear Fase 8** (`TSK-183`→`TSK-192` + el fix de
 `apps/web/features/draft/validation.ts`) en commits atómicos — es precondición del bloque A: el
 baseline "V6-medido" de `TSK-206` tiene que apuntar a un commit identificable con Fase 8 integrada.
 Después: `/helm` → `/dispatch` para arrancar el **bloque A**, primer ticket ejecutable **`TSK-193`**
