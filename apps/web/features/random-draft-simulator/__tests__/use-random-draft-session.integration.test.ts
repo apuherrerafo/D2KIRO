@@ -139,7 +139,7 @@ class FakeEngine {
       basedOnSeq: this.state.lastSeq,
       decisionContext: "blind_second_pick",
       suggestions: [
-        { hero, rank: 1, score: 1, signals: [], reason: "fixture", confidence: "alta" },
+        { hero, rank: 1, score: 1, signals: [], reason: "fixture", confidence: "alta", evidenceCoverage: 1, guessingIndex: 0 },
       ],
       comparison: null,
       degraded: [],

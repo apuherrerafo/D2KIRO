@@ -35,6 +35,28 @@ function validSuggestionSet() {
   };
 }
 
+function validSignalContribution() {
+  return { signal: "counter", raw: 0.05, weighted: 12, explanation: "x", sampleSize: 40 };
+}
+
+function validSuggestion() {
+  return {
+    hero: 7,
+    rank: 1,
+    score: 72,
+    signals: [validSignalContribution()],
+    reason: "Resumen.",
+    confidence: "media",
+    // TSK-210 (Fase 9.1, §16.9): requeridos, en [0, 1].
+    evidenceCoverage: 0.62,
+    guessingIndex: 0.38,
+  };
+}
+
+function withSuggestion(over: Record<string, unknown>) {
+  return envelope("suggestions", { ...validSuggestionSet(), suggestions: [{ ...validSuggestion(), ...over }] });
+}
+
 function envelope(type: string, payload: unknown) {
   return { schema: "draft-ws/v1", type, seq: 1, sentAt: "2026-07-27T00:00:00Z", payload };
 }
@@ -61,6 +83,31 @@ describe("isValidServerMessage", () => {
     expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), decisionContext: "inventado" }))).toBe(false);
     expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), computedInMs: "rápido" }))).toBe(false);
     expect(isValidServerMessage(envelope("error", { code: 123 }))).toBe(false);
+  });
+
+  // TSK-211 (Fase 9.1, SPEC.md §16.9): espejo de SignalContribution v2 + Suggestion.
+  test("acepta un Suggestion completo con los campos nuevos de 9.1", () => {
+    expect(isValidServerMessage(withSuggestion({}))).toBe(true);
+  });
+
+  test("SignalContribution: normalized/evidenceConfidence son opcionales (el motor los dejó opcionales)", () => {
+    const bare = { signal: "counter", raw: null, weighted: 0, explanation: "", sampleSize: 0 };
+    expect(isValidServerMessage(withSuggestion({ signals: [bare] }))).toBe(true);
+    // presentes y bien formados
+    expect(isValidServerMessage(withSuggestion({ signals: [{ ...bare, normalized: null, evidenceConfidence: 0 }] }))).toBe(true);
+    expect(isValidServerMessage(withSuggestion({ signals: [{ ...bare, raw: 0.1, normalized: 55, evidenceConfidence: 0.7 }] }))).toBe(true);
+  });
+
+  test("SignalContribution: normalized no numérico o evidenceConfidence NaN -> inválido", () => {
+    const base = validSignalContribution();
+    expect(isValidServerMessage(withSuggestion({ signals: [{ ...base, normalized: "x" }] }))).toBe(false);
+    expect(isValidServerMessage(withSuggestion({ signals: [{ ...base, evidenceConfidence: Number.NaN }] }))).toBe(false);
+  });
+
+  test("Suggestion: evidenceCoverage/guessingIndex fuera de [0,1] o ausentes -> inválido", () => {
+    expect(isValidServerMessage(withSuggestion({ evidenceCoverage: 1.5 }))).toBe(false);
+    expect(isValidServerMessage(withSuggestion({ guessingIndex: -0.1 }))).toBe(false);
+    expect(isValidServerMessage(withSuggestion({ evidenceCoverage: undefined }))).toBe(false);
   });
 
   test("rechaza schema/type inválidos o valores no-objeto", () => {

@@ -39,6 +39,8 @@ function suggestions(decisionContext: SuggestionSet["decisionContext"]): Suggest
       signals: [],
       reason: "Resumen táctico.",
       confidence: "media",
+      evidenceCoverage: 0.62,
+      guessingIndex: 0.38,
       evidence: [
         { kind: "opening", text: "Abre una composición flexible." },
         { kind: "counter", text: "Fuerte contra un rival revelado." },
@@ -66,7 +68,7 @@ test("TSK-192: renderiza una celda compacta por cada recomendación (hasta 6, gr
   const many: SuggestionSet = {
     ...suggestions("response_pick"),
     suggestions: [1, 2, 3, 4, 5, 6].map((hero, i) => ({
-      hero, rank: (i + 1) as 1 | 2 | 3 | 4 | 5 | 6, score: 70 - i, signals: [], reason: `Motivo ${hero}`, confidence: "media" as const,
+      hero, rank: (i + 1) as 1 | 2 | 3 | 4 | 5 | 6, score: 70 - i, signals: [], reason: `Motivo ${hero}`, confidence: "media" as const, evidenceCoverage: 0.5, guessingIndex: 0.5,
     })),
   };
   const view = render(<CopilotPanel draftState={draftState} suggestions={many} heroCatalog={new Map()} previewStatus="ready" />);

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T23:30:27.625Z</title>
+<title>HUB del ecosistema — 2026-08-29T23:33:53.809Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">6</span></h2>
+        <h2>backlog <span class="count">5</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-212</div>
@@ -133,14 +133,6 @@
         <div class="card  ">
           <div class="card-id">TSK-179</div>
           <div class="card-title">Backfill de slots en producción + regen de agregados + re-run Gate 3</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-210</div>
-          <div class="card-title">Fase 9.1-D · mix.ts — mezcla por estado (A(S), redistribución por estado, μᵢ(S), EvidenceCoverage) + candado de regresión cero</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -188,7 +180,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">204</span></h2>
+        <h2>done <span class="count">205</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -1041,6 +1033,15 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-210</div>
+          <div class="card-title">Fase 9.1-D · mix.ts — mezcla por estado (A(S), redistribución por estado, μᵢ(S), EvidenceCoverage) + candado de regresión cero</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-181</div>
           <div class="card-title">Fase 4.3 — archetype_fit usable: selector de intención + transporte WS set_intent + validación de borde</div>
           <div class="card-meta">
@@ -1867,16 +1868,16 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">196× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">197× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:33%"></div></div>
-          <div class="stat-nums">65× · 95% ok · 3 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
+          <div class="stat-nums">66× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:26%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:25%"></div></div>
           <div class="stat-nums">50× · 38% ok  </div>
         </div>
         <div class="stat-row">
@@ -1952,6 +1953,20 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-210</span> <span class="feed-ts">2026-08-30T04:05</span></div>
+            <div class="feed-note">`@redteam` de TSK-210 (obligatorio: cambia el scoring activo del motor). **Gate de seguridad: PASS** — `calibration` sale de `MODULE_CALIBRATION` (ya validado, TSK-209) o de inyección de test; `availableSignals` lee sólo estructuras internas ya confiables (`state` del reductor, `meta` del provider); sin frontera de confianza nueva, sin secretos, sin SQL, sin `fetch` (verify-simplicity lo confirma). **Pasada 1 (Standards)**: 5 helpers de responsabilidad única; la rama `_legacyMixMode` duplica el camino viejo pero es requisito explícito del candado E7 (SPEC preserva ese camino); guardas de `denom>0` (sin NaN con A(S) vacío), `normalized != null`, `stateMean ?? 50`; cutoff de 500 ms preservado. `stateMeansFor` hace `find` O(A·C) — trivial a esta escala, anotado. **Pasada 2 (Spec)**: los 8 puntos de §16.7 + §16.8 verificados uno a uno contra el código; AC1-AC5 cubiertos con pruebas dedicadas; AC6 `git diff` = `mix.ts`/`mix.test.ts` + 2 fixups de test forzados por el contrato (el propio AC6 exige "tsc limpio ambos paquetes"), `weights.ts` intacto. Interpretación consciente anotada para el humano: `normalize` legacy se mantiene junto a `calibratedNormalize` porque E7 lo necesita (consistente con el SPEC como conjunto). **Candado de regresión cero CIERRA** (AC1 bullet 2 + AC4 en verde). **Veredicto: APPROVED.** Siguiente: TSK-211 (E) — espejo `apps/web`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-210</span> <span class="feed-ts">2026-08-30T04:00</span></div>
+            <div class="feed-note">Fase 9.1 bloque D. **El corazón de 9.1: `mix.ts` pasa de redistribución candidate-specific a mezcla por estado.** Nuevas funciones (§16.7): `availableSignals(state, meta, options, calibration) -> A(S)` (position_fit salvo localSide unknown; counter si hay rival revelado o un counter curado sobre un baneado; team_synergy si hay picks propios; patch_meta si la calibración lo cubre; hero_pool_fit si `meta.heroPool` no vacío; archetype_fit si hay intención) — igual para todo candidato del estado; `w'ᵢ = SCORING_WEIGHTS_V6[i] / Σ_{A(S)} SCORING_WEIGHTS_V6` (denominador una vez por estado); `stateMeansFor` = `μᵢ(S)` (media de `normalizedᵢ` no nulos; 50 sólo si nadie tiene dato, **nunca escrito en `raw`**); `mixByState` — `contributionᵢ(h)`: `∉A(S)→0`, `raw≠null→w'·normalized`, `raw=null→w'·μ`; `score = Σ contribution ∈ [0,100]`; `EvidenceCoverage(h) = Σ_{i∈A(S),raw≠null} w'ᵢ`, `GuessingIndex = 1 − EvidenceCoverage`. `confidenceFromCoverage` reemplaza el conteo de nulls (alta ≥0.75 y meta no stale; media ≥0.5 o stale; baja <0.5). `enrich()` (TSK-209) puebla `normalized`/`evidenceConfidence` en la pasada 1; `bracket` siempre null (un DraftState no lo lleva → `global`). `Suggestion` gana `evidenceCoverage`/`guessingIndex` (requeridos, §16.8). `BuildSuggestionsOptions` gana `calibration?` (ausente → `MODULE_CALIBRATION`) y `_legacyMixMode?` (SÓLO el candado de regresión cero: reactiva `mixScore` + `computeConfidence` + `normalize` sobre RAW_RANGE, byte a byte V6). `RAW_RANGE` = alias de `FALLBACK_RAW_RANGE` (dedup con `calibration.ts`, no se borra — SPEC §16.7-8). `mixScore`/`weightedContributions`/`computeConfidence` **intactos** (los usa el candado E7 y `buildComparison`). **`weights.ts` NO tocado.** `diversifyEquivalentCandidates` ahora genérico para arrastrar los 2 campos nuevos. Tests: `mix.test.ts` +7 (candado E7 vía `_legacyMixMode` con score exacto de V6; μ; EvidenceCoverage total vs parcial; calibración corrupta → ranking+score idénticos a legacy; sensibilidad — percentiles de counter angostos `[−0.05,0.05]` vs RAW_RANGE hacen que el countereado caiga MÁS, contra `buildSuggestions` completo; confidence desde cobertura). Fixups forzados por el contrato `Suggestion` (AC6 exige tsc limpio en ambos paquetes): `pro-drafter.test.ts` mock +2 campos, `apps/web/features/draft/suggestion-contract.test.ts` literal +2 campos (el espejo de tipos real es TSK-211). `bunx tsc --noEmit` limpio en `apps/engine` **y** `apps/web`; `bun test apps/engine` 614/614; `bun test apps/web` 205/205; `verify-simplicity` verde.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-209</span> <span class="feed-ts">2026-08-30T03:10</span></div>
             <div class="feed-note">`@redteam` de TSK-209 (obligatorio: cambia el contrato `SignalContribution` + nuevo loader de input externo). **Gate de seguridad: PASS** — `percentiles.json` es input externo validado en el borde (esquema + banda + `SignalId` conocido), degrada sin lanzar; sin secretos; sin SQL; sin `fetch` (verify-simplicity lo confirma); `path` de `loadCalibration` sólo lo pasan los tests (temp files), no alcanzable desde input externo; `DEFAULT_PERCENTILES_PATH` es `join(import.meta.dir, …)` fijo, sin traversal. **Pasada 1 (Standards)**: 3 parsers puros de responsabilidad clara (prueba de deleción los justifica); nomenclatura de dominio alineada a SPEC §16.6; manejo de nulos/NaN/banda invertida/división por cero cubierto; sin UI, sin N+1. **Pasada 2 (Spec)**: campos opcionales = decisión documentada del ticket; firma de `calibratedNormalize`/`enrich` idéntica al ticket; `MODULE_CALIBRATION` a nivel de módulo inyectable; scorers no tocados; `git diff` = exactamente los 3 archivos del `write_scope`, sin `weights.ts`/`mix.ts`. Observaciones no bloqueantes: campo `source` en `Calibration` (aditivo, transparencia, cero impacto de comportamiento); `FALLBACK_RAW_RANGE` es copia a mano de `RAW_RANGE` hasta que D dedup-ee (riesgo de drift anotado en el comentario + test que fija los valores). **Veredicto: APPROVED.** Siguiente: TSK-210 (D) — mezcla por estado en `mix.ts`.</div>
           </div>
@@ -2017,20 +2032,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-204</span> <span class="feed-ts">2026-08-29T23:42</span></div>
             <div class="feed-note">Fix del ticket anterior: `propose-golden-cases.ts` leía `hero-counters.json`/`hero-positions.json` con ruta relativa al **cwd** en un `const` de nivel de módulo → ENOENT cuando `(cd scripts && bun test)` corre desde `scripts/` (el commit anterior pasó por `--no-verify` y no lo detecté; los tests directos desde repo root sí pasaban). Cambiado a `join(import.meta.dir, "..","..","apps/engine/src/signals", ...)` — relativo al módulo. `(cd scripts && bun test)` 153/153, runner OK desde repo root y desde scripts/.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-204</span> <span class="feed-ts">2026-08-29T23:35</span></div>
-            <div class="feed-note">Fase 9.0 bloque D, ticket 2. `scripts/eval/propose-golden-cases.ts` — **propone, no etiqueta**. `proposeFromCorpus(cases, meta, target=30)`: por estado calcula el desacuerdo entre baselines (1 − media de Jaccard@5 entre v6Full/patchMetaOnly/random) y si v6Full ubica el pick pro real fuera del Top-6 (fallo histórico); `score = desacuerdo·2 + (fallo?1:0)`; ordena por score y llena cuota por celda `(decisionContext × estrato)` con `guessStratum` (heurística orientativa, el curador decide). `syntheticHardCounters(meta, 5)`: estados donde el `vs` de un hard-counter curado de `hero-counters.json` ya está revelado en el rival y la víctima es candidato — cubre un estrato que el corpus rara vez presenta limpio. Salida: `eval/scenarios/proposal-<ts>.json` (`eval/scenarios/.gitignore` lo excluye — es efímero; el curador promueve casos concretos en TSK-206). Determinista. Tests: 3 (`propose-golden-cases.test.ts`) — determinismo + orden por score + v6Top6≤6, sintéticos con hard-counter revelado, los estados propuestos pasan el type-guard de `DraftState` del loader del Golden. Corrida real: 30 propuestas (5 sintéticas + 25 del corpus). **Limitación anotada**: `guessStratum` es débil — en la corrida real casi todo cae en `punishability`/`hard_counter` (la mayoría de los estados-medio del corpus tienen 3+ rivales y ≤2 picks propios). El valor real de la herramienta es el ranking por desacuerdo+fallo; la asignación de estrato la revisa el humano. `(cd scripts && bun test)` 153/153. NO toca apps/.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-203</span> <span class="feed-ts">2026-08-29T23:10</span></div>
-            <div class="feed-note">Fase 9.0 bloque D, ticket 1. `scripts/stats/profile-signals.ts` — `profileFromStates(states, meta): ProfileResult`. Consume los building blocks YA exportados del motor (`patchMetaScorer`, `heroPoolFitScorer`, `createCounterScorer`, `createPositionFitScorer`, `createTeamSynergyScorer`, `createArchetypeFitScorer`, `mixScore`, `SCORING_WEIGHTS_V6`) — los mismos que `buildSuggestions` ensambla — sin tocar `apps/engine/src/**`. Por señal: percentiles p05/25/50/75/95 del `raw` (pooled), **SD del `raw` entre candidatos del MISMO estado** promediado, `effectiveSlope = 100·w/(b−a)`, **`realizedInfluence = slope × SD_intra`** (corrección C5/R1-1), tasa `raw:null` y `applicable:false`. Ablación `|mixScore(all) − mixScore(all∖i)|` por señal y por contexto. Histograma de nº de señales con voto (0..6). `RAW_RANGE` es un espejo de `mix.ts:117` (no exportado; 9.1 lo reemplaza por percentiles empíricos). SQLite readonly, muestreo determinista (cada k-ésimo draft, 3 estados por draft). `data/generated/signal-profile.json` + `data/metadata/signal-profile.json` (procedencia). Tests: 6 (`profile-signals.test.ts`) — 6 señales con influencia realizada, pendiente efectiva exacta (counter 90 / patch_meta 29.25), `hero_pool_fit applicableFalseRate` alto, ablación por 4 contextos, histograma suma 1, determinismo. `(cd scripts && bun test)` 150/150. NO toca apps/.</div>
           </div>
         </div></div>
     </div>

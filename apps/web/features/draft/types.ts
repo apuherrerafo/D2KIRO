@@ -61,6 +61,13 @@ export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fi
 export interface SignalContribution {
   signal: SignalId;
   raw: number | null;
+  // TSK-210 (Fase 9.1, SPEC.md §16.9): espejo a mano de los 2 campos que el motor agregó a
+  // SignalContribution (apps/engine/src/signals/types.ts). Opcionales igual que en el motor -- los
+  // 6 scorers no los ponen; `mix.ts` los puebla vía `enrich()` antes de mandar el payload.
+  // `normalized`: `raw` calibrado a [0,100] con percentiles empíricos, o null si `raw` es null.
+  // `evidenceConfidence`: [0,1], cuánta evidencia respalda ese `raw`.
+  normalized?: number | null;
+  evidenceConfidence?: number;
   weighted: number;
   explanation: string;
   sampleSize: number;
@@ -80,6 +87,11 @@ export interface Suggestion {
   signals: SignalContribution[];
   reason: string;
   confidence: SuggestionConfidence;
+  // TSK-210 (Fase 9.1, SPEC.md §16.9): espejo a mano. `evidenceCoverage` = fracción del peso
+  // redistribuido de A(S) que este candidato respalda con `raw !== null`; `guessingIndex = 1 −
+  // evidenceCoverage`. No se renderiza en 9.1 (D4) -- disponible para un follow-up de UI.
+  evidenceCoverage: number;
+  guessingIndex: number;
   evidence?: { kind: "opening" | "counter" | "synergy" | "flex" | "risk"; text: string }[];
 }
 

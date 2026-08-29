@@ -72,13 +72,26 @@ function isDraftState(value: unknown): value is DraftState {
 }
 
 function isSignalContribution(value: unknown): boolean {
-  return isRecord(value) && isSignalId(value.signal) && (value.raw === null || isFiniteNumber(value.raw)) && isFiniteNumber(value.weighted) && typeof value.explanation === "string" && isFiniteNumber(value.sampleSize) && (value.applicable === undefined || typeof value.applicable === "boolean");
+  if (!isRecord(value) || !isSignalId(value.signal) || !(value.raw === null || isFiniteNumber(value.raw))) return false;
+  if (!isFiniteNumber(value.weighted) || typeof value.explanation !== "string" || !isFiniteNumber(value.sampleSize)) return false;
+  if (value.applicable !== undefined && typeof value.applicable !== "boolean") return false;
+  // TSK-210 (Fase 9.1, SPEC.md §16.9): campos opcionales del motor. Si vienen, `normalized` es
+  // number|null y `evidenceConfidence` un number finito (el motor lo entrega en [0,1]).
+  if (value.normalized !== undefined && !(value.normalized === null || isFiniteNumber(value.normalized))) return false;
+  if (value.evidenceConfidence !== undefined && !isFiniteNumber(value.evidenceConfidence)) return false;
+  return true;
+}
+
+function isUnitInterval(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0 && value <= 1;
 }
 
 function isSuggestion(value: unknown): boolean {
   if (!isRecord(value) || !isHeroId(value.hero) || ![1, 2, 3, 4, 5, 6].includes(value.rank as number)) return false; // TSK-192: 6 recomendaciones
   if (!isFiniteNumber(value.score) || typeof value.reason !== "string" || !Array.isArray(value.signals) || !value.signals.every(isSignalContribution)) return false;
   if (value.confidence !== "alta" && value.confidence !== "media" && value.confidence !== "baja") return false;
+  // TSK-210 (Fase 9.1, SPEC.md §16.9): requeridos, ambos en [0, 1].
+  if (!isUnitInterval(value.evidenceCoverage) || !isUnitInterval(value.guessingIndex)) return false;
   return value.evidence === undefined || (Array.isArray(value.evidence) && value.evidence.every((item) => isRecord(item) && (item.kind === "opening" || item.kind === "counter" || item.kind === "synergy" || item.kind === "flex" || item.kind === "risk") && typeof item.text === "string"));
 }
 
