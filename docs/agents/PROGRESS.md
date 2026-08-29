@@ -1,7 +1,7 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 9.0 — 13 de 14 tickets DONE (`TSK-193`→`TSK-205`), commiteados. Sólo falta `TSK-206`
+**Fase 9.0 — CERRADA. Los 14 tickets `TSK-193`→`TSK-206` DONE, commiteados. Sólo falta `TSK-206`
 (curación del Golden Dataset — trabajo del usuario).** `apps/engine`/`apps/web` sin un solo cambio
 (criterio de aceptación #2, verificado). `bun test` scripts 163/163.
 
@@ -45,7 +45,17 @@
    no vota). Tolerancia de null-perturbation para Recall@3 = 0.0046 (perturbar el ranking casi no
    lo mueve — la mayoría ya no acierta el pick pro).
 
-El `v6-measured.json` actual es **PRELIMINAR** — `TSK-206` lo re-congela tras curar el Golden.
+5. **Engine Quality de V6 contra el Golden Dataset v1** (30 casos, panel de LLMs — ADR-005):
+   NDCG@5 **0.771** [0.716, 0.818], muy por encima de aleatorio (0.058) y patch_meta (0.004).
+   `v6Full` > `v6NoCuratedCounters` (0.771 vs 0.598) → la capa curada de Fase 8 aporta **+0.17**.
+   **PERO Bad Pick Rate@5 = 29.3%**: casi un tercio del top-6 incluye un héroe marcado como error
+   explícito. V6 rankea bien pero no filtra las trampas — objetivo concreto para 9.3 (split de
+   `counter` en observed / threat-coverage / vulnerability). Pairwise Accuracy 59%.
+
+**El `v6-measured.json` de `0130e9f` es el baseline "V6-medido" REAL** (Benchmark A + B, apunta a
+un commit con Fase 8 + harness + Golden Dataset). `gate.ts` informativo: PASS. Tolerancias de
+null-perturbation: NDCG@5 ±0.041, BadPickRate ±0.035. **9.1 lo re-congela sólo si re-etiqueta el
+Golden con panel multi-modelo.**
 `SPEC.md` §15.0-§15.11 generado en **Opus** (2026-08-29, una sola vez; gatillo documentado: cambia
 el mecanismo de normalización de señales + el contrato `SignalContribution` + estrena
 `SCORING_WEIGHTS_V7`). **Opus apagado a partir de acá — todo lo que sigue es Sonnet.**
@@ -106,7 +116,25 @@ commiteado. QA manual del Simulador todavía pendiente del usuario. `git push or
 commits) sigue como acción explícita del usuario.
 
 ## SIGUIENTE PASO
-Herramienta: **el usuario** (experto de dominio) + Claude Code de apoyo. Modelo: Sonnet.
+Herramienta: Claude Code. Modelo: **Opus** — `/blueprint` angosto de 9.1 (una sola vez, cambia el
+mecanismo de normalización + el contrato `SignalContribution`). O Sonnet si el usuario mantiene el
+flujo en Sonnet como en fases previas.
+Acción: **`/blueprint` de 9.1** (comparabilidad + calibración empírica). Entrada:
+`data/generated/signal-profile.json` (influencia realizada de las 6 señales) + `v6-measured.json`
+de `0130e9f`. Tiene que decidir, con esos números a la vista: (a) **cómo resolver el mismatch de
+patch del backtest** — el corpus tiene `patch="60"` y `patchStats` tiene `"7.41e"`, así que
+`patch_meta` está 100% muerto en Benchmark B; hay que normalizar el patch del replay o asumir el
+caveat; (b) qué `P05`/`P95` por señal para el cutover de `RAW_RANGE` → percentiles empíricos
+(ADR-004); (c) la forma exacta de `SignalContribution` v2 (`normalized`, `evidenceConfidence`) y
+qué reemplaza a la redistribución candidate-specific; (d) `EvidenceCoverage`/`GuessingIndex`.
+El objetivo medible: bajar el **Bad Pick Rate@5** (hoy 29%) sin perder NDCG@5 (hoy 0.77), y con el
+`gate.ts` en modo `--enforce`.
+
+Pendiente en paralelo, sin bloquear: `git push origin master` (acción manual del usuario — ~25
+commits de Fase 8 + Fase 9.0 sin pushear).
+
+--- histórico ---
+## SIGUIENTE PASO (previo)
 Acción: **`TSK-206` — curar el Golden Dataset**. Correr `bun run scripts/eval/propose-golden-cases.ts`
 (ya genera 30 propuestas ordenadas por informatividad + 5 sintéticas de hard-counter), revisar los
 candidatos y escribir las etiquetas multi-label (`excellent`/`acceptable`/`bad` + `why` por héroe +

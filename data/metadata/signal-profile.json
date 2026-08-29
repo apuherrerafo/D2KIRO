@@ -1,6 +1,6 @@
 {
   "source": "apps/engine/data/dota2coach.sqlite + apps/engine/data/pro-drafts.sqlite",
-  "generatedAt": "2026-08-29T20:12:02.323Z",
+  "generatedAt": "2026-08-29T22:21:16.107Z",
   "generatorVersion": "profile-signals@1",
   "sampleWindow": null,
   "patch": "60",
