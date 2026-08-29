@@ -1,0 +1,10 @@
+{
+  "source": "apps/engine/data/dota2coach.sqlite + apps/engine/data/pro-drafts.sqlite",
+  "generatedAt": "2026-08-29T20:12:02.323Z",
+  "generatorVersion": "profile-signals@1",
+  "sampleWindow": null,
+  "patch": "60",
+  "rowCount": 6,
+  "schemaVersion": 1,
+  "note": "Entrada del gate de 9.1 (ADR-004). RAW_RANGE es un espejo de mix.ts:117."
+}

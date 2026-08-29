@@ -1,0 +1,167 @@
+{
+  "sampleStates": 300,
+  "sampleCandidateEvaluations": 33600,
+  "signals": [
+    {
+      "signal": "position_fit",
+      "rawPercentiles": {
+        "p05": 0,
+        "p25": 0.31553708175547573,
+        "p50": 0.5,
+        "p75": 0.7853353353353354,
+        "p95": 1
+      },
+      "meanIntraStateSD": 0.2552391095426134,
+      "effectiveSlope": 34.2,
+      "realizedInfluence": 8.729177546357379,
+      "rawNullRate": 0.008779761904761905,
+      "applicableFalseRate": 0
+    },
+    {
+      "signal": "counter",
+      "rawPercentiles": {
+        "p05": -0.04367051253408012,
+        "p25": -0.014650217663550513,
+        "p50": 0.005225106926926237,
+        "p75": 0.021946969123946836,
+        "p95": 0.0522549402478993
+      },
+      "meanIntraStateSD": 0.020799062420773687,
+      "effectiveSlope": 90.00000000000001,
+      "realizedInfluence": 1.8719156178696321,
+      "rawNullRate": 0.31166666666666665,
+      "applicableFalseRate": 0
+    },
+    {
+      "signal": "patch_meta",
+      "rawPercentiles": {
+        "p05": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "meanIntraStateSD": 0,
+      "effectiveSlope": 29.250000000000004,
+      "realizedInfluence": 0,
+      "rawNullRate": 1,
+      "applicableFalseRate": 0
+    },
+    {
+      "signal": "team_synergy",
+      "rawPercentiles": {
+        "p05": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0.14285714285714285,
+        "p95": 0.2857142857142857
+      },
+      "meanIntraStateSD": 0.06969018603082325,
+      "effectiveSlope": 11.700000000000001,
+      "realizedInfluence": 0.8153751765606321,
+      "rawNullRate": 0.35714285714285715,
+      "applicableFalseRate": 0
+    },
+    {
+      "signal": "hero_pool_fit",
+      "rawPercentiles": {
+        "p05": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "meanIntraStateSD": 0,
+      "effectiveSlope": 10.8,
+      "realizedInfluence": 0,
+      "rawNullRate": 0,
+      "applicableFalseRate": 1
+    },
+    {
+      "signal": "archetype_fit",
+      "rawPercentiles": {
+        "p05": 0,
+        "p25": 0,
+        "p50": 0,
+        "p75": 0,
+        "p95": 0
+      },
+      "meanIntraStateSD": 0,
+      "effectiveSlope": 10,
+      "realizedInfluence": 0,
+      "rawNullRate": 0,
+      "applicableFalseRate": 1
+    }
+  ],
+  "ablation": [
+    {
+      "signal": "position_fit",
+      "meanAbsDelta": 15.07867784452736,
+      "byContext": {
+        "team_opening": 16.276405829408915,
+        "blind_second_pick": 0,
+        "response_pick": 15.171000133798932,
+        "closing_pick": 13.597260011986384
+      }
+    },
+    {
+      "signal": "counter",
+      "meanAbsDelta": 5.861788176578465,
+      "byContext": {
+        "team_opening": 0.9224996319351743,
+        "blind_second_pick": 0,
+        "response_pick": 6.339946215295748,
+        "closing_pick": 11.046027840240756
+      }
+    },
+    {
+      "signal": "patch_meta",
+      "meanAbsDelta": 0,
+      "byContext": {
+        "team_opening": 0,
+        "blind_second_pick": 0,
+        "response_pick": 0,
+        "closing_pick": 0
+      }
+    },
+    {
+      "signal": "team_synergy",
+      "meanAbsDelta": 4.3147927365903165,
+      "byContext": {
+        "team_opening": 0,
+        "blind_second_pick": 0,
+        "response_pick": 7.266992344253257,
+        "closing_pick": 6.114107855172976
+      }
+    },
+    {
+      "signal": "hero_pool_fit",
+      "meanAbsDelta": 0,
+      "byContext": {
+        "team_opening": 0,
+        "blind_second_pick": 0,
+        "response_pick": 0,
+        "closing_pick": 0
+      }
+    },
+    {
+      "signal": "archetype_fit",
+      "meanAbsDelta": 0,
+      "byContext": {
+        "team_opening": 0,
+        "blind_second_pick": 0,
+        "response_pick": 0,
+        "closing_pick": 0
+      }
+    }
+  ],
+  "voteCountHistogram": [
+    0.002916666666666667,
+    0.3081845238095238,
+    0.0524702380952381,
+    0.6364285714285715,
+    0,
+    0,
+    0
+  ]
+}
