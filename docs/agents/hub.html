@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:39:51.694Z</title>
+<title>HUB del ecosistema — 2026-08-29T19:41:56.670Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">12</span></h2>
+        <h2>backlog <span class="count">11</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -149,14 +149,6 @@
         <div class="card  ">
           <div class="card-id">TSK-199</div>
           <div class="card-title">Fase 9.0-B · S17: loader validado del Golden Dataset + esquema JSON</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">codex</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-198</div>
-          <div class="card-title">Fase 9.0-B · S16: funciones de métrica de evaluación (NDCG@5, Recall@k, MRR, Bad Pick Rate, Pairwise, Jaccard, Kendall-τ)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
@@ -236,7 +228,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">192</span></h2>
+        <h2>done <span class="count">193</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -791,6 +783,14 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-198</div>
+          <div class="card-title">Fase 9.0-B · S16: funciones de métrica de evaluación (NDCG@5, Recall@k, MRR, Bad Pick Rate, Pairwise, Jaccard, Kendall-τ)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
           </div>
         </div>
         <div class="card  ">
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">183× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">184× · 83% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-198</span> <span class="feed-ts">2026-08-29T20:50</span></div>
+            <div class="feed-note">Fase 9.0 bloque B, ticket 2 (S16). `scripts/eval/metrics.ts` — 7 funciones **puras** de métrica: `ndcg5(ranking, graded: Map<HeroId, 0|1|2>)` (ganancia excellent=2/acceptable=1/bad=0, descuento `log2(pos+1)`, IDCG sobre el orden ideal de TODAS las ganancias conocidas cortado a 5, héroe no etiquetado = ganancia 0 y NO se excluye, IDCG=0 → 0); `recallAtK(ranking, target, k)` → 0|1; `mrr(ranking, target)` → 1/pos o 0; `badPickRateAt5(ranking, labels)` (fracción de las primeras 5 marcadas `bad`; héroe **no etiquetado** en ninguna lista = desconocido → fuera del denominador, nunca cuenta como bad; top-5 sin etiquetados → 0); `pairwiseAccuracy(ranking, labels)` (de los pares (mejor,peor) que excellent>acceptable>bad permite ordenar, fracción bien ordenada; etiquetado ausente del ranking = el peor; sin pares → 1); `jaccardAtK(a,b,k)` = |A∩B|/|A∪B| sobre top-k; `kendallTau(a,b)` (τ-a sobre la intersección; <2 comunes → 1). Tests: `scripts/eval/metrics.test.ts`, 16 casos con resultado calculado a mano — **el caso NDCG@5 que detecta un denominador equivocado** (ranking `[acceptable, excellent]` → NDCG = 2.2618595/2.6309298 = 0.859713, un IDCG mal calculado daría 1.0), Recall/MRR con target en pos 3, Bad Pick 2/3 con desconocidos fuera del denominador, Pairwise 2/3 con un par mal ordenado, Jaccard 2/4, Kendall 1/3 con un swap y -1 con orden inverso. `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 115/115 (+16). Sin I/O, sin imports de `apps/` salvo el tipo `HeroId`. state: doing → done.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-197</span> <span class="feed-ts">2026-08-29T20:35</span></div>
             <div class="feed-note">Fase 9.0 bloque B, ticket 1 (S15). `scripts/eval/replay.ts` — `buildReplayCases(turns: ProDraftTurn[], meta: ReplayMeta): BuildReplayResult` **pura**, sin I/O. Reconstruye el `DraftState` justo antes de cada turno `is_pick`: `state.localSide` = equipo que actúa (0→radiant, 1→dire), `banned`/`picks` = prefijo EXACTO `[0, turnIndex)` clasificado por `isPick`/`team`, `format:"captains_mode"`, `phase:"active"`, `lastSeq:turnIndex`. Sólo emite caso para picks (bans alimentan `state.banned`, no se predicen). Shape inválido (≠24 turnos, `draft_order` fuera de 0..23 o duplicado, `team`∉{0,1}, hero_id≤0, héroe pickeado dos veces) → `{cases:[], skipped:[{matchId,reason}]}`, nunca repara. Entrada sin ordenar → se ordena por `order`. **`decisionContext`**: se deriva con `deriveDecisionContext(state, noPicksYet)` donde `noPicksYet = radiant.length===0 && dire.length===0` — así el corpus produce los 4 buckets (team_opening en el primerísimo pick, blind/response/closing después) en vez de colapsar los primeros en "blind". `scripts/eval/types.ts` (`ProDraftTurn`/`ReplayMeta`/`ReplayCase`/`BuildReplayResult`). `scripts/eval/tsconfig.json` nuevo (strict, `typeRoots` → `apps/engine/node_modules/@types` para resolver `@types/bun`, ya que el repo raíz no tiene deps). Tests: `scripts/eval/replay.test.ts`, 7 casos — **prueba de no-fuga obligatoria** (el estado en `turnIndex` no contiene ningún héroe de `[turnIndex,24)`, y tiene exactamente `turnIndex` acciones), localSide dire, los 3 contextos forzados a mano (team_opening/response/closing en turnos 6/10/14), shape inválido (23 turnos + héroe duplicado), bans nunca son caso, entrada desordenada idempotente. `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 99/99 (+7). Ninguna prueba abre `pro-drafts.sqlite`. write_scope ampliado a `scripts/eval/**` (el tsconfig no estaba en la lista original). state: doing → done.</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-190</span> <span class="feed-ts">2026-08-29T02:55</span></div>
             <div class="feed-note">QA de TSK-189: con `usePersonalPool: true` el Copilot del Simulador mostraba **sólo héroes del pool** del pick 3 al 5. El usuario quiere el pool como señal blanda (empuja los cómodos, no tapa el resto). Causa: acoplamiento en `handleSuggestionsPreview` — el overlay de cuenta (que llena `meta.heroPool` para que `hero_pool_fit` puntúe) sólo cargaba con `usePersonalPool: true`, y ese mismo flag dispara el filtro duro de `candidatePool`. **Fix motor** (`app.ts`): `const hasAccountToken = request.headers.get("x-account-token") !== null; const auth = hasAccountToken || (usePersonalPool && !teamOpening) ? requireHttpAccount(request) : {ok:true, accountId:null}` — el overlay carga con cualquier token válido; `usePersonalPool` queda sólo como el flag del filtro duro (lo usa la vista de draft en vivo, no el simulador). Token inválido → 401 (sin cambio). **Fix cliente** (`use-random-draft-session.ts`): el preview deja de mandar `usePersonalPool` — sólo `x-account-token` (señal blanda) + `targetPosition` (filtro por rol, ese sí). Tests: `app.test.ts` nuevo (token + sin `usePersonalPool` → `hero_pool_fit` con `raw` numérico + hero fuera del pool sigue en el top → sin filtro duro); integración de `use-random-draft-session` actualizada (`usePersonalPool` undefined, `accountToken` presente). e2e contra el motor real: sin token → `hero_pool_fit applicable:false`, top varía por posición `[114,41,80]`. `bunx tsc --noEmit` limpio ambos; `bun test` engine 593/593 (+1), web 204/204; `verify-simplicity.sh` verde. Ambos servidores reiniciados. state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-189</span> <span class="feed-ts">2026-08-29T02:10</span></div>
-            <div class="feed-note">QA de Fase 8 destapó que el Copilot del Simulador **no respetaba rol ni hero pool** ("siempre las mismas recomendaciones"). Auditoría del flujo completo: la única conexión faltante estaba en el body de `POST /api/suggestions/preview` de `use-random-draft-session.ts` — nunca mandaba `targetPosition` ni `usePersonalPool`, ni el header `x-account-token`. Sin eso `position_fit` no discriminaba, `candidatePool` no filtraba por posición (`mix.ts:313`) y `hero_pool_fit` quedaba `applicable:false` siempre → en picks tempranos sólo votaba `patch_meta` → top-N = "los más pickeados", igual en cada draft. El motor ya aceptaba todo (`handleSuggestionsPreview` → `requireHttpAccount` → `computeSuggestionsForState`), cero cambios de motor. **Fix (1 archivo `apps/web`)**: helper `fetchEngineToken()` (best-effort, mismo endpoint `/api/auth/engine-token` que ya usa el Pro-Drafter dark); el body gana `targetPosition: config.playerPosition` + `usePersonalPool: token!==null && !teamOpening`; header `x-account-token` cuando hay token; en `teamOpening` no se pide token (el motor ignora el pool ahí). Test de integración: `FakeEngine` captura `targetPosition`/`usePersonalPool`/`teamOpening`/`accountToken`; test nuevo verifica que en ronda 2 el preview lleva los 3 (rol 2 + pool + token) y en la apertura no. **Hallazgo de aislamiento**: el store Zustand es singleton de módulo — un preview asíncrono en vuelo de un test anterior ensuciaba las aserciones del siguiente; agregado `resetSession()` en `afterEach`. e2e contra el motor real corriendo: `targetPosition:2` sin pool → top-3 = midlaners reales `[14,26,101]` (antes: lista genérica); `usePersonalPool:true` sin token → 401 (por eso el guard); `teamOpening:true` + pool → 200 (ignorado). `bunx tsc --noEmit` limpio en `apps/web`; `bun test apps/web` 204/204 (+1); `verify-simplicity.sh` verde. **Auditoría del resto del flujo: sin más gaps** — `archetypeIntent`, `diversitySeed`, `counter` (Fase 8), `team_synergy`, `patch_meta`, sync de estado por WS y el cerebro separado del bot están todos conectados como fueron diseñados. state: doing → done.</div>
           </div>
         </div></div>
     </div>
