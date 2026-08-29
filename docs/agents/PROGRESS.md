@@ -1,7 +1,7 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 9.1 — `/blueprint` angosto COMPLETO (Sonnet, 2026-08-30). `SPEC.md` §16.0-§16.13.**
+**Fase 9.1 — `/blueprint` + `/rulebook` COMPLETOS (Sonnet, 2026-08-30). `SPEC.md` §16 + 6 tickets `TSK-207`->`TSK-212` en `backlog`.**
 9.1 = comparabilidad + calibración empírica: percentiles empíricos reemplazan `RAW_RANGE` lineal
 (congelados sobre train, `RAW_RANGE` de fallback); la redistribución de pesos pasa a ser **por
 estado**, no candidate-specific; `raw:null` de un candidato en señal disponible → `contribution`
