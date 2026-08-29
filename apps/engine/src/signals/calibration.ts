@@ -71,7 +71,11 @@ export interface Calibration {
   signals: Partial<Record<SignalId, SignalCalibration>>;
 }
 
-const EMPTY_CALIBRATION: Calibration = { schemaVersion: 1, source: "fallback", signals: {} };
+// TSK-213 (Fase 9.1-D.1): exportada. Es el default del camino activo de `mix.ts` desde que el QA
+// de 9.1 midió que la calibración empírica de `percentiles.json` resta NDCG@5 (0.736 -> 0.566).
+// `calibratedNormalize` con esto cae a `FALLBACK_RAW_RANGE`. `MODULE_CALIBRATION` sigue como
+// opt-in (`options.calibration`) e insumo de 9.3 (gating contextual).
+export const EMPTY_CALIBRATION: Calibration = { schemaVersion: 1, source: "fallback", signals: {} };
 
 const DEFAULT_PERCENTILES_PATH = join(
   import.meta.dir,

@@ -61,3 +61,33 @@ Los informes #1 y #2 proponen el mismo reemplazo: normalizar cada señal contra 
   el borde, archivo corrupto/ausente → degrada al mecanismo V6 actual, nunca lanza.
 - Este ADR se supersede si la medición de 9.0 mostrara que el mecanismo lineal ya es adecuado
   (improbable dado el ≈90 vs ≈29, pero la decisión formal se toma en el gate, no acá).
+
+## Addendum (2026-08-30, TSK-213 / QA de 9.1) — el cutover NO se hace; per-state sí, calibración empírica no
+
+El gate de 9.1 (`TSK-212`) corrió y la ablación (`scratchpad/ablate.ts`, registrada en
+`journal.md` evt-20260830-241/242) separó las dos mitades de la decisión de arriba:
+
+| Configuración (Golden, `v6Full`) | NDCG@5 | BadPick@5 | Pairwise |
+|---|---|---|---|
+| V6 puro (baseline pre-9.1) | 0.687 | 28.5 % | 55.5 % |
+| **fin de la redistribución candidate-specific (mezcla por estado) + `RAW_RANGE`** | **0.736** | **26.0 %** | **61.9 %** |
+| + calibración por percentiles empíricos (el cutover de este ADR) | 0.566 | 24.7 % | 51.1 % |
+| + calibración sin `patch_meta` | 0.648 | 23.2 % | 56.1 % |
+
+- **El problema 2 (no-comparabilidad) se resuelve y era real**: la mezcla por estado sola sube
+  NDCG@5 +0.049, baja Bad Pick Rate −2.5 pts y sube Pairwise +6.4 pts. **Se adopta y queda
+  activa** (`mix.ts`, `A(S)` + redistribución por estado + `μᵢ(S)` + `EvidenceCoverage`).
+- **El problema 1 (pendiente ≠ peso) NO se resuelve con estos percentiles**: los `P05`/`P95`
+  medidos sobre el corpus profesional (`TSK-208`) son tan angostos que **saturan** las señales y
+  destruyen la discriminación entre candidatos buenos — cuesta 0.17 de NDCG@5. Ni siquiera la
+  mejor variante (sin `patch_meta`) alcanza lo que da la mezcla por estado sola.
+- **Decisión**: el cutover de normalización lineal → percentiles empíricos **queda diferido a
+  9.3** (gating contextual), que debe rehacer los percentiles **por contexto de decisión**, no un
+  único `global` sobre todo el corpus. `data/generated/percentiles.json` y `calibration.ts` se
+  conservan como opt-in (`BuildSuggestionsOptions.calibration = MODULE_CALIBRATION`) e insumo de
+  9.3. El default del motor (`EMPTY_CALIBRATION`) normaliza con `RAW_RANGE`.
+- El candado de regresión cero de 9.1 (calibración vacía + `_legacyMixMode` ⇒ V6 byte a byte)
+  **cerró** — la mecánica es correcta; lo que no funciona es el insumo de percentiles.
+- `eval/baselines/v6-measured.json` se **re-congela** con los números de la mezcla por estado
+  (NDCG@5 0.736 / BadPick@5 0.260) como referencia "9.1-medido" para 9.2+. El pre-9.1 (0.687)
+  queda en git (`ab09ca6`…`e0b77d7`).

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T23:42:58.126Z</title>
+<title>HUB del ecosistema — 2026-08-29T23:55:58.375Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -159,22 +159,12 @@
         <h2>review <span class="count">0</span></h2>
         <div class="empty">—</div>
       </div>
-      <div class="column column-alert">
-        <h2>blocked <span class="count">1</span></h2>
-        
-        <div class="card  card-needs-human">
-          <div class="human-flag">🟡 necesita tu decisión</div>
-          <div class="card-id">TSK-212</div>
-          <div class="card-title">Fase 9.1-F · gate.ts pasa a --enforce en el camino de commit + EvCov en el reporte + QA sobre el fold held-out</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-            <span class="tag tag-attempts">intentos: 1</span>
-          </div>
-        </div>
+      <div class="column ">
+        <h2>blocked <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">206</span></h2>
+        <h2>done <span class="count">208</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -324,6 +314,15 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-212</div>
+          <div class="card-title">Fase 9.1-F · gate.ts pasa a --enforce en el camino de commit + EvCov en el reporte + QA sobre el fold held-out</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-183</div>
           <div class="card-title">Fase 8A.1 — signals/hero-counters.{ts,json}: loadHeroCounters + borrador curado de ~30 héroes</div>
           <div class="card-meta">
@@ -451,6 +450,15 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-213</div>
+          <div class="card-title">Fase 9.1-D.1 · per-state sí, calibración empírica NO por defecto (RAW_RANGE) + re-congelar baseline</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
         <div class="card  ">
@@ -1871,12 +1879,12 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">199× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">200× · 85% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
-          <div class="stat-nums">68× · 94% ok · 3 bloqueado · 1 falló</div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:35%"></div></div>
+          <div class="stat-nums">69× · 94% ok · 3 bloqueado · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
@@ -1954,6 +1962,20 @@
       <h3>Feed de actividad</h3>
       <div class="panel">
         <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-213</span> <span class="feed-ts">2026-08-30T05:33</span></div>
+            <div class="feed-note">`@redteam` de TSK-213 (obligatorio: cambia el scoring activo). **Gate de seguridad: PASS** — el cambio hace el default MÁS conservador (vuelve a `RAW_RANGE`, que ya era el fallback); sin inputs nuevos, secretos, SQL, red ni privilegios; `EMPTY_CALIBRATION` es literal congelado. **Pasada 1 (Standards)**: cambio mínimo (flip de default + `export` de una const que ya existía); `MODULE_CALIBRATION` sigue exportado para opt-in/9.3 — sin código muerto; `calibratedNormalize(EMPTY_CALIBRATION)` es idéntico a `normalize` legacy. **Pasada 2 (Spec)**: los 5 puntos del alcance + AC1-AC5 verificados — gate `--enforce` PASA vs baseline pre-9.1, NDCG@5 0.736 ≥ 0.72, BadPick 0.260 ≤ 0.27, tsc limpio, 615 tests verdes, candados de regresión cero intactos, `git diff` sin `weights.ts`, commit-gate verde. **Veredicto: APPROVED.** **Fase 9.1 cerrada**: mezcla por estado + `EvidenceCoverage` + gate `--enforce` en producción; calibración empírica diferida a 9.3. `TSK-212` desbloqueado (su infra shippeó; la pregunta del QA la resolvió TSK-213). Pendiente del usuario: `git push origin master` (62 commits).</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-213</span> <span class="feed-ts">2026-08-30T05:30</span></div>
+            <div class="feed-note">Fase 9.1-D.1. **Decisión de lead architect tras la ablación** (`scratchpad/ablate.ts`): la mezcla por estado es un acierto (NDCG@5 0.687→**0.736**, BadPick 28.5%→**26.0%**, Pairwise 55.5%→**61.9%** — cumple E9 en los 2 ejes); la calibración empírica de `TSK-208` **resta** (per-state + percentiles = 0.566; per-state + `RAW_RANGE` = 0.736; ni sacando `patch_meta` — 0.648 — se recupera). Los `P05`/`P95` del corpus pro son demasiado angostos y saturan las señales. **Cambio**: `calibration.ts` exporta `EMPTY_CALIBRATION`; `mix.ts` cambia el default del camino activo de `MODULE_CALIBRATION` a `EMPTY_CALIBRATION` (`calibratedNormalize` → `RAW_RANGE`). La mezcla por estado + `A(S)` + `μᵢ(S)` + `EvidenceCoverage` quedan **activas**. Calibración empírica pasa a opt-in (`options.calibration = MODULE_CALIBRATION`) e insumo de 9.3 (gating contextual, que debe rehacer percentiles POR CONTEXTO, no un `global` único). `weights.ts` intacto. `mix.test.ts` +1 (default normaliza con `RAW_RANGE`: counter 0.06 → normalized 75). `eval/baselines/v6-measured.json` **re-congelado** con los números de la mezcla por estado (NDCG@5 0.7364 / BadPick@5 0.260 / Pairwise 0.619 / EvCov Top-6 0.94) — nueva referencia "9.1-medido" para 9.2+; el pre-9.1 queda en git. ADR-004 addendum con la tabla de ablación. **Gate `--enforce` contra el baseline pre-9.1 → PASS** (sin regresiones); `verify-simplicity.sh VERIFY_COMMIT_GATE=1` → verde (ya no bloquea commits). `bunx tsc --noEmit` limpio; `bun test apps/engine` 615/615; candados de regresión cero intactos.</div>
+          </div>
+        </div>
+        <div class="feed-card">
           <div class="feed-icon">🔴</div>
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-212</span> <span class="feed-ts">2026-08-30T05:05</span></div>
@@ -2021,20 +2043,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-207</span> <span class="feed-ts">2026-08-30T02:15</span></div>
             <div class="feed-note">Fase 9.1 bloque A. **Patch-fix del backtest, SÓLO `scripts/eval/` — cero cambio en `apps/engine`.** `ReplayMeta` gana `patchOverride?: string`; `replay.ts` usa `meta.patchOverride ?? meta.patch` en `state.patch`; `dominantPatch(patchStats)` (moda de los patches no vacíos → `"7.41e"`) exportado desde `replay.ts`. `run.ts` y `profile-signals.ts` calculan el override desde `meta.patchStats` y lo pasan a `buildReplayCases` / `loadReplayCasesFromDb` / `runEngineQuality` (`hydrateState(c, patchOverride)` — el Golden se congeló con `patch:"60"`, así que el override también aplica al Benchmark A, el juez de calidad). `report.ts` imprime la línea "Patch del backtest forzado a `<override>`"; `v6-measured.json` (frozen) lleva `patchOverride`. `ADR-002` gana un addendum. Tests: `replay.test.ts` +2 (`patchOverride` fija/no fija `state.patch`; `dominantPatch` moda + undefined). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 168/168. NO toca apps/.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-30T01:45</span></div>
-            <div class="feed-note">`/rulebook` de Fase 9.1 (Sonnet, undécima ejecución). Secciones "Fase 9.1" en las 4 reglas de `.claude/rules/` (`engine.md` — el detalle del mecanismo: `A(S)`, redistribución por estado, `μᵢ(S)`, `EvidenceCoverage`, `calibratedNormalize`, `evidenceConfidence` con `K` por señal, candado de regresión cero; `web.md` — el espejo de 4 campos; `security.md` — `loadCalibration` degrada a `RAW_RANGE`, patch-fix sólo en `scripts/eval/`, `gate.ts --enforce` bloquea el commit; `testing-seams.md` — S18 + los apoyos, las 2 pruebas de regresión cero + degradación + `μ` + `EvidenceCoverage`). `.claude/rules/fase-9.1.md` nuevo + línea en el índice de `CLAUDE.md` (196 líneas, split-verify OK). **6 tickets `TSK-207`→`TSK-212`, `state: backlog`** (§16.13): A `TSK-207` patch-fix del backtest (sólo `scripts/eval`, re-congela `signal-profile.json`+`v6-measured.json`) → B `TSK-208` `build-percentiles.ts` + `percentiles.json` (folds de train) → C `TSK-209` `calibration.ts` (`loadCalibration` S18, `enrich`) + `SignalContribution` v2 → D `TSK-210` `mix.ts` mezcla por estado + candado de regresión cero; E `TSK-211` espejo `apps/web` (depende de C); F `TSK-212` `gate.ts --enforce` en el camino de commit + `EvCov` en el reporte + QA held-out (depende de D+E). Cada ticket con `write_scope` e `implements:[Ex/§16.x]`. `@redteam` obligatorio en C/D/E. Hub: 211 tareas. `verify-simplicity` verde. Cero código escrito. Siguiente: `/helm` → `/dispatch` — arranca `TSK-207`.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-30T01:20</span></div>
-            <div class="feed-note">`/blueprint` angosto de **Fase 9.1** (comparabilidad + calibración empírica), corrido en **Sonnet** (SPEC §15.0: los blueprints de 9.1–9.5 no cuestan Opus salvo gatillo objetivo; 9.1 no cruza ninguno). Entrada: `signal-profile.json` (300 estados), `v6-measured.json` de `0130e9f`, `tolerance.json`. Producto: `SPEC.md` §16.0–§16.13 + nota en `architecture.md`. **Decisiones cerradas**: (E1) percentiles empíricos reemplazan `RAW_RANGE` lineal, congelados sobre folds de train, `RAW_RANGE` queda de fallback sin editar; (E2) fin de la redistribución candidate-specific → redistribución **por estado** (mismo denominador para todo candidato de S); (E3) `raw:null` de un candidato en señal disponible → `contribution` usa `μᵢ(S)` (media de los que sí tienen dato), `raw` sigue null; (E4) `SignalContribution` gana `normalized` + `evidenceConfidence` aditivos; (E5) `EvidenceCoverage`/`GuessingIndex` internos, UI diferida (D4); (E6) fallback jerárquico `global → bracket`, patch NO (mono-parche); (E7) candado de regresión cero byte-idéntico a V6; (E8) `gate.ts` pasa a `--enforce`; (E9) criterio de éxito = baja el Bad Pick Rate@5 (hoy 0.293) sin perder NDCG@5 (hoy 0.771, tolerancia 0.041). **Correcciones concretas que salen del perfil**: `RAW_RANGE.counter [−0.12,0.12]` es ~4× demasiado ancho (real `[−0.044,+0.052]`) → calibrar sube su pendiente efectiva ~2.5×, hipótesis: baja el BPR; `team_synergy` real `[0,0.286]`; `position_fit [0,1]` ya correcto. **Precondición bloqueante (§16.4)**: arreglar el mismatch de patch del backtest SÓLO en `scripts/eval/` (`patchOverride`, no toca `apps/engine`), re-generar perfil + baseline antes de calcular percentiles. **`weights.ts` NO se toca** (V7 es 9.5); `counter` no se parte en 3 (9.3). 6 tickets para `/rulebook` (§16.13): A patch-fix · B `build-percentiles.ts` · C `calibration.ts`+`SignalContribution` v2 · D `mix.ts` mezcla por estado · E espejo `apps/web` · F gate `--enforce`. `@redteam` obligatorio en C/D/E. Siguiente: `/rulebook` de 9.1 en Sonnet.</div>
           </div>
         </div></div>
     </div>

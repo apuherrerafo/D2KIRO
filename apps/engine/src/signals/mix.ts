@@ -16,8 +16,8 @@ import { observedDraftFacts } from "../drafter/observed-draft";
 import {
   calibratedNormalize,
   enrich,
+  EMPTY_CALIBRATION,
   FALLBACK_RAW_RANGE,
-  MODULE_CALIBRATION,
   type Calibration,
 } from "./calibration";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
@@ -94,9 +94,10 @@ export interface BuildSuggestionsOptions {
   // confianza). En 4.2 lo fija sólo el llamador dentro del proceso; el transporte por request/WS y
   // su validación de borde contra la unión cerrada de 4 literales son 4.3.
   archetypeIntent?: DraftPathArchetype;
-  // TSK-210 (Fase 9.1, SPEC.md §16.7 punto 10): calibración empírica inyectable. Ausente ->
-  // MODULE_CALIBRATION (lee data/generated/percentiles.json una vez al iniciar el módulo). Las
-  // pruebas inyectan su propia Calibration -- nunca dependen del archivo real (costura S18).
+  // TSK-210 (Fase 9.1, SPEC.md §16.7 punto 10): calibración empírica inyectable. TSK-213: el
+  // default es EMPTY_CALIBRATION (fallback a RAW_RANGE) -- el QA midió que los percentiles restan
+  // NDCG@5. Para activarla, pasar `MODULE_CALIBRATION` (o una Calibration propia). Las pruebas
+  // inyectan la suya -- nunca dependen del archivo real (costura S18).
   calibration?: Calibration;
   // TSK-210: modo legacy SÓLO para el candado de regresión cero (§16.7 E7 / mix.test.ts). Con él,
   // buildSuggestions vuelve a la redistribución candidate-specific de V6 (mixScore + normalize
@@ -510,7 +511,12 @@ export function buildSuggestions(
   }
 
   const legacyMix = options._legacyMixMode === true;
-  const calibration = options.calibration ?? MODULE_CALIBRATION;
+  // TSK-213 (Fase 9.1-D.1): el default es SIN calibración empírica -> `calibratedNormalize` cae a
+  // `RAW_RANGE`. El QA de 9.1 (TSK-212) midió que los percentiles de `percentiles.json` restan
+  // NDCG@5 (0.736 con per-state solo -> 0.566 con calibración). La mezcla por estado se queda; la
+  // calibración empírica es opt-in vía `options.calibration` (p. ej. `MODULE_CALIBRATION`) hasta
+  // que 9.3 la rehaga con percentiles por contexto.
+  const calibration = options.calibration ?? EMPTY_CALIBRATION;
 
   // Pasada 1: cada scorer una sola vez por candidato. En el camino activo, `enrich()` agrega
   // `normalized` (calibrado) y `evidenceConfidence` sin tocar `raw`. En legacy se salta -- el

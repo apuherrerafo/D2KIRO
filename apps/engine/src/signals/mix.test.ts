@@ -846,6 +846,20 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
     expect(tight.suggestions.find((s) => s.hero === 1)!.rank).toBe(2); // el countereado queda último
   });
 
+  test("TSK-213: el default (sin options.calibration) normaliza con RAW_RANGE, no con percentiles", () => {
+    // counter raw 0.06 -> RAW_RANGE [-0.12, 0.12] -> normalized = (0.06+0.12)/0.24*100 = 75.
+    // Con la calibración empírica de percentiles.json (counter ~[-0.041, 0.057]) daría ~100.
+    const snapshot = meta({
+      1: { id: 1, localizedName: "Countera" },
+      50: { id: 50, localizedName: "Enemigo" },
+    });
+    const heroCounters = new Map([[50, [{ vs: 1, level: "medium" as const, why: "50 sufre contra 1" }]]]);
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters });
+    const c = result.suggestions.find((s) => s.hero === 1)!.signals.find((s) => s.signal === "counter")!;
+    expect(c.raw).toBeCloseTo(0.06, 10);
+    expect(c.normalized).toBeCloseTo(75, 6); // RAW_RANGE, no percentiles
+  });
+
   test("confidence sale de EvidenceCoverage, no del conteo de nulls (§16.7 punto 7)", () => {
     // A(S) = {position_fit} sólo (sin enemigo revelado, sin picks propios, EMPTY_CAL sin
     // patch_meta). Un candidato con position_fit -> cobertura 1 -> alta.
