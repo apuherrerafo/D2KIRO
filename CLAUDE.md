@@ -317,6 +317,98 @@ en `.claude/rules/` (secciones "Fase 6" en `engine.md`, `security.md`, `testing-
 - **`openingStrategy` tiene una sola implementación**, movida a `draft-paths/strategy.ts` — una
   segunda copia es rechazo automático de revisión.
 
+## REGLAS DE FASE 8 (rehabilitar `counter` + higiene de superficie) — desde `docs/specs/SPEC.md` §14
+Generadas por `/rulebook`. `/blueprint` corrido en Sonnet por decisión del usuario (gatillo de
+Opus documentado — discrepancia seria `SPEC.md` ↔ código real en `counter` — anotado en
+`journal.md`). Alcance: `counter` devuelve `raw: null` en ~93% de los casos porque
+`RELATIONSHIP_MIN_GAMES=200` recorta el 92.7% de los matchups reales (caso real: recomienda Huskar
+de último pick contra un Ancient Apparition revelado). Fase 8 lo arregla con dos capas + reduce el
+nav a la superficie que se usa. Detalle en `.claude/rules/` (secciones "Fase 8" en `engine.md`,
+`web.md`, `security.md`, `testing-seams.md`) — resumen de lo no negociable:
+
+- **Alcance estrictamente aditivo + candado de regresión cero.** `SignalId`, `SCORING_WEIGHTS_V1`-
+  `V6`, `RAW_RANGE.counter` (`[-0.12, 0.12]`), `weights.ts` — **no se tocan**. Dos pruebas
+  obligatorias: `createCounterScorer(new Map(), { minGames: 200, shrinkPriorStrength: null })`
+  reproduce el `raw`/`explanation`/`sampleSize` de hoy número por número; `buildSuggestions` con
+  `heroCounters` vacío + opciones legacy no mueve el ranking.
+- **`counterScorer` (singleton) → fábrica `createCounterScorer(curated, opts)`** — mismo patrón
+  que `createPositionFitScorer`/`createTeamSynergyScorer`. `mix.ts` lo ensambla por llamada,
+  `MODULE_HERO_COUNTERS = loadHeroCounters()` a nivel de módulo,
+  `BuildSuggestionsOptions.heroCounters?` inyectable para tests.
+- **Capa curada `signals/hero-counters.json`** — keyed por víctima, `{ vs, level: "hard"|"medium",
+  why }`. S9: loader validado (`loadHeroCounters()`), archivo corrupto/ausente → `Map` vacío,
+  nunca tira el motor, nunca se lee real en un test. Piso **bidireccional**: te counterean →
+  `-M[level]`; counterás a un rival → `+M[level]`. `M.hard = 0.12` (satura `RAW_RANGE.counter`
+  sin re-escalar), `M.medium = 0.06`.
+- **Capa estadística — sólo para rivales NO cubiertos por el curado.** `COUNTER_MIN_GAMES = 10`
+  (se pasa a `createRelationshipIndex`; el default 200 del módulo **no se toca**). Shrinkage hacia
+  el **baseline del candidato** vía `shrinkEstimate` (`pro/shrinkage.ts`, ya existe, TSK-165),
+  `COUNTER_SHRINK_PRIOR_STRENGTH = 20`. `CounterEvidence` gana `observedWinrate` (1 línea
+  aditiva). `relationship-index.ts` **sin cambios estructurales**.
+- **`raw = mean(c_r)`** sobre los rivales cubiertos (curado o estadística con ≥10 partidas);
+  `null` si ninguno está cubierto (idéntico a hoy). `sampleSize` = Σ `games` sólo de la capa
+  estadística; la curada reporta 0 (mismo criterio que `team_synergy`/`archetype_fit`).
+- **`explanation`**: si hubo capa curada → se arma de los `why`; si no → el `buildExplanation`
+  actual.
+- **Ninguna dependencia nueva, sin STRATZ, sin variable de entorno nueva, cero red en el camino
+  caliente** (el JSON se carga una vez al iniciar el módulo).
+- **8B — nav de `apps/web` pasa de 7 links a 4**: Simulador · Mi pool · Meta · Configuración. Se
+  quitan `Draft en vivo`, `Equipos`, `Héroes` del array de `NavBar.tsx` — **ruta, código y tests
+  intactos**, alcanzables por URL directa. Reversible. Overwolf/OCR quedan en stand-by
+  documentado. 8B no cambia comportamiento: ninguna prueba existente cambia de resultado.
+- Las magnitudes de §14.6 son **valores de arranque, ajustables tras el QA** en el simulador
+  (mismo criterio que `w=0.10` en Fase 4.3) — un cambio no reabre `SPEC.md` §14.
+
+## REGLAS DE FASE 9 (V6-medido → V6-contextual: evaluación offline, calibración empírica, inteligencia contextual) — desde `docs/specs/SPEC.md` §15
+
+Generadas por `/rulebook`, décima ejecución del proyecto. `/blueprint` corrido en **Opus** (gatillo
+documentado: cambia el mecanismo de normalización de señales + el contrato `SignalContribution` +
+estrena `SCORING_WEIGHTS_V7`). Origen: 3 informes externos consolidados en
+`docs/research/fase9-research-consolidation.md` (48 ideas, IDs `R1-1`…`R3-15`, trazabilidad
+mecánica §8). Detalle completo en `.claude/rules/` (secciones "Fase 9" en `engine.md`, `web.md`,
+`security.md`, `testing-seams.md`) — resumen de lo no negociable:
+
+- **Programa 9.0→9.5. Sólo 9.0 está especificada a nivel ejecutable** (§15.0); 9.1 tiene el
+  mecanismo fijado con números diferidos a su gate; 9.2–9.5 son conceptuales y cada una abre su
+  `/blueprint` angosto. Fijar hoy un `P05`/`P95` sería inventarlo — mismo precedente que Fase 4
+  §11.10.
+- **9.0 no cambia una línea de `apps/engine/src/**` ni `apps/web/src/**`** — criterio de aceptación
+  verificable con `git diff --name-only`. No toca `signals/`, `weights.ts`, `mix.ts`, `RAW_RANGE`,
+  `SignalId`, `SCORING_WEIGHTS_V6`. `ENABLE_PRO_DRAFTER` y el comportamiento de producción quedan
+  idénticos durante toda la fase.
+- **Dos benchmarks separados** (§15.4.3): **Engine Quality** (principal, Golden Dataset graduado,
+  titular **NDCG@5** + Bad Pick Rate@5 + Pairwise Accuracy) y **Professional Pick Agreement**
+  (secundario, Recall@1/3/5/10 + MRR sobre 2.164 replays). El pick profesional **no es ground
+  truth**; el benchmark secundario **nunca** se llama "accuracy" ni "qué tan bueno es el motor".
+  Ambos **segmentados por contexto de decisión y por `tier`**.
+- **`ConstraintViolationRate = 0` es un gate duro**, no una métrica ponderada: una recomendación de
+  héroe baneado/pickeado/inexistente invalida la corrida entera.
+- **No existe snapshot de meta point-in-time** (§15.1 C4): el backtest es **comparativo, nunca
+  predictivo**; el valor absoluto de cualquier métrica no significa nada sin sus baselines.
+- **`raw: null` sigue siendo sagrado** — nunca 0, 0.5 ni 50. 9.1 cambia cómo se propaga su
+  ausencia (fin de la redistribución candidate-specific), no que se rellene.
+- **Harness (paquete completo, R3)**: `eval/` + `data/{curated,generated,schemas,metadata}/` +
+  `docs/adr/` + hook de frontera de datos + `write_scope` por ticket + su hook PreToolUse + regla
+  de paralelismo (`writeScope(A) ∩ writeScope(B) = ∅` ∧ sin `blocked_by` ⇒ `isolation: worktree`) +
+  2 agentes nuevos (`data-stat-engineer`, `evaluation-engineer`, sin `mcp__context7`) + partir
+  `CLAUDE.md` a **< 200 líneas** moviendo los bloques `## REGLAS DE FASE X` **verbatim** a
+  `.claude/rules/fase-N.md`.
+- **Descartado con motivo escrito** (§15.2 D10, §15.4.9): RL, DL, minimax, predicción del siguiente
+  pick, counterfactual winrate, MCMC/Stan en prod, LangGraph/CrewAI/AutoGen, Memory MCP, Firecrawl,
+  `work/{active,done}/`. **Diferido**: `PlayerHeroReliability`, Branch Survival, V3 secuencial, SDK
+  en `tools/ai-harness/`, harness V3–V4/CI, migración de los 3 JSON curados a `data/curated/`.
+- **Sin dependencia nueva, sin secreto de runtime, sin variable de entorno nueva, cero PII, cero
+  red en el camino caliente.** `scripts/eval/**` y `scripts/stats/**` nunca se importan desde
+  `apps/`. Las SQLite se abren `readonly: true`.
+- **`TSK-174`/`TSK-179` deja de ser dependencia de Fase 9** (§15.1 C2): los slots Dire no
+  participan de ninguna métrica.
+- **Precondición para arrancar el bloque A**: commitear Fase 8 (`TSK-183`→`TSK-192` + el fix de
+  `apps/web/features/draft/validation.ts`). El baseline "V6-medido" tiene que corresponder a un
+  commit identificable.
+- **14 tickets, `TSK-193`→`TSK-206`, sólo de 9.0**, en 5 bloques por dependencia (A harness →
+  B replay+métricas puras → C runners → D diagnóstico → E cierre del gate). Cada ticket declara
+  `write_scope` y cita el ID `Rx-y` que implementa.
+
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.
 - `docs/agents/MEMORY.md` → vista comprimida y regenerable de `journal.md`.
@@ -405,6 +497,13 @@ Fuera de esta lista, la regla original se mantiene: si "hace falta" Opus y no ha
 Ningún agente corre en Opus — Opus vive únicamente en `/blueprint`, una sola vez por proyecto, antes de que exista ningún agente que invocar. Ver "Política de modelos" arriba.
 
 Decisión de diseño: no se creó un agente "Orquestador" ni "Arquitecto" separado. Orquestar es una skill (`/dispatch`), no un sub-agente — no necesita su propio contexto aislado, y separar el enrutamiento en un sub-agente añadiría latencia sin beneficio. Lo mismo aplica a arquitectura: vive en `/pre-flight` como skill, no como rol permanente, porque solo se ejecuta al inicio del proyecto o ante cambios grandes.
+
+## CONTEXT7 (documentación de librería al día)
+MCP declarado en `.mcp.json` (project-scoped, versionado). Se consulta **sólo** en `/rulebook` e
+implementación, para confirmar la API vigente de una librería del stack (sobre todo Next.js y Bun).
+**Nunca en el camino caliente** — es tooling de desarrollo, no entra en ningún `import` de `apps/`.
+Detalle, alcance por agente y CLI equivalente (`npx ctx7 …`) en `.claude/rules/context7.md`.
+Token: `CONTEXT7_API_KEY` exportado en el shell (ver `.env.example`); sin él corre en modo anónimo.
 
 ## SKILLS
 - **Core** (`.claude/skills/`): se cargan siempre, forman el flujo real del proyecto.

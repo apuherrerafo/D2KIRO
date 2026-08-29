@@ -1,42 +1,88 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 8 (rehabilitar `counter`) + 8B + 3 follow-ups de QA del Simulador — CÓDIGO COMPLETO, todo
-verde.** `TSK-183`→`TSK-191` los 9 `done`. `@redteam` APPROVED en `185`/`186`/`188`.
-- **8A** (183-186): `counter` con capa curada `hero-counters.json` **127 héroes / 527 counters** +
-  shrinkage; `createCounterScorer` fábrica; candado de regresión byte-exacto.
-- **8B** (187): nav 7→4.
-- **188** (SPEC §14.13): `counter` gana alivio positivo "tus counters baneados = pick más libre",
-  vota desde el pick 1.
-- **189**: el Copilot del Simulador ahora manda `targetPosition` (rol elegido) + `x-account-token`
-  — antes nunca sabía tu posición ni tu pool.
-- **190**: hero pool = **señal blanda** (empuja tus héroes cómodos del rol), ya no filtro duro.
-  Desacoplado el overlay de cuenta del flag `usePersonalPool`.
-- **191**: la **apertura de equipo** (Ronda 1) reacciona a los bans — `team-opener.ts` usa la capa
-  curada + `MAX_COUNTER_RELIEF` 0.12→0.30. e2e: dos sets de bans → top-5 distinto.
-- **192**: Copilot del Simulador → **6 recomendaciones en grid 2×3 compacto** (era 3/5 en tarjetas
-  altas). `TOP_N` 3→6, `Suggestion.rank` → `…|6` + espejos. `SuggestionCard` gana `compact`. +
-  Nyx agregado como counter hard de Storm Spirit; 22 nombres de habilidad des-acentuados.
+**Fase 9 (V6-medido → V6-contextual) — `/pre-flight` + `/blueprint` + `/rulebook` COMPLETOS.**
+`/rulebook` (Sonnet, décima ejecución): secciones "Fase 9" en las 4 reglas de `.claude/rules/` +
+bloque `## REGLAS DE FASE 9` en `CLAUDE.md`. **14 tickets `TSK-193`→`TSK-206`, todos `backlog`,
+sólo de 9.0**, en 5 bloques por dependencia — **A** harness (193-196: estructura `eval/`+`data/`+
+`docs/adr/` + 4 ADRs · 2 hooks + regla de paralelismo/worktree · 2 agentes nuevos · partir
+`CLAUDE.md` a <200 líneas) · **B** puras/candidatas a codex (197-199: S15 replay · S16 métricas ·
+S17 loader Golden) · **C** runners (200-202: Benchmark B Professional Pick Agreement · Benchmark A
+Engine Quality NDCG@5 · orquestador `bun run eval` + `v6-measured.json` con `commit`) · **D**
+diagnóstico (203-205: `profile-signals.ts` influencia realizada · `propose-golden-cases.ts` ·
+null-perturbation + `gate.ts` informativo) · **E** cierre (206: curar ≥30 casos del Golden Dataset +
+congelar baseline — 9.1 no arranca hasta acá). Cada ticket declara `write_scope` e `implements:[Rx-y]`.
+Hub regenerado (205 tareas). `verify-simplicity` verde. Cero código escrito.
+`SPEC.md` §15.0-§15.11 generado en **Opus** (2026-08-29, una sola vez; gatillo documentado: cambia
+el mecanismo de normalización de señales + el contrato `SignalContribution` + estrena
+`SCORING_WEIGHTS_V7`). **Opus apagado a partir de acá — todo lo que sigue es Sonnet.**
 
-Tests: engine 596 / web 205 / scripts 82, 0 fallos. tsc limpio ambos. verify-simplicity verde.
-Servidores corriendo. **Falta: QA manual del usuario + `git push`.** Nada commiteado.
-Fases 4.2/4.3/4.3b completas (`TSK-180`/`181`/`182` `done`). Lo de abajo es histórico.
+**Alcance acotado a propósito (§15.0)**: sólo **9.0 queda especificada a nivel ejecutable**. 9.1
+tiene el mecanismo fijado con los números diferidos a su gate (fijar hoy un `P05`/`P95` sería
+inventarlo — los produce 9.0); 9.2-9.5 quedan conceptuales, cada una con su `/blueprint` angosto.
+Mismo precedente que Fase 4 §11.10. **9.0 no toca una línea de `apps/engine/src/signals/**`** —
+criterio de aceptación #2, verificable con `git diff --name-only`.
+
+**Siete correcciones al plan por MEDIR el dato real (§15.1)** — el valor real de este blueprint:
+- **C1**: corpus utilizable = **2.164** drafts con shape válido, no 2.179. Los **826
+  `tier_not_accepted` NO son defecto de dato** (política de curación de Fase 7, el draft está
+  íntegro) → entran al backtest con `tier` como covariable; descartarlos tiraba el 38%.
+- **C2**: los slots Dire **no participan de ninguna métrica** (la primaria sale sólo de
+  `pro_draft_turns`, completo en 2.164) → **`TSK-174`/`TSK-179` deja de ser dependencia de Fase 9**.
+- **C3**: corpus **mono-parche** (`patch=60` en los 2.179) → el eje `patch` del fallback jerárquico
+  **nace inerte**; sólo `global` y `bracket` (8, balanceados) estratifican.
+- **C4**: **no existe snapshot de meta point-in-time** → el Benchmark B es **comparativo, nunca
+  predictivo**; su valor absoluto no es interpretable. Endurece la decisión de no llamarlo
+  "accuracy".
+- **C5**: la pendiente efectiva de R1-1 (counter 90 vs patch_meta 29,25) es correcta pero **es la
+  mitad** — lo que decide el ranking es **pendiente × SD intra-estado del `raw`**. Eso es lo que
+  9.0 debe emitir.
+- **C6**: matchups `p50=54`, `p90=175`, **máx 712** (el umbral 200 estaba sobre el p90) → en 9.2
+  `δ_AB` quedará muy encogido y el orden lo dominarán los efectos principales: **resultado
+  esperado, no fallo**.
+- **C7**: el eje `bracket` sí estratifica.
+
+**5 costuras nuevas (S15-S19)**, con la regla dura de que ninguna prueba abre `pro-drafts.sqlite`,
+`dota2coach.sqlite`, el Golden Dataset real ni un JSON de `data/generated/`.
+
+Decisiones del `/pre-flight` que el blueprint conserva:
+`architecture.md` gana `# architecture.md — Fase 9` (6 bloques) +
+`docs/research/fase9-research-consolidation.md` (48 ideas de 3 informes externos R1/R2/R3, cada una
+con ID y disposición CORE/DIFERIDO/DESCARTADO + regla de trazabilidad §8). Decisiones cerradas con
+el usuario:
+- **Programa 9.0→9.5**, 9.0 (fundación de evaluación + harness completo) **bloqueante** — se
+  mergea y valida antes de tocar cualquier fórmula de scoring.
+- **RAW_RANGE → percentiles empíricos**, dirección comprometida, **cutover en el gate de 9.1** con
+  la pendiente efectiva real de las 6 señales medida en 9.0. ADR obligatorio.
+- **Harness R3 = paquete completo**: `eval/` + `data/{curated,generated,metadata}/` + hook
+  anti-sobreescritura + `write_scope` por ticket + hook de scope + 2 agentes nuevos
+  (`data-stat-engineer`, `evaluation-engineer`) + `docs/adr/` + partir `CLAUDE.md` (<200 líneas,
+  bloques `REGLAS DE FASE X` → `.claude/rules/fase-N.md`, reversible).
+- **GuessingIndex / EvidenceCoverage**: interno en 9.x; UI como follow-up post-QA.
+- **Validación = 2 benchmarks separados** (el pick pro NO es ground truth): Engine Quality
+  (NDCG@5 titular + Bad Pick Rate@5 + Pairwise Accuracy sobre un Golden Dataset graduado de ~30
+  estados estratificados, multi-label, con selección asistida) + Professional Pick Agreement
+  (Recall@1/3/5/10 + MRR sobre 2.179 drafts pro, nunca "accuracy"). Ambos **segmentados por
+  contexto** (opening/blind/response/closing). Constraint Violation Rate = 0 como gate duro.
+- **`counter` partido en 3** + **gating contextual** en 9.3; **`SCORING_WEIGHTS_V7`** solo en 9.5.
+
+**Precondición para arrancar 9.0** (no para el `/blueprint`): commitear Fase 8 — `TSK-183`→`TSK-192`
+los 10 `done`, código completo y verde (engine 596 / web 205 / scripts 82, tsc limpio,
+verify-simplicity verde) + el fix de `apps/web/features/draft/validation.ts` (rank hasta 6). Nada
+commiteado. QA manual del Simulador todavía pendiente del usuario. `git push origin master` (~38
+commits) sigue como acción explícita del usuario.
 
 ## SIGUIENTE PASO
-Herramienta: Claude Code (motor ya corriendo) + navegador. Modelo: Sonnet.
-Acción: **QA manual de Fase 8 en el Simulador de Draft** — arrancar un draft, dejar que el bot
-revele un Ancient Apparition, y confirmar que el Copilot penaliza Huskar de last-pick y el
-desglose de `counter` cita la mecánica ("Ice Blast bloquea toda tu curación"); probar un caso de
-zona gris (dos candidatos con matchup real distinto de 30-100 partidas) y ver que `counter` los
-ordena en vez de quedarse mudo. Si las magnitudes (`M.hard=0.12`, `COUNTER_MIN_GAMES=10`,
-`COUNTER_SHRINK_PRIOR_STRENGTH=20`) se sienten mal → follow-up de calibración (no reabre `SPEC.md`
-§14). Además: **revisar el borrador `apps/engine/src/signals/hero-counters.json`** (29 víctimas /
-81 counters, conocimiento público estándar) antes de considerar 8A "cerrado de dominio".
-Pendiente en paralelo: `git push origin master` (los ~38 commits sin push, cuando el usuario lo
-apruebe) y `TSK-179` cuando cierre `TSK-174`.
+Herramienta: Claude Code. Modelo: **Sonnet** (Opus apagado — no vuelve en esta fase).
+Acción: **commitear Fase 8** (`TSK-183`→`TSK-192` + el fix de
+`apps/web/features/draft/validation.ts`) en commits atómicos — es precondición del bloque A: el
+baseline "V6-medido" de `TSK-206` tiene que apuntar a un commit identificable con Fase 8 integrada.
+Después: `/helm` → `/dispatch` para arrancar el **bloque A**, primer ticket ejecutable **`TSK-193`**
+(estructura `eval/`+`data/`+`docs/adr/` + 4 ADRs, sin `blocked_by`). `git push origin master` sigue
+siendo acción manual del usuario. **`TSK-174`/`TSK-179` ya no bloquea nada de Fase 9** (§15.1 C2).
 
 ---
-(bloque histórico "Fase 8" abajo, del /blueprint + /rulebook)
+(bloque histórico abajo — Fase 8 y anteriores, del `/pre-flight` + `/blueprint` + `/rulebook`)
 
 ---
 
@@ -291,3 +337,5 @@ todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.
 - [2026-08-28] `/pre-flight` de Fase 8 registrado por `/compass`: FASE ACTUAL pasa a Fase 8, SIGUIENTE PASO = `/blueprint` de Fase 8 en Opus (gatillo objetivo: discrepancia seria SPEC.md ↔ código real en la señal `counter`).
 - [2026-08-28] `/blueprint` de Fase 8 registrado por `/compass`: SPEC.md §14 cierra los números de la rehabilitación de `counter` (M.hard/M.medium, COUNTER_MIN_GAMES=10, PRIOR_STRENGTH=20, fórmula mean(c_r), candado de regresión cero) + 8B (nav 7→4). SIGUIENTE PASO = `/rulebook` de Fase 8 en Sonnet.
 - [2026-08-28] `/rulebook` de Fase 8 completo (novena ejecución del proyecto). `CLAUDE.md` gana "REGLAS DE FASE 8", secciones "Fase 8" en las 4 reglas de `.claude/rules/` (`engine.md`, `web.md`, `security.md`, `testing-seams.md`) resumiendo lo no negociable de `SPEC.md` §14: aditivo + candado de regresión cero de dos pruebas; `counterScorer` singleton → `createCounterScorer(curated, opts)` (patrón `createPositionFitScorer`/`createTeamSynergyScorer`); `hero-counters.json` keyed por víctima `{vs, level: hard|medium, why}`, S9, `loadHeroCounters()` degrada a `Map` vacío; piso curado bidireccional (`M.hard=0.12` satura `RAW_RANGE.counter` sin re-escalar, `M.medium=0.06`); capa estadística sólo para rivales no cubiertos por el curado (`COUNTER_MIN_GAMES=10`, `shrinkEstimate` de `pro/shrinkage.ts` hacia el baseline del candidato, `COUNTER_SHRINK_PRIOR_STRENGTH=20`); `CounterEvidence` gana `observedWinrate` (1 línea aditiva); `raw = mean(c_r)`; `RAW_RANGE.counter`/`weights.ts`/`SignalId` intactos; magnitudes §14.6 son valores de arranque QA-tuneables; 8B = `NavBar.tsx` 7→4 links (`/live-draft`/`/team-groups`/`/heroes` salen del array, rutas/código/tests intactos, reversible). **5 tickets creados `TSK-183`→`TSK-187`, `state: backlog`** (§14.12): 183 `signals/hero-counters.{ts,json}` + `loadHeroCounters` + borrador ~30 héroes por deep research (claude-code, dominio, revisión del usuario antes del merge) · 184 `observedWinrate` en `CounterEvidence`, 1 línea (codex, acotado) · 185 `createCounterScorer` dos capas + fórmula §14.5 + constantes §14.6 + reescritura `counter.test.ts` + candado aislado (claude-code, `@redteam`, `blocked_by: [183,184]`) · 186 `mix.ts` `MODULE_HERO_COUNTERS` + `BuildSuggestionsOptions.heroCounters?` + candado de pipeline (claude-code, `blocked_by: [185]`) · 187 8B `NavBar` 7→4 + render/route smoke (codex, `should`, independiente de 8A). Tablero regenerado: 186 tareas, 374 eventos. Cero código de producción escrito. Siguiente: `/helm` → `/dispatch` — 8A arranca por `TSK-183` (deep research + loader) y `TSK-184` (independientes entre sí); `TSK-187` en cualquier momento.
+- [2026-08-29] **Fase 9 — `/pre-flight` (Sonnet) + `/blueprint` (Opus, una sola vez) completos.** Entrada: 3 informes externos consolidados en `docs/research/fase9-research-consolidation.md` (48 ideas, IDs `R1-1`…`R3-15`, cada una con disposición CORE/DIFERIDO/DESCARTADO y regla de trazabilidad mecánica). `architecture.md` §Fase 9 (6 bloques) + `SPEC.md` §15.0-§15.11. Programa 9.0→9.5 con 9.0 bloqueante; alcance del blueprint acotado a propósito a 9.0 (9.1 con números diferidos a su gate, 9.2-9.5 conceptuales — precedente Fase 4 §11.10). El valor real del blueprint fueron **7 correcciones por medir el dato** (§15.1): corpus utilizable 2.164 y los 826 `tier_not_accepted` entran con `tier` como covariable; los slots Dire no participan de ninguna métrica → `TSK-174`/`TSK-179` deja de bloquear Fase 9; corpus mono-parche → eje `patch` del fallback inerte; sin snapshot point-in-time → Benchmark B comparativo, nunca predictivo; la pendiente efectiva de R1-1 debe multiplicarse por la SD intra-estado del `raw`; matchups `p90=175`/máx 712 → `δ_AB` muy encogido en 9.2, esperado; el eje `bracket` sí estratifica. 5 costuras nuevas (S15-S19). Dos benchmarks separados (Engine Quality NDCG@5 principal / Professional Pick Agreement secundario), ambos segmentados por contexto y tier, `ConstraintViolationRate=0` como gate duro. Context7 instalado como MCP dev-only agent-scoped en el camino. Cero código escrito. Siguiente: `/rulebook` en Sonnet.
+- [2026-08-29] **Fase 9 — `/rulebook` completo (Sonnet, décima ejecución del proyecto).** Secciones "Fase 9" en `.claude/rules/{engine,web,security,testing-seams}.md` + bloque `## REGLAS DE FASE 9` en `CLAUDE.md` (resumen de `SPEC.md` §15). **14 tickets `TSK-193`→`TSK-206`, `state: backlog`, sólo de 9.0**, en 5 bloques por dependencia declarada en `blocked_by`: A harness (193 estructura+4 ADRs · 194 dos hooks + regla de paralelismo/worktree · 195 agentes `data-stat-engineer`/`evaluation-engineer` · 196 partir `CLAUDE.md` <200 líneas verbatim), B puras candidatas a codex (197 S15 replay `buildReplayCases` con prueba de no-fuga · 198 S16 métricas NDCG@5/Recall@k/MRR/BadPickRate/Pairwise/Jaccard/Kendall · 199 S17 loader Golden), C runners (200 Benchmark B Professional Pick Agreement: split congelado por torneo + bootstrap por torneo + 5 baselines + `ConstraintViolationRate=0` gate · 201 Benchmark A Engine Quality NDCG@5 sobre Golden · 202 orquestador `bun run eval` + `v6-measured.json` con `commit`), D diagnóstico (203 `profile-signals.ts` influencia realizada = pendiente×SD intra-estado · 204 `propose-golden-cases.ts` selección asistida · 205 null-perturbation + `gate.ts` informativo), E cierre (206 curar ≥30 casos Golden Dataset + congelar baseline — 9.1 no arranca hasta acá). Cada ticket declara `write_scope` e `implements:[Rx-y]`. Hub regenerado (205 tareas, 393 eventos). `verify-simplicity` verde (sólo warning no-bloqueante: MEMORY.md no menciona TSK-206). Cero código escrito. Siguiente: commitear Fase 8, luego `/dispatch` de `TSK-193`.

@@ -208,3 +208,16 @@ rompe (mismo criterio que el espejo de Fase 3). Cuatro archivos, ninguno opciona
   `/team-groups`/`/heroes`/`/live-draft` siguen resolviendo por URL.
 - Fase 8 **no toca ninguna otra cosa de `apps/web`**: el selector de intención de Fase 4.3, el
   Simulador, el hero pool — todo queda igual. Overwolf/OCR: stand-by documentado, no se tocan.
+
+## Fase 9 — V6-medido → V6-contextual (SPEC.md §15)
+
+- **9.0 no toca `apps/web/**`.** Criterio de aceptación #2, verificable con `git diff --name-only`.
+- **9.1**: cuando `SignalContribution` gane `normalized` / `evidenceConfidence`, el espejo a mano de
+  `apps/web` (`features/draft/types.ts` + `features/draft/validation.ts`) se actualiza **en el mismo
+  cambio** o `tsc` de `apps/web` rompe — mismo criterio que Fase 3 (`SignalId`) y Fase 4.2
+  (`archetype_fit`).
+- **`GuessingIndex` / `EvidenceCoverage` en la UI = follow-up post-QA** (decisión D4 del
+  `/pre-flight`). No se construye ningún elemento de UI para esto en 9.x; la métrica vive interna
+  (backtest + logs) hasta que un QA con datos reales decida si se muestra y cómo.
+- Fase 9 **no toca ninguna otra cosa de `apps/web`**: selector de intención, Simulador, hero pool,
+  nav — todo queda igual.

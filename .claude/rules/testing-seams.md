@@ -213,3 +213,41 @@ reservada (RNG de diversificación, Fase 4).
 - **Ninguna prueba lee `hero-counters.json` real** — fixtures inline.
 - **8B**: `NavBar` renderiza 4 links; humo de que las 3 rutas quitadas siguen resolviendo por
   URL; ninguna suite existente de `apps/web` cambia de resultado.
+
+## Fase 9 — V6-medido → V6-contextual (SPEC.md §15.3)
+
+`S12` sigue reservada (RNG de diversificación, Fase 4). `S13` en uso (token de cuenta, Fase 5).
+`S14` sigue libre. Fase 9 estrena cinco costuras:
+
+| Costura | Frontera | Real en la prueba | Se reemplaza |
+|---|---|---|---|
+| **S15** — Replay de draft profesional | `pro-drafts.sqlite` → caso de evaluación | El reconstructor de `DraftState` desde una secuencia de turnos — **puro** | La SQLite: `ProDraftTurn[]` fixture literal |
+| **S16** — Métricas de evaluación | ranking → número | Las funciones de métrica (NDCG@5, Recall@k, MRR, Bad Pick Rate, Pairwise Accuracy, Jaccard@K, Kendall-τ) — puras | Nada. Entrada: ranking + etiquetas; resultado calculado a mano |
+| **S17** — Golden Dataset | `eval/golden/*.json` → runner | El loader validado en el borde + el runner | El archivo real: fixture inline |
+| **S18** — Artefactos de calibración | `data/generated/*.json` → `apps/engine` | El loader validado + la degradación a "sin calibración" → **default V6** | El archivo real: fixture inline |
+| **S19** — Snapshot de meta para evaluación | `dota2coach.sqlite` → runner | El armado del caso y el cálculo | El snapshot: `MetaSnapshot` fixture (S2 reutilizada) |
+
+### Reglas derivadas (no negociables)
+
+- **Ninguna prueba de Fase 9 abre `pro-drafts.sqlite`, `dota2coach.sqlite`, `eval/golden/` real ni
+  un JSON de `data/generated/`.** Mismo criterio literal que S9/S10 (dato curado/mutable nunca es el
+  sustrato de un test).
+- **S15 — prueba obligatoria de no-fuga**: el `DraftState` reconstruido en `turnIndex` **no
+  contiene** ningún héroe de `[turnIndex, 24)`. Sin esta prueba, un off-by-one filtra el futuro y el
+  backtest miente.
+- **S16 — NDCG@5 con relevancia graduada**: caso dedicado que detecta un denominador de
+  normalización equivocado (mismo tipo de hallazgo que TSK-036). Recall@k y MRR con su propio caso a
+  mano. Bad Pick Rate: un héroe **no etiquetado** es *desconocido*, nunca `bad`.
+- **S17 — caso malformado** (héroe desconocido, héroe en dos listas, `excellent` vacío, `state`
+  malformado) → el **caso** se descarta con motivo; el archivo entero nunca tira el runner.
+- **S18 — archivo corrupto/ausente** → `apps/engine` cae al mecanismo V6, **cero excepción**.
+- **Bootstrap a nivel torneo, no a nivel turno** (los turnos de un draft y los drafts de un torneo
+  no son independientes). 29 torneos, 13 acumulan el 80% → el intervalo es **ancho**, y eso es
+  correcto. El bootstrap a nivel draft se reporta como referencia, marcado **optimista**.
+- **Split congelado por `league_id`** en `eval/baselines/split.json` — ningún torneo en dos
+  particiones, **no se regenera** entre corridas.
+- **`ConstraintViolationRate = 0` es un gate, no una métrica**: si una recomendación propone un
+  héroe baneado / ya pickeado / inexistente, la corrida completa es **inválida** y no se reporta
+  ninguna otra métrica.
+- **Determinismo**: misma semilla + mismo split + mismo snapshot ⇒ artefactos **byte-idénticos**
+  entre dos corridas. Un runner no determinista es FAIL de revisión.

@@ -4443,3 +4443,589 @@ marca a favor. Es aditivo sobre 8A, mismo `SignalId`/`RAW_RANGE.counter`/`weight
   curado vacío) → los dos candados de §14.7 se mantienen byte-idénticos sin cambios.
 - Ticket: `TSK-188`, follow-up de 8A, `@redteam` obligatorio (toca el scoring activo). Entra en
   el mismo push que Fase 8.
+
+---
+
+# SPEC — Fase 9 (V6-medido → V6-contextual: evaluación offline, calibración empírica e inteligencia contextual)
+
+`/blueprint` corrido en **Opus** (2026-08-29), una sola vez. Gatillo documentado (`CLAUDE.md`
+§ Política de Modelos): esta fase cambia el **mecanismo de normalización de señales**, el
+**contrato `SignalContribution`** y estrena `SCORING_WEIGHTS_V7`. Entrada:
+`docs/agents/architecture.md` §Fase 9 (`/pre-flight`, Sonnet) +
+`docs/research/fase9-research-consolidation.md` (48 ideas de 3 informes externos, IDs `R1-1`…`R3-15`).
+
+## §15.0 — Alcance de este blueprint (leer primero)
+
+**Sólo la sub-fase 9.0 queda especificada al nivel de contrato ejecutable.** 9.1 queda a nivel de
+*mecanismo fijado con números diferidos*; 9.2–9.5 quedan a nivel conceptual.
+
+Esto no es una omisión: es la única postura honesta. El cutover de calibración de 9.1 depende de
+percentiles que **todavía no existen** — los produce 9.0. Fijar hoy un `P05`/`P95` sería inventar
+un número, exactamente lo que los blueprints de este proyecto existen para evitar. Mismo
+precedente explícito que Fase 4 (§11.10: sólo el sub-ticket 4.1 pasó por `/blueprint`; las piezas
+2-4 quedaron conceptuales hasta tener el suyo).
+
+**Cada sub-fase 9.1→9.5 abre su propio `/blueprint` angosto en su gate**, alimentado por las
+mediciones de la anterior. Ninguno vuelve a costar Opus salvo que cruce un gatillo propio.
+
+Regla dura de toda la fase: **`ENABLE_PRO_DRAFTER` y el comportamiento observable de producción no
+cambian en 9.0.** 9.0 no toca una línea de `apps/engine/src/signals/**`.
+
+## §15.1 — Correcciones al plan por medir el dato real (2026-08-29)
+
+Las siete correcciones que siguen salieron de consultar `pro-drafts.sqlite` y `dota2coach.sqlite`,
+no de razonar sobre el plan. **Cada una invalida o refina una suposición de `architecture.md` §Fase 9
+o de los informes.**
+
+### C1 — El corpus no es "2.179 utilizables", y la razón importa
+
+Medido: 2.179 drafts, **todos con `has_gcdata=1` y `has_parsed=1`**; **2.164 con los 24 turnos
+completos** (Captains Mode, `game_mode=2` en 2.166). `ingest_status` reparte así:
+
+| `ingest_status` / `ingest_reason` | drafts | ¿es un defecto de dato? |
+|---|---:|---|
+| `complete` | 1.338 | — |
+| `unclassifiable` / `tier_not_accepted` | **826** | **No.** Es política de curación Tier-1 de Fase 7: el torneo quedó `tier: unknown`. El draft está íntegro. |
+| `unclassifiable` / `invalid_draft_shape` | 15 | Sí. Se descartan. |
+
+**Decisión**: el backtest usa los **2.164 drafts con shape válido**, con `tier` como covariable de
+segmentación (premium 147 / professional 1.206 / unknown 826). Descartar los 826 sería tirar el
+38 % del corpus por una política de *ingesta* que no aplica a *evaluación*. Se reporta segmentado
+por tier; si el tier `unknown` se comporta distinto, eso es un hallazgo, no una razón para haberlo
+excluido a ciegas.
+
+### C2 — El backfill de slots Dire no bloquea el backtest, y no es que "se tolere": es irrelevante para la métrica primaria
+
+Medido: `pro_draft_slots` = 10.855 filas, **exclusivamente `team = 0` (Radiant)**, 2.171 partidas,
+**cero drafts con los 10 slots**. La métrica primaria —¿está el héroe que el profesional pickeó en
+mi Top-K?— se reconstruye **sólo** desde `pro_draft_turns` (`draft_order` 0-23, `is_pick`,
+`hero_id`, `team`), completo para 2.164 drafts. Y `position_fit` —la señal dominante— lee
+`hero-positions.json` (curado, global), **no** los slots del draft.
+
+`architecture.md` §Fase 9 decía "tolera el corpus actual reportando por completitud de slot". **Se
+corrige**: los slots no participan de ninguna métrica de 9.0. Sólo habilitarían un análisis
+*secundario* condicionado a rol, fuera de alcance. **TSK-174/TSK-179 dejan de ser dependencia de
+Fase 9 en cualquier forma.**
+
+### C3 — El corpus es MONO-PARCHE: el eje `patch` del fallback jerárquico nace inerte
+
+Medido: `patch = 60` para los **2.179** drafts (id numérico de OpenDota), ventana **2026-05-27 →
+2026-08-25**. `hero_patch_stats` del motor tiene dos valores: `""` (agregado histórico, 34.8 M
+picks) y `"7.41e"` (39.6 M picks), 1.016 filas cada uno = 127 héroes × 8 brackets.
+
+Consecuencia sobre **R2-5** (fallback jerárquico `global → patch → patch+bracket →
+patch+bracket+rol`): **el eje `patch` no tiene con qué estratificar hoy.** Se especifica el
+mecanismo completo, pero en 9.1 sólo los ejes `global` y `bracket` producen estratos reales (8
+brackets medidos). El eje `patch` queda **definido y vacío** hasta que exista un segundo parche en
+el corpus. Un fallback que "funciona" recorriendo un eje de un solo valor es una ilusión de rigor —
+se declara, no se disimula.
+
+### C4 — Look-ahead bias: limitación estructural, no arreglable. Se declara y cambia el framing
+
+El `MetaSnapshot` disponible se sincronizó el **2026-08-28** e incluye partidas jugadas **después**
+de los drafts del corpus (2026-05-27 → 2026-08-25). **No existe un snapshot histórico
+point-in-time**: hay uno solo, el actual (`meta_sync` confirma que las sincronizaciones exitosas
+son del 2026-08-26 y 2026-08-28).
+
+Por lo tanto el backtest **no es una simulación predictiva y no puede reportarse como tal**. Es un
+**instrumento de comparación relativa**: V6 y V6+cambio consumen el mismo snapshot, así que el
+*delta* entre ellos es justo y es la única lectura válida. **El valor absoluto de Professional Pick
+Agreement no significa nada por sí solo** — sólo tiene sentido contra los baselines calculados en
+la misma corrida.
+
+Esto **refuerza y endurece** la decisión del usuario de no llamarlo "accuracy" (R1-9): no es sólo
+una cuestión de nombre, es que el número absoluto es no interpretable por construcción.
+
+### C5 — R1-1 ("pendiente efectiva") es correcto pero es la mitad del diagnóstico
+
+La aritmética de R1-1 se verifica: pendiente efectiva `= 100·w/(b−a)` con V6 y los `RAW_RANGE`
+actuales da **counter 90.0**, position_fit 34.2, patch_meta 29.25, team_synergy 11.7,
+hero_pool_fit 10.8, archetype_fit 10.0.
+
+**Pero la pendiente sola no dice quién decide el ranking.** El `raw` de `counter` es un delta de
+winrate que vive en ±0.1; el de `position_fit` ya vive en `[0,1]`. Una pendiente alta sobre un
+`raw` que casi no varía entre candidatos no mueve nada. Lo que gobierna el orden es la **influencia
+realizada**:
+
+```
+influencia_i  =  (100 · w_i / (b_i − a_i))  ×  SD_candidatos( raw_i )
+```
+
+es decir, pendiente efectiva × dispersión observada del `raw` **entre los candidatos del mismo
+estado de draft** (no sobre el corpus entero: lo que decide un ranking es la varianza *dentro* de
+la decisión).
+
+**9.0 debe emitir la influencia realizada de las 6 señales, no la pendiente sola.** Sin esta
+corrección, 9.1 podría "arreglar" una asimetría que no existe, o ignorar una que sí.
+
+### C6 — El umbral de 200 partidas estaba por encima del percentil 90 de los datos
+
+Medido sobre `hero_matchups` (15.984 pares): **p10 = 12, p25 = 26, p50 = 54, p75 = 103, p90 = 175,
+máx = 712**. `RELATIONSHIP_MIN_GAMES = 200` recortaba por encima del p90 (1.171 pares = 7.3 %).
+`COUNTER_MIN_GAMES = 10` (Fase 8) captura 14.860 = **93 %**.
+
+Consecuencia para **9.2 (Empirical Bayes)**: el modelo tiene sentido justamente porque la mediana
+es 54 partidas — ni despreciable ni suficiente. **Y un límite duro que hay que declarar por
+adelantado: el máximo del corpus es 712 partidas.** Ningún par tiene volumen alto. Por lo tanto el
+término de interacción `δ_AB` va a quedar fuertemente encogido hacia `μ + α_A + β_B` para casi
+todos los pares, y el ordenamiento resultante estará **dominado por los efectos principales**.
+Eso es el comportamiento estadísticamente correcto, no un fallo del modelo — se anticipa acá para
+que en 9.2 nadie lo lea como "el EB no aporta".
+
+### C7 — El eje `bracket` sí es estratificable
+
+8 brackets reales y balanceados (`herald`…`immortal`, 254 filas cada uno). El fallback jerárquico
+de R2-5 tiene sustrato real en este eje, aunque no en `patch` (C3).
+
+## §15.2 — Decisiones cerradas (de `/pre-flight`, no se reabren en 9.0)
+
+| # | Decisión |
+|---|---|
+| D1 | **Programa 9.0→9.5.** 9.0 se mergea y valida **antes** de que ninguna fórmula de scoring cambie. |
+| D2 | **Dirección comprometida a percentiles empíricos** (R1-2/R2-5). El cutover ocurre en el **gate de 9.1**, con los números de 9.0. ADR obligatorio. |
+| D3 | **Harness R3 = paquete completo** (R3-3·5·6·10·11·13·14). |
+| D4 | **`EvidenceCoverage`/`GuessingIndex` internos** en 9.x; UI = follow-up post-QA. |
+| D5 | **Dos benchmarks separados.** Engine Quality (principal, Golden Dataset graduado, titular **NDCG@5** + Bad Pick Rate@5 + Pairwise Accuracy) y Professional Pick Agreement (secundario, Recall@1/3/5/10 + MRR). Nunca "accuracy". |
+| D6 | **Ambos benchmarks segmentados por contexto de decisión** (`team_opening`/`blind_second_pick`/`response_pick`/`closing_pick` — la unión ya existe en `drafter/decision-context.ts`). |
+| D7 | **Constraint Violation Rate = 0** es un gate duro, no una métrica ponderada. |
+| D8 | **Golden Dataset ~30 estados estratificados y multi-label**, con herramienta de selección asistida. |
+| D9 | **`SCORING_WEIGHTS_V7` sólo en 9.5.** V1–V6 congeladas por nombre, sin editar un valor. |
+| D10 | **Fuera de alcance de toda la fase**: RL, DL, minimax, predicción del siguiente pick, counterfactual winrate, MCMC/Stan en prod, LangGraph/CrewAI/AutoGen, Memory MCP, Firecrawl. |
+
+## §15.3 — Costuras (S15–S19)
+
+`S12` sigue reservada (RNG de diversificación, Fase 4). `S13` en uso (token de cuenta, Fase 5).
+`S14` sigue libre. Fase 9 estrena cinco:
+
+| Costura | Frontera | Real en la prueba | Se reemplaza |
+|---|---|---|---|
+| **S15** — Replay de draft profesional | `pro-drafts.sqlite` → caso de evaluación | El reconstructor de `DraftState` a partir de una secuencia de turnos — función **pura** | La SQLite: `DraftTurn[]` como fixture literal. **Ninguna prueba abre `pro-drafts.sqlite`.** |
+| **S16** — Métricas de evaluación | ranking producido → número | Las funciones de métrica (NDCG@5, Recall@k, MRR, Bad Pick Rate, Pairwise Accuracy, Jaccard@K, Kendall-τ) — puras | Nada. Entrada: ranking + etiquetas. Casos con resultado calculado a mano. |
+| **S17** — Golden Dataset | `eval/golden/*.json` → runner | El loader validado en el borde + el runner | El archivo real: fixture inline. **Ninguna prueba lee el Golden Dataset real** (se cura y crece; un test atado a su contenido se rompe al ampliarlo). Familia S9/S10. |
+| **S18** — Artefactos de calibración | `data/generated/*.json` → `apps/engine` | El loader validado + la degradación a "sin calibración" → **default V6** | El archivo real: fixture inline. Archivo corrupto/ausente **nunca** tira el motor. Familia S9/S10. |
+| **S19** — Snapshot de meta para evaluación | `dota2coach.sqlite` → runner de backtest | El armado del caso y el cálculo | El snapshot: `MetaSnapshot` fixture (S2 ya existente, reutilizada). **Cero red, cero SQLite en las pruebas.** |
+
+**Regla derivada, no negociable**: ninguna prueba de Fase 9 abre `pro-drafts.sqlite`,
+`dota2coach.sqlite`, el Golden Dataset real ni ningún JSON de `data/generated/`. Mismo criterio
+literal que ya rige S9/S10 desde Fase 2.
+
+## §15.4 — Sub-fase 9.0: fundación de evaluación + harness (ESPECIFICADA)
+
+### §15.4.1 — Estructura de carpetas
+
+```
+eval/
+  golden/          casos etiquetados a mano (multi-label + reasoning tags)
+  scenarios/       estados sintéticos generados (entrada del selector asistido)
+  baselines/       v6-measured.json  <- el número congelado
+  reports/         salida legible de cada corrida (no versionada salvo baselines)
+data/
+  curated/         JSON revisado por humano  (hero-positions, capabilities, hero-counters)
+  generated/       salida de scripts          (percentiles, matchup-eb)
+  schemas/         esquema de cada dataset
+  metadata/        procedencia por dataset
+docs/adr/          una decisión arquitectónica por archivo, inmutable
+scripts/eval/      runners de benchmark (offline, nunca importado por apps/)
+scripts/stats/     calibración y modelos (offline, nunca importado por apps/)
+```
+
+**Los tres JSON curados de `apps/engine/src/signals/` y `draft-paths/` NO se mueven en 9.0.**
+Mover `hero-positions.json`/`capabilities.json`/`hero-counters.json` a `data/curated/` tocaría los
+loaders y sus tests, con cero beneficio funcional, en la misma fase que introduce la frontera.
+`data/curated/` nace declarada y con su hook activo; la migración de los tres archivos existentes
+es un ticket propio, posterior al gate de 9.0. **Regla de la frontera desde el día 1**: todo
+dataset **nuevo** generado va a `data/generated/`; ningún script escribe en `data/curated/`.
+
+**Procedencia obligatoria** — cada archivo de `data/generated/` lleva su gemelo en
+`data/metadata/<nombre>.json`:
+
+```
+{ "source": string,        // p.ej. "dota2coach.sqlite:hero_matchups"
+  "generatedAt": string,   // ISO
+  "generatorVersion": string,
+  "sampleWindow": { "from": string, "to": string } | null,
+  "patch": string | null,  // C3: hoy null o "60" -- un solo parche
+  "rowCount": number,
+  "schemaVersion": number }
+```
+
+### §15.4.2 — Contrato del replay (S15)
+
+Función **pura**, sin I/O:
+
+```ts
+interface ProDraftTurn { order: number; isPick: boolean; hero: HeroId; team: 0 | 1 }
+
+interface ReplayCase {
+  matchId: string;
+  leagueId: number;
+  tier: "premium" | "professional" | "unknown";
+  turnIndex: number;                    // el turno que se está prediciendo
+  state: DraftState;                    // estado ANTES de ese turn
+  side: "radiant" | "dire";             // equipo que decide (== state.localSide)
+  actualHero: HeroId;                   // lo que el equipo profesional eligió
+  action: "pick" | "ban";
+  decisionContext: DraftDecisionContext; // derivado con deriveDecisionContext()
+}
+
+function buildReplayCases(turns: ProDraftTurn[], meta: ReplayMeta): ReplayCase[]
+```
+
+Reglas del reconstructor:
+
+- `state.localSide` se fija al equipo **que actúa en ese turno** — así `observedDraftFacts()`
+  devuelve `ownPicks`/`revealedEnemyPicks` correctos sin tocar el motor.
+- `state.banned` / `state.picks` = **exactamente** el prefijo `[0, turnIndex)`. Ningún turno futuro
+  puede filtrarse: es la única forma de fuga posible en este diseño y se prueba explícitamente.
+- `state.format = "captains_mode"`, `phase = "active"`, `quality.unconfirmed = []`,
+  `lastSeq = turnIndex`.
+- **9.0 evalúa sólo los turnos `isPick`** (`is_pick = 1`). Los bans se reconstruyen como estado
+  (alimentan `state.banned`) pero no se predicen — el motor no tiene un recomendador de ban con el
+  flag apagado. Bans como *objetivo* de predicción quedan fuera de alcance.
+- Un draft con shape inválido (≠24 turnos, héroe repetido, `team` fuera de `{0,1}`) se **descarta
+  con motivo registrado**, nunca se repara ni se completa.
+
+### §15.4.3 — Los dos benchmarks (D5, D6)
+
+**Benchmark A — Engine Quality (PRINCIPAL).** Sobre `eval/golden/`.
+
+- Titular: **NDCG@5** con ganancia graduada `excellent = 2`, `acceptable = 1`, `bad = 0`.
+- Obligatorias junto al titular: **Bad Pick Rate@5** (fracción de las 5 recomendaciones marcadas
+  `bad`) y **Pairwise Accuracy** (de todos los pares (mejor, peor) etiquetados, en cuántos el motor
+  ordena bien).
+- NDCG@5 **sí** aplica acá y **no** en el Benchmark B: la objeción de R1-8 valía para un único
+  ítem relevante; el Golden Dataset tiene relevancia graduada por diseño.
+- Un héroe **no etiquetado** en un caso no es `bad`: se trata como **desconocido** y se excluye del
+  cálculo de Bad Pick Rate. Confundir "no lo etiqueté" con "es malo" fabricaría un número peor que
+  la realidad.
+
+**Benchmark B — Professional Pick Agreement (SECUNDARIO).** Sobre los 2.164 replays.
+
+- Recall@1, @3, @5, @10 y MRR. Se comunica como **"Professional Pick Agreement @3"** — **nunca**
+  "accuracy", "precisión" ni "qué tan bueno es el motor" (D5, C4).
+- **Bootstrap a nivel torneo, no a nivel turno.** Los turnos de un mismo draft y los drafts de un
+  mismo torneo no son independientes. Medido: **29 torneos, y 13 acumulan el 80 %** de los drafts.
+  Con 29 clusters y esa concentración, el intervalo va a ser **ancho**, y eso es la respuesta
+  correcta, no un defecto a maquillar. Se reporta también el bootstrap a nivel draft como
+  referencia, dejando claro que **es optimista** por la dependencia intra-torneo.
+- **Split congelado por torneo** (`GroupKFold` por `league_id`): ningún torneo aparece en dos
+  particiones. El split se serializa en `eval/baselines/split.json` y **no se regenera** — un split
+  que cambia entre corridas destruye la comparabilidad que toda la fase existe para construir.
+
+**Baselines obligatorios en ambos** (R1-7): aleatorio (con semilla), sólo-`position_fit`,
+sólo-`patch_meta`, V6-sin-`counter`, **V6 completo**. Sin los baselines, un Recall@3 no dice si el
+motor aporta algo por encima de "recomendá lo popular".
+
+**Segmentación obligatoria** (D6): todo resultado se reporta desglosado por `decisionContext` (4
+valores) **y** por `tier` (3 valores, C1). Un promedio global esconde exactamente los fallos que
+esta fase existe para encontrar.
+
+**Gate duro (D7)**: `ConstraintViolationRate` = fracción de recomendaciones que proponen un héroe
+baneado, ya pickeado por cualquiera de los dos equipos, o inexistente. **Debe ser exactamente 0.**
+Si no lo es, la corrida completa es inválida — no se reporta ninguna otra métrica.
+
+### §15.4.4 — Golden Dataset: esquema y selección asistida (D8, S17)
+
+```
+{ "schemaVersion": 1,
+  "cases": [{
+    "id": string,
+    "source": { "kind": "replay", "matchId": string, "turnIndex": number }
+            | { "kind": "synthetic", "note": string },
+    "state": DraftState,
+    "side": "radiant" | "dire",
+    "decisionContext": DraftDecisionContext,
+    "strata": string[],        // "hard_counter" | "flexibility" | "role_scarcity"
+                               // | "team_needs" | "composition" | "punishability"
+                               // | "historical_failure"
+    "labels": {
+      "excellent":  [{ "hero": HeroId, "why": string }],
+      "acceptable": [{ "hero": HeroId, "why": string }],
+      "bad":        [{ "hero": HeroId, "why": string }]
+    },
+    "reasoningTags": string[],
+    "labeledAt": string, "labeledBy": string
+  }] }
+```
+
+Validado en el borde al cargar: héroe desconocido, héroe en dos listas a la vez, `state`
+malformado, `excellent` vacío → el **caso** se descarta con motivo; el archivo entero nunca tira el
+runner.
+
+**Herramienta de selección asistida** (`scripts/eval/propose-golden-cases.ts`). No etiqueta: sólo
+**propone** los estados más informativos, ordenados. Criterios, todos deterministas:
+
+1. **Cobertura de estratos**: cuota por `decisionContext` (4) × estrato temático (7) — se propone
+   para llenar celdas vacías primero.
+2. **Desacuerdo entre baselines**: estados donde `position_fit`-solo, `patch_meta`-solo y V6
+   producen Top-5 con bajo Jaccard. Ahí el etiquetado humano rinde más; donde todos coinciden, la
+   etiqueta no discrimina nada.
+3. **Fallos históricos**: estados donde V6 rankea el pick profesional real fuera del Top-10.
+4. **Escenarios sintéticos** para estratos que el corpus no cubre (`eval/scenarios/`), construidos
+   desde `hero-counters.json` y `hero-positions.json` — p. ej. un estado con un hard counter curado
+   ya revelado.
+
+Salida: un archivo con los ~30 candidatos, su estrato, por qué fue elegido y el Top-6 actual de V6
+como punto de partida. **El usuario cura sobre eso** — no inventa estados de cero, y no acepta la
+propuesta sin revisar.
+
+### §15.4.5 — El diagnóstico de influencia realizada (C5, R1-1 corregido)
+
+`scripts/stats/profile-signals.ts` emite, sobre una muestra de estados reales del corpus:
+
+- por señal: `p05`, `p25`, `p50`, `p75`, `p95`, `SD` del `raw` **entre candidatos del mismo
+  estado**, y tasa de `raw: null` y de `applicable: false`;
+- por señal: pendiente efectiva `100·w/(b−a)` **y** la **influencia realizada** (pendiente × SD
+  intra-estado);
+- la **ablación** `Score(h,S) − Score₋ᵢ(h,S)` promedio por señal y por `decisionContext` (R1-10);
+- la distribución del **número de señales con voto** por candidato — que es el insumo directo del
+  problema de comparabilidad (R1-4/R2-4).
+
+Este archivo es **la entrada del gate de 9.1**. Sin él, 9.1 no arranca.
+
+### §15.4.6 — Política determinista PASS/FAIL (R3-11)
+
+`scripts/eval/gate.ts`. **Un script decide, no un agente.** Compara la corrida actual contra
+`eval/baselines/v6-measured.json`:
+
+| Condición | Veredicto |
+|---|---|
+| `ConstraintViolationRate > 0` | **FAIL** (corrida inválida) |
+| NDCG@5 < baseline − tolerancia | **FAIL** |
+| Bad Pick Rate@5 > baseline + tolerancia | **FAIL** |
+| Cualquier `decisionContext` cae más que la tolerancia, aunque el global suba | **FAIL** |
+| Todo dentro de tolerancia o mejor | **PASS** |
+
+La **tolerancia se deriva del baseline de null-perturbation** (R1-11): se perturban las entradas
+dentro del ruido esperado y se mide cuánto se mueve la métrica "sin motivo". Ese movimiento es el
+piso; una tolerancia por debajo produciría falsos FAIL. **En 9.0 el gate se construye y se corre en
+modo informativo**; se vuelve bloqueante en el gate de 9.1, cuando el baseline ya está congelado.
+
+### §15.4.7 — Harness (D3)
+
+- **`write_scope`**: el frontmatter de `TSK-XXX.md` gana `write_scope: [globs]` (opcional; ausente
+  = sin restricción, retrocompatible con los 192 tickets existentes). Hook `PreToolUse` sobre
+  `Edit|Write` rechaza escrituras fuera de los globs del ticket en `doing`. **Sin `write_scope`, el
+  hook no bloquea nada** — se adopta por ticket nuevo, no migrando el histórico.
+- **Hook de frontera de datos**: rechaza cualquier `Edit|Write` sobre `data/curated/**` cuyo origen
+  sea un script de `scripts/stats/**` o `scripts/eval/**`. Determinista, sin heurística.
+- **Dos agentes nuevos** (`.claude/agents/`), `model: claude-sonnet-5`, privilegio mínimo:
+  - `data-stat-engineer` — `tools: Read, Glob, Grep, Bash, Write, Edit`. Percentiles, Empirical
+    Bayes, procedencia. **Nunca** `apps/engine/src/signals/**` ni `apps/web/**`.
+  - `evaluation-engineer` — mismas tools. Backtest, Golden Dataset, gates. Mismo veto de escritura.
+  Ninguno recibe `mcp__context7` (R3-14: tener la capacidad no implica concederla).
+- **`docs/adr/`** — formato: `ADR-NNN-<slug>.md` con Contexto / Decisión / Alternativas
+  consideradas / Consecuencias / Estado. Inmutable: se supersede con un ADR nuevo, no se edita.
+  ADRs iniciales de 9.0: **ADR-001** jerarquía de autoridad L0–L6 (R3-4); **ADR-002** el pick
+  profesional no es ground truth + look-ahead bias (C4); **ADR-003** frontera curated/generated;
+  **ADR-004** compromiso a percentiles empíricos con cutover diferido (D2).
+- **Split de `CLAUDE.md`**: los bloques `## REGLAS DE FASE X` (1b, 3, 4, 4.2, 4.3, 5, 6, 8) se
+  mueven **verbatim** a `.claude/rules/fase-N.md`; `CLAUDE.md` conserva un índice de una línea por
+  fase. **Cero cambio de contenido — sólo ubicación**, verificable con un diff de texto
+  concatenado. Reversible.
+
+### §15.4.8 — Aislamiento por worktree y encuadre del harness (R3-1, R3-2, R3-3, R3-15)
+
+Completa §15.4.7. Son las cuatro piezas del informe #3 que no son un archivo ni un hook, sino la
+forma de trabajar que el resto sostiene.
+
+**Aislamiento por worktree (R3-3).** `write_scope` (§15.4.7) declara *qué* puede tocar un ticket;
+el worktree garantiza que dos tickets en paralelo **no compartan árbol de trabajo**. Sin él,
+`write_scope` sólo protege contra el error propio, no contra la colisión entre dos ejecuciones
+simultáneas. Regla operativa de 9.0 en adelante:
+
+- Dos tickets son **paralelizables** si y sólo si `writeScope(A) ∩ writeScope(B) = ∅` **y** no hay
+  dependencia semántica declarada (`blocked_by`) — la condición exacta de R3-10.
+- Un ticket que se ejecuta en paralelo con otro corre con `isolation: worktree`. Uno que corre solo
+  no lo necesita: el worktree es la respuesta a la concurrencia, no una ceremonia por defecto.
+- El bloque **B** de §15.11 (replay + métricas, funciones puras con `write_scope` disjuntos) es el
+  primer caso real de esta regla en el proyecto.
+- **WIP=1 por `assigned_tool` sigue vigente** y no se relaja: el worktree habilita paralelismo
+  entre herramientas distintas (Claude Code / Codex), no dos tareas simultáneas de la misma.
+
+**Las cuatro palancas (R3-1)** son el criterio con el que se juzga cualquier pieza futura del
+harness — si una propuesta no mueve ninguna, no entra:
+
+| Palanca | Cómo la mueve Fase 9 |
+|---|---|
+| **Contexto** | `CLAUDE.md` < 200 líneas + `.claude/rules/` path-scoped + `docs/adr/` (§15.4.7) |
+| **Autoridad** | Jerarquía L0–L6 en ADR-001; el SPEC gana sobre el código; `journal.md` append-only |
+| **Aislamiento** | `write_scope` + su hook + worktree (arriba); privilegio mínimo por agente |
+| **Verificación** | `gate.ts` determinista (§15.4.6) + `verify-simplicity.sh` + los dos benchmarks |
+
+**"El repositorio es la memoria del proyecto" (R3-2).** Es la razón por la que los ADRs son
+archivos versionados e inmutables y no entradas de prosa en `journal.md`, y por la que
+`docs/research/fase9-research-consolidation.md` vive en el repo con IDs estables en vez de en el
+contexto de una sesión. Consecuencia operativa: **ninguna decisión de Fase 9 se considera tomada
+hasta que existe el archivo que la registra.**
+
+**Rollout V1→V4 (R3-15).** Fase 9 monta **V1–V2** del harness: estructura, hooks deterministas,
+ADRs, `write_scope`, agentes, gate informativo. **V3** (gate bloqueante en CI) llega con el gate de
+9.1, cuando `v6-measured.json` esté congelado. **V4** (Claude Agent SDK en `tools/ai-harness/`,
+R3-8) queda diferido fuera de Fase 9 — el propio informe #3 lo pone como posterior. No se adelanta
+ninguna etapa: un gate bloqueante contra un baseline que todavía se mueve produce FAIL falsos y
+destruye la confianza en el gate, que es justamente el activo que la fase construye.
+
+### §15.4.9 — Trazabilidad del informe #3: dónde aterrizó cada idea del harness
+
+Aplicación de la regla §8 del consolidado. **Las 15 ideas de R3 tienen destino explícito; ninguna
+se descartó en silencio.**
+
+| ID | Idea | Disposición | Dónde |
+|---|---|---|---|
+| R3-1 | Cuatro palancas (contexto/autoridad/aislamiento/verificación) | CORE | §15.4.8 |
+| R3-2 | "El repositorio es la memoria del proyecto" | CORE | §15.4.8 |
+| R3-3 | Claude Code nativo: `CLAUDE.md` < 200, rules path-scoped, Skills, subagentes, hooks, worktree, MCPs | CORE | §15.4.7 + §15.4.8 |
+| R3-4 | Jerarquía de autoridad L0–L6 | CORE | ADR-001 (§15.4.7) |
+| R3-5 | ADRs en `docs/adr/` | CORE | §15.4.7 (ADR-001…004) |
+| R3-6 | 6 subagentes especializados | CORE parcial | §15.4.7 — se crean los **2 que faltaban** (`data-stat-engineer`, `evaluation-engineer`); los otros 4 ya existen como Warden/Artisan/Chronicle/Tracer/Sentinel |
+| R3-7 | Memory MCP | **DESCARTADO** | §15.2 D10 — el repo es la memoria (R3-2) |
+| R3-8 | Claude Agent SDK en `tools/ai-harness/` | **DIFERIDO** | §15.10 + §15.4.8 (V4) |
+| R3-9 | LangGraph / CrewAI / AutoGen | **DESCARTADO** | §15.2 D10 |
+| R3-10 | `write_scope` por tarea + condición de paralelismo | CORE | §15.4.7 + §15.4.8 |
+| R3-11 | Harness de evaluación como capa defensiva; política determinista decide PASS/FAIL | CORE | §15.4.6 (`gate.ts`) |
+| R3-12 | MCPs con privilegio mínimo por agente | CORE parcial | Context7 ya instalado (`.claude/rules/context7.md`); **Firecrawl DESCARTADO de Fase 9** (§15.2 D10); GitHub/Playwright no priorizados |
+| R3-13 | Estructura `docs/`+`work/`+`eval/`+`data/` | CORE parcial | §15.4.1 — se adopta `eval/`, `data/{curated,generated,schemas,metadata}/`, `docs/adr/`. **`work/{active,done}/` NO**: el Kanban de `docs/agents/tasks/` + `hub.html` ya funciona; migrarlo sería churn sin beneficio |
+| R3-14 | "Capability does not imply availability" | CORE | §15.4.7 — los 2 agentes nuevos no reciben `mcp__context7` |
+| R3-15 | Rollout del harness V1→V4 | CORE | §15.4.8 — Fase 9 monta V1–V2 |
+
+## §15.5 — Sub-fase 9.1: comparabilidad + calibración (MECANISMO FIJADO, NÚMEROS DIFERIDOS)
+
+Se especifica el mecanismo; los valores salen del gate de 9.0 y se cierran en el `/blueprint`
+angosto de 9.1.
+
+**Contrato `SignalContribution` v2** (R2-4) — aditivo, ningún campo actual se borra:
+
+```ts
+interface SignalContribution {
+  signal: SignalId;
+  raw: number | null;
+  normalized: number | null;        // NUEVO: raw tras calibración, [0,100] o null
+  evidenceConfidence: number;       // NUEVO: [0,1], cuánta evidencia respalda este raw
+  weighted: number;
+  explanation: string;
+  sampleSize: number;
+  applicable?: boolean;
+}
+```
+
+- **Fin de la redistribución candidate-specific** (R1-4/R2-4): el peso de una señal deja de
+  depender de cuántas *otras* señales votaron para *ese* candidato. El mecanismo de reemplazo
+  (peso fijo + término de cobertura de evidencia) se fija en el `/blueprint` de 9.1 con los datos
+  de §15.4.5 — hay más de una forma correcta y elegir sin medir sería adivinar.
+- **`raw: null` sigue siendo sagrado**: nunca se convierte en 0, 0.5 ni 50. Lo que cambia es cómo
+  se propaga su ausencia, no que se rellene.
+- `EvidenceCoverage = Σ wᵢ·qᵢ / Σ wᵢ` y `GuessingIndex = 1 − EvidenceCoverage` (R1-5), internos
+  (D4).
+- **Calibración** `N(x) = clamp((x − P05)/(P95 − P05), 0, 1)` con fallback jerárquico
+  `global → bracket` (**no** `patch`, C3), percentiles **congelados sobre el split de train**.
+- **Candado de regresión obligatorio**: con la calibración desactivada y las opciones legacy,
+  `mixScore` reproduce el número de V6 **exacto**. Mismo criterio que V1→V2 (1b) y V5→V6 (4.2).
+- Espejo de `apps/web` en el mismo cambio (`features/draft/types.ts`, `validation.ts`) o `tsc`
+  rompe.
+
+## §15.6 — Sub-fases 9.2–9.5 (CONCEPTUALES — cada una abre su `/blueprint` angosto)
+
+- **9.2 — Empirical Bayes de matchups (R1-3, R1-6).** `winrate(A vs B) ≈ μ + α_A + β_B + δ_AB`
+  por *method-of-moments*/shrinkage cerrado en TypeScript, **offline**, emitiendo
+  `data/generated/matchup-eb.json`; el motor sólo hace lookup (S18). **C6 anticipa el resultado**:
+  con máx. 712 partidas por par, `δ_AB` queda fuertemente encogido y el orden lo dominan los
+  efectos principales — comportamiento correcto, no fallo. Incluye el *provenance check* del
+  endpoint de OpenDota (R1-6) documentado en `data/metadata/`.
+- **9.3 — Inteligencia contextual, V2 (R2-1·2·3·9·10·11·12).** `DraftState` enriquecido con
+  derivados **puros en capa aparte** (`applyDraftEvent` sigue puro, sin excepción); gating
+  `W_s(D) = BaseWeight_s · ContextGate_s(D)` sobre features interpretables — **nunca el número de
+  turno**; `counter` partido en tres (`observed_counter`, `threat_coverage`,
+  `counter_vulnerability`) con re-tipado histórico de V4/V5/V6 **antes** de ampliar `SignalId`
+  (mecanismo TSK-045/TSK-180, sin él no compila); KB de counters enriquecida (`type`, `mechanism`,
+  `patchValidated`) de forma aditiva sobre `hero-counters.json`; "hard counter" = mecanismo +
+  confianza curada + posterior compatible, **nunca** `delta ≥ X %` (R2-12).
+- **9.4 — Top-K estratégico (R2-7·14).** Flexibility explícita mínima; diversificación con
+  criterio; Bad Pick Rate y Constraint Violation Rate como gates.
+- **9.5 — Pesos, al final (R1-13·14).** `SCORING_WEIGHTS_V7` ajustado con regularización hacia V6,
+  validación con el split congelado de §15.4.3. **Entra sólo si supera a V6-medido.**
+
+## §15.7 — Seguridad (hereda el Bloque 4; extiende §5, §9.7, §10.8, §11.8, §12.12, §14.9)
+
+- **Ninguna frontera de confianza nueva en runtime.** Todo lo de 9.0 vive fuera de `apps/engine`.
+- `pro-drafts.sqlite` y `dota2coach.sqlite` se abren **`readonly: true`** desde los scripts. Guard
+  que aborta si detecta una ingesta escribiendo el mismo archivo.
+- **Los JSON de `data/generated/` son input externo** en el sentido del proyecto: loader validado
+  en el borde (S18); archivo corrupto, ausente o con forma inesperada → **degrada al mecanismo V6
+  actual**, nunca lanza, nunca inyecta magnitudes arbitrarias en el scoring. Mismo criterio literal
+  que `loadHeroPositions()`/`loadHeroCounters()`.
+- **Cero PII.** El corpus y el Golden Dataset son datos públicos de partidas profesionales. Ningún
+  `hero_pool` de ninguna cuenta entra en este camino: **ningún Steam32 puede aparecer en un
+  reporte, log o ticket de Fase 9, por construcción**.
+- **Sin secreto nuevo de runtime, sin variable de entorno nueva, sin dependencia nueva** (ni
+  `dependencies` ni `devDependencies`). `CONTEXT7_API_KEY` es dev-only y ya existía.
+- **`apps/engine` sigue atado a `127.0.0.1`.** Cero red en el camino caliente:
+  `verify-simplicity.sh` ya bloquea `fetch(` bajo `apps/engine/src/`. Los scripts de `scripts/eval`
+  y `scripts/stats` **nunca se importan desde `apps/`** — verificable mecánicamente.
+
+## §15.8 — Rendimiento
+
+- **9.0 no toca el camino caliente**: presupuesto de 300 ms / corte duro de 500 ms intactos.
+- Los runners offline no tienen presupuesto de latencia, pero sí de **reproducibilidad**: misma
+  semilla + mismo split + mismo snapshot ⇒ mismo número, bit a bit. Un runner no determinista es
+  un FAIL de revisión.
+- Desde 9.1, todo artefacto de calibración se carga **una vez al iniciar el módulo** (patrón
+  `MODULE_HERO_*`), nunca por llamada.
+
+## §15.9 — Criterios de aceptación (9.0)
+
+1. `bunx tsc --noEmit` limpio en ambos paquetes; `bun test` verde; `verify-simplicity.sh` verde.
+2. **`apps/engine/src/**` y `apps/web/src/**` sin un solo cambio de comportamiento.** El diff de
+   9.0 no toca `signals/`, `weights.ts` ni `mix.ts`. Verificable con `git diff --name-only`.
+3. `bun run eval` reproduce ambos benchmarks con seed fijo y emite
+   `eval/baselines/v6-measured.json` + reporte segmentado por `decisionContext` **y** `tier`.
+4. Dos corridas consecutivas producen artefactos **idénticos byte a byte**.
+5. `ConstraintViolationRate = 0` en la corrida de baseline. Si no, la fase no cierra.
+6. Los 5 baselines (aleatorio, position_fit-solo, patch_meta-solo, V6-sin-counter, V6) aparecen en
+   el reporte con su intervalo bootstrap a nivel torneo.
+7. `eval/golden/` tiene **≥30 casos** validados por el loader, con ≥1 caso por combinación de
+   `decisionContext` × estrato prioritario, y todos con `excellent` no vacío.
+8. `scripts/eval/propose-golden-cases.ts` corre y produce una propuesta ordenada y determinista.
+9. `scripts/stats/profile-signals.ts` emite la **influencia realizada** (C5) de las 6 señales, la
+   tasa de `raw: null` por señal y la ablación por contexto.
+10. El hook de frontera de datos **rechaza** un intento de escritura de un script de `scripts/stats`
+    sobre `data/curated/` — probado, no declarado.
+11. Los 4 ADRs iniciales existen. `CLAUDE.md` queda **< 200 líneas** y el texto concatenado de
+    `CLAUDE.md` + `.claude/rules/fase-*.md` contiene **verbatim** los bloques movidos.
+12. **Ninguna prueba abre `pro-drafts.sqlite`, `dota2coach.sqlite`, el Golden Dataset real ni un
+    JSON de `data/generated/`** (S15–S19).
+
+## §15.10 — Lo que Fase 9 deja abierto a propósito
+
+- **Bans como objetivo de predicción** (§15.4.2): el corpus los tiene, el motor no los recomienda.
+- **Análisis condicionado a rol** — necesita los slots de Dire (C2); TSK-179 lo habilita, sin
+  bloquear nada.
+- **Snapshot de meta point-in-time** — imposible hoy (C4); si algún día se archivan snapshots por
+  fecha, el Benchmark B pasa de comparativo a predictivo.
+- **Estratificación por parche** (C3) — el eje existe y espera un segundo parche en el corpus.
+- **`PlayerHeroReliability`** (R2-6), **Branch Survival** y **V3 secuencial** (R2-1/R2-8), **SDK en
+  `tools/ai-harness/`** (R3-8), **harness V3–V4/CI** (R3-15): diferidos, con su ID, fuera de Fase 9.
+- **Migración de los 3 JSON curados a `data/curated/`** (§15.4.1): ticket propio, post-gate de 9.0.
+- **`GuessingIndex` en la UI** (D4): follow-up post-QA.
+
+## §15.11 — Entrada para `/rulebook`
+
+`/rulebook` (Sonnet) genera las secciones "Fase 9" en `.claude/rules/{engine,web,security,
+testing-seams}.md` + el índice en `CLAUDE.md`, y crea los tickets **sólo de 9.0**, en este orden de
+dependencia:
+
+| Bloque | Contenido |
+|---|---|
+| **A — Harness primero** (habilita el resto) | Estructura `eval/`+`data/`; hook de frontera de datos; `write_scope` + su hook; 2 agentes nuevos; 4 ADRs; split de `CLAUDE.md`; regla de paralelismo + `isolation: worktree` (§15.4.8). |
+| **B — Replay y métricas** (puras, paralelizables) | S15 reconstructor de `ReplayCase`; S16 funciones de métrica; loader del Golden Dataset (S17). **Primer caso real de ejecución en paralelo con `write_scope` disjuntos + worktree** (§15.4.8). |
+| **C — Runners** (dependen de A y B) | Benchmark A; Benchmark B con split congelado y bootstrap por torneo; los 5 baselines; segmentación; `ConstraintViolationRate`. |
+| **D — Diagnóstico** | `profile-signals.ts` (influencia realizada, C5); `propose-golden-cases.ts`; null-perturbation. |
+| **E — Cierre del gate** | Curación de los ≥30 casos del Golden Dataset (trabajo del usuario, asistido); congelar `v6-measured.json`; `gate.ts` en modo informativo. |
+
+Cada ticket declara **`write_scope`** y **cita el ID `Rx-y`** que implementa (regla de trazabilidad
+§8 del consolidado). Todos con `assigned_tool: claude-code` salvo los de B, candidatos a `codex`
+por ser funciones puras autocontenidas con contrato cerrado.
+
+**Precondición para arrancar el bloque A**: commitear Fase 8 (`TSK-183`→`TSK-192` + el fix de
+`apps/web/features/draft/validation.ts`). El baseline "V6-medido" tiene que corresponder a un árbol
+identificable por commit, o no es un baseline.

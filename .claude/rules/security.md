@@ -215,3 +215,31 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   `verify-simplicity.sh` ya bloquea `fetch(` bajo `apps/engine/src/signals/`.
 - **8B no toca `proxy.ts` ni el gate de sesión de Steam.** Sacar links del nav no cambia qué
   rutas existen ni quién puede acceder — el perímetro de auth es el mismo.
+
+## Fase 9 — V6-medido → V6-contextual (SPEC.md §15.7)
+
+- **Ninguna frontera de confianza nueva en runtime.** Todo lo de 9.0 vive fuera de `apps/engine`.
+- **`pro-drafts.sqlite` y `dota2coach.sqlite` se abren `readonly: true`** desde todo script de
+  `scripts/eval/**` y `scripts/stats/**`. Guard que aborta si una ingesta está escribiendo el mismo
+  archivo.
+- **Los JSON de `data/generated/` son input externo** (costura S18): loader validado en el borde;
+  archivo corrupto, ausente o con forma inesperada → **degrada al mecanismo V6 actual**, nunca
+  lanza, nunca inyecta magnitudes arbitrarias en el scoring.
+- **Cero PII.** El corpus profesional y el Golden Dataset son datos públicos de partidas
+  profesionales. Ningún `hero_pool` de ninguna cuenta entra en este camino: **ningún Steam32 puede
+  aparecer en un reporte, log, `journal.md` o ticket de Fase 9, por construcción, no por
+  vigilancia**.
+- **Sin secreto nuevo de runtime, sin variable de entorno nueva, sin dependencia nueva** (ni
+  `dependencies` ni `devDependencies`). `CONTEXT7_API_KEY` es dev-only y ya existía (Fase 9 previa).
+- **`apps/engine` sigue atado a `127.0.0.1`.** Cero red en el camino caliente:
+  `verify-simplicity.sh` ya bloquea `fetch(` bajo `apps/engine/src/`. **`scripts/eval/**` y
+  `scripts/stats/**` nunca se importan desde `apps/`** — verificable mecánicamente.
+- **Hook de frontera de datos** (`data/curated` vs `data/generated`): rechaza cualquier `Edit|Write`
+  sobre `data/curated/**` cuyo origen sea un script de `scripts/stats/**` o `scripts/eval/**`.
+  Determinista, sin heurística. Se prueba el rechazo, no se declara.
+- **Hook `write_scope`**: cada ticket de Fase 9 declara `write_scope: [globs]` en su frontmatter;
+  el hook PreToolUse rechaza `Edit|Write` fuera de esos globs cuando el ticket está en `doing`.
+  Ausente → no bloquea (retrocompatible con los 192 tickets previos).
+- **Dos agentes nuevos** (`data-stat-engineer`, `evaluation-engineer`): `tools` mínimas, **veto
+  explícito de escritura** sobre `apps/engine/src/signals/**`, cualquier archivo de scoring y
+  `apps/web/**`. **No reciben `mcp__context7`** (R3-14: tener la capacidad no implica concederla).

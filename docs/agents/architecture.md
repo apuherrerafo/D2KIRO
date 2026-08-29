@@ -1544,3 +1544,284 @@ código como input:
 documentados — *"discrepancia seria confirmada entre `SPEC.md` y la arquitectura real del código"*:
 el SPEC describe `counter` como una señal activa de peso 0.24/0.216, y en la práctica devuelve
 `raw: null` en ~93% de los casos. `/blueprint` corre en Opus para esta fase. Después, Sonnet.
+
+---
+
+# architecture.md — Fase 9 (V6-medido → V6-contextual: evaluación offline + calibración + inteligencia contextual)
+
+Origen: 3 informes externos encargados por el usuario, consolidados en
+`docs/research/fase9-research-consolidation.md` (48 ideas, IDs `R1-1`…`R3-15`, cada una con
+disposición CORE/DIFERIDO/DESCARTADO y regla de trazabilidad en §8). `/pre-flight` corrido en
+Sonnet (2026-08-29); decisiones cerradas con el usuario abajo. `/blueprint` (Opus, una vez)
+pendiente.
+
+**Gatillo de Opus para el `/blueprint`** (`CLAUDE.md` § Política de Modelos): esta fase cambia el
+mecanismo de normalización de señales (`RAW_RANGE` → percentiles empíricos) y el contrato
+`SignalContribution`, y estrena `SCORING_WEIGHTS_V7` — es síntesis arquitectónica mayor con 3
+inputs externos a reconciliar. Cae en el tier "Razonamiento", el uso canónico de Opus.
+
+## Bloque 1 — Visión del Producto (Fase 9)
+
+- **Problema**: el motor V6 pondera 6 señales con pesos que **nunca se midieron contra un
+  resultado**; la normalización `RAW_RANGE` admite en comentarios de código que "no está medida
+  contra datos reales"; y la redistribución proporcional por `raw: null` hace que el peso efectivo
+  de una señal dependa de cuántas *otras* señales votaron para *ese* candidato (`position_fit`
+  varía 34,2 %→50,6 %) — dos héroes no se comparan en la misma escala (R1-4, R2-4). No sabemos qué
+  tan bueno es el motor ni por qué.
+- **Usuario final**: el mismo jugador que draftea con el Copilot. Fase 9 **no rediseña la UI** —
+  cambia la calidad y la honestidad del número, y la capacidad del equipo de desarrollo de medir
+  regresiones.
+- **Resultado tangible**: (a) dos benchmarks reproducibles que caracterizan V6 —Engine Quality
+  sobre un Golden Dataset curado y Professional Pick Agreement sobre 2.179 drafts pro—; (b) a
+  partir de ahí, cada cambio de fórmula tiene que igualar o superar a **V6-medido** en el backtest
+  congelado o no se mergea. Mantra: **V6-medido, no V7-pesos** (R1-14).
+- **Qué NO es** (R2-17, R3-9 — DESCARTADOS): no es RL/DL, no es minimax ni búsqueda de árbol de
+  picks, no es predicción del siguiente pick, no es *counterfactual winrate*, no es MCMC/Stan en
+  producción, no es un orquestador multi-agente (LangGraph/CrewAI/AutoGen), no es Memory MCP.
+
+## Bloque 2 — Dominio e Investigación (Fase 9)
+
+Investigación ya hecha: 3 informes externos (R1 rigor estadístico, R2 arquitectura contextual, R3
+harness de ingeniería) → consolidado con IDs. Datos existentes, **sin fuente nueva, sin STRATZ,
+sin scraping**:
+
+- `pro-drafts.sqlite`: 2.179 drafts / 29 torneos / ~52k turnos. Slots Dire parcialmente
+  incompletos (backfill en TSK-179, bloqueado por TSK-174).
+- `hero_matchups`: 15.984 pares; 1.171 (7,3 %) con ≥200 partidas, ~14.860 (93 %) con ≥10.
+  "Contra" únicamente (sin partición "con"/sinergia — verificado dos veces contra `odota/core`).
+- `hero_patch_stats`: 2.032 filas (patch 7.41e + "", 8 brackets).
+- Curados: `hero-positions.json` (126/127), `capabilities.json` (124/127), `hero-counters.json`
+  (127/127, Fase 8).
+
+Competidores: los asistentes de draft públicos (overlays, sitios de stats) no exponen un backtest
+reproducible ni una medida de "cuánto de esto es dato vs suposición". Ese es el diferencial.
+
+## Bloque 3 — Arquitectura e Ingeniería (Fase 9)
+
+### Estructura: programa 9.0→9.5, con 9.0 bloqueante
+
+| Sub-fase | Entrega | IDs |
+|---|---|---|
+| **9.0** | Fundación de evaluación + harness completo. **Nada de scoring cambia.** Se mergea y valida antes de 9.1. | R1-7·9·10·11·12, R2-13·14·15·16, R3-2·3·4·5·6·10·11·13·14·15 |
+| **9.1** | Comparabilidad + calibración empírica. Fin de la redistribución candidate-specific; `SignalContribution` gana `normalized`/`evidenceConfidence`; percentiles empíricos reemplazan `RAW_RANGE` (cutover en el gate, con números de 9.0); `EvidenceCoverage`/`GuessingIndex` (interno). | R1-1·2·4·5, R2-4·5 |
+| **9.2** | Empirical Bayes jerárquico de matchups, **offline** → JSON; el motor hace lookup. *Provenance check* de OpenDota. | R1-3·6 |
+| **9.3** | Inteligencia contextual (V2). `DraftState` enriquecido (derivados puros); gating `W_s(D)=BaseWeight·ContextGate(D)` sobre features interpretables; `counter` partido en 3 (observado / cobertura de amenaza / vulnerabilidad); KB de counters enriquecida; Team Needs dinámicos. | R2-1·2·3·9·10·11·12 |
+| **9.4** | Top-K estratégico. Flexibility explícita (mínima); diversificación con criterio; Bad Pick Rate y Constraint Violation Rate como gates. | R2-7·14 |
+| **9.5** | Ajuste de pesos **al final**. `SCORING_WEIGHTS_V7` regularizado hacia V6, validación split por partida/torneo/tiempo. Sólo entra si supera a V6-medido en el backtest congelado. | R1-13·14, R2-16 |
+
+### 9.0 en detalle — el "paquete completo" del harness
+
+- **`eval/`**: `eval/golden/` (Golden Dataset), `eval/scenarios/` (estados sintéticos), `eval/regression/`,
+  `eval/baselines/v6-measured.json` (el número congelado). Un comando reproduce ambos benchmarks
+  con seed fijo y split congelado.
+- **`data/{curated,generated,schemas,metadata}/`**: frontera formal. `curated/` = JSON revisado
+  por humano (hoy `hero-positions`/`capabilities`/`hero-counters` migran acá); `generated/` =
+  salida de scripts (percentiles, Empirical Bayes). `metadata/` = procedencia por dataset (patch,
+  `generatedAt`, `source`, `sampleWindow`, `schemaVersion`) (R1-6·12, R2-11 `patchValidated`).
+- **Hook anti-sobreescritura**: un script de generación no puede escribir en `data/curated/**`;
+  la generación sólo escribe en `data/generated/**`. Determinista, PreToolUse (R3-13).
+- **`write_scope` por ticket**: frontmatter de `TSK-XXX.md` gana `write_scope: [globs]`; hook
+  PreToolUse rechaza Edit/Write fuera de esos globs. Habilita worktrees paralelos con seguridad
+  (R3-10).
+- **`docs/adr/`**: un ADR por decisión arquitectónica de 9.x, inmutable, con contexto y
+  consecuencias. Migran acá las decisiones grandes que hoy viven diluidas en `journal.md` +
+  bloques de `CLAUDE.md` (R3-5). Jerarquía de autoridad L0 Contratos Duros > L1 ADR > L2
+  Arquitectura > L3 SPEC > L4 Código > L5 Investigación > L6 Memoria de agente (R3-4).
+- **2 agentes nuevos** (`.claude/agents/`): `data-stat-engineer` (percentiles, Empirical Bayes,
+  provenance) y `evaluation-engineer` (backtest, Golden Dataset, gates PASS/FAIL). Privilegio
+  mínimo: `Read/Grep/Glob/Bash` + escritura acotada a `eval/**`, `data/generated/**`, `scripts/`.
+  **No** tocan `apps/engine/src/signals/**` (R3-6·14).
+- **Política determinista PASS/FAIL**: un script —no el juicio de un agente— compara contra
+  `v6-measured.json` y el Golden Dataset y decide si un cambio entra. Es `verify-simplicity.sh`
+  extendido a métricas de calidad del motor (R3-11).
+- **Partir `CLAUDE.md`**: los bloques `## REGLAS DE FASE X` se mueven a `.claude/rules/fase-N.md`
+  (reversible, cero cambio de contenido — sólo ubicación). `CLAUDE.md` queda como índice + reglas
+  inviolables + políticas transversales, < 200 líneas (R3-3).
+- **Herramienta de selección asistida del Golden Dataset**: a partir de drafts reales +
+  escenarios sintéticos, propone los ~30 estados más informativos (cobertura de contexto +
+  desacuerdo entre baselines + casos donde el motor falló históricamente). El usuario cura sobre
+  esa propuesta, no inventa de cero.
+
+### Diagrama de bloques (Fase 9)
+
+```
+   [ máquina del desarrollador — OFFLINE, sin red en runtime ]
+        pro-drafts.sqlite (ro) ─┐
+        hero_matchups (ro) ─────┼─► scripts/eval/*      ─► eval/baselines/v6-measured.json
+        data/curated/*.json ────┘                        ─► reporte segmentado por contexto
+                                │
+        scripts/stats/* ────────┼─► data/generated/percentiles.json
+                                └─► data/generated/matchup-eb.json   (Empirical Bayes)
+                                          │
+   ─────────────────────────────────────── │ ────────── (JSON versionado, validado en el borde)
+        [ apps/engine — 127.0.0.1, HOT PATH ]
+        loadCalibration() / loadMatchupModel()  ─► degrada a "sin calibración" → default V6
+                                          │
+        buildSuggestions ── SignalContribution { raw, normalized, evidenceConfidence, contribution }
+                                          └─► EvidenceCoverage / GuessingIndex (interno)
+```
+
+### Persistencia
+
+- **Nada nuevo en SQLite.** Los artefactos de calibración son **archivos JSON versionados** en
+  `data/generated/`, cargados una vez al iniciar el módulo (familia S9/S10). El corpus pro sigue
+  en `pro-drafts.sqlite` (sólo lectura desde los scripts de eval).
+- El Golden Dataset y los escenarios son JSON en `eval/`, versionados.
+
+### Resolución de las 9 bifurcaciones (§5 del consolidado)
+
+1. **Estructura** → programa 9.0→9.5, 9.0 bloqueante.
+2. **`RAW_RANGE`** → percentiles empíricos, dirección comprometida, **cutover en el gate de 9.1**
+   con la pendiente efectiva real medida en 9.0. ADR obligatorio.
+3. **Partir `counter` en 3** → en **9.3**, después de 9.0+9.1.
+4. **Campos nuevos en `SignalContribution`** → de una en **9.1**, con espejo en `apps/web` en el
+   mismo cambio.
+5. **`EvidenceCoverage`/`GuessingIndex`** → interno en 9.1; **UI como follow-up** post-QA.
+6. **Harness** → **paquete completo** (detalle en 9.0 arriba).
+7. **Firecrawl MCP** → **diferido**. Context7 alcanza para 9.x.
+8. **Backfill Dire** → el backtest **no espera** a TSK-174/179; tolera el corpus actual reportando
+   por completitud de slot; se re-corre cuando TSK-179 aterrice.
+9. **R2-V3 (decisión secuencial / branch survival)** → **fuera de Fase 9** (DIFERIDO).
+
+## Bloque 4 — Seguridad desde el diseño (Fase 9)
+
+**Ninguna frontera de confianza nueva en runtime.** Fase 9 agrega superficie *de desarrollo*.
+
+| Cruce | Hostil → qué pasa / mitigación |
+|---|---|
+| Scripts de eval/stats → `pro-drafts.sqlite` | Apertura **`mode=ro`**, en la máquina del dev, fuera de `apps/engine`. Guard que se niega a correr si TSK-174 está escribiendo el mismo archivo (constraint ya conocido, ahora mecánico). Un `.sqlite` manipulado sólo afecta un reporte local, nunca el runtime. |
+| JSON de calibración generado → `apps/engine` al iniciar | **Familia S9/S10**: loader valida en el borde (esquema, rangos, IDs de héroe conocidos, no NaN). Archivo corrupto/ausente/forma inesperada → **degrada al mecanismo V6 actual como default seguro**, nunca tira el motor, nunca inyecta valores arbitrarios en el scoring. |
+| Contexto de generación → `data/curated/**` | Hook determinista lo rechaza. Generación sólo escribe en `data/generated/**`. Impide que un script pise curación humana (R1/R2/R3 convergen en esto). |
+| Ticket con `write_scope` → Edit/Write | Hook PreToolUse rechaza escrituras fuera de los globs declarados. Defensivo, local. |
+| Context7 MCP | Dev-only, agent-scoped (sólo Artisan + sesión principal + futuros `implementation-engineer`), key en env (`CONTEXT7_API_KEY`), nunca en un `import` de `apps/`. Ya instalado así (`.claude/rules/context7.md`). |
+
+- **Sin PII.** Corpus pro y Golden Dataset = datos públicos de partidas profesionales (equipos,
+  torneos, picks). **Cero `account_id`/Steam32** en todo el camino de datos de Fase 9, por
+  construcción — ningún `hero_pool` de ninguna cuenta entra acá.
+- **Secretos**: sólo `CONTEXT7_API_KEY` (dev, `process.env`). Ningún secreto nuevo de runtime,
+  ninguna variable de entorno nueva en `apps/engine`.
+- **`apps/engine` sigue atado a `127.0.0.1`.** Backtest, percentiles y Empirical Bayes corren
+  offline. Cero red nueva en el camino caliente — `verify-simplicity.sh` ya bloquea `fetch(` bajo
+  `apps/engine/src/`.
+- **Privilegio de los agentes nuevos**: acotado a `eval/**`, `data/generated/**`, `scripts/`.
+  Nunca `apps/engine/src/signals/**` ni `apps/web/**`.
+
+## Bloque 5 — Stack Tecnológico (Fase 9)
+
+**Opción 1 (elegida) — Bun/TypeScript, todo offline, cero dependencia nueva.**
+
+- Percentiles, `EvidenceCoverage`, backtest, Golden Dataset runner, métricas (NDCG@5, Recall@k,
+  MRR, Bad Pick Rate, Pairwise Accuracy, Jaccard/Kendall): TypeScript puro en `scripts/eval/` y
+  `scripts/stats/`, con Bun Test.
+- Empirical Bayes jerárquico (`μ_bp + α_A + β_B + δ_AB`): estimación por *method-of-moments* /
+  *shrinkage* cerrado en TypeScript — **no** MCMC, **no** Stan, **no** Python (R1-3). Reutiliza
+  `pro/shrinkage.ts` (TSK-165) como precursor.
+- El motor sólo gana `loadCalibration()` / `loadMatchupModel()` — mismo patrón que
+  `loadHeroPositions()` / `loadHeroCounters()`.
+
+**Opción 2 (descartada) — un paso de Python/`numpy`/`scipy` para el Empirical Bayes.** Más
+expresivo para el modelo jerárquico, pero introduce un runtime nuevo, una frontera de datos
+Python↔TS, y `/gear-up`. El usuario ya descartó Python para el proyecto (Fase 6). El modelo
+jerárquico ligero de R1 está pensado explícitamente para no necesitarlo.
+
+Context7 (dev-only) ya instalado para verificación de librería en `/rulebook`/implementación.
+
+## Bloque 6 — Plan de Validación (Fase 9)
+
+**Dos benchmarks separados. El pick profesional observado NO es ground truth** (hero pool,
+comfort, scrims, estrategia no observable) (R1-9, refinado en `/pre-flight`).
+
+### 1. Engine Quality — benchmark PRINCIPAL (Golden Dataset graduado)
+
+- **Titular: NDCG@5.** Acompañantes **obligatorios**: **Bad Pick Rate@5** y **Pairwise Accuracy**.
+- NDCG@5 aplica acá —y no en el backtest pro— porque el Golden Dataset tiene **relevancia
+  graduada** (varios héroes `excellent`/`acceptable`/`bad` por estado). La objeción de R1-8 valía
+  para un único pick relevante.
+- **Golden Dataset**: ~30 estados para el MVP, **estratificados y de alto valor** — cobertura de
+  opening / blind response / response / closing **más** hard counter, flexibilidad, role scarcity,
+  team needs, composición, punishability y escenarios donde el motor falló históricamente.
+  Multi-label + `reasoning tags`. Prioridad: cobertura estratégica y detección de regresiones, no
+  significancia estadística. Escala a 60/100+ tras validar el harness y el esquema de labels.
+- **Selección asistida**: 9.0 entrega una herramienta que propone los ~30 estados más informativos
+  (drafts reales + escenarios sintéticos); el usuario cura sobre la propuesta.
+
+### 2. Professional Pick Agreement — benchmark SECUNDARIO (2.179 drafts pro)
+
+- Recall@1, Recall@3, Recall@5, Recall@10, MRR.
+- Se puede comunicar **"Professional Pick Agreement @3"** — **nunca** "accuracy" ni "qué tan bueno
+  es el motor".
+- *Bootstrap* con IC a nivel draft **y** a nivel torneo (R1-7). Split congelado por torneo (ningún
+  torneo en train y test a la vez).
+- Baselines: aleatorio, solo-`position_fit`, solo-`patch_meta`, V6-sin-`counter`, V6-completo.
+
+### Transversal
+
+- **Ambos benchmarks se reportan SEGMENTADOS por contexto de decisión** (opening / blind response
+  / response / closing) — un promedio global esconde fallos por contexto.
+- **Constraint Violation Rate = 0** (nunca sugiere baneado/pickeado/rol imposible) — **gate duro**,
+  no métrica ponderada (R2-14).
+- **Estabilidad vs reactividad**: Jaccard@K + Kendall-Tau entre estados consecutivos vs. baseline
+  de *null-perturbation* (R1-11, R2-15).
+- **9.1–9.5**: cada cambio corre el **mismo backtest congelado** y debe dar ≥ V6-medido (dentro
+  del IC) o no se mergea. Ablación por señal `Score(h,S) − Score₋ᵢ(h,S)` disponible como
+  diagnóstico (R1-10).
+- **9.0 "funciona" cuando**: `eval/baselines/v6-measured.json` está commiteado, el reporte
+  segmentado existe, el Golden Dataset tiene ≥30 estados curados, y `bun run eval` reproduce todo
+  con seed fijo.
+
+## Cierre — pendiente de `/blueprint` (Opus, una vez)
+
+Lo que el `/blueprint` sintetiza con este `architecture.md` + el consolidado como input:
+
+- **Contrato `SignalContribution` v2**: forma exacta de `raw` / `normalized` / `evidenceConfidence`
+  / `contribution`; cómo se define `EvidenceCoverage = Σ wᵢqᵢ / Σ wᵢ` y `GuessingIndex`; qué
+  reemplaza a la redistribución proporcional (peso fijo + término de cobertura); espejo en
+  `apps/web`.
+- **Mecanismo de calibración**: `N(x) = clamp((x−P05)/(P95−P05), 0, 1)` con fallback jerárquico
+  global→patch→bracket→rol; formato de `data/generated/percentiles.json`; qué gatilla el cutover
+  desde `RAW_RANGE` en el gate de 9.1; el ADR que lo registra.
+- **Modelo de matchups**: forma del `μ_bp + α_A + β_B + δ_AB` por *method-of-moments*; formato de
+  `data/generated/matchup-eb.json`; cómo convive con `hero-counters.json` curado (prioridad
+  curada, igual que Fase 8); *provenance check* concreto del endpoint de OpenDota.
+- **`counter` partido en 3** (9.3): nombres de los `SignalId` nuevos; `SCORING_WEIGHTS_V7` (7+
+  literales, suma 1.0, candado); re-tipado de V4/V5/V6 con literales históricos (mecanismo
+  TSK-045) antes de ampliar `SignalId`; espejo `apps/web`.
+- **Gating contextual** (9.3): qué features de `DraftState` alimentan `ContextGate_s(D)` (entropía
+  de rol, ratio de información conocida, needs — **nunca** número de turno); rango del multiplicador;
+  dónde viven los derivados de `DraftState` (capa aparte, `applyDraftEvent` sigue puro).
+- **Esquema del Golden Dataset**: JSON de `{draftStateId, state, excellent[], acceptable[], bad[],
+  reasoningTags[]}`; cómo se derivan los estados sintéticos; la costura de la herramienta de
+  selección asistida.
+- **Harness**: lista concreta de ADRs iniciales; definición de los 2 agentes nuevos; formato de
+  `write_scope` en el frontmatter + el hook; plan exacto del split de `CLAUDE.md` (qué se mueve,
+  qué queda); estructura de `eval/` y `data/`.
+- **Seams (S-números)**: el `/blueprint` asigna las costuras nuevas (backtest runner, calibración,
+  modelo de matchups, Golden Dataset runner) — probablemente **S15+** (S12 sigue reservada para el
+  RNG de diversificación de Fase 4; S13/S14 ya usadas/reservadas).
+- **`SCORING_WEIGHTS_V7`** (9.5): método de ajuste (regularización hacia V6, split
+  partida/torneo/tiempo), y confirmación de que ninguna versión V1–V6 se toca.
+
+**Precondición antes de arrancar 9.0**: commitear Fase 8 (TSK-183→192 + fix `validation.ts`) — el
+baseline "V6-medido" necesita un árbol limpio.
+
+> **CORREGIDO POR EL `/blueprint` (Opus, 2026-08-29) — `SPEC.md` §15.1 gana sobre este documento.**
+> Siete suposiciones de esta sección se cayeron al medir `pro-drafts.sqlite` y `dota2coach.sqlite`:
+> (C1) el corpus utilizable son **2.164** drafts con shape válido, no "2.179" — y los 826
+> `tier_not_accepted` **no son un defecto de dato**, son política de curación de Fase 7, así que
+> entran al backtest con `tier` como covariable; (C2) el backfill de slots Dire **no participa de
+> ninguna métrica** — la métrica primaria se reconstruye sólo desde `pro_draft_turns`, así que
+> TSK-174/179 deja de ser dependencia de Fase 9 en cualquier forma (esta sección decía "tolera
+> reportando por completitud de slot"); (C3) el corpus es **mono-parche** (`patch = 60` en los
+> 2.179), así que el eje `patch` del fallback jerárquico de R2-5 **nace inerte** — sólo `global` y
+> `bracket` estratifican; (C4) **no existe snapshot de meta point-in-time**, así que el Benchmark B
+> es un instrumento **comparativo**, nunca predictivo, y su valor absoluto no es interpretable;
+> (C5) la "pendiente efectiva" de R1-1 es correcta pero insuficiente — lo que decide el ranking es
+> **pendiente × SD intra-estado del `raw`**, y eso es lo que 9.0 debe emitir; (C6) `p90 = 175`
+> partidas por matchup y **máximo 712**, así que en 9.2 el término `δ_AB` quedará fuertemente
+> encogido y el orden lo dominarán los efectos principales — resultado esperado, no fallo;
+> (C7) el eje `bracket` sí es estratificable (8 brackets balanceados).
+>
+> Además, `SPEC.md` §15.0 acota el alcance: **sólo 9.0 queda especificada a nivel ejecutable**.
+> 9.1 tiene el mecanismo fijado con números diferidos al gate; 9.2–9.5 quedan conceptuales, cada
+> una con su propio `/blueprint` angosto. Fijar hoy un `P05`/`P95` sería inventar un número —
+> mismo precedente que Fase 4 §11.10.

@@ -447,3 +447,66 @@ estadística (§14.7), con candado de regresión cero de dos pruebas.
 - `explanation`: cláusula `"N de sus counters están baneados: <hasta 2 nombres>"`, anexada al
   texto de 8A si hubo rival revelado, o sola si solo hubo alivio.
 - Candado de regresión §14.7 intacto: con `curated = new Map()`, `banRelief` es siempre 0.
+
+## Fase 9 — V6-medido → V6-contextual (SPEC.md §15)
+
+Programa 9.0→9.5. **Sólo 9.0 está especificada a nivel ejecutable**; 9.1 tiene el mecanismo fijado
+con números diferidos a su gate; 9.2–9.5 son conceptuales (cada una abre su `/blueprint` angosto).
+
+### 9.0 — regla dura: no se toca el motor
+
+- **9.0 no cambia una línea de `apps/engine/src/**` ni de `apps/web/src/**`.** Criterio de
+  aceptación verificable con `git diff --name-only`. No toca `signals/`, `weights.ts`, `mix.ts`,
+  `RAW_RANGE`, `SignalId`, `SCORING_WEIGHTS_V6`. `ENABLE_PRO_DRAFTER` y el comportamiento de
+  producción quedan idénticos.
+- **`scripts/eval/**` y `scripts/stats/**` nunca se importan desde `apps/`.** Verificable
+  mecánicamente. Son runners offline; leer código del motor como import (para medirlo) está
+  permitido, escribir en él no.
+- **`pro-drafts.sqlite` y `dota2coach.sqlite` se abren `readonly: true`** desde todo script de
+  Fase 9. Un guard aborta si detecta una ingesta escribiendo el mismo archivo (regla que ya existía
+  para el backfill, ahora mecánica).
+- **Ninguna prueba abre `pro-drafts.sqlite`, `dota2coach.sqlite`, `eval/golden/` real ni un JSON de
+  `data/generated/`** — fixtures inline. Mismo criterio literal que S9/S10 desde Fase 2 (costuras
+  S15–S19, ver `testing-seams.md`).
+
+### Reconstrucción de `DraftState` desde el corpus (S15)
+
+- El replay (`buildReplayCases`) es **función pura**: `(ProDraftTurn[], meta) => ReplayCase[]`, sin
+  I/O.
+- `state.localSide` = **el equipo que actúa en ese turno**, para que `observedDraftFacts()` devuelva
+  `ownPicks`/`revealedEnemyPicks` correctos sin tocar el motor.
+- `state.banned` / `state.picks` = **exactamente** el prefijo `[0, turnIndex)`. **Ninguna filtración
+  de turno futuro** — es la única fuga posible en este diseño y se prueba explícitamente.
+- 9.0 evalúa **sólo los turnos `is_pick = 1`**. Los bans se reconstruyen como estado, no se predicen
+  (el motor no tiene recomendador de ban con el flag apagado).
+- Draft con shape inválido (≠24 turnos, héroe repetido, `team` fuera de `{0,1}`) → **se descarta con
+  motivo registrado**, nunca se repara.
+
+### Realidad del corpus (medida 2026-08-29, no estimada — SPEC §15.1)
+
+- **2.164** drafts con shape válido (de 2.179). Los 826 `tier_not_accepted` **entran** al backtest
+  con `tier` como covariable — es política de curación de Fase 7, no un defecto de dato.
+- **Mono-parche**: `patch = 60` en los 2.179. El eje `patch` del fallback jerárquico de calibración
+  (9.1) **nace inerte**; sólo `global` y `bracket` (8, balanceados) estratifican.
+- `hero_matchups`: `p50 = 54`, `p90 = 175`, **máx 712** partidas por par. En 9.2 el término `δ_AB`
+  del Empirical Bayes quedará fuertemente encogido y el orden lo dominarán los efectos principales —
+  **resultado esperado, no fallo**.
+- **No existe snapshot de meta point-in-time.** El backtest es un instrumento **comparativo**
+  (V6 vs V6+cambio sobre el mismo snapshot), **nunca predictivo**. El valor absoluto de cualquier
+  métrica no es interpretable sin sus baselines.
+
+### 9.1+ (mecanismo fijado, números diferidos)
+
+- **`SignalContribution` gana `normalized: number | null` y `evidenceConfidence: number` (aditivo)**
+  — ningún campo actual se borra. Espejo en `apps/web` en el mismo cambio (ver `web.md`).
+- **`raw: null` sigue siendo sagrado**: nunca se convierte en 0, 0.5 ni 50. Cambia cómo se propaga
+  su ausencia (fin de la redistribución candidate-specific), no que se rellene.
+- **Calibración** `N(x) = clamp((x − P05)/(P95 − P05), 0, 1)` con fallback jerárquico
+  `global → bracket`, percentiles **congelados sobre el split de train**. Candado de regresión
+  obligatorio: calibración desactivada + opciones legacy ⇒ `mixScore` reproduce V6 **exacto**.
+- **Loader de calibración (S18)**: `data/generated/*.json` es input externo. Validado en el borde;
+  corrupto/ausente/forma inesperada → **degrada al mecanismo V6 actual**, nunca lanza, nunca inyecta
+  magnitudes arbitrarias. Mismo criterio literal que `loadHeroPositions()`/`loadHeroCounters()`.
+  Se carga **una vez al iniciar el módulo** (patrón `MODULE_HERO_*`), nunca por llamada.
+- `SCORING_WEIGHTS_V7` **sólo en 9.5**, regularizado hacia V6, con el split congelado de §15.4.3.
+  V1–V6 congeladas por nombre.
