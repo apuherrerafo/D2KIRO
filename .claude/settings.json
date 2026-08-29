@@ -20,6 +20,15 @@
             "command": "bash scripts/hooks/pretooluse-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/hooks/pretooluse-edit-guard.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
