@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:54:33.250Z</title>
+<title>HUB del ecosistema — 2026-08-29T19:56:42.523Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">9</span></h2>
+        <h2>backlog <span class="count">8</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -171,14 +171,6 @@
           </div>
         </div>
         <div class="card  ">
-          <div class="card-id">TSK-201</div>
-          <div class="card-title">Fase 9.0-C · Benchmark A: Engine Quality sobre el Golden Dataset (NDCG@5 + Bad Pick Rate@5 + Pairwise)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
           <div class="card-id">TSK-158</div>
           <div class="card-title">Fase 7 G4: señal pro_evidence aislada, sin cablear</div>
           <div class="card-meta">
@@ -212,7 +204,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">195</span></h2>
+        <h2>done <span class="count">196</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -1509,6 +1501,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-201</div>
+          <div class="card-title">Fase 9.0-C · Benchmark A: Engine Quality sobre el Golden Dataset (NDCG@5 + Bad Pick Rate@5 + Pairwise)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-190</div>
           <div class="card-title">Simulador — hero pool como señal blanda, no filtro duro (desacoplar del overlay de cuenta)</div>
           <div class="card-meta">
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">186× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">187× · 83% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-201</span> <span class="feed-ts">2026-08-29T22:05</span></div>
+            <div class="feed-note">Fase 9.0 bloque C, ticket 2. `scripts/eval/benchmark-engine-quality.ts` — `runEngineQuality(cases: GoldenCase[], meta, opts): EngineQualityResult`. Por caso: `hydrateState` rehidrata el `DraftState` completo desde el subconjunto serializado del Golden (`createIdleDraftState` + merge), corre `buildSuggestions(state, meta, {})` → ranking, calcula **NDCG@5** (titular, `toGradedMap`), **Bad Pick Rate@5** (`toMetricLabels`; héroe no etiquetado = desconocido, fuera del denominador), **Pairwise Accuracy**. Agrega media + IC bootstrap sobre casos (resample con reemplazo, sólo NDCG@5 de v6Full). Corre los 4 baselines de `baselines.ts` (`positionFitOnly` omitido, documentado). **Segmentación `decisionContext × strata`** — un caso multi-estrato cuenta en cada estrato suyo. Gate `ConstraintViolationRate=0`: héroe baneado/pickeado/inexistente → `valid:false`, `perRanker:{}`. `opts.rankers` override sólo para tests. Tests: `benchmark-engine-quality.test.ts`, 6 casos — estructura+segmentación, 3 excellent puestos 1-2-3 → NDCG@5==1, un bad en top-1 → BadPickRate@5≥0.2 visible en el segmento `punishability`, gate duro con ranker roto, `hydrateState` completo, determinismo (`JSON.stringify` idéntico entre corridas). `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 141/141 (+6). NO toca apps/. state: doing → done.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-200</span> <span class="feed-ts">2026-08-29T21:47</span></div>
             <div class="feed-note">Fase 9.0 bloque C, ticket 1. `scripts/eval/split.ts` — GroupKFold por `league_id` (xorshift determinista), `loadOrCreateSplit` escribe `eval/baselines/split.json` UNA vez y luego sólo lee (torneos nuevos → fuera con aviso a stderr, nunca regenera). `scripts/eval/baselines.ts` — 4 rankers: `random` (mulberry32 sembrado por `sessionId:lastSeq`), `patchMetaOnly` (picks del parche desc), `v6Full` = `buildSuggestions(state,meta,{}).suggestions`, `v6NoCuratedCounters` = idem con `heroCounters:new Map()`; `positionFitOnly` OMITIDO con motivo en `OMITTED_BASELINES` (aislar 1 señal exige flag nuevo en el motor). `scripts/eval/benchmark-pro-agreement.ts` — `runProAgreement(cases, meta, split, opts)` puro → objeto estructurado; `loadReplayCasesFromDb(path)` abre `pro-drafts.sqlite` `readonly:true` (db.close en finally, query parametrizada, `WHERE ingest_reason IS NULL OR <> 'invalid_draft_shape'`, los 826 `tier_not_accepted` entran como `tier:"unknown"` — §15.1 C1); Recall@{1,3,5,6} + MRR; bootstrap por torneo + por draft (draft marcado OPTIMISTA); segmentación `decisionContext × tier`; **`ConstraintViolationRate` gate duro**: héroe baneado/pickeado/inexistente en cualquier ranking → `valid:false`, `perBaseline:{}`, no reporta nada más. `opts.rankers` override sólo para tests. Tests: 12 casos (`split.test.ts`/`baselines.test.ts`/`benchmark-pro-agreement.test.ts`) — split determinista+congelado, baselines sin violar, gate duro con ranker roto inyectado, `loadReplayCasesFromDb` con SQLite en memoria (BAD1 filtrado por SQL, BAD2 shape inválido → skipped). `tsconfig.json` acotado a módulos puros S15/S16/S17 (runners siguen convención scripts/pro). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 135/135 (+12). NO toca apps/. `@redteam` APPROVED (evt-220). state: doing → done.</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-29T18:30</span></div>
             <div class="feed-note">Fase 9 (V6-medido → V6-contextual) planificada de punta a punta. **`/pre-flight` (Sonnet)** cerró las 9 bifurcaciones contra el repo real → `architecture.md` §Fase 9. Entrada: 3 informes externos del usuario consolidados en `docs/research/fase9-research-consolidation.md` (48 ideas, IDs `R1-1`…`R3-15`, cada una con disposición CORE/DIFERIDO/DESCARTADO + regla de trazabilidad §8). **`/blueprint` corrido en OPUS** (una sola vez) — **gatillo aplicado**: "cambio de mecanismo central del motor" (percentiles empíricos reemplazan la normalización lineal de `RAW_RANGE`) + cambio de contrato (`SignalContribution` gana `normalized`/`evidenceConfidence`) + estrena `SCORING_WEIGHTS_V7`. Es el uso canónico del tier "Razonamiento", no una excepción a la política. Opus apagado inmediatamente después. Produjo `SPEC.md` §15.0-§15.11. **El valor del blueprint fueron 7 correcciones por MEDIR `pro-drafts.sqlite` y `dota2coach.sqlite`** (§15.1): C1 corpus utilizable 2.164 no 2.179, los 826 `tier_not_accepted` entran con `tier` como covariable (no son defecto de dato); C2 los slots Dire no participan de ninguna métrica → `TSK-174`/`TSK-179` deja de bloquear Fase 9; C3 corpus mono-parche (`patch=60`) → eje `patch` del fallback jerárquico inerte; C4 no existe snapshot de meta point-in-time → Benchmark B es comparativo, nunca predictivo (ADR-002); C5 la pendiente efectiva de R1-1 debe multiplicarse por la SD intra-estado del `raw`; C6 matchups `p90=175`/máx 712 → `δ_AB` muy encogido en 9.2 (esperado); C7 el eje `bracket` sí estratifica. Alcance del blueprint acotado a propósito a 9.0 (9.1 con números diferidos a su gate; 9.2-9.5 conceptuales — precedente Fase 4 §11.10). 5 costuras nuevas S15-S19. **`/rulebook` (Sonnet)**: secciones "Fase 9" en las 4 reglas de `.claude/rules/` + `## REGLAS DE FASE 9` en `CLAUDE.md`; **14 tickets `TSK-193`→`TSK-206`, `state: backlog`, sólo de 9.0**, en 5 bloques (A harness · B replay+métricas puras · C runners · D diagnóstico · E cierre del gate), cada uno con `write_scope` e `implements:[Rx-y]`. Context7 instalado como MCP dev-only agent-scoped (`.mcp.json` + `.claude/rules/context7.md`, sólo Artisan). Cero código de producción escrito. `bun test` engine 596 / web 205, `verify-simplicity` verde. Fase 8 (`TSK-183`→`TSK-192`) commiteada en `4b9f660` como precondición del baseline "V6-medido".</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-192</span> <span class="feed-ts">2026-08-29T04:45</span></div>
-            <div class="feed-note">Bugfix del QA: el Copilot salía "No se pudo calcular la recomendación". Causa: TSK-192 amplió el **tipo** `Suggestion.rank` a `…|6` pero no el **validador de runtime** de `apps/web` — `features/draft/validation.ts` `isSuggestion` chequeaba `[1,2,3,4,5].includes(rank)` → el payload de 6 sugerencias fallaba `isValidSuggestionSet` → `bindPreviewSuggestions` devolvía `null` → `previewStatus: "failed"`. Fix: `[1,2,3,4,5,6]` (espejo del contrato del motor, mismo criterio que el espejo de `SignalId`). `bun test apps/web` 205/205, tsc limpio, verify-simplicity verde. Web reiniciada.</div>
           </div>
         </div></div>
     </div>
