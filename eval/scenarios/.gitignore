@@ -1,0 +1,3 @@
+# Propuestas efímeras de propose-golden-cases.ts — no se versionan.
+# El curador (TSK-206) promueve casos concretos a eval/golden/dataset.json.
+proposal-*.json

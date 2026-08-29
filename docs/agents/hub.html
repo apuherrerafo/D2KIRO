@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T20:13:01.493Z</title>
+<title>HUB del ecosistema — 2026-08-29T20:15:22.898Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">6</span></h2>
+        <h2>backlog <span class="count">5</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -133,14 +133,6 @@
         <div class="card  ">
           <div class="card-id">TSK-179</div>
           <div class="card-title">Backfill de slots en producción + regen de agregados + re-run Gate 3</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-204</div>
-          <div class="card-title">Fase 9.0-D · propose-golden-cases.ts: selección asistida de los ~30 estados más informativos</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -188,7 +180,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">198</span></h2>
+        <h2>done <span class="count">199</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -1188,6 +1180,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-204</div>
+          <div class="card-title">Fase 9.0-D · propose-golden-cases.ts: selección asistida de los ~30 estados más informativos</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-195</div>
           <div class="card-title">Fase 9.0-A · Dos agentes nuevos: data-stat-engineer + evaluation-engineer (privilegio mínimo)</div>
           <div class="card-meta">
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">189× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">190× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-204</span> <span class="feed-ts">2026-08-29T23:35</span></div>
+            <div class="feed-note">Fase 9.0 bloque D, ticket 2. `scripts/eval/propose-golden-cases.ts` — **propone, no etiqueta**. `proposeFromCorpus(cases, meta, target=30)`: por estado calcula el desacuerdo entre baselines (1 − media de Jaccard@5 entre v6Full/patchMetaOnly/random) y si v6Full ubica el pick pro real fuera del Top-6 (fallo histórico); `score = desacuerdo·2 + (fallo?1:0)`; ordena por score y llena cuota por celda `(decisionContext × estrato)` con `guessStratum` (heurística orientativa, el curador decide). `syntheticHardCounters(meta, 5)`: estados donde el `vs` de un hard-counter curado de `hero-counters.json` ya está revelado en el rival y la víctima es candidato — cubre un estrato que el corpus rara vez presenta limpio. Salida: `eval/scenarios/proposal-<ts>.json` (`eval/scenarios/.gitignore` lo excluye — es efímero; el curador promueve casos concretos en TSK-206). Determinista. Tests: 3 (`propose-golden-cases.test.ts`) — determinismo + orden por score + v6Top6≤6, sintéticos con hard-counter revelado, los estados propuestos pasan el type-guard de `DraftState` del loader del Golden. Corrida real: 30 propuestas (5 sintéticas + 25 del corpus). **Limitación anotada**: `guessStratum` es débil — en la corrida real casi todo cae en `punishability`/`hard_counter` (la mayoría de los estados-medio del corpus tienen 3+ rivales y ≤2 picks propios). El valor real de la herramienta es el ranking por desacuerdo+fallo; la asignación de estrato la revisa el humano. `(cd scripts && bun test)` 153/153. NO toca apps/.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-203</span> <span class="feed-ts">2026-08-29T23:10</span></div>
             <div class="feed-note">Fase 9.0 bloque D, ticket 1. `scripts/stats/profile-signals.ts` — `profileFromStates(states, meta): ProfileResult`. Consume los building blocks YA exportados del motor (`patchMetaScorer`, `heroPoolFitScorer`, `createCounterScorer`, `createPositionFitScorer`, `createTeamSynergyScorer`, `createArchetypeFitScorer`, `mixScore`, `SCORING_WEIGHTS_V6`) — los mismos que `buildSuggestions` ensambla — sin tocar `apps/engine/src/**`. Por señal: percentiles p05/25/50/75/95 del `raw` (pooled), **SD del `raw` entre candidatos del MISMO estado** promediado, `effectiveSlope = 100·w/(b−a)`, **`realizedInfluence = slope × SD_intra`** (corrección C5/R1-1), tasa `raw:null` y `applicable:false`. Ablación `|mixScore(all) − mixScore(all∖i)|` por señal y por contexto. Histograma de nº de señales con voto (0..6). `RAW_RANGE` es un espejo de `mix.ts:117` (no exportado; 9.1 lo reemplaza por percentiles empíricos). SQLite readonly, muestreo determinista (cada k-ésimo draft, 3 estados por draft). `data/generated/signal-profile.json` + `data/metadata/signal-profile.json` (procedencia). Tests: 6 (`profile-signals.test.ts`) — 6 señales con influencia realizada, pendiente efectiva exacta (counter 90 / patch_meta 29.25), `hero_pool_fit applicableFalseRate` alto, ablación por 4 contextos, histograma suma 1, determinismo. `(cd scripts && bun test)` 150/150. NO toca apps/.</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-195</span> <span class="feed-ts">2026-08-29T19:50</span></div>
             <div class="feed-note">Fase 9.0 bloque A, ticket 3. Dos agentes nuevos, `model: claude-sonnet-5`, `tools: Read, Glob, Grep, Bash, Write, Edit`, **sin `mcp__context7` ni ningún MCP** (R3-14). `.claude/agents/data-stat-engineer.md` — percentiles empíricos, Empirical Bayes de matchups (method-of-moments/shrinkage en TS, nunca MCMC/Stan/Python), `profile-signals.ts`, procedencia; veto de escritura sobre `apps/engine/src/**`, `apps/web/**`, scoring y `data/curated/**`; salida en `data/generated/**`+`data/metadata/**`; SQLite `readonly`, determinismo obligatorio. `.claude/agents/evaluation-engineer.md` — replay, métricas, los 2 benchmarks, Golden Dataset, null-perturbation, `gate.ts`, `v6-measured.json`; mismo veto; el pick pro NO es ground truth (ADR-002), "Professional Pick Agreement" nunca "accuracy"; ninguna prueba abre las SQLite/Golden reales (S15-S19); `ConstraintViolationRate=0` gate; el veredicto lo decide `gate.ts`, no el juicio del agente (R3-11). `CLAUDE.md`: 2 filas nuevas en la tabla de agentes. `verify-simplicity.sh` verde. Los 5 agentes existentes sin tocar. state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-194</span> <span class="feed-ts">2026-08-29T19:35</span></div>
-            <div class="feed-note">Fase 9.0 bloque A, ticket 2. Dos guardias PreToolUse (Edit|Write|MultiEdit) + regla de paralelismo. **`scripts/hooks/write-scope-guard.py`**: si hay exactamente 1 ticket en `state: doing` y declara `write_scope: [globs]`, rechaza (exit 2) cualquier Edit/Write a un path fuera de esos globs; `write_scope` ausente → no bloquea (retrocompat con los 192 tickets previos); 0 o >1 tickets en doing → no opina (WIP=1 es otro gate); siempre permitidos sin declararlos: `journal.md`, `PROGRESS.md`, `hub.html`, `ledger.md`, el propio archivo del ticket. **`scripts/hooks/data-boundary-guard.py`** (ADR-003): bloquea Edit/Write sobre `data/curated/**` salvo que el ticket en doing lo liste explícito en `write_scope`, o `D2K_CURATE=1` en el entorno. **`scripts/hooks/pretooluse-edit-guard.sh`**: wrapper que encadena ambos (cualquiera con exit 2 bloquea). `_hook_lib.py`: parser compartido (glob→regex con `**` recursivo, frontmatter YAML, ticket en doing; `D2K_TASKS_DIR` para que los tests apunten a un fixture y ninguna prueba toque `docs/agents/tasks/` real). Registrado en `.claude/settings.json` (nuevo matcher `Edit|Write|MultiEdit` junto al de Bash existente). `docs/agents/CONTRIBUTING-tickets.md`: formato de frontmatter + `write_scope` + la regla de paralelismo (`writeScope(A) ∩ writeScope(B) = ∅` ∧ sin `blocked_by` ⇒ `isolation: worktree`; WIP=1 por `assigned_tool` no se relaja). Tests: `scripts/hooks/hook-guards.test.ts`, 10 casos por `Bun.spawn` (payload JSON por stdin, exit 0/2) — rechazo y paso probados, no declarados. `bun test scripts/hooks` 10/10. tsc limpio ambos. `verify-simplicity.sh` verde. El hook quedó activo en esta sesión y no bloqueó ningún edit legítimo del propio ticket. state: doing → done.</div>
           </div>
         </div></div>
     </div>
