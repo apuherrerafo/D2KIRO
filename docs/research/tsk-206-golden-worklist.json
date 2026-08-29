@@ -1,0 +1,1358 @@
+[
+ {
+  "idx": 1,
+  "kind": "synthetic",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "synthetic-hc-Anti-Mage",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [],
+   "picks": {
+    "radiant": [
+     5,
+     129
+    ],
+    "dire": [
+     2,
+     26
+    ]
+   },
+   "lastSeq": 4,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": null,
+  "matchId": null,
+  "turnIndex": null
+ },
+ {
+  "idx": 2,
+  "kind": "synthetic",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "synthetic-hc-Medusa",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [],
+   "picks": {
+    "radiant": [
+     86,
+     29
+    ],
+    "dire": [
+     44,
+     121
+    ]
+   },
+   "lastSeq": 4,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": null,
+  "matchId": null,
+  "turnIndex": null
+ },
+ {
+  "idx": 3,
+  "kind": "synthetic",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "synthetic-hc-Sniper",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [],
+   "picks": {
+    "radiant": [
+     50,
+     108
+    ],
+    "dire": [
+     88,
+     71
+    ]
+   },
+   "lastSeq": 4,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": null,
+  "matchId": null,
+  "turnIndex": null
+ },
+ {
+  "idx": 4,
+  "kind": "synthetic",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "synthetic-hc-Storm Spirit",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [],
+   "picks": {
+    "radiant": [
+     37,
+     98
+    ],
+    "dire": [
+     88,
+     68
+    ]
+   },
+   "lastSeq": 4,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": null,
+  "matchId": null,
+  "turnIndex": null
+ },
+ {
+  "idx": 5,
+  "kind": "synthetic",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "synthetic-hc-Templar Assassin",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [],
+   "picks": {
+    "radiant": [
+     33,
+     112
+    ],
+    "dire": [
+     22,
+     7
+    ]
+   },
+   "lastSeq": 4,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": null,
+  "matchId": null,
+  "turnIndex": null
+ },
+ {
+  "idx": 6,
+  "kind": "synthetic",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "synthetic-hc-Phantom Lancer",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [],
+   "picks": {
+    "radiant": [
+     27,
+     38
+    ],
+    "dire": [
+     106,
+     104
+    ]
+   },
+   "lastSeq": 4,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": null,
+  "matchId": null,
+  "turnIndex": null
+ },
+ {
+  "idx": 7,
+  "kind": "replay",
+  "decisionContext": "team_opening",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8828883609",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    102,
+    38,
+    97,
+    120,
+    126,
+    16,
+    92
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": []
+   },
+   "lastSeq": 7,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 136,
+  "matchId": "8828883609",
+  "turnIndex": 7
+ },
+ {
+  "idx": 8,
+  "kind": "replay",
+  "decisionContext": "team_opening",
+  "side": "dire",
+  "state": {
+   "sessionId": "8875557483",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    128,
+    3,
+    80,
+    51,
+    2,
+    90,
+    11
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": []
+   },
+   "lastSeq": 7,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 83,
+  "matchId": "8875557483",
+  "turnIndex": 7
+ },
+ {
+  "idx": 9,
+  "kind": "replay",
+  "decisionContext": "team_opening",
+  "side": "dire",
+  "state": {
+   "sessionId": "8836793131",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    80,
+    28,
+    51,
+    128,
+    38,
+    120,
+    145
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": []
+   },
+   "lastSeq": 7,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 21,
+  "matchId": "8836793131",
+  "turnIndex": 7
+ },
+ {
+  "idx": 10,
+  "kind": "replay",
+  "decisionContext": "team_opening",
+  "side": "dire",
+  "state": {
+   "sessionId": "8842559153",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    145,
+    83,
+    128,
+    80,
+    63,
+    2,
+    75
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": []
+   },
+   "lastSeq": 7,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 21,
+  "matchId": "8842559153",
+  "turnIndex": 7
+ },
+ {
+  "idx": 11,
+  "kind": "replay",
+  "decisionContext": "team_opening",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8830078423",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    51,
+    105,
+    88,
+    137,
+    71,
+    39,
+    106
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": []
+   },
+   "lastSeq": 7,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 62,
+  "matchId": "8830078423",
+  "turnIndex": 7
+ },
+ {
+  "idx": 12,
+  "kind": "replay",
+  "decisionContext": "team_opening",
+  "side": "dire",
+  "state": {
+   "sessionId": "8863048425",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    65,
+    53,
+    80,
+    83,
+    6,
+    90,
+    11
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": []
+   },
+   "lastSeq": 7,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 13,
+  "matchId": "8863048425",
+  "turnIndex": 7
+ },
+ {
+  "idx": 13,
+  "kind": "replay",
+  "decisionContext": "blind_second_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8885784652",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    128,
+    6,
+    80,
+    59,
+    11,
+    53,
+    51
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": [
+     83
+    ]
+   },
+   "lastSeq": 8,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 105,
+  "matchId": "8885784652",
+  "turnIndex": 8
+ },
+ {
+  "idx": 14,
+  "kind": "replay",
+  "decisionContext": "blind_second_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8860726856",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    83,
+    65,
+    80,
+    13,
+    69,
+    11,
+    90
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": [
+     110
+    ]
+   },
+   "lastSeq": 8,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 53,
+  "matchId": "8860726856",
+  "turnIndex": 8
+ },
+ {
+  "idx": 15,
+  "kind": "replay",
+  "decisionContext": "blind_second_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8827875225",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    59,
+    128,
+    51,
+    145,
+    38,
+    17,
+    13
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": [
+     11
+    ]
+   },
+   "lastSeq": 8,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 21,
+  "matchId": "8827875225",
+  "turnIndex": 8
+ },
+ {
+  "idx": 16,
+  "kind": "replay",
+  "decisionContext": "blind_second_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8838767600",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    19,
+    83,
+    102,
+    78,
+    100,
+    47,
+    88
+   ],
+   "picks": {
+    "radiant": [
+     63
+    ],
+    "dire": []
+   },
+   "lastSeq": 8,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 58,
+  "matchId": "8838767600",
+  "turnIndex": 8
+ },
+ {
+  "idx": 17,
+  "kind": "replay",
+  "decisionContext": "blind_second_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8828457562",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    38,
+    120,
+    83,
+    51,
+    80,
+    13,
+    123
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": [
+     21
+    ]
+   },
+   "lastSeq": 8,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 17,
+  "matchId": "8828457562",
+  "turnIndex": 8
+ },
+ {
+  "idx": 18,
+  "kind": "replay",
+  "decisionContext": "blind_second_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8846559515",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    40,
+    16,
+    34,
+    76,
+    91,
+    94,
+    80
+   ],
+   "picks": {
+    "radiant": [],
+    "dire": [
+     86
+    ]
+   },
+   "lastSeq": 8,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 85,
+  "matchId": "8846559515",
+  "turnIndex": 8
+ },
+ {
+  "idx": 19,
+  "kind": "replay",
+  "decisionContext": "response_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8925425359",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    85,
+    11,
+    80,
+    109,
+    106,
+    107,
+    25,
+    13,
+    69,
+    155
+   ],
+   "picks": {
+    "radiant": [
+     83,
+     74
+    ],
+    "dire": [
+     123,
+     96
+    ]
+   },
+   "lastSeq": 14,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 3,
+  "matchId": "8925425359",
+  "turnIndex": 14
+ },
+ {
+  "idx": 20,
+  "kind": "replay",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8836750303",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    51,
+    155,
+    80,
+    86,
+    65,
+    123,
+    31,
+    83,
+    100,
+    13
+   ],
+   "picks": {
+    "radiant": [
+     2,
+     105
+    ],
+    "dire": [
+     6,
+     3
+    ]
+   },
+   "lastSeq": 14,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 106,
+  "matchId": "8836750303",
+  "turnIndex": 14
+ },
+ {
+  "idx": 21,
+  "kind": "replay",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8839542119",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    131,
+    88,
+    40,
+    16,
+    113,
+    136,
+    38,
+    111,
+    33,
+    92
+   ],
+   "picks": {
+    "radiant": [
+     25,
+     84
+    ],
+    "dire": [
+     31,
+     123
+    ]
+   },
+   "lastSeq": 14,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 19,
+  "matchId": "8839542119",
+  "turnIndex": 14
+ },
+ {
+  "idx": 22,
+  "kind": "replay",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8912045230",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    155,
+    123,
+    83,
+    80,
+    106,
+    11,
+    13,
+    90,
+    3,
+    74
+   ],
+   "picks": {
+    "radiant": [
+     85,
+     120
+    ],
+    "dire": [
+     17,
+     105
+    ]
+   },
+   "lastSeq": 14,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 131,
+  "matchId": "8912045230",
+  "turnIndex": 14
+ },
+ {
+  "idx": 23,
+  "kind": "replay",
+  "decisionContext": "response_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8955197224",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    155,
+    25,
+    83,
+    3,
+    106,
+    107,
+    53,
+    112,
+    91,
+    28
+   ],
+   "picks": {
+    "radiant": [
+     85,
+     120
+    ],
+    "dire": [
+     74,
+     123
+    ]
+   },
+   "lastSeq": 14,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 21,
+  "matchId": "8955197224",
+  "turnIndex": 14
+ },
+ {
+  "idx": 24,
+  "kind": "replay",
+  "decisionContext": "response_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8944742846",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    96,
+    3,
+    83,
+    85,
+    80,
+    11,
+    107,
+    13,
+    19,
+    54
+   ],
+   "picks": {
+    "radiant": [
+     9,
+     123
+    ],
+    "dire": [
+     25,
+     100
+    ]
+   },
+   "lastSeq": 14,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 21,
+  "matchId": "8944742846",
+  "turnIndex": 14
+ },
+ {
+  "idx": 25,
+  "kind": "replay",
+  "decisionContext": "closing_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8913598312",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    96,
+    90,
+    83,
+    74,
+    13,
+    56,
+    21,
+    85,
+    123,
+    77,
+    135,
+    25,
+    38,
+    35
+   ],
+   "picks": {
+    "radiant": [
+     6,
+     119,
+     100,
+     47
+    ],
+    "dire": [
+     51,
+     128,
+     131,
+     53
+    ]
+   },
+   "lastSeq": 22,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 80,
+  "matchId": "8913598312",
+  "turnIndex": 22
+ },
+ {
+  "idx": 26,
+  "kind": "replay",
+  "decisionContext": "closing_pick",
+  "side": "radiant",
+  "state": {
+   "sessionId": "8839180262",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "radiant",
+   "phase": "active",
+   "banned": [
+    108,
+    105,
+    83,
+    80,
+    120,
+    51,
+    13,
+    39,
+    2,
+    69,
+    59,
+    58,
+    19,
+    128
+   ],
+   "picks": {
+    "radiant": [
+     145,
+     79,
+     155,
+     17
+    ],
+    "dire": [
+     36,
+     112,
+     38,
+     123
+    ]
+   },
+   "lastSeq": 22,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 86,
+  "matchId": "8839180262",
+  "turnIndex": 22
+ },
+ {
+  "idx": 27,
+  "kind": "replay",
+  "decisionContext": "closing_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8917611319",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    13,
+    96,
+    83,
+    11,
+    85,
+    80,
+    74,
+    2,
+    135,
+    54,
+    58,
+    6,
+    131,
+    19
+   ],
+   "picks": {
+    "radiant": [
+     123,
+     17,
+     155,
+     21
+    ],
+    "dire": [
+     25,
+     3,
+     138,
+     38
+    ]
+   },
+   "lastSeq": 22,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 107,
+  "matchId": "8917611319",
+  "turnIndex": 22
+ },
+ {
+  "idx": 28,
+  "kind": "replay",
+  "decisionContext": "closing_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8846407327",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    26,
+    51,
+    135,
+    69,
+    110,
+    104,
+    128,
+    11,
+    2,
+    47,
+    120,
+    36,
+    59,
+    6
+   ],
+   "picks": {
+    "radiant": [
+     100,
+     99,
+     119,
+     46
+    ],
+    "dire": [
+     86,
+     31,
+     85,
+     28
+    ]
+   },
+   "lastSeq": 22,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 48,
+  "matchId": "8846407327",
+  "turnIndex": 22
+ },
+ {
+  "idx": 29,
+  "kind": "replay",
+  "decisionContext": "closing_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8852623851",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    88,
+    2,
+    80,
+    83,
+    82,
+    51,
+    90,
+    26,
+    101,
+    108,
+    11,
+    98,
+    6,
+    135
+   ],
+   "picks": {
+    "radiant": [
+     106,
+     123,
+     69,
+     31
+    ],
+    "dire": [
+     13,
+     155,
+     128,
+     145
+    ]
+   },
+   "lastSeq": 22,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 3,
+  "matchId": "8852623851",
+  "turnIndex": 22
+ },
+ {
+  "idx": 30,
+  "kind": "replay",
+  "decisionContext": "closing_pick",
+  "side": "dire",
+  "state": {
+   "sessionId": "8943182700",
+   "schema": "draft-state/v1",
+   "format": "captains_mode",
+   "patch": "60",
+   "localSide": "dire",
+   "phase": "active",
+   "banned": [
+    33,
+    98,
+    13,
+    83,
+    80,
+    25,
+    106,
+    90,
+    53,
+    67,
+    28,
+    18,
+    49,
+    21
+   ],
+   "picks": {
+    "radiant": [
+     85,
+     11,
+     55,
+     62
+    ],
+    "dire": [
+     96,
+     51,
+     123,
+     74
+    ]
+   },
+   "lastSeq": 22,
+   "appliedEventIds": [],
+   "quality": {
+    "unconfirmed": [],
+    "captureStatus": "ok"
+   },
+   "updatedAt": "",
+   "firstPickSide": null,
+   "turnStartedAt": null,
+   "reserveRemainingMs": null
+  },
+  "actualPick": 36,
+  "matchId": "8943182700",
+  "turnIndex": 22
+ }
+]
