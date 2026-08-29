@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T22:49:06.192Z</title>
+<title>HUB del ecosistema — 2026-08-29T23:00:40.841Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,19 +120,11 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">9</span></h2>
+        <h2>backlog <span class="count">8</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-212</div>
           <div class="card-title">Fase 9.1-F · gate.ts pasa a --enforce en el camino de commit + EvCov en el reporte + QA sobre el fold held-out</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-207</div>
-          <div class="card-title">Fase 9.1-A · Patch-fix del backtest: patchOverride en el reconstructor de ReplayCase (sólo scripts/eval, no toca el motor)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -212,7 +204,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">201</span></h2>
+        <h2>done <span class="count">202</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -723,6 +715,14 @@
         <div class="card  ">
           <div class="card-id">TSK-196</div>
           <div class="card-title">Fase 9.0-A · Partir CLAUDE.md (<200 líneas): bloques REGLAS DE FASE X → .claude/rules/fase-N.md (verbatim)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-207</div>
+          <div class="card-title">Fase 9.1-A · Patch-fix del backtest: patchOverride en el reconstructor de ReplayCase (sólo scripts/eval, no toca el motor)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1866,7 +1866,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">193× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">194× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1951,6 +1951,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-207</span> <span class="feed-ts">2026-08-30T02:15</span></div>
+            <div class="feed-note">Fase 9.1 bloque A. **Patch-fix del backtest, SÓLO `scripts/eval/` — cero cambio en `apps/engine`.** `ReplayMeta` gana `patchOverride?: string`; `replay.ts` usa `meta.patchOverride ?? meta.patch` en `state.patch`; `dominantPatch(patchStats)` (moda de los patches no vacíos → `"7.41e"`) exportado desde `replay.ts`. `run.ts` y `profile-signals.ts` calculan el override desde `meta.patchStats` y lo pasan a `buildReplayCases` / `loadReplayCasesFromDb` / `runEngineQuality` (`hydrateState(c, patchOverride)` — el Golden se congeló con `patch:"60"`, así que el override también aplica al Benchmark A, el juez de calidad). `report.ts` imprime la línea "Patch del backtest forzado a `<override>`"; `v6-measured.json` (frozen) lleva `patchOverride`. `ADR-002` gana un addendum. Tests: `replay.test.ts` +2 (`patchOverride` fija/no fija `state.patch`; `dominantPatch` moda + undefined). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 168/168. NO toca apps/.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>rulebook</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-30T01:45</span></div>
             <div class="feed-note">`/rulebook` de Fase 9.1 (Sonnet, undécima ejecución). Secciones "Fase 9.1" en las 4 reglas de `.claude/rules/` (`engine.md` — el detalle del mecanismo: `A(S)`, redistribución por estado, `μᵢ(S)`, `EvidenceCoverage`, `calibratedNormalize`, `evidenceConfidence` con `K` por señal, candado de regresión cero; `web.md` — el espejo de 4 campos; `security.md` — `loadCalibration` degrada a `RAW_RANGE`, patch-fix sólo en `scripts/eval/`, `gate.ts --enforce` bloquea el commit; `testing-seams.md` — S18 + los apoyos, las 2 pruebas de regresión cero + degradación + `μ` + `EvidenceCoverage`). `.claude/rules/fase-9.1.md` nuevo + línea en el índice de `CLAUDE.md` (196 líneas, split-verify OK). **6 tickets `TSK-207`→`TSK-212`, `state: backlog`** (§16.13): A `TSK-207` patch-fix del backtest (sólo `scripts/eval`, re-congela `signal-profile.json`+`v6-measured.json`) → B `TSK-208` `build-percentiles.ts` + `percentiles.json` (folds de train) → C `TSK-209` `calibration.ts` (`loadCalibration` S18, `enrich`) + `SignalContribution` v2 → D `TSK-210` `mix.ts` mezcla por estado + candado de regresión cero; E `TSK-211` espejo `apps/web` (depende de C); F `TSK-212` `gate.ts --enforce` en el camino de commit + `EvCov` en el reporte + QA held-out (depende de D+E). Cada ticket con `write_scope` e `implements:[Ex/§16.x]`. `@redteam` obligatorio en C/D/E. Hub: 211 tareas. `verify-simplicity` verde. Cero código escrito. Siguiente: `/helm` → `/dispatch` — arranca `TSK-207`.</div>
           </div>
@@ -2023,13 +2030,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-200</span> <span class="feed-ts">2026-08-29T21:47</span></div>
             <div class="feed-note">Fase 9.0 bloque C, ticket 1. `scripts/eval/split.ts` — GroupKFold por `league_id` (xorshift determinista), `loadOrCreateSplit` escribe `eval/baselines/split.json` UNA vez y luego sólo lee (torneos nuevos → fuera con aviso a stderr, nunca regenera). `scripts/eval/baselines.ts` — 4 rankers: `random` (mulberry32 sembrado por `sessionId:lastSeq`), `patchMetaOnly` (picks del parche desc), `v6Full` = `buildSuggestions(state,meta,{}).suggestions`, `v6NoCuratedCounters` = idem con `heroCounters:new Map()`; `positionFitOnly` OMITIDO con motivo en `OMITTED_BASELINES` (aislar 1 señal exige flag nuevo en el motor). `scripts/eval/benchmark-pro-agreement.ts` — `runProAgreement(cases, meta, split, opts)` puro → objeto estructurado; `loadReplayCasesFromDb(path)` abre `pro-drafts.sqlite` `readonly:true` (db.close en finally, query parametrizada, `WHERE ingest_reason IS NULL OR <> 'invalid_draft_shape'`, los 826 `tier_not_accepted` entran como `tier:"unknown"` — §15.1 C1); Recall@{1,3,5,6} + MRR; bootstrap por torneo + por draft (draft marcado OPTIMISTA); segmentación `decisionContext × tier`; **`ConstraintViolationRate` gate duro**: héroe baneado/pickeado/inexistente en cualquier ranking → `valid:false`, `perBaseline:{}`, no reporta nada más. `opts.rankers` override sólo para tests. Tests: 12 casos (`split.test.ts`/`baselines.test.ts`/`benchmark-pro-agreement.test.ts`) — split determinista+congelado, baselines sin violar, gate duro con ranker roto inyectado, `loadReplayCasesFromDb` con SQLite en memoria (BAD1 filtrado por SQL, BAD2 shape inválido → skipped). `tsconfig.json` acotado a módulos puros S15/S16/S17 (runners siguen convención scripts/pro). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 135/135 (+12). NO toca apps/. `@redteam` APPROVED (evt-220). state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-200</span> <span class="feed-ts">2026-08-29T21:45</span></div>
-            <div class="feed-note">APPROVED, gate_seguridad PASS. SQL parametrizada (`?` match_id; único literal `'invalid_draft_shape'` constante), `readonly:true` + `db.close()` en finally, cero red/secreto/escritura a apps/. **4 observaciones NO bloqueantes**, todas deviaciones documentadas forzadas por "9.0 no toca apps/engine": (1) Recall tope @6 no @10 — `buildSuggestions` corta a TOP_N=6, `recallCeilingK:6`, parametrizar es 9.1; (2) `v6WithoutCounter`→`v6NoCuratedCounters` (heroCounters vacío desactiva la capa curada pero la estadística de counter sigue) — no es aislamiento real; (3) los runners no pasan tsc estricto (tsconfig acotado a módulos puros, convención scripts/pro: bun test + ejecución); (4) N+1 en `loadReplayCasesFromDb` (una query de turnos por draft, ~2164; statement preparado, offline, no bloquea). SPEC §15.4.3 anticipa (1)-(2) explícitamente ("si un baseline no se puede sin tocar el motor, se documenta y se omite"). Standards: idiom `(map.get(g) ?? map.set(g,[]).get(g)!)` en `bootstrap` un poco críptico, no bloquea.</div>
           </div>
         </div></div>
     </div>

@@ -158,7 +158,7 @@ export interface RunOptions {
  * `tier: "unknown"` (SPEC §15.1 C1) — es política de curación de ingesta, no un defecto de dato.
  * Un draft con `ingest_reason = 'invalid_draft_shape'` o shape inválido se descarta con motivo.
  */
-export function loadReplayCasesFromDb(dbPath: string): BuildReplayResult {
+export function loadReplayCasesFromDb(dbPath: string, patchOverride?: string): BuildReplayResult {
   const db = new Database(dbPath, { readonly: true });
   try {
     const drafts = db
@@ -187,7 +187,7 @@ export function loadReplayCasesFromDb(dbPath: string): BuildReplayResult {
         team: (r.team === 1 ? 1 : 0) as 0 | 1,
       }));
       const tier = d.tier === "premium" || d.tier === "professional" ? d.tier : "unknown";
-      const res = buildReplayCases(turns, { matchId: d.matchId, leagueId: d.leagueId, tier, patch: d.patch });
+      const res = buildReplayCases(turns, { matchId: d.matchId, leagueId: d.leagueId, tier, patch: d.patch, patchOverride });
       cases.push(...res.cases);
       skipped.push(...res.skipped);
     }

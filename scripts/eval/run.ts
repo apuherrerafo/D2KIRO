@@ -16,6 +16,7 @@ import type { MetaSnapshot } from "../../apps/engine/src/signals/types";
 import { runEngineQuality, type EngineQualityResult } from "./benchmark-engine-quality";
 import { loadReplayCasesFromDb, runProAgreement, type ProAgreementResult } from "./benchmark-pro-agreement";
 import { loadGoldenDataset, type GoldenCase } from "./golden";
+import { dominantPatch } from "./replay";
 import { renderReport, type ReportMeta } from "./report";
 import { loadOrCreateSplit, type FrozenSplit } from "./split";
 
@@ -131,20 +132,26 @@ async function main(): Promise<number> {
   const { meta, syncedAt } = loadMeta(P.ENGINE_DB);
   const knownHeroIds = new Set(Object.keys(meta.heroes).map(Number));
 
-  const { cases: replayCases, skipped } = loadReplayCasesFromDb(P.PRO_DB);
+  // SPEC §16.4 — fuerza el patch semántico del meta sobre el `state` del replay, para que
+  // `patch_meta` pueda votar (el corpus tiene `patch = "60"` que nunca matchea `patchStats`).
+  const patchOverride = dominantPatch(
+    (meta as unknown as { patchStats?: Record<number, { patch: string }[]> }).patchStats ?? {},
+  );
+  const { cases: replayCases, skipped } = loadReplayCasesFromDb(P.PRO_DB, patchOverride);
   const leagueIds = [...new Set(replayCases.map((c) => c.leagueId))];
   const split = loadOrCreateSplit(leagueIds, { path: P.SPLIT_OUT });
 
   const golden = loadGolden(P.GOLDEN_PATH, knownHeroIds);
 
   const agreement: ProAgreementResult = runProAgreement(replayCases, meta, split, {});
-  const quality: EngineQualityResult = runEngineQuality(golden.cases, meta, {});
+  const quality: EngineQualityResult = runEngineQuality(golden.cases, meta, { patchOverride });
 
   const meta_: ReportMeta = {
     generatedAt: new Date().toISOString(),
     commit: gitCommit(),
     splitHash: splitHash(split),
     snapshotSyncedAt: syncedAt,
+    patchOverride: patchOverride ?? null,
     corpusSize: {
       drafts: agreement.corpus.drafts,
       tournaments: agreement.corpus.tournaments,
@@ -173,6 +180,7 @@ async function main(): Promise<number> {
     commit: meta_.commit,
     splitHash: meta_.splitHash,
     snapshotSyncedAt: meta_.snapshotSyncedAt,
+    patchOverride: meta_.patchOverride,
     corpusSize: meta_.corpusSize,
     skippedDrafts: skipped.length,
     goldenNote: golden.note,

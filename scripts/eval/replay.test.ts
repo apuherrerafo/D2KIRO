@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildReplayCases } from "./replay";
+import { buildReplayCases, dominantPatch } from "./replay";
 import type { ProDraftTurn, ReplayMeta } from "./types";
 
 const META: ReplayMeta = { matchId: "M1", leagueId: 42, tier: "professional", patch: "60" };
@@ -96,6 +96,18 @@ describe("buildReplayCases — S15", () => {
     expect(res.skipped[0]!.reason).toContain("dos veces");
   });
 
+  test("dominantPatch: la moda de los patch no vacíos; undefined si no hay ninguno", () => {
+    expect(
+      dominantPatch({
+        1: [{ patch: "7.41e" }, { patch: "" }],
+        2: [{ patch: "7.41e" }, { patch: "7.40" }],
+        3: [{ patch: "" }],
+      }),
+    ).toBe("7.41e");
+    expect(dominantPatch({ 1: [{ patch: "" }], 2: [{ patch: "" }] })).toBeUndefined();
+    expect(dominantPatch({})).toBeUndefined();
+  });
+
   test("los bans se reconstruyen como estado pero NUNCA son un caso", () => {
     const turns = draft24();
     const { cases } = buildReplayCases(turns, META);
@@ -103,6 +115,15 @@ describe("buildReplayCases — S15", () => {
     // hay bans en el draft y aparecen en state.banned de algún caso tardío
     const late = cases[cases.length - 1]!;
     expect(late.state.banned.length).toBeGreaterThan(0);
+  });
+
+  test("patchOverride (§16.4): fija state.patch al override; sin él, al patch crudo del corpus", () => {
+    const turns = draft24();
+    const withOverride = buildReplayCases(turns, { ...META, patch: "60", patchOverride: "7.41e" });
+    for (const c of withOverride.cases) expect(c.state.patch).toBe("7.41e");
+
+    const without = buildReplayCases(turns, { ...META, patch: "60" });
+    for (const c of without.cases) expect(c.state.patch).toBe("60");
   });
 
   test("entrada sin ordenar se ordena por order antes de reconstruir", () => {

@@ -21,6 +21,30 @@ function sideOf(team: 0 | 1): "radiant" | "dire" {
   return team === 0 ? "radiant" : "dire";
 }
 
+/**
+ * SPEC §16.4 — el `patchOverride` para el backtest: la moda de los `patch` no vacíos de
+ * `hero_patch_stats` (hoy `"7.41e"`). El corpus tiene `patch = "60"` (id numérico de OpenDota)
+ * que nunca matchea, dejando `patch_meta` 100% null. Devuelve `undefined` si no hay ningún patch
+ * no vacío (entonces no se fuerza nada).
+ */
+export function dominantPatch(patchStats: Record<number, { patch: string }[]>): string | undefined {
+  const counts = new Map<string, number>();
+  for (const rows of Object.values(patchStats)) {
+    for (const r of rows) {
+      if (r.patch && r.patch.trim() !== "") counts.set(r.patch, (counts.get(r.patch) ?? 0) + 1);
+    }
+  }
+  let best: string | undefined;
+  let bestN = 0;
+  for (const [p, n] of counts) {
+    if (n > bestN) {
+      best = p;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
 /** Valida la forma de un draft. Devuelve el motivo si es inválido, o null si está bien. */
 function shapeError(turns: ProDraftTurn[]): string | null {
   if (turns.length !== TURNS_PER_DRAFT) {
@@ -52,7 +76,7 @@ function stateBefore(sortedTurns: ProDraftTurn[], upTo: number, meta: ReplayMeta
   const state = createIdleDraftState(meta.matchId);
   state.format = "captains_mode";
   state.phase = "active";
-  state.patch = meta.patch;
+  state.patch = meta.patchOverride ?? meta.patch;
   state.localSide = sideOf(actingTeam);
   state.lastSeq = upTo;
 

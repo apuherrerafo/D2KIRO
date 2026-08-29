@@ -12,6 +12,8 @@ export interface ReportMeta {
   commit: string;
   splitHash: string;
   snapshotSyncedAt: string | null;
+  /** SPEC §16.4 — el patch semántico forzado sobre el `state` del replay (o null si no se forzó). */
+  patchOverride: string | null;
   corpusSize: { drafts: number; tournaments: number; goldenCases: number };
 }
 
@@ -29,6 +31,12 @@ export function renderReport(meta: ReportMeta, quality: EngineQualityResult, agr
   lines.push(`- Generado: ${meta.generatedAt}`);
   lines.push(`- Split congelado: \`${meta.splitHash}\``);
   lines.push(`- Snapshot de meta sincronizado: ${meta.snapshotSyncedAt ?? "desconocido"}`);
+  if (meta.patchOverride !== null) {
+    lines.push(
+      `- Patch del backtest forzado a \`${meta.patchOverride}\` (SPEC §16.4) — el backtest asume ` +
+        `que el meta vigente aplica al draft; sin esto \`patch_meta\` sería 100% null.`,
+    );
+  }
   lines.push(
     `- Corpus: ${meta.corpusSize.drafts} drafts / ${meta.corpusSize.tournaments} torneos / ` +
       `${meta.corpusSize.goldenCases} casos Golden`,

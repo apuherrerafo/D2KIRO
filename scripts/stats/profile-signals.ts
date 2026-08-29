@@ -24,7 +24,7 @@ import { createTeamSynergyScorer } from "../../apps/engine/src/signals/team-syne
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "../../apps/engine/src/signals/types";
 import { SCORING_WEIGHTS_V6 } from "../../apps/engine/src/signals/weights";
 import { loadHeroCapabilities } from "../../apps/engine/src/draft-paths/capabilities";
-import { buildReplayCases } from "../eval/replay";
+import { buildReplayCases, dominantPatch } from "../eval/replay";
 import type { ProDraftTurn } from "../eval/types";
 
 // ESPEJO de RAW_RANGE (mix.ts:117 — NO está exportado). Si cambia allá, cambia acá.
@@ -68,7 +68,11 @@ function loadMeta(dbPath: string): MetaSnapshot {
   }
 }
 
-function loadStates(proDbPath: string, sampleSize: number): { state: DraftState; ctx: DraftDecisionContext }[] {
+function loadStates(
+  proDbPath: string,
+  sampleSize: number,
+  patchOverride?: string,
+): { state: DraftState; ctx: DraftDecisionContext }[] {
   const db = new Database(proDbPath, { readonly: true });
   try {
     const drafts = db
@@ -82,7 +86,7 @@ function loadStates(proDbPath: string, sampleSize: number): { state: DraftState;
       const d = drafts[i]!;
       const rows = stmt.all(d.m) as { o: number; ip: number; h: number; t: number }[];
       const turns: ProDraftTurn[] = rows.map((r) => ({ order: r.o, isPick: r.ip === 1, hero: r.h, team: (r.t === 1 ? 1 : 0) as 0 | 1 }));
-      const { cases } = buildReplayCases(turns, { matchId: d.m, leagueId: d.l, tier: "professional", patch: d.p });
+      const { cases } = buildReplayCases(turns, { matchId: d.m, leagueId: d.l, tier: "professional", patch: d.p, patchOverride });
       if (cases.length === 0) continue;
       // tomamos hasta 3 estados por draft (temprano / medio / tardío) para cubrir contextos
       for (const idx of [0, Math.floor(cases.length / 2), cases.length - 1]) {
@@ -266,7 +270,9 @@ async function main(): Promise<number> {
   const META_OUT = process.env.D2K_PROFILE_META_OUT ?? "data/metadata/signal-profile.json";
 
   const meta = loadMeta(ENGINE_DB);
-  const states = loadStates(PRO_DB, SAMPLE);
+  // SPEC §16.4 — mismo patchOverride que run.ts, para que patch_meta pueda votar en el perfil.
+  const patchOverride = dominantPatch((meta as unknown as { patchStats?: Record<number, { patch: string }[]> }).patchStats ?? {});
+  const states = loadStates(PRO_DB, SAMPLE, patchOverride);
   const result = profileFromStates(states, meta);
 
   mkdirSync("data/generated", { recursive: true });

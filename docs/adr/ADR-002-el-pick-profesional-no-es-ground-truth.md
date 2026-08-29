@@ -54,3 +54,21 @@ lo impiden:
 - Ningún ticket de 9.x puede afirmar "el motor acierta X%" a partir del benchmark secundario.
 - Si en el futuro se archivan snapshots datados, este ADR se supersede con uno que reclasifique el
   Benchmark B como predictivo.
+
+## Addendum (2026-08-30, TSK-207 / SPEC §16.4) — el backtest fuerza el patch actual
+
+Consecuencia directa de "no hay snapshot point-in-time": el corpus tiene `pro_drafts.patch = "60"`
+(id numérico de OpenDota) que nunca matchea el patch semántico de `hero_patch_stats` (`"7.41e"`),
+así que `patch_meta` quedaba **100% null** en todo el backtest. El fix (`patchOverride` en
+`scripts/eval/`, **no toca `apps/engine`**) fuerza `state.patch` a la moda de los patches no
+vacíos de `patchStats`, para que `patch_meta` pueda votar y ser calibrado.
+
+Es coherente con este ADR: como el snapshot **ya** es el actual (no el del día del draft), asumir
+que el meta vigente aplica al draft no introduce un sesgo nuevo — sólo hace que la señal participe.
+**Hallazgo al aplicarlo**: con `patch_meta` votando, el NDCG@5 de `v6Full` en el Benchmark A baja
+de 0.771 a **0.687** (el `team_opening` se desploma de 0.805 a 0.428) — `patch_meta` como está
+diseñado (proxy de popularidad en bracket bajo/medio) **empuja las recomendaciones hacia el meta
+de herald/guardian, lejos de los picks que el panel graduó como buenos**. No es una regresión: es
+el número honesto de V6 con todas sus señales activas, y es el baseline de referencia del
+`--enforce` de 9.1. Sugiere que `patch_meta` debería quedar fuera de `A(S)` en contextos de baja
+información (candidato para 9.3, gating contextual).

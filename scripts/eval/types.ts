@@ -19,6 +19,14 @@ export interface ReplayMeta {
   tier: "premium" | "professional" | "unknown";
   /** El parche del draft. Hoy el corpus es mono-parche ("60"); ver SPEC §15.1 C3. */
   patch: string;
+  /**
+   * SPEC §16.4 — el id numérico del corpus ("60") no matchea el patch semántico de `patchStats`
+   * ("7.41e"), así que `patch_meta` queda 100% null en el backtest. Cuando `patchOverride` está,
+   * `state.patch` se fija a ese valor (la moda de `patchStats[*].patch` no vacía). NO es un bug de
+   * producción — los drafts en vivo llevan el patch bueno; es fidelidad del backtest, coherente
+   * con ADR-002 (el snapshot no es point-in-time de todos modos).
+   */
+  patchOverride?: string;
 }
 
 /** Un caso de evaluación: el estado ANTES de un pick profesional + lo que el equipo eligió. */

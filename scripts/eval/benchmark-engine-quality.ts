@@ -52,15 +52,22 @@ export interface EngineQualityOptions {
   bootstrapIterations?: number;
   /** override sólo para tests del gate. */
   rankers?: Partial<Record<BaselineId, Ranker>>;
+  /**
+   * SPEC §16.4 — mismo `patchOverride` que el backtest de replays. Los estados del Golden se
+   * congelaron con `patch: "60"`; sin forzar el patch semántico, `patch_meta` sería null también
+   * en el Benchmark A (el juez de calidad). El motor no se toca — es el `state` del caso el que
+   * se ajusta al correr.
+   */
+  patchOverride?: string;
 }
 
 /** Rehidrata el DraftState completo desde el subconjunto serializado del Golden case. */
-export function hydrateState(c: GoldenCase): DraftState {
+export function hydrateState(c: GoldenCase, patchOverride?: string): DraftState {
   return {
     ...createIdleDraftState(c.id),
     schema: "draft-state/v1",
     format: c.state.format,
-    patch: c.state.patch,
+    patch: patchOverride ?? c.state.patch,
     localSide: c.state.localSide,
     phase: c.state.phase,
     banned: [...c.state.banned],
@@ -146,7 +153,7 @@ export function runEngineQuality(cases: GoldenCase[], meta: MetaSnapshot, opts: 
   let invalidSuggestions = 0;
 
   for (const c of cases) {
-    const state = hydrateState(c);
+    const state = hydrateState(c, opts.patchOverride);
     const taken = new Set<HeroId>([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
     for (const b of BASELINE_IDS) {
       const ranking = rankers[b](state, meta);

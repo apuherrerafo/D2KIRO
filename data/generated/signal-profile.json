@@ -35,16 +35,16 @@
     {
       "signal": "patch_meta",
       "rawPercentiles": {
-        "p05": 0,
-        "p25": 0,
-        "p50": 0,
-        "p75": 0,
-        "p95": 0
+        "p05": 0.44611336245460764,
+        "p25": 0.4775337671300404,
+        "p50": 0.4964572773594747,
+        "p75": 0.5144283412507754,
+        "p95": 0.5278212200604449
       },
-      "meanIntraStateSD": 0,
+      "meanIntraStateSD": 0.0256661266074535,
       "effectiveSlope": 29.250000000000004,
-      "realizedInfluence": 0,
-      "rawNullRate": 1,
+      "realizedInfluence": 0.750734203268015,
+      "rawNullRate": 0,
       "applicableFalseRate": 0
     },
     {
@@ -96,42 +96,42 @@
   "ablation": [
     {
       "signal": "position_fit",
-      "meanAbsDelta": 15.07867784452736,
+      "meanAbsDelta": 12.977956133663108,
       "byContext": {
-        "team_opening": 16.276405829408915,
+        "team_opening": 14.501675989364216,
         "blind_second_pick": 0,
-        "response_pick": 15.171000133798932,
-        "closing_pick": 13.597260011986384
+        "response_pick": 12.174443833536742,
+        "closing_pick": 12.085138777220715
       }
     },
     {
       "signal": "counter",
-      "meanAbsDelta": 5.861788176578465,
+      "meanAbsDelta": 4.128966525463522,
       "byContext": {
-        "team_opening": 0.9224996319351743,
+        "team_opening": 0.6066417521438587,
         "blind_second_pick": 0,
-        "response_pick": 6.339946215295748,
-        "closing_pick": 11.046027840240756
+        "response_pick": 4.6197004153336225,
+        "closing_pick": 7.664704767126193
       }
     },
     {
       "signal": "patch_meta",
-      "meanAbsDelta": 0,
+      "meanAbsDelta": 3.4212264384313635,
       "byContext": {
-        "team_opening": 0,
+        "team_opening": 5.070941273655726,
         "blind_second_pick": 0,
-        "response_pick": 0,
-        "closing_pick": 0
+        "response_pick": 1.9066454544432152,
+        "closing_pick": 3.148796534390128
       }
     },
     {
       "signal": "team_synergy",
-      "meanAbsDelta": 4.3147927365903165,
+      "meanAbsDelta": 3.6601629872102164,
       "byContext": {
         "team_opening": 0,
         "blind_second_pick": 0,
-        "response_pick": 7.266992344253257,
-        "closing_pick": 6.114107855172976
+        "response_pick": 5.952373756306801,
+        "closing_pick": 5.414893298041018
       }
     },
     {
@@ -156,11 +156,11 @@
     }
   ],
   "voteCountHistogram": [
+    0,
     0.002916666666666667,
     0.3081845238095238,
     0.0524702380952381,
     0.6364285714285715,
-    0,
     0,
     0
   ]
