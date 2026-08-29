@@ -5029,3 +5029,286 @@ por ser funciones puras autocontenidas con contrato cerrado.
 **Precondición para arrancar el bloque A**: commitear Fase 8 (`TSK-183`→`TSK-192` + el fix de
 `apps/web/features/draft/validation.ts`). El baseline "V6-medido" tiene que corresponder a un árbol
 identificable por commit, o no es un baseline.
+
+---
+
+# SPEC — Fase 9.1 (comparabilidad + calibración empírica)
+
+`/blueprint` angosto de la sub-fase 9.1, corrido en **Sonnet** (SPEC.md §15.0: los blueprints de
+9.1–9.5 no cuestan Opus salvo que crucen un gatillo objetivo — 9.1 no cruza ninguno; 9.0 ya midió
+los números, esto es aplicar el mecanismo a datos concretos). Entrada:
+`data/generated/signal-profile.json` + `eval/baselines/v6-measured.json` de `0130e9f` +
+`data/generated/tolerance.json`.
+
+## §16.0 — Alcance de 9.1
+
+- **9.1 SÍ toca `apps/engine/src/signals/`** (a diferencia de 9.0). Cambia el mecanismo de
+  normalización y de mezcla de señales. **No toca `weights.ts`** — `SCORING_WEIGHTS_V6` sigue
+  siendo la constante activa; el ajuste de pesos es 9.5.
+- **No parte `counter` en 3** (eso es 9.3). No hay Empirical Bayes (9.2). No hay gating contextual
+  (9.3).
+- **`raw: null` sigue sagrado** — nunca se convierte en 0, 0.5 ni 50. Lo que 9.1 introduce es un
+  campo `contribution` separado y un relleno `μ` que **nunca** se escribe en `raw`.
+- **Precondición bloqueante**: arreglar el mismatch de patch del backtest (§16.4) y re-generar
+  `signal-profile.json` + `v6-measured.json` **antes** de calcular ningún percentil. Sin eso,
+  `patch_meta` sigue 100% null y su calibración sería basura.
+
+## §16.1 — Lo que midió 9.0 (`signal-profile.json`, 300 estados / 33 600 evaluaciones)
+
+| señal | p05 raw | p95 raw | pendiente efectiva `100·w/(b−a)` | SD intra-estado | influencia realizada | `raw:null` | `applicable:false` |
+|---|---|---|---|---|---|---|---|
+| position_fit | 0.000 | 1.000 | 34.2 | 0.255 | **8.73** | 0.9% | 0% |
+| counter | −0.044 | +0.052 | 90.0 | 0.021 | **1.87** | 31.2% | 0% |
+| patch_meta | 0 | 0 | 29.25 | 0 | **0** (100% null) | 100% | 0% |
+| team_synergy | 0 | 0.286 | 11.7 | 0.070 | **0.82** | 35.7% | 0% |
+| hero_pool_fit | 0 | 0 | 10.8 | 0 | 0 | 0% | 100% |
+| archetype_fit | 0 | 0 | 10 | 0 | 0 | 0% | 100% |
+
+Histograma de nº de señales con voto por candidato: **1 → 30.8%**, 2 → 5.2%, **3 → 63.6%**, ≥4 → 0%.
+
+**Tres correcciones concretas de calibración que salen de esta tabla:**
+
+1. **`RAW_RANGE.counter = [−0.12, 0.12]` es ~4× demasiado ancho.** Un delta de matchup real casi
+   nunca supera `[−0.044, 0.052]` (p05/p95 medidos). El rango actual está calibrado para deltas
+   que no ocurren → `counter` está **sub-ponderado en la práctica**: su influencia realizada
+   (1.87) es una fracción de su pendiente nominal (90). Con el rango empírico, la pendiente
+   efectiva de `counter` sube ~2.5× y sus contribuciones negativas (candidato countereado) pican
+   más fuerte → hipótesis: **baja el Bad Pick Rate**.
+2. **`RAW_RANGE.team_synergy = [0, 1]` sobra el doble.** El `raw` real vive en `[0, 0.286]`. Su
+   pendiente efectiva debería ser ~3.5× la actual.
+3. **`RAW_RANGE.position_fit = [0, 1]` es correcto** — el `raw` toca ambos extremos (p05=0,
+   p95=1). La calibración empírica casi no lo mueve. Fase 3 no se re-abre.
+
+## §16.2 — Decisiones cerradas
+
+| # | Decisión |
+|---|---|
+| E1 | **Percentiles empíricos reemplazan la normalización lineal de `RAW_RANGE`.** Se congelan sobre el split de **train** (folds del `split.json` de 9.0). `RAW_RANGE` queda en el código como fallback, sin editar sus valores. |
+| E2 | **Fin de la redistribución candidate-specific.** La redistribución de pesos pasa a ser **por estado**, no por candidato: todos los candidatos de un mismo estado se puntúan sobre la misma base. |
+| E3 | **`raw:null` de un candidato en una señal disponible para el estado** → su `contribution` usa `μᵢ(S)` (la media del `normalized` de esa señal sobre los candidatos del estado que **sí** tienen dato). `raw` sigue `null`; el desglose sigue diciendo "sin datos". |
+| E4 | **`SignalContribution` gana `normalized: number \| null` y `evidenceConfidence: number` (aditivo).** Ningún campo actual se borra. |
+| E5 | **`EvidenceCoverage(h)` / `GuessingIndex(h)` internos** (decisión D4 del `/pre-flight`: la UI es follow-up). Se emiten en la respuesta de `buildSuggestions` y en los reportes de eval, no se renderizan todavía. |
+| E6 | **Fallback jerárquico de percentiles: `global` → `bracket`** (8 brackets, C7). El eje `patch` **no** participa (mono-parche, C3) — se deja definido y vacío. |
+| E7 | **Candado de regresión cero obligatorio**: calibración desactivada + opciones legacy ⇒ `mixScore` / `buildSuggestions` reproducen V6 **byte a byte**. Mismo criterio que V1→V2 (1b) y V5→V6 (4.2). |
+| E8 | **El `gate.ts` pasa a `--enforce`** contra el `v6-measured.json` de `0130e9f`. Todo cambio de 9.1 tiene que dar PASS (NDCG@5 no baja más que `tolerance.ndcg5 = 0.041`; Bad Pick Rate@5 no sube más que `tolerance.badPickRate5 = 0.035`; ningún contexto cae más que su tolerancia; `ConstraintViolationRate = 0`). |
+| E9 | **Criterio de éxito de 9.1** (no bloqueante para mergear, sí para declarar la fase útil): **Bad Pick Rate@5 baja** respecto de 0.293, con NDCG@5 ≥ 0.771 − 0.041. Si la calibración no lo logra, 9.1 igual entra (deja el mecanismo listo para 9.2/9.3) pero se anota que la palanca real está en el split de `counter`. |
+
+## §16.3 — Costuras
+
+| Costura | Frontera | Real en la prueba | Se reemplaza |
+|---|---|---|---|
+| **S16b** (extiende S16) | métricas de eval sobre `SignalContribution` v2 | `EvidenceCoverage`/`GuessingIndex` como funciones puras sobre `SignalContribution[]` | Nada. Entrada: contribuciones + set disponible del estado |
+| **S18** (ya definida en §15.3) | `data/generated/percentiles.json` → `apps/engine` | El loader validado (`loadCalibration()`) + la degradación a `RAW_RANGE` | El archivo real: fixture inline. Corrupto/ausente/forma inesperada → **fallback a `RAW_RANGE`**, byte-idéntico a V6, nunca lanza |
+| **S3** (ya existente) | cada `SignalScorer` | cada scorer se prueba solo; 9.1 le agrega la aserción de que `normalized`/`evidenceConfidence` salen bien dado `raw` + `sampleSize` | Nada nuevo |
+| **generador de percentiles** | `scripts/stats/build-percentiles.ts` | función pura: `(perfil de raws por señal, split) → {p05,p95} por señal/bracket` | Nada. Cero SQLite/red en el test — fixture literal de raws |
+
+**Regla derivada**: ninguna prueba lee `data/generated/percentiles.json` real ni las SQLite —
+fixtures inline, mismo criterio que S9/S10 y toda Fase 9.
+
+## §16.4 — Precondición: normalización de patch en el backtest (ticket propio, primero)
+
+**Problema** (hallazgo #3 de 9.0, `journal.md` evt-224): el corpus tiene `pro_drafts.patch = "60"`
+(id numérico de OpenDota) y `meta.patchStats` tiene `"7.41e"` / `""`. `patchMetaScorer` filtra
+`row.patch === state.patch` → `patch_meta` es 100% `null` en todo el backtest. **No es un bug de
+producción** (los drafts en vivo llevan el patch semántico); es fidelidad del backtest.
+
+**Fix, sólo en `scripts/eval/` — NO toca `apps/engine`:**
+
+- El reconstructor de `ReplayCase` (S15, `scripts/eval/replay.ts`) gana un parámetro
+  `patchOverride?: string` en `ReplayMeta`. Cuando se pasa, `state.patch = patchOverride` en vez
+  del patch crudo del corpus.
+- `scripts/eval/run.ts` y `scripts/stats/profile-signals.ts` calculan el override como **la moda
+  de `patchStats[*].patch` que no sea `""`** (hoy: `"7.41e"`) y lo pasan.
+- **Justificación documentada** (nota en el reporte y en `ADR-002`): el backtest asume que el meta
+  vigente aplica al draft. Es coherente con ADR-002/C4 — el snapshot **no es point-in-time** de
+  todos modos, así que forzar el patch actual no introduce un sesgo nuevo, sólo hace que
+  `patch_meta` pueda votar y ser calibrado.
+- **Después del fix**: re-correr `bun run scripts/stats/profile-signals.ts` y `bun run eval` →
+  nuevo `signal-profile.json` con `patch_meta` votando, nuevo `v6-measured.json`. Los percentiles
+  de `patch_meta` (§16.5) se calculan sobre ESE perfil.
+- El `v6-measured.json` re-congelado por este ticket **reemplaza** el de `0130e9f` como el
+  baseline de referencia del `--enforce` de 9.1. Se anota el nuevo commit.
+
+## §16.5 — `data/generated/percentiles.json` — contrato
+
+```
+{
+  "schemaVersion": 1,
+  "trainSplitHash": string,          // splitHash del split.json usado (train = folds != held-out)
+  "corpusPatchOverride": string,     // el patch forzado en §16.4, p.ej. "7.41e"
+  "signals": {
+    "<SignalId>": {
+      "global": { "p05": number, "p95": number, "n": number },
+      "byBracket": {                 // opcional; ausente => sólo se usa global
+        "<bracket>": { "p05": number, "p95": number, "n": number }
+      }
+    }
+  }
+}
+```
+
+- **Cálculo** (`scripts/stats/build-percentiles.ts`, función pura + un `main()` que abre las
+  SQLite readonly):
+  1. Reconstruye los `ReplayCase` de los folds de **train** (nunca el fold held-out — ese es sólo
+     para el reporte final).
+  2. Para cada estado y cada candidato, corre los 6 scorers (mismos building blocks que
+     `profile-signals.ts`), junta los `raw` **no nulos** por señal.
+  3. `p05` = percentil 5, `p95` = percentil 95 de ese pool, por señal (`global`) y por bracket del
+     estado (`byBracket`) si hay `n ≥ 200` en el bracket (umbral duro, mismo espíritu que
+     `hero-positions.json`).
+  4. Señales con `applicable:false` estructural en el backtest (`hero_pool_fit`, `archetype_fit`)
+     → **no se calibran**: quedan con `null` en el JSON y el motor usa su `RAW_RANGE` (que ya es
+     `[0,1]` — el `raw` viene normalizado de adentro del scorer).
+- **Congelado**: se genera una vez, se versiona en `data/generated/percentiles.json` + su
+  `data/metadata/percentiles.json` (procedencia). No se regenera salvo re-etiquetado de datos o
+  patch nuevo (mismo criterio que `split.json`).
+
+## §16.6 — `SignalContribution` v2 (contrato de datos)
+
+```ts
+interface SignalContribution {
+  signal: SignalId;
+  raw: number | null;                 // SIN CAMBIOS — sigue siendo el valor crudo o null
+  normalized: number | null;          // NUEVO — raw calibrado a [0,100], o null si raw es null
+  evidenceConfidence: number;         // NUEVO — [0,1], cuánta evidencia respalda ESTE raw
+  weighted: number;                   // SIN CAMBIOS de nombre; su cálculo cambia (§16.7)
+  explanation: string;                // SIN CAMBIOS
+  sampleSize: number;                 // SIN CAMBIOS
+  applicable?: boolean;               // SIN CAMBIOS
+}
+```
+
+- **`normalized`**: `raw === null ? null : clamp((raw − p05)/(p95 − p05), 0, 1) * 100`, con
+  `p05`/`p95` de `percentiles.json` (`byBracket` del estado si existe, si no `global`, si no
+  falta el archivo → `RAW_RANGE[signal]`).
+- **`evidenceConfidence`**:
+  - señales estadísticas (`counter`, `patch_meta`, `position_fit`): `raw === null ? 0 :
+    sampleSize / (sampleSize + K_signal)` con `K_position_fit = 200`, `K_counter = 20`,
+    `K_patch_meta = 200` (valores de arranque, QA-tuneables, no reabren SPEC).
+  - señales categóricas (`team_synergy`, `hero_pool_fit`, `archetype_fit`): `raw === null ? 0 : 1`.
+- El contrato `SignalScorer.score()` **no cambia de firma**. `normalized`/`evidenceConfidence` los
+  agrega `mix.ts` (o un wrapper `enrich(contribution, calibration)`) después de llamar a cada
+  scorer — los scorers siguen devolviendo `raw`/`weighted:0`/`explanation`/`sampleSize`.
+
+## §16.7 — El nuevo `mix.ts` — mezcla por estado
+
+Reemplaza `weightedContributions` / `mixScore` / `computeConfidence`.
+
+1. **Set disponible del estado `A(S)`** — señales estructuralmente aplicables a `S`, **igual para
+   todos los candidatos**:
+   - `position_fit`: siempre (salvo `state.localSide === "unknown"`).
+   - `counter`: si `observedDraftFacts(S).revealedEnemyPicks.length > 0` **o** hay algún counter
+     curado sobre un baneado.
+   - `team_synergy`: si `own picks > 0`.
+   - `patch_meta`: si `percentiles.signals.patch_meta` no es null (hay calibración) — proxy de
+     "hay datos de parche".
+   - `hero_pool_fit`: si `meta.heroPool` no vacío.
+   - `archetype_fit`: si `options.archetypeIntent` está.
+2. **Pesos redistribuidos por estado**: `wᵢ' = SCORING_WEIGHTS_V6[i] / Σ_{j ∈ A(S)} SCORING_WEIGHTS_V6[j]`.
+   El denominador es **el mismo para todo candidato de `S`**.
+3. **`μᵢ(S)`** = media de `normalizedᵢ(h)` sobre los candidatos `h` de `S` con `rawᵢ(h) ≠ null`.
+   Si ninguno tiene dato (raro: la señal está en `A(S)` pero nadie tiene raw), `μᵢ(S) = 50`
+   (neutro — y **sólo acá**, nunca escrito en `raw`).
+4. **`contributionᵢ(h)`**:
+   - `i ∉ A(S)` → 0 (la señal no participa; su peso ya se sacó del denominador).
+   - `i ∈ A(S)`, `rawᵢ(h) ≠ null` → `wᵢ' · normalizedᵢ(h)`.
+   - `i ∈ A(S)`, `rawᵢ(h) = null` → `wᵢ' · μᵢ(S)`.
+5. **`score(h) = Σᵢ contributionᵢ(h)`** ∈ `[0, 100]`.
+6. **`EvidenceCoverage(h) = Σ_{i ∈ A(S), rawᵢ(h) ≠ null} wᵢ'`** ∈ `[0, 1]`.
+   **`GuessingIndex(h) = 1 − EvidenceCoverage(h)`**.
+7. **`computeConfidence`**: pasa a derivarse de `EvidenceCoverage`, no del conteo de nulls:
+   `alta` si `EvidenceCoverage ≥ 0.75` y meta no stale; `media` si `≥ 0.5` o meta stale;
+   `baja` si `< 0.5`. (Umbrales de arranque, QA-tuneables.)
+8. **`weighted`** en cada `SignalContribution` = `contributionᵢ(h)` (para que el desglose de la UI
+   siga sumando al `score`).
+
+**Candado de regresión cero (E7)** — con:
+- `loadCalibration()` devolviendo "sin calibración" (fallback a `RAW_RANGE`), **y**
+- `A(S)` = "señales con `raw ≠ null` para el candidato" (comportamiento legacy, no el nuevo
+  set-por-estado), **y**
+- sin usar `μᵢ(S)`,
+
+`mixScore` reproduce el número de V6 **exacto**. Se prueba en `mix.test.ts` con
+`SignalContribution[]` fijos, importando la lógica vieja sólo para el test, números concretos.
+
+## §16.8 — `EvidenceCoverage` / `GuessingIndex` en la salida
+
+- `Suggestion` gana `evidenceCoverage: number` y `guessingIndex: number` (0–1). `SuggestionSet`
+  no cambia de forma más allá de eso.
+- Los reportes de `bun run eval` (`renderReport`) agregan una columna `EvCov` por ranker y el
+  promedio de `GuessingIndex` del Top-6.
+- **No se renderiza en `apps/web`** en 9.1 (D4). El espejo de tipos sí se actualiza (§16.9).
+
+## §16.9 — Espejo `apps/web` (mismo cambio que el motor)
+
+- **`features/draft/types.ts`**: `SignalContribution` gana `normalized: number | null` y
+  `evidenceConfidence: number`. `Suggestion` gana `evidenceCoverage`/`guessingIndex`. Espejo a
+  mano, con el comentario de espejo (mismo criterio que Fase 3/4.2).
+- **`features/draft/validation.ts`**: `isSignalContribution` valida
+  `(normalized === null || isFiniteNumber(normalized))` y `isFiniteNumber(evidenceConfidence)`.
+  `isSuggestion` valida los dos campos nuevos como `isFiniteNumber` en `[0,1]`.
+- **`SignalBreakdown.tsx`**: sin cambio visual en 9.1 (sigue mostrando `raw`/`weighted`). El
+  `normalized` y el `GuessingIndex` quedan disponibles en el tipo para la UI de un follow-up.
+- **`bot-drafter.ts`** (segundo espejo, Random Draft Simulator): no consume `SignalContribution`,
+  no cambia.
+
+## §16.10 — Rendimiento y gate
+
+- **Presupuesto intacto**: 300 ms normal / 500 ms corte duro. `μᵢ(S)` exige una segunda pasada
+  sobre los candidatos por estado (primera: juntar `normalized` no nulos; segunda: rellenar).
+  Con ~110 candidatos × 6 señales es despreciable. `loadCalibration()` **una vez al iniciar el
+  módulo** (patrón `MODULE_HERO_*`), nunca por llamada.
+- **`gate.ts --enforce`** entra en `scripts/verify-simplicity.sh` (sección de gate de commit) o
+  en el CI de 9.1 — corre `bun run eval` y falla el commit si el veredicto es FAIL contra el
+  baseline de referencia (§16.4). En 9.1 esto **sí bloquea** (a diferencia de 9.0).
+
+## §16.11 — Seguridad (hereda §15.7)
+
+- **Ninguna frontera de confianza nueva.** `percentiles.json` es `data/generated/` — input
+  externo en el sentido del proyecto: `loadCalibration()` valida en el borde (esquema, p05<p95,
+  no NaN, `SignalId` conocido); corrupto/ausente → `RAW_RANGE`, nunca lanza, nunca inyecta un
+  rango arbitrario.
+- Cero red, cero secreto, cero dependencia nueva. El generador de percentiles es offline, SQLite
+  readonly, `scripts/stats/` — nunca importado desde `apps/`.
+- `apps/engine` sigue en `127.0.0.1`. Cero PII (el perfil se calcula sobre datos públicos).
+
+## §16.12 — Criterios de aceptación (9.1)
+
+1. `bunx tsc --noEmit` limpio en `apps/engine` y `apps/web`. `bun test` verde en ambos +
+   `(cd scripts && bun test)`. `verify-simplicity.sh` verde.
+2. **Candado de regresión cero (E7)**: prueba en `mix.test.ts` con números concretos — calibración
+   off + legacy ⇒ `mixScore` byte-idéntico a V6. Y `buildSuggestions` sobre un fixture fijo con
+   opciones legacy no mueve el ranking ni un `signals[].weighted`.
+3. `data/generated/percentiles.json` existe, versionado, con `trainSplitHash` y
+   `corpusPatchOverride`, calculado sólo sobre folds de train.
+4. `SignalContribution` de `apps/engine` y su espejo de `apps/web` tienen `normalized` +
+   `evidenceConfidence`; `validation.ts` los valida; `tsc` de `apps/web` pasa.
+5. `buildSuggestions` devuelve `evidenceCoverage`/`guessingIndex` por sugerencia.
+6. `loadCalibration()` con archivo corrupto/ausente → `buildSuggestions` cae a `RAW_RANGE` y el
+   ranking es byte-idéntico a V6 (prueba dedicada).
+7. `bun run eval` con `--enforce` → **PASS** contra el baseline de referencia. NDCG@5 ≥
+   `0.771 − 0.041`; Bad Pick Rate@5 ≤ `0.293 + 0.035`; `ConstraintViolationRate = 0`; ningún
+   contexto cae más que su tolerancia.
+8. El reporte de eval muestra `EvCov` por ranker y el nuevo `signal-profile.json` (post patch-fix)
+   con `patch_meta` votando.
+9. `git diff --name-only`: los cambios de `apps/engine` se limitan a `signals/` (`mix.ts`,
+   `types.ts`, un `calibration.ts` nuevo) — **`weights.ts` NO aparece**.
+
+## §16.13 — Entrada para `/rulebook` (tickets de 9.1)
+
+`/rulebook` (Sonnet) genera la sección "Fase 9.1" en `.claude/rules/{engine,web,security,
+testing-seams}.md` + el índice en `CLAUDE.md`, y crea los tickets en este orden:
+
+| # | Ticket | Contenido | write_scope |
+|---|---|---|---|
+| A | Patch-fix del backtest (§16.4) | `patchOverride` en `replay.ts`/`run.ts`/`profile-signals.ts`; re-genera `signal-profile.json` + `v6-measured.json`; nota en el reporte + ADR-002 | `scripts/eval/**`, `scripts/stats/**`, `eval/baselines/**`, `data/generated/**`, `docs/adr/**` |
+| B | `build-percentiles.ts` + `percentiles.json` (§16.5) | generador puro + `main()`; congela el JSON + metadata | `scripts/stats/**`, `data/generated/**`, `data/metadata/**` |
+| C | `calibration.ts` + `SignalContribution` v2 (§16.6) | `loadCalibration()` (S18, degrada a `RAW_RANGE`); `enrich()` que agrega `normalized`/`evidenceConfidence`; amplía `SignalContribution` | `apps/engine/src/signals/calibration.ts`, `apps/engine/src/signals/types.ts`, `*.test.ts` |
+| D | `mix.ts` — mezcla por estado (§16.7) | `A(S)`, redistribución por estado, `μᵢ(S)`, `EvidenceCoverage`/`GuessingIndex`, `computeConfidence` nuevo, candado de regresión cero | `apps/engine/src/signals/mix.ts`, `apps/engine/src/signals/mix.test.ts` |
+| E | Espejo `apps/web` (§16.9) | `types.ts` + `validation.ts` mirror; `Suggestion` gana los 2 campos | `apps/web/features/draft/types.ts`, `apps/web/features/draft/validation.ts`, `*.test.ts` |
+| F | Gate `--enforce` + reporte (§16.10, §16.8) | `gate.ts` en el camino de commit; `renderReport` gana `EvCov`; corrida final sobre el fold held-out | `scripts/eval/**`, `scripts/verify-simplicity.sh` |
+
+Bloque C y D son el corazón y van en orden (D depende de C). A y B son precondición y
+paralelizables entre sí (`write_scope` disjuntos). E depende de C. F depende de D + E.
+Todos `assigned_tool: claude-code` (tocan el motor y el gate). `@redteam` obligatorio en C, D y E
+(cambian el contrato de señal y el scoring activo).

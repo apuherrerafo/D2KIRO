@@ -1825,3 +1825,33 @@ baseline "V6-medido" necesita un árbol limpio.
 > 9.1 tiene el mecanismo fijado con números diferidos al gate; 9.2–9.5 quedan conceptuales, cada
 > una con su propio `/blueprint` angosto. Fijar hoy un `P05`/`P95` sería inventar un número —
 > mismo precedente que Fase 4 §11.10.
+
+---
+
+## 9.1 — REFINADO POR EL `/blueprint` (Sonnet, 2026-08-30) — `SPEC.md` §16 gana sobre este documento
+
+El `/blueprint` angosto de 9.1 (comparabilidad + calibración empírica) corrió en Sonnet: `SPEC.md`
+§15.0 ya había establecido que los blueprints de 9.1–9.5 no cuestan Opus salvo que crucen un
+gatillo objetivo, y 9.1 no cruza ninguno (9.0 ya midió los números). Producto: `SPEC.md`
+§16.0–§16.13. Lo concreto que 9.0 midió y que 9.1 aplica:
+
+- **`RAW_RANGE.counter = [−0.12, 0.12]` es ~4× demasiado ancho** (p05/p95 reales `[−0.044,
+  +0.052]`) → la calibración empírica sube la pendiente efectiva de `counter` ~2.5×; hipótesis:
+  baja el Bad Pick Rate. **`team_synergy` [0, 0.286]** real (rango sobra el doble).
+  **`position_fit` [0, 1]** ya es correcto — Fase 3 no se re-abre.
+- **Precondición bloqueante**: el mismatch de patch del backtest (`patch="60"` vs `patchStats
+  "7.41e"`) se arregla **sólo en `scripts/eval/`** con un `patchOverride` (no toca `apps/engine`);
+  se re-genera `signal-profile.json` + `v6-measured.json` antes de calcular ningún percentil.
+- **Fin de la redistribución candidate-specific** → redistribución **por estado** (mismo
+  denominador para todos los candidatos de `S`); `raw:null` de un candidato en una señal
+  disponible → `contribution` usa `μᵢ(S)` (media de los que sí tienen dato), **`raw` sigue
+  `null`**. `EvidenceCoverage`/`GuessingIndex` internos (UI diferida).
+- **`SignalContribution` gana `normalized` + `evidenceConfidence`** (aditivo, espejo en `apps/web`
+  el mismo cambio). **`weights.ts` NO se toca** — `SCORING_WEIGHTS_V6` sigue activa; el ajuste de
+  pesos es 9.5. `counter` no se parte en 3 (eso es 9.3).
+- **Candado de regresión cero**: calibración off + legacy ⇒ `mixScore` byte-idéntico a V6.
+- El `gate.ts` pasa a `--enforce` en 9.1 (en 9.0 era informativo).
+
+6 tickets para `/rulebook` (§16.13): A patch-fix del backtest · B `build-percentiles.ts` ·
+C `calibration.ts` + `SignalContribution` v2 · D `mix.ts` mezcla por estado · E espejo `apps/web` ·
+F gate `--enforce`. C→D en orden; A‖B; E depende de C; F depende de D+E.
