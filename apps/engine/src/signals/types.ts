@@ -13,6 +13,15 @@ export type SignalId = "counter" | "patch_meta" | "team_synergy" | "hero_pool_fi
 export interface SignalContribution {
   signal: SignalId;
   raw: number | null;
+  // TSK-209 (Fase 9.1, SPEC.md §16.6): `raw` calibrado a [0,100] con percentiles empíricos, o
+  // null si `raw` es null. OPCIONAL en el tipo para no tocar los ~15 `return` de los 6 scorers --
+  // `mix.ts` garantiza vía `enrich()` que salga siempre poblado hacia la UI y los reportes.
+  normalized?: number | null;
+  // TSK-209 (Fase 9.1, SPEC.md §16.6): [0,1], cuánta evidencia respalda ESTE `raw`. Estadísticas
+  // (counter/patch_meta/position_fit): `sampleSize/(sampleSize + K)`. Categóricas
+  // (team_synergy/hero_pool_fit/archetype_fit): 1 si hay `raw`, 0 si es null. También lo puebla
+  // `enrich()` en `mix.ts`.
+  evidenceConfidence?: number;
   weighted: number;
   explanation: string;
   sampleSize: number;
