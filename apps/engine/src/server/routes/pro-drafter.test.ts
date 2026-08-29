@@ -31,7 +31,9 @@ function fakeResult(heroId: HeroId) {
 }
 
 function fakeV5Suggestion(hero: HeroId, rank: 1 | 2 | 3 | 4 | 5) {
-  return { hero, rank, score: 0.3, signals: [], reason: "v5-fallback-fixture", confidence: "media" as const };
+  // TSK-210 (Fase 9.1): Suggestion gana evidenceCoverage/guessingIndex -- este mock los fija en
+  // los valores de "sin cobertura" (no se ejercitan en estas pruebas de cache-aside).
+  return { hero, rank, score: 0.3, signals: [], reason: "v5-fallback-fixture", confidence: "media" as const, evidenceCoverage: 0, guessingIndex: 1 };
 }
 
 function fakeV5Set() {

@@ -3,11 +3,17 @@ import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "./hero-positions";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { buildComparison, buildSuggestions, mixScore, type Suggestion } from "./mix";
+import { parseCalibration, type Calibration } from "./calibration";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
+
+// TSK-210 (Fase 9.1, costura S18): ninguna prueba lee data/generated/percentiles.json real.
+// EMPTY_CAL fuerza el fallback a RAW_RANGE dentro de calibratedNormalize; los fixtures con
+// percentiles propios se construyen inline por prueba.
+const EMPTY_CAL: Calibration = parseCalibration({});
 import { SCORING_WEIGHTS_V1, SCORING_WEIGHTS_V2, SCORING_WEIGHTS_V3, SCORING_WEIGHTS_V4, SCORING_WEIGHTS_V5, SCORING_WEIGHTS_V6 } from "./weights";
 
 function fixtureSuggestion(rank: 1 | 2 | 3, hero: number, signals: SignalContribution[]): Suggestion {
-  return { hero, rank, score: 0, signals, reason: "", confidence: "alta" };
+  return { hero, rank, score: 0, signals, reason: "", confidence: "alta", evidenceCoverage: 1, guessingIndex: 0 };
 }
 
 function draftState(overrides: Partial<DraftState> = {}): DraftState {
@@ -552,15 +558,14 @@ describe("buildSuggestions", () => {
     expect(suggestedHeroes).toEqual([1]);
   });
 
-  test("señal en null: el peso se redistribuye proporcionalmente, no se trata como 0", () => {
-    // Equipo propio vacío -> team_synergy siempre null. Sin patchStats -> patch_meta null. Sin
-    // heroPool -> hero_pool_fit no aplicable. Con heroPositions inyectado (S10) y n=0 (draft
-    // vacío del lado propio), position_fit SÍ vota: hero 1 es carry puro (posición 1, 100% del
-    // dato), need(1)=1 con equipo propio vacío -> fill=1, safety=0, t=TIMING_BLEND[0]=0.50 ->
-    // raw = 0.5*1 + 0.5*0 = 0.5 -> normaliza a 50. counter normaliza a 100 (delta 0.4333 clamp a
-    // 0.12, ver cálculo abajo). El score final es la redistribución proporcional real de V5 sobre
-    // las 2 señales con dato, calculada con las constantes reales (no un número mágico
-    // hardcodeado, para que un cambio de peso futuro no rompa este test en silencio).
+  // TSK-210 (Fase 9.1, §16.7 E7 / AC1 bullet 2): candado de regresión cero al nivel de
+  // `buildSuggestions`. Con `_legacyMixMode` el motor vuelve a la redistribución candidate-specific
+  // de V6 -- mismo score exacto, mismo `confidence` por conteo de nulls, byte a byte.
+  test("_legacyMixMode: señal en null redistribuye proporcionalmente (candado de regresión cero de V6)", () => {
+    // Equipo propio vacío -> team_synergy null. Sin patchStats -> patch_meta null. Sin heroPool ->
+    // hero_pool_fit no aplicable. position_fit vota (hero 1 carry puro, raw 0.5 -> norm 50).
+    // counter: delta 0.4333 clamp a 0.12 -> norm 100. Score = redistribución de V6 (= ratio de V5,
+    // el factor 0.90 se cancela) sobre las 2 señales con dato.
     const state = draftState({ picks: { radiant: [], dire: [50] } });
     const snapshot = meta({
       1: { id: 1, localizedName: "Candidato" },
@@ -568,23 +573,55 @@ describe("buildSuggestions", () => {
     }, {
       matchups: {
         1: [
-          { vsHero: 50, games: 300, wins: 280 }, // winrate vs 50 = 0.9333
-          { vsHero: 60, games: 300, wins: 20 }, // baseline = (280+20)/600 = 0.5 -> delta = 0.4333, clamp a 0.3 -> normaliza a 100
+          { vsHero: 50, games: 300, wins: 280 },
+          { vsHero: 60, games: 300, wins: 20 },
         ],
       },
     });
     const heroPositions: HeroPositions = { 1: [{ position: 1, matches: 1000 }] };
 
-    const result = buildSuggestions(state, snapshot, { heroPositions });
+    const result = buildSuggestions(state, snapshot, { heroPositions, _legacyMixMode: true });
     const suggestion = result.suggestions.find((s) => s.hero === 1);
 
     expect(suggestion).toBeDefined();
     const totalWeight = SCORING_WEIGHTS_V5.counter + SCORING_WEIGHTS_V5.position_fit;
     const expectedScore = (100 * SCORING_WEIGHTS_V5.counter + 50 * SCORING_WEIGHTS_V5.position_fit) / totalWeight;
     expect(suggestion?.score).toBeCloseTo(expectedScore, 5);
-    expect(suggestion?.confidence).toBe("baja"); // 2 señales en null (patch_meta, team_synergy)
+    expect(suggestion?.confidence).toBe("baja"); // legacy: 2 señales en null (patch_meta, team_synergy)
     const nonNullSignals = suggestion?.signals.filter((s) => s.raw !== null) ?? [];
     expect(nonNullSignals.map((s) => s.signal).sort()).toEqual(["counter", "position_fit"]);
+  });
+
+  // TSK-210 (Fase 9.1, §16.7): el mismo estado por el camino ACTIVO (mezcla por estado). Con
+  // EMPTY_CAL, `calibratedNormalize` cae a RAW_RANGE, así que las 2 señales de A(S) normalizan
+  // igual que en legacy -> el score numérico coincide. Lo que cambia: patch_meta/team_synergy ya
+  // no "cuentan como null" (están fuera de A(S)), así que la cobertura es total.
+  test("mezcla por estado: A(S) excluye las señales inaplicables, no las trata como null penalizador", () => {
+    const state = draftState({ picks: { radiant: [], dire: [50] } });
+    const snapshot = meta({
+      1: { id: 1, localizedName: "Candidato" },
+      50: { id: 50, localizedName: "Enemigo" },
+    }, {
+      matchups: { 1: [{ vsHero: 50, games: 300, wins: 280 }, { vsHero: 60, games: 300, wins: 20 }] },
+    });
+    const heroPositions: HeroPositions = { 1: [{ position: 1, matches: 1000 }] };
+
+    const result = buildSuggestions(state, snapshot, { heroPositions, calibration: EMPTY_CAL });
+    const suggestion = result.suggestions.find((s) => s.hero === 1);
+
+    expect(suggestion).toBeDefined();
+    // A(S) = {counter, position_fit}: denominador de V6 sobre esas dos. counter -> 100, pf -> 50.
+    const denom = SCORING_WEIGHTS_V6.counter + SCORING_WEIGHTS_V6.position_fit;
+    const expectedScore = (100 * SCORING_WEIGHTS_V6.counter + 50 * SCORING_WEIGHTS_V6.position_fit) / denom;
+    expect(suggestion?.score).toBeCloseTo(expectedScore, 5);
+    // Ambas señales de A(S) tienen dato -> cobertura total, sin adivinar.
+    expect(suggestion?.evidenceCoverage).toBeCloseTo(1, 10);
+    expect(suggestion?.guessingIndex).toBeCloseTo(0, 10);
+    expect(suggestion?.confidence).toBe("alta");
+    // patch_meta / team_synergy siguen en el desglose con raw:null (nunca se les escribe μ en raw).
+    const patchMeta = suggestion?.signals.find((s) => s.signal === "patch_meta");
+    expect(patchMeta?.raw).toBeNull();
+    expect(patchMeta?.weighted).toBe(0); // fuera de A(S) -> contribución 0, no w'·μ
   });
 
   test("Suggestion.reason es trazable a los signals de esa sugerencia", () => {
@@ -682,5 +719,139 @@ describe("buildSuggestions", () => {
 
     expect(result.degraded).toContain("stale_meta");
     expect(result.suggestions.every((s) => s.confidence !== "alta")).toBe(true);
+  });
+});
+
+// ============================================================================
+// TSK-210 (Fase 9.1, SPEC.md §16.7-§16.8): mezcla por estado -- A(S), redistribución por estado,
+// μᵢ(S), EvidenceCoverage/GuessingIndex, calibración empírica cableada.
+// ============================================================================
+describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
+  const CARRY_POS: HeroPositions = { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 1, matches: 1000 }], 3: [{ position: 1, matches: 1000 }] };
+
+  // Fixture con enemigo revelado (50) -> counter entra en A(S). Sin picks propios -> team_synergy
+  // fuera. Sin heroPool -> hero_pool_fit fuera. Sin intención -> archetype_fit fuera.
+  function stateWithEnemy() {
+    return draftState({ picks: { radiant: [], dire: [50] } });
+  }
+
+  test("AC1 -- mixScore aislado sigue reproduciendo V6 exacto (candado E7 al nivel de la función)", () => {
+    const signals: SignalContribution[] = [
+      { signal: "counter", raw: 0.12, weighted: 0, explanation: "", sampleSize: 0 }, // -> 100
+      { signal: "position_fit", raw: 0.5, weighted: 0, explanation: "", sampleSize: 0 }, // -> 50
+    ];
+    const denom = SCORING_WEIGHTS_V6.counter + SCORING_WEIGHTS_V6.position_fit;
+    const expected = (100 * SCORING_WEIGHTS_V6.counter + 50 * SCORING_WEIGHTS_V6.position_fit) / denom;
+    expect(mixScore(signals)).toBeCloseTo(expected, 10);
+  });
+
+  test("AC2 -- μᵢ(S): un candidato sin counter recibe w'·μ (no 0, no excluido); su raw sigue null", () => {
+    const snapshot = meta(
+      { 1: { id: 1, localizedName: "Con matchup" }, 2: { id: 2, localizedName: "Sin matchup" }, 50: { id: 50, localizedName: "Enemigo" } },
+      { matchups: { 1: [{ vsHero: 50, games: 300, wins: 210 }, { vsHero: 60, games: 300, wins: 150 }] } }, // solo el 1 tiene dato vs 50
+    );
+
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const s1 = result.suggestions.find((s) => s.hero === 1)!;
+    const s2 = result.suggestions.find((s) => s.hero === 2)!;
+    const c1 = s1.signals.find((s) => s.signal === "counter")!;
+    const c2 = s2.signals.find((s) => s.signal === "counter")!;
+
+    // A(S) = {counter, position_fit}. w'_counter sobre ese denominador.
+    const wCounter = SCORING_WEIGHTS_V6.counter / (SCORING_WEIGHTS_V6.counter + SCORING_WEIGHTS_V6.position_fit);
+    // μ_counter = normalized del único candidato con dato (el 1).
+    const muCounter = c1.normalized as number;
+
+    expect(c1.raw).not.toBeNull();
+    expect(c2.raw).toBeNull(); // el hueco de datos NO se rellena en raw
+    expect(c2.weighted).toBeCloseTo(wCounter * muCounter, 8); // se rellena en weighted vía μ
+    expect(c2.weighted).toBeGreaterThan(0);
+  });
+
+  test("AC3 -- EvidenceCoverage: cobertura total -> 1; parcial -> w' de la señal con dato", () => {
+    const snapshot = meta(
+      { 1: { id: 1, localizedName: "Full" }, 2: { id: 2, localizedName: "Parcial" }, 50: { id: 50, localizedName: "Enemigo" } },
+      { matchups: { 1: [{ vsHero: 50, games: 300, wins: 210 }, { vsHero: 60, games: 300, wins: 150 }] } },
+    );
+
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const s1 = result.suggestions.find((s) => s.hero === 1)!;
+    const s2 = result.suggestions.find((s) => s.hero === 2)!;
+
+    const denom = SCORING_WEIGHTS_V6.counter + SCORING_WEIGHTS_V6.position_fit;
+    const wPosition = SCORING_WEIGHTS_V6.position_fit / denom;
+
+    expect(s1.evidenceCoverage).toBeCloseTo(1, 10); // counter + position_fit, ambas con dato
+    expect(s1.guessingIndex).toBeCloseTo(0, 10);
+    expect(s2.evidenceCoverage).toBeCloseTo(wPosition, 8); // sólo position_fit tiene dato
+    expect(s2.guessingIndex).toBeCloseTo(1 - wPosition, 8);
+  });
+
+  test("AC4 -- calibración corrupta: mismo ranking y mismo score que el camino legacy de V6", () => {
+    // 3 candidatos, todos con matchup vs el enemigo revelado y con datos de posición -> todos
+    // tienen cobertura total de A(S), así que la redistribución por estado coincide con la
+    // candidate-specific de V6 (mismo denominador para todos).
+    const snapshot = meta(
+      {
+        1: { id: 1, localizedName: "A" },
+        2: { id: 2, localizedName: "B" },
+        3: { id: 3, localizedName: "C" },
+        50: { id: 50, localizedName: "Enemigo" },
+      },
+      {
+        matchups: {
+          1: [{ vsHero: 50, games: 300, wins: 200 }, { vsHero: 60, games: 300, wins: 150 }],
+          2: [{ vsHero: 50, games: 300, wins: 160 }, { vsHero: 60, games: 300, wins: 150 }],
+          3: [{ vsHero: 50, games: 300, wins: 120 }, { vsHero: 60, games: 300, wins: 150 }],
+        },
+      },
+    );
+    const corrupt = parseCalibration({ schemaVersion: 99, signals: "broken" }); // -> Calibration vacía
+
+    const calibrated = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: corrupt });
+    const legacy = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), _legacyMixMode: true });
+
+    expect(calibrated.suggestions.map((s) => s.hero)).toEqual(legacy.suggestions.map((s) => s.hero));
+    for (const s of calibrated.suggestions) {
+      const l = legacy.suggestions.find((x) => x.hero === s.hero)!;
+      expect(s.score).toBeCloseTo(l.score, 8);
+    }
+  });
+
+  test("AC5 -- sensibilidad: con percentiles de counter angostos, el countereado cae MÁS que con RAW_RANGE", () => {
+    // 1 es countereado por 50 (medium -> raw -0.06); 2 counterea a 50 (medium -> raw +0.06).
+    // Misma posición para los dos -> el único diferenciador es counter.
+    const snapshot = meta({
+      1: { id: 1, localizedName: "Countereado" },
+      2: { id: 2, localizedName: "Counterea" },
+      50: { id: 50, localizedName: "Enemigo" },
+    });
+    const heroCounters = new Map([
+      [1, [{ vs: 50, level: "medium" as const, why: "1 sufre contra 50" }]],
+      [50, [{ vs: 2, level: "medium" as const, why: "50 sufre contra 2" }]],
+    ]);
+    const narrow = parseCalibration({
+      schemaVersion: 1,
+      signals: { counter: { global: { p05: -0.05, p95: 0.05, n: 1000 } }, position_fit: { global: { p05: 0, p95: 1, n: 1000 } } },
+    });
+
+    const base = { heroPositions: CARRY_POS, heroCounters };
+    const wide = buildSuggestions(stateWithEnemy(), snapshot, { ...base, calibration: EMPTY_CAL });
+    const tight = buildSuggestions(stateWithEnemy(), snapshot, { ...base, calibration: narrow });
+
+    const gap = (r: typeof wide) =>
+      r.suggestions.find((s) => s.hero === 2)!.score - r.suggestions.find((s) => s.hero === 1)!.score;
+
+    expect(gap(tight)).toBeGreaterThan(gap(wide) * 1.5);
+    expect(tight.suggestions.find((s) => s.hero === 1)!.rank).toBe(2); // el countereado queda último
+  });
+
+  test("confidence sale de EvidenceCoverage, no del conteo de nulls (§16.7 punto 7)", () => {
+    // A(S) = {position_fit} sólo (sin enemigo revelado, sin picks propios, EMPTY_CAL sin
+    // patch_meta). Un candidato con position_fit -> cobertura 1 -> alta.
+    const snapshot = meta({ 1: { id: 1, localizedName: "Solo" } });
+    const result = buildSuggestions(draftState(), snapshot, { heroPositions: { 1: [{ position: 1, matches: 1000 }] }, calibration: EMPTY_CAL });
+    expect(result.suggestions[0]?.evidenceCoverage).toBeCloseTo(1, 10);
+    expect(result.suggestions[0]?.confidence).toBe("alta");
   });
 });

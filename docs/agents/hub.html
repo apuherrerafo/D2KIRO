@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T23:17:19.957Z</title>
+<title>HUB del ecosistema — 2026-08-29T23:30:27.625Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -176,16 +176,8 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>doing <span class="count">1</span></h2>
-        
-        <div class="card  ">
-          <div class="card-id">TSK-209</div>
-          <div class="card-title">Fase 9.1-C · calibration.ts (loadCalibration, S18) + SignalContribution v2 (normalized, evidenceConfidence)</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
+        <h2>doing <span class="count">0</span></h2>
+        <div class="empty">—</div>
       </div>
       <div class="column ">
         <h2>review <span class="count">0</span></h2>
@@ -196,7 +188,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">203</span></h2>
+        <h2>done <span class="count">204</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -807,6 +799,15 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-209</div>
+          <div class="card-title">Fase 9.1-C · calibration.ts (loadCalibration, S18) + SignalContribution v2 (normalized, evidenceConfidence)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+            <span class="tag tag-attempts">intentos: 1</span>
           </div>
         </div>
         <div class="card  ">
@@ -1866,12 +1867,12 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">195× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">196× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:33%"></div></div>
-          <div class="stat-nums">64× · 95% ok · 3 bloqueado </div>
+          <div class="stat-nums">65× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">dispatch</div>
@@ -1951,6 +1952,20 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-209</span> <span class="feed-ts">2026-08-30T03:10</span></div>
+            <div class="feed-note">`@redteam` de TSK-209 (obligatorio: cambia el contrato `SignalContribution` + nuevo loader de input externo). **Gate de seguridad: PASS** — `percentiles.json` es input externo validado en el borde (esquema + banda + `SignalId` conocido), degrada sin lanzar; sin secretos; sin SQL; sin `fetch` (verify-simplicity lo confirma); `path` de `loadCalibration` sólo lo pasan los tests (temp files), no alcanzable desde input externo; `DEFAULT_PERCENTILES_PATH` es `join(import.meta.dir, …)` fijo, sin traversal. **Pasada 1 (Standards)**: 3 parsers puros de responsabilidad clara (prueba de deleción los justifica); nomenclatura de dominio alineada a SPEC §16.6; manejo de nulos/NaN/banda invertida/división por cero cubierto; sin UI, sin N+1. **Pasada 2 (Spec)**: campos opcionales = decisión documentada del ticket; firma de `calibratedNormalize`/`enrich` idéntica al ticket; `MODULE_CALIBRATION` a nivel de módulo inyectable; scorers no tocados; `git diff` = exactamente los 3 archivos del `write_scope`, sin `weights.ts`/`mix.ts`. Observaciones no bloqueantes: campo `source` en `Calibration` (aditivo, transparencia, cero impacto de comportamiento); `FALLBACK_RAW_RANGE` es copia a mano de `RAW_RANGE` hasta que D dedup-ee (riesgo de drift anotado en el comentario + test que fija los valores). **Veredicto: APPROVED.** Siguiente: TSK-210 (D) — mezcla por estado en `mix.ts`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-209</span> <span class="feed-ts">2026-08-30T03:05</span></div>
+            <div class="feed-note">Fase 9.1 bloque C. `apps/engine/src/signals/calibration.ts` nuevo + `SignalContribution` gana `normalized?: number | null` y `evidenceConfidence?: number` (opcionales — decisión del ticket: no se tocan los 6 scorers, `mix.ts` los puebla vía `enrich()` en D). `loadCalibration(path?)` lee `data/generated/percentiles.json` (ruta relativa a `import.meta.dir`, archivo versionado), valida en el borde (`parseCalibration` — `schemaVersion:1`, `signals` objeto, banda con `p05`/`p95` finitos y `p05 < p95`, `SignalId` conocido); archivo ausente/corrupto/forma inesperada → `Calibration` vacía (`source:"fallback"`), **cero excepción** (mismo criterio que `loadHeroPositions`). `calibratedNormalize(signal, raw, bracket, calibration)` = `clamp((raw−p05)/(p95−p05),0,1)*100` con `byBracket[bracket] → global → FALLBACK_RAW_RANGE[signal]` (espejo exacto de `RAW_RANGE` de `mix.ts`, comentado; TSK-210 dedup-ea). `evidenceConfidenceOf`: `raw:null → 0`; categóricas (`team_synergy`/`hero_pool_fit`/`archetype_fit`) → `1`; estadísticas → `sampleSize/(sampleSize+K)` con `K_position_fit=200`, `K_counter=20`, `K_patch_meta=200`. `enrich(contrib, bracket, calibration)` agrega ambos campos. `MODULE_CALIBRATION = loadCalibration()` a nivel de módulo, inyectable. Candado de regresión cero: con `Calibration` vacía `calibratedNormalize` reproduce `normalize()` bit a bit (probado). `calibration.test.ts` 11 casos (fixtures inline + archivo temporal, nunca el `percentiles.json` real salvo el smoke estructural). `bunx tsc --noEmit` limpio en `apps/engine`; `bun test apps/engine` 607/607; `git diff` sólo `signals/{calibration.ts,calibration.test.ts,types.ts}` — `weights.ts`/`mix.ts` intactos; `verify-simplicity` verde.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-208</span> <span class="feed-ts">2026-08-30T02:40</span></div>
             <div class="feed-note">Fase 9.1 bloque B. `scripts/stats/build-percentiles.ts` — `computePercentiles(rawsBySignal, meta): PercentilesFile` **pura** + `main()` que abre las SQLite `readonly`, reconstruye los `ReplayCase` de los **folds de train** del `split.json` (held-out = fold de mayor índice, reservado para el QA de F), con el `patchOverride` de TSK-207, corre los 6 scorers y junta los `raw` no nulos por señal. `p05`/`p95` por señal (`global`); `byBracket` omitido (un `DraftState` de replay no lleva bracket — sólo `global`, documentado). `hero_pool_fit`/`archetype_fit` **nunca se calibran** (`NON_CALIBRATED`, el motor usa su `RAW_RANGE [0,1]`). `p05 === p95` → `null` (evita división por cero en `calibratedNormalize`). `data/generated/percentiles.json` + `data/metadata/percentiles.json` (procedencia), congelados y versionados, deterministas (2 corridas byte-idénticas). Tests: `build-percentiles.test.ts`, 6 casos. `(cd scripts && bun test)` 174/174. NO toca apps/.</div>
           </div>
@@ -2016,20 +2031,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-203</span> <span class="feed-ts">2026-08-29T23:10</span></div>
             <div class="feed-note">Fase 9.0 bloque D, ticket 1. `scripts/stats/profile-signals.ts` — `profileFromStates(states, meta): ProfileResult`. Consume los building blocks YA exportados del motor (`patchMetaScorer`, `heroPoolFitScorer`, `createCounterScorer`, `createPositionFitScorer`, `createTeamSynergyScorer`, `createArchetypeFitScorer`, `mixScore`, `SCORING_WEIGHTS_V6`) — los mismos que `buildSuggestions` ensambla — sin tocar `apps/engine/src/**`. Por señal: percentiles p05/25/50/75/95 del `raw` (pooled), **SD del `raw` entre candidatos del MISMO estado** promediado, `effectiveSlope = 100·w/(b−a)`, **`realizedInfluence = slope × SD_intra`** (corrección C5/R1-1), tasa `raw:null` y `applicable:false`. Ablación `|mixScore(all) − mixScore(all∖i)|` por señal y por contexto. Histograma de nº de señales con voto (0..6). `RAW_RANGE` es un espejo de `mix.ts:117` (no exportado; 9.1 lo reemplaza por percentiles empíricos). SQLite readonly, muestreo determinista (cada k-ésimo draft, 3 estados por draft). `data/generated/signal-profile.json` + `data/metadata/signal-profile.json` (procedencia). Tests: 6 (`profile-signals.test.ts`) — 6 señales con influencia realizada, pendiente efectiva exacta (counter 90 / patch_meta 29.25), `hero_pool_fit applicableFalseRate` alto, ablación por 4 contextos, histograma suma 1, determinismo. `(cd scripts && bun test)` 150/150. NO toca apps/.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-202</span> <span class="feed-ts">2026-08-29T22:40</span></div>
-            <div class="feed-note">Fase 9.0 bloque C, ticket 3. **Bloque C COMPLETO** (200-202). `scripts/eval/run.ts` + `package.json` `"eval": "bun run scripts/eval/run.ts"`. Corre los 2 benchmarks sobre el corpus REAL, emite `eval/baselines/v6-measured.json` (congelado, se versiona — `stableStringify` claves ordenadas, SIN `generatedAt` para byte-determinismo; lleva `commit`/`splitHash`/`snapshotSyncedAt`/`corpusSize`/`skippedDrafts`) + `eval/reports/<ts>.md` legible (con la advertencia de ADR-002 arriba, NO se versiona). `loadMeta` réplica directa tabla→struct de `buildSharedMetaSnapshot` (heroes/matchups/patchStats, overlay vacío con accountId:null), SQLite `readonly:true`. Gate: `ConstraintViolationRate>0` en cualquier benchmark → exit 1, NO escribe el baseline (reporte igual se emite). `split.json` creado una vez, nunca regenerado. Paths por env (`D2K_*`) leídos DENTRO de `main()` para que los tests los sobrescriban. Tests: `run.test.ts`, 3 casos con SQLite de fixture en temp dir — corrida válida escribe baseline+reporte (exit 0, advertencia ADR-002 presente), determinismo (2 corridas byte-idénticas), split no se regenera. `(cd scripts && bun test)` 144/144. NO toca apps/.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-201</span> <span class="feed-ts">2026-08-29T22:05</span></div>
-            <div class="feed-note">Fase 9.0 bloque C, ticket 2. `scripts/eval/benchmark-engine-quality.ts` — `runEngineQuality(cases: GoldenCase[], meta, opts): EngineQualityResult`. Por caso: `hydrateState` rehidrata el `DraftState` completo desde el subconjunto serializado del Golden (`createIdleDraftState` + merge), corre `buildSuggestions(state, meta, {})` → ranking, calcula **NDCG@5** (titular, `toGradedMap`), **Bad Pick Rate@5** (`toMetricLabels`; héroe no etiquetado = desconocido, fuera del denominador), **Pairwise Accuracy**. Agrega media + IC bootstrap sobre casos (resample con reemplazo, sólo NDCG@5 de v6Full). Corre los 4 baselines de `baselines.ts` (`positionFitOnly` omitido, documentado). **Segmentación `decisionContext × strata`** — un caso multi-estrato cuenta en cada estrato suyo. Gate `ConstraintViolationRate=0`: héroe baneado/pickeado/inexistente → `valid:false`, `perRanker:{}`. `opts.rankers` override sólo para tests. Tests: `benchmark-engine-quality.test.ts`, 6 casos — estructura+segmentación, 3 excellent puestos 1-2-3 → NDCG@5==1, un bad en top-1 → BadPickRate@5≥0.2 visible en el segmento `punishability`, gate duro con ranker roto, `hydrateState` completo, determinismo (`JSON.stringify` idéntico entre corridas). `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 141/141 (+6). NO toca apps/. state: doing → done.</div>
           </div>
         </div></div>
     </div>

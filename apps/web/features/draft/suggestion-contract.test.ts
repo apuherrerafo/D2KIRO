@@ -18,6 +18,11 @@ test("el contrato del motor entrega al cliente el contexto y evidencia estructur
       signals: [],
       reason: "Resumen táctico.",
       confidence: "media",
+      // TSK-210 (Fase 9.1): el motor añade estos 2 campos a Suggestion. El espejo de tipos en
+      // apps/web/features/draft/types.ts los incorpora en TSK-211; este literal ya los provee para
+      // que el candado de contrato entre procesos compile (AC6: tsc limpio en ambos paquetes).
+      evidenceCoverage: 0.62,
+      guessingIndex: 0.38,
       evidence: [{ kind: "counter", text: "Fuerte contra un rival revelado." }],
     }],
     comparison: null,

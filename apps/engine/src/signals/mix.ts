@@ -12,6 +12,14 @@ import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
 import { deriveDecisionPolicy, type DraftDecisionContext, type DraftDecisionPolicy } from "../drafter/decision-context";
+import { observedDraftFacts } from "../drafter/observed-draft";
+import {
+  calibratedNormalize,
+  enrich,
+  FALLBACK_RAW_RANGE,
+  MODULE_CALIBRATION,
+  type Calibration,
+} from "./calibration";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V6 } from "./weights";
 
@@ -22,6 +30,11 @@ export interface Suggestion {
   signals: SignalContribution[]; // siempre las 6, incluidas las que dieron null o no aplican
   reason: string;
   confidence: "alta" | "media" | "baja";
+  // TSK-210 (Fase 9.1, SPEC.md §16.8): fracción del peso redistribuido de `A(S)` que este
+  // candidato respalda con dato real (`raw !== null`). `guessingIndex = 1 − evidenceCoverage`.
+  // No se renderiza en apps/web en 9.1 (D4) -- lo consumen los reportes de `bun run eval`.
+  evidenceCoverage: number;
+  guessingIndex: number;
   evidence?: SuggestionEvidence[];
 }
 
@@ -81,6 +94,14 @@ export interface BuildSuggestionsOptions {
   // confianza). En 4.2 lo fija sólo el llamador dentro del proceso; el transporte por request/WS y
   // su validación de borde contra la unión cerrada de 4 literales son 4.3.
   archetypeIntent?: DraftPathArchetype;
+  // TSK-210 (Fase 9.1, SPEC.md §16.7 punto 10): calibración empírica inyectable. Ausente ->
+  // MODULE_CALIBRATION (lee data/generated/percentiles.json una vez al iniciar el módulo). Las
+  // pruebas inyectan su propia Calibration -- nunca dependen del archivo real (costura S18).
+  calibration?: Calibration;
+  // TSK-210: modo legacy SÓLO para el candado de regresión cero (§16.7 E7 / mix.test.ts). Con él,
+  // buildSuggestions vuelve a la redistribución candidate-specific de V6 (mixScore + normalize
+  // sobre RAW_RANGE + computeConfidence por conteo de nulls), byte a byte. No lo usa producción.
+  _legacyMixMode?: boolean;
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -103,29 +124,20 @@ const MODULE_HERO_COUNTERS: Map<HeroId, CuratedCounter[]> = loadHeroCounters();
 const TOP_N = 6;
 const HARD_CUTOFF_MS = 500;
 
-// Cada señal tiene una escala de `raw` distinta (deltas de winrate, fracciones 0-1, penalizaciones
-// negativas) -- este rango define cómo se estira cada una a 0-100 antes de aplicar el peso. No hay
-// un estándar único: son rangos razonables documentados aquí, no medidos contra datos reales
-// sincronizados (pendiente: script offline de percentiles p5/p95 sobre heroMatchups/patchStats).
+// TSK-210 (Fase 9.1): `RAW_RANGE` se movió a `calibration.ts` como `FALLBACK_RAW_RANGE` -- mismos
+// valores exactos, ahora es el fallback dentro de `calibratedNormalize` cuando `percentiles.json`
+// no calibra una señal. `RAW_RANGE` no se borra (SPEC §16.7-8): sigue vivo bajo este alias, con
+// una sola definición. La calibración empírica (ADR-004) reemplaza el estiramiento lineal sobre
+// estos rangos adivinados por uno sobre percentiles p05/p95 medidos en drafts profesionales.
 //
-// `counter` recalibrado (auditoría 2026-08-22): el rango anterior [-0.3, 0.3] asumía deltas de
-// matchup que en la práctica casi no ocurren -- un hard counter real con muestra de 200+ partidas
-// rara vez supera ±0.10/±0.12. Con el rango viejo, un delta real de 0.08 normalizaba a solo ~63,
-// dejando que `patch_meta` (peso menor, 0.17 contra 0.27 de counter) le ganara por tener su propio
-// rango mejor calibrado a la varianza real de winrate. [-0.12, 0.12] es una estimación de dominio
-// más ajustada, todavía no medida -- candado de regresión en mix.test.ts.
-const RAW_RANGE: Record<SignalId, [number, number]> = {
-  counter: [-0.12, 0.12],
-  patch_meta: [0.3, 0.7],
-  team_synergy: [0, 1],
-  hero_pool_fit: [0, 1],
-  position_fit: [0, 1],
-  // TSK-180 (Fase 4.2, SPEC.md §11.13 P4): `raw` ya viene normalizado a [0,1] DENTRO de
-  // archetype-fit.ts (ARCHETYPE_MAX_BONUS por arquetipo) -- `archetypeFitBonus` no tiene escala
-  // uniforme entre los 4 arquetipos, y RAW_RANGE es un rango único por señal.
-  archetype_fit: [0, 1],
-};
+// `counter` histórico (auditoría 2026-08-22): [-0.3, 0.3] -> [-0.12, 0.12] al confirmar que un
+// hard counter real con 200+ partidas rara vez supera ±0.12. La calibración de 9.1 midió el rango
+// real todavía más angosto (~[-0.041, 0.057]).
+const RAW_RANGE = FALLBACK_RAW_RANGE;
 
+// Normalización legacy de V6: estiramiento lineal sobre `RAW_RANGE`, sin calibración empírica.
+// La usa `mixScore` (candado de regresión cero, §16.7 E7). El camino activo de `buildSuggestions`
+// usa `calibratedNormalize` (abajo), salvo `_legacyMixMode`.
 function normalize(signal: SignalId, raw: number): number {
   const [min, max] = RAW_RANGE[signal];
   const clamped = Math.min(max, Math.max(min, raw));
@@ -174,6 +186,9 @@ export function mixScore(signals: SignalContribution[]): number {
   return values.reduce((sum, v) => sum + v, 0);
 }
 
+// Legacy (V6): confianza por conteo de nulls entre señales aplicables. Sólo se usa con
+// `_legacyMixMode` (candado de regresión cero). El camino activo usa
+// `confidenceFromCoverage` (abajo, §16.7 punto 7).
 function computeConfidence(signals: SignalContribution[], metaIsStale: boolean): Suggestion["confidence"] {
   // Una señal no aplicable no cuenta como null para la confianza -- "no configuraste la función"
   // no es lo mismo que "hay un hueco de datos" (D10). Sin esto, todo usuario sin pool vería su
@@ -183,6 +198,110 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
   if (nullCount >= 2) return "baja";
   if (nullCount === 1 || metaIsStale) return "media";
   return "alta";
+}
+
+// ---------- TSK-210 (Fase 9.1, SPEC.md §16.7): mezcla por estado ----------
+
+// `A(S)` -- señales estructuralmente aplicables al estado `S`, IGUAL para todos los candidatos
+// (§16.7 punto 1). El peso de una señal fuera de `A(S)` se saca del denominador de la
+// redistribución; no vota con `μ` ni con 0 "que cuenta" -- simplemente no participa.
+function availableSignals(
+  state: DraftState,
+  meta: MetaSnapshot,
+  options: BuildSuggestionsOptions,
+  calibration: Calibration,
+): Set<SignalId> {
+  const available = new Set<SignalId>();
+  const facts = observedDraftFacts(state);
+
+  if (state.localSide !== "unknown") available.add("position_fit");
+
+  const curated = options.heroCounters ?? MODULE_HERO_COUNTERS;
+  const curatedHitsABan =
+    state.banned.length > 0 &&
+    [...curated.values()].some((entries) => entries.some((entry) => state.banned.includes(entry.vs)));
+  if (facts.revealedEnemyPicks.length > 0 || curatedHitsABan) available.add("counter");
+
+  if (facts.ownPicks.length > 0) available.add("team_synergy");
+
+  // proxy de "hay datos de parche": la señal está calibrada. En modo legacy (sin calibración
+  // cargada) cae a "su raw no es null para algún candidato" -- se resuelve fuera, en el llamador.
+  if (calibration.signals.patch_meta) available.add("patch_meta");
+
+  if ((meta.heroPool?.length ?? 0) > 0) available.add("hero_pool_fit");
+
+  if (options.archetypeIntent !== undefined) available.add("archetype_fit");
+
+  return available;
+}
+
+function confidenceFromCoverage(evidenceCoverage: number, metaIsStale: boolean): Suggestion["confidence"] {
+  if (evidenceCoverage >= 0.75 && !metaIsStale) return "alta";
+  if (evidenceCoverage >= 0.5 || metaIsStale) return "media";
+  return "baja";
+}
+
+interface StateMixResult {
+  score: number;
+  signals: SignalContribution[];
+  evidenceCoverage: number;
+  guessingIndex: number;
+}
+
+// §16.7 puntos 2-6. `enriched` ya trae `normalized`/`evidenceConfidence` (vía `enrich()`). Una
+// pasada previa junta `μᵢ(S)` (media de `normalizedᵢ` sobre los candidatos con dato); este mezcla
+// un candidato contra ese `μ` fijo del estado.
+function mixByState(
+  enriched: SignalContribution[],
+  available: Set<SignalId>,
+  wPrime: Partial<Record<SignalId, number>>,
+  stateMean: Partial<Record<SignalId, number>>,
+): StateMixResult {
+  let score = 0;
+  let evidenceCoverage = 0;
+  for (const contribution of enriched) {
+    let weighted = 0;
+    if (available.has(contribution.signal)) {
+      const w = wPrime[contribution.signal] ?? 0;
+      if (contribution.raw !== null && contribution.normalized != null) {
+        weighted = w * contribution.normalized;
+        evidenceCoverage += w;
+      } else {
+        // `raw: null` en una señal de `A(S)` -> el candidato "adivina" con la media del estado.
+        // `μ` nunca se escribe en `raw` (sigue null en el desglose) -- sólo alimenta `weighted`.
+        weighted = w * (stateMean[contribution.signal] ?? 50);
+      }
+    }
+    contribution.weighted = weighted;
+    score += weighted;
+  }
+  return { score, signals: enriched, evidenceCoverage, guessingIndex: 1 - evidenceCoverage };
+}
+
+// El único neutro del pipeline (§16.7 punto 3): si una señal está en `A(S)` pero NINGÚN candidato
+// del estado tiene `raw` para ella, su `μ` es 50. Nunca se escribe en `raw`.
+function stateMeansFor(
+  scored: { signals: SignalContribution[] }[],
+  available: Set<SignalId>,
+): Partial<Record<SignalId, number>> {
+  const means: Partial<Record<SignalId, number>> = {};
+  for (const signal of available) {
+    const values: number[] = [];
+    for (const { signals } of scored) {
+      const contribution = signals.find((c) => c.signal === signal);
+      if (contribution && contribution.raw !== null && contribution.normalized != null) {
+        values.push(contribution.normalized);
+      }
+    }
+    means[signal] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 50;
+  }
+  return means;
+}
+
+// Coverage legacy (para `_legacyMixMode`): fracción de peso de V6 que las señales con voto real
+// aportan. No es `A(S)` -- es el conjunto candidate-specific de siempre.
+function legacyCoverage(signals: SignalContribution[]): number {
+  return signals.filter(hasVote).reduce((sum, s) => sum + SCORING_WEIGHTS_V6[s.signal], 0);
 }
 
 // TSK-069 (fase 3 de la auditoría de inteligencia): antes unía las 2 explicaciones con "; ",
@@ -330,10 +449,10 @@ function stableSeedOffset(seed: string, length: number): number {
 // La apertura no debe proponer el mismo trío por el simple desempate de ID. Solo se rota una
 // frontera de calidad equivalente (máximo 3 puntos del mejor score); un candidato claramente
 // superior conserva su prioridad y el resultado nunca cambia al re-renderizar la misma partida.
-function diversifyEquivalentCandidates(
-  scored: { hero: HeroId; score: number; signals: SignalContribution[] }[],
+function diversifyEquivalentCandidates<T extends { hero: HeroId; score: number }>(
+  scored: T[],
   diversitySeed: string | undefined,
-): { hero: HeroId; score: number; signals: SignalContribution[] }[] {
+): T[] {
   if (diversitySeed === undefined || scored.length <= TOP_N) return scored;
   const frontier = scored.filter((entry) => scored[0]!.score - entry.score <= 3);
   if (frontier.length <= TOP_N) return scored;
@@ -390,14 +509,39 @@ export function buildSuggestions(
     };
   }
 
-  const scored: { hero: HeroId; score: number; signals: SignalContribution[] }[] = [];
+  const legacyMix = options._legacyMixMode === true;
+  const calibration = options.calibration ?? MODULE_CALIBRATION;
+
+  // Pasada 1: cada scorer una sola vez por candidato. En el camino activo, `enrich()` agrega
+  // `normalized` (calibrado) y `evidenceConfidence` sin tocar `raw`. En legacy se salta -- el
+  // candado de regresión cero exige el `SignalContribution` crudo de V6.
+  const raw: { hero: HeroId; signals: SignalContribution[] }[] = [];
   for (const hero of candidates) {
     if (now() - start > HARD_CUTOFF_MS) {
       degraded.push("partial_signals");
       break;
     }
-    const signals = scorers.map((scorer) => safeScore(scorer, state, hero, meta));
-    scored.push({ hero, score: mixScore(signals), signals });
+    const bare = scorers.map((scorer) => safeScore(scorer, state, hero, meta));
+    // `bracket`: un DraftState no lleva bracket -> siempre `global` (SPEC §16.7 punto 8).
+    const signals = legacyMix ? bare : bare.map((c) => enrich(c, null, calibration));
+    raw.push({ hero, signals });
+  }
+
+  type Scored = { hero: HeroId; score: number; signals: SignalContribution[]; evidenceCoverage: number; guessingIndex: number };
+  let scored: Scored[];
+  if (legacyMix) {
+    scored = raw.map(({ hero, signals }) => {
+      const coverage = legacyCoverage(signals);
+      return { hero, signals, score: mixScore(signals), evidenceCoverage: coverage, guessingIndex: 1 - coverage };
+    });
+  } else {
+    // `A(S)` y el denominador de la redistribución: una vez por estado, igual para todo candidato.
+    const available = availableSignals(state, meta, options, calibration);
+    const denom = [...available].reduce((sum, id) => sum + SCORING_WEIGHTS_V6[id], 0);
+    const wPrime: Partial<Record<SignalId, number>> = {};
+    for (const id of available) wPrime[id] = denom > 0 ? SCORING_WEIGHTS_V6[id] / denom : 0;
+    const stateMean = stateMeansFor(raw, available);
+    scored = raw.map(({ hero, signals }) => ({ hero, ...mixByState(signals, available, wPrime, stateMean) }));
   }
 
   scored.sort((a, b) => b.score - a.score);
@@ -443,7 +587,11 @@ export function buildSuggestions(
     ]
       .filter(Boolean)
       .join(" "),
-    confidence: computeConfidence(entry.signals, options.metaIsStale ?? false),
+    confidence: legacyMix
+      ? computeConfidence(entry.signals, options.metaIsStale ?? false)
+      : confidenceFromCoverage(entry.evidenceCoverage, options.metaIsStale ?? false),
+    evidenceCoverage: entry.evidenceCoverage,
+    guessingIndex: entry.guessingIndex,
     evidence: buildEvidence(entry.signals, roleReason, decisionPolicy, entry.openingReason),
   };
   });
