@@ -17,7 +17,25 @@ export interface ReportMeta {
   corpusSize: { drafts: number; tournaments: number; goldenCases: number };
 }
 
-export function renderReport(meta: ReportMeta, quality: EngineQualityResult, agreement: ProAgreementResult): string {
+// TSK-212 (Fase 9.1, SPEC.md §16.8): EvidenceCoverage / GuessingIndex medios del Top-6, por
+// ranker que pasa por `buildSuggestions` (v6*), en cada contexto de benchmark. `random` /
+// `patchMetaOnly` no pasan por el motor -> no tienen estas métricas.
+export interface EvidenceAggregate {
+  evidenceCoverage: number;
+  guessingIndex: number;
+  n: number;
+}
+export interface EvidenceProfile {
+  engineQuality: Record<string, EvidenceAggregate>;
+  proAgreement: Record<string, EvidenceAggregate>;
+}
+
+export function renderReport(
+  meta: ReportMeta,
+  quality: EngineQualityResult,
+  agreement: ProAgreementResult,
+  evidence?: EvidenceProfile,
+): string {
   const lines: string[] = [];
   lines.push(`# Reporte de evaluación — V6-medido`);
   lines.push("");
@@ -110,5 +128,30 @@ export function renderReport(meta: ReportMeta, quality: EngineQualityResult, agr
   lines.push(`### Baselines omitidos`);
   for (const o of agreement.omittedBaselines) lines.push(`- \`${o.id}\`: ${o.reason}`);
   lines.push("");
+
+  // ---- Cobertura de evidencia (Fase 9.1, §16.8) ----
+  if (evidence) {
+    lines.push(`## Cobertura de evidencia (v6, Top-6)`);
+    lines.push("");
+    lines.push(`| ranker | contexto | EvCov medio | GuessingIndex medio | n (sugerencias) |`);
+    lines.push(`|---|---|---|---|---|`);
+    const row = (id: string, ctx: string, a: EvidenceAggregate | undefined): void => {
+      if (!a || a.n === 0) return;
+      lines.push(`| ${id} | ${ctx} | ${n3(a.evidenceCoverage)} | ${n3(a.guessingIndex)} | ${a.n} |`);
+    };
+    for (const id of Object.keys(evidence.engineQuality)) row(id, "Golden", evidence.engineQuality[id]);
+    for (const id of Object.keys(evidence.proAgreement)) row(id, "Pro (muestra)", evidence.proAgreement[id]);
+    lines.push("");
+    const gq = evidence.engineQuality.v6Full;
+    if (gq && gq.n > 0) {
+      lines.push(
+        `GuessingIndex medio del Top-6 de \`v6Full\` (Golden): **${n3(gq.guessingIndex)}** ` +
+          `(EvCov ${n3(gq.evidenceCoverage)}).`,
+      );
+    }
+    lines.push(`_\`random\` / \`patchMetaOnly\` no pasan por \`buildSuggestions\` — sin EvCov._`);
+    lines.push("");
+  }
+
   return `${lines.join("\n")}\n`;
 }

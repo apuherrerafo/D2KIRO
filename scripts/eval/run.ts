@@ -13,11 +13,14 @@ import { Database } from "bun:sqlite";
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { MetaSnapshot } from "../../apps/engine/src/signals/types";
-import { runEngineQuality, type EngineQualityResult } from "./benchmark-engine-quality";
+import type { DraftState } from "../../apps/engine/src/draft/reducer";
+import { buildSuggestions } from "../../apps/engine/src/signals/mix";
+import { hydrateState, runEngineQuality, type EngineQualityResult } from "./benchmark-engine-quality";
 import { loadReplayCasesFromDb, runProAgreement, type ProAgreementResult } from "./benchmark-pro-agreement";
+import type { ReplayCase } from "./types";
 import { loadGoldenDataset, type GoldenCase } from "./golden";
 import { dominantPatch } from "./replay";
-import { renderReport, type ReportMeta } from "./report";
+import { renderReport, type EvidenceProfile, type ReportMeta } from "./report";
 import { loadOrCreateSplit, type FrozenSplit } from "./split";
 
 // Se leen dentro de main() (no a nivel de módulo) para que los tests puedan sobrescribir
@@ -117,6 +120,51 @@ function loadGolden(goldenPath: string, knownHeroIds: Set<number>): { cases: Gol
   };
 }
 
+// TSK-212 (Fase 9.1, §16.8): EvidenceCoverage / GuessingIndex medios del Top-6, para los rankers
+// que pasan por `buildSuggestions`. Descriptivo (no entra al veredicto del gate) -- se agrega al
+// reporte y al `v6-measured.json` congelado. Muestra determinista para el corpus pro (stride fijo).
+const EVIDENCE_RANKERS: Record<string, { heroCounters?: Map<number, never> }> = {
+  v6Full: {},
+  v6NoCuratedCounters: { heroCounters: new Map() },
+};
+const PRO_EVIDENCE_SAMPLE = 300;
+
+function meanEvidence(
+  states: DraftState[],
+  meta: MetaSnapshot,
+  opts: { heroCounters?: Map<number, never> },
+): { evidenceCoverage: number; guessingIndex: number; n: number } {
+  let cov = 0;
+  let guess = 0;
+  let n = 0;
+  for (const state of states) {
+    for (const s of buildSuggestions(state, meta, opts).suggestions.slice(0, 6)) {
+      cov += s.evidenceCoverage;
+      guess += s.guessingIndex;
+      n += 1;
+    }
+  }
+  return n > 0 ? { evidenceCoverage: cov / n, guessingIndex: guess / n, n } : { evidenceCoverage: 0, guessingIndex: 0, n: 0 };
+}
+
+function computeEvidenceProfile(
+  goldenCases: GoldenCase[],
+  replayCases: ReplayCase[],
+  meta: MetaSnapshot,
+  patchOverride: string | undefined,
+): EvidenceProfile {
+  const goldenStates = goldenCases.map((c) => hydrateState(c, patchOverride));
+  const stride = Math.max(1, Math.floor(replayCases.length / PRO_EVIDENCE_SAMPLE));
+  const proStates = replayCases.filter((_, i) => i % stride === 0).map((c) => c.state);
+  const engineQuality: EvidenceProfile["engineQuality"] = {};
+  const proAgreement: EvidenceProfile["proAgreement"] = {};
+  for (const [id, opts] of Object.entries(EVIDENCE_RANKERS)) {
+    engineQuality[id] = meanEvidence(goldenStates, meta, opts);
+    proAgreement[id] = meanEvidence(proStates, meta, opts);
+  }
+  return { engineQuality, proAgreement };
+}
+
 // serialización estable: claves ordenadas, para que dos corridas den el mismo byte-string.
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_k, v) => {
@@ -161,10 +209,12 @@ async function main(): Promise<number> {
 
   const gateFailed = !agreement.valid || !quality.valid;
 
+  const evidence: EvidenceProfile = computeEvidenceProfile(golden.cases, replayCases, meta, patchOverride);
+
   // reporte legible SIEMPRE (aunque el gate falle) — va a eval/reports/, no se versiona
   mkdirSync(P.REPORTS_DIR, { recursive: true });
   const stamp = meta_.generatedAt.replace(/[:.]/g, "-");
-  writeFileSync(`${P.REPORTS_DIR}/${stamp}.md`, renderReport(meta_, quality, agreement));
+  writeFileSync(`${P.REPORTS_DIR}/${stamp}.md`, renderReport(meta_, quality, agreement, evidence));
 
   if (gateFailed) {
     process.stderr.write(
@@ -186,6 +236,7 @@ async function main(): Promise<number> {
     goldenNote: golden.note,
     engineQuality: quality,
     professionalPickAgreement: agreement,
+    evidenceProfile: evidence,
   };
   writeFileSync(P.BASELINE_PATH, `${stableStringify(frozen)}\n`);
 

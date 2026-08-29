@@ -77,3 +77,51 @@ describe("gate CLI — modo informativo en 9.0", () => {
     else process.env.D2K_BASELINE_OUT = prev;
   });
 });
+
+// TSK-212 (Fase 9.1, SPEC.md §16.10): --enforce traduce FAIL -> exit 1. Es el gate que corre
+// verify-simplicity.sh en el camino de commit.
+describe("gate CLI — --enforce (9.1)", () => {
+  const { mkdtempSync, rmSync, writeFileSync } = require("node:fs") as typeof import("node:fs");
+  const { tmpdir } = require("node:os") as typeof import("node:os");
+  const { join } = require("node:path") as typeof import("node:path");
+
+  async function runGate(args: string[], baselineObj: FrozenBaseline, currentObj: FrozenBaseline, tol?: Partial<Tolerance>): Promise<number> {
+    const dir = mkdtempSync(join(tmpdir(), "d2k-gate-"));
+    const prev = { b: process.env.D2K_BASELINE_OUT, c: process.env.D2K_GATE_CURRENT, t: process.env.D2K_TOLERANCE_OUT };
+    try {
+      const bPath = join(dir, "baseline.json");
+      const cPath = join(dir, "current.json");
+      writeFileSync(bPath, JSON.stringify(baselineObj));
+      writeFileSync(cPath, JSON.stringify(currentObj));
+      process.env.D2K_BASELINE_OUT = bPath;
+      process.env.D2K_GATE_CURRENT = cPath;
+      if (tol) {
+        const tPath = join(dir, "tol.json");
+        writeFileSync(tPath, JSON.stringify({ ...DEFAULT_TOL, ...tol }));
+        process.env.D2K_TOLERANCE_OUT = tPath;
+      }
+      return await main(args);
+    } finally {
+      for (const [k, v] of [["D2K_BASELINE_OUT", prev.b], ["D2K_GATE_CURRENT", prev.c], ["D2K_TOLERANCE_OUT", prev.t]] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test("--enforce + corrida que FALLA (NDCG@5 desplomado) -> exit 1", async () => {
+    const code = await runGate(["--enforce"], baseline({ ndcg5: 0.6 }), baseline({ ndcg5: 0.4 }), { ndcg5: 0.02 });
+    expect(code).toBe(1);
+  });
+
+  test("--enforce + corrida que PASA (dentro de tolerancia) -> exit 0", async () => {
+    const code = await runGate(["--enforce"], baseline({ ndcg5: 0.6 }), baseline({ ndcg5: 0.595 }), { ndcg5: 0.02 });
+    expect(code).toBe(0);
+  });
+
+  test("sin --enforce, la misma corrida que FALLA -> exit 0 (comportamiento 9.0 preservado)", async () => {
+    const code = await runGate([], baseline({ ndcg5: 0.6 }), baseline({ ndcg5: 0.4 }), { ndcg5: 0.02 });
+    expect(code).toBe(0);
+  });
+});

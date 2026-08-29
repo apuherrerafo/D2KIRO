@@ -226,6 +226,28 @@ if [ "${VERIFY_COMMIT_GATE:-0}" = "1" ]; then
         ERRORS=$((ERRORS + 1))
       fi
     fi
+
+    # TSK-212 (Fase 9.1, SPEC.md §16.10): gate de calidad del motor. Corre el backtest completo y
+    # lo compara --enforce contra el v6-measured.json de REFERENCIA (congelado + validado, nunca se
+    # sobrescribe acá -- la corrida actual va a un temporal). Falla el commit si un cambio degrada
+    # NDCG@5 / Bad Pick Rate@5 más que la tolerancia de null-perturbation. Sólo en el camino de
+    # commit: el backtest tarda demasiado para el hot path (mismo criterio que tsc+bun test).
+    # Se omite -- sin fallar -- si falta alguna SQLite o el baseline (ej. checkout de CI sin datos).
+    EVAL_ENGINE_DB="${ENGINE_DB_PATH:-apps/engine/data/dota2coach.sqlite}"
+    EVAL_PRO_DB="${D2K_PRO_DB:-apps/engine/data/pro-drafts.sqlite}"
+    if [ -f "$EVAL_ENGINE_DB" ] && [ -f "$EVAL_PRO_DB" ] && [ -f eval/baselines/v6-measured.json ]; then
+      EVAL_TMP_DIR="$(mktemp -d)"
+      if D2K_BASELINE_OUT="$EVAL_TMP_DIR/v6-current.json" D2K_REPORTS_DIR="$EVAL_TMP_DIR/reports" "$BUN_BIN" run scripts/eval/run.ts \
+        && D2K_BASELINE_OUT=eval/baselines/v6-measured.json D2K_GATE_CURRENT="$EVAL_TMP_DIR/v6-current.json" "$BUN_BIN" run scripts/eval/gate.ts --enforce; then
+        :
+      else
+        echo "❌ ERROR: gate de evaluación del motor falló (bun run eval + gate.ts --enforce)."
+        ERRORS=$((ERRORS + 1))
+      fi
+      rm -rf "$EVAL_TMP_DIR"
+    else
+      echo "⚠️  gate de evaluación (§16.10) omitido: falta una SQLite del motor o el baseline de referencia."
+    fi
   fi
 fi
 
