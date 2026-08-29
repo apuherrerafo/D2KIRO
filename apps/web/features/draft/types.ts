@@ -75,7 +75,7 @@ export type DraftDecisionContext = "team_opening" | "blind_second_pick" | "respo
 
 export interface Suggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3 | 4 | 5;
+  rank: 1 | 2 | 3 | 4 | 5 | 6;
   score: number;
   signals: SignalContribution[];
   reason: string;

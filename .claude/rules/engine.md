@@ -384,3 +384,66 @@ Hace usable la señal que 4.2 dejó integrada pero inerte. Toca `apps/engine/src
   15984 filas llegan al umbral) — no es un detalle menor, es la razón real por la que un alivio
   por ban plano casi nunca tenía con qué disparar. El factor de solapamiento posicional + entropía
   de rol es lo que hace que la apertura reaccione a todos los bans, no solo al 7.5% con volumen.
+
+## Fase 8 — rehabilitar `counter` (base curada + shrinkage) (S3) — SPEC.md §14
+
+Toca `apps/engine/src/signals/{counter,relationship-index,mix,hero-counters}.ts` +
+`hero-counters.json`. Estrictamente aditivo salvo la re-parametrización deliberada de la capa
+estadística (§14.7), con candado de regresión cero de dos pruebas.
+
+- **`SignalId`, `SCORING_WEIGHTS_V1`-`V6`, `RAW_RANGE.counter` (`[-0.12, 0.12]`), `weights.ts` no
+  se tocan.** `RELATIONSHIP_MIN_GAMES = 200` sigue exportado con su valor — el default del módulo
+  no cambia; `counter.ts` llama a `createRelationshipIndex(matchups, COUNTER_MIN_GAMES)` con el
+  valor bajo.
+- **`counterScorer` (singleton) → `createCounterScorer(curated, opts)`**, mismo patrón que
+  `createPositionFitScorer`/`createTeamSynergyScorer`. `CounterScorerOptions`: `minGames?`
+  (default `COUNTER_MIN_GAMES`; el candado pasa `200`), `shrinkPriorStrength?: number | null`
+  (default `COUNTER_SHRINK_PRIOR_STRENGTH`; `null` → usa el delta crudo, comportamiento de hoy).
+- **`mix.ts`**: `MODULE_HERO_COUNTERS = loadHeroCounters()` a nivel de módulo (como
+  `MODULE_HERO_POSITIONS`); `createCounterScorer(options.heroCounters ?? MODULE_HERO_COUNTERS)`
+  ensamblado por llamada; `BuildSuggestionsOptions.heroCounters?` inyectable (patrón
+  `heroPositions?`/`heroCapabilities?`).
+- **`signals/hero-counters.ts` (`loadHeroCounters`)**: valida en el borde — descarta `level` fuera
+  de `{"hard","medium"}`, `why` vacío, `vs` no entero o desconocido (`CURATED_HERO_IDS`), víctima
+  con `vs` duplicado. Archivo ausente / JSON inválido / forma de raíz inesperada → **`Map` vacío**,
+  nunca lanza. Mismo criterio literal que `loadHeroPositions()` con archivo malformado.
+- **`hero-counters.json`**: keyed por víctima, `{ "<heroId>": [{ vs, level, why }] }`. Archivo
+  estático versionado en el repo, **no SQLite**. `why` es texto visible (obligatorio).
+- **`relationship-index.ts`**: único cambio = agregar `observedWinrate: row.wins / row.games` a
+  `CounterEvidence` (1 línea, aditivo — los consumidores actuales lo ignoran). Sin cambios
+  estructurales.
+- **Fórmula de `score()`** (§14.5): para cada rival revelado `r`, una `c_r` — capa curada
+  (prioridad, bidireccional: `curated[candidate]` incluye `r` → `-M[level]`; `curated[r]` incluye
+  `candidate` → `+M[level]`) o, si `r` no quedó cubierto, capa estadística
+  (`shrunkWinrate - base`, con `base = observedWinrate - delta` y
+  `shrunkWinrate = shrinkEstimate(observedWinrate, games, base, P)`; `shrinkPriorStrength: null`
+  ⇒ `= delta`). `raw = mean(c_r)` sobre los rivales cubiertos; `null` si ninguno.
+  `sampleSize` = Σ `games` **sólo** de la capa estadística.
+- **`shrinkEstimate` se reutiliza de `apps/engine/src/pro/shrinkage.ts`** (TSK-165) — no se
+  reimplementa. Shrink hacia el **baseline del candidato**, no hacia 0.5.
+- **Constantes** (`counter.ts`): `M = { hard: 0.12, medium: 0.06 }`, `COUNTER_MIN_GAMES = 10`,
+  `COUNTER_SHRINK_PRIOR_STRENGTH = 20`. Valores de arranque, ajustables tras el QA — no reabren
+  el SPEC.
+- **Cero red en el camino caliente, intacta**: `counter.ts`/`hero-counters.ts` bajo
+  `apps/engine/src/signals/`, donde `verify-simplicity.sh` bloquea cualquier `fetch(`. El JSON se
+  carga una vez al iniciar el módulo.
+- **Sin dependencia nueva, sin STRATZ.** El peso `0.216` de `counter` en V6 no cambia — se
+  rehabilita la señal, no se re-pondera.
+
+### Fase 8 addendum — alivio por counters baneados (`TSK-188`, SPEC.md §14.13)
+
+- Término **positivo** aditivo dentro de `createCounterScorer`, sobre el mismo `raw` de `counter`
+  — **no** una clave nueva en `SignalId`/`RAW_RANGE`/`weights.ts`.
+- Fuente: `curated.get(candidate)` (héroes que counterean al candidato) ∩
+  `observedDraftFacts(state).bannedHeroes`. Solo dirección positiva.
+- **Vota desde el pick 1** (no necesita `revealedEnemyPicks`). `counter` deja de ser siempre
+  `null` en picks tempranos.
+- `banRelief === 0` → `raw = meanRevealed` **sin clamp** (8A byte-idéntico, el candado de §14.7
+  sigue dando `0.12222`); `banRelief > 0` → `raw = clamp(meanRevealed + banRelief, -M.hard,
+  M.hard)`. `meanRevealed = 0` si no hay rivales cubiertos; `contribs` vacío **y**
+  `banRelief === 0` → `raw: null`. `banRelief` no suma a `sampleSize`.
+- Constantes de arranque QA-tuneables: `BAN_RELIEF = { hard: 0.04, medium: 0.02 }`,
+  `BAN_RELIEF_CAP = 0.06`.
+- `explanation`: cláusula `"N de sus counters están baneados: <hasta 2 nombres>"`, anexada al
+  texto de 8A si hubo rival revelado, o sola si solo hubo alivio.
+- Candado de regresión §14.7 intacto: con `curated = new Map()`, `banRelief` es siempre 0.

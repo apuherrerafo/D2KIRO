@@ -185,3 +185,31 @@ esta fase es determinista (penalización, no sorteo), no consume ninguna reserva
   `hero-line-profiles.json`, `pro-draft-corpus.json` ni la SQLite real — los números de
   `SPEC.md` §13.11 se **midieron** contra esos archivos, y por eso mismo no pueden ser el sustrato
   de un test (se regeneran con cada patch/curación).
+
+## Fase 8 — rehabilitar `counter` (SPEC.md §14.3, §14.7, §14.10)
+
+**No estrena costura.** `counter` sigue en **S3** (scorer puro, archivo propio, aislado de las
+otras cinco). `hero-counters.json` cae en la **familia S9** (dato curado inyectado como fixture,
+**jamás leído real en una prueba** — mismo criterio que `capabilities.json`/`hero-positions.json`;
+el archivo se cura por parche). `shrinkEstimate` es función pura ya probada (TSK-165). `S12` sigue
+reservada (RNG de diversificación, Fase 4).
+
+- **Candado de regresión cero — dos pruebas, no una**:
+  1. `counter.test.ts`: `createCounterScorer(new Map(), { minGames: 200, shrinkPriorStrength: null })`
+     sobre los fixtures actuales reproduce el `raw`/`explanation`/`sampleSize` de hoy número por
+     número.
+  2. `mix.test.ts`: `buildSuggestions` con `heroCounters` inyectado vacío + opciones legacy no
+     mueve el ranking ni los `signals[].raw` de `counter` (candado de pipeline completo, mismo
+     criterio que Fase 3 contra Spectre+Wraith y Fase 4 contra `buildSuggestions`).
+- El test actual `"enemigos conocidos pero todos bajo 200 partidas -> raw: null"` **se reescribe**:
+  con los parámetros de producción (`minGames: 10`) esa fixture (150/199 partidas) produce un
+  `raw` shrunk real; el caso `null` se prueba con muestras `< COUNTER_MIN_GAMES`.
+- **Pruebas obligatorias de comportamiento nuevo**: hard counter curado (dirección directa e
+  inversa); zona gris (dos candidatos con `observedWinrate`/`games` reales distintos sobre 30-100
+  partidas → `counter` los diferencia, donde hoy ambos son `null`); shrinkage (12 vs 180 partidas
+  con el mismo `observedWinrate` → `|c_r|` distinto; `< 10` partidas → ese rival no aporta);
+  degradación (`hero-counters.json` corrupto → `Map` vacío, cae a la capa estadística, cero
+  excepción).
+- **Ninguna prueba lee `hero-counters.json` real** — fixtures inline.
+- **8B**: `NavBar` renderiza 4 links; humo de que las 3 rutas quitadas siguen resolviendo por
+  URL; ninguna suite existente de `apps/web` cambia de resultado.

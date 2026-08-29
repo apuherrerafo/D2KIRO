@@ -200,3 +200,18 @@ Sentinel). Fuente: `docs/specs/SPEC.md` §5.
   explícita del usuario. Sin `/gear-up`, sin `@depcheck`.
 - **`apps/engine` sigue atado a `127.0.0.1`.** Esta fase reutiliza `/api/v1/draft/pro-recommendations`,
   que ya existe y ya está gateada — no agrega ninguna ruta HTTP nueva.
+
+## Fase 8 — rehabilitar `counter` + higiene de superficie (SPEC.md §14.9)
+
+- **Ninguna frontera de confianza nueva.** `hero-counters.json` es dato curado del repo, mismo
+  perfil que `capabilities.json`/`hero-positions.json`: se valida en el borde al cargarlo
+  (`loadHeroCounters()`), un archivo corrupto o manipulado degrada a "capa estadística sola"
+  (`Map` vacío) — nunca inyecta magnitudes arbitrarias ni tira el motor. No cruza red ni proceso.
+- La capa estadística lee `MetaSnapshot.matchups`, ya validado en la sincronización (S6). Sin
+  cambios a esa frontera.
+- **Sin secreto nuevo, sin dependencia nueva, sin dato personal, sin variable de entorno nueva.**
+  STRATZ queda fuera de alcance (mismo criterio que Fase 3). `shrinkEstimate` ya está en el repo.
+- **Cero red en el camino caliente, intacta.** El JSON se carga una vez al iniciar el módulo;
+  `verify-simplicity.sh` ya bloquea `fetch(` bajo `apps/engine/src/signals/`.
+- **8B no toca `proxy.ts` ni el gate de sesión de Steam.** Sacar links del nav no cambia qué
+  rutas existen ni quién puede acceder — el perímetro de auth es el mismo.

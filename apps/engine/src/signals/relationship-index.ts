@@ -6,6 +6,10 @@ export const RELATIONSHIP_MIN_GAMES = 200;
 export interface CounterEvidence {
   rival: HeroId;
   delta: number;
+  /** Winrate crudo del candidato contra este rival (`wins / games`), sin shrink ni ajuste.
+   *  Aditivo (TSK-184): permite derivar el baseline del candidato como `observedWinrate - delta`
+   *  sin re-consultar el índice. Los consumidores previos lo ignoran. */
+  observedWinrate: number;
   games: number;
   wilsonLower: number;
   wilsonUpper: number;
@@ -77,6 +81,7 @@ export function createRelationshipIndex(
         return [{
           rival,
           delta: row.wins / row.games - base,
+          observedWinrate: row.wins / row.games,
           games: row.games,
           wilsonLower: interval.lower,
           wilsonUpper: interval.upper,

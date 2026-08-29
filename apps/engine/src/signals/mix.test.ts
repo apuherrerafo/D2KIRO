@@ -75,8 +75,11 @@ test("semillas distintas rotan alternativas de calidad equivalente sin volver in
     3: { id: 3, localizedName: "Tres" },
     4: { id: 4, localizedName: "Cuatro" },
     5: { id: 5, localizedName: "Cinco" },
+    6: { id: 6, localizedName: "Seis" },
+    7: { id: 7, localizedName: "Siete" },
+    8: { id: 8, localizedName: "Ocho" },
   });
-  const options = { heroPositions: {} };
+  const options = { heroPositions: {} }; // TSK-192: >6 heroes para que la diversificacion (TOP_N=6) se dispare
 
   const firstDraft = buildSuggestions(draftState(), snapshot, { ...options, diversitySeed: "draft-alpha" });
   const sameDraft = buildSuggestions(draftState(), snapshot, { ...options, diversitySeed: "draft-alpha" });
@@ -266,7 +269,9 @@ describe("SCORING_WEIGHTS_V5 — candado de dominancia de posición sobre comodi
     // dice estar probando (mismo criterio que heroPositions:{} en los tests de arriba).
     const result = buildSuggestions(state, snapshot, { heroPositions: HERO_POSITIONS, heroCapabilities: [] });
 
-    const top3Heroes = result.suggestions.map((s) => s.hero);
+    // TSK-192: el Copilot muestra 6; el candado de Fase 3 es que WK (repite rol ya cubierto) no
+    // se PROMUEVE -- se verifica contra el top 3, no contra la lista extendida.
+    const top3Heroes = result.suggestions.slice(0, 3).map((s) => s.hero);
     expect(top3Heroes).not.toContain(WRAITH_KING);
   });
 
@@ -281,7 +286,7 @@ describe("SCORING_WEIGHTS_V5 — candado de dominancia de posición sobre comodi
 
     expect(() => buildSuggestions(state, snapshot)).not.toThrow();
     const result = buildSuggestions(state, snapshot);
-    expect(result.suggestions.length).toBeLessThanOrEqual(3);
+    expect(result.suggestions.length).toBeLessThanOrEqual(6); // TSK-192
     for (const suggestion of result.suggestions) {
       expect(suggestion.signals.some((s) => s.signal === "position_fit")).toBe(true);
     }
@@ -407,6 +412,57 @@ describe("RAW_RANGE.counter recalibrado -- counter ya no queda ahogado por patch
     ];
 
     expect(mixScore(heroA)).toBeGreaterThan(mixScore(heroB));
+  });
+});
+
+// TSK-186 (Fase 8, SPEC.md §14.5 / §14.7-2 / §14.10-2): `counter` deja de ser singleton de
+// módulo y se ensambla por llamada con la capa curada inyectable (`heroCounters`), mismo patrón
+// que position_fit/team_synergy/archetype_fit.
+describe("Fase 8 -- counter cableado como scorer por llamada (candado de pipeline)", () => {
+  const OPTS = { heroPositions: {} as HeroPositions, heroCapabilities: [] as HeroCapabilities[] };
+
+  test("heroCounters vacío es un no-op: mismo ranking y counter sigue en raw:null (§14.7-2)", () => {
+    // Earthshaker (7) revelado del rival, ningún par curado entre estos héroes, matchups:{} ->
+    // la capa estadística tampoco tiene dato: counter es raw:null igual que antes de Fase 8.
+    const state = draftState({ picks: { radiant: [], dire: [7] } });
+    const snapshot = meta({
+      5: { id: 5, localizedName: "Crystal Maiden" },
+      31: { id: 31, localizedName: "Lich" },
+      50: { id: 50, localizedName: "Dazzle" },
+    });
+
+    const withEmpty = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map() });
+    const withRealFile = buildSuggestions(state, snapshot, OPTS); // carga hero-counters.json real
+
+    expect(withEmpty.suggestions.map((s) => s.hero)).toEqual(withRealFile.suggestions.map((s) => s.hero));
+    for (const suggestion of withEmpty.suggestions) {
+      expect(suggestion.signals.find((s) => s.signal === "counter")?.raw).toBeNull();
+    }
+  });
+
+  test("un hard counter curado reordena el top del pipeline completo (§14.10-3, no la señal aislada)", () => {
+    const HUSKAR = 59;
+    const ANCIENT_APPARITION = 68;
+    const state = draftState({ picks: { radiant: [], dire: [ANCIENT_APPARITION] } });
+    const snapshot = meta({
+      [HUSKAR]: { id: HUSKAR, localizedName: "Huskar" },
+      31: { id: 31, localizedName: "Lich" },
+    });
+
+    const neutral = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map() });
+    const withCounter = buildSuggestions(state, snapshot, {
+      ...OPTS,
+      heroCounters: new Map([
+        [HUSKAR, [{ vs: ANCIENT_APPARITION, level: "hard" as const, why: "Ice Blast bloquea toda tu curación" }]],
+      ]),
+    });
+
+    const huskarNeutral = neutral.suggestions.find((s) => s.hero === HUSKAR)!;
+    const huskarCountered = withCounter.suggestions.find((s) => s.hero === HUSKAR)!;
+
+    expect(huskarNeutral.signals.find((s) => s.signal === "counter")?.raw).toBeNull();
+    expect(huskarCountered.signals.find((s) => s.signal === "counter")?.raw).toBeCloseTo(-0.12, 10);
+    expect(huskarCountered.score).toBeLessThan(huskarNeutral.score);
   });
 });
 
@@ -561,7 +617,7 @@ describe("buildSuggestions", () => {
     const result = buildSuggestions(state, snapshot);
 
     expect(result.computedInMs).toBeLessThan(300);
-    expect(result.suggestions.length).toBeLessThanOrEqual(3);
+    expect(result.suggestions.length).toBeLessThanOrEqual(6); // TSK-192
   });
 
   test("sin candidatos válidos -> suggestions: [] sin lanzar (nunca un error del sistema)", () => {

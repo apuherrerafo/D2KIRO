@@ -1,6 +1,45 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
+**Fase 8 (rehabilitar `counter`) + 8B + 3 follow-ups de QA del Simulador — CÓDIGO COMPLETO, todo
+verde.** `TSK-183`→`TSK-191` los 9 `done`. `@redteam` APPROVED en `185`/`186`/`188`.
+- **8A** (183-186): `counter` con capa curada `hero-counters.json` **127 héroes / 527 counters** +
+  shrinkage; `createCounterScorer` fábrica; candado de regresión byte-exacto.
+- **8B** (187): nav 7→4.
+- **188** (SPEC §14.13): `counter` gana alivio positivo "tus counters baneados = pick más libre",
+  vota desde el pick 1.
+- **189**: el Copilot del Simulador ahora manda `targetPosition` (rol elegido) + `x-account-token`
+  — antes nunca sabía tu posición ni tu pool.
+- **190**: hero pool = **señal blanda** (empuja tus héroes cómodos del rol), ya no filtro duro.
+  Desacoplado el overlay de cuenta del flag `usePersonalPool`.
+- **191**: la **apertura de equipo** (Ronda 1) reacciona a los bans — `team-opener.ts` usa la capa
+  curada + `MAX_COUNTER_RELIEF` 0.12→0.30. e2e: dos sets de bans → top-5 distinto.
+- **192**: Copilot del Simulador → **6 recomendaciones en grid 2×3 compacto** (era 3/5 en tarjetas
+  altas). `TOP_N` 3→6, `Suggestion.rank` → `…|6` + espejos. `SuggestionCard` gana `compact`. +
+  Nyx agregado como counter hard de Storm Spirit; 22 nombres de habilidad des-acentuados.
+
+Tests: engine 596 / web 205 / scripts 82, 0 fallos. tsc limpio ambos. verify-simplicity verde.
+Servidores corriendo. **Falta: QA manual del usuario + `git push`.** Nada commiteado.
+Fases 4.2/4.3/4.3b completas (`TSK-180`/`181`/`182` `done`). Lo de abajo es histórico.
+
+## SIGUIENTE PASO
+Herramienta: Claude Code (motor ya corriendo) + navegador. Modelo: Sonnet.
+Acción: **QA manual de Fase 8 en el Simulador de Draft** — arrancar un draft, dejar que el bot
+revele un Ancient Apparition, y confirmar que el Copilot penaliza Huskar de last-pick y el
+desglose de `counter` cita la mecánica ("Ice Blast bloquea toda tu curación"); probar un caso de
+zona gris (dos candidatos con matchup real distinto de 30-100 partidas) y ver que `counter` los
+ordena en vez de quedarse mudo. Si las magnitudes (`M.hard=0.12`, `COUNTER_MIN_GAMES=10`,
+`COUNTER_SHRINK_PRIOR_STRENGTH=20`) se sienten mal → follow-up de calibración (no reabre `SPEC.md`
+§14). Además: **revisar el borrador `apps/engine/src/signals/hero-counters.json`** (29 víctimas /
+81 counters, conocimiento público estándar) antes de considerar 8A "cerrado de dominio".
+Pendiente en paralelo: `git push origin master` (los ~38 commits sin push, cuando el usuario lo
+apruebe) y `TSK-179` cuando cierre `TSK-174`.
+
+---
+(bloque histórico "Fase 8" abajo, del /blueprint + /rulebook)
+
+---
+
 **Fase 6 (Formalizar Pro-Drafter: apertura de equipo consciente de bans) — `/pre-flight`,
 `/blueprint` y `/rulebook` completos.** `SPEC.md` §13.0-§13.18 generado en Opus (agente separado).
 Origen: feedback directo del usuario probando el simulador ("parece el mismo loop"), causa de
@@ -98,11 +137,52 @@ unión de 4 literales (cierra el hallazgo de `@redteam` de TSK-180), y protocolo
 QA pide otro `w`, follow-up que acuña `V7`). ~10-12 archivos, `simplicity_exception`, nueva
 frontera de confianza → `@redteam` obligatorio. Cero código escrito.
 
-Herramienta: Claude Code. Modelo: Sonnet.
-Acción: **`/rulebook` del sub-ticket 4.3** — traducir SPEC.md §11.14 a un ticket `TSK-XXX`
-ejecutable + secciones "Fase 4.3" en `.claude/rules/` y `CLAUDE.md`. Después: `/dispatch` → `@build`
-→ `@redteam` → QA manual. En paralelo, cuando el usuario lo apruebe: `git push origin master`
-(28 commits), y cuando `TSK-174` cierre: ejecutar `TSK-179`.
+**Fase 4.2/4.3/4.3b COMPLETAS e integradas.** `TSK-180`/`181`/`182` `done`, `@redteam` APPROVED
+en los tres. El selector de intención de draft funciona en `/live-draft` **y en el Simulador de
+Draft** (`/simulator`, la superficie de QA real). Consolidado en Git: `bbb31f5`, `4b25e75`,
+`8e6dce2`, `9fadc44`. Sin push. Juicio de `w=0.10` pendiente pero secundario.
+
+**Fase 8 (rehabilitar `counter` + higiene de superficie) — `/pre-flight` COMPLETO.** Origen: el QA
+del simulador mostró que la señal `counter` está inerte — `RELATIONSHIP_MIN_GAMES=200` recorta el
+~93% de los matchups reales; caso real: recomienda Huskar de último pick contra un Ancient
+Apparition ya revelado. `architecture.md` gana la sección "Fase 8" (6 bloques). Decisiones del
+usuario: 8A = base curada `hero-counters.json` como piso (aditivo, patrón `capabilities.json`) +
+arreglar la capa estadística (bajar/parametrizar el umbral, cablear `pro/shrinkage.ts` que ya
+existe, ponderar por la `confidence` de Wilson ya calculada), con **candado de regresión cero**
+(curado ausente + params legacy → `counter.raw` de hoy número por número); 8B = sacar del nav
+"Draft en vivo"/"Equipos"/"Héroes" (ruta y código quedan, reversible); lista curada inicial (~30
+héroes) por deep research + revisión del usuario. Sin dependencia nueva, sin STRATZ, sin tocar
+`SCORING_WEIGHTS_V6`.
+
+**Fase 8 (rehabilitar `counter` + higiene de superficie) — `/pre-flight`, `/blueprint` y
+`/rulebook` COMPLETOS.** `architecture.md` §"Fase 8" + `SPEC.md` §14 (blueprint corrido en Sonnet
+por decisión del usuario; gatillo de Opus documentado y anotado). 8A: `counter.ts` → fábrica
+`createCounterScorer(curated, opts)` con capa curada `hero-counters.json` (piso bidireccional,
+`M.hard=0.12` satura RAW_RANGE sin re-escalar, `M.medium=0.06`, S9, loader que degrada a Map
+vacío) + capa estadística para la zona gris (`COUNTER_MIN_GAMES=10`, shrinkage hacia el baseline
+vía `shrinkEstimate` de pro/shrinkage.ts, `PRIOR_STRENGTH=20`); `raw = mean(c_r)`. Candado de
+regresión cero (scorer aislado con opciones legacy + pipeline completo) reproduce lo de hoy número
+por número. `RAW_RANGE.counter`/`weights.ts`/`SignalId` intactos. 8B: `NavBar.tsx` 7→4 links
+(Simulador · Mi pool · Meta · Configuración); `/live-draft`/`/team-groups`/`/heroes` salen del
+array, ruta/código quedan (reversible). `/rulebook` (Sonnet): `CLAUDE.md` gana "REGLAS DE FASE 8",
+secciones "Fase 8" en las 4 reglas de `.claude/rules/`, **5 tickets creados `TSK-183`→`TSK-187`,
+`state: backlog`** — 8A en orden de dependencia (183 `hero-counters.{ts,json}` + loader + borrador
+~30 héroes · 184 `observedWinrate` en `CounterEvidence`, codex · 185 `createCounterScorer` dos
+capas + candado aislado, @redteam, blocked_by 183+184 · 186 `mix.ts` + candado de pipeline,
+blocked_by 185) + 8B independiente (187 `NavBar` 7→4, codex, should). Cero código de producción.
+Sin dependencia nueva, sin STRATZ.
+
+**ACTUALIZACIÓN 2026-08-28 (código completo)**: `/dispatch` + `@build` corridos en la misma
+sesión. `TSK-183`→`TSK-187` los 5 `done`. `@redteam` APPROVED en `TSK-185` (fábrica
+`createCounterScorer` + dos capas + candado de regresión byte-exacto) y `TSK-186` (cableado en
+`mix.ts` + candado de pipeline). `TSK-184` reasignado a `claude-code` en `/dispatch` (1 línea,
+para no cortar la cadena 183→186); `TSK-187` (8B) también hecho en `claude-code` para cerrar la
+fase de una pasada. `bunx tsc --noEmit` limpio en ambos paquetes; `bun test` 587 engine / 203 web
+/ 82 scripts, cero regresión; `verify-simplicity.sh` verde. **8A cambia el comportamiento real de
+las sugerencias de producción** (`counter` vuelve a votar) — el gate es el QA manual del
+simulador, aún pendiente. `hero-counters.json` es un borrador (29 víctimas) pendiente de revisión
+de dominio del usuario. Nada commiteado todavía. El siguiente paso vive en el bloque `## SIGUIENTE
+PASO` de arriba (QA manual + revisión del JSON + push).
 
 ## NOTA — Fase 4 (previa a Fase 5)
 **Sub-ticket 4.1 (`TSK-089`, señal `archetype_fit` aislada) completado y verificado. `state: done`.**
@@ -208,3 +288,6 @@ todas dentro de TSK-040, ver journal.md evt-20260801-037/038/039.
 - [2026-08-28] `/blueprint` del sub-ticket 4.3 completo (SPEC.md §11.14), corrido en Sonnet por decisión explícita del usuario (misma desviación consciente de la política de modelos que §11.13, anotada). Hace usable `archetype_fit` de punta a punta -- 4.2 (TSK-180) lo integró al motor pero inerte sin forma de elegir intención. Decisiones cerradas vía `AskUserQuestion`: (Q1) transporte = mensaje WS `set_intent` nuevo + campo `archetypeIntent` por sesión en `SessionStore` (mismo patrón que `ownerAccountId`; `computeSuggestionsForState` lo lee del store, así los caminos de recálculo -- hello, cada draft-event, reconexión -- lo respetan sin tocarlos uno por uno), sin ruta HTTP nueva; (Q2) el selector aparece también en `esperando_draft` además de `activo`/`degradado` (fijar la dirección antes del pick #1 es el caso central, `archetype_fit` es la primera señal que discrimina con el tablero vacío); (Q3) 4.3 NO toca `SCORING_WEIGHTS_V6` -- si el QA de calibración pide otro `w`, follow-up que acuña `SCORING_WEIGHTS_V7` con la misma estructura `× (1 − w)` y su candado de regresión cero re-corrido; (Q4) la intención vive en `SessionStore` (memoria, TTL 45 min), sobrevive reconexión mientras la sesión viva, el cliente la re-envía tras cada `hello`. `POST /api/suggestions/preview` gana `archetypeIntent?` opcional. **Nueva frontera de confianza**: `archetypeIntent` ahora llega del cliente (mensaje WS + body HTTP) -- se valida en el borde contra la unión cerrada de 4 literales antes de tocar `SessionStore`/`buildSuggestions`; inválido -> mensaje descartado (WS) o `400` (HTTP). Eso **cierra el hallazgo #2 de `@redteam` en TSK-180** (`ARCHETYPE_MAX_BONUS[intent]` undefined -> `raw: NaN`). El `set_intent` dispara sólo `suggestions` (el tablero no cambió) -- excepción explícita al orden de push `draft_state`→`suggestions`, como ya lo es `draft_paths`. Guarda de idempotencia: `set_intent` con el mismo valor almacenado es no-op. Costura **S5** (ya existente), ninguna nueva. Protocolo de QA manual definido (§11.14.8): draft vacío + los 4 arquetipos, confirmar que `position_fit` sigue ganando ante un counter real, limpiar a mitad de draft, reconexión. ~10-12 archivos, `simplicity_exception`. Cero código de producción escrito. Siguiente: `/rulebook` de 4.3 en Sonnet.
 - [2026-08-28] `/rulebook` de Fase 4.3 completo (octava ejecución del proyecto). Secciones "Fase 4.3" agregadas a las 4 reglas de `.claude/rules/` resumiendo lo no negociable de `SPEC.md` §11.14: transporte por mensaje WS `set_intent` + `SessionStore.archetypeIntent` por sesión (patrón `ownerAccountId`, `computeSuggestionsForState` lo lee del store), sin ruta HTTP nueva, `POST /api/suggestions/preview` gana `archetypeIntent?` opcional; nueva frontera de confianza -> validación de borde contra la unión de 4 literales (`isValidClientMessage` rama `set_intent`, `isValidSuggestionsPreviewRequest`), inválido -> mensaje descartado (WS) / `400` (HTTP), cierra el hallazgo #2 de `@redteam` en TSK-180; selector `<DraftIntentSelector>` también en `esperando_draft`, color por rol semántico + escala de 4px; `set_intent` dispara sólo `suggestions`, no-op si el valor no cambió; la intención vive en `SessionStore` (memoria, TTL 45min), nunca SQLite; 4.3 no toca `signals/` ni `SCORING_WEIGHTS_V6` (si el QA pide otro `w`, follow-up que acuña `V7`); costura S5 (ya existente). `CLAUDE.md` gana "REGLAS DE FASE 4.3". **1 ticket creado, `TSK-181`** (`state: backlog`, `claude-code`, `simplicity_exception`), ~10-12 archivos (`server/session.ts`+`edge.ts`+`app.ts`+tests, `apps/web` store/types/constants/`DraftView.tsx` + componente `DraftIntentSelector` nuevo), 10 criterios de aceptación incluyendo el candado de no-regresión en el camino WS y el QA manual de calibración de `w`. `@redteam` obligatorio (frontera de confianza + toca `server/`). Tablero regenerado. Cero código de producción escrito. Siguiente: `/dispatch` -> `@build` de `TSK-181` en Claude Code, Sonnet.
 - [2026-08-28] Fase 4.3b (TSK-182): el selector de intención se llevó al Simulador de Draft (`/simulator`), que es donde el usuario draftea de verdad -- flujo All Pick con bans, rondas y timer. `DraftIntentSelector` pasó a prop-driven; `DraftIntentSelectorConnected` cubre `/live-draft`. `use-random-draft-session.ts` gana estado+acción `archetypeIntent` y lo manda en el body de `POST /api/suggestions/preview` (re-pide la sugerencia al cambiarlo). Montado en la config previa y en la columna del Copilot durante las rondas. Verificado contra el motor real corriendo: `archetypeIntent:"push"` mueve el top-1 (hero 3 -> 45), `archetype_fit.raw:1`; inválido -> HTTP 400. tsc web limpio, `bun test` web 202 / engine 572 / scripts 82, `verify-simplicity` gate completo verde. TSK-181 cerrado (`done`) -- su QA manual + juicio de `w` se fusiona con el de TSK-182. Servidores dejados corriendo (engine :4000, web :3000). Pendiente: el usuario prueba en `/simulator` y dice si `w=0.10` mueve lo justo (si no -> ticket de `SCORING_WEIGHTS_V7`).
+- [2026-08-28] `/pre-flight` de Fase 8 registrado por `/compass`: FASE ACTUAL pasa a Fase 8, SIGUIENTE PASO = `/blueprint` de Fase 8 en Opus (gatillo objetivo: discrepancia seria SPEC.md ↔ código real en la señal `counter`).
+- [2026-08-28] `/blueprint` de Fase 8 registrado por `/compass`: SPEC.md §14 cierra los números de la rehabilitación de `counter` (M.hard/M.medium, COUNTER_MIN_GAMES=10, PRIOR_STRENGTH=20, fórmula mean(c_r), candado de regresión cero) + 8B (nav 7→4). SIGUIENTE PASO = `/rulebook` de Fase 8 en Sonnet.
+- [2026-08-28] `/rulebook` de Fase 8 completo (novena ejecución del proyecto). `CLAUDE.md` gana "REGLAS DE FASE 8", secciones "Fase 8" en las 4 reglas de `.claude/rules/` (`engine.md`, `web.md`, `security.md`, `testing-seams.md`) resumiendo lo no negociable de `SPEC.md` §14: aditivo + candado de regresión cero de dos pruebas; `counterScorer` singleton → `createCounterScorer(curated, opts)` (patrón `createPositionFitScorer`/`createTeamSynergyScorer`); `hero-counters.json` keyed por víctima `{vs, level: hard|medium, why}`, S9, `loadHeroCounters()` degrada a `Map` vacío; piso curado bidireccional (`M.hard=0.12` satura `RAW_RANGE.counter` sin re-escalar, `M.medium=0.06`); capa estadística sólo para rivales no cubiertos por el curado (`COUNTER_MIN_GAMES=10`, `shrinkEstimate` de `pro/shrinkage.ts` hacia el baseline del candidato, `COUNTER_SHRINK_PRIOR_STRENGTH=20`); `CounterEvidence` gana `observedWinrate` (1 línea aditiva); `raw = mean(c_r)`; `RAW_RANGE.counter`/`weights.ts`/`SignalId` intactos; magnitudes §14.6 son valores de arranque QA-tuneables; 8B = `NavBar.tsx` 7→4 links (`/live-draft`/`/team-groups`/`/heroes` salen del array, rutas/código/tests intactos, reversible). **5 tickets creados `TSK-183`→`TSK-187`, `state: backlog`** (§14.12): 183 `signals/hero-counters.{ts,json}` + `loadHeroCounters` + borrador ~30 héroes por deep research (claude-code, dominio, revisión del usuario antes del merge) · 184 `observedWinrate` en `CounterEvidence`, 1 línea (codex, acotado) · 185 `createCounterScorer` dos capas + fórmula §14.5 + constantes §14.6 + reescritura `counter.test.ts` + candado aislado (claude-code, `@redteam`, `blocked_by: [183,184]`) · 186 `mix.ts` `MODULE_HERO_COUNTERS` + `BuildSuggestionsOptions.heroCounters?` + candado de pipeline (claude-code, `blocked_by: [185]`) · 187 8B `NavBar` 7→4 + render/route smoke (codex, `should`, independiente de 8A). Tablero regenerado: 186 tareas, 374 eventos. Cero código de producción escrito. Siguiente: `/helm` → `/dispatch` — 8A arranca por `TSK-183` (deep research + loader) y `TSK-184` (independientes entre sí); `TSK-187` en cualquier momento.

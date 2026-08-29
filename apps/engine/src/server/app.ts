@@ -162,7 +162,14 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (!isValidSuggestionsPreviewRequest(body)) {
       return Response.json({ error: "invalid_preview_request" }, { status: 400 });
     }
-    const auth = body.usePersonalPool && !body.teamOpening ? requireHttpAccount(request) : { ok: true as const, accountId: null };
+    // TSK-190: el overlay de cuenta (que llena meta.heroPool para hero_pool_fit) se carga cuando
+    // hay un x-account-token, independientemente de usePersonalPool. usePersonalPool queda sólo
+    // como el flag del filtro duro de candidatePool (mix.ts) -- señal blanda vs. filtro son cosas
+    // distintas. Token inválido -> 401 (falla ruidosa). Sin token -> accountId null, igual que antes.
+    const hasAccountToken = request.headers.get("x-account-token") !== null;
+    const auth = hasAccountToken || (body.usePersonalPool && !body.teamOpening)
+      ? requireHttpAccount(request)
+      : { ok: true as const, accountId: null };
     if (!auth.ok) return auth.response;
     const previewState: DraftState = {
       sessionId: "preview",

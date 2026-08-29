@@ -2,6 +2,7 @@
 
 import { memo, useState } from "react";
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
+import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { SignalBreakdown } from "@/components/signal-breakdown/SignalBreakdown";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
@@ -12,6 +13,14 @@ const EVIDENCE_LABELS = { opening: "Apertura", counter: "Contrapick", synergy: "
 
 function cardClassName(isPrimary: boolean): string {
   const base = "flex flex-col gap-2 rounded-lg border p-4";
+  if (isPrimary) return `${base} border-accent-primary bg-surface-raised`;
+  return `${base} border-surface-border bg-surface-overlay`;
+}
+
+// TSK-192: variante compacta para el grid 2×3 del Copilot del Simulador -- ícono + nombre +
+// impacto táctico en una línea; los motivos, riesgos y el desglose viven tras "Ver señales".
+function compactCardClassName(isPrimary: boolean): string {
+  const base = "flex flex-col gap-1.5 rounded-lg border p-2";
   if (isPrimary) return `${base} border-accent-primary bg-surface-raised`;
   return `${base} border-surface-border bg-surface-overlay`;
 }
@@ -35,6 +44,8 @@ interface SuggestionCardProps {
   suggestion: Suggestion;
   heroMeta: HeroMeta | undefined;
   isPrimary: boolean;
+  // TSK-192: variante compacta (grid 2×3 del Copilot del Simulador). Ausente = tarjeta completa.
+  compact?: boolean;
   // TSK-054: ausente = sin botón de pick directo (uso en pruebas aisladas, o sin lado propio
   // identificado -- no hay a quién atribuirle el pick). TSK-070: puede devolver una promesa
   // (DraftView.handleQuickPick es async) o nada -- la tarjeta normaliza los dos casos con
@@ -44,7 +55,7 @@ interface SuggestionCardProps {
 
 // <Dominio><Cosa>: una sugerencia de pick, con sus señales expandibles (SignalBreakdown) — una
 // sugerencia de confianza baja se muestra igual, marcada como tal, nunca se oculta.
-export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMeta, isPrimary, onPick }: SuggestionCardProps) {
+export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMeta, isPrimary, compact = false, onPick }: SuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,6 +76,58 @@ export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMet
   const positiveEvidence = suggestion.evidence?.filter((item) => item.kind !== "risk") ?? [];
   const riskEvidence = suggestion.evidence?.filter((item) => item.kind === "risk") ?? [];
 
+  const motivos = positiveEvidence.length > 0 && (
+    <section className="flex flex-col gap-1">
+      <span className="text-caption font-semibold text-content-primary">Motivos de la recomendación</span>
+      <ul aria-label="Motivos de la recomendación" className="flex flex-col gap-1 text-caption text-content-secondary">
+        {positiveEvidence.map((item) => (
+          <li key={`${item.kind}-${item.text}`}><span className="font-semibold text-content-primary">{EVIDENCE_LABELS[item.kind]}:</span> {item.text}</li>
+        ))}
+      </ul>
+    </section>
+  );
+  const riesgos = riskEvidence.length > 0 && (
+    <section className="flex flex-col gap-1 rounded-md border border-signal-warning/50 bg-signal-warning/10 p-2">
+      <span className="text-caption font-semibold text-signal-warning">Riesgos e incertidumbres</span>
+      <ul aria-label="Riesgos e incertidumbres" className="flex flex-col gap-1 text-caption text-content-secondary">
+        {riskEvidence.map((item) => (
+          <li key={`${item.kind}-${item.text}`}><span className="font-semibold text-content-primary">{EVIDENCE_LABELS[item.kind]}:</span> {item.text}</li>
+        ))}
+      </ul>
+    </section>
+  );
+
+  if (compact) {
+    return (
+      <div className={compactCardClassName(isPrimary)}>
+        <div className="flex items-center gap-2">
+          {heroMeta ? (
+            <HeroIcon imgUrl={heroMeta.imgUrl} alt={heroMeta.localizedName} size={40} />
+          ) : (
+            <span aria-hidden className="size-10 shrink-0 rounded-md bg-surface-overlay" />
+          )}
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-caption font-semibold text-content-primary">
+              {heroMeta?.localizedName ?? `Héroe ${suggestion.hero}`}
+            </span>
+            <span className="line-clamp-2 text-caption text-content-secondary">{suggestion.reason}</span>
+          </div>
+          <span className="shrink-0 text-caption text-content-muted">{CONFIDENCE_LABELS[suggestion.confidence]}</span>
+        </div>
+        <button type="button" onClick={toggleExpanded} className={BUTTON_GHOST}>
+          {toggleLabel(expanded)}
+        </button>
+        {expanded && (
+          <div className="flex flex-col gap-2">
+            {motivos}
+            {riesgos}
+            <SignalBreakdown signals={suggestion.signals} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={cardClassName(isPrimary)}>
       <div className="flex items-start gap-3">
@@ -78,26 +141,8 @@ export const SuggestionCard = memo(function SuggestionCard({ suggestion, heroMet
             {suggestion.reason}
           </span>
           <span className="text-caption text-content-muted">{CONFIDENCE_LABELS[suggestion.confidence]}</span>
-          {positiveEvidence.length > 0 && (
-            <section className="flex flex-col gap-1">
-              <span className="text-caption font-semibold text-content-primary">Motivos de la recomendación</span>
-              <ul aria-label="Motivos de la recomendación" className="flex flex-col gap-1 text-caption text-content-secondary">
-                {positiveEvidence.map((item) => (
-                  <li key={`${item.kind}-${item.text}`}><span className="font-semibold text-content-primary">{EVIDENCE_LABELS[item.kind]}:</span> {item.text}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {riskEvidence.length > 0 && (
-            <section className="flex flex-col gap-1 rounded-md border border-signal-warning/50 bg-signal-warning/10 p-2">
-              <span className="text-caption font-semibold text-signal-warning">Riesgos e incertidumbres</span>
-              <ul aria-label="Riesgos e incertidumbres" className="flex flex-col gap-1 text-caption text-content-secondary">
-                {riskEvidence.map((item) => (
-                  <li key={`${item.kind}-${item.text}`}><span className="font-semibold text-content-primary">{EVIDENCE_LABELS[item.kind]}:</span> {item.text}</li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {motivos}
+          {riesgos}
         </div>
       </div>
       <div className="flex gap-2">

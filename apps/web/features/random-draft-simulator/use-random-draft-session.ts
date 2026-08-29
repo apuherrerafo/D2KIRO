@@ -41,6 +41,21 @@ const TIMER_TICK_MS = 250;
 const REVEAL_PAUSE_MS = 2500;
 const MAX_CONFLICT_BANS_PER_ROUND = 2;
 
+// TSK-189: el preview autenticado necesita un token de cuenta para que el motor pueda leer el
+// hero pool del usuario (`usePersonalPool`). Se acuña del lado del servidor (`/api/auth/engine-token`,
+// mismo endpoint que ya usa el Pro-Drafter dark). Best-effort: sin sesión devuelve `null` y el
+// preview degrada a "sin pool" sin romperse.
+async function fetchEngineToken(): Promise<string | null> {
+  try {
+    const response = await fetch("/api/auth/engine-token", { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { token?: string };
+    return payload.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Exportadas para prueba directa (funciones puras) -- el resto del hook depende de refs/efectos
 // de React y no se puede probar sin renderizar (sin `renderHook` disponible en este proyecto,
 // ver testing-seams.md; la cobertura de integración completa vive en la tarea 16.2, contra un
@@ -299,17 +314,30 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       return latest.phase.pendingUserPicks.join(",") === pendingUserPicks.join(",");
     }
 
+    const teamOpening = previewState.picks.radiant.length === 0 && previewState.picks.dire.length === 0;
+    // El token deja que el motor cargue el hero pool y `hero_pool_fit` puntúe (señal blanda:
+    // empuja hacia arriba tus héroes cómodos del rol, sin ocultar el resto). NO se manda
+    // `usePersonalPool` -- ese flag es el filtro duro "sólo mi pool", que en el simulador no se
+    // quiere (TSK-190). En la apertura de equipo el pool no aplica, así que no se pide el token.
+    const engineToken = teamOpening ? null : await fetchEngineToken();
+
     try {
       const response = await fetch(`${ENGINE_HTTP_BASE_URL}/api/suggestions/preview`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(engineToken ? { "x-account-token": engineToken } : {}),
+        },
         body: JSON.stringify({
           format: previewState.format,
           patch: previewState.patch,
           localSide: previewState.localSide,
           banned: previewState.banned,
           picks: previewState.picks,
-          teamOpening: previewState.picks.radiant.length === 0 && previewState.picks.dire.length === 0,
+          teamOpening,
+          // El rol elegido en el panel de config: filtra `candidatePool` a esa posición y le da a
+          // `position_fit` el objetivo contra el que puntuar.
+          targetPosition: current.config.playerPosition,
           diversitySeed: current.config.draftSeed,
           archetypeIntent: archetypeIntentRef.current ?? undefined,
         }),

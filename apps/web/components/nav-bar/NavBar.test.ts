@@ -1,31 +1,33 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { accountLabel, buildNavLinks, profileLabel } from "./NavBar";
 
+// TSK-187 (Fase 8B, SPEC.md §14.8): el nav pasa de 7 a 4 links.
 describe("buildNavLinks", () => {
-  test("con draft habilitado expone Draft en vivo en su ruta explícita", () => {
-    const draftLink = buildNavLinks(true).find((link) => link.href === "/live-draft");
-
-    expect(draftLink?.label).toBe("Draft en vivo");
+  test("expone exactamente 4 links: Simulador, Mi pool, Meta, Configuración", () => {
+    expect(buildNavLinks()).toEqual([
+      { href: "/simulator", label: "Simulador de Draft" },
+      { href: "/hero-pool", label: "Mi pool" },
+      { href: "/meta", label: "Meta" },
+      { href: "/settings", label: "Configuración" },
+    ]);
   });
 
-  test("con draft apagado el NavBar conserva que el draft en vivo es local", () => {
-    const draftLink = buildNavLinks(false).find((link) => link.href === "/live-draft");
+  test("no expone las rutas ocultas en 8B ni las ambiguas anteriores", () => {
+    const hrefs = buildNavLinks().map((link) => link.href);
 
-    expect(draftLink?.label).toBe("Draft en vivo local");
+    for (const hidden of ["/live-draft", "/team-groups", "/heroes", "/draft", "/random-draft"]) {
+      expect(hrefs).not.toContain(hidden);
+    }
   });
+});
 
-  test("prioriza el Simulador de Draft en su ruta explícita", () => {
-    const randomDraftLink = buildNavLinks(true).find((link) => link.href === "/simulator");
-
-    expect(randomDraftLink?.label).toBe("Simulador de Draft");
-  });
-
-  test("no expone las rutas ambiguas anteriores", () => {
-    const oldDraftLink = buildNavLinks(true).find((link) => link.href === "/draft");
-    const oldSimulatorLink = buildNavLinks(true).find((link) => link.href === "/random-draft");
-
-    expect(oldDraftLink).toBeUndefined();
-    expect(oldSimulatorLink).toBeUndefined();
+// §14.8 criterio 9: quitar el link del nav NO borra la ruta -- las 3 páginas siguen en el repo,
+// alcanzables por URL directa (reversible). Guarda contra un borrado accidental al ocultar el link.
+describe("8B -- las rutas quitadas del nav siguen existiendo", () => {
+  test.each(["live-draft", "team-groups", "heroes"])("app/%s/page.tsx sigue en el repo", (route) => {
+    expect(existsSync(join(import.meta.dir, "..", "..", "app", route, "page.tsx"))).toBe(true);
   });
 });
 

@@ -3,7 +3,8 @@ import { loadHeroCapabilities } from "../draft-paths/capabilities";
 import { openingStrategy } from "../draft-paths/strategy";
 import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
 import { createArchetypeFitScorer } from "./archetype-fit";
-import { counterScorer } from "./counter";
+import { createCounterScorer } from "./counter";
+import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { patchMetaScorer } from "./patch-meta";
@@ -16,7 +17,7 @@ import { SCORING_WEIGHTS_V6 } from "./weights";
 
 export interface Suggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3 | 4 | 5;
+  rank: 1 | 2 | 3 | 4 | 5 | 6;
   score: number;
   signals: SignalContribution[]; // siempre las 6, incluidas las que dieron null o no aplican
   reason: string;
@@ -62,6 +63,10 @@ export interface BuildSuggestionsOptions {
   // draft-paths): ausente -> carga draft-paths/capabilities.json real (loadHeroCapabilities()).
   // Las pruebas inyectan su propio fixture -- nunca dependen del archivo real.
   heroCapabilities?: HeroCapabilities[];
+  // TSK-186 (Fase 8, SPEC.md §14.5, familia S9): ausente -> carga signals/hero-counters.json real
+  // (loadHeroCounters()). Las pruebas inyectan su propio Map -- nunca dependen del archivo real,
+  // que se cura por parche.
+  heroCounters?: Map<HeroId, CuratedCounter[]>;
   targetPosition?: 1 | 2 | 3 | 4 | 5;
   usePersonalPool?: boolean;
   // El simulador abre una composición completa bajo el control del capitán. No tiene sentido
@@ -85,14 +90,17 @@ export interface BuildSuggestionsOptions {
 // team_synergy se construyen por llamada dentro de buildSuggestions().
 // SCORING_WEIGHTS_V1..V5 (weights.ts) quedan intactas y congeladas -- SCORING_WEIGHTS_V6
 // (TSK-180, Fase 4.2) es la única constante que usa este archivo de aquí en adelante.
-const STATIC_SCORERS: SignalScorer[] = [counterScorer, patchMetaScorer, heroPoolFitScorer];
+// TSK-186 (Fase 8): counter deja STATIC_SCORERS -- ahora depende de la capa curada inyectable
+// (heroCounters), igual que position_fit/team_synergy/archetype_fit dependen de sus datos.
+const STATIC_SCORERS: SignalScorer[] = [patchMetaScorer, heroPoolFitScorer];
 
-// Loaded once at module initialisation — ninguno de los dos archivos se re-parsea por llamada.
-// Costura S10/S9: BuildSuggestionsOptions.heroPositions/heroCapabilities sobrescriben estas
-// constantes en las pruebas.
+// Loaded once at module initialisation — ninguno de los archivos se re-parsea por llamada.
+// Costura S10/S9: BuildSuggestionsOptions.heroPositions/heroCapabilities/heroCounters sobrescriben
+// estas constantes en las pruebas.
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
 const MODULE_HERO_CAPABILITIES: HeroCapabilities[] = loadHeroCapabilities();
-const TOP_N = 3;
+const MODULE_HERO_COUNTERS: Map<HeroId, CuratedCounter[]> = loadHeroCounters();
+const TOP_N = 6;
 const HARD_CUTOFF_MS = 500;
 
 // Cada señal tiene una escala de `raw` distinta (deltas de winrate, fracciones 0-1, penalizaciones
@@ -360,6 +368,7 @@ export function buildSuggestions(
   // datos inyectables (heroPositions/heroCapabilities/archetypeIntent). Se construyen por llamada.
   const scorers: SignalScorer[] = [
     ...baseScorers,
+    createCounterScorer(options.heroCounters ?? MODULE_HERO_COUNTERS),
     createPositionFitScorer(heroPositions),
     createTeamSynergyScorer(heroCapabilities),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
@@ -399,16 +408,22 @@ export function buildSuggestions(
           baseScore: entry.score / 100,
           strategy: openingStrategy(entry.hero, heroCapabilities),
           matchups: meta.matchups[entry.hero] ?? [],
+          // TSK-191: la capa curada de counter-picks alimenta el alivio por bans de la apertura,
+          // no sólo los matchups estadísticos ≥200 partidas.
+          curatedCounters: (options.heroCounters ?? MODULE_HERO_COUNTERS).get(entry.hero)?.map((c) => ({ vs: c.vs, level: c.level })) ?? [],
         })),
         banned: state.banned,
         heroNames: Object.fromEntries(Object.values(meta.heroes).map((entry) => [entry.id, entry.localizedName])),
+        limit: TOP_N,
       })
     : null;
   const scoreByHero = new Map(scored.map((entry) => [entry.hero, entry]));
   const ranked = teamOpening
     ? teamOpening.map((option) => ({ ...scoreByHero.get(option.hero)!, score: option.score * 100, openingReason: option.summary }))
     : diversifyEquivalentCandidates(scored, options.diversitySeed).map((entry) => ({ ...entry, openingReason: null }));
-  const limit = teamOpening ? 5 : TOP_N;
+  // TSK-192: 6 recomendaciones en apertura y en picks normales (el Copilot del Simulador las
+  // muestra en grid 2×3).
+  const limit = TOP_N;
   const suggestions: Suggestion[] = ranked.slice(0, limit).map((entry, index) => {
     const roleReason = targetPositionReason(entry.hero, options.teamOpening ? {} : options) ?? flexibilityReason(entry.hero, heroPositions);
     return {

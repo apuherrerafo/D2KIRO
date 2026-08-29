@@ -18,7 +18,7 @@ const meta: MetaSnapshot = {
   heroPool: [{ hero: 6, source: "manual", personalWinrate: null, personalGames: 0, updatedAt: "2026-08-25" }],
 };
 
-test("la apertura de equipo entrega cinco opciones, ignora rol/pool personal y explica el counter baneado", () => {
+test("la apertura de equipo entrega seis opciones, ignora rol/pool personal y explica el counter baneado", () => {
   const state = { ...createIdleDraftState("opening"), phase: "active" as const, format: "all_pick" as const, patch: "7.41e", localSide: "radiant" as const, banned: [99] };
   const stateWithoutCounterBan = { ...state, banned: [] };
 
@@ -30,8 +30,8 @@ test("la apertura de equipo entrega cinco opciones, ignora rol/pool personal y e
     heroCapabilities: [],
   });
 
-  expect(result.suggestions).toHaveLength(5);
-  expect(result.suggestions.map((suggestion) => suggestion.rank)).toEqual([1, 2, 3, 4, 5]);
+  expect(result.suggestions).toHaveLength(6); // TSK-192: 6 recomendaciones
+  expect(result.suggestions.map((suggestion) => suggestion.rank)).toEqual([1, 2, 3, 4, 5, 6]);
   expect(result.suggestions.map((suggestion) => suggestion.hero)).toContain(1);
   expect(result.suggestions.map((suggestion) => suggestion.hero)).toContain(2);
   const withoutCounterBan = buildSuggestions(stateWithoutCounterBan, meta, { teamOpening: true, heroPositions, heroCapabilities: [] });

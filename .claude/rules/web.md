@@ -192,3 +192,19 @@ rompe (mismo criterio que el espejo de Fase 3). Cuatro archivos, ninguno opciona
   toca esa misma línea.
 - **Nada más de `apps/web` cambia.** Sin pantallas nuevas, sin `ProDrafterPanel` reescrito, sin
   tocar `bot-drafter.ts` — 5 elementos en vez de 3 no exigen ningún cambio de componente.
+
+## Fase 8 — higiene de superficie: nav 7 → 4 (SPEC.md §14.8)
+
+- **`components/nav-bar/NavBar.tsx`**: el array de links pasa de 7 a **4**: `Simulador de Draft`
+  (`/simulator`), `Mi pool` (`/hero-pool`), `Meta` (`/meta`), `Configuración` (`/settings`). Se
+  quitan `Draft en vivo` (`/live-draft`), `Equipos` (`/team-groups`), `Héroes` (`/heroes`).
+- **Rutas, componentes y tests de las 3 páginas quitadas NO se tocan.** Siguen alcanzables por URL
+  directa. `/live-draft` ya renderiza `DraftUnavailablePage` con `DRAFT_LIVE_ENABLED` apagado
+  (default) — sin cambio de comportamiento. Redirects legacy (`/draft`, `/random-draft`) quedan.
+- La prop `draftLiveEnabled` de `NavBar` queda sin uso → se puede retirar de la firma o dejar
+  (ambas válidas; retirarla es más limpio).
+- **8B no cambia comportamiento** — sólo visibilidad. Ninguna prueba existente de `apps/web`
+  cambia de resultado. Prueba nueva: `NavBar` renderiza 4 links; humo de que
+  `/team-groups`/`/heroes`/`/live-draft` siguen resolviendo por URL.
+- Fase 8 **no toca ninguna otra cosa de `apps/web`**: el selector de intención de Fase 4.3, el
+  Simulador, el hero pool — todo queda igual. Overwolf/OCR: stand-by documentado, no se tocan.

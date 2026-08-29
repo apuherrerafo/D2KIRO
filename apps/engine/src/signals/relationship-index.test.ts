@@ -25,6 +25,21 @@ describe("relationship index", () => {
     expect(rows[0]?.confidence).toBeLessThanOrEqual(1);
   });
 
+  test("exposes the raw observed winrate, and baseline is recoverable as observedWinrate - delta (TSK-184)", () => {
+    const index = createRelationshipIndex({
+      1: [
+        { vsHero: 2, games: 200, wins: 140 },
+        { vsHero: 3, games: 199, wins: 150 },
+      ],
+    });
+
+    const rows = index.counterRows(1, [2]);
+    expect(rows[0]?.observedWinrate).toBeCloseTo(0.7, 10); // 140 / 200
+    // baseline del candidato = (140 + 150) / (200 + 199)
+    const baseline = (140 + 150) / (200 + 199);
+    expect((rows[0]!.observedWinrate) - (rows[0]!.delta)).toBeCloseTo(baseline, 10);
+  });
+
   test("does not invent evidence for unknown candidates or rivals", () => {
     const index = createRelationshipIndex({
       1: [{ vsHero: 2, games: 200, wins: 100 }],

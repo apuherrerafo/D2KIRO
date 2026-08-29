@@ -1,6 +1,6 @@
 import "@/test-support/happy-dom";
 
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import type { DraftState, SuggestionSet } from "@/features/draft/types";
 import { CopilotPanel } from "./CopilotPanel";
@@ -62,8 +62,25 @@ test.each([
   expect(view.getByText(heading)).toBeDefined();
 });
 
-test("agrupa los motivos positivos aparte de riesgos e incertidumbres", () => {
+test("TSK-192: renderiza una celda compacta por cada recomendación (hasta 6, grid 2×3)", () => {
+  const many: SuggestionSet = {
+    ...suggestions("response_pick"),
+    suggestions: [1, 2, 3, 4, 5, 6].map((hero, i) => ({
+      hero, rank: (i + 1) as 1 | 2 | 3 | 4 | 5 | 6, score: 70 - i, signals: [], reason: `Motivo ${hero}`, confidence: "media" as const,
+    })),
+  };
+  const view = render(<CopilotPanel draftState={draftState} suggestions={many} heroCatalog={new Map()} previewStatus="ready" />);
+
+  expect(view.getAllByRole("button", { name: "Ver señales" })).toHaveLength(6);
+  expect(view.getByText("Motivo 1")).toBeDefined();
+  expect(view.getByText("Motivo 6")).toBeDefined();
+});
+
+test("agrupa los motivos positivos aparte de riesgos e incertidumbres (tras Ver señales, TSK-192)", () => {
   const view = render(<CopilotPanel draftState={draftState} suggestions={suggestions("response_pick")} heroCatalog={new Map()} previewStatus="ready" />);
+
+  // En el grid compacto el detalle vive tras "Ver señales".
+  fireEvent.click(view.getByRole("button", { name: "Ver señales" }));
 
   expect(view.getByRole("list", { name: "Motivos de la recomendación" })).toBeDefined();
   expect(view.getByText(/^Apertura:/)).toBeDefined();

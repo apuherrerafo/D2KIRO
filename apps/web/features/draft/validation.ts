@@ -76,7 +76,7 @@ function isSignalContribution(value: unknown): boolean {
 }
 
 function isSuggestion(value: unknown): boolean {
-  if (!isRecord(value) || !isHeroId(value.hero) || ![1, 2, 3, 4, 5].includes(value.rank as number)) return false;
+  if (!isRecord(value) || !isHeroId(value.hero) || ![1, 2, 3, 4, 5, 6].includes(value.rank as number)) return false; // TSK-192: 6 recomendaciones
   if (!isFiniteNumber(value.score) || typeof value.reason !== "string" || !Array.isArray(value.signals) || !value.signals.every(isSignalContribution)) return false;
   if (value.confidence !== "alta" && value.confidence !== "media" && value.confidence !== "baja") return false;
   return value.evidence === undefined || (Array.isArray(value.evidence) && value.evidence.every((item) => isRecord(item) && (item.kind === "opening" || item.kind === "counter" || item.kind === "synergy" || item.kind === "flex" || item.kind === "risk") && typeof item.text === "string"));

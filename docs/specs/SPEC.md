@@ -4113,3 +4113,333 @@ modo de apertura completo y la barra de evidencia — los tres viven en decision
 necesitan memoria del proyecto); **`codex`** es razonable para 1, 2, 3, 5, 8 y 9, que son acotados y
 autocontenidos una vez escrito §13.4-§13.10. Ningún ticket de esta fase es candidato a
 `hermes-vps`: todos tocan el motor de scoring, y ninguno es de volumen.
+
+---
+
+# SPEC — Fase 8 (Rehabilitar `counter`: base curada de counter-picks + shrinkage; + higiene de superficie)
+
+Síntesis de `docs/agents/architecture.md` § "Fase 8" (`/pre-flight` completo, 2026-08-28) + la
+consulta a DeepSeek (respuesta completa en el hilo de la sesión). Corrido en **Sonnet por
+decisión del usuario** — la fase cruza un gatillo objetivo de Opus documentado en `CLAUDE.md`
+(*discrepancia seria confirmada entre `SPEC.md` y el código real*: el SPEC describe `counter` como
+señal activa de peso 0.216 y en la práctica devuelve `raw: null` en ~93% de los casos), pero el
+usuario mantiene el flujo en Sonnet, igual que hizo en Fase 4.2/4.3. Anotado en `journal.md`.
+
+Mismo estatuto que las fases anteriores: esto es contrato. Lo que no esté aquí, no es Fase 8.
+
+## §14.0 — Alcance de este blueprint (leer primero)
+
+- **§14.1 a §14.10 son contrato cerrado.** Números fijados. Las magnitudes calibradas (§14.6) son
+  valores de arranque, ajustables tras el QA — mismo criterio que `w=0.10` en Fase 4.3, no "a
+  confirmar antes de codificar".
+- **§14.11 es lo que la fase deja abierto a propósito.**
+- Dos bloques independientes: **8A** (rehabilitar `counter`, motor) y **8B** (higiene de superficie,
+  `apps/web`). No comparten archivos; se pueden ejecutar en cualquier orden.
+
+Lo que Fase 8 **no** es: no es un predictor completo de matchups; no modela counter-por-lane vs
+counter-por-teamfight ni counters que dependen de un ítem en v1 (el schema deja lugar, no se
+llena); no reabre `SCORING_WEIGHTS_V6` ni re-pondera `counter` (sigue 0.216); no cambia la
+sincronización de meta (S6); no agrega STRATZ ni ninguna dependencia; no borra ninguna ruta ni
+feature — 8B **oculta**, no resta.
+
+## §14.1 — Qué de fases anteriores queda superado
+
+| Antes | Fase 8 lo cambia a |
+|---|---|
+| `counter.ts`: `counterScorer` es un singleton de módulo | **Fábrica `createCounterScorer(curated, opts)`** — mismo patrón que `createPositionFitScorer`/`createTeamSynergyScorer` ya usan. Los llamadores en `mix.ts` cambian igual que cambiaron para esas dos. |
+| `relationship-index.ts`: `RELATIONSHIP_MIN_GAMES = 200` es el umbral efectivo | Sigue exportado (V1/V2 congeladas por nombre, nadie lo edita), pero `counter.ts` llama a `createRelationshipIndex(matchups, COUNTER_MIN_GAMES)` con el valor bajo nuevo (§14.6). El default del módulo no se toca. |
+| `CounterEvidence` | Gana **un campo aditivo**: `observedWinrate: number` (`wins/games`). Los consumidores actuales lo ignoran. |
+| `counter.raw` = `mean(delta)` sobre rivales revelados con ≥200 partidas, o `null` | `mean(c_r)` sobre rivales **cubiertos** (por la capa curada **o** por la estadística con ≥`COUNTER_MIN_GAMES`), o `null` si ninguno está cubierto (§14.5). |
+| `counter` no lee ningún archivo de dominio | Lee `signals/hero-counters.json` (nuevo, curado, S9), cargado una vez al iniciar el módulo (`MODULE_HERO_COUNTERS`, igual que `MODULE_HERO_POSITIONS`). |
+| `apps/web` nav: 7 links | 4 links (Simulador · Mi pool · Meta · Configuración). Los otros 3 salen del array; rutas, código y tests intactos (§14.8). |
+
+`SignalId`, `SCORING_WEIGHTS_V1`-`V6`, `RAW_RANGE.counter` (`[-0.12, 0.12]`), `applyDraftEvent`, el
+orden de push, `weights.ts` entero — **no se tocan**.
+
+## §14.2 — Decisiones cerradas
+
+| # | Pregunta | Decisión (usuario, 2026-08-28) |
+|---|---|---|
+| Q1 | ¿Alcance de 8A? | **Las dos capas.** Base curada como piso (aditivo) **y** arreglar la capa estadística (umbral bajo + shrinkage + el módulo `pro/shrinkage.ts` que ya existe). Cubre hard counters (capa A) y la zona gris (capa B, ~50% de los drafts, hoy muda). |
+| Q2 | ¿Quién arma `hero-counters.json`? | **Deep research** de conocimiento público estándar de Dota 2 para un borrador de ~30 héroes, que el usuario revisa y corrige antes del merge. No se scrapea Dotabuff. |
+| Q3 | ¿8B? | Sacar del nav "Draft en vivo", "Equipos", "Héroes" — ruta y código quedan, sólo se ocultan (editar un array en `NavBar.tsx`). Nav activo cubre login + cuenta + pool + el flujo completo del simulador. |
+| Q4 | ¿Se toca `RAW_RANGE.counter` o `weights.ts`? | **No.** `RAW_RANGE.counter` queda `[-0.12, 0.12]` y `M_HARD` se calibra a `0.12` para que un hard counter llegue al extremo sin re-escalar. `counter` mantiene su peso `0.216` en V6. Si el QA muestra que el piso queda corto, ampliar el rango es un follow-up con su propio candado. |
+| Q5 | ¿Shrinkage hacia 0.5 o hacia el baseline del candidato? | **Hacia el baseline** (`shrinkEstimate(wr, games, baseline, P)`), para que una muestra chica tienda a `delta = 0` ("sin señal"), no a un offset fijo. `shrinkEstimate` ya soporta un `prior` arbitrario. |
+| Q6 | ¿Ponderar además por la `confidence` de Wilson? | **No en v1.** Shrinkage y confidence-por-ancho-de-Wilson son ambos descuentos por tamaño de muestra — aplicar los dos sub-pondera. El campo `confidence` sigue disponible en `CounterEvidence` para un refinamiento futuro. |
+
+## §14.3 — Costuras: ninguna nueva
+
+- `counter` sigue siendo un `SignalScorer` puro → **S3** tal cual (función pura, archivo de prueba
+  propio, aislado de las otras cinco señales).
+- `hero-counters.json` cae en la **familia S9** (dato curado inyectado como fixture, **nunca leído
+  real en una prueba** — mismo criterio literal que `capabilities.json` (S9) y `hero-positions.json`
+  (S10)). No estrena número de costura, igual que Fase 4.1 no lo hizo al reutilizar S9.
+- `shrinkEstimate` (`pro/shrinkage.ts`) es una función pura ya probada (TSK-165). No estrena
+  costura.
+- El candado de regresión cero se prueba a nivel **S3** (scorer aislado) **y** contra
+  `buildSuggestions` completo (candado de pipeline, mismo criterio que Fase 3/4).
+- **`S12` sigue reservada** (RNG de diversificación, Fase 4). Fase 8 no la toca.
+- 8B no estrena costura: es un array de links.
+
+## §14.4 — Contrato de datos: `signals/hero-counters.json` + `loadHeroCounters()`
+
+**Archivo** (`apps/engine/src/signals/hero-counters.json`), keyed por la *víctima* (el héroe al
+que le hacen counter):
+
+```jsonc
+{
+  "59": [                                        // Huskar
+    { "vs": 68, "level": "hard",   "why": "Ice Blast de Ancient Apparition bloquea toda tu curación y regeneración" },
+    { "vs": 36, "level": "medium", "why": "Necrophos: Heartstopper Aura y Reaper's Scythe castigan tu vida alta" }
+  ],
+  "1": [                                          // Anti-Mage
+    { "vs": 26, "level": "hard",   "why": "Doom te silencia y anula tu movilidad por 16 s" }
+  ]
+}
+```
+
+- `level`: `"hard"` | `"medium"` en v1. **Cualquier otro valor descarta la entrada** al cargar.
+- `why`: string no vacío, es el texto que la UI muestra. Entrada sin `why` válido → descartada.
+- `vs`: `HeroId`. Debe existir en el catálogo (`CURATED_HERO_IDS`, `validate-drafts.ts`) — si no,
+  entrada descartada.
+
+**`loadHeroCounters(): Map<HeroId, CuratedCounter[]>`** — mismo patrón que `loadHeroPositions()`:
+
+- Valida en el borde: descarta entradas malformadas (sin `vs` entero, `level` fuera de la unión,
+  `why` vacío, héroe duplicado en la lista de una víctima, `vs` desconocido).
+- Archivo ausente, JSON inválido, o forma inesperada de raíz → **`Map` vacío**, nunca lanza. Un
+  archivo corrupto degrada `counter` a "capa estadística sola", nunca tira el motor (criterio
+  literal de `loadHeroPositions()` con archivo malformado).
+- Exportada por separado para probarla con fixtures sintéticos, **jamás contra el archivo real**
+  (S9: el archivo se cura por parche, un test atado a su contenido se rompe en silencio con cada
+  corrección).
+
+## §14.5 — Contrato de `createCounterScorer` y la fórmula de `raw`
+
+```typescript
+export interface CuratedCounter { vs: HeroId; level: "hard" | "medium"; why: string }
+
+export interface CounterScorerOptions {
+  minGames?: number;              // default COUNTER_MIN_GAMES (§14.6). El candado de regresión pasa 200.
+  shrinkPriorStrength?: number | null; // default COUNTER_SHRINK_PRIOR_STRENGTH. `null` -> usa el delta crudo (candado de regresión).
+}
+
+export function createCounterScorer(
+  curated: Map<HeroId, CuratedCounter[]>,
+  options: CounterScorerOptions = {},
+): SignalScorer;
+```
+
+`mix.ts`: `MODULE_HERO_COUNTERS = loadHeroCounters()` a nivel de módulo;
+`createCounterScorer(options.heroCounters ?? MODULE_HERO_COUNTERS)` se ensambla por llamada dentro
+de `buildSuggestions` (mismo lugar que `createPositionFitScorer`/`createTeamSynergyScorer`).
+`BuildSuggestionsOptions` gana `heroCounters?: Map<HeroId, CuratedCounter[]>` (inyectable para
+tests, ausente → el `Map` real; mismo patrón que `heroPositions?`/`heroCapabilities?`).
+
+### `score(state, candidate, meta)`
+
+1. `revealedRivals = observedDraftFacts(state).revealedEnemyPicks` (sin cambios).
+2. Para cada `r` en `revealedRivals`, producir **como máximo una** contribución `c_r`:
+   - **Capa curada** (tiene prioridad): si `curated.get(candidate)` incluye `{ vs: r, level }` →
+     `c_r = -M[level]` (el candidato **está** counterado por `r`). Si `curated.get(r)` incluye
+     `{ vs: candidate, level }` → `c_r = +M[level]` (el candidato **le hace** counter a `r`).
+     Si ambos (raro), se suman y se sigue. `why` del/los match se guarda para la `explanation`.
+   - **Capa estadística** (sólo si `r` no quedó cubierto por la capa curada en ninguna dirección):
+     `rows = createRelationshipIndex(meta.matchups, minGames).counterRows(candidate, [r])`. Si
+     `rows` está vacío (sin dato o `games < minGames`) → `r` **no aporta** (no cuenta para la
+     media). Si hay fila:
+     - `base = row.observedWinrate - row.delta` (baseline del candidato, derivado del campo nuevo).
+     - `shrunkWinrate = shrinkPriorStrength === null ? row.observedWinrate : shrinkEstimate(row.observedWinrate, row.games, base, shrinkPriorStrength)`.
+     - `c_r = shrunkWinrate - base`.  (Con `shrinkPriorStrength: null` esto es exactamente
+       `row.delta`, el comportamiento de hoy.)
+3. Sea `contribs` el array de `c_r` de los rivales **cubiertos** (capa curada o estadística con
+   dato). Si `contribs` está vacío → `{ raw: null, sampleSize: 0, explanation: "Sin datos
+   suficientes de enfrentamientos para este candidato", weighted: 0 }` (idéntico a hoy).
+4. `raw = mean(contribs)`. `mix.ts` lo normaliza con `RAW_RANGE.counter = [-0.12, 0.12]` (sin
+   cambios) — un `raw ≤ -0.12` (uno o varios hard counters) satura en el peor valor, correcto.
+5. `sampleSize = Σ row.games` **sólo de los rivales resueltos por la capa estadística** (la capa
+   curada no tiene muestra — reporta 0, mismo criterio que `team_synergy`/`archetype_fit`).
+6. `explanation`:
+   - Si hubo contribuciones curadas → se arma de los `why` (los negativos primero, hasta 2:
+     `"AA bloquea tu curación con Ice Blast. Necrophos castiga tu vida alta."`). Los positivos
+     ("Le ganás a X") se agregan si quedan.
+   - Si sólo hubo capa estadística → el `buildExplanation` actual (`"Fuerte contra X y Y"` /
+     `"Sin ventaja de contrapick conocida en este draft"`).
+
+`weighted: 0` siempre — la mezcla es de `mix.ts`, sin cambios.
+
+## §14.6 — Constantes calibradas (valores de arranque, ajustables tras el QA)
+
+```typescript
+// signals/counter.ts
+const M: Record<"hard" | "medium", number> = { hard: 0.12, medium: 0.06 };
+// hard = 0.12 -> un solo hard counter satura RAW_RANGE.counter en su extremo (el peor score
+// posible para esa señal), sin necesidad de re-escalar el rango. medium = 0.06 -> mitad.
+export const COUNTER_MIN_GAMES = 10;
+// 200 recortaba el 92.7% de los pares; 10 cubre el 93% (medido) y coincide con el minimumSampleSize
+// que pro/shrinkage.ts ya usa. Pares con <10 partidas siguen sin aportar (ruido puro incluso shrunk).
+export const COUNTER_SHRINK_PRIOR_STRENGTH = 20;
+// "partidas virtuales" al baseline del candidato. Una muestra de 42 partidas conserva ~68% de su
+// delta; una de 200, ~91%; una de 10, ~33%. Más confiado que el 30 del pro-drafter porque acá
+// SÍ queremos que la señal se active; menos que "sin descuento" para no dejar que 12 partidas
+// griten.
+```
+
+`RAW_RANGE.counter` **no cambia**. `weights.ts` **no cambia**.
+
+## §14.7 — Candado de regresión cero (obligatorio)
+
+Dos pruebas, no una:
+
+1. **Scorer aislado** (`counter.test.ts`): `createCounterScorer(new Map(), { minGames: 200,
+   shrinkPriorStrength: null })` sobre los fixtures actuales de `counter.test.ts` (incluido el de
+   "todos bajo 200 → `raw: null`" y el de deltas ≥200) devuelve **el mismo `raw` / `explanation`
+   / `sampleSize` que hoy**, número por número. Prueba que la capa curada es 100% aditiva y que
+   la re-parametrización estadística es una calibración deliberada, reversible dial-a-dial.
+2. **Pipeline completo** (`mix.test.ts`): con `heroCounters` inyectado vacío y las opciones
+   legacy, `buildSuggestions` sobre un fixture fijo produce el mismo ranking y los mismos
+   `signals[].raw` de `counter` que antes de Fase 8. Mismo criterio que el candado de Fase 3
+   contra Spectre+Wraith y el de Fase 4 contra `buildSuggestions`.
+
+El test actual `"enemigos conocidos pero todos bajo 200 partidas -> raw: null"` **se reescribe**:
+con los parámetros de producción (`minGames: 10`) esa misma fixture (150 y 199 partidas) ahora
+produce un `raw` real shrunk; el caso `null` se prueba con muestras `< 10`.
+
+## §14.8 — 8B: higiene de superficie
+
+- **`apps/web/components/nav-bar/NavBar.tsx`**: el array de links pasa de 7 a **4**:
+  `Simulador de Draft` (`/simulator`), `Mi pool` (`/hero-pool`), `Meta` (`/meta`),
+  `Configuración` (`/settings`). Se quitan `Draft en vivo` (`/live-draft`), `Equipos`
+  (`/team-groups`), `Héroes` (`/heroes`).
+- La prop `draftLiveEnabled` de `NavBar` queda sin uso → se puede retirar de la firma o dejar
+  (decisión de `@build`, ambas son válidas; retirarla es más limpio).
+- **Rutas, componentes y tests de `/live-draft`, `/team-groups`, `/heroes` no se tocan.** Siguen
+  alcanzables por URL directa. `/live-draft` ya renderiza `DraftUnavailablePage` con
+  `DRAFT_LIVE_ENABLED` apagado (default), así que no hay cambio de comportamiento ahí.
+- Redirects legacy (`/draft` → `/live-draft`, `/random-draft` → `/simulator`) quedan.
+- **Overwolf / OCR**: ya dormidos (nunca construidos / spike sin correr). Se documenta
+  explícitamente en el ticket que quedan en stand-by; no se toca `scripts/spikes/`.
+- **Prueba**: `NavBar` renderiza 4 links; una prueba de humo confirma que
+  `/team-groups`/`/heroes`/`/live-draft` siguen resolviendo por URL (sus suites siguen verdes,
+  nada se rompió — sólo se ocultó).
+
+## §14.9 — Seguridad (hereda el Bloque 4 de `/pre-flight`; §5)
+
+- **Ninguna frontera de confianza nueva.** `hero-counters.json` es dato curado del repo, mismo
+  perfil que `capabilities.json`/`hero-positions.json`: se valida en el borde al cargarlo
+  (`loadHeroCounters()`), un archivo corrupto o manipulado degrada a "capa estadística sola"
+  (`Map` vacío) — nunca inyecta magnitudes arbitrarias ni tira el motor. No cruza red ni proceso.
+- La capa estadística lee `MetaSnapshot.matchups`, ya validado en la sincronización (S6). Sin
+  cambios a esa frontera.
+- **Cero red en el camino caliente, intacta.** `counter.ts` y `hero-counters.ts` viven bajo
+  `apps/engine/src/signals/`, donde `verify-simplicity.sh` ya bloquea cualquier `fetch(` sobre el
+  árbol completo. El JSON se carga una vez al iniciar el módulo.
+- **Sin secreto nuevo, sin dependencia nueva, sin dato personal.** STRATZ queda fuera de alcance
+  (mismo criterio que Fase 3). `shrinkEstimate` ya está en el repo.
+- **8B no toca `proxy.ts` ni el gate de sesión.** Sacar links del nav no cambia qué rutas
+  existen ni quién puede acceder — el perímetro de auth es el mismo.
+- **No sustituye el gate de `/castoff`** — corre igual en cada deploy.
+
+## §14.10 — Criterios de aceptación (Fase 8)
+
+**8A:**
+
+1. `bunx tsc --noEmit` limpio en `apps/engine`. `SignalId`, `SCORING_WEIGHTS_V1`-`V6`,
+   `RAW_RANGE.counter` sin cambios. `RELATIONSHIP_MIN_GAMES` sigue exportado con su valor 200.
+2. **Candado de regresión cero, dos pruebas** (§14.7): scorer aislado con opciones legacy
+   reproduce hoy número por número; `buildSuggestions` con `heroCounters` vacío + opciones legacy
+   no mueve el ranking.
+3. **Capa curada — hard counter**: con `{ 59: [{ vs: 68, level: "hard", why: "..." }] }`
+   inyectado y el héroe 68 en `state.picks` del rival, `counter.score(state, 59, meta)` da un
+   `raw` fuertemente negativo (≤ `-M.hard` promediado) y `explanation` contiene el `why`. La
+   dirección inversa (candidato 68, rival 59 revelado) da `raw` positivo.
+4. **Capa estadística — zona gris**: sin entrada curada, dos candidatos con
+   `observedWinrate`/`games` reales distintos sobre muestras de 30-100 partidas → `counter` los
+   **diferencia** (ambos `raw` no nulos, ordenados por ventaja real) — donde hoy los dos son
+   `raw: null`.
+5. **Shrinkage**: un par de 12 partidas y un par de 180 partidas con el mismo `observedWinrate`
+   producen `|c_r|` distinto (el de 12 partidas, mucho menor). Muestra `< COUNTER_MIN_GAMES` →
+   ese rival no aporta.
+6. **Degradación**: `hero-counters.json` corrupto → `loadHeroCounters()` devuelve `Map` vacío,
+   `counter` cae a la capa estadística sola, cero excepción.
+7. **Ninguna prueba lee `hero-counters.json` real** (S9) — fixtures inline.
+8. **QA manual en el Simulador de Draft** (§14.11 del Bloque 6 de `architecture.md`), registrado
+   en `journal.md`: pickear Huskar con un Ancient Apparition revelado del bot → el Copilot
+   penaliza Huskar y el desglose de `counter` cita la mecánica; un caso de zona gris → `counter`
+   ordena los candidatos en vez de quedarse mudo. Si el QA pide otras magnitudes → follow-up de
+   calibración (no reabre este SPEC).
+
+**8B:**
+
+9. `NavBar` renderiza 4 links. `/team-groups`, `/heroes`, `/live-draft` siguen resolviendo por
+   URL directa; sus suites de test siguen verdes sin cambios.
+10. `bun test` verde en `apps/web` sin que ninguna prueba existente cambie de resultado (8B no
+    cambia comportamiento, sólo visibilidad).
+
+## §14.11 — Lo que Fase 8 deja abierto a propósito
+
+- **`phase` (lane/teamfight), `requires_item`, `situational`, `magnitude` 0-1 por entrada** —
+  campos futuros del schema de `hero-counters.json`, no se llenan en v1.
+- **Validación / cuantificación de la lista curada contra datos grandes** (OpenDota Explorer,
+  `fetch-expanded-matchups.ts` ya existe) — v2, no bloquea.
+- **La lista completa de ~120 héroes** — v1 cubre los ~30 más pickeados; se expande
+  incrementalmente.
+- **Ponderar por la `confidence` de Wilson** además del shrinkage — refinamiento futuro (§14.2 Q6).
+- **Re-balancear `SCORING_WEIGHTS_V6`** si tras el QA `counter` rehabilitado desequilibra la
+  mezcla — sería un `V7` con su propio candado, fuera de esta fase.
+- **STRATZ** — sin cambios desde Fase 1b: dependencia condicional futura, pasa por `/gear-up` si
+  algún día se prioriza.
+
+## §14.12 — Entrada para `/rulebook`
+
+Bloques y orden de dependencia:
+
+**8A — motor:**
+1. `signals/hero-counters.ts` (`loadHeroCounters` + validación de borde) + `signals/hero-counters.json`
+   **borrador de ~30 héroes por deep research** + su prueba con fixtures sintéticos. Es un ticket
+   de dominio: el JSON lo revisa el usuario antes del merge. `preferred_tool: claude-code`.
+2. `signals/relationship-index.ts`: agrega `observedWinrate` a `CounterEvidence` (1 línea,
+   aditivo) + su prueba. `preferred_tool: codex` (acotado).
+3. `signals/counter.ts`: `counterScorer` → `createCounterScorer(curated, opts)`, las dos capas,
+   la fórmula de §14.5, las constantes de §14.6, reescritura de `counter.test.ts` + el candado de
+   regresión aislado. Depende de 1 y 2. `preferred_tool: claude-code` (toca el scoring, decisiones
+   de este SPEC, exige `@redteam`).
+4. `signals/mix.ts`: `MODULE_HERO_COUNTERS`, ensamblado por llamada, `BuildSuggestionsOptions.heroCounters?`,
+   candado de regresión de pipeline en `mix.test.ts`. Depende de 3. `preferred_tool: claude-code`.
+
+**8B — apps/web (independiente de 8A):**
+5. `components/nav-bar/NavBar.tsx`: 7 links → 4, prueba del render, humo de rutas. `preferred_tool: codex`.
+
+**Variables de entorno**: ninguna nueva, ninguna retirada. `.env.example` no cambia.
+
+## §14.13 — Addendum (post-QA): alivio por counters baneados
+
+Decisión del usuario 2026-08-28, tras revisar el QA de 8A: `counter` gana un término **positivo**
+que no depende de picks rivales revelados — **"tus counters están baneados = pick más libre"**.
+Ejemplo: considerás Morphling, ves que Silencer (su hard counter) está baneado → el Copilot lo
+marca a favor. Es aditivo sobre 8A, mismo `SignalId`/`RAW_RANGE.counter`/`weights.ts` sin tocar.
+
+- **Fuente de dato**: `hero-counters.json` ya keyed por víctima — `curated.get(candidate)` es
+  exactamente "quién counterea a este candidato". Se cruza con `observedDraftFacts(state).bannedHeroes`.
+- **Vota desde el pick 1** — no necesita enemigos revelados. Es la 2ª señal (con `archetype_fit`)
+  que discrimina con el draft casi vacío. `counter` deja de ser 100% `null` en picks tempranos.
+- **Fórmula**: `banRelief = min(BAN_RELIEF_CAP, Σ BAN_RELIEF[level])` sobre las entradas de
+  `curated.get(candidate)` cuyo `vs ∈ bannedHeroes`. Solo la dirección positiva (un counter tuyo
+  fuera de la mesa) — no se modela "un héroe al que le ganás fue baneado".
+- **Integración con el término de contrapick de 8A**: `meanRevealed` es el `mean(c_r)` de 8A
+  (o `0` si no hay rivales cubiertos).
+  - `banRelief === 0` → `raw = meanRevealed` **exactamente como 8A, sin clamp** (así el candado
+    de regresión de §14.7 queda byte-idéntico — el fixture actual da `0.12222`, por encima de
+    `M.hard`, y debe seguir dándolo).
+  - `banRelief > 0` → `raw = clamp(meanRevealed + banRelief, -M.hard, M.hard)`.
+  - `contribs` vacío **y** `banRelief === 0` → `raw: null` (idéntico a hoy).
+  - `banRelief` no aporta a `sampleSize` (mismo criterio que la capa curada).
+- **Constantes** (`counter.ts`, valores de arranque QA-tuneables, no reabren el SPEC):
+  `BAN_RELIEF = { hard: 0.04, medium: 0.02 }`, `BAN_RELIEF_CAP = 0.06` (la mitad de `M.hard`).
+- **`explanation`**: si hubo alivio → se agrega la cláusula `"N de sus counters están baneados:
+  <nombres>"` (hasta 2 nombres). Si además hubo capa curada/estadística por rival revelado, la
+  cláusula se **anexa** al texto de 8A. Si solo hubo alivio → es el texto completo.
+- **Candado de regresión**: `createCounterScorer(new Map(), …)` sigue dando `banRelief = 0` (mapa
+  curado vacío) → los dos candados de §14.7 se mantienen byte-idénticos sin cambios.
+- Ticket: `TSK-188`, follow-up de 8A, `@redteam` obligatorio (toca el scoring activo). Entra en
+  el mismo push que Fase 8.

@@ -718,10 +718,12 @@ describe("servidor Bun (TSK-010)", () => {
 describe("cuentas HTTP multi-tenant (TSK-098)", () => {
   let baseUrl: string;
   let stop: () => void;
+  let testDb: ReturnType<typeof createTestDb>;
 
   beforeAll(() => {
+    testDb = createTestDb();
     const app = createApp({
-      db: createTestDb(),
+      db: testDb,
       openDotaClient: new OpenDotaClient(),
       captureToken: EXPECTED_HEADER,
       internalAuthSecret: TEST_ACCOUNT_HMAC_KEY,
@@ -767,6 +769,34 @@ describe("cuentas HTTP multi-tenant (TSK-098)", () => {
       const response = await fetch(`${baseUrl}/api/team-groups/${group.id}`, { method, headers: method === "PUT" ? { ...accountHeader(accountB), "content-type": "application/json" } : accountHeader(accountB), body: method === "PUT" ? JSON.stringify({ name: "No", partySize: 2, members: [{ slot: 1, name: "Ana", heroPool: [1] }] }) : undefined });
       expect(response.status).toBe(404);
     }
+  });
+
+  // TSK-190: con x-account-token pero SIN usePersonalPool, el motor carga el overlay de cuenta
+  // (para que hero_pool_fit puntúe como señal blanda) pero NO aplica el filtro duro del pool.
+  test("preview con token y sin usePersonalPool: hero_pool_fit vota y el pool no filtra el candidatePool", async () => {
+    const accountId = 444444444;
+    testDb.insert(accounts).values({ steamAccountId: accountId, personalBaselineWinrate: null, createdAt: "2026-07-27T00:00:00.000Z" }).run();
+    testDb.insert(heroPool).values({ accountId, heroId: 1, source: "calculated", personalWinrate: 0.7, personalGames: 30, updatedAt: "2026-07-27T00:00:00.000Z" }).run();
+
+    const res = await fetch(`${baseUrl}/api/suggestions/preview`, {
+      method: "POST",
+      headers: { ...accountHeader(accountId), "content-type": "application/json" },
+      body: JSON.stringify({
+        format: "all_pick", patch: "7.41e", localSide: "radiant",
+        banned: [], picks: { radiant: [2], dire: [3] }, // no teamOpening; 1 y 4 (pos 1) quedan libres
+        targetPosition: 1, diversitySeed: "seed-a",
+        // sin usePersonalPool a propósito
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const heroes = body.suggestions.map((s: { hero: number }) => s.hero);
+    // hero 4 (pos 1, FUERA del pool) sigue apareciendo -> no hubo filtro duro.
+    expect(heroes).toContain(4);
+    // hero_pool_fit puntúa (no applicable:false) -> el overlay cargó sin usePersonalPool.
+    const poolSignal = body.suggestions[0].signals.find((sig: { signal: string }) => sig.signal === "hero_pool_fit");
+    expect(poolSignal.applicable).not.toBe(false);
+    expect(typeof poolSignal.raw).toBe("number");
   });
 
   test("hello con token válido fija el dueño; token inválido se rechaza y no reasigna", async () => {

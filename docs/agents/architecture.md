@@ -1309,3 +1309,238 @@ ningún gatillo objetivo — la decisión de descartar `heroSynergy` (Hallazgo 2
 cruce de frontera de confianza nuevo que el diseño original iba a abrir; no hay migración
 irreversible, no cambia autenticación ni motor de base de datos. Corresponde el flujo normal en
 Sonnet hasta `/blueprint`, mismo criterio que Fase 4 bajo circunstancias equivalentes.
+
+---
+
+# architecture.md — Fase 8 (Rehabilitar `counter`: base curada de counter-picks + shrinkage; + higiene de superficie)
+
+`/pre-flight` completo (2026-08-28), corrido en Sonnet. Input: consulta a DeepSeek (respuesta
+completa en el hilo de la sesión) + grounding directo del código (`counter.ts`,
+`relationship-index.ts`, `pro/shrinkage.ts`, `mix.ts`). Decisiones cerradas con el usuario vía
+`AskUserQuestion`.
+
+## Bloque 1 — Visión del Producto (Fase 8)
+
+**Problema.** La señal `counter` del motor está prácticamente muerta. Filtra todo matchup
+héroe-vs-héroe con menos de `RELATIONSHIP_MIN_GAMES = 200` partidas de muestra, y en la base local
+(15.984 pares, promedio 78 partidas/par) **sólo el 7.3% llega a 200**. Consecuencia real
+observada en QA del simulador: el Copilot recomienda Huskar de último pick contra un Ancient
+Apparition ya revelado — un hard counter de libro — porque el par Huskar↔AA tiene 42 partidas
+(42.9% winrate para Huskar) y se descarta por `42 < 200`. Para Huskar, **cero** de sus 126
+matchups llegan al umbral: la señal es ciega contra todos los héroes.
+
+**Usuario final.** El mismo del resto del proyecto: un jugador de Dota 2 usando el draft coach en
+el Simulador de Draft.
+
+**Resultado tangible esperado.** Que el Copilot deje de recomendar picks obviamente counterados
+(capa A: hard counters), y que además pueda **rankear** entre candidatos cuando ninguno es un hard
+counter listado (capa B: la "zona gris", ~50% de los drafts) — hoy en la zona gris `counter`
+devuelve `raw: null` para todos y no aporta nada.
+
+**Qué NO es.** No es un predictor completo de matchups. No modela counter-por-lane vs
+counter-por-teamfight, ni counters que dependen de un ítem específico (`Spirit Vessel`, `Aghanim`)
+en v1 — el schema deja lugar para eso pero no se llena ahora. No reabre `SCORING_WEIGHTS_V6` ni
+toca el peso de `counter` (0.216): rehabilita la señal, no la re-pondera. No cambia la
+sincronización de meta (S6) ni agrega STRATZ. No borra ninguna ruta ni feature: 8B **oculta**,
+no resta.
+
+## Bloque 2 — Dominio e Investigación (Fase 8)
+
+**Datos que necesita.**
+
+1. **`hero-counters.json`** (nuevo, curado, versionado en el repo). Mismo patrón exacto que
+   `hero-positions.json` (Fase 3) y `capabilities.json` (Fase 2): dato de dominio que la
+   estadística ruidosa no da bien, se cura a mano. Schema v1 mínimo:
+
+   ```jsonc
+   {
+     "<heroId>": [
+       { "vs": <heroId>, "level": "hard" | "medium", "why": "<mecánica, texto visible>" }
+     ]
+   }
+   ```
+
+   - `level`: dos niveles en v1 (`hard` / `medium`). `situational` + `phase` + `requires_item`
+     (propuestos por DeepSeek) quedan como campos futuros, no se llenan ahora.
+   - `why`: obligatorio — es el texto que la UI muestra ("AA bloquea tu curación con Ice Blast").
+     Sin esto el coach es una caja negra.
+   - **Fuente y método (decisión del usuario: "esto puede ser un simple deep research")**: se
+     produce por investigación de conocimiento público estándar de Dota 2 (wikis de héroe,
+     consenso de guías de alto nivel) para un borrador inicial de ~30 héroes más comunes, que el
+     usuario revisa y corrige antes de que entre. **No se scrapea Dotabuff** (ToS). Validación /
+     cuantificación posterior contra datos grandes (OpenDota Explorer, `fetch-expanded-matchups.ts`
+     ya existe) es v2, no bloquea.
+   - Alcance del borrador: los ~30 héroes más pickeados, ~3-8 counters cada uno.
+
+2. **`MetaSnapshot.matchups`** (ya existe, ya sincronizado desde OpenDota, S6). La capa
+   estadística lo consume sin cambios en la frontera.
+
+3. **`pro/shrinkage.ts`** (ya existe, de TSK-165, sin usar): `shrinkEstimate(observed, sampleSize,
+   prior, priorStrength, minimumSampleSize)`. Se reutiliza — no se reimplementa.
+
+**Competidores.** Los sitios de counter-picks de Dota (Dotabuff "worst versus", counter-pick
+wikis) ya publican esta info; lo que les falta es integrarla a un flujo de *draft en curso* con
+explicación. Ese es exactamente el valor que agrega esta fase.
+
+## Bloque 3 — Arquitectura e Ingeniería (Fase 8)
+
+### 8A — `counter` con capa curada (piso) + capa estadística (ajuste acotado)
+
+Diagrama de bloques:
+
+```
+  hero-counters.json ──loadHeroCounters()──┐   (S9: validado al cargar, corrupto -> mapa vacío)
+                                           ▼
+  DraftState ──observedDraftFacts()──▶ createCounterScorer(curated, opts).score(state, cand, meta)
+  MetaSnapshot.matchups ──counterRows(cand, rivals, minGamesBajo)──┘
+                                           │
+                    ┌──────────────────────┴───────────────────────┐
+                    ▼                                              ▼
+     CAPA CURADA (piso)                              CAPA ESTADÍSTICA (ajuste acotado)
+     rivales revelados que están en                 rivales revelados que NO están en
+     curated[cand] -> magnitud fija por             la lista -> counterRows con minGames bajo,
+     level (M_hard / M_medium) + `why`              delta descontado por tamaño de muestra
+     acumulado                                      (shrinkEstimate) y ponderado por la
+                    │                               `confidence` de Wilson que el índice YA calcula
+                    └──────────────┬───────────────────────────────┘
+                                   ▼
+        raw = piso + clamp(ajusteEstadístico, -B, +B)     (ambas vacías -> raw: null, igual que hoy)
+                                   ▼
+        RAW_RANGE.counter (rango revisado si el piso lo excede) -> [0,100] -> peso 0.216 (V6, intacto)
+```
+
+**Cambios de código, por archivo:**
+
+- **`apps/engine/src/signals/hero-counters.ts`** (nuevo): `loadHeroCounters()` + validación de
+  borde (descarta entradas malformadas, IDs de héroe desconocidos, `level` inválido; archivo
+  corrupto -> mapa vacío, nunca tira el motor). Mismo criterio literal que `loadHeroPositions()` /
+  `loadHeroCapabilities()`.
+- **`apps/engine/src/signals/hero-counters.json`** (nuevo): el dato curado.
+- **`apps/engine/src/signals/counter.ts`**: `counterScorer` (singleton de módulo) pasa a
+  **fábrica** `createCounterScorer(curated, opts)` — el mismo patrón que `createPositionFitScorer`
+  / `createTeamSynergyScorer` ya usan. `score()` gana las dos pasadas (curada + estadística) y la
+  combinación piso + ajuste acotado. **La lógica de shrinkage y de ponderación por confianza vive
+  acá**, sobre lo que `counterRows` ya devuelve.
+- **`apps/engine/src/signals/relationship-index.ts`**: **sin cambios estructurales.**
+  `createRelationshipIndex(matchups, minGames)` ya toma `minGames` como parámetro (línea 56);
+  `counter.ts` lo llama con el valor bajo nuevo. El descuento por muestra (`delta * games/(games+P)`)
+  usa `delta` y `games`, ambos ya presentes en `CounterEvidence` — no hace falta exponer campos
+  nuevos. (Si el `/blueprint` decidiera shrink hacia 0.5 en vez de descontar el delta, ahí sí se
+  agrega un campo `observedWinrate` a `CounterEvidence` — aditivo, los consumidores actuales lo
+  ignoran.)
+- **`apps/engine/src/signals/mix.ts`**: `MODULE_HERO_COUNTERS = loadHeroCounters()` a nivel de
+  módulo (como `MODULE_HERO_POSITIONS`); `createCounterScorer(...)` se ensambla por llamada en el
+  array `scorers` (como `position_fit`/`team_synergy`). `RAW_RANGE.counter` **se revisa** si el
+  piso curado excede `[-0.12, 0.12]` — decisión de número del `/blueprint`.
+- **`apps/engine/src/signals/counter.test.ts` / `mix.test.ts`**: el candado de regresión (ver
+  Bloque 6).
+
+**Tiempo real:** no. Misma restricción de siempre — el motor no llama a la red en el camino
+caliente; `hero-counters.json` se carga una vez al iniciar el módulo.
+
+**Monolito:** sin cambios — es una señal más dentro de `apps/engine`, no hay servicio nuevo.
+
+**Persistencia:** `hero-counters.json` es archivo estático versionado en el repo, **no SQLite**
+(mismo criterio que `capabilities.json`/`hero-positions.json`). La capa estadística lee la SQLite
+de meta ya sincronizada, sin cambios.
+
+### 8B — Higiene de superficie (reversible, cero borrado)
+
+Decisión del usuario: "lo que creas que se deba quedar para aprobar y hacer todo el flujo de
+simulador, dejalo".
+
+- **Nav activo:** Simulador de Draft (`/simulator`), Mi pool (`/hero-pool`), Meta (`/meta`),
+  Configuración (`/settings`). Cubren login + cuenta + pool + el flujo completo del simulador +
+  ver/refrescar el estado del meta.
+- **Se saca del nav (ruta, código y tests intactos; alcanzable por URL directa):** Draft en vivo
+  (`/live-draft`, ya gateado por `DRAFT_LIVE_ENABLED`, apagado), Equipos (`/team-groups`, el
+  simulador no lo usa), Héroes (`/heroes`, informativo, no hace falta para el flujo).
+- **Implementación:** editar el array de links en `apps/web/components/nav-bar/NavBar.tsx`. Nada
+  más. Redirects legacy (`/draft`, `/random-draft`) quedan.
+- **Overwolf / OCR:** ya dormidos (nunca construidos / spike sin correr). Se documentan
+  explícitamente como "stand-by hasta que se retome la captura desde Dota 2 real" — no se tocan.
+
+## Bloque 4 — Seguridad desde el diseño (Fase 8)
+
+**Fronteras de confianza — ninguna nueva.**
+
+- `hero-counters.json`: dato curado del repo, mismo perfil de confianza que `capabilities.json` /
+  `hero-positions.json`. Es "input externo" en el sentido del proyecto (se valida en el borde al
+  cargarlo, nunca se confía en su forma), pero **no cruza ninguna frontera de red ni de proceso**.
+  Un archivo corrupto o manipulado en el repo degrada a "sin datos curados" (mapa vacío) — la
+  capa estadística sigue funcionando, el motor nunca se cae ni inyecta magnitudes arbitrarias.
+- La capa estadística lee `MetaSnapshot.matchups`, ya validado en la sincronización (S6). Sin
+  cambios a esa frontera.
+- 8B no toca `proxy.ts` ni el gate de sesión de Steam. Sacar links del nav no cambia qué rutas
+  existen ni quién puede acceder — el perímetro de auth es el mismo.
+
+**Datos sensibles:** ninguno nuevo. Sin PII, sin credenciales, sin pagos. `hero-counters.json` es
+conocimiento público de Dota 2.
+
+**Secretos:** ninguno nuevo. Sin dependencia nueva, sin API key (STRATZ queda fuera de alcance,
+como en Fase 3).
+
+**Privilegio mínimo:** `counter.ts` sigue siendo una función pura sin I/O; el loader sólo lee un
+archivo estático del bundle. Sin cambio de privilegios respecto de hoy.
+
+**No sustituye el gate de `/castoff`** — este bloque es el diseño inicial de límites; el gate de
+seguridad corre igual en cada deploy.
+
+## Bloque 5 — Stack Tecnológico (Fase 8)
+
+**Sin decisión de stack.** Cero dependencia nueva (`dependencies` ni `devDependencies`). Se
+reutiliza `pro/shrinkage.ts` (ya en el repo) y el `wilsonInterval` que `relationship-index.ts` ya
+calcula. Un archivo JSON estático nuevo + un loader (patrón ya establecido tres veces). **No pasa
+por `/gear-up`** — igual que Fase 3/4/6 bajo circunstancias equivalentes.
+
+## Bloque 6 — Plan de Validación (Fase 8)
+
+1. **Candado de regresión cero de `counter`** (obligatorio, `counter.test.ts` / `mix.test.ts`):
+   con `hero-counters.json` ausente (mapa vacío) **y** los parámetros estadísticos en sus valores
+   legacy (`minGames = 200`, shrinkage desactivado), `counterScorer.score()` reproduce
+   **exactamente** el `raw` / `explanation` / `sampleSize` de hoy, para un fixture fijo. Prueba
+   que la capa curada es 100% aditiva y que la re-parametrización estadística es una calibración
+   deliberada, no un accidente.
+2. **Candado de la zona gris** (`counter.test.ts`): con curado ausente y dos candidatos con
+   deltas de matchup reales distintos sobre muestras de 30-100 partidas, `counter` los
+   **diferencia** (ambos `raw` no nulos, ordenados correctamente) — donde hoy los dos dan
+   `raw: null`.
+3. **Candado del hard counter** (`counter.test.ts` con fixture inline de `hero-counters.json`,
+   nunca el archivo real — S9): con `{ Huskar: [{ vs: AA, level: "hard", why: "..." }] }`
+   inyectado y AA en `state.picks` del rival, `counter.score(state, Huskar, meta)` da un `raw`
+   fuertemente negativo y `explanation` contiene el `why`.
+4. **Candado de degradación**: `hero-counters.json` corrupto -> `loadHeroCounters()` devuelve mapa
+   vacío, `counter` cae a la capa estadística sola, cero excepción (mismo criterio que
+   `loadHeroPositions()` con archivo malformado).
+5. **QA manual en el Simulador de Draft** (la única superficie activa tras 8B): arrancar un draft,
+   pickear Huskar con un Ancient Apparition ya revelado del bot -> el Copilot penaliza Huskar
+   fuerte y el desglose de `counter` cita la mecánica. Repetir con un caso de zona gris (ningún
+   hard counter en el tablero) -> `counter` ordena los candidatos en vez de quedarse mudo.
+6. **8B**: el nav queda con 4 links; `/live-draft` / `/team-groups` / `/heroes` siguen
+   alcanzables por URL directa y sus tests siguen verdes (nada se rompió, sólo se ocultó).
+
+## Cierre — pendiente de `/blueprint`
+
+Números que el `/blueprint` (Opus) cierra, todos con el análisis de DeepSeek + el grounding de
+código como input:
+
+- **`M_hard`, `M_medium`**: magnitud del piso por nivel de counter curado.
+- **`minGames_new`**: umbral estadístico nuevo (DeepSeek sugiere 5-10; el 71% de los pares tiene
+  ≥30, el 93% ≥10).
+- **`priorStrength P`** del descuento por muestra (o del shrinkage hacia 0.5 si se elige esa
+  variante) — DeepSeek sugiere α=β=2; `pro/shrinkage.ts` usa 30 por defecto; hay que decidir.
+- **`B`**: banda del `clamp` del ajuste estadístico sobre el piso (DeepSeek: ±0.3 en su escala).
+- **`RAW_RANGE.counter`**: rango revisado si el piso curado excede `[-0.12, 0.12]`.
+- **Modelo de combinación exacto**: piso + ajuste acotado (DeepSeek lo argumenta contra
+  `max`/suma) — confirmar la fórmula final y qué pasa cuando el candidato countea a varios
+  rivales a la vez (¿el piso acumula sin tope, con tope?).
+- **`hero-counters.json` inicial**: el borrador de ~30 héroes por deep research, para revisión del
+  usuario.
+- **¿Se recongela algo de `weights.ts`?** A priori no — `counter` mantiene su peso 0.216 en V6.
+  Confirmar que rehabilitar la señal no exige re-balancear las otras 5 (candado de regresión de
+  pipeline completo, mismo criterio que Fase 3/4).
+
+**Gatillos de Opus** (`CLAUDE.md`): esta fase **sí** cruza uno de los gatillos objetivos
+documentados — *"discrepancia seria confirmada entre `SPEC.md` y la arquitectura real del código"*:
+el SPEC describe `counter` como una señal activa de peso 0.24/0.216, y en la práctica devuelve
+`raw: null` en ~93% de los casos. `/blueprint` corre en Opus para esta fase. Después, Sonnet.

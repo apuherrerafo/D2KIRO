@@ -96,19 +96,29 @@ interface CopilotPanelBodyProps {
 // con ENABLE_PRO_DRAFTER apagado del lado del cliente (default, dark-launch intacto).
 function V5CopilotBody({ draftState, suggestions, heroCatalog, previewStatus, onRetryPreview }: CopilotPanelBodyProps) {
   const fresh = selectFreshSuggestions(draftState, suggestions);
-  const primary = fresh?.suggestions.find((s) => s.rank === 1);
-  const alternatives = fresh?.suggestions.filter((s) => s.rank !== 1) ?? [];
+  // TSK-192: hasta 6 recomendaciones en un grid 2×3 compacto -- el rank 1 con borde de acento,
+  // el detalle (motivos, riesgos, señales) tras "Ver señales" en cada celda.
+  const ordered = [...(fresh?.suggestions ?? [])].sort((a, b) => a.rank - b.rank);
 
   return (
     <>
       <PreviewStatusNotice previewStatus={previewStatus} hasSuggestions={fresh !== null} onRetry={onRetryPreview} />
       {fresh && <DegradedNotice degraded={fresh.degraded} />}
       {fresh && <DecisionContextNotice decisionContext={fresh.decisionContext} />}
-      {primary && <SuggestionCard suggestion={primary} heroMeta={heroCatalog.get(primary.hero)} isPrimary />}
+      {ordered.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {ordered.map((suggestion) => (
+            <SuggestionCard
+              key={suggestion.hero}
+              suggestion={suggestion}
+              heroMeta={heroCatalog.get(suggestion.hero)}
+              isPrimary={suggestion.rank === 1}
+              compact
+            />
+          ))}
+        </div>
+      )}
       {fresh?.comparison && <ComparisonNote comparison={fresh.comparison} heroMeta={heroCatalog.get(fresh.comparison.vsHero)} />}
-      {alternatives.map((suggestion) => (
-        <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={false} />
-      ))}
     </>
   );
 }

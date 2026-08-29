@@ -23,6 +23,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { FakeSocket } from "@/features/draft/fake-socket";
 import type { DraftConnection, DraftState as EngineDraftState, HeroId as EngineHeroId, ServerMessage, SuggestionSet, TeamSide } from "@/features/draft/types";
 import { useRandomDraftSession, type StartDraftConfig } from "../use-random-draft-session";
+import { useRandomDraftStore } from "../store";
 
 // ---------------------------------------------------------------------------
 // Motor falso: aplica los mismos DraftEvent que emite el hook (session_started,
@@ -38,7 +39,15 @@ class FakeEngine {
   private state: EngineDraftState;
   private seq = 0;
   private nextBotHeroId = RESERVED_BOT_HERO_START;
-  readonly copilotPreviewRequests: { picks: EngineDraftState["picks"]; banned: EngineHeroId[]; archetypeIntent?: string }[] = [];
+  readonly copilotPreviewRequests: {
+    picks: EngineDraftState["picks"];
+    banned: EngineHeroId[];
+    archetypeIntent?: string;
+    targetPosition?: number;
+    usePersonalPool?: boolean;
+    teamOpening?: boolean;
+    accountToken?: string;
+  }[] = [];
 
   constructor(private readonly socket: FakeSocket) {
     this.state = {
@@ -109,10 +118,17 @@ class FakeEngine {
   // interna del bot (botPickHeroFromEngine, bot-drafter.ts) -- se distinguen por `diversitySeed`,
   // presente únicamente en el pedido del Copilot. Cada llamada devuelve un héroe reservado nuevo:
   // el bot nunca repite ni colisiona con lo que el usuario ya escogió.
-  handleSuggestionsPreview(body: unknown): SuggestionSet {
-    const request = body as { picks: EngineDraftState["picks"]; banned: EngineHeroId[]; diversitySeed?: string; archetypeIntent?: string };
+  handleSuggestionsPreview(body: unknown, accountToken?: string): SuggestionSet {
+    const request = body as {
+      picks: EngineDraftState["picks"]; banned: EngineHeroId[]; diversitySeed?: string; archetypeIntent?: string;
+      targetPosition?: number; usePersonalPool?: boolean; teamOpening?: boolean;
+    };
     if (request.diversitySeed !== undefined) {
-      this.copilotPreviewRequests.push({ picks: request.picks, banned: request.banned, archetypeIntent: request.archetypeIntent });
+      this.copilotPreviewRequests.push({
+        picks: request.picks, banned: request.banned, archetypeIntent: request.archetypeIntent,
+        targetPosition: request.targetPosition, usePersonalPool: request.usePersonalPool,
+        teamOpening: request.teamOpening, accountToken,
+      });
     }
 
     const hero = this.nextBotHeroId;
@@ -153,13 +169,15 @@ function installFetchMock(engine: FakeEngine): void {
 
     if (url.endsWith("/api/heroes")) return jsonResponse(FIXTURE_HEROES);
     if (url.endsWith("/api/meta/hero-stats")) return jsonResponse({ patchStats: {}, heroPositions: {} });
+    if (url.endsWith("/api/auth/engine-token")) return jsonResponse({ token: "fake-" + "engine-token" });
     if (url.endsWith("/api/session/manual")) {
       const body = JSON.parse(String(init?.body));
       return jsonResponse(engine.handleManualEvent(body));
     }
     if (url.endsWith("/api/suggestions/preview")) {
       const body = JSON.parse(String(init?.body));
-      return jsonResponse(engine.handleSuggestionsPreview(body));
+      const headers = new Headers(init?.headers);
+      return jsonResponse(engine.handleSuggestionsPreview(body, headers.get("x-account-token") ?? undefined));
     }
 
     throw new Error(`[test] fetch no mockeado: ${url}`);
@@ -186,6 +204,9 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  // El store de Zustand es un singleton de módulo: sin esto, un preview asíncrono en vuelo de
+  // un test anterior puede resolverse durante el siguiente y ensuciar sus aserciones.
+  useRandomDraftStore.getState().resetSession();
 });
 
 test("secuencia completa: inicio -> ronda 1 -> revelación -> ronda 2 -> ronda 3 -> último pick", async () => {
@@ -358,3 +379,53 @@ test("setArchetypeIntent re-pide el preview del Copilot con la intención en el 
 
   unmount();
 }, 15000);
+
+// TSK-189/TSK-190: el preview del Copilot lleva el rol elegido (`targetPosition`) y el header
+// `x-account-token` (para que el motor cargue el hero pool y `hero_pool_fit` puntúe como señal
+// blanda). NO manda `usePersonalPool` -- ese flag es el filtro duro "sólo mi pool", que el
+// simulador no quiere. Sin ese cableado el motor nunca sabía la posición ni el pool.
+test("el preview del Copilot lleva targetPosition + x-account-token, sin usePersonalPool", async () => {
+  const fakeSocket = new FakeSocket();
+  const engine = new FakeEngine(fakeSocket);
+  installFetchMock(engine);
+
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ socketFactory: fakeSocketFactory(fakeSocket) }));
+
+  await act(async () => {
+    await result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], playerPosition: 2 });
+  });
+  expect(result.current.state.phase.type).toBe("blind_round");
+  await waitFor(() => expect(result.current.state.draftState?.banned.length).toBe(16));
+  const banned = new Set(result.current.state.draftState?.banned ?? []);
+
+  // Todo pedido lleva el rol elegido, incluso en la apertura.
+  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(0));
+  for (const request of engine.copilotPreviewRequests) expect(request.targetPosition).toBe(2);
+  // En la apertura de equipo (tablero vacío) el pool no aplica -> no se pide el token.
+  const opening = engine.copilotPreviewRequests.find((r) => r.teamOpening === true);
+  if (opening) {
+    expect(opening.usePersonalPool).toBeUndefined();
+    expect(opening.accountToken).toBeUndefined();
+  }
+
+  // Avanzar a ronda 2: ahí ya hay picks -> el preview pide el pool autenticado.
+  const picks: number[] = [];
+  for (let c = 1; c <= FIXTURE_HERO_COUNT && picks.length < 2; c++) if (!banned.has(c)) picks.push(c);
+  for (const heroId of picks) {
+    await act(async () => { result.current.actions.confirmPick(heroId); });
+  }
+  await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
+  await act(async () => { await result.current.confirmRound(); });
+  await waitFor(() =>
+    expect(engine.copilotPreviewRequests.some((r) => r.teamOpening === false)).toBe(true),
+  );
+
+  const authed = engine.copilotPreviewRequests.filter((r) => r.teamOpening === false);
+  for (const request of authed) {
+    expect(request.targetPosition).toBe(2);
+    expect(request.usePersonalPool).toBeUndefined();
+    expect(request.accountToken).toBe("fake-" + "engine-token");
+  }
+
+  unmount();
+}, 20000);

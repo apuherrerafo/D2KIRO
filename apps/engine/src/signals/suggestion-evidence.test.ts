@@ -17,6 +17,9 @@ test("expone contrapick, sinergia y flex como evidencia separada", () => {
       { hero: 2, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: true, structuralDamage: "high", teamfight: "low", scaling: "high" },
       { hero: 3, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: false, structuralDamage: "low", teamfight: "high", scaling: "low" },
     ],
+    // S9 (testing-seams.md, Fase 8): esta suite prueba el render de evidencia, no la capa
+    // curada -- se inyecta un Map vacío para no depender del contenido de hero-counters.json.
+    heroCounters: new Map(),
   });
 
   const earthshaker = result.suggestions.find((suggestion) => suggestion.hero === 3)!;
@@ -34,7 +37,7 @@ test("una respuesta sin ventaja verificable contra los dos rivales revelados dec
   const result = buildSuggestions(state, {
     heroes: { 1: { id: 1, localizedName: "Uno" }, 2: { id: 2, localizedName: "Dos" }, 3: { id: 3, localizedName: "Tres" }, 10: { id: 10, localizedName: "Diez" }, 11: { id: 11, localizedName: "Once" } },
     matchups: { 3: [{ vsHero: 10, games: 300, wins: 150 }, { vsHero: 11, games: 300, wins: 150 }] },
-  }, { heroPositions: {}, heroCapabilities: [] });
+  }, { heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
 
   expect(result.decisionContext).toBe("response_pick");
   expect(result.suggestions[0]?.evidence).toEqual(expect.arrayContaining([
@@ -50,7 +53,7 @@ test("sin rivales revelados, matchups favorables hipotéticos no generan evidenc
   const result = buildSuggestions(state, {
     heroes: { 1: { id: 1, localizedName: "Uno" }, 3: { id: 3, localizedName: "Tres" }, 10: { id: 10, localizedName: "Hipotético" } },
     matchups: { 3: [{ vsHero: 10, games: 400, wins: 320 }] },
-  }, { heroPositions: {}, heroCapabilities: [] });
+  }, { heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
 
   const candidate = result.suggestions.find((suggestion) => suggestion.hero === 3)!;
   expect(candidate.signals.find((signal) => signal.signal === "counter")?.raw).toBeNull();
@@ -65,7 +68,7 @@ test("el cierre declara composición y riesgo cuando faltan datos de contrapick"
   const result = buildSuggestions(state, {
     heroes: { 1: { id: 1, localizedName: "Uno" }, 2: { id: 2, localizedName: "Dos" }, 3: { id: 3, localizedName: "Tres" }, 4: { id: 4, localizedName: "Cuatro" }, 5: { id: 5, localizedName: "Cinco" }, 10: { id: 10, localizedName: "Diez" }, 11: { id: 11, localizedName: "Once" }, 12: { id: 12, localizedName: "Doce" }, 13: { id: 13, localizedName: "Trece" } },
     matchups: {},
-  }, { heroPositions: {}, heroCapabilities: [] });
+  }, { heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
 
   expect(result.decisionContext).toBe("closing_pick");
   expect(result.suggestions[0]?.evidence?.filter((item) => item.kind === "risk").length).toBeGreaterThan(0);

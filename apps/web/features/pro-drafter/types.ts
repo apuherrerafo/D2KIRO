@@ -16,7 +16,7 @@ export interface ProSignalContribution {
 
 export interface ProSuggestion {
   hero: HeroId;
-  rank: 1 | 2 | 3 | 4 | 5;
+  rank: 1 | 2 | 3 | 4 | 5 | 6;
   score: number;
   signals: ProSignalContribution[];
   evidence?: {
@@ -49,7 +49,7 @@ export interface ProDrafterResponse {
 // rotulado "Pro-Drafter" sin confundir, así que se descarta a propósito (ver toProDrafterView).
 export interface LegacySuggestionSetResponse {
   schema: "suggestions/v1";
-  suggestions: { hero: HeroId; rank: 1 | 2 | 3 | 4 | 5; score: number }[];
+  suggestions: { hero: HeroId; rank: 1 | 2 | 3 | 4 | 5 | 6; score: number }[];
 }
 
 export type ProRecommendationsResponse = ProDrafterResponse | LegacySuggestionSetResponse;

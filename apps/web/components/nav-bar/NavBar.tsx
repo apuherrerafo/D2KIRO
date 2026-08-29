@@ -9,14 +9,14 @@ interface NavLinkDef {
   label: string;
 }
 
-export function buildNavLinks(draftLiveEnabled: boolean): NavLinkDef[] {
-  const draftLabel = draftLiveEnabled ? "Draft en vivo" : "Draft en vivo local";
+// TSK-187 (Fase 8B, SPEC.md §14.8): el nav pasa de 7 a 4 links -- el flujo real es login +
+// cuenta + pool + Simulador de Draft. `/live-draft`, `/team-groups` y `/heroes` salen del array
+// pero sus rutas, componentes y tests quedan intactos: siguen alcanzables por URL directa.
+// Reversible -- volver a agregarlos es editar este array.
+export function buildNavLinks(): NavLinkDef[] {
   return [
     { href: "/simulator", label: "Simulador de Draft" },
-    { href: "/live-draft", label: draftLabel },
     { href: "/hero-pool", label: "Mi pool" },
-    { href: "/team-groups", label: "Equipos" },
-    { href: "/heroes", label: "Héroes" },
     { href: "/meta", label: "Meta" },
     { href: "/settings", label: "Configuración" },
   ];
@@ -46,17 +46,13 @@ function navLinkClassName(isActive: boolean): string {
   return `${NAV_LINK_BASE} border-transparent text-content-secondary hover:text-content-primary`;
 }
 
-interface NavBarProps {
-  draftLiveEnabled: boolean;
-}
-
 // <Dominio><Cosa>: shell de navegación compartido (TSK-029) -- se renderiza una sola vez en
 // RootLayout, nunca duplicado por página. Resuelve el reporte de producto ("cada pantalla es una
 // isla, no sé qué sigue después de guardar el pool") dejando siempre visibles las rutas reales
 // del sitio, con la actual marcada.
-export function NavBar({ draftLiveEnabled }: NavBarProps) {
+export function NavBar() {
   const pathname = usePathname();
-  const navLinks = buildNavLinks(draftLiveEnabled);
+  const navLinks = buildNavLinks();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
 
   useEffect(() => {
