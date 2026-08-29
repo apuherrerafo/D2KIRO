@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T23:00:40.841Z</title>
+<title>HUB del ecosistema — 2026-08-29T23:06:24.387Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,19 +120,11 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">8</span></h2>
+        <h2>backlog <span class="count">7</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-212</div>
           <div class="card-title">Fase 9.1-F · gate.ts pasa a --enforce en el camino de commit + EvCov en el reporte + QA sobre el fold held-out</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-208</div>
-          <div class="card-title">Fase 9.1-B · build-percentiles.ts + data/generated/percentiles.json (congelado sobre folds de train)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -204,7 +196,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">202</span></h2>
+        <h2>done <span class="count">203</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -772,6 +764,14 @@
         <div class="card  ">
           <div class="card-id">TSK-189</div>
           <div class="card-title">Simulador — conectar rol + hero pool al Copilot (preview autenticado)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-208</div>
+          <div class="card-title">Fase 9.1-B · build-percentiles.ts + data/generated/percentiles.json (congelado sobre folds de train)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -1866,7 +1866,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">194× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">195× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1951,6 +1951,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-208</span> <span class="feed-ts">2026-08-30T02:40</span></div>
+            <div class="feed-note">Fase 9.1 bloque B. `scripts/stats/build-percentiles.ts` — `computePercentiles(rawsBySignal, meta): PercentilesFile` **pura** + `main()` que abre las SQLite `readonly`, reconstruye los `ReplayCase` de los **folds de train** del `split.json` (held-out = fold de mayor índice, reservado para el QA de F), con el `patchOverride` de TSK-207, corre los 6 scorers y junta los `raw` no nulos por señal. `p05`/`p95` por señal (`global`); `byBracket` omitido (un `DraftState` de replay no lleva bracket — sólo `global`, documentado). `hero_pool_fit`/`archetype_fit` **nunca se calibran** (`NON_CALIBRATED`, el motor usa su `RAW_RANGE [0,1]`). `p05 === p95` → `null` (evita división por cero en `calibratedNormalize`). `data/generated/percentiles.json` + `data/metadata/percentiles.json` (procedencia), congelados y versionados, deterministas (2 corridas byte-idénticas). Tests: `build-percentiles.test.ts`, 6 casos. `(cd scripts && bun test)` 174/174. NO toca apps/.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-207</span> <span class="feed-ts">2026-08-30T02:15</span></div>
             <div class="feed-note">Fase 9.1 bloque A. **Patch-fix del backtest, SÓLO `scripts/eval/` — cero cambio en `apps/engine`.** `ReplayMeta` gana `patchOverride?: string`; `replay.ts` usa `meta.patchOverride ?? meta.patch` en `state.patch`; `dominantPatch(patchStats)` (moda de los patches no vacíos → `"7.41e"`) exportado desde `replay.ts`. `run.ts` y `profile-signals.ts` calculan el override desde `meta.patchStats` y lo pasan a `buildReplayCases` / `loadReplayCasesFromDb` / `runEngineQuality` (`hydrateState(c, patchOverride)` — el Golden se congeló con `patch:"60"`, así que el override también aplica al Benchmark A, el juez de calidad). `report.ts` imprime la línea "Patch del backtest forzado a `<override>`"; `v6-measured.json` (frozen) lleva `patchOverride`. `ADR-002` gana un addendum. Tests: `replay.test.ts` +2 (`patchOverride` fija/no fija `state.patch`; `dominantPatch` moda + undefined). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 168/168. NO toca apps/.</div>
           </div>
@@ -2023,13 +2030,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-201</span> <span class="feed-ts">2026-08-29T22:05</span></div>
             <div class="feed-note">Fase 9.0 bloque C, ticket 2. `scripts/eval/benchmark-engine-quality.ts` — `runEngineQuality(cases: GoldenCase[], meta, opts): EngineQualityResult`. Por caso: `hydrateState` rehidrata el `DraftState` completo desde el subconjunto serializado del Golden (`createIdleDraftState` + merge), corre `buildSuggestions(state, meta, {})` → ranking, calcula **NDCG@5** (titular, `toGradedMap`), **Bad Pick Rate@5** (`toMetricLabels`; héroe no etiquetado = desconocido, fuera del denominador), **Pairwise Accuracy**. Agrega media + IC bootstrap sobre casos (resample con reemplazo, sólo NDCG@5 de v6Full). Corre los 4 baselines de `baselines.ts` (`positionFitOnly` omitido, documentado). **Segmentación `decisionContext × strata`** — un caso multi-estrato cuenta en cada estrato suyo. Gate `ConstraintViolationRate=0`: héroe baneado/pickeado/inexistente → `valid:false`, `perRanker:{}`. `opts.rankers` override sólo para tests. Tests: `benchmark-engine-quality.test.ts`, 6 casos — estructura+segmentación, 3 excellent puestos 1-2-3 → NDCG@5==1, un bad en top-1 → BadPickRate@5≥0.2 visible en el segmento `punishability`, gate duro con ranker roto, `hydrateState` completo, determinismo (`JSON.stringify` idéntico entre corridas). `bunx tsc -p scripts/eval/tsconfig.json` limpio. `(cd scripts && bun test)` 141/141 (+6). NO toca apps/. state: doing → done.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-200</span> <span class="feed-ts">2026-08-29T21:47</span></div>
-            <div class="feed-note">Fase 9.0 bloque C, ticket 1. `scripts/eval/split.ts` — GroupKFold por `league_id` (xorshift determinista), `loadOrCreateSplit` escribe `eval/baselines/split.json` UNA vez y luego sólo lee (torneos nuevos → fuera con aviso a stderr, nunca regenera). `scripts/eval/baselines.ts` — 4 rankers: `random` (mulberry32 sembrado por `sessionId:lastSeq`), `patchMetaOnly` (picks del parche desc), `v6Full` = `buildSuggestions(state,meta,{}).suggestions`, `v6NoCuratedCounters` = idem con `heroCounters:new Map()`; `positionFitOnly` OMITIDO con motivo en `OMITTED_BASELINES` (aislar 1 señal exige flag nuevo en el motor). `scripts/eval/benchmark-pro-agreement.ts` — `runProAgreement(cases, meta, split, opts)` puro → objeto estructurado; `loadReplayCasesFromDb(path)` abre `pro-drafts.sqlite` `readonly:true` (db.close en finally, query parametrizada, `WHERE ingest_reason IS NULL OR <> 'invalid_draft_shape'`, los 826 `tier_not_accepted` entran como `tier:"unknown"` — §15.1 C1); Recall@{1,3,5,6} + MRR; bootstrap por torneo + por draft (draft marcado OPTIMISTA); segmentación `decisionContext × tier`; **`ConstraintViolationRate` gate duro**: héroe baneado/pickeado/inexistente en cualquier ranking → `valid:false`, `perBaseline:{}`, no reporta nada más. `opts.rankers` override sólo para tests. Tests: 12 casos (`split.test.ts`/`baselines.test.ts`/`benchmark-pro-agreement.test.ts`) — split determinista+congelado, baselines sin violar, gate duro con ranker roto inyectado, `loadReplayCasesFromDb` con SQLite en memoria (BAD1 filtrado por SQL, BAD2 shape inválido → skipped). `tsconfig.json` acotado a módulos puros S15/S16/S17 (runners siguen convención scripts/pro). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 135/135 (+12). NO toca apps/. `@redteam` APPROVED (evt-220). state: doing → done.</div>
           </div>
         </div></div>
     </div>

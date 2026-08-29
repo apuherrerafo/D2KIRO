@@ -1,0 +1,10 @@
+{
+  "source": "apps/engine/data/dota2coach.sqlite + apps/engine/data/pro-drafts.sqlite (folds de train de eval/baselines/split.json, held-out fold 4)",
+  "generatedAt": "2026-08-29T23:05:58.798Z",
+  "generatorVersion": "build-percentiles@1",
+  "sampleWindow": null,
+  "patch": "7.41e",
+  "rowCount": 4,
+  "schemaVersion": 1,
+  "note": "SPEC §16.5. Reemplaza la normalización lineal de RAW_RANGE (ADR-004). byBracket omitido: un DraftState de replay no lleva bracket; sólo `global`. hero_pool_fit/archetype_fit no se calibran."
+}

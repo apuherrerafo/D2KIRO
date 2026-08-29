@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "trainSplitHash": "69955459",
+  "corpusPatchOverride": "7.41e",
+  "signals": {
+    "position_fit": {
+      "global": {
+        "p05": 0,
+        "p95": 1,
+        "n": 66615
+      }
+    },
+    "counter": {
+      "global": {
+        "p05": -0.040857100415923976,
+        "p95": 0.05747307651540125,
+        "n": 47466
+      }
+    },
+    "patch_meta": {
+      "global": {
+        "p05": 0.44611336245460764,
+        "p95": 0.5278212200604449,
+        "n": 67200
+      }
+    },
+    "team_synergy": {
+      "global": {
+        "p05": 0,
+        "p95": 0.42857142857142855,
+        "n": 43200
+      }
+    },
+    "hero_pool_fit": null,
+    "archetype_fit": null
+  }
+}
