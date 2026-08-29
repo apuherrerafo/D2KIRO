@@ -1,0 +1,2642 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "m1-caso-01",
+      "source": {
+        "kind": "synthetic",
+        "note": "escenario sintético (worklist idx 1)"
+      },
+      "state": {
+        "sessionId": "synthetic-hc-Anti-Mage",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [],
+        "picks": {
+          "radiant": [
+            5,
+            129
+          ],
+          "dire": [
+            2,
+            26
+          ]
+        },
+        "lastSeq": 4,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 76,
+            "why": "Astral Imprisonment puede negar el focus posterior a Berserker's Call y salvar un aliado antes de Culling Blade; Arcane Orb además castiga a Axe con daño puro que ignora su armadura."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 72,
+            "why": "Juega a rango de Axe, aporta daño durante Arena of Blood y Flak Cannon alcanza a Lion sin tener que exponerse directamente al Blink Hex."
+          },
+          {
+            "hero": 34,
+            "why": "Puede kitear a Axe con su movilidad y castigar a Lion desde fuera de rango, aunque un Blink Call o Hex limpio sigue siendo muy peligroso."
+          },
+          {
+            "hero": 19,
+            "why": "Avalanche + Toss permite borrar a Lion y aporta otro inicio explosivo, pero ser melee facilita que Axe lo convierta en objetivo de Call."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 82,
+            "why": "Berserker's Call puede capturar varios Meepos y cada ataque de los clones acelera Counter Helix; Lion anade Earth Spike para controlar multiples unidades."
+          },
+          {
+            "hero": 114,
+            "why": "Necesita mantenerse cerca para Jingu Mastery/Wukong's Command y queda demasiado expuesto a Berserker's Call mas la cadena de disables de Lion."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "teamfight",
+        "punishability"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.652Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-02",
+      "source": {
+        "kind": "synthetic",
+        "note": "escenario sintético (worklist idx 2)"
+      },
+      "state": {
+        "sessionId": "synthetic-hc-Medusa",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [],
+        "picks": {
+          "radiant": [
+            86,
+            29
+          ],
+          "dire": [
+            44,
+            121
+          ]
+        },
+        "lastSeq": 4,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "team_needs"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 54,
+            "why": "Rage neutraliza gran parte de Grimstroke y le permite pegarle a Phantom Assassin sin quedar inmediatamente controlado; Infest tambien combina muy bien con la iniciacion de Tidehunter."
+          },
+          {
+            "hero": 93,
+            "why": "Dark Pact permite limpiar Silence/Ink Swell con buen timing y Pounce limita el Blink Strike de Phantom Assassin, dandole ademas un matchup prolongado favorable."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 70,
+            "why": "Puede acelerar Roshan y presionar antes del pico de BKB/MKB de Phantom Assassin, aunque posteriormente necesita resolver Blur/evasion."
+          },
+          {
+            "hero": 95,
+            "why": "Whirling Axes y la raiz ayudan a mantener a Phantom Assassin delante suyo, pero normalmente termina necesitando MKB para cerrar el matchup."
+          },
+          {
+            "hero": 37,
+            "why": "Es un 5 perfectamente valido junto a Rubick 4 y Tidehunter 3 y agrega Fatal Bonds + Chaotic Offering, aunque no responde directamente a PA."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 56,
+            "why": "Phantom Assassin puede cerrar instantaneamente la distancia con Phantom Strike y Clinkz no tiene una herramienta fiable para sobrevivir al salto mas Grimstroke."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "role-need",
+        "scaling"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-03",
+      "source": {
+        "kind": "synthetic",
+        "note": "escenario sintético (worklist idx 3)"
+      },
+      "state": {
+        "sessionId": "synthetic-hc-Sniper",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [],
+        "picks": {
+          "radiant": [
+            50,
+            108
+          ],
+          "dire": [
+            88,
+            71
+          ]
+        },
+        "lastSeq": 4,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "punishability"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 8,
+            "why": "Blade Fury reduce muchisimo el valor del burst magico de Nyx Assassin y Spirit Breaker y permite jugar agresivamente alrededor de Pit of Malice."
+          },
+          {
+            "hero": 59,
+            "why": "Dazzle habilita el clasico limite de HP con Shallow Grave mientras Nyx y Spirit Breaker carecen de un mecanismo innato de heal-block; Underlord aporta la zona que Huskar necesita para pegar."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 82,
+            "why": "Dazzle puede proteger al clon enfocado y Pit of Malice dificulta que Spirit Breaker continue la persecucion, aunque exponer un Meepo aislado sigue siendo peligroso."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 63,
+            "why": "Charge of Darkness conserva la persecucion sobre Weaver y Spiked Carapace puede convertir Shukuchi ofensivo en un stun sobre el."
+          },
+          {
+            "hero": 6,
+            "why": "Spirit Breaker y Nyx tienen exactamente el tipo de acceso trasero que desactiva Marksmanship y fuerza a Drow a jugar permanentemente defensiva."
+          },
+          {
+            "hero": 113,
+            "why": "El split-push queda muy expuesto a Charge of Darkness y Nyx puede explotar a un core de INT con Vendetta mas su cadena de control."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "punishable",
+        "role-need"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-04",
+      "source": {
+        "kind": "synthetic",
+        "note": "escenario sintético (worklist idx 4)"
+      },
+      "state": {
+        "sessionId": "synthetic-hc-Storm Spirit",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [],
+        "picks": {
+          "radiant": [
+            37,
+            98
+          ],
+          "dire": [
+            88,
+            68
+          ]
+        },
+        "lastSeq": 4,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "composition"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 12,
+            "why": "Nyx Assassin y Ancient Apparition no poseen suficiente limpieza sostenida de ilusiones; Doppelganger ademas rompe gran parte de su capacidad de seleccionar el objetivo correcto."
+          },
+          {
+            "hero": 62,
+            "why": "Encaja como posicion 4 con Warlock 5/Timbersaw 3 y Track permite perseguir a Nyx despues de Vendetta mientras su movilidad amenaza constantemente a Ancient Apparition."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 67,
+            "why": "Shadow Step puede eliminar a Ancient Apparition de las peleas y fuerza a Nyx a jugar mucho mas cerca de su backline."
+          },
+          {
+            "hero": 109,
+            "why": "El rival muestra poco dano fisico sostenido y sus ilusiones obligan a Nyx/AA a gastar recursos que preferirian reservar para heroes."
+          },
+          {
+            "hero": 107,
+            "why": "Como mid ofrece acceso inmediato a Ancient Apparition y es extremadamente fuerte en 7.41e, aunque Nyx es una respuesta incomoda para cores de hechizos."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 63,
+            "why": "Nyx puede activar Spiked Carapace sobre Shukuchi y su combinacion con Ice Blast vuelve mucho mas arriesgado jugar al limite y usar Time Lapse."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "role-need",
+        "backline",
+        "scaling"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-05",
+      "source": {
+        "kind": "synthetic",
+        "note": "escenario sintético (worklist idx 5)"
+      },
+      "state": {
+        "sessionId": "synthetic-hc-Templar Assassin",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [],
+        "picks": {
+          "radiant": [
+            33,
+            112
+          ],
+          "dire": [
+            22,
+            7
+          ]
+        },
+        "lastSeq": 4,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "punishability"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 1,
+            "why": "Spell Counter y su enorme resistencia magica relativa convierten a Zeus en un objetivo natural, mientras Blink le permite llegar directamente al backline."
+          },
+          {
+            "hero": 8,
+            "why": "Blade Fury atraviesa el grueso del dano magico de Zeus/Earthshaker y le permite entrar a la pelea sin depender inmediatamente de BKB."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 48,
+            "why": "Aporta un timing de objetivos rapido que combina con Enigma y Winter Wyvern, aunque Echo Slam castiga formaciones demasiado compactas."
+          },
+          {
+            "hero": 126,
+            "why": "Puede saltar a Zeus y esquivar parte del control con Dissimilate/Astral Step, pero Earthshaker sigue siendo una amenaza seria si consigue Blink."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 35,
+            "why": "Earthshaker obtiene un objetivo extremadamente claro para Blink + stun y Zeus puede alcanzarlo aun cuando Sniper intenta jugar desde maxima distancia."
+          },
+          {
+            "hero": 59,
+            "why": "La cadena de stuns de Earthshaker impide aprovechar Berserker's Blood y Zeus puede seguir aportando burst sin entrar en el rango donde Huskar domina."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "backline",
+        "tempo"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-06",
+      "source": {
+        "kind": "synthetic",
+        "note": "escenario sintético (worklist idx 6)"
+      },
+      "state": {
+        "sessionId": "synthetic-hc-Phantom Lancer",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [],
+        "picks": {
+          "radiant": [
+            27,
+            38
+          ],
+          "dire": [
+            106,
+            104
+          ]
+        },
+        "lastSeq": 4,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 4,
+            "why": "Rupture castiga directamente la movilidad de Ember Spirit y Blood Rite anade una segunda zona de silencio detras de Shackles/Primal Roar."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 13,
+            "why": "Dream Coil obliga a Ember a respetar sus Remnants y Puck puede esquivar parte de la iniciacion con Phase Shift, aunque Legion Duel lo castiga severamente si lo encuentra."
+          },
+          {
+            "hero": 54,
+            "why": "Rage es muy valioso contra el dano y control de Ember y puede usar Beastmaster como vehiculo de Infest, aunque Duel continua siendo una amenaza."
+          },
+          {
+            "hero": 18,
+            "why": "Primal Roar y Shackles compensan su problema para alcanzar a Ember y permiten descargar God's Strength sobre un objetivo ya fijado."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 8,
+            "why": "Legion Commander puede convertir Duel en un lockdown prolongado y Ember dispone de ventanas de invulnerabilidad con Sleight of Fist para arruinar Omnislash."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "hard-counter",
+        "mobility",
+        "lockdown"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-07",
+      "source": {
+        "kind": "replay",
+        "matchId": "8828883609",
+        "turnIndex": 7
+      },
+      "state": {
+        "sessionId": "8828883609",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          102,
+          38,
+          97,
+          120,
+          126,
+          16,
+          92
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": []
+        },
+        "lastSeq": 7,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "team_opening",
+      "strata": [
+        "flexibility"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 9,
+            "why": "Fue el heroe mas pickeado de TI 2026 y sigue siendo una apertura segura: ofrece rango, movilidad, setup con Sacred Arrow y no revela demasiado pronto la estructura completa del draft."
+          },
+          {
+            "hero": 51,
+            "why": "Primera fase razonable por su capacidad de iniciar, dar vision con Rocket Flare y castigar backlines sin comprometer un core."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 50,
+            "why": "Tiene buen valor actual y permite mantener abiertas varias configuraciones de lane, pero revela un support defensivo bastante temprano."
+          },
+          {
+            "hero": 5,
+            "why": "Brinda control y mana globalmente util, aunque como opener es mucho mas facil de explotar que Mirana/Clockwerk."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 27,
+            "why": "Bloquea pronto un support de baja movilidad y entrega al rival un objetivo sencillo para construir lanes agresivas."
+          },
+          {
+            "hero": 45,
+            "why": "Su flex potencial no compensa que en esta fase no exista todavia ningun objetivo concreto para Nether Ward o Decrepify."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "flexibility",
+        "opener",
+        "draft-value"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-08",
+      "source": {
+        "kind": "replay",
+        "matchId": "8875557483",
+        "turnIndex": 7
+      },
+      "state": {
+        "sessionId": "8875557483",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          128,
+          3,
+          80,
+          51,
+          2,
+          90,
+          11
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": []
+        },
+        "lastSeq": 7,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "team_opening",
+      "strata": [
+        "flexibility"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 9,
+            "why": "Con Bane, Clockwerk y Snapfire fuera, Mirana gana todavia mas valor como support movil de primera fase sin revelar el plan de cores."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 31,
+            "why": "Frost Shield asegura lane y mantiene utilidad contra carries fisicos futuros, pero es una eleccion mucho mas rigida que Mirana."
+          },
+          {
+            "hero": 5,
+            "why": "Frostbite y Arcane Aura aportan una base estable para el draft, aunque compromete el 5 muy temprano."
+          },
+          {
+            "hero": 30,
+            "why": "Tiene kill threat real con Maledict y Paralyzing Cask, pero necesita que las lanes futuras puedan habilitar esos rangos cortos."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 37,
+            "why": "Primera fase demasiado pasiva: ofrece teamfight posterior pero muy poca capacidad de rotacion o presion temprana."
+          },
+          {
+            "hero": 27,
+            "why": "El rival puede disenar inmediatamente lanes y cores que castiguen su movilidad limitada y su dependencia de estar cerca para Shackles."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "opener",
+        "flexibility",
+        "tempo"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-09",
+      "source": {
+        "kind": "replay",
+        "matchId": "8836793131",
+        "turnIndex": 7
+      },
+      "state": {
+        "sessionId": "8836793131",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          80,
+          28,
+          51,
+          128,
+          38,
+          120,
+          145
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": []
+        },
+        "lastSeq": 7,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "team_opening",
+      "strata": [
+        "flexibility"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 9,
+            "why": "Es el unico candidato que combina prioridad competitiva real, movilidad, posibilidad de rotar entre lanes y amenaza desde rango sin comprometer un core."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 5,
+            "why": "Base estable de control/mana, aunque expone tempranamente un 5 de baja movilidad."
+          },
+          {
+            "hero": 45,
+            "why": "Nether Ward puede convertirse posteriormente en una herramienta de draft y conserva algo de flex support/core, pero no justifica prioridad maxima."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 40,
+            "why": "Plague Wards y dano prolongado no compensan su baja movilidad ni el poco valor de revelar este tipo de support antes de conocer cores rivales."
+          },
+          {
+            "hero": 27,
+            "why": "Pick demasiado rigido y facilmente explotable en primera fase."
+          },
+          {
+            "hero": 37,
+            "why": "Carece de tempo y movilidad para justificar ser la pieza inicial cuando todavia no existe una composicion a la cual conectar Fatal Bonds/Golem."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "flexibility",
+        "opener",
+        "punishable"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-10",
+      "source": {
+        "kind": "replay",
+        "matchId": "8842559153",
+        "turnIndex": 7
+      },
+      "state": {
+        "sessionId": "8842559153",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          145,
+          83,
+          128,
+          80,
+          63,
+          2,
+          75
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": []
+        },
+        "lastSeq": 7,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "team_opening",
+      "strata": [
+        "flexibility"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 3,
+            "why": "A pesar de los nerfs de 7.41e siguio teniendo enorme respeto competitivo en TI; Nightmare y Fiend's Grip dan una primera pieza de control que funciona contra practicamente cualquier core."
+          },
+          {
+            "hero": 9,
+            "why": "Mantiene Sacred Arrow como follow-up universal, excelente movilidad y una de las mejores prioridades reales de support del parche."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 31,
+            "why": "Frost Shield es universalmente util y asegura lane, pero sacrifica flexibilidad."
+          },
+          {
+            "hero": 45,
+            "why": "Puede flexear y Nether Ward puede condicionar futuros cores enemigos, aunque es bastante mas dependiente del matchup."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 40,
+            "why": "Baja movilidad y necesidad de que la pelea ocurra dentro de su zona hacen que sea demasiado facil responderle desde el draft."
+          },
+          {
+            "hero": 27,
+            "why": "Muy castigable como first-phase support por su dependencia de posicionamiento y canalizacion de Shackles."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "opener",
+        "flexibility",
+        "lockdown"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-11",
+      "source": {
+        "kind": "replay",
+        "matchId": "8830078423",
+        "turnIndex": 7
+      },
+      "state": {
+        "sessionId": "8830078423",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          51,
+          105,
+          88,
+          137,
+          71,
+          39,
+          106
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": []
+        },
+        "lastSeq": 7,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "team_opening",
+      "strata": [
+        "role_scarcity"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 3,
+            "why": "Con varios iniciadores moviles ya baneados, Fiend's Grip se vuelve una fuente todavia mas valiosa de lockdown directo sobre el futuro core rival."
+          },
+          {
+            "hero": 9,
+            "why": "Mantiene la capacidad de rotar y generar kills con Arrow sin definir ningun core, algo especialmente valioso despues de tantos bans de movilidad."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 31,
+            "why": "Buen 5 de lane y Frost Shield seguira teniendo objetivo casi independientemente de lo que revele Dire."
+          },
+          {
+            "hero": 5,
+            "why": "Frostbite ofrece control fiable, pero deja una backline lenta que el rival puede comenzar a explotar."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 30,
+            "why": "Necesita una lane especifica para maximizar Maledict y Death Ward es muy sensible a cualquier control que Dire todavia puede reservar."
+          },
+          {
+            "hero": 27,
+            "why": "Revela un support inmovil demasiado temprano y da al rival toda la fase restante para preparar su acceso sobre Shackles."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "role-scarcity",
+        "opener",
+        "lockdown"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-12",
+      "source": {
+        "kind": "replay",
+        "matchId": "8863048425",
+        "turnIndex": 7
+      },
+      "state": {
+        "sessionId": "8863048425",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          65,
+          53,
+          80,
+          83,
+          6,
+          90,
+          11
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": []
+        },
+        "lastSeq": 7,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "team_opening",
+      "strata": [
+        "flexibility"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 3,
+            "why": "Sigue siendo uno de los mejores supports para garantizar control sobre un core movil futuro y tuvo prioridad de ban muy alta durante TI 2026."
+          },
+          {
+            "hero": 9,
+            "why": "First-phase probado, movilidad alta y posibilidad de combinar Arrow con casi cualquier iniciacion que se seleccione despues."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 31,
+            "why": "Lane solida y buen seguro contra futuros cores de dano fisico."
+          },
+          {
+            "hero": 5,
+            "why": "Aporta control y recursos sin exigir una composicion especifica, aunque es explotable por dive."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 30,
+            "why": "Demasiado dependiente de posicion y de que el rival permita canalizar Death Ward."
+          },
+          {
+            "hero": 27,
+            "why": "Compromete un support de corto alcance antes de tener informacion suficiente sobre el draft enemigo."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "opener",
+        "flexibility",
+        "draft-value"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-13",
+      "source": {
+        "kind": "replay",
+        "matchId": "8885784652",
+        "turnIndex": 8
+      },
+      "state": {
+        "sessionId": "8885784652",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          128,
+          6,
+          80,
+          59,
+          11,
+          53,
+          51
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": [
+            83
+          ]
+        },
+        "lastSeq": 8,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "blind_second_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 111,
+            "why": "Fortune's End puede purgar Living Armor y False Promise convierte el burst posterior sobre un aliado en un compromiso mucho mas dificil para Treant."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 103,
+            "why": "Astral Spirit le permite competir en trades contra un support de alto dano base y Earth Splitter sigue escalando bien contra futuros cores de STR."
+          },
+          {
+            "hero": 110,
+            "why": "Fire Spirits reducen la capacidad de tradear de Treant y aporta teamfight sin depender de entrar en sus arboles."
+          },
+          {
+            "hero": 58,
+            "why": "Puede disputar fuertemente la lane mediante creeps y ataques a distancia, aunque compromete otra pieza muy orientada al early game."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 66,
+            "why": "La condicion natural de Chen es convertir ventaja de creeps en torres tempranas y Living Armor es precisamente una de las mejores herramientas para ralentizar ese plan."
+          },
+          {
+            "hero": 5,
+            "why": "Treant puede explotar su movimiento y HP bajos en una lane de trades prolongados y posicionarse desde los arboles alrededor de Frostbite."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "laning",
+        "sustain"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-14",
+      "source": {
+        "kind": "replay",
+        "matchId": "8860726856",
+        "turnIndex": 8
+      },
+      "state": {
+        "sessionId": "8860726856",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          83,
+          65,
+          80,
+          13,
+          69,
+          11,
+          90
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": [
+            110
+          ]
+        },
+        "lastSeq": 8,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "blind_second_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 111,
+            "why": "Fortune's End limpia Fire Spirits y Fate's Edict neutraliza gran parte del dano magico de Phoenix, dandole varias respuestas directas a su kit."
+          },
+          {
+            "hero": 102,
+            "why": "Aphotic Shield elimina Fire Spirits de un aliado, restaurando su attack speed justo cuando necesita golpear Supernova; ademas ofrece un dispel defensivo permanente."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 75,
+            "why": "Global Silence puede negar la ventana de Supernova si Phoenix llega bajo de vida sin BKB o dispel disponible."
+          },
+          {
+            "hero": 119,
+            "why": "Shadow Realm le permite atravesar parte del caos de la pelea y aporta control alrededor del Egg sin comprometerse cuerpo a cuerpo."
+          },
+          {
+            "hero": 3,
+            "why": "Nightmare puede proteger un objetivo durante una parte critica del dano de Phoenix y Fiend's Grip amenaza su posicionamiento previo al Egg."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 50,
+            "why": "Shallow Grave prolonga la supervivencia pero no resuelve Supernova ni el attack-speed reduction de Fire Spirits, dejando al equipo con pocas herramientas reales para matar el Egg."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "dispel",
+        "teamfight"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-15",
+      "source": {
+        "kind": "replay",
+        "matchId": "8827875225",
+        "turnIndex": 8
+      },
+      "state": {
+        "sessionId": "8827875225",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          59,
+          128,
+          51,
+          145,
+          38,
+          17,
+          13
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": [
+            11
+          ]
+        },
+        "lastSeq": 8,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "blind_second_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 79,
+            "why": "Disruption puede negar el comienzo de Requiem/focus fisico y Demonic Purge reduce drasticamente la capacidad de Shadow Fiend de mantener distancia."
+          },
+          {
+            "hero": 68,
+            "why": "Ice Blast deshabilita lifesteal y regeneracion, castigando directamente el clasico timing de Satanic de Shadow Fiend carry."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 119,
+            "why": "Shadow Realm evita que SF simplemente la derrita a right-clicks y su control puede forzarlo a usar BKB defensivamente."
+          },
+          {
+            "hero": 103,
+            "why": "Echo Stomp puede castigar el setup de Requiem y Natural Order aumenta la presion fisica sobre un core que depende mucho de posicionamiento."
+          },
+          {
+            "hero": 30,
+            "why": "Maledict genera kill threat real sobre un Shadow Fiend sin movilidad propia si otro heroe logra fijarlo."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 40,
+            "why": "SF puede farmear y jugar fuera del rango de su presion mientras Venomancer ofrece poca respuesta inmediata al pico de BKB/Satanic."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "item-timing",
+        "sustain"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-16",
+      "source": {
+        "kind": "replay",
+        "matchId": "8838767600",
+        "turnIndex": 8
+      },
+      "state": {
+        "sessionId": "8838767600",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          19,
+          83,
+          102,
+          78,
+          100,
+          47,
+          88
+        ],
+        "picks": {
+          "radiant": [
+            63
+          ],
+          "dire": []
+        },
+        "lastSeq": 8,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "blind_second_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 3,
+            "why": "Nightmare mas Fiend's Grip dan el lockdown largo que Weaver mas odia; una vez revelado con deteccion no puede Time Lapse mientras permanezca controlado."
+          },
+          {
+            "hero": 75,
+            "why": "Global Silence obliga a Weaver a gastar BKB/dispels para poder usar Shukuchi o Time Lapse y puede convertir una iniciacion aparentemente segura en muerte."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 79,
+            "why": "Disruption fija a Weaver durante suficiente tiempo para colocar deteccion/control adicional y Demonic Purge limita su escape."
+          },
+          {
+            "hero": 119,
+            "why": "Bramble Maze cubre rutas de Shukuchi y Terrorize puede sacarlo de una zona que normalmente atravesaria libremente."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 103,
+            "why": "Sus controles tienen demasiado delay para un Weaver que puede reposicionarse instantaneamente con Shukuchi."
+          },
+          {
+            "hero": 40,
+            "why": "Los slows pierden muchisimo valor contra la velocidad de Shukuchi y el heroe carece de lockdown real para impedir Time Lapse."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "lockdown",
+        "mobility"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-17",
+      "source": {
+        "kind": "replay",
+        "matchId": "8828457562",
+        "turnIndex": 8
+      },
+      "state": {
+        "sessionId": "8828457562",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          38,
+          120,
+          83,
+          51,
+          80,
+          13,
+          123
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": [
+            21
+          ]
+        },
+        "lastSeq": 8,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "blind_second_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 79,
+            "why": "Demonic Purge aplica dispels repetidos y elimina Windrun, quitandole a Windranger una de sus principales condiciones defensivas."
+          },
+          {
+            "hero": 31,
+            "why": "Frost Shield reduce directamente el dano fisico de Focus Fire y obliga a Windranger a invertir mucho mas tiempo en cada objetivo."
+          },
+          {
+            "hero": 3,
+            "why": "Fiend's Grip ignora por completo la evasion de Windrun y ofrece una respuesta clara cuando Windranger se compromete sobre un objetivo."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 102,
+            "why": "Aphotic Shield puede limpiar Shackleshot y protege al heroe que Windranger intenta aislar."
+          },
+          {
+            "hero": 50,
+            "why": "Shallow Grave fuerza a Windranger a desperdiciar parte importante de Focus Fire sobre un objetivo que no puede rematar."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 64,
+            "why": "Windrun facilita salir de Ice Path/Macropyre y Jakiro carece de un mecanismo fiable para impedir que Windranger escoja y elimine su objetivo."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "dispel",
+        "physical-damage"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-18",
+      "source": {
+        "kind": "replay",
+        "matchId": "8846559515",
+        "turnIndex": 8
+      },
+      "state": {
+        "sessionId": "8846559515",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          40,
+          16,
+          34,
+          76,
+          91,
+          94,
+          80
+        ],
+        "picks": {
+          "radiant": [],
+          "dire": [
+            86
+          ]
+        },
+        "lastSeq": 8,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "blind_second_pick",
+      "strata": [
+        "punishability"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 100,
+            "why": "Puede entrar inmediatamente sobre Rubick con Snowball y mantenerlo ocupado a corta distancia; ademas el matchup actual favorece a Tusk frente a un Rubick que necesita espacio para lanzar hechizos."
+          },
+          {
+            "hero": 51,
+            "why": "Hookshot + Power Cogs aisla a Rubick y Battery Assault puede impedirle encadenar Spell Steal y Telekinesis comodamente."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 102,
+            "why": "Entrega poco valor explosivo a Spell Steal y Aphotic Shield ayuda a remover Telekinesis/follow-up sobre aliados."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 121,
+            "why": "Soulbind, Ink Swell y Stroke of Fate son hechizos de altisimo impacto en manos de Rubick con su rango y amplificacion."
+          },
+          {
+            "hero": 50,
+            "why": "Shallow Grave robado puede invertir completamente una pelea y es exactamente el tipo de spell que no conviene regalarle a Rubick."
+          },
+          {
+            "hero": 30,
+            "why": "Death Ward es una recompensa enorme para Spell Steal y Rubick puede canalizarlo desde posiciones mucho mas seguras."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "punishable",
+        "spell-steal",
+        "initiation"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-19",
+      "source": {
+        "kind": "replay",
+        "matchId": "8925425359",
+        "turnIndex": 14
+      },
+      "state": {
+        "sessionId": "8925425359",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          85,
+          11,
+          80,
+          109,
+          106,
+          107,
+          25,
+          13,
+          69,
+          155
+        ],
+        "picks": {
+          "radiant": [
+            83,
+            74
+          ],
+          "dire": [
+            123,
+            96
+          ]
+        },
+        "lastSeq": 14,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "response_pick",
+      "strata": [
+        "team_needs"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 111,
+            "why": "Hoodwink ya cubre el 4 y Centaur el 3: Oracle llena naturalmente el 5, purga Cold Snap/Living Armor con Fortune's End y False Promise protege contra las cadenas de Invoker."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 32,
+            "why": "Smoke Screen es extremadamente molesto para Invoker y permite acceder a Treant sin depender de pelear frontalmente."
+          },
+          {
+            "hero": 10,
+            "why": "Puede sobrevivir al burst mediante Attribute Shift y aprovechar Stampede para reposicionarse, aunque Invoker conserva herramientas suficientes para castigarlo."
+          },
+          {
+            "hero": 103,
+            "why": "Completa el support duo y agrega setup de larga distancia detras de Centaur, aunque no responde especificamente a Invoker."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 35,
+            "why": "Overgrowth mas Tornado/Cold Snap convierten a un core inmovil en un objetivo muy facil de encadenar y ejecutar."
+          },
+          {
+            "hero": 59,
+            "why": "Ice Wall, Tornado y Deafening Blast permiten a Invoker kitear el rango corto donde Huskar necesita dominar, mientras Living Armor retrasa su presion sobre estructuras."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "role-need",
+        "dispel",
+        "counter"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-20",
+      "source": {
+        "kind": "replay",
+        "matchId": "8836750303",
+        "turnIndex": 14
+      },
+      "state": {
+        "sessionId": "8836750303",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          51,
+          155,
+          80,
+          86,
+          65,
+          123,
+          31,
+          83,
+          100,
+          13
+        ],
+        "picks": {
+          "radiant": [
+            2,
+            105
+          ],
+          "dire": [
+            6,
+            3
+          ]
+        },
+        "lastSeq": 14,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 4,
+            "why": "Rupture impide que Drow reposicione libremente y Blood Rite coloca una zona de silencio directamente encima del espacio que ella necesita para mantener Marksmanship."
+          },
+          {
+            "hero": 41,
+            "why": "Chronosphere elimina tanto la distancia defensiva de Drow como la posibilidad de Bane de salvarla si ambos quedan dentro del control."
+          },
+          {
+            "hero": 32,
+            "why": "Blink Strike entra al rango que desactiva Marksmanship y Smoke Screen obliga a Drow/Bane a pelear sin sus herramientas principales."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 39,
+            "why": "Blink permite saltar sobre Drow y Sonic Wave aporta burst sin depender de pegarle frontalmente, pero Fiend's Grip sigue siendo una respuesta peligrosa."
+          },
+          {
+            "hero": 114,
+            "why": "Puede entrar sobre Drow desde los arboles y Arena/Axe aportan setup, aunque Gust y Bane hacen dificil mantener Jingu/Wukong's."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 82,
+            "why": "Multishot castiga fuertemente a los clones agrupados y Bane solo necesita encadenar control sobre un Meepo vulnerable para habilitar el focus."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "gap-close",
+        "backline"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-21",
+      "source": {
+        "kind": "replay",
+        "matchId": "8839542119",
+        "turnIndex": 14
+      },
+      "state": {
+        "sessionId": "8839542119",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          131,
+          88,
+          40,
+          16,
+          113,
+          136,
+          38,
+          111,
+          33,
+          92
+        ],
+        "picks": {
+          "radiant": [
+            25,
+            84
+          ],
+          "dire": [
+            31,
+            123
+          ]
+        },
+        "lastSeq": 14,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "team_needs"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 71,
+            "why": "Lina/Ogre ya ofrecen dano y soporte basico; Charge of Darkness anade la iniciacion global que falta y permite llegar a Lich/Hoodwink antes de que jueguen desde rango."
+          },
+          {
+            "hero": 67,
+            "why": "Shadow Step amenaza directamente a los dos supports enemigos y evita que Lich/Hoodwink puedan jugar las peleas comodamente desde segunda linea."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 65,
+            "why": "Flaming Lasso puede aislar a cualquiera de los dos supports y mantiene cierta flexibilidad de rol, aunque su lane depende bastante del matchup posterior."
+          },
+          {
+            "hero": 48,
+            "why": "Es una carry razonable si Lina queda mid y proporciona un timing de edificios mucho mas temprano."
+          },
+          {
+            "hero": 81,
+            "why": "Reality Rift llega facilmente a los dos supports, aunque Frost Shield y Chain Frost reducen el valor de comprometer Phantasm en espacios cerrados."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 89,
+            "why": "Chain Frost y Acorn Shot obtienen muchos objetivos de rebote sobre las ilusiones y el pick compromete otro core de farm antes de resolver iniciacion/roles restantes."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "team-needs",
+        "backline",
+        "flexibility"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-22",
+      "source": {
+        "kind": "replay",
+        "matchId": "8912045230",
+        "turnIndex": 14
+      },
+      "state": {
+        "sessionId": "8912045230",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          155,
+          123,
+          83,
+          80,
+          106,
+          11,
+          13,
+          90,
+          3,
+          74
+        ],
+        "picks": {
+          "radiant": [
+            85,
+            120
+          ],
+          "dire": [
+            17,
+            105
+          ]
+        },
+        "lastSeq": 14,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 1,
+            "why": "Es la respuesta estructural mas clara a Storm Spirit: Mana Break castiga su pool y Mana Void amenaza una ejecucion inmediata despues de una entrada larga; Blink ademas evita gran parte de las zonas de Techies."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 8,
+            "why": "Blade Fury permite atravesar el burst magico de Techies y obliga a Storm a esperar antes de comprometerse."
+          },
+          {
+            "hero": 67,
+            "why": "Shadow Step alcanza a Techies sin atravesar su zona frontal y obliga a Storm a gastar mana defendiendo su backline."
+          },
+          {
+            "hero": 10,
+            "why": "Puede sobrevivir al burst mediante Attribute Shift, pero una Orchid de Storm mas follow-up de Techies crea un timing peligroso antes de sus dispels."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 94,
+            "why": "Su movilidad practicamente nula permite a Techies preparar el terreno alrededor de ella mientras Storm ignora su frontline y escoge el resto de objetivos."
+          },
+          {
+            "hero": 138,
+            "why": "Tambien queda demasiado estatica frente a Ball Lightning y a la zona de control de Techies, sin disponer de una amenaza equivalente a Mana Void."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "mana",
+        "mobility"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-23",
+      "source": {
+        "kind": "replay",
+        "matchId": "8955197224",
+        "turnIndex": 14
+      },
+      "state": {
+        "sessionId": "8955197224",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          155,
+          25,
+          83,
+          3,
+          106,
+          107,
+          53,
+          112,
+          91,
+          28
+        ],
+        "picks": {
+          "radiant": [
+            85,
+            120
+          ],
+          "dire": [
+            74,
+            123
+          ]
+        },
+        "lastSeq": 14,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "response_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 88,
+            "why": "Vendetta permite buscar a Invoker y Spiked Carapace castiga hechizos de area previsibles; es una respuesta natural a un core que necesita lanzar constantemente desde segunda linea."
+          },
+          {
+            "hero": 62,
+            "why": "Track limita el juego de Scurry de Hoodwink y el roaming de Invoker, y Bounty viene de ser uno de los supports mas eficientes del parche 7.41e."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 48,
+            "why": "Aporta un carry de timing rapido detras de Undying/Pangolier y puede convertir una pelea ganada en torre inmediatamente."
+          },
+          {
+            "hero": 41,
+            "why": "Chronosphere fija a Invoker/Hoodwink y evita que utilicen movilidad o control reactivo durante la ventana de burst."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 89,
+            "why": "EMP/Tornado/Meteor mas el dano de area de Hoodwink ofrecen demasiadas formas de desgastar y localizar las ilusiones antes de que Naga controle el mapa."
+          },
+          {
+            "hero": 18,
+            "why": "Invoker dispone de Tornado, Ice Wall y Deafening Blast para kitear God's Strength y Hoodwink puede mantener distancia con Scurry."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "vision",
+        "backline"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-24",
+      "source": {
+        "kind": "replay",
+        "matchId": "8944742846",
+        "turnIndex": 14
+      },
+      "state": {
+        "sessionId": "8944742846",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          96,
+          3,
+          83,
+          85,
+          80,
+          11,
+          107,
+          13,
+          19,
+          54
+        ],
+        "picks": {
+          "radiant": [
+            9,
+            123
+          ],
+          "dire": [
+            25,
+            100
+          ]
+        },
+        "lastSeq": 14,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "response_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 77,
+            "why": "Shapeshift le permite ignorar gran parte del kite de dos supports a distancia y los wolves dan vision sobre arboles y rutas que Hoodwink/Mirana normalmente explotan."
+          },
+          {
+            "hero": 78,
+            "why": "Primal Split puede separar o ciclonar la backline y Brewmaster llega al draft como uno de los offlaners mas fuertes del meta 7.41e."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 65,
+            "why": "Lasso garantiza un objetivo pese a Leap/Scurry si logra la iniciacion, pero alcanzar a ambos supports requiere buena vision."
+          },
+          {
+            "hero": 129,
+            "why": "Arena of Blood reduce el espacio de los dos supports a distancia y permite que Lina conecte su dano sobre un objetivo inmovilizado."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 99,
+            "why": "Sharpshooter aplica Break y desactiva Bristleback, eliminando precisamente la pasiva que le permite exponerse en las peleas."
+          },
+          {
+            "hero": 98,
+            "why": "Sharpshooter tambien puede desactivar Reactive Armor, dejando a Timbersaw mucho mas vulnerable justo cuando entra sobre la backline."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "break",
+        "backline"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-25",
+      "source": {
+        "kind": "replay",
+        "matchId": "8913598312",
+        "turnIndex": 22
+      },
+      "state": {
+        "sessionId": "8913598312",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          96,
+          90,
+          83,
+          74,
+          13,
+          56,
+          21,
+          85,
+          123,
+          77,
+          135,
+          25,
+          38,
+          35
+        ],
+        "picks": {
+          "radiant": [
+            6,
+            119,
+            100,
+            47
+          ],
+          "dire": [
+            51,
+            128,
+            131,
+            53
+          ]
+        },
+        "lastSeq": 22,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "closing_pick",
+      "strata": [
+        "composition"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 129,
+            "why": "Arena of Blood reduce brutalmente el espacio efectivo de Drow Ranger y Spear puede fijarla para que Nature's Prophet/Snapfire descarguen dano sin permitirle mantener su distancia."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 33,
+            "why": "Black Hole amenaza a una formacion de Drow/Viper, pero necesita BKB antes de sentirse realmente seguro frente a Tusk y Dark Willow."
+          },
+          {
+            "hero": 78,
+            "why": "Primal Split ofrece multiples formas de sacar a Drow o Viper de la pelea y genera caos suficiente para que Clockwerk/NP entren a la backline."
+          },
+          {
+            "hero": 2,
+            "why": "Blink + Berserker's Call desactiva Marksmanship al ponerse encima de Drow y Blade Mail puede castigar su dano, aunque Viper puede romper Counter Helix."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 108,
+            "why": "Es demasiado inmovil contra Drow y Nethertoxin puede deshabilitar Atrophy Aura; no crea la amenaza directa de salto que la composicion necesita."
+          },
+          {
+            "hero": 43,
+            "why": "Si termina enfrentando a Viper en lane queda expuesta a Poison Attack y posteriormente carece de una forma fiable de llegar a Drow sin atravesar Tusk/Willow."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "positioning",
+        "teamfight"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-26",
+      "source": {
+        "kind": "replay",
+        "matchId": "8839180262",
+        "turnIndex": 22
+      },
+      "state": {
+        "sessionId": "8839180262",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "radiant",
+        "phase": "active",
+        "banned": [
+          108,
+          105,
+          83,
+          80,
+          120,
+          51,
+          13,
+          39,
+          2,
+          69,
+          59,
+          58,
+          19,
+          128
+        ],
+        "picks": {
+          "radiant": [
+            145,
+            79,
+            155,
+            17
+          ],
+          "dire": [
+            36,
+            112,
+            38,
+            123
+          ]
+        },
+        "lastSeq": 22,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "radiant",
+      "decisionContext": "closing_pick",
+      "strata": [
+        "team_needs"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 102,
+            "why": "Aphotic Shield ofrece el dispel defensivo que la composicion necesita contra Roar/Bushwhack y protege a Storm/Kez durante el primer control enemigo."
+          },
+          {
+            "hero": 100,
+            "why": "Snowball puede sacar a un aliado de una ejecucion de Reaper's Scythe o del follow-up posterior a Roar y permite acceder a Winter Wyvern/Hoodwink."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 45,
+            "why": "Nether Ward castiga el alto volumen de spells de Necrophos/Wyvern y Decrepify puede negar right-clicks de Beastmaster, aunque amplificar dano magico tambien genera riesgo."
+          },
+          {
+            "hero": 71,
+            "why": "Aporta acceso inmediato a Hoodwink/Wyvern, pero Primal Roar puede detenerlo si Beastmaster conserva el ultimate."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 129,
+            "why": "Largo ya ocupa naturalmente el espacio de frontline/offlane y un segundo core iniciador deja sin resolver el support final."
+          },
+          {
+            "hero": 66,
+            "why": "Duplica demasiado el juego de unidades de Beastmaster y su estrategia de sustain/creeps es incomoda contra Heartstopper Aura y Winter's Curse."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "role-need",
+        "save",
+        "dispel"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-27",
+      "source": {
+        "kind": "replay",
+        "matchId": "8917611319",
+        "turnIndex": 22
+      },
+      "state": {
+        "sessionId": "8917611319",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          13,
+          96,
+          83,
+          11,
+          85,
+          80,
+          74,
+          2,
+          135,
+          54,
+          58,
+          6,
+          131,
+          19
+        ],
+        "picks": {
+          "radiant": [
+            123,
+            17,
+            155,
+            21
+          ],
+          "dire": [
+            25,
+            3,
+            138,
+            38
+          ]
+        },
+        "lastSeq": 22,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "closing_pick",
+      "strata": [
+        "hard_counter"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 88,
+            "why": "Es la respuesta mas directa a Storm Spirit: Vendetta crea amenaza fuera de vision y la cadena de stun obliga a Storm a invertir muy temprano en dispel/BKB."
+          },
+          {
+            "hero": 9,
+            "why": "Nightmare y Primal Roar generan setups casi gratuitos para Sacred Arrow y Mirana mantiene suficiente movilidad para no convertirse inmediatamente en comida de Storm."
+          },
+          {
+            "hero": 71,
+            "why": "Charge of Darkness mantiene vision y presion global sobre Storm, Windranger y Hoodwink, obligandolos a respetar movimientos incluso fuera de vision."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 119,
+            "why": "Bramble Maze puede cerrar rutas de Ball Lightning y Shadow Realm le da una herramienta defensiva frente al dive."
+          },
+          {
+            "hero": 105,
+            "why": "Puede convertir las entradas de Storm en zonas peligrosas y aporta control adicional alrededor de objetivos."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 101,
+            "why": "Ancient Seal amenaza a Storm si inicia primero, pero su HP/movilidad bajos lo convierten en uno de los objetivos mas faciles para una entrada de Ball Lightning."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "counter",
+        "mobility",
+        "lockdown"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-28",
+      "source": {
+        "kind": "replay",
+        "matchId": "8846407327",
+        "turnIndex": 22
+      },
+      "state": {
+        "sessionId": "8846407327",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          26,
+          51,
+          135,
+          69,
+          110,
+          104,
+          128,
+          11,
+          2,
+          47,
+          120,
+          36,
+          59,
+          6
+        ],
+        "picks": {
+          "radiant": [
+            100,
+            99,
+            119,
+            46
+          ],
+          "dire": [
+            86,
+            31,
+            85,
+            28
+          ]
+        },
+        "lastSeq": 22,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "closing_pick",
+      "strata": [
+        "composition"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 95,
+            "why": "Su enorme attack speed rompe Refraction rapidamente y Battle Trance permite seguir pegando bajo el burst de Templar Assassin mientras Slardar fija el objetivo."
+          },
+          {
+            "hero": 8,
+            "why": "Blade Fury ignora gran parte del control magico de Dark Willow/Tusk y aplica multiples ticks para consumir Refraction antes de comprometer Omnislash."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 138,
+            "why": "Pierce the Veil ofrece un perfil de dano magico muy util contra cores con mucha armadura y The Calling dificulta que TA juegue estatica."
+          },
+          {
+            "hero": 10,
+            "why": "Puede kitear a Bristleback con Waveform y adaptar su HP al burst de TA, aunque Tusk/Willow tienen suficiente control para castigarlo."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 89,
+            "why": "Quill Spray escala extremadamente bien contra grupos de ilusiones y Bristleback puede acumular stacks sobre todo el ejercito de Naga."
+          },
+          {
+            "hero": 1,
+            "why": "El rival muestra principalmente presion fisica de TA/Bristle y no presenta todavia un core suficientemente dependiente de mana como para justificar Mana Void como condicion del pick."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "composition",
+        "damage-profile",
+        "scaling"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-29",
+      "source": {
+        "kind": "replay",
+        "matchId": "8852623851",
+        "turnIndex": 22
+      },
+      "state": {
+        "sessionId": "8852623851",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          88,
+          2,
+          80,
+          83,
+          82,
+          51,
+          90,
+          26,
+          101,
+          108,
+          11,
+          98,
+          6,
+          135
+        ],
+        "picks": {
+          "radiant": [
+            106,
+            123,
+            69,
+            31
+          ],
+          "dire": [
+            13,
+            155,
+            128,
+            145
+          ]
+        },
+        "lastSeq": 22,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "closing_pick",
+      "strata": [
+        "team_needs"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 79,
+            "why": "Disruption puede banishar al aliado que recibio Doom y consumir una parte importante de su duracion, mientras Demonic Purge ayuda a fijar a Ember despues de una entrada."
+          },
+          {
+            "hero": 71,
+            "why": "Charge mantiene presion sobre Ember/Hoodwink y agrega el lockdown movil que Puck/Kez necesitan para convertir sus saltos en kills."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 45,
+            "why": "Nether Ward castiga una composicion extremadamente dependiente de spells y obliga a Doom/Ember/Lich a pagar HP por cada secuencia."
+          },
+          {
+            "hero": 68,
+            "why": "Ice Blast corta la regeneracion de Scorched Earth y cualquier sustain posterior, aunque no resuelve directamente la movilidad de Ember."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 58,
+            "why": "Sharpshooter aplica Break sobre Untouchable y Hoodwink puede convertir a Enchantress en un objetivo mucho mas vulnerable de lo normal."
+          },
+          {
+            "hero": 64,
+            "why": "Ember puede evitar Ice Path/Macropyre con Sleight y Remnants y el support ofrece poca proteccion directa contra Doom."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "role-need",
+        "save",
+        "lockdown"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    },
+    {
+      "id": "m1-caso-30",
+      "source": {
+        "kind": "replay",
+        "matchId": "8943182700",
+        "turnIndex": 22
+      },
+      "state": {
+        "sessionId": "8943182700",
+        "schema": "draft-state/v1",
+        "format": "captains_mode",
+        "patch": "60",
+        "localSide": "dire",
+        "phase": "active",
+        "banned": [
+          33,
+          98,
+          13,
+          83,
+          80,
+          25,
+          106,
+          90,
+          53,
+          67,
+          28,
+          18,
+          49,
+          21
+        ],
+        "picks": {
+          "radiant": [
+            85,
+            11,
+            55,
+            62
+          ],
+          "dire": [
+            96,
+            51,
+            123,
+            74
+          ]
+        },
+        "lastSeq": 22,
+        "appliedEventIds": [],
+        "quality": {
+          "unconfirmed": [],
+          "captureStatus": "ok"
+        },
+        "updatedAt": "",
+        "firstPickSide": null,
+        "turnStartedAt": null,
+        "reserveRemainingMs": null
+      },
+      "side": "dire",
+      "decisionContext": "closing_pick",
+      "strata": [
+        "punishability"
+      ],
+      "labels": {
+        "excellent": [
+          {
+            "hero": 8,
+            "why": "Blade Fury reduce muchisimo el control magico de Dark Seer/Bounty Hunter y permite atravesar zonas de Vacuum/Wall sin necesitar inmediatamente BKB; Omnislash amenaza a SF si queda aislado."
+          },
+          {
+            "hero": 138,
+            "why": "Pierce the Veil proporciona un perfil de dano que no depende de ganar la guerra de armadura contra Dark Seer/Undying y puede castigar a Shadow Fiend desde rango."
+          }
+        ],
+        "acceptable": [
+          {
+            "hero": 95,
+            "why": "Puede manfight a Shadow Fiend y rootearlo, aunque Surge de Dark Seer hace mucho mas dificil mantener contacto durante Battle Trance."
+          },
+          {
+            "hero": 94,
+            "why": "Entrega una condicion solida de late game detras de Centaur/Clockwerk, pero Wall of Replica y el acceso de Bounty/Dark Seer hacen incomodo jugar una carry tan estatica."
+          }
+        ],
+        "bad": [
+          {
+            "hero": 6,
+            "why": "Surge y Bounty Hunter facilitan que el rival entre al rango que desactiva Marksmanship, exactamente el escenario que Drow intenta evitar."
+          },
+          {
+            "hero": 73,
+            "why": "Undying castiga su dependencia de STR durante las peleas y Bounty Hunter puede explotar su fase de acumulacion con Track mientras Dark Seer le dificulta convertir ventaja de net worth en peleas frontales."
+          }
+        ]
+      },
+      "reasoningTags": [
+        "composition",
+        "punishable",
+        "scaling"
+      ],
+      "labeledAt": "2026-08-29T22:15:18.653Z",
+      "labeledBy": "llm-panel-2026-08/model-1"
+    }
+  ]
+}

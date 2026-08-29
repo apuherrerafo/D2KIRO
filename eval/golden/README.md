@@ -1,33 +1,38 @@
 # `eval/golden/` — Golden Dataset (Benchmark A, Engine Quality)
 
-Casos de estado de draft **etiquetados a mano** por el experto de dominio. Es el benchmark
-**principal** de calidad del motor (SPEC.md §15.4.3). Esquema:
-[`data/schemas/golden.schema.json`](../../data/schemas/golden.schema.json). Loader validado:
-`scripts/eval/golden.ts` (`loadGoldenDataset`).
+Casos de estado de draft **etiquetados** con qué héroes serían `excellent` / `acceptable` / `bad`
+en ese momento exacto, y por qué. Es el benchmark **principal** de calidad del motor
+(SPEC.md §15.4.3). Esquema: [`data/schemas/golden.schema.json`](../../data/schemas/golden.schema.json).
+Loader validado: `scripts/eval/golden.ts` (`loadGoldenDataset`).
+
+## Procedencia — v1 (Fase 9.0, TSK-206)
+
+- `dataset.json`: **30 casos**, `labeledBy: "llm-panel-2026-08/model-1"`.
+- El desarrollador NO es jugador competitivo de Dota — las etiquetas vienen de un **panel de LLMs
+  frontier** razonando cada estado, no de un experto humano. Ver
+  [ADR-005](../../docs/adr/ADR-005-etiquetado-del-golden-dataset-por-panel-de-llms.md).
+- **v1 es de un solo modelo.** Prompt: `docs/research/tsk-206-golden-research-prompt.md`. Fuente
+  cruda: `docs/research/tsk-206-golden-model-1.txt`.
+- Cobertura: los 4 contextos de decisión + 6 de los 7 estratos (`hard_counter` 12, `flexibility` 5,
+  `team_needs` 5, `punishability` 4, `composition` 3, `role_scarcity` 1; `historical_failure` 0 —
+  toda la muestra de replay ya es un fallo histórico de V6, el estrato es redundante acá).
+- **Ampliación (9.1)**: escalar a 60–100 casos con 2+ modelos y reconciliación (coincidencia de
+  2+ → firme; conflicto → conservador o disputado). Al re-etiquetar, se re-congela
+  `eval/baselines/v6-measured.json` en el mismo cambio.
 
 ## Cómo se etiqueta un caso
 
-- **Multi-label, no "el pick correcto".** Para un estado dado, se marcan **varios** héroes como
-  `excellent`, `acceptable` y `bad`, cada uno con un `why` **obligatorio** que explica el criterio.
-- `excellent` nunca puede estar vacío. Un héroe no puede estar en dos listas a la vez.
+- **Multi-label**: varios héroes `excellent`/`acceptable`/`bad`, cada uno con un `why` obligatorio
+  (mecánica concreta). `excellent` nunca vacío. Un héroe no puede estar en dos listas.
 - Un héroe **no etiquetado** es *desconocido*, no `bad` — el Benchmark A lo excluye del
   denominador de Bad Pick Rate.
-- `strata` (≥1): a qué situación estratégica pertenece el caso — `hard_counter`, `flexibility`,
-  `role_scarcity`, `team_needs`, `composition`, `punishability`, `historical_failure`.
-- `reasoningTags`: etiquetas libres para agrupar casos por criterio de razonamiento.
-- `source`: `replay` (viene de un draft pro real, con `matchId`/`turnIndex`) o `synthetic`
-  (construido a mano para cubrir un estrato que el corpus no tiene).
-
-## Cómo se construye
-
-`scripts/eval/propose-golden-cases.ts` (TSK-204) **propone** los ~30 estados más informativos
-(cobertura de estratos, desacuerdo entre baselines, fallos históricos de V6, escenarios
-sintéticos). El humano **cura sobre esa propuesta** — no inventa estados de cero, y no acepta la
-propuesta sin revisar. La curación final ocurre en TSK-206.
+- `strata` (≥1): `hard_counter`, `flexibility`, `role_scarcity`, `team_needs`, `composition`,
+  `punishability`, `historical_failure`.
+- `source`: `replay` (draft pro real, `matchId`/`turnIndex`) o `synthetic` (construido a mano).
 
 ## Regla de test
 
-**Ninguna prueba lee estos archivos.** El Golden Dataset se cura y crece; un test atado a su
-contenido se rompería con cada ampliación. Los tests de `golden.ts` usan fixtures inline. La única
-excepción (TSK-206) valida la *forma* del archivo real (`rejected.length === 0`,
-`cases.length >= 30`, cobertura de estratos), nunca *qué* héroe está en *qué* lista.
+**Ninguna prueba lee el CONTENIDO de estos archivos.** Única excepción:
+`scripts/eval/golden-dataset.smoke.test.ts` valida la **forma** del `dataset.json` real
+(`rejected.length === 0`, `cases.length >= 30`, cobertura de contexto y estrato) — nunca *qué*
+héroe está en *qué* lista.

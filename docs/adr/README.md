@@ -30,3 +30,4 @@ contratos duros (L0: `verify-simplicity.sh`, hooks).
 | [002](ADR-002-el-pick-profesional-no-es-ground-truth.md) | El pick profesional no es ground truth; el backtest es comparativo | aceptado |
 | [003](ADR-003-frontera-curated-generated.md) | Frontera `data/curated/` vs `data/generated/` | aceptado |
 | [004](ADR-004-percentiles-empiricos-cutover-diferido.md) | Calibración por percentiles empíricos, cutover diferido al gate de 9.1 | aceptado |
+| [005](ADR-005-etiquetado-del-golden-dataset-por-panel-de-llms.md) | El Golden Dataset v1 se etiqueta con un panel de LLMs, no con un experto humano | aceptado |

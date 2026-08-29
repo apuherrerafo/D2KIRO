@@ -1,0 +1,298 @@
+CASO 1
+excellent: Outworld Destroyer | Astral Imprisonment puede negar el focus posterior a Berserker's Call y salvar un aliado antes de Culling Blade; Arcane Orb además castiga a Axe con daño puro que ignora su armadura.
+acceptable: Gyrocopter | Juega a rango de Axe, aporta daño durante Arena of Blood y Flak Cannon alcanza a Lion sin tener que exponerse directamente al Blink Hex.
+acceptable: Tinker | Puede kitear a Axe con su movilidad y castigar a Lion desde fuera de rango, aunque un Blink Call o Hex limpio sigue siendo muy peligroso.
+acceptable: Tiny | Avalanche + Toss permite borrar a Lion y aporta otro inicio explosivo, pero ser melee facilita que Axe lo convierta en objetivo de Call.
+bad: Meepo | Berserker's Call puede capturar varios Meepos y cada ataque de los clones acelera Counter Helix; Lion anade Earth Spike para controlar multiples unidades.
+bad: Monkey King | Necesita mantenerse cerca para Jingu Mastery/Wukong's Command y queda demasiado expuesto a Berserker's Call mas la cadena de disables de Lion.
+tags: counter, teamfight, punishability
+stratum: hard_counter
+
+CASO 2
+excellent: Lifestealer | Rage neutraliza gran parte de Grimstroke y le permite pegarle a Phantom Assassin sin quedar inmediatamente controlado; Infest tambien combina muy bien con la iniciacion de Tidehunter.
+excellent: Slark | Dark Pact permite limpiar Silence/Ink Swell con buen timing y Pounce limita el Blink Strike de Phantom Assassin, dandole ademas un matchup prolongado favorable.
+acceptable: Ursa | Puede acelerar Roshan y presionar antes del pico de BKB/MKB de Phantom Assassin, aunque posteriormente necesita resolver Blur/evasion.
+acceptable: Troll Warlord | Whirling Axes y la raiz ayudan a mantener a Phantom Assassin delante suyo, pero normalmente termina necesitando MKB para cerrar el matchup.
+acceptable: Warlock | Es un 5 perfectamente valido junto a Rubick 4 y Tidehunter 3 y agrega Fatal Bonds + Chaotic Offering, aunque no responde directamente a PA.
+bad: Clinkz | Phantom Assassin puede cerrar instantaneamente la distancia con Phantom Strike y Clinkz no tiene una herramienta fiable para sobrevivir al salto mas Grimstroke.
+tags: counter, role-need, scaling
+stratum: team_needs
+
+CASO 3
+excellent: Juggernaut | Blade Fury reduce muchisimo el valor del burst magico de Nyx Assassin y Spirit Breaker y permite jugar agresivamente alrededor de Pit of Malice.
+excellent: Huskar | Dazzle habilita el clasico limite de HP con Shallow Grave mientras Nyx y Spirit Breaker carecen de un mecanismo innato de heal-block; Underlord aporta la zona que Huskar necesita para pegar.
+acceptable: Meepo | Dazzle puede proteger al clon enfocado y Pit of Malice dificulta que Spirit Breaker continue la persecucion, aunque exponer un Meepo aislado sigue siendo peligroso.
+bad: Weaver | Charge of Darkness conserva la persecucion sobre Weaver y Spiked Carapace puede convertir Shukuchi ofensivo en un stun sobre el.
+bad: Drow Ranger | Spirit Breaker y Nyx tienen exactamente el tipo de acceso trasero que desactiva Marksmanship y fuerza a Drow a jugar permanentemente defensiva.
+bad: Arc Warden | El split-push queda muy expuesto a Charge of Darkness y Nyx puede explotar a un core de INT con Vendetta mas su cadena de control.
+tags: counter, punishable, role-need
+stratum: punishability
+
+CASO 4
+excellent: Phantom Lancer | Nyx Assassin y Ancient Apparition no poseen suficiente limpieza sostenida de ilusiones; Doppelganger ademas rompe gran parte de su capacidad de seleccionar el objetivo correcto.
+excellent: Bounty Hunter | Encaja como posicion 4 con Warlock 5/Timbersaw 3 y Track permite perseguir a Nyx despues de Vendetta mientras su movilidad amenaza constantemente a Ancient Apparition.
+acceptable: Spectre | Shadow Step puede eliminar a Ancient Apparition de las peleas y fuerza a Nyx a jugar mucho mas cerca de su backline.
+acceptable: Terrorblade | El rival muestra poco dano fisico sostenido y sus ilusiones obligan a Nyx/AA a gastar recursos que preferirian reservar para heroes.
+acceptable: Earth Spirit | Como mid ofrece acceso inmediato a Ancient Apparition y es extremadamente fuerte en 7.41e, aunque Nyx es una respuesta incomoda para cores de hechizos.
+bad: Weaver | Nyx puede activar Spiked Carapace sobre Shukuchi y su combinacion con Ice Blast vuelve mucho mas arriesgado jugar al limite y usar Time Lapse.
+tags: counter, role-need, backline, scaling
+stratum: composition
+
+CASO 5
+excellent: Anti-Mage | Spell Counter y su enorme resistencia magica relativa convierten a Zeus en un objetivo natural, mientras Blink le permite llegar directamente al backline.
+excellent: Juggernaut | Blade Fury atraviesa el grueso del dano magico de Zeus/Earthshaker y le permite entrar a la pelea sin depender inmediatamente de BKB.
+acceptable: Luna | Aporta un timing de objetivos rapido que combina con Enigma y Winter Wyvern, aunque Echo Slam castiga formaciones demasiado compactas.
+acceptable: Void Spirit | Puede saltar a Zeus y esquivar parte del control con Dissimilate/Astral Step, pero Earthshaker sigue siendo una amenaza seria si consigue Blink.
+bad: Sniper | Earthshaker obtiene un objetivo extremadamente claro para Blink + stun y Zeus puede alcanzarlo aun cuando Sniper intenta jugar desde maxima distancia.
+bad: Huskar | La cadena de stuns de Earthshaker impide aprovechar Berserker's Blood y Zeus puede seguir aportando burst sin entrar en el rango donde Huskar domina.
+tags: counter, backline, tempo
+stratum: punishability
+
+CASO 6
+excellent: Bloodseeker | Rupture castiga directamente la movilidad de Ember Spirit y Blood Rite anade una segunda zona de silencio detras de Shackles/Primal Roar.
+acceptable: Puck | Dream Coil obliga a Ember a respetar sus Remnants y Puck puede esquivar parte de la iniciacion con Phase Shift, aunque Legion Duel lo castiga severamente si lo encuentra.
+acceptable: Lifestealer | Rage es muy valioso contra el dano y control de Ember y puede usar Beastmaster como vehiculo de Infest, aunque Duel continua siendo una amenaza.
+acceptable: Sven | Primal Roar y Shackles compensan su problema para alcanzar a Ember y permiten descargar God's Strength sobre un objetivo ya fijado.
+bad: Juggernaut | Legion Commander puede convertir Duel en un lockdown prolongado y Ember dispone de ventanas de invulnerabilidad con Sleight of Fist para arruinar Omnislash.
+tags: hard-counter, mobility, lockdown
+stratum: hard_counter
+
+CASO 7
+excellent: Mirana | Fue el heroe mas pickeado de TI 2026 y sigue siendo una apertura segura: ofrece rango, movilidad, setup con Sacred Arrow y no revela demasiado pronto la estructura completa del draft.
+excellent: Clockwerk | Primera fase razonable por su capacidad de iniciar, dar vision con Rocket Flare y castigar backlines sin comprometer un core.
+acceptable: Dazzle | Tiene buen valor actual y permite mantener abiertas varias configuraciones de lane, pero revela un support defensivo bastante temprano.
+acceptable: Crystal Maiden | Brinda control y mana globalmente util, aunque como opener es mucho mas facil de explotar que Mirana/Clockwerk.
+bad: Shadow Shaman | Bloquea pronto un support de baja movilidad y entrega al rival un objetivo sencillo para construir lanes agresivas.
+bad: Pugna | Su flex potencial no compensa que en esta fase no exista todavia ningun objetivo concreto para Nether Ward o Decrepify.
+tags: flexibility, opener, draft-value
+stratum: flexibility
+
+CASO 8
+excellent: Mirana | Con Bane, Clockwerk y Snapfire fuera, Mirana gana todavia mas valor como support movil de primera fase sin revelar el plan de cores.
+acceptable: Lich | Frost Shield asegura lane y mantiene utilidad contra carries fisicos futuros, pero es una eleccion mucho mas rigida que Mirana.
+acceptable: Crystal Maiden | Frostbite y Arcane Aura aportan una base estable para el draft, aunque compromete el 5 muy temprano.
+acceptable: Witch Doctor | Tiene kill threat real con Maledict y Paralyzing Cask, pero necesita que las lanes futuras puedan habilitar esos rangos cortos.
+bad: Warlock | Primera fase demasiado pasiva: ofrece teamfight posterior pero muy poca capacidad de rotacion o presion temprana.
+bad: Shadow Shaman | El rival puede disenar inmediatamente lanes y cores que castiguen su movilidad limitada y su dependencia de estar cerca para Shackles.
+tags: opener, flexibility, tempo
+stratum: flexibility
+
+CASO 9
+excellent: Mirana | Es el unico candidato que combina prioridad competitiva real, movilidad, posibilidad de rotar entre lanes y amenaza desde rango sin comprometer un core.
+acceptable: Crystal Maiden | Base estable de control/mana, aunque expone tempranamente un 5 de baja movilidad.
+acceptable: Pugna | Nether Ward puede convertirse posteriormente en una herramienta de draft y conserva algo de flex support/core, pero no justifica prioridad maxima.
+bad: Venomancer | Plague Wards y dano prolongado no compensan su baja movilidad ni el poco valor de revelar este tipo de support antes de conocer cores rivales.
+bad: Shadow Shaman | Pick demasiado rigido y facilmente explotable en primera fase.
+bad: Warlock | Carece de tempo y movilidad para justificar ser la pieza inicial cuando todavia no existe una composicion a la cual conectar Fatal Bonds/Golem.
+tags: flexibility, opener, punishable
+stratum: flexibility
+
+CASO 10
+excellent: Bane | A pesar de los nerfs de 7.41e siguio teniendo enorme respeto competitivo en TI; Nightmare y Fiend's Grip dan una primera pieza de control que funciona contra practicamente cualquier core.
+excellent: Mirana | Mantiene Sacred Arrow como follow-up universal, excelente movilidad y una de las mejores prioridades reales de support del parche.
+acceptable: Lich | Frost Shield es universalmente util y asegura lane, pero sacrifica flexibilidad.
+acceptable: Pugna | Puede flexear y Nether Ward puede condicionar futuros cores enemigos, aunque es bastante mas dependiente del matchup.
+bad: Venomancer | Baja movilidad y necesidad de que la pelea ocurra dentro de su zona hacen que sea demasiado facil responderle desde el draft.
+bad: Shadow Shaman | Muy castigable como first-phase support por su dependencia de posicionamiento y canalizacion de Shackles.
+tags: opener, flexibility, lockdown
+stratum: flexibility
+
+CASO 11
+excellent: Bane | Con varios iniciadores moviles ya baneados, Fiend's Grip se vuelve una fuente todavia mas valiosa de lockdown directo sobre el futuro core rival.
+excellent: Mirana | Mantiene la capacidad de rotar y generar kills con Arrow sin definir ningun core, algo especialmente valioso despues de tantos bans de movilidad.
+acceptable: Lich | Buen 5 de lane y Frost Shield seguira teniendo objetivo casi independientemente de lo que revele Dire.
+acceptable: Crystal Maiden | Frostbite ofrece control fiable, pero deja una backline lenta que el rival puede comenzar a explotar.
+bad: Witch Doctor | Necesita una lane especifica para maximizar Maledict y Death Ward es muy sensible a cualquier control que Dire todavia puede reservar.
+bad: Shadow Shaman | Revela un support inmovil demasiado temprano y da al rival toda la fase restante para preparar su acceso sobre Shackles.
+tags: role-scarcity, opener, lockdown
+stratum: role_scarcity
+
+CASO 12
+excellent: Bane | Sigue siendo uno de los mejores supports para garantizar control sobre un core movil futuro y tuvo prioridad de ban muy alta durante TI 2026.
+excellent: Mirana | First-phase probado, movilidad alta y posibilidad de combinar Arrow con casi cualquier iniciacion que se seleccione despues.
+acceptable: Lich | Lane solida y buen seguro contra futuros cores de dano fisico.
+acceptable: Crystal Maiden | Aporta control y recursos sin exigir una composicion especifica, aunque es explotable por dive.
+bad: Witch Doctor | Demasiado dependiente de posicion y de que el rival permita canalizar Death Ward.
+bad: Shadow Shaman | Compromete un support de corto alcance antes de tener informacion suficiente sobre el draft enemigo.
+tags: opener, flexibility, draft-value
+stratum: flexibility
+
+CASO 13
+excellent: Oracle | Fortune's End puede purgar Living Armor y False Promise convierte el burst posterior sobre un aliado en un compromiso mucho mas dificil para Treant.
+acceptable: Elder Titan | Astral Spirit le permite competir en trades contra un support de alto dano base y Earth Splitter sigue escalando bien contra futuros cores de STR.
+acceptable: Phoenix | Fire Spirits reducen la capacidad de tradear de Treant y aporta teamfight sin depender de entrar en sus arboles.
+acceptable: Enchantress | Puede disputar fuertemente la lane mediante creeps y ataques a distancia, aunque compromete otra pieza muy orientada al early game.
+bad: Chen | La condicion natural de Chen es convertir ventaja de creeps en torres tempranas y Living Armor es precisamente una de las mejores herramientas para ralentizar ese plan.
+bad: Crystal Maiden | Treant puede explotar su movimiento y HP bajos en una lane de trades prolongados y posicionarse desde los arboles alrededor de Frostbite.
+tags: counter, laning, sustain
+stratum: hard_counter
+
+CASO 14
+excellent: Oracle | Fortune's End limpia Fire Spirits y Fate's Edict neutraliza gran parte del dano magico de Phoenix, dandole varias respuestas directas a su kit.
+excellent: Abaddon | Aphotic Shield elimina Fire Spirits de un aliado, restaurando su attack speed justo cuando necesita golpear Supernova; ademas ofrece un dispel defensivo permanente.
+acceptable: Silencer | Global Silence puede negar la ventana de Supernova si Phoenix llega bajo de vida sin BKB o dispel disponible.
+acceptable: Dark Willow | Shadow Realm le permite atravesar parte del caos de la pelea y aporta control alrededor del Egg sin comprometerse cuerpo a cuerpo.
+acceptable: Bane | Nightmare puede proteger un objetivo durante una parte critica del dano de Phoenix y Fiend's Grip amenaza su posicionamiento previo al Egg.
+bad: Dazzle | Shallow Grave prolonga la supervivencia pero no resuelve Supernova ni el attack-speed reduction de Fire Spirits, dejando al equipo con pocas herramientas reales para matar el Egg.
+tags: counter, dispel, teamfight
+stratum: hard_counter
+
+CASO 15
+excellent: Shadow Demon | Disruption puede negar el comienzo de Requiem/focus fisico y Demonic Purge reduce drasticamente la capacidad de Shadow Fiend de mantener distancia.
+excellent: Ancient Apparition | Ice Blast deshabilita lifesteal y regeneracion, castigando directamente el clasico timing de Satanic de Shadow Fiend carry.
+acceptable: Dark Willow | Shadow Realm evita que SF simplemente la derrita a right-clicks y su control puede forzarlo a usar BKB defensivamente.
+acceptable: Elder Titan | Echo Stomp puede castigar el setup de Requiem y Natural Order aumenta la presion fisica sobre un core que depende mucho de posicionamiento.
+acceptable: Witch Doctor | Maledict genera kill threat real sobre un Shadow Fiend sin movilidad propia si otro heroe logra fijarlo.
+bad: Venomancer | SF puede farmear y jugar fuera del rango de su presion mientras Venomancer ofrece poca respuesta inmediata al pico de BKB/Satanic.
+tags: counter, item-timing, sustain
+stratum: hard_counter
+
+CASO 16
+excellent: Bane | Nightmare mas Fiend's Grip dan el lockdown largo que Weaver mas odia; una vez revelado con deteccion no puede Time Lapse mientras permanezca controlado.
+excellent: Silencer | Global Silence obliga a Weaver a gastar BKB/dispels para poder usar Shukuchi o Time Lapse y puede convertir una iniciacion aparentemente segura en muerte.
+acceptable: Shadow Demon | Disruption fija a Weaver durante suficiente tiempo para colocar deteccion/control adicional y Demonic Purge limita su escape.
+acceptable: Dark Willow | Bramble Maze cubre rutas de Shukuchi y Terrorize puede sacarlo de una zona que normalmente atravesaria libremente.
+bad: Elder Titan | Sus controles tienen demasiado delay para un Weaver que puede reposicionarse instantaneamente con Shukuchi.
+bad: Venomancer | Los slows pierden muchisimo valor contra la velocidad de Shukuchi y el heroe carece de lockdown real para impedir Time Lapse.
+tags: counter, lockdown, mobility
+stratum: hard_counter
+
+CASO 17
+excellent: Shadow Demon | Demonic Purge aplica dispels repetidos y elimina Windrun, quitandole a Windranger una de sus principales condiciones defensivas.
+excellent: Lich | Frost Shield reduce directamente el dano fisico de Focus Fire y obliga a Windranger a invertir mucho mas tiempo en cada objetivo.
+excellent: Bane | Fiend's Grip ignora por completo la evasion de Windrun y ofrece una respuesta clara cuando Windranger se compromete sobre un objetivo.
+acceptable: Abaddon | Aphotic Shield puede limpiar Shackleshot y protege al heroe que Windranger intenta aislar.
+acceptable: Dazzle | Shallow Grave fuerza a Windranger a desperdiciar parte importante de Focus Fire sobre un objetivo que no puede rematar.
+bad: Jakiro | Windrun facilita salir de Ice Path/Macropyre y Jakiro carece de un mecanismo fiable para impedir que Windranger escoja y elimine su objetivo.
+tags: counter, dispel, physical-damage
+stratum: hard_counter
+
+CASO 18
+excellent: Tusk | Puede entrar inmediatamente sobre Rubick con Snowball y mantenerlo ocupado a corta distancia; ademas el matchup actual favorece a Tusk frente a un Rubick que necesita espacio para lanzar hechizos.
+excellent: Clockwerk | Hookshot + Power Cogs aisla a Rubick y Battery Assault puede impedirle encadenar Spell Steal y Telekinesis comodamente.
+acceptable: Abaddon | Entrega poco valor explosivo a Spell Steal y Aphotic Shield ayuda a remover Telekinesis/follow-up sobre aliados.
+bad: Grimstroke | Soulbind, Ink Swell y Stroke of Fate son hechizos de altisimo impacto en manos de Rubick con su rango y amplificacion.
+bad: Dazzle | Shallow Grave robado puede invertir completamente una pelea y es exactamente el tipo de spell que no conviene regalarle a Rubick.
+bad: Witch Doctor | Death Ward es una recompensa enorme para Spell Steal y Rubick puede canalizarlo desde posiciones mucho mas seguras.
+tags: punishable, spell-steal, initiation
+stratum: punishability
+
+CASO 19
+excellent: Oracle | Hoodwink ya cubre el 4 y Centaur el 3: Oracle llena naturalmente el 5, purga Cold Snap/Living Armor con Fortune's End y False Promise protege contra las cadenas de Invoker.
+acceptable: Riki | Smoke Screen es extremadamente molesto para Invoker y permite acceder a Treant sin depender de pelear frontalmente.
+acceptable: Morphling | Puede sobrevivir al burst mediante Attribute Shift y aprovechar Stampede para reposicionarse, aunque Invoker conserva herramientas suficientes para castigarlo.
+acceptable: Elder Titan | Completa el support duo y agrega setup de larga distancia detras de Centaur, aunque no responde especificamente a Invoker.
+bad: Sniper | Overgrowth mas Tornado/Cold Snap convierten a un core inmovil en un objetivo muy facil de encadenar y ejecutar.
+bad: Huskar | Ice Wall, Tornado y Deafening Blast permiten a Invoker kitear el rango corto donde Huskar necesita dominar, mientras Living Armor retrasa su presion sobre estructuras.
+tags: role-need, dispel, counter
+stratum: team_needs
+
+CASO 20
+excellent: Bloodseeker | Rupture impide que Drow reposicione libremente y Blood Rite coloca una zona de silencio directamente encima del espacio que ella necesita para mantener Marksmanship.
+excellent: Faceless Void | Chronosphere elimina tanto la distancia defensiva de Drow como la posibilidad de Bane de salvarla si ambos quedan dentro del control.
+excellent: Riki | Blink Strike entra al rango que desactiva Marksmanship y Smoke Screen obliga a Drow/Bane a pelear sin sus herramientas principales.
+acceptable: Queen of Pain | Blink permite saltar sobre Drow y Sonic Wave aporta burst sin depender de pegarle frontalmente, pero Fiend's Grip sigue siendo una respuesta peligrosa.
+acceptable: Monkey King | Puede entrar sobre Drow desde los arboles y Arena/Axe aportan setup, aunque Gust y Bane hacen dificil mantener Jingu/Wukong's.
+bad: Meepo | Multishot castiga fuertemente a los clones agrupados y Bane solo necesita encadenar control sobre un Meepo vulnerable para habilitar el focus.
+tags: counter, gap-close, backline
+stratum: hard_counter
+
+CASO 21
+excellent: Spirit Breaker | Lina/Ogre ya ofrecen dano y soporte basico; Charge of Darkness anade la iniciacion global que falta y permite llegar a Lich/Hoodwink antes de que jueguen desde rango.
+excellent: Spectre | Shadow Step amenaza directamente a los dos supports enemigos y evita que Lich/Hoodwink puedan jugar las peleas comodamente desde segunda linea.
+acceptable: Batrider | Flaming Lasso puede aislar a cualquiera de los dos supports y mantiene cierta flexibilidad de rol, aunque su lane depende bastante del matchup posterior.
+acceptable: Luna | Es una carry razonable si Lina queda mid y proporciona un timing de edificios mucho mas temprano.
+acceptable: Chaos Knight | Reality Rift llega facilmente a los dos supports, aunque Frost Shield y Chain Frost reducen el valor de comprometer Phantasm en espacios cerrados.
+bad: Naga Siren | Chain Frost y Acorn Shot obtienen muchos objetivos de rebote sobre las ilusiones y el pick compromete otro core de farm antes de resolver iniciacion/roles restantes.
+tags: team-needs, backline, flexibility
+stratum: team_needs
+
+CASO 22
+excellent: Anti-Mage | Es la respuesta estructural mas clara a Storm Spirit: Mana Break castiga su pool y Mana Void amenaza una ejecucion inmediata despues de una entrada larga; Blink ademas evita gran parte de las zonas de Techies.
+acceptable: Juggernaut | Blade Fury permite atravesar el burst magico de Techies y obliga a Storm a esperar antes de comprometerse.
+acceptable: Spectre | Shadow Step alcanza a Techies sin atravesar su zona frontal y obliga a Storm a gastar mana defendiendo su backline.
+acceptable: Morphling | Puede sobrevivir al burst mediante Attribute Shift, pero una Orchid de Storm mas follow-up de Techies crea un timing peligroso antes de sus dispels.
+bad: Medusa | Su movilidad practicamente nula permite a Techies preparar el terreno alrededor de ella mientras Storm ignora su frontline y escoge el resto de objetivos.
+bad: Muerta | Tambien queda demasiado estatica frente a Ball Lightning y a la zona de control de Techies, sin disponer de una amenaza equivalente a Mana Void.
+tags: counter, mana, mobility
+stratum: hard_counter
+
+CASO 23
+excellent: Nyx Assassin | Vendetta permite buscar a Invoker y Spiked Carapace castiga hechizos de area previsibles; es una respuesta natural a un core que necesita lanzar constantemente desde segunda linea.
+excellent: Bounty Hunter | Track limita el juego de Scurry de Hoodwink y el roaming de Invoker, y Bounty viene de ser uno de los supports mas eficientes del parche 7.41e.
+acceptable: Luna | Aporta un carry de timing rapido detras de Undying/Pangolier y puede convertir una pelea ganada en torre inmediatamente.
+acceptable: Faceless Void | Chronosphere fija a Invoker/Hoodwink y evita que utilicen movilidad o control reactivo durante la ventana de burst.
+bad: Naga Siren | EMP/Tornado/Meteor mas el dano de area de Hoodwink ofrecen demasiadas formas de desgastar y localizar las ilusiones antes de que Naga controle el mapa.
+bad: Sven | Invoker dispone de Tornado, Ice Wall y Deafening Blast para kitear God's Strength y Hoodwink puede mantener distancia con Scurry.
+tags: counter, vision, backline
+stratum: hard_counter
+
+CASO 24
+excellent: Lycan | Shapeshift le permite ignorar gran parte del kite de dos supports a distancia y los wolves dan vision sobre arboles y rutas que Hoodwink/Mirana normalmente explotan.
+excellent: Brewmaster | Primal Split puede separar o ciclonar la backline y Brewmaster llega al draft como uno de los offlaners mas fuertes del meta 7.41e.
+acceptable: Batrider | Lasso garantiza un objetivo pese a Leap/Scurry si logra la iniciacion, pero alcanzar a ambos supports requiere buena vision.
+acceptable: Mars | Arena of Blood reduce el espacio de los dos supports a distancia y permite que Lina conecte su dano sobre un objetivo inmovilizado.
+bad: Bristleback | Sharpshooter aplica Break y desactiva Bristleback, eliminando precisamente la pasiva que le permite exponerse en las peleas.
+bad: Timbersaw | Sharpshooter tambien puede desactivar Reactive Armor, dejando a Timbersaw mucho mas vulnerable justo cuando entra sobre la backline.
+tags: counter, break, backline
+stratum: hard_counter
+
+CASO 25
+excellent: Mars | Arena of Blood reduce brutalmente el espacio efectivo de Drow Ranger y Spear puede fijarla para que Nature's Prophet/Snapfire descarguen dano sin permitirle mantener su distancia.
+acceptable: Enigma | Black Hole amenaza a una formacion de Drow/Viper, pero necesita BKB antes de sentirse realmente seguro frente a Tusk y Dark Willow.
+acceptable: Brewmaster | Primal Split ofrece multiples formas de sacar a Drow o Viper de la pelea y genera caos suficiente para que Clockwerk/NP entren a la backline.
+acceptable: Axe | Blink + Berserker's Call desactiva Marksmanship al ponerse encima de Drow y Blade Mail puede castigar su dano, aunque Viper puede romper Counter Helix.
+bad: Underlord | Es demasiado inmovil contra Drow y Nethertoxin puede deshabilitar Atrophy Aura; no crea la amenaza directa de salto que la composicion necesita.
+bad: Death Prophet | Si termina enfrentando a Viper en lane queda expuesta a Poison Attack y posteriormente carece de una forma fiable de llegar a Drow sin atravesar Tusk/Willow.
+tags: counter, positioning, teamfight
+stratum: composition
+
+CASO 26
+excellent: Abaddon | Aphotic Shield ofrece el dispel defensivo que la composicion necesita contra Roar/Bushwhack y protege a Storm/Kez durante el primer control enemigo.
+excellent: Tusk | Snowball puede sacar a un aliado de una ejecucion de Reaper's Scythe o del follow-up posterior a Roar y permite acceder a Winter Wyvern/Hoodwink.
+acceptable: Pugna | Nether Ward castiga el alto volumen de spells de Necrophos/Wyvern y Decrepify puede negar right-clicks de Beastmaster, aunque amplificar dano magico tambien genera riesgo.
+acceptable: Spirit Breaker | Aporta acceso inmediato a Hoodwink/Wyvern, pero Primal Roar puede detenerlo si Beastmaster conserva el ultimate.
+bad: Mars | Largo ya ocupa naturalmente el espacio de frontline/offlane y un segundo core iniciador deja sin resolver el support final.
+bad: Chen | Duplica demasiado el juego de unidades de Beastmaster y su estrategia de sustain/creeps es incomoda contra Heartstopper Aura y Winter's Curse.
+tags: role-need, save, dispel
+stratum: team_needs
+
+CASO 27
+excellent: Nyx Assassin | Es la respuesta mas directa a Storm Spirit: Vendetta crea amenaza fuera de vision y la cadena de stun obliga a Storm a invertir muy temprano en dispel/BKB.
+excellent: Mirana | Nightmare y Primal Roar generan setups casi gratuitos para Sacred Arrow y Mirana mantiene suficiente movilidad para no convertirse inmediatamente en comida de Storm.
+excellent: Spirit Breaker | Charge of Darkness mantiene vision y presion global sobre Storm, Windranger y Hoodwink, obligandolos a respetar movimientos incluso fuera de vision.
+acceptable: Dark Willow | Bramble Maze puede cerrar rutas de Ball Lightning y Shadow Realm le da una herramienta defensiva frente al dive.
+acceptable: Techies | Puede convertir las entradas de Storm en zonas peligrosas y aporta control adicional alrededor de objetivos.
+bad: Skywrath Mage | Ancient Seal amenaza a Storm si inicia primero, pero su HP/movilidad bajos lo convierten en uno de los objetivos mas faciles para una entrada de Ball Lightning.
+tags: counter, mobility, lockdown
+stratum: hard_counter
+
+CASO 28
+excellent: Troll Warlord | Su enorme attack speed rompe Refraction rapidamente y Battle Trance permite seguir pegando bajo el burst de Templar Assassin mientras Slardar fija el objetivo.
+excellent: Juggernaut | Blade Fury ignora gran parte del control magico de Dark Willow/Tusk y aplica multiples ticks para consumir Refraction antes de comprometer Omnislash.
+acceptable: Muerta | Pierce the Veil ofrece un perfil de dano magico muy util contra cores con mucha armadura y The Calling dificulta que TA juegue estatica.
+acceptable: Morphling | Puede kitear a Bristleback con Waveform y adaptar su HP al burst de TA, aunque Tusk/Willow tienen suficiente control para castigarlo.
+bad: Naga Siren | Quill Spray escala extremadamente bien contra grupos de ilusiones y Bristleback puede acumular stacks sobre todo el ejercito de Naga.
+bad: Anti-Mage | El rival muestra principalmente presion fisica de TA/Bristle y no presenta todavia un core suficientemente dependiente de mana como para justificar Mana Void como condicion del pick.
+tags: composition, damage-profile, scaling
+stratum: composition
+
+CASO 29
+excellent: Shadow Demon | Disruption puede banishar al aliado que recibio Doom y consumir una parte importante de su duracion, mientras Demonic Purge ayuda a fijar a Ember despues de una entrada.
+excellent: Spirit Breaker | Charge mantiene presion sobre Ember/Hoodwink y agrega el lockdown movil que Puck/Kez necesitan para convertir sus saltos en kills.
+acceptable: Pugna | Nether Ward castiga una composicion extremadamente dependiente de spells y obliga a Doom/Ember/Lich a pagar HP por cada secuencia.
+acceptable: Ancient Apparition | Ice Blast corta la regeneracion de Scorched Earth y cualquier sustain posterior, aunque no resuelve directamente la movilidad de Ember.
+bad: Enchantress | Sharpshooter aplica Break sobre Untouchable y Hoodwink puede convertir a Enchantress en un objetivo mucho mas vulnerable de lo normal.
+bad: Jakiro | Ember puede evitar Ice Path/Macropyre con Sleight y Remnants y el support ofrece poca proteccion directa contra Doom.
+tags: role-need, save, lockdown
+stratum: team_needs
+
+CASO 30
+excellent: Juggernaut | Blade Fury reduce muchisimo el control magico de Dark Seer/Bounty Hunter y permite atravesar zonas de Vacuum/Wall sin necesitar inmediatamente BKB; Omnislash amenaza a SF si queda aislado.
+excellent: Muerta | Pierce the Veil proporciona un perfil de dano que no depende de ganar la guerra de armadura contra Dark Seer/Undying y puede castigar a Shadow Fiend desde rango.
+acceptable: Troll Warlord | Puede manfight a Shadow Fiend y rootearlo, aunque Surge de Dark Seer hace mucho mas dificil mantener contacto durante Battle Trance.
+acceptable: Medusa | Entrega una condicion solida de late game detras de Centaur/Clockwerk, pero Wall of Replica y el acceso de Bounty/Dark Seer hacen incomodo jugar una carry tan estatica.
+bad: Drow Ranger | Surge y Bounty Hunter facilitan que el rival entre al rango que desactiva Marksmanship, exactamente el escenario que Drow intenta evitar.
+bad: Alchemist | Undying castiga su dependencia de STR durante las peleas y Bounty Hunter puede explotar su fase de acumulacion con Track mientras Dark Seer le dificulta convertir ventaja de net worth en peleas frontales.
+tags: composition, punishable, scaling
+stratum: punishability
