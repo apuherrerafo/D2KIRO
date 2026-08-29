@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T20:15:22.898Z</title>
+<title>HUB del ecosistema — 2026-08-29T20:16:19.008Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">190× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">191× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-204</span> <span class="feed-ts">2026-08-29T23:42</span></div>
+            <div class="feed-note">Fix del ticket anterior: `propose-golden-cases.ts` leía `hero-counters.json`/`hero-positions.json` con ruta relativa al **cwd** en un `const` de nivel de módulo → ENOENT cuando `(cd scripts && bun test)` corre desde `scripts/` (el commit anterior pasó por `--no-verify` y no lo detecté; los tests directos desde repo root sí pasaban). Cambiado a `join(import.meta.dir, "..","..","apps/engine/src/signals", ...)` — relativo al módulo. `(cd scripts && bun test)` 153/153, runner OK desde repo root y desde scripts/.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-204</span> <span class="feed-ts">2026-08-29T23:35</span></div>
             <div class="feed-note">Fase 9.0 bloque D, ticket 2. `scripts/eval/propose-golden-cases.ts` — **propone, no etiqueta**. `proposeFromCorpus(cases, meta, target=30)`: por estado calcula el desacuerdo entre baselines (1 − media de Jaccard@5 entre v6Full/patchMetaOnly/random) y si v6Full ubica el pick pro real fuera del Top-6 (fallo histórico); `score = desacuerdo·2 + (fallo?1:0)`; ordena por score y llena cuota por celda `(decisionContext × estrato)` con `guessStratum` (heurística orientativa, el curador decide). `syntheticHardCounters(meta, 5)`: estados donde el `vs` de un hard-counter curado de `hero-counters.json` ya está revelado en el rival y la víctima es candidato — cubre un estrato que el corpus rara vez presenta limpio. Salida: `eval/scenarios/proposal-<ts>.json` (`eval/scenarios/.gitignore` lo excluye — es efímero; el curador promueve casos concretos en TSK-206). Determinista. Tests: 3 (`propose-golden-cases.test.ts`) — determinismo + orden por score + v6Top6≤6, sintéticos con hard-counter revelado, los estados propuestos pasan el type-guard de `DraftState` del loader del Golden. Corrida real: 30 propuestas (5 sintéticas + 25 del corpus). **Limitación anotada**: `guessStratum` es débil — en la corrida real casi todo cae en `punishability`/`hard_counter` (la mayoría de los estados-medio del corpus tienen 3+ rivales y ≤2 picks propios). El valor real de la herramienta es el ranking por desacuerdo+fallo; la asignación de estrato la revisa el humano. `(cd scripts && bun test)` 153/153. NO toca apps/.</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-196</span> <span class="feed-ts">2026-08-29T20:10</span></div>
             <div class="feed-note">APPROVED, gate_seguridad PASS. Revisión del diff real: CLAUDE.md sólo pierde los 10 headers `## REGLAS DE FASE X` (líneas de contenido borradas: 325, **0 huérfanas** — todas presentes byte a byte en `.claude/rules/fase-*.md`), gana 1 header `## REGLAS POR FASE` + índice. `fase-9.md` verificado idéntico al bloque original. `scripts/verify-claude-md-split.sh`: `bash -n` OK, sin `eval`/`curl`/`rm`/`sudo`/redirects peligrosos; `grep -qxF -- "$line"` con `--` (no hay inyección de opción por líneas que empiezan con `-`); lee archivos locales, cero red, cero secreto, cero query. Standards: script simple, una responsabilidad, nombre de dominio, maneja fixture/archivos ausentes y cuenta problemas. Spec: hace exactamente lo de TSK-196, nada extra; `CLAUDE.md` 195 < 200. Sin observaciones de N+1 ni UI.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-195</span> <span class="feed-ts">2026-08-29T19:50</span></div>
-            <div class="feed-note">Fase 9.0 bloque A, ticket 3. Dos agentes nuevos, `model: claude-sonnet-5`, `tools: Read, Glob, Grep, Bash, Write, Edit`, **sin `mcp__context7` ni ningún MCP** (R3-14). `.claude/agents/data-stat-engineer.md` — percentiles empíricos, Empirical Bayes de matchups (method-of-moments/shrinkage en TS, nunca MCMC/Stan/Python), `profile-signals.ts`, procedencia; veto de escritura sobre `apps/engine/src/**`, `apps/web/**`, scoring y `data/curated/**`; salida en `data/generated/**`+`data/metadata/**`; SQLite `readonly`, determinismo obligatorio. `.claude/agents/evaluation-engineer.md` — replay, métricas, los 2 benchmarks, Golden Dataset, null-perturbation, `gate.ts`, `v6-measured.json`; mismo veto; el pick pro NO es ground truth (ADR-002), "Professional Pick Agreement" nunca "accuracy"; ninguna prueba abre las SQLite/Golden reales (S15-S19); `ConstraintViolationRate=0` gate; el veredicto lo decide `gate.ts`, no el juicio del agente (R3-11). `CLAUDE.md`: 2 filas nuevas en la tabla de agentes. `verify-simplicity.sh` verde. Los 5 agentes existentes sin tocar. state: doing → done.</div>
           </div>
         </div></div>
     </div>

@@ -11,6 +11,7 @@
 //      construidos desde hero-counters.json + hero-positions.json.
 
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { DraftDecisionContext } from "../../apps/engine/src/drafter/decision-context";
 import { createIdleDraftState, type DraftState, type HeroId } from "../../apps/engine/src/draft/reducer";
 import type { MetaSnapshot } from "../../apps/engine/src/signals/types";
@@ -30,11 +31,13 @@ export interface ProposedCase {
   score: number; // prioridad; mayor = más informativo
 }
 
+// Rutas relativas al MÓDULO, no al cwd — `(cd scripts && bun test)` corre desde scripts/.
+const SIGNALS_DIR = join(import.meta.dir, "..", "..", "apps", "engine", "src", "signals");
 const CURATED_COUNTERS: Record<string, { vs: number; level: "hard" | "medium" }[]> = JSON.parse(
-  readFileSync("apps/engine/src/signals/hero-counters.json", "utf-8"),
+  readFileSync(join(SIGNALS_DIR, "hero-counters.json"), "utf-8"),
 );
 const HERO_POSITIONS: { hero: number; positions: { position: number; matches: number }[] }[] = JSON.parse(
-  readFileSync("apps/engine/src/signals/hero-positions.json", "utf-8"),
+  readFileSync(join(SIGNALS_DIR, "hero-positions.json"), "utf-8"),
 );
 
 function heroesAtPosition(pos: number): number[] {
