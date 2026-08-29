@@ -493,6 +493,8 @@ Fuera de esta lista, la regla original se mantiene: si "hace falta" Opus y no ha
 | Chronicle | `claude-haiku-4-5-20251001` | Documenta: memoria, specs, ledger | Read, Write, Edit, Glob, Grep |
 | Tracer | `claude-sonnet-5` | Analiza: fallos repetidos, alternativas | Read, Grep, Bash |
 | Sentinel | `claude-sonnet-5` | Revisa: gate de seguridad obligatorio pre-deploy | Read, Grep, Bash |
+| data-stat-engineer | `claude-sonnet-5` | Fase 9: capa estadística offline (percentiles, Empirical Bayes, perfil de señales, procedencia). No toca el motor. Sin MCP. | Read, Glob, Grep, Bash, Write, Edit |
+| evaluation-engineer | `claude-sonnet-5` | Fase 9: harness de evaluación (replay, métricas, 2 benchmarks, Golden Dataset, `gate.ts`). No toca el motor. Sin MCP. | Read, Glob, Grep, Bash, Write, Edit |
 
 Ningún agente corre en Opus — Opus vive únicamente en `/blueprint`, una sola vez por proyecto, antes de que exista ningún agente que invocar. Ver "Política de modelos" arriba.
 
