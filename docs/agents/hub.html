@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T20:16:19.008Z</title>
+<title>HUB del ecosistema — 2026-08-29T20:19:00.036Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">5</span></h2>
+        <h2>backlog <span class="count">4</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -133,14 +133,6 @@
         <div class="card  ">
           <div class="card-id">TSK-179</div>
           <div class="card-title">Backfill de slots en producción + regen de agregados + re-run Gate 3</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-205</div>
-          <div class="card-title">Fase 9.0-D · null-perturbation baseline + gate.ts (modo informativo)</div>
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
@@ -180,7 +172,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">199</span></h2>
+        <h2>done <span class="count">200</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -1336,6 +1328,14 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-205</div>
+          <div class="card-title">Fase 9.0-D · null-perturbation baseline + gate.ts (modo informativo)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-085</div>
           <div class="card-title">CompactBoard persistente en /random-draft — arregla los picks que desaparecían entre rondas</div>
           <div class="card-meta">
@@ -1818,11 +1818,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">191× · 84% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">192× · 84% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:33%"></div></div>
           <div class="stat-nums">64× · 95% ok · 3 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1832,7 +1832,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:23%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:22%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1900,6 +1900,13 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-205</span> <span class="feed-ts">2026-08-30T00:05</span></div>
+            <div class="feed-note">Fase 9.0 bloque D, ticket 3. **Bloque D COMPLETO** (203-205). `scripts/eval/null-perturbation.ts` — perturba el ranking de v6Full intercambiando posiciones adyacentes con prob 0.15 (simula "el motor podría haber ordenado estos dos en cualquier orden"), N=200, mide el rango p2.5–p97.5 de NDCG@5 / Recall@3 / BadPickRate@5 → ese es el PISO de tolerancia (R1-11). `toleranceFromGolden` + `toleranceFromReplays`, deterministas por semilla. Emite `data/generated/tolerance.json`. `scripts/eval/gate.ts` — `evaluateGate(current, baseline, tol): {verdict, reasons, checked}`. **Un script decide, no un agente** (R3-11). FAIL si: `ConstraintViolationRate>0` (inmediato, no chequea más) ∨ NDCG@5 < baseline−tol ∨ BadPickRate@5 > baseline+tol ∨ cualquier contexto cae más que la tolerancia ∨ drift de Professional Pick Agreement @3. Engine Quality se omite si el Golden está vacío. **En 9.0 `main()` SIEMPRE sale 0** (modo informativo); `--enforce` (sin usar en 9.0) traduce FAIL→exit 1, se activa en el gate de 9.1. Tests: 10 (`null-perturbation.test.ts` 3 + `gate.test.ts` 7) — determinismo, Golden vacío → rangos 0, CVR>0 → FAIL inmediato, NDCG/BadPickRate/agreement drift → FAIL, modo informativo sale 0. Corridas reales: tolerancia recall@3 **0.0046** (perturbar el ranking casi no mueve Recall@3 — la mayoría de los rankings ya no aciertan el pick pro); NDCG@5/BadPickRate 0 hasta el Golden. `gate.ts` contra el baseline preliminar → **PASS** (sin regresiones, comparando el baseline consigo mismo). `(cd scripts && bun test)` 163/163. NO toca apps/.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-196</span> <span class="feed-ts">2026-08-29T20:12</span></div>
             <div class="feed-note">Fase 9.0 bloque A, ticket 4. `CLAUDE.md` 514 → **195 líneas**. Los 10 bloques `## REGLAS DE FASE {1,1b,3,4,4.2,4.3,5,6,8,9}` movidos **verbatim** a `.claude/rules/fase-{1,1b,3,4,4.2,4.3,5,6,8,9}.md` (contenido byte-idéntico), reemplazados por `## REGLAS POR FASE` + un índice de una línea por fase. Ninguna otra sección de `CLAUDE.md` tocada. `.claude/rules/{engine,web,security,testing-seams,context7}.md` intactos (son reglas por tipo de archivo, no por fase — no colisionan con `fase-*.md`). `scripts/verify-claude-md-split.sh` + `.expected` (fixture verbatim de los 336 líneas pre-split): verifica con `grep -qxF` que cada línea no vacía sigue presente en la concatenación de `fase-*.md`, y exige `wc -l CLAUDE.md < 200`. Corre → OK. `verify-simplicity.sh` verde. tsc sin cambios (no hay `.ts`). Reversible. `@redteam` APPROVED (evt-215). state: doing → done. **Bloque A de Fase 9.0 COMPLETO** (TSK-193→196).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-196</span> <span class="feed-ts">2026-08-29T20:10</span></div>
-            <div class="feed-note">APPROVED, gate_seguridad PASS. Revisión del diff real: CLAUDE.md sólo pierde los 10 headers `## REGLAS DE FASE X` (líneas de contenido borradas: 325, **0 huérfanas** — todas presentes byte a byte en `.claude/rules/fase-*.md`), gana 1 header `## REGLAS POR FASE` + índice. `fase-9.md` verificado idéntico al bloque original. `scripts/verify-claude-md-split.sh`: `bash -n` OK, sin `eval`/`curl`/`rm`/`sudo`/redirects peligrosos; `grep -qxF -- "$line"` con `--` (no hay inyección de opción por líneas que empiezan con `-`); lee archivos locales, cero red, cero secreto, cero query. Standards: script simple, una responsabilidad, nombre de dominio, maneja fixture/archivos ausentes y cuenta problemas. Spec: hace exactamente lo de TSK-196, nada extra; `CLAUDE.md` 195 < 200. Sin observaciones de N+1 ni UI.</div>
           </div>
         </div></div>
     </div>

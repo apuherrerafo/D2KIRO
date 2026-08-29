@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "perturbations": 200,
+  "swapProbability": 0.15,
+  "ndcg5": 0,
+  "recallAt3": 0.0046339202965708995,
+  "badPickRate5": 0,
+  "byContextRecallAt3": 0.0046339202965708995,
+  "note": "Golden vacío — tolerancia NDCG@5/BadPickRate no medible hasta TSK-206"
+}
