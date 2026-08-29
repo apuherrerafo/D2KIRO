@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T19:24:12.268Z</title>
+<title>HUB del ecosistema — 2026-08-29T19:27:47.693Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -120,7 +120,7 @@
   <h3>Kanban</h3>
   <div class="board">
       <div class="column ">
-        <h2>backlog <span class="count">17</span></h2>
+        <h2>backlog <span class="count">16</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-206</div>
@@ -136,14 +136,6 @@
           <div class="card-meta">
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">codex</span>
-          </div>
-        </div>
-        <div class="card  ">
-          <div class="card-id">TSK-193</div>
-          <div class="card-title">Fase 9.0-A · Estructura del harness (eval/ + data/ + docs/adr/) + 4 ADRs iniciales</div>
-          <div class="card-meta">
-            <span class="tag tag-must">must</span>
-            <span class="tag tag-tool">claude-code</span>
           </div>
         </div>
         <div class="card  ">
@@ -276,7 +268,7 @@
         <div class="empty">—</div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">187</span></h2>
+        <h2>done <span class="count">188</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-140</div>
@@ -505,6 +497,14 @@
             <span class="tag tag-must">must</span>
             <span class="tag tag-tool">claude-code</span>
             <span class="tag tag-attempts">intentos: 1</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-193</div>
+          <div class="card-title">Fase 9.0-A · Estructura del harness (eval/ + data/ + docs/adr/) + 4 ADRs iniciales</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
           </div>
         </div>
         <div class="card  ">
@@ -1818,7 +1818,7 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">178× · 83% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">179× · 83% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
@@ -1903,6 +1903,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-193</span> <span class="feed-ts">2026-08-29T19:00</span></div>
+            <div class="feed-note">Fase 9.0 bloque A, ticket 1. Estructura del harness: `eval/{golden,scenarios,baselines,reports}/`, `data/{curated,generated,schemas,metadata}/`, `docs/adr/` (con `.gitkeep`). Los 4 ADRs iniciales redactados con el contenido ya decidido en SPEC §15: **ADR-001** jerarquía de autoridad L0 contratos duros > L1 ADR > L2 architecture > L3 SPEC > L4 código > L5 investigación > L6 memoria (journal.md ortogonal, append-only); **ADR-002** el pick profesional no es ground truth + no hay snapshot point-in-time → Benchmark B comparativo nunca predictivo, se llama "Professional Pick Agreement" jamás "accuracy"; **ADR-003** frontera `data/curated/` (humano) vs `data/generated/` (script) + hook mecánico + procedencia obligatoria en `data/metadata/`; **ADR-004** percentiles empíricos reemplazan la normalización lineal de RAW_RANGE, cutover diferido al gate de 9.1 (9.0 sólo mide vía profile-signals.ts), RAW_RANGE no se toca en 9.0, `raw:null` sigue sagrado. `docs/adr/README.md` con formato + índice. `data/schemas/README.md` + `data/metadata/README.md` (formato de procedencia: source/generatedAt/generatorVersion/sampleWindow/patch/rowCount/schemaVersion). `.gitignore`: `eval/reports/*` ignorado (salvo `.gitkeep`); `eval/baselines/` + `data/generated/` + `data/metadata/` se versionan (candado de regresión + procedencia). Sin código, sin .ts nuevo — tsc sin cambios. `verify-simplicity.sh` verde. Los 3 JSON curados existentes NO se movieron (ticket propio post-gate, §15.10). state: doing → done.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>blueprint</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-29T18:30</span></div>
             <div class="feed-note">Fase 9 (V6-medido → V6-contextual) planificada de punta a punta. **`/pre-flight` (Sonnet)** cerró las 9 bifurcaciones contra el repo real → `architecture.md` §Fase 9. Entrada: 3 informes externos del usuario consolidados en `docs/research/fase9-research-consolidation.md` (48 ideas, IDs `R1-1`…`R3-15`, cada una con disposición CORE/DIFERIDO/DESCARTADO + regla de trazabilidad §8). **`/blueprint` corrido en OPUS** (una sola vez) — **gatillo aplicado**: "cambio de mecanismo central del motor" (percentiles empíricos reemplazan la normalización lineal de `RAW_RANGE`) + cambio de contrato (`SignalContribution` gana `normalized`/`evidenceConfidence`) + estrena `SCORING_WEIGHTS_V7`. Es el uso canónico del tier "Razonamiento", no una excepción a la política. Opus apagado inmediatamente después. Produjo `SPEC.md` §15.0-§15.11. **El valor del blueprint fueron 7 correcciones por MEDIR `pro-drafts.sqlite` y `dota2coach.sqlite`** (§15.1): C1 corpus utilizable 2.164 no 2.179, los 826 `tier_not_accepted` entran con `tier` como covariable (no son defecto de dato); C2 los slots Dire no participan de ninguna métrica → `TSK-174`/`TSK-179` deja de bloquear Fase 9; C3 corpus mono-parche (`patch=60`) → eje `patch` del fallback jerárquico inerte; C4 no existe snapshot de meta point-in-time → Benchmark B es comparativo, nunca predictivo (ADR-002); C5 la pendiente efectiva de R1-1 debe multiplicarse por la SD intra-estado del `raw`; C6 matchups `p90=175`/máx 712 → `δ_AB` muy encogido en 9.2 (esperado); C7 el eje `bracket` sí estratifica. Alcance del blueprint acotado a propósito a 9.0 (9.1 con números diferidos a su gate; 9.2-9.5 conceptuales — precedente Fase 4 §11.10). 5 costuras nuevas S15-S19. **`/rulebook` (Sonnet)**: secciones "Fase 9" en las 4 reglas de `.claude/rules/` + `## REGLAS DE FASE 9` en `CLAUDE.md`; **14 tickets `TSK-193`→`TSK-206`, `state: backlog`, sólo de 9.0**, en 5 bloques (A harness · B replay+métricas puras · C runners · D diagnóstico · E cierre del gate), cada uno con `write_scope` e `implements:[Rx-y]`. Context7 instalado como MCP dev-only agent-scoped (`.mcp.json` + `.claude/rules/context7.md`, sólo Artisan). Cero código de producción escrito. `bun test` engine 596 / web 205, `verify-simplicity` verde. Fase 8 (`TSK-183`→`TSK-192`) commiteada en `4b9f660` como precondición del baseline "V6-medido".</div>
           </div>
@@ -1975,13 +1982,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-187</span> <span class="feed-ts">2026-08-28T23:25</span></div>
             <div class="feed-note">Fase 8B: nav de 7 links a 4. `NavBar.tsx`: `buildNavLinks()` sin parámetro → `[Simulador de Draft /simulator, Mi pool /hero-pool, Meta /meta, Configuración /settings]`. Se quitan del array `/live-draft`, `/team-groups`, `/heroes` — **rutas, `page.tsx`, componentes y tests intactos**, alcanzables por URL directa (reversible). Prop `draftLiveEnabled` retirada de `NavBarProps`/`NavBar`/`buildNavLinks`; `layout.tsx` deja de importar y pasar `isDraftLiveEnabled()` (el helper sigue vivo, lo usa `/live-draft/page.tsx`). `NavBar.test.ts`: `buildNavLinks` reescrito (4 links exactos; ninguna de las 5 rutas ocultas/ambiguas presente); + 3 tests de humo (`app/{live-draft,team-groups,heroes}/page.tsx` siguen en el repo — guarda contra borrado accidental). `accountLabel`/`profileLabel` sin tocar. `assigned_tool` codex → claude-code (se hizo en la misma sesión de 8A para cerrar Fase 8 de una pasada). `bunx tsc --noEmit` limpio en `apps/web`; `bun test apps/web` 203/203 (era 202: −2 tests viejos de `buildNavLinks`, +2 nuevos +3 de humo; **ninguna suite existente cambió de resultado** — `/team-groups`/`/heroes`/`/live-draft` siguen verdes); `verify-simplicity.sh` verde. Overwolf/OCR: stand-by documentado, no se tocó `scripts/spikes/`. state: backlog → done. **Fase 8 completa: 8A (TSK-183→186) + 8B (TSK-187), los 5 tickets done.**</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">TSK-186</span> <span class="feed-ts">2026-08-28T23:10</span></div>
-            <div class="feed-note">APPROVED, gate_seguridad PASS. `heroCounters` no es frontera de confianza nueva (callers in-process o `MODULE_HERO_COUNTERS` ya validado en el borde por TSK-183; ninguna ruta lo pasa), sin secretos, sin queries, sin red (verify-simplicity bloquea `fetch(` bajo signals/). Pasada Standards: espejo exacto del patrón `MODULE_HERO_POSITIONS` + `createPositionFitScorer` por llamada; `?? MODULE_HERO_COUNTERS` nullish-guarded; Map vacío y archivo corrupto ya cubiertos. Pasada Spec: diff = 5 hunks, todos en alcance (§14.5); `SignalId`/`SCORING_WEIGHTS_V1`-`V6`/`RAW_RANGE.counter`/`weights.ts` fuera del diff; candado de pipeline §14.7-2 (Map vacío = no-op) + positivo §14.10-3 contra `buildSuggestions` completo; `counter` sigue corriendo en `teamOpening`. 2 hallazgos no bloqueantes: (1) al mergear 8A, `buildSuggestions` ensambla `createCounterScorer` con los defaults nuevos (minGames 10 + shrinkage) → cambio real de comportamiento de las sugerencias de producción — es el propósito explícito de Fase 8, con candados de reversibilidad y el QA del simulador (§14.10-8) como gate previo a darlo por validado; (2) el singleton `counterScorer` queda sin uso en `mix.ts`, conservado como ancla de regresión en `counter.test.ts` (análogo a `SCORING_WEIGHTS_V5`). state: doing → done. **8A completo (TSK-183→186), los 4 done.**</div>
           </div>
         </div></div>
     </div>

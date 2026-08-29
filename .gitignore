@@ -8,3 +8,10 @@ apps/engine/data/pro-drafts.sqlite
 
 # Artefactos de sesiones Codex (no forman parte del repo)
 .codex/
+
+# Fase 9 — harness de evaluación (ADR-003).
+# eval/reports/ es salida legible de cada corrida, no se versiona (salvo el .gitkeep).
+# eval/baselines/ (v6-measured.json, split.json) y data/generated/ (+ data/metadata/) SÍ se versionan:
+# son el candado de regresión y su procedencia.
+eval/reports/*
+!eval/reports/.gitkeep
