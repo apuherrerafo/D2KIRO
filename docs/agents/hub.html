@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-08-29T23:55:58.375Z</title>
+<title>HUB del ecosistema — 2026-08-30T00:22:45.455Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1879,11 +1879,11 @@
         <div class="stat-row">
           <div class="stat-name">build</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:100%"></div></div>
-          <div class="stat-nums">200× · 85% ok · 2 bloqueado · 3 falló</div>
+          <div class="stat-nums">202× · 85% ok · 2 bloqueado · 3 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">redteam</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:35%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:34%"></div></div>
           <div class="stat-nums">69× · 94% ok · 3 bloqueado · 1 falló</div>
         </div>
         <div class="stat-row">
@@ -1893,7 +1893,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">shipcheck</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:22%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:21%"></div></div>
           <div class="stat-nums">43× · 98% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
@@ -1903,7 +1903,7 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">rulebook</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:6%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
           <div class="stat-nums">11× · 100% ok  </div>
         </div>
         <div class="stat-row">
@@ -1913,17 +1913,17 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">pre-flight</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
           <div class="stat-nums">3× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">castoff</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
           <div class="stat-nums">3× · 33% ok  · 1 falló</div>
         </div>
         <div class="stat-row">
           <div class="stat-name">compass</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:2%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
           <div class="stat-nums">3× · 33% ok  </div>
         </div>
         <div class="stat-row">
@@ -1948,12 +1948,12 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">root-cause</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:0%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">kickoff</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:1%"></div></div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:0%"></div></div>
           <div class="stat-nums">1× · 100% ok  </div>
         </div></div>
 
@@ -1961,6 +1961,20 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-30T06:20</span></div>
+            <div class="feed-note">**Segundo fix del build de Railway** (el de lockfiles destrabó `bun install`; ahora fallaba `[19/20] cd apps/web && npm run build`). Causa: `apps/engine/src/signals/hero-counters.ts` (Fase 8, TSK-183) hacía un **value import** de `CURATED_HERO_IDS` desde `../../../../scripts/pro/validate-drafts` — `apps/` importando de `scripts/`, al revés de la regla de arquitectura. El Dockerfile no copia `scripts/pro/`, así que: (a) `next build` de `apps/web` (que type-checkea `hero-counters.ts` vía los contract tests que importan `engine/src/signals/mix`) no resolvía el módulo → build roto; (b) el motor habría crasheado al iniciar en el contenedor (`loadHeroCounters()` a nivel de módulo). Fix: `CURATED_HERO_IDS` (Set estático de ~130 IDs, cero deps) se movió a `apps/engine/src/signals/curated-hero-ids.ts`; `hero-counters.ts` importa de `./curated-hero-ids`; `scripts/pro/validate-drafts.ts` lo importa+re-exporta desde ahí (dirección válida: `scripts/` → `apps/`). Verificado end-to-end: `cd apps/web && npm run build` ✓, engine tsc ✓, suites 615/209/177 ✓. **Deuda anotada (no bloquea el deploy — son `import type`, erased por Bun en runtime, y `.test.ts` fuera del contenedor)**: `apps/engine/src/pro/patterns.ts` y `patterns.test.ts` todavía importan tipos de `scripts/pro/{aggregate,compile-patterns}` — ticket de higiene aparte + guard en `verify-simplicity.sh` contra `apps/ → scripts/`.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-08-30T06:00</span></div>
+            <div class="feed-note">**Fix del build de Railway (roto ~6 días, ningún deploy verde desde el "7 days ago").** Causa raíz: dos lockfiles quedaron desincronizados de su `package.json` y el Dockerfile instala con `--frozen-lockfile` / `npm ci`. (1) `apps/engine/bun.lock` — `TSK-092` (2026-08-24) agregó `typescript` a devDependencies del motor sin regenerar el lock → `[6/20] RUN cd apps/engine && bun install --frozen-lockfile` fallaba en cada deploy desde entonces. `bun install` regenera: `+ typescript@7.0.2` (+43 líneas). (2) `apps/web/package-lock.json` — nunca se regeneró desde `TSK-036`; le faltaban `iron-session` (Fase 5, prod), `@happy-dom/global-registrator` + `@testing-library/react` (Fase 5b tests) → `npm ci` habría fallado en el paso siguiente. `npm install` regenera (+307 líneas, 0 borrados). Verificado local end-to-end: `bun install --frozen-lockfile` (engine) ✓, `npm ci` (web) ✓, `bunx tsc --noEmit` engine (TS 7.0.2) ✓ y web (TS 5.x) ✓, `npm run build` (Next 16, el paso del Dockerfile) ✓, suites 615/209/177 verdes. Solo cambian los 2 lockfiles. Nota: `apps/web` reporta 6 vulnerabilidades high (deuda de deps preexistente, `npm audit` — no bloquea el deploy, ticket aparte).</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -2029,20 +2043,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-209</span> <span class="feed-ts">2026-08-30T03:05</span></div>
             <div class="feed-note">Fase 9.1 bloque C. `apps/engine/src/signals/calibration.ts` nuevo + `SignalContribution` gana `normalized?: number | null` y `evidenceConfidence?: number` (opcionales — decisión del ticket: no se tocan los 6 scorers, `mix.ts` los puebla vía `enrich()` en D). `loadCalibration(path?)` lee `data/generated/percentiles.json` (ruta relativa a `import.meta.dir`, archivo versionado), valida en el borde (`parseCalibration` — `schemaVersion:1`, `signals` objeto, banda con `p05`/`p95` finitos y `p05 < p95`, `SignalId` conocido); archivo ausente/corrupto/forma inesperada → `Calibration` vacía (`source:"fallback"`), **cero excepción** (mismo criterio que `loadHeroPositions`). `calibratedNormalize(signal, raw, bracket, calibration)` = `clamp((raw−p05)/(p95−p05),0,1)*100` con `byBracket[bracket] → global → FALLBACK_RAW_RANGE[signal]` (espejo exacto de `RAW_RANGE` de `mix.ts`, comentado; TSK-210 dedup-ea). `evidenceConfidenceOf`: `raw:null → 0`; categóricas (`team_synergy`/`hero_pool_fit`/`archetype_fit`) → `1`; estadísticas → `sampleSize/(sampleSize+K)` con `K_position_fit=200`, `K_counter=20`, `K_patch_meta=200`. `enrich(contrib, bracket, calibration)` agrega ambos campos. `MODULE_CALIBRATION = loadCalibration()` a nivel de módulo, inyectable. Candado de regresión cero: con `Calibration` vacía `calibratedNormalize` reproduce `normalize()` bit a bit (probado). `calibration.test.ts` 11 casos (fixtures inline + archivo temporal, nunca el `percentiles.json` real salvo el smoke estructural). `bunx tsc --noEmit` limpio en `apps/engine`; `bun test apps/engine` 607/607; `git diff` sólo `signals/{calibration.ts,calibration.test.ts,types.ts}` — `weights.ts`/`mix.ts` intactos; `verify-simplicity` verde.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-208</span> <span class="feed-ts">2026-08-30T02:40</span></div>
-            <div class="feed-note">Fase 9.1 bloque B. `scripts/stats/build-percentiles.ts` — `computePercentiles(rawsBySignal, meta): PercentilesFile` **pura** + `main()` que abre las SQLite `readonly`, reconstruye los `ReplayCase` de los **folds de train** del `split.json` (held-out = fold de mayor índice, reservado para el QA de F), con el `patchOverride` de TSK-207, corre los 6 scorers y junta los `raw` no nulos por señal. `p05`/`p95` por señal (`global`); `byBracket` omitido (un `DraftState` de replay no lleva bracket — sólo `global`, documentado). `hero_pool_fit`/`archetype_fit` **nunca se calibran** (`NON_CALIBRATED`, el motor usa su `RAW_RANGE [0,1]`). `p05 === p95` → `null` (evita división por cero en `calibratedNormalize`). `data/generated/percentiles.json` + `data/metadata/percentiles.json` (procedencia), congelados y versionados, deterministas (2 corridas byte-idénticas). Tests: `build-percentiles.test.ts`, 6 casos. `(cd scripts && bun test)` 174/174. NO toca apps/.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>build</strong> <span class="feed-ticket">TSK-207</span> <span class="feed-ts">2026-08-30T02:15</span></div>
-            <div class="feed-note">Fase 9.1 bloque A. **Patch-fix del backtest, SÓLO `scripts/eval/` — cero cambio en `apps/engine`.** `ReplayMeta` gana `patchOverride?: string`; `replay.ts` usa `meta.patchOverride ?? meta.patch` en `state.patch`; `dominantPatch(patchStats)` (moda de los patches no vacíos → `"7.41e"`) exportado desde `replay.ts`. `run.ts` y `profile-signals.ts` calculan el override desde `meta.patchStats` y lo pasan a `buildReplayCases` / `loadReplayCasesFromDb` / `runEngineQuality` (`hydrateState(c, patchOverride)` — el Golden se congeló con `patch:"60"`, así que el override también aplica al Benchmark A, el juez de calidad). `report.ts` imprime la línea "Patch del backtest forzado a `<override>`"; `v6-measured.json` (frozen) lleva `patchOverride`. `ADR-002` gana un addendum. Tests: `replay.test.ts` +2 (`patchOverride` fija/no fija `state.patch`; `dominantPatch` moda + undefined). `bunx tsc -p scripts/eval/tsconfig.json` limpio, `(cd scripts && bun test)` 168/168. NO toca apps/.</div>
           </div>
         </div></div>
     </div>
