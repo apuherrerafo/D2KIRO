@@ -1,6 +1,6 @@
 import rawCounters from "./hero-counters.json";
 import type { HeroId } from "../draft/reducer";
-import { CURATED_HERO_IDS } from "../../../../scripts/pro/validate-drafts";
+import { CURATED_HERO_IDS } from "./curated-hero-ids";
 
 // TSK-183 (SPEC.md §14.4): capa curada de counter-picks. Dato de dominio, NO en SQLite -- mismo
 // patrón exacto que `hero-positions.json` (S10) y `capabilities.json` (S9). `counter` está
