@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Database } from "bun:sqlite";
+import { CURATED_HERO_IDS } from "../../apps/engine/src/signals/curated-hero-ids";
 import { GOLDEN_STRATA, loadGoldenDataset } from "./golden";
 
 const DATASET = join(import.meta.dir, "..", "..", "eval", "golden", "dataset.json");
@@ -15,11 +15,10 @@ describe("eval/golden/dataset.json — smoke de forma (TSK-206)", () => {
   test("carga sin rechazos y tiene >= 30 casos", () => {
     expect(existsSync(DATASET)).toBe(true);
 
-    const db = new Database(join(import.meta.dir, "..", "..", "apps", "engine", "data", "dota2coach.sqlite"), { readonly: true });
-    const knownHeroIds = new Set((db.query("SELECT id FROM heroes").all() as { id: number }[]).map((r) => r.id));
-    db.close();
-
-    const { cases, rejected } = loadGoldenDataset(readFileSync(DATASET, "utf-8"), { knownHeroIds });
+    // TSK-206 abría `apps/engine/data/dota2coach.sqlite` (dev DB gitignoreada) para el set de
+    // héroes -> el test rompía en CI, que no tiene esa SQLite. `CURATED_HERO_IDS` es el snapshot
+    // canónico de IDs de héroe, versionado en el repo, sin dependencia de datos locales.
+    const { cases, rejected } = loadGoldenDataset(readFileSync(DATASET, "utf-8"), { knownHeroIds: CURATED_HERO_IDS });
     expect(rejected).toHaveLength(0);
     expect(cases.length).toBeGreaterThanOrEqual(30);
   });

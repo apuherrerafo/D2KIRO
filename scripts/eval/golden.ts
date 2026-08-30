@@ -65,7 +65,7 @@ export interface LoadGoldenResult {
 
 export interface LoadGoldenOptions {
   /** Si se pasa, un héroe fuera de este set descarta el caso. Si no, sólo se exige entero > 0. */
-  knownHeroIds?: Set<HeroId>;
+  knownHeroIds?: ReadonlySet<HeroId>;
 }
 
 // ---------- guards ----------
