@@ -1,7 +1,40 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 9.1 — `/blueprint` + `/rulebook` COMPLETOS (Sonnet, 2026-08-30). `SPEC.md` §16 + 6 tickets `TSK-207`->`TSK-212` en `backlog`.**
+**Fase 10 — cerrar el lazo producto ↔ verificación. Bloques A, B y C DONE (`TSK-214`→`TSK-216`,
+2026-08-31). Bloques D y E pendientes. Fase 9.2+ CONGELADA por decisión del usuario.**
+
+Origen: QA real del usuario en Railway (2026-08-30) — el bot del Simulador pickeó Wraith King en
+las 3 rondas con el tablero congelado. **No era calidad del motor: `apps/web` llamaba a
+`http://127.0.0.1:4000` desde el navegador en 6 call sites**, incluido el `DraftFeedbackBox` (todos
+los reportes de QA enviados desde producción se descartaron en silencio). Fase 9.0/9.1 mide el
+motor offline y dice la verdad sobre el motor; nada abre la app real, así que nada podía detectar
+que la pantalla donde se juzga la calidad estaba rota.
+
+- **A (`TSK-214`, done, `@redteam` APPROVED)** — transporte por el proxy `/engine`; `handleDraftEvent`
+  devuelve `draftState` (el tablero ya no depende del WebSocket, que Next rewrites no puede
+  proxear); `rateLimit` en `/api/session/manual`; push best-effort; gate mecánico anti-loopback en
+  `verify-simplicity.sh`. 4 hallazgos de seguimiento anotados en el ticket.
+- **B (`TSK-215`, done)** — `engineStatus` + `<EngineUnreachableBanner>`: un fallo de transporte
+  deja de ser un `console.error` mudo.
+- **C (`TSK-216`, done)** — candado anti-repetición del bot, independiente del arreglo de
+  transporte. Los 4 tests se verificaron rojos sin el arreglo.
+- **D (pendiente)** — E2E de navegador (Playwright): nada en el repo abre la app real hoy.
+- **E (pendiente)** — higiene de instrucciones: `CLAUDE.md` + `.claude/rules/**` son ~1.970 líneas
+  inyectadas por turno, en su mayoría de fases cerradas.
+
+**Siguiente paso**: desplegar A/B/C a Railway y confirmar en producción que el tablero avanza, que
+el Copilot cambia de recomendación entre rondas y que un reporte del `DraftFeedbackBox` llega a
+`GET /api/feedback`. Esa es la verificación que importa; D existe para que no vuelva a hacer falta
+descubrirlo a mano.
+
+**Nota operativa (`evt-20260831-248`)**: `bun test` en la raíz — el comando que documenta
+`CLAUDE.md` — da ~55 fallos falsos (`@happy-dom/global-registrator` parchea `fetch` global y
+contamina los tests de servidor del motor). Por raíz separada: **617 + 215 + 177, cero fallos**.
+CI y `verify-simplicity.sh` ya lo hacen bien. Corregir en el Bloque E.
+
+--- histórico ---
+### Fase 9.1 — `/blueprint` + `/rulebook` COMPLETOS (Sonnet, 2026-08-30). `SPEC.md` §16 + 6 tickets `TSK-207`->`TSK-212`.
 9.1 = comparabilidad + calibración empírica: percentiles empíricos reemplazan `RAW_RANGE` lineal
 (congelados sobre train, `RAW_RANGE` de fallback); la redistribución de pesos pasa a ser **por
 estado**, no candidate-specific; `raw:null` de un candidato en señal disponible → `contribution`

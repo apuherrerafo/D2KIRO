@@ -40,7 +40,13 @@ siguiente paso.
 
 ## COMANDOS ESENCIALES
 - `bun run dev` → Iniciar servidor de desarrollo.
-- `bun test` → Ejecutar pruebas unitarias.
+- `bun run test` → Ejecutar las pruebas. **Corre las tres raíces por separado, y así debe ser**:
+  `bun test` a secas en la raíz da ~55 fallos que NO existen (`@happy-dom/global-registrator` de
+  `apps/web` parchea el `fetch` global y contamina los tests de servidor de `apps/engine` al correr
+  todo en un proceso). Aisladas: 617 + 215 + 177, cero fallos.
+- `bun run e2e` → Smoke de navegador (Playwright): un draft completo del simulador contra motor +
+  web reales. Lento (~1,2 min, necesita la base con meta sincronizada) y **de a uno**, no en bucle.
+  Su lugar es `/castoff`, no el gate de cada commit.
 - `bun run lint` → Formatear código.
 - `bash scripts/verify-simplicity.sh` → Verificar seguridad, invariantes y calidad antes de un commit.
 - `bun scripts/hub.ts` → Regenerar el tablero desde los tickets.
@@ -74,21 +80,17 @@ No es un checklist al final. Es un gate que bloquea.
 - La dimensión de seguridad en `@redteam` es un gate binario (bloquea si falla), no un ítem ponderado entre cinco.
 
 ## REGLAS POR FASE
-El detalle inviolable de cada fase vive en `.claude/rules/fase-N.md` (movido de aquí
-por TSK-196 para mantener `CLAUDE.md` < 200 líneas; contenido verbatim, verificado por
-`scripts/verify-claude-md-split.sh`). El detalle condicional por tipo de archivo sigue en
-`.claude/rules/{engine,web,security,testing-seams}.md`.
+**Empieza por `.claude/rules/invariantes.md`** — las reglas verdaderas en toda fase. Si una regla
+de fase choca con eso, gana `invariantes.md`. El detalle condicional por tipo de archivo sigue en
+`.claude/rules/{engine,web,security,testing-seams}.md`, siempre cargados.
 
-- **Fase 1** — dota2coach: `.claude/rules/fase-1.md`
-- **Fase 1b** — hero pool: `.claude/rules/fase-1b.md`
-- **Fase 3** — posiciones reales: `.claude/rules/fase-3.md`
-- **Fase 4** — sub-ticket 4.1 — señal `archetype_fit`: `.claude/rules/fase-4.md`
-- **Fase 4.2** — integrar `archetype_fit` al motor: `.claude/rules/fase-4.2.md`
-- **Fase 4.3** — `archetype_fit` usable: selector + transporte: `.claude/rules/fase-4.3.md`
-- **Fase 5** — Auth & Personal Hero Pool multi-usuario: `.claude/rules/fase-5.md`
-- **Fase 6** — Formalizar Pro-Drafter: apertura consciente de bans: `.claude/rules/fase-6.md`
-- **Fase 8** — rehabilitar `counter` + higiene de superficie: `.claude/rules/fase-8.md`
-- **Fase 9** — V6-medido → V6-contextual: evaluación offline, calibración empírica, inteligencia contextual: `.claude/rules/fase-9.md`
+Los resúmenes de las fases **cerradas** (1, 1b, 3, 4, 4.2, 4.3, 5, 6, 8) viven en
+`docs/rules-archive/` desde TSK-218: se inyectaban enteros en cada turno y enterraban la regla viva
+bajo la narrativa de cómo se llegó ahí. No se perdió nada vinculante — cada uno declara ser un
+resumen de lo que está en los cuatro archivos condicionales, y `verify-claude-md-split.sh` lo
+verifica línea por línea en ambas ubicaciones. Se leen cuando hacen falta, no siempre.
+
+- **Fase 9** — V6-medido → V6-contextual: `.claude/rules/fase-9.md`
 - **Fase 9.1** — comparabilidad + calibración empírica: `.claude/rules/fase-9.1.md`
 
 ## MEMORIA
