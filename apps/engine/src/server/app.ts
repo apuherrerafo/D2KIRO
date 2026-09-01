@@ -257,9 +257,25 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
 
     // TSK-055: oportunista, igual que cleanupSimulatorSessions() -- sin scheduler propio.
     sessionStore.evictStale();
-    const { rejected } = sessionStore.apply(body);
-    if (!rejected) await pushSessionUpdate(body.sessionId);
-    return Response.json({ accepted: !rejected, rejected }, { status: 202 });
+    const { state, rejected } = sessionStore.apply(body);
+    if (!rejected) {
+      // TSK-214: el push por WebSocket es best-effort y NUNCA puede tumbar la ingesta. Antes, un
+      // `SnapshotUnavailableError` de computeSuggestionsForState (meta vacía o sin sincronizar)
+      // se propagaba y hacía fallar el POST entero -- con el estado ya aplicado en el store, así
+      // que el cliente perdía el tablero por un problema de sugerencias. Es la misma regla que ya
+      // rige el resto del motor (engine.md): una señal rota nunca tira el motor completo.
+      try {
+        await pushSessionUpdate(body.sessionId);
+      } catch (error) {
+        console.error(`[app] push tras evento falló para la sesión ${body.sessionId}:`, error);
+      }
+    }
+    // TSK-214: el estado resultante viaja en la respuesta del POST, no sólo por el push de
+    // WebSocket. Next rewrites no puede proxear un WS, así que en Railway el navegador no tiene
+    // socket contra el motor -- sin esto, apps/web se quedaba con su preview sintético local y el
+    // tablero del simulador nunca avanzaba (bot repitiendo el mismo héroe cada ronda). El push por
+    // WS sigue igual: es optimización para quien sí tiene socket, no el único camino.
+    return Response.json({ accepted: !rejected, rejected, draftState: withTurn(state) }, { status: 202 });
   }
 
   async function handleHeroes(): Promise<Response> {
@@ -282,7 +298,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return handleDraftEvent(request, { requireToken: true, rateLimit: true });
     }
     if (request.method === "POST" && url.pathname === "/api/session/manual") {
-      return handleDraftEvent(request, { requireToken: false, rateLimit: false });
+      // TSK-214: `rateLimit: true`. Antes era `false` porque esta ruta sólo era alcanzable en
+      // loopback; desde que apps/web la llama por el proxy (`/engine/api/session/manual`) deja de
+      // serlo, así que aplica el mismo límite de 20 eventos/segundo por sesión que /ingest.
+      return handleDraftEvent(request, { requireToken: false, rateLimit: true });
     }
     if (request.method === "POST" && url.pathname === "/api/suggestions/preview") {
       return handleSuggestionsPreview(request);

@@ -1,5 +1,5 @@
 import type { DraftFormatId, DraftState, HeroId, TeamSide } from "@/features/draft/types";
-import { LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
+import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 // Espejo a mano del contrato de POST /api/v1/draft/pro-recommendations
 // (apps/engine/src/server/routes/pro-drafter.ts) -- mismo criterio que `SignalId` en
@@ -137,7 +137,7 @@ export interface LowConfidenceReportEntry {
 export async function postLowConfidenceReport(sessionId: string, patch: string, entries: LowConfidenceReportEntry[]): Promise<void> {
   if (entries.length === 0) return;
   try {
-    await fetch(`${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/pro-drafter/low-confidence-report`, {
+    await fetch(`${ENGINE_HTTP_BASE_URL}/api/pro-drafter/low-confidence-report`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sessionId, patch, entries }),

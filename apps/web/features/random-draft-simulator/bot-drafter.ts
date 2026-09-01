@@ -4,7 +4,7 @@
 // Requirements: 4.1, 4.2, 4.3
 
 import type { DraftState } from "@/features/draft/types";
-import { LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
+import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, TeamSide } from "./types";
 import type { SeededRng } from "./seeded-rng";
 
@@ -58,6 +58,16 @@ export interface BotDrafterInput {
   rng: SeededRng;
   /** Cuántos conflictos ya ocurrieron en esta ronda */
   conflictCount: number;
+  /**
+   * TSK-216: héroes que el llamador SABE tomados aunque `draftState` todavía no lo refleje —
+   * típicamente los que el bot eligió en rondas anteriores de esta misma sesión.
+   *
+   * Existe porque `draftState` es un dato que puede quedar viejo (fue exactamente el bug de
+   * TSK-214: con el tablero congelado en `dire: []`, el bot volvía a elegir Wraith King en las 3
+   * rondas). El transporte ya está arreglado; esto es el candado que hace que el síntoma sea
+   * imposible aunque la causa vuelva por otro camino.
+   */
+  excluded?: readonly HeroId[];
 }
 
 export interface BotDrafterResult {
@@ -78,7 +88,7 @@ const POSITION_COMPLEMENT_BONUS = 5;
 // ---------------------------------------------------------------------------
 
 /** Construye el conjunto de héroes no disponibles (baneados + pickeados por ambos lados). */
-function buildUnavailableSet(draftState: DraftState): Set<HeroId> {
+function buildUnavailableSet(draftState: DraftState, excluded: readonly HeroId[] = []): Set<HeroId> {
   const unavailable = new Set<HeroId>();
   for (const heroId of draftState.banned) {
     unavailable.add(heroId);
@@ -87,6 +97,10 @@ function buildUnavailableSet(draftState: DraftState): Set<HeroId> {
     unavailable.add(heroId);
   }
   for (const heroId of draftState.picks.dire) {
+    unavailable.add(heroId);
+  }
+  // TSK-216: lo que el llamador sabe tomado y el tablero todavía no.
+  for (const heroId of excluded) {
     unavailable.add(heroId);
   }
   return unavailable;
@@ -201,10 +215,10 @@ function botScoreHero(
  * 5. Si el pool está vacío, registrar error en consola y retornar null (Req. 4.3).
  */
 export function botPickHero(input: BotDrafterInput): BotDrafterResult | null {
-  const { draftState, botSide, meta, rng, conflictCount: _conflictCount } = input;
+  const { draftState, botSide, meta, rng, conflictCount: _conflictCount, excluded } = input;
 
   // Paso 1: pool disponible
-  const unavailable = buildUnavailableSet(draftState);
+  const unavailable = buildUnavailableSet(draftState, excluded);
   const availablePool = Object.keys(meta.heroes)
     .map(Number)
     .filter((heroId) => !unavailable.has(heroId));
@@ -269,7 +283,7 @@ interface SuggestionsPreviewResponse {
 // dependencia caída").
 export async function botPickHeroFromEngine(input: BotDrafterInput, options: RemoteBotPickOptions = {}): Promise<BotDrafterResult | null> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const baseUrl = options.baseUrl ?? LOCAL_DRAFT_ENGINE_HTTP_BASE_URL;
+  const baseUrl = options.baseUrl ?? ENGINE_HTTP_BASE_URL;
 
   try {
     const response = await fetchImpl(`${baseUrl}/api/suggestions/preview`, {
@@ -286,10 +300,18 @@ export async function botPickHeroFromEngine(input: BotDrafterInput, options: Rem
     if (!response.ok) return botPickHero(input);
 
     const body = (await response.json()) as SuggestionsPreviewResponse;
-    const top = body.suggestions?.[0];
-    if (!top) return botPickHero(input);
+    const suggestions = body.suggestions ?? [];
+    if (suggestions.length === 0) return botPickHero(input);
 
-    return { heroId: top.hero };
+    // TSK-216: el motor puntúa contra el `draftState` que le mandamos. Si ese estado quedó viejo,
+    // su rank 1 puede ser un héroe que en la realidad ya está tomado -- antes se aceptaba tal
+    // cual, y así salían los 3 Wraith King. Se baja por la lista hasta el primero realmente
+    // disponible; si ninguno lo está, decide el heurístico local, que filtra por construcción.
+    const unavailable = buildUnavailableSet(input.draftState, input.excluded);
+    const firstAvailable = suggestions.find((suggestion) => !unavailable.has(suggestion.hero));
+    if (!firstAvailable) return botPickHero(input);
+
+    return { heroId: firstAvailable.hero };
   } catch {
     return botPickHero(input);
   }

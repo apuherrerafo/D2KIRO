@@ -127,7 +127,9 @@ describe("postLowConfidenceReport -- diagnóstico best-effort, nunca bloquea el 
     await postLowConfidenceReport("session-1", "7.41", [{ hero: 1, heroName: "Anti-Mage", rank: 1 }]);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.url).toBe("http://127.0.0.1:4000/api/pro-drafter/low-confidence-report");
+    // TSK-214: vía el proxy `/engine`, no un loopback absoluto -- este código corre en el
+    // navegador y en Railway no hay ningún motor en el 127.0.0.1 del visitante.
+    expect(calls[0]?.url).toBe("/engine/api/pro-drafter/low-confidence-report");
     expect(calls[0]?.body).toEqual({ sessionId: "session-1", patch: "7.41", entries: [{ hero: 1, heroName: "Anti-Mage", rank: 1 }] });
   });
 

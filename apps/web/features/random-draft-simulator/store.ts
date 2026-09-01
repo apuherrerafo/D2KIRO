@@ -21,6 +21,11 @@ import type { OrchestratorResult } from "./orchestrator";
 // resetSession.
 export type PreviewStatus = "idle" | "loading" | "ready" | "failed";
 
+// TSK-215: salud del transporte de eventos hacia el motor. No es lo mismo que `previewStatus`
+// (que describe una sugerencia concreta): acá "unreachable" significa que el TABLERO dejó de
+// reflejar la realidad, que es un fallo mucho más grave y hasta ahora invisible.
+export type EngineStatus = "ok" | "unreachable";
+
 export interface RandomDraftState {
   config: DraftConfig | null;
   phase: DraftPhase;
@@ -30,6 +35,10 @@ export interface RandomDraftState {
   staleWarning: boolean;
   lastSyncedAt: string | null;
   previewStatus: PreviewStatus;
+  // TSK-215: "unreachable" = el motor dejó de aceptar eventos de draft tras agotar los reintentos.
+  // El tablero visible ya no corresponde al estado real, así que la pantalla tiene que decirlo.
+  // Antes esto era un console.error mudo -- es lo que dejó vivir semanas al bug de TSK-214.
+  engineStatus: EngineStatus;
 }
 
 export interface RandomDraftActions {
@@ -46,6 +55,7 @@ export interface RandomDraftActions {
   setDraftState(state: DraftState, suggestions: SuggestionSet | null): void;
   setStaleInfo(isStale: boolean, syncedAt: string | null): void;
   setPreviewStatus(status: PreviewStatus): void;
+  setEngineStatus(status: EngineStatus): void;
   /** Sustituye el plan oculto del bot por una respuesta calculada contra los picks del usuario. */
   setBotPicksForRound(round: 1 | 2 | 3, botPicks: HeroId[]): void;
 
@@ -133,6 +143,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   staleWarning: false,
   lastSyncedAt: null,
   previewStatus: "idle",
+  engineStatus: "ok",
   _internal: initialBookkeeping,
 
   startSession(config, sessionId, orchestratorResult) {
@@ -143,6 +154,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       suggestions: null,
       phase: { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
       previewStatus: "idle",
+      engineStatus: "ok",
       _internal: { precomputedRounds: orchestratorResult.rounds, revealedRounds: [] },
     });
   },
@@ -213,6 +225,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       draftState: null,
       suggestions: null,
       previewStatus: "idle",
+      engineStatus: "ok",
       _internal: initialBookkeeping,
     });
   },
@@ -227,6 +240,10 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
 
   setPreviewStatus(status) {
     set({ previewStatus: status });
+  },
+
+  setEngineStatus(status) {
+    set({ engineStatus: status });
   },
 
   setBotPicksForRound(round, botPicks) {

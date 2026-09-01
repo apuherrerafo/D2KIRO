@@ -4,7 +4,7 @@ import type { DraftPathSet } from "@/features/draft-paths/types";
 import type { CalculatePoolResult, HeroPoolEntry, HeroPoolPutEntry } from "@/features/hero-pool/types";
 import type { ProDrafterRequest, ProRecommendationsResponse } from "@/features/pro-drafter/types";
 import type { TeamGroupEntry, TeamGroupPutBody } from "@/features/team-groups/types";
-import { ENGINE_HTTP_BASE_URL, LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "./engine-url";
+import { ENGINE_HTTP_BASE_URL } from "./engine-url";
 
 export interface MetaSyncAttempt {
   status: "running" | "ok" | "failed";
@@ -67,18 +67,20 @@ export const engineApi = createApi({
       query: (id) => ({ url: `/api/team-groups/${id}`, method: "DELETE" }),
       invalidatesTags: ["TeamGroups"],
     }),
-    // TSK-036 vive fuera del proxy de páginas de configuración a propósito -- "caminos de draft"
-    // solo tiene sentido con un draft activo, y esa ruta nunca está en el allowlist de
-    // next.config.ts (regla dura, TSK-037/038: /draft en vivo siempre habla directo al engine
-    // local, nunca vía /engine). Se le da una URL absoluta -- fetchBaseQuery la usa tal cual, sin
-    // anteponerle el baseUrl relativo compartido con el resto de engineApi.
+    // TSK-214 revierte la regla de TSK-037/038 ("el draft en vivo siempre habla directo al engine
+    // local, nunca vía /engine"). Esa regla nació cuando el draft en vivo asumía un motor en la
+    // máquina del propio visitante; hoy `DRAFT_LIVE_ENABLED` está apagado por defecto y quien usa
+    // estas rutas de verdad es el Simulador, servido desde Railway. Una URL absoluta a
+    // http://127.0.0.1:4000 desde el navegador falla siempre en producción. Vía `/engine` el
+    // comportamiento local no cambia: en `bun run dev` el rewrite de Next apunta al mismo motor
+    // local del visitante.
     getDraftPaths: builder.query<DraftPathSet, string>({
-      query: (sessionId) => `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/session/${encodeURIComponent(sessionId)}/draft-paths`,
+      query: (sessionId) => `${ENGINE_HTTP_BASE_URL}/api/session/${encodeURIComponent(sessionId)}/draft-paths`,
       providesTags: ["DraftPaths"],
     }),
     // Endpoint experimental tras ENABLE_PRO_DRAFTER (server/app.ts) -- mismo criterio que
-    // getDraftPaths: la vista de draft en vivo nunca pasa por el proxy /engine (regla dura,
-    // TSK-037/038), URL absoluta directa al motor local. Tipado como `ProRecommendationsResponse`
+    // getDraftPaths arriba: desde TSK-214 va por el proxy `/engine`, no a un loopback que el
+    // navegador de un visitante remoto nunca puede alcanzar. Tipado como `ProRecommendationsResponse`
     // (unión, no solo `ProDrafterResponse`) -- retrocompatibilidad real: con el flag apagado del
     // lado del motor esta misma URL responde con el shape v5 (`suggestions/v1`), no una hipótesis
     // (ver server/app.ts:258-260 y features/pro-drafter/types.ts).
@@ -86,7 +88,7 @@ export const engineApi = createApi({
       query: (arg) => {
         const body = "body" in arg ? arg.body : arg;
         const accountToken = "body" in arg ? arg.accountToken : undefined;
-        return { url: `${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/v1/draft/pro-recommendations`, method: "POST", body, ...(accountToken ? { headers: { "x-account-token": accountToken } } : {}) };
+        return { url: `${ENGINE_HTTP_BASE_URL}/api/v1/draft/pro-recommendations`, method: "POST", body, ...(accountToken ? { headers: { "x-account-token": accountToken } } : {}) };
       },
     }),
   }),

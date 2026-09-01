@@ -13,6 +13,7 @@ import { ConfigPanel } from "@/features/random-draft-simulator/components/Config
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
+import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { specForRound, useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
@@ -146,6 +147,7 @@ export default function RandomDraftPage() {
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
       <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} />
       <StaleWarningBanner />
+      <EngineUnreachableBanner />
       {/* TSK-085: persistente en todas las fases con sesión ya arrancada -- antes, los picks de
           una ronda ya confirmada dejaban de verse en cuanto arrancaba la siguiente ronda (el
           DraftState real los seguía teniendo, ningún componente los mostraba). Mismo componente

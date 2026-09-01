@@ -1,10 +1,14 @@
 import type { SimulatorEvent } from "./simulator-scripts";
-import type { DraftEvent } from "./types";
-import { LOCAL_DRAFT_ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
+import type { DraftEvent, DraftState } from "./types";
+import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 export interface ManualEventResult {
   accepted: boolean;
   rejected?: string;
+  // TSK-214: el motor devuelve el DraftState resultante en la propia respuesta del POST. Es la
+  // única fuente de verdad del tablero para quien no tiene WebSocket (todo navegador en Railway:
+  // Next rewrites no proxea WS). Ausente si el evento se rechazó o si la respuesta no fue válida.
+  draftState?: DraftState;
 }
 
 type CaptureSource = "manual" | "simulator";
@@ -19,7 +23,7 @@ async function postEvent(
   payload: DraftEvent | SimulatorEvent,
   source: CaptureSource,
 ): Promise<ManualEventResult> {
-  const response = await fetch(`${LOCAL_DRAFT_ENGINE_HTTP_BASE_URL}/api/session/manual`, {
+  const response = await fetch(`${ENGINE_HTTP_BASE_URL}/api/session/manual`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -33,6 +37,13 @@ async function postEvent(
       payload,
     }),
   });
+  // TSK-214: un 429 (límite de 20 eventos/segundo por sesión) no trae `accepted` -- traía un
+  // `undefined` silencioso que el llamador leía como rechazo sin motivo. El motivo real importa:
+  // el reintento de un 429 sólo sirve si espera a que se abra la ventana siguiente.
+  if (!response.ok) {
+    const reason = response.status === 429 ? "rate_limited" : `http_${response.status}`;
+    return { accepted: false, rejected: reason };
+  }
   return (await response.json()) as ManualEventResult;
 }
 

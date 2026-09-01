@@ -1049,3 +1049,74 @@ describe("POST /api/hero-pool/calculate (TSK-021)", () => {
     stop();
   });
 });
+
+// TSK-214: el navegador en Railway no tiene WebSocket contra el motor (Next rewrites no proxea
+// WS) ni puede alcanzar su propio 127.0.0.1. El tablero tiene que poder avanzar leyendo sólo la
+// respuesta del POST. Bug real que esto fija: el simulador quedaba congelado en la ronda 1 y el
+// bot repetía el mismo héroe las 3 rondas porque nunca veía el estado real del motor.
+describe("POST /api/session/manual devuelve el DraftState resultante (TSK-214)", () => {
+  function startApp() {
+    const app = createApp({
+      db: createTestDb(),
+      openDotaClient: new OpenDotaClient(),
+      captureToken: EXPECTED_HEADER,
+      heroCapabilities: TEST_HERO_CAPABILITIES,
+      heroPositions: TEST_HERO_POSITIONS,
+    });
+    const server = app.start("127.0.0.1", 0);
+    return { baseUrl: `http://127.0.0.1:${server.port}`, stop: () => server.stop(true) };
+  }
+
+  async function emit(baseUrl: string, sessionId: string, seq: number, payload: Record<string, unknown>) {
+    const res = await fetch(`${baseUrl}/api/session/manual`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(envelope({ sessionId, seq, payload })),
+    });
+    return (await res.json()) as {
+      accepted: boolean;
+      rejected?: string;
+      draftState?: { picks: { radiant: number[]; dire: number[] }; banned: number[] };
+    };
+  }
+
+  test("el tablero avanza pick a pick sin ningún WebSocket, y refleja ambos lados", async () => {
+    const { baseUrl, stop } = startApp();
+    try {
+      const sessionId = "session-tsk214-a";
+      await emit(baseUrl, sessionId, 1, { type: "session_started", format: "all_pick", patch: "7.36" });
+      await emit(baseUrl, sessionId, 2, { type: "local_side_identified", side: "radiant" });
+
+      const afterFirst = await emit(baseUrl, sessionId, 3, { type: "hero_picked", hero: 1, side: "radiant" });
+      expect(afterFirst.accepted).toBe(true);
+      expect(afterFirst.draftState?.picks.radiant).toEqual([1]);
+
+      const afterEnemy = await emit(baseUrl, sessionId, 4, { type: "hero_picked", hero: 2, side: "dire" });
+      expect(afterEnemy.draftState?.picks.dire).toEqual([2]);
+
+      // El estado es acumulativo: el pick rival anterior sigue ahí. Es justo lo que el simulador
+      // necesita para que el bot no vuelva a elegir un héroe que ya tomó.
+      const afterSecond = await emit(baseUrl, sessionId, 5, { type: "hero_picked", hero: 3, side: "radiant" });
+      expect(afterSecond.draftState?.picks.radiant).toEqual([1, 3]);
+      expect(afterSecond.draftState?.picks.dire).toEqual([2]);
+    } finally {
+      stop();
+    }
+  });
+
+  test("un evento rechazado devuelve el motivo y NO inventa un tablero avanzado", async () => {
+    const { baseUrl, stop } = startApp();
+    try {
+      const sessionId = "session-tsk214-b";
+      await emit(baseUrl, sessionId, 1, { type: "session_started", format: "all_pick", patch: "7.36" });
+      await emit(baseUrl, sessionId, 2, { type: "hero_picked", hero: 1, side: "radiant" });
+
+      const duplicate = await emit(baseUrl, sessionId, 3, { type: "hero_picked", hero: 1, side: "dire" });
+      expect(duplicate.accepted).toBe(false);
+      expect(duplicate.rejected).toBe("hero_already_taken");
+      expect(duplicate.draftState?.picks.dire).toEqual([]);
+    } finally {
+      stop();
+    }
+  });
+});

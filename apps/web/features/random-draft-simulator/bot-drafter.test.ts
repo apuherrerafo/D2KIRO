@@ -178,3 +178,101 @@ describe("botPickHeroFromEngine (TSK-083)", () => {
     expect(result).not.toBeNull();
   });
 });
+
+// TSK-216: candado del bug reportado por el usuario en Railway (2026-08-30) — el bot pickeó Wraith
+// King en las 3 rondas y Spectre en 2. La causa real era de transporte (TSK-214: el tablero nunca
+// avanzaba, así que cada ronda el bot decidía sobre `dire: []`), pero nada en el camino del bot
+// comprobaba disponibilidad. Estas pruebas fijan el candado de forma INDEPENDIENTE del arreglo de
+// transporte: aunque el `draftState` vuelva a quedar congelado, repetir un héroe es imposible.
+describe("el bot nunca repite un héroe ya tomado (TSK-216)", () => {
+  const snapshot = meta({
+    patchStats: {
+      [WRAITH_KING]: [{ patch: "7.36", bracket: "all", picks: 900, wins: 500 }],
+      [SPECTRE]: [{ patch: "7.36", bracket: "all", picks: 800, wins: 440 }],
+      [CRYSTAL_MAIDEN]: [{ patch: "7.36", bracket: "all", picks: 700, wins: 380 }],
+    },
+  });
+
+  test("con el tablero CONGELADO, `excluded` impide repetir el pick de la ronda anterior", () => {
+    // El escenario exacto del bug: el tablero dice que nadie pickeó nada, aunque el bot ya se
+    // llevó a Wraith King en la ronda 1.
+    const frozenBoard = draftState({ picks: { radiant: [], dire: [] } });
+
+    const result = botPickHero({
+      draftState: frozenBoard,
+      botSide: "dire",
+      meta: snapshot,
+      rng: createSeededRng("AAAAAAAA"),
+      conflictCount: 0,
+      excluded: [WRAITH_KING],
+    });
+
+    expect(result?.heroId).not.toBe(WRAITH_KING);
+    expect(result?.heroId).toBe(SPECTRE);
+  });
+
+  test("si el motor recomienda un héroe ya tomado, se baja al siguiente disponible", async () => {
+    const frozenBoard = draftState({ picks: { radiant: [], dire: [] } });
+    // El motor puntúa contra el estado que le mandamos: si ese estado está viejo, su rank 1 puede
+    // ser un héroe que en la realidad ya no está. Antes se aceptaba tal cual.
+    const engineSaysTakenHeroFirst = fakeFetch(async () =>
+      new Response(JSON.stringify({ suggestions: [{ hero: WRAITH_KING }, { hero: SPECTRE }] }), { status: 200 }),
+    );
+
+    const result = await botPickHeroFromEngine(
+      {
+        draftState: frozenBoard,
+        botSide: "dire",
+        meta: snapshot,
+        rng: createSeededRng("AAAAAAAA"),
+        conflictCount: 0,
+        excluded: [WRAITH_KING],
+      },
+      { fetchImpl: engineSaysTakenHeroFirst },
+    );
+
+    expect(result?.heroId).toBe(SPECTRE);
+  });
+
+  test("si TODA la lista del motor está tomada, decide el heurístico local, que filtra por construcción", async () => {
+    const frozenBoard = draftState({ picks: { radiant: [], dire: [] } });
+    const engineSaysEverythingTaken = fakeFetch(async () =>
+      new Response(JSON.stringify({ suggestions: [{ hero: WRAITH_KING }, { hero: SPECTRE }] }), { status: 200 }),
+    );
+
+    const result = await botPickHeroFromEngine(
+      {
+        draftState: frozenBoard,
+        botSide: "dire",
+        meta: snapshot,
+        rng: createSeededRng("AAAAAAAA"),
+        conflictCount: 0,
+        excluded: [WRAITH_KING, SPECTRE],
+      },
+      { fetchImpl: engineSaysEverythingTaken },
+    );
+
+    expect(result?.heroId).toBe(CRYSTAL_MAIDEN);
+  });
+
+  test("tres rondas encadenadas sobre un tablero congelado dan tres héroes DISTINTOS", () => {
+    const frozenBoard = draftState({ picks: { radiant: [], dire: [] } });
+    const picked: number[] = [];
+
+    for (let round = 0; round < 3; round++) {
+      const result = botPickHero({
+        draftState: frozenBoard,
+        botSide: "dire",
+        meta: snapshot,
+        rng: createSeededRng("AAAAAAAA"),
+        conflictCount: 0,
+        excluded: [...picked],
+      });
+      expect(result).not.toBeNull();
+      picked.push(result!.heroId);
+    }
+
+    // El bug daba [42, 42, 42] (Wraith King tres veces). El candado exige 3 distintos.
+    expect(new Set(picked).size).toBe(3);
+  });
+});

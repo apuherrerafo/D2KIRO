@@ -152,6 +152,25 @@ if [ -n "$DSIH_HIT" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
+# TSK-214: código de apps/web que corre en el NAVEGADOR no puede apuntar a un loopback. El motor
+# vive en 127.0.0.1 desde el punto de vista del SERVIDOR de Next, nunca del navegador del
+# visitante -- en Railway ese loopback no existe y la llamada falla en silencio. Bug real: los
+# eventos del simulador, el pick del bot y todos los reportes del DraftFeedbackBox se perdieron
+# durante semanas por esto. `next.config.ts` y `app/healthz/` quedan fuera: corren en el servidor.
+# Un default guardado por `process.env` en la misma línea sí se admite: es el escape para el WS,
+# que Next rewrites no puede proxear y que en producción se fija con NEXT_PUBLIC_ENGINE_WS_URL.
+LOOPBACK_HIT=$(git ls-files -- 'apps/web/features/*' 'apps/web/lib/*' 'apps/web/components/*' 2>/dev/null \
+  | grep -v '\.test\.' \
+  | xargs -r grep -nE '(127\.0\.0\.1|//localhost)' 2>/dev/null \
+  | grep -v 'process\.env' \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)') || true
+if [ -n "$LOOPBACK_HIT" ]; then
+  echo "❌ ERROR: literal de loopback (127.0.0.1 / localhost) bajo apps/web/{features,lib,components} -- ese código corre en el NAVEGADOR y debe ir por el proxy '/engine' (ENGINE_HTTP_BASE_URL)."
+  echo "   Si es un default de desarrollo, guárdalo con 'process.env.<VAR> ?? ...' en la misma línea."
+  printf '%s\n' "$LOOPBACK_HIT" | sed 's/^/   - /'
+  ERRORS=$((ERRORS + 1))
+fi
+
 # --- 6. Compilación/tipos + suite de tests -- solo en el camino de commit ---
 # Corre únicamente cuando VERIFY_COMMIT_GATE=1 (fijado por pretooluse-guard.sh en git commit/
 # push). Los hooks PostToolUse/SubagentStop de .claude/settings.json llaman a este mismo script en

@@ -178,3 +178,25 @@ test("confirmRound tras la ronda 3 revelada produce la fase complete con el Draf
     expect(finalPhase.summary.picksByRound).toEqual([{ userPicks: [30], botPicks: [14] }]);
   }
 });
+
+// TSK-215: el fallo de transporte tiene que ser un estado observable, no un console.error.
+// El bug de TSK-214 sobrevivió semanas justamente porque no lo era.
+test("engineStatus arranca en 'ok', se puede marcar 'unreachable' y vuelve solo al recuperarse", () => {
+  resetStore();
+  expect(useRandomDraftStore.getState().engineStatus).toBe("ok");
+
+  useRandomDraftStore.getState().setEngineStatus("unreachable");
+  expect(useRandomDraftStore.getState().engineStatus).toBe("unreachable");
+
+  useRandomDraftStore.getState().setEngineStatus("ok");
+  expect(useRandomDraftStore.getState().engineStatus).toBe("ok");
+});
+
+test("un draft nuevo nunca hereda el 'unreachable' del anterior", () => {
+  resetStore();
+  useRandomDraftStore.getState().setEngineStatus("unreachable");
+
+  startBlindRound(1);
+
+  expect(useRandomDraftStore.getState().engineStatus).toBe("ok");
+});

@@ -213,6 +213,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const phase = useRandomDraftStore((s) => s.phase);
   const sessionId = useRandomDraftStore((s) => s.sessionId);
   const draftState = useRandomDraftStore((s) => s.draftState);
+  const engineStatus = useRandomDraftStore((s) => s.engineStatus);
   const suggestions = useRandomDraftStore((s) => s.suggestions);
   const previewStatus = useRandomDraftStore((s) => s.previewStatus);
   const staleWarning = useRandomDraftStore((s) => s.staleWarning);
@@ -228,6 +229,10 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const socketRef = useRef<DraftSocket | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resolvedBansRef = useRef<HeroId[]>([]);
+  // TSK-216: héroes que el bot ya se llevó en rondas CERRADAS de esta sesión. `draftState` debería
+  // bastar, pero es justo el dato que quedó viejo en el bug de TSK-214 -- este acumulador es local
+  // al hook y no depende de que ninguna respuesta del motor llegue.
+  const botPicksSoFarRef = useRef<HeroId[]>([]);
   const previewRequestKeyRef = useRef<string | null>(null);
   const previewPendingRef = useRef<{ round: 1 | 2 | 3; picks: HeroId[] } | null>(null);
   // TSK-182 (Fase 4.3b): intención de draft del usuario para archetype_fit. Ref para que
@@ -428,7 +433,11 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const sessionId = sessionIdRef.current;
     if (!sessionId) return;
     // Reintento con backoff -- Req. 9.6, mismo patrón que reconectar el WebSocket abajo.
-    const delays = [0, 200, 400];
+    // TSK-214: el último delay supera los 1000 ms de RATE_WINDOW_MS (server/edge.ts) a propósito.
+    // Desde que `/api/session/manual` aplica el límite de 20 eventos/segundo por sesión, la ráfaga
+    // de bans del arranque puede rozarlo; con [0, 200, 400] los tres intentos caían dentro de la
+    // misma ventana y el evento se perdía igual.
+    const delays = [0, 300, 1200];
     // Diagnóstico: el motivo real de rechazo (rejected) o "network_error" -- antes el log final
     // solo mostraba el payload, una caja negra para diagnosticar por qué falló cada reintento.
     let lastReason: string | undefined;
@@ -436,7 +445,20 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
       try {
         const result = await postSimulatorEvent(sessionId, nextSeq(), payload);
-        if (result.accepted) return;
+        if (result.accepted) {
+          // TSK-214: el estado que devuelve el motor es la fuente de verdad del tablero. Antes
+          // esto dependía sólo del push por WebSocket, que en Railway no existe (Next rewrites no
+          // proxea WS) -- de ahí el tablero congelado y el bot repitiendo héroe cada ronda.
+          if (result.draftState && sessionIdRef.current === sessionId) {
+            const current = useRandomDraftStore.getState();
+            useRandomDraftStore.getState().setDraftState(result.draftState, current.suggestions);
+          }
+          // TSK-215: el motor volvió a responder -- se retira el aviso sin intervención.
+          if (useRandomDraftStore.getState().engineStatus !== "ok") {
+            useRandomDraftStore.getState().setEngineStatus("ok");
+          }
+          return;
+        }
         lastReason = result.rejected ?? "rejected_no_reason";
       } catch {
         // Reintenta con el siguiente delay; si se agotan, el evento se pierde (no hay más
@@ -444,7 +466,11 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         lastReason = "network_error";
       }
     }
+    // TSK-215: agotados los reintentos, el tablero visible dejó de corresponder al estado real.
+    // Antes esto moría acá, en un console.error que nadie ve: el draft seguía andando "bien" en
+    // pantalla mientras el motor no sabía nada. Ahora la pantalla lo dice.
     console.error("[useRandomDraftSession] no se pudo emitir el evento tras reintentos:", payload, "motivo:", lastReason);
+    if (sessionIdRef.current === sessionId) useRandomDraftStore.getState().setEngineStatus("unreachable");
   }
 
   async function connectSocket(sessionId: string): Promise<void> {
@@ -510,6 +536,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       patch: config.patch,
     });
     resolvedBansRef.current = orchestratorResult.resolvedBans;
+    botPicksSoFarRef.current = [];
 
     useRandomDraftStore.getState().startSession(config, sessionId, orchestratorResult);
     void connectSocket(sessionId);
@@ -668,14 +695,24 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const state = useRandomDraftStore.getState();
     const result = [...survivingBotPicks];
     for (let i = 0; i < countNeeded; i++) {
+      // TSK-216: `botPicksSoFarRef` son los héroes que el bot ya eligió en RONDAS ANTERIORES.
+      // `result` cubre los de esta ronda. Los dos se pasan como excluidos en vez de confiar en
+      // que `draftState` esté al día: si vuelve a quedar viejo por cualquier motivo, el bot
+      // igual no puede repetir. Es defensa en profundidad sobre el arreglo de TSK-214, no un
+      // duplicado suyo -- la causa y el síntoma se cubren por separado a propósito.
+      const excluded = [...botPicksSoFarRef.current, ...result];
       const picked = await botPickHeroFromEngine({
         draftState: buildBotDraftState(state, userPicks, result),
         botSide: otherSide(state.config!.userSide),
         meta: meta.meta,
         rng,
         conflictCount: 0,
+        excluded,
       });
       if (picked === null) break;
+      // Cinturón y tirantes: si aun así volviera un héroe ya tomado, se corta la ronda antes de
+      // escribir un pick inválido. Un draft con un héroe repetido no es un draft.
+      if (excluded.includes(picked.heroId)) break;
       result.push(picked.heroId);
     }
     return result;
@@ -710,6 +747,10 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     if (!config) return;
     const botSide = otherSide(config.userSide);
 
+    // TSK-216: la ronda queda cerrada acá -- estos héroes ya son del bot para el resto del draft,
+    // independientemente de lo que el tablero llegue a reflejar después.
+    botPicksSoFarRef.current = [...botPicksSoFarRef.current, ...botPicks];
+
     for (const heroId of userPicks) {
       await emit({ type: "hero_picked", hero: heroId as EngineHeroId, side: config.userSide });
     }
@@ -743,7 +784,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }
 
   return {
-    state: { config, phase, sessionId, draftState, suggestions, previewStatus, staleWarning, lastSyncedAt, archetypeIntent },
+    state: { config, phase, sessionId, draftState, suggestions, previewStatus, staleWarning, lastSyncedAt, archetypeIntent, engineStatus },
     actions: { confirmPick: confirmPendingPick, deselectPick: deselectPendingPick, resetDraft, retryPreview, setArchetypeIntent },
     startDraft,
     confirmRound,
