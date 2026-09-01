@@ -6,11 +6,15 @@ import type { DraftSummary, HeroId } from "../types";
 interface HeroRowProps {
   heroIds: HeroId[];
   heroCatalog: Map<number, HeroMeta>;
+  // TSK-217: ancla estable para el E2E. Sin esto, la prueba tendría que deducir qué fila es de
+  // quién por su posición en el grid -- se rompería con cualquier retoque de maquetado y dejaría
+  // de proteger lo que importa.
+  testId?: string;
 }
 
-function HeroRow({ heroIds, heroCatalog }: HeroRowProps) {
+function HeroRow({ heroIds, heroCatalog, testId }: HeroRowProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2" data-testid={testId}>
       {heroIds.map((heroId) => (
         <DraftHeroSlot key={heroId} heroId={heroId} heroMeta={heroCatalog.get(heroId)} variant="pick" />
       ))}
@@ -29,8 +33,8 @@ function RoundRow({ round, userPicks, botPicks, heroCatalog }: RoundRowProps) {
   return (
     <div className="grid gap-3 rounded-md border border-surface-border bg-surface-overlay p-3 sm:grid-cols-[auto_1fr_1fr]">
       <span className="text-caption text-content-secondary">Ronda {round}</span>
-      <HeroRow heroIds={userPicks} heroCatalog={heroCatalog} />
-      <HeroRow heroIds={botPicks} heroCatalog={heroCatalog} />
+      <HeroRow heroIds={userPicks} heroCatalog={heroCatalog} testId="summary-user-picks" />
+      <HeroRow heroIds={botPicks} heroCatalog={heroCatalog} testId="summary-bot-picks" />
     </div>
   );
 }

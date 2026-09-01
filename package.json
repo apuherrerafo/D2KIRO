@@ -1,14 +1,18 @@
 {
   "dependencies": {},
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "better-sqlite3": "^13.0.3",
     "husky": "^9.1.7",
+    "iron-session": "^8.0.4",
     "lint-staged": "^17.3.0"
   },
   "scripts": {
     "prepare": "husky",
     "pro:sync": "bun run scripts/pro/ingest-drafts.ts",
     "draft:test": "bun run scripts/test-pipeline.ts",
-    "eval": "bun run scripts/eval/run.ts"
+    "eval": "bun run scripts/eval/run.ts",
+    "e2e": "playwright test",
+    "test": "bun test apps/engine && bun test apps/web && bun test scripts"
   }
 }

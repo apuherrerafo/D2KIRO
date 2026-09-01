@@ -15,3 +15,9 @@ apps/engine/data/pro-drafts.sqlite
 # son el candado de regresión y su procedencia.
 eval/reports/*
 !eval/reports/.gitkeep
+
+# TSK-217: artefactos del E2E (copia de la base, cookie sellada, trazas)
+e2e/.tmp/
+test-results/
+playwright-report/
+.next-e2e/
