@@ -10,7 +10,23 @@ ENV BUN_INSTALL=/root/.bun
 ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN curl -fsSL https://bun.sh/install | bash
+# R0/Task 31 (TOOLCHAIN_VERSION_DRIFT): la versión de Bun sale EXCLUSIVAMENTE de
+# package.json#packageManager (raíz) -- misma y única fuente manual que LOCAL y CI. `node` ya
+# existe en esta imagen (base node:22), así que se extrae/valida el pin sin depender de un ARG
+# inyectado por GitHub Actions (Railway construye este Dockerfile directamente). Se instala la
+# versión exacta y se verifica durante el build.
+COPY package.json ./package.json
+RUN set -eu; \
+  EXPECTED_PM="$(node -p "require('./package.json').packageManager")"; \
+  case "$EXPECTED_PM" in \
+    bun@[0-9]*.[0-9]*.[0-9]*) : ;; \
+    *) echo "package.json#packageManager no es 'bun@<semver exacto>': $EXPECTED_PM" >&2; exit 1 ;; \
+  esac; \
+  EXPECTED_BUN_VERSION="${EXPECTED_PM#bun@}"; \
+  curl -fsSL https://bun.sh/install | bash -s "bun-v${EXPECTED_BUN_VERSION}"; \
+  ACTUAL_BUN_VERSION="$(bun --version)"; \
+  echo "Bun build check: expected=${EXPECTED_BUN_VERSION} actual=${ACTUAL_BUN_VERSION}"; \
+  [ "$EXPECTED_BUN_VERSION" = "$ACTUAL_BUN_VERSION" ]
 
 COPY apps/engine/package.json apps/engine/bun.lock ./apps/engine/
 RUN cd apps/engine && bun install --frozen-lockfile

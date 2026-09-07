@@ -108,6 +108,26 @@ describe("recommendTeamOpeners", () => {
     expect(result.map((option) => option.strategy)).toEqual(["push", "pickoff", "teamfight"]);
   });
 
+  // Task 15 follow-up: `strategy: null` (héroe sin entrada de capacidades) comparte el bucket
+  // INTERNO de diversidad con un `"scaling"` real, replicando el `strategy ?? "scaling"` que
+  // `run-pipeline.ts` ya aplica en su desempate. Sin esta imputación local, el cambio honesto de
+  // Task 15 ("missing -> null") alteraba el ranking: tras seleccionar A (null), B ("scaling" real)
+  // dejaba de recibir REPEAT_STRATEGY_PENALTY y el top-2 pasaba de [10, 12] a [10, 11]. La
+  // evidencia observable NO se fabrica: A conserva `strategy === null` en la salida.
+  test("null y un `scaling` real comparten bucket de diversidad; la salida conserva strategy=null", () => {
+    const mixed: TeamOpenerCandidate[] = [
+      { hero: 10, baseScore: 0.7, strategy: null, matchups: [] },
+      { hero: 11, baseScore: 0.69, strategy: "scaling", matchups: [] },
+      { hero: 12, baseScore: 0.68, strategy: "push", matchups: [] },
+    ];
+    const result = recommendTeamOpeners({ candidates: mixed, banned: [], limit: 2 });
+
+    // Ranking histórico pre-Task-15 restaurado: A + C (B pierde el desempate por compartir bucket).
+    expect(result.map((option) => option.hero)).toEqual([10, 12]);
+    // La imputación existe sólo para el bucket de diversidad: la estrategia observable de A sigue null.
+    expect(result.find((option) => option.hero === 10)!.strategy).toBeNull();
+  });
+
   test("da una razón de apertura propia a cada plan, sin reutilizar una plantilla genérica", () => {
     const result = recommendTeamOpeners({
       candidates,

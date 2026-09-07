@@ -39,7 +39,8 @@ código de esta fase escrito todavía. Ver `docs/agents/PROGRESS.md` para el est
 siguiente paso.
 
 ## COMANDOS ESENCIALES
-- `bun run dev` → Iniciar servidor de desarrollo.
+- Arranque local (dos procesos, no uno): `cd apps/engine && bun run dev` (motor Bun, `--watch`) y
+  `cd apps/web && bun run dev` (`next dev`). No hay script `dev` en la raíz.
 - `bun run test` → Ejecutar las pruebas. **Corre las tres raíces por separado, y así debe ser**:
   `bun test` a secas en la raíz da ~55 fallos que NO existen (`@happy-dom/global-registrator` de
   `apps/web` parchea el `fetch` global y contamina los tests de servidor de `apps/engine` al correr
@@ -47,7 +48,8 @@ siguiente paso.
 - `bun run e2e` → Smoke de navegador (Playwright): un draft completo del simulador contra motor +
   web reales. Lento (~1,2 min, necesita la base con meta sincronizada) y **de a uno**, no en bucle.
   Su lugar es `/castoff`, no el gate de cada commit.
-- `bun run lint` → Formatear código.
+- `cd apps/web && bun run lint` → ESLint (es lo que corre CI). Solo `apps/web` tiene lint
+  configurado; la raíz, `apps/engine` y `scripts/` no tienen script `lint`.
 - `bash scripts/verify-simplicity.sh` → Verificar seguridad, invariantes y calidad antes de un commit.
 - `bun scripts/hub.ts` → Regenerar el tablero desde los tickets.
 

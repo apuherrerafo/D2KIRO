@@ -44,11 +44,15 @@ export function extractCandidateFeatures(
 // siempre -- nunca omite héroes (a diferencia de extractCandidateFeatures, que sí descarta a los
 // sin perfil de línea). No filtra por `state`: la exclusión de baneados/pickeados ya la hizo quien
 // construyó `candidates`.
+// R0.3 / Task 15: `openingStrategy` devuelve `null` para un héroe sin entrada curada -> el mapa
+// propaga ese `null` sin fabricar `"scaling"`. Sigue habiendo una entrada por candidato (nunca se
+// omite un héroe); `null` significa "sin estrategia medible". El desempate por diversidad de
+// `run-pipeline.ts` aplica su propio default local para ese caso.
 export function extractCandidateStrategies(
   candidates: readonly HeroId[],
   capabilities: readonly HeroCapabilities[],
-): Map<HeroId, DraftPathArchetype> {
-  const result = new Map<HeroId, DraftPathArchetype>();
+): Map<HeroId, DraftPathArchetype | null> {
+  const result = new Map<HeroId, DraftPathArchetype | null>();
   for (const heroId of candidates) {
     result.set(heroId, openingStrategy(heroId, capabilities as HeroCapabilities[]));
   }

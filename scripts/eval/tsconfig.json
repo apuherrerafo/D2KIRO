@@ -15,5 +15,5 @@
     "typeRoots": ["../../apps/engine/node_modules/@types"],
     "types": ["bun"]
   },
-  "include": ["types.ts", "replay.ts", "replay.test.ts", "metrics.ts", "metrics.test.ts", "golden.ts", "golden.test.ts"]
+  "include": ["types.ts", "replay.ts", "replay.test.ts", "metrics.ts", "metrics.test.ts", "golden.ts", "golden.test.ts", "evaluation-identity.ts", "evaluation-identity.test.ts"]
 }

@@ -153,7 +153,10 @@ function sortForOpening(results: readonly PipelineCandidateResult[]): PipelineCa
 // mejores opciones son todas la misma estrategia, se devuelven igual.
 function diversifyByStrategy(
   sorted: readonly PipelineCandidateResult[],
-  strategyOf: Map<HeroId, DraftPathArchetype>,
+  // R0.3 / Task 15: un héroe sin entrada curada llega como `null` (antes `"scaling"` fabricado).
+  // El `?? "scaling"` de abajo es el default LOCAL del desempate por diversidad -- imputación
+  // interna de score, no una afirmación de evidencia; el comportamiento observable no cambia.
+  strategyOf: Map<HeroId, DraftPathArchetype | null>,
   limit: number,
   penalty: number,
 ): PipelineCandidateResult[] {
@@ -273,9 +276,9 @@ export function runProDrafterPipeline(
   const earlyPressure = isTeamOpening ? createPositionalCommitment(heroPositions) : earlyPressureFromProfiles(profiles);
   const beta = isTeamOpening ? BETA_OPENING : DEFAULT_BETA;
 
-  const strategyOf = isTeamOpening
+  const strategyOf: Map<HeroId, DraftPathArchetype | null> = isTeamOpening
     ? extractCandidateStrategies(candidates, options?.heroCapabilities ?? [])
-    : new Map<HeroId, DraftPathArchetype>();
+    : new Map<HeroId, DraftPathArchetype | null>();
 
   const results: PipelineCandidateResult[] = candidates.map((candidateHero) => {
     const laneResult = evaluateLaneRoster(

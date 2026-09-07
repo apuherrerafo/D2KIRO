@@ -26,12 +26,49 @@ def read_target_path(stdin_text: str) -> str:
 
 
 def to_repo_relative(abs_or_rel: str, repo_root: Path) -> str:
-    p = Path(abs_or_rel)
+    """Normaliza a una ruta relativa al repo con separador ``/``, idéntica en todo SO (CP6).
+
+    Acepta rutas absolutas o relativas, con separador ``/`` o ``\\``. El resultado usa
+    SIEMPRE ``/`` (formato canónico) y no depende del sistema operativo donde corre el
+    hook: ``to_repo_relative(win_path) == to_repo_relative(posix_path)`` para el mismo
+    input lógico.
+
+    Si el input resuelve FUERA del repo (o no puede resolverse contra ``repo_root``),
+    devuelve la mejor normalización POSIX posible pero NO garantiza que sea
+    repo-relative. Los guards que necesitan un veredicto seguro deben comprobarlo con
+    :func:`is_repo_relative_posix` y fallar cerrado ante la ambigüedad.
+    """
+    # Colapsar el separador de Windows ANTES de que pathlib lo interprete según el SO.
+    normalized = abs_or_rel.replace("\\", "/")
+    root = repo_root.resolve()
+    candidate = Path(normalized)
     try:
-        return str(p.resolve().relative_to(repo_root.resolve()))
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        # ``as_posix`` es el único stringificador independiente del SO: garantiza ``/``.
+        return candidate.resolve().relative_to(root).as_posix()
     except Exception:
-        # ya venía relativo, o está fuera del repo (lo dejamos tal cual)
-        return abs_or_rel.lstrip("./")
+        # Fuera del repo o irresoluble. El separador ya viene colapsado a ``/``; sólo
+        # quitamos el ``./`` inicial. No es repo-relative garantizado: es señal de
+        # ambigüedad para el llamador.
+        out = normalized
+        while out.startswith("./"):
+            out = out[2:]
+        return out
+
+
+def is_repo_relative_posix(path: str) -> bool:
+    """``True`` sólo si ``path`` YA es una ruta canónica relativa al repo.
+
+    Canónica = separador ``/``, sin componente ``..``, sin prefijo absoluto (``/`` o
+    unidad ``C:``). Es el predicado con el que un guard decide si la normalización de
+    :func:`to_repo_relative` fue inequívoca (CP6 / postura fail-closed, requisito 1.3).
+    """
+    if not path or "\\" in path or path.startswith("/"):
+        return False
+    if re.match(r"^[A-Za-z]:", path):
+        return False
+    return ".." not in path.split("/")
 
 
 def glob_to_regex(glob: str) -> re.Pattern[str]:
@@ -85,6 +122,15 @@ def parse_scope_list(raw: str) -> list[str]:
 
 
 def matches_any(rel_path: str, globs: list[str]) -> bool:
+    # Candado OS-independiente (CP6): `matches_any` opera SIEMPRE sobre el formato
+    # canónico con `/`. Un separador de Windows aquí significa que la normalización
+    # aguas arriba (`to_repo_relative`) falló — no comparamos en silencio contra un
+    # resultado que en Ubuntu daría distinto.
+    if "\\" in rel_path:
+        raise ValueError(
+            f"matches_any recibió una ruta sin normalizar (contiene '\\'): {rel_path!r}. "
+            "Pasa el resultado de to_repo_relative, nunca una ruta cruda."
+        )
     return any(glob_to_regex(g).match(rel_path) for g in globs)
 
 

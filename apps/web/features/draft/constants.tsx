@@ -20,6 +20,7 @@ export const DEGRADATION_LABELS: Record<DegradationFlag, string> = {
   partial_signals: "El cálculo se cortó antes de terminar — algunas señales pueden faltar.",
   unconfirmed_state: "Hay picks o bans sin confirmar en la captura — revisa el tablero.",
   unknown_format: "No se detectó el formato del draft — las sugerencias no ajustan por modo de juego.",
+  no_signal_available: "No hay señales disponibles para votar",
 };
 
 export const CONFIDENCE_LABELS: Record<SuggestionConfidence, string> = {

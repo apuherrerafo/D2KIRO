@@ -16,11 +16,16 @@
 const path = require("node:path");
 
 function relativeTo(baseDir) {
-  return (absolutePaths) => absolutePaths.map((file) => path.relative(path.resolve(baseDir), file)).join(" ");
+  // path.relative usa el separador nativo (`\` en Windows). Esos paths se insertan dentro de
+  // `sh -lc '...'`, donde el backslash se interpreta como escape y se pierde
+  // (`features\draft\x.tsx` -> `featuresdraftx.tsx` -> "No files matching the pattern").
+  // Normalizamos a separador POSIX antes de pasarlos al shell. En Linux/macOS es un no-op.
+  return (absolutePaths) =>
+    absolutePaths.map((file) => path.relative(path.resolve(baseDir), file).split(path.sep).join("/")).join(" ");
 }
 
 module.exports = {
-  "apps/web/**/*.{ts,tsx}": (files) => [`cd apps/web && bunx eslint ${relativeTo("apps/web")(files)}`],
-  "apps/engine/**/*.ts": () => ["cd apps/engine && bunx tsc --noEmit"],
+  "apps/web/**/*.{ts,tsx}": (files) => [`sh -lc 'cd apps/web && bunx eslint ${relativeTo("apps/web")(files)}'`],
+  "apps/engine/**/*.ts": () => ["sh -lc 'cd apps/engine && bunx tsc --noEmit'"],
   "scripts/**/*.ts": () => ["bun test scripts/"],
 };

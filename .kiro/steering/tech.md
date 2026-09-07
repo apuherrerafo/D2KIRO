@@ -29,9 +29,9 @@ Regla que lo sostiene: **cero red en el camino caliente** — las ~120 filas de 
 enfrentamientos ya están en SQLite local antes del primer pick.
 
 ## Comandos
-- `bun run dev` — servidor de desarrollo.
+- Arranque local (dos procesos): `cd apps/engine && bun run dev` y `cd apps/web && bun run dev`. Sin script `dev` en la raíz.
 - `bun test` — pruebas unitarias.
-- `bun run lint` — formateo.
+- `cd apps/web && bun run lint` — ESLint (lo que corre CI). Sin script `lint` en la raíz.
 - `bash scripts/verify-simplicity.sh` — verificación de límites.
 - `bun scripts/hub.ts` — tablero Kanban desde tickets.
 

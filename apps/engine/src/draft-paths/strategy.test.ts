@@ -15,8 +15,31 @@ function capability(overrides: Partial<HeroCapabilities> & { hero: number }): He
   };
 }
 
-test("sin entrada en capabilities -> scaling", () => {
-  expect(openingStrategy(999, [])).toBe("scaling");
+// R0.3 / Task 15 (design §4.3 Data Models (d), requisito 3.5, CP9 / Property 9): un héroe sin
+// entrada en capabilities.json NO tiene estrategia de apertura medible -> `null`, nunca un valor
+// fabricado ("sin dato, nunca un valor"). Antes de Task 15 esta prueba fijaba el bug: esperaba
+// `"scaling"`.
+test("sin entrada en capabilities -> null (nunca un valor fabricado)", () => {
+  expect(openingStrategy(999, [])).toBeNull();
+});
+
+// CP9 candado null != zero: "no hay observación" (sin entrada) NO es lo mismo que "hay una entrada
+// real cuyas capacidades son todas bajas" (deriva "scaling" legítimamente). Una refactorización
+// futura no puede volver a colapsar ambos casos en el mismo valor.
+test("null (sin entrada) se distingue de 'scaling' (entrada real todo-bajo)", () => {
+  const missing = openingStrategy(4, []);
+  const realLowEntry = openingStrategy(4, [capability({ hero: 4 })]);
+  expect(missing).toBeNull();
+  expect(realLowEntry).toBe("scaling");
+  expect(missing).not.toBe(realLowEntry);
+});
+
+// Ausencia de dato no fabrica una afirmación estratégica: `openingStrategy` no cae a `"scaling"`
+// (ni a ningún arquetipo) por un `?? "scaling"` / `|| "scaling"` interno.
+test("un héroe presente en la lista pero no en el estado consultado sigue dando null", () => {
+  const caps = [capability({ hero: 1, structuralDamage: "high" })];
+  expect(openingStrategy(2, caps)).toBeNull();
+  expect(openingStrategy(1, caps)).toBe("push");
 });
 
 test("structuralDamage alto -> push", () => {

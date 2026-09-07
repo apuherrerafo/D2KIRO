@@ -21,6 +21,7 @@ _LIB = Path(__file__).parent
 sys.path.insert(0, str(_LIB))
 from _hook_lib import (  # noqa: E402
     find_doing_ticket,
+    is_repo_relative_posix,
     matches_any,
     parse_scope_list,
     read_frontmatter_field,
@@ -38,6 +39,22 @@ def main() -> int:
         return 0
 
     rel = to_repo_relative(target, repo_root)
+
+    # Fail-closed ante ambigüedad de normalización (requisito 1.3 c3, diseño §4.1 nota
+    # de fail-safe): si `rel` no quedó en formato canónico repo-relative y el input
+    # PODRÍA apuntar a `data/curated/`, se bloquea — nunca se deja pasar por no
+    # reconocer el prefijo. No se amplía el bloqueo a rutas ambiguas ajenas a
+    # `data/curated/`: esas siguen devolviendo 0 (no convertir cualquier error en DENY).
+    if not is_repo_relative_posix(rel):
+        if CURATED_PREFIX in target.replace("\\", "/"):
+            sys.stderr.write(
+                f"Bloqueado por data-boundary-guard (fail-closed): '{target}' no pudo "
+                f"normalizarse a una ruta repo-relative inequívoca y referencia "
+                f"'{CURATED_PREFIX}'. Ante la duda sobre un dato curado se deniega (ADR-003).\n"
+            )
+            return 2
+        return 0  # ambigua pero sin relación con data/curated/
+
     if not rel.startswith(CURATED_PREFIX):
         return 0  # sólo nos importa data/curated/
 

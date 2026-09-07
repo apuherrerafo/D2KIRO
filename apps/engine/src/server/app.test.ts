@@ -273,6 +273,21 @@ describe("servidor Bun (TSK-010)", () => {
   // recálculo + push de SÓLO `suggestions` (el tablero no cambió). Contra el app real, no la señal.
   test("set_intent activa/limpia archetype_fit y hace no-op si el valor no cambió", async () => {
     const sessionId = "session-ws-intent";
+    // Task 14: unknown localSide leaves votingSignals empty, so the contract has no ranking to inspect.
+    // Identifying the local side is the smallest existing precondition for a legitimate suggestion.
+    // The test can then continue to validate set_intent without changing product behavior.
+    const started = await fetch(`${baseUrl}/ingest/draft-event`, {
+      method: "POST",
+      headers: { "x-capture-token": EXPECTED_HEADER },
+      body: JSON.stringify(envelope({ sessionId, seq: 1, payload: { type: "session_started", format: "all_pick", patch: "7.36" } })),
+    });
+    expect(started.status).toBe(202);
+    const identified = await fetch(`${baseUrl}/ingest/draft-event`, {
+      method: "POST",
+      headers: { "x-capture-token": EXPECTED_HEADER },
+      body: JSON.stringify(envelope({ sessionId, seq: 2, payload: { type: "local_side_identified", side: "radiant" } })),
+    });
+    expect(identified.status).toBe(202);
     const ws = new WebSocket(`${baseUrl.replace("http", "ws")}/ws/draft`);
     await waitForOpen(ws);
 
@@ -717,7 +732,7 @@ describe("servidor Bun (TSK-010)", () => {
 
 describe("cuentas HTTP multi-tenant (TSK-098)", () => {
   let baseUrl: string;
-  let stop: () => void;
+  let stop: () => Promise<void>;
   let testDb: ReturnType<typeof createTestDb>;
 
   beforeAll(() => {
@@ -731,10 +746,57 @@ describe("cuentas HTTP multi-tenant (TSK-098)", () => {
     });
     const server = app.start("127.0.0.1", 0);
     baseUrl = `http://127.0.0.1:${server.port}`;
+    // Runtime canónico (Bun 1.4.2): `server.stop(true)` devuelve una promesa que se asienta cuando
+    // las conexiones drenan, incluso en el único describe que pasa `internalAuthSecret` -- el único
+    // que puede llegar al `ws.close(1008)` de la ruta de auth (app.ts:441). Tras ese cierre iniciado
+    // por el servidor, `server.pendingWebSockets` baja a 0 solo y la promesa resuelve, así que el
+    // teardown se espera con normalidad.
+    // Historia: en Bun 1.3.14 esa misma promesa no se asentaba en este escenario y Task 17 la
+    // descartaba a propósito (`stop` devolvía `void`); ese contrato caduco y su evidencia viven en
+    // docs/agents/r0-discovery/task-32-bun-runtime-compatibility.md, no se reintroduce aquí.
     stop = () => server.stop(true);
   });
 
-  afterAll(() => stop());
+  afterAll(async () => {
+    await stop();
+  });
+
+  // R0/Task 32 -- candado del contrato de teardown bajo el runtime canónico. Protege el observable
+  // útil y público (cliente CLOSED con code 1008 -> `stop(true)` se asienta dentro de un límite
+  // explícito -> listener cerrado), no el contador interno `pendingWebSockets` de Bun. Es el mismo
+  // escenario que en Bun 1.3.14 dejaba la promesa colgada (workaround de Task 17, hoy retirado);
+  // el before/after de la migración de plataforma está en el artefacto de Task 32. Servidor propio
+  // y efímero: no toca el del `beforeAll`.
+  test("un cierre 1008 iniciado por el servidor deja stop(true) asentado dentro del límite y el listener cerrado", async () => {
+    const app = createApp({
+      db: createTestDb(),
+      openDotaClient: new OpenDotaClient(),
+      captureToken: EXPECTED_HEADER,
+      internalAuthSecret: TEST_ACCOUNT_HMAC_KEY,
+      accountTokenNow: () => TEST_ACCOUNT_TIME,
+    });
+    const server = app.start("127.0.0.1", 0);
+    const url = `http://127.0.0.1:${server.port}`;
+
+    const ws = new WebSocket(`${url.replace("http", "ws")}/ws/draft`);
+    await waitForOpen(ws);
+    const closedCode = new Promise<number>((resolve) => {
+      ws.onclose = (event) => resolve(event.code);
+    });
+    // Token inválido -> es el SERVIDOR el que cierra (1008): la condición exacta que en Bun 1.3.14
+    // dejaba la promesa de `stop()` sin asentarse.
+    ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId: "teardown-lock", accountToken: "invalid" }));
+    expect(await closedCode).toBe(1008);
+    expect(ws.readyState).toBe(3); // 3 = CLOSED
+
+    // `stop(true)` ahora SÍ se asienta -- se espera con un límite explícito en vez de descartarla.
+    const settled = await Promise.race([
+      server.stop(true).then(() => "settled" as const),
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 5000)),
+    ]);
+    expect(settled).toBe("settled");
+    await expect(fetch(`${url}/api/health`)).rejects.toThrow();
+  });
 
   test("sin x-account-token, GET /api/hero-pool responde missing_account_token", async () => {
     const response = await fetch(`${baseUrl}/api/hero-pool`);

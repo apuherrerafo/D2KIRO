@@ -23,9 +23,9 @@ Definido por `/blueprint` (`docs/agents/architecture.md`) y `/pre-flight`. No mo
 - Despliegue: Railway.
 
 ## COMANDOS ESENCIALES
-- `bun run dev` → Iniciar servidor de desarrollo.
+- Arranque local (dos procesos): `cd apps/engine && bun run dev` y `cd apps/web && bun run dev`. Sin script `dev` en la raíz.
 - `bun test` → Ejecutar pruebas unitarias.
-- `bun run lint` → Formatear código.
+- `cd apps/web && bun run lint` → ESLint (lo que corre CI). Sin script `lint` en la raíz.
 - `bash scripts/verify-simplicity.sh` → Verificar seguridad, invariantes y calidad antes de un commit.
 - `bun scripts/hub.ts` → Regenerar el tablero desde los tickets.
 

@@ -1,22 +1,26 @@
-# Batería completa antes de que el commit salga de la máquina -- pre-commit (lint-staged) ya dio
-# el primer aviso rápido por archivo tocado; acá corre test+tipos+lint de cada subapp completa,
-# sin importar qué archivos cambiaron, porque un tipo roto en un archivo puede romper otro que
-# nadie tocó en este commit.
+#!/usr/bin/env sh
+# PRE-PUSH gate — R0.1 / Task 5 (.kiro/specs/r0-engineering-baseline-recovery).
+#
+# Barrera LOCAL y determinista: corre ANTES de que un commit salga de la máquina.
+# Se activa con `git config core.hooksPath .husky` (repo-local, ver scripts/install-git-hooks.sh) —
+# un `git push` normal desde cualquier terminal lo dispara, sin depender de Claude Code ni de CI.
+#
+# Nivel PRE-PUSH (design.md §3.2 / §5): SOFTWARE CORRECTNESS + sanity pequeño.
+#   1. `bun run test`  -> las 3 suites canónicas (apps/engine + apps/web + scripts)
+#   2. `tsc --noEmit`  -> sanity de tipos de cada app (un tipo roto en un archivo que este
+#                         commit no tocó igual rompe el build)
+# NO corre el eval pesado del motor (NDCG / Pro Agreement): eso vive en INTELLIGENCE CI, nunca aquí.
+#
+# Cualquier paso en rojo aborta el push (exit != 0). `set -e` + subshells que propagan el fallo.
+set -e
 
-echo "[pre-push] apps/engine: bun test"
-(cd apps/engine && bun test)
+echo "[pre-push] 1/3  bun run test  (apps/engine + apps/web + scripts, comando canónico)"
+bun run test
 
-echo "[pre-push] apps/engine: tsc --noEmit"
-(cd apps/engine && bunx tsc --noEmit)
+echo "[pre-push] 2/3  apps/engine: tsc --noEmit"
+( cd apps/engine && bunx tsc --noEmit )
 
-echo "[pre-push] apps/web: bun test"
-(cd apps/web && bun test)
+echo "[pre-push] 3/3  apps/web: tsc --noEmit"
+( cd apps/web && bunx tsc --noEmit )
 
-echo "[pre-push] apps/web: tsc --noEmit"
-(cd apps/web && bunx tsc --noEmit)
-
-echo "[pre-push] apps/web: lint"
-(cd apps/web && bun run lint)
-
-echo "[pre-push] scripts: bun test"
-bun test scripts/
+echo "[pre-push] OK — software correctness + sanity en verde. Push permitido."

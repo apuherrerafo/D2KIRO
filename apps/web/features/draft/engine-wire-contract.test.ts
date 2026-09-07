@@ -71,3 +71,15 @@ test("gate: un preview HTTP con forma alterada nunca se vincula a Zustand", () =
   expect(isValidSuggestionSet(malformed)).toBe(false);
   expect(bindPreviewSuggestions(malformed, engineDraftState)).toBeNull();
 });
+
+test("gate: degenerate engine payload crosses the web wire contract", () => {
+  const degenerateState = { ...engineDraftState, localSide: "unknown" as const };
+  const engineDegenerate = buildSuggestions(degenerateState, {
+    heroes: { 1: { id: 1, localizedName: "Uno" } },
+    matchups: {},
+  }, { heroPositions: {}, heroCapabilities: [] });
+  const payload: unknown = JSON.parse(JSON.stringify(buildServerMessage("suggestions", degenerateState.lastSeq, engineDegenerate)));
+
+  expect(engineDegenerate).toMatchObject({ suggestions: [], degraded: ["no_signal_available"], decisionContext: "no_signal_available" });
+  expect(isValidServerMessage(payload)).toBe(true);
+});

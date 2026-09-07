@@ -15,9 +15,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { MetaSnapshot } from "../../apps/engine/src/signals/types";
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import { buildSuggestions } from "../../apps/engine/src/signals/mix";
+import { OMITTED_BASELINES, type BaselineId } from "./baselines";
 import { hydrateState, runEngineQuality, type EngineQualityResult } from "./benchmark-engine-quality";
-import { loadReplayCasesFromDb, runProAgreement, type ProAgreementResult } from "./benchmark-pro-agreement";
-import type { ReplayCase } from "./types";
+import { loadReplayCasesFromDb, runProAgreement, type ProAgreementResult, type Segment } from "./benchmark-pro-agreement";
+import type { BuildReplayResult, ReplayCase } from "./types";
 import { loadGoldenDataset, type GoldenCase } from "./golden";
 import { dominantPatch } from "./replay";
 import { renderReport, type EvidenceProfile, type ReportMeta } from "./report";
@@ -165,6 +166,27 @@ function computeEvidenceProfile(
   return { engineQuality, proAgreement };
 }
 
+// Task 33 (R0.2B) — shape de "Benchmark B NO MEDIDO", cuando `pro-drafts.sqlite` está ausente
+// (gitignored, ausente en cualquier checkout limpio / CI — design §9.3). UN SOLO formato de
+// candidate (design §4.2): el mismo tipo `ProAgreementResult`, sin ninguna métrica pro sintetizada.
+// La fuente de verdad de "no disponible" es `corpus == 0` + `perBaseline` vacío + el gate marcando
+// el sub-check como SKIPPED informational (ADR-002: el pick pro no es ground truth).
+// `valid: true` y `constraintViolationRate: 0` son SENTINELS de shape técnico (el tipo exige un
+// boolean y un number) — NO una observación de "0 violaciones" ni de "Benchmark B pasó". `gate.ts`
+// no lee `valid`; sólo exige que `constraintViolationRate` no sea > 0 para no invalidar la corrida.
+function notMeasuredProAgreement(): ProAgreementResult {
+  return {
+    valid: true,
+    constraintViolationRate: 0,
+    violations: [],
+    omittedBaselines: OMITTED_BASELINES,
+    recallCeilingK: 6,
+    perBaseline: {} as Record<BaselineId, Segment>,
+    bootstrap: [],
+    corpus: { cases: 0, drafts: 0, tournaments: 0 },
+  };
+}
+
 // serialización estable: claves ordenadas, para que dos corridas den el mismo byte-string.
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_k, v) => {
@@ -185,13 +207,25 @@ async function main(): Promise<number> {
   const patchOverride = dominantPatch(
     (meta as unknown as { patchStats?: Record<number, { patch: string }[]> }).patchStats ?? {},
   );
-  const { cases: replayCases, skipped } = loadReplayCasesFromDb(P.PRO_DB, patchOverride);
+  // Task 33 (R0.2B) — el corpus profesional es OPCIONAL. Antes, `run.ts` abría `pro-drafts.sqlite`
+  // incondicionalmente y `bun run eval` crasheaba con `SQLITE_CANTOPEN` sin escribir candidate
+  // cuando el archivo faltaba. Ahora, la ausencia se detecta con `existsSync` ANTES de abrir la DB:
+  // Benchmark A / Engine Quality (`required`) se mide igual; Benchmark B / Professional Pick
+  // Agreement (`informational` por ADR-002) queda NO MEDIDO. Con el archivo presente, el
+  // comportamiento previo (`loadReplayCasesFromDb` + `runProAgreement`) no cambia una línea.
+  const proCorpusPresent = existsSync(P.PRO_DB);
+  const replay: BuildReplayResult = proCorpusPresent
+    ? loadReplayCasesFromDb(P.PRO_DB, patchOverride)
+    : { cases: [], skipped: [] };
+  const { cases: replayCases, skipped } = replay;
   const leagueIds = [...new Set(replayCases.map((c) => c.leagueId))];
   const split = loadOrCreateSplit(leagueIds, { path: P.SPLIT_OUT });
 
   const golden = loadGolden(P.GOLDEN_PATH, knownHeroIds);
 
-  const agreement: ProAgreementResult = runProAgreement(replayCases, meta, split, {});
+  const agreement: ProAgreementResult = proCorpusPresent
+    ? runProAgreement(replayCases, meta, split, {})
+    : notMeasuredProAgreement();
   const quality: EngineQualityResult = runEngineQuality(golden.cases, meta, { patchOverride });
 
   const meta_: ReportMeta = {
@@ -242,6 +276,9 @@ async function main(): Promise<number> {
 
   process.stdout.write(
     `\nOK — v6-measured.json escrito.\n` +
+      (proCorpusPresent
+        ? ""
+        : `  pro-drafts.sqlite ausente — Benchmark B (Professional Pick Agreement) NO MEDIDO (ADR-002, sub-check informational)\n`) +
       `  drafts: ${meta_.corpusSize.drafts} / torneos: ${meta_.corpusSize.tournaments} / golden: ${golden.cases.length}\n` +
       `  ${golden.note}\n` +
       `  reporte: ${P.REPORTS_DIR}/${stamp}.md\n`,

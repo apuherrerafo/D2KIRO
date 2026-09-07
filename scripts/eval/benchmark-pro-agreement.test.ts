@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { MetaSnapshot } from "../../apps/engine/src/signals/types";
 import { loadReplayCasesFromDb, runProAgreement, type ProAgreementResult } from "./benchmark-pro-agreement";
 import { buildReplayCases } from "./replay";
@@ -113,8 +115,10 @@ describe("runProAgreement — Benchmark B", () => {
     // BAD2: ingest_reason NULL (pasa el SQL) pero sólo 5 turnos -> shape inválido -> skipped con motivo.
     for (let o = 0; o < 5; o++) db.query("INSERT INTO pro_draft_turns VALUES ('BAD2', ?, 0, ?, 0)").run(o, o + 1);
 
-    // escribimos a un archivo temporal porque loadReplayCasesFromDb abre por path
-    const path = `/tmp/d2k-pro-${Math.random().toString(36).slice(2)}.sqlite`;
+    // escribimos a un archivo temporal porque loadReplayCasesFromDb abre por path -- `/tmp/` es
+    // POSIX-only (no existe como raíz absoluta en Windows); `os.tmpdir()` resuelve al directorio
+    // temporal real del SO en ambos casos.
+    const path = join(tmpdir(), `d2k-pro-${Math.random().toString(36).slice(2)}.sqlite`);
     db.exec(`VACUUM INTO '${path}'`);
     db.close();
 

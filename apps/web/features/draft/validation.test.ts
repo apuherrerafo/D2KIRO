@@ -72,6 +72,11 @@ describe("isValidServerMessage", () => {
     expect(isValidServerMessage(envelope("error", { code: "boom", message: "algo" }))).toBe(true);
   });
 
+  test("accepts exact no_signal_available literals and rejects unknown ones", () => {
+    expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), decisionContext: "no_signal_available", degraded: ["no_signal_available"] }))).toBe(true);
+    expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), decisionContext: "unknown_context" }))).toBe(false);
+  });
+
   test("rechaza suggestions incompletas antes de que lleguen a Zustand", () => {
     expect(isValidServerMessage(envelope("suggestions", { schema: "suggestions/v1", suggestions: [], degraded: [] }))).toBe(false);
   });

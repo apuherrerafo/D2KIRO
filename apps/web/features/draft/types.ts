@@ -78,7 +78,7 @@ export interface SignalContribution {
 }
 
 export type SuggestionConfidence = "alta" | "media" | "baja";
-export type DraftDecisionContext = "team_opening" | "blind_second_pick" | "response_pick" | "closing_pick";
+export type DraftDecisionContext = "team_opening" | "blind_second_pick" | "response_pick" | "closing_pick" | "no_signal_available";
 
 export interface Suggestion {
   hero: HeroId;
@@ -104,7 +104,7 @@ export interface SuggestionComparison {
   delta: number;
 }
 
-export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format";
+export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available";
 
 export interface SuggestionSet {
   schema: "suggestions/v1";

@@ -21,7 +21,10 @@ export interface TeamOpenerMatchup {
 export interface TeamOpenerCandidate {
   hero: HeroId;
   baseScore: number;
-  strategy: string;
+  // R0.3 / Task 15: `null` = el héroe no tiene entrada curada de capacidades, así que no hay una
+  // etiqueta de plan de equipo medible. Se propaga tal cual (no se fabrica `"scaling"`); el
+  // resumen y el desempate por diversidad lo tratan igual que cualquier etiqueta desconocida.
+  strategy: string | null;
   matchups: TeamOpenerMatchup[];
   // TSK-191: lista curada de "quién counterea a este candidato" (de `hero-counters.json`). El
   // alivio por bans la usa antes que la capa estadística (misma prioridad que `counter.ts`).
@@ -34,7 +37,7 @@ export type OpenerEvidence =
 
 export interface TeamOpenerOption {
   hero: HeroId;
-  strategy: string;
+  strategy: string | null;
   score: number;
   evidence: OpenerEvidence[];
   summary: string;
@@ -127,10 +130,16 @@ export function recommendTeamOpeners({ candidates, banned, heroNames, limit = 5 
   const selected: TeamOpenerOption[] = [];
   const remaining = [...scored];
   while (selected.length < limit && remaining.length > 0) {
-    const usedStrategies = new Set(selected.map((option) => option.strategy));
+    // R0.3 / Task 15 follow-up: un candidato sin entrada curada de capacidades llega con
+    // `strategy: null` y así se propaga a la salida (no se fabrica `"scaling"`). Pero el desempate
+    // por diversidad necesita un bucket estable: `null` comparte bucket con un `"scaling"` real
+    // -- mismo default LOCAL que `run-pipeline.ts` ya aplica (`strategy ?? "scaling"`). Es
+    // imputación interna de score, no una afirmación de evidencia; el `strategy` observable sigue
+    // siendo `null`. Debe aplicarse en las DOS operaciones (construir el set y consultarlo).
+    const usedStrategies = new Set(selected.map((option) => option.strategy ?? "scaling"));
     remaining.sort((left, right) => {
-      const leftScore = left.score - (usedStrategies.has(left.strategy) ? REPEAT_STRATEGY_PENALTY : 0);
-      const rightScore = right.score - (usedStrategies.has(right.strategy) ? REPEAT_STRATEGY_PENALTY : 0);
+      const leftScore = left.score - (usedStrategies.has(left.strategy ?? "scaling") ? REPEAT_STRATEGY_PENALTY : 0);
+      const rightScore = right.score - (usedStrategies.has(right.strategy ?? "scaling") ? REPEAT_STRATEGY_PENALTY : 0);
       return rightScore - leftScore || left.hero - right.hero;
     });
     selected.push(remaining.shift()!);

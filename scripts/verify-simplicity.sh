@@ -5,6 +5,47 @@ ERRORS=0
 
 echo "🦴 Verificando reglas del proyecto..."
 
+# --- Toolchain: pin canónico de Bun (fail-fast, ANTES de correr cualquier código con Bun) ---
+# R0/Task 31 (TOOLCHAIN_VERSION_DRIFT): la ÚNICA fuente manual de la versión de Bun es
+# `package.json#packageManager` en la raíz, en formato cerrado `bun@<semver exacto>`. LOCAL, CI y
+# Docker consumen ese mismo valor; acá se verifica que el binario `bun` que va a interpretar los
+# tests y el tooling coincide EXACTAMENTE con ese pin. Sin red, sin escrituras, determinista, y
+# antes de `sync-context.ts` (que ya corre con Bun). Falla cerrado ante ausencia, formato no
+# exacto o mismatch -- no se avisa y se deja pasar, igual que la sección 6.
+PM_RAW=$(grep -E '"packageManager"[[:space:]]*:' package.json 2>/dev/null | head -n1) || true
+EXPECTED_PM=$(printf '%s\n' "$PM_RAW" | sed -E 's/.*"packageManager"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
+if ! printf '%s' "$EXPECTED_PM" | grep -qE '^bun@[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "❌ ERROR: package.json#packageManager ausente o no es 'bun@<semver exacto>' (valor leído: '${EXPECTED_PM:-<ausente>}')."
+  exit 1
+fi
+EXPECTED_BUN_VERSION="${EXPECTED_PM#bun@}"
+
+# Resolución del binario real de bun SIN red (mismo criterio que la sección 6): `bun` en PATH, la
+# ruta de instalación estándar, o el symlink de `bunx` como último recurso.
+GUARD_BUN_BIN=""
+if command -v bun >/dev/null 2>&1; then
+  GUARD_BUN_BIN="$(command -v bun)"
+elif [ -x "$HOME/.bun/bin/bun" ]; then
+  GUARD_BUN_BIN="$HOME/.bun/bin/bun"
+elif command -v bunx >/dev/null 2>&1; then
+  GUARD_BUNX_RESOLVED=$(readlink "$(command -v bunx)" 2>/dev/null) || true
+  if [ -n "$GUARD_BUNX_RESOLVED" ] && [ -x "$GUARD_BUNX_RESOLVED" ]; then
+    GUARD_BUN_BIN="$GUARD_BUNX_RESOLVED"
+  fi
+fi
+if [ -z "$GUARD_BUN_BIN" ]; then
+  echo "❌ ERROR: no se encontró el binario de bun para validar el pin de toolchain (package.json fija bun@${EXPECTED_BUN_VERSION})."
+  exit 1
+fi
+
+ACTUAL_BUN_VERSION="$("$GUARD_BUN_BIN" --version 2>/dev/null | tr -d '[:space:]')" || true
+if [ "$ACTUAL_BUN_VERSION" != "$EXPECTED_BUN_VERSION" ]; then
+  echo "❌ ERROR: Bun toolchain drift -- package.json fija bun@${EXPECTED_BUN_VERSION} pero 'bun --version' dice '${ACTUAL_BUN_VERSION:-<desconocido>}'."
+  echo "   Instalá la versión exacta antes de continuar: https://bun.sh/docs/installation#installing-older-versions"
+  exit 1
+fi
+echo "🔒 Toolchain Bun OK: ${ACTUAL_BUN_VERSION} == package.json#packageManager (bun@${EXPECTED_BUN_VERSION})"
+
 # --- Sincronización de contexto (informativo, nunca bloquea el gate) ---
 # scripts/sync-context.ts avisa si AGENTS.md/.kiro/steering/ quedaron atrás del stack real, o si
 # plan.md/MEMORY.md quedaron atrás del estado real de los tickets -- es mantenimiento de contexto,

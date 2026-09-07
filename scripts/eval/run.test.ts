@@ -1,9 +1,11 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main } from "./run";
+import { main as gateMain } from "./gate";
+import { extractEvaluationIdentity, isComparable } from "./evaluation-identity";
 import type { ProDraftTurn } from "./types";
 
 let dir: string;
@@ -107,4 +109,217 @@ test("split.json se crea una vez y no se regenera en la segunda corrida", async 
   await main();
   const s2 = readFileSync(process.env.D2K_SPLIT_OUT!, "utf-8");
   expect(s2).toBe(s1);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 33 (R0.2B) — productor de eval corpus-opcional. Regression matrix de
+// `.kiro/specs/r0-engineering-baseline-recovery/tasks.md` (tarea 33, 11 puntos).
+// Contrato: con `pro-drafts.sqlite` AUSENTE, `bun run eval` produce un candidate válido,
+// Benchmark A se mide de verdad, Benchmark B queda NO MEDIDO (corpus=0, perBaseline={},
+// bootstrap=[]) y el gate lo lee como SKIPPED informational. Con el corpus PRESENTE, el
+// comportamiento previo (Benchmark B real) no cambia.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function removeProDb(): void {
+  rmSync(process.env.D2K_PRO_DB!, { force: true });
+}
+
+/** Golden fixture mínimo y válido (S17) — para probar que Benchmark A se calcula de verdad. */
+function writeGoldenFixture(): string {
+  const path = join(dir, "golden.json");
+  writeFileSync(
+    path,
+    JSON.stringify({
+      schemaVersion: 1,
+      cases: [
+        {
+          id: "t33-g1",
+          source: { kind: "synthetic", note: "fixture Task 33" },
+          state: {
+            schema: "draft-state/v1",
+            format: "captains_mode",
+            patch: "60",
+            localSide: "radiant",
+            phase: "active",
+            banned: [3, 4],
+            picks: { radiant: [1], dire: [2] },
+            lastSeq: 4,
+          },
+          side: "radiant",
+          decisionContext: "response_pick",
+          strata: ["team_needs"],
+          labels: {
+            excellent: [{ hero: 5, why: "fixture" }],
+            acceptable: [{ hero: 6, why: "fixture" }],
+            bad: [{ hero: 7, why: "fixture" }],
+          },
+          reasoningTags: ["fixture"],
+          labeledAt: "2026-09-07",
+          labeledBy: "task-33-test",
+        },
+      ],
+    }),
+  );
+  return path;
+}
+
+test("Task33 [11] RED→GREEN: sin pro-drafts.sqlite el productor NO crashea (SQLITE_CANTOPEN) y termina exit 0", async () => {
+  removeProDb();
+  expect(existsSync(process.env.D2K_PRO_DB!)).toBe(false);
+
+  let thrown: unknown;
+  const code = await main().catch((e: unknown) => {
+    thrown = e;
+    return -1;
+  });
+
+  // Antes del fix `new Database(path, { readonly: true })` lanza `unable to open database file`.
+  expect(thrown).toBeUndefined();
+  expect(code).toBe(0);
+});
+
+test("Task33 [1]: pro ausente ⇒ el candidate artifact existe", async () => {
+  removeProDb();
+  const code = await main();
+  expect(code).toBe(0);
+  expect(existsSync(process.env.D2K_BASELINE_OUT!)).toBe(true);
+});
+
+test("Task33 [2] + BENCHMARK A REAL: pro ausente ⇒ Benchmark A se calcula sobre el Golden (cases > 0)", async () => {
+  process.env.D2K_GOLDEN = writeGoldenFixture();
+  removeProDb();
+
+  const code = await main();
+  expect(code).toBe(0);
+
+  const frozen = JSON.parse(readFileSync(process.env.D2K_BASELINE_OUT!, "utf-8"));
+  // engineQuality viene de runEngineQuality() sobre el fixture — NO copiado de un ReferenceBaseline.
+  expect(frozen.engineQuality.valid).toBe(true);
+  expect(frozen.engineQuality.corpus.cases).toBe(1);
+  expect(frozen.engineQuality.perRanker.v6Full).toBeDefined();
+  expect(frozen.engineQuality.perRanker.v6Full.overall.n).toBe(1);
+  expect(frozen.corpusSize.goldenCases).toBe(1);
+});
+
+test("Task33 [3] + SENTINEL: pro ausente ⇒ Benchmark B NO MEDIDO (corpus=0, perBaseline={}, bootstrap=[])", async () => {
+  removeProDb();
+  const code = await main();
+  expect(code).toBe(0);
+
+  const b = JSON.parse(readFileSync(process.env.D2K_BASELINE_OUT!, "utf-8")).professionalPickAgreement;
+  expect(b.perBaseline).toEqual({});
+  expect(b.bootstrap).toEqual([]);
+  expect(b.corpus).toEqual({ cases: 0, drafts: 0, tournaments: 0 });
+  // `constraintViolationRate: 0` es SENTINEL de shape (el tipo exige un number), no una medición.
+  // La verdad de "no disponible" es corpus=0 + perBaseline={} + gate SKIPPED (ver test [4]).
+  expect(b.constraintViolationRate).toBe(0);
+  expect(b.perBaseline.v6Full).toBeUndefined();
+});
+
+test("Task33 [4]+[5]: gate canónico read-only ⇒ B SKIPPED informational, --enforce PASS si A PASS, B nunca PASS", async () => {
+  const goldenPath = writeGoldenFixture();
+  process.env.D2K_GOLDEN = goldenPath;
+
+  // Reference: corrida CON pro corpus (mismo split scratch, misma identidad de evaluación).
+  const refPath = join(dir, "reference.json");
+  process.env.D2K_BASELINE_OUT = refPath;
+  expect(await main()).toBe(0);
+
+  // Candidate: corrida SIN pro corpus.
+  const candPath = join(dir, "candidate.json");
+  process.env.D2K_BASELINE_OUT = candPath;
+  removeProDb();
+  expect(await main()).toBe(0);
+
+  // Gate canónico, read-only. Se compara el candidate contra el reference.
+  process.env.D2K_BASELINE_OUT = refPath;
+  process.env.D2K_GATE_CURRENT = candPath;
+  process.env.D2K_TOLERANCE_OUT = join(dir, "no-tolerance.json"); // fuerza DEFAULT_TOL
+  const exit = await gateMain(["--enforce"]);
+  expect(exit).toBe(0); // Benchmark A PASS ⇒ --enforce puede PASS aunque B no se haya medido
+
+  delete process.env.D2K_GATE_CURRENT;
+  delete process.env.D2K_TOLERANCE_OUT;
+});
+
+test("Task33 [9] + EVALUATION IDENTITY: candidate missing-pro sigue siendo comparable con el reference", async () => {
+  process.env.D2K_GOLDEN = writeGoldenFixture();
+
+  const refPath = join(dir, "reference.json");
+  process.env.D2K_BASELINE_OUT = refPath;
+  await main();
+
+  const candPath = join(dir, "candidate.json");
+  process.env.D2K_BASELINE_OUT = candPath;
+  removeProDb();
+  await main();
+
+  const ref = JSON.parse(readFileSync(refPath, "utf-8"));
+  const cand = JSON.parse(readFileSync(candPath, "utf-8"));
+
+  const refId = extractEvaluationIdentity(ref);
+  const candId = extractEvaluationIdentity(cand);
+  expect(refId.ok).toBe(true);
+  expect(candId.ok).toBe(true);
+  if (!refId.ok || !candId.ok) return;
+
+  expect(isComparable(candId.identity, refId.identity).comparable).toBe(true);
+});
+
+test("Task33 [8] + [7]: candidate y reference son artifacts distintos y no se fabrican métricas pro", async () => {
+  process.env.D2K_GOLDEN = writeGoldenFixture();
+
+  const refPath = join(dir, "reference.json");
+  process.env.D2K_BASELINE_OUT = refPath;
+  await main();
+  const ref = JSON.parse(readFileSync(refPath, "utf-8"));
+
+  const candPath = join(dir, "candidate.json");
+  process.env.D2K_BASELINE_OUT = candPath;
+  removeProDb();
+  await main();
+  const cand = JSON.parse(readFileSync(candPath, "utf-8"));
+
+  // reference SÍ midió Benchmark B (4 drafts / 2 torneos del fixture); candidate NO.
+  expect(ref.professionalPickAgreement.corpus.drafts).toBe(4);
+  expect(cand.professionalPickAgreement.corpus.drafts).toBe(0);
+  // Ninguna métrica pro sintetizada en el candidate: perBaseline vacío ⇒ sin R@k, sin MRR.
+  expect(Object.keys(cand.professionalPickAgreement.perBaseline)).toEqual([]);
+  expect(cand.professionalPickAgreement.bootstrap).toEqual([]);
+});
+
+test("Task33 [12] REPORT: pro ausente ⇒ el reporte no crashea y marca Benchmark B como NO MEDIDO (no PASS)", async () => {
+  removeProDb();
+  const code = await main();
+  expect(code).toBe(0);
+
+  const reportsDir = process.env.D2K_REPORTS_DIR!;
+  const file = require("node:fs").readdirSync(reportsDir)[0];
+  const report = readFileSync(join(reportsDir, file), "utf-8");
+
+  expect(report).toContain("NO MEDIDO");
+  // No se presenta el sentinel como observación ni se fabrica una conclusión cuantitativa.
+  expect(report).not.toContain("| baseline | R@1 |");
+  expect(report).not.toMatch(/Benchmark B[^\n]*\bPASS\b/);
+});
+
+test("Task33 [6] PRESENT-PRO PRESERVADO: con pro-drafts.sqlite presente, Benchmark B real sigue corriendo", async () => {
+  // el fixture de beforeEach ya crea pro.sqlite con 4 drafts / 2 torneos.
+  const code = await main();
+  expect(code).toBe(0);
+
+  const b = JSON.parse(readFileSync(process.env.D2K_BASELINE_OUT!, "utf-8")).professionalPickAgreement;
+  expect(b.valid).toBe(true);
+  expect(b.corpus.drafts).toBe(4);
+  expect(b.corpus.tournaments).toBe(2);
+  expect(b.perBaseline.v6Full).toBeDefined();
+  expect(b.bootstrap.length).toBeGreaterThan(0);
+});
+
+test("Task33 [10]: pro ausente ⇒ el productor no crea ni toca `pro-drafts.sqlite`", async () => {
+  removeProDb();
+  const code = await main();
+  expect(code).toBe(0);
+  // el guard `existsSync` nunca abre la DB ⇒ el archivo sigue sin existir (cero creación/descarga).
+  expect(existsSync(process.env.D2K_PRO_DB!)).toBe(false);
 });

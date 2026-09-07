@@ -39,11 +39,11 @@ function isSignalId(value: unknown): boolean {
 }
 
 function isDegradationFlag(value: unknown): boolean {
-  return value === "stale_meta" || value === "partial_signals" || value === "unconfirmed_state" || value === "unknown_format";
+  return value === "stale_meta" || value === "partial_signals" || value === "unconfirmed_state" || value === "unknown_format" || value === "no_signal_available";
 }
 
 function isDecisionContext(value: unknown): boolean {
-  return value === "team_opening" || value === "blind_second_pick" || value === "response_pick" || value === "closing_pick";
+  return value === "team_opening" || value === "blind_second_pick" || value === "response_pick" || value === "closing_pick" || value === "no_signal_available";
 }
 
 function isDraftTurn(value: unknown): boolean {

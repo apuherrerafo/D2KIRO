@@ -60,6 +60,7 @@ const DECISION_CONTEXT_LABELS: Record<DraftDecisionContext, string> = {
   blind_second_pick: "Pick 2 — información ciega",
   response_pick: "Pick 3/4 — respuesta a rivales revelados",
   closing_pick: "Cierre — composición y riesgos",
+  no_signal_available: "No hay señales disponibles para votar",
 };
 
 function DecisionContextNotice({ decisionContext }: Pick<SuggestionSet, "decisionContext">) {

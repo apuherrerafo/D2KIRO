@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { expect, test } from "bun:test";
 import { OPENING_REPEAT_STRATEGY_PENALTY, OPENING_TOP_N, positionFitScore, runProDrafterPipeline } from "./run-pipeline";
 import type { PipelineWeights } from "./weight-loader";
@@ -270,7 +270,12 @@ test("server/ importa pipeline/ solo desde el punto de entrada deliberado (route
   expect(tsFiles.length).toBeGreaterThan(0);
 
   const importsPipeline = /from\s+["'][^"']*\/pipeline\/[^"']*["']/;
-  const filesImportingPipeline = tsFiles.filter((file) => importsPipeline.test(readFileSync(join(serverDir, file), "utf-8")));
+  // readdirSync({ recursive: true }) devuelve rutas con el separador nativo del SO (`\` en
+  // Windows, `/` en POSIX) -- se normalizan a `/` antes de comparar, nunca al revés (candado
+  // OS-agnóstico, no un hardcode de separador).
+  const filesImportingPipeline = tsFiles
+    .filter((file) => importsPipeline.test(readFileSync(join(serverDir, file), "utf-8")))
+    .map((file) => file.split(sep).join("/"));
 
   expect(filesImportingPipeline).toEqual(["routes/pro-drafter.ts"]);
 });

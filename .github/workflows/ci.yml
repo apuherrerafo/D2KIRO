@@ -40,10 +40,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # R0/Task 31: sin `bun-version:` explícito, setup-bun resuelve `package.json#packageManager`
+      # (única fuente manual del pin). Ver https://github.com/oven-sh/setup-bun.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+
+      # No se confía sólo en la resolución implícita de la Action: se deriva `expected` del
+      # manifest raíz y se exige igualdad exacta con el runtime instalado.
+      - name: Verify Bun matches packageManager pin
+        run: |
+          EXPECTED_PM="$(node -p "require('./package.json').packageManager")"
+          case "$EXPECTED_PM" in
+            bun@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "package.json#packageManager no es 'bun@<semver exacto>': '$EXPECTED_PM'"; exit 1 ;;
+          esac
+          EXPECTED="${EXPECTED_PM#bun@}"
+          ACTUAL="$(bun --version)"
+          echo "expected=$EXPECTED actual=$ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ] || { echo "Bun version drift: setup-bun instaló $ACTUAL, packageManager fija $EXPECTED"; exit 1; }
 
       - name: Cache Bun install store
         uses: actions/cache@v4
@@ -55,7 +69,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ matrix.dir }}
-        run: bun install
+        run: bun install --frozen-lockfile
 
       # apps/web tiene 2 imports relativos deliberados hacia apps/engine (proxy.test.ts,
       # app/api/auth/engine-token/route.test.ts) -- el "candado compartido" de x-account-token
@@ -68,7 +82,7 @@ jobs:
       - name: Install apps/engine dependencies (needed by apps/web's cross-app type-check)
         if: matrix.target == 'web'
         working-directory: apps/engine
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Type-check
         if: matrix.typecheck
@@ -97,10 +111,78 @@ jobs:
           # que encontrar.
           fetch-depth: 100
 
+      # R0/Task 31: pin derivado de `package.json#packageManager`, sin `bun-version:` explícito.
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+
+      - name: Verify Bun matches packageManager pin
+        run: |
+          EXPECTED_PM="$(node -p "require('./package.json').packageManager")"
+          case "$EXPECTED_PM" in
+            bun@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "package.json#packageManager no es 'bun@<semver exacto>': '$EXPECTED_PM'"; exit 1 ;;
+          esac
+          EXPECTED="${EXPECTED_PM#bun@}"
+          ACTUAL="$(bun --version)"
+          echo "expected=$EXPECTED actual=$ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ] || { echo "Bun version drift: setup-bun instaló $ACTUAL, packageManager fija $EXPECTED"; exit 1; }
 
       - name: Run project simplicity/security gate
         run: bash scripts/verify-simplicity.sh
+
+  # ---------------------------------------------------------------------------
+  # INTELLIGENCE CI -- nivel §3.2/§5 del diseño R0 (.kiro/specs/r0-engineering-
+  # baseline-recovery). Aquí, y NO en pre-push, vive el enforcement del gate de
+  # evaluación del motor. R0.1/Task 5 dejó `.husky/pre-push` deliberadamente
+  # barato (software correctness + `tsc`, sin eval); esto es la capa POSTERIOR
+  # que le faltaba a CI: hasta R0/Task 10, `gate.ts --enforce` sólo corría bajo
+  # `VERIFY_COMMIT_GATE=1` desde una sesión de Claude Code, nunca en un gate
+  # real (diseño §4.2, inconsistencia #3).
+  #
+  # La AUTORIDAD es el código de R0/Tasks 8 y 9 (`scripts/eval/gate.ts`):
+  # `GateStatus` de 4 estados, clase `required|optional|informational` por
+  # sub-check, y `EvaluationIdentity`/`isComparable`. Este job sólo INVOCA ese
+  # comando canónico y deja que su exit code decida -- no se reimplementan
+  # umbrales, agregación ni reglas de comparabilidad en YAML.
+  #
+  # `--enforce` ⇒ exit != 0 cuando un sub-check `required` (Engine Quality /
+  # Benchmark A) queda FAIL/SKIPPED/BLOCKED; los `informational` (Professional
+  # Pick Agreement / Benchmark B, ADR-002) sólo se reportan. `pro-drafts.sqlite`
+  # es gitignored y ausente en un checkout limpio (R0/Task 7): Benchmark B sale
+  # SKIPPED informational, visible, y NO bloquea a Benchmark A ni al job.
+  #
+  # La GENERACIÓN de un candidate HEAD (`scripts/eval/run.ts`) necesita las
+  # SQLite gitignored del corpus y NO corre acá -- eso es R0.2B (Tasks 19/20).
+  # Task 10 sólo cablea el enforcement: el gate se ejecuta contra el
+  # `ReferenceBaseline` aceptado y versionado (`eval/baselines/v6-measured.json`),
+  # que sí está en el árbol. Sin candidate explícito el gate juzga la referencia
+  # contra sí misma (modo 9.x documentado en gate.ts) y sigue fallando fuerte si
+  # la referencia falta, es ilegible o es incomparable.
+  intelligence-ci:
+    name: intelligence-ci (eval --enforce)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # R0/Task 31: pin derivado de `package.json#packageManager`, sin `bun-version:` explícito.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Verify Bun matches packageManager pin
+        run: |
+          EXPECTED_PM="$(node -p "require('./package.json').packageManager")"
+          case "$EXPECTED_PM" in
+            bun@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "package.json#packageManager no es 'bun@<semver exacto>': '$EXPECTED_PM'"; exit 1 ;;
+          esac
+          EXPECTED="${EXPECTED_PM#bun@}"
+          ACTUAL="$(bun --version)"
+          echo "expected=$EXPECTED actual=$ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ] || { echo "Bun version drift: setup-bun instaló $ACTUAL, packageManager fija $EXPECTED"; exit 1; }
+
+      # `scripts/eval/gate.ts` no tiene dependencias de runtime (sólo `node:fs` y
+      # módulos puros de `scripts/eval/`), así que no se instala el árbol de la
+      # raíz. Si el gate gana una dep, se añade aquí `bun install --frozen-lockfile`.
+      - name: Evaluation gate -- gate.ts --enforce (canonical authority, Tasks 8/9)
+        run: bun run scripts/eval/gate.ts --enforce

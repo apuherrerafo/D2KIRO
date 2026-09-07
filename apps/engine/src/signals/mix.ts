@@ -11,7 +11,7 @@ import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
-import { deriveDecisionPolicy, type DraftDecisionContext, type DraftDecisionPolicy } from "../drafter/decision-context";
+import { deriveDecisionContext, deriveDecisionPolicy, type DraftDecisionContext, type DraftDecisionPolicy } from "../drafter/decision-context";
 import { observedDraftFacts } from "../drafter/observed-draft";
 import {
   calibratedNormalize,
@@ -43,7 +43,7 @@ export interface SuggestionEvidence {
   text: string;
 }
 
-export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format";
+export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available";
 
 // TSK-032: comparación explícita entre el pick #1 y el #2 -- "por qué le gana a la otra opción",
 // no solo la explicación independiente de cada sugerencia (`reason`). `signal` es la señal que
@@ -162,10 +162,12 @@ function hasVote(signal: SignalContribution): boolean {
   return signal.raw !== null && signal.applicable !== false;
 }
 
-// TSK-032: mismo cálculo que ya hacía mixScore por dentro, extraído para reutilizarlo en
-// buildComparison sin duplicar la redistribución proporcional. Solo incluye señales con voto real
-// (hasVote) -- una señal en `raw: null` o `applicable: false` nunca aparece en el resultado, ni
-// con valor 0 (0 sería indistinguible de "sin ventaja", cuando en realidad es "sin dato").
+// R0.3 / Task 13: redistribución candidate-specific de V6. Tras Task 13 vive SÓLO en el camino
+// legacy (`_legacyMixMode` / `mixScore`) -- `buildComparison`/`buildReason`/`buildEvidence` del
+// camino activo se derivan de `StateWeightedContribution[]` (fuente única), no de aquí. Se
+// conserva intacta porque el candado de regresión cero de V6 exige reproducirla al bit.
+// Solo incluye señales con voto real (hasVote) -- una señal en `raw: null` o `applicable: false`
+// nunca aparece en el resultado, ni con valor 0.
 function weightedContributions(signals: SignalContribution[]): Partial<Record<SignalId, number>> {
   const withData = signals.filter(hasVote);
   const totalWeight = withData.reduce((sum, s) => sum + SCORING_WEIGHTS_V6[s.signal], 0);
@@ -206,34 +208,218 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 // `A(S)` -- señales estructuralmente aplicables al estado `S`, IGUAL para todos los candidatos
 // (§16.7 punto 1). El peso de una señal fuera de `A(S)` se saca del denominador de la
 // redistribución; no vota con `μ` ni con 0 "que cuenta" -- simplemente no participa.
-function availableSignals(
+//
+// R0.3 / Task 11 (design §4.3a, requisito 3.2 c1): `structurallyApplicableSignals` depende SÓLO de
+// la estructura del `DraftState` (qué lados/picks/bans hay) y de qué funciones pidió el llamador
+// (`options`) -- NUNCA de la calibración ni de la frescura/completitud de los datos. Estar en
+// `A(S)` NO implica votar: la participación efectiva es `structurallyApplicable AND dataReady`, y
+// el gate `dataReady` por señal lo formaliza Task 12. Antes, `patch_meta` sólo entraba si
+// `calibration.signals.patch_meta` estaba presente -- ese acoplamiento accidental (design §4.3
+// "estado actual" #1) se retira aquí: la calibración es una transformación de normalización, nunca
+// un interruptor de disponibilidad.
+//
+// Exportada para el candado de regresión de Task 11 (`mix.test.ts`): probar `A(S)` directamente es
+// más preciso que reconstruirlo vía `buildSuggestions`. Sólo lectura, sin efectos.
+export function structurallyApplicableSignals(
   state: DraftState,
   meta: MetaSnapshot,
   options: BuildSuggestionsOptions,
-  calibration: Calibration,
 ): Set<SignalId> {
-  const available = new Set<SignalId>();
+  const applicable = new Set<SignalId>();
   const facts = observedDraftFacts(state);
 
-  if (state.localSide !== "unknown") available.add("position_fit");
+  if (state.localSide !== "unknown") applicable.add("position_fit");
 
   const curated = options.heroCounters ?? MODULE_HERO_COUNTERS;
   const curatedHitsABan =
     state.banned.length > 0 &&
     [...curated.values()].some((entries) => entries.some((entry) => state.banned.includes(entry.vs)));
-  if (facts.revealedEnemyPicks.length > 0 || curatedHitsABan) available.add("counter");
+  if (facts.revealedEnemyPicks.length > 0 || curatedHitsABan) applicable.add("counter");
 
-  if (facts.ownPicks.length > 0) available.add("team_synergy");
+  if (facts.ownPicks.length > 0) applicable.add("team_synergy");
 
-  // proxy de "hay datos de parche": la señal está calibrada. En modo legacy (sin calibración
-  // cargada) cae a "su raw no es null para algún candidato" -- se resuelve fuera, en el llamador.
-  if (calibration.signals.patch_meta) available.add("patch_meta");
+  // `patch_meta` aplica a la estructura de CUALQUIER estado -> estructuralmente aplicable siempre.
+  // Que vote o no lo decide `dataReady` (Task 12), nunca la calibración ni el `raw` del scorer. En
+  // R0 los datos de parche están stale/incompletos (audit §4.3) y `patch_meta` no vota todavía.
+  applicable.add("patch_meta");
 
-  if ((meta.heroPool?.length ?? 0) > 0) available.add("hero_pool_fit");
+  // NOTA (Task 12 -- residual DIFERIDO, no resuelto): `hero_pool_fit` sigue mirando la presencia
+  // del pool aquí, mezclando estructura con presencia de datos. El split limpio de design §4.3(a)
+  // es estructura = `options.mayHaveHeroPool` ("el llamador está en un contexto donde un pool
+  // personal tiene sentido"), `dataReady` = "el pool tiene entradas". Ese input de intención del
+  // llamador NO existe en `BuildSuggestionsOptions` y cablearlo correctamente cruza `app.ts`, el
+  // simulador y cada call site de `buildSuggestions` -- fuera del write scope de Task 12
+  // (`mix.ts`). Introducirlo sin cablear a los llamadores lo dejaría siempre falso y `hero_pool_fit`
+  // pasaría de votar a nunca votar aun con pool presente, rompiendo "producción idéntica a pre-R0".
+  // El objetivo de Task 12 nombra sólo `patch_meta`; este split se difiere a un ticket propio.
+  // Mientras tanto el comportamiento es byte-idéntico: con pool presente entra a `A(S)` y
+  // `dataReady` (default `true`) lo deja votar igual que hoy; sin pool no entra a `A(S)` y tampoco
+  // vota. `votingSignals` (abajo) lo maneja sin ninguna rama especial.
+  if ((meta.heroPool?.length ?? 0) > 0) applicable.add("hero_pool_fit");
 
-  if (options.archetypeIntent !== undefined) available.add("archetype_fit");
+  if (options.archetypeIntent !== undefined) applicable.add("archetype_fit");
 
-  return available;
+  return applicable;
+}
+
+// ---------- R0.3 / Task 12 (design §4.3a-b, requisitos 3.2 c2-c5 / 3.3): data readiness ----------
+
+// Motivo explícito por el que una señal NO vota. Se deriva EXPLÍCITAMENTE de
+// `structurallyApplicable=false` (→ `"not_structurally_applicable"`) o de `dataReady=false` con la
+// señal sí estructuralmente aplicable (→ `"data_not_ready"`). NUNCA se infiere de `raw:null`
+// (`raw` es ortogonal a `votes`). Fijado en design §4.3(b); lo reusan Task 13
+// (`StateWeightedContribution`) y Task 16 (`AvailableSignalsReport`).
+export type NonVotingReason = "data_not_ready" | "not_structurally_applicable";
+
+// `dataReady` -- flag explícito y verificable por señal: ¿los datos que la señal necesita son
+// confiables/frescos/completos? INDEPENDIENTE de structural applicability y de la calibración.
+// NUNCA se deriva de `raw`: una señal puede traer `raw` numérico y aun así no estar lista
+// (`patch_meta` con `patchStats` >= 500 partidas pero de un parche stale), y `raw:null` NO implica
+// `dataReady=false` (es un hueco de dato para ESE candidato, ortogonal a si la señal participa).
+//
+// `patch_meta`: contrato R0 EXACTO (requisito 3.3) -- `structurallyApplicable=true`,
+// `dataReady=false`, `raw=null` aceptable, `votes=false`, `weighted=0`,
+// `nonVotingReason="data_not_ready"`. La data de parche está stale/mezclada/incompleta (audit
+// §4.3: `"7.35d"`/`""` 1016/1016, 81/127 matchups, meta muerto desde 2026-07-29). R0 **no**
+// enciende `patch_meta` ni ninguna señal con `dataReady=false` -- su activación real es una fase
+// posterior validada, medida contra el baseline aceptado (R0.2B). Antes de Task 12 esto era un
+// filtro ad-hoc por literal (`.filter((id) => id !== "patch_meta")`); ahora es un gate nombrado.
+//
+// Resto de señales: sus datos ya se validan en el borde de sus loaders/scorers (S9/S10, familia
+// S9) y en R0 se consideran listos (`default: true`). El split estructura/`dataReady` de
+// `hero_pool_fit` queda DIFERIDO -- ver la NOTA en `structurallyApplicableSignals`; con `default:
+// true` aquí el comportamiento es byte-idéntico porque la estructura ya lo gatea por pool presente.
+export function dataReady(signal: SignalId, _meta: MetaSnapshot): boolean {
+  switch (signal) {
+    case "patch_meta":
+      return false; // R0: no encender hasta reparar los datos de parche en una fase posterior
+    default:
+      return true;
+  }
+}
+
+// `votingSignals` -- participación efectiva en el score: `votes == (structurallyApplicable AND
+// dataReady)`, IGUAL para todo candidato del estado. La calibración NUNCA aparece como interruptor.
+// Es exactamente el conjunto que entra al denominador de la redistribución de pesos y a `μᵢ(S)`
+// (`stateMeansFor`): una señal estructuralmente aplicable pero con `dataReady=false` (p.ej.
+// `patch_meta` en R0) NO consume peso, NO diluye a las demás y NO altera `stateMean`.
+export function votingSignals(
+  state: DraftState,
+  meta: MetaSnapshot,
+  options: BuildSuggestionsOptions,
+): Set<SignalId> {
+  const applicable = structurallyApplicableSignals(state, meta, options);
+  return new Set([...applicable].filter((signal) => dataReady(signal, meta)));
+}
+
+// Etiqueta de no-voto por señal (CP3: "toda señal que no vota se etiqueta con `nonVotingReason`").
+// `null` cuando la señal sí vota. Deriva la causa EXPLÍCITAMENTE de los dos flags ortogonales,
+// nunca de `raw`. Lo consume el candado de Task 12 y, más adelante, el `AvailableSignalsReport`
+// de Task 16.
+export function nonVotingReason(
+  signal: SignalId,
+  state: DraftState,
+  meta: MetaSnapshot,
+  options: BuildSuggestionsOptions,
+): NonVotingReason | null {
+  if (!structurallyApplicableSignals(state, meta, options).has(signal)) return "not_structurally_applicable";
+  if (!dataReady(signal, meta)) return "data_not_ready";
+  return null; // vota
+}
+
+// ---------- R0.3 / Task 16 (design §4.3 "Data Models" (e), requisito 3.2 c6, CP3/CP7): AvailableSignalsReport ----------
+//
+// Vista/artefacto DERIVADO por decisión. NO recalcula applicability, readiness, votes ni
+// contribuciones -- cada campo sale de la MISMA fuente canónica que consume `buildSuggestions`:
+//   - structurallyApplicable  <- structurallyApplicableSignals()   (Task 11)
+//   - dataReady               <- dataReady()                        (Task 12)
+//   - votes / voting          <- votingSignals()                    (Task 12: votes == structurallyApplicable AND dataReady)
+//   - nonVotingReason         <- nonVotingReason()                  (Task 12: causa explícita, NUNCA inferida de raw:null)
+//   - degenerate              <- votingSignals(...).size === 0       (Task 14: predicado canónico del estado degenerado)
+//   - decisionContext         <- degenerado ⇒ "no_signal_available"; si no, deriveDecisionContext (idéntico a buildSuggestions)
+// `calibrated` refleja únicamente si hay una banda empírica activa para la señal; NUNCA decide
+// participación (design §7 / requisito 3.2). Con el default `EMPTY_CALIBRATION` es `false` para las 6.
+// El reporte no lleva `raw`: un `raw` numérico no puede leerse como "no aplica" ni un `raw:null`
+// como "no vota" -- las tres verdades (structural / ready / raw) se exponen por separado.
+//
+// Determinismo: el orden de `signals` y de `voting` es el orden congelado de `SCORING_WEIGHTS_V6`
+// (`SIGNAL_ORDER`), nunca el orden de iteración de un `Set`/`Object`. Consumible por los reportes
+// de `bun run eval` desde este mismo módulo (que el harness de eval ya importa); no se renderiza en
+// `apps/web` y NO entra en `SuggestionSet` -- sin espejo de cable nuevo.
+export interface SignalStatusReport {
+  signal: SignalId;
+  structurallyApplicable: boolean; // ¿aplica a la estructura del estado? (Task 11)
+  dataReady: boolean; // ¿sus datos son confiables/frescos/completos? (Task 12)
+  calibrated: boolean; // ¿hay calibración empírica activa para la señal? NUNCA decide participación
+  votes: boolean; // votes == (structurallyApplicable AND dataReady)
+  nonVotingReason?: NonVotingReason; // presente sii votes=false; nunca inferido de raw:null
+}
+
+export interface AvailableSignalsReport {
+  sessionId: string;
+  basedOnSeq: number;
+  decisionContext: DraftDecisionContext;
+  signals: SignalStatusReport[]; // una por SignalId, en SIGNAL_ORDER
+  voting: SignalId[]; // señales que efectivamente votan, en SIGNAL_ORDER
+  degenerate: boolean; // true sii ninguna señal vota (== votingSignals(...).size === 0)
+}
+
+// Orden canónico único: las claves de `SCORING_WEIGHTS_V6` (constante congelada). Evita depender
+// del orden de inserción de un `Set` o de `Object.keys(meta.heroes)`.
+const SIGNAL_ORDER: readonly SignalId[] = Object.keys(SCORING_WEIGHTS_V6) as SignalId[];
+
+// Un `DraftState` no lleva `bracket` -> en `calibration.ts` sólo la banda `global` puede resolver
+// (`resolveBand` con `bracket = null`). Espeja esa condición sin acoplarse a su interna.
+function isCalibrated(signal: SignalId, calibration: Calibration): boolean {
+  return calibration.signals[signal]?.global != null;
+}
+
+export function buildAvailableSignalsReport(
+  state: DraftState,
+  meta: MetaSnapshot,
+  options: BuildSuggestionsOptions = {},
+): AvailableSignalsReport {
+  const applicable = structurallyApplicableSignals(state, meta, options);
+  const voting = votingSignals(state, meta, options);
+  const calibration = options.calibration ?? EMPTY_CALIBRATION;
+  const degenerate = voting.size === 0;
+
+  // Idéntico a `buildSuggestions`: el degenerado fija `"no_signal_available"`; si no, el contexto
+  // sale de `deriveDecisionContext` (lo mismo que `deriveDecisionPolicy(...).context`).
+  const isTeamOpening =
+    options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
+  const decisionContext: DraftDecisionContext = degenerate
+    ? "no_signal_available"
+    : deriveDecisionContext(state, isTeamOpening);
+
+  const signals: SignalStatusReport[] = SIGNAL_ORDER.map((signal) => {
+    const structurallyApplicable = applicable.has(signal);
+    const votes = voting.has(signal);
+    const report: SignalStatusReport = {
+      signal,
+      structurallyApplicable,
+      dataReady: dataReady(signal, meta),
+      calibrated: isCalibrated(signal, calibration),
+      votes,
+    };
+    if (!votes) {
+      // `nonVotingReason()` es no-null exactamente cuando la señal no vota (Task 12); el `??` sólo
+      // es defensa en profundidad para que el campo nunca falte cuando `votes === false`.
+      report.nonVotingReason =
+        nonVotingReason(signal, state, meta, options) ??
+        (structurallyApplicable ? "data_not_ready" : "not_structurally_applicable");
+    }
+    return report;
+  });
+
+  return {
+    sessionId: state.sessionId,
+    basedOnSeq: state.lastSeq,
+    decisionContext,
+    signals,
+    voting: SIGNAL_ORDER.filter((signal) => voting.has(signal)),
+    degenerate,
+  };
 }
 
 function confidenceFromCoverage(evidenceCoverage: number, metaIsStale: boolean): Suggestion["confidence"] {
@@ -242,41 +428,137 @@ function confidenceFromCoverage(evidenceCoverage: number, metaIsStale: boolean):
   return "baja";
 }
 
-interface StateMixResult {
-  score: number;
-  signals: SignalContribution[];
+// ---------- R0.3 / Task 13 (design §4.3 "Data Models" (b), requisito 3.1, CP2/CP4/CP10): fuente única ----------
+//
+// `StateWeightedContribution` es la ÚNICA representación canónica de la contribución de una señal
+// a la recomendación de un candidato. `score`, `reason`, `comparison` y `evidence` se derivan
+// TODOS de aquí -- no hay un segundo cálculo (`weightedContributions` legacy queda fuera del
+// camino activo, sólo lo usa `_legacyMixMode`). Conserva sin colapsar los flags de Task 12
+// (`structurallyApplicable` / `dataReady` / `votes` / `nonVotingReason`): una señal que no vota
+// (`patch_meta` en R0) NUNCA reaparece como votante porque `reason`/`comparison`/`evidence` se
+// reconstruyan por otra ruta -- su `weighted` es 0 y los derivados filtran por `weighted > 0`.
+export interface StateWeightedContribution {
+  signal: SignalId;
+  raw: number | null; // sagrado: null = hueco de datos. ORTOGONAL a `votes` (Task 12).
+  normalized: number | null;
+  baseWeight: number; // SCORING_WEIGHTS_V6[signal] (nominal, congelado)
+  weightPrime: number; // w' = baseWeight / Σ baseWeight(voting); 0 si no vota
+  weighted: number; // contribución final al score; `votes=false` ⇒ 0
+  structurallyApplicable: boolean;
+  dataReady: boolean;
+  votes: boolean; // votes == (structurallyApplicable AND dataReady)
+  usedStateMean: boolean; // true si contribuyó con μ del estado por raw:null dentro de A(S)
+  nonVotingReason: NonVotingReason | null; // presente sii votes=false; nunca inferido de raw:null
+  explanation: string;
+  sampleSize: number;
+  applicable?: boolean;
+  evidenceConfidence?: number;
+}
+
+export interface ScoredCandidate {
+  hero: HeroId;
+  score: number; // Σ contributions[].weighted (invariante CP10, en TODOS los caminos)
+  contributions: StateWeightedContribution[]; // ← FUENTE ÚNICA
   evidenceCoverage: number;
   guessingIndex: number;
 }
 
-// §16.7 puntos 2-6. `enriched` ya trae `normalized`/`evidenceConfidence` (vía `enrich()`). Una
-// pasada previa junta `μᵢ(S)` (media de `normalizedᵢ` sobre los candidatos con dato); este mezcla
-// un candidato contra ese `μ` fijo del estado.
-function mixByState(
+// Proyección fiel de la fuente única al tipo de cable (`SignalContribution`, espejado en
+// `apps/web`). NO recalcula nada: copia `weighted`/`normalized` tal cual. `Suggestion.signals`
+// sale de aquí, así que leer `.weighted` de `Suggestion.signals` es leer la fuente única.
+function toSignalContribution(c: StateWeightedContribution): SignalContribution {
+  const base: SignalContribution = {
+    signal: c.signal,
+    raw: c.raw,
+    normalized: c.normalized,
+    weighted: c.weighted,
+    explanation: c.explanation,
+    sampleSize: c.sampleSize,
+  };
+  if (c.applicable !== undefined) base.applicable = c.applicable;
+  if (c.evidenceConfidence !== undefined) base.evidenceConfidence = c.evidenceConfidence;
+  return base;
+}
+
+// §16.7 puntos 2-6 + Task 11/12/13. `enriched` ya trae `normalized`/`evidenceConfidence` (vía
+// `enrich()`). `applicable`/`voting` son IGUALES para todo candidato del estado (Task 11/12);
+// `stateMean` es la media de `normalizedᵢ` sobre los candidatos con dato. Produce la fuente única
+// `StateWeightedContribution[]` y el `score` como su suma exacta.
+function mixCandidateByState(
+  hero: HeroId,
   enriched: SignalContribution[],
-  available: Set<SignalId>,
+  applicable: Set<SignalId>,
+  voting: Set<SignalId>,
+  readyBySignal: Partial<Record<SignalId, boolean>>,
   wPrime: Partial<Record<SignalId, number>>,
   stateMean: Partial<Record<SignalId, number>>,
-): StateMixResult {
+): ScoredCandidate {
   let score = 0;
   let evidenceCoverage = 0;
-  for (const contribution of enriched) {
+  const contributions: StateWeightedContribution[] = enriched.map((c) => {
+    const structurallyApplicable = applicable.has(c.signal);
+    const dataReadyFlag = readyBySignal[c.signal] ?? true;
+    const votes = voting.has(c.signal); // == structurallyApplicable AND dataReadyFlag (Task 12)
+    const normalized = c.normalized ?? null;
+    const w = wPrime[c.signal] ?? 0;
     let weighted = 0;
-    if (available.has(contribution.signal)) {
-      const w = wPrime[contribution.signal] ?? 0;
-      if (contribution.raw !== null && contribution.normalized != null) {
-        weighted = w * contribution.normalized;
+    let usedStateMean = false;
+    if (votes) {
+      if (c.raw !== null && normalized != null) {
+        weighted = w * normalized;
         evidenceCoverage += w;
       } else {
         // `raw: null` en una señal de `A(S)` -> el candidato "adivina" con la media del estado.
         // `μ` nunca se escribe en `raw` (sigue null en el desglose) -- sólo alimenta `weighted`.
-        weighted = w * (stateMean[contribution.signal] ?? 50);
+        weighted = w * (stateMean[c.signal] ?? 50);
+        usedStateMean = true;
       }
     }
-    contribution.weighted = weighted;
     score += weighted;
+    return {
+      signal: c.signal,
+      raw: c.raw,
+      normalized,
+      baseWeight: SCORING_WEIGHTS_V6[c.signal],
+      weightPrime: w,
+      weighted,
+      structurallyApplicable,
+      dataReady: dataReadyFlag,
+      votes,
+      usedStateMean,
+      nonVotingReason: votes ? null : structurallyApplicable ? "data_not_ready" : "not_structurally_applicable",
+      explanation: c.explanation,
+      sampleSize: c.sampleSize,
+      ...(c.applicable !== undefined ? { applicable: c.applicable } : {}),
+      evidenceConfidence: c.evidenceConfidence,
+    };
+  });
+  return { hero, score, contributions, evidenceCoverage, guessingIndex: 1 - evidenceCoverage };
+}
+
+// CP10 en el camino `teamOpening`: `recommendTeamOpeners` reemplaza el `score` (× 100 + alivio por
+// bans). Para que `Σ contributions.weighted == score` siga siendo cierto SIN tocar
+// `team-opener.ts` ni las fórmulas de señal, se re-escalan las contribuciones al nuevo total. El
+// orden (lo fija `recommendTeamOpeners`) y el `score` no cambian; sólo la representación interna
+// pasa a ser coherente. Escala uniforme positiva ⇒ el orden por `weighted` de `reason` y el signo
+// de los `delta` de `comparison` se preservan.
+function reconcileWeightedToScore(
+  contributions: StateWeightedContribution[],
+  targetScore: number,
+): StateWeightedContribution[] {
+  const current = contributions.reduce((sum, c) => sum + c.weighted, 0);
+  if (Math.abs(current - targetScore) < 1e-9) return contributions;
+  if (current > 0) {
+    const k = targetScore / current;
+    return contributions.map((c) => ({ ...c, weighted: c.weighted * k }));
   }
-  return { score, signals: enriched, evidenceCoverage, guessingIndex: 1 - evidenceCoverage };
+  // `current === 0` (ninguna contribución del pipeline): el score objetivo lo trajo sólo el alivio
+  // por bans. Se reparte a partes iguales entre las señales votantes (o entre todas si ninguna
+  // vota) para que la igualdad CP10 se mantenga; caso de medida cero con datos reales.
+  const voters = contributions.filter((c) => c.votes);
+  const targets = voters.length > 0 ? voters : contributions;
+  const share = targets.length > 0 ? targetScore / targets.length : 0;
+  return contributions.map((c) => (targets.includes(c) ? { ...c, weighted: share } : c));
 }
 
 // El único neutro del pipeline (§16.7 punto 3): si una señal está en `A(S)` pero NINGÚN candidato
@@ -297,12 +579,6 @@ function stateMeansFor(
     means[signal] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 50;
   }
   return means;
-}
-
-// Coverage legacy (para `_legacyMixMode`): fracción de peso de V6 que las señales con voto real
-// aportan. No es `A(S)` -- es el conjunto candidate-specific de siempre.
-function legacyCoverage(signals: SignalContribution[]): number {
-  return signals.filter(hasVote).reduce((sum, s) => sum + SCORING_WEIGHTS_V6[s.signal], 0);
 }
 
 // TSK-069 (fase 3 de la auditoría de inteligencia): antes unía las 2 explicaciones con "; ",
@@ -358,55 +634,67 @@ function flexibilityReason(hero: HeroId, positions: HeroPositions): string | nul
   return `Puede flexearse entre ${joinSpanish(labels)} y mantiene abierta la composición.`;
 }
 
+// Task 13: `evidence` sale de la MISMA fuente única (`StateWeightedContribution[]`) que el score.
+// Una señal que no vota (p. ej. `patch_meta` en R0) nunca genera evidencia "usada": la evidencia
+// positiva de `counter`/`team_synergy` exige `votes` Y `weighted > 0` además de `raw > 0`. Las
+// líneas de riesgo (ausencia de ventaja) son diagnósticas y no citan una contribución votante.
 function buildEvidence(
-  signals: SignalContribution[],
+  contributions: StateWeightedContribution[],
   flexReason: string | null,
   policy: DraftDecisionPolicy,
   openingReason: string | null,
 ): SuggestionEvidence[] {
   const evidence: SuggestionEvidence[] = [];
-  const counter = signals.find((signal) => signal.signal === "counter");
-  const synergy = signals.find((signal) => signal.signal === "team_synergy");
+  const counter = contributions.find((c) => c.signal === "counter");
+  const synergy = contributions.find((c) => c.signal === "team_synergy");
+  const counterContributed = counter?.votes === true && (counter.raw ?? 0) > 0 && counter.weighted > 0;
+  const synergyContributed = synergy?.votes === true && (synergy.raw ?? 0) > 0 && synergy.weighted > 0;
   if (openingReason !== null) evidence.push({ kind: "opening", text: openingReason });
-  if (policy.usesRevealedCounterEvidence && counter?.raw !== null && counter?.raw !== undefined && counter.raw > 0) {
-    evidence.push({ kind: "counter", text: counter.explanation });
+  if (policy.usesRevealedCounterEvidence && counterContributed) {
+    evidence.push({ kind: "counter", text: counter!.explanation });
   }
-  if (synergy?.raw !== null && synergy?.raw !== undefined && synergy.raw > 0) {
-    evidence.push({ kind: "synergy", text: synergy.explanation });
+  if (synergyContributed) {
+    evidence.push({ kind: "synergy", text: synergy!.explanation });
   }
   if (flexReason !== null) evidence.push({ kind: "flex", text: flexReason });
-  if (policy.usesRevealedCounterEvidence && (counter?.raw === null || counter?.raw === undefined || counter.raw <= 0)) {
+  if (policy.usesRevealedCounterEvidence && !counterContributed) {
     evidence.push({ kind: "risk", text: "No hay una ventaja de contrapick verificable contra los rivales revelados; evita tratar esta respuesta como segura." });
   }
-  if (policy.closesComposition && (synergy?.raw === null || synergy?.raw === undefined || synergy.raw <= 0)) {
+  if (policy.closesComposition && !synergyContributed) {
     evidence.push({ kind: "risk", text: "No hay evidencia suficiente de que complete una necesidad táctica pendiente del equipo." });
   }
   return evidence;
 }
 
-function buildReason(signals: SignalContribution[], positionReason: string | null): string {
-  const informative = signals
-    .filter(hasVote)
-    .sort((a, b) => SCORING_WEIGHTS_V6[b.signal] - SCORING_WEIGHTS_V6[a.signal])
+// Task 13 / CP4: `reason` ordena por la contribución REAL al score (`weighted`), no por el peso
+// nominal, y sólo cita señales que votaron con dato propio y aportaron algo (`weighted > 0`) --
+// así `patch_meta` (que no vota, `weighted = 0`) nunca puede aparecer citada.
+function buildReason(contributions: StateWeightedContribution[], positionReason: string | null): string {
+  const informative = contributions
+    .filter((c) => c.votes && c.raw !== null && c.weighted > 0)
+    .sort((a, b) => b.weighted - a.weighted)
     .slice(0, 2)
-    .map((s) => s.explanation);
-  const signalReason = informative.length > 0 ? informative.map(asSentence).join(" ") : signals[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
+    .map((c) => c.explanation);
+  const signalReason =
+    informative.length > 0
+      ? informative.map(asSentence).join(" ")
+      : contributions[0]?.explanation ?? "Sin datos suficientes para explicar esta sugerencia";
   if (positionReason === null) return signalReason;
   return `${positionReason} ${signalReason}`;
 }
 
-// Solo señales con voto real en AMBOS candidatos son comparables -- comparar contra un `raw:
-// null` o `applicable: false` de cualquiera de los dos lados no sería una comparación real, sería
-// inventar una ventaja donde en realidad hay un hueco de datos o una función no configurada.
+// Task 13 / CP2: la ventaja se mide sobre las MISMAS contribuciones `weighted` que formaron el
+// score (proyectadas fielmente en `Suggestion.signals`), nunca sobre un cálculo paralelo. Sólo
+// son comparables las señales con `raw` real en AMBOS lados (un `raw: null` rellenado con μ no es
+// una ventaja verificable) y con aporte positivo del #1 (`weighted > 0` ⇒ CP4).
 function bestFavoringSignal(top: SignalContribution[], second: SignalContribution[]): { signal: SignalId; delta: number } | null {
-  const topWeighted = weightedContributions(top);
-  const secondWeighted = weightedContributions(second);
   let best: { signal: SignalId; delta: number } | null = null;
-  for (const [signal, topValue] of Object.entries(topWeighted) as [SignalId, number][]) {
-    const secondValue = secondWeighted[signal];
-    if (secondValue === undefined) continue;
-    const delta = topValue - secondValue;
-    if (best === null || delta > best.delta) best = { signal, delta };
+  for (const t of top) {
+    if (t.raw === null || t.weighted <= 0) continue;
+    const s = second.find((x) => x.signal === t.signal);
+    if (!s || s.raw === null) continue;
+    const delta = t.weighted - s.weighted;
+    if (best === null || delta > best.delta) best = { signal: t.signal, delta };
   }
   return best;
 }
@@ -496,6 +784,21 @@ export function buildSuggestions(
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
   const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
 
+  const voting = votingSignals(state, meta, options);
+  if (voting.size === 0) {
+    degraded.push("no_signal_available");
+    return {
+      schema: "suggestions/v1",
+      sessionId: state.sessionId,
+      basedOnSeq: state.lastSeq,
+      decisionContext: "no_signal_available",
+      suggestions: [],
+      comparison: null,
+      degraded,
+      computedInMs: now() - start,
+    };
+  }
+
   const candidates = candidatePool(state, meta, options);
   if (candidates.length === 0) {
     return {
@@ -533,21 +836,61 @@ export function buildSuggestions(
     raw.push({ hero, signals });
   }
 
-  type Scored = { hero: HeroId; score: number; signals: SignalContribution[]; evidenceCoverage: number; guessingIndex: number };
-  let scored: Scored[];
+  // Task 13 (requisito 3.1, CP2/CP4/CP10): TODOS los caminos producen la misma fuente única
+  // `ScoredCandidate.contributions` (`StateWeightedContribution[]`), y `score == Σ contributions.weighted`.
+  let scored: ScoredCandidate[];
   if (legacyMix) {
+    // Camino legacy (`_legacyMixMode`, sólo el candado de regresión cero de V6, nunca producción):
+    // conserva la redistribución candidate-specific de V6 (`weightedContributions` + `normalize`
+    // sobre `RAW_RANGE`). Es su propia fuente única -- por diseño reproduce V6 al bit. `score` sigue
+    // saliendo de `mixScore`, que es exactamente `Σ weightedContributions(...)`.
     scored = raw.map(({ hero, signals }) => {
-      const coverage = legacyCoverage(signals);
-      return { hero, signals, score: mixScore(signals), evidenceCoverage: coverage, guessingIndex: 1 - coverage };
+      const wc = weightedContributions(signals);
+      const votingWeight = (Object.keys(wc) as SignalId[]).reduce((sum, id) => sum + SCORING_WEIGHTS_V6[id], 0);
+      let evidenceCoverage = 0;
+      const contributions: StateWeightedContribution[] = signals.map((c) => {
+        const w = wc[c.signal];
+        const votes = w !== undefined;
+        if (votes) evidenceCoverage += SCORING_WEIGHTS_V6[c.signal];
+        return {
+          signal: c.signal,
+          raw: c.raw,
+          normalized: c.normalized ?? null,
+          baseWeight: SCORING_WEIGHTS_V6[c.signal],
+          weightPrime: votes && votingWeight > 0 ? SCORING_WEIGHTS_V6[c.signal] / votingWeight : 0,
+          weighted: w ?? 0,
+          structurallyApplicable: votes,
+          dataReady: true,
+          votes,
+          usedStateMean: false,
+          nonVotingReason: votes ? null : "not_structurally_applicable",
+          explanation: c.explanation,
+          sampleSize: c.sampleSize,
+          ...(c.applicable !== undefined ? { applicable: c.applicable } : {}),
+          evidenceConfidence: c.evidenceConfidence,
+        };
+      });
+      return { hero, score: mixScore(signals), contributions, evidenceCoverage, guessingIndex: 1 - evidenceCoverage };
     });
   } else {
-    // `A(S)` y el denominador de la redistribución: una vez por estado, igual para todo candidato.
-    const available = availableSignals(state, meta, options, calibration);
-    const denom = [...available].reduce((sum, id) => sum + SCORING_WEIGHTS_V6[id], 0);
+    // Conjunto que efectivamente vota y entra en la redistribución: `votes == (structurallyApplicable
+    // AND dataReady)` (Task 12 / design §4.3a-b). Igual para todo candidato del estado. NO depende
+    // de la calibración -- ni como estructura (Task 11) ni como readiness. `patch_meta` queda fuera
+    // porque `dataReady("patch_meta") === false` (audit §4.3), no por un filtro por literal: así la
+    // salida observable de producción no cambia respecto a pre-R0 (donde `patch_meta` tampoco votaba:
+    // sólo entraba vía el acoplamiento a `calibration.signals.patch_meta`, ya retirado). Una señal
+    // aplicable pero no lista NO entra a `denom` ni a `stateMean`.
+    const applicableSet = structurallyApplicableSignals(state, meta, options);
+    // `voting` was computed above as the canonical degenerate-state predicate.
+    const readyBySignal: Partial<Record<SignalId, boolean>> = {};
+    for (const id of applicableSet) readyBySignal[id] = dataReady(id, meta);
+    const denom = [...voting].reduce((sum, id) => sum + SCORING_WEIGHTS_V6[id], 0);
     const wPrime: Partial<Record<SignalId, number>> = {};
-    for (const id of available) wPrime[id] = denom > 0 ? SCORING_WEIGHTS_V6[id] / denom : 0;
-    const stateMean = stateMeansFor(raw, available);
-    scored = raw.map(({ hero, signals }) => ({ hero, ...mixByState(signals, available, wPrime, stateMean) }));
+    for (const id of voting) wPrime[id] = denom > 0 ? SCORING_WEIGHTS_V6[id] / denom : 0;
+    const stateMean = stateMeansFor(raw, voting);
+    scored = raw.map(({ hero, signals }) =>
+      mixCandidateByState(hero, signals, applicableSet, voting, readyBySignal, wPrime, stateMean),
+    );
   }
 
   scored.sort((a, b) => b.score - a.score);
@@ -568,37 +911,53 @@ export function buildSuggestions(
       })
     : null;
   const scoreByHero = new Map(scored.map((entry) => [entry.hero, entry]));
-  const ranked = teamOpening
-    ? teamOpening.map((option) => ({ ...scoreByHero.get(option.hero)!, score: option.score * 100, openingReason: option.summary }))
+  type RankedCandidate = ScoredCandidate & { openingReason: string | null };
+  const ranked: RankedCandidate[] = teamOpening
+    ? teamOpening.map((option) => {
+        const base = scoreByHero.get(option.hero)!;
+        // `recommendTeamOpeners` reemplaza el score (× 100 + alivio por bans). CP10: re-escalar la
+        // fuente única al nuevo total para que `Σ contributions.weighted == score` siga cierto sin
+        // tocar `team-opener.ts`. Orden y score no cambian.
+        const newScore = option.score * 100;
+        return {
+          ...base,
+          score: newScore,
+          contributions: reconcileWeightedToScore(base.contributions, newScore),
+          openingReason: option.summary,
+        };
+      })
     : diversifyEquivalentCandidates(scored, options.diversitySeed).map((entry) => ({ ...entry, openingReason: null }));
   // TSK-192: 6 recomendaciones en apertura y en picks normales (el Copilot del Simulador las
   // muestra en grid 2×3).
   const limit = TOP_N;
   const suggestions: Suggestion[] = ranked.slice(0, limit).map((entry, index) => {
     const roleReason = targetPositionReason(entry.hero, options.teamOpening ? {} : options) ?? flexibilityReason(entry.hero, heroPositions);
+    // Fuente única -> vista de cable. `reason`/`comparison`/`evidence` se derivan de
+    // `entry.contributions` (o de su proyección fiel `signals`), nunca de un cálculo paralelo.
+    const signals = entry.contributions.map(toSignalContribution);
     return {
     hero: entry.hero,
     rank: (index + 1) as Suggestion["rank"],
     score: entry.score,
-    signals: entry.signals,
+    signals,
     // decisionPolicy.headline NO se repite acá -- ya lo comunica `decisionContext` (arriba, una
     // sola vez por SuggestionSet). Repetirlo en cada `reason` clonaba el mismo encabezado en las
     // 5 tarjetas de la ronda, el hallazgo real de producto que originó TSK-124.
     reason: [
       entry.openingReason,
       buildReason(
-        entry.signals,
+        entry.contributions,
         roleReason,
       ),
     ]
       .filter(Boolean)
       .join(" "),
     confidence: legacyMix
-      ? computeConfidence(entry.signals, options.metaIsStale ?? false)
+      ? computeConfidence(signals, options.metaIsStale ?? false)
       : confidenceFromCoverage(entry.evidenceCoverage, options.metaIsStale ?? false),
     evidenceCoverage: entry.evidenceCoverage,
     guessingIndex: entry.guessingIndex,
-    evidence: buildEvidence(entry.signals, roleReason, decisionPolicy, entry.openingReason),
+    evidence: buildEvidence(entry.contributions, roleReason, decisionPolicy, entry.openingReason),
   };
   });
 

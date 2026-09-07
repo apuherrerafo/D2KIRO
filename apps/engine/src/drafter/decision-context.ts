@@ -1,7 +1,7 @@
 import { observedDraftFacts } from "./observed-draft";
 import type { DraftState } from "../draft/reducer";
 
-export type DraftDecisionContext = "team_opening" | "blind_second_pick" | "response_pick" | "closing_pick";
+export type DraftDecisionContext = "team_opening" | "blind_second_pick" | "response_pick" | "closing_pick" | "no_signal_available";
 
 export interface DraftDecisionPolicy {
   context: DraftDecisionContext;

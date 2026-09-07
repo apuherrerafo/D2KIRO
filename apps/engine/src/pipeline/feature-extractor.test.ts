@@ -96,20 +96,24 @@ const FIXTURE_CAPABILITIES: HeroCapabilities[] = [
   },
 ];
 
+// R0.3 / Task 15: un héroe sin entrada curada llega como `null` (antes `"scaling"` fabricado). El
+// contrato que sigue vigente es "una entrada por candidato, nunca se omite un héroe" -- lo que
+// cambia es el VALOR de esa entrada para el hueco de datos, no su presencia.
 test("extractCandidateStrategies: devuelve una entrada por candidato, siempre", () => {
   const result = extractCandidateStrategies([1, 2], FIXTURE_CAPABILITIES);
   expect(result.size).toBe(2);
+  expect(result.has(2)).toBe(true); // el héroe sin dato SIGUE teniendo entrada
   expect(result.get(1)).toBe("push");
-  expect(result.get(2)).toBe("scaling"); // sin entrada en capabilities -> scaling
+  expect(result.get(2)).toBeNull(); // sin entrada en capabilities -> null, nunca fabricado
 });
 
-test("extractCandidateStrategies: no filtra por state -- devuelve estrategia igual para cualquier candidato dado", () => {
+test("extractCandidateStrategies: no filtra por state -- devuelve una entrada por cada candidato dado", () => {
   const result = extractCandidateStrategies([1, 2, 3], []);
   expect(result.size).toBe(3);
-  for (const strategy of result.values()) expect(strategy).toBe("scaling");
+  for (const strategy of result.values()) expect(strategy).toBeNull();
 });
 
-test("extractCandidateStrategies: con capabilities=[] todos caen en scaling", () => {
+test("extractCandidateStrategies: con capabilities=[] cada candidato queda en null (sin dato), no en un valor inventado", () => {
   const result = extractCandidateStrategies([10, 20], []);
-  expect([...result.values()]).toEqual(["scaling", "scaling"]);
+  expect([...result.values()]).toEqual([null, null]);
 });

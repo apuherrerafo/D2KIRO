@@ -58,6 +58,7 @@ test.each([
   ["blind_second_pick", "Pick 2 — información ciega"],
   ["response_pick", "Pick 3/4 — respuesta a rivales revelados"],
   ["closing_pick", "Cierre — composición y riesgos"],
+  ["no_signal_available", "No hay se\u00f1ales disponibles para votar"],
 ] as const)("renderiza el contexto %s sin parsear la razón", (context, heading) => {
   const view = render(<CopilotPanel draftState={draftState} suggestions={suggestions(context)} heroCatalog={new Map()} previewStatus="ready" />);
 

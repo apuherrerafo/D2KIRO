@@ -20,6 +20,11 @@ test("deriva el contexto solo de picks revelados de All Pick", () => {
   expect(deriveDecisionContext(activeState([1, 2, 3, 4], [11, 12, 13, 14]), false)).toBe("closing_pick");
 });
 
+test("the closed contract accepts no_signal_available", () => {
+  const context: import("./decision-context").DraftDecisionContext = "no_signal_available";
+  expect(context).toBe("no_signal_available");
+});
+
 test("no afirma respuesta rival si los picks no están presentes en el estado", () => {
   expect(deriveDecisionContext(activeState([1, 2], []), false)).toBe("blind_second_pick");
 });

@@ -103,6 +103,16 @@ export function renderReport(
   lines.push("");
   if (!agreement.valid) {
     lines.push(`**CORRIDA INVÁLIDA** — ConstraintViolationRate = ${pct(agreement.constraintViolationRate)} > 0.`);
+  } else if (!agreement.perBaseline.v6Full) {
+    // Task 33 (R0.2B) — `pro-drafts.sqlite` ausente ⇒ Benchmark B NO MEDIDO (ADR-002: sub-check
+    // informational). Sin este guard, `agreement.perBaseline.v6Full.byDecisionContext` de más
+    // abajo reventaría con un TypeError. NO se presenta ningún número como observación: el
+    // `constraintViolationRate` del shape es un sentinel, no "0 violaciones medidas".
+    lines.push(
+      `**Benchmark B NO MEDIDO** — corpus profesional ausente (\`corpus\`=0, \`perBaseline\`={}, ` +
+        `\`bootstrap\`=[]). El gate lo reporta como \`SKIPPED\` informational; no bloquea el gate ni ` +
+        `se computa como aprobado. El \`constraintViolationRate\` es un sentinel de shape, no una medición.`,
+    );
   } else {
     lines.push(`| baseline | R@1 | R@3 | R@5 | R@6 | MRR |`);
     lines.push(`|---|---|---|---|---|---|`);
