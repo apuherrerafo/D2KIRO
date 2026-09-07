@@ -854,10 +854,12 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
     dependencia de una task ejecutable (ver la nota de R0.3 sobre CP5). Se conserva **17** como ancla
     histÃ³rica aceptada de TSK-098; Task 32 es responsable de revalidar ese contrato bajo el runtime
     canÃ³nico. El checkpoint 18 no puede pasar sin ambas.
-  - **Es dependencia formal de:** tareas 33 y 19 (18 → 33 → 19). El checkpoint es un nodo real del
-    grafo con su propia posición, no una nota narrativa: R0.2B no repara el productor (33) ni evalúa el
-    candidate (19) hasta que 18 está verde. Entre 33 y 19, el PO hace un checkpoint commit del estado
-    R0 aceptado — acción humana de trazabilidad, no un nodo de implementación.
+  - **Es dependencia formal de:** tareas 33, 34, 35 y 19 (18 → 33 → 34 → [HUMAN S1 CHECKPOINT] → 35 →
+    19). El checkpoint es un nodo real del grafo con su propia posición, no una nota narrativa: R0.2B
+    no repara el productor (33), no construye el S1 confiable (34), no rebasa el control V6 (35) ni
+    evalúa (19) hasta que 18 está verde. Entre 33 y 34, el PO hace un checkpoint commit del estado R0
+    aceptado — acción humana de trazabilidad. La generación real de S1 (tras aceptar el código/tests de
+    la tarea 34) es un HUMAN OPERATIONAL CHECKPOINT explícito, no un nodo de implementación.
   - **Objetivo:** confirmar que las tres suites estÃ¡n verdes bajo `bun run test` y el mismo pin Bun
     exacto en Windows/CI (incluida la resoluciÃ³n histÃ³rica vÃ­a 17 y migraciÃ³n canÃ³nica vÃ­a 32), y que
     el instrumento de evaluaciÃ³n (R0.2A) y los cambios del motor (R0.3) estÃ¡n completos antes de medir
@@ -879,8 +881,9 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
     fusionan.
   - **Dependencies:** 18 (checkpoint R0.1 + R0.2A + R0.3 verde — dependencia formal), 7 (discovery de
     `pro-drafts.sqlite`: ubicación/ausencia confirmada).
-  - **Es dependencia formal de:** tarea 19 (33 → 19) y tarea 30 (certificación). R0.2B no evalúa el
-    candidate hasta que 33 está en PASS y el PO hizo el checkpoint commit (acción humana, ver abajo).
+  - **Es dependencia formal de:** tarea 34 (33 → 34), tarea 19 (33 → … → 19) y tarea 30
+    (certificación). R0.2B no construye el S1 confiable (34) hasta que 33 está en PASS y el PO hizo el
+    checkpoint commit (acción humana, ver abajo).
   - **Preconditions:** el checkpoint 18 está verde; la tarea 7 confirmó dónde vive `pro-drafts.sqlite`
     o su ausencia.
   - **Objetivo:** la Spec ya afirma que Benchmark A / Engine Quality puede evaluar el candidate HEAD
@@ -960,87 +963,271 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
     trazabilidad, no approval de acción sensible).
   - _Requirements: 2B.1 (y la política de sub-checks de 2A.1)_
 
-- [ ] 19. [R0.2B] Evaluar el candidate HEAD contra el baseline aceptado (INTELLIGENCE CI)
+- [ ] 34. [R0.2B] Snapshot de meta reproducible (S1) + `EvaluationIdentity` con `metaSnapshotVersion`
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
+  - **Origen (replan aceptado por el PO):** la ejecución de R0 alcanzó la tarea 19 y se detuvo —
+    `Task 19 Identity Preflight = BLOCKED`, `Snapshot Recovery Preflight = NO_TRUSTWORTHY_SNAPSHOT`. El
+    snapshot de meta de S0 (el que produjo `v6-measured.json`) está perdido y no se puede reconstruir.
+    Decisión del PO: **no** se reconstruye S0; se construye un S1 fresco y confiable.
+  - **Responsabilidad (no mezclar):** la tarea 34 define el **builder** de S1 y el modelo de
+    `EvaluationIdentity` (código + tests). La generación real de S1 es un **HUMAN OPERATIONAL
+    CHECKPOINT** posterior. La tarea 35 rebasa el control V6 sobre ese S1; la tarea 19 evalúa.
+  - **Dependencies:** 18 (checkpoint R0.1 + R0.2A + R0.3 verde — dependencia formal), 33 (productor de
+    eval corpus-opcional en PASS).
+  - **Es dependencia formal de:** tarea 35 (34 → 35) y tarea 30 (certificación).
+  - **Preconditions:** el checkpoint 18 está verde; la tarea 33 está en PASS; el PO hizo el checkpoint
+    commit del estado R0 aceptado.
+  - **Objetivo:** (1) implementar el builder de S1 y el modelo de identidad/procedencia; (2) tras
+    aceptar código/tests, generar S1 en un HUMAN OPERATIONAL CHECKPOINT. `EvaluationIdentity` gana
+    `metaSnapshotVersion` (huella de **contenido lógico**, `meta1:<sha256 completo>`, **nunca** el SHA
+    crudo del SQLite, **nunca** truncado) sobre una serialización canónica inequívoca (JSON/JSONL con
+    tabla explícita, nombres de campo explícitos, orden determinista, codificación primitiva estable,
+    manejo explícito de `null`, `schemaTag`/versión incluida) de **exactamente** los inputs de
+    `loadMeta`: `heroes`(`id`,`localized_name`,`roles`) orden `id`;
+    `hero_patch_stats`(`hero_id`,`patch`,`bracket`,`picks`,`wins`) orden (`hero_id`,`patch`,`bracket`);
+    `hero_matchups`(`hero_id`,`vs_hero_id`,`games`,`wins`) orden (`hero_id`,`vs_hero_id`). `snapshotFileSha`
+    (SHA-256 crudo de `S1.sqlite`) es metadato/procedencia y **no** participa en `isComparable()`.
+    `EvaluationMetadata` gana `measuredEngineCommit` y `evaluationHarnessCommit` explícitos (el motor
+    medido no se infiere de `git rev-parse HEAD`). `evaluationProtocolVersion` codifica la **regla**
+    `patchOverride:dominant`, no un patch concreto; el manifiesto registra `patchLabel` y
+    `patchLabelSource`, y el builder **no** afirma que `dominantPatch` prueba el patch real vigente de
+    Dota.
+  - **Proceso del HUMAN OPERATIONAL CHECKPOINT (S1):** DB **temporal fresca** (nunca prod ni la DB
+    local de trabajo) → migrar/inicializar esquema → correr el sync canónico de meta → **exigir
+    `status=ok` (éxito completo)** → validar → congelar → fingerprint (`metaSnapshotVersion`) +
+    `snapshotFileSha` → `S1.manifest.json` → commitear la evidencia congelada después. Si el sync
+    lanza, hace rate-limit, termina non-ok o la validación falla ⇒ **descartar por completo la DB
+    temporal**, **sin producir ningún artefacto**; nunca se reanuda ni se congela una DB parcial.
+  - **Expected observable output:** `eval/snapshots/S1.sqlite` (SQLite congelado, git normal ~1–2 MB,
+    **sin Git LFS**) + `eval/snapshots/S1.manifest.json` (con `metaSnapshotVersion`, `snapshotFileSha`,
+    `schemaTag`, `patchLabel`, `patchLabelSource`, `dominantPatch`, `rowCounts`, `createdAt` efímero);
+    `run.ts` produce un `EvaluationIdentity` con `metaSnapshotVersion` y una `EvaluationMetadata` con
+    procedencia; `isComparable()` incluye `metaSnapshotVersion` y **excluye** `snapshotFileSha` /
+    commits de motor/harness.
+  - **Write scope (conceptual):** `scripts/eval/snapshot.ts` (+ tests), `scripts/eval/evaluation-identity.ts`
+    (+ tests), `scripts/eval/run.ts` (+ tests), la **excepción mínima** de `.gitignore`
+    (`!eval/snapshots/S1.sqlite` — sin des-ignorar SQLite arbitrarios), `eval/snapshots/S1.sqlite`,
+    `eval/snapshots/S1.manifest.json`, y documentación **aditiva** de procedencia histórica de S0.
+  - **Protected / DO NOT CHANGE:** NO modifica `apps/engine/**`; NO modifica el contenido de
+    `v6-measured.json` (`HISTORICAL_REFERENCE_S0`, inmutable); NO modifica el Golden Dataset; NO
+    regenera el split; NO cambia la matemática de `evaluateGate()`; NO cambia `SCORING_WEIGHTS`.
+  - **Bug de escritura parcial de producción (no bloquea R0):** el `syncMatchups` no-transaccional es
+    un defecto real ⇒ se crea/referencia un **ticket de hotfix futuro separado**. R0 protege S1 con DB
+    desechable fresca + `status=ok` + validar-antes-de-congelar + descartar-ante-cualquier-fallo. NO se
+    expande la tarea 34 a rediseñar el sync de producción.
+  - **Verification / acceptance criteria:**
+    - `metaSnapshotVersion` = SHA-256 lógico **completo**; `snapshotFileSha` solo metadato;
+    - **test de falsa comparabilidad**: `HISTORICAL_REFERENCE_S0` sin `metaSnapshotVersion` vs
+      candidate sobre S1 ⇒ incomparable/BLOCKED;
+    - **mismos datos lógicos / distintos bytes de SQLite ⇒ misma identidad**;
+    - **mismo `patchLabel` / datos relevantes distintos ⇒ identidad distinta**;
+    - legacy S0 sin `metaSnapshotVersion` ⇒ incomparable/BLOCKED;
+    - `run.ts` **no** re-apunta el baseline aceptado por defecto;
+    - procedencia explícita motor/harness en `EvaluationMetadata`;
+    - **sync fallido nunca congela S1** (test del descarte de la DB temporal);
+    - determinismo lógico (CP12): `EvaluationIdentity` / métricas / ranking / huella lógica idénticos
+      entre corridas equivalentes; metadato efímero documentado y excluido.
+    La tarea 34 **no puede pasar a PASS** hasta que el `S1.manifest.json` y la huella lógica
+    resultantes del HUMAN OPERATIONAL CHECKPOINT validen.
+  - **Failure / stop conditions:** si construir S1 exige tocar `apps/engine/**`, editar
+    `v6-measured.json`, el Golden o el split ⇒ **STOP / REPLAN** (clase B/D); si el sync falla o la
+    validación no pasa ⇒ descartar y reintentar el checkpoint operativo, sin artefacto; circuit-breaker
+    (b) para la misma root cause.
+  - **Risk level:** medio (corre un sync de meta real — red/rate limits — pero contra una DB
+    desechable, nunca producción; no toca producto).
+  - **Approval required?** No para el builder (código + test). La generación real de S1 es un HUMAN
+    OPERATIONAL CHECKPOINT (acción operativa humana de trazabilidad/reproducibilidad, **no** approval
+    de acción sensible/irreversible).
+  - _Requirements: 2B.3 (y 2A.2 c5–c9)_
+
+- [ ] 35. [R0.2B] Control V6 rebasado sobre S1 + cableado de la comparación de la tarea 19
+  - **Workstream:** R0.2B Candidate Evaluation / Promotion.
+  - **Responsabilidad (no mezclar):** la tarea 35 produce `REBASED_REFERENCE(S1)` (el control V6
+    rebasado) y el cableado **acotado** para que la tarea 19 lo consuma. La tarea 19 **evalúa**; la
+    tarea 20 **promueve**. Contratos separados.
+  - **Dependencies:** 34 (S1 confiable + `EvaluationIdentity`/`metaSnapshotVersion` en PASS,
+    manifiesto/huella validados), 18 (checkpoint), 33 (productor de eval corpus-opcional en PASS).
+  - **Es dependencia formal de:** tarea 19 (35 → 19) y tarea 30 (certificación).
+  - **Preconditions:** S1 (`eval/snapshots/S1.sqlite` + `S1.manifest.json`) congelado y commiteado; el
+    árbol principal limpio.
+  - **Objetivo:** correr el **motor VIEJO aceptado (`df354b9`, comportamiento V6)** sobre el **mismo**
+    S1 congelado usando el **harness de evaluación actual**, y materializarlo como
+    `eval/baselines/reference.s1.json` (un `REBASED_CONTROL`, **no** un baseline aceptado). Cablear la
+    tarea 19 para invocar explícitamente `reference = reference.s1.json` y
+    `candidate = candidate.s1.json` por un mecanismo **acotado** (path/env/config).
+  - **Mecanismo preferido:** un **git worktree temporal** que usa el **harness de evaluación actual**,
+    con `apps/engine/src/**` **superpuesto (overlay)** desde `df354b9`. El **árbol principal permanece
+    intacto**.
+  - **CRÍTICO — sin fallback de harness viejo:** si el motor VIEJO **no compila/corre** contra el
+    harness actual ⇒ **STOP / REPLAN**. **NO** se aprueba automáticamente "worktree completo de
+    `df354b9` + harness de eval viejo": un harness distinto cambia otra variable y no se puede declarar
+    comparable porque las fórmulas de métrica se parezcan. Un adaptador de compatibilidad bajo el
+    harness actual puede diseñarse en un replan posterior si hace falta.
+  - **Procedencia:** `reference.s1.json` lleva `measuredEngineCommit = df354b9c4ed415b86dba35dc92e2f84e5cb40e5d`
+    y `evaluationHarnessCommit =` el commit del checkpoint actual (`59bf3bbb5955ba567bb139f79eac1d4de3c71711`
+    o el checkpoint real al ejecutar). Estos campos son procedencia y **no** deciden `isComparable()`.
+  - **Expected observable output:** `eval/baselines/reference.s1.json` con la `EvaluationIdentity`
+    completa (misma que un candidate sobre S1: `datasetVersion`, `evaluationProtocolVersion`,
+    `scoringModelFamily`, `metaSnapshotVersion`) y la `EvaluationMetadata` de procedencia; el mecanismo
+    acotado de ruta-de-referencia disponible para la tarea 19; el árbol principal sin cambios
+    (`git status --porcelain` limpio tras la corrida).
+  - **Write scope (conceptual):** `scripts/eval/rebased-reference.ts` (+ tests),
+    `eval/baselines/reference.s1.json`, la config **acotada** explícita de ruta-de-referencia para el
+    gate **si hace falta** (path/env/config), el cableado de la invocación de la tarea 19, y la
+    verificación de provisión de S1 en CI.
+  - **Protected / DO NOT CHANGE:** **NO** re-apunta globalmente el baseline por defecto de `--enforce`
+    hacia `reference.s1.json` (eso es la tarea 20, y solo con Task 19 PASS + aceptación); **NO** modifica
+    la matemática de `evaluateGate()`; **NO** modifica `HISTORICAL_REFERENCE_S0` (`v6-measured.json`);
+    **NO** modifica S1 ni `apps/engine/**` del árbol principal; **NO** promueve ningún baseline. El
+    enrutamiento del baseline aceptado por defecto permanece intacto hasta la tarea 20.
+  - **Verification / acceptance criteria:**
+    - el **harness ACTUAL + overlay del motor VIEJO** corre con éxito sobre S1;
+    - `measuredEngineCommit = df354b9…`; `evaluationHarnessCommit =` el checkpoint HEAD actual;
+    - el **árbol principal permanece limpio**;
+    - `reference` y `candidate` usan **exactamente** la misma `EvaluationIdentity` (mismo
+      `metaSnapshotVersion`); un `metaSnapshotVersion` mismatch ⇒ **BLOCKED**;
+    - si la API del overlay es incompatible ⇒ **STOP / REPLAN**, **no** fallback de harness viejo;
+    - **sin promoción de baseline**; el `--enforce` por defecto no cambia;
+    - métricas / salidas lógicas deterministas entre corridas equivalentes (CP12).
+  - **Failure / stop conditions:** overlay incompatible con el harness actual ⇒ STOP / REPLAN (clase
+    C/B), no se declara comparable; `metaSnapshotVersion` mismatch entre `reference` y `candidate` ⇒
+    BLOCKED; cualquier intento de re-apuntar el default de `--enforce` ⇒ FAIL (es la tarea 20).
+    Circuit-breaker (b).
+  - **Risk level:** medio (ejecuta el motor viejo por overlay; no toca el producto del árbol
+    principal).
+  - **Approval required?** No; no incluye deploy, promoción de baseline ni acción irreversible (esas
+    son la tarea 20).
+  - _Requirements: 2B.4 (y 2B.1, 2A.2 c7)_
+
+- [ ] 19. [R0.2B] Evaluar `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)` (INTELLIGENCE CI)
+  - **Workstream:** R0.2B Candidate Evaluation / Promotion.
+  - **Semántica (replan aceptado por el PO):** la tarea 19 **ya no** compara el candidate contra
+    `HISTORICAL_REFERENCE_S0` (`v6-measured.json`): el snapshot de meta de S0 está perdido y sus
+    métricas 0.736-era no son comparables con S1. La tarea 19 es ahora
+    **`CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)`** — dos motores sobre el **mismo** S1
+    congelado, con la única variable independiente siendo el **código del motor**.
   - **Dependencies:** 18 (checkpoint R0.1+R0.2A+R0.3 verde — dependencia formal), 33 (productor de eval
-    corpus-opcional en PASS: `bun run eval` genera el candidate aunque falte `pro-drafts.sqlite`), 7
-    (discovery `pro-drafts.sqlite`, solo para el sub-check Pro Agreement). El checkpoint 18 ya cierra
+    corpus-opcional en PASS), **34** (S1 confiable + `EvaluationIdentity` con `metaSnapshotVersion`;
+    manifiesto y huella lógica validados por el HUMAN OPERATIONAL CHECKPOINT), **35**
+    (`REBASED_REFERENCE(S1)` = `eval/baselines/reference.s1.json` + el cableado acotado de la comparación),
+    7 (discovery `pro-drafts.sqlite`, solo para el sub-check Pro Agreement). El checkpoint 18 ya cierra
     8, 9, 10 (instrumento R0.2A restaurado) y 11, 12, 13, 14, 16 (candidate R0.3).
   - **Preconditions:** el checkpoint 18 está verde; la tarea 33 está en PASS; el **PO hizo el
-    checkpoint commit** de todo el estado R0 aceptado (acción humana de trazabilidad); R0.3 produjo un
-    candidate HEAD; R0.2A restauró el instrumento. §9.3 bloquea SOLO el sub-check Pro Agreement /
-    Benchmark B (que queda `SKIPPED` informational, ADR-002); Engine Quality / Benchmark A evalúa sin
-    ese archivo y `gate --enforce` puede PASS si Benchmark A pasa.
-    **HEAD trazable (precondición bloqueante):** el candidate debe generarse desde un HEAD **limpio y
-    trazable** que contenga todos los cambios R0 aceptados. Antes de evaluar: `git status --porcelain`
-    **sin cambios pendientes** en `apps/engine/src/**` ni en `scripts/eval/**`, y el campo `commit` del
-    candidate identifica el commit que realmente contiene el código medido. Working tree sucio en esas
-    áreas ⇒ **STOP**, no se evalúa el candidate.
-  - **Objetivo:** evaluar el candidate HEAD resultante de R0.3 contra el `ReferenceBaseline` aceptado
-    usando el `Evaluation_Gate` restaurado, ejecutando este eval pesado en el nivel INTELLIGENCE CI (no
-    en pre-push).
-  - **Expected observable output:** un veredicto de gate (PASS/FAIL/SKIPPED/BLOCKED por sub-check) del
-    candidate HEAD vs baseline aceptado, generado en INTELLIGENCE CI; Benchmark B `SKIPPED` si falta
-    `pro-drafts.sqlite` (no PASS).
-  - **Write scope:** invocaciÃ³n/configuraciÃ³n del eval en INTELLIGENCE CI y el artefacto de veredicto.
-    NO modifica el baseline aceptado (eso es promociÃ³n, tarea 20).
-  - **Protected / DO NOT CHANGE:** `evaluateGate()` intacto; no se promueve nada aquÃ­; el baseline
-    aceptado no se toca (regla (a)).
-  - **Implementation notes:** diseÃ±o Â§4.2 R0.2B, Â§5, Â§8 fila de riesgo R0.3; requisito 2B.1, T.4 c2.
-    CP8 (parte compatibilidad ya cubierta en tarea 9).
-  - **Verification:** INTELLIGENCE CI â€” el eval corre y produce veredicto reproducible; sin eval verde
-    reproducible NO se habilita promociÃ³n.
-  - **Acceptance criteria:** el candidate HEAD queda medido contra el baseline aceptado con veredicto
-    reproducible en INTELLIGENCE CI; el sub-check Benchmark B refleja correctamente la presencia/ausencia
-    del dato.
-  - **Failure / stop conditions:** FAIL del candidate â‡’ clasificar A/B/C/D (bucle Â§6); si el baseline
-    resulta incomparable â‡’ BLOCKED (no editar el baseline). Circuit-breaker (b).
+    checkpoint commit** de todo el estado R0 aceptado (acción humana de trazabilidad); la tarea 34 está
+    en PASS y S1 (`eval/snapshots/S1.sqlite` + `S1.manifest.json`) está congelado y commiteado; la
+    tarea 35 produjo `reference.s1.json` con el motor `df354b9` sobre ese S1 usando el harness actual.
+    §9.3 bloquea SOLO el sub-check Pro Agreement / Benchmark B (queda `SKIPPED` informational, ADR-002);
+    Engine Quality / Benchmark A evalúa sin ese archivo y `gate --enforce` puede PASS si Benchmark A pasa.
+    **HEAD trazable (precondición bloqueante):** el candidate (`candidate.s1.json`) se genera desde un
+    HEAD **limpio y trazable** con todos los cambios R0 aceptados: `git status --porcelain` **sin
+    cambios pendientes** en `apps/engine/src/**` ni en `scripts/eval/**`, y el campo `commit` /
+    `measuredEngineCommit` del candidate identifica el commit que realmente contiene el código medido.
+    Working tree sucio en esas áreas ⇒ **STOP**, no se evalúa.
+  - **Objetivo:** evaluar `CURRENT_ENGINE(S1)` (candidate desde HEAD limpio) contra
+    `REBASED_OLD_ENGINE_CONTROL(S1)` (`reference.s1.json`, motor `df354b9`) usando el `Evaluation_Gate`
+    restaurado, con el mismo Golden, split, protocolo/harness y S1. Ejecutar este eval pesado en
+    INTELLIGENCE CI (no en pre-push). La tarea 19 invoca explícitamente
+    `reference = reference.s1.json` y `candidate = candidate.s1.json` por el mecanismo **acotado** de la
+    tarea 35 (path/env/config) — **no** re-apunta el baseline aceptado por defecto.
+  - **Requisitos de identidad (bloqueantes):** `reference` y `candidate` DEBEN tener la misma
+    `EvaluationIdentity` (`datasetVersion`, `evaluationProtocolVersion`, `scoringModelFamily`,
+    `metaSnapshotVersion`) y diferir **solo** en `measuredEngineCommit`
+    (`reference.measuredEngineCommit = df354b9c4ed415b86dba35dc92e2f84e5cb40e5d`;
+    `reference.evaluationHarnessCommit =` el checkpoint actual). Si el `metaSnapshotVersion` de ambos no
+    coincide ⇒ **BLOCKED** (no se compara sobre S1 distintos).
+  - **Expected observable output:** un veredicto de gate (PASS/FAIL/SKIPPED/BLOCKED por sub-check) de
+    `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)`, generado en INTELLIGENCE CI; Benchmark B
+    `SKIPPED` informational si falta `pro-drafts.sqlite` (no PASS). Métricas / salidas de ranking /
+    huella lógica deterministas entre corridas equivalentes (CP12; metadato efímero excluido).
+  - **Write scope:** invocación/configuración del eval en INTELLIGENCE CI y el artefacto de veredicto
+    (`candidate.s1.json` + el reporte de comparación). **NO** modifica `reference.s1.json`, **NO**
+    escribe ningún baseline aceptado, **NO** re-apunta el `--enforce` por defecto (eso es la tarea 20).
+  - **Protected / DO NOT CHANGE:** `evaluateGate()` intacto; `HISTORICAL_REFERENCE_S0`
+    (`v6-measured.json`) intacto; S1 congelado intacto; `reference.s1.json` es un `REBASED_CONTROL`, no
+    un baseline aceptado — no se promueve nada aquí (regla (a)).
+  - **Implementation notes:** diseño §4.2 (LLD "snapshot de meta reproducible (S1) + control V6
+    rebasado"), §5, §8 fila de riesgo R0.3; requisitos 2B.1, 2B.4, T.4 c2. CP8 (compatibilidad
+    dataset/protocol/`metaSnapshotVersion`), CP12 (determinismo lógico).
+  - **Verification:** INTELLIGENCE CI — el eval corre y produce veredicto reproducible; sin eval verde
+    reproducible NO se habilita la promoción (tarea 20).
+  - **Acceptance criteria:** `CURRENT_ENGINE(S1)` queda medido contra `REBASED_OLD_ENGINE_CONTROL(S1)`
+    sobre el mismo S1 con veredicto reproducible en INTELLIGENCE CI; misma `EvaluationIdentity` salvo
+    `measuredEngineCommit`; `metaSnapshotVersion` mismatch ⇒ BLOCKED; el sub-check Benchmark B refleja
+    la presencia/ausencia del corpus; ningún baseline aceptado se escribe; el `--enforce` por defecto
+    no cambia.
+  - **Failure / stop conditions:** FAIL del candidate ⇒ clasificar A/B/C/D (bucle §6) — es un veredicto
+    real de regresión de motor sobre S1; `metaSnapshotVersion` incompatible ⇒ BLOCKED (no se edita
+    ningún artefacto); si el motor viejo no pudo correr contra el harness actual en la tarea 35 ⇒ esta
+    tarea permanece BLOCKED hasta el STOP/REPLAN de la tarea 35. Circuit-breaker (b).
   - **Risk level:** medio.
-  - **Approval required?** No (la promociÃ³n sÃ­ â€” tarea 20).
-  - _Requirements: 2B.1, T.4_
+  - **Approval required?** No (la promoción sí — tarea 20).
+  - _Requirements: 2B.1, 2B.4, T.4_
 
-- [ ] 20. [R0.2B] PromociÃ³n a nuevo baseline solo tras aceptaciÃ³n explÃ­cita
+- [ ] 20. [R0.2B] Promoción de `CURRENT_CANDIDATE(S1)` a `accepted.s1.json` solo tras aceptación explícita
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
   - **Dependencies:** 19.
-  - **Preconditions:** eval del candidate HEAD verde y reproducible (tarea 19); Â§9.1 (volumen Railway)
-    y Â§9.4 (migraciones) resueltas si la promociÃ³n tocara persistencia (ver tarea 21).
-  - **Objetivo:** esta tarea tiene **dos aspectos separados con contratos distintos** â€” el mecanismo
-    de promociÃ³n (cÃ³digo + test) NO se confunde con ejecutar una promociÃ³n real (acciÃ³n humana
+  - **Semántica (replan aceptado por el PO):** `reference.s1.json` es un `REBASED_CONTROL`, **no** un
+    baseline aceptado. Solo **si la tarea 19 da PASS**, el PO **puede** promover explícitamente
+    `CURRENT_CANDIDATE(S1)` a un **nuevo** artefacto de baseline aceptado
+    (`eval/baselines/accepted.s1.json`). En ese punto, y **solo entonces**, se re-apunta el `--enforce`
+    por defecto hacia el baseline aceptado nuevo. `HISTORICAL_REFERENCE_S0` (`v6-measured.json`)
+    permanece como evidencia histórica S0 **para siempre** — no se sobrescribe, no se borra, no se
+    promueve. Antes de esta tarea NO existe ninguna ficción semántica de que `reference.s1.json` sea el
+    baseline de producción aceptado.
+  - **Preconditions:** eval `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)` **en PASS** verde
+    y reproducible (tarea 19); §9.1 (volumen Railway) y §9.4 (migraciones) resueltas si la promoción
+    tocara persistencia (ver tarea 21).
+  - **Objetivo:** esta tarea tiene **dos aspectos separados con contratos distintos** — el mecanismo
+    de promoción (código + test) NO se confunde con ejecutar una promoción real (acción humana
     sensible):
 
-    **(a) MECANISMO de promociÃ³n (`promoteCandidate`) â€” cÃ³digo + test, sin approval.**
-    Implementar `promoteCandidate` de modo que, sin aceptaciÃ³n explÃ­cita, NO promueva y devuelva "sin
-    aceptaciÃ³n explÃ­cita"; con aceptaciÃ³n explÃ­cita (criterio explÃ­cito + acciÃ³n deliberada) congele el
-    candidate como nuevo `ReferenceBaseline`; y NUNCA promueva automÃ¡ticamente por estar en HEAD. Este
-    aspecto es puramente mecanismo: no requiere ni consume aprobaciÃ³n humana y se verifica con TASK
-    COMPLETION (sin aceptaciÃ³n en el test â‡’ no promueve; con aceptaciÃ³n simulada en el test â‡’ congela).
+    **(a) MECANISMO de promoción (`promoteCandidate`) — código + test, sin approval.**
+    Implementar `promoteCandidate` de modo que, sin aceptación explícita, NO promueva y devuelva "sin
+    aceptación explícita"; con aceptación explícita (criterio explícito + acción deliberada) congele
+    `CURRENT_CANDIDATE(S1)` como `eval/baselines/accepted.s1.json` (con `acceptedAtCommit` y la
+    `EvaluationIdentity` completa, incluida `metaSnapshotVersion`); y NUNCA promueva automáticamente
+    por estar en HEAD ni por ser `reference.s1.json`. El mecanismo NO promueve si la tarea 19 no dio
+    PASS. Verificación con TASK COMPLETION (sin aceptación / sin Task 19 PASS en el test ⇒ no promueve;
+    con aceptación simulada + Task 19 PASS simulado ⇒ congela).
     - **Approval required? (a):** No. **Risk level (a):** medio.
 
-    **(b) PROMOCIÃ“N REAL del accepted baseline â€” acciÃ³n humana sensible/irreversible.**
-    Ejecutar una promociÃ³n real del baseline aceptado usando el mecanismo (a). SOLO este aspecto
-    requiere y CONSUME aprobaciÃ³n humana explÃ­cita; nunca es automÃ¡tico; nunca se dispara por HEAD.
-    - **Approval required? (b):** SÃ­ (promociÃ³n real de baseline; T.4). **Risk level (b):** alto
-      (irreversible/sensible).
-  - **Expected observable output:** (a) sin aceptaciÃ³n â‡’ no-promociÃ³n con motivo, con aceptaciÃ³n
-    simulada en test â‡’ congela; (b) tras approval humano explÃ­cito â‡’ nuevo `ReferenceBaseline`
-    congelado con `acceptedAtCommit`.
-  - **Write scope:** (a) `scripts/eval/` (`promoteCandidate` + su test); (b) SOLO tras aceptaciÃ³n
-    humana explÃ­cita, `eval/baselines/*` (el nuevo baseline congelado).
-  - **Protected / DO NOT CHANGE:** la promociÃ³n REAL (b) es acciÃ³n sensible/irreversible (Â§8, T.4); no
-    se promueve por HEAD; el baseline aceptado previo no se sobrescribe sin aceptaciÃ³n (regla (a)).
-  - **Implementation notes:** diseÃ±o Â§4.2 LLD `promoteCandidate`, Â§8; requisito 2B.2, T.4 c1.
-    CP8 (parte promociÃ³n) / Property 8. El candado CP8 se verifica sobre el mecanismo (a); (b) es la
-    ejecuciÃ³n gobernada por approval.
-  - **Verification:** (a) TASK COMPLETION â€” test: promociÃ³n sin aceptaciÃ³n â‡’ no promueve; con
-    aceptaciÃ³n simulada â‡’ congela baseline (CP8 parte promociÃ³n verde). (b) ejecuciÃ³n real solo tras
+    **(b) PROMOCIÓN REAL a `accepted.s1.json` + re-apuntar el `--enforce` por defecto — acción humana
+    sensible/irreversible.**
+    Ejecutar una promoción real usando el mecanismo (a) y, solo entonces, re-apuntar el baseline por
+    defecto de `--enforce` hacia `accepted.s1.json`. SOLO este aspecto requiere y CONSUME aprobación
+    humana explícita; nunca es automático; nunca se dispara por HEAD ni por `reference.s1.json`; solo
+    con la tarea 19 en PASS.
+    - **Approval required? (b):** Sí (promoción real de baseline + repunte del `--enforce`; T.4).
+      **Risk level (b):** alto (irreversible/sensible).
+  - **Expected observable output:** (a) sin aceptación / sin Task 19 PASS ⇒ no-promoción con motivo,
+    con aceptación simulada + Task 19 PASS ⇒ congela `accepted.s1.json`; (b) tras approval humano
+    explícito ⇒ nuevo baseline aceptado `eval/baselines/accepted.s1.json` con `acceptedAtCommit` y el
+    `--enforce` por defecto re-apuntado a él.
+  - **Write scope:** (a) `scripts/eval/` (`promoteCandidate` + su test) y, si hace falta, la config
+    acotada de ruta-de-referencia por defecto; (b) SOLO tras aceptación humana explícita,
+    `eval/baselines/accepted.s1.json` (el nuevo baseline congelado) y el repunte del default.
+  - **Protected / DO NOT CHANGE:** `HISTORICAL_REFERENCE_S0` (`v6-measured.json`) intacto — nunca se
+    sobrescribe ni se promueve; `reference.s1.json` (`REBASED_CONTROL`) no es el baseline aceptado; la
+    matemática de `evaluateGate()` intacta; la promoción REAL (b) es acción sensible/irreversible (§8,
+    T.4); no se promueve por HEAD (regla (a)).
+  - **Implementation notes:** diseño §4.2 LLD (`promoteCandidate`, "snapshot de meta reproducible (S1)
+    + control V6 rebasado" — semántica de la tarea 20), §8; requisitos 2B.2, 2B.4 c3, T.4 c1. CP8
+    (parte promoción / repunte del default) / Property 8. El candado CP8 se verifica sobre el mecanismo
+    (a); (b) es la ejecución gobernada por approval.
+  - **Verification:** (a) TASK COMPLETION — test: promoción sin aceptación o sin Task 19 PASS ⇒ no
+    promueve; con aceptación simulada + Task 19 PASS ⇒ congela `accepted.s1.json`; `run.ts` / gate no
+    re-apunta el baseline aceptado por defecto por sí solo (CP8 verde). (b) ejecución real solo tras
     approval humano registrado.
-  - **Acceptance criteria:** CP8/Property 8 (mecanismo) verde; ninguna promociÃ³n automÃ¡tica por HEAD;
-    la promociÃ³n real (b) solo tras aceptaciÃ³n explÃ­cita registrada.
-  - **Failure / stop conditions:** si se intenta promover realmente (b) sin eval verde o sin aceptaciÃ³n
-    â‡’ bloquear; el mecanismo (a) no debe permitir un camino de promociÃ³n automÃ¡tica.
+  - **Acceptance criteria:** CP8/Property 8 (mecanismo) verde; ninguna promoción automática por HEAD ni
+    por `reference.s1.json`; la promoción real (b) y el repunte del `--enforce` por defecto solo tras
+    Task 19 PASS + aceptación explícita registrada; `v6-measured.json` intacto.
+  - **Failure / stop conditions:** si se intenta promover realmente (b) sin Task 19 PASS o sin
+    aceptación ⇒ bloquear; el mecanismo (a) no debe permitir un camino de promoción automática ni
+    re-apuntar el default en silencio.
   - **Risk level:** (a) medio / (b) alto.
-  - **Approval required?** Solo (b) la promociÃ³n real: SÃ­ (T.4). (a) el mecanismo: No.
-  - _Requirements: 2B.2, T.4_
+  - **Approval required?** Solo (b) la promoción real + repunte del default: Sí (T.4). (a) el
+    mecanismo: No.
+  - _Requirements: 2B.2, 2B.4, T.4_
 
 ### R0.4 â€” Harness Truth
 
@@ -1370,25 +1557,35 @@ PROHÃBE crear agentes nuevos.)_
 
 - [ ] 30. [R0] R0 Baseline Certification â€” gate final (verifica y emite veredicto, NO arregla)
   - **Workstream:** transversal (gate de certificaciÃ³n; no arregla nada).
-  - **Dependencies:** 1–29, 31, 32 y 33 (todas las demás tareas de este plan; 30 sigue siendo el gate final).
-  - **Preconditions:** todos los workstreams completados; la tarea 33 (productor de eval corpus-opcional)
-    en PASS y el **PO checkpoint commit** del estado R0 aceptado realizado; las tareas con approval (20b
-    promoción real, 22 acción de persistencia) ejecutadas, documentadas como no procedentes, o — en el
-    caso de la tarea 22 — derivadas a una Spec separada (en cuyo caso R0 puede quedar **BLOCKED** hasta
-    resolverse).
+  - **Dependencies:** 1–29, 31, 32, 33, **34 y 35** (todas las demás tareas de este plan; 30 sigue
+    siendo el gate final).
+  - **Preconditions:** todos los workstreams completados; la tarea 33 (productor de eval
+    corpus-opcional) en PASS y el **PO checkpoint commit** del estado R0 aceptado realizado; la tarea
+    34 (S1 confiable + `EvaluationIdentity`/`metaSnapshotVersion`) en PASS con el **HUMAN OPERATIONAL
+    CHECKPOINT** de generación de S1 realizado y su manifiesto/huella validados; la tarea 35
+    (`REBASED_REFERENCE(S1)`) en PASS con el árbol principal limpio; las tareas con approval (20b
+    promoción real + repunte del `--enforce`, 22 acción de persistencia) ejecutadas, documentadas como
+    no procedentes, o — en el caso de la tarea 22 — derivadas a una Spec separada (en cuyo caso R0
+    puede quedar **BLOCKED** hasta resolverse).
   - **Objetivo:** verificar y emitir un veredicto Ãºnico **R0 GREEN** o **R0 BLOCKED** con evidencia, sin
     arreglar nada. Verifica: (1) software correctness GREEN â€” las tres suites por el comando canÃ³nico
     `bun run test` en Windows y en CI con el mismo pin Bun exacto (convergencia P3); (2) Evaluation
     Instrument operativo (R0.2A) sin
     ningÃºn `SKIPâ†’PASS` en sub-checks `required` (Benchmark B ausente = `SKIPPED` informational, no
     PASS, no bloqueo); (3) candidate de R0.3 generado por el productor corpus-opcional (tarea 33) desde
-    un HEAD limpio y trazable y evaluado en R0.2B; (4) las promociones necesarias explÃ­citamente
-    aprobadas (T.4); (5) `required` SKIPPED/BLOCKED = ninguno;
-    (6) harness obligatorio operativo â€” PRE-PUSH gate real y guards OS-independientes fail-closed; (7)
-    sin contradicciones materiales introducidas por R0.
+    un HEAD limpio y trazable, medido sobre el **S1 confiable** (tarea 34) contra el **control V6
+    rebasado** (tarea 35) en la tarea 19, con `EvaluationIdentity` compartida salvo `measuredEngineCommit`
+    y `metaSnapshotVersion` coincidente; (4) las promociones necesarias explÃ­citamente aprobadas (T.4)
+    — `v6-measured.json` permanece como `HISTORICAL_REFERENCE_S0` inmutable y el `--enforce` por defecto
+    solo se re-apunta tras la tarea 20 con Task 19 PASS + aceptación; (5) `required` SKIPPED/BLOCKED =
+    ninguno; (6) harness obligatorio operativo â€” PRE-PUSH gate real y guards OS-independientes
+    fail-closed; (7) sin contradicciones materiales introducidas por R0 (incluida: ningún texto sigue
+    diciendo que `e0b77d7` es el motor medido, ni que un snapshot `7.41e` es automáticamente comparable,
+    ni que se admite fallback de harness viejo).
   - **Expected observable output:** un reporte de certificaciÃ³n con veredicto **R0 GREEN** o **R0
     BLOCKED** y la evidencia por cada uno de los siete puntos; si hubo acciones que requirieron
-    approval (20, 22), las reporta como tal.
+    approval (20, 22), las reporta como tal; documenta los artefactos protegidos
+    (`HISTORICAL_REFERENCE_S0`, S1 congelado, `reference.s1.json` como `REBASED_CONTROL`).
   - **Write scope:** el reporte de certificaciÃ³n (p.ej. `docs/agents/r0-certification.md`). No modifica
     cÃ³digo ni artefactos de producto (no arregla).
   - **Protected / DO NOT CHANGE:** esta tarea no repara nada; solo verifica y reporta. NingÃºn artefacto
@@ -1406,7 +1603,7 @@ PROHÃBE crear agentes nuevos.)_
     enrute al bucle Â§6.
   - **Risk level:** bajo.
   - **Approval required?** No (pero reporta lo que requiriÃ³ approval).
-  - _Requirements: T.1, T.2, 1.1, 2A.1, 2B.1, 2B.2_
+  - _Requirements: T.1, T.2, 1.1, 2A.1, 2A.2, 2B.1, 2B.2, 2B.3, 2B.4_
 
 ---
 
@@ -1414,8 +1611,10 @@ PROHÃBE crear agentes nuevos.)_
 
 - Las tareas de test (candados de regresiÃ³n, tests deterministas, property tests) estÃ¡n integradas en
   el contrato de verificaciÃ³n de cada tarea, no como tareas standalone (diseÃ±o Â§10 / Testing Strategy).
-- Las correctness properties CP1â€“CP11 se verifican con el **harness/PRNG determinista existente**
-  (`batch-harness`, Mulberry32/SeededRng), **sin** adoptar una librerÃ­a PBT nueva en R0.
+- Las correctness properties CP1â€“CP12 se verifican con el **harness/PRNG determinista existente**
+  (`batch-harness`, Mulberry32/SeededRng), **sin** adoptar una librerÃ­a PBT nueva en R0. CP12
+  (determinismo lógico de la evaluación, metadato efímero excluido) se añade con el replan R0.2B de
+  S1/control rebasado.
 - CP2, CP5 y CP10 llevan candado de regresiÃ³n cero: se verifican en rojo antes de darlos por bueno.
   El candado CP5 (`Î£ SCORING_WEIGHTS_V6 == 1.0`) es verificaciÃ³n pura: vive en el contrato de la tarea
   13 y se agrega en el checkpoint 18 (la antigua responsabilidad no ejecutable del ID 17 quedÃ³
@@ -1436,34 +1635,56 @@ PROHÃBE crear agentes nuevos.)_
 - La tarea **32** es el owner separado de Runtime Compatibility / TSK-098 Evidence Migration. Conserva
   la validez histÃ³rica de Task 17 bajo Bun 1.3.14 y migra Ãºnicamente test harness/evidencia al runtime
   canÃ³nico 1.4.2; no toca producto, toolchain ni dependencias web.
-- Las tareas/aspectos con approval humano â€” **20b** (promociÃ³n REAL de baseline; el mecanismo 20a no
-  requiere approval) y **22** (acciÃ³n de persistencia/migraciÃ³n, CONDITIONAL sobre la acciÃ³n concreta
-  propuesta por 21) â€” son irreversibles/sensibles (T.4) y no se ejecutan sin aceptaciÃ³n explÃ­cita.
+- Las tareas/aspectos con approval humano â€” **20b** (promociÃ³n REAL de baseline a `accepted.s1.json` +
+  repunte del `--enforce` por defecto; el mecanismo 20a no requiere approval) y **22** (acciÃ³n de
+  persistencia/migraciÃ³n, CONDITIONAL sobre la acciÃ³n concreta propuesta por 21) â€” son
+  irreversibles/sensibles (T.4) y no se ejecutan sin aceptaciÃ³n explÃ­cita. El replan R0.2B **no añade
+  ningún approval nuevo**: la generación real de S1 (tarea 34) es un **HUMAN OPERATIONAL CHECKPOINT**
+  (acción operativa humana de trazabilidad/reproducibilidad), del mismo tipo que el PO checkpoint
+  commit — no consume approval de acción de alto riesgo.
 - La tarea **33** (R0.2B) repara el **productor** de `bun run eval` (`scripts/eval/run.ts`) para que
   genere un candidate válido con **Benchmark A medido** y **Benchmark B `SKIPPED` informational**
   cuando falta `pro-drafts.sqlite`; con el corpus presente, el Benchmark B real se preserva. No toca
   `gate.ts` ni `benchmark-pro-agreement.ts`, no fabrica corpus ni métricas pro y no convierte
-  Benchmark B en PASS. Es prerequisito de la tarea 19 (`33 → 19`); entre ambas, el PO hace un
-  checkpoint commit del estado R0 aceptado (acción humana de trazabilidad, **no** approval de acción
-  sensible). El candidate se genera desde un HEAD limpio y trazable (`git status --porcelain` sin
-  cambios en `apps/engine/src/**` ni `scripts/eval/**`).
+  Benchmark B en PASS. Es prerequisito de la tarea **34** (`33 → 34 → [HUMAN S1 CHECKPOINT] → 35 →
+  19`); entre 33 y 34, el PO hace un checkpoint commit del estado R0 aceptado (acción humana de
+  trazabilidad, **no** approval de acción sensible). El candidate se genera desde un HEAD limpio y
+  trazable (`git status --porcelain` sin cambios en `apps/engine/src/**` ni `scripts/eval/**`).
+- La tarea **34** (R0.2B) define el **builder** del snapshot de meta congelado (S1) y el modelo de
+  `EvaluationIdentity` con `metaSnapshotVersion` (huella de contenido lógico SHA-256 completo, nunca el
+  SHA crudo del SQLite) + `EvaluationMetadata` (`measuredEngineCommit`/`evaluationHarnessCommit` de
+  procedencia, no deciden `isComparable()`). `v6-measured.json` pasa a `HISTORICAL_REFERENCE_S0`
+  inmutable (su métrica ≈ `0.73642646699061` corresponde al motor `df354b9`, no a `e0b77d7`). La
+  generación real de S1 es un HUMAN OPERATIONAL CHECKPOINT (DB temporal fresca → sync → `status=ok` →
+  validar → congelar; descartar la DB ante cualquier fallo). El bug no-transaccional de `syncMatchups`
+  es un defecto real **no bloqueante de R0** → ticket de hotfix futuro separado.
+- La tarea **35** (R0.2B) produce `REBASED_REFERENCE(S1)` (`eval/baselines/reference.s1.json`) corriendo
+  el motor VIEJO (`df354b9`) sobre el **mismo** S1 con el harness **actual**, vía overlay de
+  `apps/engine/src/**` en un git worktree temporal (árbol principal intacto). Si el motor viejo no
+  compila/corre contra el harness actual ⇒ **STOP / REPLAN**, nunca fallback de harness viejo.
+  `reference.s1.json` es un `REBASED_CONTROL`, **no** un baseline aceptado; la tarea 35 no re-apunta el
+  `--enforce` por defecto (solo config de ruta acotada si hace falta).
 - La tarea 30 (Certification) es un gate que solo verifica y emite veredicto; no arregla.
 
 ## Total de tareas
 
-**33 tareas ejecutables.** Las tareas **31** y **32** viven en R0.1 para separar Toolchain Truth de
-Runtime Compatibility / Evidence Migration; la tarea **33** vive en R0.2B como **prerequisito de la
-tarea 19** (repara el productor de `bun run eval` para que genere el candidate aunque falte
-`pro-drafts.sqlite`). Sin renumerar 18â€“32 ni reutilizar la tarea 6 (que conserva la cobertura del
-requisito 1.4). El conteo incluye 3 tareas de discovery (1, 7, 21) y 2 gates transversales (tarea 18
-checkpoint y tarea 30 certification).
+**35 tareas ejecutables.** Las tareas **31** y **32** viven en R0.1 para separar Toolchain Truth de
+Runtime Compatibility / Evidence Migration; las tareas **33**, **34** y **35** viven en R0.2B en la
+cadena `18 -> 33 -> 34 -> [HUMAN S1 CHECKPOINT] -> 35 -> 19` (33 repara el productor de `bun run
+eval`; 34 construye el S1 confiable + `EvaluationIdentity`/`metaSnapshotVersion`; 35 rebasa el control
+V6 sobre ese S1; ver `Task 19 Identity Preflight = BLOCKED` /
+`Snapshot Recovery Preflight = NO_TRUSTWORTHY_SNAPSHOT`). Sin renumerar 1-33 ni reutilizar la tarea 6
+(que conserva la cobertura del requisito 1.4). El conteo incluye 3 tareas de discovery (1, 7, 21) y 2
+gates transversales (tarea 18 checkpoint y tarea 30 certification).
 
 **DecisiÃ³n de numeraciÃ³n:** todos los marcadores top-level siguen usando IDs enteros; no se introducen
 IDs alfanumÃ©ricos ni decimales. No existe en el repo un validador adicional de este `tasks.md` que exija
 orden numÃ©rico fÃ­sico; las specs observadas usan marcadores enteros y este mismo plan ya admite
 dependencias hacia un ID mayor (`3 â† 23`). Por eso 31 y 32 viven en la secciÃ³n R0.1 y el nodo fÃ­sico
-final sigue siendo 30. Los IDs 1â€“31 se conservan sin renumerar; 32 y 33 son IDs enteros nuevos (33 en
-la secciÃ³n R0.2B, prerequisito de la tarea 19). No se crea ninguna tarea 34.
+final sigue siendo 30. Los IDs 1-33 se conservan sin renumerar; **34 y 35 son IDs enteros nuevos** en
+la seccion R0.2B (S1 confiable + control V6 rebasado), anadidos por el replan de reproducibilidad de
+evaluacion aceptado por el PO. La antigua nota "No se crea ninguna tarea 34" queda superada por este
+replan.
 
 ## Critical path
 
@@ -1473,9 +1694,13 @@ migraciÃ³n de evidencia runtime, restauraciÃ³n web y cierre del gate local),
 `8 â†’ 9 â†’ 10 (R0.2A)` â†’
 `11 â†’ 12 â†’ 13 â†’ 14 â†’ 16 (R0.3; CP5 se preserva como verificaciÃ³n en 13/18)` â†’
 `18 (checkpoint, nodo formal — depende también de 17, 31, 32 y 3)` → `33 (productor de eval
-corpus-opcional)` → **[PO checkpoint commit — acción humana, no una Task]** → `19 → 20 (R0.2B)` →
-`30 (R0 Baseline Certification)`. La cadena de R0.1 hacia el checkpoint es
-`… R0.1 (17, 23 → 31 → 32 → 3 → 5) … → 18 → 33 → [PO checkpoint commit] → 19 → 20 → 30`.
+corpus-opcional)` → **[PO checkpoint commit — acción humana, no una Task]** → `34 (S1 confiable +
+EvaluationIdentity/metaSnapshotVersion)` → **[HUMAN S1 CHECKPOINT — generación real de S1, acción
+operativa humana, no una Task]** → `35 (control V6 rebasado sobre S1)` → `19 (CURRENT_ENGINE(S1) vs
+REBASED_OLD_ENGINE_CONTROL(S1)) → 20 (R0.2B)` → `30 (R0 Baseline Certification)`. La cadena de R0.1
+hacia el checkpoint es
+`… R0.1 (17, 23 → 31 → 32 → 3 → 5) … → 18 → 33 → [PO checkpoint commit] → 34 → [HUMAN S1 CHECKPOINT] →
+35 → 19 → 20 → 30`.
 
 Cadena de workstreams: **R0.1 â†’ R0.2A â†’ R0.3 â†’ R0.2B â†’ Certification**. Nota: la tarea 23 (Matrix)
 entra temprano (wave 1, tras la tarea 2) porque desbloquea a 31, que desbloquea 32 y luego 3, ademÃ¡s
@@ -1506,10 +1731,15 @@ bloque**. Respetando las dependencias reales:
     **32** escribe solo `app.test.ts` + evidencia en wave 3; **27** toca la arquitectura posterior de
     hooks/CI en wave 6 y depende transitivamente de 31 por `27 â† 5 â† 3 â† 32 â† 31`. Task 27 no posee
     Docker y 31/32 tienen scopes disjuntos; no pueden colisionar.
-  - **33** (productor de eval corpus-opcional) es **serial** en el camino crítico entre el checkpoint
-    18 y la tarea 19; su write scope (`scripts/eval/run.ts` / `run.test.ts` / `report.ts`) no colisiona
-    con ninguna otra wave, pero no se paraleliza: la tarea 19 depende de ella y entre ambas hay una
-    acción humana (PO checkpoint commit del estado R0 aceptado).
+  - **33, 34, 35** (R0.2B) son **seriales** en el camino crítico entre el checkpoint 18 y la tarea 19,
+    en la cadena `33 -> 34 -> [HUMAN S1 CHECKPOINT] -> 35 -> 19`. Sus write scopes
+    (`scripts/eval/run.ts`/`run.test.ts`/`report.ts` en 33; `scripts/eval/{snapshot,evaluation-identity,run}.ts`
+    + `eval/snapshots/S1.*` + excepción `.gitignore` en 34; `scripts/eval/rebased-reference.ts` +
+    `eval/baselines/reference.s1.json` + config acotada del gate en 35) no colisionan con ninguna otra
+    wave, pero no se paralelizan entre sí: 34 depende de 33, 35 de 34, 19 de 35. Entre 33 y 34 hay una
+    acción humana (PO checkpoint commit del estado R0 aceptado); entre 34 y 35, el HUMAN OPERATIONAL
+    CHECKPOINT de generación real de S1. `run.ts` es tocado por 33 y por 34 en waves distintas
+    (nunca a la vez).
   - **22** (persistencia/migraciÃ³n) es CONDITIONAL y depende de **21** + approval sobre la acciÃ³n
     concreta â€” nunca se paraleliza ni se fuerza.
 - **Discovery independientes:** tarea 1 (PRE-PUSH/WSL), tarea 7 (`pro-drafts.sqlite`) y tarea 21
@@ -1534,23 +1764,25 @@ bloque**. Respetando las dependencias reales:
 | Tarea | CondiciÃ³n | Se ejecuta solo si |
 |---|---|---|
 | 22 | La discovery (21) determina necesaria una acciÃ³n de persistencia/migraciÃ³n y emite una **ACCIÃ“N PROPUESTA** concreta | Hay approval humano explÃ­cito sobre esa acciÃ³n concreta **y** el cambio no es material/fuera de alcance R0. Si es material/fuera de alcance â‡’ **Spec separada + R0 BLOCKED**, no se ejecuta |
-| 20 (aspecto b) | Existe eval verde reproducible (19) del candidate | Hay aceptaciÃ³n humana explÃ­cita de la promociÃ³n real; el aspecto (a), el mecanismo `promoteCandidate`, no es condicional (cÃ³digo + test, sin approval) |
+| 20 (aspecto b) | La tarea 19 dio **PASS** (eval `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)` verde y reproducible) | Hay aceptaciÃ³n humana explÃ­cita de la promociÃ³n real de `CURRENT_CANDIDATE(S1)` a `accepted.s1.json` **y** del repunte del `--enforce` por defecto; el aspecto (a), el mecanismo `promoteCandidate`, no es condicional (cÃ³digo + test, sin approval). `v6-measured.json` (`HISTORICAL_REFERENCE_S0`) nunca se promueve |
 
 ## Tareas / aspectos que requieren aprobaciÃ³n humana
 
 | Tarea / aspecto | AcciÃ³n irreversible/sensible | Requisito |
 |---|---|---|
-| **20b** (promociÃ³n REAL) | PromociÃ³n de candidate a nuevo baseline (baseline promotion). El aspecto **20a** (mecanismo `promoteCandidate`) NO requiere approval | 2B.2, T.4 |
+| **20b** (promociÃ³n REAL) | PromociÃ³n de `CURRENT_CANDIDATE(S1)` a nuevo baseline aceptado (`accepted.s1.json`) **+ repunte del `--enforce` por defecto**, solo con la tarea 19 en PASS. El aspecto **20a** (mecanismo `promoteCandidate`) NO requiere approval | 2B.2, 2B.4, T.4 |
 | **22** (acciÃ³n de persistencia) | Persistencia/migraciÃ³n de producciÃ³n en Railway (volumen/migraciones), bajo approval **sobre la acciÃ³n concreta** propuesta por la tarea 21 | T.4 |
 
 Nota: la certificaciÃ³n (tarea 30) no requiere approval, pero **reporta** lo que lo requiriÃ³ (20b, 22) y
-marca **R0 BLOCKED** si la deuda de la tarea 22 se derivÃ³ a Spec separada sin resolverse.
+marca **R0 BLOCKED** si la deuda de la tarea 22 se derivÃ³ a Spec separada sin resolverse. El replan
+R0.2B (S1 + control V6 rebasado) **no añade ningún approval nuevo**.
 
 ## Acciones humanas de trazabilidad (NO approval de acción sensible)
 
 | Acción humana | Cuándo | Naturaleza |
 |---|---|---|
-| **PO checkpoint commit** del estado R0 aceptado | Después de la tarea 33 en PASS y aceptación del PO, **antes** de la tarea 19 | Gate humano de trazabilidad/reproducibilidad. **No** es operación irreversible/sensible; **no** consume approval de acción de alto riesgo. No lo ejecuta ningún agente ni ninguna Task de implementación (no se ejecuta en la sesión de patch de Spec). Su objeto: que el candidate de la tarea 19 se mida sobre un HEAD limpio y trazable con todos los cambios R0 aceptados. |
+| **PO checkpoint commit** del estado R0 aceptado | Después de la tarea 33 en PASS y aceptación del PO, **antes** de la tarea 34 | Gate humano de trazabilidad/reproducibilidad. **No** es operación irreversible/sensible; **no** consume approval de acción de alto riesgo. No lo ejecuta ningún agente ni ninguna Task de implementación (no se ejecuta en la sesión de patch de Spec). Su objeto: que el candidate de la tarea 19 se mida sobre un HEAD limpio y trazable con todos los cambios R0 aceptados. |
+| **HUMAN S1 CHECKPOINT** — generación real del S1 confiable vía el builder aprobado de la tarea 34 | Después de aceptar el código/tests de la tarea 34, **antes** de que la tarea 34 pase a PASS y antes de la tarea 35 | Checkpoint operativo humano de trazabilidad/reproducibilidad. **No** es operación irreversible/sensible; **no** consume approval de acción de alto riesgo (corre un sync de meta contra una **DB temporal desechable**, nunca producción). No lo ejecuta ningún agente ni la sesión de patch de Spec. Proceso: DB temporal fresca → migrar → sync canónico → `status=ok` → validar → congelar → fingerprint → manifiesto; descartar la DB ante cualquier fallo (sin artefacto). La tarea 34 no pasa a PASS hasta que el manifiesto y la huella lógica validen. |
 
 ## Trazabilidad Task â†’ Requirement
 
@@ -1574,8 +1806,8 @@ marca **R0 BLOCKED** si la deuda de la tarea 22 se derivÃ³ a Spec separada sin
 | 16 | 3.2 | CP3 (evidencia observable) |
 | 17 | 1.1, T.2 (ownership de TSK-098; suite engine GREEN) | â€” (candado de regresiÃ³n en rojo del test TSK-098; sin CP nueva) |
 | 18 | (checkpoint) | agrega CP2/CP3/**CP5**/CP6/CP7/CP9/CP10 |
-| 19 | 2B.1, T.4 | CP8 (mediciÃ³n del candidate) |
-| 20 | 2B.2, T.4 | **CP8** (promociÃ³n, aspecto 20a mecanismo) / Property 8 |
+| 19 | 2B.1, **2B.4**, T.4 | **CP8** (compatibilidad `metaSnapshotVersion`), **CP12** (determinismo lógico) — `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)` |
+| 20 | 2B.2, **2B.4**, T.4 | **CP8** (promoción a `accepted.s1.json` + repunte del default, aspecto 20a mecanismo) / Property 8 |
 | 21 | 4.6, 4.8, T.4 | (discovery) |
 | 22 | T.4 | â€” |
 | 23 | 4.2, 4.3 | â€” |
@@ -1585,19 +1817,25 @@ marca **R0 BLOCKED** si la deuda de la tarea 22 se derivÃ³ a Spec separada sin
 | 27 | 4.5 | â€” |
 | 28 | 4.6 | â€” |
 | 29 | 4.7 | â€” |
-| 30 | T.1, T.2, 1.1, 2A.1, 2B.1, 2B.2 | agrega CP1â€“CP11 |
+| 30 | T.1, T.2, 1.1, 2A.1, 2A.2, 2B.1, 2B.2, 2B.3, 2B.4 | agrega CP1â€“CP12 (incluida CP12 del replan R0.2B) |
 | 31 | 1.1, 4.1, T.1, T.2 | Toolchain Truth local/CI/Docker + tres lockfiles; sin CP nueva |
 | 32 | 1.1, T.1, T.2 | migra/revalida evidencia TSK-098 y software bajo Bun 1.4.2; sin CP nueva |
 | 33 | 2B.1 (productor de candidate corpus-opcional; Benchmark A medible sin `pro-drafts.sqlite`) + política de sub-checks de 2A.1 | — (candado de regresión en rojo: `SQLITE_CANTOPEN` del productor actual; sin CP nueva) |
+| 34 | **2B.3** (S1 reproducible + `EvaluationIdentity`/`metaSnapshotVersion` + procedencia motor/harness) + **2A.2 c5–c9** | **CP8** (compatibilidad por `metaSnapshotVersion`, `snapshotFileSha` excluido), **CP12** (determinismo lógico) — tests: falsa comparabilidad, mismos datos lógicos/distintos bytes ⇒ misma identidad, mismo `patchLabel`/datos distintos ⇒ identidad distinta, legacy S0 sin `metaSnapshotVersion` ⇒ BLOCKED, sync fallido nunca congela S1 |
+| 35 | **2B.4** (control V6 rebasado sobre S1 + cableado acotado de la tarea 19) + 2B.1, 2A.2 c7 | **CP8** (`reference.s1.json` = `REBASED_CONTROL`, no baseline aceptado; `--enforce` por defecto sin re-apuntar antes de la tarea 20), **CP12** — overlay incompatible ⇒ STOP/REPLAN, sin fallback de harness viejo |
 
 Cobertura: requisitos **1.1â€“1.5** (tareas 1â€“6, **mÃ¡s 17 que cierra el blocker TSK-098, 31 que fija
 Toolchain Truth y 32 que migra/revalida la evidencia bajo el runtime canÃ³nico â€” el requisito 1.1 queda
 con ownership completo de la suite engine GREEN bajo el pin canÃ³nico**), **2A.1â€“2A.3** (7â€“10), **3.1â€“3.5** (11â€“16) y **3.6**
-(cubierto por la verificaciÃ³n de la tarea 13 + checkpoint 18, como nota de R0.3 sobre CP5), **2B.1â€“2B.2**
-(19â€“20, mÃ¡s 33 que repara el productor de candidate corpus-opcional), **4.1â€“4.8** (21, 23â€“29, 31), **T.1â€“T.4** (4, 8, 10, 20, 22, 30, 31, 32, 33). Las 11 correctness properties
-(CP1â€“CP10 + CP3b/Property 11) quedan cubiertas vÃ­a sus requisitos: CP1â†’2A.1 (T8); CP2/CP4/CP10â†’3.1
-(T13); CP3â†’3.2 (T11/12/16); CP3bâ†’3.3 (T12); **CP5â†’3.6 (verificaciÃ³n en T13 + Checkpoint 18)**;
-CP6â†’1.3 (T4); CP7â†’3.4 (T14); CP8â†’2A.2/2B.2 (T9/T20); CP9â†’3.5 (T15). El requisito
+(cubierto por la verificaciÃ³n de la tarea 13 + checkpoint 18, como nota de R0.3 sobre CP5),
+**2B.1â€“2B.4** (19â€“20, mÃ¡s 33 que repara el productor de candidate corpus-opcional, **34 que construye
+el S1 confiable + `EvaluationIdentity`/`metaSnapshotVersion`, y 35 que rebasa el control V6 sobre ese
+S1**), **4.1â€“4.8** (21, 23â€“29, 31), **T.1â€“T.4** (4, 8, 10, 20, 22, 30, 31, 32, 33, **34, 35**). Las
+12 correctness properties (CP1â€“CP10 + CP3b/Property 11 + **CP12/Property 12**) quedan cubiertas vÃ­a
+sus requisitos: CP1â†’2A.1 (T8); CP2/CP4/CP10â†’3.1 (T13); CP3â†’3.2 (T11/12/16); CP3bâ†’3.3 (T12);
+**CP5â†’3.6 (verificaciÃ³n en T13 + Checkpoint 18)**; CP6â†’1.3 (T4); CP7â†’3.4 (T14);
+**CP8â†’2A.2/2B.2/2B.4 (T9/T20/T34/T35)**; CP9â†’3.5 (T15); **CP12â†’2B.3 (T34, verificada tambiÃ©n en
+T35/T19)**. El requisito
 **3.6 sigue cubierto**: reasignar el ID 17 a la tarea de R0.1 no deja 3.6/CP5 sin cobertura, porque preservar el candado
 `Î£ SCORING_WEIGHTS_V6 == 1.0` es verificaciÃ³n (tarea 13) + agregaciÃ³n (checkpoint 18), no una tarea de
 implementaciÃ³n separada.
@@ -1621,12 +1859,18 @@ Toolchain Truth + Runtime Compatibility. El checkpoint 18 es un nodo con posici�
     { "id": 7, "tasks": ["16", "25"] },
     { "id": 8, "tasks": ["18"] },
     { "id": 9, "tasks": ["33"] },
-    { "id": 10, "tasks": ["19"] },
-    { "id": 11, "tasks": ["20"] },
-    { "id": 12, "tasks": ["30"] }
+    { "id": 10, "tasks": ["34"] },
+    { "id": 11, "tasks": ["35"] },
+    { "id": 12, "tasks": ["19"] },
+    { "id": 13, "tasks": ["20"] },
+    { "id": 14, "tasks": ["30"] }
   ]
 }
 ```
+
+> Acciones humanas entre nodos (no son tasks, no alteran el grafo): **PO checkpoint commit** entre
+> wave 9 (33) y wave 10 (34); **HUMAN S1 CHECKPOINT** (generación real de S1) entre wave 10 (34) y
+> wave 11 (35).
 
 > Nota sobre el grafo (derivaciÃ³n desde Dependencies):
 > - Los IDs son las tareas de nivel superior (no hay sub-tasks con notaciÃ³n decimal; el contrato de
@@ -1639,8 +1883,10 @@ Toolchain Truth + Runtime Compatibility. El checkpoint 18 es un nodo con posici�
 >   POSTERIOR a la tarea 2 y ANTERIOR a 31/checkpoint 18.
 > - El **checkpoint 18** es un nodo real (wave 8), no una nota narrativa: depende de
 >   2,3,4,5,6,8,9,10,11,12,13,14,15,16,**17,31,32** y es **dependencia formal de 33** (wave 9), que a
->   su vez es dependencia formal de **19** (wave 10). Entre 33 y 19 hay una **acción humana** (PO
->   checkpoint commit del estado R0 aceptado), que no es un nodo de tareas y no altera el grafo.
+>   su vez es dependencia formal de **34** (wave 10), **35** (wave 11) y **19** (wave 12). Entre 33 y
+>   34 hay una **acción humana** (PO checkpoint commit del estado R0 aceptado); entre 34 y 35, el
+>   **HUMAN S1 CHECKPOINT** (generación real de S1). Ninguna de las dos es un nodo de tareas ni altera
+>   el grafo.
 > - La cadena de R0.3 que escribe `apps/engine/src/signals/mix.ts` (**11 â†’ 12 â†’ 13 â†’ 14 â†’ 16**) se
 >   distribuye en waves 3â†’4â†’5â†’6â†’7, de modo que **nunca dos tareas escriben ese archivo en la misma
 >   wave**. La tarea 15 (`openingStrategy`, mÃ³dulo aislado) sube a la wave 0.
@@ -1650,11 +1896,19 @@ Toolchain Truth + Runtime Compatibility. El checkpoint 18 es un nodo con posici�
 > - **31** (wave 2, toolchain local/CI/Docker), **32** (wave 3, test harness) y **27** (wave 6,
 >   hooks/CI) escriben scopes disjuntos/en waves distintas; Task 27 no posee Docker y la cadena
 >   `31 â†’ 32 â†’ 3 â†’ 5 â†’ 27` las serializa.
-> - La tarea **33** (productor de eval corpus-opcional, dep 18,7) está en wave 9, entre el checkpoint
->   18 (wave 8) y la tarea 19 (wave 10). No absorbe la tarea 19 ni toca `gate.ts` /
->   `benchmark-pro-agreement.ts`; su write scope (`scripts/eval/run.ts` / `run.test.ts` / `report.ts`)
->   está solo en su wave.
-> - La tarea 30 (certification) es el gate final (wave 12) tras todo lo demÃ¡s.
+> - La tarea **33** (productor de eval corpus-opcional, dep 18,7) está en wave 9. No absorbe la tarea
+>   19 ni toca `gate.ts` / `benchmark-pro-agreement.ts`; su write scope (`scripts/eval/run.ts` /
+>   `run.test.ts` / `report.ts`) está solo en su wave.
+> - La tarea **34** (S1 confiable + `EvaluationIdentity`/`metaSnapshotVersion`, dep 18,33) está en
+>   wave 10; **35** (control V6 rebasado sobre S1, dep 34,18,33) en wave 11; **19**
+>   (`CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)`, dep 18,33,34,35,7) en wave 12. Sus write
+>   scopes (34: `scripts/eval/{snapshot,evaluation-identity,run}.ts` + `eval/snapshots/S1.*` +
+>   excepción `.gitignore`; 35: `scripts/eval/rebased-reference.ts` + `eval/baselines/reference.s1.json`
+>   + config acotada del gate; 19: invocación/artefacto de veredicto en INTELLIGENCE CI +
+>   `candidate.s1.json`) están cada uno en su wave; `run.ts` lo tocan 33 (wave 9) y 34 (wave 10) en
+>   waves distintas, nunca a la vez. Ninguna de las tres re-apunta el baseline aceptado por defecto ni
+>   modifica `v6-measured.json` / `evaluateGate()`.
+> - La tarea 30 (certification) es el gate final (wave 14) tras todo lo demÃ¡s.
 
 ## Consistency Validation
 
@@ -1668,9 +1922,11 @@ ValidaciÃ³n ejecutada tras el replan mÃ­nimo de Toolchain Truth, derivada es
   (suites estabilizadas) â€” un punto de estabilidad de R0.1 que NO depende transitivamente de 23 â€” en
   lugar de la tarea 5. La dependencia sobre el gate local (5) vive en las tareas de R0.4 que lo
   consumen (27), no en la Matrix. El nuevo tramo `17,23 â†’ 31 â†’ 32 â†’ 3 â†’ 5 â†’ 27` solo agrega aristas
-  hacia adelante. Orden topolÃ³gico resultante (por waves): 0â†’1â†’2â†’â€¦â†’12, sin ciclos. Las aristas del
-  replan R0.2B (`33 â† 18,7`, `19 â† 33`, `30 â† 33`) apuntan todas hacia adelante (W9 â† W8/W0;
-  W10 â† W9; W12 â† W9) y no introducen ningÃºn ciclo. Task 33 aparece **una sola vez** en el grafo.
+  hacia adelante. Orden topolÃ³gico resultante (por waves): 0â†’1â†’2â†’â€¦â†’14, sin ciclos. Las aristas del
+  replan R0.2B â€” productor (`33 â† 18,7`) y S1/control rebasado (`34 â† 18,33`, `35 â† 34,18,33`,
+  `19 â† 18,33,34,35,7`, `20 â† 19`, `30 â† 34,35`) â€” apuntan todas hacia adelante (W9 â† W8/W0;
+  W10 â† W9/W8; W11 â† W10; W12 â† W11; W13 â† W12; W14 â† W11) y no introducen ningÃºn ciclo. Cada una de
+  33, 34 y 35 aparece **una sola vez** en el grafo.
 
 ### 2. Toda dependency apunta a una task EXISTENTE y ANTERIOR
 - **PASS.** Cada arista declarada apunta a una tarea que existe (1â€“32, numeraciÃ³n entera contigua; 30
@@ -1687,17 +1943,22 @@ ValidaciÃ³n ejecutada tras el replan mÃ­nimo de Toolchain Truth, derivada es
 - **PASS.** El checkpoint **18** es un nodo formal del grafo (wave 8) con dependencias reales
   (2,3,4,5,6,8,9,10,11,12,13,14,15,16,**17,31,32** â€” las tareas R0.1+R0.2A+R0.3 que cierra,
   incluidos Toolchain Truth y la migraciÃ³n TSK-098 bajo el runtime canÃ³nico) y es **dependencia formal
-  de las tareas 33 y 19** (18 → 33 → 19). No puede pasar sin 31/32 ni con la tarea 3 bloqueada. Entre
-  33 y 19 hay una **acción humana** (PO checkpoint commit del estado R0 aceptado), que no es un nodo de
-  tareas y no altera el grafo.
+  de las tareas 33, 34, 35 y 19** (18 → 33 → 34 → [HUMAN S1 CHECKPOINT] → 35 → 19). No puede pasar sin
+  31/32 ni con la tarea 3 bloqueada. Entre 33 y 34 hay una **acción humana** (PO checkpoint commit del
+  estado R0 aceptado) y entre 34 y 35 el **HUMAN S1 CHECKPOINT** (generación real de S1); ninguna es un
+  nodo de tareas ni altera el grafo.
 
 ### 5. Write scopes paralelos NO colisionan
-- **PASS (tarea 33).** Wave 9 contiene **solo** la tarea 33; su write scope
-  (`scripts/eval/run.ts`, `scripts/eval/run.test.ts`, `scripts/eval/report.ts`) no coincide con el de
-  ninguna tarea de otra wave: `gate.ts` es de las tareas 8/9 (waves 1/2), `promoteCandidate`/
-  `eval/baselines/*` de la tarea 20 (wave 11), la invocación/artefacto de veredicto de INTELLIGENCE CI
-  de la tarea 19 (wave 10). `benchmark-pro-agreement.ts` y `gate.ts` están **excluidos** del write
-  scope de 33. Sin colisión.
+- **PASS (tareas 33/34/35/19/20 — cada una en su propia wave).** Waves 9/10/11/12/13 contienen **una
+  sola tarea cada una** (33/34/35/19/20). Write scopes: 33 = `scripts/eval/run.ts` / `run.test.ts` /
+  `report.ts`; 34 = `scripts/eval/{snapshot,evaluation-identity,run}.ts` (+tests) + `eval/snapshots/S1.*`
+  + excepción `.gitignore`; 35 = `scripts/eval/rebased-reference.ts` (+tests) +
+  `eval/baselines/reference.s1.json` + config acotada del gate; 19 = invocación/artefacto de veredicto
+  en INTELLIGENCE CI + `candidate.s1.json`; 20 = `scripts/eval/` (`promoteCandidate`) y, solo con
+  approval, `eval/baselines/accepted.s1.json`. `run.ts` lo tocan 33 (W9) y 34 (W10) en waves distintas.
+  `gate.ts` (tareas 8/9, waves 1/2) y `benchmark-pro-agreement.ts` están **excluidos** de 33/34/35.
+  `eval/baselines/reference.s1.json` (35) ≠ `eval/baselines/accepted.s1.json` (20) ≠
+  `eval/baselines/v6-measured.json` (intacto). Sin colisión.
 - **PASS.** RevisiÃ³n por wave de los archivos escritos:
   - **6 vs 24 (docs):** 6 en wave 0, 24 en wave 2 â€” waves distintas, sin colisiÃ³n.
   - **25 vs 27 (hooks/agents):** 27 (wave 6) es dueÃ±a de `.claude/settings.json` hooks /
@@ -1730,6 +1991,14 @@ ValidaciÃ³n ejecutada tras el replan mÃ­nimo de Toolchain Truth, derivada es
   operación irreversible/sensible ni un approval de acción de alto riesgo; no lo ejecuta ningún agente
   ni ninguna Task de implementación. La precondición HEAD-limpio de la tarea 19 es un STOP de proceso,
   no una acción automática.
+- **PASS (tareas 34, 35).** Ninguna es conditional ni requiere approval de acción sensible/irreversible.
+  La tarea 34 define el builder (código + test); su **HUMAN S1 CHECKPOINT** (generación real de S1) es
+  una acción operativa humana de trazabilidad/reproducibilidad contra una **DB temporal desechable**
+  (nunca producción), no un approval de alto riesgo. La tarea 35 corre el motor viejo por overlay en un
+  worktree temporal sin tocar el árbol principal; si el overlay es incompatible con el harness actual
+  ⇒ **STOP/REPLAN** (no fallback de harness viejo). La única acción con approval nueva-adyacente es la
+  **20b** ya existente, ahora extendida: promoción a `accepted.s1.json` + repunte del `--enforce` por
+  defecto, solo con la tarea 19 en PASS.
 
 ### 7. Cada Requirement mantiene al menos una task que lo cubre
 - **PASS (tarea 33).** El requisito **2B.1** queda con cobertura reforzada: la tarea 19 lo evalúa y la
@@ -1739,18 +2008,23 @@ ValidaciÃ³n ejecutada tras el replan mÃ­nimo de Toolchain Truth, derivada es
   tarea 8 y la consume la tarea 33. No queda ningún requisito sin task.
 - **PASS.** 1.1â€“1.5 (T1â€“6, **mÃ¡s T17 que cierra TSK-098, T31 que fija Toolchain Truth y T32 que
   migra/revalida evidencia bajo el runtime canÃ³nico para 1.1**);
-  2A.1â€“2A.3 (T7â€“10); 3.1â€“3.5 (T11â€“16); **3.6 (verificaciÃ³n en T13 +
-  Checkpoint 18 â€” reasignar el ID 17 NO deja 3.6/CP5 sin cobertura)**; 2B.1â€“2B.2 (T19â€“20);
-  4.1â€“4.8 (T21, 23â€“29, 31); T.1â€“T.4 (T4, 8, 10, 17, 20, 22, 30, 31, 32).
+  2A.1â€“2A.3 (T7â€“10, **2A.2 c5â€“c9 en T34**); 3.1â€“3.5 (T11â€“16); **3.6 (verificaciÃ³n en T13 +
+  Checkpoint 18 â€” reasignar el ID 17 NO deja 3.6/CP5 sin cobertura)**; **2B.1â€“2B.4 (T19â€“20, mÃ¡s T33
+  productor, T34 S1 confiable/`metaSnapshotVersion`, T35 control V6 rebasado)**;
+  4.1â€“4.8 (T21, 23â€“29, 31); T.1â€“T.4 (T4, 8, 10, 17, 20, 22, 30, 31, 32, **33, 34, 35**).
 
-### 8. CP1â€“CP11 siguen cubiertas
+### 8. CP1â€“CP12 siguen cubiertas
 - **PASS.** CP1â†’T8; CP2/CP4/CP10â†’T13; CP3â†’T11/12/16; CP3b(P11)â†’T12; **CP5â†’T13 (verificaciÃ³n) + T18
-  (agregaciÃ³n)** (fila actualizada; antes T17); CP6â†’T4; CP7â†’T14; CP8â†’T9/T20; CP9â†’T15. Las 11
-  properties quedan cubiertas vÃ­a sus requisitos. **Las tareas 17 y 33 NO tocan ninguna CP:** la 33
-repara el productor de `bun run eval` con un candado de regresión en rojo (`SQLITE_CANTOPEN`), no una
-correctness property del motor; la 17 es ownership de
-  suite engine GREEN para el requisito 1.1 (repara el residual TSK-098 con un candado de regresiÃ³n en
-  rojo del propio test), no una correctness property del motor; la cobertura CP1â€“CP11 queda intacta.
+  (agregaciÃ³n)** (fila actualizada; antes T17); CP6â†’T4; CP7â†’T14; **CP8â†’T9/T20/T34/T35** (compatibilidad
+  ampliada a `metaSnapshotVersion`; `reference.s1.json` = `REBASED_CONTROL`, no baseline aceptado);
+  CP9â†’T15; **CP12â†’T34** (determinismo lÃ³gico, metadato efÃ­mero excluido; verificada tambiÃ©n en T35/T19).
+  Las 12 properties quedan cubiertas vÃ­a sus requisitos. **Las tareas 17, 33, 34 y 35 y sus candados:**
+  la 33 repara el productor de `bun run eval` con un candado de regresión en rojo (`SQLITE_CANTOPEN`);
+  la 17 es ownership de suite engine GREEN para 1.1 (candado de regresiÃ³n en rojo del propio test); la
+  34 estrena CP12 y amplÃ­a CP8 (tests de falsa comparabilidad / mismos datos lÃ³gicos-distintos bytes /
+  legacy S0 sin `metaSnapshotVersion` ⇒ BLOCKED / sync fallido nunca congela S1); la 35 mantiene CP8
+  (control rebasado, `--enforce` por defecto sin re-apuntar antes de la tarea 20). La cobertura
+  CP1â€“CP12 queda intacta.
 
 ### Checks especÃ­ficos solicitados
 - Task **31** despuÃ©s de **17** y **23**: âœ“ (W2 > W1).
@@ -1758,15 +2032,19 @@ correctness property del motor; la 17 es ownership de
 - Task **3** despuÃ©s de **23** y **32**: âœ“ (W4 > W1, W3); 31 queda impuesto por `32 â† 31`.
 - Task **5** no puede pasar con 31/32/3 bloqueadas: âœ“ (`5 â† 3 â† 32 â† 31`; W5 > W4 > W3 > W2).
 - Task **27** despuÃ©s de **5** y **10**: âœ“ (W6 > W5, W3).
-- Task **33** después de **18** y **7**: OK (W9 > W8, W0). Task **33** ANTES del checkpoint humano y de
-  **19**: OK (W9 < W10).
-- Task **19** depende realmente de **33**: OK (`19 ← 18,33,7`; W10 > W9).
-- Task **30** incluye **33**: OK (`30 ← 1–29,31,32,33`; W12 > W9).
-- **PO checkpoint commit** entre **33** y **19**: acción humana de trazabilidad, no un nodo de tareas;
-  no altera el grafo ni el conteo (total = 33, sin tarea 34).
+- Task **33** después de **18** y **7**: OK (W9 > W8, W0).
+- Task **34** después de **18** y **33**: OK (`34 ← 18,33`; W10 > W9 > W8).
+- Task **35** después de **34** (y 18, 33): OK (`35 ← 34,18,33`; W11 > W10).
+- Task **19** depende realmente de **33, 34, 35**: OK (`19 ← 18,33,34,35,7`; W12 > W11 > W10 > W9).
+- Task **20** depende de **19**: OK (W13 > W12).
+- Task **30** incluye **33, 34, 35**: OK (`30 ← 1–29,31,32,33,34,35`; W14 > W11).
+- **PO checkpoint commit** entre **33** y **34**, y **HUMAN S1 CHECKPOINT** entre **34** y **35**:
+  acciones humanas de trazabilidad/operativas, no nodos de tareas; no alteran el grafo ni el conteo
+  (**total = 35**; las tareas 34 y 35 se añaden por el replan de reproducibilidad de evaluación
+  aceptado por el PO).
 - Task **23** fuera de wave 0: âœ“ (W1).
-- Checkpoint **18** depende directamente de **31**, **32** y **3**, y es dependencia formal de **19**:
-  âœ“ (W8, `31,32,3 â†’ 18 â†’ 19`).
+- Checkpoint **18** depende directamente de **31**, **32** y **3**, y es dependencia formal de **33**,
+  **34**, **35** y **19**: âœ“ (W8, `31,32,3 â†’ 18 â†’ 33 â†’ 34 â†’ 35 â†’ 19`).
 - Task **17** despuÃ©s de **2**: âœ“ (W1 > W0). Task **17** ANTES del checkpoint **18**: âœ“ (W1 < W8),
   y **18** ahora depende de **17**. Resto de posiciones ya validadas intactas.
 
@@ -1778,11 +2056,21 @@ correctness property del motor; la 17 es ownership de
   en 3 ya impone `5 â† 3 â† 32 â† 31`; Task 5 conserva sus IDs de dependencia 1, 2 y 3.
 - **Replan R0.2B (tarea 33):** aristas nuevas mínimas `33 ← 18,7`, `19 ← 33` y `30 ← 33`. No se añaden
   edges directos redundantes (p.ej. `19 ← 31,32` ya está impuesto vía 18; `33 ← 31,32` ya está impuesto
-  vía 18). Task 19 y Task 30 conservan el resto de sus IDs de dependencia.
+  vía 18).
+- **Replan R0.2B (tareas 34, 35: S1 confiable + control V6 rebasado):** aristas nuevas mínimas
+  `34 ← 18,33`, `35 ← 34,18,33`, `19 ← 34,35` y `30 ← 34,35`. No se añaden edges redundantes: `34 ← 7`
+  no hace falta (34 no consume `pro-drafts.sqlite`); `35 ← 18` es redundante vía 34 pero se declara
+  explícito para dejar claro que 35 no puede pasar sin el checkpoint; `19 ← 33` ya estaba y se
+  conserva; `20 ← 19` sin cambios. Task 19, Task 20 y Task 30 conservan el resto de sus IDs de
+  dependencia.
 
 ---
 
 ### Revalidación tras el replan R0.2B (tarea 33) — checks solicitados
+
+> **Los números de wave y el conteo "Total = 33" de esta subsección quedan SUPERSEDIDOS por la
+> subsección siguiente** ("Revalidación tras el replan R0.2B — S1 confiable + control V6 rebasado,
+> tareas 34 y 35"). Se conserva como histórico del replan de la tarea 33.
 
 Derivada estrictamente de los campos **Dependencies** finales tras insertar la tarea 33.
 
@@ -1816,7 +2104,82 @@ Derivada estrictamente de los campos **Dependencies** finales tras insertar la t
 
 ---
 
-**TASK PLAN CONSISTENCY: PASS**
+### Revalidación tras el replan R0.2B — S1 confiable + control V6 rebasado (tareas 34 y 35)
+
+Origen: `Task 19 Identity Preflight = BLOCKED`, `Snapshot Recovery Preflight = NO_TRUSTWORTHY_SNAPSHOT`,
+`Evaluation Reproducibility Replan = NEEDS_PO_DECISION` → decisiones del PO aplicadas. Derivada
+estrictamente de los campos **Dependencies** finales tras insertar las tareas 34 y 35 y reescribir 19
+y 20.
+
+- **Conteo total de tareas.** IDs enteros contiguos **1–35**; no se renumeró ninguna tarea existente;
+  **34 y 35 son nuevas** (la antigua nota "no se crea ninguna tarea 34" queda superada). Total = **35
+  tareas ejecutables** (3 discovery: 1/7/21; 2 gates transversales: 18/30). **PASS.**
+- **DAG acíclico.** Aristas nuevas/modificadas: `34 ← 18,33`, `35 ← 34,18,33`,
+  `19 ← 18,33,34,35,7`, `20 ← 19`, `30 ← …,33,34,35`. Todas hacia adelante en el orden por waves
+  (W10←W9/W8; W11←W10/W9/W8; W12←W11/…; W13←W12; W14←W11). Ningún ciclo. Orden topológico
+  0→…→**14**. **PASS.**
+- **Toda dependency apunta a una task existente y anterior.** 34→{18,33} (W10>W9>W8); 35→{34,18,33}
+  (W11>W10); 19→{18,33,34,35,7} (W12>W11); 20→{19} (W13>W12); 30→{1–29,31,32,33,34,35} (W14>W11).
+  **PASS.**
+- **Ninguna task depende indirectamente de sí misma.** Sin aristas hacia atrás en el orden por waves.
+  **PASS.**
+- **Cada una de 33/34/35 aparece una sola vez.** Un único marcador `- [ ] 33.` / `- [ ] 34.` /
+  `- [ ] 35.` en la sección R0.2B, una fila cada una en la trazabilidad, un nodo cada una en el grafo
+  (W9/W10/W11). **PASS.**
+- **Ningún checkpoint es solo narrativo.** Checkpoint 18 (wave 8) es dependencia formal de 33, 34, 35 y
+  19. Entre 33 y 34: **PO checkpoint commit** (acción humana de trazabilidad). Entre 34 y 35: **HUMAN
+  S1 CHECKPOINT** (generación real de S1 vía el builder aprobado, contra DB temporal desechable).
+  Ninguna es un nodo de tareas. **PASS.**
+- **Write scopes paralelos NO colisionan.** Waves 9/10/11/12 contienen **una sola tarea cada una**
+  (33/34/35/19). `run.ts` lo tocan 33 (W9) y 34 (W10) en waves distintas — nunca a la vez. 34 escribe
+  `scripts/eval/{snapshot,evaluation-identity,run}.ts`, `eval/snapshots/S1.*`, la excepción
+  `.gitignore`; 35 escribe `scripts/eval/rebased-reference.ts`, `eval/baselines/reference.s1.json`, la
+  config acotada del gate; 19 escribe la invocación/artefacto de veredicto de INTELLIGENCE CI +
+  `candidate.s1.json`; 20 escribe `scripts/eval/` (`promoteCandidate`) y, solo con approval,
+  `eval/baselines/accepted.s1.json`. `eval/baselines/reference.s1.json` (35) ≠
+  `eval/baselines/accepted.s1.json` (20) ≠ `eval/baselines/v6-measured.json` (intacto). Sin colisión.
+  **PASS.**
+- **Conditional/approval tasks NO se ejecutan automáticamente.** 34 y 35 **no** son conditional ni
+  requieren approval de acción sensible. El **HUMAN S1 CHECKPOINT** (gen. de S1) es acción operativa
+  humana de trazabilidad contra DB desechable, **no** un approval de alto riesgo — no añade approval
+  nuevo. La única acción con approval afectada es **20b**, ahora: promoción de `CURRENT_CANDIDATE(S1)`
+  a `accepted.s1.json` + repunte del `--enforce` por defecto, **solo con la tarea 19 en PASS** y
+  aceptación explícita. **PASS.**
+- **Cada Requirement mantiene al menos una task.** **2B.3** ← T34 (S1 reproducible +
+  `EvaluationIdentity`/`metaSnapshotVersion` + procedencia). **2B.4** ← T35 (control V6 rebasado) + T19
+  (cableado de la comparación) + T20 (regla de promoción). **2A.2 c5–c9** ← T34. **2B.1** sigue
+  cubierto (T19 evalúa, T33 productor). Ningún requisito sin task. **PASS.**
+- **CP1–CP12 cubiertas.** **CP12** (determinismo lógico, metadato efímero excluido) ← T34 (verificada
+  también en T35/T19). **CP8** ampliada: compatibilidad por `metaSnapshotVersion` (`snapshotFileSha` y
+  commits de motor/harness **excluidos**), `HISTORICAL_REFERENCE_S0` incomparable/BLOCKED,
+  `reference.s1.json` = `REBASED_CONTROL` (no baseline aceptado), `--enforce` por defecto sin
+  re-apuntar antes de la tarea 20 ← T9/T20/T34/T35. Resto de CP intactas. **PASS.**
+- **Checkpoint 18 sigue PASS/aceptado; Task 33 sigue PASS/aceptado.** El replan no reabre 18 ni 33;
+  añade nodos aguas abajo. **Tareas 19, 20, 34 y 35 quedan `- [ ]` (sin marcar).** **PASS.**
+- **Task 19 dependencies:** `18, 33, 34, 35, 7`. **Task 20 dependencies:** `19`. **Task 30
+  dependencies:** `1–29, 31, 32, 33, 34, 35`. **PASS.**
+- **Evidencia histórica protegida explícitamente identificada.** `eval/baselines/v6-measured.json` =
+  `HISTORICAL_REFERENCE_S0` (inmutable; `NDCG@5 ≈ 0.73642646699061` corresponde al motor `df354b9`, no
+  a `e0b77d7` que es el escritor del artefacto). `eval/snapshots/S1.*` (una vez congelados) y
+  `eval/baselines/reference.s1.json` (`REBASED_CONTROL`) declarados en §7 del diseño y en el "Protected
+  / DO NOT CHANGE" de las tareas 34/35/19/20. **PASS.**
+- **Sin texto contradictorio.** Ningún pasaje sigue diciendo que `e0b77d7` es el motor medido (se
+  reencuadra como escritor del artefacto en `design.md` §4.2/§11, glosario de `requirements.md` y
+  trazabilidad de la tarea 19). Ningún pasaje dice que un snapshot `7.41e` sea automáticamente
+  comparable (`evaluationProtocolVersion` codifica la **regla** `patchOverride:dominant`, y el
+  contenido lo guarda `metaSnapshotVersion`). Ningún pasaje admite fallback de harness viejo como PASS
+  (tarea 35: overlay incompatible ⇒ STOP/REPLAN). Ningún pasaje re-apunta el `--enforce` por defecto
+  antes de la tarea 20. **PASS.**
+- **Contratos protegidos intactos.** `apps/engine/**` (las tareas 34/35 no lo tocan),
+  `evaluateGate()`, `GateStatus`, `SCORING_WEIGHTS_*`, Golden Dataset, split, y el **contenido** de
+  `v6-measured.json` — ninguno cambia. `EvaluationIdentity`/`ReferenceBaseline` se **amplían**
+  aditivamente (`metaSnapshotVersion`, `EvaluationMetadata` de procedencia) sin romper la Fase 9.
+  **PASS.**
+
+---
+
+**TASK PLAN CONSISTENCY: PASS** (tras el replan R0.2B de reproducibilidad de evaluación — S1 confiable
++ control V6 rebasado, tareas 34 y 35)
 
 Nota de trazabilidad cruzada (RESUELTA): el requisito 1.5 de `requirements.md` fue alineado con el
 contrato ejecutable de la tarea 5 â€” el PRE-PUSH gate debe ser **local y determinÃ­stico** (Husky, git

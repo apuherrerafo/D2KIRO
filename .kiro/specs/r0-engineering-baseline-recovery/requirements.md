@@ -63,7 +63,34 @@ obligatorio devuelve PASS si no ejecutó) **solo obliga sobre los sub-checks `re
   (incluye `identity`, resultados y `acceptedAtCommit`).
 - **Candidate**: lo que se mide ahora (HEAD), aún no promovido a baseline.
 - **EvaluationIdentity**: identidad de comparabilidad = `datasetVersion` + `evaluationProtocolVersion`
-  + `scoringModelFamily`.
+  + `scoringModelFamily` + `metaSnapshotVersion`. Es lo único que decide `isComparable()`.
+- **metaSnapshotVersion**: huella de **contenido lógico** de los inputs de meta que consume `loadMeta`,
+  como `meta1:<sha256 completo>`. SHA-256 completo, nunca truncado; **nunca** el SHA crudo del archivo
+  SQLite. Se calcula sobre una serialización canónica (tabla explícita, nombres de campo explícitos,
+  orden estable, codificación primitiva estable, manejo explícito de `null`, `schemaTag`/versión
+  incluida) de **exactamente** estos campos: `heroes`(`id`,`localized_name`,`roles`),
+  `hero_patch_stats`(`hero_id`,`patch`,`bracket`,`picks`,`wins`),
+  `hero_matchups`(`hero_id`,`vs_hero_id`,`games`,`wins`). Orden estable: `heroes` por `id`;
+  `hero_patch_stats` por (`hero_id`,`patch`,`bracket`); `hero_matchups` por (`hero_id`,`vs_hero_id`).
+- **snapshotFileSha**: SHA-256 **crudo** del archivo `S1.sqlite`. Es **metadato / procedencia**
+  únicamente; **NO** participa en `isComparable()` (dos SQLite con los mismos datos lógicos y distintos
+  bytes deben producir la misma identidad).
+- **measuredEngineCommit** / **evaluationHarnessCommit**: procedencia explícita de una corrida. Con
+  ejecución por overlay, el HEAD del worktree/harness es un commit y la fuente del motor
+  (`apps/engine/src/**`) es otro. El motor medido **no** se infiere solo de `git rev-parse HEAD`. Son
+  metadato de procedencia; **no** deciden `isComparable()`.
+- **S1**: snapshot de meta **congelado y confiable** para evaluación = `eval/snapshots/S1.sqlite`
+  (SQLite congelado, git normal ~1–2 MB, sin Git LFS) + `eval/snapshots/S1.manifest.json` (manifiesto
+  con `metaSnapshotVersion`, `snapshotFileSha`, `patchLabel`, `patchLabelSource`, conteos y `schemaTag`).
+- **HISTORICAL_REFERENCE_S0**: `eval/baselines/v6-measured.json`. Evidencia histórica **inmutable**: no
+  se sobrescribe, no se borra, no se promueve hacia adelante. Su métrica (NDCG@5 ≈ `0.73642646699061`)
+  corresponde al árbol de motor `df354b9`, no a `e0b77d7` (que es el commit del **escritor del
+  artefacto**, no del motor medido). El snapshot de meta de S0 está **perdido**, así que sus métricas
+  numéricas **no** son directamente comparables con las de S1.
+- **REBASED_REFERENCE(S1)** / control V6 rebasado: resultado de correr el **motor viejo aceptado**
+  (`df354b9`, comportamiento V6) sobre el **mismo S1 congelado** usando el harness de evaluación
+  **actual**. Se materializa como `eval/baselines/reference.s1.json`. Es un **REBASED_CONTROL**, **no**
+  un baseline aceptado — no se enruta el `--enforce` por defecto hacia él antes de la tarea 20.
 - **structural applicability (`A(S)`)**: si una señal aplica a la estructura del estado del draft,
   independiente de datos y de calibración.
 - **dataReady**: flag explícito por señal — si los datos que la señal necesita son confiables, frescos
@@ -277,18 +304,46 @@ por compatibilidad de dataset y protocolo, y nunca por diferencia de hash de com
 #### Acceptance Criteria
 
 1. THE Evaluation_Gate SHALL modelar explícitamente `referenceBaseline`, `candidate`, `datasetVersion`,
-   `evaluationProtocolVersion` y `scoringModelFamily`. **Clase: required**
+   `evaluationProtocolVersion`, `scoringModelFamily` y `metaSnapshotVersion`. **Clase: required**
 2. WHEN se evalúa un candidate, THE Evaluation_Gate SHALL compararlo contra el `ReferenceBaseline`
    aceptado, no contra sí mismo. **Clase: required**
-3. IF `isComparable(candidate, referenceBaseline)` es falso por mismatch de `datasetVersion` o
-   `evaluationProtocolVersion` (o familia de scoring no comparable), THEN THE Evaluation_Gate SHALL
-   devolver `BLOCKED` con motivo "baseline incomparable: dataset/protocol mismatch". **Clase:
+3. IF `isComparable(candidate, referenceBaseline)` es falso por mismatch de `datasetVersion`,
+   `evaluationProtocolVersion`, `metaSnapshotVersion` (o familia de scoring no comparable), THEN THE
+   Evaluation_Gate SHALL devolver `BLOCKED` con motivo "baseline incomparable: dataset/protocol/meta
+   mismatch". **Clase: required**
+4. THE Evaluation_Gate SHALL determinar la comparabilidad por compatibilidad de dataset + protocolo +
+   `metaSnapshotVersion` (y familia de scoring), nunca por diferencia de hash de commit. **Clase:
    required**
-4. THE Evaluation_Gate SHALL determinar la comparabilidad por compatibilidad de dataset + protocolo (y
-   familia de scoring), nunca por diferencia de hash de commit. **Clase: required**
+5. THE `metaSnapshotVersion` SHALL ser una **huella de contenido lógico** con SHA-256 **completo**
+   (`meta1:<sha256>`), **nunca** el SHA crudo del archivo SQLite y **nunca** truncado. THE huella SHALL
+   calcularse sobre una serialización canónica **inequívoca** (representación tipo JSON/JSONL con tabla
+   explícita, nombres de campo explícitos, codificación primitiva estable, orden determinista y manejo
+   explícito de `null`; **no** una concatenación por delimitador) de **exactamente** los inputs que
+   consume `loadMeta`: `heroes`(`id`,`localized_name`,`roles`),
+   `hero_patch_stats`(`hero_id`,`patch`,`bracket`,`picks`,`wins`),
+   `hero_matchups`(`hero_id`,`vs_hero_id`,`games`,`wins`), con orden estable `heroes`→`id`,
+   `hero_patch_stats`→(`hero_id`,`patch`,`bracket`), `hero_matchups`→(`hero_id`,`vs_hero_id`), e
+   incluyendo `schemaTag`/versión en el input canónico. **Clase: required**
+6. THE `snapshotFileSha` (SHA-256 crudo del `S1.sqlite`) SHALL ser **metadato / procedencia
+   únicamente** y SHALL NOT participar en `isComparable()`: dos SQLite con los mismos datos lógicos y
+   distintos bytes producen la **misma** identidad. **Clase: required**
+7. THE `EvaluationMetadata` de toda corrida SHALL soportar explícitamente `measuredEngineCommit` y
+   `evaluationHarnessCommit` como campos de procedencia distintos; THE R0_System SHALL NOT inferir el
+   motor medido solo de `git rev-parse HEAD`. Estos campos SHALL NOT decidir `isComparable()`.
+   **Clase: required**
+8. IF un artefacto de baseline (p.ej. `eval/baselines/v6-measured.json`) **no** tiene
+   `metaSnapshotVersion`, THEN THE R0_System SHALL tratarlo como `HISTORICAL_REFERENCE_S0`: inmutable,
+   nunca sobrescrito, nunca borrado, nunca promovido en silencio; y comparar sus métricas numéricas
+   contra un candidate sobre S1 SHALL devolver `BLOCKED`/incomparable (el snapshot de meta de S0 está
+   perdido). La regresión del motor **sí** sigue siendo recuperable: se re-corren el motor VIEJO y el
+   ACTUAL sobre el **mismo** S1. **Clase: required**
+9. THE `evaluationProtocolVersion` SHALL codificar la **regla** `patchOverride:dominant` (no un valor
+   de patch concreto). THE R0_System SHALL NOT forzar `patch = 7.41e` como parte de la identidad; el
+   `patchLabel` es procedencia del snapshot, no identidad suficiente. **Clase: required**
 
 **NO debe cambiar:** la familia de scoring (`scoringModelFamily`, p.ej. `SCORING_WEIGHTS_V6`) es una
-constante de pesos activa, no un hash de HEAD; no se rediseñan métricas ni benchmarks de Fase 9.
+constante de pesos activa, no un hash de HEAD; no se rediseñan métricas ni benchmarks de Fase 9;
+`evaluateGate()` intacto (§7).
 
 ### Requisito 2A.3 — Cablear `--enforce` a INTELLIGENCE CI
 
@@ -482,8 +537,13 @@ contra el `ReferenceBaseline` aceptado, para medir si el cambio del motor mantie
 
 #### Acceptance Criteria
 
-1. WHEN R0.3 ha producido un candidate HEAD, THE R0_System SHALL evaluar ese candidate contra el
-   `ReferenceBaseline` aceptado usando el `Evaluation_Gate` restaurado (R0.2A). **Clase: required**
+1. WHEN R0.3 ha producido un candidate HEAD, THE R0_System SHALL evaluar ese candidate usando el
+   `Evaluation_Gate` restaurado (R0.2A). **En R0 la referencia de la tarea 19 es
+   `REBASED_OLD_ENGINE_CONTROL(S1)` — el control V6 rebasado del requisito 2B.4, NO un baseline
+   aceptado** (el snapshot de meta de S0 está perdido, así que las métricas de
+   `HISTORICAL_REFERENCE_S0` no son directamente comparables). Ambos lados —
+   `CURRENT_ENGINE(S1)` y `REBASED_OLD_ENGINE_CONTROL(S1)` — comparten Golden, split, protocolo/harness
+   y `metaSnapshotVersion`; difieren solo en `measuredEngineCommit`. **Clase: required**
 2. THE R0_System SHALL ejecutar este eval pesado en el nivel INTELLIGENCE CI (diseño §5), no en
    pre-push. **Clase: required**
 3. WHEN `pro-drafts.sqlite` está ausente pero el Golden Dataset y `dota2coach.sqlite` están presentes,
@@ -536,7 +596,98 @@ estar en HEAD.
    **Clase: required**
 
 **NO debe cambiar:** la promoción de baseline es una decisión sensible; se comporta como acción
-irreversible/sensible bajo approval explícito (§8, ver T.4).
+irreversible/sensible bajo approval explícito (§8, ver T.4). `HISTORICAL_REFERENCE_S0`
+(`v6-measured.json`) **permanece como evidencia histórica S0 para siempre**: no es el baseline
+aceptado, no se sobrescribe y no se promueve. El `--enforce` por defecto **no** se re-apunta hacia
+`reference.s1.json` (que es un `REBASED_CONTROL`, no un baseline aceptado); solo tras la tarea 20
+—con Task 19 en PASS y aceptación explícita del PO— se congela `CURRENT_CANDIDATE(S1)` como
+`eval/baselines/accepted.s1.json` y **solo entonces** se re-apunta el `--enforce` por defecto.
+
+### Requisito 2B.3 — Snapshot de meta reproducible (S1) + procedencia de motor/harness
+
+**User Story:** Como responsable de la evaluación, quiero un snapshot de meta congelado, confiable y
+con huella de contenido lógico, más procedencia explícita de qué motor y qué harness produjeron cada
+corrida, para que dos corridas se puedan declarar comparables por el contenido real de sus inputs y no
+por un `git rev-parse HEAD`.
+
+#### Acceptance Criteria
+
+1. THE R0_System SHALL representar S1 como un **SQLite congelado + manifiesto**:
+   `eval/snapshots/S1.sqlite` + `eval/snapshots/S1.manifest.json`, versionados con git normal (~1–2 MB),
+   **sin** introducir Git LFS. **Clase: required**
+2. Como `*.sqlite` está hoy ignorado, THE R0_System SHALL añadir la **excepción mínima** de
+   `.gitignore` para trackear **únicamente** el artefacto del snapshot de evaluación
+   (`eval/snapshots/S1.sqlite`), sin des-ignorar SQLite arbitrarios. **Clase: required**
+3. THE `S1.manifest.json` SHALL registrar explícitamente `metaSnapshotVersion` (huella lógica
+   `meta1:<sha256>`), `snapshotFileSha` (SHA crudo, solo procedencia), `patchLabel` y
+   `patchLabelSource`; y THE builder SHALL NOT afirmar que `dominantPatch` prueba que el `patchLabel`
+   corresponde al patch real vigente de Dota — el sync **recibe** el `patchLabel` como input, no lo
+   descubre. **Clase: required**
+4. THE creación del S1 confiable SHALL ejecutarse **solo tras** aceptar el código/tests de la tarea 34,
+   como un **checkpoint operativo humano explícito**, con este proceso: DB temporal fresca → migrar/
+   inicializar esquema → correr el sync canónico de meta → **exigir éxito completo** (`status=ok`) →
+   validar → congelar → fingerprint → manifiesto → commitear la evidencia congelada después. THE
+   R0_System SHALL NOT correr el build de S1 contra la DB de producción ni contra la DB local de
+   trabajo. **Clase: required**
+5. IF el sync lanza, hace rate-limit, termina non-ok o la validación falla, THEN THE R0_System SHALL
+   **descartar por completo la DB temporal** y NO producir ningún artefacto; nunca se reanuda ni se
+   congela una DB escrita a medias. **Clase: required**
+6. THE `EvaluationMetadata` SHALL soportar `measuredEngineCommit` y `evaluationHarnessCommit` como
+   campos de procedencia distintos (ver 2A.2 c7); para `REBASED_REFERENCE(S1)`,
+   `measuredEngineCommit = df354b9c4ed415b86dba35dc92e2f84e5cb40e5d` y
+   `evaluationHarnessCommit =` el commit del checkpoint actual; para `CURRENT_CANDIDATE(S1)`, ambos
+   normalmente iguales al HEAD limpio actual. Estos campos SHALL NOT decidir `isComparable()`.
+   **Clase: required**
+7. THE R0_System SHALL requerir determinismo de `EvaluationIdentity`, métricas, salidas de ranking y
+   **huella lógica del resultado** para {mismo motor fuente + mismo harness + mismo Golden/split +
+   mismo S1 + misma semilla/config}; el metadato **efímero** (p.ej. timestamps) SHALL documentarse y
+   **excluirse** de la aserción de determinismo lógico (no se exige que artefactos JSON completos sean
+   byte-idénticos si contienen ese metadato efímero). **Clase: required**
+
+**NO debe cambiar:** `apps/engine/**` no se toca; `evaluateGate()` intacto; `v6-measured.json` no se
+edita; el Golden Dataset y el split no se regeneran. El bug de escritura parcial no-transaccional de
+`syncMatchups` es un defecto real, **pero NO bloquea R0**: se referencia como ticket de hotfix futuro
+separado; R0 protege S1 con DB desechable fresca + `status=ok` + validar-antes-de-congelar +
+descartar-ante-cualquier-fallo. NO se expande la tarea 34 a un rediseño del sync de producción.
+
+### Requisito 2B.4 — Control V6 rebasado sobre S1 y cableado de la comparación de la tarea 19
+
+**User Story:** Como responsable de la evaluación, quiero medir el motor ACTUAL contra el motor VIEJO
+aceptado **sobre el mismo S1 congelado**, con la única variable independiente siendo el código del
+motor, para obtener un veredicto real de regresión de motor sin arrastrar el cambio de otra variable.
+
+#### Acceptance Criteria
+
+1. THE R0_System SHALL producir `REBASED_REFERENCE(S1)` corriendo el motor VIEJO (`df354b9`) sobre el
+   **mismo** S1 congelado usando el **harness de evaluación actual**, mediante un **git worktree
+   temporal** que usa el harness actual con `apps/engine/src/**` **superpuesto (overlay)** desde
+   `df354b9`. El árbol principal SHALL permanecer intacto. **Clase: required**
+2. IF el motor VIEJO **no compila/corre** contra el harness actual, THEN THE R0_System SHALL
+   **STOP / REPLAN**. THE R0_System SHALL NOT aceptar automáticamente "worktree completo de `df354b9` +
+   harness de eval viejo" como fallback válido: un harness distinto cambia otra variable y no se puede
+   declarar comparable porque las fórmulas de métrica se parezcan. Un adaptador de compatibilidad bajo
+   el harness actual puede diseñarse en un replan posterior si hace falta. **Clase: required**
+3. THE `eval/baselines/reference.s1.json` SHALL ser un `REBASED_CONTROL`, **no** un baseline aceptado.
+   La tarea 35 SHALL NOT re-apuntar globalmente el baseline por defecto de `--enforce` hacia
+   `reference.s1.json`; si `gate.ts` necesita una entrada explícita de ruta-de-referencia, la tarea 35
+   PUEDE añadir esa configuración **acotada** (path/env/config), sin tocar la matemática de
+   `evaluateGate()`. El enrutamiento del baseline aceptado por defecto **permanece intacto hasta la
+   tarea 20**. **Clase: required**
+4. THE tarea 19 SHALL invocar explícitamente `reference = reference.s1.json` y
+   `candidate = candidate.s1.json` a través de ese mecanismo acotado; antes de la tarea 20 SHALL NOT
+   existir ninguna ficción semántica de que `reference.s1.json` es el baseline de producción aceptado.
+   **Clase: required**
+5. THE tarea 19 SHALL exigir que `reference` y `candidate` tengan **la misma** `EvaluationIdentity`
+   (`datasetVersion`, `evaluationProtocolVersion`, `scoringModelFamily`, `metaSnapshotVersion`) y
+   difieran **solo** en `measuredEngineCommit`. IF el `metaSnapshotVersion` de ambos no coincide, THEN
+   el resultado SHALL ser `BLOCKED`. **Clase: required**
+6. THE candidate de la tarea 19 SHALL generarse desde un HEAD limpio y trazable (misma precondición
+   HEAD-limpio de 2B.1 c6). THE tarea 19 SHALL NOT escribir baselines aceptados; su veredicto PASS/FAIL
+   es un juicio real de regresión de motor sobre S1. **Clase: required**
+
+**NO debe cambiar:** Golden, split, protocolo/harness de evaluación y S1 son **los mismos** para
+`REBASED_REFERENCE(S1)` y `CANDIDATE(S1)`. `evaluateGate()`, `SCORING_WEIGHTS_*`, el Golden Dataset y
+`HISTORICAL_REFERENCE_S0` intactos.
 
 ---
 
@@ -809,9 +960,10 @@ diseño por los IDs concretos de este documento.
 | **CP5** / Property 5 | Los pesos de la versión activa suman 1.0 (candado existente, se preserva) | R0.3 | **3.6** |
 | **CP6** / Property 6 | Normalización de ruta en hooks OS-independiente (`to_repo_relative(win) == to_repo_relative(posix)`) | R0.1 | **1.3** |
 | **CP7** / Property 7 | Estado degenerado no produce ranking fingido (`voting == ∅` ⇒ `suggestions == []` + `no_signal_available`; no `Object.keys`) | R0.3 | **3.4** |
-| **CP8** / Property 8 | Compatibilidad dataset/protocol (BLOCKED por mismatch, no por hash) + promoción solo tras aceptación explícita | R0.2 | **2A.2** (compatibilidad/BLOCKED) y **2B.2** (promoción) |
+| **CP8** / Property 8 | Compatibilidad dataset/protocol/`metaSnapshotVersion` (BLOCKED por mismatch, no por hash de commit ni por `snapshotFileSha`) + promoción solo tras aceptación explícita; `reference.s1.json` es un `REBASED_CONTROL`, no un baseline aceptado, y el `--enforce` por defecto no se re-apunta antes de la tarea 20 | R0.2 | **2A.2** (compatibilidad/BLOCKED), **2B.2** (promoción), **2B.4** (control rebasado) |
 | **CP9** / Property 9 | `openingStrategy` respeta `raw: null` (héroe ausente ⇒ null) | R0.3 | **3.5** |
 | **CP10** / Property 10 | `Σ weighted == score` en todos los caminos, incluido `teamOpening` | R0.3 | **3.1** (criterio 3) |
+| **CP12** / Property 12 | Determinismo de `EvaluationIdentity` + métricas + salidas de ranking + huella lógica del resultado para {mismo motor fuente + mismo harness + mismo Golden/split + mismo S1 + misma semilla/config}; el metadato efímero (timestamps) se documenta y se excluye de la aserción de determinismo lógico | R0.2 | **2B.3** (c7) |
 
 Nota (diseño §10 / Testing Strategy): CP2, CP3, CP6, CP10 se verifican como tests deterministas sobre
 el harness/PRNG existente (`batch-harness`, Mulberry32/SeededRng), **sin** adoptar una librería PBT
@@ -837,6 +989,7 @@ esa respuesta — **no** workstreams completos por asociación indirecta.
 | ~~§9.5~~ | **RESUELTA:** Kiro IDE es el IDE principal; Claude Code Writer dentro de Kiro; Kiro puede actuar como Planner; Codex reviewer independiente. `.kiro/` se conserva; solo se elimina la duplicación manual de source-of-truth | — | **NO BLOQUEANTE** (resuelta) |
 | §9.6 | ¿Los tests en rojo también fallan en la máquina donde se hacen los commits reales? (WSL vs Windows) | Solo el alcance de convergencia (P3) de **1.1** y **T.2**, y el software correctness que ejecuta el gate de **1.5** | **BLOQUEANTE** — determina el alcance real de la convergencia (P3) |
 | §9.7 | ¿Está git realmente cableado a `.husky`? (`core.hooksPath` / `.git/hooks`) | Solo la **implementación** del PRE-PUSH gate de **1.5** y su anclaje en **T.2** (§5); no la existencia del requisito 1.5 | **BLOQUEANTE (implementación)** — informa qué mecanismo implementa el gate |
+| §9.8 | El snapshot de meta de S0 (el que produjo `v6-measured.json`) está **perdido** (`NO_TRUSTWORTHY_SNAPSHOT`). No hay forma de reconstruirlo. | **2B.1/2B.3/2B.4** (tareas 19, 34, 35) — la comparación de la tarea 19 no puede usar las métricas numéricas de `HISTORICAL_REFERENCE_S0` | **RESUELTA (decisión del PO):** no se reconstruye S0; se construye un **S1 fresco y confiable** (tarea 34) y la regresión de motor se recupera re-corriendo el motor VIEJO y el ACTUAL sobre el **mismo** S1 (tarea 35 → 19) |
 
 Regla (diseño §9): donde la auditoría no pudo confirmar algo, se marca como precondición de
 descubrimiento, nunca como suposición de diseño.
@@ -910,3 +1063,43 @@ correcciones exigieron.
       commit del estado R0 aceptado (acción humana de trazabilidad, no approval de acción sensible).
       `evaluateGate()`, `GateStatus`, `EvaluationIdentity`, `ReferenceBaseline`, ADR-002, Golden
       Dataset y `SCORING_WEIGHTS` intactos.
+12. **Reproducibilidad de evaluación + control de motor rebasado (replan R0.2B aceptado por el PO,
+    tras `Task 19 Identity Preflight = BLOCKED` y `Snapshot Recovery Preflight =
+    NO_TRUSTWORTHY_SNAPSHOT`).**
+    - **Glosario:** `EvaluationIdentity` = `datasetVersion` + `evaluationProtocolVersion` +
+      `scoringModelFamily` + **`metaSnapshotVersion`**. Nuevos términos: `metaSnapshotVersion`
+      (`meta1:<sha256 completo>`, huella de contenido lógico), `snapshotFileSha` (SHA crudo del
+      archivo, solo procedencia), `measuredEngineCommit` / `evaluationHarnessCommit` (procedencia,
+      no deciden `isComparable()`), `S1` (SQLite congelado + manifiesto), `HISTORICAL_REFERENCE_S0`
+      (`v6-measured.json`, inmutable; su métrica ≈ `0.73642646699061` corresponde al motor `df354b9`,
+      no a `e0b77d7` que es el escritor del artefacto), `REBASED_REFERENCE(S1)` / control V6 rebasado.
+    - **2A.2** gana criterios 5–9: `metaSnapshotVersion` como huella de contenido lógico SHA-256
+      completo sobre serialización canónica de los inputs exactos de `loadMeta` (con tablas, campos y
+      orden estable enumerados); `snapshotFileSha` no participa en `isComparable()`;
+      `measuredEngineCommit`/`evaluationHarnessCommit` como procedencia, motor medido no inferido de
+      `git rev-parse HEAD`; artefacto legacy sin `metaSnapshotVersion` ⇒ `HISTORICAL_REFERENCE_S0`
+      incomparable/BLOCKED; `evaluationProtocolVersion` codifica la **regla** `patchOverride:dominant`,
+      no `7.41e`.
+    - **2B.1** criterio 1: la referencia de la tarea 19 pasa a ser `REBASED_OLD_ENGINE_CONTROL(S1)`
+      (el control del 2B.4), no un baseline aceptado.
+    - **2B.2** "NO debe cambiar": `HISTORICAL_REFERENCE_S0` permanece como evidencia histórica para
+      siempre; el `--enforce` por defecto no se re-apunta antes de la tarea 20 (que congela
+      `accepted.s1.json` solo con Task 19 PASS + aceptación explícita).
+    - **Requisito 2B.3 nuevo** — Snapshot de meta reproducible (S1) + procedencia de motor/harness
+      (dueño: tarea 34). SQLite congelado + manifiesto, git normal, sin LFS; excepción `.gitignore`
+      mínima solo para `eval/snapshots/S1.sqlite`; manifiesto con `patchLabel`/`patchLabelSource`;
+      creación del S1 confiable como **checkpoint operativo humano** tras aceptar la tarea 34 (DB
+      temporal fresca → migrar → sync canónico → `status=ok` → validar → congelar → fingerprint →
+      manifiesto), descartar la DB temporal ante cualquier fallo; determinismo lógico con metadato
+      efímero excluido; el bug de escritura parcial de `syncMatchups` es defecto real **no bloqueante
+      de R0**, hotfix futuro separado.
+    - **Requisito 2B.4 nuevo** — Control V6 rebasado sobre S1 + cableado de la tarea 19 (dueño: tarea
+      35). Overlay de `apps/engine/src/**` desde `df354b9` bajo el harness actual en un git worktree
+      temporal; árbol principal intacto; si el motor viejo no compila/corre contra el harness actual ⇒
+      **STOP/REPLAN**, nunca fallback "worktree viejo + harness viejo"; `reference.s1.json` es
+      `REBASED_CONTROL`, no baseline aceptado; la tarea 35 no re-apunta el `--enforce` por defecto
+      (config de ruta acotada si hace falta); la tarea 19 exige misma `EvaluationIdentity` salvo
+      `measuredEngineCommit`, `metaSnapshotVersion` mismatch ⇒ BLOCKED.
+    - **§9.8 nuevo** (RESUELTA): snapshot de meta de S0 perdido; no se reconstruye, se construye S1.
+    - **Trazabilidad CP8** actualizada (incluye `metaSnapshotVersion` y el control rebasado); **CP12
+      nueva** (determinismo lógico). Cobertura CP1–CP10 (+CP3b/CP11) intacta.
