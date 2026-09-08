@@ -3,13 +3,14 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { main } from "./run";
+import { loadMeta, main } from "./run";
 import { main as gateMain } from "./gate";
 import { extractEvaluationIdentity, isComparable } from "./evaluation-identity";
+import { computeMetaSnapshotVersion, META_INPUT_CONTRACT, metaInputSelect } from "./snapshot";
 import type { ProDraftTurn } from "./types";
 
 let dir: string;
-const ENV_KEYS = ["D2K_PRO_DB", "ENGINE_DB_PATH", "D2K_GOLDEN", "D2K_BASELINE_OUT", "D2K_REPORTS_DIR", "D2K_SPLIT_OUT"] as const;
+const ENV_KEYS = ["D2K_PRO_DB", "ENGINE_DB_PATH", "D2K_GOLDEN", "D2K_BASELINE_OUT", "D2K_REPORTS_DIR", "D2K_SPLIT_OUT", "D2K_META_SNAPSHOT"] as const;
 const saved: Record<string, string | undefined> = {};
 
 function draft24(base: number): ProDraftTurn[] {
@@ -219,6 +220,10 @@ test("Task33 [3] + SENTINEL: pro ausente ⇒ Benchmark B NO MEDIDO (corpus=0, pe
 test("Task33 [4]+[5]: gate canónico read-only ⇒ B SKIPPED informational, --enforce PASS si A PASS, B nunca PASS", async () => {
   const goldenPath = writeGoldenFixture();
   process.env.D2K_GOLDEN = goldenPath;
+  // Task 34 / C2: para que el gate JUZGUE (y no BLOQUEE por identidad de snapshot desconocida),
+  // ambas corridas miden sobre el MISMO snapshot congelado designado ⇒ mismo `metaSnapshotVersion`
+  // concreto. Se usa la propia DB del motor de fixture como "snapshot".
+  process.env.D2K_META_SNAPSHOT = process.env.ENGINE_DB_PATH!;
 
   // Reference: corrida CON pro corpus (mismo split scratch, misma identidad de evaluación).
   const refPath = join(dir, "reference.json");
@@ -244,6 +249,11 @@ test("Task33 [4]+[5]: gate canónico read-only ⇒ B SKIPPED informational, --en
 
 test("Task33 [9] + EVALUATION IDENTITY: candidate missing-pro sigue siendo comparable con el reference", async () => {
   process.env.D2K_GOLDEN = writeGoldenFixture();
+  // Task 34 / C2: ambos artefactos se miden sobre el MISMO snapshot congelado ⇒ mismo
+  // `metaSnapshotVersion` concreto. Lo que este test verifica es que la AUSENCIA de pro corpus no
+  // rompe la comparabilidad — no que dos artefactos sin identidad de snapshot sean comparables
+  // (eso ahora BLOQUEA, fail closed).
+  process.env.D2K_META_SNAPSHOT = process.env.ENGINE_DB_PATH!;
 
   const refPath = join(dir, "reference.json");
   process.env.D2K_BASELINE_OUT = refPath;
@@ -263,6 +273,9 @@ test("Task33 [9] + EVALUATION IDENTITY: candidate missing-pro sigue siendo compa
   expect(candId.ok).toBe(true);
   if (!refId.ok || !candId.ok) return;
 
+  // ambos midieron sobre el mismo snapshot congelado ⇒ misma huella concreta `meta1:…`
+  expect(candId.identity.metaSnapshotVersion).toMatch(/^meta1:[0-9a-f]{64}$/);
+  expect(candId.identity.metaSnapshotVersion).toBe(refId.identity.metaSnapshotVersion);
   expect(isComparable(candId.identity, refId.identity).comparable).toBe(true);
 });
 
@@ -322,4 +335,136 @@ test("Task33 [10]: pro ausente ⇒ el productor no crea ni toca `pro-drafts.sqli
   expect(code).toBe(0);
   // el guard `existsSync` nunca abre la DB ⇒ el archivo sigue sin existir (cero creación/descarga).
   expect(existsSync(process.env.D2K_PRO_DB!)).toBe(false);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R0.2B — Task 34: identidad explícita + procedencia motor/harness + protección del baseline
+// histórico. (`.kiro/specs/r0-engineering-baseline-recovery/` Req 2A.2 c1/c5/c6/c7 / 2B.3.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+test("Task34 [11] — sin D2K_BASELINE_OUT explícito ⇒ exit 2, NO escribe nada", async () => {
+  delete process.env.D2K_BASELINE_OUT;
+  const before = require("node:fs").readdirSync(dir);
+  const code = await main();
+  expect(code).toBe(2);
+  // no se creó ningún archivo de salida nuevo (aparte de lo que ya había)
+  expect(require("node:fs").readdirSync(dir).sort()).toEqual(before.sort());
+});
+
+test("Task34 [11] — D2K_BASELINE_OUT apuntando a eval/baselines/v6-measured.json ⇒ exit 2 (no reescribe HISTORICAL_REFERENCE_S0)", async () => {
+  // `run.ts` compara rutas RESUELTAS contra la ruta canónica del baseline histórico y aborta
+  // ANTES de escribir nada. La ruta relativa resuelve igual con cualquier cwd.
+  process.env.D2K_BASELINE_OUT = "eval/baselines/v6-measured.json";
+  expect(await main()).toBe(2);
+  process.env.D2K_BASELINE_OUT = "./eval/baselines/../baselines/v6-measured.json"; // misma ruta, otra forma
+  expect(await main()).toBe(2);
+});
+
+test("Task34 [9] — el artifact trae un bloque `identity` EXPLÍCITO con las 4 claves", async () => {
+  process.env.D2K_GOLDEN = writeGoldenFixture();
+  const code = await main();
+  expect(code).toBe(0);
+  const frozen = JSON.parse(readFileSync(process.env.D2K_BASELINE_OUT!, "utf-8"));
+  expect(Object.keys(frozen.identity).sort()).toEqual([
+    "datasetVersion",
+    "evaluationProtocolVersion",
+    "metaSnapshotVersion",
+    "scoringModelFamily",
+  ]);
+  expect(frozen.identity.scoringModelFamily).toBe("SCORING_WEIGHTS_V6");
+  expect(frozen.identity.evaluationProtocolVersion).toBe("schema:1;patchOverride:dominant");
+  expect(frozen.identity.evaluationProtocolVersion).not.toContain("7.41e"); // sin patch concreto
+  // medido sobre la DB de trabajo (mutable) ⇒ NO se fabrica identidad de meta
+  expect(frozen.identity.metaSnapshotVersion).toBeNull();
+  expect(frozen.provenance.snapshotFileSha).toBeNull();
+});
+
+test("Task34 [10] — measuredEngineCommit puede diferir de evaluationHarnessCommit", async () => {
+  process.env.D2K_MEASURED_ENGINE_COMMIT = "df354b9c4ed415b86dba35dc92e2f84e5cb40e5d";
+  try {
+    const code = await main();
+    expect(code).toBe(0);
+    const frozen = JSON.parse(readFileSync(process.env.D2K_BASELINE_OUT!, "utf-8"));
+    expect(frozen.provenance.measuredEngineCommit).toBe("df354b9c4ed415b86dba35dc92e2f84e5cb40e5d");
+    expect(frozen.provenance.evaluationHarnessCommit).not.toBe("df354b9c4ed415b86dba35dc92e2f84e5cb40e5d");
+    // procedencia NUNCA entra en la identidad
+    expect(JSON.stringify(frozen.identity)).not.toContain("df354b9");
+  } finally {
+    delete process.env.D2K_MEASURED_ENGINE_COMMIT;
+  }
+});
+
+test("Task34 — D2K_META_SNAPSHOT designado ⇒ metaSnapshotVersion concreto (meta1:…) + snapshotFileSha", async () => {
+  // se usa la propia DB del motor de fixture como "snapshot congelado designado".
+  process.env.D2K_META_SNAPSHOT = process.env.ENGINE_DB_PATH!;
+  try {
+    const code = await main();
+    expect(code).toBe(0);
+    const frozen = JSON.parse(readFileSync(process.env.D2K_BASELINE_OUT!, "utf-8"));
+    expect(frozen.identity.metaSnapshotVersion).toMatch(/^meta1:[0-9a-f]{64}$/);
+    expect(frozen.provenance.snapshotFileSha).toMatch(/^[0-9a-f]{64}$/);
+    // la huella lógica y el sha crudo NO son el mismo valor
+    expect(frozen.provenance.snapshotFileSha).not.toBe(
+      frozen.identity.metaSnapshotVersion.slice("meta1:".length),
+    );
+  } finally {
+    delete process.env.D2K_META_SNAPSHOT;
+  }
+});
+
+test("Task34 — D2K_META_SNAPSHOT inexistente ⇒ exit 2", async () => {
+  process.env.D2K_META_SNAPSHOT = join(dir, "no-such-snapshot.sqlite");
+  try {
+    expect(await main()).toBe(2);
+  } finally {
+    delete process.env.D2K_META_SNAPSHOT;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 8 (Task 34 / C4) — acoplamiento MECÁNICO loadMeta ↔ fingerprint. Las dos proyecciones
+// SELECT se construyen desde el MISMO `META_INPUT_CONTRACT`; una divergencia rompe ambas y esta
+// prueba. FIX 9 (Task 34 / C5) — guard de caja del baseline histórico en Windows.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test("FIX8 — loadMeta y el fingerprint derivan sus SELECT del MISMO contrato (META_INPUT_CONTRACT)", () => {
+  const dbPath = process.env.ENGINE_DB_PATH!;
+  const { meta, metaFingerprint } = loadMeta(dbPath);
+
+  // el fingerprint que emite loadMeta == el que computa snapshot.ts sobre la misma DB: mismo contrato
+  expect(metaFingerprint).toBe(computeMetaSnapshotVersion(dbPath));
+
+  // el contrato aprobado, congelado columna por columna (candado de drift)
+  expect(META_INPUT_CONTRACT.heroes.columns).toEqual(["id", "localized_name", "roles"]);
+  expect(META_INPUT_CONTRACT.hero_patch_stats.columns).toEqual(["hero_id", "patch", "bracket", "picks", "wins"]);
+  expect(META_INPUT_CONTRACT.hero_matchups.columns).toEqual(["hero_id", "vs_hero_id", "games", "wins"]);
+  expect(metaInputSelect("heroes")).toBe("SELECT id, localized_name, roles FROM heroes");
+  expect(metaInputSelect("hero_patch_stats")).toBe(
+    "SELECT hero_id, patch, bracket, picks, wins FROM hero_patch_stats",
+  );
+  expect(metaInputSelect("hero_matchups")).toBe("SELECT hero_id, vs_hero_id, games, wins FROM hero_matchups");
+
+  // loadMeta proyecta EXACTAMENTE esas filas: reconstruyo por el mismo SELECT del contrato
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const heroRows = db.query(metaInputSelect("heroes")).all() as { id: number; localized_name: string }[];
+    expect(Object.keys(meta.heroes).length).toBe(heroRows.length);
+    for (const hr of heroRows) {
+      const h = (meta.heroes as Record<number, { localizedName: string }>)[hr.id];
+      expect(h).toBeDefined();
+      expect(h.localizedName).toBe(hr.localized_name);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+test("Task34 FIX9 [win32] — D2K_BASELINE_OUT con otra CAJA apunta al mismo HISTORICAL_REFERENCE_S0 ⇒ exit 2", async () => {
+  if (process.platform !== "win32") return; // guard case-insensitive: sólo Windows
+  process.env.D2K_BASELINE_OUT = "eval/baselines/V6-MEASURED.JSON";
+  expect(await main()).toBe(2);
+  process.env.D2K_BASELINE_OUT = "eval/baselines/V6-Measured.json";
+  expect(await main()).toBe(2);
+  process.env.D2K_BASELINE_OUT = "./eval/baselines/../baselines/V6-MEASURED.JSON"; // misma ruta, otra forma + caja
+  expect(await main()).toBe(2);
 });

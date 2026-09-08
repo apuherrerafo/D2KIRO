@@ -3,12 +3,20 @@ import { DEFAULT_TOL, evaluateGate, main, runMandatoryGate, type FrozenBaseline,
 import type { EvaluationIdentity } from "./evaluation-identity";
 import type { Tolerance } from "./null-perturbation";
 
+// Huella lógica de meta sintética pero VÁLIDA (`meta1:` + 64 hex) — Task 34 / C2: la identidad de
+// evaluación exige un `metaSnapshotVersion` concreto para que dos artefactos sean comparables.
+// `null` de cualquier lado ⇒ BLOCKED antes de evaluar métricas (ver bloque "R0 Task 34 / C2").
+const META_S1 = `meta1:${"a".repeat(64)}`;
+
 // Identidad de comparabilidad compartida por los tests de Task 8: mientras candidate y reference
-// declaren la MISMA, la verificación de Task 9 es un no-op y el comportamiento de Task 8 no cambia.
+// declaren la MISMA (las 4 dimensiones, `metaSnapshotVersion` incluido), la verificación de Task 9
+// es un no-op y el comportamiento de Task 8 no cambia. Shape real de `run.ts` (bloque `identity`
+// explícito, protocolo = REGLA `patchOverride:dominant`, nunca un patch concreto).
 const IDENT: EvaluationIdentity = {
   datasetVersion: "split:02dc8878;golden:30",
-  evaluationProtocolVersion: "schema:1;patch:7.41e",
+  evaluationProtocolVersion: "schema:1;patchOverride:dominant",
   scoringModelFamily: "SCORING_WEIGHTS_V6",
+  metaSnapshotVersion: META_S1,
 };
 
 // baseline mínimo con las formas que evaluateGate lee.
@@ -100,12 +108,20 @@ describe("gate CLI — --enforce (9.1)", () => {
     try {
       const bPath = join(dir, "baseline.json");
       const cPath = join(dir, "current.json");
-      // Task 9: los artefactos reales de `run.ts` traen los campos legacy que derivan la
-      // EvaluationIdentity. Sin ellos el gate BLOQUEA por "legacy sin identidad" (correcto, pero
-      // no es lo que estos tests de 9.1 miden). Se comparten idénticos ⇒ comparables.
-      const legacyIdentity = { schemaVersion: 1, splitHash: "02dc8878", patchOverride: "7.41e", corpusSize: { goldenCases: 30 } };
-      writeFileSync(bPath, JSON.stringify({ ...legacyIdentity, ...baselineObj }));
-      writeFileSync(cPath, JSON.stringify({ ...legacyIdentity, ...currentObj }));
+      // Task 9 + Task 34 / C2: estos tests de 9.1 ejercitan la MATEMÁTICA del gate (PASS/FAIL por
+      // NDCG@5), no la comparabilidad. Para eso ambos artefactos llevan un bloque `identity`
+      // EXPLÍCITO S1-style con el MISMO `metaSnapshotVersion` concreto — si fuera `null` el gate
+      // BLOQUEA antes de evaluar métricas (fail closed), que no es lo que acá se mide.
+      const s1Identity = {
+        identity: {
+          datasetVersion: "split:02dc8878;golden:30",
+          evaluationProtocolVersion: "schema:1;patchOverride:dominant",
+          scoringModelFamily: "SCORING_WEIGHTS_V6",
+          metaSnapshotVersion: META_S1,
+        },
+      };
+      writeFileSync(bPath, JSON.stringify({ ...s1Identity, ...baselineObj }));
+      writeFileSync(cPath, JSON.stringify({ ...s1Identity, ...currentObj }));
       process.env.D2K_BASELINE_OUT = bPath;
       process.env.D2K_GATE_CURRENT = cPath;
       if (tol) {
@@ -136,6 +152,34 @@ describe("gate CLI — --enforce (9.1)", () => {
   test("sin --enforce, la misma corrida que FALLA -> exit 0 (comportamiento 9.0 preservado)", async () => {
     const code = await runGate([], baseline({ ndcg5: 0.6 }), baseline({ ndcg5: 0.4 }), { ndcg5: 0.02 });
     expect(code).toBe(0);
+  });
+
+  // R0 Task 34 / C2 end-to-end: artefactos LEGACY cuya identidad SÍ se deriva (splitHash +
+  // schemaVersion + patchOverride) pero cuyo `metaSnapshotVersion` derivado es `null` ⇒ el CLI
+  // BLOQUEA en `--enforce` antes de evaluar métricas, aun cuando el candidate "mejora" NDCG@5.
+  test("C2 CLI — dos artefactos legacy sin identidad de snapshot (meta null) -> --enforce BLOCKED exit 1", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "d2k-gate-c2-"));
+    const prev = { b: process.env.D2K_BASELINE_OUT, c: process.env.D2K_GATE_CURRENT, t: process.env.D2K_TOLERANCE_OUT };
+    try {
+      const legacy = { schemaVersion: 1, splitHash: "02dc8878", patchOverride: "7.41e", corpusSize: { goldenCases: 30 } };
+      const bPath = join(dir, "baseline.json");
+      const cPath = join(dir, "current.json");
+      writeFileSync(bPath, JSON.stringify({ ...legacy, ...baseline({ ndcg5: 0.6 }) }));
+      writeFileSync(cPath, JSON.stringify({ ...legacy, ...baseline({ ndcg5: 0.9 }) })); // "mejora" aparente
+      const tPath = join(dir, "tol.json");
+      writeFileSync(tPath, JSON.stringify({ ...DEFAULT_TOL, ndcg5: 0.02 }));
+      process.env.D2K_BASELINE_OUT = bPath;
+      process.env.D2K_GATE_CURRENT = cPath;
+      process.env.D2K_TOLERANCE_OUT = tPath;
+      const code = await main(["--enforce"]);
+      expect(code).toBe(1); // BLOCKED (incomparable) — nunca un PASS silencioso por "NDCG@5 subió"
+    } finally {
+      for (const [k, v] of [["D2K_BASELINE_OUT", prev.b], ["D2K_GATE_CURRENT", prev.c], ["D2K_TOLERANCE_OUT", prev.t]] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -311,8 +355,9 @@ describe("runMandatoryGate — integración de comparabilidad (CP8 parte A) con 
   const base = full();
 
   const otherDataset: EvaluationIdentity = { ...IDENT, datasetVersion: "split:99999999;golden:30" };
-  const otherProtocol: EvaluationIdentity = { ...IDENT, evaluationProtocolVersion: "schema:2;patch:7.41e" };
+  const otherProtocol: EvaluationIdentity = { ...IDENT, evaluationProtocolVersion: "schema:2;patchOverride:dominant" };
   const otherFamily: EvaluationIdentity = { ...IDENT, scoringModelFamily: "SCORING_WEIGHTS_V7" };
+  const noMetaIdent: EvaluationIdentity = { ...IDENT, metaSnapshotVersion: null };
 
   function run(over: Partial<Parameters<typeof runMandatoryGate>[0]>) {
     return runMandatoryGate({
@@ -399,5 +444,63 @@ describe("runMandatoryGate — integración de comparabilidad (CP8 parte A) con 
     const v = run({ candidateIdentity: { ...IDENT } });
     expect(v.status).toBe<GateStatus>("PASS");
     expect(v.comparability?.comparable).toBe(true);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // R0 Task 34 / C2 — FAIL CLOSED sobre `metaSnapshotVersion`. Identidad de snapshot
+  // DESCONOCIDA nunca prueba igualdad: `null` de cualquier lado (incl. `null` vs `null`)
+  // ⇒ BLOCKED ANTES de tocar `evaluateGate()`. Cobertura legacy explícita — NO se elimina.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  test("C2·A — HISTORICAL_REFERENCE_S0 contra sí mismo (sin metaSnapshotVersion) -> BLOCKED, sin evaluar métricas", () => {
+    const v = run({ candidate: null, candidateIdentity: null, referenceIdentity: noMetaIdent });
+    expect(v.status).toBe<GateStatus>("BLOCKED");
+    expect(v.status).not.toBe("PASS");
+    expect(v.comparability?.comparable).toBe(false);
+    expect(v.comparability?.mismatchedDimensions).toEqual(["metaSnapshotVersion"]);
+    expect(v.comparability?.historicalReferenceS0).toBe(true);
+    // la matemática de regresión NUNCA se ejecutó sobre evidencia sin identidad de snapshot
+    expect(v.reasons.join(" ")).not.toContain("NDCG@5");
+    expect(v.exitCode).toBe(1);
+  });
+
+  test("C2·B — candidate fresco SIN metaSnapshotVersion vs reference S1 concreto -> BLOCKED (historicalReferenceS0)", () => {
+    const v = run({
+      candidate: full({ ndcg5: 0.4 }),
+      candidateIdentity: noMetaIdent,
+      referenceIdentity: IDENT,
+      tolerance: { ...DEFAULT_TOL, ndcg5: 0.02 },
+    });
+    expect(v.status).toBe<GateStatus>("BLOCKED");
+    expect(v.comparability?.comparable).toBe(false);
+    expect(v.comparability?.historicalReferenceS0).toBe(true);
+    // NDCG@5 desplomado ADEMÁS: el motivo sigue siendo incomparabilidad, nunca "NDCG@5 bajó".
+    expect(v.reasons.join(" ")).not.toContain("NDCG@5 bajó");
+  });
+
+  test("C2·C — dos artefactos con dataset/protocolo/scoring IGUALES pero sin identidad de snapshot -> BLOCKED", () => {
+    const v = run({
+      candidate: full(),
+      candidateIdentity: noMetaIdent,
+      referenceIdentity: noMetaIdent,
+    });
+    expect(v.status).toBe<GateStatus>("BLOCKED");
+    expect(v.comparability?.comparable).toBe(false);
+    expect(v.comparability?.mismatchedDimensions).toEqual(["metaSnapshotVersion"]);
+    expect(v.reasons.join(" ")).not.toContain("NDCG@5");
+  });
+
+  test("C2·D — dos artefactos S1 con las 4 dimensiones iguales -> corre la MATEMÁTICA del gate (FAIL por NDCG, no BLOCKED)", () => {
+    const v = run({
+      candidate: full({ ndcg5: 0.4 }),
+      reference: full({ ndcg5: 0.6 }),
+      candidateIdentity: { ...IDENT },
+      referenceIdentity: { ...IDENT },
+      tolerance: { ...DEFAULT_TOL, ndcg5: 0.02 },
+    });
+    expect(v.comparability?.comparable).toBe(true);
+    expect(v.status).toBe<GateStatus>("FAIL");
+    expect(v.reasons.join(" ")).toContain("NDCG@5");
+    expect(v.exitCode).toBe(1);
   });
 });

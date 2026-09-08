@@ -16,6 +16,15 @@ apps/engine/data/pro-drafts.sqlite
 eval/reports/*
 !eval/reports/.gitkeep
 
+# R0 Task 34 (Req 2B.3 c1/c2): S1 = snapshot de meta CONGELADO para evaluación. Se versiona con
+# git NORMAL (~1–2 MB, sin Git LFS). Excepción ACOTADA: cualquier otro .sqlite / WAL / SHM bajo
+# eval/snapshots/ (temporales del builder) queda ignorado; SÓLO S1.sqlite se trackea. No se
+# des-ignora *.sqlite en general (eso vive en apps/engine/.gitignore, sin cambios).
+eval/snapshots/*.sqlite
+eval/snapshots/*.sqlite-wal
+eval/snapshots/*.sqlite-shm
+!eval/snapshots/S1.sqlite
+
 # TSK-217: artefactos del E2E (copia de la base, cookie sellada, trazas)
 e2e/.tmp/
 test-results/

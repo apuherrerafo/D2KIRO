@@ -12,6 +12,7 @@
 import { Database } from "bun:sqlite";
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 import type { MetaSnapshot } from "../../apps/engine/src/signals/types";
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import { buildSuggestions } from "../../apps/engine/src/signals/mix";
@@ -23,6 +24,14 @@ import { loadGoldenDataset, type GoldenCase } from "./golden";
 import { dominantPatch } from "./replay";
 import { renderReport, type EvidenceProfile, type ReportMeta } from "./report";
 import { loadOrCreateSplit, type FrozenSplit } from "./split";
+import { ACTIVE_SCORING_MODEL_FAMILY, LEGACY_PROTOCOL_PATCH_RULE } from "./evaluation-identity";
+import { fingerprintOpenDb, metaInputSelect, rawFileSha256 } from "./snapshot";
+
+// R0.2B — Task 34: `run.ts` no re-apunta el baseline aceptado por defecto. `HISTORICAL_REFERENCE_S0`
+// (`eval/baselines/v6-measured.json`) es INMUTABLE (Req 2A.2 c8) — `run.ts` se niega a escribir ahí,
+// y exige una ruta de salida EXPLÍCITA (design §4.2: "require explicit candidate output").
+const HISTORICAL_REFERENCE_S0_PATH = "eval/baselines/v6-measured.json";
+const SCHEMA_VERSION = 1;
 
 // Se leen dentro de main() (no a nivel de módulo) para que los tests puedan sobrescribir
 // process.env antes de cada corrida.
@@ -31,9 +40,15 @@ function paths() {
     PRO_DB: process.env.D2K_PRO_DB ?? "apps/engine/data/pro-drafts.sqlite",
     ENGINE_DB: process.env.ENGINE_DB_PATH ?? "apps/engine/data/dota2coach.sqlite",
     GOLDEN_PATH: process.env.D2K_GOLDEN ?? "eval/golden/dataset.json",
-    BASELINE_PATH: process.env.D2K_BASELINE_OUT ?? "eval/baselines/v6-measured.json",
+    // R0.2B — Task 34: SIN default. `run.ts` exige una ruta de salida explícita y NUNCA escribe
+    // el `HISTORICAL_REFERENCE_S0` (`v6-measured.json`).
+    BASELINE_PATH: process.env.D2K_BASELINE_OUT ?? null,
     REPORTS_DIR: process.env.D2K_REPORTS_DIR ?? "eval/reports",
     SPLIT_OUT: process.env.D2K_SPLIT_OUT ?? "eval/baselines/split.json",
+    // R0.2B — Task 34: si está, `run.ts` mide sobre el snapshot de meta CONGELADO designado
+    // (p.ej. `eval/snapshots/S1.sqlite`) y emite su `metaSnapshotVersion` concreto. Si NO está,
+    // se mide sobre la DB de trabajo (mutable, NO reproducible ⇒ `metaSnapshotVersion: null`).
+    META_SNAPSHOT: process.env.D2K_META_SNAPSHOT ?? null,
   };
 }
 
@@ -43,6 +58,16 @@ function gitCommit(): string {
   } catch {
     return "unknown";
   }
+}
+
+/**
+ * Procedencia del motor medido — Task 34 / Req 2A.2 c7: NO se infiere ciegamente de
+ * `git rev-parse HEAD`. Para el candidate CURRENT normal, `measuredEngineCommit == HEAD`; para el
+ * overlay de la Task 35, el llamador pasa `D2K_MEASURED_ENGINE_COMMIT=df354b9…`. El
+ * `evaluationHarnessCommit` es siempre el HEAD que corre este harness.
+ */
+function measuredEngineCommit(): string {
+  return process.env.D2K_MEASURED_ENGINE_COMMIT?.trim() || gitCommit();
 }
 
 function splitHash(split: FrozenSplit): string {
@@ -55,11 +80,21 @@ function splitHash(split: FrozenSplit): string {
 // Réplica del mapeo de buildSharedMetaSnapshot (apps/engine/src/meta/provider.ts): es una copia
 // directa tabla→struct, sin lógica, así que no hay riesgo de drift. Con accountId:null el overlay
 // de cuenta es {heroPool:[], personalBaselineWinrate:null}. Se lee READONLY para no mutar el dato.
-function loadMeta(engineDbPath: string): { meta: MetaSnapshot; syncedAt: string | null } {
+//
+// FIX 8 (Task 34 / Req 2B.3 c4): las proyecciones SELECT de las tres tablas de meta salen de
+// `metaInputSelect(...)` — el MISMO contrato (`META_INPUT_CONTRACT` en `snapshot.ts`) que usa el
+// lector del fingerprint `readLogicalMetaInputs()`. Lo que el harness MIDE y lo que
+// `metaSnapshotVersion` REPRESENTA no pueden divergir sin tocar ese contrato (y su prueba).
+export function loadMeta(engineDbPath: string): {
+  meta: MetaSnapshot;
+  syncedAt: string | null;
+  /** Huella de contenido lógico de ESTA DB (`meta1:<sha256>`; ver `snapshot.ts`). Siempre se calcula. */
+  metaFingerprint: string;
+} {
   const db = new Database(engineDbPath, { readonly: true });
   try {
     const heroes: Record<number, { id: number; localizedName: string; roles?: string[] }> = {};
-    for (const r of db.query("SELECT id, localized_name AS ln, roles FROM heroes").all() as { id: number; ln: string; roles: string }[]) {
+    for (const r of db.query(metaInputSelect("heroes")).all() as { id: number; localized_name: string; roles: string }[]) {
       let roles: string[] = [];
       try {
         const parsed = JSON.parse(r.roles);
@@ -67,28 +102,28 @@ function loadMeta(engineDbPath: string): { meta: MetaSnapshot; syncedAt: string 
       } catch {
         roles = [];
       }
-      heroes[r.id] = { id: r.id, localizedName: r.ln, roles };
+      heroes[r.id] = { id: r.id, localizedName: r.localized_name, roles };
     }
 
     const matchups: Record<number, { vsHero: number; games: number; wins: number }[]> = {};
-    for (const r of db.query("SELECT hero_id AS h, vs_hero_id AS v, games, wins FROM hero_matchups").all() as {
-      h: number;
-      v: number;
+    for (const r of db.query(metaInputSelect("hero_matchups")).all() as {
+      hero_id: number;
+      vs_hero_id: number;
       games: number;
       wins: number;
     }[]) {
-      (matchups[r.h] ??= []).push({ vsHero: r.v, games: r.games, wins: r.wins });
+      (matchups[r.hero_id] ??= []).push({ vsHero: r.vs_hero_id, games: r.games, wins: r.wins });
     }
 
     const patchStats: Record<number, { patch: string; bracket: string; picks: number; wins: number }[]> = {};
-    for (const r of db.query("SELECT hero_id AS h, patch, bracket, picks, wins FROM hero_patch_stats").all() as {
-      h: number;
+    for (const r of db.query(metaInputSelect("hero_patch_stats")).all() as {
+      hero_id: number;
       patch: string;
       bracket: string;
       picks: number;
       wins: number;
     }[]) {
-      (patchStats[r.h] ??= []).push({ patch: r.patch, bracket: r.bracket, picks: r.picks, wins: r.wins });
+      (patchStats[r.hero_id] ??= []).push({ patch: r.patch, bracket: r.bracket, picks: r.picks, wins: r.wins });
     }
 
     let syncedAt: string | null = null;
@@ -104,6 +139,7 @@ function loadMeta(engineDbPath: string): { meta: MetaSnapshot; syncedAt: string 
     return {
       meta: { heroes, matchups, patchStats, heroPool: [], personalBaselineWinrate: null } as unknown as MetaSnapshot,
       syncedAt,
+      metaFingerprint: fingerprintOpenDb(db),
     };
   } finally {
     db.close();
@@ -199,7 +235,43 @@ function stableStringify(value: unknown): string {
 
 async function main(): Promise<number> {
   const P = paths();
-  const { meta, syncedAt } = loadMeta(P.ENGINE_DB);
+
+  // R0.2B — Task 34 / Part 10: `run.ts` NUNCA sobrescribe el `HISTORICAL_REFERENCE_S0` y exige
+  // una ruta de salida explícita. Sin ella (o apuntando al baseline histórico) ⇒ error, sin escribir.
+  if (P.BASELINE_PATH === null) {
+    process.stderr.write(
+      "\nERROR: falta la ruta de salida del candidate. Definí D2K_BASELINE_OUT con una ruta " +
+        "EXPLÍCITA (nunca eval/baselines/v6-measured.json). `run.ts` no escribe un baseline por defecto.\n",
+    );
+    return 2;
+  }
+  // FIX 9 (Task 34) — en Windows el filesystem es case-insensitive: `eval/baselines/V6-MEASURED.JSON`
+  // apunta al MISMO archivo histórico que `v6-measured.json`. Se compara en minúsculas SÓLO en win32
+  // (POSIX es case-sensitive y no debe relajarse). No es un rediseño de symlinks/junctions — sólo
+  // el mismo path con otra caja.
+  const casefold = (p: string): string => {
+    const s = p.replace(/\\/g, "/");
+    return process.platform === "win32" ? s.toLowerCase() : s;
+  };
+  const resolvedOut = casefold(resolvePath(P.BASELINE_PATH));
+  if (
+    resolvedOut === casefold(resolvePath(HISTORICAL_REFERENCE_S0_PATH)) ||
+    resolvedOut.endsWith(`/${casefold(HISTORICAL_REFERENCE_S0_PATH)}`)
+  ) {
+    process.stderr.write(
+      `\nERROR: ${HISTORICAL_REFERENCE_S0_PATH} es HISTORICAL_REFERENCE_S0 (inmutable, Req 2A.2 c8). ` +
+        "`run.ts` nunca lo sobrescribe. Elegí otra ruta de salida.\n",
+    );
+    return 2;
+  }
+
+  // Fuente de meta: el snapshot CONGELADO designado (D2K_META_SNAPSHOT), o la DB de trabajo.
+  const metaDbPath = P.META_SNAPSHOT ?? P.ENGINE_DB;
+  if (P.META_SNAPSHOT !== null && !existsSync(P.META_SNAPSHOT)) {
+    process.stderr.write(`\nERROR: D2K_META_SNAPSHOT apunta a un archivo inexistente: ${P.META_SNAPSHOT}\n`);
+    return 2;
+  }
+  const { meta, syncedAt, metaFingerprint } = loadMeta(metaDbPath);
   const knownHeroIds = new Set(Object.keys(meta.heroes).map(Number));
 
   // SPEC §16.4 — fuerza el patch semántico del meta sobre el `state` del replay, para que
@@ -258,10 +330,31 @@ async function main(): Promise<number> {
     return 1;
   }
 
+  // R0.2B — Task 34: bloque `identity` EXPLÍCITO (Req 2A.2 c1/c5/c9) — ya no se depende sólo de
+  // la derivación legacy. `metaSnapshotVersion` es concreto SÓLO si se midió sobre un snapshot
+  // congelado designado (D2K_META_SNAPSHOT); sobre la DB de trabajo (mutable, no reproducible,
+  // Req 2B.3 c4) es `null` — no se fabrica una identidad de meta.
+  const usedFrozenSnapshot = P.META_SNAPSHOT !== null;
+  const identity = {
+    datasetVersion: `split:${meta_.splitHash};golden:${golden.cases.length}`,
+    evaluationProtocolVersion: `schema:${SCHEMA_VERSION};${LEGACY_PROTOCOL_PATCH_RULE}`,
+    scoringModelFamily: ACTIVE_SCORING_MODEL_FAMILY,
+    metaSnapshotVersion: usedFrozenSnapshot ? metaFingerprint : null,
+  };
+  // R0.2B — Task 34: PROCEDENCIA (Req 2A.2 c6/c7) — NO decide `isComparable()`. `measuredEngineCommit`
+  // no se infiere ciegamente de HEAD; para la Task 35 el llamador pasa `D2K_MEASURED_ENGINE_COMMIT`.
+  const provenance = {
+    measuredEngineCommit: measuredEngineCommit(),
+    evaluationHarnessCommit: gitCommit(),
+    snapshotFileSha: usedFrozenSnapshot ? rawFileSha256(P.META_SNAPSHOT as string) : null,
+  };
+
   // baseline congelado — sin generatedAt para que sea reproducible byte a byte
   const frozen = {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     commit: meta_.commit,
+    identity,
+    provenance,
     splitHash: meta_.splitHash,
     snapshotSyncedAt: meta_.snapshotSyncedAt,
     patchOverride: meta_.patchOverride,
