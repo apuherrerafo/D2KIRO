@@ -963,7 +963,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
     trazabilidad, no approval de acción sensible).
   - _Requirements: 2B.1 (y la política de sub-checks de 2A.1)_
 
-- [ ] 34. [R0.2B] Snapshot de meta reproducible (S1) + `EvaluationIdentity` con `metaSnapshotVersion`
+- [x] 34. [R0.2B] Snapshot de meta reproducible (S1) + `EvaluationIdentity` con `metaSnapshotVersion`
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
   - **Origen (replan aceptado por el PO):** la ejecución de R0 alcanzó la tarea 19 y se detuvo —
     `Task 19 Identity Preflight = BLOCKED`, `Snapshot Recovery Preflight = NO_TRUSTWORTHY_SNAPSHOT`. El
