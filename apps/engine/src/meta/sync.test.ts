@@ -93,6 +93,36 @@ test("syncMeta escribe heroes, patch stats y matchups desde fixtures, sin red re
   expect(result.rowsWritten).toBe(3 + 2 * 8 + 2);
 });
 
+test("syncMeta separa los pedidos seriales de matchups con un margen conservador", async () => {
+  const db = createTestDb();
+  const sleeps: number[] = [];
+  const matchupCalls: string[] = [];
+  const client = new OpenDotaClient({
+    fetchImpl: fixtureFetch({
+      "https://api.opendota.com/api/heroes/2/matchups": () => {
+        matchupCalls.push("hero-2");
+        return new Response(JSON.stringify(matchups1Fixture), { status: 200 });
+      },
+      "https://api.opendota.com/api/heroes/3/matchups": () => {
+        matchupCalls.push("hero-3");
+        return new Response(JSON.stringify(matchups1Fixture), { status: 200 });
+      },
+    }),
+    sleepImpl: async () => {},
+  });
+
+  const result = await syncMeta(db, client, {
+    patch: "7.36",
+    heroIdsForMatchups: [1, 2, 3],
+    matchupSleepImpl: async (ms) => {
+      sleeps.push(ms);
+    },
+  });
+
+  expect(result.status).toBe("ok");
+  expect(matchupCalls).toEqual(["hero-2", "hero-3"]);
+  expect(sleeps).toEqual([1600, 1600]);
+});
 test("syncMeta descarta registros inválidos y los cuenta en el error de meta_sync", async () => {
   const db = createTestDb();
   const heroesWithOneInvalid = [...heroesFixture, { id: "not-a-number" }];
@@ -181,4 +211,41 @@ test("syncMeta invalida la cache de MetaSnapshot incluso si la sync falla (escri
 
   expect(result.status).toBe("failed");
   expect(after).not.toBe(before);
+});
+
+test("syncMeta conserva el pacing serial después de recuperarse de un 429", async () => {
+  const db = createTestDb();
+  const events: string[] = [];
+  let hero2Attempt = 0;
+  const client = new OpenDotaClient({
+    fetchImpl: fixtureFetch({
+      "https://api.opendota.com/api/heroes/1/matchups": () => {
+        events.push("matchup-1");
+        return new Response(JSON.stringify(matchups1Fixture), { status: 200 });
+      },
+      "https://api.opendota.com/api/heroes/2/matchups": () => {
+        hero2Attempt++;
+        events.push(hero2Attempt === 1 ? "matchup-2-429" : "matchup-2-ok");
+        return hero2Attempt === 1
+          ? new Response("{}", { status: 429 })
+          : new Response(JSON.stringify(matchups1Fixture), { status: 200 });
+      },
+      "https://api.opendota.com/api/heroes/3/matchups": () => {
+        events.push("matchup-3");
+        return new Response(JSON.stringify(matchups1Fixture), { status: 200 });
+      },
+    }),
+    sleepImpl: async (ms) => { events.push(`retry-${ms}`); },
+  });
+
+  const result = await syncMeta(db, client, {
+    patch: "7.36",
+    heroIdsForMatchups: [1, 2, 3],
+    matchupSleepImpl: async (ms) => { events.push(`pacing-${ms}`); },
+  });
+
+  expect(result.status).toBe("ok");
+  expect(events).toEqual([
+    "matchup-1", "pacing-1600", "matchup-2-429", "retry-60000", "matchup-2-ok", "pacing-1600", "matchup-3",
+  ]);
 });

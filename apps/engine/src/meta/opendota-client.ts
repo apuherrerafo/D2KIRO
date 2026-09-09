@@ -1,13 +1,71 @@
 const BASE_URL = "https://api.opendota.com/api";
-const RETRY_DELAYS_MS = [1000, 4000, 16000];
+const NETWORK_RETRY_DELAYS_MS = [1000, 4000, 16000];
+const RATE_LIMIT_FALLBACK_WAIT_MS = 60_000;
 const REQUEST_TIMEOUT_MS = 10_000;
+const MAX_RATE_LIMIT_WAIT_MS = 120_000;
 
 type FetchImpl = typeof fetch;
+type Clock = () => number;
 
 export interface OpenDotaClientOptions {
   baseUrl?: string;
   fetchImpl?: FetchImpl;
   sleepImpl?: (ms: number) => Promise<void>;
+  nowImpl?: Clock;
+}
+
+export interface OpenDotaRateLimitMetadata {
+  retryAfterMs?: number;
+  resetAfterMs?: number;
+  remainingMinute?: number;
+  remainingDay?: number;
+}
+
+function parseNonNegativeInteger(value: string | null): number | undefined {
+  if (value === null || !/^\d+$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+function secondsToTimerDelay(seconds: number): number | undefined {
+  const milliseconds = seconds * 1000;
+  return milliseconds > 0 && milliseconds <= MAX_RATE_LIMIT_WAIT_MS ? milliseconds : undefined;
+}
+
+function parseRetryAfter(value: string | null, nowMs: number): number | undefined {
+  if (value === null) return undefined;
+  const seconds = parseNonNegativeInteger(value);
+  if (seconds !== undefined) return secondsToTimerDelay(seconds);
+
+  const retryAtMs = Date.parse(value);
+  if (!Number.isFinite(retryAtMs)) return undefined;
+  const delayMs = Math.ceil(retryAtMs - nowMs);
+  return delayMs > 0 && delayMs <= MAX_RATE_LIMIT_WAIT_MS ? delayMs : undefined;
+}
+
+function parseResetAfter(headers: Headers, nowMs: number): number | undefined {
+  const resetAfterSeconds = parseNonNegativeInteger(headers.get("x-rate-limit-reset-after"));
+  if (resetAfterSeconds !== undefined) return secondsToTimerDelay(resetAfterSeconds);
+
+  // X-Rate-Limit-Reset es inequívoco sólo cuando representa un epoch Unix futuro.
+  const resetEpochSeconds = parseNonNegativeInteger(headers.get("x-rate-limit-reset"));
+  if (resetEpochSeconds === undefined) return undefined;
+  const delayMs = Math.ceil(resetEpochSeconds * 1000 - nowMs);
+  return delayMs > 0 && delayMs <= MAX_RATE_LIMIT_WAIT_MS ? delayMs : undefined;
+}
+
+export function parseRateLimitHeaders(headers: Headers, nowMs = Date.now()): OpenDotaRateLimitMetadata {
+  const metadata: OpenDotaRateLimitMetadata = {};
+  const retryAfterMs = parseRetryAfter(headers.get("retry-after"), nowMs);
+  const resetAfterMs = parseResetAfter(headers, nowMs);
+  const remainingMinute = parseNonNegativeInteger(headers.get("x-rate-limit-remaining-minute"));
+  const remainingDay = parseNonNegativeInteger(headers.get("x-rate-limit-remaining-day"));
+
+  if (retryAfterMs !== undefined) metadata.retryAfterMs = retryAfterMs;
+  if (resetAfterMs !== undefined) metadata.resetAfterMs = resetAfterMs;
+  if (remainingMinute !== undefined) metadata.remainingMinute = remainingMinute;
+  if (remainingDay !== undefined) metadata.remainingDay = remainingDay;
+  return metadata;
 }
 
 function defaultSleep(ms: number): Promise<void> {
@@ -30,11 +88,13 @@ export class OpenDotaClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: FetchImpl;
   private readonly sleepImpl: (ms: number) => Promise<void>;
+  private readonly nowImpl: Clock;
 
   constructor(options: OpenDotaClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? BASE_URL;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.sleepImpl = options.sleepImpl ?? defaultSleep;
+    this.nowImpl = options.nowImpl ?? Date.now;
   }
 
   getHeroes(): Promise<unknown> {
@@ -97,13 +157,13 @@ export class OpenDotaClient {
     return response.json();
   }
 
-  // Reintento con espera creciente (1s, 4s, 16s), máximo 3 reintentos además del intento
-  // original — tanto un 429 como una excepción de red (caída/sin internet) cuentan igual.
+  // Máximo 3 reintentos además del original. Errores de red conservan 1s/4s/16s;
+  // un 429 usa Retry-After, luego reset inequívoco y, si faltan, una ventana de 60s.
   private async fetchWithRetry(url: string): Promise<Response> {
     let lastError: unknown;
     let response: Response | null = null;
 
-    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    for (let attempt = 0; attempt <= NETWORK_RETRY_DELAYS_MS.length; attempt++) {
       try {
         response = await this.fetchImpl(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
         lastError = undefined;
@@ -112,17 +172,21 @@ export class OpenDotaClient {
         response = null;
       }
 
+      const rateLimit = response === null ? undefined : parseRateLimitHeaders(response.headers, this.nowImpl());
       if (response !== null && response.status !== 429) return response;
 
-      const isLastAttempt = attempt === RETRY_DELAYS_MS.length;
+      const isLastAttempt = attempt === NETWORK_RETRY_DELAYS_MS.length;
       if (isLastAttempt) break;
 
-      await this.sleepImpl(RETRY_DELAYS_MS[attempt]!);
+      const delayMs = response?.status === 429
+        ? rateLimit?.retryAfterMs ?? rateLimit?.resetAfterMs ?? RATE_LIMIT_FALLBACK_WAIT_MS
+        : NETWORK_RETRY_DELAYS_MS[attempt]!;
+      await this.sleepImpl(delayMs);
     }
 
     if (response) return response;
     throw new OpenDotaRequestError(
-      `OpenDota no respondió tras ${RETRY_DELAYS_MS.length} reintentos en ${url}: ${String(lastError)}`,
+      `OpenDota no respondió tras ${NETWORK_RETRY_DELAYS_MS.length} reintentos en ${url}: ${String(lastError)}`,
       url,
     );
   }

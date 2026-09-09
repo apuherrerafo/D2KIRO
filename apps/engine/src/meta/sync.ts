@@ -8,12 +8,13 @@ import { mapHero, mapHeroStatsRow, mapMatchup, type HeroMatchupRow, type HeroPat
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
 type Clock = () => string;
+type Sleep = (ms: number) => Promise<void>;
 
 // OpenDota sin API key limita a ~60 req/min. `syncMatchups` pide /heroes/{id}/matchups por cada
 // héroe (~130) en serie -- sin pausa, agota el presupuesto a mitad de camino y devuelve 429
-// (error real en prod 2026-08-30: "OpenDota respondió 429 en /heroes/72/matchups"). 1200 ms entre
-// pedidos deja ~50/min, debajo del límite; la sync corre en segundo plano (~2.5 min), no bloquea.
-const MATCHUP_DELAY_MS = 1200;
+// (error real en prod 2026-08-30: "OpenDota respondió 429 en /heroes/72/matchups"). 1600 ms entre
+// pedidos deja ~37.5/min, un margen de 37.5% bajo el límite; corre en segundo plano.
+const MATCHUP_DELAY_MS = 1600;
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -23,6 +24,7 @@ export interface SyncMetaOptions {
   now?: Clock;
   // Pausa entre cada pedido de matchups (default MATCHUP_DELAY_MS). Los tests lo bajan a 0.
   matchupDelayMs?: number;
+  matchupSleepImpl?: Sleep;
 }
 
 export interface SyncMetaResult {
@@ -65,7 +67,15 @@ export async function runMetaSync<TSchema extends Record<string, unknown>>(
   try {
     rowsWritten += await syncHeroes(db, client, now, issues);
     rowsWritten += await syncPatchStats(db, client, options.patch, now, issues);
-    rowsWritten += await syncMatchups(db, client, options.heroIdsForMatchups, now, issues, options.matchupDelayMs ?? MATCHUP_DELAY_MS);
+    rowsWritten += await syncMatchups(
+      db,
+      client,
+      options.heroIdsForMatchups,
+      now,
+      issues,
+      options.matchupDelayMs ?? MATCHUP_DELAY_MS,
+      options.matchupSleepImpl ?? sleep,
+    );
 
     const errorSummary = issues.length > 0 ? issues.join("; ") : null;
     db.update(metaSync)
@@ -167,12 +177,13 @@ async function syncMatchups<TSchema extends Record<string, unknown>>(
   now: Clock,
   issues: string[],
   delayMs: number,
+  sleepImpl: Sleep,
 ): Promise<number> {
   let written = 0;
 
   for (let i = 0; i < heroIds.length; i++) {
     const heroId = heroIds[i]!;
-    if (i > 0 && delayMs > 0) await sleep(delayMs); // ritmo para no gatillar el 429 de OpenDota
+    if (i > 0 && delayMs > 0) await sleepImpl(delayMs); // ritmo para no gatillar el 429 de OpenDota
     const raw = await client.getMatchups(heroId);
     if (!Array.isArray(raw)) {
       issues.push(`Respuesta de /heroes/${heroId}/matchups no es un array — omitido`);
