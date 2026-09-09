@@ -1,0 +1,38 @@
+{
+  "createdAt": "2026-09-09T03:58:44.982Z",
+  "dominantPatch": "7.41e",
+  "evaluationHarnessCommit": "3912f9b45072463ab3292faf797a4b6f00caf57d",
+  "measuredEngineCommit": "3912f9b45072463ab3292faf797a4b6f00caf57d",
+  "metaSnapshotVersion": "meta1:719c55caf22a9bf06e8e74428c201851ff3749ac61042ca19be44b31a01d293f",
+  "patchLabel": "7.41e",
+  "patchLabelSource": "apps/engine/src/server/routes/meta.ts::CURRENT_PATCH",
+  "rowCounts": {
+    "hero_matchups": 15984,
+    "hero_patch_stats": 1016,
+    "heroes": 127
+  },
+  "schemaTag": "meta-eval-inputs/v1",
+  "snapshotFileSha": "de7520a6af84a6a3eaad191b35ae81dade586914e1f41ccd2bdb838aa87d6478",
+  "snapshotFormatVersion": 1,
+  "sourceSync": {
+    "finishedAt": "2026-09-09T03:58:44.656Z",
+    "status": "ok"
+  },
+  "validation": {
+    "distinctHeroIds": {
+      "matchups": 127,
+      "patchStats": 127
+    },
+    "dominantPatch": "7.41e",
+    "heroesWithoutPatchStats": 0,
+    "rowCounts": {
+      "hero_matchups": 15984,
+      "hero_patch_stats": 1016,
+      "heroes": 127
+    },
+    "sourceSync": {
+      "finishedAt": "2026-09-09T03:58:44.656Z",
+      "status": "ok"
+    }
+  }
+}
