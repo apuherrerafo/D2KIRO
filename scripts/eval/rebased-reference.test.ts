@@ -132,11 +132,12 @@ test("runner environment writes only the temporary reference path, retains curre
 });
 
 test("dirty primary tree refuses evidence-producing execution before a worktree can be created", () => {
+  const root = temp("d2k-dirty-primary-"); const isolatedOutput = join(root, REBASED_OUTPUT);
   expect(() => requireCleanCommittedTree("fixture", (_program, args) => {
     expect(args).toEqual(["status", "--porcelain"]);
     return " M scripts/eval/run.ts";
   })).toThrow("clean committed primary worktree");
-  expect(existsSync(REBASED_OUTPUT)).toBe(false);
+  expect(existsSync(isolatedOutput)).toBe(false);
 });
 
 test("cleanup removes only the disposable worktree and preserves the primary failure if cleanup also fails", () => {
