@@ -1040,7 +1040,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
     de acción sensible/irreversible).
   - _Requirements: 2B.3 (y 2A.2 c5–c9)_
 
-- [ ] 35. [R0.2B] Control V6 rebasado sobre S1 + cableado de la comparación de la tarea 19
+- [x] 35. [R0.2B] Control V6 rebasado sobre S1 + cableado de la comparación de la tarea 19
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
   - **Responsabilidad (no mezclar):** la tarea 35 produce `REBASED_REFERENCE(S1)` (el control V6
     rebasado) y el cableado **acotado** para que la tarea 19 lo consuma. La tarea 19 **evalúa**; la
