@@ -141,7 +141,10 @@ export function evaluationEnvironment(worktree: string): NodeJS.ProcessEnv {
     D2K_GOLDEN: join(worktree, "eval/golden/dataset.json"),
     D2K_BASELINE_OUT: join(worktree, "eval/baselines/.reference.s1.generated.json"),
     D2K_REPORTS_DIR: join(worktree, "eval/reports"),
-    D2K_SPLIT_OUT: join(worktree, "eval/baselines/.reference.s1.split.json"),
+    // The committed split is the frozen comparison assignment. The disposable
+    // worktree already contains it, so `run.ts` must load it rather than create
+    // a task-specific scratch split when the pro corpus is unavailable.
+    D2K_SPLIT_OUT: join(worktree, "eval/baselines/split.json"),
     D2K_MEASURED_ENGINE_COMMIT: HISTORICAL_ENGINE_COMMIT,
   };
 }

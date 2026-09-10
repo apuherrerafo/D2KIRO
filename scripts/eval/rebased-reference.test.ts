@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { afterEach, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -26,6 +26,7 @@ import {
   validateFrozenS1,
   validateRebasedArtifact,
 } from "./rebased-reference";
+import { loadOrCreateSplit } from "./split";
 
 const dirs: string[] = [];
 function temp(name: string): string { const path = mkdtempSync(join(tmpdir(), name)); dirs.push(path); return path; }
@@ -118,8 +119,20 @@ test("artifact classification requires exact provenance and emits REBASED_CONTRO
   expect(() => classifyRebasedArtifact(path, harness)).toThrow("historical engine provenance");
 });
 
-test("runner environment writes only the temporary reference path, retains current harness provenance, and leaves Benchmark B default", () => {
+function logicalSplitHash(assignment: Record<string, number>): string {
+  let hash = 0;
+  for (const character of JSON.stringify(assignment)) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0;
+  return hash.toString(16).padStart(8, "0");
+}
+
+test("Task35 loads the committed frozen split in the disposable worktree without regenerating it", () => {
   const worktree = temp("d2k-env-");
+  const canonicalPath = "eval/baselines/split.json";
+  const splitPath = join(worktree, "eval/baselines/split.json");
+  mkdirSync(join(worktree, "eval/baselines"), { recursive: true });
+  copyFileSync(canonicalPath, splitPath);
+  const before = readFileSync(splitPath, "utf8");
+  const canonical = JSON.parse(before) as { assignment: Record<string, number> };
   const env = evaluationEnvironment(worktree);
   expect(env.D2K_BASELINE_OUT).toBe(join(worktree, "eval/baselines/.reference.s1.generated.json"));
   expect(env.D2K_BASELINE_OUT).not.toContain("accepted.s1.json");
@@ -128,7 +141,16 @@ test("runner environment writes only the temporary reference path, retains curre
   expect(env.D2K_META_SNAPSHOT).toBe(join(worktree, "eval/snapshots/S1.sqlite"));
   expect(env.D2K_PRO_DB).toBe(join(worktree, "eval/input/pro-drafts.sqlite"));
   expect(env.ENGINE_DB_PATH).toBe(join(worktree, "eval/snapshots/S1.sqlite"));
-  expect(env.D2K_SPLIT_OUT).toBe(join(worktree, "eval/baselines/.reference.s1.split.json"));
+  expect(env.D2K_SPLIT_OUT).toBe(splitPath);
+  expect(existsSync(env.D2K_SPLIT_OUT!)).toBe(true);
+
+  // This calls the production read-or-create helper with no league IDs, exactly
+  // the condition that previously created an empty scratch split.
+  const loaded = loadOrCreateSplit([], { path: env.D2K_SPLIT_OUT });
+  expect(loaded.assignment).toEqual(canonical.assignment);
+  expect(Object.keys(loaded.assignment).length).toBeGreaterThan(0);
+  expect(readFileSync(splitPath, "utf8")).toBe(before);
+  expect(logicalSplitHash(loaded.assignment)).toBe(logicalSplitHash(canonical.assignment));
 });
 
 test("dirty primary tree refuses evidence-producing execution before a worktree can be created", () => {
