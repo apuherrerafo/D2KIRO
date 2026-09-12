@@ -1,0 +1,407 @@
+{
+  "classification": "REBASED_CONTROL",
+  "commit": "24a1e7c0adceb01dc496495d70683b23fea0b680",
+  "corpusSize": {
+    "drafts": 0,
+    "goldenCases": 30,
+    "tournaments": 0
+  },
+  "engineQuality": {
+    "bootstrap": {
+      "hi": 0.7807195707956888,
+      "lo": 0.6543351782565475,
+      "metric": "NDCG@5",
+      "point": 0.7210197010756,
+      "ranker": "v6Full"
+    },
+    "constraintViolationRate": 0,
+    "corpus": {
+      "cases": 30
+    },
+    "omittedBaselines": [
+      {
+        "id": "positionFitOnly",
+        "reason": "aislar una sola señal exige un flag nuevo en BuildSuggestionsOptions; 9.0 no toca apps/engine/src/**"
+      }
+    ],
+    "perRanker": {
+      "patchMetaOnly": {
+        "byDecisionContext": {
+          "blind_second_pick": {
+            "badPickRate5": 0,
+            "n": 6,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.4128787878787879
+          },
+          "closing_pick": {
+            "badPickRate5": 0,
+            "n": 6,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.5277777777777778
+          },
+          "response_pick": {
+            "badPickRate5": 0.08333333333333333,
+            "n": 12,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.6185064935064936
+          },
+          "team_opening": {
+            "badPickRate5": 0,
+            "n": 6,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.37752525252525243
+          }
+        },
+        "byStratum": {
+          "composition": {
+            "badPickRate5": 0,
+            "n": 3,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.5883838383838383
+          },
+          "flexibility": {
+            "badPickRate5": 0,
+            "n": 5,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.4196969696969696
+          },
+          "hard_counter": {
+            "badPickRate5": 0,
+            "n": 12,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.519390331890332
+          },
+          "historical_failure": {
+            "badPickRate5": 0,
+            "n": 0,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0
+          },
+          "punishability": {
+            "badPickRate5": 0,
+            "n": 4,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.47348484848484845
+          },
+          "role_scarcity": {
+            "badPickRate5": 0,
+            "n": 1,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.16666666666666666
+          },
+          "team_needs": {
+            "badPickRate5": 0.2,
+            "n": 5,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.6348484848484849
+          }
+        },
+        "overall": {
+          "badPickRate5": 0.03333333333333333,
+          "n": 30,
+          "ndcg5": 0,
+          "pairwiseAccuracy": 0.5110389610389611
+        }
+      },
+      "random": {
+        "byDecisionContext": {
+          "blind_second_pick": {
+            "badPickRate5": 0,
+            "n": 6,
+            "ndcg5": 0.062106173993197844,
+            "pairwiseAccuracy": 0.44696969696969696
+          },
+          "closing_pick": {
+            "badPickRate5": 0,
+            "n": 6,
+            "ndcg5": 0.05351463186241273,
+            "pairwiseAccuracy": 0.49621212121212116
+          },
+          "response_pick": {
+            "badPickRate5": 0.08333333333333333,
+            "n": 12,
+            "ndcg5": 0.07106924895447013,
+            "pairwiseAccuracy": 0.5462662337662338
+          },
+          "team_opening": {
+            "badPickRate5": 0,
+            "n": 6,
+            "ndcg5": 0.030757263322001776,
+            "pairwiseAccuracy": 0.6338383838383839
+          }
+        },
+        "byStratum": {
+          "composition": {
+            "badPickRate5": 0,
+            "n": 3,
+            "ndcg5": 0.09185064807330784,
+            "pairwiseAccuracy": 0.41414141414141414
+          },
+          "flexibility": {
+            "badPickRate5": 0,
+            "n": 5,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.593939393939394
+          },
+          "hard_counter": {
+            "badPickRate5": 0.08333333333333333,
+            "n": 12,
+            "ndcg5": 0.07796406957840592,
+            "pairwiseAccuracy": 0.5450036075036075
+          },
+          "historical_failure": {
+            "badPickRate5": 0,
+            "n": 0,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0
+          },
+          "punishability": {
+            "badPickRate5": 0,
+            "n": 4,
+            "ndcg5": 0.08385876085662762,
+            "pairwiseAccuracy": 0.4564393939393939
+          },
+          "role_scarcity": {
+            "badPickRate5": 0,
+            "n": 1,
+            "ndcg5": 0.18454357993201065,
+            "pairwiseAccuracy": 0.8333333333333334
+          },
+          "team_needs": {
+            "badPickRate5": 0,
+            "n": 5,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0.5212121212121212
+          }
+        },
+        "overall": {
+          "badPickRate5": 0.03333333333333333,
+          "n": 30,
+          "ndcg5": 0.05770331341731052,
+          "pairwiseAccuracy": 0.5339105339105338
+        }
+      },
+      "v6Full": {
+        "byDecisionContext": {
+          "blind_second_pick": {
+            "badPickRate5": 0.20833333333333334,
+            "n": 6,
+            "ndcg5": 0.8560612646281222,
+            "pairwiseAccuracy": 0.6856060606060607
+          },
+          "closing_pick": {
+            "badPickRate5": 0.2333333333333333,
+            "n": 6,
+            "ndcg5": 0.7990351868093963,
+            "pairwiseAccuracy": 0.691919191919192
+          },
+          "response_pick": {
+            "badPickRate5": 0.2833333333333333,
+            "n": 12,
+            "ndcg5": 0.7131887955327137,
+            "pairwiseAccuracy": 0.5228174603174602
+          },
+          "team_opening": {
+            "badPickRate5": 0.35833333333333334,
+            "n": 6,
+            "ndcg5": 0.5236244628750553,
+            "pairwiseAccuracy": 0.6565656565656566
+          }
+        },
+        "byStratum": {
+          "composition": {
+            "badPickRate5": 0.26666666666666666,
+            "n": 3,
+            "ndcg5": 0.7516239204912992,
+            "pairwiseAccuracy": 0.6186868686868686
+          },
+          "flexibility": {
+            "badPickRate5": 0.38,
+            "n": 5,
+            "ndcg5": 0.5032120837612962,
+            "pairwiseAccuracy": 0.6378787878787879
+          },
+          "hard_counter": {
+            "badPickRate5": 0.25,
+            "n": 12,
+            "ndcg5": 0.7895096378949301,
+            "pairwiseAccuracy": 0.6288780663780663
+          },
+          "historical_failure": {
+            "badPickRate5": 0,
+            "n": 0,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0
+          },
+          "punishability": {
+            "badPickRate5": 0.35000000000000003,
+            "n": 4,
+            "ndcg5": 0.7505276086154343,
+            "pairwiseAccuracy": 0.6079545454545454
+          },
+          "role_scarcity": {
+            "badPickRate5": 0.25,
+            "n": 1,
+            "ndcg5": 0.6256863584438503,
+            "pairwiseAccuracy": 0.75
+          },
+          "team_needs": {
+            "badPickRate5": 0.17,
+            "n": 5,
+            "ndcg5": 0.7515492808685762,
+            "pairwiseAccuracy": 0.5409090909090909
+          }
+        },
+        "overall": {
+          "badPickRate5": 0.2733333333333334,
+          "n": 30,
+          "ndcg5": 0.7210197010756,
+          "pairwiseAccuracy": 0.6159451659451659
+        }
+      },
+      "v6NoCuratedCounters": {
+        "byDecisionContext": {
+          "blind_second_pick": {
+            "badPickRate5": 0.23888888888888885,
+            "n": 6,
+            "ndcg5": 0.6565450679268086,
+            "pairwiseAccuracy": 0.5214646464646465
+          },
+          "closing_pick": {
+            "badPickRate5": 0.125,
+            "n": 6,
+            "ndcg5": 0.5812021326847506,
+            "pairwiseAccuracy": 0.5239898989898989
+          },
+          "response_pick": {
+            "badPickRate5": 0.3083333333333333,
+            "n": 12,
+            "ndcg5": 0.5312642823667163,
+            "pairwiseAccuracy": 0.4000721500721501
+          },
+          "team_opening": {
+            "badPickRate5": 0.3333333333333333,
+            "n": 6,
+            "ndcg5": 0.7036955719343937,
+            "pairwiseAccuracy": 0.6717171717171717
+          }
+        },
+        "byStratum": {
+          "composition": {
+            "badPickRate5": 0.08333333333333333,
+            "n": 3,
+            "ndcg5": 0.6505067197707861,
+            "pairwiseAccuracy": 0.5025252525252525
+          },
+          "flexibility": {
+            "badPickRate5": 0.32,
+            "n": 5,
+            "ndcg5": 0.6712254546251761,
+            "pairwiseAccuracy": 0.656060606060606
+          },
+          "hard_counter": {
+            "badPickRate5": 0.2527777777777777,
+            "n": 12,
+            "ndcg5": 0.5918651844438233,
+            "pairwiseAccuracy": 0.4613095238095239
+          },
+          "historical_failure": {
+            "badPickRate5": 0,
+            "n": 0,
+            "ndcg5": 0,
+            "pairwiseAccuracy": 0
+          },
+          "punishability": {
+            "badPickRate5": 0.2875,
+            "n": 4,
+            "ndcg5": 0.6164104371815615,
+            "pairwiseAccuracy": 0.543560606060606
+          },
+          "role_scarcity": {
+            "badPickRate5": 0.4,
+            "n": 1,
+            "ndcg5": 0.8660461584804816,
+            "pairwiseAccuracy": 0.75
+          },
+          "team_needs": {
+            "badPickRate5": 0.29,
+            "n": 5,
+            "ndcg5": 0.4564220941410936,
+            "pairwiseAccuracy": 0.3712121212121212
+          }
+        },
+        "overall": {
+          "badPickRate5": 0.26277777777777783,
+          "n": 30,
+          "ndcg5": 0.6007942674558773,
+          "pairwiseAccuracy": 0.5034632034632034
+        }
+      }
+    },
+    "recallCeilingK": 6,
+    "valid": true,
+    "violations": []
+  },
+  "evidenceProfile": {
+    "engineQuality": {
+      "v6Full": {
+        "evidenceCoverage": 0.9397849462365586,
+        "guessingIndex": 0.060215053763440836,
+        "n": 180
+      },
+      "v6NoCuratedCounters": {
+        "evidenceCoverage": 0.996594982078853,
+        "guessingIndex": 0.003405017921146954,
+        "n": 180
+      }
+    },
+    "proAgreement": {
+      "v6Full": {
+        "evidenceCoverage": 0,
+        "guessingIndex": 0,
+        "n": 0
+      },
+      "v6NoCuratedCounters": {
+        "evidenceCoverage": 0,
+        "guessingIndex": 0,
+        "n": 0
+      }
+    }
+  },
+  "goldenNote": "30 casos Golden",
+  "identity": {
+    "datasetVersion": "split:02dc8878;golden:30",
+    "evaluationProtocolVersion": "schema:1;patchOverride:dominant",
+    "metaSnapshotVersion": "meta1:719c55caf22a9bf06e8e74428c201851ff3749ac61042ca19be44b31a01d293f",
+    "scoringModelFamily": "SCORING_WEIGHTS_V6"
+  },
+  "patchOverride": "7.41e",
+  "professionalPickAgreement": {
+    "bootstrap": [],
+    "constraintViolationRate": 0,
+    "corpus": {
+      "cases": 0,
+      "drafts": 0,
+      "tournaments": 0
+    },
+    "omittedBaselines": [
+      {
+        "id": "positionFitOnly",
+        "reason": "aislar una sola señal exige un flag nuevo en BuildSuggestionsOptions; 9.0 no toca apps/engine/src/**"
+      }
+    ],
+    "perBaseline": {},
+    "recallCeilingK": 6,
+    "valid": true,
+    "violations": []
+  },
+  "provenance": {
+    "evaluationHarnessCommit": "24a1e7c0adceb01dc496495d70683b23fea0b680",
+    "measuredEngineCommit": "df354b9c4ed415b86dba35dc92e2f84e5cb40e5d",
+    "snapshotFileSha": "de7520a6af84a6a3eaad191b35ae81dade586914e1f41ccd2bdb838aa87d6478"
+  },
+  "schemaVersion": 1,
+  "skippedDrafts": 0,
+  "snapshotSyncedAt": "2026-09-09T03:58:44.656Z",
+  "splitHash": "02dc8878"
+}
