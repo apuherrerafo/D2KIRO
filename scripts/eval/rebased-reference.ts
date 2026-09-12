@@ -28,7 +28,7 @@ const command: Command = (program, args, cwd, env) =>
  * Start child processes from a small OS/runtime allowlist. Environment names are
  * case-insensitive on Windows, so retain at most one spelling of each allowed key.
  */
-function safeRuntimeEnvironment(): NodeJS.ProcessEnv {
+export function safeRuntimeEnvironment(): NodeJS.ProcessEnv {
   const safe = new Map<string, [string, string]>();
   for (const [name, value] of Object.entries(process.env)) {
     const normalized = name.toLowerCase();

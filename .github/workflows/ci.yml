@@ -181,8 +181,8 @@ jobs:
           echo "expected=$EXPECTED actual=$ACTUAL"
           [ "$EXPECTED" = "$ACTUAL" ] || { echo "Bun version drift: setup-bun instaló $ACTUAL, packageManager fija $EXPECTED"; exit 1; }
 
-      # `scripts/eval/gate.ts` no tiene dependencias de runtime (sólo `node:fs` y
-      # módulos puros de `scripts/eval/`), así que no se instala el árbol de la
-      # raíz. Si el gate gana una dep, se añade aquí `bun install --frozen-lockfile`.
+      # The standing per-PR enforcement stays on its accepted default baseline.
+      # Task 19 evidence is an explicit, local/approved operation; it does not run
+      # in ordinary PR or push CI and Task 20 alone owns any promotion.
       - name: Evaluation gate -- gate.ts --enforce (canonical authority, Tasks 8/9)
         run: bun run scripts/eval/gate.ts --enforce
