@@ -1485,7 +1485,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No.
   - _Requirements: 4.5_
 
-- [ ] 28. [R0.4] Eliminar cÃ³digo muerto y corregir el estado invÃ¡lido de TSK-174
+- [x] 28. [R0.4] Eliminar cÃ³digo muerto y corregir el estado invÃ¡lido de TSK-174
   - **Workstream:** R0.4 Harness Truth (DELETE derivados de la tarea 23).
   - **Dependencies:** 23.
   - **Preconditions:** matriz aplicada (confirma que son cÃ³digo muerto sin llamadores).
