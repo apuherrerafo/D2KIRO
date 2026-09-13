@@ -1380,7 +1380,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No (documentar `STEAM_WEB_API_KEY` no expone el secreto; solo su nombre).
   - _Requirements: 4.1, 4.3, 4.6_
 
-- [ ] 25. [R0.4] Reparar/retirar agentes defectuosos y hacer que Warden consuma el chequeo determinista (sin crear agentes)
+- [x] 25. [R0.4] Reparar/retirar agentes defectuosos y hacer que Warden consuma el chequeo determinista (sin crear agentes)
   - **Workstream:** R0.4 Harness Truth (REFACTOR / DELETE derivados de la tarea 23).
   - **Dependencies:** 23; **27** (dueÃ±a de la arquitectura determinÃ­stica de hooks/CI: el HOOK/CI
     destino del chequeo de Warden debe existir antes de que Warden deje de ejecutarlo por su cuenta).

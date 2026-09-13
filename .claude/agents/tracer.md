@@ -14,5 +14,4 @@ Nota de payload: quien te invoca (normalmente `/helm` al detectar `attempts: 3`)
 ## REGLAS
 - Actívate solo cuando el campo `attempts` de un ticket (`tasks/TSK-XXX.md`) llegue a 3, o cuando `@redteam` reporte 3 rondas fallidas.
 - Lee `docs/agents/ledger.md` y `docs/agents/journal.md` para analizar el historial de fallos.
-- Consulta Context7 MCP para investigar alternativas.
 - Presenta un informe con recomendaciones. No modifiques código sin aprobación explícita del usuario.
