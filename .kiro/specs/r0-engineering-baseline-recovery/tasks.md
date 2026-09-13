@@ -83,7 +83,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
 
 ### R0.1 â€” Environment Truth
 
-- [ ] 1. [R0.1] Discovery: estado real del PRE-PUSH gate y convergencia WSL/Windows
+- [x] 1. [R0.1] Discovery: estado real del PRE-PUSH gate y convergencia WSL/Windows
   - **Workstream:** R0.1 Environment Truth (discovery, read-only salvo el artefacto de evidencia).
   - **Dependencies:** ninguna.
   - **Preconditions:** ninguna.
@@ -110,7 +110,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 1.5, 1.1, T.2_
 
-- [ ] 2. [R0.1] Reparar las tres suites bajo el comando canÃ³nico (paths POSIX / separador OS-agnÃ³stico)
+- [x] 2. [R0.1] Reparar las tres suites bajo el comando canÃ³nico (paths POSIX / separador OS-agnÃ³stico)
   - **Workstream:** R0.1 Environment Truth.
   - **Dependencies:** ninguna (puede empezar sin discovery; la convergencia real la confirma la tarea 1).
   - **Preconditions:** ninguna bloqueante; la tarea 1 informa el alcance de convergencia P3.
@@ -138,7 +138,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 1.1_
 
-- [ ] 3. [R0.1] Restaurar el Ã¡rbol de instalaciÃ³n local de `apps/web` desde manifest + Bun lockfile
+- [x] 3. [R0.1] Restaurar el Ã¡rbol de instalaciÃ³n local de `apps/web` desde manifest + Bun lockfile
   - **Workstream:** R0.1 Environment Truth.
   - **Current state:** **BLOCKED** hasta que Tasks 31 y 32 estÃ©n en PASS. El blocker original
     (Bun local 1.3.14 no podÃ­a leer `apps/web/bun.lock` v2) ya fue corregido parcialmente por Task 31,
@@ -180,7 +180,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 1.2, 4.3_
 
-- [ ] 4. [R0.1] NormalizaciÃ³n de ruta OS-independiente en `_hook_lib.py` con fail-closed
+- [x] 4. [R0.1] NormalizaciÃ³n de ruta OS-independiente en `_hook_lib.py` con fail-closed
   - **Workstream:** R0.1 Environment Truth.
   - **Dependencies:** ninguna.
   - **Preconditions:** ninguna (la lÃ­nea exacta que falla se confirma en tiempo de tarea, diseÃ±o Â§4.1).
@@ -208,7 +208,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 1.3_
 
-- [ ] 5. [R0.1] Implementar/verificar el PRE-PUSH gate determinÃ­stico y verificable
+- [x] 5. [R0.1] Implementar/verificar el PRE-PUSH gate determinÃ­stico y verificable
   - **Workstream:** R0.1 Environment Truth.
   - **Dependencies:** 1 (discovery del gate/WSL), 2 (suites reparadas), 3 (deps web reconciliadas;
     la tarea 3 depende formalmente de Runtime Compatibility 32, que depende de Toolchain Truth 31).
@@ -249,7 +249,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 1.5, 1.1, T.2_
 
-- [ ] 6. [R0.1] Alinear comandos documentados con `package.json` (dev / lint)
+- [x] 6. [R0.1] Alinear comandos documentados con `package.json` (dev / lint)
   - **Workstream:** R0.1 Environment Truth.
   - **Dependencies:** ninguna. Nota: el criterio de `dev`/`lint` se cruza con la discovery de env vars
     (tarea 11) solo si la doc de comandos depende del entorno Railway; por defecto no depende.
@@ -274,7 +274,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 1.4_
 
-- [ ] 17. [R0.1] Reparar la root cause del timeout TSK-098 en app.test.ts (cuentas HTTP multi-tenant)
+- [x] 17. [R0.1] Reparar la root cause del timeout TSK-098 en app.test.ts (cuentas HTTP multi-tenant)
   - **Workstream:** R0.1 Environment Truth.
   - **Requirements que valida:** 1.1 (suite engine GREEN) y T.2 (en lo que toca a la convergencia de la
     suite engine bajo el comando canÃ³nico). Toma **ownership** del blocker TSK-098 que hoy ninguna
@@ -322,7 +322,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No (salvo que se active el STOPâ†’REPLAN por root cause en producto).
   - _Requirements: 1.1, T.2_
 
-- [ ] 31. [R0.1] Canonical Bun Toolchain Truth â€” pin exacto local/CI/Docker y verificaciÃ³n
+- [x] 31. [R0.1] Canonical Bun Toolchain Truth â€” pin exacto local/CI/Docker y verificaciÃ³n
   - **Workstream:** R0.1 Environment Truth (owner ejecutable de `TOOLCHAIN_VERSION_DRIFT`).
   - **Current execution state:** **PARTIAL / CONTINUE AFTER REPLAN**. Ya estÃ¡n aplicados legÃ­timamente
     el pin raÃ­z, alineaciÃ³n local 1.4.2, guard determinista, CI derivada+frozen, Docker derivado y las
@@ -462,7 +462,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No; no incluye deploy, promociÃ³n, migraciÃ³n ni acciÃ³n irreversible.
   - _Requirements: 1.1, 4.1, T.1, T.2_
 
-- [ ] 32. [R0.1] Canonical Bun Runtime Compatibility / TSK-098 Evidence Migration
+- [x] 32. [R0.1] Canonical Bun Runtime Compatibility / TSK-098 Evidence Migration
   - **Workstream:** R0.1 Environment Truth (owner de `TSK098_RUNTIME_SEMANTICS_CHANGED`).
   - **Classification:** **C â€” tooling/runtime compatibility**. Task 17 fue correcta bajo Bun 1.3.14;
     el cambio del runtime canÃ³nico a 1.4.2 invalidÃ³ la premisa tÃ©cnica de su workaround test-only. No
@@ -532,7 +532,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
 
 ### R0.2A â€” Evaluation Instrument Recovery
 
-- [ ] 7. [R0.2A] Discovery: ubicaciÃ³n/disponibilidad de `pro-drafts.sqlite`
+- [x] 7. [R0.2A] Discovery: ubicaciÃ³n/disponibilidad de `pro-drafts.sqlite`
   - **Workstream:** R0.2A Evaluation Instrument Recovery (discovery, read-only salvo el artefacto de evidencia).
   - **Dependencies:** ninguna.
   - **Preconditions:** ninguna.
@@ -556,7 +556,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 2A.1, 2B.1_
 
-- [ ] 8. [R0.2A] Gate que falla fuerte + `GateStatus` de 4 estados + clase por sub-check
+- [x] 8. [R0.2A] Gate que falla fuerte + `GateStatus` de 4 estados + clase por sub-check
   - **Workstream:** R0.2A Evaluation Instrument Recovery.
   - **Dependencies:** 7 (discovery de `pro-drafts.sqlite`, solo para el sub-check Pro Agreement).
   - **Preconditions:** discovery Â§9.3 resuelto para clasificar/ejecutar el sub-check Benchmark B;
@@ -589,7 +589,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 2A.1_
 
-- [ ] 9. [R0.2A] Modelo de baseline comparable (`EvaluationIdentity` + `isComparable`, sin binding por hash)
+- [x] 9. [R0.2A] Modelo de baseline comparable (`EvaluationIdentity` + `isComparable`, sin binding por hash)
   - **Workstream:** R0.2A Evaluation Instrument Recovery.
   - **Dependencies:** 8 (envoltura de polÃ­tica del gate).
   - **Preconditions:** ninguna adicional.
@@ -619,7 +619,7 @@ Windows â†” Ubuntu con el mismo comando canÃ³nico.
   - **Approval required?** No.
   - _Requirements: 2A.2_
 
-- [ ] 10. [R0.2A] Cablear `--enforce` al nivel INTELLIGENCE CI
+- [x] 10. [R0.2A] Cablear `--enforce` al nivel INTELLIGENCE CI
   - **Workstream:** R0.2A Evaluation Instrument Recovery.
   - **Dependencies:** 8, 9.
   - **Preconditions:** ninguna adicional.
@@ -650,7 +650,7 @@ _(Toda tarea R0.3 que altera la salida visible del producto indica que su valida
 en R0.2B / INTELLIGENCE CI, no en la propia tarea. No se reescribe el motor, no se agregan seÃ±ales, no
 hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)_
 
-- [ ] 11. [R0.3] Structural applicability desacoplada de la calibraciÃ³n (`A(S)`)
+- [x] 11. [R0.3] Structural applicability desacoplada de la calibraciÃ³n (`A(S)`)
   - **Workstream:** R0.3 Engine Truth.
   - **Dependencies:** 8, 9 (instrumento R0.2A restaurado, para poder medir el candidate despuÃ©s).
   - **Preconditions:** ninguna adicional.
@@ -676,7 +676,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
   - **Approval required?** No (la promociÃ³n del candidate sÃ­ â€” tarea 19/T.4).
   - _Requirements: 3.2_
 
-- [ ] 12. [R0.3] Data readiness por seÃ±al + contrato exacto de `patch_meta` (sin encenderla)
+- [x] 12. [R0.3] Data readiness por seÃ±al + contrato exacto de `patch_meta` (sin encenderla)
   - **Workstream:** R0.3 Engine Truth.
   - **Dependencies:** 11.
   - **Preconditions:** ninguna adicional.
@@ -707,7 +707,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
   - **Approval required?** No.
   - _Requirements: 3.2, 3.3_
 
-- [ ] 13. [R0.3] CÃ¡lculo Ãºnico: score/reason/comparison/evidence de una sola fuente
+- [x] 13. [R0.3] CÃ¡lculo Ãºnico: score/reason/comparison/evidence de una sola fuente
   - **Workstream:** R0.3 Engine Truth.
   - **Dependencies:** 12.
   - **Preconditions:** ninguna adicional.
@@ -744,7 +744,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
   - **Approval required?** No.
   - _Requirements: 3.1_
 
-- [ ] 14. [R0.3] Estado degenerado: contrato Ãºnico sin ranking fingido
+- [x] 14. [R0.3] Estado degenerado: contrato Ãºnico sin ranking fingido
   - **Workstream:** R0.3 Engine Truth.
   - **Dependencies:** 12, 13.
   - **Preconditions:** ninguna adicional.
@@ -759,7 +759,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
   - **Risk level:** medio.
   - **Approval required?** No.
   - _Requirements: 3.4_
-- [ ] 15. [R0.3] `openingStrategy` respeta `raw: null`
+- [x] 15. [R0.3] `openingStrategy` respeta `raw: null`
   - **Workstream:** R0.3 Engine Truth.
   - **Dependencies:** ninguna dentro de R0.3 (independiente de 11â€“14; write scope aislado).
   - **Preconditions:** ninguna.
@@ -804,7 +804,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
   - **Approval required?** No.
   - _Requirements: 3.5_
 
-- [ ] 16. [R0.3] Observabilidad: `AvailableSignalsReport` por decisiÃ³n
+- [x] 16. [R0.3] Observabilidad: `AvailableSignalsReport` por decisiÃ³n
   - **Workstream:** R0.3 Engine Truth.
   - **Dependencies:** 12, 13, 14.
   - **Preconditions:** ninguna adicional.
@@ -844,7 +844,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
 > quedÃ³ reasignado a la tarea ejecutable de R0.1 (ownership del blocker TSK-098) â€” ver esa tarea 17
 > arriba, en la secciÃ³n R0.1.
 
-- [ ] 18. Checkpoint â€” R0.1 + R0.2A + R0.3 verdes antes de evaluar el candidate
+- [x] 18. Checkpoint â€” R0.1 + R0.2A + R0.3 verdes antes de evaluar el candidate
   - Ensure all tests pass, ask the user if questions arise.
   - **Workstream:** transversal (gate de progreso formal, no arregla nada).
   - **Dependencies:** 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, **17, 31, 32** (cierra R0.1 +
@@ -874,7 +874,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
 
 ### R0.2B â€” Candidate Evaluation / Promotion
 
-- [ ] 33. [R0.2B] Productor de eval corpus-opcional: `bun run eval` genera un candidate Benchmark-A-only sin `pro-drafts.sqlite`
+- [x] 33. [R0.2B] Productor de eval corpus-opcional: `bun run eval` genera un candidate Benchmark-A-only sin `pro-drafts.sqlite`
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
   - **Responsabilidad (no mezclar con la tarea 19):** la tarea 33 repara el **PRODUCTOR** del
     candidate; la tarea 19 **EVALÚA** el candidate ya producido. Son contratos separados y no se
@@ -1306,7 +1306,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Conditional:** sÃ­. **Approval required?:** sÃ­ (sobre la acciÃ³n concreta propuesta por la tarea 21).
   - _Requirements: T.4_
 
-- [ ] 23. [R0.4] Harness Responsibility Matrix + taxonomÃ­a sin solapamiento (racionalizaciÃ³n)
+- [x] 23. [R0.4] Harness Responsibility Matrix + taxonomÃ­a sin solapamiento (racionalizaciÃ³n)
   - **Workstream:** R0.4 Harness Truth (tarea de racionalizaciÃ³n â€” precede a las tareas KEEP/MERGE/MOVE/DELETE).
   - **Dependencies:** 2 (suites estabilizadas) â€” ancla de cierre de R0.1. R0.4 deriva de R0.1: la
     Matrix se ejecuta DESPUÃ‰S de que R0.1 estabilizÃ³ las suites, para racionalizar los mecanismos
