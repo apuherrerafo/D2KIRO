@@ -1511,7 +1511,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No.
   - _Requirements: 4.6_
 
-- [ ] 29. [R0.4] Harness Learning / Curation que PROPONE sin autoeditar
+- [x] 29. [R0.4] Harness Learning / Curation que PROPONE sin autoeditar
   - **Workstream:** R0.4 Harness Truth.
   - **Dependencies:** 23.
   - **Preconditions:** matriz/taxonomÃ­a definidas (tarea 23).
