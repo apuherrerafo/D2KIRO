@@ -33,17 +33,20 @@
 // without ever accepting a genuinely different artifact.
 
 import { randomUUID, createHash } from "node:crypto";
-import { constants, copyFileSync, existsSync, linkSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { constants, copyFileSync, existsSync, linkSync, mkdtempSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { TASK19_CANDIDATE, TASK19_REFERENCE, TASK20_ACCEPTED } from "./current-engine-candidate";
 import { evaluationIdentityEquals, extractEvaluationIdentity, type EvaluationIdentity } from "./evaluation-identity";
 import { DEFAULT_TOL, runMandatoryGate, type FrozenBaseline } from "./gate";
+import type { Tolerance } from "./null-perturbation";
 import { EXPECTED_S1_IDENTITY, validateFrozenS1 } from "./rebased-reference";
 
 export const S1_SNAPSHOT = "eval/snapshots/S1.sqlite";
 export const S1_MANIFEST = "eval/snapshots/S1.manifest.json";
 export const PRO_DRAFTS_DB = "apps/engine/data/pro-drafts.sqlite";
+/** Same canonical, fixed, root-relative path `gate.ts`'s `main()` defaults `TOL` to. Never read from `D2K_TOLERANCE_OUT` here -- a hostile parent environment must not be able to steer which tolerance the recomputed verdict uses. */
+export const TOLERANCE_PATH = "data/generated/tolerance.json";
 
 /** The literal reason required by requirement 2B.2 c1 when there is no explicit acceptance at all. */
 export const NO_ACCEPTANCE_REASON = "sin aceptación explícita";
@@ -98,6 +101,37 @@ export function assertPromotionPathsDistinct(paths: PromotionPaths): void {
   const distinct = new Set([paths.candidate, paths.reference, paths.accepted, paths.s1Snapshot, paths.s1Manifest]);
   if (distinct.size !== 5) throw new Error("Task 20a refuses ambiguous promotion paths (candidate/reference/accepted/S1 must all differ)");
 }
+
+/**
+ * C-2 parity fix: the same fixed, canonical `data/generated/tolerance.json` path -- NEVER the
+ * `D2K_TOLERANCE_OUT` environment variable -- with the exact same fallback `gate.ts`'s own
+ * `main()` uses (line-for-line: `existsSync(TOL) ? JSON.parse(readFileSync(TOL, "utf-8")) :
+ * DEFAULT_TOL`) -- reproduced here rather than imported because `gate.ts` only inlines this
+ * inside its own `main()`, not as an exported helper; `evaluateGate`/`runMandatoryGate`
+ * themselves (the actual gate semantics) ARE imported, never reimplemented. Task 19's real
+ * `comparisonEnvironment` (see `current-engine-candidate.ts`) points that same environment
+ * variable at this exact repo-relative file, so this reproduces what Task 19's own gate run
+ * actually used, without ever trusting the environment itself.
+ */
+export function loadTolerance(root: string): Tolerance {
+  const path = join(resolve(root), TOLERANCE_PATH);
+  if (!existsSync(path)) return DEFAULT_TOL;
+  return JSON.parse(readFileSync(path, "utf-8")) as Tolerance;
+}
+
+/**
+ * C-3 test seam -- same dependency-injection principle `applyDraftEvent` uses for its clock/id
+ * (`testing-seams.md` S4) and the account-token verifier uses for its clock/nonce store (S13):
+ * the ONE physical read of candidate/reference bytes is injectable so a test can prove, by
+ * counting real invocations through the actual `promoteCandidate` execution path, that each path
+ * is read from disk exactly once per promotion -- never spying/monkeypatching a shared module.
+ * Production never overrides this; it always defaults to the real filesystem.
+ */
+export interface PromotionFileReader {
+  read(path: string): Buffer;
+}
+
+const nodeFileReader: PromotionFileReader = { read: (path) => readFileSync(path) };
 
 /**
  * SHA-256 over the raw bytes with every `\r\n` collapsed to `\n`. Operates on the byte buffer
@@ -155,6 +189,20 @@ function readJson(path: string, label: string): { ok: true; value: Record<string
   } catch {
     return { ok: false, reason: `${label} ausente: ${path}` };
   }
+  return parseJsonText(raw, label);
+}
+
+/**
+ * C-3 TOCTOU fix: parses JSON from bytes the caller ALREADY read (and, for candidate/reference,
+ * already hash-verified) -- never re-reads the path. The exact buffer that was canonical-hashed
+ * and compared against the approval is the same buffer whose parsed content feeds
+ * `EvaluationIdentity`, the recomputed mandatory gate, and the published `accepted.s1.json`.
+ */
+function parseJsonBytes(bytes: Buffer, label: string): { ok: true; value: Record<string, unknown> } | { ok: false; reason: string } {
+  return parseJsonText(bytes.toString("utf8"), label);
+}
+
+function parseJsonText(raw: string, label: string): { ok: true; value: Record<string, unknown> } | { ok: false; reason: string } {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -182,11 +230,119 @@ export function publishAcceptedArtifact(stagePath: string, finalPath: string): v
 }
 
 /**
+ * C-4: are `a` and `b` the SAME file (same device + inode), not merely two files whose content
+ * happens to match right now? Content equality is not identity -- two independent files can hold
+ * identical bytes, and identical bytes at one instant say nothing about whether either was
+ * replaced a moment later. Right after `publishAcceptedArtifact` links `stage` -> `accepted`, both
+ * names share one inode; this is how we tell "still provably our own just-published link" apart
+ * from "something else unlinked and recreated `accepted` since". `{ bigint: true }` avoids the
+ * precision loss `Number` can suffer on real NTFS inode numbers.
+ */
+export function sameFile(a: string, b: string): boolean {
+  try {
+    const sa = statSync(a, { bigint: true });
+    const sb = statSync(b, { bigint: true });
+    return sa.dev === sb.dev && sa.ino === sb.ino;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Thrown ONLY when a post-publish verification check fails AND `accepted.s1.json` no longer
+ * resolves to the exact file we just linked (see `resolvePostPublishFailure`). This is a
+ * deliberately loud failure -- never a `PromotionResult` -- because at that point Task 20a cannot
+ * tell whether `accepted.s1.json` is a legitimate concurrent promotion or tampering, and silently
+ * returning `{ promoted: false, ... }` would look like an ordinary, harmless refusal while a real,
+ * ambiguous artifact sits on disk. Requires human intervention before any further promotion.
+ */
+export class AmbiguousPostPublishStateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AmbiguousPostPublishStateError";
+  }
+}
+
+/**
+ * C-4 fail-closed decision for "a post-publish check failed after `publishAcceptedArtifact`
+ * already succeeded". Never the naive `unlinkSync(accepted)` -- that would risk destroying a
+ * different, legitimate `accepted.s1.json` that a competing writer created at that exact path
+ * between our publish and our verification.
+ *
+ * - `sameFile(accepted, stage)` true  -> `accepted` still resolves to the exact bytes we just
+ *   staged and linked ourselves; nothing else could have landed a different real baseline there
+ *   without changing the inode. Safe, non-destructive rollback: remove it, return a normal
+ *   `{ promoted: false }` -- disk ends up exactly as if the publish never happened, so it never
+ *   silently blocks a future legitimate promotion via the "ya existe un baseline aceptado" guard.
+ * - `sameFile(accepted, stage)` false -> `accepted` was unlinked and recreated by someone else
+ *   since our link (a competing legitimate promotion, or tampering) -- Task 20a cannot tell which,
+ *   so it never deletes it and never reports a quiet `promoted: false`. It fails loudly instead.
+ */
+export function resolvePostPublishFailure(acceptedPath: string, stagePath: string, reason: string): PromotionResult {
+  if (sameFile(acceptedPath, stagePath)) {
+    unlinkSync(acceptedPath);
+    return fail(`${reason} — accepted.s1.json publicado fue revertido de forma segura (ningún baseline queda)`);
+  }
+  throw new AmbiguousPostPublishStateError(
+    `ESTADO AMBIGUO tras publicar: ${acceptedPath} fue reemplazado por otro proceso durante la ` +
+      "verificación post-publicación -- Task 20a no puede confirmar si es una promoción legítima " +
+      "concurrente o manipulación, y se niega a borrarlo o a reportar un `promoted: false` inocente " +
+      `que oculte este estado. Motivo original de la falla de verificación: ${reason}. ` +
+      "Requiere intervención humana antes de cualquier nuevo intento de promoción.",
+  );
+}
+
+/**
+ * Verifies what ACTUALLY landed at `paths.accepted` after a successful `publishAcceptedArtifact`
+ * call -- reads the real bytes now on disk, never trusts the in-memory object that was serialized
+ * to `stage`. Any mismatch routes through `resolvePostPublishFailure` so a failure here can never
+ * silently leave a bad/partial `accepted.s1.json` reported as an ordinary, harmless refusal (C-4).
+ */
+export function verifyPublishedArtifact(
+  paths: PromotionPaths,
+  stage: string,
+  acceptance: PromotionAcceptance,
+  candidateIdentity: EvaluationIdentity,
+): PromotionResult {
+  const published = readJson(paths.accepted, "accepted publicado");
+  if (!published.ok) {
+    return resolvePostPublishFailure(paths.accepted, stage, `verificación post-publicación falló: ${published.reason}`);
+  }
+  if (!readFileSync(paths.accepted).equals(readFileSync(stage))) {
+    return resolvePostPublishFailure(
+      paths.accepted,
+      stage,
+      "verificación post-publicación falló: bytes publicados difieren de los validados en staging",
+    );
+  }
+  const publishedExtraction = extractEvaluationIdentity(published.value);
+  if (!publishedExtraction.ok || !evaluationIdentityEquals(publishedExtraction.identity, candidateIdentity)) {
+    return resolvePostPublishFailure(
+      paths.accepted,
+      stage,
+      "verificación post-publicación falló: identity publicada no coincide con el candidate validado",
+    );
+  }
+  if (published.value.acceptedAtCommit !== acceptance.acceptedAtCommit) {
+    return resolvePostPublishFailure(
+      paths.accepted,
+      stage,
+      "verificación post-publicación falló: acceptedAtCommit publicado no coincide",
+    );
+  }
+  return { promoted: true, acceptedPath: paths.accepted };
+}
+
+/**
  * The MECHANISM (requirement 2B.2, design §4.2). Never promotes without a structurally valid,
  * hash-bound, freshly-reverified-PASS acceptance; never overwrites an existing accepted baseline;
  * never reads path configuration from the environment. Pure with respect to environment variables.
  */
-export function promoteCandidate(root: string, acceptance: PromotionAcceptance | null | undefined): PromotionResult {
+export function promoteCandidate(
+  root: string,
+  acceptance: PromotionAcceptance | null | undefined,
+  reader: PromotionFileReader = nodeFileReader,
+): PromotionResult {
   if (acceptance === null || acceptance === undefined) return fail(NO_ACCEPTANCE_REASON);
   if (!isWellFormedAcceptance(acceptance)) return fail(NO_ACCEPTANCE_REASON);
 
@@ -198,7 +354,7 @@ export function promoteCandidate(root: string, acceptance: PromotionAcceptance |
   }
 
   if (!existsSync(paths.candidate)) return fail(`candidate ausente: ${paths.candidate}`);
-  const candidateBytes = readFileSync(paths.candidate);
+  const candidateBytes = reader.read(paths.candidate);
   const candidateHash = canonicalContentHash(candidateBytes);
   if (candidateHash !== acceptance.approvedCandidateContentHash) {
     return fail(
@@ -207,7 +363,11 @@ export function promoteCandidate(root: string, acceptance: PromotionAcceptance |
     );
   }
 
-  const candidateJson = readJson(paths.candidate, "candidate");
+  // C-3 fix: parse the SAME bytes that were just canonical-hashed and compared against the
+  // approval -- never re-read `paths.candidate` from disk here. That earlier re-read was exactly
+  // the TOCTOU window: the approved hash could match bytes that no longer exist by the time a
+  // second `readFileSync` ran.
+  const candidateJson = parseJsonBytes(candidateBytes, "candidate");
   if (!candidateJson.ok) return fail(candidateJson.reason);
   const candidateExtraction = extractEvaluationIdentity(candidateJson.value);
   if (!candidateExtraction.ok) return fail(`candidate sin EvaluationIdentity legible: ${candidateExtraction.reason}`);
@@ -221,13 +381,15 @@ export function promoteCandidate(root: string, acceptance: PromotionAcceptance |
   }
 
   if (!existsSync(paths.reference)) return fail(`reference (REBASED_CONTROL) ausente: ${paths.reference}`);
-  const referenceBytes = readFileSync(paths.reference);
+  const referenceBytes = reader.read(paths.reference);
   const referenceHash = canonicalContentHash(referenceBytes);
   if (referenceHash !== acceptance.approvedReferenceContentHash) {
     return fail("reference hash mismatch: reference.s1.json cambió desde la aprobación");
   }
 
-  const referenceJson = readJson(paths.reference, "reference");
+  // C-3 fix: same principle as candidate above -- parse the exact hash-verified bytes, never a
+  // fresh re-read of `paths.reference`.
+  const referenceJson = parseJsonBytes(referenceBytes, "reference");
   if (!referenceJson.ok) return fail(referenceJson.reason);
   if (referenceJson.value.classification !== "REBASED_CONTROL") {
     return fail("reference ya no está clasificada como REBASED_CONTROL — no es un baseline aceptado ni una referencia válida");
@@ -251,12 +413,16 @@ export function promoteCandidate(root: string, acceptance: PromotionAcceptance |
     !existsSync(paths.proDraftsDb) ||
     ((candidateBaseline.professionalPickAgreement as { corpus?: { drafts?: number } } | undefined)?.corpus?.drafts ?? 0) <= 0;
 
+  // C-2 fix: same tolerance semantics Task 19's real gate run used -- the calibrated
+  // `data/generated/tolerance.json` when it exists, `DEFAULT_TOL` only as `gate.ts` itself falls
+  // back to. Never the environment variable `gate.ts` reads for this -- a hostile environment
+  // must not be able to steer which tolerance decides the recomputed verdict.
   const verdict = runMandatoryGate({
     reference: referenceBaseline,
     candidate: candidateBaseline,
     referenceIdentity: referenceExtraction.identity,
     candidateIdentity,
-    tolerance: DEFAULT_TOL,
+    tolerance: loadTolerance(root),
     goldenDatasetEmpty,
     proCorpusMissing,
     mode: "enforce",
@@ -302,21 +468,12 @@ export function promoteCandidate(root: string, acceptance: PromotionAcceptance |
       );
     }
 
-    // Verify what actually landed, not what we intended to write.
-    const published = readJson(paths.accepted, "accepted publicado");
-    if (!published.ok) return fail(`verificación post-publicación falló: ${published.reason}`);
-    if (!readFileSync(paths.accepted).equals(readFileSync(stage))) {
-      return fail("verificación post-publicación falló: bytes publicados difieren de los validados en staging");
-    }
-    const publishedExtraction = extractEvaluationIdentity(published.value);
-    if (!publishedExtraction.ok || !evaluationIdentityEquals(publishedExtraction.identity, candidateIdentity)) {
-      return fail("verificación post-publicación falló: identity publicada no coincide con el candidate validado");
-    }
-    if (published.value.acceptedAtCommit !== acceptance.acceptedAtCommit) {
-      return fail("verificación post-publicación falló: acceptedAtCommit publicado no coincide");
-    }
-
-    return { promoted: true, acceptedPath: paths.accepted };
+    // C-4 fix: verify what actually landed, not what we intended to write. A failure here NEVER
+    // returns a bare `promoted: false` while leaving a bad/partial `accepted.s1.json` behind --
+    // `verifyPublishedArtifact` either safely rolls it back (still provably our own bytes) or
+    // fails loudly with `AmbiguousPostPublishStateError` (it no longer resolves to what we
+    // published, so it might be someone else's real baseline -- never touched).
+    return verifyPublishedArtifact(paths, stage, acceptance, candidateIdentity);
   } finally {
     if (stage !== null && existsSync(stage)) rmSync(stage, { force: true });
     rmSync(tempDir, { recursive: true, force: true });
@@ -341,7 +498,20 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
     process.stderr.write(`cannot read acceptance file: ${error instanceof Error ? error.message : String(error)}\n`);
     return 2;
   }
-  const result = promoteCandidate(root, isWellFormedAcceptance(acceptance) ? acceptance : null);
+  // C-4: `promoteCandidate` can throw `AmbiguousPostPublishStateError` in the narrow window where
+  // `accepted.s1.json` was replaced by something else between our publish and our verification.
+  // That is deliberately NOT a `PromotionResult` -- it must never look like an ordinary,
+  // harmless refusal. Surface it as an explicit STOP with a distinct exit code.
+  let result: PromotionResult;
+  try {
+    result = promoteCandidate(root, isWellFormedAcceptance(acceptance) ? acceptance : null);
+  } catch (error) {
+    if (error instanceof AmbiguousPostPublishStateError) {
+      process.stderr.write(`STOP -- Task 20 promotion left an ambiguous state, human intervention required: ${error.message}\n`);
+      return 3;
+    }
+    throw error;
+  }
   if (!result.promoted) {
     process.stderr.write(`Task 20 promotion blocked: ${result.reason}\n`);
     return 1;

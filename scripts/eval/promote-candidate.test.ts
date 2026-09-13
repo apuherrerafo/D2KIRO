@@ -8,19 +8,25 @@ import {
   readdirSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { extractEvaluationIdentity, type EvaluationIdentity } from "./evaluation-identity";
 import {
+  AmbiguousPostPublishStateError,
   NO_ACCEPTANCE_REASON,
   canonicalContentHash,
   isWellFormedAcceptance,
   promotionPaths,
   promoteCandidate,
   publishAcceptedArtifact,
+  resolvePostPublishFailure,
+  sameFile,
+  verifyPublishedArtifact,
   type PromotionAcceptance,
+  type PromotionFileReader,
 } from "./promote-candidate";
 
 const dirs: string[] = [];
@@ -66,6 +72,38 @@ function minimalIdentity(): EvaluationIdentity {
 
 function acceptedPathOf(root: string): string {
   return join(root, "eval/baselines/accepted.s1.json");
+}
+
+/** Regresses the fixture candidate's NDCG@5 by `delta` and returns a fresh, hash-bound acceptance for it. */
+function acceptanceForRegressedCandidate(root: string, delta: number): PromotionAcceptance {
+  const candidatePath = join(root, "eval/baselines/candidate.s1.json");
+  const candidate = JSON.parse(readFileSync(candidatePath, "utf8"));
+  const baseNdcg5 = candidate.engineQuality.perRanker.v6Full.overall.ndcg5;
+  const regressed = {
+    ...candidate,
+    engineQuality: {
+      ...candidate.engineQuality,
+      perRanker: {
+        ...candidate.engineQuality.perRanker,
+        v6Full: {
+          ...candidate.engineQuality.perRanker.v6Full,
+          overall: { ...candidate.engineQuality.perRanker.v6Full.overall, ndcg5: baseNdcg5 - delta },
+        },
+      },
+    },
+  };
+  writeFileSync(candidatePath, JSON.stringify(regressed, null, 2));
+  const bytes = readFileSync(candidatePath);
+  const extraction = extractEvaluationIdentity(regressed);
+  if (!extraction.ok) throw new Error(extraction.reason);
+  return {
+    approvedCandidateContentHash: canonicalContentHash(bytes),
+    approvedReferenceContentHash: canonicalContentHash(readFileSync(join(root, "eval/baselines/reference.s1.json"))),
+    approvedIdentity: extraction.identity,
+    acceptedAtCommit: "a".repeat(40),
+    acceptedBy: "po",
+    acceptedAt: "2026-01-01T00:00:00Z",
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -549,4 +587,210 @@ test("a genuinely different candidate (not just a line-ending change) is never a
   tampered.identity.datasetVersion = "split:tampered;golden:1";
   writeFileSync(candidatePath, JSON.stringify(tampered));
   expect(canonicalContentHash(readFileSync(candidatePath))).not.toBe(canonicalContentHash(original));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C-3 regression: hash-verified bytes must be the SAME bytes that feed identity/gate/output --
+// never a second, independent re-read of the path. Proven behaviorally (read count), not by
+// asserting on the source text: under the prior design `readFileSync(paths.candidate)` (for the
+// hash) was followed by a SECOND, independent read via `readJson(paths.candidate, ...)` -- exactly
+// the TOCTOU window where the file could change between the two reads without detection. This test
+// would have failed under that design (2 reads) and passes under the fixed one (1 read).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test("C-3: candidate and reference are each read from disk exactly once per promotion (no second, independent re-read after hash verification)", () => {
+  const root = temp("d2k-task20a-c3-singleread-");
+  setupFixture(root);
+  const candidatePath = join(root, "eval/baselines/candidate.s1.json");
+  const referencePath = join(root, "eval/baselines/reference.s1.json");
+
+  // Counts REAL invocations through the actual `promoteCandidate` execution path -- not a source
+  // inspection. Under the prior design (`readFileSync(paths.candidate)` for the hash, then a
+  // SECOND independent `readJson(paths.candidate, ...)` for content) this would have counted 2
+  // reads per path; the fix reads each path's bytes exactly once and reuses them for both the
+  // hash and the parsed JSON.
+  const counts = new Map<string, number>();
+  const countingReader: PromotionFileReader = {
+    read(path) {
+      counts.set(path, (counts.get(path) ?? 0) + 1);
+      return readFileSync(path);
+    },
+  };
+
+  const result = promoteCandidate(root, validAcceptance(root), countingReader);
+
+  expect(result.promoted).toBe(true);
+  expect(counts.get(candidatePath)).toBe(1);
+  expect(counts.get(referencePath)).toBe(1);
+});
+
+test("C-3: the parsed candidate JSON fed to identity/gate/output is the exact same buffer that was canonical-hashed against the approval", () => {
+  const root = temp("d2k-task20a-c3-samebuffer-");
+  setupFixture(root);
+  const candidatePath = join(root, "eval/baselines/candidate.s1.json");
+  let observedCandidateBytes: Buffer | null = null;
+  const observingReader: PromotionFileReader = {
+    read(path) {
+      const bytes = readFileSync(path);
+      if (path === candidatePath) observedCandidateBytes = bytes;
+      return bytes;
+    },
+  };
+
+  const result = promoteCandidate(root, validAcceptance(root), observingReader);
+  expect(result.promoted).toBe(true);
+  if (!result.promoted) throw new Error("unreachable");
+
+  // The published (candidate + acceptedAtCommit) content, minus the stamped field, must be
+  // `JSON.parse` of the EXACT bytes the reader handed back for the hash check -- never a
+  // freshly re-read (and potentially different) copy of the file.
+  const accepted = JSON.parse(readFileSync(result.acceptedPath, "utf8"));
+  const { acceptedAtCommit: _unused, ...rest } = accepted;
+  expect(observedCandidateBytes).not.toBeNull();
+  expect(rest).toEqual(JSON.parse((observedCandidateBytes as unknown as Buffer).toString("utf8")));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C-4 regression: a post-publish verification failure must NEVER return a bare `promoted: false`
+// while leaving a residual `accepted.s1.json` on disk (that would silently block a future
+// legitimate promotion via the no-clobber guard), and must NEVER blindly delete a path that no
+// longer resolves to our own just-published bytes (it might be someone else's real baseline).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test("sameFile distinguishes true filesystem identity (a real hard link) from mere content equality", () => {
+  const root = temp("d2k-task20a-samefile-");
+  const stage = join(root, "stage.json");
+  const linked = join(root, "linked.json");
+  const independent = join(root, "independent.json");
+  writeFileSync(stage, "identical-content");
+  writeFileSync(independent, "identical-content");
+  publishAcceptedArtifact(stage, linked); // real hard link -> same inode as `stage`
+
+  expect(sameFile(linked, stage)).toBe(true);
+  expect(sameFile(independent, stage)).toBe(false); // same bytes, but a genuinely different file
+});
+
+test("a post-publish failure on OUR OWN just-published bytes is rolled back safely -- no residual accepted.s1.json, reported as a normal refusal", () => {
+  const root = temp("d2k-task20a-postpublish-safe-");
+  const stage = join(root, "stage.json");
+  const accepted = join(root, "accepted.json");
+  writeFileSync(stage, "valid-staged-content");
+  publishAcceptedArtifact(stage, accepted); // `accepted` and `stage` now share one inode
+
+  const result = resolvePostPublishFailure(accepted, stage, "simulated post-publish check failure");
+
+  expect(result).toEqual({
+    promoted: false,
+    reason: "simulated post-publish check failure — accepted.s1.json publicado fue revertido de forma segura (ningún baseline queda)",
+  });
+  expect(existsSync(accepted)).toBe(false); // no partial/invalid accepted left behind
+  expect(readFileSync(stage, "utf8")).toBe("valid-staged-content"); // our own staging copy is untouched
+});
+
+test("a post-publish failure when accepted no longer resolves to our own publication fails LOUDLY -- never a quiet promoted:false, never touches the replacement", () => {
+  const root = temp("d2k-task20a-postpublish-ambiguous-");
+  const stage = join(root, "stage.json");
+  const accepted = join(root, "accepted.json");
+  writeFileSync(stage, "our-staged-content");
+  publishAcceptedArtifact(stage, accepted);
+  // Simulate a competing writer that unlinked our publication and recreated `accepted` as an
+  // INDEPENDENT file (a legitimate concurrent promotion, or tampering) between our publish and our
+  // verification -- a genuinely different inode, not the file we just linked.
+  unlinkSync(accepted);
+  writeFileSync(accepted, "someone-elses-real-baseline");
+
+  let threw: unknown;
+  try {
+    resolvePostPublishFailure(accepted, stage, "simulated post-publish check failure");
+  } catch (error) {
+    threw = error;
+  }
+  expect(threw).toBeInstanceOf(AmbiguousPostPublishStateError);
+  // Never overwritten, never deleted -- the ambiguous replacement is left exactly as found.
+  expect(readFileSync(accepted, "utf8")).toBe("someone-elses-real-baseline");
+});
+
+test("verifyPublishedArtifact rolls back safely through the real production wiring when the published content fails verification but is still provably ours", () => {
+  const root = temp("d2k-task20a-verify-rollback-");
+  setupFixture(root);
+  const paths = promotionPaths(root);
+  const acceptance = validAcceptance(root);
+  const candidateBytes = readFileSync(paths.candidate);
+  const candidateExtraction = extractEvaluationIdentity(JSON.parse(candidateBytes.toString("utf8")));
+  if (!candidateExtraction.ok) throw new Error("fixture broken");
+
+  const stage = join(root, "eval/baselines", ".accepted.s1.json.stage-test");
+  // Publish a payload that never stamped `acceptedAtCommit` -- forces the acceptedAtCommit
+  // post-publish check to fail, while `accepted` is still 100% our own just-linked bytes.
+  writeFileSync(stage, candidateBytes);
+  publishAcceptedArtifact(stage, paths.accepted);
+
+  const result = verifyPublishedArtifact(paths, stage, acceptance, candidateExtraction.identity);
+
+  expect(result.promoted).toBe(false);
+  expect(existsSync(paths.accepted)).toBe(false); // rolled back, never left as a residual/partial accepted
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C-2 regression: the recomputed verdict must use the SAME tolerance semantics Task 19's real
+// gate run used (the calibrated `data/generated/tolerance.json` when it exists, `DEFAULT_TOL`
+// only as `gate.ts` itself falls back to) -- and a hostile environment must never be able to pick
+// a different tolerance. Proven by showing the SAME regression gets a DIFFERENT verdict depending
+// on which tolerance file is present, not merely that some JSON gets read.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test("C-2: without a calibrated tolerance.json, promoteCandidate falls back to DEFAULT_TOL and refuses a regression DEFAULT_TOL does not cover", () => {
+  const root = temp("d2k-task20a-tol-default-");
+  setupFixture(root);
+  const acceptance = acceptanceForRegressedCandidate(root, 0.03); // exceeds DEFAULT_TOL.ndcg5 = 0.02
+  const result = promoteCandidate(root, acceptance);
+  expect(result.promoted).toBe(false);
+  if (result.promoted) throw new Error("unreachable");
+  expect(result.reason).toContain("Task 19 no dio PASS");
+});
+
+test("C-2: promoteCandidate uses the SAME calibrated data/generated/tolerance.json Task 19's real gate used -- not DEFAULT_TOL -- flipping the verdict for the identical regression", () => {
+  const root = temp("d2k-task20a-tol-calibrated-");
+  setupFixture(root);
+  const acceptance = acceptanceForRegressedCandidate(root, 0.03); // still a 0.03 NDCG@5 drop
+  mkdirSync(join(root, "data/generated"), { recursive: true });
+  writeFileSync(
+    join(root, "data/generated/tolerance.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      perturbations: 200,
+      swapProbability: 0.15,
+      ndcg5: 0.05, // wider than DEFAULT_TOL.ndcg5 (0.02) -- the same 0.03 drop is now within tolerance
+      recallAt3: 0.02,
+      badPickRate5: 0.035,
+      byContextRecallAt3: 0.02,
+      note: "calibrado (fixture)",
+    }),
+  );
+  const result = promoteCandidate(root, acceptance);
+  expect(result.promoted).toBe(true);
+});
+
+test("C-2: a hostile D2K_TOLERANCE_OUT cannot change the recomputed verdict -- only the canonical data/generated/tolerance.json (or DEFAULT_TOL) decides", () => {
+  const root = temp("d2k-task20a-tol-hostileenv-");
+  setupFixture(root);
+  const saved = process.env.D2K_TOLERANCE_OUT;
+  try {
+    // If this were honored, ANY regression at all would FAIL (ndcg5 tolerance pinned to 0).
+    const hostileTolPath = join(root, "evil-tolerance.json");
+    writeFileSync(
+      hostileTolPath,
+      JSON.stringify({ schemaVersion: 1, perturbations: 0, swapProbability: 0, ndcg5: 0, recallAt3: 0, badPickRate5: 0, byContextRecallAt3: 0, note: "hostile" }),
+    );
+    process.env.D2K_TOLERANCE_OUT = hostileTolPath;
+
+    const acceptance = acceptanceForRegressedCandidate(root, 0.01); // within DEFAULT_TOL.ndcg5 (0.02)
+    const result = promoteCandidate(root, acceptance);
+    // DEFAULT_TOL tolerates this 0.01 drop -> PASS. If the hostile env tolerance (0) had been
+    // honored instead, this would FAIL.
+    expect(result.promoted).toBe(true);
+  } finally {
+    if (saved === undefined) delete process.env.D2K_TOLERANCE_OUT;
+    else process.env.D2K_TOLERANCE_OUT = saved;
+  }
 });
