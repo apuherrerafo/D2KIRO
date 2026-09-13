@@ -1235,7 +1235,7 @@ _(Depende solo de R0.1. Paralelizable respecto a R0.2A/R0.3 donde el write scope
 Objetivo: menos, no mÃ¡s â€” racionalizar lo existente, no crear agentes nuevos. R0.4.4/requisito 4.4
 PROHÃBE crear agentes nuevos.)_
 
-- [ ] 21. [R0.4] Discovery: env vars reales en Railway; persistencia y migraciones (ALTO RIESGO)
+- [x] 21. [R0.4] COMPLETE — Discovery: env vars reales en Railway; persistencia y migraciones (ALTO RIESGO)
   - **Workstream:** R0.4 Harness Truth (discovery, read-only salvo el artefacto de evidencia).
   - **Dependencies:** ninguna.
   - **Preconditions:** ninguna.
@@ -1267,7 +1267,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No (read-only); las acciones que habilita, sÃ­.
   - _Requirements: 4.6, 4.8, T.4_
 
-- [ ] 22. [R0.4] AcciÃ³n de persistencia/migraciÃ³n de producciÃ³n â€” CONDITIONAL (gated por discovery + approval sobre la acciÃ³n concreta)
+- [x] 22. [R0.4] COMPLETE — NO ACTION REQUIRED — AcciÃ³n de persistencia/migraciÃ³n de producciÃ³n â€” CONDITIONAL (gated por discovery + approval sobre la acciÃ³n concreta)
   - **Workstream:** R0.4 Harness Truth (acciÃ³n sensible/irreversible).
   - **Conditional:** sÃ­. Esta tarea NO es auto-ejecutable. La discovery (tarea 21) NO autoriza por sÃ­
     misma a modificar producciÃ³n; solo produce una **ACCIÃ“N PROPUESTA** concreta (no un fix).
@@ -1455,7 +1455,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No (documentar el nombre del secreto; nunca su valor).
   - _Requirements: 4.8_
 
-- [ ] 27. [R0.4] Separar escaneo barato del regenerador y mover el trabajo pesado a su nivel
+- [x] 27. [R0.4] COMPLETE — Separar escaneo barato del regenerador y mover el trabajo pesado a su nivel
   - **Workstream:** R0.4 Harness Truth (REFACTOR / MOVE derivados de la tarea 23).
   - **Dependencies:** 23; 5 (PRE-PUSH gate existente); 10 (INTELLIGENCE CI cableado).
   - **Preconditions:** matriz aplicada; PRE-PUSH e INTELLIGENCE CI disponibles como destinos del
