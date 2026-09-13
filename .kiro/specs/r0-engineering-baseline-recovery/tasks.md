@@ -1163,7 +1163,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
   - **Approval required?** No (la promoción sí — tarea 20).
   - _Requirements: 2B.1, 2B.4, T.4_
 
-- [ ] 20. [R0.2B] Promoción de `CURRENT_CANDIDATE(S1)` a `accepted.s1.json` solo tras aceptación explícita
+- [x] 20. [R0.2B] COMPLETE — Promoción de `CURRENT_CANDIDATE(S1)` a `accepted.s1.json` solo tras aceptación explícita
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
   - **Dependencies:** 19.
   - **Semántica (replan aceptado por el PO):** `reference.s1.json` es un `REBASED_CONTROL`, **no** un

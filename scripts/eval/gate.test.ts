@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_TOL, evaluateGate, main, runMandatoryGate, type FrozenBaseline, type GateStatus } from "./gate";
+import { DEFAULT_BASELINE_PATH, DEFAULT_TOL, evaluateGate, main, runMandatoryGate, type FrozenBaseline, type GateStatus } from "./gate";
 import type { EvaluationIdentity } from "./evaluation-identity";
 import type { Tolerance } from "./null-perturbation";
 
@@ -92,6 +92,80 @@ describe("gate CLI — modo informativo en 9.0", () => {
     expect(code).toBe(0);
     if (prev === undefined) delete process.env.D2K_BASELINE_OUT;
     else process.env.D2K_BASELINE_OUT = prev;
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Task 20b — el default del gate pasa de `v6-measured.json` (medido) a `accepted.s1.json`
+// (aceptado por el PO vía `promote-candidate.ts`). `D2K_BASELINE_OUT` sigue siendo la única
+// forma de redirigir la ruta -- estos tests nunca tocan el `accepted.s1.json` real del repo,
+// mismo criterio que el resto de este archivo (siempre override de entorno / fixtures propias).
+// ─────────────────────────────────────────────────────────────────────────────
+describe("gate CLI — default de baseline (Task 20b: accepted.s1.json)", () => {
+  test("1 — el default (sin D2K_BASELINE_OUT) es exactamente eval/baselines/accepted.s1.json, no v6-measured.json", () => {
+    expect(DEFAULT_BASELINE_PATH).toBe("eval/baselines/accepted.s1.json");
+    expect(DEFAULT_BASELINE_PATH).not.toBe("eval/baselines/v6-measured.json");
+  });
+
+  test("2 — si el accepted por defecto falta, el gate falla cerrado (BLOCKED, exit 1 en --enforce)", async () => {
+    // Simula "el default no existe": D2K_BASELINE_OUT apuntando a una ruta ausente ejercita
+    // exactamente la misma rama (`existsSync(BASELINE) ? ... : null`) que correría si
+    // `eval/baselines/accepted.s1.json` no existiera y nadie hubiera seteado el override --
+    // `BASELINE` es tratado de forma idéntica sin importar de dónde salió el string.
+    const prev = process.env.D2K_BASELINE_OUT;
+    process.env.D2K_BASELINE_OUT = "/tmp/no-such-accepted-xyz.json";
+    try {
+      const code = await main(["--enforce"]);
+      expect(code).toBe(1); // BLOCKED: "reference baseline ausente" -- nunca PASS silencioso
+    } finally {
+      if (prev === undefined) delete process.env.D2K_BASELINE_OUT;
+      else process.env.D2K_BASELINE_OUT = prev;
+    }
+  });
+
+  test("3 — D2K_BASELINE_OUT explícito sigue redirigiendo el default, incluso a un baseline real", async () => {
+    const { mkdtempSync, rmSync, writeFileSync } = require("node:fs") as typeof import("node:fs");
+    const { tmpdir } = require("node:os") as typeof import("node:os");
+    const { join } = require("node:path") as typeof import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "d2k-gate-default-override-"));
+    const prev = { b: process.env.D2K_BASELINE_OUT, c: process.env.D2K_GATE_CURRENT };
+    try {
+      const bPath = join(dir, "custom-baseline.json");
+      writeFileSync(
+        bPath,
+        JSON.stringify({
+          identity: {
+            datasetVersion: "split:02dc8878;golden:30",
+            evaluationProtocolVersion: "schema:1;patchOverride:dominant",
+            scoringModelFamily: "SCORING_WEIGHTS_V6",
+            metaSnapshotVersion: META_S1,
+          },
+          ...baseline(),
+        }),
+      );
+      process.env.D2K_BASELINE_OUT = bPath;
+      delete process.env.D2K_GATE_CURRENT; // se compara contra sí mismo
+      const code = await main(["--enforce"]);
+      expect(code).toBe(0); // PASS: el override, no el default, decidió qué se leyó
+    } finally {
+      for (const [k, v] of [["D2K_BASELINE_OUT", prev.b], ["D2K_GATE_CURRENT", prev.c]] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("4 — comportamiento existente no se degrada: sin --enforce, default ausente -> exit 0 (9.0 preservado)", async () => {
+    const prev = process.env.D2K_BASELINE_OUT;
+    process.env.D2K_BASELINE_OUT = "/tmp/no-such-accepted-informativo-xyz.json";
+    try {
+      const code = await main([]);
+      expect(code).toBe(0);
+    } finally {
+      if (prev === undefined) delete process.env.D2K_BASELINE_OUT;
+      else process.env.D2K_BASELINE_OUT = prev;
+    }
   });
 });
 

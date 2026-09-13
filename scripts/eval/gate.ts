@@ -375,10 +375,19 @@ function renderVerdict(v: MandatoryGateVerdict): string {
   return lines.join("\n");
 }
 
+/**
+ * Task 20b — ruta por defecto del baseline cuando `D2K_BASELINE_OUT` no está seteado. Pasa de
+ * `v6-measured.json` (medido, informativo) a `accepted.s1.json` (aceptado por el PO vía
+ * `promote-candidate.ts`) ahora que ese archivo existe. Exportada sólo para que
+ * `gate.test.ts` pueda verificar el default sin tocar el filesystem real ni el override de
+ * entorno, que sigue intacto (`main()` sigue siendo la única que lo consulta).
+ */
+export const DEFAULT_BASELINE_PATH = "eval/baselines/accepted.s1.json";
+
 async function main(argv: string[]): Promise<number> {
   const { readFileSync, existsSync } = await import("node:fs");
   const mode: GateMode = argv.includes("--enforce") ? "enforce" : "informativo";
-  const BASELINE = process.env.D2K_BASELINE_OUT ?? "eval/baselines/v6-measured.json";
+  const BASELINE = process.env.D2K_BASELINE_OUT ?? DEFAULT_BASELINE_PATH;
   const CURRENT = process.env.D2K_GATE_CURRENT ?? BASELINE; // por defecto se compara contra sí mismo
   const TOL = process.env.D2K_TOLERANCE_OUT ?? "data/generated/tolerance.json";
   const PRO_DB = process.env.D2K_PRO_DB ?? "apps/engine/data/pro-drafts.sqlite";
