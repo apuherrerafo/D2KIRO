@@ -1099,7 +1099,7 @@ hay lookahead, no se rediseÃ±a `DraftState`, no se toca `SCORING_WEIGHTS_V6`.)
     son la tarea 20).
   - _Requirements: 2B.4 (y 2B.1, 2A.2 c7)_
 
-- [ ] 19. [R0.2B] Evaluar `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)` (INTELLIGENCE CI)
+- [x] 19. [R0.2B] COMPLETE — Evaluar `CURRENT_ENGINE(S1)` vs `REBASED_OLD_ENGINE_CONTROL(S1)` (INTELLIGENCE CI)
   - **Workstream:** R0.2B Candidate Evaluation / Promotion.
   - **Semántica (replan aceptado por el PO):** la tarea 19 **ya no** compara el candidate contra
     `HISTORICAL_REFERENCE_S0` (`v6-measured.json`): el snapshot de meta de S0 está perdido y sus
