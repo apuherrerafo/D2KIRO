@@ -3,6 +3,11 @@
 Espejo de `docs/specs/SPEC.md` y `docs/agents/architecture.md` (Bloque 1) para lectura nativa en
 Kiro. `CLAUDE.md` sigue siendo la fuente canónica si hay discrepancia.
 
+**Nota de vigencia (R0.4 Task 24, 2026-09-13):** el proyecto avanzó bastante más allá de lo que
+describe este archivo — ver `docs/agents/PROGRESS.md` para la fase real actual. La mención de
+`SCORING_WEIGHTS_V5` más abajo describe correctamente un hecho histórico (la promoción V4→V5), no
+el peso activo de hoy, que es `SCORING_WEIGHTS_V6` (ver `.claude/rules/invariantes.md`).
+
 ## Problema y usuario
 Tomar decisiones de pick/ban correctas en Dota 2 es difícil por tiempo e ignorancia del meta —
 dirigido a jugadores de nivel bajo/medio, no a pro players. Usuario en fase 1: el propio

@@ -3,6 +3,11 @@
 Espejo de `docs/specs/SPEC.md` y `docs/agents/architecture.md` (Bloque 5) para lectura nativa en
 Kiro. `CLAUDE.md` es la fuente canónica si hay discrepancia.
 
+**Nota de vigencia (R0.4 Task 24, 2026-09-13):** este archivo describe el estado de **Fase 1** —
+el proyecto avanzó hasta Fase 10 / R0 desde entonces (ver `docs/agents/PROGRESS.md` para la fase
+real actual). No se reescribe entero aquí para no fabricar historia; sólo se corrige el hecho que
+`invariantes.md` (autoridad más alta) contradecía directamente — ver abajo.
+
 ## Stack
 - **Runtime motor**: Bun (`apps/engine`) — WebSocket y SQLite nativos, arranque rápido. Instalado
   desde TSK-001.
@@ -41,15 +46,19 @@ una constante nueva, nunca reescribir el motor ni editar una versión ya congela
 tocan nunca; solo se lee la que está activa). Cada versión tiene su candado de suma == 1.0 en
 `mix.test.ts`.
 
-**`SCORING_WEIGHTS_V5` es la constante activa** (auditoría 2026-08-22, TSK-065):
-`position_fit: 0.38, counter: 0.24, patch_meta: 0.13, team_synergy: 0.13, hero_pool_fit: 0.12`.
-V5 no agrega ni quita señales respecto a V4 (`position_fit`/`counter`/`patch_meta`/
-`team_synergy`/`hero_pool_fit`) — solo redistribuye peso, tras confirmar por cálculo exacto que un
-hard counter real (delta ~0.08, con `RAW_RANGE.counter` recalibrado a `[-0.12, 0.12]`) reducía el
-margen de `position_fit` sobre un core que repite rol a solo ~1.5 puntos. El peso, no la fórmula,
-es el único lever real: `normalize()` es una transformación lineal, así que reescribir `raw` sin
-tocar el peso no cambia el resultado final — mismo patrón que ya forzó el reemplazo de `role_gap`
-por `position_fit` en Fase 3.
+**`SCORING_WEIGHTS_V5` ya NO es la constante activa — corregido por R0.4 Task 24.** Fases
+posteriores a esta (4.2, 8, 9.1) promovieron el peso hasta `SCORING_WEIGHTS_V6`, que es la
+constante activa real hoy: `position_fit: 0.342, counter: 0.216, patch_meta: 0.117,
+team_synergy: 0.117, hero_pool_fit: 0.108, archetype_fit: 0.10` — ver
+`.claude/rules/invariantes.md` y `apps/engine/src/signals/weights.ts` como fuente de verdad exacta
+y siempre vigente (este archivo no se mantiene sincronizado peso a peso). V1–V6 quedan congeladas
+por nombre, nunca editadas; cada versión trae su propio candado de suma == 1.0 en `mix.test.ts`.
+Historia de V4→V5 (auditoría 2026-08-22, TSK-065), preservada sin corregir por ser un hecho
+histórico real: V5 no agregó ni quitó señales respecto a V4 — solo redistribuyó peso, tras
+confirmar por cálculo exacto que un hard counter real (delta ~0.08, con `RAW_RANGE.counter`
+recalibrado a `[-0.12, 0.12]`) reducía el margen de `position_fit` sobre un core que repite rol a
+solo ~1.5 puntos. El peso, no la fórmula, es el único lever real bajo una normalización lineal —
+mismo patrón que ya forzó el reemplazo de `role_gap` por `position_fit` en Fase 3.
 
 `apps/engine/src/tools/batch-harness.ts` (standalone, nunca corre desde `apps/engine` en runtime)
 valida el motor real a escala — N drafts sintéticos con PRNG determinista contra

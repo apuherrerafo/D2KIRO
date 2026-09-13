@@ -1344,7 +1344,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No.
   - _Requirements: 4.2, 4.3_
 
-- [ ] 24. [R0.4] Reconciliar espejos divergidos (V5â†’V6) + mover narrativa de fase a rules-archive
+- [x] 24. [R0.4] Reconciliar espejos divergidos (V5â†’V6) + mover narrativa de fase a rules-archive
   - **Workstream:** R0.4 Harness Truth (KEEP+HARDEN / MOVE / MERGE-DELETE derivados de la tarea 23).
   - **Dependencies:** 23; 21 (Â§9.2, SOLO para el criterio de documentar `STEAM_WEB_API_KEY`).
   - **Preconditions:** matriz aplicada (tarea 23); Â§9.2 resuelta para documentar `STEAM_WEB_API_KEY`.
