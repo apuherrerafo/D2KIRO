@@ -1418,7 +1418,7 @@ PROHÃBE crear agentes nuevos.)_
   - **Approval required?** No.
   - _Requirements: 4.4_
 
-- [ ] 26. [R0.4] Agent Guardrail Architecture con mecanismo canÃ³nico determinista y circuit-breaker verificable
+- [x] 26. [R0.4] Agent Guardrail Architecture con mecanismo canÃ³nico determinista y circuit-breaker verificable
   - **Workstream:** R0.4 Harness Truth.
   - **Dependencies:** 23; 4 (referencia a path-normalization); 8 (referencia a required-skip â‰  PASS);
     21 (Â§9.2, SOLO para el guardrail de secretos).
