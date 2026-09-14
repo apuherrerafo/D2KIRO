@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-09-13T21:37:37.064Z</title>
+<title>HUB del ecosistema — 2026-09-14T05:17:05.336Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -1904,8 +1904,8 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">codex</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:13%"></div></div>
-          <div class="stat-nums">28× · 93% ok · 1 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:14%"></div></div>
+          <div class="stat-nums">29× · 93% ok · 1 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">blueprint</div>
@@ -1919,8 +1919,8 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">claude-code</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:4%"></div></div>
-          <div class="stat-nums">8× · 100% ok  </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:5%"></div></div>
+          <div class="stat-nums">10× · 100% ok  </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">castoff</div>
@@ -1972,6 +1972,27 @@
     <div>
       <h3>Feed de actividad</h3>
       <div class="panel">
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-09-14T00:14</span></div>
+            <div class="feed-note">**Task 30 R0 Baseline Certification: R0 GREEN.** Re-review PASS: PR #2 and GitHub Actions run `34808265637` are confirmed at HEAD `99f793d4bf88f4ef2e93eb1b37e34b0f204316d5`; all five required CI jobs succeeded with Bun 1.4.2. `git diff --check 3ced3c1..HEAD`, canonical tests, engine/web type checks, web lint (six existing warnings, zero errors), simplicity, and eval enforce pass. Benchmark A is required PASS; absent Benchmark B is explicitly informational SKIPPED. S1/candidate/control identities, Task 20b PO approval, Task 22 NO ACTION REQUIRED, and protected evidence were independently revalidated. Certification report: `docs/agents/r0-certification.md`. No push, merge, or master change.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-09-13T16:30</span></div>
+            <div class="feed-note">**Task 29 [R0.4] COMPLETE — Harness Learning / Curation proposal at `docs/agents/harness-learning-proposal.md`, proposes only, autoedits nothing.** Confirmed via `harness-matrix.md` §4 that "harness learning / curation" genuinely has no owner today, and building an automated trigger-scanning mechanism would expand the architecture -- exactly the condition under which requirement 4.7 c3 mandates a PROPOSAL, not silent creation. The document: (1) restates the 6-trigger / 7-destination taxonomy from design.md §4.4; (2) classifies 2 real candidates surfaced during this actual R0 run -- Chronicle's append-only-vs-vaciar contradiction (already named by Task 23 but outside every subsequent task's declared write scope) and Sentinel's rule 5 unverifiable "@depcheck ran" claim (same shape of gap Task 25 already fixed for Warden) -- both left as pending-approval candidates, neither one touched; (3) proposes two non-new-mechanism options for who owns this going forward (a checklist step in the existing /helm skill, or an explicit responsibility added to the existing Chronicle agent), explicitly not activating either. Zero hooks/scripts/skills created, zero edits to CLAUDE.md or any governance artifact -- the document itself is the detect+classify+propose output the requirement asks for.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">TSK-174</span> <span class="feed-ts">2026-09-13T16:20</span></div>
+            <div class="feed-note">**Task 28 [R0.4] COMPLETE — dead code / TSK-174 invalid state, following Task 23's own reclassification.** `docs/agents/harness-matrix.md` §1.8/§3.7 already found, against the real working tree, that 2 of the 4 "dead code" candidates the design named have a live consumer or a fallen-through stop condition: `scripts/verify-claude-md-split.sh` has no automatic caller but is still referenced by documentary contract (`CLAUDE.md:90`, TSK-196/218) and fails today under Git Bash CRLF comparison (reclassified REFACTOR/PENDING DECISION, not DELETE); `scripts/analisis-arquitectura.sh` has an active caller (`.claude/skills/foundation-check/SKILL.md` step 1) and is itself operationally broken (`integer expression expected` on files with zero imports) (reclassified KEEP+REFACTOR, not DELETE). Task 28's own stop condition ("si un supuesto código muerto resulta tener llamadores ⇒ NO eliminar; reclasificar") is exactly what Task 23 already did — so both scripts were deliberately left in place, not deleted. The other two genuinely-dead artifacts were confirmed absent (`.agents/`: no such directory; `CHECKPOINT.json`: no such file) — nothing to delete, matrix row 41/42 already correct. `docs/agents/tasks/TSK-174.md` frontmatter `state: in_progress` (not a value `scripts/hub.ts`'s `STATES` enum — `backlog|ready|doing|review|blocked|done` — recognizes) corrected to `state: backlog`: `attempts: 0` and the task's own body ("la expansión queda pendiente mientras el diagnóstico sea dns_failed o http_failed") show no work in progress, only a task waiting on an external network precondition, so `backlog` is the accurate read, not a WIP=1-violating `doing`. Verified `bun scripts/hub.ts` runs clean against the corrected file: "217 tareas, 452 eventos estructurados", no crash — acceptance criterion met directly, not just inferred.</div>
+          </div>
+        </div>
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
@@ -2033,27 +2054,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-019</span> <span class="feed-ts">2026-09-12T19:54</span></div>
             <div class="feed-note">**Task 19 REAL EVIDENCE PASS / COMPLETE.** Repository recovery reconstructed the reviewed Task-19 checkpoint as `084b4115839e468f9031f6333cf5b60f00eaf993`; full-tree comparison against the preserved pre-loss `task19-writer` snapshot was exact, and an independent detached review returned PASS / safe for real evidence. Real candidate generation then ran from clean HEAD `084b4115839e468f9031f6333cf5b60f00eaf993` and `gate [ENFORCE]` exited `0`: Engine Quality / Benchmark A required = PASS; Professional Pick Agreement / Benchmark B = SKIPPED informational because `pro-drafts.sqlite` is absent. Candidate and reference are comparable with identical `EvaluationIdentity`: `datasetVersion=split:02dc8878;golden:30`, `evaluationProtocolVersion=schema:1;patchOverride:dominant`, `scoringModelFamily=SCORING_WEIGHTS_V6`, `metaSnapshotVersion=meta1:719c55caf22a9bf06e8e74428c201851ff3749ac61042ca19be44b31a01d293f`. Candidate provenance: `measuredEngineCommit=084b4115839e468f9031f6333cf5b60f00eaf993`, `evaluationHarnessCommit=084b4115839e468f9031f6333cf5b60f00eaf993`, `snapshotFileSha=de7520a6af84a6a3eaad191b35ae81dade586914e1f41ccd2bdb838aa87d6478`. Real candidate artifact SHA-256=`49AD0395ECC5F0A64D0B27F5CEF23F9CB92E4069787539604E0836FD7D236FCD`, frozen in commit `a3d650c6777490cb4286ad55780c89ea7d0dd133`. `eval/baselines/accepted.s1.json` does not exist: **no promotion occurred**. Task 20 remains INCOMPLETE and is the only task authorized to promote the accepted baseline after explicit PO approval.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-09-11T00:00</span></div>
-            <div class="feed-note">Task-35 split repair independently reviewed PASS; real reference regeneration EXIT 0 consumed the canonical frozen split. `reference.s1.json` is `REBASED_CONTROL` with `splitHash=02dc8878`, `datasetVersion=split:02dc8878;golden:30`, historical `measuredEngineCommit=df354b9c4ed415b86dba35dc92e2f84e5cb40e5d`, and `evaluationHarnessCommit=24a1e7c0adceb01dc496495d70683b23fea0b680`. Benchmark A metrics are unchanged from the prior artifact. No candidate promotion and no accepted promotion occurred. Task 35 re-closed; Task 19 remains incomplete and may resume only after PO reviews this closure. Task 20 remains incomplete.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">ℹ️</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-035</span> <span class="feed-ts">2026-09-10T00:00</span></div>
-            <div class="feed-note">Task-19 real evidence exposed a datasetVersion mismatch: Task 35 had regenerated an empty split because its reference runner targeted a missing scratch file instead of the tracked canonical `eval/baselines/split.json`. The reference control is invalid for fair comparison, so Task 35 is reopened; no promotion occurred and Task 19 is paused pending a corrected reference.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>codex</strong> <span class="feed-ticket">TSK-034</span> <span class="feed-ts">2026-09-08T23:20</span></div>
-            <div class="feed-note">**Task 34 PASS / COMPLETE.** Trusted acquisition/builder commit `3912f9b45072463ab3292faf797a4b6f00caf57d`; S1 artifact commit `06210cc53c483c2e9597bb105b9f68b66b7ce81a`. `metaSnapshotVersion=meta1:719c55caf22a9bf06e8e74428c201851ff3749ac61042ca19be44b31a01d293f`; `snapshotFileSha=de7520a6af84a6a3eaad191b35ae81dade586914e1f41ccd2bdb838aa87d6478`. S1: `heroes=127`, `hero_patch_stats=1016`, `hero_matchups=15984`, matchup source coverage `127/127`, `dominantPatch=7.41e`, `patchLabel=7.41e`, `sourceSync.status=ok`, SQLite `integrity_check=ok`, sin WAL/SHM/journal. HUMAN S1 CHECKPOINT PASS e independent real S1 artifact review PASS. S1 es standalone; huella lógica y SHA crudo validados; artefactos S1 commiteados. Siguiente arista: Task 34 COMPLETE → HUMAN S1 CHECKPOINT COMPLETE → Task 35 authorized next; Task 35 no iniciada ni completada.</div>
           </div>
         </div></div>
     </div>

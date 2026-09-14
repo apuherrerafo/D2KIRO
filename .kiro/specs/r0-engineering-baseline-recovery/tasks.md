@@ -1555,7 +1555,7 @@ PROHÃBE crear agentes nuevos.)_
 
 ### CertificaciÃ³n final
 
-- [ ] 30. [R0] R0 Baseline Certification â€” gate final (verifica y emite veredicto, NO arregla)
+- [x] 30. [R0] COMPLETE — R0 GREEN — Baseline Certification (verifica y emite veredicto, NO arregla)
   - **Workstream:** transversal (gate de certificaciÃ³n; no arregla nada).
   - **Dependencies:** 1–29, 31, 32, 33, **34 y 35** (todas las demás tareas de este plan; 30 sigue
     siendo el gate final).
