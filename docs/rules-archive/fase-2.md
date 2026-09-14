@@ -97,4 +97,3 @@ equipo" arriba)
   `MetaSnapshot`, hay dos lugares a corregir en el mismo cambio, no uno: `apps/web/features/
   draft/types.ts` (ya documentado) y `apps/web/features/random-draft-simulator/bot-drafter.ts`
   (documentado acá, ahora).
-
