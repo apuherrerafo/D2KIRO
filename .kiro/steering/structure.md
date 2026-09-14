@@ -1,7 +1,15 @@
 # structure — dota2coach (Draft Coach) — mantenimiento, Fase 3 completa
 
 Espejo de `docs/specs/SPEC.md` §2-3 (y §9 para fase 1b, §10 para fase 3) para lectura nativa en
-Kiro. `CLAUDE.md` es la fuente canónica si hay discrepancia. **Nota de estado (2026-08-22)**:
+Kiro. `CLAUDE.md` es la fuente canónica si hay discrepancia.
+
+**Nota de vigencia (R0.4 Task 24, 2026-09-13):** este archivo describe el estado de Fase 3
+(2026-08-22) — el proyecto avanzó hasta Fase 10 / R0 desde entonces (ver
+`docs/agents/PROGRESS.md`). La mención de `SCORING_WEIGHTS_V5` abajo es un hecho histórico
+correcto (la promoción V4→V5); el peso activo hoy es `SCORING_WEIGHTS_V6` (ver
+`.claude/rules/invariantes.md`).
+
+**Nota de estado (2026-08-22)**:
 `apps/web` y `apps/engine` existen y fase 1 está completa (TSK-001 a TSK-016, done). Fase 1b (hero
 pool) completa y validada (TSK-017 a TSK-026, done). Bloque de feedback directo de producto
 también completo (TSK-027 a TSK-033, done). Fase 2 ("Draft en equipo": modo de party + equipos

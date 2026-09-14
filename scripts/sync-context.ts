@@ -7,7 +7,12 @@
 // CLAUDE.md documentaba Next.js hacía tres fases, y plan.md listaba tickets como backlog que ya
 // estaban done en su propio archivo. Doc staleness es una señal de mantenimiento, no un gate de
 // seguridad ni de correctitud -- por eso este script siempre sale con exit 0, incluso con avisos.
-// Uso: bun scripts/sync-context.ts (también corre como primer paso de verify-simplicity.sh)
+//
+// R0.4/Task 27 (design.md §4.4 "Filosofía de hooks", requisito 4.5 c2): acción EXPLÍCITA, ya NO
+// se invoca automáticamente desde scripts/verify-simplicity.sh -- regenerar docs/agents/hub.html
+// como colateral de un gate que corre en cada Edit/Write (nivel AFTER EDIT, que debe ser barato y
+// sin efectos secundarios) era exactamente el problema que esta tarea resuelve.
+// Uso: bun scripts/sync-context.ts (a mano, cuando se quiera regenerar el tablero / chequear drift)
 
 import { Glob } from "bun";
 

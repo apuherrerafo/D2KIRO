@@ -31,3 +31,40 @@ en `.claude/rules/` (secciones "Fase 6" en `engine.md`, `security.md`, `testing-
 - **`openingStrategy` tiene una sola implementación**, movida a `draft-paths/strategy.ts` — una
   segunda copia es rechazo automático de revisión.
 
+
+---
+
+## Detalle histórico completo (movido desde `.claude/rules/engine.md` — R0.4 Task 24)
+
+## Fase 6 — Formalizar Pro-Drafter: apertura de equipo consciente de bans (SPEC.md §13)
+
+- **`SignalId`/`SCORING_WEIGHTS_V1`-`V5` no se tocan en esta fase.** Toda dimensión nueva vive en
+  el universo ya separado de `pipeline/merge.ts` (`PipelineSignalId = "knn_similarity"|
+  "lane_score"|"denial_score"`) — el término ban-aware alimenta el `raw` de `denial_score`, no
+  agrega una cuarta clave.
+- **`intent/denial-score.ts` no se edita.** El nuevo `pipeline/ban-relief.ts` solo le cambia los
+  parámetros inyectados (héroes baneados en vez de picks rivales revelados) — la fórmula
+  (`Σ P(pos)·MatchupWinrate + β·EarlyPressure·H(F)`) es la formalización correcta, ya existente.
+- **`POSITION_OVERLAP_GAIN = 5` es el ancla, no negociable**: un candidato sin dato de posición
+  reproduce exactamente el alivio plano de `team-opener.ts` — un hueco de datos nunca penaliza.
+  `BETA_OPENING = 0.04` sí es una perilla de producto, fijada con justificación medida (SPEC.md
+  §13.11), ajustable si el resultado real lo pide.
+- **`knn_similarity` no corre en el modo `teamOpening`.** Con `own=[]`, los 502 drafts del corpus
+  empatan en 0 y el desempate quedaría arbitrario por orden de archivo — en apertura, esa señal es
+  `raw: null` para todos, nunca un `0` fabricado.
+- **`MAX_COUNTER_RELIEF` de `team-opener.ts` no se toca ni se retira en esta fase.** Sigue siendo
+  el único camino de apertura con `ENABLE_PRO_DRAFTER` apagado (el default). Su reemplazo depende
+  de que el paquete de evidencia de `scripts/evaluate-pro-drafter.ts` (SPEC.md §13.15) supere la
+  barra fijada, y es decisión de un segundo `/blueprint`, más angosto.
+- **Sin tabla `heroSynergy` ni recolección de datos de sinergia de aliados nueva** — mismo
+  precedente que Fase 4: OpenDota no expone ese endpoint (verificado dos veces, en Fase 4 y en
+  Fase 6). Si algún día hace falta sinergia par a par, se deriva de `capabilities.json`, no de una
+  fuente estadística nueva.
+- **`openingStrategy` tiene una sola implementación real**, en `draft-paths/strategy.ts` — `mix.ts`
+  la importa, no la duplica. Una segunda copia de esta clasificación en cualquier archivo es
+  rechazo automático de revisión.
+- **El umbral `MIN_MATCHUP_GAMES = 200` recorta el 92.5% de `hero_matchups`** (medido: 1200 de
+  15984 filas llegan al umbral) — no es un detalle menor, es la razón real por la que un alivio
+  por ban plano casi nunca tenía con qué disparar. El factor de solapamiento posicional + entropía
+  de rol es lo que hace que la apertura reaccione a todos los bans, no solo al 7.5% con volumen.
+

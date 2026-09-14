@@ -446,3 +446,82 @@ tests/producto/lockfiles.
 - **Task 3 unlocked:** NO (sigue BLOCKED tras 31; espera además el PASS de 32).
 - **Circuit breaker:** no disparado. **Contradicción de spec:** no.
 - No se ejecutó Task 32, Task 3, Task 5, ninguna suite funcional, commit ni push.
+
+---
+
+## 13. CONTINUACIÓN — primera ejecución REAL de CI remoto en GitHub Actions — 2026-09-14
+
+**Contexto:** §4 y §12.5 de este mismo documento dejaron registrado, explícitamente, que la
+verificación de `.github/workflows/ci.yml` en las corridas de Task 31 fue **estática, por lectura
+del YAML** — "no se ejecutó CI remoto en esta corrida". Esa historia **no se borra ni se falsea
+acá**: hasta el PR #2 (rama `r0/finalize` → `master`), este proyecto nunca había tenido una
+ejecución real de GitHub Actions sobre este workflow. Esta sección documenta la primera vez que
+ocurrió, con datos literales del run — no una re-lectura del YAML.
+
+### 13.1 Primer run real — FAIL parcial (evidencia de partida, no generada por esta sesión)
+
+- **PR:** #2, `r0/finalize` → `master`.
+- **HEAD evaluado:** `9c78fab79e027deba4fea0e467ce453299a298e5`.
+- **Workflow run:** `34806575375`.
+- **Resultado:** 4 de 5 jobs GREEN (`test (engine)`, `test (web)`, `intelligence-ci (eval
+  --enforce)`, `verify-simplicity`); **`test (root)` FAIL**.
+
+### 13.2 Root cause — tres fallos reales, no de producto
+
+Los tres viven exclusivamente en el arnés de pruebas (`scripts/*.test.ts`); ningún archivo de
+`apps/engine/src/**` ni `apps/web/**` cambió.
+
+| # | Archivo | Síntoma en Ubuntu | Causa |
+|---|---|---|---|
+| 1 | `scripts/verify-simplicity.test.ts` | Trampa de ejecución (execution trap) no detectaba los señuelos `bun`/`bunx`/`tsc`; exit 127 en el canario | El directorio de señuelos se anteponía al `PATH` con el delimitador `;` hardcodeado (formato Windows). En Linux, `PATH` usa `:` — el shim quedaba en una sola entrada ilegible, invisible para la resolución de comandos de `bash`. |
+| 2 | `scripts/eval/rebased-reference.test.ts` | `expect(env.ENGINE_DB_PATH).toContain("eval\\snapshots\\S1.sqlite")` fallaba | Literal de ruta con separador Windows (`\`) contra una ruta real construida con separador POSIX (`/`) en Ubuntu. |
+| 3 | `scripts/verify-simplicity.test.ts` (tras corregir 1) | `expect(code).toBe(0)` fallaba en 3 pruebas — el propio `verify-simplicity.sh` real devolvía `ERRORS>0` | Estas pruebas heredan `process.env` completo hacia el proceso hijo que corre el gate real. Dentro de un job de GitHub Actions, `GITHUB_ACTIONS=true`/`GITHUB_BASE_REF=master` llegan ambiente-heredados también a ESTE archivo de test (no sólo al job dedicado `verify-simplicity`), desviando el gate hacia su rama de diff de PR de CI. Combinado con el checkout **superficial por defecto** del job `test (root)` (`actions/checkout@v4`, `fetch-depth: 1` — a diferencia del job `verify-simplicity`, que pide `fetch-depth: 100`), `git merge-base` no encuentra ancestro común y el gate cae a comparar el árbol completo contra el árbol vacío, reportando violaciones ("nueva dependencia sin // ALLOWED", "secreto hardcodeado") que no existen en ningún diff real. **Reproducido de forma determinística** con un clon superficial real (`git clone --depth 1 file://…`) + `GITHUB_ACTIONS=true GITHUB_BASE_REF=master` antes de escribir el fix, y vuelto a probar después para confirmar el GREEN. |
+
+### 13.3 Fixes — sólo arnés de pruebas, cero producto
+
+| Commit | Archivo(s) | Cambio |
+|---|---|---|
+| `469e9556…` | `scripts/verify-simplicity.test.ts`, `scripts/eval/rebased-reference.test.ts` | `node:path` `delimiter` (`;` en win32, `:` en POSIX) en vez de `;` hardcodeado; `join("eval","snapshots","S1.sqlite")` en vez del literal `\`-separado. |
+| `ef0d0550…` | `scripts/verify-simplicity.test.ts` | Nueva función `stripCiAmbientEnv()`: elimina `GITHUB_ACTIONS`/`GITHUB_BASE_REF` del entorno que estas pruebas pasan al `verify-simplicity.sh` real, para que siempre ejerciten el camino local AFTER-EDIT (diff sin commitear vs. `HEAD`) que documentan probar — sin importar si el propio test corre dentro de un runner de GitHub Actions. El job dedicado `verify-simplicity` sigue ejercitando la rama real de diff de CI sin cambios (su propio `fetch-depth: 100` la resuelve bien). |
+
+Ninguna trampa de ejecución (execution trap), canario, ni assertion de detección de `bun
+test`/`bunx tsc`/`tsc`/`eval --enforce` se debilitó — se verificó explícitamente corriendo el
+canario tras el fix (sigue detectando las 3 invocaciones señuelo) y reproduciendo el escenario de
+clon superficial + variables de CI antes y después del segundo fix.
+
+### 13.4 Run final — GREEN completo (CONFIRMED)
+
+- **HEAD:** `ef0d0550200d527d48f4dc3ba0f80b63ae37e7c9`.
+- **Workflow run:** `34808005935`.
+- **Runner:** `ubuntu-latest` (los 5 jobs).
+- **Bun:** `1.4.2` (pin de `package.json#packageManager`, verificado por el step "Verify Bun
+  matches packageManager pin" en cada job — sin drift, consistente con §12 de este mismo
+  documento).
+
+| Check | Conclusion | started_at (UTC) | completed_at (UTC) |
+|---|---|---|---|
+| `test (root)` | **success** | 2026-09-14T04:59:43Z | 2026-09-14T05:00:00Z |
+| `test (engine)` | **success** | 2026-09-14T04:59:42Z | 2026-09-14T04:59:51Z |
+| `test (web)` | **success** | 2026-09-14T04:59:43Z | 2026-09-14T05:00:20Z |
+| `intelligence-ci (eval --enforce)` | **success** | 2026-09-14T04:59:43Z | 2026-09-14T04:59:48Z |
+| `verify-simplicity` | **success** | 2026-09-14T04:59:43Z | 2026-09-14T04:59:51Z |
+
+Fuente: `GET /repos/apuherrerafo/D2KIRO/commits/{sha}/check-runs` (API de GitHub, leída
+directamente en esta sesión — no una re-lectura del YAML).
+
+### 13.5 Local, previo a cada push (paridad con lo que corrió en CI)
+
+Para cada uno de los dos commits de fix (`469e9556…`, `ef0d0550…`), corrido y en verde ANTES del
+push: `bun run test` (engine 673/0, web 218/0, scripts 359/0), `bunx tsc --noEmit` en
+`apps/engine` y `apps/web`, `bun run lint` en `apps/web` (0 errores, 6 warnings preexistentes),
+`bash scripts/verify-simplicity.sh`, `bun run scripts/eval/gate.ts --enforce`, `git diff --check
+3ced3c1..HEAD` (sin errores de espacio en blanco), y el hook real `.husky/pre-commit` /
+`.husky/pre-push` de cada commit (lint-staged + `bun run test` + `tsc`), todos en verde.
+
+### 13.6 Veredicto de la continuación
+
+**CI RECOVERY (PR #2): PASS.** Primera ejecución remota real de `.github/workflows/ci.yml` para
+este proyecto, con los 5 jobs requeridos en GREEN sobre `ef0d0550200d527d48f4dc3ba0f80b63ae37e7c9`.
+Ningún archivo de `apps/engine/src/**` ni `apps/web/**` cambió; ningún baseline, dataset Golden,
+artefacto `accepted/reference/candidate`, ni `requirements/design` fue tocado. Sin merge a
+`master`, sin force-push, sin Task 30.

@@ -8,10 +8,9 @@ echo "🦴 Verificando reglas del proyecto..."
 # --- Toolchain: pin canónico de Bun (fail-fast, ANTES de correr cualquier código con Bun) ---
 # R0/Task 31 (TOOLCHAIN_VERSION_DRIFT): la ÚNICA fuente manual de la versión de Bun es
 # `package.json#packageManager` en la raíz, en formato cerrado `bun@<semver exacto>`. LOCAL, CI y
-# Docker consumen ese mismo valor; acá se verifica que el binario `bun` que va a interpretar los
-# tests y el tooling coincide EXACTAMENTE con ese pin. Sin red, sin escrituras, determinista, y
-# antes de `sync-context.ts` (que ya corre con Bun). Falla cerrado ante ausencia, formato no
-# exacto o mismatch -- no se avisa y se deja pasar, igual que la sección 6.
+# Docker consumen ese mismo valor; acá se verifica que el binario `bun` que va a interpretar el
+# resto del gate coincide EXACTAMENTE con ese pin. Sin red, sin escrituras, determinista. Falla
+# cerrado ante ausencia, formato no exacto o mismatch -- no se avisa y se deja pasar.
 PM_RAW=$(grep -E '"packageManager"[[:space:]]*:' package.json 2>/dev/null | head -n1) || true
 EXPECTED_PM=$(printf '%s\n' "$PM_RAW" | sed -E 's/.*"packageManager"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
 if ! printf '%s' "$EXPECTED_PM" | grep -qE '^bun@[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -20,8 +19,9 @@ if ! printf '%s' "$EXPECTED_PM" | grep -qE '^bun@[0-9]+\.[0-9]+\.[0-9]+$'; then
 fi
 EXPECTED_BUN_VERSION="${EXPECTED_PM#bun@}"
 
-# Resolución del binario real de bun SIN red (mismo criterio que la sección 6): `bun` en PATH, la
-# ruta de instalación estándar, o el symlink de `bunx` como último recurso.
+# Resolución del binario real de bun SIN red: `bun` en PATH, la ruta de instalación estándar, o
+# el symlink de `bunx` como último recurso -- Windows/Git Bash confirmado con `bun` fuera de PATH
+# pero `bunx` resolviendo por symlink a ~/.bun/bin/bun.
 GUARD_BUN_BIN=""
 if command -v bun >/dev/null 2>&1; then
   GUARD_BUN_BIN="$(command -v bun)"
@@ -46,14 +46,13 @@ if [ "$ACTUAL_BUN_VERSION" != "$EXPECTED_BUN_VERSION" ]; then
 fi
 echo "🔒 Toolchain Bun OK: ${ACTUAL_BUN_VERSION} == package.json#packageManager (bun@${EXPECTED_BUN_VERSION})"
 
-# --- Sincronización de contexto (informativo, nunca bloquea el gate) ---
-# scripts/sync-context.ts avisa si AGENTS.md/.kiro/steering/ quedaron atrás del stack real, o si
-# plan.md/MEMORY.md quedaron atrás del estado real de los tickets -- es mantenimiento de contexto,
-# no un gate de seguridad/correctitud, así que nunca suma a $ERRORS ni aborta el script.
-if command -v bun >/dev/null 2>&1 && [ -f scripts/sync-context.ts ]; then
-  bun scripts/sync-context.ts || true
-  echo ""
-fi
+# --- Sincronización de contexto: acción EXPLÍCITA, ya no colateral de este gate ---
+# R0.4/Task 27 (design.md §4.4 "Filosofía de hooks"): el nivel AFTER EDIT (este script, corrido
+# desde PostToolUse/SubagentStop en .claude/settings.json) es escaneo estático barato y NO debe
+# tener efectos secundarios -- regenerar docs/agents/hub.html en cada Edit/Write es exactamente el
+# efecto secundario que el diseño pide eliminar de este nivel. `scripts/sync-context.ts` sigue
+# existiendo tal cual y se invoca a mano cuando hace falta (`bun scripts/sync-context.ts`); este
+# gate ya no lo llama por su cuenta.
 
 # --- 0. Base de comparación adaptativa (local vs. CI) ---
 # Repo sin ningún commit todavía (bootstrap): `git diff ... HEAD` no existe y aborta con
@@ -212,104 +211,22 @@ if [ -n "$LOOPBACK_HIT" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# --- 6. Compilación/tipos + suite de tests -- solo en el camino de commit ---
-# Corre únicamente cuando VERIFY_COMMIT_GATE=1 (fijado por pretooluse-guard.sh en git commit/
-# push). Los hooks PostToolUse/SubagentStop de .claude/settings.json llaman a este mismo script en
-# caliente después de cada Edit/Write -- correr tsc+bun test completos ahí sería demasiado lento
-# para ese camino y no aporta nada que el commit gate no vaya a repetir de todas formas. Sin
-# excepción de ticket posible: a diferencia de 1-2, esto nunca se avisa y se deja pasar.
-if [ "${VERIFY_COMMIT_GATE:-0}" = "1" ]; then
-  echo ""
-  echo "🔎 Gate de commit: compilación/tipos + suite de tests (hard gate, sin excepción)"
-
-  # Resolución agnóstica al entorno: el binario real de bun no siempre está en $PATH en el
-  # contexto en que corre este hook (confirmado en esta máquina -- `bun` no resuelve pero
-  # `bunx`, symlink a ~/.bun/bin/bun, sí). BUN_BIN siempre termina apuntando al binario real de
-  # `bun` (nunca al wrapper `bunx`, que ya implica modo "x" y no sirve para `bun test`) -- se
-  # prueba `bun` en PATH, la ruta estándar de instalación, y resolver el symlink de `bunx` como
-  # último recurso. Sin esto, el gate fallaría por "command not found" en vez de por una razón
-  # real, exactamente el tipo de fragilidad entre entornos que se pidió evitar.
-  BUN_BIN=""
-  if command -v bun >/dev/null 2>&1; then
-    BUN_BIN="$(command -v bun)"
-  elif [ -x "$HOME/.bun/bin/bun" ]; then
-    BUN_BIN="$HOME/.bun/bin/bun"
-  elif command -v bunx >/dev/null 2>&1; then
-    BUNX_RESOLVED=$(readlink "$(command -v bunx)" 2>/dev/null) || true
-    if [ -n "$BUNX_RESOLVED" ] && [ -x "$BUNX_RESOLVED" ]; then
-      BUN_BIN="$BUNX_RESOLVED"
-    fi
-  fi
-
-  if [ -z "$BUN_BIN" ]; then
-    echo "❌ ERROR: no se encontró el binario de bun (ni 'bun' ni 'bunx' en PATH, ni ~/.bun/bin/bun)."
-    ERRORS=$((ERRORS + 1))
-  else
-    if [ -f apps/engine/tsconfig.json ]; then
-      if ! (cd apps/engine && "$BUN_BIN" x tsc --noEmit -p tsconfig.json); then
-        echo "❌ ERROR: apps/engine no compila (tsc --noEmit)."
-        ERRORS=$((ERRORS + 1))
-      fi
-    fi
-
-    if [ -f apps/web/tsconfig.json ]; then
-      if ! (cd apps/web && "$BUN_BIN" x tsc --noEmit -p tsconfig.json); then
-        echo "❌ ERROR: apps/web no compila (tsc --noEmit)."
-        ERRORS=$((ERRORS + 1))
-      fi
-    fi
-
-    if [ -f apps/engine/package.json ]; then
-      if ! (cd apps/engine && "$BUN_BIN" test); then
-        echo "❌ ERROR: suite de tests de apps/engine falló (bun test)."
-        ERRORS=$((ERRORS + 1))
-      fi
-    fi
-
-    if [ -f apps/web/package.json ]; then
-      if ! (cd apps/web && "$BUN_BIN" test); then
-        echo "❌ ERROR: suite de tests de apps/web falló (bun test)."
-        ERRORS=$((ERRORS + 1))
-      fi
-    fi
-
-    # Gobernanza 2.0 (evt-111 -> evt-112): scripts/ (fetch-daily-pro-drafts.ts y su .test.ts) no
-    # es un workspace con su propio package.json como apps/engine/apps/web -- usa el package.json
-    # de la raíz, así que el guard de arriba (`-f .../package.json`) no aplica igual. `-d scripts`
-    # es el equivalente real: existe siempre en este repo, y `bun test` corrido desde ahí ya
-    # resuelve los imports relativos a apps/engine/src sin problema (verificado antes de este
-    # cambio). Antes de esto, los 9 tests de fetch-daily-pro-drafts.test.ts pasaban solo si
-    # alguien los corría a mano -- el gate automatizado nunca los tocaba.
-    if [ -d scripts ]; then
-      if ! (cd scripts && "$BUN_BIN" test); then
-        echo "❌ ERROR: suite de tests de scripts/ falló (bun test)."
-        ERRORS=$((ERRORS + 1))
-      fi
-    fi
-
-    # TSK-212 (Fase 9.1, SPEC.md §16.10): gate de calidad del motor. Corre el backtest completo y
-    # lo compara --enforce contra el v6-measured.json de REFERENCIA (congelado + validado, nunca se
-    # sobrescribe acá -- la corrida actual va a un temporal). Falla el commit si un cambio degrada
-    # NDCG@5 / Bad Pick Rate@5 más que la tolerancia de null-perturbation. Sólo en el camino de
-    # commit: el backtest tarda demasiado para el hot path (mismo criterio que tsc+bun test).
-    # Se omite -- sin fallar -- si falta alguna SQLite o el baseline (ej. checkout de CI sin datos).
-    EVAL_ENGINE_DB="${ENGINE_DB_PATH:-apps/engine/data/dota2coach.sqlite}"
-    EVAL_PRO_DB="${D2K_PRO_DB:-apps/engine/data/pro-drafts.sqlite}"
-    if [ -f "$EVAL_ENGINE_DB" ] && [ -f "$EVAL_PRO_DB" ] && [ -f eval/baselines/v6-measured.json ]; then
-      EVAL_TMP_DIR="$(mktemp -d)"
-      if D2K_BASELINE_OUT="$EVAL_TMP_DIR/v6-current.json" D2K_REPORTS_DIR="$EVAL_TMP_DIR/reports" "$BUN_BIN" run scripts/eval/run.ts \
-        && D2K_BASELINE_OUT=eval/baselines/v6-measured.json D2K_GATE_CURRENT="$EVAL_TMP_DIR/v6-current.json" "$BUN_BIN" run scripts/eval/gate.ts --enforce; then
-        :
-      else
-        echo "❌ ERROR: gate de evaluación del motor falló (bun run eval + gate.ts --enforce)."
-        ERRORS=$((ERRORS + 1))
-      fi
-      rm -rf "$EVAL_TMP_DIR"
-    else
-      echo "⚠️  gate de evaluación (§16.10) omitido: falta una SQLite del motor o el baseline de referencia."
-    fi
-  fi
-fi
+# --- 6. Compilación/tipos + suite de tests + eval pesado -- YA NO viven en este commit gate ---
+# R0.4/Task 27 (design.md §3.2/§4.4, requisito 4.5 c3): `tsc` + las 3 suites completas + el
+# backtest/`gate.ts --enforce` corrían acá bajo VERIFY_COMMIT_GATE=1 (fijado por
+# scripts/hooks/pretooluse-guard.sh en git commit/push emitidos DENTRO de una sesión de Claude
+# Code) -- cobertura parcial: un push desde otra terminal, IDE o cliente gráfico lo esquivaba por
+# completo (docs/agents/r0-discovery/pre-push-gate.md). Ese trabajo pesado ahora vive en:
+#   - PRE-PUSH real, local, para TODO `git push` sin importar el origen -- `.husky/pre-push`
+#     (R0.1/Task 5, cableado vía `core.hooksPath` con `scripts/install-git-hooks.sh`): `bun run
+#     test` + `tsc --noEmit` de apps/engine y apps/web.
+#   - PR/CI -- job `test` de `.github/workflows/ci.yml` (matriz engine/web/root: tsc + lint + bun
+#     test), en cada push/PR a `master`.
+#   - INTELLIGENCE CI -- job `intelligence-ci` de `.github/workflows/ci.yml` (R0.2A/Task 10):
+#     `bun run scripts/eval/gate.ts --enforce`, el eval pesado del motor.
+# `VERIFY_COMMIT_GATE=1` queda sin efecto acá a propósito -- no se duplica lo ya cableado en 5/10.
+# El commit dentro de una sesión de Claude Code sigue pagando las secciones 1-5 (baratas); el
+# software correctness completo y el eval `--enforce` los exige el push real y CI, no este script.
 
 # --- Resultado ---
 if [ "$ERRORS" -eq 0 ]; then

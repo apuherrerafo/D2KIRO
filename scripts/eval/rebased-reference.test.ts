@@ -218,7 +218,7 @@ test("poisoned parent controls do not survive the sanitized evaluation environme
   const env = evaluationEnvironment(temp("d2k-hostile-env-"));
   for (const [key, value] of [["D2K_SPLIT_OUT", previous.split], ["D2K_FAKE_CONTROL", previous.fake], ["ENGINE_DB_PATH", previous.db]] as const) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   expect(env.D2K_FAKE_CONTROL).toBeUndefined(); expect(env.D2K_SPLIT_OUT).not.toContain("accepted.s1.json");
-  expect(env.ENGINE_DB_PATH).toContain("eval\\snapshots\\S1.sqlite"); expect(env.D2K_MEASURED_ENGINE_COMMIT).toBe(HISTORICAL_ENGINE_COMMIT);
+  expect(env.ENGINE_DB_PATH).toContain(join("eval", "snapshots", "S1.sqlite")); expect(env.D2K_MEASURED_ENGINE_COMMIT).toBe(HISTORICAL_ENGINE_COMMIT);
 });
 test("every runner Git command receives an allowlisted environment despite hostile mixed-case controls", () => {
   const poisoned: Record<string, string | undefined> = {
