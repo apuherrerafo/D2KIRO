@@ -1,24 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import { perspectiveStateHash } from "./identity-hash";
 import { project } from "./perspective";
-import {
-  rankedAllPickAvailableCommands,
-  rankedAllPickLegalGameplayActions,
-  applyRankedAllPickCommand,
-  createRankedAllPickState,
-} from "./rulesets/ranked-all-pick";
-import { applyCaptainsModeCommand, createCaptainsModeState } from "./rulesets/captains-mode";
+import { applyProtocolCommand, availableCommands, createProtocolState, legalGameplayActions } from "./kernel";
 import { computeEligibilityContentHash } from "./eligibility";
 import type { DraftProtocolState, ProtocolCommand } from "./types";
 
 function apply(state: DraftProtocolState, commands: ProtocolCommand[]): DraftProtocolState {
   let s = state;
-  commands.forEach((command, index) => {
-    const result = applyRankedAllPickCommand(s, command, index);
+  commands.forEach((command) => {
+    const result = applyProtocolCommand(s, command);
     if (result.rejected) throw new Error(`rechazado: ${result.rejected}`);
     s = result.state;
   });
   return s;
+}
+
+function createState(rulesetId: "dota2/ranked-all-pick" | "dota2/captains-mode"): DraftProtocolState {
+  const created = createProtocolState("s1", rulesetId);
+  if (!created.ok) throw new Error("setup");
+  return created.state;
 }
 
 const DIRE_SEALED_SLOT_INDEX = 0;
@@ -26,7 +26,7 @@ const DIRE_SEALED_SLOT_INDEX = 0;
 /** Construye un estado con la ronda 1 abierta: radiant completó sus 2 slots (KNOWN para sí
  * mismo), dire selló sólo 1 de 2 (queda HIDDEN para radiant, el slot restante sigue abierto). */
 function buildOpenRoundState(direSlot0HeroId: number): DraftProtocolState {
-  let state = createRankedAllPickState("s1");
+  let state = createState("dota2/ranked-all-pick");
   state = apply(state, [
     { type: "BAN_RESOLUTION_COMPLETE" },
     { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 10 },
@@ -44,7 +44,7 @@ describe("PerspectiveDraftView — invariante de héroe oculto", () => {
     const view = project(state, "radiant");
     expect(view.enemyPicks).toEqual([{ visibility: "HIDDEN" }]);
     // Invariante fuerte: el heroId oculto no debe aparecer en NINGUNA parte del payload serializado.
-    expect(JSON.stringify(view)).not.toContain("42");
+    expect(JSON.stringify(view)).not.toContain('"heroId":42');
   });
 
   test("las propias selecciones selladas son visibles (KNOWN) para el propio lado", () => {
@@ -61,7 +61,7 @@ describe("PerspectiveDraftView — invariante de héroe oculto", () => {
     const view = project(state, null);
     expect(view.ownPicks).toEqual([]);
     expect(view.enemyPicks).toContainEqual({ visibility: "HIDDEN" });
-    expect(JSON.stringify(view)).not.toContain("42");
+    expect(JSON.stringify(view)).not.toContain('"heroId":42');
   });
 });
 
@@ -76,8 +76,8 @@ describe("PerspectiveDraftView — propiedad de gemelos ocultos (hidden twin)", 
 
     expect(viewA).toEqual(viewB);
     expect(perspectiveStateHash(viewA)).toBe(perspectiveStateHash(viewB));
-    expect(rankedAllPickAvailableCommands(stateA)).toEqual(rankedAllPickAvailableCommands(stateB));
-    expect(rankedAllPickLegalGameplayActions(stateA)).toEqual(rankedAllPickLegalGameplayActions(stateB));
+    expect(availableCommands(stateA)).toEqual(availableCommands(stateB));
+    expect(legalGameplayActions(stateA)).toEqual(legalGameplayActions(stateB));
   });
 });
 
@@ -112,12 +112,12 @@ describe("PerspectiveDraftView — Captain's Mode nunca tiene HIDDEN (reveal inm
   }
 
   test("un ban del rival es visible de inmediato como REVEALED, nunca HIDDEN", () => {
-    let state = createCaptainsModeState("s1");
-    const confirm = applyCaptainsModeCommand(state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" }, 0);
-    const loaded = applyCaptainsModeCommand(confirm.state, { type: "LOAD_CM_ELIGIBILITY", snapshot: eligibility([1, 2, 3]) }, 1);
+    let state = createState("dota2/captains-mode");
+    const confirm = applyProtocolCommand(state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" });
+    const loaded = applyProtocolCommand(confirm.state, { type: "LOAD_CM_ELIGIBILITY", snapshot: eligibility([1, 2, 3]) });
     // paso 1: BAN, actor "first" == radiant (firstPickSide=radiant), no es del rival; usamos el
     // banned list, que es siempre público en ambos formatos (no aparece como enemyPicks/ownPicks).
-    const banned = applyCaptainsModeCommand(loaded.state, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: 1 }, 2);
+    const banned = applyProtocolCommand(loaded.state, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: 1 });
     const view = project(banned.state, "dire");
     expect(view.bannedHeroes).toEqual([1]);
     expect(view.enemyPicks.every((slot) => slot.visibility !== "HIDDEN")).toBe(true);

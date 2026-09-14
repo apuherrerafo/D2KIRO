@@ -148,7 +148,7 @@ describe("Kernel — legalActions es la única autoridad usada aquí para constr
 });
 
 describe("Kernel — vista de perspectiva integrada con el camino autoritativo real", () => {
-  test("commitOrdinal asignado globalmente por el kernel resuelve una colisión #3 de forma determinista", () => {
+  test("una resolución autoritativa revela el ganador de la tercera colisión", () => {
     const created = createProtocolState("s1", "dota2/ranked-all-pick");
     if (!created.ok) throw new Error("setup");
     let state: DraftProtocolState = created.state;
@@ -161,17 +161,24 @@ describe("Kernel — vista de perspectiva integrada con el camino autoritativo r
       { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 100 }, // colisión 1 en 100
       { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 200 },
       { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 200 }, // colisión 2 en 200
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 300 }, // sellado antes (ordinal menor)
-      { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 300 }, // colisión 3: pierde por ordinal mayor
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 300 },
+      { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 300 },
     ];
     for (const command of commands) {
       const result = applyProtocolCommand(state, command);
       if (result.rejected) throw new Error(`rechazado: ${result.rejected} en ${JSON.stringify(command)}`);
       state = result.state;
     }
+    expect(state.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
+    expect(state.rankedAp?.confirmedPicks.some((pick) => pick.heroId === 300)).toBe(false);
+    state = applyProtocolCommand(state, {
+      type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION",
+      round: 1,
+      heroId: 300,
+      winner: { side: "radiant", slotIndex: 0 },
+    }).state;
     expect([...(state.rankedAp?.bannedHeroes ?? [])].sort()).toEqual([100, 200]);
-    const winner = state.rankedAp?.confirmedPicks.find((p) => p.heroId === 300);
-    expect(winner?.side).toBe("radiant"); // radiant selló el 300 con un ordinal de evento menor
+    expect(state.rankedAp?.confirmedPicks.find((p) => p.heroId === 300)?.side).toBe("radiant");
     expect(state.rankedAp?.round?.openSlots).toEqual([{ side: "dire", slotIndex: 1 }]);
 
     const view = project(state, "dire");

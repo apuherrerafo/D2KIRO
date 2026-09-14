@@ -71,14 +71,20 @@ export type ProtocolDegradationReason =
   | "RULESET_LOAD_FAILED"
   | "RULESET_HASH_MISMATCH"
   | "ELIGIBILITY_UNVERIFIED"
-  | "REQUIRED_STATE_MISSING";
+  | "REQUIRED_STATE_MISSING"
+  | "COLLISION_AUTHORITY_REQUIRED";
 
 export interface ProtocolDegradation {
   reason: ProtocolDegradationReason;
   detail: string;
 }
 
-export type ProtocolStatus = "ACTIVE" | "UNCONFIRMED_STATE" | "COMPLETE" | "DEGRADED";
+export type ProtocolStatus =
+  | "ACTIVE"
+  | "UNCONFIRMED_STATE"
+  | "WAITING_FOR_COLLISION_AUTHORITY"
+  | "COMPLETE"
+  | "DEGRADED";
 
 // ---------------------------------------------------------------------------------------------
 // Ranked All Pick sub-state
@@ -96,8 +102,17 @@ export interface SealedSelection {
   side: TeamSide;
   slotIndex: number;
   heroId: HeroId;
-  /** Assigned by the kernel at acceptance time = the event's ordinal in the canonical log. Never client-supplied. */
-  commitOrdinal: number;
+}
+
+export interface AuthoritativeCollisionResolution {
+  heroId: HeroId;
+  winner: OpenSlot;
+}
+
+export interface PendingCollisionAuthority {
+  round: 1 | 2 | 3;
+  heroId: HeroId;
+  contenders: [OpenSlot, OpenSlot];
 }
 
 export interface ConfirmedPick {
@@ -114,6 +129,10 @@ export interface RankedApRoundState {
   sealed: SealedSelection[];
   /** Round-scoped collision counter (resets to 0 at the start of each round). */
   collisionsResolved: number;
+  /** Explicit protocol pause: no contender wins until an external authority supplies a result. */
+  pendingCollision: PendingCollisionAuthority | null;
+  /** Decisions already supplied for this sealed batch; applied atomically when the batch resolves. */
+  authorityResolutions: AuthoritativeCollisionResolution[];
 }
 
 export interface RankedApState {
@@ -204,6 +223,12 @@ export type ProtocolCommand =
   | { type: "RECORD_RESOLVED_BANS"; heroes: HeroId[] }
   | { type: "BAN_RESOLUTION_COMPLETE" }
   | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number; heroId: HeroId }
+  | {
+      type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION";
+      round: 1 | 2 | 3;
+      heroId: HeroId;
+      winner: OpenSlot;
+    }
   // Captain's Mode
   | { type: "CONFIRM_FIRST_PICK_SIDE"; side: TeamSide }
   | { type: "LOAD_CM_ELIGIBILITY"; snapshot: CmHeroEligibilitySnapshot }
@@ -224,6 +249,8 @@ export type RejectionReasonV2 =
   | "SLOT_NOT_OPEN"
   | "INVALID_PARTY_SIZE"
   | "COLLISION_ORDER_UNAVAILABLE"
+  | "COLLISION_AUTHORITY_NOT_PENDING"
+  | "COLLISION_RESOLUTION_MISMATCH"
   | "DUPLICATE_HERO_IN_ROUND"
   | "ALREADY_RESOLVED"
   /** Blocker 4C: a heroId that fails isValidHeroId (NaN/Infinity/non-integer/<=0/non-number). */
@@ -267,7 +294,8 @@ export type ProtocolAdminCommand =
   | { type: "RECORD_RESOLVED_BANS" }
   | { type: "BAN_RESOLUTION_COMPLETE" }
   | { type: "CONFIRM_FIRST_PICK_SIDE" }
-  | { type: "LOAD_CM_ELIGIBILITY" };
+  | { type: "LOAD_CM_ELIGIBILITY" }
+  | { type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION" };
 
 export type GameplayLegalAction =
   | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number }

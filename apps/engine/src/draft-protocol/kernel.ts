@@ -1,13 +1,17 @@
 import { createPartyContext } from "./party-context";
+import { acceptCmHeroEligibilitySnapshot, isHeroEligible } from "./eligibility";
+import { isValidHeroId } from "./hero-id";
+import { isPatchWithinRange } from "./patch-range";
 import {
-  applyCaptainsModeCommand,
+  CAPTAINS_MODE_IDENTITY,
   captainsModeAvailableCommands,
   captainsModeLegalGameplayActions,
-  createCaptainsModeState,
+  captainsModeStepDefinition,
+  resolveAbsoluteSide,
 } from "./rulesets/captains-mode";
 import {
-  applyRankedAllPickCommand,
-  createRankedAllPickState,
+  RANKED_ALL_PICK_IDENTITY,
+  isSealedSelectionLegal,
   rankedAllPickAvailableCommands,
   rankedAllPickLegalGameplayActions,
 } from "./rulesets/ranked-all-pick";
@@ -15,6 +19,8 @@ import { deepClone, deepFreeze } from "./immutable";
 import type { PartyContextValidationError } from "./party-context";
 import type {
   ControlledSlot,
+  CmState,
+  ConfirmedPick,
   DraftProtocolState,
   GameplayLegalAction,
   KernelResult,
@@ -22,7 +28,10 @@ import type {
   ProtocolAdminCommand,
   ProtocolCommand,
   ProtocolEventRecord,
+  RankedApRoundState,
+  RankedApState,
   RejectionReasonV2,
+  SealedSelection,
   TeamSide,
 } from "./types";
 
@@ -32,15 +41,11 @@ import type {
 //   EXTERNAL CALLERS -> ProtocolKernel (this file) -> validation -> canonical event -> state
 //   transition -> eventLog
 //
-// Ruleset modules (rulesets/ranked-all-pick.ts, rulesets/captains-mode.ts) compute the
-// ruleset-specific transition only -- they are NOT exported from index.ts (the public barrel) as
-// mutation APIs anymore. They remain internal pure functions, importable directly within
-// apps/engine/src/draft-protocol/ (their own *.test.ts files do exactly that, the same discipline
-// ranked-all-pick.test.ts/captains-mode.test.ts already used), but createProtocolState /
-// applyProtocolCommand / replayProtocolState here are the only supported way to mutate protocol
-// state from OUTSIDE this module. They never decide event-log bookkeeping or commitOrdinal
-// assignment -- that is owned here, centrally, so there is exactly one place that can append to
-// the canonical log and exactly one place a caller needs to trust for "did this really happen."
+// Ruleset modules expose immutable identity/policy/oracle helpers only. Factories and transition
+// reducers are non-exported implementation details in this module, so even a deep import cannot
+// bypass createProtocolState/applyProtocolCommand/replayProtocolState. This file also owns
+// event-log bookkeeping and collision authority, leaving one place a caller needs to trust for
+// "did this really happen."
 //
 // Fail-closed dispatch: an unrecognized ruleset id, or a state already marked DEGRADED, rejects
 // every command with RULESET_UNAVAILABLE rather than guessing which ruleset module to invoke.
@@ -62,6 +67,384 @@ export interface PartyContextInput {
   partySize: number;
   side: TeamSide;
   controlledSlots: ControlledSlot[];
+}
+
+const ROUND_CAPACITY: Record<1 | 2 | 3, number> = { 1: 2, 2: 2, 3: 1 };
+
+function createRoundState(round: 1 | 2 | 3): RankedApRoundState {
+  const capacityPerSide = ROUND_CAPACITY[round];
+  const openSlots = [];
+  for (const side of ["radiant", "dire"] as const) {
+    for (let slotIndex = 0; slotIndex < capacityPerSide; slotIndex += 1) {
+      openSlots.push({ side, slotIndex });
+    }
+  }
+  return {
+    round,
+    capacityPerSide,
+    openSlots,
+    sealed: [],
+    collisionsResolved: 0,
+    pendingCollision: null,
+    authorityResolutions: [],
+  };
+}
+
+function createRankedAllPickState(
+  sessionId: string,
+  partyContext: RankedApState["partyContext"],
+): DraftProtocolState {
+  const rankedAp: RankedApState = {
+    phase: "BAN_RESOLUTION",
+    banResolutionComplete: false,
+    bannedHeroes: [],
+    round: null,
+    confirmedPicks: [],
+    partyContext,
+  };
+  return {
+    schema: "draft-protocol/v1",
+    sessionId,
+    ruleset: RANKED_ALL_PICK_IDENTITY,
+    status: "ACTIVE",
+    degradation: null,
+    eventLog: [],
+    rankedAp,
+    captainsMode: null,
+  };
+}
+
+function createCaptainsModeState(sessionId: string): DraftProtocolState {
+  const captainsMode: CmState = {
+    firstPickSide: null,
+    currentStep: 1,
+    history: [],
+    bannedHeroes: [],
+    picks: { radiant: [], dire: [] },
+    eligibilitySnapshot: null,
+  };
+  return {
+    schema: "draft-protocol/v1",
+    sessionId,
+    ruleset: CAPTAINS_MODE_IDENTITY,
+    status: "UNCONFIRMED_STATE",
+    degradation: null,
+    eventLog: [],
+    rankedAp: null,
+    captainsMode,
+  };
+}
+
+function nextPhase(round: 1 | 2 | 3): RankedApState["phase"] {
+  if (round === 1) return "PICK_ROUND_2";
+  if (round === 2) return "PICK_ROUND_3";
+  return "COMPLETE";
+}
+
+function phaseForRound(round: 1 | 2 | 3): RankedApState["phase"] {
+  if (round === 1) return "PICK_ROUND_1";
+  if (round === 2) return "PICK_ROUND_2";
+  return "PICK_ROUND_3";
+}
+
+function compareSelections(a: SealedSelection, b: SealedSelection): number {
+  if (a.side !== b.side) return a.side < b.side ? -1 : 1;
+  if (a.slotIndex !== b.slotIndex) return a.slotIndex - b.slotIndex;
+  return a.heroId - b.heroId;
+}
+
+interface ResolveOutcome {
+  round: RankedApRoundState | null;
+  phase: RankedApState["phase"];
+  bannedHeroes: number[];
+  confirmedPicks: ConfirmedPick[];
+  pending: boolean;
+  failed: boolean;
+}
+
+function resolveRound(
+  round: RankedApRoundState,
+  bannedHeroes: number[],
+  confirmedPicks: ConfirmedPick[],
+): ResolveOutcome {
+  const sealed = [...round.sealed].sort(compareSelections);
+  const byHero = new Map<number, SealedSelection[]>();
+  for (const entry of sealed) {
+    const entries = byHero.get(entry.heroId) ?? [];
+    entries.push(entry);
+    byHero.set(entry.heroId, entries);
+  }
+
+  const collisions = [...byHero.entries()]
+    .filter(([, entries]) => entries.length > 1)
+    .sort(([a], [b]) => a - b);
+  const nextBanned = [...bannedHeroes];
+  const nextConfirmed = [...confirmedPicks];
+  const reopened: RankedApRoundState["openSlots"] = [];
+  let collisionNumber = round.collisionsResolved;
+
+  for (const [heroId, entries] of collisions) {
+    if (entries.length !== 2) {
+      return { round: null, phase: phaseForRound(round.round), bannedHeroes, confirmedPicks, pending: false, failed: true };
+    }
+    collisionNumber += 1;
+    if (collisionNumber <= 2) {
+      nextBanned.push(heroId);
+      reopened.push(...entries.map(({ side, slotIndex }) => ({ side, slotIndex })));
+      continue;
+    }
+
+    const resolution = round.authorityResolutions.find((candidate) => candidate.heroId === heroId);
+    if (!resolution) {
+      const contenders = entries
+        .map(({ side, slotIndex }) => ({ side, slotIndex }))
+        .sort((a, b) => (a.side === b.side ? a.slotIndex - b.slotIndex : a.side < b.side ? -1 : 1));
+      return {
+        round: {
+          ...round,
+          openSlots: [],
+          sealed,
+          pendingCollision: { round: round.round, heroId, contenders: [contenders[0]!, contenders[1]!] },
+        },
+        phase: phaseForRound(round.round),
+        bannedHeroes,
+        confirmedPicks,
+        pending: true,
+        failed: false,
+      };
+    }
+
+    const winner = entries.find(
+      (entry) => entry.side === resolution.winner.side && entry.slotIndex === resolution.winner.slotIndex,
+    );
+    if (!winner) {
+      return { round: null, phase: phaseForRound(round.round), bannedHeroes, confirmedPicks, pending: false, failed: true };
+    }
+    const loser = entries.find((entry) => entry !== winner)!;
+    nextConfirmed.push({ side: winner.side, round: round.round, slotIndex: winner.slotIndex, heroId });
+    reopened.push({ side: loser.side, slotIndex: loser.slotIndex });
+  }
+
+  for (const [heroId, entries] of byHero.entries()) {
+    if (entries.length !== 1) continue;
+    const entry = entries[0]!;
+    nextConfirmed.push({ side: entry.side, round: round.round, slotIndex: entry.slotIndex, heroId });
+  }
+
+  if (reopened.length === 0) {
+    const phase = nextPhase(round.round);
+    return {
+      round: phase === "COMPLETE" ? null : createRoundState((round.round + 1) as 1 | 2 | 3),
+      phase,
+      bannedHeroes: nextBanned,
+      confirmedPicks: nextConfirmed,
+      pending: false,
+      failed: false,
+    };
+  }
+
+  return {
+    round: {
+      round: round.round,
+      capacityPerSide: round.capacityPerSide,
+      openSlots: reopened.sort((a, b) => (a.side === b.side ? a.slotIndex - b.slotIndex : a.side < b.side ? -1 : 1)),
+      sealed: [],
+      collisionsResolved: collisionNumber,
+      pendingCollision: null,
+      authorityResolutions: [],
+    },
+    phase: phaseForRound(round.round),
+    bannedHeroes: nextBanned,
+    confirmedPicks: nextConfirmed,
+    pending: false,
+    failed: false,
+  };
+}
+
+function rankedStateFromOutcome(state: DraftProtocolState, rankedAp: RankedApState, outcome: ResolveOutcome): KernelResult {
+  if (outcome.failed) return { state, rejected: "COLLISION_ORDER_UNAVAILABLE" };
+  const nextRankedAp: RankedApState = {
+    ...rankedAp,
+    phase: outcome.phase,
+    bannedHeroes: outcome.bannedHeroes,
+    confirmedPicks: outcome.confirmedPicks,
+    round: outcome.round,
+  };
+  if (outcome.pending && outcome.round?.pendingCollision) {
+    return {
+      state: {
+        ...state,
+        rankedAp: nextRankedAp,
+        status: "WAITING_FOR_COLLISION_AUTHORITY",
+        degradation: {
+          reason: "COLLISION_AUTHORITY_REQUIRED",
+          detail: `round ${outcome.round.round}, hero ${outcome.round.pendingCollision.heroId}`,
+        },
+      },
+    };
+  }
+  return {
+    state: {
+      ...state,
+      rankedAp: nextRankedAp,
+      status: outcome.phase === "COMPLETE" ? "COMPLETE" : "ACTIVE",
+      degradation: null,
+    },
+  };
+}
+
+function applyRankedAllPickCommand(state: DraftProtocolState, command: ProtocolCommand): KernelResult {
+  const rankedAp = state.rankedAp;
+  if (!rankedAp) return { state, rejected: "RULESET_UNAVAILABLE" };
+
+  if (command.type === "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION") {
+    const pending = rankedAp.round?.pendingCollision;
+    if (!pending || !rankedAp.round) return { state, rejected: "COLLISION_AUTHORITY_NOT_PENDING" };
+    if (!isValidHeroId(command.heroId)) return { state, rejected: "INVALID_HERO_ID" };
+    const winnerMatches = pending.contenders.some(
+      (contender) => contender.side === command.winner.side && contender.slotIndex === command.winner.slotIndex,
+    );
+    if (command.round !== pending.round || command.heroId !== pending.heroId || !winnerMatches) {
+      return { state, rejected: "COLLISION_RESOLUTION_MISMATCH" };
+    }
+    const round: RankedApRoundState = {
+      ...rankedAp.round,
+      pendingCollision: null,
+      authorityResolutions: [
+        ...rankedAp.round.authorityResolutions,
+        { heroId: command.heroId, winner: { ...command.winner } },
+      ],
+    };
+    return rankedStateFromOutcome(state, rankedAp, resolveRound(round, rankedAp.bannedHeroes, rankedAp.confirmedPicks));
+  }
+
+  if (rankedAp.round?.pendingCollision) return { state, rejected: "COLLISION_ORDER_UNAVAILABLE" };
+
+  if (command.type === "RECORD_RESOLVED_BANS") {
+    if (rankedAp.phase !== "BAN_RESOLUTION" || rankedAp.banResolutionComplete) return { state, rejected: "WRONG_PHASE" };
+    if (!command.heroes.every(isValidHeroId)) return { state, rejected: "INVALID_HERO_ID" };
+    if (new Set(command.heroes).size !== command.heroes.length) return { state, rejected: "DUPLICATE_HERO_IN_ROUND" };
+    if (command.heroes.some((heroId) => rankedAp.bannedHeroes.includes(heroId))) return { state, rejected: "HERO_ALREADY_TAKEN" };
+    return { state: { ...state, rankedAp: { ...rankedAp, bannedHeroes: [...rankedAp.bannedHeroes, ...command.heroes] } } };
+  }
+
+  if (command.type === "BAN_RESOLUTION_COMPLETE") {
+    if (rankedAp.phase !== "BAN_RESOLUTION") return { state, rejected: "WRONG_PHASE" };
+    if (rankedAp.banResolutionComplete) return { state, rejected: "ALREADY_RESOLVED" };
+    return {
+      state: {
+        ...state,
+        rankedAp: { ...rankedAp, banResolutionComplete: true, phase: "PICK_ROUND_1", round: createRoundState(1) },
+      },
+    };
+  }
+
+  if (command.type === "SUBMIT_SEALED_SELECTION") {
+    if (!rankedAp.round) return { state, rejected: "WRONG_PHASE" };
+    if (!isValidHeroId(command.heroId)) return { state, rejected: "INVALID_HERO_ID" };
+    if (!isSealedSelectionLegal(state, command.side, command.slotIndex, command.heroId)) {
+      const sameSideDuplicate = rankedAp.round.sealed.some(
+        (entry) => entry.side === command.side && entry.heroId === command.heroId,
+      );
+      if (sameSideDuplicate) return { state, rejected: "DUPLICATE_HERO_IN_ROUND" };
+      const open = rankedAp.round.openSlots.some(
+        (slot) => slot.side === command.side && slot.slotIndex === command.slotIndex,
+      );
+      if (!open) return { state, rejected: "SLOT_NOT_OPEN" };
+      return { state, rejected: "HERO_ALREADY_TAKEN" };
+    }
+    const sealedEntry: SealedSelection = { side: command.side, slotIndex: command.slotIndex, heroId: command.heroId };
+    const round: RankedApRoundState = {
+      ...rankedAp.round,
+      openSlots: rankedAp.round.openSlots.filter(
+        (slot) => !(slot.side === command.side && slot.slotIndex === command.slotIndex),
+      ),
+      sealed: [...rankedAp.round.sealed, sealedEntry],
+    };
+    if (round.openSlots.length > 0) return { state: { ...state, rankedAp: { ...rankedAp, round } } };
+    return rankedStateFromOutcome(state, rankedAp, resolveRound(round, rankedAp.bannedHeroes, rankedAp.confirmedPicks));
+  }
+
+  return { state, rejected: "WRONG_ACTION_KIND" };
+}
+
+function cmHeroAlreadyTaken(cm: CmState, heroId: number): boolean {
+  return cm.bannedHeroes.includes(heroId) || cm.picks.radiant.includes(heroId) || cm.picks.dire.includes(heroId);
+}
+
+function applyCaptainsModeCommand(state: DraftProtocolState, command: ProtocolCommand): KernelResult {
+  const cm = state.captainsMode;
+  if (!cm) return { state, rejected: "RULESET_UNAVAILABLE" };
+  if (command.type === "CONFIRM_FIRST_PICK_SIDE") {
+    if (cm.firstPickSide !== null) return { state, rejected: "ALREADY_RESOLVED" };
+    return { state: { ...state, captainsMode: { ...cm, firstPickSide: command.side }, status: "ACTIVE" } };
+  }
+  if (command.type === "LOAD_CM_ELIGIBILITY") {
+    const accepted = acceptCmHeroEligibilitySnapshot(command.snapshot);
+    if (!accepted) return { state, rejected: "ELIGIBILITY_UNVERIFIED" };
+    if (!isPatchWithinRange(accepted.patch, state.ruleset.applicableFromPatch, state.ruleset.verifiedThroughPatch)) {
+      return { state, rejected: "ELIGIBILITY_UNVERIFIED" };
+    }
+    return { state: { ...state, captainsMode: { ...cm, eligibilitySnapshot: accepted } } };
+  }
+  if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
+    if (cm.firstPickSide === null) return { state, rejected: "UNCONFIRMED_STATE" };
+    const stepDef = captainsModeStepDefinition(cm.currentStep);
+    if (!stepDef) return { state, rejected: "STEP_AFTER_COMPLETION" };
+    if (stepDef.actor !== command.actor) return { state, rejected: "WRONG_ACTOR" };
+    if (command.type === "CM_BAN_SKIPPED") {
+      if (stepDef.kind !== "BAN") return { state, rejected: "WRONG_ACTION_KIND" };
+      const currentStep = cm.currentStep + 1;
+      return {
+        state: {
+          ...state,
+          captainsMode: {
+            ...cm,
+            currentStep,
+            history: [...cm.history, { step: stepDef.step, outcome: { kind: "BAN_SKIPPED" } }],
+          },
+          status: currentStep > 24 ? "COMPLETE" : "ACTIVE",
+        },
+      };
+    }
+    const expectedKind = command.type === "CM_AUTO_PICK" ? "PICK" : command.kind;
+    if (stepDef.kind !== expectedKind) return { state, rejected: "WRONG_ACTION_KIND" };
+    if (!isValidHeroId(command.heroId)) return { state, rejected: "INVALID_HERO_ID" };
+    if (!cm.eligibilitySnapshot) return { state, rejected: "ELIGIBILITY_UNVERIFIED" };
+    if (!isHeroEligible(cm.eligibilitySnapshot, command.heroId)) return { state, rejected: "HERO_INELIGIBLE" };
+    if (cmHeroAlreadyTaken(cm, command.heroId)) return { state, rejected: "HERO_ALREADY_TAKEN" };
+    const currentStep = cm.currentStep + 1;
+    const outcome = command.type === "CM_AUTO_PICK"
+      ? ({ kind: "AUTO_PICK", heroId: command.heroId } as const)
+      : ({ kind: "HERO", heroId: command.heroId } as const);
+    const history = [...cm.history, { step: stepDef.step, outcome }];
+    if (stepDef.kind === "BAN") {
+      return {
+        state: {
+          ...state,
+          captainsMode: { ...cm, currentStep, history, bannedHeroes: [...cm.bannedHeroes, command.heroId] },
+          status: currentStep > 24 ? "COMPLETE" : "ACTIVE",
+        },
+      };
+    }
+    const absoluteSide = resolveAbsoluteSide(stepDef.actor, cm.firstPickSide);
+    return {
+      state: {
+        ...state,
+        captainsMode: {
+          ...cm,
+          currentStep,
+          history,
+          picks: {
+            radiant: absoluteSide === "radiant" ? [...cm.picks.radiant, command.heroId] : cm.picks.radiant,
+            dire: absoluteSide === "dire" ? [...cm.picks.dire, command.heroId] : cm.picks.dire,
+          },
+        },
+        status: currentStep > 24 ? "COMPLETE" : "ACTIVE",
+      },
+    };
+  }
+  return { state, rejected: "WRONG_ACTION_KIND" };
 }
 
 export function createProtocolState(
@@ -96,11 +479,40 @@ export function createProtocolState(
   return { ok: false, reason: "RULESET_LOAD_FAILED", detail: `unknown ruleset id: ${rulesetId}` };
 }
 
-function dispatchCommand(state: DraftProtocolState, command: ProtocolCommand, ordinal: number): KernelResult {
+function dispatchCommand(state: DraftProtocolState, command: ProtocolCommand): KernelResult {
   if (state.status === "DEGRADED") return { state, rejected: "RULESET_UNAVAILABLE" as RejectionReasonV2 };
-  if (state.ruleset.id === "dota2/ranked-all-pick") return applyRankedAllPickCommand(state, command, ordinal);
-  if (state.ruleset.id === "dota2/captains-mode") return applyCaptainsModeCommand(state, command, ordinal);
+  if (state.ruleset.id === "dota2/ranked-all-pick") return applyRankedAllPickCommand(state, command);
+  if (state.ruleset.id === "dota2/captains-mode") return applyCaptainsModeCommand(state, command);
   return { state, rejected: "RULESET_UNAVAILABLE" };
+}
+
+function canonicalEventLogAfterAcceptance(
+  state: DraftProtocolState,
+  command: ProtocolCommand,
+): ProtocolEventRecord[] {
+  const appended: ProtocolEventRecord[] = [
+    ...state.eventLog,
+    { ordinal: state.eventLog.length, command: deepClone(command) },
+  ];
+  const round = state.rankedAp?.round;
+  if (command.type !== "SUBMIT_SEALED_SELECTION" || !round || round.openSlots.length !== 1) {
+    return appended;
+  }
+
+  // A sealed batch is simultaneous by protocol. Once its final slot arrives, canonicalize only
+  // that batch so transport arrival order cannot leak into replay or authoritative hashes.
+  const batchSize = round.sealed.length + 1;
+  const prefixLength = appended.length - batchSize;
+  const prefix = appended.slice(0, prefixLength);
+  const batch = appended.slice(prefixLength).sort((a, b) => {
+    const left = a.command;
+    const right = b.command;
+    if (left.type !== "SUBMIT_SEALED_SELECTION" || right.type !== "SUBMIT_SEALED_SELECTION") return 0;
+    if (left.side !== right.side) return left.side < right.side ? -1 : 1;
+    if (left.slotIndex !== right.slotIndex) return left.slotIndex - right.slotIndex;
+    return left.heroId - right.heroId;
+  });
+  return [...prefix, ...batch].map((event, ordinal) => ({ ...event, ordinal }));
 }
 
 /**
@@ -109,28 +521,9 @@ function dispatchCommand(state: DraftProtocolState, command: ProtocolCommand, or
  * passed in whenever the sub-reducer itself made no change (both ruleset modules already follow
  * this discipline: every rejection branch returns the original `state` untouched).
  *
- * --- COMMIT ORDINAL (Blocker 1 / "COLLISION AUTHORITY") -------------------------------------
- * `ordinal = state.eventLog.length` at acceptance time. This is deliberately the SINGLE source of
- * "authoritative commit order" in S1:
- *   - applyProtocolCommand is the one function that can extend eventLog (see the module doc
- *     above) -- nothing else in this codebase writes to it.
- *   - It is synchronous. Two calls on the same `state` cannot interleave.
- *   - `ProtocolCommand` has NO ordinal-shaped field at the type level, and dispatchCommand never
- *     reads anything from `command` to compute `ordinal` -- a caller cannot supply, override, or
- *     influence it, by construction, not by convention.
- * Whatever order distinct calls into applyProtocolCommand happen in on a given `state` therefore
- * IS the authoritative order -- there is no other clock in S1 (no server-receipt-timestamp
- * infrastructure, no distributed consensus; S1 explicitly does not build a transport/adapter
- * layer). "Transport arrival order" only becomes a DIFFERENT thing from "authoritative commit
- * order" once a real network adapter exists in front of this kernel (S2 scope) that could, for
- * example, serialize genuinely-simultaneous submissions through a queue under its own ordering
- * policy before ever calling applyProtocolCommand -- whatever order that future adapter ultimately
- * delivers commands to this function in is what commitOrdinal will reflect, unconditionally and
- * only that. If a collision-resolution pass ever finds two candidates carrying the SAME
- * commitOrdinal (structurally shouldn't happen -- eventLog.length is strictly monotonic), the
- * ruleset rejects the whole submission with COLLISION_ORDER_UNAVAILABLE rather than inventing a
- * winner (ranked-all-pick.ts, resolveRound).
- * ----------------------------------------------------------------------------------------------
+ * Third-and-later collisions never use this call's arrival position as authority. The kernel
+ * pauses in WAITING_FOR_COLLISION_AUTHORITY and accepts a separate, validated resolution command.
+ * Completed sealed batches are canonicalized because their commands are simultaneous by contract.
  *
  * Blocker 2: `command` is deep-cloned before being stored in the event record -- a caller
  * mutating the ORIGINAL command object they passed in, after this call returns, must never be
@@ -139,11 +532,9 @@ function dispatchCommand(state: DraftProtocolState, command: ProtocolCommand, or
  * mutate the kernel's own copy in place either.
  */
 export function applyProtocolCommand(state: DraftProtocolState, command: ProtocolCommand): KernelResult {
-  const ordinal = state.eventLog.length;
-  const result = dispatchCommand(state, command, ordinal);
+  const result = dispatchCommand(state, command);
   if (result.rejected) return result;
-  const eventRecord: ProtocolEventRecord = { ordinal, command: deepClone(command) };
-  return { state: deepFreeze({ ...result.state, eventLog: [...state.eventLog, eventRecord] }) };
+  return { state: deepFreeze({ ...result.state, eventLog: canonicalEventLogAfterAcceptance(state, command) }) };
 }
 
 /**

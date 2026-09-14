@@ -1,9 +1,69 @@
-import { canonicalHash, functionalIdentityHash, type CanonicalValue } from "./hash";
+import { createHash } from "node:crypto";
 import type { CmHeroEligibilitySnapshot, DraftProtocolState, PerspectiveDraftView } from "./types";
 
+type CanonicalValue =
+  | string
+  | number
+  | boolean
+  | null
+  | CanonicalValue[]
+  | { [key: string]: CanonicalValue };
+
+class CanonicalizationError extends Error {}
+
+function canonicalStringify(value: CanonicalValue): string {
+  if (value === undefined) throw new CanonicalizationError("undefined is not valid canonical JSON");
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new CanonicalizationError(`non-finite number (${value}) is not valid canonical JSON`);
+  }
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalStringify(item)).join(",")}]`;
+  const entries = Object.entries(value)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalStringify(entryValue as CanonicalValue)}`);
+  return `{${entries.join(",")}}`;
+}
+
+function sha256Hex(data: string): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+const FUNCTIONAL_IDENTITY_EXCLUDED_KEYS = new Set([
+  "timestamp",
+  "emittedAt",
+  "sentAt",
+  "updatedAt",
+  "turnStartedAt",
+  "duration",
+  "durationMs",
+  "computedInMs",
+  "sessionId",
+  "transportId",
+  "connectionId",
+]);
+
+function canonicalHash(value: CanonicalValue): string {
+  return sha256Hex(canonicalStringify(value));
+}
+
+function stripFunctionalNoise(value: CanonicalValue): CanonicalValue {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(stripFunctionalNoise);
+  const out: { [key: string]: CanonicalValue } = {};
+  for (const [key, entryValue] of Object.entries(value)) {
+    if (FUNCTIONAL_IDENTITY_EXCLUDED_KEYS.has(key)) continue;
+    out[key] = stripFunctionalNoise(entryValue);
+  }
+  return out;
+}
+
+function functionalIdentityHash(value: CanonicalValue): string {
+  return canonicalHash(stripFunctionalNoise(value));
+}
+
 // R1 S1 -- Blocker 5 (independent architecture review): named, purpose-specific hash APIs.
-// hash.ts's canonicalHash/functionalIdentityHash are generic primitives that accept ANY
-// CanonicalValue -- nothing about their signature stops a caller from hashing full authoritative
+// canonicalHash/functionalIdentityHash below are private generic primitives that accept ANY
+// CanonicalValue. If exported, nothing about their signature would stop a caller from hashing full authoritative
 // state (which can contain currently-HIDDEN information) and treating the result as something
 // safe to hand to a client as a cheap "state fingerprint". That is a real leak: the hero ID space
 // is small (~126 heroes), so a hash of a single hidden heroId is trivially brute-forceable by the

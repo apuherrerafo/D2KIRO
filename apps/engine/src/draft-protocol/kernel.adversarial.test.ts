@@ -11,7 +11,20 @@ import {
 import { project } from "./perspective";
 import { CAPTAINS_MODE_IDENTITY, captainsModeStepDefinition } from "./rulesets/captains-mode";
 import { RANKED_ALL_PICK_IDENTITY, isSealedSelectionLegal } from "./rulesets/ranked-all-pick";
+import * as captainsModeModule from "./rulesets/captains-mode";
+import * as rankedAllPickModule from "./rulesets/ranked-all-pick";
 import type { CmHeroEligibilitySnapshot, DraftProtocolState, ProtocolCommand } from "./types";
+
+type RankedRulesetExports = typeof import("./rulesets/ranked-all-pick");
+type CaptainsModeExports = typeof import("./rulesets/captains-mode");
+// @ts-expect-error -- compile-time boundary: transition reducer must remain absent
+type NoRankedReducerExport = RankedRulesetExports["applyRankedAllPickCommand"];
+// @ts-expect-error -- compile-time boundary: factory must remain absent
+type NoRankedFactoryExport = RankedRulesetExports["createRankedAllPickState"];
+// @ts-expect-error -- compile-time boundary: transition reducer must remain absent
+type NoCaptainsReducerExport = CaptainsModeExports["applyCaptainsModeCommand"];
+// @ts-expect-error -- compile-time boundary: factory must remain absent
+type NoCaptainsFactoryExport = CaptainsModeExports["createCaptainsModeState"];
 
 // R1 S1 -- Blocker repair test evidence. Each describe block maps to the numbered checklist in
 // the independent architecture review's "BLOCKER 6 -- TESTS MUST PROVE CLAIMS" section. These
@@ -381,44 +394,139 @@ describe("Blocker 6 — replay determinista: colisión, BAN_SKIPPED, CM completo
   });
 });
 
-// -------------------------------------------------------------------------------------------
-// Blocker 1 -- commit ordinal is kernel-assigned only, never transport-supplied (#25)
-// -------------------------------------------------------------------------------------------
-describe("Blocker 1 — COMMIT ORDINAL: sólo el kernel lo asigna, nunca el transporte (#25)", () => {
-  test("un command no puede traer su propio commitOrdinal -- el kernel siempre usa eventLog.length en el momento de aceptación", () => {
-    const created = createProtocolState("s1", "dota2/ranked-all-pick");
-    if (!created.ok) throw new Error("setup");
-    const state = mustApply(created.state, { type: "BAN_RESOLUTION_COMPLETE" }); // eventLog.length === 1 ahora
+describe("remaining API boundary blockers", () => {
+  test("ruleset reducers and factories are not exported, including by deep import", () => {
+    expect("applyRankedAllPickCommand" in rankedAllPickModule).toBe(false);
+    expect("createRankedAllPickState" in rankedAllPickModule).toBe(false);
+    expect("applyCaptainsModeCommand" in captainsModeModule).toBe(false);
+    expect("createCaptainsModeState" in captainsModeModule).toBe(false);
+  });
+});
 
-    // Un ProtocolCommand real no tiene forma de llevar esto -- simula un adapter comprometido que
-    // igual intenta agregar el campo por su cuenta.
-    const malicious = { ...submit("radiant", 0, 50), commitOrdinal: -999 } as unknown as ProtocolCommand;
-    const result = applyProtocolCommand(state, malicious);
-    expect(result.rejected).toBeUndefined();
-    expect(result.state.rankedAp?.round?.sealed[0]?.commitOrdinal).toBe(1); // eventLog.length real, nunca -999
+function stateBeforeThirdCollision(): DraftProtocolState {
+  const created = createProtocolState("collision-session", "dota2/ranked-all-pick");
+  if (!created.ok) throw new Error("setup");
+  let state = mustApply(created.state, { type: "BAN_RESOLUTION_COMPLETE" });
+  state = mustApply(state, submit("radiant", 0, 100));
+  state = mustApply(state, submit("radiant", 1, 101));
+  state = mustApply(state, submit("dire", 0, 102));
+  state = mustApply(state, submit("dire", 1, 100));
+  state = mustApply(state, submit("radiant", 0, 200));
+  return mustApply(state, submit("dire", 1, 200));
+}
+
+function thirdCollision(order: readonly ["radiant" | "dire", "radiant" | "dire"]): DraftProtocolState {
+  let state = stateBeforeThirdCollision();
+  for (const side of order) {
+    state = mustApply(state, submit(side, side === "radiant" ? 0 : 1, 300));
+  }
+  return state;
+}
+
+const radiantWins300: ProtocolCommand = {
+  type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION",
+  round: 1,
+  heroId: 300,
+  winner: { side: "radiant", slotIndex: 0 },
+};
+
+describe("third collision requires external authority", () => {
+  test("opposite transport orders reach the same waiting state with no winner", () => {
+    const radiantThenDire = thirdCollision(["radiant", "dire"]);
+    const direThenRadiant = thirdCollision(["dire", "radiant"]);
+
+    expect(radiantThenDire).toEqual(direThenRadiant);
+    expect(radiantThenDire.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
+    expect(radiantThenDire.degradation?.reason).toBe("COLLISION_AUTHORITY_REQUIRED");
+    expect(radiantThenDire.rankedAp?.confirmedPicks.some((pick) => pick.heroId === 300)).toBe(false);
+    expect(legalGameplayActions(radiantThenDire)).toEqual([]);
+    expect(availableCommands(radiantThenDire)).toEqual([
+      { type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION" },
+    ]);
   });
 
-  test("orden de transporte declarado (clientTimestamp) no decide la colisión #3 -- sólo el orden real de aceptación del kernel", () => {
-    const created = createProtocolState("s1", "dota2/ranked-all-pick");
+  test("the same authoritative result produces identical final state and hash", () => {
+    const first = mustApply(thirdCollision(["radiant", "dire"]), radiantWins300);
+    const second = mustApply(thirdCollision(["dire", "radiant"]), radiantWins300);
+
+    expect(first).toEqual(second);
+    expect(authoritativeStateHash(first)).toBe(authoritativeStateHash(second));
+    expect(first.rankedAp?.confirmedPicks).toContainEqual({
+      side: "radiant",
+      round: 1,
+      slotIndex: 0,
+      heroId: 300,
+    });
+    expect(first.rankedAp?.round?.openSlots).toEqual([{ side: "dire", slotIndex: 1 }]);
+  });
+
+  test("pending collision and authority resolution both replay deterministically", () => {
+    const pending = thirdCollision(["dire", "radiant"]);
+    const pendingReplay = replayProtocolState(
+      pending.sessionId,
+      "dota2/ranked-all-pick",
+      pending.eventLog.map((event) => event.command),
+    );
+    if (!pendingReplay.ok) throw new Error("pending replay failed");
+    expect(pendingReplay.state).toEqual(pending);
+
+    const resolved = mustApply(pending, radiantWins300);
+    const resolvedReplay = replayProtocolState(
+      resolved.sessionId,
+      "dota2/ranked-all-pick",
+      resolved.eventLog.map((event) => event.command),
+    );
+    if (!resolvedReplay.ok) throw new Error("resolution replay failed");
+    expect(resolvedReplay.state).toEqual(resolved);
+  });
+
+  test("invalid and stale authority resolutions are rejected without changing state", () => {
+    const pending = thirdCollision(["radiant", "dire"]);
+    const mismatch = applyProtocolCommand(pending, { ...radiantWins300, heroId: 301 });
+    expect(mismatch.rejected).toBe("COLLISION_RESOLUTION_MISMATCH");
+    expect(mismatch.state).toBe(pending);
+
+    const resolved = mustApply(pending, radiantWins300);
+    const stale = applyProtocolCommand(resolved, radiantWins300);
+    expect(stale.rejected).toBe("COLLISION_AUTHORITY_NOT_PENDING");
+    expect(stale.state).toBe(resolved);
+  });
+});
+
+describe("legal gameplay oracle never advertises an empty category", () => {
+  test("CM pick step with no remaining eligible hero returns no gameplay actions", () => {
+    const created = createProtocolState("cm-empty", "dota2/captains-mode");
     if (!created.ok) throw new Error("setup");
-    let state = mustApply(created.state, { type: "BAN_RESOLUTION_COMPLETE" });
-    state = mustApply(state, submit("radiant", 0, 100));
-    state = mustApply(state, submit("radiant", 1, 101));
-    state = mustApply(state, submit("dire", 0, 102));
-    state = mustApply(state, submit("dire", 1, 100)); // colisión #1 -> ban 100
-    state = mustApply(state, submit("radiant", 0, 200));
-    state = mustApply(state, submit("dire", 1, 200)); // colisión #2 -> ban 200
+    let state = mustApply(created.state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" });
+    state = mustApply(state, { type: "LOAD_CM_ELIGIBILITY", snapshot: buildEligibilitySnapshot([1, 2, 3, 4, 5, 6, 7]) });
+    for (let step = 1; step <= 7; step += 1) {
+      const definition = captainsModeStepDefinition(step)!;
+      state = mustApply(state, { type: "CM_ACTION", actor: definition.actor, kind: "BAN", heroId: step });
+    }
+    expect(state.captainsMode?.currentStep).toBe(8);
+    expect(legalGameplayActions(state)).toEqual([]);
+  });
 
-    // Colisión #3: dire "afirma" haber actuado antes (clientTimestamp menor) mediante un campo
-    // que ProtocolCommand no declara -- el kernel no lo lee. Quien REALMENTE llega primero a
-    // applyProtocolCommand es radiant.
-    const direClaim = { ...submit("dire", 1, 300), clientTimestamp: 0 } as unknown as ProtocolCommand;
-    const radiantClaim = { ...submit("radiant", 0, 300), clientTimestamp: 999999 } as unknown as ProtocolCommand;
+  test("every advertised CM gameplay action has at least one executable instance", () => {
+    const created = createProtocolState("cm-oracle", "dota2/captains-mode");
+    if (!created.ok) throw new Error("setup");
+    let state = mustApply(created.state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "dire" });
+    state = mustApply(state, { type: "LOAD_CM_ELIGIBILITY", snapshot: buildEligibilitySnapshot([1, 2, 3]) });
 
-    state = mustApply(state, radiantClaim); // llega primero al kernel -> menor commitOrdinal real
-    state = mustApply(state, direClaim); // llega después, pese a su clientTimestamp "anterior"
-
-    const winner = state.rankedAp?.confirmedPicks.find((pick) => pick.heroId === 300);
-    expect(winner?.side).toBe("radiant"); // decide el orden real de aceptación, nunca el timestamp declarado
+    for (const action of legalGameplayActions(state)) {
+      if (action.type === "CM_BAN_SKIPPED") {
+        expect(applyProtocolCommand(state, { type: "CM_BAN_SKIPPED", actor: action.actor }).rejected).toBeUndefined();
+        continue;
+      }
+      if (action.type === "CM_ACTION") {
+        expect(action.eligibleHeroIds.length).toBeGreaterThan(0);
+        expect(applyProtocolCommand(state, {
+          type: "CM_ACTION",
+          actor: action.actor,
+          kind: action.kind,
+          heroId: action.eligibleHeroIds[0]!,
+        }).rejected).toBeUndefined();
+      }
+    }
   });
 });

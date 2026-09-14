@@ -1,7 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { computeEligibilityContentHash } from "../eligibility";
 import type { CmHeroEligibilitySnapshot, DraftProtocolState, ProtocolCommand } from "../types";
-import { applyCaptainsModeCommand, captainsModeStepDefinition, createCaptainsModeState } from "./captains-mode";
+import { applyProtocolCommand, createProtocolState } from "../kernel";
+import { captainsModeStepDefinition } from "./captains-mode";
+
+function createCaptainsModeState(sessionId: string): DraftProtocolState {
+  const created = createProtocolState(sessionId, "dota2/captains-mode");
+  if (!created.ok) throw new Error("setup");
+  return created.state;
+}
+
+function applyCaptainsModeCommand(
+  state: DraftProtocolState,
+  command: ProtocolCommand,
+  _legacyOrdinal?: number,
+) {
+  return applyProtocolCommand(state, command);
+}
 
 function buildEligibilitySnapshot(heroIds: number[]): CmHeroEligibilitySnapshot {
   const base = {

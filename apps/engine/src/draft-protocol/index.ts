@@ -3,16 +3,14 @@
 //
 // Blocker 1 (independent architecture review): this is the ONLY supported entry point for
 // mutating protocol state. applyRankedAllPickCommand/applyCaptainsModeCommand and
-// createRankedAllPickState/createCaptainsModeState are intentionally NOT exported here anymore --
-// they remain internal pure functions inside rulesets/*.ts (their own *.test.ts files import them
-// directly, same discipline as any other internal module), reachable ONLY through
-// createProtocolState/applyProtocolCommand below, which own event-log bookkeeping and
-// commitOrdinal assignment centrally. An external caller that wants to mutate protocol state has
+// createRankedAllPickState/createCaptainsModeState are non-exported implementation details inside
+// kernel.ts, reachable ONLY through createProtocolState/applyProtocolCommand below, which own event-log bookkeeping and
+// collision-authority handling centrally. An external caller that wants to mutate protocol state has
 // exactly one path: createProtocolState -> applyProtocolCommand.
 //
 // Blocker 5: hashing is exposed only through the four named, purpose-specific functions in
 // identity-hash.ts -- never the generic canonicalHash/functionalIdentityHash primitives (those
-// stay internal to hash.ts; nothing stops a generic "hash(x)" from being pointed at authoritative,
+// stay private inside identity-hash.ts; nothing stops a generic "hash(x)" from being pointed at authoritative,
 // currently-hidden state and the result mistaken for something safe to expose to a client).
 
 export * from "./types";

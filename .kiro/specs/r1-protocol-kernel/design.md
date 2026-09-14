@@ -57,15 +57,13 @@ BAN_RESOLUTION -> PICK_ROUND_1 -> PICK_ROUND_2 -> PICK_ROUND_3 -> COMPLETE
   start of each round). Non-conflicting selections reveal simultaneously and confirm. A hero
   contested by both sides is a collision; collisions are processed in ascending `heroId` order for
   determinism. **Collisions #1 and #2 of the round**: the hero is banned, both slots reopen (no
-  winner). **Collision #3 and any beyond**: the side whose sealed selection carries the lower
-  `commitOrdinal` wins the hero; the loser's slot reopens; the hero is **not** banned.
-  `commitOrdinal` is assigned by the kernel at acceptance time — for a command run through
-  `applyProtocolCommand`, this is `state.eventLog.length` at the moment the command is accepted,
-  i.e. the command's position in the canonical, replay-derived log. It is never client-supplied and
-  never inferred from network/frontend arrival order. If two colliding entries ever carried an
-  equal `commitOrdinal` (structurally shouldn't happen — the counter is strictly monotonic), the
-  kernel rejects the whole submission with `COLLISION_ORDER_UNAVAILABLE` rather than picking a
-  winner arbitrarily (fail/degrade, never invent).
+  winner). **Collision #3 and any beyond**: transport/event-log arrival order is never authority.
+  The kernel enters `WAITING_FOR_COLLISION_AUTHORITY`, exposes no gameplay action, and records no
+  winner until an external authority supplies a distinct
+  `APPLY_AUTHORITATIVE_COLLISION_RESOLUTION` command matching the pending round, hero and one of
+  the two contenders. The winner then confirms, the loser's slot reopens, and the hero is **not**
+  banned. Sealed batches are canonicalized when complete, so opposite transport order produces the
+  same pending state, replay and final authoritative hash.
 - **Design decisions made in the freeze's silence** (flagged explicitly so a reviewer can
   challenge them): (a) a round auto-resolves the instant every slot has a sealed selection — there
   is no separate explicit "close round" command; (b) within one resolution pass, multiple
@@ -196,10 +194,11 @@ replayProtocolState(sessionId, rulesetId, events)     -- fold applyProtocolComma
                                                          event list from a fresh initial state.
 ```
 
-Ruleset modules (`rulesets/ranked-all-pick.ts`, `rulesets/captains-mode.ts`) compute only the
-ruleset-specific transition; `kernel.ts` owns event-log bookkeeping and `commitOrdinal` assignment
-centrally, so adapters cannot decide protocol rules on their own and there is exactly one place
-that can extend the canonical log. A rejected command never mutates `eventLog` or ruleset state — a
+Ruleset modules (`rulesets/ranked-all-pick.ts`, `rulesets/captains-mode.ts`) expose immutable
+identity/policy/oracle helpers only. Factories and transition reducers are non-exported
+implementation details inside `kernel.ts`, which owns event-log bookkeeping and collision
+authority handling centrally. Adapters therefore have exactly one mutation entry point. A
+rejected command never mutates `eventLog` or ruleset state — a
 replay containing an individually-illegal historical command simply doesn't advance state at that
 point and continues correctly from there (same discipline as the legacy reducer's
 `RejectionReason` handling).
@@ -210,16 +209,17 @@ structurally (`ProtocolDegradation` type, `RULESET_LOAD_FAILED` / `RULESET_HASH_
 sets `RULESET_HASH_MISMATCH` in practice (there is no ruleset registry/versioning consumer in S1)
 — that is expected to activate once the kernel is wired to a real transport in S2.
 
-## Determinism / hashing (`hash.ts`)
+## Determinism / hashing (`identity-hash.ts`)
 
-`canonicalStringify` recursively sorts object keys (arrays keep order — order is semantic for e.g.
-the event log). `functionalIdentityHash` additionally strips a fixed set of non-functional keys
+Private canonical JSON recursively sorts object keys (arrays keep order — order is semantic for
+e.g. the event log). The private functional-identity primitive additionally strips a fixed set of non-functional keys
 (`timestamp`, `emittedAt`, `sentAt`, `updatedAt`, `turnStartedAt`, `duration`, `durationMs`,
 `computedInMs`, `sessionId`, `transportId`, `connectionId`) before hashing, so two states/views
 built from the same canonical inputs hash identically regardless of wall-clock or transport
 differences — this is the literal mechanism behind both the hidden-twin property and
 replay-determinism (`kernel.test.ts`: "reproducir el mismo ruleset + eventos produce exactamente el
-mismo estado").
+mismo estado"). Only `authoritativeStateHash`, `perspectiveStateHash`, `rulesHash`, and
+`eligibilityHash` are exported; generic hash primitives cannot be deep-imported.
 
 ## PRODUCT_POLICY vs AUTHORITATIVE
 

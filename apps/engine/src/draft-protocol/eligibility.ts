@@ -1,4 +1,4 @@
-import { canonicalHash } from "./hash";
+import { eligibilityHash } from "./identity-hash";
 import { isValidHeroId } from "./hero-id";
 import { deepClone } from "./immutable";
 import type { CmHeroEligibilitySnapshot, HeroId } from "./types";
@@ -96,22 +96,14 @@ export function parseCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilityS
 export function computeEligibilityContentHash(
   snapshot: Omit<CmHeroEligibilitySnapshot, "contentHash">,
 ): string {
-  return canonicalHash({
-    schema: snapshot.schema,
-    appId: snapshot.appId,
-    patch: snapshot.patch,
-    buildId: snapshot.buildId,
-    depotManifests: snapshot.depotManifests,
-    sourceHashes: snapshot.sourceHashes,
-    heroIds: snapshot.heroIds,
-  });
+  return eligibilityHash(snapshot);
 }
 
 export function verifyEligibilitySnapshotIntegrity(snapshot: CmHeroEligibilitySnapshot): boolean {
   try {
     return computeEligibilityContentHash(snapshot) === snapshot.contentHash;
   } catch {
-    // canonicalHash now rejects non-finite numbers/undefined (Blocker 5) -- a snapshot that
+    // The private canonical hash rejects non-finite numbers/undefined (Blocker 5) -- a snapshot that
     // trips that guard is exactly as untrustworthy as one with a mismatched hash. Fail closed,
     // never throw out of an integrity check.
     return false;

@@ -1,6 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftProtocolState, ProtocolCommand } from "../types";
-import { applyRankedAllPickCommand, createRankedAllPickState, isSealedSelectionLegal } from "./ranked-all-pick";
+import { applyProtocolCommand, createProtocolState } from "../kernel";
+import { isSealedSelectionLegal } from "./ranked-all-pick";
+
+function createRankedAllPickState(sessionId: string): DraftProtocolState {
+  const created = createProtocolState(sessionId, "dota2/ranked-all-pick");
+  if (!created.ok) throw new Error("setup");
+  return created.state;
+}
+
+function applyRankedAllPickCommand(
+  state: DraftProtocolState,
+  command: ProtocolCommand,
+  _legacyOrdinal?: number,
+) {
+  return applyProtocolCommand(state, command);
+}
 
 function submit(side: "radiant" | "dire", slotIndex: number, heroId: number): ProtocolCommand {
   return { type: "SUBMIT_SEALED_SELECTION", side, slotIndex, heroId };
@@ -70,7 +85,7 @@ describe("Ranked All Pick — transiciones de fase y capacidad 2/2/1", () => {
 describe("Ranked All Pick — política de colisión (frozen contract)", () => {
   const HERO = { A: 101, B: 102, C: 103, D: 104, E: 105, F: 106 };
 
-  test("colisión #1 y #2 del round -> ban + repick; colisión #3 -> gana el commitOrdinal más bajo", () => {
+  test("colisión #1 y #2 -> ban + repick; colisión #3 espera autoridad explícita", () => {
     let state = createRankedAllPickState("s1");
     state = apply(state, [{ type: "BAN_RESOLUTION_COMPLETE" }]);
 
@@ -96,12 +111,21 @@ describe("Ranked All Pick — política de colisión (frozen contract)", () => {
     // sigue sin haber ganador -- D también fue baneado, no asignado.
     expect(state.rankedAp?.confirmedPicks.some((p) => p.heroId === HERO.D)).toBe(false);
 
-    // --- colisión 3 del round: radiant sella primero (ordinal más bajo) -> radiant se queda con E ---
+    // --- colisión 3 del round: ninguna llegada decide ganador; el protocolo espera autoridad ---
     state = apply(state, [submit("radiant", 0, HERO.E), submit("dire", 1, HERO.E)]);
-    expect(state.rankedAp?.round?.collisionsResolved).toBe(3);
+    expect(state.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
+    expect(state.rankedAp?.round?.collisionsResolved).toBe(2);
     expect(state.rankedAp?.bannedHeroes).not.toContain(HERO.E); // colisión 3+: nunca se banea
-    const winnerPick = state.rankedAp?.confirmedPicks.find((p) => p.heroId === HERO.E);
-    expect(winnerPick?.side).toBe("radiant"); // menor commitOrdinal = quien selló primero
+    expect(state.rankedAp?.confirmedPicks.some((p) => p.heroId === HERO.E)).toBe(false);
+
+    state = apply(state, [{
+      type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION",
+      round: 1,
+      heroId: HERO.E,
+      winner: { side: "radiant", slotIndex: 0 },
+    }]);
+    expect(state.rankedAp?.round?.collisionsResolved).toBe(3);
+    expect(state.rankedAp?.confirmedPicks.find((p) => p.heroId === HERO.E)?.side).toBe("radiant");
     expect(state.rankedAp?.round?.openSlots).toEqual([{ side: "dire", slotIndex: 1 }]); // dire perdió, repick
 
     // dire completa su último slot sin más colisión -> la ronda cierra.
@@ -111,7 +135,7 @@ describe("Ranked All Pick — política de colisión (frozen contract)", () => {
 
     const round1Heroes = state.rankedAp?.confirmedPicks.filter((p) => p.round === 1).map((p) => p.heroId).sort();
     expect(round1Heroes).toEqual([HERO.B, HERO.C, HERO.E, HERO.F].sort());
-    expect(state.rankedAp?.bannedHeroes.sort()).toEqual([HERO.A, HERO.D].sort());
+    expect([...(state.rankedAp?.bannedHeroes ?? [])].sort()).toEqual([HERO.A, HERO.D].sort());
   });
 
   test("un mismo lado no puede sellar el mismo héroe dos veces en la ronda (no es colisión, es error)", () => {
