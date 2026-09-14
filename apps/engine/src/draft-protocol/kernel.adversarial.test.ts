@@ -491,6 +491,34 @@ describe("third collision requires external authority", () => {
     expect(stale.rejected).toBe("COLLISION_AUTHORITY_NOT_PENDING");
     expect(stale.state).toBe(resolved);
   });
+
+  test("authority resolution naming the wrong round is rejected without changing state", () => {
+    const pending = thirdCollision(["radiant", "dire"]);
+    expect(pending.rankedAp?.round?.pendingCollision?.round).toBe(1);
+
+    const wrongRound = applyProtocolCommand(pending, { ...radiantWins300, round: 2 });
+    expect(wrongRound.rejected).toBe("COLLISION_RESOLUTION_MISMATCH");
+    expect(wrongRound.state).toBe(pending);
+    expect(pending.rankedAp?.confirmedPicks.some((pick) => pick.heroId === 300)).toBe(false);
+  });
+
+  test("authority resolution naming a non-contender winner is rejected without changing state", () => {
+    const pending = thirdCollision(["radiant", "dire"]);
+    const contenders = pending.rankedAp?.round?.pendingCollision?.contenders;
+    expect(contenders).toEqual([
+      { side: "dire", slotIndex: 1 },
+      { side: "radiant", slotIndex: 0 },
+    ]);
+
+    // (dire, 0) is a real slot from the ban round -- not one of the two contenders in THIS collision.
+    const nonContender = applyProtocolCommand(pending, {
+      ...radiantWins300,
+      winner: { side: "dire", slotIndex: 0 },
+    });
+    expect(nonContender.rejected).toBe("COLLISION_RESOLUTION_MISMATCH");
+    expect(nonContender.state).toBe(pending);
+    expect(pending.rankedAp?.confirmedPicks.some((pick) => pick.heroId === 300)).toBe(false);
+  });
 });
 
 describe("legal gameplay oracle never advertises an empty category", () => {
