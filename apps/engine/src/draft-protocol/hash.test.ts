@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canonicalHash, canonicalStringify, functionalIdentityHash, sha256Hex } from "./hash";
+import { CanonicalizationError, canonicalHash, canonicalStringify, functionalIdentityHash, sha256Hex } from "./hash";
 
 describe("canonicalStringify", () => {
   test("mismo objeto con claves en distinto orden produce el mismo string", () => {
@@ -12,6 +12,33 @@ describe("canonicalStringify", () => {
     const a = canonicalStringify({ list: [1, 2, 3] });
     const b = canonicalStringify({ list: [3, 2, 1] });
     expect(a).not.toBe(b);
+  });
+});
+
+// Blocker 5 / test evidence #10: undefined/NaN/Infinity nunca se convierten silenciosamente.
+describe("canonicalStringify — rechazo explícito de valores no canónicos", () => {
+  test("undefined en el valor top-level lanza CanonicalizationError", () => {
+    // @ts-expect-error -- probando el guard en runtime contra un valor que el tipo ya excluye
+    expect(() => canonicalStringify(undefined)).toThrow(CanonicalizationError);
+  });
+
+  test("undefined anidado en un objeto lanza (el cast `as unknown as CanonicalValue` real de este módulo no protege en runtime)", () => {
+    const value = { a: 1, b: undefined } as unknown as import("./hash").CanonicalValue;
+    expect(() => canonicalStringify(value)).toThrow(CanonicalizationError);
+  });
+
+  test("NaN lanza en vez de convertirse silenciosamente en \"null\"", () => {
+    expect(() => canonicalStringify(NaN)).toThrow(CanonicalizationError);
+    expect(() => canonicalStringify({ heroId: NaN })).toThrow(CanonicalizationError);
+  });
+
+  test("Infinity y -Infinity lanzan", () => {
+    expect(() => canonicalStringify(Infinity)).toThrow(CanonicalizationError);
+    expect(() => canonicalStringify(-Infinity)).toThrow(CanonicalizationError);
+  });
+
+  test("canonicalHash se propaga: nunca produce un hash silencioso de un valor no canónico", () => {
+    expect(() => canonicalHash({ heroId: NaN })).toThrow(CanonicalizationError);
   });
 });
 

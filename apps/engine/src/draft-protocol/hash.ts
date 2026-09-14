@@ -17,11 +17,30 @@ export type CanonicalValue =
   | { [key: string]: CanonicalValue };
 
 /**
+ * Blocker 5 (R1 S1 independent review): canonicalStringify must produce ONLY canonical valid
+ * JSON. undefined/NaN/Infinity/-Infinity are explicitly rejected rather than silently coerced --
+ * JSON.stringify(NaN) === "null" and JSON.stringify(undefined) is the JS value undefined (which,
+ * interpolated into a template literal, becomes the literal text "undefined", not valid JSON).
+ * Either failure mode would silently corrupt canonical identity/hashing. `value: CanonicalValue`
+ * excludes undefined/NaN at the TYPE level, but every real caller in this module reaches this
+ * function via an `as unknown as CanonicalValue` cast on a live DraftProtocolState/
+ * PerspectiveDraftView -- the type system cannot prove the object is actually clean, so this check
+ * has to be a real runtime guard, not a type-level one.
+ */
+export class CanonicalizationError extends Error {}
+
+/**
  * Stable JSON stringify: object keys sorted recursively so structurally identical inputs always
  * produce byte-identical output regardless of construction order. Arrays keep their order --
  * order is semantic for arrays (e.g. the CM 24-step sequence, event logs).
  */
 export function canonicalStringify(value: CanonicalValue): string {
+  if (value === undefined) {
+    throw new CanonicalizationError("undefined is not valid canonical JSON");
+  }
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new CanonicalizationError(`non-finite number (${value}) is not valid canonical JSON`);
+  }
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
   }
@@ -30,7 +49,7 @@ export function canonicalStringify(value: CanonicalValue): string {
   }
   const entries = Object.entries(value)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalStringify(entryValue)}`);
+    .map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalStringify(entryValue as CanonicalValue)}`);
   return `{${entries.join(",")}}`;
 }
 
