@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 // R0.4/Task 27 (.kiro/specs/r0-engineering-baseline-recovery, requisito 4.5 c1-c3).
 // Candado de regresión para la separación "escaneo barato / regenerador / trabajo pesado":
@@ -93,8 +93,8 @@ afterEach(() => {
 });
 
 interface ExecutionTrap {
-  /** PATH (formato Windows, ';' -- así lo expone process.env.PATH bajo Bun nativo) con el
-   *  directorio de señuelos ANTEPUESTO. */
+  /** PATH del proceso actual con el directorio de señuelos ANTEPUESTO, unido con el
+   *  `node:path` `delimiter` del sistema (';' en Windows, ':' en POSIX) -- OS-agnostic. */
   path: string;
   /** Ruta absoluta del marker file -- se pasa como D2K_TRAP_MARKER al proceso hijo. */
   markerPath: string;
@@ -131,7 +131,7 @@ function installExecutionTrap(): ExecutionTrap {
   writeShim(shimDir, "tsc", `echo "tsc $*" >> "$D2K_TRAP_MARKER"\nexit 0\n`);
 
   return {
-    path: `${shimDir};${process.env.PATH ?? ""}`,
+    path: `${shimDir}${delimiter}${process.env.PATH ?? ""}`,
     markerPath,
     readMarker: () =>
       readFileSync(markerPath, "utf8")
