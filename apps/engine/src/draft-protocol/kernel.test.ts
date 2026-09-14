@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { computeEligibilityContentHash } from "./eligibility";
-import { functionalIdentityHash, type CanonicalValue } from "./hash";
+import { authoritativeStateHash } from "./identity-hash";
 import { applyProtocolCommand, createProtocolState, legalActions, replayProtocolState } from "./kernel";
 import { project } from "./perspective";
 import type { CmHeroEligibilitySnapshot, DraftProtocolState, ProtocolCommand } from "./types";
@@ -11,8 +11,8 @@ function eligibilitySnapshot(heroIds: number[]): CmHeroEligibilitySnapshot {
     appId: 570 as const,
     patch: "7.41e",
     buildId: "b",
-    depotManifests: {},
-    sourceHashes: {},
+    depotManifests: { "570": "1" },
+    sourceHashes: { npc_heroes: "fixture" },
     heroIds,
   };
   return { ...base, contentHash: computeEligibilityContentHash(base) };
@@ -81,9 +81,7 @@ describe("Kernel — replay y determinismo", () => {
     const second = replayProtocolState("s1", "dota2/ranked-all-pick", events);
     expect(first).toEqual(second);
     if (first.ok && second.ok) {
-      expect(functionalIdentityHash(first.state as unknown as CanonicalValue)).toBe(
-        functionalIdentityHash(second.state as unknown as CanonicalValue),
-      );
+      expect(authoritativeStateHash(first.state)).toBe(authoritativeStateHash(second.state));
     }
   });
 
@@ -171,7 +169,7 @@ describe("Kernel — vista de perspectiva integrada con el camino autoritativo r
       if (result.rejected) throw new Error(`rechazado: ${result.rejected} en ${JSON.stringify(command)}`);
       state = result.state;
     }
-    expect(state.rankedAp?.bannedHeroes.sort()).toEqual([100, 200]);
+    expect([...(state.rankedAp?.bannedHeroes ?? [])].sort()).toEqual([100, 200]);
     const winner = state.rankedAp?.confirmedPicks.find((p) => p.heroId === 300);
     expect(winner?.side).toBe("radiant"); // radiant selló el 300 con un ordinal de evento menor
     expect(state.rankedAp?.round?.openSlots).toEqual([{ side: "dire", slotIndex: 1 }]);

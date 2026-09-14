@@ -1,3 +1,4 @@
+import { deepFreeze } from "./immutable";
 import type { DraftProtocolState, HeroId, PerspectiveDraftView, PerspectiveHeroSlot, TeamSide } from "./types";
 
 // R1 S1 -- project(viewer): the ONE place authoritative DraftProtocolState is turned into a
@@ -20,7 +21,14 @@ function known(heroId: HeroId): PerspectiveHeroSlot {
 function revealed(heroId: HeroId): PerspectiveHeroSlot {
   return { visibility: "REVEALED", heroId };
 }
-const HIDDEN: PerspectiveHeroSlot = { visibility: "HIDDEN" };
+// Blocker 2: a fresh object per call, NOT a shared module-level singleton. A single reused
+// `HIDDEN` constant would mean every "hidden" slot ever returned by project() -- across every
+// viewer, every session, forever -- is the SAME object; a caller mutating one entry (nothing at
+// the type level stops adding an ad-hoc property at runtime) would corrupt every other perspective
+// view that ever included a hidden slot.
+function hidden(): PerspectiveHeroSlot {
+  return { visibility: "HIDDEN" };
+}
 
 function projectRankedAllPick(
   state: DraftProtocolState,
@@ -33,7 +41,7 @@ function projectRankedAllPick(
     // No trusted "self" side: nothing sealed-but-unrevealed is exposed to a neutral viewer.
     const enemyPicks: PerspectiveHeroSlot[] = [
       ...rankedAp.confirmedPicks.map((pick) => revealed(pick.heroId)),
-      ...(rankedAp.round?.sealed.map(() => HIDDEN) ?? []),
+      ...(rankedAp.round?.sealed.map(() => hidden()) ?? []),
     ];
     return { ownPicks: [], enemyPicks };
   }
@@ -44,7 +52,7 @@ function projectRankedAllPick(
     known(entry.heroId),
   );
   const enemyConfirmed = rankedAp.confirmedPicks.filter((pick) => pick.side === opponent).map((pick) => revealed(pick.heroId));
-  const enemySealedHidden = (rankedAp.round?.sealed.filter((entry) => entry.side === opponent) ?? []).map(() => HIDDEN);
+  const enemySealedHidden = (rankedAp.round?.sealed.filter((entry) => entry.side === opponent) ?? []).map(() => hidden());
 
   return {
     ownPicks: [...ownConfirmed, ...ownSealed],
@@ -72,19 +80,25 @@ function projectCaptainsMode(
 }
 
 export function project(state: DraftProtocolState, viewerSide: TeamSide | null): PerspectiveDraftView {
-  const bannedHeroes =
-    state.rankedAp?.bannedHeroes ?? state.captainsMode?.bannedHeroes ?? [];
+  // Blocker 2: a fresh copy, never the authoritative array itself -- the source is
+  // state.rankedAp.bannedHeroes / state.captainsMode.bannedHeroes, and returning that reference
+  // directly would let a caller mutating the returned view corrupt authoritative state in place.
+  const bannedHeroes = [...(state.rankedAp?.bannedHeroes ?? state.captainsMode?.bannedHeroes ?? [])];
 
   const { ownPicks, enemyPicks } = state.rankedAp
     ? projectRankedAllPick(state, viewerSide)
     : projectCaptainsMode(state, viewerSide);
 
-  return {
+  // Blocker 2: `degradation` is a nested object -- copy it too, not just the top-level array
+  // fields, so mutating the returned view's degradation can never reach authoritative state's own
+  // copy. `ruleset` is NOT cloned: RulesetIdentity is Object.frozen at module-load time in
+  // rulesets/*.ts (a permanent, shared, already-immutable constant), so aliasing it here is safe.
+  const view: PerspectiveDraftView = {
     schema: "draft-protocol-perspective/v1",
     sessionId: state.sessionId,
     ruleset: state.ruleset,
     status: state.status,
-    degradation: state.degradation,
+    degradation: state.degradation ? { ...state.degradation } : null,
     viewerSide,
     bannedHeroes,
     ownPicks,
@@ -96,4 +110,5 @@ export function project(state: DraftProtocolState, viewerSide: TeamSide | null):
       ? { firstPickSide: state.captainsMode.firstPickSide, currentStep: state.captainsMode.currentStep }
       : null,
   };
+  return deepFreeze(view);
 }

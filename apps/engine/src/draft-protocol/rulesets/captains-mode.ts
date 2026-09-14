@@ -1,12 +1,15 @@
-import { verifyEligibilitySnapshotIntegrity, isHeroEligible } from "../eligibility";
+import { acceptCmHeroEligibilitySnapshot, isHeroEligible } from "../eligibility";
 import { canonicalHash, type CanonicalValue } from "../hash";
+import { isValidHeroId } from "../hero-id";
+import { isPatchWithinRange } from "../patch-range";
 import type {
   CmState,
   CmStepDefinition,
   DraftProtocolState,
+  GameplayLegalAction,
   HeroId,
   KernelResult,
-  LegalAction,
+  ProtocolAdminCommand,
   ProtocolCommand,
   RelativeSide,
   RulesetIdentity,
@@ -65,7 +68,7 @@ const SOURCE_MANIFEST = {
 };
 const SOURCE_MANIFEST_HASH = canonicalHash(SOURCE_MANIFEST as unknown as CanonicalValue);
 
-export const CAPTAINS_MODE_IDENTITY: RulesetIdentity = {
+export const CAPTAINS_MODE_IDENTITY: RulesetIdentity = Object.freeze({
   id: "dota2/captains-mode",
   version: "1.0.0",
   rulesHash: canonicalHash({
@@ -76,7 +79,7 @@ export const CAPTAINS_MODE_IDENTITY: RulesetIdentity = {
   applicableFromPatch: "7.40",
   verifiedThroughPatch: "7.41e",
   sourceManifestHash: SOURCE_MANIFEST_HASH,
-};
+});
 
 export function captainsModeStepDefinition(step: number): CmStepDefinition | null {
   if (step < 1 || step > 24) return null;
@@ -135,10 +138,19 @@ export function applyCaptainsModeCommand(
   }
 
   if (command.type === "LOAD_CM_ELIGIBILITY") {
-    if (!verifyEligibilitySnapshotIntegrity(command.snapshot)) {
+    // Blocker 4B: hash integrity alone is not enough -- a well-formed, internally-consistent
+    // snapshot for the WRONG patch, or one missing required source identity, must still be
+    // rejected. acceptCmHeroEligibilitySnapshot runs full structural validation (schema, appId,
+    // ordered/unique/positive heroIds, required depotManifests/sourceHashes keys) AND integrity
+    // (contentHash) -- never just the hash check the old code ran here. The accepted result is
+    // also independently cloned from `command.snapshot` (Blocker 2), so mutating the caller's
+    // original snapshot object after acceptance can never reach captainsMode.eligibilitySnapshot.
+    const accepted = acceptCmHeroEligibilitySnapshot(command.snapshot);
+    if (!accepted) return { state, rejected: "ELIGIBILITY_UNVERIFIED" };
+    if (!isPatchWithinRange(accepted.patch, state.ruleset.applicableFromPatch, state.ruleset.verifiedThroughPatch)) {
       return { state, rejected: "ELIGIBILITY_UNVERIFIED" };
     }
-    const nextCm: CmState = { ...cm, eligibilitySnapshot: command.snapshot };
+    const nextCm: CmState = { ...cm, eligibilitySnapshot: accepted };
     return { state: { ...state, captainsMode: nextCm } };
   }
 
@@ -166,6 +178,7 @@ export function applyCaptainsModeCommand(
     const expectedKind = command.type === "CM_AUTO_PICK" ? "PICK" : command.kind;
     if (stepDef.kind !== expectedKind) return { state, rejected: "WRONG_ACTION_KIND" };
 
+    if (!isValidHeroId(command.heroId)) return { state, rejected: "INVALID_HERO_ID" };
     if (!cm.eligibilitySnapshot) return { state, rejected: "ELIGIBILITY_UNVERIFIED" };
     if (!isHeroEligible(cm.eligibilitySnapshot, command.heroId)) return { state, rejected: "HERO_INELIGIBLE" };
     if (heroAlreadyTaken(cm, command.heroId)) return { state, rejected: "HERO_ALREADY_TAKEN" };
@@ -194,25 +207,63 @@ export function applyCaptainsModeCommand(
   return { state, rejected: "WRONG_ACTION_KIND" };
 }
 
-export function captainsModeLegalActions(state: DraftProtocolState): LegalAction[] {
+/**
+ * Every heroId still certifiable at this instant: in the loaded eligibility snapshot AND not
+ * already banned/picked by either side. Bounded (the snapshot's heroIds array is finite, ~126 in
+ * practice) -- unlike Ranked All Pick's isSealedSelectionLegal (ranked-all-pick.ts), this can be a
+ * genuine enumeration, not just a predicate, because CM's hero universe IS certified/bounded.
+ */
+function cmRemainingEligibleHeroIds(cm: CmState): HeroId[] {
+  if (!cm.eligibilitySnapshot) return [];
+  return cm.eligibilitySnapshot.heroIds.filter((heroId) => !heroAlreadyTaken(cm, heroId));
+}
+
+/**
+ * Protocol/admin commands. LOAD_CM_ELIGIBILITY is intentionally always listed -- the kernel
+ * itself places no gate on it (not on firstPickSide, not on step, not on COMPLETE; see
+ * applyCaptainsModeCommand above): a later/refreshed snapshot is harmless to accept at any time,
+ * PRODUCT_POLICY, not a silent gap. CONFIRM_FIRST_PICK_SIDE only while still unset (a second
+ * attempt is ALREADY_RESOLVED at the kernel, so it must not be advertised as legal once resolved).
+ */
+export function captainsModeAvailableCommands(state: DraftProtocolState): ProtocolAdminCommand[] {
   const cm = state.captainsMode;
   if (!cm) return [];
-  if (cm.firstPickSide === null) return [{ type: "CONFIRM_FIRST_PICK_SIDE" }];
+  const commands: ProtocolAdminCommand[] = [{ type: "LOAD_CM_ELIGIBILITY" }];
+  if (cm.firstPickSide === null) commands.push({ type: "CONFIRM_FIRST_PICK_SIDE" });
+  return commands;
+}
+
+/**
+ * Gameplay legal actions. UNCONFIRMED_STATE (no firstPickSide) or STEP_AFTER_COMPLETION (no
+ * stepDef) -> [], matching the kernel's own fail-closed gates exactly. `absoluteSide` is resolved
+ * here, from canonical state (firstPickSide + the step's relative actor), by the kernel itself --
+ * never left for an external adapter to derive its own copy of resolveAbsoluteSide and risk
+ * disagreeing with the kernel (Blocker 3). CM_ACTION/CM_AUTO_PICK carry the full, currently-legal
+ * `eligibleHeroIds` set -- every one of them, applied literally as `heroId`, is guaranteed
+ * accepted by the kernel right now.
+ */
+export function captainsModeLegalGameplayActions(state: DraftProtocolState): GameplayLegalAction[] {
+  const cm = state.captainsMode;
+  if (!cm || cm.firstPickSide === null) return [];
   const stepDef = captainsModeStepDefinition(cm.currentStep);
   if (!stepDef) return [];
-  if (!cm.eligibilitySnapshot) {
-    // Neither a BAN nor a PICK hero-action can be certified without a verified snapshot -- the
-    // kernel rejects both with ELIGIBILITY_UNVERIFIED, so the oracle must not advertise them as
-    // legal either. BAN_SKIPPED never needs eligibility (no hero involved), so it stays legal.
-    const actions: LegalAction[] = [{ type: "LOAD_CM_ELIGIBILITY" }];
-    if (stepDef.kind === "BAN") actions.push({ type: "CM_BAN_SKIPPED", step: stepDef.step, actor: stepDef.actor });
-    return actions;
-  }
-  const actions: LegalAction[] = [{ type: "CM_ACTION", step: stepDef.step, actor: stepDef.actor, kind: stepDef.kind }];
+  const absoluteSide = resolveAbsoluteSide(stepDef.actor, cm.firstPickSide);
+
   if (stepDef.kind === "BAN") {
-    actions.push({ type: "CM_BAN_SKIPPED", step: stepDef.step, actor: stepDef.actor });
-  } else {
-    actions.push({ type: "CM_AUTO_PICK", step: stepDef.step, actor: stepDef.actor });
+    const banSkipped: GameplayLegalAction = { type: "CM_BAN_SKIPPED", step: stepDef.step, actor: stepDef.actor, absoluteSide };
+    if (!cm.eligibilitySnapshot) return [banSkipped]; // no hero involved -> never needs eligibility
+    return [
+      { type: "CM_ACTION", step: stepDef.step, actor: stepDef.actor, absoluteSide, kind: "BAN", eligibleHeroIds: cmRemainingEligibleHeroIds(cm) },
+      banSkipped,
+    ];
   }
-  return actions;
+
+  // PICK: unlike BAN, there is no eligibility-free fallback action (no "PICK_SKIPPED") -- without
+  // a verified snapshot, no PICK-kind gameplay action is certifiable at all.
+  if (!cm.eligibilitySnapshot) return [];
+  const eligibleHeroIds = cmRemainingEligibleHeroIds(cm);
+  return [
+    { type: "CM_ACTION", step: stepDef.step, actor: stepDef.actor, absoluteSide, kind: "PICK", eligibleHeroIds },
+    { type: "CM_AUTO_PICK", step: stepDef.step, actor: stepDef.actor, absoluteSide, eligibleHeroIds },
+  ];
 }

@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { functionalIdentityHash, type CanonicalValue } from "./hash";
+import { perspectiveStateHash } from "./identity-hash";
 import { project } from "./perspective";
-import { rankedAllPickLegalActions, applyRankedAllPickCommand, createRankedAllPickState } from "./rulesets/ranked-all-pick";
+import {
+  rankedAllPickAvailableCommands,
+  rankedAllPickLegalGameplayActions,
+  applyRankedAllPickCommand,
+  createRankedAllPickState,
+} from "./rulesets/ranked-all-pick";
 import { applyCaptainsModeCommand, createCaptainsModeState } from "./rulesets/captains-mode";
 import { computeEligibilityContentHash } from "./eligibility";
 import type { DraftProtocolState, ProtocolCommand } from "./types";
@@ -70,10 +75,9 @@ describe("PerspectiveDraftView — propiedad de gemelos ocultos (hidden twin)", 
     const viewB = project(stateB, "radiant");
 
     expect(viewA).toEqual(viewB);
-    expect(functionalIdentityHash(viewA as unknown as CanonicalValue)).toBe(
-      functionalIdentityHash(viewB as unknown as CanonicalValue),
-    );
-    expect(rankedAllPickLegalActions(stateA)).toEqual(rankedAllPickLegalActions(stateB));
+    expect(perspectiveStateHash(viewA)).toBe(perspectiveStateHash(viewB));
+    expect(rankedAllPickAvailableCommands(stateA)).toEqual(rankedAllPickAvailableCommands(stateB));
+    expect(rankedAllPickLegalGameplayActions(stateA)).toEqual(rankedAllPickLegalGameplayActions(stateB));
   });
 });
 
@@ -100,8 +104,8 @@ describe("PerspectiveDraftView — Captain's Mode nunca tiene HIDDEN (reveal inm
       appId: 570 as const,
       patch: "7.41e",
       buildId: "b",
-      depotManifests: {},
-      sourceHashes: {},
+      depotManifests: { "570": "1" },
+      sourceHashes: { npc_heroes: "fixture" },
       heroIds,
     };
     return { ...base, contentHash: computeEligibilityContentHash(base) };

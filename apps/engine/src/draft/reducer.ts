@@ -1,7 +1,7 @@
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "./draft-format-turns";
 import { captainsModeTurnIndex, checkCaptainsModeTurn, consumeReserveTime } from "./turn-clock";
 
-// R1 S1 (docs/specs/r1-protocol-kernel.md): this reducer + turn-clock.ts + draft-format-turns.ts
+// R1 S1 (.kiro/specs/r1-protocol-kernel/design.md): this reducer + turn-clock.ts + draft-format-turns.ts
 // remain the AUTHORITATIVE implementation backing live production traffic (SessionStore, WS,
 // HTTP /ingest/draft-event) for the rest of R1 S1. apps/engine/src/draft-protocol/ is the new
 // Protocol Kernel -- it supersedes this module conceptually (single-actor All Pick turn checking

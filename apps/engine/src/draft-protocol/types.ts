@@ -1,5 +1,5 @@
 // R1 S1 -- Protocol Kernel canonical types. Frozen contract source: R1 Architecture Review +
-// R1 CONTRACT FREEZE (materialized into docs/specs/r1-protocol-kernel.md in this same slice).
+// R1 CONTRACT FREEZE (materialized into .kiro/specs/r1-protocol-kernel/design.md in this same slice).
 //
 // This module intentionally lives beside (not inside) apps/engine/src/draft/ -- the legacy
 // reducer.ts/turn-clock.ts/draft-format-turns.ts trio remains the authoritative implementation
@@ -225,7 +225,9 @@ export type RejectionReasonV2 =
   | "INVALID_PARTY_SIZE"
   | "COLLISION_ORDER_UNAVAILABLE"
   | "DUPLICATE_HERO_IN_ROUND"
-  | "ALREADY_RESOLVED";
+  | "ALREADY_RESOLVED"
+  /** Blocker 4C: a heroId that fails isValidHeroId (NaN/Infinity/non-integer/<=0/non-number). */
+  | "INVALID_HERO_ID";
 
 export interface KernelResult {
   state: DraftProtocolState;
@@ -233,18 +235,48 @@ export interface KernelResult {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Legal action oracle
+// Legal action oracle -- Blocker 3 (independent architecture review)
+//
+// Split in two, deliberately, because they answer different questions and have different
+// executability guarantees:
+//
+//   - ProtocolAdminCommand: protocol/session-management commands (confirm a side, load a
+//     snapshot, resolve bans, close ban resolution). Each entry names a command TYPE that is
+//     currently accepted; several of these commands carry externally-supplied payloads the
+//     oracle cannot invent (which side? which snapshot? which bans actually happened?) -- the
+//     oracle states availability of the command, not a ready-to-replay instance of it.
+//
+//   - GameplayLegalAction: hero-targeting actions. Where the kernel has a BOUNDED, certified hero
+//     universe to enumerate against (Captain's Mode, via the loaded eligibility snapshot), every
+//     entry is a directly executable, concrete action -- `eligibleHeroIds` lists every heroId
+//     that, applied literally as CM_ACTION.heroId/CM_AUTO_PICK.heroId, is guaranteed accepted by
+//     the kernel right now. Ranked All Pick has NO such catalog in S1 (no eligibility mechanism
+//     was ever built for it -- see rulesets/ranked-all-pick.ts) -- its SUBMIT_SEALED_SELECTION
+//     entries name the (side, slotIndex) that IS open, and `isSealedSelectionLegal` (exported
+//     from rulesets/ranked-all-pick.ts) is the exact per-heroId predicate mirroring kernel
+//     acceptance for that slot; this is deliberately NOT smuggled into a fake-looking
+//     "eligibleHeroIds" field the way it previously was ("any_uncontested"), because that value
+//     was never actually derived from, or checked against, any real hero universe.
+//
+// CM_ACTION/CM_BAN_SKIPPED/CM_AUTO_PICK also carry `absoluteSide: TeamSide` -- resolved from
+// canonical state (firstPickSide + the step's relative actor, via resolveAbsoluteSide) BY THE
+// KERNEL, not left for an external adapter to derive on its own from the relative `actor` label.
 // ---------------------------------------------------------------------------------------------
 
-export type LegalAction =
+export type ProtocolAdminCommand =
   | { type: "RECORD_RESOLVED_BANS" }
   | { type: "BAN_RESOLUTION_COMPLETE" }
-  | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number; eligibleHeroIds: "any_uncontested" }
   | { type: "CONFIRM_FIRST_PICK_SIDE" }
-  | { type: "LOAD_CM_ELIGIBILITY" }
-  | { type: "CM_ACTION"; step: number; actor: RelativeSide; kind: CmActionKind }
-  | { type: "CM_BAN_SKIPPED"; step: number; actor: RelativeSide }
-  | { type: "CM_AUTO_PICK"; step: number; actor: RelativeSide };
+  | { type: "LOAD_CM_ELIGIBILITY" };
+
+export type GameplayLegalAction =
+  | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number }
+  | { type: "CM_ACTION"; step: number; actor: RelativeSide; absoluteSide: TeamSide; kind: CmActionKind; eligibleHeroIds: HeroId[] }
+  | { type: "CM_BAN_SKIPPED"; step: number; actor: RelativeSide; absoluteSide: TeamSide }
+  | { type: "CM_AUTO_PICK"; step: number; actor: RelativeSide; absoluteSide: TeamSide; eligibleHeroIds: HeroId[] };
+
+/** Convenience union for callers that want "everything currently legal", regardless of category. */
+export type LegalAction = ProtocolAdminCommand | GameplayLegalAction;
 
 // ---------------------------------------------------------------------------------------------
 // Perspective (hidden-information projection)

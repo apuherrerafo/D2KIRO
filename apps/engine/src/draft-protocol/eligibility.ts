@@ -1,5 +1,15 @@
 import { canonicalHash } from "./hash";
+import { isValidHeroId } from "./hero-id";
+import { deepClone } from "./immutable";
 import type { CmHeroEligibilitySnapshot, HeroId } from "./types";
+
+// Required keys, part of Blocker 4B's "required source identity" check: a snapshot must name the
+// specific depot (by appId) and the specific source file (npc_heroes.txt, the frozen future
+// authority named in the module doc above) it claims to be derived from -- an empty {} for either
+// field structurally validates as a well-typed Record<string,string> but identifies no source at
+// all.
+const REQUIRED_DEPOT_MANIFEST_KEY = "570";
+const REQUIRED_SOURCE_HASH_KEY = "npc_heroes";
 
 // R1 S1 -- CM Hero Eligibility, canonical SNAPSHOT CONTRACT + validation + fail-closed
 // integration. Frozen future authority: Steam app 570 official client data
@@ -25,20 +35,35 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return Object.values(value).every((entry) => typeof entry === "string");
 }
 
+/**
+ * Blocker 4B: "required source identity" -- a `depotManifests`/`sourceHashes` record that is
+ * merely well-typed (all-string values) is not enough; it must actually carry the specific keys
+ * that identify WHICH depot/file this snapshot claims to be derived from. Without this, `{}`
+ * would structurally validate as a legitimate "source identity" for nothing at all.
+ */
+function isStringRecordWithRequiredKey(value: unknown, requiredKey: string): value is Record<string, string> {
+  if (!isStringRecord(value)) return false;
+  return isNonEmptyString(value[requiredKey]);
+}
+
 function isOrderedUniquePositiveHeroIds(value: unknown): value is HeroId[] {
   if (!Array.isArray(value) || value.length === 0) return false;
-  const seen = new Set<number>();
+  let previous = -Infinity;
   for (const entry of value) {
-    if (!Number.isInteger(entry) || (entry as number) <= 0) return false;
-    if (seen.has(entry as number)) return false;
-    seen.add(entry as number);
+    if (!isValidHeroId(entry)) return false;
+    if (entry <= previous) return false; // strictly ascending -> ordered AND unique in one pass
+    previous = entry;
   }
   return true;
 }
 
 /**
- * Structural validation only (shape, types, uniqueness) -- does NOT verify contentHash integrity.
- * Exported separately so callers can distinguish "malformed" from "well-formed but tampered."
+ * Structural validation only (shape, types, uniqueness, order, required source identity) -- does
+ * NOT verify contentHash integrity. Exported separately so callers can distinguish "malformed"
+ * from "well-formed but tampered." Blocker 2: every nested mutable field (depotManifests,
+ * sourceHashes, heroIds) is deep-cloned into the returned value -- the caller's original `raw`
+ * object must never be aliased by the parsed result, or mutating `raw` after acceptance would
+ * silently corrupt whatever state this snapshot gets attached to.
  */
 export function parseCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilitySnapshot | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -47,11 +72,11 @@ export function parseCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilityS
   if (value.appId !== 570) return null;
   if (!isNonEmptyString(value.patch)) return null;
   if (!isNonEmptyString(value.buildId)) return null;
-  if (!isStringRecord(value.depotManifests)) return null;
-  if (!isStringRecord(value.sourceHashes)) return null;
+  if (!isStringRecordWithRequiredKey(value.depotManifests, REQUIRED_DEPOT_MANIFEST_KEY)) return null;
+  if (!isStringRecordWithRequiredKey(value.sourceHashes, REQUIRED_SOURCE_HASH_KEY)) return null;
   if (!isOrderedUniquePositiveHeroIds(value.heroIds)) return null;
   if (!isNonEmptyString(value.contentHash)) return null;
-  return {
+  return deepClone({
     schema: "cm-hero-eligibility/v1",
     appId: 570,
     patch: value.patch as string,
@@ -60,7 +85,7 @@ export function parseCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilityS
     sourceHashes: value.sourceHashes as Record<string, string>,
     heroIds: value.heroIds as HeroId[],
     contentHash: value.contentHash as string,
-  };
+  });
 }
 
 /**
@@ -83,7 +108,14 @@ export function computeEligibilityContentHash(
 }
 
 export function verifyEligibilitySnapshotIntegrity(snapshot: CmHeroEligibilitySnapshot): boolean {
-  return computeEligibilityContentHash(snapshot) === snapshot.contentHash;
+  try {
+    return computeEligibilityContentHash(snapshot) === snapshot.contentHash;
+  } catch {
+    // canonicalHash now rejects non-finite numbers/undefined (Blocker 5) -- a snapshot that
+    // trips that guard is exactly as untrustworthy as one with a mismatched hash. Fail closed,
+    // never throw out of an integrity check.
+    return false;
+  }
 }
 
 /**

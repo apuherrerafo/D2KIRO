@@ -1,17 +1,20 @@
 import { canonicalHash } from "../hash";
+import { isValidHeroId } from "../hero-id";
 import type {
   ConfirmedPick,
   DraftProtocolState,
+  GameplayLegalAction,
   HeroId,
   KernelResult,
-  LegalAction,
   OpenSlot,
   PartyContext,
+  ProtocolAdminCommand,
   ProtocolCommand,
   RankedApRoundState,
   RankedApState,
   RulesetIdentity,
   SealedSelection,
+  TeamSide,
 } from "../types";
 
 // R1 S1 -- Ranked All Pick ruleset. Frozen contract:
@@ -44,14 +47,14 @@ const SOURCE_MANIFEST = {
 
 const SOURCE_MANIFEST_HASH = canonicalHash(SOURCE_MANIFEST);
 
-export const RANKED_ALL_PICK_IDENTITY: RulesetIdentity = {
+export const RANKED_ALL_PICK_IDENTITY: RulesetIdentity = Object.freeze({
   id: "dota2/ranked-all-pick",
   version: "1.0.0",
   rulesHash: canonicalHash({ id: "dota2/ranked-all-pick", version: "1.0.0", manifest: SOURCE_MANIFEST }),
   applicableFromPatch: "7.35d",
   verifiedThroughPatch: "7.41e",
   sourceManifestHash: SOURCE_MANIFEST_HASH,
-};
+});
 
 function createRoundState(round: 1 | 2 | 3): RankedApRoundState {
   const capacityPerSide = ROUND_CAPACITY[round];
@@ -92,6 +95,39 @@ function heroAlreadyTaken(rankedAp: RankedApState, heroId: HeroId): boolean {
   if (rankedAp.bannedHeroes.includes(heroId)) return true;
   if (rankedAp.confirmedPicks.some((pick) => pick.heroId === heroId)) return true;
   return false;
+}
+
+function slotIsOpen(round: RankedApRoundState, side: TeamSide, slotIndex: number): boolean {
+  return round.openSlots.some((slot) => slot.side === side && slot.slotIndex === slotIndex);
+}
+
+function alreadySealedBySameSide(round: RankedApRoundState, side: TeamSide, heroId: HeroId): boolean {
+  return round.sealed.some((entry) => entry.side === side && entry.heroId === heroId);
+}
+
+/**
+ * Blocker 3: the exact per-heroId predicate mirroring the kernel's own SUBMIT_SEALED_SELECTION
+ * acceptance logic (slot open, heroId not already taken, heroId not already sealed by this side
+ * this round) -- called both by applyRankedAllPickCommand (as the source of truth) and by tests
+ * proving legalActions/kernel parity. Ranked All Pick has no bounded hero catalog in S1 (no
+ * eligibility mechanism was ever built for it), so this is the oracle for AP hero-level legality:
+ * a PREDICATE over an unbounded heroId domain, not an enumeration -- unlike Captain's Mode, where
+ * `cmRemainingEligibleHeroIds` (captains-mode.ts) genuinely can enumerate every legal heroId
+ * because the eligibility snapshot bounds the domain.
+ */
+export function isSealedSelectionLegal(
+  state: DraftProtocolState,
+  side: TeamSide,
+  slotIndex: number,
+  heroId: HeroId,
+): boolean {
+  const rankedAp = state.rankedAp;
+  if (!rankedAp || !rankedAp.round) return false;
+  if (!isValidHeroId(heroId)) return false;
+  if (!slotIsOpen(rankedAp.round, side, slotIndex)) return false;
+  if (heroAlreadyTaken(rankedAp, heroId)) return false;
+  if (alreadySealedBySameSide(rankedAp.round, side, heroId)) return false;
+  return true;
 }
 
 function nextPhase(round: 1 | 2 | 3): RankedApState["phase"] {
@@ -222,6 +258,7 @@ export function applyRankedAllPickCommand(
       return { state, rejected: "WRONG_PHASE" };
     }
     const incoming = command.heroes;
+    if (!incoming.every(isValidHeroId)) return { state, rejected: "INVALID_HERO_ID" };
     const incomingUnique = new Set(incoming);
     if (incomingUnique.size !== incoming.length) return { state, rejected: "DUPLICATE_HERO_IN_ROUND" };
     if (incoming.some((heroId) => rankedAp.bannedHeroes.includes(heroId))) {
@@ -246,15 +283,12 @@ export function applyRankedAllPickCommand(
   if (command.type === "SUBMIT_SEALED_SELECTION") {
     if (!rankedAp.round) return { state, rejected: "WRONG_PHASE" };
     const round = rankedAp.round;
-    const slotOpen = round.openSlots.some(
-      (slot) => slot.side === command.side && slot.slotIndex === command.slotIndex,
-    );
-    if (!slotOpen) return { state, rejected: "SLOT_NOT_OPEN" };
+    if (!isValidHeroId(command.heroId)) return { state, rejected: "INVALID_HERO_ID" };
+    if (!slotIsOpen(round, command.side, command.slotIndex)) return { state, rejected: "SLOT_NOT_OPEN" };
     if (heroAlreadyTaken(rankedAp, command.heroId)) return { state, rejected: "HERO_ALREADY_TAKEN" };
-    const alreadySealedBySameSide = round.sealed.some(
-      (entry) => entry.side === command.side && entry.heroId === command.heroId,
-    );
-    if (alreadySealedBySameSide) return { state, rejected: "DUPLICATE_HERO_IN_ROUND" };
+    if (alreadySealedBySameSide(round, command.side, command.heroId)) {
+      return { state, rejected: "DUPLICATE_HERO_IN_ROUND" };
+    }
 
     const sealedEntry: SealedSelection = {
       side: command.side,
@@ -291,23 +325,28 @@ export function applyRankedAllPickCommand(
   return { state, rejected: "WRONG_ACTION_KIND" };
 }
 
-export function rankedAllPickLegalActions(state: DraftProtocolState): LegalAction[] {
+/** Protocol/admin commands -- see the LegalAction doc block in ../types.ts for the split rationale. */
+export function rankedAllPickAvailableCommands(state: DraftProtocolState): ProtocolAdminCommand[] {
   const rankedAp = state.rankedAp;
   if (!rankedAp) return [];
-  const actions: LegalAction[] = [];
   if (rankedAp.phase === "BAN_RESOLUTION" && !rankedAp.banResolutionComplete) {
-    actions.push({ type: "RECORD_RESOLVED_BANS" });
-    actions.push({ type: "BAN_RESOLUTION_COMPLETE" });
+    return [{ type: "RECORD_RESOLVED_BANS" }, { type: "BAN_RESOLUTION_COMPLETE" }];
   }
-  if (rankedAp.round) {
-    for (const slot of rankedAp.round.openSlots) {
-      actions.push({
-        type: "SUBMIT_SEALED_SELECTION",
-        side: slot.side,
-        slotIndex: slot.slotIndex,
-        eligibleHeroIds: "any_uncontested",
-      });
-    }
-  }
-  return actions;
+  return [];
+}
+
+/**
+ * Gameplay legal actions -- one entry per currently-open slot. Each entry names a (side,
+ * slotIndex) rather than a fixed heroId list, because AP has no bounded hero catalog in S1 (see
+ * isSealedSelectionLegal above); COMPLETE (round === null) -> []; empty round -> [] by
+ * construction whenever no slots remain open.
+ */
+export function rankedAllPickLegalGameplayActions(state: DraftProtocolState): GameplayLegalAction[] {
+  const rankedAp = state.rankedAp;
+  if (!rankedAp || !rankedAp.round) return [];
+  return rankedAp.round.openSlots.map((slot) => ({
+    type: "SUBMIT_SEALED_SELECTION" as const,
+    side: slot.side,
+    slotIndex: slot.slotIndex,
+  }));
 }

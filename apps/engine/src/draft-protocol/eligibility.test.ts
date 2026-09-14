@@ -33,7 +33,14 @@ describe("parseCmHeroEligibilitySnapshot", () => {
     ["heroIds vacío", { ...buildSnapshot(), heroIds: [] }],
     ["heroIds con duplicado", { ...buildSnapshot(), heroIds: [1, 1, 2] }],
     ["heroIds con cero", { ...buildSnapshot(), heroIds: [0, 1] }],
+    ["heroIds con NaN", { ...buildSnapshot(), heroIds: [1, NaN, 3] }],
+    ["heroIds con Infinity", { ...buildSnapshot(), heroIds: [1, Infinity, 3] }],
+    ["heroIds fuera de orden (no ascendente)", { ...buildSnapshot(), heroIds: [2, 1, 3] }],
     ["depotManifests no es record de strings", { ...buildSnapshot(), depotManifests: { a: 1 } }],
+    // Blocker 4B: "required source identity" -- {} está bien tipado pero no identifica ningún
+    // origen real, así que debe rechazarse tanto como un shape inválido.
+    ["depotManifests sin la clave requerida (570)", { ...buildSnapshot(), depotManifests: {} }],
+    ["sourceHashes sin la clave requerida (npc_heroes)", { ...buildSnapshot(), sourceHashes: {} }],
     ["null", null],
     ["no objeto", "not-an-object"],
   ])("degrada a null: %s", (_label, raw) => {

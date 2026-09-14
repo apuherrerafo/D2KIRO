@@ -196,3 +196,61 @@ describe("Captain's Mode — CM Hero Eligibility (fail closed)", () => {
     expect(result.rejected).toBe("HERO_ALREADY_TAKEN");
   });
 });
+
+// Blocker 4B: hash integrity solo no basta -- patch fuera de rango, o falta de identidad de
+// origen requerida, deben rechazarse igual.
+describe("Captain's Mode — LOAD_CM_ELIGIBILITY: validación completa (Blocker 4B)", () => {
+  test("un snapshot íntegro (hash correcto, forma correcta) pero con patch fuera de [applicableFromPatch, verifiedThroughPatch] se rechaza -- el chequeo de patch es independiente del de hash", () => {
+    let state = createCaptainsModeState("s1");
+    state = apply(state, [{ type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" }]);
+    const base = {
+      schema: "cm-hero-eligibility/v1" as const,
+      appId: 570 as const,
+      patch: "7.39", // anterior al rango CM [7.40, 7.41e]
+      buildId: "test-build",
+      depotManifests: { "570": "1" },
+      sourceHashes: { npc_heroes: "fixture" },
+      heroIds: [1, 2, 3],
+    };
+    const snapshot = { ...base, contentHash: computeEligibilityContentHash(base) };
+    const result = applyCaptainsModeCommand(state, { type: "LOAD_CM_ELIGIBILITY", snapshot }, 0);
+    expect(result.rejected).toBe("ELIGIBILITY_UNVERIFIED");
+    expect(result.state.captainsMode?.eligibilitySnapshot).toBeNull();
+  });
+
+  test("un snapshot sin sourceHashes.npc_heroes (identidad de origen requerida ausente) se rechaza aunque el resto sea válido", () => {
+    let state = createCaptainsModeState("s1");
+    state = apply(state, [{ type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" }]);
+    const base = {
+      schema: "cm-hero-eligibility/v1" as const,
+      appId: 570 as const,
+      patch: "7.41e",
+      buildId: "test-build",
+      depotManifests: { "570": "1" },
+      sourceHashes: {}, // sin la clave requerida
+      heroIds: [1, 2, 3],
+    };
+    const snapshot = { ...base, contentHash: computeEligibilityContentHash(base) };
+    const result = applyCaptainsModeCommand(state, { type: "LOAD_CM_ELIGIBILITY", snapshot }, 0);
+    expect(result.rejected).toBe("ELIGIBILITY_UNVERIFIED");
+  });
+});
+
+// Blocker 4C: NaN/Infinity nunca deben poder colarse como heroId.
+describe("Captain's Mode — heroId inválido (Blocker 4C)", () => {
+  test("CM_ACTION con heroId NaN se rechaza con INVALID_HERO_ID", () => {
+    const state = withFirstPickAndEligibility();
+    const result = applyCaptainsModeCommand(state, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: NaN }, 0);
+    expect(result.rejected).toBe("INVALID_HERO_ID");
+  });
+
+  test("CM_AUTO_PICK con heroId Infinity se rechaza con INVALID_HERO_ID", () => {
+    let state = withFirstPickAndEligibility("radiant");
+    for (let step = 1; step <= 7; step += 1) {
+      const def = captainsModeStepDefinition(step)!;
+      state = apply(state, [{ type: "CM_ACTION", actor: def.actor, kind: def.kind, heroId: step }]);
+    }
+    const result = applyCaptainsModeCommand(state, { type: "CM_AUTO_PICK", actor: "first", heroId: Infinity }, 0);
+    expect(result.rejected).toBe("INVALID_HERO_ID");
+  });
+});
