@@ -15,12 +15,27 @@ import { delimiter, join } from "node:path";
 const REPO = join(import.meta.dir, "..");
 const HUB_HTML = join(REPO, "docs", "agents", "hub.html");
 
+// Estas pruebas ejercitan el camino AFTER EDIT/PostToolUse del gate -- diff SIN commitear contra
+// HEAD (ver verify-simplicity.sh, "Base de comparación adaptativa") -- nunca el camino de PR-diff
+// de CI. Cuando este archivo corre DENTRO de un job real de GitHub Actions (matriz `test (root)`
+// de ci.yml), GITHUB_ACTIONS/GITHUB_BASE_REF llegan heredadas de verdad en process.env y, sin
+// este guard, desvían el script hacia su rama de CI -- que con el checkout superficial por
+// defecto de ese job (fetch-depth:1, a diferencia del job dedicado `verify-simplicity` que sí pide
+// fetch-depth:100) no encuentra merge-base con la rama base y cae al árbol vacío, comparando el
+// repo completo contra la nada y reportando violaciones que no existen en ningún diff real.
+function stripCiAmbientEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const sanitized = { ...env };
+  delete sanitized.GITHUB_ACTIONS;
+  delete sanitized.GITHUB_BASE_REF;
+  return sanitized;
+}
+
 async function runGate(env: Record<string, string> = {}): Promise<{ code: number; stdout: string }> {
   const proc = Bun.spawn(["bash", "scripts/verify-simplicity.sh"], {
     cwd: REPO,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...env },
+    env: { ...stripCiAmbientEnv(process.env), ...env },
   });
   const [stdout, , code] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -151,7 +166,7 @@ async function runGateUnderTrap(
     cwd: REPO,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, ...gateEnv, PATH: path, D2K_TRAP_MARKER: markerPath },
+    env: { ...stripCiAmbientEnv(process.env), ...gateEnv, PATH: path, D2K_TRAP_MARKER: markerPath },
   });
   const [, , code] = await Promise.all([
     new Response(proc.stdout).text(),
