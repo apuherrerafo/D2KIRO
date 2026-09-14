@@ -1,6 +1,16 @@
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "./draft-format-turns";
 import { captainsModeTurnIndex, checkCaptainsModeTurn, consumeReserveTime } from "./turn-clock";
 
+// R1 S1 (docs/specs/r1-protocol-kernel.md): this reducer + turn-clock.ts + draft-format-turns.ts
+// remain the AUTHORITATIVE implementation backing live production traffic (SessionStore, WS,
+// HTTP /ingest/draft-event) for the rest of R1 S1. apps/engine/src/draft-protocol/ is the new
+// Protocol Kernel -- it supersedes this module conceptually (single-actor All Pick turn checking
+// is gone there in favor of a real sealed/simultaneous-pick model, and Captain's Mode gets a
+// corrected, independently-ordinal-tracked 24-step sequence) but is not yet wired into the live
+// session path. Wiring it in, and retiring this reducer + the frontend simulator's own duplicate
+// All-Pick collision/reveal implementation, is explicit S2 scope -- see "LEGACY / MIGRATION" in
+// the frozen contract. Do not add new protocol rules here; new work belongs in draft-protocol/.
+
 export type HeroId = number;
 export type TeamSide = "radiant" | "dire";
 export type DraftFormatId = "all_pick" | "captains_mode";
