@@ -4,6 +4,18 @@
 // La emisión de eventos al Draft_Reducer vive en useRandomDraftSession (tarea 11), que envuelve
 // estas acciones con las llamadas de red correspondientes.
 // Requirements: 6.4, 3.3
+//
+// R1 S2 LEGACY MARKER (.kiro/specs/r1-draft-product-wave/design.md): the collision/reveal
+// transitions this store drives (confirmRound/retryRoundAfterConflict/patchRevealedRound in
+// use-random-draft-session.ts, and ban-phase.ts's resolution) are a SECOND, independent
+// implementation of Ranked All Pick protocol rules -- NOT AUTHORITATIVE. The Protocol Kernel
+// (apps/engine/src/draft-protocol/, reachable via /api/session/protocol/* -- see
+// server/protocol-session.ts) is the real source of truth for sealed picks, collision counting,
+// and reveal timing going forward. This wave built and tested that engine-side path end to end
+// (including a hidden-info-safe bot-selection endpoint replacing the pendingUserPicks leak this
+// file's sibling currently has) but did NOT swap this UI feature over to it -- that requires
+// verifying the live browser experience, which this wave's environment cannot do. Retiring this
+// duplicate is explicit deferred follow-up, not silently abandoned.
 
 import { create } from "zustand";
 import type { DraftState, SuggestionSet } from "@/features/draft/types";

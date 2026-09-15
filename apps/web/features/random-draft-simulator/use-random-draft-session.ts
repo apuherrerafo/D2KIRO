@@ -623,6 +623,16 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
 
     // El bot responde a los picks que el usuario acaba de cerrar. El plan original se generaba
     // con un tablero vacío y por eso coincidía demasiado con las recomendaciones del Copilot.
+    //
+    // R1 S2 LEGACY MARKER: `before.pendingUserPicks` acá es exactamente el bug documentado
+    // ("bot recibe pendingUserPicks", engine.md/CLAUDE.md) -- son los picks SELLADOS del usuario
+    // para ESTA MISMA ronda, todavía no revelados, y el bot los está leyendo antes de que el
+    // protocolo real los revele. El motor ya expone un reemplazo seguro por construcción:
+    // POST /api/session/protocol/:id/bot-selection (server/routes/protocol-sessions.ts) arma su
+    // input SOLO desde project(state, botSide) -- un HIDDEN no tiene heroId en el tipo, así que no
+    // hay forma de que ese endpoint vea un pick sellado ajeno. No migrado en esta ola (exige
+    // verificar la experiencia real en navegador, que este entorno no puede hacer) -- ver
+    // .kiro/specs/r1-draft-product-wave/design.md.
     const botPicks = await recalculateBotPicks(before.round, before.pendingUserPicks, [], specForRound(before.round).picksPerTeam, rng, meta);
     const current = useRandomDraftStore.getState().phase;
     if (current.type !== "blind_round" || current.round !== before.round) return;

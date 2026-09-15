@@ -1,5 +1,14 @@
 import type { DraftEvent, DraftEventEnvelope } from "../draft/reducer";
 
+// R1 S3 LEGACY MARKER: this player feeds the LEGACY reducer (../draft/reducer.ts, itself marked
+// non-authoritative for new work as of this wave) via DraftEventEnvelope/`/ingest/draft-event` --
+// it has no bot-pick or collision logic of its own, it only replays fixed scripts. For
+// kernel-backed scenarios (both AP and CM), use draft-protocol/adapters/cm-simulator.ts (CM) and
+// the SIMULATOR_POLICY collision adapter (draft-protocol/adapters/simulator-authority.ts, AP)
+// instead -- those drive the real Protocol Kernel, not this legacy path. This file is untouched
+// by this wave; it keeps working for whatever still depends on the legacy CM turn-checking path
+// (routes/simulator-sessions.ts).
+
 export interface ScriptEntry {
   event: DraftEvent;
   // Tiempo real (ms) a esperar antes de emitir este evento, ignorado en modo 'instant'.

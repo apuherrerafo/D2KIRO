@@ -1,15 +1,16 @@
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "./draft-format-turns";
 import { captainsModeTurnIndex, checkCaptainsModeTurn, consumeReserveTime } from "./turn-clock";
 
-// R1 S1 (.kiro/specs/r1-protocol-kernel/design.md): this reducer + turn-clock.ts + draft-format-turns.ts
-// remain the AUTHORITATIVE implementation backing live production traffic (SessionStore, WS,
-// HTTP /ingest/draft-event) for the rest of R1 S1. apps/engine/src/draft-protocol/ is the new
-// Protocol Kernel -- it supersedes this module conceptually (single-actor All Pick turn checking
-// is gone there in favor of a real sealed/simultaneous-pick model, and Captain's Mode gets a
-// corrected, independently-ordinal-tracked 24-step sequence) but is not yet wired into the live
-// session path. Wiring it in, and retiring this reducer + the frontend simulator's own duplicate
-// All-Pick collision/reveal implementation, is explicit S2 scope -- see "LEGACY / MIGRATION" in
-// the frozen contract. Do not add new protocol rules here; new work belongs in draft-protocol/.
+// R1 S2/S3 STATUS UPDATE (.kiro/specs/r1-draft-product-wave/design.md): as of this slice, this
+// reducer + turn-clock.ts + draft-format-turns.ts are NOT AUTHORITATIVE for new work -- the
+// Protocol Kernel (apps/engine/src/draft-protocol/, wired into a real session/HTTP path via
+// server/protocol-session.ts + server/routes/protocol-sessions.ts) is the one true source of
+// protocol truth for both Ranked All Pick and Captain's Mode going forward. This file is LEGACY:
+// it still backs the PRE-EXISTING live path (SessionStore/session.ts, WS `/ws/draft`, HTTP
+// `/ingest/draft-event`/`/api/session/manual`) because that path also serves capabilities this
+// wave did not migrate (hero-pool-aware suggestions, Team Groups, Pro-Drafter preview, the
+// frontend's random-draft-simulator) -- retiring it fully is deferred, explicitly, not silently.
+// Do not add new protocol rules here; any new protocol work belongs in draft-protocol/.
 
 export type HeroId = number;
 export type TeamSide = "radiant" | "dire";
