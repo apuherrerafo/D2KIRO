@@ -20,6 +20,11 @@ const ENGINE_REWRITE_SOURCES = [
   // silencio -- los picks del simulador nunca llegaban al motor y el tablero quedaba congelado.
   // Van por el mismo proxy que el resto; el gate de sesión de proxy.ts sigue siendo el perímetro.
   "/engine/api/session/manual",
+  "/engine/api/session/protocol",
+  "/engine/api/session/protocol/:sessionId",
+  "/engine/api/session/protocol/:sessionId/command",
+  "/engine/api/session/protocol/:sessionId/bot-selection",
+  "/engine/api/session/protocol/:sessionId/simulator-authority",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",

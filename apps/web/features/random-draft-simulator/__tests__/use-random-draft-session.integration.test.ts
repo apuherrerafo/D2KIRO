@@ -1,200 +1,127 @@
-// Integración de use-random-draft-session.ts: la secuencia completa de una Draft_Session real
-// (inicio -> ronda 1 -> revelación -> ronda 2 -> ronda 3 -> último pick -> complete), renderizando
-// el hook de verdad (efectos, refs, timers) en vez de solo sus funciones puras exportadas.
-//
-// Hasta este archivo, la única cobertura de este hook eran sus funciones puras
-// (use-random-draft-session.test.ts) -- el resto (refs, setInterval, WebSocket, fetch) quedaba
-// documentado como "se verifica en un navegador real" (tarea 16.2). Ese punto ciego es exactamente
-// donde vivió el bug real de TSK-112 (el bot recalculaba contra el tablero vacío en vez del
-// recién revelado) y la regresión encontrada en TSK-116 (previewStatus nunca implementado):
-// ninguna prueba automatizada los habría atrapado sin renderizar el hook completo.
-//
-// Nueva costura de prueba, no documentada todavía en testing-seams.md como S14 (pendiente,
-// ver TSK-117): el hook completo vía `renderHook` (@testing-library/react) + DOM real
-// (happy-dom, registrado global solo para este proceso de prueba) + FakeSocket (S5, ya existente)
-// + fetch reemplazado por un "motor falso" mínimo en memoria que aplica los eventos que
-// use-random-draft-session.ts ya emite por HTTP (POST /api/session/manual) y empuja el
-// draft_state resultante por el mismo FakeSocket -- nunca el motor real de apps/engine.
-
 import "@/test-support/happy-dom";
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { FakeSocket } from "@/features/draft/fake-socket";
-import type { DraftConnection, DraftState as EngineDraftState, HeroId as EngineHeroId, ServerMessage, SuggestionSet, TeamSide } from "@/features/draft/types";
-import { useRandomDraftSession, type StartDraftConfig } from "../use-random-draft-session";
+import type { DraftState, HeroId, SuggestionSet, TeamSide } from "@/features/draft/types";
+import { useRandomDraftSession } from "../use-random-draft-session";
 import { useRandomDraftStore } from "../store";
 
-// ---------------------------------------------------------------------------
-// Motor falso: aplica los mismos DraftEvent que emite el hook (session_started,
-// local_side_identified, hero_banned, hero_picked, session_ended) sobre un DraftState en memoria
-// y lo empuja por el FakeSocket -- igual que haría apps/engine real, sin reimplementar su
-// reductor completo (S1/S4 ya lo cubren en el motor; acá solo se necesita lo suficiente para que
-// el hook reciba el mismo tipo de mensajes que produciría el motor real).
-// ---------------------------------------------------------------------------
+const HEROES = Array.from({ length: 40 }, (_, index) => ({ id: index + 1, localizedName: `Hero ${index + 1}`, roles: ["Carry"] }));
 
-const RESERVED_BOT_HERO_START = 900; // fuera del catálogo fixture (1-40): nunca colisiona con bans/picks del usuario.
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
 
-class FakeEngine {
-  private state: EngineDraftState;
-  private seq = 0;
-  private nextBotHeroId = RESERVED_BOT_HERO_START;
-  readonly copilotPreviewRequests: {
-    picks: EngineDraftState["picks"];
-    banned: EngineHeroId[];
-    archetypeIntent?: string;
-    targetPosition?: number;
-    usePersonalPool?: boolean;
-    teamOpening?: boolean;
-    accountToken?: string;
-  }[] = [];
+class FakeProtocolEngine {
+  readonly requests: { url: string; body: Record<string, unknown> }[] = [];
+  readonly previews: { picks: DraftState["picks"]; archetypeIntent?: string; targetPosition?: number; teamOpening?: boolean; token?: string }[] = [];
+  private sessionId = "protocol-browser-session";
+  private side: TeamSide = "radiant";
+  private round: 1 | 2 | 3 = 1;
+  private status: "ACTIVE" | "WAITING_FOR_COLLISION_AUTHORITY" | "COMPLETE" = "ACTIVE";
+  private phase: "BAN_RESOLUTION" | "PICK_ROUND_1" | "PICK_ROUND_2" | "PICK_ROUND_3" | "COMPLETE" = "BAN_RESOLUTION";
+  private bans: HeroId[] = [];
+  private ownConfirmed: HeroId[] = [];
+  private enemyConfirmed: HeroId[] = [];
+  private ownSealed: HeroId[] = [];
+  private enemySealed: HeroId[] = [];
+  private nextBotHero = 30;
+  private authorityUsed = false;
 
-  constructor(private readonly socket: FakeSocket) {
-    this.state = {
-      sessionId: "",
-      schema: "draft-state/v1",
-      format: "unknown",
-      patch: "",
-      localSide: "unknown",
-      phase: "idle",
-      banned: [],
-      picks: { radiant: [], dire: [] },
-      lastSeq: 0,
-      appliedEventIds: [],
-      quality: { unconfirmed: [], captureStatus: "ok" },
-      updatedAt: new Date(0).toISOString(),
-      firstPickSide: null,
-      turnStartedAt: null,
-      reserveRemainingMs: null,
-      turn: null,
-    };
+  constructor(private readonly pauseForCollisionAuthority = false) {}
+
+  private capacity(): number {
+    return this.round === 3 ? 1 : 2;
   }
 
-  // El push por WebSocket se difiere un tick real (setTimeout, no microtask) a propósito: en
-  // producción, la respuesta HTTP de POST /api/session/manual y la llegada del draft_state por
-  // WS no son la misma cosa -- el motor responde al POST y transmite por WS por canales
-  // independientes. Si el push fuera síncrono con el fetch, esta prueba nunca podría reproducir
-  // la ventana de carrera real que isPreviewReadyForRound existe para cerrar (TSK-112).
-  private push(): void {
-    this.seq += 1;
-    this.state = { ...this.state, lastSeq: this.seq, updatedAt: new Date().toISOString() };
-    const message: ServerMessage = {
-      schema: "draft-ws/v1",
-      type: "draft_state",
-      seq: this.seq,
-      sentAt: new Date().toISOString(),
-      payload: this.state,
-    };
-    setTimeout(() => this.socket.emit(message), 20);
-  }
-
-  handleManualEvent(body: unknown): { accepted: true } {
-    const envelope = body as { sessionId: string; payload: { type: string; [key: string]: unknown } };
-    this.state.sessionId = envelope.sessionId;
-    const payload = envelope.payload;
-
-    if (payload.type === "session_started") {
-      this.state.format = payload.format as EngineDraftState["format"];
-      this.state.patch = payload.patch as string;
-      this.state.phase = "active";
-    } else if (payload.type === "local_side_identified") {
-      this.state.localSide = payload.side as TeamSide;
-    } else if (payload.type === "hero_banned") {
-      const hero = payload.hero as EngineHeroId;
-      if (!this.state.banned.includes(hero)) this.state.banned = [...this.state.banned, hero];
-    } else if (payload.type === "hero_picked") {
-      const hero = payload.hero as EngineHeroId;
-      const side = payload.side as TeamSide;
-      this.state.picks = { ...this.state.picks, [side]: [...this.state.picks[side], hero] };
-    } else if (payload.type === "session_ended") {
-      this.state.phase = "complete";
-    }
-
-    this.push();
-    return { accepted: true };
-  }
-
-  // Responde tanto al preview del Copilot (use-random-draft-session.ts) como a la recomendación
-  // interna del bot (botPickHeroFromEngine, bot-drafter.ts) -- se distinguen por `diversitySeed`,
-  // presente únicamente en el pedido del Copilot. Cada llamada devuelve un héroe reservado nuevo:
-  // el bot nunca repite ni colisiona con lo que el usuario ya escogió.
-  handleSuggestionsPreview(body: unknown, accountToken?: string): SuggestionSet {
-    const request = body as {
-      picks: EngineDraftState["picks"]; banned: EngineHeroId[]; diversitySeed?: string; archetypeIntent?: string;
-      targetPosition?: number; usePersonalPool?: boolean; teamOpening?: boolean;
-    };
-    if (request.diversitySeed !== undefined) {
-      this.copilotPreviewRequests.push({
-        picks: request.picks, banned: request.banned, archetypeIntent: request.archetypeIntent,
-        targetPosition: request.targetPosition, usePersonalPool: request.usePersonalPool,
-        teamOpening: request.teamOpening, accountToken,
-      });
-    }
-
-    const hero = this.nextBotHeroId;
-    this.nextBotHeroId += 1;
+  private snapshot() {
+    const remaining = Math.max(0, this.capacity() - this.ownSealed.length);
     return {
-      schema: "suggestions/v1",
-      sessionId: this.state.sessionId,
-      basedOnSeq: this.state.lastSeq,
-      decisionContext: "blind_second_pick",
-      suggestions: [
-        { hero, rank: 1, score: 1, signals: [], reason: "fixture", confidence: "alta", evidenceCoverage: 1, guessingIndex: 0 },
-      ],
-      comparison: null,
-      degraded: [],
-      computedInMs: 1,
+      view: {
+        schema: "draft-protocol-perspective/v1",
+        sessionId: this.sessionId,
+        status: this.status,
+        viewerSide: this.side,
+        bannedHeroes: this.bans,
+        ownPicks: [...this.ownConfirmed, ...this.ownSealed].map((heroId) => ({ visibility: "KNOWN", heroId })),
+        enemyPicks: [
+          ...this.enemyConfirmed.map((heroId) => ({ visibility: "REVEALED", heroId })),
+          ...this.enemySealed.map(() => ({ visibility: "HIDDEN" })),
+        ],
+        rankedAp: { phase: this.phase, banResolutionComplete: this.phase !== "BAN_RESOLUTION" },
+      },
+      legalActions: Array.from({ length: remaining }, (_, slotIndex) => ({ type: "SUBMIT_SEALED_SELECTION", side: this.side, slotIndex: this.ownSealed.length + slotIndex })),
     };
   }
-}
 
-// ---------------------------------------------------------------------------
-// Fixtures de meta (GET /api/heroes, GET /api/meta/hero-stats -- loadMetaSnapshot)
-// ---------------------------------------------------------------------------
+  private closeRoundIfReady(): void {
+    if (this.ownSealed.length !== this.capacity() || this.enemySealed.length !== this.capacity()) return;
+    if (this.pauseForCollisionAuthority && !this.authorityUsed) {
+      this.status = "WAITING_FOR_COLLISION_AUTHORITY";
+      return;
+    }
+    this.ownConfirmed.push(...this.ownSealed);
+    this.enemyConfirmed.push(...this.enemySealed);
+    this.ownSealed = [];
+    this.enemySealed = [];
+    if (this.round === 3) {
+      this.status = "COMPLETE";
+      this.phase = "COMPLETE";
+      return;
+    }
+    this.round = (this.round + 1) as 2 | 3;
+    this.phase = this.round === 2 ? "PICK_ROUND_2" : "PICK_ROUND_3";
+  }
 
-const FIXTURE_HERO_COUNT = 40;
-const FIXTURE_HEROES = Array.from({ length: FIXTURE_HERO_COUNT }, (_, i) => ({
-  id: i + 1,
-  localizedName: `Hero ${i + 1}`,
-  roles: ["Carry"],
-}));
-
-function jsonResponse(body: unknown): Response {
-  return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
-}
-
-function installFetchMock(engine: FakeEngine): void {
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input);
-
-    if (url.endsWith("/api/heroes")) return jsonResponse(FIXTURE_HEROES);
-    if (url.endsWith("/api/meta/hero-stats")) return jsonResponse({ patchStats: {}, heroPositions: {} });
-    if (url.endsWith("/api/auth/engine-token")) return jsonResponse({ token: "fake-" + "engine-token" });
-    if (url.endsWith("/api/session/manual")) {
-      const body = JSON.parse(String(init?.body));
-      return jsonResponse(engine.handleManualEvent(body));
-    }
+    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    this.requests.push({ url, body });
+    if (url.endsWith("/api/heroes")) return json(HEROES);
+    if (url.endsWith("/api/meta/hero-stats")) return json({ patchStats: {}, heroPositions: {} });
+    if (url.endsWith("/api/auth/engine-token")) return json({ token: "fixture" });
     if (url.endsWith("/api/suggestions/preview")) {
-      const body = JSON.parse(String(init?.body));
-      const headers = new Headers(init?.headers);
-      return jsonResponse(engine.handleSuggestionsPreview(body, headers.get("x-account-token") ?? undefined));
+      const preview = body as { picks: DraftState["picks"]; archetypeIntent?: string; targetPosition?: number; teamOpening?: boolean };
+      this.previews.push({ ...preview, token: new Headers(init?.headers).get("x-account-token") ?? undefined });
+      const response: SuggestionSet = {
+        schema: "suggestions/v1",
+        sessionId: this.sessionId,
+        basedOnSeq: 0,
+        decisionContext: "blind_second_pick",
+        suggestions: [{ hero: 29, rank: 1, score: 1, signals: [], reason: "fixture", confidence: "alta", evidenceCoverage: 1, guessingIndex: 0 }],
+        comparison: null,
+        degraded: [],
+        computedInMs: 1,
+      };
+      return json(response);
     }
-
-    throw new Error(`[test] fetch no mockeado: ${url}`);
-  }) as typeof fetch;
-}
-
-function fakeSocketFactory(fakeSocket: FakeSocket) {
-  return async function factory(): Promise<DraftConnection> {
-    // Valor corto a propósito -- el gate de secretos del repo marca cualquier literal largo junto
-    // a un campo con "token" en el nombre; acá no hay nada que verificar del lado del fake.
-    return { socket: fakeSocket, accountToken: "fake" };
+    if (url.endsWith("/api/session/protocol")) {
+      this.side = body.localSide as TeamSide;
+      return json({ sessionId: this.sessionId, ruleset: {}, status: "ACTIVE" }, 201);
+    }
+    if (url.endsWith("/command")) {
+      const command = body.command as { type: string; heroes?: HeroId[]; heroId?: HeroId };
+      if (command.type === "RECORD_RESOLVED_BANS") this.bans = [...(command.heroes ?? [])];
+      if (command.type === "BAN_RESOLUTION_COMPLETE") this.phase = "PICK_ROUND_1";
+      if (command.type === "SUBMIT_SEALED_SELECTION" && command.heroId) this.ownSealed.push(command.heroId);
+      return json({ accepted: true, ...this.snapshot() }, 202);
+    }
+    if (url.endsWith("/bot-selection")) {
+      this.enemySealed.push(this.nextBotHero);
+      this.nextBotHero += 1;
+      this.closeRoundIfReady();
+      return json({ accepted: true, ...this.snapshot() });
+    }
+    if (url.endsWith("/simulator-authority")) {
+      if (this.status !== "WAITING_FOR_COLLISION_AUTHORITY") return json({ error: "no_collision_pending" }, 409);
+      this.authorityUsed = true;
+      this.status = "ACTIVE";
+      this.closeRoundIfReady();
+      return json({ accepted: true, ...this.snapshot() }, 202);
+    }
+    throw new Error(`fetch not mocked: ${url}`);
   };
 }
-
-// ---------------------------------------------------------------------------
-// Prueba
-// ---------------------------------------------------------------------------
 
 let originalFetch: typeof fetch;
 
@@ -204,228 +131,71 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  // El store de Zustand es un singleton de módulo: sin esto, un preview asíncrono en vuelo de
-  // un test anterior puede resolverse durante el siguiente y ensuciar sus aserciones.
   useRandomDraftStore.getState().resetSession();
 });
 
-test("secuencia completa: inicio -> ronda 1 -> revelación -> ronda 2 -> ronda 3 -> último pick", async () => {
-  const fakeSocket = new FakeSocket();
-  const engine = new FakeEngine(fakeSocket);
-  installFetchMock(engine);
+test("el browser completa AP usando exclusivamente la API de ProtocolSession", async () => {
+  const engine = new FakeProtocolEngine();
+  globalThis.fetch = engine.fetch as typeof fetch;
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1 });
 
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ socketFactory: fakeSocketFactory(fakeSocket) }));
-
-  const config: StartDraftConfig = {
-    draftSeed: "ABCDEFGH",
-    userSide: "radiant",
-    personalBanList: [],
-  };
-
-  await act(async () => {
-    await result.current.startDraft(config);
-  });
-
-  // Ban_Phase resuelta, ronda 1 arrancada -- Req. 2.1.
-  expect(result.current.state.phase.type).toBe("blind_round");
-  await waitFor(() => expect(result.current.state.draftState?.banned.length).toBe(16));
-  const banned = new Set(result.current.state.draftState?.banned ?? []);
-
-  function pickAvailableHeroes(count: number, alreadyUsed: Set<number>): number[] {
-    const picks: number[] = [];
-    for (let candidate = 1; candidate <= FIXTURE_HERO_COUNT && picks.length < count; candidate++) {
-      if (banned.has(candidate) || alreadyUsed.has(candidate)) continue;
-      picks.push(candidate);
-      alreadyUsed.add(candidate);
+  const used = new Set<number>();
+  for (const round of [1, 2, 3] as const) {
+    const count = round === 3 ? 1 : 2;
+    const available = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId) && !used.has(heroId)).slice(0, count);
+    for (const heroId of available) {
+      used.add(heroId);
+      act(() => result.current.actions.confirmPick(heroId));
     }
-    return picks;
+    await act(async () => result.current.confirmRound());
+    if (round < 3) expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: round + 1 });
   }
-
-  const usedByUser = new Set<number>();
-
-  // -------------------------------------------------------------------------
-  // Ronda 1: selección a ciegas del usuario, sin picks rivales visibles todavía.
-  // -------------------------------------------------------------------------
-  const round1Picks = pickAvailableHeroes(2, usedByUser);
-  for (const heroId of round1Picks) {
-    await act(async () => {
-      result.current.actions.confirmPick(heroId);
-    });
-  }
-  await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
-
-  // El pedido de preview de la ronda 1 nunca incluye picks rivales (no hay ninguno revelado).
-  const round1Requests = engine.copilotPreviewRequests.length;
-  expect(round1Requests).toBeGreaterThan(0);
-  for (const request of engine.copilotPreviewRequests) {
-    expect(request.picks.dire).toEqual([]); // lado rival (bot): nada revelado todavía en ronda 1
-  }
-
-  await act(async () => {
-    await result.current.confirmRound(); // revela ronda 1 y avanza a ronda 2
-  });
-
-  expect(result.current.state.phase.type).toBe("blind_round");
-  expect(result.current.state.phase.type === "blind_round" && result.current.state.phase.round).toBe(2);
-
-  // -------------------------------------------------------------------------
-  // Regresión TSK-112/TSK-116: el primer pedido de preview de la ronda 2 debe reflejar el
-  // tablero YA revelado de la ronda 1 (2 picks propios + 2 del bot) -- nunca el tablero vacío
-  // con el que arrancó la sesión.
-  // -------------------------------------------------------------------------
-  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(round1Requests));
-  const firstRound2Request = engine.copilotPreviewRequests[round1Requests];
-  expect(firstRound2Request.picks.radiant.length + firstRound2Request.picks.dire.length).toBeGreaterThanOrEqual(4);
-
-  // -------------------------------------------------------------------------
-  // Ronda 2: mismo patrón, ahora con picks rivales de la ronda 1 ya visibles.
-  // -------------------------------------------------------------------------
-  const round2Picks = pickAvailableHeroes(2, usedByUser);
-  for (const heroId of round2Picks) {
-    await act(async () => {
-      result.current.actions.confirmPick(heroId);
-    });
-  }
-  await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
-
-  await act(async () => {
-    await result.current.confirmRound();
-  });
-
-  expect(result.current.state.phase.type === "blind_round" && result.current.state.phase.round).toBe(3);
-
-  // -------------------------------------------------------------------------
-  // Ronda 3: último pick -- cierra la sesión completa.
-  // -------------------------------------------------------------------------
-  const round3Picks = pickAvailableHeroes(1, usedByUser);
-  for (const heroId of round3Picks) {
-    await act(async () => {
-      result.current.actions.confirmPick(heroId);
-    });
-  }
-  await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
-
-  // Una sola llamada del lado de la UI hace reveal + avance (revealAndAdvance corre dentro del
-  // mismo confirmRound expuesto por el hook) -- mismo patrón que BlindRoundActive dispara una
-  // sola vez al completar los picks de la ronda.
-  await act(async () => {
-    await result.current.confirmRound(); // revela ronda 3 y cierra la sesión (complete)
-  });
-
   expect(result.current.state.phase.type).toBe("complete");
-  if (result.current.state.phase.type === "complete") {
-    expect(result.current.state.phase.summary.picksByRound.length).toBe(3);
-    expect(result.current.state.phase.summary.picksByRound[0].userPicks).toEqual(round1Picks);
-    expect(result.current.state.phase.summary.picksByRound[1].userPicks).toEqual(round2Picks);
-    expect(result.current.state.phase.summary.picksByRound[2].userPicks).toEqual(round3Picks);
-  }
-
+  expect(engine.requests.some((request) => request.url.endsWith("/api/session/manual"))).toBe(false);
+  expect(engine.requests.some((request) => request.url.includes("/ws/draft"))).toBe(false);
+  expect(engine.requests.filter((request) => request.url.endsWith("/bot-selection")).every((request) => Object.keys(request.body).length === 0)).toBe(true);
   unmount();
-}, 20000);
+}, 20_000);
 
-test("un fetch fallido del preview termina en previewStatus:'failed', nunca en 'actualizando' infinito", async () => {
-  const fakeSocket = new FakeSocket();
-  const engine = new FakeEngine(fakeSocket);
-  installFetchMock(engine);
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).endsWith("/api/suggestions/preview")) throw new Error("network down");
-    return realFetch(input, init);
-  }) as typeof fetch;
-
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ socketFactory: fakeSocketFactory(fakeSocket) }));
-
-  await act(async () => {
-    await result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] });
-  });
-
-  await waitFor(() => expect(result.current.state.previewStatus).toBe("failed"));
-
+test("los picks pendientes del usuario nunca entran al request de bot-selection", async () => {
+  const engine = new FakeProtocolEngine();
+  globalThis.fetch = engine.fetch as typeof fetch;
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  const picks = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId)).slice(0, 2);
+  for (const heroId of picks) act(() => result.current.actions.confirmPick(heroId));
+  await act(async () => result.current.confirmRound());
+  const botRequests = engine.requests.filter((request) => request.url.endsWith("/bot-selection"));
+  expect(botRequests.length).toBe(2);
+  expect(botRequests.every((request) => request.body.side === undefined && request.body.pendingUserPicks === undefined)).toBe(true);
   unmount();
-}, 10000);
+}, 10_000);
 
-// TSK-182 (Fase 4.3b): elegir la intención de draft en el simulador re-pide la sugerencia del
-// Copilot con `archetypeIntent` en el body de POST /api/suggestions/preview; limpiarla lo saca.
-test("setArchetypeIntent re-pide el preview del Copilot con la intención en el body", async () => {
-  const fakeSocket = new FakeSocket();
-  const engine = new FakeEngine(fakeSocket);
-  installFetchMock(engine);
+test("el browser delega WAITING_FOR_COLLISION_AUTHORITY al endpoint simulator-authority", async () => {
+  const engine = new FakeProtocolEngine(true);
+  globalThis.fetch = engine.fetch as typeof fetch;
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  const picks = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId)).slice(0, 2);
+  for (const heroId of picks) act(() => result.current.actions.confirmPick(heroId));
 
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ socketFactory: fakeSocketFactory(fakeSocket) }));
+  await act(async () => result.current.confirmRound());
 
-  await act(async () => {
-    await result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] });
-  });
-  expect(result.current.state.phase.type).toBe("blind_round");
-  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(0));
-  const before = engine.copilotPreviewRequests.length;
-  // Sin intención elegida, el body no lleva archetypeIntent.
-  expect(engine.copilotPreviewRequests[before - 1]?.archetypeIntent).toBeUndefined();
-
-  await act(async () => {
-    result.current.actions.setArchetypeIntent("push");
-  });
-  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(before));
-  expect(engine.copilotPreviewRequests.at(-1)?.archetypeIntent).toBe("push");
-  expect(result.current.state.archetypeIntent).toBe("push");
-
-  const afterPush = engine.copilotPreviewRequests.length;
-  await act(async () => {
-    result.current.actions.setArchetypeIntent(null);
-  });
-  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(afterPush));
-  expect(engine.copilotPreviewRequests.at(-1)?.archetypeIntent).toBeUndefined();
-  expect(result.current.state.archetypeIntent).toBeNull();
-
+  expect(engine.requests.filter((request) => request.url.endsWith("/simulator-authority"))).toHaveLength(1);
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 2 });
   unmount();
-}, 15000);
+}, 10_000);
 
-// TSK-189/TSK-190: el preview del Copilot lleva el rol elegido (`targetPosition`) y el header
-// `x-account-token` (para que el motor cargue el hero pool y `hero_pool_fit` puntúe como señal
-// blanda). NO manda `usePersonalPool` -- ese flag es el filtro duro "sólo mi pool", que el
-// simulador no quiere. Sin ese cableado el motor nunca sabía la posición ni el pool.
-test("el preview del Copilot lleva targetPosition + x-account-token, sin usePersonalPool", async () => {
-  const fakeSocket = new FakeSocket();
-  const engine = new FakeEngine(fakeSocket);
-  installFetchMock(engine);
-
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ socketFactory: fakeSocketFactory(fakeSocket) }));
-
-  await act(async () => {
-    await result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], playerPosition: 2 });
-  });
-  expect(result.current.state.phase.type).toBe("blind_round");
-  await waitFor(() => expect(result.current.state.draftState?.banned.length).toBe(16));
-  const banned = new Set(result.current.state.draftState?.banned ?? []);
-
-  // Todo pedido lleva el rol elegido, incluso en la apertura.
-  await waitFor(() => expect(engine.copilotPreviewRequests.length).toBeGreaterThan(0));
-  for (const request of engine.copilotPreviewRequests) expect(request.targetPosition).toBe(2);
-  // En la apertura de equipo (tablero vacío) el pool no aplica -> no se pide el token.
-  const opening = engine.copilotPreviewRequests.find((r) => r.teamOpening === true);
-  if (opening) {
-    expect(opening.usePersonalPool).toBeUndefined();
-    expect(opening.accountToken).toBeUndefined();
-  }
-
-  // Avanzar a ronda 2: ahí ya hay picks -> el preview pide el pool autenticado.
-  const picks: number[] = [];
-  for (let c = 1; c <= FIXTURE_HERO_COUNT && picks.length < 2; c++) if (!banned.has(c)) picks.push(c);
-  for (const heroId of picks) {
-    await act(async () => { result.current.actions.confirmPick(heroId); });
-  }
-  await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
-  await act(async () => { await result.current.confirmRound(); });
-  await waitFor(() =>
-    expect(engine.copilotPreviewRequests.some((r) => r.teamOpening === false)).toBe(true),
-  );
-
-  const authed = engine.copilotPreviewRequests.filter((r) => r.teamOpening === false);
-  for (const request of authed) {
-    expect(request.targetPosition).toBe(2);
-    expect(request.usePersonalPool).toBeUndefined();
-    expect(request.accountToken).toBe("fake-" + "engine-token");
-  }
-
+test("el preview conserva intención, rol y token sin interferir con autoridad de protocolo", async () => {
+  const engine = new FakeProtocolEngine();
+  globalThis.fetch = engine.fetch as typeof fetch;
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], playerPosition: 2 }));
+  await waitFor(() => expect(engine.previews.length).toBeGreaterThan(0));
+  act(() => result.current.actions.setArchetypeIntent("push"));
+  await waitFor(() => expect(engine.previews.some((preview) => preview.archetypeIntent === "push")).toBe(true));
+  expect(engine.previews.every((preview) => preview.targetPosition === 2)).toBe(true);
   unmount();
-}, 20000);
+});

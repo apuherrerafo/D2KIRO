@@ -3,6 +3,8 @@
 // Resuelve únicamente la Ban_Phase antes de que arranque el timer del usuario. Los picks del
 // bot se calculan al cerrar cada ronda, con el tablero que acaba de revelarse.
 // Requirements: 2.1, 3.1, 3.2, 4.4
+// R1: rounds[] is compatibility output only. Picks, reveal, collisions, and progression are
+// decided exclusively by the engine Protocol Kernel after this ban initializer returns.
 
 import type { TeamSide } from "@/features/draft/types";
 import type { HeroId } from "./types";

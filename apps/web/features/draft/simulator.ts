@@ -2,6 +2,10 @@ import type { HeroId, TeamSide } from "./types";
 import type { ManualEventResult } from "./manual-entry";
 import type { SimulatorEvent, SimulatorScript } from "./simulator-scripts";
 
+// Historical fixed-script playback helper. No product component imports this module; its only
+// remaining callers are compatibility tests. R1 AP and CM runtime sessions use
+// /api/session/protocol and never treat these prebuilt legacy events as protocol authority.
+
 // Espejo mínimo de buildEnvelopes (apps/engine/src/simulator/player.ts) -- construye toda la
 // secuencia por adelantado, igual que el simulador real, en vez de generarla evento a evento.
 // eventId/emittedAt se generan aquí, nunca en el guion.

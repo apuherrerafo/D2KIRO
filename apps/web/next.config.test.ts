@@ -37,6 +37,11 @@ describe("engine rewrites", () => {
     // motor en la máquina del propio visitante. Con el Simulador servido desde Railway, la
     // llamada directa a http://127.0.0.1:4000 desde el navegador fallaba siempre y en silencio.
     expect(sources).toContain("/engine/api/session/manual");
+    expect(sources).toContain("/engine/api/session/protocol");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/command");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/bot-selection");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/simulator-authority");
     expect(sources).toContain("/engine/api/session/:sessionId/feedback");
     expect(sources).toContain("/engine/api/session/:sessionId/draft-paths");
     expect(sources).toContain("/engine/api/v1/draft/pro-recommendations");

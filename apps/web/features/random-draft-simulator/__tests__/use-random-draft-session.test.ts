@@ -1,10 +1,10 @@
 // Pruebas de las funciones puras exportadas por use-random-draft-session.ts. El resto del hook
-// (refs, setInterval, WebSocket) depende de renderizar un componente React -- no hay
+// (refs, setInterval, HTTP) depende de renderizar un componente React -- no hay
 // `renderHook`/testing-library en este proyecto (ver testing-seams.md), así que esa parte se
 // verifica en un navegador real contra apps/engine (tarea 16.2), no aquí.
 
 import { test, expect } from "bun:test";
-import { buildBotPickPreview, buildPendingPickPreview, isPreviewReadyForRound, otherSide, randomPickForSlots, rebasePreviewSuggestions, specForRound } from "../use-random-draft-session";
+import { buildPendingPickPreview, isPreviewReadyForRound, otherSide, randomPickForSlots, rebasePreviewSuggestions, specForRound } from "../use-random-draft-session";
 import { createSeededRng } from "../seeded-rng";
 import type { HeroId } from "../types";
 import type { DraftState } from "@/features/draft/types";
@@ -49,13 +49,6 @@ test("buildPendingPickPreview incorpora los picks pendientes sin duplicar los ya
   expect(firstPreview.picks).toEqual({ radiant: [2, 4], dire: [3] });
   expect(secondPreview.picks).toEqual({ radiant: [2, 4, 5], dire: [3] });
   expect(secondPreview.lastSeq).toBe(12);
-});
-
-test("buildBotPickPreview conserva los picks previos y excluye los picks recién cerrados del usuario", () => {
-  const preview = buildBotPickPreview(draftState(), "radiant", [4, 5], [6, 7]);
-
-  expect(preview.localSide).toBe("dire");
-  expect(preview.picks).toEqual({ radiant: [2, 4, 5], dire: [3, 6, 7] });
 });
 
 test("una ronda nueva solo pide preview cuando el estado ya contiene los picks revelados previos", () => {
