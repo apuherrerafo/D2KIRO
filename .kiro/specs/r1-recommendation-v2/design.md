@@ -237,6 +237,30 @@ second, wider review. All 8 are closed on this same branch, still without touchi
   `computedInMs`/...) -- those are redundant given the weights are frozen within one build, and
   `computedInMs` is exactly the runtime-timing noise the contract says must never move identity.
 
+### Final evidence-identity repair (second independent review, same branch)
+
+A follow-up review reproduced a real gap in the fix above: `evidenceIdentityHash`'s "score/rank
+are redundant derivations of raw/normalized" assumption is false specifically for `build.ts`'s
+own usage, because `build.ts` is that function's ONLY caller and it ALWAYS calls
+`computeSuggestions(..., { teamOpening: true, ... })`. Every `SuggestionSet` this function ever
+sees went through `mix.ts`'s `recommendTeamOpeners` branch, which consumes `HeroCapabilities`
+(via `openingStrategy`) and curated/statistical ban relief -- neither ever produces a
+`SignalContribution` at all, so they were invisible to the old hash. They surface ONLY as (a) the
+order `suggestionSet.suggestions` comes back in (a repeat-strategy diversity penalty can reorder
+candidates with byte-identical `raw`/`normalized`/`evidenceConfidence`) and (b) each hero's
+`score` (`reconcileWeightedToScore` rescales `contributions[].weighted` to match team-opener's
+ban-relief-adjusted score -- the score itself is team-opener's, not a pure function of
+`raw`/`normalized`). Reproduced concretely: same 6 candidates, same empty state/matchups/
+positions, two `HeroCapabilities` sets differing only in hero 3's entry -> V6 genuinely reorders
+(`[1,2,3,4,5,6]` vs `[1,3,2,4,5,6]`) while every hero's own signal evidence stays byte-identical.
+Fixed by adding `sequence` -- `{hero, score}` in the EXACT order `suggestionSet.suggestions`
+provides, unsorted -- alongside the existing hero-sorted `candidates` block, without importing
+`drafter/team-opener.ts` (still forbidden by `architecture-guard.test.ts`): `suggestionSet` is
+`signals/mix.ts`'s own sanctioned output, the same boundary `candidates` already crossed.
+`EVIDENCE_VERSION_BASE` bumped `v1` -> `v2` to name the mechanism change. See `evidence.ts`'s
+header doc for the full reasoning, including why `weighted`/`rank`/`confidence`/`reason` are
+still deliberately excluded (they remain genuine derivations even under `teamOpening: true`).
+
 **Frontend (2 blockers)** -- the real `/simulator` product surface, never migrated by S5 itself:
 
 - **`/simulator`'s human Copilot now consumes `RecommendationSet/v2` natively**, never

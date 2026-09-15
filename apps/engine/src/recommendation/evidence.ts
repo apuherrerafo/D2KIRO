@@ -70,18 +70,46 @@ export function evidenceFromEligibility(contentHash: string, heroCount: number):
 // drafter/*.ts, draft-paths/*.ts -- none exists), and `recommendation/**` never receives the raw
 // MetaSnapshot anyway (only the already-scored SuggestionSet, via computeSuggestions) -- so this
 // hashes exactly the FUNCTIONAL evidence that reached this decision: per hero, per signal,
-// `raw`/`normalized`/`evidenceConfidence`. Deliberately excludes `weighted`/`score`/`rank`/
-// `confidence`/`reason`/`explanation`/`evidenceCoverage`/`guessingIndex` -- every one of those is
-// a DERIVATION of raw/normalized/evidenceConfidence under the frozen V6 weights, so including them
-// would be redundant, not additional signal; `computedInMs` is excluded because it is exactly the
-// runtime-timing noise the contract says must never move identity. Sorted by hero then signal name
-// so V6's own diversitySeed-driven reordering (mix.ts's diversifyEquivalentCandidates) can never
-// move this hash on its own -- only real evidence differences do. Only the heroes actually
-// returned by V6 (already bounded to TOP_N / the certified legal universe) are hashed: a change to
-// evidence for a hero that never reached this SuggestionSet could not have changed this
-// recommendation, so it must not change this recommendation's identity either.
+// `raw`/`normalized`/`evidenceConfidence` (`candidates`, sorted by hero then signal name so V6's
+// own diversitySeed-driven reordering -- mix.ts's diversifyEquivalentCandidates -- can never move
+// THIS part on its own), plus `sequence` (below).
+//
+// Final evidence-identity repair (independent review, follow-up to blocker 7) -- `candidates`
+// alone is not enough. `build.ts` is `evidenceIdentityHash`'s ONLY caller, and it ALWAYS requests
+// `computeSuggestions(..., { teamOpening: true, ... })` (see build.ts's own `suggestionSet =
+// await computeSuggestions(...)`), so every `SuggestionSet` reaching this function went through
+// mix.ts's `recommendTeamOpeners` branch, never `diversifyEquivalentCandidates` (mix.ts only takes
+// that branch when `teamOpening` is falsy). `recommendTeamOpeners` (drafter/team-opener.ts)
+// consumes `HeroCapabilities`-derived `strategy` (via `openingStrategy`) and curated/statistical
+// ban relief that never produce a `SignalContribution` at all -- they only ever surface as (a) the
+// ORDER `suggestionSet.suggestions` comes back in (shortlist.ts and buildCompoundCandidates take
+// that order as given, never re-sort it) and (b) each hero's `score` (`reconcileWeightedToScore`
+// rescales `contributions[].weighted` to match the ban-relief-adjusted score, but the score number
+// itself -- what `Recommendation.score` is literally built from in build.ts -- is team-opener's,
+// not a pure function of `raw`/`normalized`). Two capability sets that assign different `strategy`
+// labels to the same candidates can reorder/rescore an identical `candidates` block through the
+// repeat-strategy diversity penalty alone, with `raw`/`normalized`/`evidenceConfidence` never
+// moving -- exactly the reproduction this hash must catch. `sequence` closes that gap by hashing
+// `{hero, score}` in the EXACT order `suggestionSet.suggestions` provides, unsorted: any reorder or
+// rescale changes it, whatever HeroCapabilities/curated-counter input caused it, without this
+// module ever importing `drafter/team-opener.ts` (architecture-guard.test.ts) -- `suggestionSet`
+// is signals/mix.ts's own sanctioned output, the same boundary `candidates` already crosses.
+//
+// Still deliberately excludes `weighted`/`rank`/`confidence`/`reason`/`explanation`/
+// `evidenceCoverage`/`guessingIndex`: `reconcileWeightedToScore` only uniformly rescales
+// `contributions[].weighted` to keep `Σweighted == score` (so `weighted` carries no information
+// `score` doesn't already have); `evidenceCoverage`/`guessingIndex`/`confidence` are copied
+// verbatim from the pre-team-opening `ScoredCandidate` (mix.ts's `{ ...base, score, contributions
+// }` spread) and so remain a pure derivation of `raw`/`normalized`, already covered by
+// `candidates`; `rank` is index-in-`sequence`, redundant with `sequence`'s own order; `reason`/
+// `explanation` are human text built from the same evidence, never a second source of it.
+// `computedInMs` is excluded because it is exactly the runtime-timing noise the contract says must
+// never move identity. Only the heroes actually returned by V6 (already bounded to TOP_N / the
+// certified legal universe) are hashed: a change to evidence for a hero that never reached this
+// SuggestionSet could not have changed this recommendation, so it must not change this
+// recommendation's identity either.
 export function evidenceIdentityHash(suggestionSet: SuggestionSet): string {
-  const canonical = [...suggestionSet.suggestions]
+  const candidates = [...suggestionSet.suggestions]
     .map((suggestion) => ({
       hero: suggestion.hero,
       signals: [...suggestion.signals]
@@ -94,7 +122,8 @@ export function evidenceIdentityHash(suggestionSet: SuggestionSet): string {
         .sort((a, b) => (a.signal < b.signal ? -1 : a.signal > b.signal ? 1 : 0)),
     }))
     .sort((a, b) => a.hero - b.hero);
-  return rulesHash({ decisionContext: suggestionSet.decisionContext, candidates: canonical });
+  const sequence = suggestionSet.suggestions.map((suggestion) => ({ hero: suggestion.hero, score: suggestion.score }));
+  return rulesHash({ decisionContext: suggestionSet.decisionContext, candidates, sequence });
 }
 
 /** Reuses V6's OWN already-frozen confidence tiers (mix.ts / SPEC.md §16.7-4: alta >= 0.75,

@@ -15,7 +15,11 @@ import type { RecommendationBasedOn } from "./types";
 // identically -- this is what makes "hidden twins identical pre-reveal" true by construction,
 // not a separate property this module has to maintain by hand.
 
-export const EVIDENCE_VERSION_BASE = "recommendation-evidence/v1+v6-signals/v6+role-belief/v1";
+// v2 (final evidence-identity repair): evidenceIdentityHash gained `sequence` (per-hero
+// {hero, score} in V6's own returned order) alongside `candidates` -- team-opening's
+// HeroCapabilities-driven strategy/ban-relief evidence only ever surfaces as order/score, never as
+// a SignalContribution, so v1 (candidates alone) could miss it. See evidence.ts's own header doc.
+export const EVIDENCE_VERSION_BASE = "recommendation-evidence/v2+v6-signals/v6+role-belief/v1";
 
 export interface BasedOnInput {
   view: PerspectiveDraftView;
