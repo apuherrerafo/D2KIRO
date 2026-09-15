@@ -29,8 +29,10 @@ import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes } from "./routes/meta";
 import { createProDrafterRoutes, handleLowConfidenceReport } from "./routes/pro-drafter";
+import { createProtocolSessionRoutes } from "./routes/protocol-sessions";
 import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
 import { createTeamGroupRoutes } from "./routes/team-groups";
+import { ProtocolSessionStore } from "./protocol-session";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
@@ -98,6 +100,15 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   }
 
   const sessionStore = new SessionStore();
+  // R1 S2 -- kernel-backed session store, deliberately separate from the legacy SessionStore
+  // above (see draft-protocol/types.ts + .kiro/specs for why full retirement isn't this slice's
+  // scope). computeSuggestionsForState is a hoisted function declaration further down this same
+  // scope -- referencing it here works exactly like proDrafterRoutes' computeV5Fallback does below.
+  const protocolSessionStore = new ProtocolSessionStore();
+  const protocolSessionRoutes = createProtocolSessionRoutes({
+    store: protocolSessionStore,
+    computeSuggestions: (state, accountId, options) => computeSuggestionsForState(state, accountId, options),
+  });
   const rateLimiter = createSessionRateLimiter();
   const accountTokenNow = deps.accountTokenNow ?? Date.now;
   const accountNonceStore = new Map<string, number>();
@@ -226,6 +237,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     const body: unknown = await request.json().catch(() => null);
     if (!isValidDraftEventEnvelope(body)) {
       return Response.json({ accepted: false }, { status: 400 });
+    }
+    if (body.payload.type === "session_started" && body.payload.format === "captains_mode") {
+      return Response.json(
+        { accepted: false, rejected: "legacy_cm_runtime_retired", replacement: "/api/session/protocol" },
+        { status: 410 },
+      );
     }
 
     const sourceIp = request.headers.get("x-forwarded-for") ?? "unknown";
@@ -356,6 +373,28 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "POST" && url.pathname === "/api/simulator/sessions") {
       return simulatorRoutes.post();
+    }
+    // R1 S2/S3 -- kernel-backed protocol sessions. No account gate: same posture as
+    // /api/session/manual and /api/simulator/sessions (local capturers/simulators, not
+    // account-scoped data) -- account scoping for this path is future work, not this wave's scope.
+    if (request.method === "POST" && url.pathname === "/api/session/protocol") {
+      return protocolSessionRoutes.post(request);
+    }
+    const protocolCommandSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "command");
+    if (protocolCommandSessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postCommand(request, protocolCommandSessionId);
+    }
+    const protocolSimulatorAuthoritySessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "simulator-authority");
+    if (protocolSimulatorAuthoritySessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postSimulatorAuthority(request, protocolSimulatorAuthoritySessionId);
+    }
+    const protocolBotSelectionSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "bot-selection");
+    if (protocolBotSelectionSessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postBotSelection(request, protocolBotSelectionSessionId);
+    }
+    const protocolSessionId = protocolSessionRoutes.parseSessionId(url.pathname);
+    if (protocolSessionId !== null && request.method === "GET") {
+      return protocolSessionRoutes.get(protocolSessionId, url);
     }
     const simulatorSessionId = simulatorRoutes.parseStateSessionId(url.pathname);
     if (simulatorSessionId !== null && request.method === "GET") {

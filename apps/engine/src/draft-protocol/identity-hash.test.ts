@@ -41,6 +41,7 @@ describe("identity-hash — Blocker 5: named, purpose-specific hash APIs", () =>
       buildId: "b",
       depotManifests: { "570": "1" },
       sourceHashes: { npc_heroes: "abc" },
+      provenance: { kind: "SYNTHETIC_TEST" as const, label: "identity hash fixture" },
       heroIds: [1, 2, 3],
     };
     expect(eligibilityHash(base)).toBe(computeEligibilityContentHash(base));

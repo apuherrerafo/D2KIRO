@@ -23,6 +23,12 @@ export {
   acceptCmHeroEligibilitySnapshot,
   isHeroEligible,
 } from "./eligibility";
+export {
+  isTrustedServerOnlyCommand,
+  parseTrustedEligibilityArtifact,
+  loadTrustedEligibilityArtifact,
+  DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH,
+} from "./trusted-eligibility";
 export { isValidHeroId } from "./hero-id";
 export { isPatchWithinRange } from "./patch-range";
 export { authoritativeStateHash, perspectiveStateHash, rulesHash, eligibilityHash } from "./identity-hash";

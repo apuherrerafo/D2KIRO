@@ -38,8 +38,9 @@ function buildEligibilitySnapshot(heroIds: number[]): CmHeroEligibilitySnapshot 
     appId: 570 as const,
     patch: "7.41e",
     buildId: "b",
-    depotManifests: { "570": "1" },
+    depotManifests: { "570": "fixture-manifest" },
     sourceHashes: { npc_heroes: "fixture" },
+    provenance: { kind: "OFFICIAL_DEPOT" as const, appId: 570 as const, buildId: "b", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture" },
     heroIds,
   };
   return { ...base, contentHash: computeEligibilityContentHash(base) };
@@ -87,8 +88,9 @@ describe("Blocker 2 — mutation aliasing (#1, #2, #3)", () => {
       appId: 570 as const,
       patch: "7.41e",
       buildId: "b",
-      depotManifests: { "570": "1" },
+      depotManifests: { "570": "fixture-manifest" },
       sourceHashes: { npc_heroes: "x" },
+      provenance: { kind: "OFFICIAL_DEPOT" as const, appId: 570 as const, buildId: "b", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "x" },
       heroIds: [1, 2, 3],
     };
     const snapshot = { ...base, contentHash: computeEligibilityContentHash(base) };

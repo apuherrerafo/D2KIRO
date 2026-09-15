@@ -118,6 +118,7 @@ export function eligibilityHash(snapshot: Omit<CmHeroEligibilitySnapshot, "conte
     buildId: snapshot.buildId,
     depotManifests: snapshot.depotManifests,
     sourceHashes: snapshot.sourceHashes,
+    provenance: snapshot.provenance,
     heroIds: snapshot.heroIds,
   });
 }

@@ -1,7 +1,7 @@
 import { eligibilityHash } from "./identity-hash";
 import { isValidHeroId } from "./hero-id";
 import { deepClone } from "./immutable";
-import type { CmHeroEligibilitySnapshot, HeroId } from "./types";
+import type { CmEligibilityProvenance, CmHeroEligibilitySnapshot, HeroId } from "./types";
 
 // Required keys, part of Blocker 4B's "required source identity" check: a snapshot must name the
 // specific depot (by appId) and the specific source file (npc_heroes.txt, the frozen future
@@ -10,6 +10,7 @@ import type { CmHeroEligibilitySnapshot, HeroId } from "./types";
 // all.
 const REQUIRED_DEPOT_MANIFEST_KEY = "570";
 const REQUIRED_SOURCE_HASH_KEY = "npc_heroes";
+const REQUIRED_SOURCE_PATH = "scripts/npc/npc_heroes.txt";
 
 // R1 S1 -- CM Hero Eligibility, canonical SNAPSHOT CONTRACT + validation + fail-closed
 // integration. Frozen future authority: Steam app 570 official client data
@@ -46,6 +47,30 @@ function isStringRecordWithRequiredKey(value: unknown, requiredKey: string): val
   return isNonEmptyString(value[requiredKey]);
 }
 
+function parseProvenance(value: unknown): CmEligibilityProvenance | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.kind === "DEMO_FIXTURE" || record.kind === "SYNTHETIC_TEST") {
+    return isNonEmptyString(record.label) ? { kind: record.kind, label: record.label } : null;
+  }
+  if (record.kind !== "OFFICIAL_DEPOT") return null;
+  if (record.appId !== 570) return null;
+  if (!isNonEmptyString(record.buildId)) return null;
+  if (!isNonEmptyString(record.depotId)) return null;
+  if (!isNonEmptyString(record.manifestId)) return null;
+  if (!isNonEmptyString(record.sourcePath)) return null;
+  if (!isNonEmptyString(record.sourceHash)) return null;
+  return {
+    kind: "OFFICIAL_DEPOT",
+    appId: 570,
+    buildId: record.buildId,
+    depotId: record.depotId,
+    manifestId: record.manifestId,
+    sourcePath: record.sourcePath,
+    sourceHash: record.sourceHash,
+  };
+}
+
 function isOrderedUniquePositiveHeroIds(value: unknown): value is HeroId[] {
   if (!Array.isArray(value) || value.length === 0) return false;
   let previous = -Infinity;
@@ -74,6 +99,14 @@ export function parseCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilityS
   if (!isNonEmptyString(value.buildId)) return null;
   if (!isStringRecordWithRequiredKey(value.depotManifests, REQUIRED_DEPOT_MANIFEST_KEY)) return null;
   if (!isStringRecordWithRequiredKey(value.sourceHashes, REQUIRED_SOURCE_HASH_KEY)) return null;
+  const provenance = parseProvenance(value.provenance);
+  if (!provenance) return null;
+  if (provenance.kind === "OFFICIAL_DEPOT") {
+    if (provenance.appId !== value.appId || provenance.buildId !== value.buildId) return null;
+    if (provenance.sourcePath !== REQUIRED_SOURCE_PATH) return null;
+    if (provenance.manifestId !== (value.depotManifests as Record<string, string>)[REQUIRED_DEPOT_MANIFEST_KEY]) return null;
+    if (provenance.sourceHash !== (value.sourceHashes as Record<string, string>)[REQUIRED_SOURCE_HASH_KEY]) return null;
+  }
   if (!isOrderedUniquePositiveHeroIds(value.heroIds)) return null;
   if (!isNonEmptyString(value.contentHash)) return null;
   return deepClone({
@@ -83,6 +116,7 @@ export function parseCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilityS
     buildId: value.buildId as string,
     depotManifests: value.depotManifests as Record<string, string>,
     sourceHashes: value.sourceHashes as Record<string, string>,
+    provenance,
     heroIds: value.heroIds as HeroId[],
     contentHash: value.contentHash as string,
   });
@@ -119,6 +153,7 @@ export function verifyEligibilitySnapshotIntegrity(snapshot: CmHeroEligibilitySn
 export function acceptCmHeroEligibilitySnapshot(raw: unknown): CmHeroEligibilitySnapshot | null {
   const parsed = parseCmHeroEligibilitySnapshot(raw);
   if (parsed === null) return null;
+  if (parsed.provenance.kind !== "OFFICIAL_DEPOT") return null;
   if (!verifyEligibilitySnapshotIntegrity(parsed)) return null;
   return parsed;
 }

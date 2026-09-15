@@ -2,6 +2,11 @@
 // BotDrafter: scoring simplificado + selección de héroe para el bot enemigo.
 // El objetivo es QA del motor, no ganar drafts — el scoring es deliberadamente simple.
 // Requirements: 4.1, 4.2, 4.3
+//
+// R1 legacy marker: the product simulator no longer calls these pick functions. They remain
+// exported for historical compatibility tests and for the MetaSnapshot type consumed by the ban
+// initializer. Runtime bot decisions now execute server-side from a bot PerspectiveDraftView via
+// /api/session/protocol/:id/bot-selection, so pending human sealed IDs cannot enter this input.
 
 import type { DraftState } from "@/features/draft/types";
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
