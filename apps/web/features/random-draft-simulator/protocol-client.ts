@@ -1,4 +1,4 @@
-import type { DraftState, HeroId, TeamSide } from "@/features/draft/types";
+import type { DraftDecisionContext, DraftState, HeroId, SignalContribution, SuggestionConfidence, TeamSide } from "@/features/draft/types";
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 export type ProtocolStatus = "ACTIVE" | "UNCONFIRMED_STATE" | "WAITING_FOR_COLLISION_AUTHORITY" | "COMPLETE" | "DEGRADED";
@@ -125,6 +125,146 @@ export function resolveSimulatorAuthority(sessionId: string, seed: string, fetch
 
 function visibleHeroIds(slots: readonly PerspectiveHeroSlot[]): HeroId[] {
   return slots.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
+}
+
+// R1 S5 (blocker 1, independent architecture review) -- RecommendationSet/v2 client. Espejo a mano
+// del contrato del motor (apps/engine/src/recommendation/types.ts) -- sólo los campos que este
+// cliente/UI realmente consume, mismo criterio que el resto de este archivo (nunca un import
+// cruzado apps/engine -> apps/web). El cliente pide recomendaciones SOLO con el sessionId del
+// ProtocolSession ya existente + el lado de la sesión (server-derived) -- nunca reconstruye ni
+// envía DraftState, candidatos legales, señales, roles, evidencia ni picks ocultos.
+export type RecommendationPosition = 1 | 2 | 3 | 4 | 5;
+
+export interface RecommendationSlotV2 {
+  side: TeamSide;
+  slotIndex: number;
+}
+
+export interface RecommendationActionV2 {
+  slot: RecommendationSlotV2;
+  hero: HeroId;
+}
+
+export interface RecommendationRoleImpactV2 {
+  status: "CONFIRMED_FORCED" | "LIKELY" | "UNRESOLVED";
+  position: RecommendationPosition | null;
+  marginals: Record<RecommendationPosition, number>;
+  entropy: number;
+}
+
+export interface RecommendationLegacyProjectionV2 {
+  hero: HeroId;
+  signals: SignalContribution[];
+  evidenceCoverage: number;
+  guessingIndex: number;
+  reason: string;
+}
+
+export interface RecommendationV2 {
+  actions: RecommendationActionV2[];
+  score: number;
+  confidence: SuggestionConfidence;
+  roleImpact: Record<number, RecommendationRoleImpactV2>;
+  risks: { kind: string; detail: string }[];
+  legacy: RecommendationLegacyProjectionV2 | null;
+}
+
+export interface RecommendationDegradationV2 {
+  reason: string;
+  detail: string;
+}
+
+export interface RecommendationDecisionV2 {
+  actor: TeamSide;
+  actionKind: "BAN" | "PICK" | null;
+  controlledSlots: RecommendationSlotV2[];
+  actionCount: number;
+}
+
+export interface RecommendationSetV2 {
+  schema: "recommendation-set/v2";
+  sessionId: string;
+  decision: RecommendationDecisionV2;
+  recommendations: RecommendationV2[];
+  degradations: RecommendationDegradationV2[];
+  decisionContext: DraftDecisionContext | "no_action";
+}
+
+function isRecommendationPosition(value: unknown): value is RecommendationPosition {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
+}
+
+function isSignalContribution(value: unknown): value is SignalContribution {
+  if (!isRecord(value)) return false;
+  return typeof value.signal === "string" && (value.raw === null || typeof value.raw === "number") && typeof value.weighted === "number"
+    && typeof value.explanation === "string" && typeof value.sampleSize === "number";
+}
+
+function isRecommendationSlot(value: unknown): value is RecommendationSlotV2 {
+  return isRecord(value) && (value.side === "radiant" || value.side === "dire") && typeof value.slotIndex === "number";
+}
+
+function isRoleImpact(value: unknown): value is RecommendationRoleImpactV2 {
+  if (!isRecord(value)) return false;
+  if (value.status !== "CONFIRMED_FORCED" && value.status !== "LIKELY" && value.status !== "UNRESOLVED") return false;
+  if (value.position !== null && !isRecommendationPosition(value.position)) return false;
+  return isRecord(value.marginals) && typeof value.entropy === "number";
+}
+
+function isLegacyProjection(value: unknown): value is RecommendationLegacyProjectionV2 {
+  if (value === null) return true;
+  if (!isRecord(value)) return false;
+  return isHeroId(value.hero) && Array.isArray(value.signals) && value.signals.every(isSignalContribution)
+    && typeof value.evidenceCoverage === "number" && typeof value.guessingIndex === "number" && typeof value.reason === "string";
+}
+
+function isConfidence(value: unknown): value is SuggestionConfidence {
+  return value === "alta" || value === "media" || value === "baja";
+}
+
+function isRecommendation(value: unknown): value is RecommendationV2 {
+  if (!isRecord(value)) return false;
+  if (!Array.isArray(value.actions) || value.actions.length === 0) return false;
+  if (!value.actions.every((action) => isRecord(action) && isRecommendationSlot(action.slot) && isHeroId(action.hero))) return false;
+  if (typeof value.score !== "number" || !isConfidence(value.confidence)) return false;
+  if (!isRecord(value.roleImpact) || !Object.values(value.roleImpact).every(isRoleImpact)) return false;
+  if (!Array.isArray(value.risks)) return false;
+  return isLegacyProjection(value.legacy ?? null);
+}
+
+function isDegradation(value: unknown): value is RecommendationDegradationV2 {
+  return isRecord(value) && typeof value.reason === "string" && typeof value.detail === "string";
+}
+
+function isRecommendationDecision(value: unknown): value is RecommendationDecisionV2 {
+  if (!isRecord(value)) return false;
+  if (value.actor !== "radiant" && value.actor !== "dire") return false;
+  if (value.actionKind !== null && value.actionKind !== "BAN" && value.actionKind !== "PICK") return false;
+  return Array.isArray(value.controlledSlots) && value.controlledSlots.every(isRecommendationSlot) && typeof value.actionCount === "number";
+}
+
+function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
+  if (!isRecord(value)) return null;
+  if (value.schema !== "recommendation-set/v2") return null;
+  if (typeof value.sessionId !== "string") return null;
+  if (!isRecommendationDecision(value.decision)) return null;
+  if (!Array.isArray(value.recommendations) || !value.recommendations.every(isRecommendation)) return null;
+  if (!Array.isArray(value.degradations) || !value.degradations.every(isDegradation)) return null;
+  return value as unknown as RecommendationSetV2;
+}
+
+/**
+ * Blocker 1 -- the ONLY recommendation source for the R1 ProtocolSession simulator's human
+ * Copilot. Sends nothing but the already-existing sessionId; the server derives the perspective
+ * (localSide) from session metadata, exactly like every other route in this file. Never reaches
+ * `/api/suggestions/preview` or any Pro-Drafter route (blocker 8) -- see use-random-draft-session.ts.
+ */
+export async function fetchRecommendations(sessionId: string, fetchImpl: typeof fetch = fetch): Promise<RecommendationSetV2> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/recommendations`);
+  if (!response.ok) throw new Error(`recommendations request failed (${response.status})`);
+  const parsed = parseRecommendationSet(await response.json());
+  if (!parsed) throw new Error("invalid recommendations response");
+  return parsed;
 }
 
 export function protocolViewToDraftState(view: ProtocolPerspectiveView, patch: string): DraftState {

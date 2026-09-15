@@ -17,7 +17,6 @@ import { EngineUnreachableBanner } from "@/features/random-draft-simulator/compo
 import { specForRound, useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { isProDrafterEnabled } from "@/app/live-draft/live-config";
 
 type Session = ReturnType<typeof useRandomDraftSession>;
 
@@ -48,14 +47,9 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, suggestions, previewStatus } = session.state;
-  const proDrafterEnabled = isProDrafterEnabled();
-  const [proHeroIds, setProHeroIds] = useState<ReadonlySet<number>>(new Set());
+  const { phase, draftState, recommendations, previewStatus } = session.state;
+  const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
-
-  // TSK-084: mismo criterio que DraftView.tsx en /live-draft -- los mismos candidatos que ya destaca
-  // el Copilot al lado, resaltados directo sobre la grilla, un solo highlight consistente.
-  const highlightedHeroIds = proDrafterEnabled ? proHeroIds : new Set(suggestions?.suggestions.map((s) => s.hero) ?? []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -73,14 +67,15 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
       </div>
       <div className="flex flex-col gap-4">
         <DraftIntentSelector value={session.state.archetypeIntent} onChange={session.actions.setArchetypeIntent} />
+        {/* R1 S5 (blockers 1+8): la recomendación humana del simulador viene SIEMPRE de
+            RecommendationSet/v2 -- ENABLE_PRO_DRAFTER no tiene ningún efecto sobre este panel ni
+            sobre qué héroes se resaltan en la grilla. */}
         <CopilotPanel
-          draftState={draftState}
-          suggestions={suggestions}
+          recommendations={recommendations}
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={session.actions.retryPreview}
-          onSuggestedHeroIdsChange={proDrafterEnabled ? setProHeroIds : undefined}
-          playerPosition={session.state.config?.playerPosition}
+          onSuggestedHeroIdsChange={setHighlightedHeroIds}
         />
       </div>
     </div>

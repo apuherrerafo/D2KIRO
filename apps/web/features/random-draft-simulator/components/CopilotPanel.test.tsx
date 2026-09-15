@@ -1,55 +1,49 @@
 import "@/test-support/happy-dom";
 
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
-import type { DraftState, SuggestionSet } from "@/features/draft/types";
+import type { RecommendationSetV2, RecommendationV2 } from "../protocol-client";
 import { CopilotPanel } from "./CopilotPanel";
 
 afterEach(cleanup);
 
-const draftState: DraftState = {
-  sessionId: "copilot-ui",
-  schema: "draft-state/v1",
-  format: "all_pick",
-  patch: "7.41e",
-  localSide: "radiant",
-  phase: "active",
-  banned: [],
-  picks: { radiant: [], dire: [] },
-  lastSeq: 4,
-  appliedEventIds: [],
-  quality: { unconfirmed: [], captureStatus: "ok" },
-  updatedAt: "2026-08-25T00:00:00.000Z",
-  firstPickSide: null,
-  turnStartedAt: null,
-  reserveRemainingMs: null,
-  turn: null,
-};
-
-function suggestions(decisionContext: SuggestionSet["decisionContext"]): SuggestionSet {
+function singleAction(hero: number, score: number): RecommendationV2 {
   return {
-    schema: "suggestions/v1",
-    sessionId: draftState.sessionId,
-    basedOnSeq: draftState.lastSeq,
-    decisionContext,
-    suggestions: [{
-      hero: 7,
-      rank: 1,
-      score: 72,
-      signals: [],
-      reason: "Resumen táctico.",
-      confidence: "media",
-      evidenceCoverage: 0.62,
-      guessingIndex: 0.38,
-      evidence: [
-        { kind: "opening", text: "Abre una composición flexible." },
-        { kind: "counter", text: "Fuerte contra un rival revelado." },
-        { kind: "risk", text: "La muestra de matchup es limitada." },
-      ],
-    }],
-    comparison: null,
-    degraded: [],
-    computedInMs: 1,
+    actions: [{ slot: { side: "radiant", slotIndex: 0 }, hero }],
+    score,
+    confidence: "media",
+    roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 0.6, 2: 0.1, 3: 0.1, 4: 0.1, 5: 0.1 }, entropy: 1.8 } },
+    risks: [],
+    legacy: { hero, signals: [], evidenceCoverage: 0.62, guessingIndex: 0.38, reason: `Resumen táctico ${hero}.` },
+  };
+}
+
+function compound(heroA: number, heroB: number, score: number): RecommendationV2 {
+  return {
+    actions: [
+      { slot: { side: "radiant", slotIndex: 0 }, hero: heroA },
+      { slot: { side: "radiant", slotIndex: 1 }, hero: heroB },
+    ],
+    score,
+    confidence: "alta",
+    roleImpact: {
+      [heroA]: { status: "LIKELY", position: 1, marginals: { 1: 0.7, 2: 0.1, 3: 0.1, 4: 0.05, 5: 0.05 }, entropy: 1.2 },
+      [heroB]: { status: "LIKELY", position: 3, marginals: { 1: 0.1, 2: 0.1, 3: 0.6, 4: 0.1, 5: 0.1 }, entropy: 1.6 },
+    },
+    risks: [],
+    legacy: null,
+  };
+}
+
+function recommendationSet(overrides: Partial<RecommendationSetV2> = {}): RecommendationSetV2 {
+  return {
+    schema: "recommendation-set/v2",
+    sessionId: "copilot-ui",
+    decision: { actor: "radiant", actionKind: "PICK", controlledSlots: [{ side: "radiant", slotIndex: 0 }], actionCount: 1 },
+    recommendations: [singleAction(7, 72)],
+    degradations: [],
+    decisionContext: "response_pick",
+    ...overrides,
   };
 }
 
@@ -58,36 +52,46 @@ test.each([
   ["blind_second_pick", "Pick 2 — información ciega"],
   ["response_pick", "Pick 3/4 — respuesta a rivales revelados"],
   ["closing_pick", "Cierre — composición y riesgos"],
-  ["no_signal_available", "No hay se\u00f1ales disponibles para votar"],
-] as const)("renderiza el contexto %s sin parsear la razón", (context, heading) => {
-  const view = render(<CopilotPanel draftState={draftState} suggestions={suggestions(context)} heroCatalog={new Map()} previewStatus="ready" />);
-
+  ["no_signal_available", "No hay señales disponibles para votar"],
+] as const)("renderiza el contexto %s", (context: RecommendationSetV2["decisionContext"], heading: string) => {
+  const view = render(<CopilotPanel recommendations={recommendationSet({ decisionContext: context })} heroCatalog={new Map()} previewStatus="ready" />);
   expect(view.getByText(heading)).toBeDefined();
 });
 
-test("TSK-192: renderiza una celda compacta por cada recomendación (hasta 6, grid 2×3)", () => {
-  const many: SuggestionSet = {
-    ...suggestions("response_pick"),
-    suggestions: [1, 2, 3, 4, 5, 6].map((hero, i) => ({
-      hero, rank: (i + 1) as 1 | 2 | 3 | 4 | 5 | 6, score: 70 - i, signals: [], reason: `Motivo ${hero}`, confidence: "media" as const, evidenceCoverage: 0.5, guessingIndex: 0.5,
-    })),
-  };
-  const view = render(<CopilotPanel draftState={draftState} suggestions={many} heroCatalog={new Map()} previewStatus="ready" />);
-
+test("recomendaciones single-action: una celda compacta por recomendación, vía SuggestionCard real", () => {
+  const set = recommendationSet({
+    recommendations: [1, 2, 3, 4, 5, 6].map((hero, i) => singleAction(hero, 70 - i)),
+  });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
   expect(view.getAllByRole("button", { name: "Ver señales" })).toHaveLength(6);
-  expect(view.getByText("Motivo 1")).toBeDefined();
-  expect(view.getByText("Motivo 6")).toBeDefined();
+  expect(view.getByText("Resumen táctico 1.")).toBeDefined();
+  expect(view.getByText("Resumen táctico 6.")).toBeDefined();
 });
 
-test("agrupa los motivos positivos aparte de riesgos e incertidumbres (tras Ver señales, TSK-192)", () => {
-  const view = render(<CopilotPanel draftState={draftState} suggestions={suggestions("response_pick")} heroCatalog={new Map()} previewStatus="ready" />);
+test("recomendaciones compuestas (legacy: null): se muestran como dupla, nunca via SuggestionCard (no hay proyección V1 que aplanar)", () => {
+  const set = recommendationSet({ recommendations: [compound(1, 2, 199), compound(3, 4, 180)] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getAllByText("Dupla sugerida")).toHaveLength(2);
+  expect(view.queryAllByRole("button", { name: "Ver señales" })).toHaveLength(0);
+});
 
-  // En el grid compacto el detalle vive tras "Ver señales".
-  fireEvent.click(view.getByRole("button", { name: "Ver señales" }));
+test("degradaciones se muestran siempre que existan, ninguna se calla en silencio", () => {
+  const set = recommendationSet({ degradations: [{ reason: "stale_meta", detail: "El meta tiene más de 24 horas." }] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getByText("El meta tiene más de 24 horas.")).toBeDefined();
+});
 
-  expect(view.getByRole("list", { name: "Motivos de la recomendación" })).toBeDefined();
-  expect(view.getByText(/^Apertura:/)).toBeDefined();
-  expect(view.getByText(/^Contrapick:/)).toBeDefined();
-  expect(view.getByRole("list", { name: "Riesgos e incertidumbres" })).toBeDefined();
-  expect(view.getByText(/^Riesgo:/)).toBeDefined();
+test("sin recomendaciones (p. ej. CM fail-closed): estado explícito, nunca un panel en blanco", () => {
+  const set = recommendationSet({ recommendations: [] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getByText("Sin candidatos para el estado actual del draft.")).toBeDefined();
+});
+
+test("previewStatus failed: ofrece reintentar, nunca queda congelado en silencio", () => {
+  let retried = false;
+  const view = render(
+    <CopilotPanel recommendations={null} heroCatalog={new Map()} previewStatus="failed" onRetryPreview={() => (retried = true)} />,
+  );
+  view.getByRole("button", { name: "Reintentar" }).click();
+  expect(retried).toBe(true);
 });
