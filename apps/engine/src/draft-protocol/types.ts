@@ -304,10 +304,30 @@ export interface KernelResult {
 // KERNEL, not left for an external adapter to derive on its own from the relative `actor` label.
 // ---------------------------------------------------------------------------------------------
 
+// TRUST CATEGORIES INSIDE ProtocolAdminCommand -- "admin" here means "not a gameplay action",
+// NOT "privileged". The two are different and only one member needs privilege:
+//
+//   ADAPTER FACTS (a client-facing adapter may assert these): RECORD_RESOLVED_BANS,
+//   BAN_RESOLUTION_COMPLETE, CONFIRM_FIRST_PICK_SIDE. Each describes something that happened in
+//   the adapter's OWN draft, and the kernel validates each against canonical state. Asserting
+//   them can shape one session; it can never widen what the kernel certifies as legal.
+//
+//   TRUSTED_SERVER_ONLY (never acceptable from a request body): LOAD_CM_ELIGIBILITY. It does not
+//   describe a draft -- it PROMOTES A SNAPSHOT TO TRUSTED, defining which heroes Captain's Mode
+//   will certify at all. Every field it carries, contentHash included, is computable by whoever
+//   writes the JSON, so accepting it from a client lets that client certify its own eligibility
+//   (verified before this repair: invented provenance + heroIds [777, 888, 999] was accepted
+//   through POST /api/session/protocol/:id/command). The authority is the boundary the artifact
+//   crossed, not the artifact's shape -- see draft-protocol/trusted-eligibility.ts, which owns
+//   that boundary and is the only supported way in.
+//
+//   APPLY_AUTHORITATIVE_COLLISION_RESOLUTION is separately refused on the public command route
+//   (it has its own explicit simulator-authority endpoint, gated on adapterKind).
 export type ProtocolAdminCommand =
   | { type: "RECORD_RESOLVED_BANS" }
   | { type: "BAN_RESOLUTION_COMPLETE" }
   | { type: "CONFIRM_FIRST_PICK_SIDE" }
+  /** TRUSTED_SERVER_ONLY -- see the note above; rejected by every client-facing route. */
   | { type: "LOAD_CM_ELIGIBILITY" }
   | { type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION" };
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { computeEligibilityContentHash, type CmHeroEligibilitySnapshot } from "../draft-protocol";
 import { ProtocolSessionStore } from "./protocol-session";
 
 describe("ProtocolSessionStore -- S2.1/S2.5/S3 session layer", () => {
@@ -109,5 +110,89 @@ describe("ProtocolSessionStore -- S2.1/S2.5/S3 session layer", () => {
     store.evictStale(2_000_000, 1_500_000);
     expect(store.get("old")).toBeNull();
     expect(store.get("fresh")).not.toBeNull();
+  });
+});
+
+// R1 S3 (final trust-boundary repair) -- loadTrustedEligibility es la ÚNICA puerta de entrada de
+// un snapshot de elegibilidad, y estar del lado servidor no exime de ninguna validación.
+describe("ProtocolSessionStore.loadTrustedEligibility -- puerta server-only", () => {
+  type Base = Omit<CmHeroEligibilitySnapshot, "contentHash">;
+
+  function officialBase(overrides: Partial<Base> = {}): Base {
+    return {
+      schema: "cm-hero-eligibility/v1",
+      appId: 570,
+      patch: "7.41e",
+      buildId: "build-123",
+      depotManifests: { "570": "manifest-123" },
+      sourceHashes: { npc_heroes: "sha256:abc" },
+      provenance: {
+        kind: "OFFICIAL_DEPOT",
+        appId: 570,
+        buildId: "build-123",
+        depotId: "381451",
+        manifestId: "manifest-123",
+        sourcePath: "scripts/npc/npc_heroes.txt",
+        sourceHash: "sha256:abc",
+      },
+      heroIds: [1, 2, 3],
+      ...overrides,
+    };
+  }
+
+  function sealed(base: Base): CmHeroEligibilitySnapshot {
+    return { ...base, contentHash: computeEligibilityContentHash(base) };
+  }
+
+  const FULL_PARTY = {
+    partySize: 5 as const,
+    side: "radiant" as const,
+    controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant" as const, slotIndex, controllerId: `p${slotIndex}` })),
+  };
+
+  function cmStore(sessionId = "cm-trusted"): ProtocolSessionStore {
+    const store = new ProtocolSessionStore();
+    const created = store.create({ sessionId, rulesetId: "dota2/captains-mode", patch: "7.41e", partyContext: FULL_PARTY });
+    expect(created.ok).toBe(true);
+    return store;
+  }
+
+  test("artefacto oficial válido -> certifica y el estado queda con el snapshot", () => {
+    const store = cmStore();
+    const result = store.loadTrustedEligibility("cm-trusted", sealed(officialBase()));
+    expect(result.ok).toBe(true);
+    expect(store.get("cm-trusted")!.captainsMode!.eligibilitySnapshot!.heroIds).toEqual([1, 2, 3]);
+  });
+
+  test.each([
+    ["sourceHash mismatch", sealed(officialBase({ provenance: { ...officialBase().provenance, sourceHash: "sha256:otro" } as Base["provenance"] }))],
+    ["manifest mismatch", sealed(officialBase({ provenance: { ...officialBase().provenance, manifestId: "otro" } as Base["provenance"] }))],
+    ["DEMO_FIXTURE", sealed(officialBase({ provenance: { kind: "DEMO_FIXTURE", label: "demo" } }))],
+    ["SYNTHETIC_TEST", sealed(officialBase({ provenance: { kind: "SYNTHETIC_TEST", label: "test" } }))],
+  ])("%s -> ELIGIBILITY_UNVERIFIED, el estado no cambia", (_label, artifact) => {
+    const store = cmStore();
+    const result = store.loadTrustedEligibility("cm-trusted", artifact);
+    expect(result).toEqual({ ok: false, reason: "ELIGIBILITY_UNVERIFIED" });
+    expect(store.get("cm-trusted")!.captainsMode!.eligibilitySnapshot).toBeNull();
+  });
+
+  test("patch incompatible -> lo rechaza el kernel, no el parser, y no certifica nada", () => {
+    const store = cmStore();
+    // Estructuralmente impecable: el problema es que 7.39 queda fuera del rango verificado de CM.
+    const result = store.loadTrustedEligibility("cm-trusted", sealed(officialBase({ patch: "7.39" })));
+    expect(result.ok).toBe(false);
+    expect(store.get("cm-trusted")!.captainsMode!.eligibilitySnapshot).toBeNull();
+  });
+
+  test("sesión inexistente -> SESSION_NOT_FOUND, nunca lanza", () => {
+    const store = new ProtocolSessionStore();
+    expect(store.loadTrustedEligibility("ghost", sealed(officialBase()))).toEqual({ ok: false, reason: "SESSION_NOT_FOUND" });
+  });
+
+  test("el mismo snapshot por isCommandAuthorized queda prohibido -- la puerta pública no es equivalente", () => {
+    const store = cmStore();
+    expect(store.isCommandAuthorized("cm-trusted", { type: "LOAD_CM_ELIGIBILITY", snapshot: sealed(officialBase()) })).toBe(false);
+    // ...y tampoco se anuncia como acción disponible en la superficie autorizada.
+    expect((store.authorizedLegalActions("cm-trusted") ?? []).some((action) => action.type === "LOAD_CM_ELIGIBILITY")).toBe(false);
   });
 });

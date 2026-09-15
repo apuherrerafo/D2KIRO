@@ -1,7 +1,6 @@
 import { applyProtocolCommand, legalActions } from "../kernel";
 import type {
   CmActionKind,
-  CmHeroEligibilitySnapshot,
   DraftProtocolState,
   HeroId,
   KernelResult,
@@ -19,8 +18,13 @@ export type ManualProtocolObservation =
   | { type: "AP_SEALED_SELECTION_OBSERVED"; side: TeamSide; slotIndex: number; heroId: HeroId }
   | { type: "AP_COLLISION_RESOLUTION_OBSERVED"; round: 1 | 2 | 3; heroId: HeroId; winner: OpenSlot }
   | { type: "CM_FIRST_PICK_SIDE_OBSERVED"; side: TeamSide }
-  | { type: "CM_ELIGIBILITY_OBSERVED"; snapshot: CmHeroEligibilitySnapshot }
   | { type: "CM_HERO_ACTION_OBSERVED"; side: TeamSide; kind: CmActionKind; heroId: HeroId };
+// R1 S3 (final trust-boundary repair): there is deliberately NO "CM_ELIGIBILITY_OBSERVED" here.
+// An eligibility snapshot is not a fact anyone observes in a draft -- it is an artifact that
+// defines which heroes the kernel will certify at all. Letting an adapter "observe" one would
+// hand any future caller of this module (a live capturer, an ingest route) the power to promote
+// its own snapshot to trusted, which is precisely the hole this repair closed on the HTTP side.
+// The one supported path is ProtocolSessionStore.loadTrustedEligibility (server/operator side).
 
 export function commandFromManualObservation(
   state: DraftProtocolState,
@@ -37,8 +41,6 @@ export function commandFromManualObservation(
       return { type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION", round: observation.round, heroId: observation.heroId, winner: observation.winner };
     case "CM_FIRST_PICK_SIDE_OBSERVED":
       return { type: "CONFIRM_FIRST_PICK_SIDE", side: observation.side };
-    case "CM_ELIGIBILITY_OBSERVED":
-      return { type: "LOAD_CM_ELIGIBILITY", snapshot: observation.snapshot };
     case "CM_HERO_ACTION_OBSERVED": {
       const action = legalActions(state).find(
         (candidate) => candidate.type === "CM_ACTION"

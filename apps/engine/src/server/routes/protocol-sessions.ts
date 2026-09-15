@@ -8,7 +8,7 @@ import {
   isValidSubmitProtocolCommandBody,
   isTeamSide,
 } from "../../draft-protocol/validation";
-import { legalActions } from "../../draft-protocol";
+import { isTrustedServerOnlyCommand, legalActions, loadTrustedEligibilityArtifact } from "../../draft-protocol";
 import type { DraftPathArchetype } from "../../draft-paths/types";
 import type { DraftState } from "../../draft/reducer";
 import type { SuggestionSet } from "../../signals/mix";
@@ -36,6 +36,15 @@ export type ComputeSuggestionsForDraftState = (
 export interface ProtocolSessionRouteDeps {
   store: ProtocolSessionStore;
   computeSuggestions: ComputeSuggestionsForDraftState;
+  /**
+   * SERVER-SIDE source of the approved CM eligibility artifact -- the deployment-bootstrap hook.
+   * Called once per Captain's Mode session creation; `null`/absent leaves the session with no
+   * certified eligibility, i.e. fail-closed. Injectable so tests supply an inline fixture and
+   * never read the real artifact (same seam discipline as heroPositions/heroCapabilities).
+   * Defaults to the on-disk artifact, which is gitignored and absent unless an operator put it
+   * there -- so the default behaviour is, and stays, fail-closed.
+   */
+  trustedEligibility?: () => unknown;
 }
 
 function badRequest(error: string): Response {
@@ -64,7 +73,23 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       adapterKind: body.adapterKind,
     });
     if (!created.ok) return Response.json({ error: created.reason, detail: "detail" in created ? created.detail : undefined }, { status: 422 });
-    return Response.json({ sessionId: created.sessionId, ruleset: created.state.ruleset, status: created.state.status }, { status: 201 });
+
+    // Captain's Mode needs a certified hero universe before the kernel will allow any hero
+    // action. It is loaded HERE, from the server side, precisely so the client never gets to
+    // supply it. No artifact (the default) -> nothing loaded -> ELIGIBILITY_UNVERIFIED on the
+    // first CM action, which is the fail-closed posture this ruleset already had.
+    let eligibilityCertified = false;
+    if (body.rulesetId === "dota2/captains-mode") {
+      const readArtifact = deps.trustedEligibility ?? (() => loadTrustedEligibilityArtifact());
+      const artifact = readArtifact();
+      if (artifact !== null && artifact !== undefined) {
+        eligibilityCertified = deps.store.loadTrustedEligibility(created.sessionId, artifact).ok;
+      }
+    }
+    return Response.json(
+      { sessionId: created.sessionId, ruleset: created.state.ruleset, status: created.state.status, eligibilityCertified },
+      { status: 201 },
+    );
   }
 
   function parseSessionSubpath(pathname: string, suffix: string): string | null {
@@ -98,6 +123,19 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const metadata = deps.store.metadata(sessionId)!;
     if (body.viewerSide !== undefined && body.viewerSide !== null && body.viewerSide !== metadata.localSide) {
       return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    // R1 S3 (final trust-boundary repair). TRUSTED_SERVER_ONLY commands are refused here on the
+    // basis of WHERE THEY ARRIVED, before any consideration of how well-formed they are -- a
+    // perfectly valid, perfectly self-consistent OFFICIAL_DEPOT snapshot is refused exactly like a
+    // garbage one, because the client is not an authority on its own eligibility no matter what
+    // it writes. Separate error from `action_forbidden` so the refusal is legible as a boundary,
+    // not as "wrong side/turn". The supported path is ProtocolSessionStore.loadTrustedEligibility,
+    // reachable only from the server side (draft-protocol/trusted-eligibility.ts).
+    if (isTrustedServerOnlyCommand(body.command.type)) {
+      return Response.json(
+        { error: "admin_command_forbidden", detail: `${body.command.type} is loaded server-side only, never from a request body` },
+        { status: 403 },
+      );
     }
     if (!deps.store.isCommandAuthorized(sessionId, body.command)) {
       return Response.json({ error: "action_forbidden" }, { status: 403 });

@@ -10,7 +10,11 @@ import {
   type PartyContext,
   type PartyContextInput,
   type PerspectiveDraftView,
+  parseTrustedEligibilityArtifact,
+  isTrustedServerOnlyCommand,
+  type CmHeroEligibilitySnapshot,
   type ProtocolCommand,
+  type RejectionReasonV2,
   type RulesetId,
   type TeamSide,
 } from "../draft-protocol";
@@ -50,6 +54,10 @@ export type CreateProtocolSessionResult =
   | { ok: false; reason: "SESSION_ALREADY_EXISTS"; detail: string }
   | { ok: false; reason: "CM_REQUIRES_PARTY_SIZE_5"; detail: string }
   | Exclude<CreateProtocolStateResult, { ok: true }>;
+
+export type TrustedEligibilityLoadResult =
+  | { ok: true; snapshot: CmHeroEligibilitySnapshot }
+  | { ok: false; reason: "SESSION_NOT_FOUND" | "ELIGIBILITY_UNVERIFIED" | RejectionReasonV2 };
 
 export interface CreateProtocolSessionInput {
   sessionId: string;
@@ -126,6 +134,32 @@ export class ProtocolSessionStore {
     return result;
   }
 
+  /**
+   * R1 S3 (final trust-boundary repair) -- the ONLY supported way a CM eligibility snapshot
+   * enters a session. SERVER/OPERATOR ONLY: `raw` must come from the server side (an approved
+   * local artifact, a deployment bootstrap step, a future startup hook -- see
+   * draft-protocol/trusted-eligibility.ts), NEVER from a request body. No client-facing route may
+   * call this, and `isCommandAuthorized` refuses LOAD_CM_ELIGIBILITY so the public command path
+   * cannot reach the same effect by another name.
+   *
+   * Server-side does not mean unvalidated: `parseTrustedEligibilityArtifact` runs the full
+   * acceptCmHeroEligibilitySnapshot gate (OFFICIAL_DEPOT provenance, appId 570, buildId /
+   * manifestId / sourceHash cross-consistency, fixed sourcePath, canonical contentHash, sorted
+   * unique positive heroIds) and the kernel then applies its own patch-range gate. An artifact
+   * that fails anything leaves the session untouched and Captain's Mode fail-closed.
+   */
+  loadTrustedEligibility(sessionId: string, raw: unknown, now = Date.now()): TrustedEligibilityLoadResult {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return { ok: false, reason: "SESSION_NOT_FOUND" };
+    const snapshot = parseTrustedEligibilityArtifact(raw);
+    if (!snapshot) return { ok: false, reason: "ELIGIBILITY_UNVERIFIED" };
+    const result = applyProtocolCommand(entry.state, { type: "LOAD_CM_ELIGIBILITY", snapshot });
+    entry.lastAccessedAt = now;
+    if (result.rejected) return { ok: false, reason: result.rejected };
+    entry.state = result.state;
+    return { ok: true, snapshot };
+  }
+
   view(sessionId: string): PerspectiveDraftView | null {
     const state = this.get(sessionId);
     const metadata = this.metadata(sessionId);
@@ -147,6 +181,11 @@ export class ProtocolSessionStore {
     const state = this.get(sessionId);
     const metadata = this.metadata(sessionId);
     if (!state || !metadata) return false;
+    // TRUSTED_SERVER_ONLY (LOAD_CM_ELIGIBILITY): defence in depth. The route rejects it first with
+    // an explicit `admin_command_forbidden`, but any other caller reaching the store must hit the
+    // same wall -- promoting a snapshot to trusted has exactly one entry point,
+    // loadTrustedEligibility(), and it is not this one.
+    if (isTrustedServerOnlyCommand(command.type)) return false;
     if (command.type === "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION") return false;
     if (command.type === "SUBMIT_SEALED_SELECTION") return command.side === metadata.localSide;
     if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
@@ -167,6 +206,11 @@ export class ProtocolSessionStore {
       if (action.type === "CM_ACTION" || action.type === "CM_BAN_SKIPPED" || action.type === "CM_AUTO_PICK") {
         return action.absoluteSide === metadata.localSide;
       }
+      // A client-facing surface must never ADVERTISE what it will refuse. The kernel legitimately
+      // lists LOAD_CM_ELIGIBILITY as always-available (a refreshed snapshot is harmless at any
+      // step), but that availability is for the trusted server path only, so it is filtered out
+      // here alongside the collision-authority command and its dedicated endpoint.
+      if (isTrustedServerOnlyCommand(action.type)) return false;
       return action.type !== "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION";
     });
   }

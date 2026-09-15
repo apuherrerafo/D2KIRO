@@ -93,7 +93,10 @@ describe("cm-simulator -- S3.5 (controls both sides through the real kernel)", (
     const eligibility = fixtureEligibility(30);
 
     let manual = applyManualObservation(manualCreated.state, { type: "CM_FIRST_PICK_SIDE_OBSERVED", side: "dire" })!.state;
-    manual = applyManualObservation(manual, { type: "CM_ELIGIBILITY_OBSERVED", snapshot: eligibility })!.state;
+    // La elegibilidad NO es una observación: entra por el lado confiable (acá, directo al kernel,
+    // igual que haría ProtocolSessionStore.loadTrustedEligibility). Lo que esta prueba compara son
+    // las dos traducciones de ACCIONES, que es donde la paridad significa algo.
+    manual = applyProtocolCommand(manual, { type: "LOAD_CM_ELIGIBILITY", snapshot: eligibility }).state;
     let simulator = applyProtocolCommand(simulatorCreated.state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "dire" }).state;
     simulator = applyProtocolCommand(simulator, { type: "LOAD_CM_ELIGIBILITY", snapshot: eligibility }).state;
 

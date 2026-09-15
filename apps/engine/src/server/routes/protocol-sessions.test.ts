@@ -124,7 +124,13 @@ describe("createProtocolSessionRoutes -- S2 HTTP surface", () => {
 
   test("Captain's Mode completo atraviesa create/command/bot routes y el kernel decide los 24 pasos", async () => {
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([]) });
+    // La elegibilidad llega por el lado servidor (artefacto aprobado), nunca por el body del
+    // cliente -- ese es justamente el camino que esta ruta ya no acepta.
+    const routes = createProtocolSessionRoutes({
+      store,
+      computeSuggestions: async () => fakeSuggestions([]),
+      trustedEligibility: () => officialEligibility(),
+    });
     const createResponse = await routes.post(jsonRequest({
       rulesetId: "dota2/captains-mode",
       patch: "7.41e",
@@ -137,9 +143,9 @@ describe("createProtocolSessionRoutes -- S2 HTTP surface", () => {
       },
     }));
     expect(createResponse.status).toBe(201);
-    const { sessionId } = (await createResponse.json()) as { sessionId: string };
+    const { sessionId, eligibilityCertified } = (await createResponse.json()) as { sessionId: string; eligibilityCertified: boolean };
+    expect(eligibilityCertified).toBe(true);
     await routes.postCommand(jsonRequest({ command: { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" } }), sessionId);
-    await routes.postCommand(jsonRequest({ command: { type: "LOAD_CM_ELIGIBILITY", snapshot: officialEligibility() } }), sessionId);
 
     for (let guard = 0; guard < 30 && store.get(sessionId)!.status !== "COMPLETE"; guard += 1) {
       const action = legalActions(store.get(sessionId)!).find((candidate) => candidate.type === "CM_ACTION");
@@ -325,5 +331,163 @@ describe("createProtocolSessionRoutes -- S2 HTTP surface", () => {
     // Still in BAN_RESOLUTION -- no round, no open slots yet.
     const response = await routes.postBotSelection(jsonRequest({}), "no-slot");
     expect(response.status).toBe(409);
+  });
+});
+
+// R1 S3 (final trust-boundary repair) -- the client is not an authority on its own eligibility.
+// These lock the BOUNDARY, not the payload shape: a refusal must hold for snapshots that are
+// perfectly well-formed, because "well-formed" is something an attacker controls completely.
+describe("CM eligibility -- TRUSTED_SERVER_ONLY boundary", () => {
+  const CM_CREATE_BODY = {
+    rulesetId: "dota2/captains-mode",
+    patch: "7.41e",
+    localSide: "radiant",
+    adapterKind: "manual",
+    partyContext: {
+      partySize: 5,
+      side: "radiant",
+      controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
+    },
+  } as const;
+
+  /** A snapshot whose every field is invented but internally consistent -- exactly what a client can always produce. */
+  function forgedOfficial(heroIds: number[]): CmHeroEligibilitySnapshot {
+    const value: Omit<CmHeroEligibilitySnapshot, "contentHash"> = {
+      schema: "cm-hero-eligibility/v1",
+      appId: 570,
+      patch: "7.41e",
+      buildId: "TOTALMENTE-INVENTADO",
+      depotManifests: { "570": "MANIFIESTO-FALSO" },
+      sourceHashes: { npc_heroes: "HASH-FALSO" },
+      provenance: {
+        kind: "OFFICIAL_DEPOT",
+        appId: 570,
+        buildId: "TOTALMENTE-INVENTADO",
+        depotId: "DEPOT-FALSO",
+        manifestId: "MANIFIESTO-FALSO",
+        sourcePath: "scripts/npc/npc_heroes.txt",
+        sourceHash: "HASH-FALSO",
+      },
+      heroIds,
+    };
+    return { ...value, contentHash: computeEligibilityContentHash(value) };
+  }
+
+  function withProvenance(kind: "DEMO_FIXTURE" | "SYNTHETIC_TEST"): CmHeroEligibilitySnapshot {
+    const base = officialEligibility();
+    const value = { ...base, provenance: { kind, label: "fixture" } } as Omit<CmHeroEligibilitySnapshot, "contentHash">;
+    return { ...value, contentHash: computeEligibilityContentHash(value) };
+  }
+
+  async function createCmSession(routes: ReturnType<typeof createProtocolSessionRoutes>) {
+    const response = await routes.post(jsonRequest(CM_CREATE_BODY));
+    expect(response.status).toBe(201);
+    return (await response.json()) as { sessionId: string; eligibilityCertified: boolean };
+  }
+
+  function bareRoutes(store: ProtocolSessionStore) {
+    // Sin `trustedEligibility`: ninguna sesión arranca certificada, que es el default real.
+    return createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([]), trustedEligibility: () => null });
+  }
+
+  test("la ruta pública de comandos rechaza LOAD_CM_ELIGIBILITY aunque el snapshot sea impecable", async () => {
+    const store = new ProtocolSessionStore();
+    const routes = bareRoutes(store);
+    const { sessionId, eligibilityCertified } = await createCmSession(routes);
+    expect(eligibilityCertified).toBe(false);
+
+    const response = await routes.postCommand(
+      jsonRequest({ command: { type: "LOAD_CM_ELIGIBILITY", snapshot: officialEligibility() } }),
+      sessionId,
+    );
+
+    expect(response.status).toBe(403);
+    expect(((await response.json()) as { error: string }).error).toBe("admin_command_forbidden");
+    expect(store.get(sessionId)!.captainsMode!.eligibilitySnapshot).toBeNull();
+  });
+
+  test("un payload OFFICIAL_DEPOT fabricado con héroes inexistentes no entra por la ruta cliente", async () => {
+    const store = new ProtocolSessionStore();
+    const routes = bareRoutes(store);
+    const { sessionId } = await createCmSession(routes);
+
+    const response = await routes.postCommand(
+      jsonRequest({ command: { type: "LOAD_CM_ELIGIBILITY", snapshot: forgedOfficial([777, 888, 999]) } }),
+      sessionId,
+    );
+
+    expect(response.status).toBe(403);
+    expect(store.get(sessionId)!.captainsMode!.eligibilitySnapshot).toBeNull();
+  });
+
+  test.each(["DEMO_FIXTURE", "SYNTHETIC_TEST"] as const)(
+    "provenance %s tampoco se cuela por la ruta cliente",
+    async (kind) => {
+      const store = new ProtocolSessionStore();
+      const routes = bareRoutes(store);
+      const { sessionId } = await createCmSession(routes);
+
+      const response = await routes.postCommand(
+        jsonRequest({ command: { type: "LOAD_CM_ELIGIBILITY", snapshot: withProvenance(kind) } }),
+        sessionId,
+      );
+
+      expect(response.status).toBe(403);
+      expect(store.get(sessionId)!.captainsMode!.eligibilitySnapshot).toBeNull();
+    },
+  );
+
+  test("la superficie pública no ANUNCIA LOAD_CM_ELIGIBILITY como acción legal", async () => {
+    const store = new ProtocolSessionStore();
+    const routes = bareRoutes(store);
+    const { sessionId } = await createCmSession(routes);
+
+    const body = (await routes.get(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}`)).json()) as {
+      legalActions: { type: string }[];
+    };
+
+    expect(body.legalActions.some((action) => action.type === "LOAD_CM_ELIGIBILITY")).toBe(false);
+    // El kernel sí la considera disponible -- la diferencia es exactamente el filtro de frontera.
+    expect(legalActions(store.get(sessionId)!).some((action) => action.type === "LOAD_CM_ELIGIBILITY")).toBe(true);
+  });
+
+  test("sin artefacto confiable, el gameplay CM sigue fail-closed", async () => {
+    const store = new ProtocolSessionStore();
+    const routes = bareRoutes(store);
+    const { sessionId } = await createCmSession(routes);
+    await routes.postCommand(jsonRequest({ command: { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" } }), sessionId);
+
+    const response = await routes.postCommand(
+      jsonRequest({ command: { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: 1 } }),
+      sessionId,
+    );
+
+    // La ruta ni siquiera llega al kernel: sin snapshot no hay CM_ACTION legal, así que la
+    // autorización por lado/acción ya la rechaza.
+    expect(response.status).toBe(403);
+    // Y el kernel es fail-closed por su cuenta, no por gracia del guard de la ruta -- sin esta
+    // segunda aserción, quitar el snapshot del gate del kernel dejaría el test en verde.
+    expect(store.apply(sessionId, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: 1 })?.rejected)
+      .toBe("ELIGIBILITY_UNVERIFIED");
+    expect(store.get(sessionId)!.captainsMode!.picks.radiant).toHaveLength(0);
+    expect(store.get(sessionId)!.captainsMode!.bannedHeroes).toHaveLength(0);
+  });
+
+  test("el artefacto confiable del servidor SÍ certifica, y el mismo snapshot por ruta cliente no", async () => {
+    const trustedStore = new ProtocolSessionStore();
+    const trustedRoutes = createProtocolSessionRoutes({
+      store: trustedStore,
+      computeSuggestions: async () => fakeSuggestions([]),
+      trustedEligibility: () => officialEligibility(),
+    });
+    const trusted = await createCmSession(trustedRoutes);
+    expect(trusted.eligibilityCertified).toBe(true);
+    expect(trustedStore.get(trusted.sessionId)!.captainsMode!.eligibilitySnapshot!.heroIds).toHaveLength(30);
+
+    const clientStore = new ProtocolSessionStore();
+    const clientRoutes = bareRoutes(clientStore);
+    const client = await createCmSession(clientRoutes);
+    expect(client.eligibilityCertified).toBe(false);
+    expect(clientStore.get(client.sessionId)!.captainsMode!.eligibilitySnapshot).toBeNull();
   });
 });
