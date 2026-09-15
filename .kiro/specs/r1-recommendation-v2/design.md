@@ -181,3 +181,84 @@ resolution + `ImportMeta.dir`) -- NO REGRESSION, this slice never touches `apps/
 lint: 0 errors, 6 pre-existing warnings, unrelated to this slice. `scripts/verify-simplicity.sh`:
 PASS. `bun run scripts/eval/gate.ts --enforce` (Fase 9.1 gate): PASS, no regression (this slice
 never touches `apps/engine/src/signals/**` or any scoring weight).
+
+## Independent adversarial review repair (bounded follow-up, same branch)
+
+An independent architecture review of this slice found 8 real blockers before this reached a
+second, wider review. All 8 are closed on this same branch, still without touching S1-S4 semantics,
+`SCORING_WEIGHTS_V6`, or R0-protected files. Two waves:
+
+**Engine-side (6 blockers)** -- all in `recommendation/**` + one additive `signals/mix.ts` option:
+
+- **Hidden noninterference**: `postValidateAction`'s Ranked All Pick branch used to treat every
+  currently-sealed hero (both sides) as "taken", including the opponent's hidden-but-unrevealed
+  selection -- a real leak (two hidden twins could diverge in their full `RecommendationSetV2`
+  purely from which hero the opponent had sealed, before either was ever revealed) and wrong
+  against the kernel's own semantics (`rulesets/ranked-all-pick.ts`'s `heroAlreadyTaken` never
+  checks the opposing side -- a same-hero collision is legal, resolved at round close). Fixed by
+  reusing `isSealedSelectionLegal` verbatim instead of a second, divergent predicate. New test:
+  two sessions with the SAME sessionId, DIFFERENT hidden hero sealed by the opponent (X vs Y) ->
+  full `RecommendationSetV2` (not just `basedOn`) is byte-identical pre-reveal, diverges after.
+- **Legal-universe-first for Captain's Mode**: `shortlist.ts` intersected V6's already-`TOP_N`-
+  truncated global ranking against the certified eligible set -- a legal hero outside the global
+  top 6 could never surface even as the single best legal option (`V6 top-N global -> post-
+  filter`, exactly the anti-pattern the contract forbids). `mix.ts`'s `candidatePool` gains an
+  optional `candidateHeroIds` applied BEFORE ranking; absent, every legacy caller is byte-
+  identical (regression test asserts this).
+- **Compound joint-feasibility hard gate**: a pair whose `computeRoleImpact` rejected as
+  `ROLE_ASSIGNMENT_IMPOSSIBLE` was still constructed and returned, the impossibility surfaced only
+  as a soft degradation. Now a hard gate: `buildCompoundRecommendations` `continue`s past an
+  impossible pair instead of pushing it, so the next-best FEASIBLE pair (by the same canonical
+  summed score, already sorted by `shortlist.ts`) takes its place. Adversarial test: a 199-score
+  pair made impossible by a shared forced position never appears; the 197-score feasible pair
+  ranks first.
+- **Party controlled/external slots**: `decision.ts` treated every currently-open round slot on
+  the actor's side as one this session could act for, even when a `PartyContext` controls only
+  some of its own side's roster slots. Now caps `controlledSlots` to
+  `partyContext.controlledSlots.length` (ascending slotIndex, arbitrary-but-stable -- `OpenSlot`
+  has no real roster mapping to recover, only a count to respect); `partyContext === null` stays
+  unrestricted (byte-identical to before). Tests: a 1-controlled-slot party in a 2-open-slot round
+  gets `actionCount: 1`, never compound; a 2-controlled-slot party gets `actionCount: 2`.
+- **`basedOn` functional identity**: `patch` and `PartyContext`/control structure could change the
+  actual decision (which slots are ours, what V6 scores against) without moving any existing
+  `basedOn` field -- `PerspectiveDraftView` carries neither. Added `patch: string` (verbatim) and
+  `partyIdentity: string | null` (canonical hash of `partySize`/`side`/controlled-slot-indexes,
+  deliberately excluding the non-functional `controllerId`). `decision` itself is not separately
+  hashed: it is a pure function of state (`stateIdentity`) + party (`partyIdentity`) + actor
+  (`perspectiveIdentity`), so those three fields already determine it.
+- **Evidence identity**: `evidenceVersion` named only the scoring MECHANISM, never the concrete
+  meta/curated-data evidence V6 actually used. No existing content-hash/version primitive covers
+  `MetaSnapshot` or the curated JSON files (checked `signals/*.ts`, `db/*.ts`, `drafter/*.ts`,
+  `draft-paths/*.ts` -- none exists), and `recommendation/**` never receives the raw `MetaSnapshot`
+  anyway -- only the already-scored `SuggestionSet`. `evidence.ts`'s new `evidenceIdentityHash`
+  hashes exactly the functional evidence that reached this decision (`raw`/`normalized`/
+  `evidenceConfidence` per hero per signal, canonically sorted so `diversitySeed`-driven reordering
+  can't move it), deliberately excluding every derived field (`score`/`weighted`/`reason`/
+  `computedInMs`/...) -- those are redundant given the weights are frozen within one build, and
+  `computedInMs` is exactly the runtime-timing noise the contract says must never move identity.
+
+**Frontend (2 blockers)** -- the real `/simulator` product surface, never migrated by S5 itself:
+
+- **`/simulator`'s human Copilot now consumes `RecommendationSet/v2` natively**, never
+  `format=legacy` (which would silently drop every compound recommendation) and never
+  `/api/suggestions/preview` (retired from this simulator entirely, along with the client-side
+  hypothetical-`DraftState` machinery that fed it -- `buildPendingPickPreview`/
+  `bindPreviewSuggestions`/`rebasePreviewSuggestions`/`isPreviewReadyForRound`). One
+  `fetchRecommendations(sessionId)` call per round covers both of a round's simultaneous open
+  slots via the compound mechanism this slice already built.
+- **`ENABLE_PRO_DRAFTER` has no effect on `/simulator`'s Copilot at all** -- `CopilotPanel.tsx`'s
+  Pro-Drafter branch is gone (it was the only consumer of that component, so no other caller to
+  preserve it for); a static architecture-guard test asserts neither the panel nor the session
+  hook reference Pro-Drafter's recommendation symbols. Pro-Drafter's own route
+  (`/api/v1/draft/pro-recommendations`) and `use-copilot-pro-drafter.ts` are untouched --
+  legacy/experimental, not deleted, just no longer reachable from this simulator.
+
+Known, deliberate limitation flagged rather than silently decided: `DraftIntentSelector`/
+`archetypeIntent` stays interactive in `/simulator` but its effect does not yet reach V2 --
+`RecommendationSetV2` has no `archetypeIntent` input today, and wiring one through is an
+engine-contract extension outside this repair's 8-blocker scope.
+
+Re-verified after the repair: `bun run test` 1047 engine + 220 web + 398 scripts, 0 failures;
+`apps/engine tsc --noEmit` clean; `apps/web tsc --noEmit` same pre-existing Bun-types failures,
+no regression; `apps/web lint` 0 errors, same pre-existing warnings; `verify-simplicity.sh` PASS;
+`bun run scripts/eval/gate.ts --enforce` PASS, no regression.
