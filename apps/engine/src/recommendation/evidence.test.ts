@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { buildSuggestions } from "../signals/mix";
-import type { SuggestionSet } from "../signals/mix";
 import type { DraftState } from "../draft/reducer";
 import type { HeroCapabilities } from "../draft-paths/types";
 import type { MetaSnapshot, SignalContribution } from "../signals/types";
@@ -13,296 +14,124 @@ import {
   evidenceFromRuleset,
   evidenceFromSignals,
   evidenceIdentityHash,
+  type FunctionalRecommendationEvidence,
 } from "./evidence";
 
 function signal(overrides: Partial<SignalContribution> = {}): SignalContribution {
   return { signal: "counter", raw: 0.05, weighted: 2.5, explanation: "fixture explanation", sampleSize: 100, ...overrides };
 }
 
-describe("evidenceFromSignals -- cada item traza a un SignalContribution real", () => {
-  test("un item por señal, con el reason tomado verbatim de explanation (nunca inventado)", () => {
-    const items = evidenceFromSignals(1, [signal({ signal: "counter" }), signal({ signal: "patch_meta", raw: null })]);
-    expect(items).toHaveLength(2);
-    expect(items[0]!.subject).toBe(1);
-    expect(items[0]!.signal).toBe("counter");
+describe("structured evidence", () => {
+  test("traces each signal and preserves raw:null honestly", () => {
+    const items = evidenceFromSignals(1, [signal(), signal({ raw: null, normalized: 42 })]);
     expect(items[0]!.reason).toBe("fixture explanation");
-    expect(items[0]!.contribution).toBe(2.5);
+    expect(items[1]!.value).toBe(42);
   });
 
-  test("raw null cae a normalized si existe, nunca se inventa un 0/0.5", () => {
-    const items = evidenceFromSignals(1, [signal({ raw: null, normalized: 42 })]);
-    expect(items[0]!.value).toBe(42);
-  });
-
-  test("raw y normalized ambos null -> value null, nunca un número fabricado", () => {
-    const items = evidenceFromSignals(1, [signal({ raw: null, normalized: null })]);
-    expect(items[0]!.value).toBeNull();
+  test("keeps role, ruleset, and eligibility provenance", () => {
+    const role: RoleBeliefEvidence[] = [{ kind: "HERO_PATCH_DISTRIBUTION", detail: "historical distribution" }];
+    expect(evidenceFromRoleBelief(7, role)[0]!.source).toBe("role-belief");
+    const ruleset: RulesetIdentity = { id: "dota2/ranked-all-pick", version: "1.0.0", rulesHash: "hash-123", applicableFromPatch: "7.40", verifiedThroughPatch: "7.41e", sourceManifestHash: "manifest-hash" };
+    expect(evidenceFromRuleset(ruleset).value).toBe("hash-123");
+    expect(evidenceFromEligibility("content-hash", 120).value).toBe("content-hash");
   });
 });
 
-describe("evidenceFromRoleBelief", () => {
-  test("mapea cada RoleBeliefEvidence a un EvidenceItem con source role-belief", () => {
-    const entries: RoleBeliefEvidence[] = [{ kind: "HERO_PATCH_DISTRIBUTION", detail: "distribución histórica" }];
-    const items = evidenceFromRoleBelief(7, entries);
-    expect(items).toHaveLength(1);
-    expect(items[0]!.source).toBe("role-belief");
-    expect(items[0]!.subject).toBe(7);
-    expect(items[0]!.value).toBe("HERO_PATCH_DISTRIBUTION");
-    expect(items[0]!.contribution).toBeNull();
-  });
-});
-
-describe("evidenceFromRuleset / evidenceFromEligibility -- provenance, sin subject de héroe", () => {
-  test("evidenceFromRuleset expone rulesHash como value verificable", () => {
-    const ruleset: RulesetIdentity = {
-      id: "dota2/ranked-all-pick",
-      version: "1.0.0",
-      rulesHash: "hash-123",
-      applicableFromPatch: "7.40",
-      verifiedThroughPatch: "7.41e",
-      sourceManifestHash: "manifest-hash",
-    };
-    const item = evidenceFromRuleset(ruleset);
-    expect(item.subject).toBeNull();
-    expect(item.value).toBe("hash-123");
-  });
-
-  test("evidenceFromEligibility expone el contentHash certificado", () => {
-    const item = evidenceFromEligibility("content-hash-abc", 120);
-    expect(item.value).toBe("content-hash-abc");
-    expect(item.reason).toContain("120");
-  });
-});
-
-function fixtureSuggestionSet(overrides: Partial<SuggestionSet["suggestions"][number]["signals"][number]> = {}): SuggestionSet {
+function state(banned: number[] = []): DraftState {
   return {
-    schema: "suggestions/v1",
-    sessionId: "s",
-    basedOnSeq: 0,
-    decisionContext: "team_opening",
-    suggestions: [
-      {
-        hero: 1,
-        rank: 1,
-        score: 100,
-        signals: [{ signal: "counter", raw: 0.05, weighted: 3, explanation: "x", sampleSize: 50, normalized: 60, evidenceConfidence: 0.8, ...overrides }],
-        reason: "r",
-        confidence: "alta",
-        evidenceCoverage: 0.9,
-        guessingIndex: 0.1,
-      },
-    ],
-    comparison: null,
-    degraded: [],
-    computedInMs: 5,
+    sessionId: "s1", schema: "draft-state/v1", format: "all_pick", patch: "7.41e", localSide: "radiant", phase: "active",
+    banned, picks: { radiant: [], dire: [] }, lastSeq: 1, appliedEventIds: [], quality: { unconfirmed: [], captureStatus: "ok" },
+    updatedAt: "2026-09-15T00:00:00Z", firstPickSide: null, turnStartedAt: null, reserveRemainingMs: null,
   };
 }
 
-// Final evidence-identity repair -- fixtures with MULTIPLE suggestions, needed because the old
-// single-suggestion fixture above can't distinguish "per-signal grouping order" (still
-// hero-sorted, still irrelevant) from "overall suggestion sequence order" (now functional
-// evidence -- see evidence.ts's header doc on `sequence`).
-function multiSuggestionSet(scores: Record<number, number> = { 1: 100, 2: 90, 3: 80 }): SuggestionSet {
-  const heroes = Object.keys(scores).map(Number);
-  return {
-    schema: "suggestions/v1",
-    sessionId: "s",
-    basedOnSeq: 0,
-    decisionContext: "team_opening",
-    suggestions: heroes.map((hero) => ({
-      hero,
-      rank: (heroes.indexOf(hero) + 1) as 1 | 2 | 3,
-      score: scores[hero]!,
-      signals: [{ signal: "counter" as const, raw: 0.05, weighted: 3, explanation: "x", sampleSize: 50, normalized: 60, evidenceConfidence: 0.8 }],
-      reason: "r",
-      confidence: "alta" as const,
-      evidenceCoverage: 0.9,
-      guessingIndex: 0.1,
-    })),
-    comparison: null,
-    degraded: [],
-    computedInMs: 5,
-  };
+function snapshot(heroIds: number[], matchups: MetaSnapshot["matchups"] = {}): MetaSnapshot {
+  return { heroes: Object.fromEntries(heroIds.map((hero) => [hero, { id: hero, localizedName: `Hero ${hero}` }])), matchups };
 }
 
-describe("evidenceIdentityHash -- blocker 7: identidad funcional de la evidencia real de V6", () => {
-  test("mismos raw/normalized/evidenceConfidence -> mismo hash", () => {
-    expect(evidenceIdentityHash(fixtureSuggestionSet())).toBe(evidenceIdentityHash(fixtureSuggestionSet()));
+function functional(set: ReturnType<typeof buildSuggestions>): FunctionalRecommendationEvidence {
+  expect(set.functionalEvidence).toBeDefined();
+  return set.functionalEvidence!;
+}
+
+function opening(heroIds: number[], capabilities: HeroCapabilities[], options: Parameters<typeof buildSuggestions>[2] = {}, meta = snapshot(heroIds)) {
+  return buildSuggestions(state(), meta, { teamOpening: true, heroPositions: {}, heroCapabilities: capabilities, heroCounters: new Map(), ...options });
+}
+
+describe("evidenceIdentityHash -- complete functional inputs", () => {
+  test("same-score capability reason change changes identity without hashing the final reason", () => {
+    const absent = opening([1], []);
+    const push = opening([1], [{ hero: 1, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "high", teamfight: "low", scaling: "low" }]);
+    expect(absent.suggestions[0]!.score).toBe(push.suggestions[0]!.score);
+    expect(absent.suggestions[0]!.reason).not.toBe(push.suggestions[0]!.reason);
+    expect(evidenceIdentityHash(functional(absent))).not.toBe(evidenceIdentityHash(functional(push)));
   });
 
-  test("un raw distinto (la evidencia real cambió) -> hash distinto", () => {
-    expect(evidenceIdentityHash(fixtureSuggestionSet({ raw: 0.99 }))).not.toBe(evidenceIdentityHash(fixtureSuggestionSet()));
+  test("meta stale changes confidence/degradation/risk inputs and identity", () => {
+    const positionEvidence = { heroPositions: { 1: [{ position: 1 as const, matches: 1000 }] } };
+    const fresh = opening([1], [], positionEvidence);
+    const stale = opening([1], [], { ...positionEvidence, metaIsStale: true });
+    expect(fresh.suggestions[0]!.confidence).toBe("alta");
+    expect(stale.suggestions[0]!.confidence).toBe("media");
+    expect(stale.degraded).toContain("stale_meta");
+    expect(evidenceIdentityHash(functional(fresh))).not.toBe(evidenceIdentityHash(functional(stale)));
   });
 
-  test("computedInMs (metadata de runtime) nunca se lee -- dos SuggestionSet con distinto computedInMs pero misma evidencia -> mismo hash", () => {
-    const a = fixtureSuggestionSet();
-    const b = { ...fixtureSuggestionSet(), computedInMs: 999 };
-    expect(evidenceIdentityHash(a)).toBe(evidenceIdentityHash(b));
+  test("same numeric ban relief with a different counter source changes identity", () => {
+    const matchupsA = { 1: [{ vsHero: 2, games: 200, wins: 76 }] }; // relief 0.12
+    const matchupsB = { 1: [{ vsHero: 3, games: 200, wins: 76 }] }; // same relief, distinct cause
+    const a = buildSuggestions(state([2, 3]), snapshot([1, 2, 3], matchupsA), { teamOpening: true, heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
+    const b = buildSuggestions(state([2, 3]), snapshot([1, 2, 3], matchupsB), { teamOpening: true, heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
+    expect(a.suggestions[0]!.score).toBe(b.suggestions[0]!.score);
+    expect(a.suggestions[0]!.reason).not.toBe(b.suggestions[0]!.reason);
+    expect(evidenceIdentityHash(functional(a))).not.toBe(evidenceIdentityHash(functional(b)));
   });
 
-  test("sessionId/basedOnSeq (metadata de transporte, no evidencia) nunca se leen -- mismo hash", () => {
-    const a = fixtureSuggestionSet();
-    const b = { ...fixtureSuggestionSet(), sessionId: "otra-sesion", basedOnSeq: 42 };
-    expect(evidenceIdentityHash(a)).toBe(evidenceIdentityHash(b));
+  test("the original ranking attack changes identity through capabilities, not final order", () => {
+    const a = opening([1, 2, 3, 4, 5, 6], []);
+    const b = opening([1, 2, 3, 4, 5, 6], [{ hero: 3, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "high", teamfight: "low", scaling: "low" }]);
+    expect(a.suggestions.map((s) => s.hero)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(b.suggestions.map((s) => s.hero)).toEqual([1, 3, 2, 4, 5, 6]);
+    expect(evidenceIdentityHash(functional(a))).not.toBe(evidenceIdentityHash(functional(b)));
   });
 
-  test("reordenar signals[] DENTRO de una misma suggestion no mueve el hash -- se ordena canónicamente por señal", () => {
-    const a = fixtureSuggestionSet();
-    const withExtraSignal: SuggestionSet = {
-      ...a,
-      suggestions: [{ ...a.suggestions[0]!, signals: [...a.suggestions[0]!.signals, { signal: "patch_meta", raw: null, weighted: 0, explanation: "y", sampleSize: 0, normalized: null, evidenceConfidence: 0 }] }],
+  test("canonicalizes non-semantic capability, signal, and matchup insertion order", () => {
+    const base = functional(opening([1, 2], [
+      { hero: 1, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "high", teamfight: "low", scaling: "low" },
+      { hero: 2, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: true, structuralDamage: "low", teamfight: "high", scaling: "low" },
+    ]));
+    const reordered: FunctionalRecommendationEvidence = {
+      ...base,
+      signalEvidence: base.signalEvidence.map((candidate) => ({ ...candidate, signals: [...candidate.signals].reverse() })).reverse(),
+      heroPositions: [...base.heroPositions].reverse(),
+      teamOpening: base.teamOpening && { ...base.teamOpening, heroCapabilities: [...base.teamOpening.heroCapabilities].reverse(), matchups: [...base.teamOpening.matchups].reverse(), curatedCounters: [...base.teamOpening.curatedCounters].reverse() },
     };
-    const reversedSignals: SuggestionSet = {
-      ...withExtraSignal,
-      suggestions: [{ ...withExtraSignal.suggestions[0]!, signals: [...withExtraSignal.suggestions[0]!.signals].reverse() }],
-    };
-    expect(evidenceIdentityHash(withExtraSignal)).toBe(evidenceIdentityHash(reversedSignals));
+    expect(evidenceIdentityHash(base)).toBe(evidenceIdentityHash(reordered));
   });
 
-  // Final evidence-identity repair -- the ORIGINAL single-suggestion fixture made "orden de
-  // suggestions no mueve el hash" trivially true (reversing one element changes nothing), which
-  // hid the real bug: `evidenceIdentityHash` sorted by hero and dropped which SEQUENCE V6 actually
-  // returned. With genuinely different per-hero scores, order IS functional evidence now (team-
-  // opening's ban-relief + strategy-diversity pass changes rank/score without touching any
-  // `SignalContribution`) -- reversing a real ranking must change the hash, not survive it.
-  test("reordenar el arreglo de suggestions con scores distintos SÍ mueve el hash -- ya no es ruido de diversitySeed, es orden real de V6", () => {
-    const a = multiSuggestionSet({ 1: 100, 2: 90, 3: 80 });
-    const reordered: SuggestionSet = { ...a, suggestions: [...a.suggestions].reverse() };
-    expect(evidenceIdentityHash(a)).not.toBe(evidenceIdentityHash(reordered));
+  test("runtime and transport noise never move identity", () => {
+    const evidence = functional(opening([1], []));
+    const noisy = {
+      ...JSON.parse(JSON.stringify(evidence)),
+      computedInMs: 12345,
+      timestamp: "2099-01-01T00:00:00.000Z",
+      sessionId: "other-session",
+      requestId: "other-request",
+      transport: { traceId: "other-trace" },
+    } as FunctionalRecommendationEvidence;
+    expect(evidenceIdentityHash(evidence)).toBe(evidenceIdentityHash(noisy));
+  });
+
+  test("API-level guard: evidenceIdentityHash accepts only FunctionalRecommendationEvidence", () => {
+    const source = readFileSync(join(__dirname, "evidence.ts"), "utf8");
+    expect(source).not.toMatch(/evidenceIdentityHash\(suggestionSet/i);
+    expect(source).not.toMatch(/import type \{ SuggestionSet \}/);
   });
 });
 
-// R1 S5 final evidence-identity repair -- adversarial reproduction of the exact blocker the
-// second independent review reported: same state/patch/party/seed/signal evidence, but changing
-// `HeroCapabilities` (consumed only by team-opening's `openingStrategy` -> `recommendTeamOpeners`,
-// never by a `SignalContribution`) reordered the final ranking while `basedOn`'s evidence identity
-// stayed byte-identical. `build.ts` is `evidenceIdentityHash`'s only caller and always requests
-// `computeSuggestions(..., { teamOpening: true })`, so this drives the REAL `buildSuggestions`
-// team-opening path -- not a hand-built `SuggestionSet` fixture -- to prove the fix closes the gap
-// at the actual mechanism, not just at the hash function in isolation.
-describe("evidenceIdentityHash -- team-opening (HeroCapabilities-driven) functional inputs", () => {
-  // 6 candidates, no bans/picks/patch data/personal pool/archetype intent -> every SignalScorer
-  // (counter/team_synergy/archetype_fit/hero_pool_fit short-circuit on "no data yet"; position_fit
-  // has no entry for any of the 6 heroes) returns the SAME raw/normalized/evidenceConfidence for
-  // every hero regardless of HeroCapabilities -- isolating strategy/repeat-penalty as the ONLY
-  // possible source of any difference between the two runs below.
-  function state(): DraftState {
-    return {
-      sessionId: "s1",
-      schema: "draft-state/v1",
-      format: "all_pick",
-      patch: "7.41e",
-      localSide: "radiant",
-      phase: "active",
-      banned: [],
-      picks: { radiant: [], dire: [] },
-      lastSeq: 1,
-      appliedEventIds: [],
-      quality: { unconfirmed: [], captureStatus: "ok" },
-      updatedAt: "2026-09-15T00:00:00Z",
-      firstPickSide: null,
-      turnStartedAt: null,
-      reserveRemainingMs: null,
-    };
-  }
-
-  function snapshot(): MetaSnapshot {
-    return {
-      heroes: Object.fromEntries([1, 2, 3, 4, 5, 6].map((hero) => [hero, { id: hero, localizedName: `Hero ${hero}` }])),
-      matchups: {},
-    };
-  }
-
-  function teamOpeningSet(capabilities: HeroCapabilities[]): SuggestionSet {
-    return buildSuggestions(state(), snapshot(), { teamOpening: true, heroPositions: {}, heroCapabilities: capabilities, heroCounters: new Map() });
-  }
-
-  const CAPABILITIES_A: HeroCapabilities[] = [];
-  // Only hero 3 gets a real capabilities entry, with structuralDamage "high" -> openingStrategy
-  // labels it "push", the ONE bucket distinct from every other hero's null-derived "scaling"
-  // default (team-opener.ts's own `strategy ?? "scaling"` bucketing). Every other functional input
-  // (state/patch/party/seed/signals) is identical to CAPABILITIES_A.
-  const CAPABILITIES_B: HeroCapabilities[] = [
-    { hero: 3, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "high", teamfight: "low", scaling: "low" },
-  ];
-
-  test("blocker reproduction -- misma evidencia por señal, HeroCapabilities distinta -> V6 reordena, evidenceIdentityHash debe distinguirlo", () => {
-    const setA = teamOpeningSet(CAPABILITIES_A);
-    const setB = teamOpeningSet(CAPABILITIES_B);
-
-    // Root-cause check: per-hero raw/normalized/evidenceConfidence are IDENTICAL between A and B
-    // for every one of the 6 heroes -- HeroCapabilities never reaches any SignalScorer here.
-    const bySignalA = new Map(setA.suggestions.map((s) => [s.hero, s.signals.map((c) => ({ signal: c.signal, raw: c.raw, normalized: c.normalized ?? null, evidenceConfidence: c.evidenceConfidence ?? null }))]));
-    const bySignalB = new Map(setB.suggestions.map((s) => [s.hero, s.signals.map((c) => ({ signal: c.signal, raw: c.raw, normalized: c.normalized ?? null, evidenceConfidence: c.evidenceConfidence ?? null }))]));
-    for (const hero of [1, 2, 3, 4, 5, 6]) expect(bySignalA.get(hero)).toEqual(bySignalB.get(hero));
-
-    // The actual bug: V6's ranking genuinely differs (hero 2 and hero 3 swap rank).
-    expect(setA.suggestions.map((s) => s.hero)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(setB.suggestions.map((s) => s.hero)).toEqual([1, 3, 2, 4, 5, 6]);
-    expect(setA.suggestions.map((s) => s.hero)).not.toEqual(setB.suggestions.map((s) => s.hero));
-
-    // The fix: evidence identity must diverge along with the ranking.
-    expect(evidenceIdentityHash(setA)).not.toBe(evidenceIdentityHash(setB));
-  });
-
-  test("no over-hash -- HeroCapabilities para un héroe NO presente en el pick actual y sin efecto en el orden no mueve el hash", () => {
-    // A third capabilities set, semantically inert here: hero 99 doesn't exist in this snapshot's
-    // candidate pool at all, so it can never reach `recommendTeamOpeners`'s candidate list.
-    const inertAddition: HeroCapabilities[] = [
-      ...CAPABILITIES_A,
-      { hero: 99, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: true, structuralDamage: "high", teamfight: "high", scaling: "high" },
-    ];
-    expect(evidenceIdentityHash(teamOpeningSet(CAPABILITIES_A))).toBe(evidenceIdentityHash(teamOpeningSet(inertAddition)));
-  });
-
-  test("semantic order independence -- mismas HeroCapabilities semánticas en distinto orden de construcción -> mismo hash", () => {
-    const capsX: HeroCapabilities[] = [
-      { hero: 3, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "high", teamfight: "low", scaling: "low" },
-      { hero: 5, damageType: "magical", hasInitiation: true, hasCatch: true, hasWaveclear: false, structuralDamage: "low", teamfight: "high", scaling: "low" },
-    ];
-    // Same two entries, reversed insertion order -- `openingStrategy`/`capabilitiesByHero` look up
-    // by hero id (a Map/`.find`), so construction order is never semantic.
-    const capsY: HeroCapabilities[] = [...capsX].reverse();
-
-    const setX = teamOpeningSet(capsX);
-    const setY = teamOpeningSet(capsY);
-    expect(setX.suggestions.map((s) => s.hero)).toEqual(setY.suggestions.map((s) => s.hero));
-    expect(evidenceIdentityHash(setX)).toBe(evidenceIdentityHash(setY));
-  });
-
-  test("runtime noise independence -- mismos inputs funcionales, distinto computedInMs/sessionId -> mismo hash", () => {
-    const setB = teamOpeningSet(CAPABILITIES_B);
-    const noisy: SuggestionSet = { ...setB, computedInMs: 12345, sessionId: "otra-sesion-cualquiera", basedOnSeq: 999 };
-    expect(evidenceIdentityHash(setB)).toBe(evidenceIdentityHash(noisy));
-  });
-
-  // Opening-input-change (task's TEST 4): `openingStrategy`/`recommendTeamOpeners` have no runtime
-  // "config" input independent of HeroCapabilities in this codebase -- MAX_COUNTER_RELIEF,
-  // CURATED_RELIEF and REPEAT_STRATEGY_PENALTY (drafter/team-opener.ts) are frozen module
-  // constants, not caller-supplied options, and BuildSuggestionsOptions carries no team-opening
-  // config field besides `teamOpening: boolean` itself (already covered: build.ts always passes
-  // `true`) and `heroCapabilities` (covered by the blocker-reproduction test above). NOT_APPLICABLE:
-  // there is no separate functional input left to test independently of HeroCapabilities.
-});
-
-describe("deriveRisks -- reutiliza los umbrales YA congelados de V6, no inventa uno nuevo", () => {
-  test("confianza baja (umbral existente de evidenceCoverage en mix.ts) produce low_evidence", () => {
-    const risks = deriveRisks("baja", [], false);
-    expect(risks.some((r) => r.kind === "low_evidence")).toBe(true);
-  });
-
-  test("confianza alta sin roles UNRESOLVED y meta fresca -> sin riesgos", () => {
-    const risks = deriveRisks("alta", [{ status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 }], false);
-    expect(risks).toHaveLength(0);
-  });
-
-  test("rol UNRESOLVED produce unresolved_role", () => {
-    const risks = deriveRisks("alta", [{ status: "UNRESOLVED", position: null, marginals: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 }, entropy: 2.32 }], false);
-    expect(risks.some((r) => r.kind === "unresolved_role")).toBe(true);
-  });
-
-  test("meta stale produce degraded_meta", () => {
-    const risks = deriveRisks("alta", [], true);
-    expect(risks.some((r) => r.kind === "degraded_meta")).toBe(true);
+describe("deriveRisks", () => {
+  test("names existing low-evidence, unresolved-role, and stale-meta conditions", () => {
+    const risks = deriveRisks("baja", [{ status: "UNRESOLVED", position: null, marginals: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 }, entropy: 2.32 }], true);
+    expect(risks.map((risk) => risk.kind)).toEqual(["low_evidence", "unresolved_role", "degraded_meta"]);
   });
 });

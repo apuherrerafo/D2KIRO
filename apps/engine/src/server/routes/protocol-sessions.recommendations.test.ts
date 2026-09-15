@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { RecommendationSetV2 } from "../../recommendation";
 import type { SuggestionSet } from "../../signals/mix";
+import type { FunctionalRecommendationEvidence } from "../../recommendation/evidence";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
 
@@ -24,6 +25,13 @@ const CREATE_BODY = {
 } as const;
 
 function fakeSuggestions(heroIds: number[]): SuggestionSet {
+  const functionalEvidence: FunctionalRecommendationEvidence = {
+    metaIsStale: false,
+    signalEvidence: heroIds.map((hero) => ({ hero, signals: [] })),
+    heroPositions: [],
+    teamOpening: null,
+    partyPreferredPositions: [],
+  };
   return {
     schema: "suggestions/v1",
     sessionId: "preview",
@@ -42,6 +50,7 @@ function fakeSuggestions(heroIds: number[]): SuggestionSet {
     comparison: null,
     degraded: [],
     computedInMs: 0,
+    functionalEvidence,
   };
 }
 

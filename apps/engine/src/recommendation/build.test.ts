@@ -10,6 +10,7 @@ import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
 import { buildRecommendationSetV2, type ComputeSuggestionsForRecommendation } from "./build";
+import type { FunctionalRecommendationEvidence } from "./evidence";
 
 const HERO_POSITIONS: HeroPositions = {
   1: [{ position: 1, matches: 1000 }],
@@ -56,6 +57,16 @@ function fakeComputeSuggestions(heroPool: readonly number[]): ComputeSuggestions
         evidenceCoverage: 0.9,
         guessingIndex: 0.1,
       }));
+    const functionalEvidence: FunctionalRecommendationEvidence = {
+      metaIsStale: false,
+      signalEvidence: suggestions.map((suggestion) => ({
+        hero: suggestion.hero,
+        signals: suggestion.signals.map((entry) => ({ signal: entry.signal, raw: entry.raw, normalized: entry.normalized ?? null, evidenceConfidence: entry.evidenceConfidence ?? null, explanation: entry.explanation, sampleSize: entry.sampleSize, applicable: entry.applicable ?? null })),
+      })),
+      heroPositions: [],
+      teamOpening: null,
+      partyPreferredPositions: [],
+    };
     return {
       schema: "suggestions/v1",
       sessionId: state.sessionId,
@@ -65,6 +76,7 @@ function fakeComputeSuggestions(heroPool: readonly number[]): ComputeSuggestions
       comparison: null,
       degraded: [],
       computedInMs: 7,
+      functionalEvidence,
     };
   };
 }
@@ -100,6 +112,28 @@ async function buildFor(
 }
 
 describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
+  test("functional evidence identity propagates to RecommendationSet without changing V6 output", async () => {
+    const state = apRound1State("ap-functional-evidence");
+    const withCapabilities = (structuralDamage: "high" | "low"): ComputeSuggestionsForRecommendation => async (draftState) => {
+      const result = await fakeComputeSuggestions([1, 2, 3])(draftState, null);
+      return {
+        ...result,
+        functionalEvidence: {
+          ...result.functionalEvidence!,
+          teamOpening: {
+            heroCapabilities: [{ hero: 1, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage, teamfight: "low", scaling: "low" }],
+            matchups: [], curatedCounters: [], heroNames: [{ hero: 1, name: "Hero 1" }],
+          },
+        },
+      };
+    };
+    const input = { state, view: project(state, "radiant"), actor: "radiant" as const, patch: "7.41e", heroPositions: HERO_POSITIONS };
+    const low = await buildRecommendationSetV2({ ...input, computeSuggestions: withCapabilities("low") });
+    const high = await buildRecommendationSetV2({ ...input, computeSuggestions: withCapabilities("high") });
+    expect(low.recommendations).toEqual(high.recommendations);
+    expect(low.basedOn.evidenceVersion).not.toBe(high.basedOn.evidenceVersion);
+  });
+
   test("un solo slot abierto (ronda 3 o tras sellar uno) -> recomendaciones single-action, legacy poblado", async () => {
     let state = apRound1State("ap-1");
     state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 1 }).state;
@@ -286,7 +320,7 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     const slowCompute: ComputeSuggestionsForRecommendation = async (draftState) => {
       const inner = fakeComputeSuggestions([1, 2])(draftState, null);
       const result = await inner;
-      return { ...result, computedInMs: 999 };
+      return { ...result, computedInMs: 999, functionalEvidence: result.functionalEvidence };
     };
     const fast = await buildRecommendationSetV2({ state, view: project(state, "radiant"), actor: "radiant", patch: "7.41e", computeSuggestions: fakeComputeSuggestions([1, 2]), heroPositions: HERO_POSITIONS });
     const slow = await buildRecommendationSetV2({ state, view: project(state, "radiant"), actor: "radiant", patch: "7.41e", computeSuggestions: slowCompute, heroPositions: HERO_POSITIONS });

@@ -16,6 +16,7 @@ import {
   evidenceFromRuleset,
   evidenceFromSignals,
   evidenceIdentityHash,
+  type FunctionalRecommendationEvidence,
 } from "./evidence";
 import { deferredFieldsNotComputed } from "./types";
 import type {
@@ -207,8 +208,17 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   }
   for (const flag of suggestionSet.degraded) pushUniqueDegradation(degradations, { reason: flag, detail: `V6 degraded flag: ${flag}` });
 
-  // Blocker 7: evidence was actually computed now -- every return from here on reflects it.
-  const basedOn = buildBasedOn({ ...identityInputs, evidenceHash: evidenceIdentityHash(suggestionSet) });
+  // Evidence identity accepts only an input descriptor produced before V6 ranks/selects anything.
+  // A scorer implementation that omits it cannot silently reintroduce output hashing.
+  if (!suggestionSet.functionalEvidence) {
+    pushUniqueDegradation(degradations, { reason: "SNAPSHOT_UNAVAILABLE", detail: "computeSuggestions no entregó evidencia funcional" });
+    return emptyWithoutEvidence("no_action");
+  }
+  const functionalEvidence: FunctionalRecommendationEvidence = {
+    ...suggestionSet.functionalEvidence,
+    partyPreferredPositions: [...(partyPreferredPositions ?? [])],
+  };
+  const basedOn = buildBasedOn({ ...identityInputs, evidenceHash: evidenceIdentityHash(functionalEvidence) });
   const empty = (decisionContext: RecommendationSetV2["decisionContext"]): RecommendationSetV2 => ({
     schema: "recommendation-set/v2",
     sessionId: view.sessionId,

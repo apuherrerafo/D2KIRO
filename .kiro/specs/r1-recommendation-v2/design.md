@@ -261,6 +261,34 @@ provides, unsorted -- alongside the existing hero-sorted `candidates` block, wit
 header doc for the full reasoning, including why `weighted`/`rank`/`confidence`/`reason` are
 still deliberately excluded (they remain genuine derivations even under `teamOpening: true`).
 
+### Functional evidence identity completion (final repair)
+
+The v2 `sequence` workaround above is superseded. Hashing a final `{hero, score}` sequence made
+the identity circular: those are V6 outputs, not inputs. `evidenceIdentityHash` now accepts only
+`FunctionalRecommendationEvidence`, assembled by `mix.ts` before ranking/selection and attached
+non-enumerably to its internal `SuggestionSet`; the legacy `suggestions/v1` wire body is unchanged.
+
+Input inventory and coverage:
+
+- Protocol state, perspective, patch, CM eligibility, party control, and seed remain covered by
+  `basedOn` identity fields. `partyPreferredPositions`, consumed by `role-impact.ts`, is included
+  in the functional descriptor.
+- Every pre-ranking candidate carries canonical signal identity, `raw`, `normalized`,
+  `evidenceConfidence`, applicability, sample size, and source explanation. This covers V6 score,
+  signal evidence, confidence, and signal-derived legacy text without hashing the final reason.
+- Candidate-scoped `HeroPositions` covers position scoring, flex text, and role impact.
+- Empty-board opening adds all consumed `HeroCapabilities` fields, per-candidate statistical
+  matchups (`heroId/counterHeroId/games/wins`), curated counter provenance (`vs/level/why`), and
+  only hero names actually rendered by the opening explanation. This covers strategy diversity,
+  ban relief, and matchup/counter text while excluding unrelated catalog rows.
+- `metaIsStale` is explicit, so confidence, `stale_meta`, and `degraded_meta` remain stale-safe
+  even when raw signals and scores do not move.
+
+All unordered collections are sorted by stable semantic keys before hashing. Runtime/transport
+metadata (`computedInMs`, timestamps, session/request/transport identifiers) is absent. The hash
+does not accept or read final rank, score/order, selected hero, compound winner, confidence,
+degradation list, or final reason; its type-level API prevents the prior `SuggestionSet` shortcut.
+
 **Frontend (2 blockers)** -- the real `/simulator` product surface, never migrated by S5 itself:
 
 - **`/simulator`'s human Copilot now consumes `RecommendationSet/v2` natively**, never
