@@ -134,14 +134,72 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     expect(set.recommendations.every((r) => r.actions.length === 2)).toBe(true);
   });
 
-  test("ningún héroe baneado o ya pickeado aparece jamás en una recomendación", async () => {
-    let state = apRound1State("ap-legal");
-    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 2 }).state;
-    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 3 }).state;
-    const set = await buildFor(state, "radiant", [1, 2, 3, 4, 5]);
+  test("blocker 4 -- un par IMPOSSIBLE nunca es recomendable aunque tenga el score más alto; el par factible con menor score sobrevive y rankea primero", async () => {
+    // Hero 50 (own pick, round 1) and hero 1 (candidate) both concentrate their ENTIRE
+    // hero/patch belief on position 1 -- no injective assignment can place both there, so every
+    // compound pair containing hero 1 is IMPOSSIBLE_ASSIGNMENT, regardless of its partner. Heroes
+    // 2/3/4 each concentrate on a distinct, non-conflicting position.
+    const HARD_GATE_POSITIONS: HeroPositions = {
+      50: [{ position: 1, matches: 1000 }],
+      1: [{ position: 1, matches: 1000 }],
+      2: [{ position: 2, matches: 1000 }],
+      3: [{ position: 3, matches: 1000 }],
+      4: [{ position: 4, matches: 1000 }],
+    };
+    const created = createProtocolState("ap-joint-gate", "dota2/ranked-all-pick");
+    if (!created.ok) throw new Error("fixture setup failed");
+    let state = applyProtocolCommand(created.state, { type: "BAN_RESOLUTION_COMPLETE" }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 50 }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 60 }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 70 }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 71 }).state;
+    expect(state.rankedAp!.phase).toBe("PICK_ROUND_2"); // radiant now owns hero 50 (forced pos 1) as an own pick
+
+    // heroPool order [1,2,3,4] -> V6 fixture scores 100/99/98/97: the pairs containing hero 1
+    // ((1,2)=199, (1,3)=198, (1,4)=197) would rank ABOVE every feasible pair if score were the
+    // only criterion -- (2,3)=197 is the best pair that is actually jointly feasible.
+    const set = await buildFor(state, "radiant", [1, 2, 3, 4], { heroPositions: HARD_GATE_POSITIONS });
     const namedHeroes = set.recommendations.flatMap((r) => r.actions.map((a) => a.hero));
-    expect(namedHeroes).not.toContain(2);
-    expect(namedHeroes).not.toContain(3);
+    expect(namedHeroes).not.toContain(1); // every pair scoring 199/198/197 that contains hero 1 was eliminated
+    expect(set.degradations.some((d) => d.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE")).toBe(true);
+    const top = set.recommendations[0]!;
+    expect(top.actions.map((a) => a.hero).sort((a, b) => a - b)).toEqual([2, 3]);
+    expect(top.score).toBe(197); // the best FEASIBLE pair, not the best-scoring pair overall
+  });
+
+  test("ningún héroe baneado o ya pickeado (CONFIRMADO) aparece jamás en una recomendación", async () => {
+    // Real bans (RECORD_RESOLVED_BANS) + a fully-closed round 1 (both sides' picks genuinely
+    // CONFIRMED, not merely sealed-and-still-hidden) -- see the "hidden twin" test below for the
+    // sealed-but-unrevealed case, which is legal to collide with, not "already taken".
+    const created = createProtocolState("ap-legal", "dota2/ranked-all-pick");
+    if (!created.ok) throw new Error("fixture setup failed");
+    let state = applyProtocolCommand(created.state, { type: "RECORD_RESOLVED_BANS", heroes: [2] }).state;
+    state = applyProtocolCommand(state, { type: "BAN_RESOLUTION_COMPLETE" }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 3 }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 4 }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 6 }).state;
+    state = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 7 }).state;
+    expect(state.rankedAp!.phase).toBe("PICK_ROUND_2"); // round 1 closed -> everything above is CONFIRMED
+    const set = await buildFor(state, "radiant", [1, 2, 3, 4, 5, 6, 7]);
+    const namedHeroes = set.recommendations.flatMap((r) => r.actions.map((a) => a.hero));
+    expect(namedHeroes).not.toContain(2); // banned
+    expect(namedHeroes).not.toContain(3); // radiant's own confirmed pick
+    expect(namedHeroes).not.toContain(4); // radiant's own confirmed pick
+    expect(namedHeroes).not.toContain(6); // dire's now-revealed confirmed pick
+    expect(namedHeroes).not.toContain(7); // dire's now-revealed confirmed pick
+  });
+
+  test("blocker 2 -- un héroe sellado-pero-oculto por el rival NO es 'ya tomado': colisionar con él es legal", async () => {
+    // The exact bug the independent review found: postValidateAction used to treat every
+    // currently-sealed hero (either side) as taken, including the opponent's hidden-but-
+    // unrevealed selection -- but rulesets/ranked-all-pick.ts's own heroAlreadyTaken never checks
+    // the opposing side's sealed entries (a same-hero collision is legal, resolved at round close).
+    // Hero 9 must therefore still be nameable for radiant even though dire has it sealed.
+    const state = apRound1State("ap-legal-collision");
+    const sealed = applyProtocolCommand(state, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 9 }).state;
+    const set = await buildFor(sealed, "radiant", [9, 1]);
+    const namedHeroes = set.recommendations.flatMap((r) => r.actions.map((a) => a.hero));
+    expect(namedHeroes).toContain(9);
   });
 
   test("preferencia de posición del solicitante influye el roleImpact sin forzarlo", async () => {
@@ -153,6 +211,37 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     const after = withPref.recommendations[0]!.roleImpact[5]!.marginals[1];
     expect(after).toBeGreaterThan(before);
     expect(after).toBeLessThan(1);
+  });
+
+  test("hidden twin test: rival sellado-oculto X vs Y (X != Y) -> RecommendationSetV2 COMPLETO byte-idéntico antes del reveal, y diverge después", async () => {
+    // Same sessionId on purpose (two hypothetical worlds that never coexist) so a full-body
+    // JSON.stringify comparison is meaningful -- sessionId itself would otherwise differ for any
+    // two real sessions, for reasons that have nothing to do with the hidden-information bug this
+    // test targets. X (9) and Y (10) are DIFFERENT hidden heroes -- the earlier basedOn-only test
+    // used the SAME hidden hero for both twins, which could never have caught this: identity could
+    // coincidentally match while `recommendations`/`degradations`/anything else still leaked.
+    const stateX = apRound1State("hidden-twin");
+    const stateY = apRound1State("hidden-twin");
+    const sealedX = applyProtocolCommand(stateX, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 9 }).state;
+    const sealedY = applyProtocolCommand(stateY, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 10 }).state;
+    const setX = await buildFor(sealedX, "radiant", [1, 2, 3], { seed: "fixed-twin-seed" });
+    const setY = await buildFor(sealedY, "radiant", [1, 2, 3], { seed: "fixed-twin-seed" });
+    expect(JSON.stringify(setX)).toBe(JSON.stringify(setY));
+
+    // Reveal: fill ALL FOUR round-1 slots (both radiant slots too -- the round only closes once
+    // every slot is filled) so dire's pick genuinely reveals. X's hidden hero (9) is now CONFIRMED
+    // taken and excludes it from radiant's own candidates; Y's (10) does not (and vice-versa) --
+    // only now are the two worlds legitimately allowed to diverge.
+    const step1X = applyProtocolCommand(sealedX, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 4 }).state;
+    const step2X = applyProtocolCommand(step1X, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 5 }).state;
+    const finalX = applyProtocolCommand(step2X, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 11 }).state;
+    const step1Y = applyProtocolCommand(sealedY, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 4 }).state;
+    const step2Y = applyProtocolCommand(step1Y, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 5 }).state;
+    const finalY = applyProtocolCommand(step2Y, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 12 }).state;
+    expect(finalX.rankedAp!.phase).toBe("PICK_ROUND_2"); // round closed -> dire's pick is CONFIRMED now
+    const revealedSetX = await buildFor(finalX, "radiant", [9, 10, 1], { seed: "fixed-twin-seed" });
+    const revealedSetY = await buildFor(finalY, "radiant", [9, 10, 1], { seed: "fixed-twin-seed" });
+    expect(JSON.stringify(revealedSetX)).not.toBe(JSON.stringify(revealedSetY));
   });
 
   test("hidden twins: dos sesiones con el mismo pick propio y el mismo rival sellado-pero-oculto son idénticas en basedOn -- y divergen tras el reveal", async () => {
@@ -204,6 +293,37 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     expect(fast.basedOn).toEqual(slow.basedOn);
   });
 
+  test("WAITING_FOR_COLLISION_AUTHORITY -> sin recomendación de pick, degradación explícita, nunca una excepción", async () => {
+    // Same 3rd-collision setup as kernel.test.ts's own "resolución autoritativa" scenario: once a
+    // hero collides a 3rd time in the same round, the kernel closes both contending slots and
+    // waits for an external authoritative resolution -- no gameplay pick is legal for anyone until
+    // then, so this recommendation must degrade explicitly rather than name a hero.
+    const created = createProtocolState("ap-collision-wait", "dota2/ranked-all-pick");
+    if (!created.ok) throw new Error("fixture setup failed");
+    const commands = [
+      { type: "BAN_RESOLUTION_COMPLETE" as const },
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "radiant" as const, slotIndex: 0, heroId: 100 },
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "radiant" as const, slotIndex: 1, heroId: 101 },
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "dire" as const, slotIndex: 0, heroId: 102 },
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "dire" as const, slotIndex: 1, heroId: 100 }, // colisión 1
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "radiant" as const, slotIndex: 0, heroId: 200 },
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "dire" as const, slotIndex: 1, heroId: 200 }, // colisión 2
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "radiant" as const, slotIndex: 0, heroId: 300 },
+      { type: "SUBMIT_SEALED_SELECTION" as const, side: "dire" as const, slotIndex: 1, heroId: 300 }, // colisión 3 -> WAITING
+    ];
+    let state = created.state;
+    for (const command of commands) {
+      const result = applyProtocolCommand(state, command);
+      if (result.rejected) throw new Error(`rechazado: ${result.rejected}`);
+      state = result.state;
+    }
+    expect(state.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
+    const set = await buildFor(state, "radiant", [1, 2, 3]);
+    expect(set.recommendations).toHaveLength(0);
+    expect(set.decision.actionCount).toBe(0);
+    expect(set.degradations.some((d) => d.reason === "NO_ACTION_FOR_ACTOR")).toBe(true);
+  });
+
   test("no hay acción legal -> degradación explícita y determinista, nunca una excepción", async () => {
     const state = createProtocolState("ap-no-action", "dota2/ranked-all-pick");
     if (!state.ok) throw new Error("setup");
@@ -252,6 +372,24 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
     const set = await buildFor(confirmed, "radiant", [1, 2, 3]);
     expect(set.recommendations).toHaveLength(0);
     expect(set.degradations.some((d) => d.reason === "NO_LEGAL_HERO_UNIVERSE")).toBe(true);
+  });
+
+  test("blocker 3 -- buildRecommendationSetV2 reenvía el universo certificado a computeSuggestions como candidateHeroIds (LEGAL ACTION FIRST real, no post-filtro)", async () => {
+    const state = cmReadyState("cm-candidate-universe", [1, 2, 3]);
+    let receivedOptions: { candidateHeroIds?: readonly number[] } | undefined;
+    const spyCompute: ComputeSuggestionsForRecommendation = async (draftState, accountId, options) => {
+      receivedOptions = options;
+      return fakeComputeSuggestions([1, 2, 3, 4, 5])(draftState, accountId, options);
+    };
+    await buildRecommendationSetV2({
+      state,
+      view: project(state, "radiant"),
+      actor: "radiant",
+      patch: "7.41e",
+      computeSuggestions: spyCompute,
+      heroPositions: HERO_POSITIONS,
+    });
+    expect(receivedOptions?.candidateHeroIds).toEqual([1, 2, 3]);
   });
 
   test("basedOn.heroEligibilityHash refleja el contentHash certificado del snapshot cargado", async () => {

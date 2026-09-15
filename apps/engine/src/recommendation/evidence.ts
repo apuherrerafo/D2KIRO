@@ -1,5 +1,7 @@
+import { rulesHash } from "../draft-protocol";
 import type { RoleBeliefEvidence } from "../draft-protocol/roles/role-belief";
 import type { HeroId, RulesetIdentity } from "../draft-protocol/types";
+import type { SuggestionSet } from "../signals/mix";
 import type { SignalContribution } from "../signals/types";
 import type { EvidenceItem, RecommendationRisk, RecommendationRoleImpact } from "./types";
 
@@ -57,6 +59,42 @@ export function evidenceFromEligibility(contentHash: string, heroCount: number):
     contribution: null,
     reason: `snapshot certificado con ${heroCount} héroes elegibles`,
   };
+}
+
+// Blocker 7 (independent architecture review) -- evidenceVersion previously named only the
+// SCORING MECHANISM (a static string constant), never the concrete meta/curated-data evidence V6
+// actually used -- two calls with identical state/patch/party/seed but different meta data (a
+// hero-positions.json regeneration, a fresh matchup sync) would hash identically even when the
+// resulting recommendation genuinely changed. No existing content-hash/version primitive covers
+// `MetaSnapshot` or the curated JSON files it's built from (checked: signals/*.ts, db/*.ts,
+// drafter/*.ts, draft-paths/*.ts -- none exists), and `recommendation/**` never receives the raw
+// MetaSnapshot anyway (only the already-scored SuggestionSet, via computeSuggestions) -- so this
+// hashes exactly the FUNCTIONAL evidence that reached this decision: per hero, per signal,
+// `raw`/`normalized`/`evidenceConfidence`. Deliberately excludes `weighted`/`score`/`rank`/
+// `confidence`/`reason`/`explanation`/`evidenceCoverage`/`guessingIndex` -- every one of those is
+// a DERIVATION of raw/normalized/evidenceConfidence under the frozen V6 weights, so including them
+// would be redundant, not additional signal; `computedInMs` is excluded because it is exactly the
+// runtime-timing noise the contract says must never move identity. Sorted by hero then signal name
+// so V6's own diversitySeed-driven reordering (mix.ts's diversifyEquivalentCandidates) can never
+// move this hash on its own -- only real evidence differences do. Only the heroes actually
+// returned by V6 (already bounded to TOP_N / the certified legal universe) are hashed: a change to
+// evidence for a hero that never reached this SuggestionSet could not have changed this
+// recommendation, so it must not change this recommendation's identity either.
+export function evidenceIdentityHash(suggestionSet: SuggestionSet): string {
+  const canonical = [...suggestionSet.suggestions]
+    .map((suggestion) => ({
+      hero: suggestion.hero,
+      signals: [...suggestion.signals]
+        .map((signal) => ({
+          signal: signal.signal as string,
+          raw: signal.raw,
+          normalized: signal.normalized ?? null,
+          evidenceConfidence: signal.evidenceConfidence ?? null,
+        }))
+        .sort((a, b) => (a.signal < b.signal ? -1 : a.signal > b.signal ? 1 : 0)),
+    }))
+    .sort((a, b) => a.hero - b.hero);
+  return rulesHash({ decisionContext: suggestionSet.decisionContext, candidates: canonical });
 }
 
 /** Reuses V6's OWN already-frozen confidence tiers (mix.ts / SPEC.md §16.7-4: alta >= 0.75,

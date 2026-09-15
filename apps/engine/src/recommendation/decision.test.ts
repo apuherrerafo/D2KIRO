@@ -70,6 +70,44 @@ describe("deriveLegalDecision -- Ranked All Pick", () => {
     expect(legal.decision.controlledSlots).toEqual([{ side: "radiant", slotIndex: 1 }]);
   });
 
+  test("blocker 5 -- Party1 (1 slot controlado) en una ronda con 2 slots abiertos -> actionCount 1, nunca compound", () => {
+    const created = createProtocolState("party1", "dota2/ranked-all-pick", {
+      partyContext: { partySize: 1, side: "radiant", controlledSlots: [{ side: "radiant", slotIndex: 0, controllerId: "p0" }] },
+    });
+    if (!created.ok) throw new Error("fixture setup failed");
+    const opened = applyProtocolCommand(created.state, { type: "BAN_RESOLUTION_COMPLETE" }).state;
+    const legal = deriveLegalDecision(opened, "radiant");
+    // Round 1 genuinely has 2 open slots for radiant -- Party1 controls only 1 of them, and this
+    // recommendation must never propose an action for the one it doesn't control (an "external"
+    // slot, participants.ts's own term), even though that slot IS open right now.
+    expect(legal.decision.actionCount).toBe(1);
+    expect(legal.decision.controlledSlots).toHaveLength(1);
+  });
+
+  test("blocker 5 -- Party3 con 2 slots controlados en una ronda con 2 slots abiertos -> actionCount 2, compound", () => {
+    const created = createProtocolState("party3", "dota2/ranked-all-pick", {
+      partyContext: {
+        partySize: 3,
+        side: "radiant",
+        controlledSlots: [
+          { side: "radiant", slotIndex: 0, controllerId: "p0" },
+          { side: "radiant", slotIndex: 1, controllerId: "p1" },
+        ],
+      },
+    });
+    if (!created.ok) throw new Error("fixture setup failed");
+    const opened = applyProtocolCommand(created.state, { type: "BAN_RESOLUTION_COMPLETE" }).state;
+    const legal = deriveLegalDecision(opened, "radiant");
+    expect(legal.decision.actionCount).toBe(2);
+    expect(legal.decision.controlledSlots).toHaveLength(2);
+  });
+
+  test("blocker 5 -- sin PartyContext (legacy/no-party session), el actor controla todos los slots abiertos de su lado -- byte-idéntico a antes de este fix", () => {
+    const opened = applyProtocolCommand(apFreshState(), { type: "BAN_RESOLUTION_COMPLETE" }).state;
+    const legal = deriveLegalDecision(opened, "radiant");
+    expect(legal.decision.actionCount).toBe(2);
+  });
+
   test("draft completo (status COMPLETE) no dispara NO_ACTION_FOR_ACTOR -- es el fin esperado, no una degradación", () => {
     let state = apFreshState();
     state = applyProtocolCommand(state, { type: "BAN_RESOLUTION_COMPLETE" }).state;

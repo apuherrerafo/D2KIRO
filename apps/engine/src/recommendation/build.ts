@@ -1,3 +1,4 @@
+import { isSealedSelectionLegal } from "../draft-protocol";
 import { derivePerspectiveSuggestionInputs, perspectiveToLegacyDraftState } from "../draft-protocol/adapters/suggestion-bridge";
 import type { DraftProtocolState, HeroId, PerspectiveDraftView, TeamSide } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
@@ -8,7 +9,14 @@ import { buildBasedOn } from "./identity";
 import { deriveLegalDecision } from "./decision";
 import { computeRoleImpact } from "./role-impact";
 import { buildCompoundCandidates, buildShortlist, type ShortlistEntry } from "./shortlist";
-import { deriveRisks, evidenceFromEligibility, evidenceFromRoleBelief, evidenceFromRuleset, evidenceFromSignals } from "./evidence";
+import {
+  deriveRisks,
+  evidenceFromEligibility,
+  evidenceFromRoleBelief,
+  evidenceFromRuleset,
+  evidenceFromSignals,
+  evidenceIdentityHash,
+} from "./evidence";
 import { deferredFieldsNotComputed } from "./types";
 import type {
   Recommendation,
@@ -57,7 +65,7 @@ export const RECOMMENDATION_OUTPUT_LIMIT = 5;
 export type ComputeSuggestionsForRecommendation = (
   state: DraftState,
   accountId: null,
-  options?: { teamOpening?: boolean; diversitySeed?: string },
+  options?: { teamOpening?: boolean; diversitySeed?: string; candidateHeroIds?: readonly HeroId[] },
 ) => Promise<SuggestionSet>;
 
 export interface BuildRecommendationSetV2Input {
@@ -92,20 +100,35 @@ function excludedHeroes(legacyState: DraftState): Set<HeroId> {
 }
 
 /** Second, independent legality check against the SAME authoritative state a Recommendation is
- * about to be built from -- deliberately re-derives banned/picked from `state` directly rather
- * than trusting `excludedHeroes(legacyState)` (the suggestion-bridge projection), so a bridging
- * bug cannot silently produce an illegal Recommendation. */
-function postValidateAction(state: DraftProtocolState, heroId: HeroId, eligibleHeroIds: readonly HeroId[] | null): boolean {
+ * about to be built from -- deliberately re-derives legality from `state` directly rather than
+ * trusting `excludedHeroes(legacyState)` (the suggestion-bridge projection), so a bridging bug
+ * cannot silently produce an illegal Recommendation.
+ *
+ * Blocker 2 (independent architecture review, hidden noninterference): the Ranked All Pick branch
+ * used to also treat EVERY currently-sealed hero (both sides, including the opponent's
+ * hidden-but-unrevealed selection) as "taken". That is wrong on two counts at once: it is not what
+ * the kernel itself enforces (rulesets/ranked-all-pick.ts's own `heroAlreadyTaken` only checks
+ * banned + CONFIRMED picks -- a same-hero collision between sides is legal, resolved later at
+ * round close), and it let a hidden enemy sealed hero silently change which Recommendations this
+ * side sees, purely through presence/absence, before that hero was ever revealed -- a real
+ * information leak through an observable side channel. `isSealedSelectionLegal` is the kernel's
+ * own per-heroId oracle for this exact slot; reusing it verbatim (instead of re-deriving a second,
+ * divergent predicate here) makes it structurally impossible for this check to be either more
+ * restrictive OR more permissive than the kernel's own SUBMIT_SEALED_SELECTION acceptance. */
+function postValidateAction(
+  state: DraftProtocolState,
+  heroId: HeroId,
+  eligibleHeroIds: readonly HeroId[] | null,
+  slot: RecommendationSlot,
+): boolean {
   if (eligibleHeroIds !== null && !eligibleHeroIds.includes(heroId)) return false;
   if (state.rankedAp) {
-    const taken = new Set([
-      ...state.rankedAp.bannedHeroes,
-      ...state.rankedAp.confirmedPicks.map((pick) => pick.heroId),
-      ...(state.rankedAp.round?.sealed.map((entry) => entry.heroId) ?? []),
-    ]);
-    return !taken.has(heroId);
+    return isSealedSelectionLegal(state, slot.side, slot.slotIndex, heroId);
   }
   if (state.captainsMode) {
+    // Captain's Mode has no hidden information at all (perspective.ts's own contract: CM picks/
+    // bans are immediately REVEALED) -- banned/picked here can never include anything the actor
+    // couldn't already see, so no analogous leak exists on this branch.
     const cm = state.captainsMode;
     return !cm.bannedHeroes.includes(heroId) && !cm.picks.radiant.includes(heroId) && !cm.picks.dire.includes(heroId);
   }
@@ -134,8 +157,58 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const legal = deriveLegalDecision(state, actor);
   const degradations: RecommendationDegradation[] = [...legal.degradations];
   const eligibilitySnapshot = state.captainsMode?.eligibilitySnapshot ?? null;
-  const basedOn = buildBasedOn({ view, eligibilitySnapshot, calibrationMode, seed: seed ?? null });
+  // Blocker 6 (independent architecture review) -- identity inputs shared by every basedOn built
+  // below. `partyContext` only exists at the kernel-state level for Ranked All Pick (Captain's
+  // Mode carries no party slot in CmState); CM decisions are always single-action regardless of
+  // party, so `null` there is correct, not a gap.
+  const identityInputs = {
+    view,
+    eligibilitySnapshot,
+    calibrationMode,
+    seed: seed ?? null,
+    patch,
+    partyContext: state.rankedAp?.partyContext ?? null,
+  };
+  // No evidence has been computed yet at this point -- used for every return that never reaches
+  // computeSuggestions (no legal action) or where computeSuggestions itself failed.
+  const basedOnWithoutEvidence = buildBasedOn({ ...identityInputs, evidenceHash: null });
 
+  const emptyWithoutEvidence = (decisionContext: RecommendationSetV2["decisionContext"]): RecommendationSetV2 => ({
+    schema: "recommendation-set/v2",
+    sessionId: view.sessionId,
+    basedOn: basedOnWithoutEvidence,
+    decision: legal.decision,
+    recommendations: [],
+    degradations,
+    deferred: deferredFieldsNotComputed(),
+    decisionContext,
+  });
+
+  if (legal.decision.actionCount === 0) return emptyWithoutEvidence("no_action");
+
+  const legacyState = perspectiveToLegacyDraftState(view, { patch });
+  let suggestionSet: SuggestionSet;
+  try {
+    // teamOpening: true -- a kernel-backed session is by construction a captain drafting for a
+    // whole roster (accountId is always null on this path), never one logged-in user's own pick;
+    // this excludes V6's hero_pool_fit signal exactly like the simulator's own team-opening calls
+    // already do (mix.ts's own doc on `options.teamOpening`), rather than scoring against a
+    // personal pool that has no meaning here. Blocker 3: `candidateHeroIds` is the kernel's own
+    // certified legal universe (null = unrestricted, Ranked All Pick) -- V6 ranks ONLY that
+    // universe, never the global catalog filtered after the fact (see mix.ts's candidatePool).
+    suggestionSet = await computeSuggestions(legacyState, null, {
+      teamOpening: true,
+      diversitySeed: seed,
+      candidateHeroIds: legal.eligibleHeroIds ?? undefined,
+    });
+  } catch {
+    pushUniqueDegradation(degradations, { reason: "SNAPSHOT_UNAVAILABLE", detail: "computeSuggestions falló; sin datos de meta disponibles" });
+    return emptyWithoutEvidence("no_action");
+  }
+  for (const flag of suggestionSet.degraded) pushUniqueDegradation(degradations, { reason: flag, detail: `V6 degraded flag: ${flag}` });
+
+  // Blocker 7: evidence was actually computed now -- every return from here on reflects it.
+  const basedOn = buildBasedOn({ ...identityInputs, evidenceHash: evidenceIdentityHash(suggestionSet) });
   const empty = (decisionContext: RecommendationSetV2["decisionContext"]): RecommendationSetV2 => ({
     schema: "recommendation-set/v2",
     sessionId: view.sessionId,
@@ -146,23 +219,6 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
     deferred: deferredFieldsNotComputed(),
     decisionContext,
   });
-
-  if (legal.decision.actionCount === 0) return empty("no_action");
-
-  const legacyState = perspectiveToLegacyDraftState(view, { patch });
-  let suggestionSet: SuggestionSet;
-  try {
-    // teamOpening: true -- a kernel-backed session is by construction a captain drafting for a
-    // whole roster (accountId is always null on this path), never one logged-in user's own pick;
-    // this excludes V6's hero_pool_fit signal exactly like the simulator's own team-opening calls
-    // already do (mix.ts's own doc on `options.teamOpening`), rather than scoring against a
-    // personal pool that has no meaning here.
-    suggestionSet = await computeSuggestions(legacyState, null, { teamOpening: true, diversitySeed: seed });
-  } catch {
-    pushUniqueDegradation(degradations, { reason: "SNAPSHOT_UNAVAILABLE", detail: "computeSuggestions falló; sin datos de meta disponibles" });
-    return empty("no_action");
-  }
-  for (const flag of suggestionSet.degraded) pushUniqueDegradation(degradations, { reason: flag, detail: `V6 degraded flag: ${flag}` });
 
   const shortlist = buildShortlist(suggestionSet, legal.eligibleHeroIds, excludedHeroes(legacyState));
   if (shortlist.length === 0) {
@@ -211,7 +267,7 @@ function buildSingleRecommendations(
   const out: Recommendation[] = [];
   for (const entry of shortlist) {
     if (out.length >= RECOMMENDATION_OUTPUT_LIMIT) break;
-    if (!postValidateAction(state, entry.hero, eligibleHeroIds)) continue;
+    if (!postValidateAction(state, entry.hero, eligibleHeroIds, slot)) continue;
 
     const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
     if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
@@ -259,11 +315,21 @@ function buildCompoundRecommendations(
   for (const combo of combos) {
     if (out.length >= RECOMMENDATION_OUTPUT_LIMIT) break;
     const [a, b] = combo.entries;
-    if (!postValidateAction(state, a.hero, eligibleHeroIds) || !postValidateAction(state, b.hero, eligibleHeroIds)) continue;
+    // Step 1/2 (blocker 4 -- hero uniqueness + per-action legality) BEFORE any role/joint work.
     if (a.hero === b.hero) continue; // structurally unreachable (distinct shortlist entries), kept as an explicit guard
+    if (!postValidateAction(state, a.hero, eligibleHeroIds, slotA!) || !postValidateAction(state, b.hero, eligibleHeroIds, slotB!)) continue;
 
+    // Steps 3-5 (blocker 4 -- joint feasibility is a HARD GATE, not a warning): compute the same
+    // joint role assignment single-action recommendations already use, and DROP this pair entirely
+    // when it rejects as IMPOSSIBLE_ASSIGNMENT. A high-score pair that can never be jointly
+    // assigned a position must never be recommendable merely with a caveat attached -- the next,
+    // lower-scored-but-feasible pair takes its place because `combos` is already score-sorted
+    // (shortlist.ts's buildCompoundCandidates) and this loop simply continues past the rejected one.
     const roleImpact = computeRoleImpact({ ownPicks, candidates: [a.hero, b.hero], heroPositions, partyPreferredPositions });
-    if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
+    if (roleImpact.degradation) {
+      pushUniqueDegradation(degradations, roleImpact.degradation);
+      if (roleImpact.degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
+    }
     const impactA = roleImpact.impactByHero.get(a.hero)!;
     const impactB = roleImpact.impactByHero.get(b.hero)!;
 

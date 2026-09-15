@@ -40,7 +40,23 @@ function deriveRankedAllPick(state: DraftProtocolState, actor: TeamSide): LegalD
     (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === actor,
   );
-  const controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
+  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
+
+  // Blocker 5 (independent architecture review): an open round slot on `actor`'s side is not
+  // automatically ONE THIS SESSION MAY ACT FOR -- a party may control only some of its own side's
+  // roster slots (participants.ts's controlled/external split), and this recommendation must never
+  // propose an action for an "external" slot (a real teammate this session doesn't drive), even
+  // though that slot's pick genuinely is open right now. `OpenSlot.slotIndex` is a round-scoped
+  // ordinal with no mapping to a roster position (this file's own header doc), so "which N of the
+  // open slots are ours" has no real per-slot identity to recover -- only a COUNT to respect: cap
+  // to `partyContext.controlledSlots.length`, keeping the lowest slotIndexes first (the same
+  // ascending, arbitrary-but-stable convention build.ts already uses to assign compound actions to
+  // slots). `partyContext === null` means no party information was ever threaded (a legacy/no-party
+  // session) -- unrestricted, byte-identical to behavior before this fix.
+  const partyContext = rankedAp.partyContext;
+  if (partyContext && partyContext.side === actor) {
+    controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
+  }
 
   if (controlledSlots.length === 0 && state.status !== "COMPLETE") {
     degradations.push({

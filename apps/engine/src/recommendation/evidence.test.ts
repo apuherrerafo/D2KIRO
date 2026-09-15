@@ -1,8 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import type { SuggestionSet } from "../signals/mix";
 import type { SignalContribution } from "../signals/types";
 import type { RoleBeliefEvidence } from "../draft-protocol/roles/role-belief";
 import type { RulesetIdentity } from "../draft-protocol/types";
-import { deriveRisks, evidenceFromEligibility, evidenceFromRoleBelief, evidenceFromRuleset, evidenceFromSignals } from "./evidence";
+import {
+  deriveRisks,
+  evidenceFromEligibility,
+  evidenceFromRoleBelief,
+  evidenceFromRuleset,
+  evidenceFromSignals,
+  evidenceIdentityHash,
+} from "./evidence";
 
 function signal(overrides: Partial<SignalContribution> = {}): SignalContribution {
   return { signal: "counter", raw: 0.05, weighted: 2.5, explanation: "fixture explanation", sampleSize: 100, ...overrides };
@@ -60,6 +68,52 @@ describe("evidenceFromRuleset / evidenceFromEligibility -- provenance, sin subje
     const item = evidenceFromEligibility("content-hash-abc", 120);
     expect(item.value).toBe("content-hash-abc");
     expect(item.reason).toContain("120");
+  });
+});
+
+function fixtureSuggestionSet(overrides: Partial<SuggestionSet["suggestions"][number]["signals"][number]> = {}): SuggestionSet {
+  return {
+    schema: "suggestions/v1",
+    sessionId: "s",
+    basedOnSeq: 0,
+    decisionContext: "team_opening",
+    suggestions: [
+      {
+        hero: 1,
+        rank: 1,
+        score: 100,
+        signals: [{ signal: "counter", raw: 0.05, weighted: 3, explanation: "x", sampleSize: 50, normalized: 60, evidenceConfidence: 0.8, ...overrides }],
+        reason: "r",
+        confidence: "alta",
+        evidenceCoverage: 0.9,
+        guessingIndex: 0.1,
+      },
+    ],
+    comparison: null,
+    degraded: [],
+    computedInMs: 5,
+  };
+}
+
+describe("evidenceIdentityHash -- blocker 7: identidad funcional de la evidencia real de V6", () => {
+  test("mismos raw/normalized/evidenceConfidence -> mismo hash", () => {
+    expect(evidenceIdentityHash(fixtureSuggestionSet())).toBe(evidenceIdentityHash(fixtureSuggestionSet()));
+  });
+
+  test("un raw distinto (la evidencia real cambió) -> hash distinto", () => {
+    expect(evidenceIdentityHash(fixtureSuggestionSet({ raw: 0.99 }))).not.toBe(evidenceIdentityHash(fixtureSuggestionSet()));
+  });
+
+  test("computedInMs (metadata de runtime) nunca se lee -- dos SuggestionSet con distinto computedInMs pero misma evidencia -> mismo hash", () => {
+    const a = fixtureSuggestionSet();
+    const b = { ...fixtureSuggestionSet(), computedInMs: 999 };
+    expect(evidenceIdentityHash(a)).toBe(evidenceIdentityHash(b));
+  });
+
+  test("orden de suggestions/signals (p. ej. por diversitySeed) no mueve el hash -- se ordena canónicamente por hero y por señal", () => {
+    const a = fixtureSuggestionSet();
+    const reordered: SuggestionSet = { ...a, suggestions: [...a.suggestions].reverse() };
+    expect(evidenceIdentityHash(a)).toBe(evidenceIdentityHash(reordered));
   });
 });
 

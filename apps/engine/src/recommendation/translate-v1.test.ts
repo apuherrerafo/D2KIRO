@@ -44,6 +44,8 @@ function baseSet(recommendations: Recommendation[]): RecommendationSetV2 {
       heroEligibilityHash: null,
       stateIdentity: "state-hash",
       perspectiveIdentity: "perspective-hash",
+      patch: "7.41e",
+      partyIdentity: null,
       evidenceVersion: "v",
       seed: null,
     },

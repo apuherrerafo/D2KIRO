@@ -52,7 +52,27 @@ export interface RecommendationBasedOn {
   /** Identity of the viewing perspective itself (which side, which ruleset) -- kept separate from
    * stateIdentity so a caller can tell "the rules/side changed" apart from "the draft advanced". */
   perspectiveIdentity: string;
-  /** Names the scoring + evidence mechanism version, e.g. "v6-signals/v1+role-belief/v1+calibration:fallback". */
+  /** Current game patch, verbatim -- NOT covered by stateIdentity/rulesHash (neither the
+   * perspective view nor the ruleset manifest carries the CURRENT patch, only the ruleset's
+   * static applicable/verified patch range). Two identical hero arrangements on different patches
+   * must be distinguishable: V6 scores against patch-dependent meta data. */
+  patch: string;
+  /** Canonical identity of the actor's PartyContext (partySize/side/controlled roster-slot
+   * indexes) -- null when no PartyContext was ever threaded (legacy/no-party session, fully
+   * unrestricted). NOT covered by stateIdentity: PerspectiveDraftView carries no party
+   * information at all, so two sessions with identical visible+hidden state but different
+   * control structure (e.g. a party controlling 1 of 2 open round slots vs. all of them) would
+   * otherwise hash identically despite `decision.controlledSlots`/`actionCount` actually
+   * differing between them. Together with stateIdentity + perspectiveIdentity this fully
+   * determines `decision` (a pure function of state + party + actor) -- `decision` itself is not
+   * separately hashed here to avoid duplicating what these three fields already cover. */
+  partyIdentity: string | null;
+  /** Names the scoring + evidence mechanism version AND folds in a functional hash of the actual
+   * evidence V6 produced for this decision (see evidence.ts's evidenceIdentityHash) -- e.g.
+   * "v6-signals/v6+role-belief/v1+calibration:fallback+evidence:<sha256>". Two calls against
+   * different meta/curated data that changed what V6 actually returned hash differently here even
+   * when state/patch/party/seed are all identical; metadata irrelevant to scoring (computedInMs)
+   * never moves it, because evidenceIdentityHash never reads it. */
   evidenceVersion: string;
   /** Caller-supplied determinism seed (diversity tie-break only) -- null when the caller supplied none. */
   seed: string | null;

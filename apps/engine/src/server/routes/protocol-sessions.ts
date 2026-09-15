@@ -36,7 +36,14 @@ export type ComputeSuggestionsForDraftState = (
   // buildSuggestions); this type only used to advertise archetypeIntent because bot-selection was
   // its only caller. recommendation/build.ts's buildRecommendationSetV2 is now a second real
   // caller and needs both to reach V6.
-  options?: { archetypeIntent?: DraftPathArchetype; teamOpening?: boolean; diversitySeed?: string },
+  options?: {
+    archetypeIntent?: DraftPathArchetype;
+    teamOpening?: boolean;
+    diversitySeed?: string;
+    // R1 S5 (blocker 3): the kernel's own certified legal hero universe, when the caller has one
+    // (recommendation/build.ts, for Captain's Mode) -- forwarded verbatim into buildSuggestions.
+    candidateHeroIds?: readonly number[];
+  },
 ) => Promise<SuggestionSet>;
 
 export interface ProtocolSessionRouteDeps {

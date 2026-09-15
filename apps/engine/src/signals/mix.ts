@@ -103,6 +103,16 @@ export interface BuildSuggestionsOptions {
   // buildSuggestions vuelve a la redistribución candidate-specific de V6 (mixScore + normalize
   // sobre RAW_RANGE + computeConfidence por conteo de nulls), byte a byte. No lo usa producción.
   _legacyMixMode?: boolean;
+  // R1 S5 (independent architecture review, blocker 3 -- LEGAL ACTION FIRST): opcional,
+  // server-derived, determinista. Ausente -> comportamiento byte-idéntico al actual (ningún
+  // llamador legacy pasa esto). Cuando el llamador SÍ conoce un universo de héroes certificado
+  // (p. ej. el snapshot de elegibilidad de Captain's Mode), restringe el candidate pool a ESE
+  // conjunto ANTES de rankear/recortar a TOP_N -- nunca al revés ("rankear el catálogo global y
+  // filtrar después"), que puede perder al mejor héroe legal si cae fuera del top global. No es
+  // una segunda fuente de legalidad: el llamador es quien certifica este conjunto (recommendation/
+  // decision.ts's `eligibleHeroIds`, derivado de legalGameplayActions), este campo sólo le dice a
+  // V6 sobre qué universo rankear.
+  candidateHeroIds?: readonly HeroId[];
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -718,6 +728,12 @@ function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSugg
   let candidates = Object.keys(meta.heroes)
     .map(Number)
     .filter((hero) => !excluded.has(hero));
+  // Blocker 3: applied BEFORE ranking/TOP_N -- a certified legal universe (Captain's Mode) must
+  // never lose its best hero to a global top-N cutoff that never saw it as a candidate.
+  if (options.candidateHeroIds) {
+    const allowed = new Set(options.candidateHeroIds);
+    candidates = candidates.filter((hero) => allowed.has(hero));
+  }
   if (options.teamOpening || options.targetPosition === undefined) return candidates;
 
   const positions = options.heroPositions ?? MODULE_HERO_POSITIONS;

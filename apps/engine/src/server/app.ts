@@ -142,7 +142,15 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   async function computeSuggestionsForState(
     state: DraftState,
     accountId: number | null = null,
-    options: { targetPosition?: 1 | 2 | 3 | 4 | 5; usePersonalPool?: boolean; teamOpening?: boolean; diversitySeed?: string; archetypeIntent?: DraftPathArchetype } = {},
+    options: {
+      targetPosition?: 1 | 2 | 3 | 4 | 5;
+      usePersonalPool?: boolean;
+      teamOpening?: boolean;
+      diversitySeed?: string;
+      archetypeIntent?: DraftPathArchetype;
+      // R1 S5 (blocker 3): forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
+      candidateHeroIds?: readonly number[];
+    } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
     try {

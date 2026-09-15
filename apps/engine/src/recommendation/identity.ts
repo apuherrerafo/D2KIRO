@@ -1,5 +1,5 @@
 import { perspectiveStateHash, rulesHash } from "../draft-protocol";
-import type { CmHeroEligibilitySnapshot, PerspectiveDraftView } from "../draft-protocol/types";
+import type { CmHeroEligibilitySnapshot, PartyContext, PerspectiveDraftView } from "../draft-protocol/types";
 import type { RecommendationBasedOn } from "./types";
 
 // R1 S5 -- basedOn identity assembly. Every field here is either read verbatim from an already-
@@ -24,6 +24,17 @@ export interface BasedOnInput {
    * into evidenceVersion so a calibration change is a detectable identity change, per contract. */
   calibrationMode: "fallback" | "empirical";
   seed: string | null;
+  /** Current game patch, verbatim -- see RecommendationBasedOn.patch's own doc for why this is
+   * not already covered by stateIdentity/rulesHash. */
+  patch: string;
+  /** The actor's kernel-level PartyContext (Ranked All Pick only -- Captain's Mode carries no
+   * party slot in CmState, and CM decisions are always single-action regardless of party, so no
+   * caller threads one there). Null = no PartyContext at all (legacy/no-party session). */
+  partyContext: PartyContext | null;
+  /** Functional hash of the evidence V6 actually produced for this decision (evidence.ts's
+   * evidenceIdentityHash over the computed SuggestionSet), or null when no evidence was computed
+   * at all (no legal action / computeSuggestions failed) -- see RecommendationBasedOn.evidenceVersion. */
+  evidenceHash: string | null;
 }
 
 function perspectiveIdentity(view: PerspectiveDraftView): string {
@@ -33,8 +44,25 @@ function perspectiveIdentity(view: PerspectiveDraftView): string {
   return rulesHash({ ruleset: view.ruleset.id, viewerSide: view.viewerSide ?? "spectator" });
 }
 
+/** Blocker 6 (independent architecture review) -- PerspectiveDraftView carries no party/control
+ * information at all, so two structurally identical states with different PartyContexts (e.g. a
+ * party controlling 1 of 2 open round slots vs. all of them) would otherwise hash identically
+ * despite `decision.controlledSlots`/`actionCount` genuinely differing. Only `partySize`/`side`
+ * and the SET of controlled roster-slot indexes are functional -- `controllerId` is opaque
+ * display metadata that never reaches kernel legality or role-impact computation, so it is
+ * deliberately excluded (same discipline as identity-hash.ts excluding computedInMs/timestamps).
+ * Sorted so insertion order of `controlledSlots` (never itself meaningful) can't move the hash. */
+function partyIdentity(partyContext: PartyContext | null): string | null {
+  if (!partyContext) return null;
+  return rulesHash({
+    partySize: partyContext.partySize,
+    side: partyContext.side,
+    controlledSlotIndexes: [...partyContext.controlledSlots.map((slot) => slot.slotIndex)].sort((a, b) => a - b),
+  });
+}
+
 export function buildBasedOn(input: BasedOnInput): RecommendationBasedOn {
-  const { view, eligibilitySnapshot, calibrationMode, seed } = input;
+  const { view, eligibilitySnapshot, calibrationMode, seed, patch, partyContext, evidenceHash } = input;
   return {
     protocolId: view.ruleset.id,
     protocolVersion: view.ruleset.version,
@@ -42,7 +70,9 @@ export function buildBasedOn(input: BasedOnInput): RecommendationBasedOn {
     heroEligibilityHash: eligibilitySnapshot ? eligibilitySnapshot.contentHash : null,
     stateIdentity: perspectiveStateHash(view),
     perspectiveIdentity: perspectiveIdentity(view),
-    evidenceVersion: `${EVIDENCE_VERSION_BASE}+calibration:${calibrationMode}`,
+    patch,
+    partyIdentity: partyIdentity(partyContext),
+    evidenceVersion: `${EVIDENCE_VERSION_BASE}+calibration:${calibrationMode}+evidence:${evidenceHash ?? "none"}`,
     seed: seed ?? null,
   };
 }
