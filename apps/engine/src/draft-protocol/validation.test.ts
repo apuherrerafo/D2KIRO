@@ -23,6 +23,11 @@ describe("isValidProtocolCommand -- input externo, cada variante de la unión", 
   test("SUBMIT_SEALED_SELECTION válido", () => {
     expect(isValidProtocolCommand({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 1 })).toBe(true);
   });
+  test("HeroId usa la semántica canónica: entero, finito y mayor que cero", () => {
+    for (const heroId of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(isValidProtocolCommand({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId })).toBe(false);
+    }
+  });
   test("SUBMIT_SEALED_SELECTION con slotIndex negativo se rechaza", () => {
     expect(isValidProtocolCommand({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: -1, heroId: 1 })).toBe(false);
   });
@@ -91,18 +96,28 @@ describe("isValidPartyContextInput", () => {
 });
 
 describe("isValidCreateProtocolSessionBody", () => {
-  test("acepta sin partyContext", () => {
-    expect(isValidCreateProtocolSessionBody({ rulesetId: "dota2/ranked-all-pick", patch: "7.41e" })).toBe(true);
+  const validBody = {
+    rulesetId: "dota2/ranked-all-pick",
+    patch: "7.41e",
+    localSide: "radiant",
+    adapterKind: "simulator",
+    partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+  } as const;
+
+  test("exige perspectiva, adapter y PartyContext canónicos", () => {
+    expect(isValidCreateProtocolSessionBody(validBody)).toBe(true);
+    expect(isValidCreateProtocolSessionBody({ rulesetId: "dota2/ranked-all-pick", patch: "7.41e" })).toBe(false);
+    expect(isValidCreateProtocolSessionBody({ ...validBody, localSide: "dire" })).toBe(false);
   });
   test("rechaza patch vacío o ausente", () => {
-    expect(isValidCreateProtocolSessionBody({ rulesetId: "dota2/ranked-all-pick", patch: "" })).toBe(false);
-    expect(isValidCreateProtocolSessionBody({ rulesetId: "dota2/ranked-all-pick" })).toBe(false);
+    expect(isValidCreateProtocolSessionBody({ ...validBody, patch: "" })).toBe(false);
+    expect(isValidCreateProtocolSessionBody({ ...validBody, patch: undefined })).toBe(false);
   });
   test("rechaza rulesetId desconocido", () => {
-    expect(isValidCreateProtocolSessionBody({ rulesetId: "dota2/single-draft", patch: "7.41e" })).toBe(false);
+    expect(isValidCreateProtocolSessionBody({ ...validBody, rulesetId: "dota2/single-draft" })).toBe(false);
   });
   test("rechaza partyContext malformado cuando está presente", () => {
-    expect(isValidCreateProtocolSessionBody({ rulesetId: "dota2/ranked-all-pick", patch: "7.41e", partyContext: { partySize: 4, side: "radiant", controlledSlots: [] } })).toBe(false);
+    expect(isValidCreateProtocolSessionBody({ ...validBody, partyContext: { partySize: 4, side: "radiant", controlledSlots: [] } })).toBe(false);
   });
 });
 
@@ -124,8 +139,8 @@ describe("isValidSimulatorAuthorityBody / isValidBotSelectionBody", () => {
     expect(isValidSimulatorAuthorityBody({ seed: "" })).toBe(false);
     expect(isValidSimulatorAuthorityBody({ seed: "x".repeat(65) })).toBe(false);
   });
-  test("bot-selection exige side válido", () => {
-    expect(isValidBotSelectionBody({ side: "dire" })).toBe(true);
-    expect(isValidBotSelectionBody({ side: "north" })).toBe(false);
+  test("bot-selection no acepta side controlado por el cliente", () => {
+    expect(isValidBotSelectionBody({})).toBe(true);
+    expect(isValidBotSelectionBody({ side: "dire" })).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { resolveSimulatorCollisionAuthority } from "../../draft-protocol/adapters/simulator-authority";
+import { lowestEligibleHeroIdStrategy } from "../../draft-protocol/adapters/cm-simulator";
 import { perspectiveToLegacyDraftState } from "../../draft-protocol/adapters/suggestion-bridge";
 import {
   isValidBotSelectionBody,
@@ -59,6 +60,8 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       rulesetId: body.rulesetId,
       patch: body.patch,
       partyContext: body.partyContext,
+      localSide: body.localSide,
+      adapterKind: body.adapterKind,
     });
     if (!created.ok) return Response.json({ error: created.reason, detail: "detail" in created ? created.detail : undefined }, { status: 422 });
     return Response.json({ sessionId: created.sessionId, ruleset: created.state.ruleset, status: created.state.status }, { status: 201 });
@@ -80,20 +83,30 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
     const state = deps.store.get(sessionId);
     if (!state) return notFound();
-    const view = deps.store.view(sessionId, sideParam);
-    return Response.json({ view, legalActions: legalActions(state) });
+    const metadata = deps.store.metadata(sessionId)!;
+    if (sideParam !== null && sideParam !== metadata.localSide) {
+      return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    const view = deps.store.view(sessionId);
+    return Response.json({ view, legalActions: deps.store.authorizedLegalActions(sessionId) });
   }
 
   async function postCommand(request: Request, sessionId: string): Promise<Response> {
     if (!deps.store.get(sessionId)) return notFound();
     const body: unknown = await request.json().catch(() => null);
     if (!isValidSubmitProtocolCommandBody(body)) return badRequest("invalid_body");
+    const metadata = deps.store.metadata(sessionId)!;
+    if (body.viewerSide !== undefined && body.viewerSide !== null && body.viewerSide !== metadata.localSide) {
+      return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    if (!deps.store.isCommandAuthorized(sessionId, body.command)) {
+      return Response.json({ error: "action_forbidden" }, { status: 403 });
+    }
 
     const result = deps.store.apply(sessionId, body.command);
     if (!result) return notFound();
-    const viewerSide = body.viewerSide ?? null;
     return Response.json(
-      { accepted: !result.rejected, rejected: result.rejected, view: deps.store.view(sessionId, viewerSide) },
+      { accepted: !result.rejected, rejected: result.rejected, view: deps.store.view(sessionId), legalActions: deps.store.authorizedLegalActions(sessionId) },
       { status: 202 },
     );
   }
@@ -106,6 +119,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
   async function postSimulatorAuthority(request: Request, sessionId: string): Promise<Response> {
     const state = deps.store.get(sessionId);
     if (!state) return notFound();
+    if (!deps.store.isSimulator(sessionId)) return Response.json({ error: "simulator_authority_forbidden" }, { status: 403 });
     const body: unknown = await request.json().catch(() => null);
     if (!isValidSimulatorAuthorityBody(body)) return badRequest("invalid_body");
 
@@ -113,7 +127,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (!resolution) return Response.json({ applied: false, reason: "no_pending_collision" }, { status: 409 });
 
     const result = deps.store.apply(sessionId, resolution.command);
-    return Response.json({ applied: !result?.rejected, rejected: result?.rejected, policy: resolution.policy, view: deps.store.view(sessionId, null) });
+    return Response.json({ applied: !result?.rejected, rejected: result?.rejected, policy: resolution.policy, view: deps.store.view(sessionId), legalActions: deps.store.authorizedLegalActions(sessionId) });
   }
 
   /**
@@ -129,17 +143,36 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const body: unknown = await request.json().catch(() => null);
     if (!isValidBotSelectionBody(body)) return badRequest("invalid_body");
 
+    const botView = deps.store.botView(sessionId);
+    if (!botView) return Response.json({ error: "bot_selection_forbidden" }, { status: 403 });
+    const botSide = botView.viewerSide!;
+
+    if (state.captainsMode) {
+      const action = legalActions(state).find(
+        (candidate) => candidate.type === "CM_ACTION" && candidate.absoluteSide === botSide,
+      );
+      if (!action || action.type !== "CM_ACTION") {
+        return Response.json({ accepted: false, reason: "no_open_slot" }, { status: 409 });
+      }
+      const heroId = lowestEligibleHeroIdStrategy.chooseHeroId(action.eligibleHeroIds, action);
+      const result = deps.store.apply(sessionId, { type: "CM_ACTION", actor: action.actor, kind: action.kind, heroId });
+      return Response.json({
+        accepted: !result?.rejected,
+        rejected: result?.rejected,
+        view: deps.store.view(sessionId),
+        legalActions: deps.store.authorizedLegalActions(sessionId),
+      });
+    }
+
     const openSlotsForSide = legalActions(state).filter(
       (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> =>
-        action.type === "SUBMIT_SEALED_SELECTION" && action.side === body.side,
+        action.type === "SUBMIT_SEALED_SELECTION" && action.side === botSide,
     );
     if (openSlotsForSide.length === 0) {
       return Response.json({ accepted: false, reason: "no_open_slot" }, { status: 409 });
     }
 
-    const view = deps.store.view(sessionId, body.side);
-    if (!view) return notFound();
-    const legacyState = perspectiveToLegacyDraftState(view, { patch: metadata.patch });
+    const legacyState = perspectiveToLegacyDraftState(botView, { patch: metadata.patch });
     const suggestions = await deps.computeSuggestions(legacyState, null);
     const takenHeroIds = new Set([...legacyState.banned, ...legacyState.picks.radiant, ...legacyState.picks.dire]);
     const chosen = suggestions.suggestions.find((suggestion) => !takenHeroIds.has(suggestion.hero));
@@ -155,8 +188,8 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     return Response.json({
       accepted: !result?.rejected,
       rejected: result?.rejected,
-      heroId: chosen.hero,
-      view: deps.store.view(sessionId, null),
+      view: deps.store.view(sessionId),
+      legalActions: deps.store.authorizedLegalActions(sessionId),
     });
   }
 

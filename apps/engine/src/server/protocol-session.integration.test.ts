@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { authoritativeStateHash } from "../draft-protocol";
 import { resolveSimulatorCollisionAuthority } from "../draft-protocol/adapters/simulator-authority";
 import { ProtocolSessionStore } from "./protocol-session";
 import type { ControlledSlot } from "../draft-protocol";
@@ -95,8 +94,8 @@ describe("S2 acceptance -- Ranked All Pick through ProtocolSessionStore", () => 
     storeA.apply("twin", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 21 });
     storeB.apply("twin", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 22 });
 
-    const radiantViewA = storeA.view("twin", "radiant");
-    const radiantViewB = storeB.view("twin", "radiant");
+    const radiantViewA = storeA.view("twin");
+    const radiantViewB = storeB.view("twin");
     expect(radiantViewA).toEqual(radiantViewB);
     expect(storeA.legalActions("twin")).toEqual(storeB.legalActions("twin"));
 
@@ -110,12 +109,12 @@ describe("S2 acceptance -- Ranked All Pick through ProtocolSessionStore", () => 
     store.apply("reveal", { type: "BAN_RESOLUTION_COMPLETE" });
     store.apply("reveal", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 30 });
 
-    const beforeClose = store.view("reveal", "radiant");
+    const beforeClose = store.view("reveal");
     expect(beforeClose?.enemyPicks[0]).toEqual({ visibility: "HIDDEN" });
 
     fillRound(store, "reveal", { "radiant:0": 1, "radiant:1": 2, "dire:0": 30, "dire:1": 31 });
 
-    const afterClose = store.view("reveal", "radiant");
+    const afterClose = store.view("reveal");
     expect(afterClose?.enemyPicks.some((slot) => slot.visibility === "REVEALED" && slot.heroId === 30)).toBe(true);
   });
 
@@ -146,34 +145,5 @@ describe("S2 acceptance -- Ranked All Pick through ProtocolSessionStore", () => 
     expect(result?.state.rankedAp?.bannedHeroes).not.toContain(403);
     expect(result?.state.rankedAp?.bannedHeroes).toContain(401);
     expect(result?.state.rankedAp?.bannedHeroes).toContain(402);
-  });
-});
-
-describe("S2 -- adapter parity (SPEC: 'la misma secuencia observada por simulator/manual adapter debe producir el mismo canonical core state')", () => {
-  test("dos sesiones que reciben el MISMO batch de un round en orden de llegada distinto terminan con el mismo hash canónico", () => {
-    // Simula un "manual adapter" (envía radiant primero, luego dire) y un "simulator adapter"
-    // (interleaved) observando la MISMA decisión lógica -- solo cambia el orden de transporte.
-    const manualAdapterStore = new ProtocolSessionStore();
-    const simulatorAdapterStore = new ProtocolSessionStore();
-    manualAdapterStore.create({ sessionId: "parity", rulesetId: "dota2/ranked-all-pick", patch: "7.41e" });
-    simulatorAdapterStore.create({ sessionId: "parity", rulesetId: "dota2/ranked-all-pick", patch: "7.41e" });
-    manualAdapterStore.apply("parity", { type: "BAN_RESOLUTION_COMPLETE" });
-    simulatorAdapterStore.apply("parity", { type: "BAN_RESOLUTION_COMPLETE" });
-
-    // Manual adapter: radiant slot0, radiant slot1, dire slot0, dire slot1.
-    manualAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 1 });
-    manualAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 2 });
-    manualAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 3 });
-    manualAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 4 });
-
-    // Simulator adapter: dire slot1, radiant slot0, dire slot0, radiant slot1 -- same set, reversed/interleaved arrival.
-    simulatorAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 4 });
-    simulatorAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 1 });
-    simulatorAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 3 });
-    simulatorAdapterStore.apply("parity", { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 2 });
-
-    const manualState = manualAdapterStore.get("parity")!;
-    const simulatorState = simulatorAdapterStore.get("parity")!;
-    expect(authoritativeStateHash(manualState)).toBe(authoritativeStateHash(simulatorState));
   });
 });

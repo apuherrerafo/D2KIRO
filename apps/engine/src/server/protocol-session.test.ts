@@ -13,7 +13,7 @@ describe("ProtocolSessionStore -- S2.1/S2.5/S3 session layer", () => {
   test("sesión inexistente -> get/view/legalActions/apply devuelven null, nunca lanzan", () => {
     const store = new ProtocolSessionStore();
     expect(store.get("ghost")).toBeNull();
-    expect(store.view("ghost", "radiant")).toBeNull();
+    expect(store.view("ghost")).toBeNull();
     expect(store.legalActions("ghost")).toBeNull();
     expect(store.apply("ghost", { type: "BAN_RESOLUTION_COMPLETE" })).toBeNull();
   });
@@ -63,10 +63,11 @@ describe("ProtocolSessionStore -- S2.1/S2.5/S3 session layer", () => {
     expect(store.partyContext("cm-party5")?.partySize).toBe(5);
   });
 
-  test("Captain's Mode sin partyContext (solo/no especificado) se acepta igual", () => {
+  test("Captain's Mode sin partyContext se rechaza", () => {
     const store = new ProtocolSessionStore();
     const result = store.create({ sessionId: "cm-no-party", rulesetId: "dota2/captains-mode", patch: "7.40" });
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("CM_REQUIRES_PARTY_SIZE_5");
     expect(store.partyContext("cm-no-party")).toBeNull();
   });
 
@@ -78,9 +79,7 @@ describe("ProtocolSessionStore -- S2.1/S2.5/S3 session layer", () => {
     expect(store.get("flow")?.rankedAp?.phase).toBe("PICK_ROUND_1");
 
     store.apply("flow", { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 55 });
-    const direView = store.view("flow", "dire");
-    expect(direView?.enemyPicks[0]).toEqual({ visibility: "HIDDEN" });
-    const radiantView = store.view("flow", "radiant");
+    const radiantView = store.view("flow");
     expect(radiantView?.ownPicks[0]).toEqual({ visibility: "KNOWN", heroId: 55 });
   });
 

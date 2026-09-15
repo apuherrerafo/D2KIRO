@@ -78,6 +78,14 @@ describe("parseKeyValues -- Valve KV1 text format", () => {
   });
 
   test("llave de cierre extra lanza", () => {
-    expect(() => parseKeyValues(`"root" { "HeroID" "1" } }`)).not.toThrow(); // el extra "}" se ignora como EOF temprano del root
+    expect(() => parseKeyValues(`"root" { "HeroID" "1" } }`)).toThrow();
+  });
+
+  test("EOF con bloque sin cerrar falla cerrado", () => {
+    expect(() => parseKeyValues(`"root" { "HeroID" "1"`)).toThrow("unexpected EOF");
+  });
+
+  test("string entre comillas sin cierre falla cerrado", () => {
+    expect(() => parseKeyValues(`"root" { "HeroID" "1`)).toThrow("unterminated quoted string");
   });
 });

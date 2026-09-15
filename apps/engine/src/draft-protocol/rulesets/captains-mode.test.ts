@@ -24,8 +24,9 @@ function buildEligibilitySnapshot(heroIds: number[]): CmHeroEligibilitySnapshot 
     appId: 570 as const,
     patch: "7.41e",
     buildId: "test-build",
-    depotManifests: { "570": "1" },
+    depotManifests: { "570": "fixture-manifest" },
     sourceHashes: { npc_heroes: "fixture" },
+    provenance: { kind: "OFFICIAL_DEPOT" as const, appId: 570 as const, buildId: "test-build", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture" },
     heroIds,
   };
   return { ...base, contentHash: computeEligibilityContentHash(base) };
@@ -223,8 +224,9 @@ describe("Captain's Mode — LOAD_CM_ELIGIBILITY: validación completa (Blocker 
       appId: 570 as const,
       patch: "7.39", // anterior al rango CM [7.40, 7.41e]
       buildId: "test-build",
-      depotManifests: { "570": "1" },
+      depotManifests: { "570": "fixture-manifest" },
       sourceHashes: { npc_heroes: "fixture" },
+      provenance: { kind: "OFFICIAL_DEPOT" as const, appId: 570 as const, buildId: "test-build", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture" },
       heroIds: [1, 2, 3],
     };
     const snapshot = { ...base, contentHash: computeEligibilityContentHash(base) };
@@ -241,8 +243,9 @@ describe("Captain's Mode — LOAD_CM_ELIGIBILITY: validación completa (Blocker 
       appId: 570 as const,
       patch: "7.41e",
       buildId: "test-build",
-      depotManifests: { "570": "1" },
+      depotManifests: { "570": "fixture-manifest" },
       sourceHashes: {}, // sin la clave requerida
+      provenance: { kind: "OFFICIAL_DEPOT" as const, appId: 570 as const, buildId: "test-build", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture" },
       heroIds: [1, 2, 3],
     };
     const snapshot = { ...base, contentHash: computeEligibilityContentHash(base) };

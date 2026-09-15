@@ -136,17 +136,6 @@ function waitForOpen(ws: WebSocket): Promise<void> {
   });
 }
 
-async function waitForSimulatorState(baseUrl: string, sessionId: string): Promise<Record<string, unknown>> {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const res = await fetch(`${baseUrl}/api/simulator/sessions/${sessionId}/state`);
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as Record<string, unknown>;
-    if (body.suggestions) return body;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  throw new Error("timeout esperando estado del simulador");
-}
-
 describe("servidor Bun (TSK-010)", () => {
   let baseUrl: string;
   let stop: () => void;
@@ -382,23 +371,42 @@ describe("servidor Bun (TSK-010)", () => {
     expect(body.heroPositions["2"]).toEqual([{ position: 5, matches: 800 }]);
   });
 
-  test("POST/GET /api/simulator/sessions crea una sesión HTTP aislada, sin log completo", async () => {
+  test("POST/GET /api/simulator/sessions retira el simulador CM legacy y apunta al kernel", async () => {
     const first = await fetch(`${baseUrl}/api/simulator/sessions`, { method: "POST" });
-    const second = await fetch(`${baseUrl}/api/simulator/sessions`, { method: "POST" });
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(201);
+    expect(first.status).toBe(410);
+    expect(await first.json()).toEqual({ error: "legacy_cm_simulator_retired", replacement: "/api/session/protocol" });
+    const state = await fetch(`${baseUrl}/api/simulator/sessions/retired/state`);
+    expect(state.status).toBe(410);
+  });
 
-    const firstBody = (await first.json()) as { sessionId: string };
-    const secondBody = (await second.json()) as { sessionId: string };
-    expect(firstBody.sessionId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(secondBody.sessionId).not.toBe(firstBody.sessionId);
-
-    const stateBody = await waitForSimulatorState(baseUrl, firstBody.sessionId);
-    expect(stateBody).toHaveProperty("draftState");
-    expect(stateBody).toHaveProperty("suggestions");
-    expect(stateBody).not.toHaveProperty("events");
-    expect((stateBody.draftState as { sessionId: string }).sessionId).toBe(firstBody.sessionId);
-    expect((stateBody.suggestions as { sessionId: string }).sessionId).toBe(firstBody.sessionId);
+  test("/api/session/protocol está montada en el servidor real y conserva la perspectiva canónica", async () => {
+    const created = await fetch(`${baseUrl}/api/session/protocol`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        rulesetId: "dota2/ranked-all-pick",
+        patch: "7.41e",
+        localSide: "radiant",
+        adapterKind: "simulator",
+        partyContext: {
+          partySize: 5,
+          side: "radiant",
+          controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
+        },
+      }),
+    });
+    expect(created.status).toBe(201);
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    const command = await fetch(`${baseUrl}/api/session/protocol/${sessionId}/command`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ command: { type: "BAN_RESOLUTION_COMPLETE" } }),
+    });
+    expect(command.status).toBe(202);
+    const body = (await command.json()) as { view: { viewerSide: string; rankedAp: { phase: string } } };
+    expect(body.view.viewerSide).toBe("radiant");
+    expect(body.view.rankedAp.phase).toBe("PICK_ROUND_1");
+    expect((await fetch(`${baseUrl}/api/session/protocol/${sessionId}?side=dire`)).status).toBe(403);
   });
 
   test("GET/PUT /api/settings están retirados y responden 404", async () => {
@@ -908,70 +916,43 @@ describe("turno real en el wire (Captain's Mode, TSK-073)", () => {
     return { baseUrl: `http://127.0.0.1:${server.port}`, port: server.port, stop: () => server.stop(true) };
   }
 
-  test("draft_state incluye turn:null antes de bootstrapear firstPickSide, y el turno real después del primer ban", async () => {
-    const { baseUrl, port, stop } = startAppWithTurns();
+  test("/ingest rechaza iniciar CM legacy y dirige al ProtocolKernel", async () => {
+    const { baseUrl, stop } = startAppWithTurns();
     try {
       const sessionId = "session-turn-1";
-      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/draft`);
-      await waitForOpen(ws);
-
-      const helloReply = waitForMessages(ws, 2);
-      ws.send(JSON.stringify({ schema: "draft-ws/v1", type: "hello", sessionId }));
-      const [snapshotBeforeStart] = await helloReply;
-      expect((snapshotBeforeStart?.payload as Record<string, unknown>)?.turn).toBeNull();
-
-      const started = waitForMessages(ws, 2);
-      await fetch(`${baseUrl}/ingest/draft-event`, {
+      const response = await fetch(`${baseUrl}/ingest/draft-event`, {
         method: "POST",
         headers: { "x-capture-token": EXPECTED_HEADER },
         body: JSON.stringify(
           envelope({ sessionId, seq: 1, source: "manual", payload: { type: "session_started", format: "captains_mode", patch: "7.41e" } }),
         ),
       });
-      await started;
-
-      const pushed = waitForMessages(ws, 2);
-      await fetch(`${baseUrl}/ingest/draft-event`, {
-        method: "POST",
-        headers: { "x-capture-token": EXPECTED_HEADER },
-        body: JSON.stringify(
-          envelope({ sessionId, seq: 2, source: "manual", payload: { type: "hero_banned", hero: 1, side: "radiant" } }),
-        ),
+      expect(response.status).toBe(410);
+      expect(await response.json()).toEqual({
+        accepted: false,
+        rejected: "legacy_cm_runtime_retired",
+        replacement: "/api/session/protocol",
       });
-      const [draftState] = await pushed;
-      expect(draftState?.type).toBe("draft_state");
-      const payload = draftState?.payload as Record<string, unknown>;
-      expect(payload.turn).toEqual({ side: "dire", action: "ban", standardTimeMs: 10000 });
-      expect(payload.firstPickSide).toBe("radiant");
-
-      ws.close();
     } finally {
       stop();
     }
   });
 
-  test("un pick fuera de turno se rechaza con wrong_turn vía POST /ingest/draft-event", async () => {
+  test("/api/session/manual tampoco puede crear una autoridad CM legacy", async () => {
     const { baseUrl, stop } = startAppWithTurns();
     try {
       const sessionId = "session-turn-2";
-      await fetch(`${baseUrl}/ingest/draft-event`, {
+      const res = await fetch(`${baseUrl}/api/session/manual`, {
         method: "POST",
-        headers: { "x-capture-token": EXPECTED_HEADER },
         body: JSON.stringify(
           envelope({ sessionId, seq: 1, source: "manual", payload: { type: "session_started", format: "captains_mode", patch: "7.41e" } }),
         ),
       });
-      // Turno 0 espera un ban -- este es un pick, y encima nunca hay picks en la tabla sintética.
-      const res = await fetch(`${baseUrl}/ingest/draft-event`, {
-        method: "POST",
-        headers: { "x-capture-token": EXPECTED_HEADER },
-        body: JSON.stringify(
-          envelope({ sessionId, seq: 2, source: "manual", payload: { type: "hero_picked", hero: 1, side: "radiant" } }),
-        ),
-      });
       const body = await res.json();
+      expect(res.status).toBe(410);
       expect(body.accepted).toBe(false);
-      expect(body.rejected).toBe("wrong_turn");
+      expect(body.rejected).toBe("legacy_cm_runtime_retired");
+      expect(body.replacement).toBe("/api/session/protocol");
     } finally {
       stop();
     }

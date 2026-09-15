@@ -57,6 +57,7 @@ class KvTokenizer {
         out += this.text[this.pos];
         this.pos += 1;
       }
+      if (this.pos >= this.text.length) throw new Error("KV parse error: unterminated quoted string");
       this.pos += 1; // closing quote
       return out;
     }
@@ -81,12 +82,18 @@ class KvTokenizer {
 export function parseKeyValues(text: string): KvNode {
   const tokenizer = new KvTokenizer(text);
 
-  function parseBlock(): KvNode {
+  function parseBlock(expectClosingBrace: boolean): KvNode {
     const node: KvNode = {};
     for (;;) {
       const key = tokenizer.next();
-      if (key === null) return node; // EOF closes the (possibly root) block
-      if (key === "}") return node;
+      if (key === null) {
+        if (expectClosingBrace) throw new Error("KV parse error: unexpected EOF before closing '}'");
+        return node;
+      }
+      if (key === "}") {
+        if (!expectClosingBrace) throw new Error("KV parse error: unexpected extra '}'");
+        return node;
+      }
       if (key === "{") throw new Error("KV parse error: unexpected '{' where a key was expected");
 
       const valueToken = tokenizer.next();
@@ -94,7 +101,7 @@ export function parseKeyValues(text: string): KvNode {
 
       let value: KvValue;
       if (valueToken === "{") {
-        value = parseBlock();
+        value = parseBlock(true);
       } else if (valueToken === "}") {
         throw new Error(`KV parse error: key "${key}" followed immediately by '}'`);
       } else {
@@ -112,7 +119,7 @@ export function parseKeyValues(text: string): KvNode {
     }
   }
 
-  return parseBlock();
+  return parseBlock(false);
 }
 
 /** Reads a nested KvNode as a plain object (never an array) at `key`, or `null` if absent/not a node. */

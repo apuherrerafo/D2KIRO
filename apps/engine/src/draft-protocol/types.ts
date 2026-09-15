@@ -170,6 +170,19 @@ export interface CmStepRecord {
   outcome: CmStepOutcome;
 }
 
+export type CmEligibilityProvenance =
+  | {
+      kind: "OFFICIAL_DEPOT";
+      appId: 570;
+      buildId: string;
+      depotId: string;
+      manifestId: string;
+      sourcePath: string;
+      sourceHash: string;
+    }
+  | { kind: "DEMO_FIXTURE"; label: string }
+  | { kind: "SYNTHETIC_TEST"; label: string };
+
 export interface CmHeroEligibilitySnapshot {
   schema: "cm-hero-eligibility/v1";
   appId: 570;
@@ -177,6 +190,7 @@ export interface CmHeroEligibilitySnapshot {
   buildId: string;
   depotManifests: Record<string, string>;
   sourceHashes: Record<string, string>;
+  provenance: CmEligibilityProvenance;
   /** Ordered, unique, CM-eligible hero IDs (HeroID > 0, Enabled == 1, CMEnabled == 1). */
   heroIds: HeroId[];
   contentHash: string;

@@ -238,6 +238,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (!isValidDraftEventEnvelope(body)) {
       return Response.json({ accepted: false }, { status: 400 });
     }
+    if (body.payload.type === "session_started" && body.payload.format === "captains_mode") {
+      return Response.json(
+        { accepted: false, rejected: "legacy_cm_runtime_retired", replacement: "/api/session/protocol" },
+        { status: 410 },
+      );
+    }
 
     const sourceIp = request.headers.get("x-forwarded-for") ?? "unknown";
 

@@ -14,8 +14,17 @@ function buildSnapshot(): CmHeroEligibilitySnapshot {
     appId: 570 as const,
     patch: "7.41e",
     buildId: "1234567",
-    depotManifests: { "570": "111" },
+    depotManifests: { "570": "fixture-manifest" },
     sourceHashes: { npc_heroes: "abc123" },
+    provenance: {
+      kind: "OFFICIAL_DEPOT" as const,
+      appId: 570 as const,
+      buildId: "1234567",
+      depotId: "fixture-depot",
+      manifestId: "fixture-manifest",
+      sourcePath: "scripts/npc/npc_heroes.txt",
+      sourceHash: "abc123",
+    },
     heroIds: [1, 2, 3],
   };
   return { ...base, contentHash: computeEligibilityContentHash(base) };
@@ -41,6 +50,9 @@ describe("parseCmHeroEligibilitySnapshot", () => {
     // origen real, así que debe rechazarse tanto como un shape inválido.
     ["depotManifests sin la clave requerida (570)", { ...buildSnapshot(), depotManifests: {} }],
     ["sourceHashes sin la clave requerida (npc_heroes)", { ...buildSnapshot(), sourceHashes: {} }],
+    ["provenance ausente", { ...buildSnapshot(), provenance: undefined }],
+    ["manifest provenance no coincide con depotManifests", { ...buildSnapshot(), provenance: { ...buildSnapshot().provenance, manifestId: "otro-manifest" } }],
+    ["sourcePath official no es npc_heroes", { ...buildSnapshot(), provenance: { ...buildSnapshot().provenance, sourcePath: "otro/path.txt" } }],
     ["null", null],
     ["no objeto", "not-an-object"],
   ])("degrada a null: %s", (_label, raw) => {
@@ -79,6 +91,14 @@ describe("acceptCmHeroEligibilitySnapshot — fail closed", () => {
   test("snapshot íntegro y bien formado -> aceptado", () => {
     const snapshot = buildSnapshot();
     expect(acceptCmHeroEligibilitySnapshot(snapshot)).toEqual(snapshot);
+  });
+
+  test.each(["DEMO_FIXTURE", "SYNTHETIC_TEST"] as const)("provenance %s nunca se certifica", (kind) => {
+    const base = buildSnapshot();
+    const withoutHash = { ...base, provenance: { kind, label: "fixture" } };
+    const snapshot = { ...withoutHash, contentHash: computeEligibilityContentHash(withoutHash) };
+    expect(parseCmHeroEligibilitySnapshot(snapshot)).not.toBeNull();
+    expect(acceptCmHeroEligibilitySnapshot(snapshot)).toBeNull();
   });
 });
 

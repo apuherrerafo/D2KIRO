@@ -52,15 +52,20 @@ describe("computeJointRoleAssignment -- S4.3", () => {
     expect(result.heroPositionMarginals.get(1)![2]).toBeCloseTo(1, 9);
   });
 
-  test("dos héroes confirmados a la MISMA posición (input contradictorio) no produce NaN ni lanza", () => {
+  test("dos héroes confirmados a la MISMA posición se rechazan como asignación imposible", () => {
     const heroes = [hero(1, { confirmedPosition: 3 }), hero(2, { confirmedPosition: 3 })];
     const result = computeJointRoleAssignment(heroes);
+    expect(result.rejected).toBe("IMPOSSIBLE_ASSIGNMENT");
+    expect(result.candidates).toHaveLength(0);
+    expect(result.conflicts).toEqual([{ position: 3, heroIds: [1, 2] }]);
+  });
+
+  test("preferencias blandas incompatibles siguen siendo relajables", () => {
+    const heroes = [hero(1, { partyPreferredPositions: [3] }), hero(2, { partyPreferredPositions: [3] })];
+    const result = computeJointRoleAssignment(heroes);
+    expect(result.rejected).toBeUndefined();
     expect(result.candidates.length).toBeGreaterThan(0);
-    for (const candidate of result.candidates) {
-      expect(Number.isFinite(candidate.probability)).toBe(true);
-    }
-    const total = result.candidates.reduce((sum, c) => sum + c.probability, 0);
-    expect(total).toBeCloseTo(1, 9);
+    expect(result.candidates.every((candidate) => new Set(candidate.assignment.values()).size === 2)).toBe(true);
   });
 
   test("resuelve el caso 'un héroe flex cubre tres huecos a la vez' que rompe a los marginales independientes", () => {

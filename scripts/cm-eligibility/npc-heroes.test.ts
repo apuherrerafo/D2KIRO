@@ -87,6 +87,36 @@ describe("parseNpcHeroEntries + deriveEligibleHeroIds -- S3.4 (fixture, not real
     expect(new Set(eligible).size).toBe(eligible.length);
     expect(eligible.filter((id) => id === 1)).toHaveLength(1);
   });
+
+  test("resuelve Enabled y CMEnabled heredados desde BaseClass", () => {
+    const root = parseKeyValues(`
+      "DOTAHeroes" {
+        "npc_dota_hero_template" { "Enabled" "1" "CMEnabled" "0" }
+        "npc_dota_hero_child" { "BaseClass" "npc_dota_hero_template" "HeroID" "77" }
+      }
+    `);
+    const child = parseNpcHeroEntries(root).find((entry) => entry.internalName === "npc_dota_hero_child")!;
+    expect(child).toEqual({ internalName: "npc_dota_hero_child", heroId: 77, enabled: true, cmEnabled: false });
+  });
+
+  test("un valor del héroe sobreescribe el heredado", () => {
+    const root = parseKeyValues(`
+      "DOTAHeroes" {
+        "npc_dota_hero_template" { "Enabled" "0" "CMEnabled" "0" }
+        "npc_dota_hero_child" { "BaseClass" "npc_dota_hero_template" "HeroID" "78" "Enabled" "1" "CMEnabled" "1" }
+      }
+    `);
+    const child = parseNpcHeroEntries(root).find((entry) => entry.internalName === "npc_dota_hero_child")!;
+    expect(child.enabled).toBe(true);
+    expect(child.cmEnabled).toBe(true);
+  });
+
+  test("CMEnabled ausente en toda la cadena conserva el default efectivo habilitado", () => {
+    const root = parseKeyValues(`"DOTAHeroes" { "npc_dota_hero_child" { "HeroID" "79" } }`);
+    const child = parseNpcHeroEntries(root)[0]!;
+    expect(child.cmEnabled).toBe(true);
+    expect(deriveEligibleHeroIds([child])).toEqual([79]);
+  });
 });
 
 describe("buildCmHeroEligibilitySnapshot", () => {
@@ -96,8 +126,9 @@ describe("buildCmHeroEligibilitySnapshot", () => {
     const snapshot = buildCmHeroEligibilitySnapshot(entries, {
       patch: "7.41e",
       buildId: "test-build-0001",
-      depotManifests: { "570": "fixture-manifest-hash" },
+      depotManifests: { "570": "fixture-manifest" },
       sourceHashes: { npc_heroes: "fixture-source-hash" },
+      provenance: { kind: "SYNTHETIC_TEST", label: "npc-heroes unit fixture" },
     });
     expect(snapshot.schema).toBe("cm-hero-eligibility/v1");
     expect(snapshot.heroIds).toEqual([1, 2]);
@@ -110,8 +141,9 @@ describe("buildCmHeroEligibilitySnapshot", () => {
     const snapshot = buildCmHeroEligibilitySnapshot(entries, {
       patch: "7.41e",
       buildId: "test-build-0001",
-      depotManifests: { "570": "fixture-manifest-hash" },
+      depotManifests: { "570": "fixture-manifest" },
       sourceHashes: { npc_heroes: "fixture-source-hash" },
+      provenance: { kind: "OFFICIAL_DEPOT", appId: 570, buildId: "test-build-0001", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture-source-hash" },
     });
     expect(acceptCmHeroEligibilitySnapshot(snapshot)).not.toBeNull();
   });
@@ -124,6 +156,7 @@ describe("buildCmHeroEligibilitySnapshot", () => {
       buildId: "test-build-0001",
       depotManifests: { "570": "fixture-manifest-hash" },
       sourceHashes: { npc_heroes: "fixture-source-hash" },
+      provenance: { kind: "SYNTHETIC_TEST", label: "npc-heroes tamper fixture" },
     });
     // Content changed (an extra hero id) but contentHash left stale -- exactly the tamper case
     // verifyEligibilitySnapshotIntegrity exists to catch.

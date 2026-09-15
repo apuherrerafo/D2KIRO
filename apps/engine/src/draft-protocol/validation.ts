@@ -1,4 +1,5 @@
 import { parseCmHeroEligibilitySnapshot } from "./eligibility";
+import { isValidHeroId } from "./hero-id";
 import { isValidPartySize } from "./party-context";
 import type { PartyContextInput } from "./kernel";
 import type { ControlledSlot, OpenSlot, ProtocolCommand, RulesetId, TeamSide } from "./types";
@@ -22,12 +23,8 @@ function isRelativeSide(value: unknown): value is "first" | "second" {
   return value === "first" || value === "second";
 }
 
-function isHeroId(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
 function isHeroIdArray(value: unknown): value is number[] {
-  return Array.isArray(value) && value.every(isHeroId);
+  return Array.isArray(value) && value.every(isValidHeroId);
 }
 
 function isOpenSlot(value: unknown): value is OpenSlot {
@@ -47,19 +44,19 @@ export function isValidProtocolCommand(value: unknown): value is ProtocolCommand
     case "BAN_RESOLUTION_COMPLETE":
       return true;
     case "SUBMIT_SEALED_SELECTION":
-      return isTeamSide(value.side) && Number.isInteger(value.slotIndex) && (value.slotIndex as number) >= 0 && isHeroId(value.heroId);
+      return isTeamSide(value.side) && Number.isInteger(value.slotIndex) && (value.slotIndex as number) >= 0 && isValidHeroId(value.heroId);
     case "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION":
-      return (value.round === 1 || value.round === 2 || value.round === 3) && isHeroId(value.heroId) && isOpenSlot(value.winner);
+      return (value.round === 1 || value.round === 2 || value.round === 3) && isValidHeroId(value.heroId) && isOpenSlot(value.winner);
     case "CONFIRM_FIRST_PICK_SIDE":
       return isTeamSide(value.side);
     case "LOAD_CM_ELIGIBILITY":
       return parseCmHeroEligibilitySnapshot(value.snapshot) !== null;
     case "CM_ACTION":
-      return isRelativeSide(value.actor) && (value.kind === "BAN" || value.kind === "PICK") && isHeroId(value.heroId);
+      return isRelativeSide(value.actor) && (value.kind === "BAN" || value.kind === "PICK") && isValidHeroId(value.heroId);
     case "CM_BAN_SKIPPED":
       return isRelativeSide(value.actor);
     case "CM_AUTO_PICK":
-      return isRelativeSide(value.actor) && isHeroId(value.heroId);
+      return isRelativeSide(value.actor) && isValidHeroId(value.heroId);
     default:
       return false;
   }
@@ -92,14 +89,18 @@ export function isValidPartyContextInput(value: unknown): value is PartyContextI
 export interface CreateProtocolSessionBody {
   rulesetId: RulesetId;
   patch: string;
-  partyContext?: PartyContextInput;
+  localSide: TeamSide;
+  adapterKind: "manual" | "simulator";
+  partyContext: PartyContextInput;
 }
 
 export function isValidCreateProtocolSessionBody(value: unknown): value is CreateProtocolSessionBody {
   if (!isRecord(value)) return false;
   if (!isValidRulesetId(value.rulesetId)) return false;
   if (typeof value.patch !== "string" || value.patch.length === 0) return false;
-  if (value.partyContext !== undefined && !isValidPartyContextInput(value.partyContext)) return false;
+  if (!isTeamSide(value.localSide)) return false;
+  if (value.adapterKind !== "manual" && value.adapterKind !== "simulator") return false;
+  if (!isValidPartyContextInput(value.partyContext) || value.partyContext.side !== value.localSide) return false;
   return true;
 }
 
@@ -125,11 +126,9 @@ export function isValidSimulatorAuthorityBody(value: unknown): value is Simulato
   return typeof value.seed === "string" && value.seed.length > 0 && value.seed.length <= 64;
 }
 
-export interface BotSelectionBody {
-  side: TeamSide;
-}
+export type BotSelectionBody = Record<string, never>;
 
 export function isValidBotSelectionBody(value: unknown): value is BotSelectionBody {
   if (!isRecord(value)) return false;
-  return isTeamSide(value.side);
+  return Object.keys(value).length === 0;
 }

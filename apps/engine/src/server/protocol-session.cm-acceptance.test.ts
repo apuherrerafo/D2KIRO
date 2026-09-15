@@ -13,8 +13,9 @@ function fixtureEligibility(heroIds: number[]): CmHeroEligibilitySnapshot {
     appId: 570,
     patch: "7.41e",
     buildId: "fixture-build",
-    depotManifests: { "570": "fixture" },
+    depotManifests: { "570": "fixture-manifest" },
     sourceHashes: { npc_heroes: "fixture" },
+    provenance: { kind: "OFFICIAL_DEPOT", appId: 570, buildId: "fixture-build", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture" },
     heroIds: [...heroIds].sort((a, b) => a - b),
   };
   return { ...withoutHash, contentHash: computeEligibilityContentHash(withoutHash) };
@@ -124,7 +125,12 @@ describe("S3 acceptance -- Captain's Mode through ProtocolSessionStore", () => {
 
   test("eligibility fail-closed: sin snapshot cargado, ningún CM_ACTION/CM_AUTO_PICK es legal ni aceptado", () => {
     const store = new ProtocolSessionStore();
-    store.create({ sessionId: "no-eligibility", rulesetId: "dota2/captains-mode", patch: "7.41e" });
+    store.create({
+      sessionId: "no-eligibility",
+      rulesetId: "dota2/captains-mode",
+      patch: "7.41e",
+      partyContext: { partySize: 5, side: "radiant", controlledSlots: FULL_PARTY_SLOTS },
+    });
     store.apply("no-eligibility", { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" });
     // No LOAD_CM_ELIGIBILITY at all.
     const actions = store.legalActions("no-eligibility") ?? [];
@@ -134,15 +140,13 @@ describe("S3 acceptance -- Captain's Mode through ProtocolSessionStore", () => {
     expect(result?.rejected).toBe("ELIGIBILITY_UNVERIFIED");
   });
 
-  test("CM nunca tiene información oculta: la vista de un lado siempre coincide con la del otro (bans/picks son REVEALED de inmediato)", () => {
+  test("CM nunca tiene información oculta en la perspectiva autorizada", () => {
     const store = new ProtocolSessionStore();
     createCmSession(store, "cm-visibility", "radiant");
     const action = (store.legalActions("cm-visibility") ?? []).find((a) => a.type === "CM_ACTION") as Extract<GameplayLegalAction, { type: "CM_ACTION" }>;
     store.apply("cm-visibility", { type: "CM_ACTION", actor: action.actor, kind: action.kind, heroId: action.eligibleHeroIds[0]! });
 
-    const radiantView = store.view("cm-visibility", "radiant");
-    const direView = store.view("cm-visibility", "dire");
-    expect(radiantView?.bannedHeroes).toEqual(direView?.bannedHeroes);
+    const radiantView = store.view("cm-visibility");
     // No HIDDEN slot ever appears in a CM view (frozen contract: CM has no sealed phase).
     expect([...(radiantView?.ownPicks ?? []), ...(radiantView?.enemyPicks ?? [])].some((s) => s.visibility === "HIDDEN")).toBe(false);
   });

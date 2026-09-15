@@ -5,9 +5,9 @@ import type { DraftEvent, DraftEventEnvelope } from "../draft/reducer";
 // it has no bot-pick or collision logic of its own, it only replays fixed scripts. For
 // kernel-backed scenarios (both AP and CM), use draft-protocol/adapters/cm-simulator.ts (CM) and
 // the SIMULATOR_POLICY collision adapter (draft-protocol/adapters/simulator-authority.ts, AP)
-// instead -- those drive the real Protocol Kernel, not this legacy path. This file is untouched
-// by this wave; it keeps working for whatever still depends on the legacy CM turn-checking path
-// (routes/simulator-sessions.ts).
+// instead -- those drive the real Protocol Kernel, not this legacy path. The production
+// /api/simulator/sessions route is now a 410 tombstone; this player remains only for its explicit
+// historical/unit-test consumers and cannot authorize an R1 CM session.
 
 export interface ScriptEntry {
   event: DraftEvent;

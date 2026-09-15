@@ -35,6 +35,8 @@ export interface ProtocolSessionMetadata {
   /** Current game patch, e.g. "7.41e" -- not protocol data; used by adapters/suggestion-bridge.ts. */
   patch: string;
   partyContext: PartyContext | null;
+  localSide: TeamSide;
+  adapterKind: "manual" | "simulator";
 }
 
 interface ProtocolSessionEntry {
@@ -54,6 +56,12 @@ export interface CreateProtocolSessionInput {
   rulesetId: RulesetId;
   patch: string;
   partyContext?: PartyContextInput;
+  localSide?: TeamSide;
+  adapterKind?: "manual" | "simulator";
+}
+
+function oppositeSide(side: TeamSide): TeamSide {
+  return side === "radiant" ? "dire" : "radiant";
 }
 
 export class ProtocolSessionStore {
@@ -65,12 +73,16 @@ export class ProtocolSessionStore {
     }
     // S3.2 (frozen product requirement for this wave): Captain's Mode party size is exactly 5 --
     // enforced here, at the session boundary, rather than inside the frozen CmState/kernel.
-    if (input.rulesetId === "dota2/captains-mode" && input.partyContext && input.partyContext.partySize !== 5) {
+    if (input.rulesetId === "dota2/captains-mode" && input.partyContext?.partySize !== 5) {
       return {
         ok: false,
         reason: "CM_REQUIRES_PARTY_SIZE_5",
-        detail: `Captain's Mode requires partySize 5, got ${input.partyContext.partySize}`,
+        detail: `Captain's Mode requires PartyContext with partySize 5, got ${input.partyContext?.partySize ?? "missing"}`,
       };
+    }
+    const localSide = input.localSide ?? input.partyContext?.side ?? "radiant";
+    if (input.partyContext && input.partyContext.side !== localSide) {
+      return { ok: false, reason: "INVALID_PARTY_CONTEXT", detail: "party side must match localSide", error: "SLOT_SIDE_MISMATCH" };
     }
     const created = createProtocolState(input.sessionId, input.rulesetId, { partyContext: input.partyContext });
     if (!created.ok) return created;
@@ -78,7 +90,7 @@ export class ProtocolSessionStore {
     const partyContext = created.state.rankedAp?.partyContext ?? this.buildStandalonePartyContext(input.partyContext);
     this.sessions.set(input.sessionId, {
       state: created.state,
-      metadata: { patch: input.patch, partyContext },
+      metadata: { patch: input.patch, partyContext, localSide, adapterKind: input.adapterKind ?? "manual" },
       lastAccessedAt: now,
     });
     return { ok: true, sessionId: input.sessionId, state: created.state };
@@ -114,9 +126,49 @@ export class ProtocolSessionStore {
     return result;
   }
 
-  view(sessionId: string, viewerSide: TeamSide | null): PerspectiveDraftView | null {
+  view(sessionId: string): PerspectiveDraftView | null {
     const state = this.get(sessionId);
-    return state ? project(state, viewerSide) : null;
+    const metadata = this.metadata(sessionId);
+    return state && metadata ? project(state, metadata.localSide) : null;
+  }
+
+  botView(sessionId: string): PerspectiveDraftView | null {
+    const state = this.get(sessionId);
+    const metadata = this.metadata(sessionId);
+    if (!state || !metadata || metadata.adapterKind !== "simulator") return null;
+    return project(state, oppositeSide(metadata.localSide));
+  }
+
+  isSimulator(sessionId: string): boolean {
+    return this.metadata(sessionId)?.adapterKind === "simulator";
+  }
+
+  isCommandAuthorized(sessionId: string, command: ProtocolCommand): boolean {
+    const state = this.get(sessionId);
+    const metadata = this.metadata(sessionId);
+    if (!state || !metadata) return false;
+    if (command.type === "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION") return false;
+    if (command.type === "SUBMIT_SEALED_SELECTION") return command.side === metadata.localSide;
+    if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
+      return legalActions(state).some((action) => {
+        if (action.type !== command.type || action.absoluteSide !== metadata.localSide || action.actor !== command.actor) return false;
+        return action.type !== "CM_ACTION" || command.type !== "CM_ACTION" || action.kind === command.kind;
+      });
+    }
+    return true;
+  }
+
+  authorizedLegalActions(sessionId: string): LegalAction[] | null {
+    const state = this.get(sessionId);
+    const metadata = this.metadata(sessionId);
+    if (!state || !metadata) return null;
+    return legalActions(state).filter((action) => {
+      if (action.type === "SUBMIT_SEALED_SELECTION") return action.side === metadata.localSide;
+      if (action.type === "CM_ACTION" || action.type === "CM_BAN_SKIPPED" || action.type === "CM_AUTO_PICK") {
+        return action.absoluteSide === metadata.localSide;
+      }
+      return action.type !== "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION";
+    });
   }
 
   legalActions(sessionId: string): LegalAction[] | null {

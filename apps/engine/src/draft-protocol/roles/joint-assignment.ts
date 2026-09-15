@@ -43,8 +43,10 @@ export interface JointRoleAssignmentResult {
   expectedPositionNeed: Readonly<Record<Position, number>>;
   /** Shannon entropy (bits) of the candidate probability distribution -- team-level ambiguity. */
   entropy: number;
-  /** Set when the input can't produce any injective assignment (more heroes than positions). */
-  rejected?: "TOO_MANY_HEROES";
+  /** Set when the input can't produce any assignment without violating a hard constraint. */
+  rejected?: "TOO_MANY_HEROES" | "IMPOSSIBLE_ASSIGNMENT";
+  /** Confirmed positions that made an injective assignment impossible, preserved for explanation. */
+  conflicts?: readonly { position: Position; heroIds: readonly HeroId[] }[];
 }
 
 function generateInjectivePositionSequences(count: number): Position[][] {
@@ -69,7 +71,10 @@ function generateInjectivePositionSequences(count: number): Position[][] {
   return results;
 }
 
-function emptyResult(rejected?: "TOO_MANY_HEROES"): JointRoleAssignmentResult {
+function emptyResult(
+  rejected?: "TOO_MANY_HEROES" | "IMPOSSIBLE_ASSIGNMENT",
+  conflicts?: readonly { position: Position; heroIds: readonly HeroId[] }[],
+): JointRoleAssignmentResult {
   return {
     candidates: [],
     heroPositionMarginals: new Map(),
@@ -78,6 +83,7 @@ function emptyResult(rejected?: "TOO_MANY_HEROES"): JointRoleAssignmentResult {
     expectedPositionNeed: ONE,
     entropy: 0,
     ...(rejected ? { rejected } : {}),
+    ...(conflicts && conflicts.length > 0 ? { conflicts } : {}),
   };
 }
 
@@ -101,23 +107,27 @@ export function computeJointRoleAssignment(heroes: readonly JointAssignmentHeroI
   });
 
   const totalWeight = rawCandidates.reduce((sum, candidate) => sum + candidate.weight, 0);
-  // A team state where two heroes are BOTH hard-CONFIRMED to the same position is a genuinely
-  // impossible input (contradictory evidence, not something this function invented) -- every
-  // weighted candidate is 0. Rather than divide by zero or silently return nothing, fall back to
-  // a uniform distribution over the injective sequences themselves, so callers still get a
-  // well-formed (if maximally uncertain) result instead of NaN.
-  //
   // Zero-weight sequences (impossible given the evidence -- e.g. any sequence not putting a
-  // hard-CONFIRMED hero at its confirmed position) are dropped from the normal branch: they are
-  // not "candidates" at all once real evidence rules them out, only filler in the uninformative
-  // fallback where every sequence is equally (im)plausible.
-  const candidates: JointAssignmentCandidate[] = (
-    totalWeight > 0
-      ? rawCandidates
-          .filter((candidate) => candidate.weight > 0)
-          .map((candidate) => ({ assignment: candidate.assignment, probability: candidate.weight / totalWeight }))
-      : rawCandidates.map((candidate) => ({ assignment: candidate.assignment, probability: 1 / rawCandidates.length }))
-  ).sort((a, b) => b.probability - a.probability);
+  // hard-CONFIRMED hero at its confirmed position) are not candidates. If every injective
+  // sequence has zero weight, the evidence is contradictory and must fail explicitly.
+  if (totalWeight === 0) {
+    const confirmedByPosition = new Map<Position, HeroId[]>();
+    for (const hero of heroes) {
+      if (hero.belief.status !== "CONFIRMED") continue;
+      const position = POSITIONS.find((candidate) => hero.belief.probabilities[candidate] === 1);
+      if (position === undefined) continue;
+      confirmedByPosition.set(position, [...(confirmedByPosition.get(position) ?? []), hero.heroId]);
+    }
+    const conflicts = [...confirmedByPosition.entries()]
+      .filter(([, heroIds]) => heroIds.length > 1)
+      .map(([position, heroIds]) => ({ position, heroIds }));
+    return emptyResult("IMPOSSIBLE_ASSIGNMENT", conflicts);
+  }
+
+  const candidates: JointAssignmentCandidate[] = rawCandidates
+    .filter((candidate) => candidate.weight > 0)
+    .map((candidate) => ({ assignment: candidate.assignment, probability: candidate.weight / totalWeight }))
+    .sort((a, b) => b.probability - a.probability);
 
   const heroPositionMarginals = new Map<HeroId, Record<Position, number>>();
   for (const hero of heroes) heroPositionMarginals.set(hero.heroId, { ...ZERO });

@@ -11,7 +11,8 @@
 //
 //   bun scripts/cm-eligibility/build-snapshot.ts \
 //     --vpk "<steam-library>/steamapps/common/dota 2 beta/game/dota/pak01_dir.vpk" \
-//     --patch 7.41e --build-id <from Steam's builds> \
+//     --patch 7.41e --build-id <verified build> --depot-id <verified depot> \
+//     --manifest-id <verified manifest> \
 //     --out scripts/cm-eligibility/output/cm-hero-eligibility.7.41e.json
 //
 // Without --vpk, this script runs in --demo mode: it builds a snapshot from a fixture text (the
@@ -41,17 +42,29 @@ interface CliArgs {
   vpkPath: string | null;
   patch: string;
   buildId: string;
+  depotId: string | null;
+  manifestId: string | null;
   out: string | null;
   allowDemoOutput: boolean;
 }
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { vpkPath: null, patch: "unknown", buildId: "unknown", out: null, allowDemoOutput: false };
+  const args: CliArgs = {
+    vpkPath: null,
+    patch: "unknown",
+    buildId: "unknown",
+    depotId: null,
+    manifestId: null,
+    out: null,
+    allowDemoOutput: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--vpk") args.vpkPath = argv[++i] ?? null;
     else if (arg === "--patch") args.patch = argv[++i] ?? args.patch;
     else if (arg === "--build-id") args.buildId = argv[++i] ?? args.buildId;
+    else if (arg === "--depot-id") args.depotId = argv[++i] ?? null;
+    else if (arg === "--manifest-id") args.manifestId = argv[++i] ?? null;
     else if (arg === "--out") args.out = argv[++i] ?? null;
     else if (arg === "--allow-demo-output") args.allowDemoOutput = true;
   }
@@ -68,6 +81,14 @@ export interface BuildResult {
 /** Pure-ish orchestration (file I/O only for the VPK read + JSON write) -- kept separate from CLI parsing/exit-code plumbing so tests can call it directly. */
 export function runBuild(args: CliArgs): BuildResult {
   const isDemo = args.vpkPath === null;
+
+  if (!isDemo && (args.patch === "unknown" || args.buildId === "unknown" || !args.depotId || !args.manifestId)) {
+    return {
+      ok: false,
+      isDemo: false,
+      message: "ELIGIBILITY_UNVERIFIED: --vpk alone is not official provenance; --patch, --build-id, --depot-id and --manifest-id are required",
+    };
+  }
 
   let npcHeroesText: string;
   if (isDemo) {
@@ -92,8 +113,19 @@ export function runBuild(args: CliArgs): BuildResult {
   const snapshot = buildCmHeroEligibilitySnapshot(entries, {
     patch: args.patch,
     buildId: args.buildId,
-    depotManifests: { "570": isDemo ? "DEMO_FIXTURE_NOT_REAL_DEPOT_DATA" : `sha256:${sourceHash}` },
+    depotManifests: { "570": isDemo ? "DEMO_FIXTURE_NOT_REAL_DEPOT_DATA" : args.manifestId! },
     sourceHashes: { npc_heroes: `sha256:${sourceHash}` },
+    provenance: isDemo
+      ? { kind: "DEMO_FIXTURE", label: "embedded build-snapshot demo" }
+      : {
+          kind: "OFFICIAL_DEPOT",
+          appId: 570,
+          buildId: args.buildId,
+          depotId: args.depotId!,
+          manifestId: args.manifestId!,
+          sourcePath: NPC_HEROES_VPK_PATH,
+          sourceHash: `sha256:${sourceHash}`,
+        },
   });
 
   if (!verifyEligibilitySnapshotIntegrity(snapshot)) {

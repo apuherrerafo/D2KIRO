@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { applyProtocolCommand, createProtocolState } from "../kernel";
+import { authoritativeStateHash } from "../identity-hash";
+import { applyProtocolCommand, createProtocolState, legalActions } from "../kernel";
 import { computeEligibilityContentHash } from "../eligibility";
 import type { CmHeroEligibilitySnapshot } from "../types";
 import { playFullCmDraft, playOneCmStep } from "./cm-simulator";
+import { applyManualObservation } from "./manual-observation";
 
 function fixtureEligibility(count: number): CmHeroEligibilitySnapshot {
   const withoutHash: Omit<CmHeroEligibilitySnapshot, "contentHash"> = {
@@ -10,8 +12,9 @@ function fixtureEligibility(count: number): CmHeroEligibilitySnapshot {
     appId: 570,
     patch: "7.41e",
     buildId: "fixture",
-    depotManifests: { "570": "fixture" },
+    depotManifests: { "570": "fixture-manifest" },
     sourceHashes: { npc_heroes: "fixture" },
+    provenance: { kind: "OFFICIAL_DEPOT", appId: 570, buildId: "fixture", depotId: "fixture-depot", manifestId: "fixture-manifest", sourcePath: "scripts/npc/npc_heroes.txt", sourceHash: "fixture" },
     heroIds: Array.from({ length: count }, (_, i) => i + 1),
   };
   return { ...withoutHash, contentHash: computeEligibilityContentHash(withoutHash) };
@@ -81,5 +84,37 @@ describe("cm-simulator -- S3.5 (controls both sides through the real kernel)", (
     const a = build();
     const b = build();
     expect(a.captainsMode).toEqual(b.captainsMode);
+  });
+
+  test("parity real: observaciones manuales y cm-simulator traducen al mismo estado/hash", () => {
+    const manualCreated = createProtocolState("cm-adapter-parity", "dota2/captains-mode");
+    const simulatorCreated = createProtocolState("cm-adapter-parity", "dota2/captains-mode");
+    if (!manualCreated.ok || !simulatorCreated.ok) throw new Error("setup failed");
+    const eligibility = fixtureEligibility(30);
+
+    let manual = applyManualObservation(manualCreated.state, { type: "CM_FIRST_PICK_SIDE_OBSERVED", side: "dire" })!.state;
+    manual = applyManualObservation(manual, { type: "CM_ELIGIBILITY_OBSERVED", snapshot: eligibility })!.state;
+    let simulator = applyProtocolCommand(simulatorCreated.state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "dire" }).state;
+    simulator = applyProtocolCommand(simulator, { type: "LOAD_CM_ELIGIBILITY", snapshot: eligibility }).state;
+
+    for (let guard = 0; guard < 30 && manual.status !== "COMPLETE"; guard += 1) {
+      const action = legalActions(manual).find((candidate) => candidate.type === "CM_ACTION");
+      if (!action || action.type !== "CM_ACTION") throw new Error("manual adapter has no legal CM action");
+      const manualResult = applyManualObservation(manual, {
+        type: "CM_HERO_ACTION_OBSERVED",
+        side: action.absoluteSide,
+        kind: action.kind,
+        heroId: action.eligibleHeroIds[0]!,
+      });
+      const simulatorResult = playOneCmStep(simulator);
+      if (!manualResult || !simulatorResult) throw new Error("adapter stopped early");
+      expect(manualResult.rejected).toBeUndefined();
+      expect(simulatorResult.rejected).toBeUndefined();
+      manual = manualResult.state;
+      simulator = simulatorResult.state;
+    }
+
+    expect(manual.status).toBe("COMPLETE");
+    expect(authoritativeStateHash(manual)).toBe(authoritativeStateHash(simulator));
   });
 });

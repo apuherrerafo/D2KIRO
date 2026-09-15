@@ -14,7 +14,7 @@
 // apps/** never importing scripts/**, not the reverse.
 
 import { computeEligibilityContentHash } from "../../apps/engine/src/draft-protocol/eligibility";
-import type { CmHeroEligibilitySnapshot, HeroId } from "../../apps/engine/src/draft-protocol/types";
+import type { CmEligibilityProvenance, CmHeroEligibilitySnapshot, HeroId } from "../../apps/engine/src/draft-protocol/types";
 import { kvChild, kvChildEntries, kvString, type KvNode } from "./kv-parser";
 
 export interface NpcHeroEntry {
@@ -22,6 +22,30 @@ export interface NpcHeroEntry {
   heroId: HeroId | null;
   enabled: boolean;
   cmEnabled: boolean;
+}
+
+const EFFECTIVE_HERO_KEYS = ["HeroID", "Enabled", "CMEnabled"] as const;
+
+function resolveEffectiveHeroValues(
+  internalName: string,
+  blocks: ReadonlyMap<string, KvNode>,
+  resolving: ReadonlySet<string> = new Set(),
+): Record<(typeof EFFECTIVE_HERO_KEYS)[number], string | null> {
+  if (resolving.has(internalName)) throw new Error(`npc_heroes inheritance cycle at ${internalName}`);
+  const block = blocks.get(internalName);
+  if (!block) return { HeroID: null, Enabled: null, CMEnabled: null };
+
+  const nextResolving = new Set(resolving).add(internalName);
+  const baseName = kvString(block, "BaseClass");
+  const inherited = baseName
+    ? resolveEffectiveHeroValues(baseName, blocks, nextResolving)
+    : { HeroID: null, Enabled: null, CMEnabled: null };
+
+  return {
+    HeroID: kvString(block, "HeroID") ?? inherited.HeroID,
+    Enabled: kvString(block, "Enabled") ?? inherited.Enabled,
+    CMEnabled: kvString(block, "CMEnabled") ?? inherited.CMEnabled,
+  };
 }
 
 function parseKvBoolean(value: string | null, defaultValue: boolean): boolean {
@@ -41,16 +65,19 @@ function parseKvBoolean(value: string | null, defaultValue: boolean): boolean {
  */
 export function parseNpcHeroEntries(root: KvNode): NpcHeroEntry[] {
   const heroesNode = kvChild(root, "DOTAHeroes") ?? root; // tolerate being handed the DOTAHeroes node directly
-  return kvChildEntries(heroesNode)
+  const childEntries = kvChildEntries(heroesNode);
+  const blocks = new Map(childEntries);
+  return childEntries
     .filter(([internalName]) => internalName.startsWith("npc_dota_hero_"))
-    .map(([internalName, block]) => {
-      const heroIdRaw = kvString(block, "HeroID");
+    .map(([internalName]) => {
+      const effective = resolveEffectiveHeroValues(internalName, blocks);
+      const heroIdRaw = effective.HeroID;
       const heroId = heroIdRaw !== null && /^-?\d+$/.test(heroIdRaw) ? Number(heroIdRaw) : null;
       return {
         internalName,
         heroId,
-        enabled: parseKvBoolean(kvString(block, "Enabled"), true),
-        cmEnabled: parseKvBoolean(kvString(block, "CMEnabled"), true),
+        enabled: parseKvBoolean(effective.Enabled, true),
+        cmEnabled: parseKvBoolean(effective.CMEnabled, true),
       };
     });
 }
@@ -70,6 +97,7 @@ export interface SnapshotSourceMetadata {
   depotManifests: Record<string, string>;
   /** Must include an "npc_heroes" key (Blocker 4B) -- typically a hash of the raw file bytes. */
   sourceHashes: Record<string, string>;
+  provenance: CmEligibilityProvenance;
 }
 
 /**
@@ -90,6 +118,7 @@ export function buildCmHeroEligibilitySnapshot(
     buildId: metadata.buildId,
     depotManifests: metadata.depotManifests,
     sourceHashes: metadata.sourceHashes,
+    provenance: metadata.provenance,
     heroIds,
   };
   return { ...withoutHash, contentHash: computeEligibilityContentHash(withoutHash) };
