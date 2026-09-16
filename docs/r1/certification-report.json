@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "certificationId": "r1-s7",
+  "commit": "b4f4c527bebb9b3be1bc652867d7fd8b76e564c7",
+  "branch": "r1/product-certification",
+  "dirty": true,
+  "gates": [
+    {
+      "id": "root_tests",
+      "klass": "required",
+      "command": "bun run test",
+      "status": "PASS",
+      "summary": "SKIPPED_REUSED: already required+green in CI job 'test' (needs:)"
+    },
+    {
+      "id": "engine_typecheck",
+      "klass": "required",
+      "command": "bun x tsc --noEmit",
+      "status": "PASS",
+      "summary": "SKIPPED_REUSED: already required+green in CI job 'test' (needs:)"
+    },
+    {
+      "id": "web_typecheck",
+      "klass": "required",
+      "command": "bun x tsc --noEmit",
+      "status": "PASS",
+      "summary": "SKIPPED_REUSED: already required+green in CI job 'test' (needs:)"
+    },
+    {
+      "id": "web_lint",
+      "klass": "required",
+      "command": "bun run lint",
+      "status": "PASS",
+      "summary": "SKIPPED_REUSED: already required+green in CI job 'test' (needs:)"
+    },
+    {
+      "id": "verify_simplicity",
+      "klass": "required",
+      "command": "bash scripts/verify-simplicity.sh",
+      "status": "PASS",
+      "summary": "SKIPPED_REUSED: already required+green in CI job 'verify-simplicity' (needs:)"
+    },
+    {
+      "id": "engine_quality_gate",
+      "klass": "required",
+      "command": "bun run scripts/eval/gate.ts --enforce",
+      "status": "PASS",
+      "summary": "SKIPPED_REUSED: already required+green in CI job 'intelligence-ci' (needs:)"
+    },
+    {
+      "id": "ap_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/draft-protocol/rulesets/ranked-all-pick.test.ts apps/engine/src/draft-protocol/party-context.test.ts apps/engine/src/draft-protocol/adapters/simulator-authority.test.ts apps/engine/src/draft-protocol/kernel.test.ts apps/engine/src/draft-protocol/kernel.adversarial.test.ts apps/engine/src/server/protocol-session.integration.test.ts",
+      "status": "PASS",
+      "summary": "bun test v1.4.2 (744846f84) |  78 pass |  0 fail |  242 expect() calls | Ran 78 tests across 6 files. [46.00ms]"
+    },
+    {
+      "id": "cm_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/draft-protocol/rulesets/captains-mode.test.ts apps/engine/src/draft-protocol/adapters/cm-simulator.test.ts apps/engine/src/draft-protocol/eligibility.test.ts apps/engine/src/draft-protocol/trusted-eligibility.test.ts apps/engine/src/server/protocol-session.cm-acceptance.test.ts",
+      "status": "PASS",
+      "summary": "bun test v1.4.2 (744846f84) |  80 pass |  0 fail |  269 expect() calls | Ran 80 tests across 5 files. [54.00ms]"
+    },
+    {
+      "id": "recommendation_legality_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/recommendation/decision.test.ts apps/engine/src/recommendation/shortlist.test.ts apps/engine/src/recommendation/build.test.ts apps/engine/src/recommendation/architecture-guard.test.ts apps/engine/src/recommendation/translate-v1.test.ts",
+      "status": "PASS",
+      "summary": "S6 real-V6 perf (110 heroes): runs=8.8,8.5,9.3ms max=9.3ms median=8.8ms | apps\\engine\\src\\recommendation\\build.test.ts: |  55 pass |  0 fail |  188 expect() calls | Ran 55 tests across 5 files. [122.00ms]"
+    },
+    {
+      "id": "hidden_info_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/draft-protocol/identity-hash.test.ts apps/engine/src/draft-protocol/perspective.test.ts apps/engine/src/recommendation/identity.test.ts",
+      "status": "PASS",
+      "summary": "bun test v1.4.2 (744846f84) |  20 pass |  0 fail |  37 expect() calls | Ran 20 tests across 3 files. [29.00ms]"
+    },
+    {
+      "id": "role_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/draft-protocol/roles/role-belief.test.ts apps/engine/src/draft-protocol/roles/joint-assignment.test.ts apps/engine/src/recommendation/role-impact.test.ts",
+      "status": "PASS",
+      "summary": "bun test v1.4.2 (744846f84) |  29 pass |  0 fail |  179 expect() calls | Ran 29 tests across 3 files. [19.00ms]"
+    },
+    {
+      "id": "s6_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/recommendation/lookahead.test.ts apps/engine/src/recommendation/observation-point.test.ts apps/engine/src/recommendation/opponent-model.test.ts apps/engine/src/recommendation/steal.test.ts",
+      "status": "PASS",
+      "summary": "bun test v1.4.2 (744846f84) |  55 pass |  0 fail |  142 expect() calls | Ran 55 tests across 4 files. [50.00ms]"
+    },
+    {
+      "id": "adapter_parity_gate",
+      "klass": "required",
+      "command": "bun test apps/engine/src/server/adapter-parity.integration.test.ts",
+      "status": "PASS",
+      "summary": "bun test v1.4.2 (744846f84) |  1 pass |  0 fail |  34 expect() calls | Ran 1 test across 1 file. [33.00ms]"
+    }
+  ],
+  "overallStatus": "PASS",
+  "r1GoldenStatus": "MISSING",
+  "functionalHash": "33966310f04582eab9903c17b737b3ab2ba8758c193263e21fdd8018864a4668",
+  "knownGaps": [
+    {
+      "id": "party_size_ui",
+      "detail": "apps/web's ConfigPanel has no party-size selector -- createSimulatorProtocolSession always requests a fixed 5-controlled-slot Ranked AP session. Party 2/3/4/5 are only distinguishable at the protocol/kernel level (party-context.test.ts), not through the product UI. Pre-existing since S2-S4, not introduced by S7."
+    },
+    {
+      "id": "captains_mode_ui",
+      "detail": "No product UI entry point creates a Captain's Mode session. CM is fully built and certified at the engine/protocol level (rulesets/captains-mode.ts, cm-simulator.ts, 24-step ruleset, trusted eligibility) but unreachable from the browser today. Pre-existing since S3, not introduced by S7."
+    },
+    {
+      "id": "r1_golden_v1",
+      "detail": "R1 Golden v1 (28 deterministic protocol fixtures + 32 human-reviewed Dota quality cases) does not exist in this repo and no frozen S7 spec requires it -- see r1GoldenStatus."
+    }
+  ],
+  "deferredToR2": [
+    "Overwolf/OCR live capture, GSI integration, memory reading (S7 mandate non-goal; SPEC.md already specifies these as contract-only, built later).",
+    "Deep lookahead (multi-ply), MCTS/beam search, opponent-probability calibration -- S6 stays exactly one ply, uncalibrated, top-1-only by design; no S7 change to this mechanism.",
+    "Party-size (2/3/4) and Captain's Mode entries in the simulator's ConfigPanel -- both are real, protocol-certified capabilities with no product UI today; adding that UI is scoped product work, not an S7 integration task, and building it inside this slice would have violated the mandate's own 'no broad UI redesign' non-goal.",
+    "GuessingIndex/EvidenceCoverage UI surface -- explicitly deferred by the Fase 9.1 design (D4) to a follow-up once real usage data exists.",
+    "Auth/billing/Premium/matchmaking/deployment-architecture changes -- untouched, as instructed."
+  ],
+  "telemetry": {
+    "generatedAt": "2026-09-16T16:27:42.678Z",
+    "durationMs": 718,
+    "node": "v26.3.0"
+  }
+}

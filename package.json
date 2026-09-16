@@ -14,6 +14,8 @@
     "draft:test": "bun run scripts/test-pipeline.ts",
     "eval": "bun run scripts/eval/run.ts",
     "e2e": "playwright test",
-    "test": "bun test apps/engine && bun test apps/web && bun test scripts"
+    "test": "bun test apps/engine && bun test apps/web && bun test scripts",
+    "verify:r1": "bun run scripts/r1/certify.ts",
+    "dev:mvp": "bun run scripts/dev-mvp.ts"
   }
 }

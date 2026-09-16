@@ -186,3 +186,50 @@ jobs:
       # in ordinary PR or push CI and Task 20 alone owns any promotion.
       - name: Evaluation gate -- gate.ts --enforce (canonical authority, Tasks 8/9)
         run: bun run scripts/eval/gate.ts --enforce
+
+  # ---------------------------------------------------------------------------
+  # R1 S7 -- single certification decision for the R1 program (protocol kernel,
+  # Ranked AP + Captain's Mode, RecommendationSet/v2, S6 opponent intelligence).
+  # `needs:` on the three jobs above is deliberate REUSE, not redundancy: this
+  # job only starts once software correctness (test), the simplicity/security
+  # gate, and the engine quality gate have already passed elsewhere in this same
+  # workflow run -- it does not re-decide any of those three, it only adds the
+  # R1-specific categorized breakdown (AP/CM/recommendation-legality/hidden-info/
+  # role/S6/adapter-parity) and writes the reproducible certification artifact.
+  # See scripts/r1/certify.ts -- "bun run verify:r1" is the same single command
+  # a developer runs locally before pushing.
+  r1-certification:
+    name: r1-certification (verify:r1)
+    needs: [test, verify-simplicity, intelligence-ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies (root)
+        run: bun install --frozen-lockfile
+
+      - name: Install dependencies (apps/engine)
+        working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
+      - name: Install dependencies (apps/web)
+        working-directory: apps/web
+        run: bun install --frozen-lockfile
+
+      # --reuse-foundation: the `needs:` above already guarantees test/verify-simplicity/
+      # intelligence-ci are green in this workflow run -- this flag reuses that result instead of
+      # re-running the ~1700+ tests/typecheck/lint/gate a second time (see certify.ts's own header).
+      - name: R1 certification -- verify:r1
+        run: bun run verify:r1 -- --reuse-foundation
+
+      - name: Upload certification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-certification-report
+          path: docs/r1/certification-report.*
+          retention-days: 90
