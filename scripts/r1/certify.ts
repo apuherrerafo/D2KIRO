@@ -1,36 +1,47 @@
 #!/usr/bin/env bun
-// R1 S7 -- single canonical entry point for R1 certification ("bun run verify:r1").
+// R1 S7 completion wave -- single canonical entry point for R1 certification ("bun run verify:r1").
 //
-// This script does NOT reimplement any check. Every gate below invokes the exact same command a
-// developer or CI already runs elsewhere (root `bun run test`, engine/web `tsc --noEmit`, web
-// `bun run lint`, `scripts/verify-simplicity.sh`, `scripts/eval/gate.ts --enforce`). It only:
-//   1. orchestrates them in one run;
-//   2. re-groups the existing R1 test files (draft-protocol/, recommendation/, and the adapter
-//      parity integration test under server/) into the certification categories the R1 program
-//      cares about (AP, CM, recommendation legality, hidden-info, role, S6, adapter parity) --
-//      these files already exist and already pass as part of step 1's full `bun test apps/engine`;
-//      running them again by name only gives the report per-category resolution;
-//   3. writes one reproducible JSON artifact plus a human-readable Markdown summary.
+// CORRECTION (this wave): the previous version of this script reported `overallStatus: "PASS"`
+// with `r1GoldenStatus: "MISSING"` -- a real contract violation. H0.5 (frozen outside this repo)
+// requires R1 Golden v1 (28 deterministic protocol fixtures + 32 HUMAN-reviewed Dota quality
+// cases, total 60) before R1 can be certified. LLM-only labels are never valid for this artifact.
+// This script now reports four SEPARATE decisions instead of one collapsed boolean:
 //
-// Deliberately NOT included here: browser E2E (`bun run e2e`). Same reasoning the project already
-// applies everywhere else (CLAUDE.md, `bun run e2e`'s own description): it is slow (~1-2 min),
-// needs a synced local meta DB, and its place is /castoff pre-deploy, not a gate a developer reruns
-// on every commit. `verify:r1` stays fast enough to actually be run before every push.
+//   machineCertification -- PASS/FAIL: the technical gates (tests, typecheck, lint, verify-
+//                            simplicity, engine quality gate, the 7 R1 protocol/recommendation
+//                            categories).
+//   productE2E            -- PASS/FAIL: real browser E2E (`bun run e2e`) against the real
+//                            protocol/engine path. Never silently skipped in "final certification"
+//                            mode -- see --machine-only below for the one place it can be.
+//   qualityGolden         -- PASS/HUMAN_GATE/FAIL: R1 Golden v1 readiness (scripts/r1/golden-
+//                            status.ts). HUMAN_GATE means the deterministic scaffold exists and
+//                            is well-formed but the 32 quality cases are still awaiting a real,
+//                            named, non-LLM reviewer signoff -- SKIPPED is never printed here,
+//                            because this is never optional, only pending.
+//   overallR1             -- PASS only if all three above are PASS. Never PASS with qualityGolden
+//                            anything other than PASS. HUMAN_GATE when everything technical is
+//                            green and only the human artifact is outstanding -- the honest state
+//                            this program is in right now.
 //
-// Determinism: the FUNCTIONAL section of the report (git identity, per-gate PASS/FAIL, R1 Golden
-// status, blockers) never includes a wall-clock timestamp or duration -- those live only in the
-// separate `telemetry` section. Two clean runs against the same commit produce the same
-// `functionalHash`.
+// Exit code policy (deliberately two modes, see CLI flags below):
+//   default ("final certification"):    exit 0 only if overallR1 === "PASS".
+//   --machine-only ("CI engineering"):  exit 0 if machineCertification === "PASS" AND
+//                                        productE2E === "PASS", regardless of qualityGolden.
+//                                        qualityGolden's real status is still written to the
+//                                        report either way -- this flag changes what makes CI
+//                                        green, never what the artifact claims.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { getR1GoldenStatus, REQUIRED_QUALITY_COUNT, type R1GoldenStatus } from "./golden-status";
 
 const ROOT = resolve(import.meta.dir, "..", "..");
 const REPORT_DIR = resolve(ROOT, "docs", "r1");
 
 type GateStatus = "PASS" | "FAIL" | "SKIPPED";
+type TopLevelStatus = "PASS" | "FAIL" | "HUMAN_GATE";
 
 interface GateResult {
   id: string;
@@ -43,7 +54,11 @@ interface GateResult {
 function sh(command: string, cwd: string = ROOT): { code: number; tail: string } {
   const result = spawnSync(command, { cwd, shell: true, encoding: "utf-8", maxBuffer: 64 * 1024 * 1024 });
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
-  const lines = output.split("\n").filter((line) => line.trim().length > 0);
+  // [WebServer] lines are Playwright forwarding the engine/web process's own stdout -- teardown
+  // noise (Next.js workspace-root warnings) can print AFTER the real "N passed" summary line,
+  // pushing it out of a blind last-N-lines window. Filtered out of the SUMMARY only -- full output
+  // still went to this process's own stdout/stderr for a human reading the live run.
+  const lines = output.split("\n").filter((line) => line.trim().length > 0 && !line.startsWith("[WebServer]"));
   const tail = lines.slice(-6).join(" | ").slice(0, 500);
   return { code: result.status ?? 1, tail };
 }
@@ -121,6 +136,10 @@ function reused(id: string, command: string, reason: string): GateResult {
   return { id, klass: "required", command, status: "PASS", summary: `SKIPPED_REUSED: ${reason}` };
 }
 
+function blockersOf(gates: GateResult[]): GateResult[] {
+  return gates.filter((g) => g.klass === "required" && g.status !== "PASS");
+}
+
 async function main(argv: string[]): Promise<number> {
   mkdirSync(REPORT_DIR, { recursive: true });
 
@@ -140,6 +159,14 @@ async function main(argv: string[]): Promise<number> {
   // instead of re-deciding it -- REUSE (Option A), not a second, competing source of truth. Locally
   // (no flag) this stays the comprehensive single command a developer runs before pushing.
   const reuseFoundation = argv.includes("--reuse-foundation");
+  // --machine-only: see header comment. Changes ONLY the exit code policy, never what the report
+  // claims -- qualityGolden's real status is always computed and always written.
+  const machineOnly = argv.includes("--machine-only");
+  // --skip-e2e: local fast-iteration escape hatch ONLY. productE2E is reported SKIPPED (never
+  // PASS -- SKIPPED != PASS), which alone prevents overallR1 from ever reaching PASS this run,
+  // matching --machine-only's exit-code split: use --machine-only if you want a green exit code
+  // without a real productE2E run; --skip-e2e never fakes that gate as green.
+  const skipE2E = argv.includes("--skip-e2e");
 
   const foundational: GateResult[] = reuseFoundation
     ? [
@@ -170,75 +197,82 @@ async function main(argv: string[]): Promise<number> {
     testGate("adapter_parity_gate", ADAPTER_PARITY_FILES),
   ];
 
+  const machineGates = [...foundational, ...r1Categories];
+  const machineCertification: TopLevelStatus = blockersOf(machineGates).length === 0 ? "PASS" : "FAIL";
+
+  // Product E2E (R1 S7 completion wave, Blocker 1/2/3 mandate): real browser -> API ->
+  // ProtocolKernel -> RecommendationSet/v2 -> Copilot, self-contained (e2e/bootstrap-db.ts). Never
+  // silently reused from another CI job (no such job exists yet) -- either it runs for real, or
+  // --skip-e2e marks it SKIPPED, which by itself blocks overallR1 from PASS this run.
+  let e2eGate: GateResult;
+  if (skipE2E) {
+    e2eGate = { id: "product_e2e", klass: "required", command: "bun run e2e", status: "SKIPPED", summary: "--skip-e2e: NOT verified this run (never counts as PASS)" };
+  } else {
+    e2eGate = gate("product_e2e", "required", "bun run e2e");
+  }
+  const productE2E: TopLevelStatus = e2eGate.status === "PASS" ? "PASS" : "FAIL";
+
+  const allGates = [...machineGates, e2eGate];
+
+  // R1 Golden v1 (Blocker 3): deterministic status from the real scaffold this wave built --
+  // docs/r1/golden/{deterministic-fixtures-manifest,quality-cases-template}.json, computed by
+  // scripts/r1/golden-status.ts. Never PASS unless the 32 quality cases carry a real, named,
+  // non-LLM reviewerSignoff each -- see human-review-guide.md.
+  const r1Golden: R1GoldenStatus = getR1GoldenStatus();
+  const qualityGolden: TopLevelStatus = r1Golden.overall === "COMPLETE" ? "PASS" : r1Golden.overall === "HUMAN_GATE" ? "HUMAN_GATE" : "FAIL";
+
+  const overallR1: TopLevelStatus =
+    machineCertification === "PASS" && productE2E === "PASS" && qualityGolden === "PASS"
+      ? "PASS"
+      : machineCertification === "FAIL" || productE2E === "FAIL" || qualityGolden === "FAIL"
+        ? "FAIL"
+        : "HUMAN_GATE";
+
   const durationMs = Date.now() - startedAt;
-
-  // R1 Golden v1 (28 deterministic protocol fixtures + 32 human-reviewed Dota quality cases) --
-  // audited against the actual repo (not assumed from any prior design note). Zero occurrence of
-  // "R1 Golden", "28 deterministic", or "32 human-reviewed" anywhere in code/docs/.kiro/specs. No
-  // S7 design document exists at all (S7 is only ever a forward-reference inside the S5/S6 docs).
-  // The only Golden dataset in the repo is eval/golden/dataset.json (30 cases, Fase 9/TSK-206,
-  // LLM-panel labeled -- NOT human-reviewed, and NOT about protocol/recommendation correctness).
-  // Since no frozen R1 spec requires this artifact for S7 to close, this is reported honestly as
-  // MISSING rather than either fabricated or silently substituted with Golden30.
-  const r1GoldenStatus = "MISSING" as const;
-
-  const allGates = [...foundational, ...r1Categories];
-  const blockers = allGates.filter((g) => g.klass === "required" && g.status !== "PASS");
-  const overallStatus: GateStatus = blockers.length === 0 ? "PASS" : "FAIL";
 
   // Functional identity: everything that should be byte-identical between two clean runs against
   // the same commit/data/seed -- the DECISION, never the raw log text. `summary` deliberately
-  // excluded: test-runner tails carry wall-clock durations (e.g. "[132.00ms]", "runs=6.9,11.3ms")
-  // that differ between two otherwise-identical runs and would make the hash lie about being an
-  // identity. Only `id`/`klass`/`status` per gate are hashed; `summary` stays in the full report
-  // for a human, outside the hashed payload.
+  // excluded: test-runner tails carry wall-clock durations that differ between two otherwise-
+  // identical runs and would make the hash lie about being an identity.
   const functionalPayload = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     certificationId: "r1-s7",
     commit,
     branch,
     dirty,
     gates: allGates.map(({ id, klass, status }) => ({ id, klass, status })),
-    overallStatus,
-    r1GoldenStatus,
+    machineCertification,
+    productE2E,
+    qualityGolden,
+    overallR1,
+    r1Golden: { deterministicFixtures: r1Golden.deterministicFixtures, qualityCases: r1Golden.qualityCases, overall: r1Golden.overall },
   };
   const functionalHash = createHash("sha256").update(JSON.stringify(functionalPayload)).digest("hex");
 
   const report = {
-    schemaVersion: functionalPayload.schemaVersion,
-    certificationId: functionalPayload.certificationId,
-    commit,
-    branch,
-    dirty,
+    ...functionalPayload,
     gates: allGates,
-    overallStatus,
-    r1GoldenStatus,
     functionalHash,
+    r1GoldenManifestHash: r1Golden.manifestHash,
     knownGaps: [
       {
-        id: "party_size_ui",
-        detail: "apps/web's ConfigPanel has no party-size selector -- createSimulatorProtocolSession always requests a fixed 5-controlled-slot Ranked AP session. Party 2/3/4/5 are only distinguishable at the protocol/kernel level (party-context.test.ts), not through the product UI. Pre-existing since S2-S4, not introduced by S7.",
-      },
-      {
-        id: "captains_mode_ui",
-        detail: "No product UI entry point creates a Captain's Mode session. CM is fully built and certified at the engine/protocol level (rulesets/captains-mode.ts, cm-simulator.ts, 24-step ruleset, trusted eligibility) but unreachable from the browser today. Pre-existing since S3, not introduced by S7.",
-      },
-      {
-        id: "r1_golden_v1",
-        detail: "R1 Golden v1 (28 deterministic protocol fixtures + 32 human-reviewed Dota quality cases) does not exist in this repo and no frozen S7 spec requires it -- see r1GoldenStatus.",
+        id: "r1_golden_v1_human_review",
+        detail: `R1 Golden v1's deterministic scaffold exists (docs/r1/golden/) -- ${r1Golden.deterministicFixtures.existingEquivalent}/${r1Golden.deterministicFixtures.totalSlots || 28} fixture slots have a real existing equivalent test, ${r1Golden.deterministicFixtures.missing} genuinely missing. The 32 quality cases are a real, deterministic template (docs/r1/golden/quality-cases-template.json) with zero labels filled -- ${r1Golden.qualityCases.reviewedCount}/${r1Golden.qualityCases.totalSlots || 32} have a real human reviewerSignoff. See docs/r1/golden/human-review-guide.md for the review protocol. This is the ONLY thing standing between HUMAN_GATE and PASS.`,
       },
     ],
     deferredToR2: [
       "Overwolf/OCR live capture, GSI integration, memory reading (S7 mandate non-goal; SPEC.md already specifies these as contract-only, built later).",
       "Deep lookahead (multi-ply), MCTS/beam search, opponent-probability calibration -- S6 stays exactly one ply, uncalibrated, top-1-only by design; no S7 change to this mechanism.",
-      "Party-size (2/3/4) and Captain's Mode entries in the simulator's ConfigPanel -- both are real, protocol-certified capabilities with no product UI today; adding that UI is scoped product work, not an S7 integration task, and building it inside this slice would have violated the mandate's own 'no broad UI redesign' non-goal.",
       "GuessingIndex/EvidenceCoverage UI surface -- explicitly deferred by the Fase 9.1 design (D4) to a follow-up once real usage data exists.",
       "Auth/billing/Premium/matchmaking/deployment-architecture changes -- untouched, as instructed.",
+      "R1-FIX-PAR-04 (docs/r1/golden/deterministic-fixtures-manifest.json): explicit manual-vs-simulator CM adapter parity test for FIRST=dire -- genuinely missing, not fabricated as covered.",
     ],
     telemetry: {
       generatedAt: new Date().toISOString(),
       durationMs,
       node: process.version,
+      machineOnly,
+      skipE2E,
     },
   };
 
@@ -246,21 +280,32 @@ async function main(argv: string[]): Promise<number> {
   writeFileSync(resolve(REPORT_DIR, "certification-report.md"), renderMarkdown(report));
 
   for (const g of allGates) {
-    const marker = g.status === "PASS" ? "PASS" : "FAIL";
+    const marker = g.status === "PASS" ? "PASS" : g.status;
     console.log(`[${marker}] ${g.id} -- ${g.summary}`);
   }
-  console.log(`\nR1 S7 CERTIFICATION: ${overallStatus}`);
+  console.log(`\nmachineCertification: ${machineCertification}`);
+  console.log(`productE2E: ${productE2E}`);
+  console.log(`qualityGolden: ${qualityGolden} (${r1Golden.qualityCases.reviewedCount}/${REQUIRED_QUALITY_COUNT} quality cases reviewed, ${r1Golden.deterministicFixtures.missing} deterministic fixture(s) missing)`);
+  console.log(`overallR1: ${overallR1}`);
   console.log(`functionalHash: ${functionalHash}`);
-  console.log(`R1 Golden v1: ${r1GoldenStatus}`);
   console.log(`report: docs/r1/certification-report.json`);
 
-  return overallStatus === "PASS" ? 0 : 1;
+  if (overallR1 === "HUMAN_GATE") {
+    console.log("\nHUMAN_GATE: MISSING_R1_GOLDEN_HUMAN_REVIEW -- see docs/r1/golden/human-review-guide.md");
+  }
+
+  if (machineOnly) {
+    return machineCertification === "PASS" && productE2E === "PASS" ? 0 : 1;
+  }
+  return overallR1 === "PASS" ? 0 : 1;
 }
 
 function renderMarkdown(report: {
-  commit: string; branch: string; dirty: boolean; overallStatus: string; functionalHash: string;
-  r1GoldenStatus: string; gates: GateResult[]; knownGaps: { id: string; detail: string }[];
-  telemetry: { generatedAt: string; durationMs: number; node: string };
+  commit: string; branch: string; dirty: boolean;
+  machineCertification: TopLevelStatus; productE2E: TopLevelStatus; qualityGolden: TopLevelStatus; overallR1: TopLevelStatus;
+  functionalHash: string; gates: GateResult[]; knownGaps: { id: string; detail: string }[];
+  r1Golden: { deterministicFixtures: R1GoldenStatus["deterministicFixtures"]; qualityCases: R1GoldenStatus["qualityCases"]; overall: string };
+  telemetry: { generatedAt: string; durationMs: number; node: string; machineOnly: boolean; skipE2E: boolean };
 }): string {
   const rows = report.gates
     .map((g) => `| ${g.id} | ${g.klass} | ${g.status} | ${g.summary.replace(/\|/g, "/")} |`)
@@ -269,10 +314,18 @@ function renderMarkdown(report: {
   return `# R1 S7 Certification Report
 
 Commit: \`${report.commit}\` (branch \`${report.branch}\`, ${report.dirty ? "dirty" : "clean"})
-Overall status: **${report.overallStatus}**
 Functional hash: \`${report.functionalHash}\`
-R1 Golden v1: **${report.r1GoldenStatus}**
 
+## Decision
+
+| Dimension | Status |
+|---|---|
+| machineCertification | **${report.machineCertification}** |
+| productE2E | **${report.productE2E}** |
+| qualityGolden | **${report.qualityGolden}** (${report.r1Golden.qualityCases.reviewedCount}/32 human-reviewed, ${report.r1Golden.deterministicFixtures.missing} deterministic fixture(s) missing of 28) |
+| **overallR1** | **${report.overallR1}** |
+
+${report.overallR1 === "HUMAN_GATE" ? "> **HUMAN_GATE: MISSING_R1_GOLDEN_HUMAN_REVIEW** -- every technical/product gate below is green; R1 Golden v1's 32 quality cases still need a real, named, non-LLM reviewer signoff. See `docs/r1/golden/human-review-guide.md`. This is intentionally NOT reported as PASS.\n" : ""}
 ## Gates
 
 | Gate | Class | Status | Summary |
@@ -285,7 +338,7 @@ ${gaps}
 
 ## Non-functional telemetry (excluded from functionalHash)
 
-Generated at ${report.telemetry.generatedAt}, took ${report.telemetry.durationMs}ms, Node ${report.telemetry.node}.
+Generated at ${report.telemetry.generatedAt}, took ${report.telemetry.durationMs}ms, Node ${report.telemetry.node}, machineOnly=${report.telemetry.machineOnly}, skipE2E=${report.telemetry.skipE2E}.
 `;
 }
 

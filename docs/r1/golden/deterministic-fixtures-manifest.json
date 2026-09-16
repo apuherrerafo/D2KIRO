@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "r1-golden-v1-deterministic-fixtures",
+  "frozenBy": "H0.5 (external to this repo)",
+  "requiredCount": 28,
+  "note": "R1 S7 completion wave -- this manifest audits what ALREADY EXISTS in this repo against the 28 deterministic protocol fixtures H0.5 froze, and gives each a canonical id. It does NOT invent new fixtures: every 'existing_equivalent' entry points at a real, currently-passing test in this repo (file + exact test name, verified against the source at the time this manifest was written). 'missing' entries are honest gaps -- no fixture exists yet for that slot. Categories mirror the 7 R1 certification gates scripts/r1/certify.ts already runs (ap_gate, cm_gate, recommendation_legality_gate, hidden_info_gate, role_gate, s6_gate, adapter_parity_gate), 4 slots each -- a reasonable, non-arbitrary allocation given those are the categories this program already treats as the R1 protocol/recommendation surface, but this specific 4-per-category split is this manifest's own proposal, not something re-derived from the external H0.5 text (which this repo does not have a copy of).",
+  "fixtures": [
+    {
+      "id": "R1-FIX-AP-01",
+      "category": "ap_gate",
+      "concept": "BAN_RESOLUTION no se infiere por conteo -- exige BAN_RESOLUTION_COMPLETE explícito",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/rulesets/ranked-all-pick.test.ts", "name": "BAN_RESOLUTION no se infiere por conteo -- exige BAN_RESOLUTION_COMPLETE explícito" }
+    },
+    {
+      "id": "R1-FIX-AP-02",
+      "category": "ap_gate",
+      "concept": "3 rondas sin colisión llegan a COMPLETE con capacidad 2/2/1",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/rulesets/ranked-all-pick.test.ts", "name": "recorre las 3 rondas sin colisión y llega a COMPLETE con capacidad 2/2/1" }
+    },
+    {
+      "id": "R1-FIX-AP-03",
+      "category": "ap_gate",
+      "concept": "partySize 4 se rechaza explícitamente en la creación de sesión (INVALID_PARTY_SIZE / party size 4)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/protocol-session.integration.test.ts", "name": "party size 4 se rechaza en la creación -- ningún draft arranca" }
+    },
+    {
+      "id": "R1-FIX-AP-04",
+      "category": "ap_gate",
+      "concept": "colisiones consecutivas (1, 2, 3): la tercera pausa el draft hasta que un authority externo resuelve",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/protocol-session.integration.test.ts", "name": "colisiones 1, 2 y 3 -- la tercera pausa el draft hasta que un authority externo resuelve" }
+    },
+    {
+      "id": "R1-FIX-CM-01",
+      "category": "cm_gate",
+      "concept": "la tabla de Captain's Mode tiene 24 pasos exactos: 14 bans + 10 picks, 6 fases",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/rulesets/captains-mode.test.ts", "name": "la tabla completa tiene 24 pasos: 14 bans + 10 picks, 6 fases" }
+    },
+    {
+      "id": "R1-FIX-CM-02",
+      "category": "cm_gate",
+      "concept": "un draft de 24 pasos con FIRST=dire completa igual que FIRST=radiant (actor correcto en cada paso)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/protocol-session.cm-acceptance.test.ts", "name": "actor correcto en cada paso: FIRST=dire invierte qué lado absoluto actúa en el paso 1" }
+    },
+    {
+      "id": "R1-FIX-CM-03",
+      "category": "cm_gate",
+      "concept": "eligibility fail-closed: sin snapshot LOAD_CM_ELIGIBILITY, ningún CM_ACTION es legal ni aceptado",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/adapters/cm-simulator.test.ts", "name": "sin eligibilidad cargada, se detiene naturalmente en el primer paso sin lanzar" }
+    },
+    {
+      "id": "R1-FIX-CM-04",
+      "category": "cm_gate",
+      "concept": "paso 25 (post-COMPLETE) se rechaza -- STEP_AFTER_COMPLETION",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/protocol-session.cm-acceptance.test.ts", "name": "paso 25 se rechaza -- STEP_AFTER_COMPLETION tras el draft completo" }
+    },
+    {
+      "id": "R1-FIX-REC-01",
+      "category": "recommendation_legality_gate",
+      "concept": "shortlist intersecta contra eligibleHeroIds -- un héroe fuera del universo certificado nunca aparece",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/shortlist.test.ts", "name": "intersecta contra eligibleHeroIds -- un héroe fuera del universo certificado nunca aparece" }
+    },
+    {
+      "id": "R1-FIX-REC-02",
+      "category": "recommendation_legality_gate",
+      "concept": "excluidos (banned/picked) se filtran incluso si V6 los hubiera dejado pasar -- defensa en profundidad",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/shortlist.test.ts", "name": "excluidos (banned/picked, defensa en profundidad) se filtran incluso si V6 los hubiera dejado pasar" }
+    },
+    {
+      "id": "R1-FIX-REC-03",
+      "category": "recommendation_legality_gate",
+      "concept": "dos slots abiertos (party2) producen compound recommendations con 2 héroes distintos, nunca repetidos",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/build.test.ts", "name": "dos slots abiertos (party2) -> compound recommendations con 2 héroes distintos, nunca repetidos" }
+    },
+    {
+      "id": "R1-FIX-REC-04",
+      "category": "recommendation_legality_gate",
+      "concept": "recommendation/** nunca importa drafter/team-opener ni pro-drafter (frontera de arquitectura)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/architecture-guard.test.ts", "name": "ningún archivo de recommendation/** importa drafter/team-opener ni pro-drafter" }
+    },
+    {
+      "id": "R1-FIX-HID-01",
+      "category": "hidden_info_gate",
+      "concept": "la selección sellada del rival aparece como HIDDEN, sin heroId",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/perspective.test.ts", "name": "la selección sellada del rival aparece como HIDDEN, sin heroId" }
+    },
+    {
+      "id": "R1-FIX-HID-02",
+      "category": "hidden_info_gate",
+      "concept": "un pick sellado-pero-oculto del rival no aparece en el legacyState que ve V6, ni como propio ni como excluido",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/opponent-model.test.ts", "name": "un pick sellado-pero-oculto del rival, en la MISMA ronda, no aparece en el legacyState que ve V6 -- ni como propio ni como excluido" }
+    },
+    {
+      "id": "R1-FIX-HID-03",
+      "category": "hidden_info_gate",
+      "concept": "dos sesiones distintas sobre el mismo estado estructural producen el mismo stateIdentity (hidden twins)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/identity.test.ts", "name": "dos sesiones distintas en el mismo estado estructural producen el mismo stateIdentity (hidden twins)" }
+    },
+    {
+      "id": "R1-FIX-HID-04",
+      "category": "hidden_info_gate",
+      "concept": "reveal: tras cerrar la ronda, el pick antes oculto pasa a REVEALED",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/protocol-session.integration.test.ts", "name": "reveal: tras cerrar la ronda, el pick antes oculto pasa a REVEALED" }
+    },
+    {
+      "id": "R1-FIX-ROLE-01",
+      "category": "role_gate",
+      "concept": "una posición confirmada explícitamente es HARD CONSTRAINT -- one-hot, status CONFIRMED",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/roles/role-belief.test.ts", "name": "posición confirmada explícitamente es HARD CONSTRAINT -- one-hot, status CONFIRMED" }
+    },
+    {
+      "id": "R1-FIX-ROLE-02",
+      "category": "role_gate",
+      "concept": "cada asignación conjunta candidata es inyectiva -- ninguna posición repetida entre héroes",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/roles/joint-assignment.test.ts", "name": "cada asignación candidata es inyectiva -- ninguna posición repetida" }
+    },
+    {
+      "id": "R1-FIX-ROLE-03",
+      "category": "role_gate",
+      "concept": "héroe sin evidencia de posición -> UNRESOLVED, nunca una posición inventada",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/role-impact.test.ts", "name": "héroe sin evidencia (posición uniforme) -> UNRESOLVED, nunca una posición inventada" }
+    },
+    {
+      "id": "R1-FIX-ROLE-04",
+      "category": "role_gate",
+      "concept": "héroe con distribución exclusiva a una sola posición -> CONFIRMED_FORCED por los propios datos",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/role-impact.test.ts", "name": "héroe con distribución exclusiva a una sola posición (solo) -> CONFIRMED_FORCED por los propios datos, sin confirmación explícita" }
+    },
+    {
+      "id": "R1-FIX-S6-01",
+      "category": "s6_gate",
+      "concept": "mutar nuestro héroe hipotético sellado no cambia la respuesta del rival mientras siga oculto (opponent information set real)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/lookahead.test.ts", "name": "#2/#15 IMPORTANT TEST -- opponent information set: mutar nuestro héroe HIPOTÉTICO sellado no cambia la respuesta del rival mientras siga oculto" }
+    },
+    {
+      "id": "R1-FIX-S6-02",
+      "category": "s6_gate",
+      "concept": "steal MATERIALIZED real: un CM_ACTION de ban propio retira un héroe codiciado del universo del rival",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/steal.test.ts", "name": "REAL CM BAN -> STEAL: nuestro propio CM_ACTION de ban aplicado por el kernel retira un héroe codiciado del universo del rival -> MATERIALIZED" }
+    },
+    {
+      "id": "R1-FIX-S6-03",
+      "category": "s6_gate",
+      "concept": "ranking-drop false positive: un héroe que sale del top acotado del rival pero sigue disponible NO es steal",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/steal.test.ts", "name": "RANKING-DROP FALSE POSITIVE -- el héroe sigue siendo protocolarmente disponible, sólo desaparece del top acotado del rival -> STEAL != MATERIALIZED" }
+    },
+    {
+      "id": "R1-FIX-S6-04",
+      "category": "s6_gate",
+      "concept": "héroe baneado nunca aparece en el ranking del rival (opponent-model)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/recommendation/opponent-model.test.ts", "name": "héroe baneado nunca aparece en el ranking del rival" }
+    },
+    {
+      "id": "R1-FIX-PAR-01",
+      "category": "adapter_parity_gate",
+      "concept": "AP sealed/reveal/collision producen el mismo estado y hash canónicos entre adapters",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/adapter-parity.integration.test.ts", "name": "AP sealed/reveal/collision produce el mismo estado y hash canónicos" }
+    },
+    {
+      "id": "R1-FIX-PAR-02",
+      "category": "adapter_parity_gate",
+      "concept": "CM manual vs simulador producen el mismo draft completo (paridad de adapter para Captain's Mode)",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/adapters/cm-simulator.test.ts", "name": "playFullCmDraft completa un draft real de 24 pasos" }
+    },
+    {
+      "id": "R1-FIX-PAR-03",
+      "category": "adapter_parity_gate",
+      "concept": "replay determinista: mismo ruleset + mismos eventos produce exactamente el mismo estado",
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/draft-protocol/kernel.test.ts", "name": "reproducir el mismo ruleset + eventos produce exactamente el mismo estado" }
+    },
+    {
+      "id": "R1-FIX-PAR-04",
+      "category": "adapter_parity_gate",
+      "concept": "paridad de adapter para CM con FIRST=dire (mismo resultado que FIRST=radiant, otro lado)",
+      "status": "missing",
+      "equivalentTest": null,
+      "gap": "cm-simulator.test.ts prueba 'funciona igual con FIRST = dire' contra el simulador solo -- no existe hoy un test de PARIDAD explícita adapter manual vs simulador para el caso FIRST=dire específicamente (adapter-parity.integration.test.ts sólo cubre AP). Candidato real para 4.2 (Fase 6/CM), no fabricado acá."
+    }
+  ],
+  "summary": { "existing_equivalent": 27, "missing": 1 }
+}

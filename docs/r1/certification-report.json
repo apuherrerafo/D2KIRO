@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "certificationId": "r1-s7",
-  "commit": "3916b772efd412d114149474ce9df682492fc5cd",
+  "commit": "7be86fa0cca265ce586590f181b6c7ce81c0983e",
   "branch": "r1/product-certification",
   "dirty": true,
   "gates": [
@@ -52,78 +52,99 @@
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/rulesets/ranked-all-pick.test.ts apps/engine/src/draft-protocol/party-context.test.ts apps/engine/src/draft-protocol/adapters/simulator-authority.test.ts apps/engine/src/draft-protocol/kernel.test.ts apps/engine/src/draft-protocol/kernel.adversarial.test.ts apps/engine/src/server/protocol-session.integration.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  78 pass |  0 fail |  242 expect() calls | Ran 78 tests across 6 files. [47.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  78 pass |  0 fail |  242 expect() calls | Ran 78 tests across 6 files. [36.00ms]"
     },
     {
       "id": "cm_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/rulesets/captains-mode.test.ts apps/engine/src/draft-protocol/adapters/cm-simulator.test.ts apps/engine/src/draft-protocol/eligibility.test.ts apps/engine/src/draft-protocol/trusted-eligibility.test.ts apps/engine/src/server/protocol-session.cm-acceptance.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  80 pass |  0 fail |  269 expect() calls | Ran 80 tests across 5 files. [45.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  80 pass |  0 fail |  269 expect() calls | Ran 80 tests across 5 files. [39.00ms]"
     },
     {
       "id": "recommendation_legality_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/recommendation/decision.test.ts apps/engine/src/recommendation/shortlist.test.ts apps/engine/src/recommendation/build.test.ts apps/engine/src/recommendation/architecture-guard.test.ts apps/engine/src/recommendation/translate-v1.test.ts",
       "status": "PASS",
-      "summary": "S6 real-V6 perf (110 heroes): runs=5.7,7.7,7.6ms max=7.7ms median=7.6ms | apps\\engine\\src\\recommendation\\build.test.ts: |  55 pass |  0 fail |  188 expect() calls | Ran 55 tests across 5 files. [109.00ms]"
+      "summary": "S6 real-V6 perf (110 heroes): runs=4.4,6.4,6.2ms max=6.4ms median=6.2ms | apps\\engine\\src\\recommendation\\build.test.ts: |  55 pass |  0 fail |  188 expect() calls | Ran 55 tests across 5 files. [89.00ms]"
     },
     {
       "id": "hidden_info_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/identity-hash.test.ts apps/engine/src/draft-protocol/perspective.test.ts apps/engine/src/recommendation/identity.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  20 pass |  0 fail |  37 expect() calls | Ran 20 tests across 3 files. [30.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  20 pass |  0 fail |  37 expect() calls | Ran 20 tests across 3 files. [22.00ms]"
     },
     {
       "id": "role_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/roles/role-belief.test.ts apps/engine/src/draft-protocol/roles/joint-assignment.test.ts apps/engine/src/recommendation/role-impact.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  29 pass |  0 fail |  179 expect() calls | Ran 29 tests across 3 files. [18.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  29 pass |  0 fail |  179 expect() calls | Ran 29 tests across 3 files. [15.00ms]"
     },
     {
       "id": "s6_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/recommendation/lookahead.test.ts apps/engine/src/recommendation/observation-point.test.ts apps/engine/src/recommendation/opponent-model.test.ts apps/engine/src/recommendation/steal.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  55 pass |  0 fail |  142 expect() calls | Ran 55 tests across 4 files. [40.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  55 pass |  0 fail |  142 expect() calls | Ran 55 tests across 4 files. [35.00ms]"
     },
     {
       "id": "adapter_parity_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/server/adapter-parity.integration.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  1 pass |  0 fail |  34 expect() calls | Ran 1 test across 1 file. [30.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  1 pass |  0 fail |  34 expect() calls | Ran 1 test across 1 file. [24.00ms]"
+    },
+    {
+      "id": "product_e2e",
+      "klass": "required",
+      "command": "bun run e2e",
+      "status": "PASS",
+      "summary": "[WebServer]  We detected multiple lockfiles and selected the directory of D:\\JULIO\\apuherrerafoprojects\\dota2coach\\bun.lock as the root directory. | [WebServer]  To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed. | [WebServer]    See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information. | [WebServer]  Detected additional lockfiles:  | [WebServer]    * D:\\JULIO\\ap"
     }
   ],
-  "overallStatus": "PASS",
-  "r1GoldenStatus": "MISSING",
-  "functionalHash": "5f19047baae038f9846fd9c4c018ca6ed66ab17b175412364ed6696172f812dc",
+  "machineCertification": "PASS",
+  "productE2E": "PASS",
+  "qualityGolden": "HUMAN_GATE",
+  "overallR1": "HUMAN_GATE",
+  "r1Golden": {
+    "deterministicFixtures": {
+      "found": true,
+      "totalSlots": 28,
+      "existingEquivalent": 27,
+      "missing": 1,
+      "completeCount": true
+    },
+    "qualityCases": {
+      "found": true,
+      "totalSlots": 32,
+      "reviewedCount": 0,
+      "llmLabelCount": 0,
+      "status": "HUMAN_GATE"
+    },
+    "overall": "HUMAN_GATE"
+  },
+  "functionalHash": "2f17648a2a63e88b607d2957cd9922b2f93ce68f785d6534de3dff2134eaf985",
+  "r1GoldenManifestHash": "ed0175ada61aa27a5dd2cf4e856291830f81db60fbc1f8bc715704a48b390d37",
   "knownGaps": [
     {
-      "id": "party_size_ui",
-      "detail": "apps/web's ConfigPanel has no party-size selector -- createSimulatorProtocolSession always requests a fixed 5-controlled-slot Ranked AP session. Party 2/3/4/5 are only distinguishable at the protocol/kernel level (party-context.test.ts), not through the product UI. Pre-existing since S2-S4, not introduced by S7."
-    },
-    {
-      "id": "captains_mode_ui",
-      "detail": "No product UI entry point creates a Captain's Mode session. CM is fully built and certified at the engine/protocol level (rulesets/captains-mode.ts, cm-simulator.ts, 24-step ruleset, trusted eligibility) but unreachable from the browser today. Pre-existing since S3, not introduced by S7."
-    },
-    {
-      "id": "r1_golden_v1",
-      "detail": "R1 Golden v1 (28 deterministic protocol fixtures + 32 human-reviewed Dota quality cases) does not exist in this repo and no frozen S7 spec requires it -- see r1GoldenStatus."
+      "id": "r1_golden_v1_human_review",
+      "detail": "R1 Golden v1's deterministic scaffold exists (docs/r1/golden/) -- 27/28 fixture slots have a real existing equivalent test, 1 genuinely missing. The 32 quality cases are a real, deterministic template (docs/r1/golden/quality-cases-template.json) with zero labels filled -- 0/32 have a real human reviewerSignoff. See docs/r1/golden/human-review-guide.md for the review protocol. This is the ONLY thing standing between HUMAN_GATE and PASS."
     }
   ],
   "deferredToR2": [
     "Overwolf/OCR live capture, GSI integration, memory reading (S7 mandate non-goal; SPEC.md already specifies these as contract-only, built later).",
     "Deep lookahead (multi-ply), MCTS/beam search, opponent-probability calibration -- S6 stays exactly one ply, uncalibrated, top-1-only by design; no S7 change to this mechanism.",
-    "Party-size (2/3/4) and Captain's Mode entries in the simulator's ConfigPanel -- both are real, protocol-certified capabilities with no product UI today; adding that UI is scoped product work, not an S7 integration task, and building it inside this slice would have violated the mandate's own 'no broad UI redesign' non-goal.",
     "GuessingIndex/EvidenceCoverage UI surface -- explicitly deferred by the Fase 9.1 design (D4) to a follow-up once real usage data exists.",
-    "Auth/billing/Premium/matchmaking/deployment-architecture changes -- untouched, as instructed."
+    "Auth/billing/Premium/matchmaking/deployment-architecture changes -- untouched, as instructed.",
+    "R1-FIX-PAR-04 (docs/r1/golden/deterministic-fixtures-manifest.json): explicit manual-vs-simulator CM adapter parity test for FIRST=dire -- genuinely missing, not fabricated as covered."
   ],
   "telemetry": {
-    "generatedAt": "2026-09-16T16:30:36.144Z",
-    "durationMs": 675,
-    "node": "v26.3.0"
+    "generatedAt": "2026-09-16T18:14:52.946Z",
+    "durationMs": 153713,
+    "node": "v26.3.0",
+    "machineOnly": true,
+    "skipE2E": false
   }
 }

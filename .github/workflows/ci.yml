@@ -220,11 +220,24 @@ jobs:
         working-directory: apps/web
         run: bun install --frozen-lockfile
 
+      # R1 S7 completion wave: productE2E is now a real gate (bun run e2e), self-contained
+      # (e2e/bootstrap-db.ts) -- needs a real Chromium binary in this runner.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       # --reuse-foundation: the `needs:` above already guarantees test/verify-simplicity/
       # intelligence-ci are green in this workflow run -- this flag reuses that result instead of
       # re-running the ~1700+ tests/typecheck/lint/gate a second time (see certify.ts's own header).
+      #
+      # --machine-only: R1 Golden v1's 32 quality cases require a REAL human reviewer signoff
+      # (docs/r1/golden/human-review-guide.md) -- something no CI job can produce. Without this
+      # flag, `verify:r1`'s exit code correctly stays non-zero until that human review closes
+      # (HUMAN_GATE is not a certified PASS, on purpose). This flag scopes CI's pass/fail to the
+      # engineering-correctness gates it CAN decide (machineCertification + productE2E) while the
+      # report it writes still honestly records qualityGolden/overallR1 as HUMAN_GATE -- see
+      # scripts/r1/certify.ts's header comment for the full exit-code policy.
       - name: R1 certification -- verify:r1
-        run: bun run verify:r1 -- --reuse-foundation
+        run: bun run verify:r1 -- --reuse-foundation --machine-only
 
       - name: Upload certification report
         if: always()

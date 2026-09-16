@@ -38,12 +38,26 @@ Es normal y esperado: no hay atajo que lo salte, ni siquiera en esta prueba loca
 
 ## 3. Configurar un draft
 
-En la pantalla de configuración:
+Arriba de todo vas a ver dos botones: **"Ranked All Pick"** y **"Captain's Mode"**. Elegí el modo
+que quieras probar — cada uno tiene su propia pantalla de configuración, ninguno pisa al otro.
+
+### Ranked All Pick
 
 1. Elegí tu lado (Radiant o Dire) — cualquiera sirve para esta prueba.
 2. Elegí la posición que vas a jugar (1 a 5).
-3. Dejá la semilla del draft como está (o apretá "Generar" para una nueva).
-4. Apretá **"Iniciar Draft"**.
+3. Elegí el **tamaño de tu party**: Solo, Party de 2, Party de 3, o Party de 5 (stack completo).
+   Party de 4 no existe como opción — Dota tampoco la tiene en Ranked All Pick.
+4. Dejá la semilla del draft como está (o apretá "Generar" para una nueva).
+5. Apretá **"Iniciar Draft"**.
+
+### Captain's Mode
+
+1. Elegí tu lado (Radiant o Dire).
+2. Elegí quién banea/pickea primero (**FIRST**) — puede ser tu propio lado o el rival.
+3. Apretá **"Iniciar Captain's Mode"**.
+4. A diferencia de Ranked All Pick, acá no hay nada oculto: vas a ver cada ban y cada pick del
+   rival apenas ocurre, y te toca elegir sólo cuando el tablero dice "tu turno" — el resto de los
+   pasos los resuelve el rival simulado solo, sin que tengas que hacer nada.
 
 ## 4. Qué deberías ver durante el draft
 
@@ -82,21 +96,25 @@ Si algo no se ve bien, lo más útil que podés hacer es:
 
 ## Checklist de prueba sugerido
 
-No hace falta hacer los 8 puntos en un solo intento — cada uno es independiente:
+No hace falta hacer los 9 puntos en un solo intento — cada uno es independiente:
 
 1. **AP Solo** — un draft normal de punta a punta: ¿la recomendación se siente razonable? ¿la
    explicación tiene sentido?
-2. **Posición/rol** — cuando el Copilot dice "Posición sugerida", ¿coincide con lo que jugarías vos?
-3. **Momento oculto/revelación** — antes de que el rival revele un pick, ¿el Copilot muestra algo
+2. **AP Party 2/3/5** — el mismo draft, cambiando sólo el tamaño de party: ¿el flujo se siente
+   igual de fluido en los cuatro tamaños?
+3. **Posición/rol** — cuando el Copilot dice "Posición sugerida", ¿coincide con lo que jugarías vos?
+4. **Momento oculto/revelación** — antes de que el rival revele un pick, ¿el Copilot muestra algo
    que "no debería saber todavía"? (no debería — avisá si lo ves).
-4. **Colisión** — si en algún draft el tablero muestra que dos lados eligieron el mismo héroe a la
+5. **Colisión** — si en algún draft el tablero muestra que dos lados eligieron el mismo héroe a la
    vez, ¿el mensaje que aparece se entiende?
-5. **Captain's Mode** — **no probable todavía**: el simulador de hoy sólo arma Ranked All Pick, no
-   tiene un botón para Captain's Mode. Esto es un hueco conocido, no algo que rompiste vos.
-6. **"Lectura del rival"** — ¿el texto se entiende sin ser un desarrollador? ¿alguna vez dice algo
+6. **Captain's Mode** — probá un draft completo con vos como FIRST y otro como SECOND: ¿el
+   "tu turno" se siente claro? ¿el rival simulado responde en un tiempo razonable?
+7. **"Lectura del rival"** — ¿el texto se entiende sin ser un desarrollador? ¿alguna vez dice algo
    que suena a un porcentaje o una certeza que no debería tener?
-7. **Steal** ("le quita X al rival") — ¿aparece con sentido, o aparece todo el tiempo aunque no
+8. **Steal** ("le quita X al rival") — ¿aparece con sentido, o aparece todo el tiempo aunque no
    parezca relevante?
+9. **Party 4** — si probás forzarlo (no hay botón para esto, es sólo para curiosos): el motor lo
+   rechaza, nunca arma un draft con 4 de party.
 
 Con eso alcanza — el objetivo de esta prueba es tu sensación de producto, no encontrar bugs de
 código.
