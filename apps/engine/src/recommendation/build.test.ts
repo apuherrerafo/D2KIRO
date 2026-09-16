@@ -10,10 +10,13 @@ import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
 import { buildSuggestions } from "../signals/mix";
-import type { MetaSnapshot } from "../signals/types";
+import type { MetaHeroInfo, MetaSnapshot } from "../signals/types";
 import { buildRecommendationSetV2, type ComputeSuggestionsForRecommendation } from "./build";
+import { deriveLegalDecision } from "./decision";
 import { evidenceIdentityHash } from "./evidence";
 import type { FunctionalRecommendationEvidence } from "./evidence";
+import { computeOpponentModel } from "./opponent-model";
+import { isHeroProtocolAvailable } from "./protocol-availability";
 
 const HERO_POSITIONS: HeroPositions = {
   1: [{ position: 1, matches: 1000 }],
@@ -371,15 +374,35 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     expect(set1).toEqual(set2);
   });
 
-  test("S6 y campos derivados nunca contienen una probabilidad de oponente -- siempre NOT_COMPUTED", async () => {
+  test("R1 S6: opponentResponse/steal/lookahead/counterfactual quedan estructurados para recommendations[0], nunca una probabilidad numérica", async () => {
+    // Round 1, both radiant slots open + heroPool with exactly 2 heroes -> a single compound
+    // recommendation (see build.ts's own compound branch). After hypothetically sealing both
+    // radiant slots, dire's own 2 round-1 slots are STILL open (round only resolves once every
+    // slot across both sides is filled) -- a real, reachable one-ply opponent decision point.
     const state = apRound1State("ap-s6");
     const set = await buildFor(state, "radiant", [1, 2]);
-    expect(set.deferred).toEqual({
-      opponentResponse: "NOT_COMPUTED",
-      steal: "NOT_COMPUTED",
-      lookahead: "NOT_COMPUTED",
-      counterfactual: "NOT_COMPUTED",
-    });
+    expect(set.deferred.opponentResponse).not.toBe("NOT_COMPUTED");
+    expect(set.deferred.steal).not.toBe("NOT_COMPUTED");
+    expect(set.deferred.lookahead).not.toBe("NOT_COMPUTED");
+    expect(set.deferred.counterfactual).not.toBe("NOT_COMPUTED");
+    if (
+      set.deferred.opponentResponse === "NOT_COMPUTED" ||
+      set.deferred.steal === "NOT_COMPUTED" ||
+      set.deferred.lookahead === "NOT_COMPUTED" ||
+      set.deferred.counterfactual === "NOT_COMPUTED"
+    ) {
+      throw new Error("unreachable -- narrowed above");
+    }
+    // Same-hero collision remains legal pre-reveal (S1's own frozen contract): dire cannot yet
+    // see radiant's sealed picks, so V6 still ranks hero 1 for dire too -- the plausible response
+    // legitimately names an already-radiant-sealed hero.
+    expect(set.deferred.opponentResponse.status).toBe("PLAUSIBLE_RESPONSE");
+    expect(set.deferred.opponentResponse.actor).toBe("dire");
+    expect(typeof set.deferred.opponentResponse.score).toBe("number");
+    expect(set.deferred.steal.status).toBe("STILL_CONTESTABLE"); // hidden, not yet actually removed
+    expect(set.deferred.lookahead.depth).toBe(1);
+    // NO probability claim anywhere in the S6 payload -- structural guarantee, not a convention.
+    expect(JSON.stringify(set.deferred)).not.toMatch(/probab/i);
   });
 
   test("camino V6 canónico: score/signals de la recomendación single-action son EXACTAMENTE los de V6, sin reescalar", async () => {
@@ -469,15 +492,21 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
     }
 
     const compute = (matchups: MetaSnapshot["matchups"]) => {
+      // R1 S6: buildRecommendationSetV2 now also calls computeSuggestions for the OPPONENT's own
+      // perspective (baseline + after, one-ply lookahead) once radiant's own call already
+      // resolved -- capture only the FIRST call here (radiant's own, which this test's assertions
+      // are actually about) so this fixture stays correct regardless of how many further calls
+      // S6 makes.
       let suggestionSet: SuggestionSet | undefined;
       const computeSuggestions: ComputeSuggestionsForRecommendation = async (legacyState, _accountId, options) => {
-        suggestionSet = buildSuggestions(legacyState, meta(matchups), {
+        const result = buildSuggestions(legacyState, meta(matchups), {
           ...options,
           heroPositions: HERO_POSITIONS,
           heroCapabilities: [],
           heroCounters: new Map(),
         });
-        return suggestionSet;
+        if (suggestionSet === undefined) suggestionSet = result;
+        return result;
       };
       return { computeSuggestions, suggestionSet: () => suggestionSet! };
     };
@@ -501,5 +530,195 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
     const changedSet = await buildRecommendationSetV2({ ...input, computeSuggestions: changed.computeSuggestions });
     expect(changedSet.basedOn.evidenceVersion).not.toBe(left.basedOn.evidenceVersion);
     expect(JSON.stringify(changedSet)).not.toBe(JSON.stringify(left));
+  });
+});
+
+// R1 S6 BLOCKER REPAIR (Blocker 3) -- integration-level performance test against the REAL
+// canonical V6 path. The pre-repair version of this contract lived in lookahead.test.ts and timed
+// `fakeCompute` (a plain array filter/map, no real scoring) -- it would have kept passing even if
+// the real V6 calls were removed or replaced with a stub, which proves nothing about the actual
+// 500ms hard-cutoff contract. This test wires `computeSuggestions` straight to `buildSuggestions`
+// (the same function `computeSuggestionsForState`, the real production entry point in
+// server/app.ts, delegates to) -- no mock, no stub, anywhere in the path it measures.
+describe("buildRecommendationSetV2 -- rendimiento real (V6 real, sin mocks, Blocker 3)", () => {
+  const HERO_COUNT = 110;
+  const PERF_HERO_IDS = Array.from({ length: HERO_COUNT }, (_, index) => index + 1);
+  const PERF_META: MetaSnapshot = {
+    heroes: Object.fromEntries(PERF_HERO_IDS.map((id): [number, MetaHeroInfo] => [id, { id, localizedName: `Hero ${id}`, roles: ["Carry"] }])),
+    matchups: {},
+  };
+
+  const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
+    buildSuggestions(state, PERF_META, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+
+  /** Captain's Mode, step 2 (actor "first"=radiant, same as step 1) -- our own top recommendation
+   * is evaluated here, so applying it (inside buildRecommendationSetV2's S6 lookahead) advances
+   * into step 3 ("second"=dire), a REAL legal decision point for the opponent. This is the only
+   * step pairing that exercises BOTH S6 V6 calls in one build: the baseline against the pre-action
+   * state (dire cannot act yet) and the after-state call against the real post-action state (dire
+   * can). */
+  function representativeState(sessionId: string): DraftProtocolState {
+    const ready = cmReadyState(sessionId, PERF_HERO_IDS);
+    const step1 = applyProtocolCommand(ready, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: PERF_HERO_IDS[0]! });
+    if (step1.rejected) throw new Error(`fixture rejected: ${step1.rejected}`);
+    return step1.state;
+  }
+
+  async function buildOnce(sessionId: string) {
+    const state = representativeState(sessionId);
+    return buildRecommendationSetV2({ state, view: project(state, "radiant"), actor: "radiant", patch: "7.41e", computeSuggestions: realComputeSuggestions });
+  }
+
+  test("warm-up + 3 corridas medidas, cada una bajo 500ms -- RecommendationSet build -> S6 baseline V6 -> contrafactual -> S6 after V6 -> respuesta plausible/steal, todo con V6 real", async () => {
+    const warmup = await buildOnce("s6-perf-warmup"); // not measured -- JIT/module warm-up only
+    expect(warmup.recommendations.length).toBeGreaterThan(0);
+
+    const durations: number[] = [];
+    for (let run = 0; run < 3; run += 1) {
+      const start = performance.now();
+      const result = await buildOnce(`s6-perf-run-${run}`);
+      durations.push(performance.now() - start);
+
+      // Proves the REAL V6 path actually ran end to end (a stub standing in for V6 could still be
+      // fast, but could never legitimately produce these): real recommendations, and S6 actually
+      // reaching a concrete, scored opponent decision point.
+      expect(result.recommendations.length).toBeGreaterThan(0);
+      if (result.deferred.opponentResponse === "NOT_COMPUTED") throw new Error("unreachable");
+      expect(result.deferred.opponentResponse.status).toBe("PLAUSIBLE_RESPONSE");
+      expect(result.deferred.opponentResponse.score).not.toBeNull();
+    }
+
+    const max = Math.max(...durations);
+    const median = [...durations].sort((a, b) => a - b)[1]!;
+    console.log(`S6 real-V6 perf (${HERO_COUNT} heroes): runs=${durations.map((d) => d.toFixed(1)).join(",")}ms max=${max.toFixed(1)}ms median=${median.toFixed(1)}ms`);
+
+    // H0 hard compute budget -- a TEST/GATE property (this assertion), never a wall-clock branch
+    // inside RecommendationSetV2 itself (that would make semantic output depend on elapsed time).
+    for (const duration of durations) expect(duration).toBeLessThan(500);
+  });
+});
+
+// R1 S6 FINAL TEST-EVIDENCE REPAIR -- the missing positive-case integration test. Every existing
+// "MATERIALIZED" proof (steal.test.ts's own "REAL CM BAN -> STEAL") uses a REAL ProtocolKernel
+// transition but a HAND-BUILT SuggestionSet fixture (`baselineModel`/`afterModel`) standing in for
+// V6 -- it can never detect a break in the real opponent-perspective V6 call itself. This block
+// closes that gap: `computeSuggestions` below is wired straight to `buildSuggestions` (same as the
+// "rendimiento real" block above), and every fact this test asserts -- which hero V6 recommends
+// banning, whether the opponent's real baseline valued it, whether it is really gone afterward, and
+// whether the opponent's real post-ban universe really excludes it -- is read off the ACTUAL
+// production call chain (buildRecommendationSetV2 -> computeOpponentValueBaseline/
+// computeOpponentModel -> buildSuggestions), never fabricated or hand-computed by the test.
+describe("buildRecommendationSetV2 -- CM real ban materializes steal end to end (V6 real, sin mocks, S6 final repair)", () => {
+  const CM_HERO_IDS = [1, 2, 3, 4, 5, 6];
+  const CM_HERO_POSITIONS: HeroPositions = {
+    1: [{ position: 1, matches: 1000 }],
+    2: [{ position: 5, matches: 1000 }],
+    3: [{ position: 4, matches: 1000 }],
+    4: [{ position: 2, matches: 1000 }],
+    5: [{ position: 3, matches: 1000 }],
+    6: [{ position: 1, matches: 1000 }],
+  };
+  const CM_META: MetaSnapshot = {
+    heroes: Object.fromEntries(CM_HERO_IDS.map((id): [number, MetaHeroInfo] => [id, { id, localizedName: `Hero ${id}` }])),
+    matchups: {},
+  };
+  // Identical wiring to the performance block's `realComputeSuggestions` -- no mock, no stub, no
+  // fabricated SuggestionSet anywhere between this function and V6's own mix.ts.
+  const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
+    buildSuggestions(state, CM_META, { ...options, heroPositions: CM_HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+
+  test("CM real ban -> el héroe que el V6 real recomienda banear queda excluido del universo real del rival y el steal queda MATERIALIZED", async () => {
+    const ready = cmReadyState("s6-real-steal-repair", CM_HERO_IDS);
+
+    // Step 1 (BAN_1, actor "first"=radiant) -- an arbitrary ban (hero 6, never the hero this test
+    // cares about) purely to advance to step 2, which is STILL "first"=radiant (BAN_1 steps 1-2
+    // share the same relative actor per captains-mode.ts's CANONICAL_SEQUENCE) -- so this state
+    // doubles as the CM pre-action baseline: dire genuinely has no legal action yet.
+    const step1 = applyProtocolCommand(ready, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: 6 });
+    if (step1.rejected) throw new Error(`fixture setup rejected: ${step1.rejected}`);
+    const beforeOurAction = step1.state;
+    expect(beforeOurAction.captainsMode!.currentStep).toBe(2);
+
+    // C. Real production function (never re-derived): confirms it is genuinely not dire's legal
+    // turn yet at this exact point -- any opponent response here would have to be invented.
+    expect(deriveLegalDecision(beforeOurAction, "dire").decision.actionCount).toBe(0);
+
+    // THE REAL canonical V6 path -- the SAME buildRecommendationSetV2 production entry point
+    // server/app.ts routes wire computeSuggestionsForState/buildSuggestions through. No fixture
+    // SuggestionSet, no stub, participates anywhere in this call.
+    const set = await buildRecommendationSetV2({
+      state: beforeOurAction,
+      view: project(beforeOurAction, "radiant"),
+      actor: "radiant",
+      patch: "7.41e",
+      computeSuggestions: realComputeSuggestions,
+    });
+    expect(set.recommendations.length).toBeGreaterThan(0);
+    const top = set.recommendations[0]!;
+    expect(top.actions).toHaveLength(1); // CM never has a compound decision (decision.ts)
+    const heroH = top.actions[0]!.hero;
+    expect(CM_HERO_IDS).toContain(heroH);
+    expect(heroH).not.toBe(6); // already gone before V6 even ran -- not what this test is about
+
+    // A. Hero H is genuinely protocol-available BEFORE our action -- a real protocol fact, read
+    // through the same predicate steal.ts itself uses, never assumed from being top-ranked.
+    expect(isHeroProtocolAvailable(beforeOurAction, heroH)).toBe(true);
+
+    if (set.deferred.steal === "NOT_COMPUTED" || set.deferred.opponentResponse === "NOT_COMPUTED") {
+      throw new Error("unreachable -- CM step 2 always reaches a real dire decision point one ply later");
+    }
+
+    // B/I. The REAL opponent-perspective V6 baseline (buildRecommendationSetV2's own
+    // computeOpponentValueBaseline call, dire's mutual-visibility view) already valued hero H
+    // BEFORE our action -- and the steal evidence names exactly this hero, never a different one,
+    // never null.
+    expect(set.deferred.steal.heroId).toBe(heroH);
+    expect(set.deferred.steal.opponentBaselineValue).not.toBeNull();
+    expect(typeof set.deferred.steal.opponentBaselineValue).toBe("number");
+
+    // D. OUR real CM ban of hero H, applied through the SAME ProtocolKernel entry point used
+    // everywhere else in this codebase -- never a hand-mutated state.
+    const afterBan = applyProtocolCommand(beforeOurAction, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: heroH });
+    if (afterBan.rejected) throw new Error(`kernel rejected our own top recommendation: ${afterBan.rejected}`);
+    const afterOurBan = afterBan.state;
+    expect(afterOurBan.captainsMode!.currentStep).toBe(3); // step 3 = actor "second" = dire, real legal decision point
+
+    // E. Hero H is unavailable AFTER the ban -- real protocol fact, not inferred.
+    expect(isHeroProtocolAvailable(afterOurBan, heroH)).toBe(false);
+    expect(afterOurBan.captainsMode!.bannedHeroes).toContain(heroH);
+    expect(deriveLegalDecision(afterOurBan, "dire").decision.actionCount).toBeGreaterThan(0);
+
+    // F/G. Independently re-derive the REAL post-ban opponent universe through the SAME production
+    // function lookahead.ts itself calls (computeOpponentModel) -- a second, separately-executed
+    // real V6 call against `afterOurBan` (computed by this test, not read back from `set.deferred`),
+    // so this genuinely re-confirms the real after-state excludes hero H rather than trusting the
+    // same computed value twice.
+    const independentAfterModel = await computeOpponentModel({
+      state: afterOurBan,
+      opponentSide: "dire",
+      patch: "7.41e",
+      computeSuggestions: realComputeSuggestions,
+    });
+    expect(independentAfterModel.failed).toBe(false);
+    expect(independentAfterModel.eligibleHeroIds).not.toBeNull();
+    expect(independentAfterModel.eligibleHeroIds).not.toContain(heroH);
+    expect(independentAfterModel.suggestionSet).not.toBeNull();
+    expect(independentAfterModel.suggestionSet!.suggestions.map((suggestion) => suggestion.hero)).not.toContain(heroH);
+
+    // G. The REAL plausible opponent response, computed by buildRecommendationSetV2 itself, never
+    // names hero H -- it was never even part of the candidate universe V6 was allowed to rank.
+    expect(set.deferred.opponentResponse.status).toBe("PLAUSIBLE_RESPONSE");
+    expect(set.deferred.opponentResponse.actor).toBe("dire");
+    expect(set.deferred.opponentResponse.action).not.toBeNull();
+    expect(set.deferred.opponentResponse.action!.hero).not.toBe(heroH);
+
+    // H/I. Final S6 contract: MATERIALIZED, naming exactly the hero our real ban removed.
+    // `afterOurActionValue` stays null (V6 never scores an already-banned hero -- absence IS the
+    // answer, never a fabricated 0), and `displacedResponse` is the same object as the real
+    // opponent response above, never re-derived a second time.
+    expect(set.deferred.steal.status).toBe("MATERIALIZED");
+    expect(set.deferred.steal.heroId).toBe(heroH);
+    expect(set.deferred.steal.afterOurActionValue).toBeNull();
+    expect(set.deferred.steal.displacedResponse).toEqual(set.deferred.opponentResponse.action);
   });
 });

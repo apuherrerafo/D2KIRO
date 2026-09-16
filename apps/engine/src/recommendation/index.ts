@@ -8,6 +8,19 @@ export type { RoleImpactInput, RoleImpactResult } from "./role-impact";
 export { buildShortlist, buildCompoundCandidates, SHORTLIST_SIZE } from "./shortlist";
 export type { ShortlistEntry, CompoundCandidate } from "./shortlist";
 export { evidenceFromSignals, evidenceFromRoleBelief, evidenceFromRuleset, evidenceFromEligibility, deriveRisks } from "./evidence";
+export { excludedHeroes, postValidateAction } from "./legality";
 export { buildRecommendationSetV2, RECOMMENDATION_OUTPUT_LIMIT } from "./build";
 export type { BuildRecommendationSetV2Input, ComputeSuggestionsForRecommendation } from "./build";
 export { translateRecommendationSetToLegacySuggestionSet } from "./translate-v1";
+
+// R1 S6 -- one-ply opponent lookahead public surface.
+export { opponentSideOf, applyOwnCandidateAction, locateOpponentObservationPoint } from "./observation-point";
+export type { ObservationPoint, ObservationPointStatus, OwnActionSimulationResult } from "./observation-point";
+export { computeOpponentModel, computeOpponentValueBaseline, opponentValueFor, topPlausibleAction } from "./opponent-model";
+export type { OpponentModelInput, OpponentModelResult, OpponentValueBaselineResult } from "./opponent-model";
+export { isHeroProtocolAvailable, deriveOpponentAvailableHeroUniverse } from "./protocol-availability";
+export { buildOpponentResponse } from "./opponent-response";
+export { evaluateSteal } from "./steal";
+export { buildCounterfactualIdentity } from "./counterfactual-identity";
+export { computeOnePlyLookahead } from "./lookahead";
+export type { OnePlyLookaheadInput, OnePlyLookaheadResult } from "./lookahead";

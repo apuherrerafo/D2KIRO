@@ -43,4 +43,10 @@ export {
 } from "./kernel";
 export type { CreateProtocolStateResult, PartyContextInput } from "./kernel";
 export { RANKED_ALL_PICK_IDENTITY, isSealedSelectionLegal } from "./rulesets/ranked-all-pick";
-export { CAPTAINS_MODE_IDENTITY, CM_RESERVE_TIME_MS, captainsModeStepDefinition, resolveAbsoluteSide } from "./rulesets/captains-mode";
+export {
+  CAPTAINS_MODE_IDENTITY,
+  CM_RESERVE_TIME_MS,
+  captainsModeStepDefinition,
+  resolveAbsoluteSide,
+  cmRemainingEligibleHeroIds,
+} from "./rulesets/captains-mode";

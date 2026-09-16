@@ -97,8 +97,13 @@ function heroAlreadyTaken(cm: CmState, heroId: HeroId): boolean {
  * already banned/picked by either side. Bounded (the snapshot's heroIds array is finite, ~126 in
  * practice) -- unlike Ranked All Pick's isSealedSelectionLegal (ranked-all-pick.ts), this can be a
  * genuine enumeration, not just a predicate, because CM's hero universe IS certified/bounded.
+ *
+ * Exported (R1 S6 blocker repair) so PROTOCOL AVAILABILITY facts elsewhere (opponent value
+ * baseline, steal evidence) can reuse this EXACT enumeration instead of re-deriving a second,
+ * potentially divergent copy -- CM's hero pool is shared between sides, so "still certifiable"
+ * already answers "available to either side", not just "available to whoever acts next".
  */
-function cmRemainingEligibleHeroIds(cm: CmState): HeroId[] {
+export function cmRemainingEligibleHeroIds(cm: CmState): HeroId[] {
   if (!cm.eligibilitySnapshot) return [];
   return cm.eligibilitySnapshot.heroIds.filter((heroId) => !heroAlreadyTaken(cm, heroId));
 }
