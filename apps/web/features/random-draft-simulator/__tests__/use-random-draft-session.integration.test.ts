@@ -156,7 +156,7 @@ test("el browser completa AP usando exclusivamente la API de ProtocolSession", a
   const engine = new FakeProtocolEngine();
   globalThis.fetch = engine.fetch as typeof fetch;
   const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
   expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1 });
 
   const used = new Set<number>();
@@ -181,7 +181,7 @@ test("los picks pendientes del usuario nunca entran al request de bot-selection"
   const engine = new FakeProtocolEngine();
   globalThis.fetch = engine.fetch as typeof fetch;
   const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
   const picks = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId)).slice(0, 2);
   for (const heroId of picks) act(() => result.current.actions.confirmPick(heroId));
   await act(async () => result.current.confirmRound());
@@ -195,7 +195,7 @@ test("el browser delega WAITING_FOR_COLLISION_AUTHORITY al endpoint simulator-au
   const engine = new FakeProtocolEngine(true);
   globalThis.fetch = engine.fetch as typeof fetch;
   const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
   const picks = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId)).slice(0, 2);
   for (const heroId of picks) act(() => result.current.actions.confirmPick(heroId));
 
@@ -213,7 +213,7 @@ test("el Copilot humano llama al endpoint de recomendaciones V2 del protocolo, n
   const engine = new FakeProtocolEngine();
   globalThis.fetch = engine.fetch as typeof fetch;
   const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
   await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
 
   expect(result.current.state.recommendations?.schema).toBe("recommendation-set/v2");
@@ -226,7 +226,7 @@ test("una nueva ronda pide una recomendación compuesta fresca (2 slots abiertos
   const engine = new FakeProtocolEngine();
   globalThis.fetch = engine.fetch as typeof fetch;
   const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
   await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
 
   const recommendation = result.current.state.recommendations!.recommendations[0]!;

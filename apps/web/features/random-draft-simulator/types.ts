@@ -41,6 +41,11 @@ export interface DraftConfig {
   playerPosition?: 1 | 2 | 3 | 4 | 5;
   personalBanList: HeroId[];
   patch: string;
+  // R1 S7 (Blocker 2): tamaño de la party declarada al ProtocolSession -- 4 nunca es una opción
+  // real (Dota no tiene cola de 4 en Ranked All Pick), el motor la rechaza con INVALID_PARTY_SIZE
+  // (party-context.ts, autoridad real). Default 5 (comportamiento idéntico al de antes de esta
+  // fase para cualquier config ya persistida).
+  partySize: 1 | 2 | 3 | 5;
 }
 
 // ---------------------------------------------------------------------------

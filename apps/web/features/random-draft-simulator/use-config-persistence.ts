@@ -16,6 +16,10 @@ export interface PersistedConfig {
   userSide: "radiant" | "dire";
   playerPosition: 1 | 2 | 3 | 4 | 5;
   personalBanList: HeroId[];
+  // R1 S7 (Blocker 2): default 5 en `getClientSnapshot`'s fallback de abajo -- config persistida
+  // ANTES de este campo no se descarta como obsoleta, a diferencia de `playerPosition` (que sí
+  // reventaba una config vieja sin él): 5 reproduce el comportamiento exacto de antes de esta fase.
+  partySize: 1 | 2 | 3 | 5;
 }
 
 export interface UseConfigPersistenceResult {
@@ -58,10 +62,15 @@ export function validatePersistedConfig(raw: unknown): PersistedConfig | null {
   if (!obj["personalBanList"].every(isPositiveInteger)) {
     return null;
   }
+
+  const rawPartySize = obj["partySize"];
+  const partySize = [1, 2, 3, 5].includes(rawPartySize as number) ? (rawPartySize as 1 | 2 | 3 | 5) : 5;
+
   return {
     userSide: obj["userSide"],
     playerPosition: obj["playerPosition"] as 1 | 2 | 3 | 4 | 5,
     personalBanList: obj["personalBanList"] as HeroId[],
+    partySize,
   };
 }
 

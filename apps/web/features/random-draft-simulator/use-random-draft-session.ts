@@ -52,6 +52,7 @@ export function randomPickForSlots(
 }
 
 function roundFromView(view: ProtocolPerspectiveView): 1 | 2 | 3 | null {
+  if (view.rankedAp === null) return null; // this hook only ever drives Ranked All Pick sessions.
   if (view.rankedAp.phase === "PICK_ROUND_1") return 1;
   if (view.rankedAp.phase === "PICK_ROUND_2") return 2;
   if (view.rankedAp.phase === "PICK_ROUND_3") return 3;
@@ -295,7 +296,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         metaBanPool,
         patch: nextConfig.patch,
       });
-      const nextSessionId = await createSimulatorProtocolSession(nextConfig.patch, nextConfig.userSide, fetchImpl);
+      const nextSessionId = await createSimulatorProtocolSession(nextConfig.patch, nextConfig.userSide, fetchImpl, {
+        partySize: nextConfig.partySize,
+      });
       rngRef.current = createSeededRng(nextConfig.draftSeed);
       allHeroIdsRef.current = allHeroIds;
       revealedRoundsRef.current = [];

@@ -3,6 +3,12 @@ import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 
 export type ProtocolStatus = "ACTIVE" | "UNCONFIRMED_STATE" | "WAITING_FOR_COLLISION_AUTHORITY" | "COMPLETE" | "DEGRADED";
 export type RankedApPhase = "BAN_RESOLUTION" | "PICK_ROUND_1" | "PICK_ROUND_2" | "PICK_ROUND_3" | "COMPLETE";
+// R1 S7 (Blocker 2) -- mirrors engine's RulesetId/PartySize (draft-protocol/types.ts) by hand,
+// same discipline as the rest of this file: apps/web never imports apps/engine types directly.
+export type RulesetId = "dota2/ranked-all-pick" | "dota2/captains-mode";
+export type PartySize = 1 | 2 | 3 | 5;
+export type CmActionKind = "BAN" | "PICK";
+export type RelativeSide = "first" | "second";
 
 export type PerspectiveHeroSlot =
   | { visibility: "KNOWN"; heroId: HeroId }
@@ -17,13 +23,19 @@ export interface ProtocolPerspectiveView {
   bannedHeroes: HeroId[];
   ownPicks: PerspectiveHeroSlot[];
   enemyPicks: PerspectiveHeroSlot[];
-  rankedAp: { phase: RankedApPhase; banResolutionComplete: boolean };
+  // Exactly one of the two is non-null -- mirrors engine's PerspectiveDraftView (perspective.ts).
+  rankedAp: { phase: RankedApPhase; banResolutionComplete: boolean } | null;
+  captainsMode: { firstPickSide: TeamSide | null; currentStep: number } | null;
 }
 
 export type ProtocolLegalAction =
   | { type: "RECORD_RESOLVED_BANS" }
   | { type: "BAN_RESOLUTION_COMPLETE" }
-  | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number };
+  | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number }
+  | { type: "CONFIRM_FIRST_PICK_SIDE" }
+  | { type: "CM_ACTION"; step: number; actor: RelativeSide; absoluteSide: TeamSide; kind: CmActionKind; eligibleHeroIds: HeroId[] }
+  | { type: "CM_BAN_SKIPPED"; step: number; actor: RelativeSide; absoluteSide: TeamSide }
+  | { type: "CM_AUTO_PICK"; step: number; actor: RelativeSide; absoluteSide: TeamSide; eligibleHeroIds: HeroId[] };
 
 export interface ProtocolSnapshot {
   view: ProtocolPerspectiveView;
@@ -33,7 +45,11 @@ export interface ProtocolSnapshot {
 type ProtocolCommand =
   | { type: "RECORD_RESOLVED_BANS"; heroes: HeroId[] }
   | { type: "BAN_RESOLUTION_COMPLETE" }
-  | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number; heroId: HeroId };
+  | { type: "SUBMIT_SEALED_SELECTION"; side: TeamSide; slotIndex: number; heroId: HeroId }
+  | { type: "CONFIRM_FIRST_PICK_SIDE"; side: TeamSide }
+  | { type: "CM_ACTION"; actor: RelativeSide; kind: CmActionKind; heroId: HeroId }
+  | { type: "CM_BAN_SKIPPED"; actor: RelativeSide }
+  | { type: "CM_AUTO_PICK"; actor: RelativeSide; heroId: HeroId };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -49,6 +65,16 @@ function isSlot(value: unknown): value is PerspectiveHeroSlot {
   return (value.visibility === "KNOWN" || value.visibility === "REVEALED") && isHeroId(value.heroId);
 }
 
+function isValidRankedApView(value: unknown): boolean {
+  return isRecord(value) && typeof value.phase === "string" && typeof value.banResolutionComplete === "boolean";
+}
+
+function isValidCaptainsModeView(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const sideOk = value.firstPickSide === null || value.firstPickSide === "radiant" || value.firstPickSide === "dire";
+  return sideOk && typeof value.currentStep === "number";
+}
+
 function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   if (!isRecord(value) || !isRecord(value.view) || !Array.isArray(value.legalActions)) return null;
   const view = value.view;
@@ -58,7 +84,11 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   if (!Array.isArray(view.bannedHeroes) || !view.bannedHeroes.every(isHeroId)) return null;
   if (!Array.isArray(view.ownPicks) || !view.ownPicks.every(isSlot)) return null;
   if (!Array.isArray(view.enemyPicks) || !view.enemyPicks.every(isSlot)) return null;
-  if (!isRecord(view.rankedAp) || typeof view.rankedAp.phase !== "string") return null;
+  // Exactly one of rankedAp/captainsMode is non-null (mirrors engine's project(), perspective.ts).
+  const rankedApOk = view.rankedAp === null || isValidRankedApView(view.rankedAp);
+  const captainsModeOk = view.captainsMode === undefined || view.captainsMode === null || isValidCaptainsModeView(view.captainsMode);
+  if (!rankedApOk || !captainsModeOk) return null;
+  if (view.rankedAp === null && (view.captainsMode === undefined || view.captainsMode === null)) return null;
   return value as unknown as ProtocolSnapshot;
 }
 
@@ -69,23 +99,45 @@ async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
   return parsed;
 }
 
+export interface CreateSimulatorSessionOptions {
+  rulesetId?: RulesetId;
+  /**
+   * R1 S7 (Blocker 2) -- the human operator still submits every local-side sealed selection
+   * itself (the simulator's whole premise: coach your team's picks), so `controlledSlots` here is
+   * NOT "how many slots the browser is allowed to submit for" -- isCommandAuthorized never checked
+   * that (protocol-session.ts). It is purely the declared party-size metadata S4's role-belief
+   * system (role_gate) reads to size how much of the side is "known" vs a random teammate. Party 4
+   * is never offered here -- createPartyContext (engine, authoritative) rejects it with
+   * INVALID_PARTY_SIZE; the engine stays the one source of truth for that rule, never duplicated
+   * here (web.md/invariantes.md: "no reimplementes reglas en frontend").
+   */
+  partySize?: PartySize;
+}
+
 export async function createSimulatorProtocolSession(
   patch: string,
   localSide: TeamSide,
   fetchImpl: typeof fetch = fetch,
+  options: CreateSimulatorSessionOptions = {},
 ): Promise<string> {
+  const partySize = options.partySize ?? 5;
+  const controlledSlotCount = Math.min(partySize, 5);
   const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      rulesetId: "dota2/ranked-all-pick",
+      rulesetId: options.rulesetId ?? "dota2/ranked-all-pick",
       patch,
       localSide,
       adapterKind: "simulator",
       partyContext: {
-        partySize: 5,
+        partySize,
         side: localSide,
-        controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: localSide, slotIndex, controllerId: `simulator-local-${slotIndex}` })),
+        controlledSlots: Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
+          side: localSide,
+          slotIndex,
+          controllerId: `simulator-local-${slotIndex}`,
+        })),
       },
     }),
   });

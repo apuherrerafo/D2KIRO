@@ -16,11 +16,14 @@ import type { HeroId } from "../types";
 // Helpers
 // ---------------------------------------------------------------------------
 
+const PARTY_SIZES = [1, 2, 3, 5] as const;
+
 function randomPersistedConfig(caseIndex: number): PersistedConfig {
   const userSide = caseIndex % 2 === 0 ? "radiant" : "dire";
   const listSize = caseIndex % 5; // 0-4
   const personalBanList: HeroId[] = Array.from({ length: listSize }, (_, i) => i + 1);
-  return { userSide, playerPosition: ((caseIndex % 5) + 1) as 1 | 2 | 3 | 4 | 5, personalBanList };
+  const partySize = PARTY_SIZES[caseIndex % PARTY_SIZES.length]!;
+  return { userSide, playerPosition: ((caseIndex % 5) + 1) as 1 | 2 | 3 | 4 | 5, personalBanList, partySize };
 }
 
 // ---------------------------------------------------------------------------
