@@ -224,17 +224,34 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     }
 
     const legacyState = perspectiveToLegacyDraftState(botView, { patch: metadata.patch });
-    const suggestions = await deps.computeSuggestions(legacyState, null);
     const takenHeroIds = new Set([...legacyState.banned, ...legacyState.picks.radiant, ...legacyState.picks.dire]);
-    const chosen = suggestions.suggestions.find((suggestion) => !takenHeroIds.has(suggestion.hero));
-    if (!chosen) return Response.json({ accepted: false, reason: "no_suggestion_available" }, { status: 409 });
+
+    // R1 S7 (machine-certification closure) -- TEST-ONLY, gated on ALLOW_TEST_FORCED_BOT_SELECTION
+    // (never set in Railway/production, only by playwright.config.ts for the E2E engine process).
+    // Lets a deterministic browser E2E force the AP bot's sealed selection to a specific heroId --
+    // still submitted through the SAME real SUBMIT_SEALED_SELECTION kernel command below, so the
+    // collision reducer runs for real. A forced heroId that's already taken (or the gate being off,
+    // which is every production request) falls straight through to the real V6 path, never forcing
+    // something the kernel would reject anyway.
+    const forcedHeroId =
+      process.env.ALLOW_TEST_FORCED_BOT_SELECTION === "1" && body.forcedHeroId !== undefined && !takenHeroIds.has(body.forcedHeroId)
+        ? body.forcedHeroId
+        : null;
+
+    let heroId = forcedHeroId;
+    if (heroId === null) {
+      const suggestions = await deps.computeSuggestions(legacyState, null);
+      const chosen = suggestions.suggestions.find((suggestion) => !takenHeroIds.has(suggestion.hero));
+      if (!chosen) return Response.json({ accepted: false, reason: "no_suggestion_available" }, { status: 409 });
+      heroId = chosen.hero;
+    }
 
     const slot = openSlotsForSide[0]!;
     const result = deps.store.apply(sessionId, {
       type: "SUBMIT_SEALED_SELECTION",
       side: slot.side,
       slotIndex: slot.slotIndex,
-      heroId: chosen.hero,
+      heroId,
     });
     return Response.json({
       accepted: !result?.rejected,

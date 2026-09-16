@@ -76,6 +76,17 @@ const FIXTURE_HEROES: FixtureHero[] = [
 
 export const FIXTURE_HERO_IDS: readonly number[] = FIXTURE_HEROES.map((hero) => hero.id);
 
+// The browser certification scenarios need to connect a hero button's accessible name back to
+// the deterministic server-side fixture id when asserting an actual ProtocolKernel transition.
+// This remains test data only: the product never imports this fixture and no UI state is mutated.
+export const FIXTURE_HERO_ID_BY_NAME: ReadonlyMap<string, number> = new Map(
+  FIXTURE_HEROES.map((hero) => [hero.localizedName, hero.id]),
+);
+
+export const FIXTURE_HERO_NAME_BY_ID: ReadonlyMap<number, string> = new Map(
+  FIXTURE_HEROES.map((hero) => [hero.id, hero.localizedName]),
+);
+
 export function buildFixtureRawHeroes(): RawHero[] {
   return FIXTURE_HEROES.map((hero) => ({
     id: hero.id,

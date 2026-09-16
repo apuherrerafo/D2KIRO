@@ -81,6 +81,11 @@ export default defineConfig({
         ENGINE_DB_PATH: E2E_DB,
         INTERNAL_AUTH_SECRET,
         CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH,
+        // R1 S7 (machine-certification closure): lets the AP collision E2E force the simulator
+        // bot's sealed selection to a specific heroId through the real SUBMIT_SEALED_SELECTION
+        // kernel command (server/protocol-session.ts's forcedBotHeroIds), instead of depending on
+        // two independent V6 calls coincidentally agreeing. Never set in Railway/production.
+        ALLOW_TEST_FORCED_BOT_SELECTION: "1",
       },
     },
     {

@@ -334,6 +334,90 @@ describe("createProtocolSessionRoutes -- S2 HTTP surface", () => {
   });
 });
 
+// R1 S7 (machine-certification closure) -- TEST-ONLY forced-bot-selection mechanism: lets a
+// deterministic E2E force the simulator bot's hero (per postBotSelection call, matched to whatever
+// the human just clicked) through the SAME real kernel command (SUBMIT_SEALED_SELECTION), never a
+// fabricated state. Gated on ALLOW_TEST_FORCED_BOT_SELECTION, which production (Railway) never
+// sets -- every test here restores the env var afterwards so it never leaks into an unrelated test.
+describe("postBotSelection forcedHeroId -- TEST-ONLY, gated on ALLOW_TEST_FORCED_BOT_SELECTION", () => {
+  async function withForcedBotSelectionAllowed<T>(fn: () => Promise<T>): Promise<T> {
+    const before = process.env.ALLOW_TEST_FORCED_BOT_SELECTION;
+    process.env.ALLOW_TEST_FORCED_BOT_SELECTION = "1";
+    try {
+      return await fn();
+    } finally {
+      if (before === undefined) delete process.env.ALLOW_TEST_FORCED_BOT_SELECTION;
+      else process.env.ALLOW_TEST_FORCED_BOT_SELECTION = before;
+    }
+  }
+
+  test("gate apagado (default de producción): forcedHeroId en el body se ignora, el bot sigue usando V6", async () => {
+    expect(process.env.ALLOW_TEST_FORCED_BOT_SELECTION).toBeUndefined();
+    const store = new ProtocolSessionStore();
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([7]) });
+    store.create({ sessionId: "gate-off", rulesetId: "dota2/ranked-all-pick", patch: "7.41e", adapterKind: "simulator" });
+    store.apply("gate-off", { type: "BAN_RESOLUTION_COMPLETE" });
+
+    await routes.postBotSelection(jsonRequest({ forcedHeroId: 999 }), "gate-off");
+    const sealed = store.get("gate-off")!.rankedAp!.round!.sealed;
+    expect(sealed.some((s) => s.side === "dire" && s.heroId === 7)).toBe(true);
+    expect(sealed.some((s) => s.heroId === 999)).toBe(false);
+  });
+
+  test("gate encendido: el bot sella el heroId forzado en vez de llamar a V6", async () => {
+    await withForcedBotSelectionAllowed(async () => {
+      const store = new ProtocolSessionStore();
+      let computeSuggestionsCalled = false;
+      const routes = createProtocolSessionRoutes({
+        store,
+        computeSuggestions: async () => {
+          computeSuggestionsCalled = true;
+          return fakeSuggestions([7]);
+        },
+      });
+      store.create({ sessionId: "gate-on", rulesetId: "dota2/ranked-all-pick", patch: "7.41e", adapterKind: "simulator" });
+      store.apply("gate-on", { type: "BAN_RESOLUTION_COMPLETE" });
+
+      const response = await routes.postBotSelection(jsonRequest({ forcedHeroId: 42 }), "gate-on");
+      expect(response.status).toBe(200);
+      expect(computeSuggestionsCalled).toBe(false);
+      const sealed = store.get("gate-on")!.rankedAp!.round!.sealed;
+      expect(sealed.some((s) => s.side === "dire" && s.heroId === 42)).toBe(true);
+    });
+  });
+
+  test("heroId forzado ya tomado: cae de vuelta a V6 en vez de intentar sellar algo ilegal", async () => {
+    await withForcedBotSelectionAllowed(async () => {
+      const store = new ProtocolSessionStore();
+      const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([7]) });
+      store.create({ sessionId: "gate-taken", rulesetId: "dota2/ranked-all-pick", patch: "7.41e", adapterKind: "simulator" });
+      // Hero 401 is already banned -- the "taken" set the real bot path always checks.
+      store.apply("gate-taken", { type: "RECORD_RESOLVED_BANS", heroes: [401] });
+      store.apply("gate-taken", { type: "BAN_RESOLUTION_COMPLETE" });
+
+      const response = await routes.postBotSelection(jsonRequest({ forcedHeroId: 401 }), "gate-taken");
+      expect(response.status).toBe(200);
+      const sealed = store.get("gate-taken")!.rankedAp!.round!.sealed;
+      expect(sealed.some((s) => s.side === "dire" && s.heroId === 7)).toBe(true);
+      expect(sealed.some((s) => s.heroId === 401)).toBe(false);
+    });
+  });
+
+  test("cada llamada consume su propio forcedHeroId -- la segunda selección del bot, sin el campo, usa V6", async () => {
+    await withForcedBotSelectionAllowed(async () => {
+      const store = new ProtocolSessionStore();
+      const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([7]) });
+      store.create({ sessionId: "gate-percall", rulesetId: "dota2/ranked-all-pick", patch: "7.41e", adapterKind: "simulator" });
+      store.apply("gate-percall", { type: "BAN_RESOLUTION_COMPLETE" });
+
+      await routes.postBotSelection(jsonRequest({ forcedHeroId: 42 }), "gate-percall");
+      await routes.postBotSelection(jsonRequest({}), "gate-percall");
+      const sealed = store.get("gate-percall")!.rankedAp!.round!.sealed;
+      expect(sealed.filter((s) => s.side === "dire").map((s) => s.heroId).sort((a, b) => a - b)).toEqual([7, 42]);
+    });
+  });
+});
+
 // R1 S3 (final trust-boundary repair) -- the client is not an authority on its own eligibility.
 // These lock the BOUNDARY, not the payload shape: a refusal must hold for snapshots that are
 // perfectly well-formed, because "well-formed" is something an attacker controls completely.

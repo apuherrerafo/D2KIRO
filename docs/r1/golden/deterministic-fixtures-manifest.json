@@ -198,10 +198,10 @@
       "id": "R1-FIX-PAR-04",
       "category": "adapter_parity_gate",
       "concept": "paridad de adapter para CM con FIRST=dire (mismo resultado que FIRST=radiant, otro lado)",
-      "status": "missing",
-      "equivalentTest": null,
-      "gap": "cm-simulator.test.ts prueba 'funciona igual con FIRST = dire' contra el simulador solo -- no existe hoy un test de PARIDAD explícita adapter manual vs simulador para el caso FIRST=dire específicamente (adapter-parity.integration.test.ts sólo cubre AP). Candidato real para 4.2 (Fase 6/CM), no fabricado acá."
+      "status": "existing_equivalent",
+      "equivalentTest": { "file": "apps/engine/src/server/adapter-parity.integration.test.ts", "name": "R1-FIX-PAR-04: CM manual vs simulador (rutas HTTP reales) produce el mismo estado y hash canónicos con FIRST=dire" },
+      "note": "R1 S7 closure wave (2026-09-16): cm-simulator.test.ts ya tenía una prueba de paridad a nivel de función (applyManualObservation vs playOneCmStep, con FIRST=dire) pero adapter-parity.integration.test.ts -- el archivo que ejercita la superficie real de producción, ProtocolSessionStore + las rutas HTTP (postCommand/postBotSelection), el mismo nivel de rigor que R1-FIX-PAR-01 ya exige para AP -- no tenía ningún caso de Captain's Mode. Esa era la brecha real. Se agregó el caso faltante a ese archivo, sin fabricar un segundo adapter de CM: mismo CM_FIRST_PICK_SIDE_OBSERVED/CM_HERO_ACTION_OBSERVED del lado manual, mismo postCommand/postBotSelection del lado simulador que ya usa el caso AP."
     }
   ],
-  "summary": { "existing_equivalent": 27, "missing": 1 }
+  "summary": { "existing_equivalent": 28, "missing": 0 }
 }
