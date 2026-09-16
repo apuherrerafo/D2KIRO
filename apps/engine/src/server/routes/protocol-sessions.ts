@@ -264,6 +264,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const view = deps.store.view(sessionId);
     if (!view) return notFound();
 
+    const startedAt = Date.now();
     const recommendationSet = await buildRecommendationSetV2({
       state,
       view,
@@ -271,6 +272,23 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       patch: metadata.patch,
       computeSuggestions: deps.computeSuggestions,
     });
+
+    // R1 S7 (safe telemetry) -- diagnóstico mínimo para el MVP: ningún héroe, ni propio ni rival,
+    // ni ningún dato de personas. Sólo identidad/estado agregados, ya redactados por basedOn
+    // (stateIdentity nunca lleva picks ocultos -- ver identity-hash.ts). Mismo patrón de logging
+    // estructurado que ya usa este servidor para rate limiting (app.ts).
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      event: "recommendations_computed",
+      sessionId,
+      rulesetId: recommendationSet.basedOn.protocolId,
+      stateIdentity: recommendationSet.basedOn.stateIdentity,
+      protocolStatus: view.status,
+      actionKind: recommendationSet.decision.actionKind,
+      degradations: recommendationSet.degradations.map((degradation) => degradation.reason),
+      recommendationCount: recommendationSet.recommendations.length,
+      computedInMs: Date.now() - startedAt,
+    }));
 
     if (url.searchParams.get("format") === "legacy") {
       return Response.json(translateRecommendationSetToLegacySuggestionSet(recommendationSet));

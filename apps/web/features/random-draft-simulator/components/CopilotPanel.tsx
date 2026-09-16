@@ -280,7 +280,7 @@ export function CopilotPanel({ recommendations, heroCatalog, previewStatus = "id
   const hasRecommendations = (recommendations?.recommendations.length ?? 0) > 0;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
       <span className="text-heading text-content-primary">Copilot</span>
       <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations} onRetry={onRetryPreview} />
       {recommendations && <DegradationsNotice degradations={recommendations.degradations} />}
