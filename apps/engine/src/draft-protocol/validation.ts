@@ -126,9 +126,24 @@ export function isValidSimulatorAuthorityBody(value: unknown): value is Simulato
   return typeof value.seed === "string" && value.seed.length > 0 && value.seed.length <= 64;
 }
 
-export type BotSelectionBody = Record<string, never>;
+export interface BotSelectionBody {
+  /**
+   * R1 S7 (machine-certification closure) -- TEST-ONLY, never production behaviour. Shape-validated
+   * here regardless of environment (same discipline as every other body in this file); the env gate
+   * itself (ALLOW_TEST_FORCED_BOT_SELECTION, never set in Railway/production, only set by
+   * playwright.config.ts for the E2E engine process) lives entirely in postBotSelection
+   * (routes/protocol-sessions.ts). Lets a deterministic browser E2E force the simulator bot's
+   * sealed selection to a specific heroId through the SAME real SUBMIT_SEALED_SELECTION/CM_ACTION
+   * kernel command a normal bot turn uses -- this only decides WHICH hero, never bypasses how it's
+   * applied or the collision reducer that follows.
+   */
+  forcedHeroId?: number;
+}
 
 export function isValidBotSelectionBody(value: unknown): value is BotSelectionBody {
   if (!isRecord(value)) return false;
-  return Object.keys(value).length === 0;
+  const keys = Object.keys(value);
+  if (keys.length === 0) return true;
+  if (keys.length !== 1 || keys[0] !== "forcedHeroId") return false;
+  return isValidHeroId(value.forcedHeroId);
 }

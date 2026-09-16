@@ -186,3 +186,66 @@ jobs:
       # in ordinary PR or push CI and Task 20 alone owns any promotion.
       - name: Evaluation gate -- gate.ts --enforce (canonical authority, Tasks 8/9)
         run: bun run scripts/eval/gate.ts --enforce
+
+  # ---------------------------------------------------------------------------
+  # R1 S7 -- single certification decision for the R1 program (protocol kernel,
+  # Ranked AP + Captain's Mode, RecommendationSet/v2, S6 opponent intelligence).
+  # `needs:` on the three jobs above is deliberate REUSE, not redundancy: this
+  # job only starts once software correctness (test), the simplicity/security
+  # gate, and the engine quality gate have already passed elsewhere in this same
+  # workflow run -- it does not re-decide any of those three, it only adds the
+  # R1-specific categorized breakdown (AP/CM/recommendation-legality/hidden-info/
+  # role/S6/adapter-parity) and writes the reproducible certification artifact.
+  # See scripts/r1/certify.ts -- "bun run verify:r1" is the same single command
+  # a developer runs locally before pushing.
+  r1-certification:
+    name: r1-certification (verify:r1)
+    needs: [test, verify-simplicity, intelligence-ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies (root)
+        run: bun install --frozen-lockfile
+
+      - name: Install dependencies (apps/engine)
+        working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
+      - name: Install dependencies (apps/web)
+        working-directory: apps/web
+        run: bun install --frozen-lockfile
+
+      # R1 S7 completion wave: productE2E is now a real gate (bun run e2e), self-contained
+      # (e2e/bootstrap-db.ts) -- needs a real Chromium binary in this runner.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # --reuse-foundation: the `needs:` above already guarantees test/verify-simplicity/
+      # intelligence-ci are green in this workflow run -- this flag reuses that result instead of
+      # re-running the ~1700+ tests/typecheck/lint/gate a second time (see certify.ts's own header).
+      #
+      # --machine-only: R1 Golden v1's 32 quality cases require a REAL human reviewer signoff
+      # (docs/r1/golden/human-review-guide.md) -- something no CI job can produce. Without this
+      # flag, `verify:r1`'s exit code correctly stays non-zero until that human review closes
+      # (HUMAN_GATE is not a certified PASS, on purpose). This flag scopes CI's pass/fail to the
+      # engineering-correctness gates it CAN decide (machineCertification + productE2E) while the
+      # report it writes still honestly records qualityGolden/overallR1 as HUMAN_GATE -- see
+      # scripts/r1/certify.ts's header comment for the full exit-code policy.
+      - name: R1 certification -- verify:r1
+        run: bun run verify:r1 -- --reuse-foundation --machine-only
+
+      - name: Upload certification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r1-certification-report
+          # R1 S7 (final blocker repair, Blocker 3): runtime output moved to a gitignored directory
+          # -- verify:r1 no longer rewrites the tracked docs/r1/certification-report.* files on
+          # every run (see scripts/r1/certify.ts's REPORT_DIR comment).
+          path: docs/r1/generated/certification-report.*
+          retention-days: 90

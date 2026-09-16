@@ -33,6 +33,46 @@ const POSITION_OPTIONS: { value: 1 | 2 | 3 | 4 | 5; label: string }[] = [
   { value: 5, label: "5 — Hard support" },
 ];
 
+// R1 S7 (Blocker 2): tamaño de party real de Ranked All Pick -- 4 no es una cola válida en Dota
+// (party-context.ts, VALID_PARTY_SIZES) y por eso nunca aparece como opción acá. El motor sigue
+// siendo la única fuente de verdad de esa regla (web.md: "no reimplementes reglas en frontend");
+// esta lista no la reimplementa, sólo no ofrece un valor que el motor de todos modos rechazaría.
+const PARTY_SIZE_OPTIONS: { value: 1 | 2 | 3 | 5; label: string }[] = [
+  { value: 1, label: "Solo" },
+  { value: 2, label: "Party de 2" },
+  { value: 3, label: "Party de 3" },
+  { value: 5, label: "Party de 5 (stack completo)" },
+];
+
+interface PartySizeFieldProps {
+  partySize: 1 | 2 | 3 | 5;
+  onSelect: (partySize: 1 | 2 | 3 | 5) => void;
+}
+
+function PartySizeField({ partySize, onSelect }: PartySizeFieldProps) {
+  function handleChange(event: ChangeEvent<HTMLSelectElement>) {
+    const value = Number(event.target.value) as 1 | 2 | 3 | 5;
+    if (value === 1 || value === 2 || value === 3 || value === 5) onSelect(value);
+  }
+  return (
+    <label className="flex flex-col gap-1" htmlFor="party-size">
+      <span className="text-caption text-content-secondary">Tamaño de tu party</span>
+      <select
+        id="party-size"
+        value={partySize}
+        onChange={handleChange}
+        className="w-fit rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary"
+      >
+        {PARTY_SIZE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function SideSelector({ userSide, onSelect }: SideSelectorProps) {
   function selectRadiant() {
     onSelect("radiant");
@@ -236,16 +276,22 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const userSide = config?.userSide ?? "radiant";
   const playerPosition = config?.playerPosition;
   const personalBanList = config?.personalBanList ?? [];
+  const partySize = config?.partySize ?? 5;
   const isSeedValid = SEED_PATTERN.test(draftSeed);
 
   function selectSide(side: TeamSide) {
     if (playerPosition === undefined) return;
-    setConfig({ userSide: side, playerPosition, personalBanList });
+    setConfig({ userSide: side, playerPosition, personalBanList, partySize });
   }
 
   function selectPosition(event: ChangeEvent<HTMLSelectElement>) {
     const position = Number(event.target.value) as 1 | 2 | 3 | 4 | 5;
-    if ([1, 2, 3, 4, 5].includes(position)) setConfig({ userSide, playerPosition: position, personalBanList });
+    if ([1, 2, 3, 4, 5].includes(position)) setConfig({ userSide, playerPosition: position, personalBanList, partySize });
+  }
+
+  function selectPartySize(nextPartySize: 1 | 2 | 3 | 5) {
+    if (playerPosition === undefined) return;
+    setConfig({ userSide, playerPosition, personalBanList, partySize: nextPartySize });
   }
 
   function regenerateSeed() {
@@ -260,19 +306,19 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
     }
     setBanListError(null);
     if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList: result.list });
+    setConfig({ userSide, playerPosition, personalBanList: result.list, partySize });
   }
 
   function removeBanHero(heroId: HeroId) {
     setBanListError(null);
     if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList: removeHeroFromBanList(personalBanList, heroId) });
+    setConfig({ userSide, playerPosition, personalBanList: removeHeroFromBanList(personalBanList, heroId), partySize });
   }
 
   function handleStart() {
     if (!isSeedValid) return;
     if (playerPosition === undefined) return;
-    onStart({ draftSeed, userSide, playerPosition, personalBanList });
+    onStart({ draftSeed, userSide, playerPosition, personalBanList, partySize });
   }
 
   return (
@@ -286,6 +332,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
           {POSITION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </label>
+      <PartySizeField partySize={partySize} onSelect={selectPartySize} />
       <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
       <PersonalBanListField
         personalBanList={personalBanList}

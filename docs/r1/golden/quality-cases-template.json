@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "r1-golden-v1-quality-cases",
+  "frozenBy": "H0.5 (external to this repo)",
+  "requiredCount": 32,
+  "labelStatus": "AWAITING_HUMAN_REVIEW",
+  "note": "R1 S7 completion wave -- template only. NO labels are pre-filled anywhere in this file (grading/verdict/justification/positions/roleImpact/opponentResponse/stealEvidence/risks are all null). Each case's `sourceSpec` is a DETERMINISTIC, reproducible recipe for deriving the real protocol state + RecommendationSet/v2 to review -- built on the same machinery this slice already certified real (e2e/bootstrap-db.ts's fixture catalog, the ProtocolKernel, buildRecommendationSetV2), not a pre-baked blob this agent captured and is asking a human to rubber-stamp. Capturing the actual states from `sourceSpec` and filling `humanReview` per case is the NEXT step (a human, qualified reviewer, per human-review-guide.md) -- this file does not count toward qualityGolden:COMPLETE until every case has a non-null `humanReview.reviewerSignoff`.",
+  "strata": {
+    "rulesets": ["dota2/ranked-all-pick", "dota2/captains-mode"],
+    "apDecisionContexts": ["team_opening", "blind_second_pick", "response_pick", "closing_pick"],
+    "cmDecisionContexts": ["opening_ban", "contested_pick_or_ban", "response_to_revealed_pick", "closing_pick"],
+    "allocation": "16 AP (4 decisionContexts x 4 réplicas) + 16 CM (4 decisionContexts x 4 réplicas) = 32. Réplicas usan semillas 817254xx distintas (determinismo, misma disciplina que e2e/*.spec.ts de este slice) para que dos capturas del mismo estrato no sean el mismo estado degenerado."
+  },
+  "cases": [
+    { "id": "R1-QUAL-AP-TEAM_OPENING-01", "ruleset": "dota2/ranked-all-pick", "decisionContext": "team_opening", "sourceSpec": { "seed": "81725480", "partySize": 5, "localSide": "radiant", "step": "primer pick sellado de ronda 1, sin héroes propios ni rivales revelados todavía" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-TEAM_OPENING-02", "ruleset": "dota2/ranked-all-pick", "decisionContext": "team_opening", "sourceSpec": { "seed": "81725481", "partySize": 2, "localSide": "radiant", "step": "primer pick sellado de ronda 1, party 2" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-TEAM_OPENING-03", "ruleset": "dota2/ranked-all-pick", "decisionContext": "team_opening", "sourceSpec": { "seed": "81725482", "partySize": 5, "localSide": "dire", "step": "primer pick sellado de ronda 1, lado dire" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-TEAM_OPENING-04", "ruleset": "dota2/ranked-all-pick", "decisionContext": "team_opening", "sourceSpec": { "seed": "81725483", "partySize": 1, "localSide": "radiant", "step": "primer pick sellado de ronda 1, Solo" }, "humanReview": null },
+
+    { "id": "R1-QUAL-AP-BLIND_SECOND_PICK-01", "ruleset": "dota2/ranked-all-pick", "decisionContext": "blind_second_pick", "sourceSpec": { "seed": "81725484", "partySize": 5, "localSide": "radiant", "step": "segundo slot de ronda 1, primer pick propio ya sellado, nada revelado del rival todavía" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-BLIND_SECOND_PICK-02", "ruleset": "dota2/ranked-all-pick", "decisionContext": "blind_second_pick", "sourceSpec": { "seed": "81725485", "partySize": 3, "localSide": "radiant", "step": "segundo slot de ronda 1, party 3" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-BLIND_SECOND_PICK-03", "ruleset": "dota2/ranked-all-pick", "decisionContext": "blind_second_pick", "sourceSpec": { "seed": "81725486", "partySize": 5, "localSide": "dire", "step": "segundo slot de ronda 1, lado dire" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-BLIND_SECOND_PICK-04", "ruleset": "dota2/ranked-all-pick", "decisionContext": "blind_second_pick", "sourceSpec": { "seed": "81725487", "partySize": 5, "localSide": "radiant", "step": "segundo slot de ronda 1, tras una colisión ya resuelta en el primer slot" }, "humanReview": null },
+
+    { "id": "R1-QUAL-AP-RESPONSE_PICK-01", "ruleset": "dota2/ranked-all-pick", "decisionContext": "response_pick", "sourceSpec": { "seed": "81725488", "partySize": 5, "localSide": "radiant", "step": "ronda 2, con los 2 picks del rival de ronda 1 ya revelados" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-RESPONSE_PICK-02", "ruleset": "dota2/ranked-all-pick", "decisionContext": "response_pick", "sourceSpec": { "seed": "81725489", "partySize": 5, "localSide": "dire", "step": "ronda 2, lado dire, rival radiant ya reveló 2 picks" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-RESPONSE_PICK-03", "ruleset": "dota2/ranked-all-pick", "decisionContext": "response_pick", "sourceSpec": { "seed": "81725490", "partySize": 2, "localSide": "radiant", "step": "ronda 2, party 2, un rival revelado incluye un hard counter curado contra un pick propio" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-RESPONSE_PICK-04", "ruleset": "dota2/ranked-all-pick", "decisionContext": "response_pick", "sourceSpec": { "seed": "81725491", "partySize": 5, "localSide": "radiant", "step": "ronda 3 (último slot), 4 rivales revelados" }, "humanReview": null },
+
+    { "id": "R1-QUAL-AP-CLOSING_PICK-01", "ruleset": "dota2/ranked-all-pick", "decisionContext": "closing_pick", "sourceSpec": { "seed": "81725492", "partySize": 5, "localSide": "radiant", "step": "último slot propio abierto, 4 picks propios + 5 rivales ya confirmados" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-CLOSING_PICK-02", "ruleset": "dota2/ranked-all-pick", "decisionContext": "closing_pick", "sourceSpec": { "seed": "81725493", "partySize": 5, "localSide": "dire", "step": "último slot propio abierto, lado dire" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-CLOSING_PICK-03", "ruleset": "dota2/ranked-all-pick", "decisionContext": "closing_pick", "sourceSpec": { "seed": "81725494", "partySize": 3, "localSide": "radiant", "step": "último slot propio abierto, party 3, composición propia sin ningún support confirmado" }, "humanReview": null },
+    { "id": "R1-QUAL-AP-CLOSING_PICK-04", "ruleset": "dota2/ranked-all-pick", "decisionContext": "closing_pick", "sourceSpec": { "seed": "81725495", "partySize": 5, "localSide": "radiant", "step": "último slot propio abierto, tras al menos una colisión resuelta en el draft" }, "humanReview": null },
+
+    { "id": "R1-QUAL-CM-OPENING_BAN-01", "ruleset": "dota2/captains-mode", "decisionContext": "opening_ban", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 1 (BAN_1, primer ban del draft)" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-OPENING_BAN-02", "ruleset": "dota2/captains-mode", "decisionContext": "opening_ban", "sourceSpec": { "firstPickSide": "radiant", "localSide": "dire", "step": "paso 2 (BAN_1, segundo ban del draft, lado SECOND)" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-OPENING_BAN-03", "ruleset": "dota2/captains-mode", "decisionContext": "opening_ban", "sourceSpec": { "firstPickSide": "dire", "localSide": "dire", "step": "paso 1, FIRST=dire (invierte qué lado absoluto actúa primero)" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-OPENING_BAN-04", "ruleset": "dota2/captains-mode", "decisionContext": "opening_ban", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 3, tercer ban de BAN_1, 2 heroes ya baneados" }, "humanReview": null },
+
+    { "id": "R1-QUAL-CM-CONTESTED_PICK_OR_BAN-01", "ruleset": "dota2/captains-mode", "decisionContext": "contested_pick_or_ban", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 8 (primer PICK real, tras BAN_1 completo)" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-CONTESTED_PICK_OR_BAN-02", "ruleset": "dota2/captains-mode", "decisionContext": "contested_pick_or_ban", "sourceSpec": { "firstPickSide": "radiant", "localSide": "dire", "step": "paso 9 (segundo PICK, lado SECOND responde al primer pick revelado)" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-CONTESTED_PICK_OR_BAN-03", "ruleset": "dota2/captains-mode", "decisionContext": "contested_pick_or_ban", "sourceSpec": { "firstPickSide": "dire", "localSide": "radiant", "step": "paso 10, FIRST=dire, con 2 picks ya confirmados de cada lado" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-CONTESTED_PICK_OR_BAN-04", "ruleset": "dota2/captains-mode", "decisionContext": "contested_pick_or_ban", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 11 (BAN_2, ban de venganza tras los primeros picks revelados)" }, "humanReview": null },
+
+    { "id": "R1-QUAL-CM-RESPONSE_TO_REVEALED_PICK-01", "ruleset": "dota2/captains-mode", "decisionContext": "response_to_revealed_pick", "sourceSpec": { "firstPickSide": "radiant", "localSide": "dire", "step": "paso 14 (PICK), con un hard counter curado disponible contra un pick rival ya revelado" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-RESPONSE_TO_REVEALED_PICK-02", "ruleset": "dota2/captains-mode", "decisionContext": "response_to_revealed_pick", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 15 (PICK), 4 héroes propios y 4 rivales ya confirmados" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-RESPONSE_TO_REVEALED_PICK-03", "ruleset": "dota2/captains-mode", "decisionContext": "response_to_revealed_pick", "sourceSpec": { "firstPickSide": "dire", "localSide": "dire", "step": "paso 16, FIRST=dire, composición rival con línea de mid ya definida" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-RESPONSE_TO_REVEALED_PICK-04", "ruleset": "dota2/captains-mode", "decisionContext": "response_to_revealed_pick", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 19 (BAN_3, último bloque de bans antes del cierre)" }, "humanReview": null },
+
+    { "id": "R1-QUAL-CM-CLOSING_PICK-01", "ruleset": "dota2/captains-mode", "decisionContext": "closing_pick", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 23 (penúltimo PICK), ningún support confirmado en la composición propia" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-CLOSING_PICK-02", "ruleset": "dota2/captains-mode", "decisionContext": "closing_pick", "sourceSpec": { "firstPickSide": "radiant", "localSide": "dire", "step": "paso 24 (último PICK del draft)" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-CLOSING_PICK-03", "ruleset": "dota2/captains-mode", "decisionContext": "closing_pick", "sourceSpec": { "firstPickSide": "dire", "localSide": "dire", "step": "paso 23, FIRST=dire, con AUTO_PICK disponible como alternativa" }, "humanReview": null },
+    { "id": "R1-QUAL-CM-CLOSING_PICK-04", "ruleset": "dota2/captains-mode", "decisionContext": "closing_pick", "sourceSpec": { "firstPickSide": "radiant", "localSide": "radiant", "step": "paso 24, con un CM_BAN_SKIPPED ya usado antes en el draft (historial mixto)" }, "humanReview": null }
+  ]
+}

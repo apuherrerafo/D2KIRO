@@ -58,6 +58,17 @@ export interface ProtocolSessionRouteDeps {
    * there -- so the default behaviour is, and stays, fail-closed.
    */
   trustedEligibility?: () => unknown;
+  /**
+   * R1 S7 (final blocker repair, Blocker 1) -- TEST-ONLY construction-time seam. When (and only
+   * when) `true`, postBotSelection honors a client-supplied `forcedHeroId` in the request body.
+   * Absent/`false` -- what every production request path gets, unconditionally -- makes the field
+   * structurally inert: no environment variable, however it is set, can turn this on, because
+   * nothing in this route reads `process.env` for this decision anymore. `createApp()`
+   * (server/app.ts) forwards this straight from `AppDeps.allowClientForcedBotSelection`, which
+   * `index.ts` (the file Railway/`apps/engine`'s `start`/`dev` scripts actually run) never sets --
+   * only `index.e2e.ts` (never wired to any production start path) hardcodes it to `true`.
+   */
+  allowClientForcedBotSelection?: boolean;
 }
 
 function badRequest(error: string): Response {
@@ -224,17 +235,35 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     }
 
     const legacyState = perspectiveToLegacyDraftState(botView, { patch: metadata.patch });
-    const suggestions = await deps.computeSuggestions(legacyState, null);
     const takenHeroIds = new Set([...legacyState.banned, ...legacyState.picks.radiant, ...legacyState.picks.dire]);
-    const chosen = suggestions.suggestions.find((suggestion) => !takenHeroIds.has(suggestion.hero));
-    if (!chosen) return Response.json({ accepted: false, reason: "no_suggestion_available" }, { status: 409 });
+
+    // R1 S7 (final blocker repair, Blocker 1) -- TEST-ONLY, gated on the construction-time
+    // `deps.allowClientForcedBotSelection` seam (never an environment variable -- see the doc
+    // comment on ProtocolSessionRouteDeps above). Lets a deterministic browser E2E force the AP
+    // bot's sealed selection to a specific heroId -- still submitted through the SAME real
+    // SUBMIT_SEALED_SELECTION kernel command below, so the collision reducer runs for real. A
+    // forced heroId that's already taken (or the seam being off, which is every production
+    // request, unconditionally) falls straight through to the real V6 path, never forcing
+    // something the kernel would reject anyway.
+    const forcedHeroId =
+      deps.allowClientForcedBotSelection === true && body.forcedHeroId !== undefined && !takenHeroIds.has(body.forcedHeroId)
+        ? body.forcedHeroId
+        : null;
+
+    let heroId = forcedHeroId;
+    if (heroId === null) {
+      const suggestions = await deps.computeSuggestions(legacyState, null);
+      const chosen = suggestions.suggestions.find((suggestion) => !takenHeroIds.has(suggestion.hero));
+      if (!chosen) return Response.json({ accepted: false, reason: "no_suggestion_available" }, { status: 409 });
+      heroId = chosen.hero;
+    }
 
     const slot = openSlotsForSide[0]!;
     const result = deps.store.apply(sessionId, {
       type: "SUBMIT_SEALED_SELECTION",
       side: slot.side,
       slotIndex: slot.slotIndex,
-      heroId: chosen.hero,
+      heroId,
     });
     return Response.json({
       accepted: !result?.rejected,
@@ -264,6 +293,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const view = deps.store.view(sessionId);
     if (!view) return notFound();
 
+    const startedAt = Date.now();
     const recommendationSet = await buildRecommendationSetV2({
       state,
       view,
@@ -271,6 +301,23 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       patch: metadata.patch,
       computeSuggestions: deps.computeSuggestions,
     });
+
+    // R1 S7 (safe telemetry) -- diagnóstico mínimo para el MVP: ningún héroe, ni propio ni rival,
+    // ni ningún dato de personas. Sólo identidad/estado agregados, ya redactados por basedOn
+    // (stateIdentity nunca lleva picks ocultos -- ver identity-hash.ts). Mismo patrón de logging
+    // estructurado que ya usa este servidor para rate limiting (app.ts).
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      event: "recommendations_computed",
+      sessionId,
+      rulesetId: recommendationSet.basedOn.protocolId,
+      stateIdentity: recommendationSet.basedOn.stateIdentity,
+      protocolStatus: view.status,
+      actionKind: recommendationSet.decision.actionKind,
+      degradations: recommendationSet.degradations.map((degradation) => degradation.reason),
+      recommendationCount: recommendationSet.recommendations.length,
+      computedInMs: Date.now() - startedAt,
+    }));
 
     if (url.searchParams.get("format") === "legacy") {
       return Response.json(translateRecommendationSetToLegacySuggestionSet(recommendationSet));

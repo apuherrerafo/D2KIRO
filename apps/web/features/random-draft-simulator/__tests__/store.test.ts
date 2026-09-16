@@ -6,6 +6,7 @@ const config = {
   userSide: "radiant" as const,
   personalBanList: [],
   patch: "7.41e",
+  partySize: 5 as const,
 };
 
 afterEach(() => useRandomDraftStore.getState().resetSession());

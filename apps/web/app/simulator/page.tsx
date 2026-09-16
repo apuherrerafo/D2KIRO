@@ -5,7 +5,8 @@ import { useState } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
-import { BUTTON_SECONDARY } from "@/features/draft/styles";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
+import { CaptainsModeSimulator } from "@/features/captains-mode-simulator/components/CaptainsModeSimulator";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
 import { DraftIntentSelector } from "@/components/draft-intent-selector/DraftIntentSelector";
@@ -109,6 +110,37 @@ function SimulatorHeader({ canReset, onReset }: SimulatorHeaderProps) {
   );
 }
 
+// R1 S7 (Blocker 2) -- entry point mínimo para probar las dos modalidades que ya certifica el
+// motor (ap_gate/cm_gate) pero que hasta ahora no tenían ninguna forma de llegar desde el
+// navegador. Cada modo monta un árbol de componentes totalmente separado (RandomDraftPage ya
+// existente / CaptainsModeSimulator nuevo) -- ningún estado se comparte entre ambos a propósito,
+// mismo criterio que el resto del proyecto usa para "una responsabilidad por componente".
+type SimulatorMode = "ranked_ap" | "captains_mode";
+
+interface ModeToggleProps {
+  mode: SimulatorMode;
+  onSelect: (mode: SimulatorMode) => void;
+}
+
+function ModeToggle({ mode, onSelect }: ModeToggleProps) {
+  function selectRankedAp() {
+    onSelect("ranked_ap");
+  }
+  function selectCaptainsMode() {
+    onSelect("captains_mode");
+  }
+  return (
+    <div className="flex gap-2">
+      <button type="button" onClick={selectRankedAp} className={mode === "ranked_ap" ? BUTTON_PRIMARY : BUTTON_SECONDARY}>
+        Ranked All Pick
+      </button>
+      <button type="button" onClick={selectCaptainsMode} className={mode === "captains_mode" ? BUTTON_PRIMARY : BUTTON_SECONDARY}>
+        Captain&apos;s Mode
+      </button>
+    </div>
+  );
+}
+
 type PhaseView = (props: PhaseViewProps) => JSX.Element | null;
 
 const PHASE_VIEWS: Record<RandomDraftState["phase"]["type"], PhaseView> = {
@@ -119,10 +151,13 @@ const PHASE_VIEWS: Record<RandomDraftState["phase"]["type"], PhaseView> = {
   complete: CompletePhaseView,
 };
 
-// <Dominio><Cosa>: ruta del Random_Draft_Simulator -- selector de panel por mapa de componentes
-// (sin ternario, web.md) según la fase actual del store. useRandomDraftSession es el único punto
-// que sabe hablar con el motor; esta página solo compone paneles alrededor de su `state`/`actions`.
-export default function RandomDraftPage() {
+// <Dominio><Cosa>: árbol del Random_Draft_Simulator (Ranked All Pick) -- selector de panel por
+// mapa de componentes (sin ternario, web.md) según la fase actual del store.
+// useRandomDraftSession es el único punto que sabe hablar con el motor; este componente solo
+// compone paneles alrededor de su `state`/`actions`. Extraído de lo que antes era el default
+// export de esta página (R1 S7, Blocker 2) para que SimulatorPage pueda alternar con
+// CaptainsModeSimulator sin que ninguno de los dos comparta estado con el otro.
+function RankedAllPickSimulator() {
   const session = useRandomDraftSession();
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
@@ -139,7 +174,7 @@ export default function RandomDraftPage() {
     ) : undefined;
 
   return (
-    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
+    <div className="flex flex-col gap-4">
       <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} />
       <StaleWarningBanner />
       <EngineUnreachableBanner />
@@ -158,6 +193,20 @@ export default function RandomDraftPage() {
         />
       )}
       <ActivePanel session={session} heroCatalog={heroCatalog} />
+    </div>
+  );
+}
+
+// <Dominio><Cosa>: ruta /simulator -- el ModeToggle decide qué árbol montar (Ranked All Pick,
+// existente, o Captain's Mode, R1 S7 Blocker 2); ninguno de los dos sabe que el otro existe.
+export default function SimulatorPage() {
+  const [mode, setMode] = useState<SimulatorMode>("ranked_ap");
+
+  return (
+    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
+      <ModeToggle mode={mode} onSelect={setMode} />
+      {mode === "ranked_ap" && <RankedAllPickSimulator />}
+      {mode === "captains_mode" && <CaptainsModeSimulator />}
     </main>
   );
 }

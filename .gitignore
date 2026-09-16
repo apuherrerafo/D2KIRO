@@ -30,3 +30,9 @@ e2e/.tmp/
 test-results/
 playwright-report/
 .next-e2e/
+
+# R1 S7 (final blocker repair, Blocker 3): salida RUNTIME de "bun run verify:r1" -- nunca debe
+# ensuciar un árbol limpio sólo por generar su propio reporte. docs/r1/certification-report.{json,md}
+# (sin este prefijo) siguen trackeados como snapshot histórico/documentación de la ola que construyó
+# este programa -- ya no son el destino de escritura de cada corrida.
+docs/r1/generated/
