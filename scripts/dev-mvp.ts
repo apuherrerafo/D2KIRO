@@ -10,7 +10,9 @@
 
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { buildFixtureCmEligibilitySnapshot } from "../e2e/fixtures/cm-eligibility";
 
 const ROOT = resolve(import.meta.dir, "..");
 const ENGINE_PORT = process.env.ENGINE_PORT ?? "4000";
@@ -18,6 +20,19 @@ const WEB_PORT = process.env.WEB_PORT ?? "3000";
 const SESSION_SECRET = process.env.SESSION_SECRET ?? randomBytes(32).toString("hex");
 const INTERNAL_AUTH_SECRET = process.env.INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? `http://127.0.0.1:${WEB_PORT}`;
+
+// R1 S7 (Blocker 2, Captain's Mode entry point): sin esto, CM queda fail-closed también en local
+// -- no hay depot real de Dota 2 en este entorno para producir el artefacto de elegibilidad real
+// (ver apps/engine/src/draft-protocol/trusted-eligibility.ts). Mismo mecanismo que producción
+// usaría (CM_ELIGIBILITY_ARTIFACT_PATH), nunca seteado por scripts/start-railway.sh, así que esto
+// no cambia el comportamiento de producción. Rango amplio (1..150): cubre el catálogo real que
+// `apps/engine` sincroniza de OpenDota al arrancar, sin acoplarse a ningún id específico.
+const CM_ELIGIBILITY_PATH = resolve(ROOT, "apps/engine/data/dev-mvp-cm-eligibility.json");
+mkdirSync(resolve(ROOT, "apps/engine/data"), { recursive: true });
+writeFileSync(
+  CM_ELIGIBILITY_PATH,
+  JSON.stringify(buildFixtureCmEligibilitySnapshot(Array.from({ length: 150 }, (_, i) => i + 1))),
+);
 
 const children: ChildProcess[] = [];
 let shuttingDown = false;
@@ -52,7 +67,7 @@ startProcess(
   "bun",
   ["run", "--watch", "src/index.ts"],
   resolve(ROOT, "apps/engine"),
-  { ENGINE_PORT, INTERNAL_AUTH_SECRET },
+  { ENGINE_PORT, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH },
 );
 
 startProcess(

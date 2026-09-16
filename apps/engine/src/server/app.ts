@@ -29,6 +29,7 @@ import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes } from "./routes/meta";
 import { createProDrafterRoutes, handleLowConfidenceReport } from "./routes/pro-drafter";
+import { loadTrustedEligibilityArtifact } from "../draft-protocol";
 import { createProtocolSessionRoutes } from "./routes/protocol-sessions";
 import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
 import { createTeamGroupRoutes } from "./routes/team-groups";
@@ -66,6 +67,12 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   tokenRateLimiter?: TokenRateLimiter;
   internalAuthSecret?: string;
   accountTokenNow?: () => number;
+  // R1 S7 (Blocker 1): override del path por defecto de trusted-eligibility.ts
+  // (DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH). `undefined` (el default en producción/dev, nunca
+  // seteado por scripts/start-railway.sh) preserva el comportamiento de hoy exacto: sin artefacto
+  // real en `apps/engine/data/`, Captain's Mode sigue fail-closed. Sólo el harness de E2E
+  // (playwright.config.ts) y opcionalmente `dev:mvp` lo apuntan a un fixture.
+  cmEligibilityArtifactPath?: string;
 }
 
 interface WsData {
@@ -105,9 +112,16 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   // scope). computeSuggestionsForState is a hoisted function declaration further down this same
   // scope -- referencing it here works exactly like proDrafterRoutes' computeV5Fallback does below.
   const protocolSessionStore = new ProtocolSessionStore();
+  const cmEligibilityArtifactPath = deps.cmEligibilityArtifactPath;
   const protocolSessionRoutes = createProtocolSessionRoutes({
     store: protocolSessionStore,
     computeSuggestions: (state, accountId, options) => computeSuggestionsForState(state, accountId, options),
+    // Default (cmEligibilityArtifactPath undefined) is IDENTICAL to before this field existed:
+    // createProtocolSessionRoutes's own default (loadTrustedEligibilityArtifact() with no path
+    // argument) reads DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH.
+    trustedEligibility: cmEligibilityArtifactPath
+      ? () => loadTrustedEligibilityArtifact(cmEligibilityArtifactPath)
+      : undefined,
   });
   const rateLimiter = createSessionRateLimiter();
   const accountTokenNow = deps.accountTokenNow ?? Date.now;

@@ -1,11 +1,19 @@
 import { defineConfig } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { bootstrapE2eDatabase } from "./e2e/bootstrap-db";
+import { buildFixtureCmEligibilitySnapshot } from "./e2e/fixtures/cm-eligibility";
+import { FIXTURE_HERO_IDS } from "./e2e/fixtures/hero-catalog";
 
 // TSK-217: hasta acá, NINGÚN test del proyecto abría la app real. El harness de Fase 9 mide el
 // motor offline con 2.164 replays y dice la verdad sobre el motor — pero el bug de TSK-214 vivió
 // semanas en la capa de transporte, donde ninguna métrica miraba. Esto es el lazo que faltaba.
+//
+// R1 S7 (Blocker 1): el E2E ya no depende de la base de desarrollo del owner (que exigía un login
+// real de Steam previo -- ver e2e/bootstrap-db.ts). Corre sobre una base temporal, determinista,
+// construida desde las migraciones reales + un catálogo de héroes fijo, reproducible en un
+// checkout limpio o en CI sin ningún paso manual.
 
 const ENGINE_PORT = 4100; // no 4000: no puede chocar con un `bun run dev` abierto del usuario
 const WEB_PORT = 3100;
@@ -20,28 +28,22 @@ const WEB_PORT = 3100;
 const SESSION_SECRET = process.env.E2E_SESSION_SECRET ?? randomBytes(32).toString("hex");
 const INTERNAL_AUTH_SECRET = process.env.E2E_INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
 
-// El E2E jamás escribe sobre la base de desarrollo: corre sobre una copia desechable.
-const SOURCE_DB = resolve("apps/engine/data/dota2coach.sqlite");
 const TMP_DIR = resolve("e2e/.tmp");
 const E2E_DB = resolve(TMP_DIR, "e2e.sqlite");
+const CM_ELIGIBILITY_PATH = resolve(TMP_DIR, "cm-hero-eligibility.json");
 
-// Misma razón que arriba, con una consecuencia peor: este bloque borra y recrea `e2e/.tmp`. Al
-// re-importarse en un worker se llevaba puesta la cookie que `global-setup` acababa de escribir,
-// y el test moría con "Error reading storage state". La preparación corre UNA sola vez.
+// Misma razón que arriba: este bloque recrea `e2e/.tmp` UNA sola vez por corrida. Re-ejecutarlo
+// en cada worker borraría la cookie que `global-setup` acaba de escribir ("Error reading storage
+// state") y reconstruiría la base a mitad de una corrida en curso.
 if (!process.env.E2E_PREPARED) {
-  if (!existsSync(SOURCE_DB)) {
-    throw new Error(
-      `No existe ${SOURCE_DB}. El E2E necesita la base de desarrollo con meta sincronizada ` +
-      "(héroes + patchStats); corré el motor y sincronizá el meta antes.",
-    );
-  }
   rmSync(TMP_DIR, { recursive: true, force: true });
   mkdirSync(TMP_DIR, { recursive: true });
-  copyFileSync(SOURCE_DB, E2E_DB);
-  // WAL: sin estos dos, la copia puede quedar sin las escrituras más recientes.
-  for (const suffix of ["-wal", "-shm"]) {
-    if (existsSync(SOURCE_DB + suffix)) copyFileSync(SOURCE_DB + suffix, E2E_DB + suffix);
-  }
+  bootstrapE2eDatabase(E2E_DB);
+  // Captain's Mode es fail-closed sin un artefacto de elegibilidad certificado server-side (no hay
+  // depot real de Dota 2 en este entorno -- ver e2e/fixtures/cm-eligibility.ts). Mismo mecanismo
+  // que produccion usaría (CM_ELIGIBILITY_ARTIFACT_PATH -> loadTrustedEligibilityArtifact), nunca
+  // seteado en Railway, así que esto no cambia el comportamiento por defecto fuera de esta corrida.
+  writeFileSync(CM_ELIGIBILITY_PATH, JSON.stringify(buildFixtureCmEligibilitySnapshot(FIXTURE_HERO_IDS)));
   process.env.E2E_PREPARED = "1";
 }
 
@@ -78,6 +80,7 @@ export default defineConfig({
         ENGINE_PORT: String(ENGINE_PORT),
         ENGINE_DB_PATH: E2E_DB,
         INTERNAL_AUTH_SECRET,
+        CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH,
       },
     },
     {

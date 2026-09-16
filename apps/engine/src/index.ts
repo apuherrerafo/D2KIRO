@@ -44,6 +44,7 @@ const app = createApp({
   // se evalúa en producción -- el límite de 20/seg por sesión (rateLimiter, incondicional en
   // createApp) sigue intacto y no se ve afectado por este cambio, se suman en AND.
   tokenRateLimiter: createTokenRateLimiter(),
+  cmEligibilityArtifactPath: process.env.CM_ELIGIBILITY_ARTIFACT_PATH,
 });
 const server = app.start("127.0.0.1", PORT);
 
