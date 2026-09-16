@@ -5,31 +5,45 @@
 // with `r1GoldenStatus: "MISSING"` -- a real contract violation. H0.5 (frozen outside this repo)
 // requires R1 Golden v1 (28 deterministic protocol fixtures + 32 HUMAN-reviewed Dota quality
 // cases, total 60) before R1 can be certified. LLM-only labels are never valid for this artifact.
-// This script now reports four SEPARATE decisions instead of one collapsed boolean:
 //
-//   machineCertification -- PASS/FAIL: the technical gates (tests, typecheck, lint, verify-
+// SECOND CORRECTION (R1 S7 final blocker repair, Blocker 2): a missing/malformed/unresolved
+// deterministic fixture used to get silently absorbed into `qualityGolden: HUMAN_GATE` --
+// `machineCertification` never even looked at the 28 deterministic fixtures, only at the 7
+// technical gate categories. That meant a 27/28 manifest could report `machineCertification: PASS`
+// while the real gap hid behind the human-review gate. Fixed by giving the deterministic half its
+// own independent status (`deterministicGolden`, scripts/r1/golden-status.ts) and folding it (plus
+// productE2E) directly into `machineCertification`'s own definition -- see
+// computeMachineCertification below. This script now reports FIVE separate decisions:
+//
+//   machineCertification -- PASS/FAIL: every technical gate (tests, typecheck, lint, verify-
 //                            simplicity, engine quality gate, the 7 R1 protocol/recommendation
-//                            categories).
+//                            categories) PASS, AND productE2E PASS, AND deterministicGolden PASS.
+//   deterministicGolden   -- PASS/FAIL: the 28 deterministic protocol fixtures, exact count, every
+//                            `existing_equivalent` reference mechanically resolved against a real
+//                            test on disk (scripts/r1/golden-status.ts). Never HUMAN_GATE -- a
+//                            machine can decide this completely.
 //   productE2E            -- PASS/FAIL: real browser E2E (`bun run e2e`) against the real
 //                            protocol/engine path. Never silently skipped in "final certification"
 //                            mode -- see --machine-only below for the one place it can be.
-//   qualityGolden         -- PASS/HUMAN_GATE/FAIL: R1 Golden v1 readiness (scripts/r1/golden-
-//                            status.ts). HUMAN_GATE means the deterministic scaffold exists and
-//                            is well-formed but the 32 quality cases are still awaiting a real,
-//                            named, non-LLM reviewer signoff -- SKIPPED is never printed here,
-//                            because this is never optional, only pending.
-//   overallR1             -- PASS only if all three above are PASS. Never PASS with qualityGolden
-//                            anything other than PASS. HUMAN_GATE when everything technical is
-//                            green and only the human artifact is outstanding -- the honest state
-//                            this program is in right now.
+//   qualityGolden         -- PASS/HUMAN_GATE/FAIL: the 32 human-reviewed Dota quality cases,
+//                            INDEPENDENT of deterministicGolden. HUMAN_GATE means the template
+//                            exists and is well-formed but still awaits a real, named, non-LLM
+//                            reviewer signoff -- SKIPPED is never printed here, this is never
+//                            optional, only pending.
+//   overallR1             -- PASS only if machineCertification, productE2E, and qualityGolden are
+//                            ALL PASS. HUMAN_GATE when everything mechanical is green and only the
+//                            human artifact is outstanding -- the honest state this program is in
+//                            right now.
 //
 // Exit code policy (deliberately two modes, see CLI flags below):
 //   default ("final certification"):    exit 0 only if overallR1 === "PASS".
-//   --machine-only ("CI engineering"):  exit 0 if machineCertification === "PASS" AND
-//                                        productE2E === "PASS", regardless of qualityGolden.
-//                                        qualityGolden's real status is still written to the
-//                                        report either way -- this flag changes what makes CI
-//                                        green, never what the artifact claims.
+//   --machine-only ("CI engineering"):  exit 0 if machineCertification === "PASS" -- which by
+//                                        construction already requires productE2E PASS and
+//                                        deterministicGolden PASS. The ONE thing this flag ignores
+//                                        is qualityGolden (the 32 human-reviewed cases) -- its real
+//                                        status is still always computed and always written to the
+//                                        report, this flag changes what makes CI green, never what
+//                                        the artifact claims.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -38,12 +52,20 @@ import { spawnSync } from "node:child_process";
 import { getR1GoldenStatus, REQUIRED_QUALITY_COUNT, type R1GoldenStatus } from "./golden-status";
 
 const ROOT = resolve(import.meta.dir, "..", "..");
-const REPORT_DIR = resolve(ROOT, "docs", "r1");
+// R1 S7 (final blocker repair, Blocker 3) -- runtime output moved to a GITIGNORED directory
+// (docs/r1/generated/, see .gitignore). Running `verify:r1` must never dirty a clean source tree
+// merely because it produced its own report -- the previous location (docs/r1/certification-
+// report.{json,md}) was TRACKED, so every run rewrote committed files with a fresh generatedAt/
+// duration/hash, leaving `git status` dirty right after a clean run. Those two tracked files stay
+// in the repo as the historical snapshot from the wave that built this program (see
+// docs/r1/certification-report.md's own header) -- they are documentation now, never a write
+// target.
+const REPORT_DIR = resolve(ROOT, "docs", "r1", "generated");
 
 type GateStatus = "PASS" | "FAIL" | "SKIPPED";
 type TopLevelStatus = "PASS" | "FAIL" | "HUMAN_GATE";
 
-interface GateResult {
+export interface GateResult {
   id: string;
   klass: "required" | "informational";
   command: string;
@@ -136,8 +158,51 @@ function reused(id: string, command: string, reason: string): GateResult {
   return { id, klass: "required", command, status: "PASS", summary: `SKIPPED_REUSED: ${reason}` };
 }
 
-function blockersOf(gates: GateResult[]): GateResult[] {
+export function blockersOf(gates: GateResult[]): GateResult[] {
   return gates.filter((g) => g.klass === "required" && g.status !== "PASS");
+}
+
+// R1 S7 (final blocker repair, Blocker 2) -- machineCertification may PASS ONLY if: every
+// technical/category gate is PASS, product E2E is PASS, AND deterministicGolden (the 28 fixtures,
+// exact count, every reference resolved -- see golden-status.ts) is PASS. A missing, malformed, or
+// unresolved deterministic fixture can NEVER again get reported as machineCertification: PASS
+// while hiding behind qualityGolden's HUMAN_GATE -- that conflation was the exact bug this repairs.
+// qualityGolden (the 32 human-reviewed cases) is DELIBERATELY excluded here -- it is the one thing
+// `--machine-only` is allowed to ignore. Pure and exported so a regression test can prove the
+// combinator's logic with a fabricated 27/28 `deterministicGolden: "FAIL"` input, never by mutating
+// the real gate list or the real manifest (see certify.test.ts).
+export function computeMachineCertification(
+  machineGates: GateResult[],
+  productE2E: TopLevelStatus,
+  deterministicGolden: R1GoldenStatus["deterministicGolden"],
+): TopLevelStatus {
+  return blockersOf(machineGates).length === 0 && productE2E === "PASS" && deterministicGolden === "PASS" ? "PASS" : "FAIL";
+}
+
+// R1 S7 (final blocker repair, Blocker 3) -- everything the functional certification hash covers:
+// stable DECISION inputs only (commit identity, gate/category verdicts, the R1 Golden manifest
+// hash), never non-functional telemetry (`dirty`, wall-clock timings, absolute paths). Exported so
+// the hash's reproducibility can be proven directly: same inputs -> same hash, and changing
+// `r1GoldenManifestHash` alone must change it (see certify.test.ts's REPRODUCIBILITY TEST).
+export interface FunctionalCertificationInputs {
+  commit: string;
+  branch: string;
+  gates: { id: string; klass: GateResult["klass"]; status: GateStatus }[];
+  machineCertification: TopLevelStatus;
+  productE2E: TopLevelStatus;
+  qualityGolden: TopLevelStatus;
+  deterministicGolden: R1GoldenStatus["deterministicGolden"];
+  overallR1: TopLevelStatus;
+  r1Golden: { deterministicFixtures: R1GoldenStatus["deterministicFixtures"]; qualityCases: R1GoldenStatus["qualityCases"]; overall: R1GoldenStatus["overall"] };
+  r1GoldenManifestHash: string | null;
+}
+
+export function buildFunctionalPayload(inputs: FunctionalCertificationInputs) {
+  return { schemaVersion: 2, certificationId: "r1-s7", ...inputs };
+}
+
+export function computeFunctionalHash(inputs: FunctionalCertificationInputs): string {
+  return createHash("sha256").update(JSON.stringify(buildFunctionalPayload(inputs))).digest("hex");
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -198,7 +263,6 @@ async function main(argv: string[]): Promise<number> {
   ];
 
   const machineGates = [...foundational, ...r1Categories];
-  const machineCertification: TopLevelStatus = blockersOf(machineGates).length === 0 ? "PASS" : "FAIL";
 
   // Product E2E (R1 S7 completion wave, Blocker 1/2/3 mandate): real browser -> API ->
   // ProtocolKernel -> RecommendationSet/v2 -> Copilot, self-contained (e2e/bootstrap-db.ts). Never
@@ -216,10 +280,15 @@ async function main(argv: string[]): Promise<number> {
 
   // R1 Golden v1 (Blocker 3): deterministic status from the real scaffold this wave built --
   // docs/r1/golden/{deterministic-fixtures-manifest,quality-cases-template}.json, computed by
-  // scripts/r1/golden-status.ts. Never PASS unless the 32 quality cases carry a real, named,
-  // non-LLM reviewerSignoff each -- see human-review-guide.md.
+  // scripts/r1/golden-status.ts. deterministicGolden and qualityGolden are read STRAIGHT from
+  // r1Golden -- never re-derived from `overall`, which is informational-only precisely so this
+  // conflation (final blocker repair, Blocker 2) can't recur.
   const r1Golden: R1GoldenStatus = getR1GoldenStatus();
-  const qualityGolden: TopLevelStatus = r1Golden.overall === "COMPLETE" ? "PASS" : r1Golden.overall === "HUMAN_GATE" ? "HUMAN_GATE" : "FAIL";
+  const qualityGolden: TopLevelStatus = r1Golden.qualityGolden;
+
+  // R1 S7 (final blocker repair, Blocker 2): machineCertification now structurally REQUIRES
+  // productE2E PASS and deterministicGolden PASS -- see computeMachineCertification's doc comment.
+  const machineCertification: TopLevelStatus = computeMachineCertification(machineGates, productE2E, r1Golden.deterministicGolden);
 
   const overallR1: TopLevelStatus =
     machineCertification === "PASS" && productE2E === "PASS" && qualityGolden === "PASS"
@@ -231,29 +300,33 @@ async function main(argv: string[]): Promise<number> {
   const durationMs = Date.now() - startedAt;
 
   // Functional identity: everything that should be byte-identical between two clean runs against
-  // the same commit/data/seed -- the DECISION, never the raw log text. `summary` deliberately
-  // excluded: test-runner tails carry wall-clock durations that differ between two otherwise-
-  // identical runs and would make the hash lie about being an identity.
-  const functionalPayload = {
-    schemaVersion: 2,
-    certificationId: "r1-s7",
+  // the same commit/data/seed -- the DECISION, never the raw log text or non-functional telemetry.
+  // `summary` deliberately excluded: test-runner tails carry wall-clock durations that differ
+  // between two otherwise-identical runs. `dirty` deliberately excluded too (R1 S7 final blocker
+  // repair, Blocker 3): it's a mutable fact about the working tree at the moment this ran, not a
+  // certification decision input -- reported as telemetry below, never hashed. `r1GoldenManifestHash`
+  // is deliberately INCLUDED (previously excluded -- the bug this repairs): the manifest's content
+  // is exactly the kind of decision input a functional identity must cover, and changing it must
+  // change the hash.
+  const functionalInputs: FunctionalCertificationInputs = {
     commit,
     branch,
-    dirty,
     gates: allGates.map(({ id, klass, status }) => ({ id, klass, status })),
     machineCertification,
     productE2E,
     qualityGolden,
+    deterministicGolden: r1Golden.deterministicGolden,
     overallR1,
     r1Golden: { deterministicFixtures: r1Golden.deterministicFixtures, qualityCases: r1Golden.qualityCases, overall: r1Golden.overall },
+    r1GoldenManifestHash: r1Golden.manifestHash,
   };
-  const functionalHash = createHash("sha256").update(JSON.stringify(functionalPayload)).digest("hex");
+  const functionalHash = computeFunctionalHash(functionalInputs);
 
   const report = {
-    ...functionalPayload,
+    ...functionalInputs,
+    dirty,
     gates: allGates,
     functionalHash,
-    r1GoldenManifestHash: r1Golden.manifestHash,
     knownGaps: [
       {
         id: "r1_golden_v1_human_review",
@@ -283,27 +356,35 @@ async function main(argv: string[]): Promise<number> {
     console.log(`[${marker}] ${g.id} -- ${g.summary}`);
   }
   console.log(`\nmachineCertification: ${machineCertification}`);
+  console.log(`deterministicGolden: ${r1Golden.deterministicGolden} (${r1Golden.deterministicFixtures.existingEquivalent}/28 resolved, ${r1Golden.deterministicFixtures.missing} missing, ${r1Golden.deterministicFixtures.unresolved} unresolved)`);
   console.log(`productE2E: ${productE2E}`);
-  console.log(`qualityGolden: ${qualityGolden} (${r1Golden.qualityCases.reviewedCount}/${REQUIRED_QUALITY_COUNT} quality cases reviewed, ${r1Golden.deterministicFixtures.missing} deterministic fixture(s) missing)`);
+  console.log(`qualityGolden: ${qualityGolden} (${r1Golden.qualityCases.reviewedCount}/${REQUIRED_QUALITY_COUNT} quality cases reviewed)`);
   console.log(`overallR1: ${overallR1}`);
   console.log(`functionalHash: ${functionalHash}`);
-  console.log(`report: docs/r1/certification-report.json`);
+  console.log(`report: docs/r1/generated/certification-report.json`);
 
   if (overallR1 === "HUMAN_GATE") {
     console.log("\nHUMAN_GATE: MISSING_R1_GOLDEN_HUMAN_REVIEW -- see docs/r1/golden/human-review-guide.md");
   }
 
+  // R1 S7 (final blocker repair, Blocker 2): machineCertification already structurally requires
+  // productE2E === "PASS" (see computeMachineCertification) -- --machine-only's exit code follows
+  // that single field directly, and ignores ONLY qualityGolden (the 32 human-reviewed cases), per
+  // mandate: "MUST FAIL if: deterministic fixture count != 28/28; fixture manifest malformed;
+  // fixture reference cannot be resolved; required machine E2E fails; any technical gate fails" --
+  // all four are now folded into machineCertification itself.
   if (machineOnly) {
-    return machineCertification === "PASS" && productE2E === "PASS" ? 0 : 1;
+    return machineCertification === "PASS" ? 0 : 1;
   }
   return overallR1 === "PASS" ? 0 : 1;
 }
 
 function renderMarkdown(report: {
   commit: string; branch: string; dirty: boolean;
-  machineCertification: TopLevelStatus; productE2E: TopLevelStatus; qualityGolden: TopLevelStatus; overallR1: TopLevelStatus;
+  machineCertification: TopLevelStatus; productE2E: TopLevelStatus; qualityGolden: TopLevelStatus; deterministicGolden: R1GoldenStatus["deterministicGolden"]; overallR1: TopLevelStatus;
   functionalHash: string; gates: GateResult[]; knownGaps: { id: string; detail: string }[];
   r1Golden: { deterministicFixtures: R1GoldenStatus["deterministicFixtures"]; qualityCases: R1GoldenStatus["qualityCases"]; overall: string };
+  r1GoldenManifestHash: string | null;
   telemetry: { generatedAt: string; durationMs: number; node: string; machineOnly: boolean; skipE2E: boolean };
 }): string {
   const rows = report.gates
@@ -314,14 +395,16 @@ function renderMarkdown(report: {
 
 Commit: \`${report.commit}\` (branch \`${report.branch}\`, ${report.dirty ? "dirty" : "clean"})
 Functional hash: \`${report.functionalHash}\`
+R1 Golden manifest hash: \`${report.r1GoldenManifestHash ?? "null"}\`
 
 ## Decision
 
 | Dimension | Status |
 |---|---|
 | machineCertification | **${report.machineCertification}** |
+| deterministicGolden | **${report.deterministicGolden}** (${report.r1Golden.deterministicFixtures.existingEquivalent}/28 resolved, ${report.r1Golden.deterministicFixtures.missing} missing, ${report.r1Golden.deterministicFixtures.unresolved} unresolved) |
 | productE2E | **${report.productE2E}** |
-| qualityGolden | **${report.qualityGolden}** (${report.r1Golden.qualityCases.reviewedCount}/32 human-reviewed, ${report.r1Golden.deterministicFixtures.missing} deterministic fixture(s) missing of 28) |
+| qualityGolden | **${report.qualityGolden}** (${report.r1Golden.qualityCases.reviewedCount}/32 human-reviewed) |
 | **overallR1** | **${report.overallR1}** |
 
 ${report.overallR1 === "HUMAN_GATE" ? "> **HUMAN_GATE: MISSING_R1_GOLDEN_HUMAN_REVIEW** -- every technical/product gate below is green; R1 Golden v1's 32 quality cases still need a real, named, non-LLM reviewer signoff. See `docs/r1/golden/human-review-guide.md`. This is intentionally NOT reported as PASS.\n" : ""}

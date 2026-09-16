@@ -1,5 +1,11 @@
 # R1 S7 Certification Report
 
+> **Nota (R1 S7 final blocker repair, Blocker 3):** este archivo es un snapshot histórico congelado
+> de la corrida que se describe abajo -- ya NO es el destino de escritura de `bun run verify:r1`.
+> La salida runtime de cada corrida vive en `docs/r1/generated/certification-report.{json,md}`
+> (gitignored, nunca trackeado) para que correr el certificador no ensucie un árbol limpio. Ver el
+> comentario de `REPORT_DIR` en `scripts/r1/certify.ts`.
+
 Commit: `f863d8757c974ce86eec7986e097068e459374c7` (branch `r1/product-certification`, dirty)
 Functional hash: `925f34f34e9d02ed0369bd3bb9ff0be8f3b4a0595b50838156b29f38b74e5bf9`
 

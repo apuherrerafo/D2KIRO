@@ -244,5 +244,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: r1-certification-report
-          path: docs/r1/certification-report.*
+          # R1 S7 (final blocker repair, Blocker 3): runtime output moved to a gitignored directory
+          # -- verify:r1 no longer rewrites the tracked docs/r1/certification-report.* files on
+          # every run (see scripts/r1/certify.ts's REPORT_DIR comment).
+          path: docs/r1/generated/certification-report.*
           retention-days: 90

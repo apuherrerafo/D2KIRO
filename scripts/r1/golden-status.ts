@@ -5,10 +5,11 @@
 // degrades to an honest "unknown"/gate-closed status, never throws, never invents a passing count.
 
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const GOLDEN_DIR = resolve(import.meta.dir, "..", "..", "docs", "r1", "golden");
+const ROOT = resolve(import.meta.dir, "..", "..");
+const GOLDEN_DIR = resolve(ROOT, "docs", "r1", "golden");
 const FIXTURES_PATH = resolve(GOLDEN_DIR, "deterministic-fixtures-manifest.json");
 const QUALITY_PATH = resolve(GOLDEN_DIR, "quality-cases-template.json");
 
@@ -29,6 +30,16 @@ export interface DeterministicFixturesStatus {
   totalSlots: number;
   existingEquivalent: number;
   missing: number;
+  /**
+   * R1 S7 (final blocker repair, Blocker 2) -- entries claiming `status: "existing_equivalent"`
+   * whose `equivalentTest.file`/`.name` reference cannot actually be resolved against the repo on
+   * disk (file doesn't exist, or the file's content no longer contains that exact test name --
+   * e.g. a rename/delete drifted the manifest out of sync with the real test suite). Counted
+   * SEPARATELY from `missing` (an honest "no fixture written yet") because this is a different
+   * failure mode -- a fixture that CLAIMS to exist but doesn't resolve -- and both must be zero
+   * for deterministicGoldenStatus() to PASS.
+   */
+  unresolved: number;
   completeCount: boolean; // totalSlots === REQUIRED_FIXTURE_COUNT
 }
 
@@ -42,11 +53,52 @@ export interface QualityCasesStatus {
   status: QualityGoldenStatus;
 }
 
+export type TopLevelGoldenStatus = "PASS" | "FAIL";
+export type QualityTopLevelStatus = "PASS" | "HUMAN_GATE" | "FAIL";
+
+/**
+ * R1 S7 (final blocker repair, Blocker 2) -- PASS requires the EXACT required count, every slot
+ * resolved to a real existing-equivalent test, zero genuinely missing, zero unresolved references.
+ * A malformed/absent manifest (`found: false`) fails every one of these by construction. Pure,
+ * deliberately taking the already-computed status object (not reading any file itself) so a
+ * regression test can simulate "one fixture missing" or "one reference broken" with injected data,
+ * never by touching the real manifest (see golden-status.test.ts).
+ */
+export function deterministicGoldenStatus(status: DeterministicFixturesStatus): TopLevelGoldenStatus {
+  return status.found &&
+    status.totalSlots === REQUIRED_FIXTURE_COUNT &&
+    status.existingEquivalent === REQUIRED_FIXTURE_COUNT &&
+    status.missing === 0 &&
+    status.unresolved === 0
+    ? "PASS"
+    : "FAIL";
+}
+
+/**
+ * R1 S7 (final blocker repair, Blocker 2) -- the 32 human-reviewed quality cases, independent of
+ * deterministic fixture completeness. HUMAN_GATE (not FAIL) is reserved for the one legitimate
+ * "everything technical is fine, a human still needs to sign off" state; a genuinely missing or
+ * malformed template file is FAIL, never laundered into HUMAN_GATE.
+ */
+export function qualityGoldenStatus(status: QualityCasesStatus): QualityTopLevelStatus {
+  if (status.status === "COMPLETE") return "PASS";
+  if (status.status === "HUMAN_GATE") return "HUMAN_GATE";
+  return "FAIL";
+}
+
 export interface R1GoldenStatus {
   deterministicFixtures: DeterministicFixturesStatus;
   qualityCases: QualityCasesStatus;
-  /** Overall R1 Golden v1 readiness -- never PASS/COMPLETE unless BOTH halves are complete. */
-  overall: "MISSING" | "HUMAN_GATE" | "COMPLETE";
+  /** R1 S7 (final blocker repair, Blocker 2) -- machineCertification (certify.ts) reads THIS
+   * field directly, never `overall` below -- a missing/unresolved deterministic fixture can never
+   * again get laundered into HUMAN_GATE. */
+  deterministicGolden: TopLevelGoldenStatus;
+  /** qualityGolden (certify.ts) reads THIS field directly -- computed ONLY from qualityCases,
+   * never mixed with deterministic-fixture completeness. */
+  qualityGolden: QualityTopLevelStatus;
+  /** Informational rollup only, for human-readable output (e.g. `bun run scripts/r1/golden-status.ts`
+   * at the CLI) -- certify.ts never derives a decision from this field, only from the two above. */
+  overall: "PASS" | "HUMAN_GATE" | "FAIL";
   manifestHash: string | null;
 }
 
@@ -88,20 +140,46 @@ function readJson(path: string): unknown | null {
   }
 }
 
+// R1 S7 (final blocker repair, Blocker 2) -- "fixture reference cannot be resolved" (explicit
+// MUST-FAIL condition for `--machine-only`): a manifest entry claiming `existing_equivalent` is
+// only as good as the test it points at. Mechanical check, no heuristics: the referenced file must
+// exist on disk, and its content must literally contain the referenced test name -- if a test gets
+// renamed or deleted, the manifest silently drifts out of sync with reality without this. Degrades
+// to "unresolved" on any failure, never throws (same discipline as every other curated-data loader
+// in this repo, invariantes.md).
+function isEquivalentTestResolvable(equivalentTest: unknown): boolean {
+  if (!isRecord(equivalentTest)) return false;
+  const { file, name } = equivalentTest;
+  if (!isNonEmptyString(file) || !isNonEmptyString(name)) return false;
+  const fullPath = resolve(ROOT, file);
+  if (!fullPath.startsWith(ROOT)) return false; // no path traversal out of the repo
+  if (!existsSync(fullPath)) return false;
+  try {
+    return readFileSync(fullPath, "utf-8").includes(name);
+  } catch {
+    return false;
+  }
+}
+
 function computeDeterministicFixturesStatus(): DeterministicFixturesStatus {
   const raw = readJson(FIXTURES_PATH);
   if (!isRecord(raw) || !Array.isArray(raw.fixtures)) {
-    return { found: false, totalSlots: 0, existingEquivalent: 0, missing: 0, completeCount: false };
+    return { found: false, totalSlots: 0, existingEquivalent: 0, missing: 0, unresolved: 0, completeCount: false };
   }
   let existingEquivalent = 0;
   let missing = 0;
+  let unresolved = 0;
   for (const entry of raw.fixtures) {
     if (!isRecord(entry)) continue;
-    if (entry.status === "existing_equivalent") existingEquivalent += 1;
-    else if (entry.status === "missing") missing += 1;
+    if (entry.status === "existing_equivalent") {
+      if (isEquivalentTestResolvable(entry.equivalentTest)) existingEquivalent += 1;
+      else unresolved += 1;
+    } else if (entry.status === "missing") {
+      missing += 1;
+    }
   }
   const totalSlots = raw.fixtures.length;
-  return { found: true, totalSlots, existingEquivalent, missing, completeCount: totalSlots === REQUIRED_FIXTURE_COUNT };
+  return { found: true, totalSlots, existingEquivalent, missing, unresolved, completeCount: totalSlots === REQUIRED_FIXTURE_COUNT };
 }
 
 function computeQualityCasesStatus(): QualityCasesStatus {
@@ -141,13 +219,21 @@ function computeManifestHash(): string | null {
 export function getR1GoldenStatus(): R1GoldenStatus {
   const deterministicFixtures = computeDeterministicFixturesStatus();
   const qualityCases = computeQualityCasesStatus();
+  const deterministicGolden = deterministicGoldenStatus(deterministicFixtures);
+  const qualityGolden = qualityGoldenStatus(qualityCases);
 
-  let overall: R1GoldenStatus["overall"] = "MISSING";
-  if (deterministicFixtures.found && qualityCases.found) {
-    overall = qualityCases.status === "COMPLETE" && deterministicFixtures.missing === 0 ? "COMPLETE" : "HUMAN_GATE";
-  }
+  // R1 S7 (final blocker repair, Blocker 2) -- informational only (see R1GoldenStatus's doc
+  // comment): a FAIL on either half is a real FAIL, never softened into HUMAN_GATE. HUMAN_GATE is
+  // reserved for the one legitimate case: everything mechanical is green, only qualityGolden's
+  // human signoff is outstanding.
+  const overall: R1GoldenStatus["overall"] =
+    deterministicGolden === "FAIL" || qualityGolden === "FAIL"
+      ? "FAIL"
+      : deterministicGolden === "PASS" && qualityGolden === "PASS"
+        ? "PASS"
+        : "HUMAN_GATE";
 
-  return { deterministicFixtures, qualityCases, overall, manifestHash: computeManifestHash() };
+  return { deterministicFixtures, qualityCases, deterministicGolden, qualityGolden, overall, manifestHash: computeManifestHash() };
 }
 
 if (import.meta.main) {
