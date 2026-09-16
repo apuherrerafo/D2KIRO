@@ -9,8 +9,10 @@
 // placed (server/operator side, never a request body), which is exactly the mechanism this fixture
 // uses: same acceptCmHeroEligibilitySnapshot gate as production, same contentHash discipline as
 // apps/engine/src/server/protocol-session.cm-acceptance.test.ts's own fixtureEligibility() helper,
-// pointed at by CM_ELIGIBILITY_ARTIFACT_PATH -- an env var Railway/production never sets, so
-// loadTrustedEligibilityArtifact() keeps its real, absent-by-default fail-closed path in prod.
+// pointed at by CM_ELIGIBILITY_ARTIFACT_PATH -- an env var only apps/engine/src/index.e2e.ts ever
+// reads (R1 S7 final blocker repair, Blocker 1); index.ts, the real production/Railway entrypoint,
+// never looks at it, so loadTrustedEligibilityArtifact() keeps its real, absent-by-default
+// fail-closed path in prod regardless of what's in the process environment.
 // Imports the specific modules, never the draft-protocol barrel (`index.ts`): that barrel
 // re-exports trusted-eligibility.ts, which resolves its default artifact path with
 // `import.meta.dir` (a Bun-only extension) -- fine under `bun run src/index.ts`, but this file is

@@ -67,12 +67,21 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   tokenRateLimiter?: TokenRateLimiter;
   internalAuthSecret?: string;
   accountTokenNow?: () => number;
-  // R1 S7 (Blocker 1): override del path por defecto de trusted-eligibility.ts
-  // (DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH). `undefined` (el default en producción/dev, nunca
-  // seteado por scripts/start-railway.sh) preserva el comportamiento de hoy exacto: sin artefacto
-  // real en `apps/engine/data/`, Captain's Mode sigue fail-closed. Sólo el harness de E2E
-  // (playwright.config.ts) y opcionalmente `dev:mvp` lo apuntan a un fixture.
+  // R1 S7 (final blocker repair, Blocker 1): override del path por defecto de
+  // trusted-eligibility.ts (DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH). `undefined` (el ÚNICO
+  // valor que `index.ts` -- el entrypoint real de producción/Railway, ver apps/engine/package.json
+  // "start"/"dev" y scripts/start-railway.sh -- puede pasar, porque ese archivo ya no lee ningún
+  // `process.env` relacionado con esto) preserva el comportamiento de hoy exacto: sin artefacto
+  // real en `apps/engine/data/`, Captain's Mode sigue fail-closed. Sólo `index.e2e.ts` (un archivo
+  // DISTINTO, nunca referenciado por ningún script de arranque de producción) lo apunta a un
+  // fixture, leyendo la variable de entorno ÉL MISMO -- production nunca ejecuta ese archivo, así
+  // que ninguna variable de entorno "ordinaria" puede activar esto ahí.
   cmEligibilityArtifactPath?: string;
+  // R1 S7 (final blocker repair, Blocker 1): mismo seam/mismo discurso que arriba, para
+  // routes/protocol-sessions.ts's `allowClientForcedBotSelection`. `undefined`/`false` es lo único
+  // que `index.ts` puede pasar (no lo pasa nunca); sólo `index.e2e.ts` lo fija en `true`,
+  // hardcodeado -- no hay ninguna variable de entorno que lo controle en absoluto.
+  allowClientForcedBotSelection?: boolean;
 }
 
 interface WsData {
@@ -122,6 +131,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     trustedEligibility: cmEligibilityArtifactPath
       ? () => loadTrustedEligibilityArtifact(cmEligibilityArtifactPath)
       : undefined,
+    allowClientForcedBotSelection: deps.allowClientForcedBotSelection === true,
   });
   const rateLimiter = createSessionRateLimiter();
   const accountTokenNow = deps.accountTokenNow ?? Date.now;

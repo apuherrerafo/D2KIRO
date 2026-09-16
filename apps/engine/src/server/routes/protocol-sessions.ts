@@ -58,6 +58,17 @@ export interface ProtocolSessionRouteDeps {
    * there -- so the default behaviour is, and stays, fail-closed.
    */
   trustedEligibility?: () => unknown;
+  /**
+   * R1 S7 (final blocker repair, Blocker 1) -- TEST-ONLY construction-time seam. When (and only
+   * when) `true`, postBotSelection honors a client-supplied `forcedHeroId` in the request body.
+   * Absent/`false` -- what every production request path gets, unconditionally -- makes the field
+   * structurally inert: no environment variable, however it is set, can turn this on, because
+   * nothing in this route reads `process.env` for this decision anymore. `createApp()`
+   * (server/app.ts) forwards this straight from `AppDeps.allowClientForcedBotSelection`, which
+   * `index.ts` (the file Railway/`apps/engine`'s `start`/`dev` scripts actually run) never sets --
+   * only `index.e2e.ts` (never wired to any production start path) hardcodes it to `true`.
+   */
+  allowClientForcedBotSelection?: boolean;
 }
 
 function badRequest(error: string): Response {
@@ -226,15 +237,16 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const legacyState = perspectiveToLegacyDraftState(botView, { patch: metadata.patch });
     const takenHeroIds = new Set([...legacyState.banned, ...legacyState.picks.radiant, ...legacyState.picks.dire]);
 
-    // R1 S7 (machine-certification closure) -- TEST-ONLY, gated on ALLOW_TEST_FORCED_BOT_SELECTION
-    // (never set in Railway/production, only by playwright.config.ts for the E2E engine process).
-    // Lets a deterministic browser E2E force the AP bot's sealed selection to a specific heroId --
-    // still submitted through the SAME real SUBMIT_SEALED_SELECTION kernel command below, so the
-    // collision reducer runs for real. A forced heroId that's already taken (or the gate being off,
-    // which is every production request) falls straight through to the real V6 path, never forcing
+    // R1 S7 (final blocker repair, Blocker 1) -- TEST-ONLY, gated on the construction-time
+    // `deps.allowClientForcedBotSelection` seam (never an environment variable -- see the doc
+    // comment on ProtocolSessionRouteDeps above). Lets a deterministic browser E2E force the AP
+    // bot's sealed selection to a specific heroId -- still submitted through the SAME real
+    // SUBMIT_SEALED_SELECTION kernel command below, so the collision reducer runs for real. A
+    // forced heroId that's already taken (or the seam being off, which is every production
+    // request, unconditionally) falls straight through to the real V6 path, never forcing
     // something the kernel would reject anyway.
     const forcedHeroId =
-      process.env.ALLOW_TEST_FORCED_BOT_SELECTION === "1" && body.forcedHeroId !== undefined && !takenHeroIds.has(body.forcedHeroId)
+      deps.allowClientForcedBotSelection === true && body.forcedHeroId !== undefined && !takenHeroIds.has(body.forcedHeroId)
         ? body.forcedHeroId
         : null;
 

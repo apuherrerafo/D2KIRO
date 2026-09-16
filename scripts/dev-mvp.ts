@@ -21,12 +21,14 @@ const SESSION_SECRET = process.env.SESSION_SECRET ?? randomBytes(32).toString("h
 const INTERNAL_AUTH_SECRET = process.env.INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL ?? `http://127.0.0.1:${WEB_PORT}`;
 
-// R1 S7 (Blocker 2, Captain's Mode entry point): sin esto, CM queda fail-closed también en local
-// -- no hay depot real de Dota 2 en este entorno para producir el artefacto de elegibilidad real
-// (ver apps/engine/src/draft-protocol/trusted-eligibility.ts). Mismo mecanismo que producción
-// usaría (CM_ELIGIBILITY_ARTIFACT_PATH), nunca seteado por scripts/start-railway.sh, así que esto
-// no cambia el comportamiento de producción. Rango amplio (1..150): cubre el catálogo real que
-// `apps/engine` sincroniza de OpenDota al arrancar, sin acoplarse a ningún id específico.
+// R1 S7 (Blocker 2, Captain's Mode entry point; final blocker repair, Blocker 1): sin esto, CM
+// queda fail-closed también en local -- no hay depot real de Dota 2 en este entorno para producir
+// el artefacto de elegibilidad real (ver apps/engine/src/draft-protocol/trusted-eligibility.ts).
+// Mismo mecanismo que produccion usaría (CM_ELIGIBILITY_ARTIFACT_PATH), leído sólo por
+// apps/engine/src/index.e2e.ts -- este script arranca ESE archivo, nunca index.ts (el entrypoint
+// real de scripts/start-railway.sh), así que esto no cambia el comportamiento de producción. Rango
+// amplio (1..150): cubre el catálogo real que `apps/engine` sincroniza de OpenDota al arrancar,
+// sin acoplarse a ningún id específico.
 const CM_ELIGIBILITY_PATH = resolve(ROOT, "apps/engine/data/dev-mvp-cm-eligibility.json");
 mkdirSync(resolve(ROOT, "apps/engine/data"), { recursive: true });
 writeFileSync(
@@ -65,7 +67,7 @@ console.log("[dev:mvp] Iniciando apps/engine y apps/web...");
 startProcess(
   "apps/engine",
   "bun",
-  ["run", "--watch", "src/index.ts"],
+  ["run", "--watch", "src/index.e2e.ts"],
   resolve(ROOT, "apps/engine"),
   { ENGINE_PORT, INTERNAL_AUTH_SECRET, CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH },
 );

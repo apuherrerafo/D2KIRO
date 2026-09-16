@@ -41,8 +41,9 @@ if (!process.env.E2E_PREPARED) {
   bootstrapE2eDatabase(E2E_DB);
   // Captain's Mode es fail-closed sin un artefacto de elegibilidad certificado server-side (no hay
   // depot real de Dota 2 en este entorno -- ver e2e/fixtures/cm-eligibility.ts). Mismo mecanismo
-  // que produccion usaría (CM_ELIGIBILITY_ARTIFACT_PATH -> loadTrustedEligibilityArtifact), nunca
-  // seteado en Railway, así que esto no cambia el comportamiento por defecto fuera de esta corrida.
+  // que produccion usaría (CM_ELIGIBILITY_ARTIFACT_PATH -> loadTrustedEligibilityArtifact), leído
+  // únicamente por apps/engine/src/index.e2e.ts (nunca por index.ts, el entrypoint real de
+  // Railway/"start"/"dev") -- ver el webServer.command de abajo (R1 S7, Blocker 1).
   writeFileSync(CM_ELIGIBILITY_PATH, JSON.stringify(buildFixtureCmEligibilitySnapshot(FIXTURE_HERO_IDS)));
   process.env.E2E_PREPARED = "1";
 }
@@ -71,7 +72,12 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "bun run src/index.ts",
+      // R1 S7 (final blocker repair, Blocker 1): index.e2e.ts, NOT index.ts -- a structurally
+      // separate file that Railway/`apps/engine`'s "start"/"dev" scripts never reference. It
+      // hardcodes `allowClientForcedBotSelection: true` itself (not from an env var); the only
+      // thing this config still passes by env is CM_ELIGIBILITY_ARTIFACT_PATH, which index.e2e.ts
+      // reads -- index.ts does not, so this variable is inert for every process that file starts.
+      command: "bun run src/index.e2e.ts",
       cwd: "apps/engine",
       port: ENGINE_PORT,
       reuseExistingServer: false,
@@ -81,11 +87,6 @@ export default defineConfig({
         ENGINE_DB_PATH: E2E_DB,
         INTERNAL_AUTH_SECRET,
         CM_ELIGIBILITY_ARTIFACT_PATH: CM_ELIGIBILITY_PATH,
-        // R1 S7 (machine-certification closure): lets the AP collision E2E force the simulator
-        // bot's sealed selection to a specific heroId through the real SUBMIT_SEALED_SELECTION
-        // kernel command (server/protocol-session.ts's forcedBotHeroIds), instead of depending on
-        // two independent V6 calls coincidentally agreeing. Never set in Railway/production.
-        ALLOW_TEST_FORCED_BOT_SELECTION: "1",
       },
     },
     {

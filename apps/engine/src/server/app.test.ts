@@ -1163,3 +1163,103 @@ describe("POST /api/session/manual devuelve el DraftState resultante (TSK-214)",
     }
   });
 });
+
+// R1 S7 (final blocker repair, Blocker 1) -- mandatory negative tests: prove that createApp() with
+// the SAME AppDeps shape index.ts (production/Railway) constructs -- i.e. without
+// cmEligibilityArtifactPath / allowClientForcedBotSelection -- structurally ignores both test-only
+// env vars even when they ARE present in the process environment (simulating an operator
+// accidentally setting one in production). Both tests restore the env var afterwards so neither
+// leaks into an unrelated test.
+describe("R1 S7 final blocker repair -- seams de test no se activan con variables de entorno ordinarias", () => {
+  const CM_CREATE_BODY = {
+    rulesetId: "dota2/captains-mode",
+    patch: "7.41e",
+    localSide: "radiant",
+    adapterKind: "simulator",
+    partyContext: {
+      partySize: 5,
+      side: "radiant",
+      controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
+    },
+  } as const;
+
+  test("CM_ELIGIBILITY_ARTIFACT_PATH presente en el entorno no certifica CM si createApp() no recibió cmEligibilityArtifactPath (el AppDeps real de index.ts)", async () => {
+    const before = process.env.CM_ELIGIBILITY_ARTIFACT_PATH;
+    process.env.CM_ELIGIBILITY_ARTIFACT_PATH = "/tmp/no-deberia-importar/cm-hero-eligibility.json";
+    try {
+      const app = createApp({ db: createTestDb(), openDotaClient: new OpenDotaClient(), captureToken: EXPECTED_HEADER });
+      const server = app.start("127.0.0.1", 0);
+      try {
+        const baseUrl = `http://127.0.0.1:${server.port}`;
+        const created = await fetch(`${baseUrl}/api/session/protocol`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(CM_CREATE_BODY),
+        });
+        expect(created.status).toBe(201);
+        const body = (await created.json()) as { eligibilityCertified: boolean };
+        expect(body.eligibilityCertified).toBe(false);
+      } finally {
+        await server.stop(true);
+      }
+    } finally {
+      if (before === undefined) delete process.env.CM_ELIGIBILITY_ARTIFACT_PATH;
+      else process.env.CM_ELIGIBILITY_ARTIFACT_PATH = before;
+    }
+  });
+
+  test("ALLOW_TEST_FORCED_BOT_SELECTION=1 presente en el entorno no fuerza el heroId del bot si createApp() no recibió allowClientForcedBotSelection (el AppDeps real de index.ts)", async () => {
+    const before = process.env.ALLOW_TEST_FORCED_BOT_SELECTION;
+    process.env.ALLOW_TEST_FORCED_BOT_SELECTION = "1";
+    try {
+      const app = createApp({
+        db: createTestDb(),
+        openDotaClient: new OpenDotaClient(),
+        captureToken: EXPECTED_HEADER,
+        heroCapabilities: TEST_HERO_CAPABILITIES,
+        heroPositions: TEST_HERO_POSITIONS,
+      });
+      const server = app.start("127.0.0.1", 0);
+      try {
+        const baseUrl = `http://127.0.0.1:${server.port}`;
+        const created = await fetch(`${baseUrl}/api/session/protocol`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            rulesetId: "dota2/ranked-all-pick",
+            patch: "7.41e",
+            localSide: "radiant",
+            adapterKind: "simulator",
+            partyContext: {
+              partySize: 5,
+              side: "radiant",
+              controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
+            },
+          }),
+        });
+        const { sessionId } = (await created.json()) as { sessionId: string };
+        await fetch(`${baseUrl}/api/session/protocol/${sessionId}/command`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ command: { type: "BAN_RESOLUTION_COMPLETE" } }),
+        });
+        // Un heroId que ninguna sugerencia real de V6 produciría sobre este catálogo de 5 héroes
+        // de prueba -- si el body llegara a forzarse, aparecería sellado tal cual.
+        await fetch(`${baseUrl}/api/session/protocol/${sessionId}/bot-selection`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ forcedHeroId: 999999 }),
+        });
+        const viewRes = await fetch(`${baseUrl}/api/session/protocol/${sessionId}?side=radiant`);
+        const { view } = (await viewRes.json()) as { view: { rankedAp?: { round?: { sealed: { heroId: number }[] } } } };
+        const sealed = view.rankedAp?.round?.sealed ?? [];
+        expect(sealed.some((s) => s.heroId === 999999)).toBe(false);
+      } finally {
+        await server.stop(true);
+      }
+    } finally {
+      if (before === undefined) delete process.env.ALLOW_TEST_FORCED_BOT_SELECTION;
+      else process.env.ALLOW_TEST_FORCED_BOT_SELECTION = before;
+    }
+  });
+});
