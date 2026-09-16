@@ -296,14 +296,11 @@ describe("computeOnePlyLookahead -- Ranked All Pick", () => {
     expect(calls).toBeLessThanOrEqual(2); // lookahead.ts itself only ever calls baseline + after
   });
 
-  test("#31 rendimiento: fixture representativo bajo 500ms (corte duro)", async () => {
-    const state = apRound1State("s6-performance");
-    const heroPool = Array.from({ length: 110 }, (_, i) => i + 1);
-    const start = performance.now();
-    await computeOnePlyLookahead(baseInput({ state, computeSuggestions: fakeCompute({ heroPool }) }));
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(500);
-  });
+  // Blocker 3 repair: the 500ms hard-cutoff performance contract now has an integration-level test
+  // against the REAL canonical V6 path (build.test.ts, "buildRecommendationSetV2 -- rendimiento
+  // real") -- a fake-compute timing assertion here proved nothing about V6 itself, since
+  // `fakeCompute` does no real scoring work. That test would still pass even if the real V6 calls
+  // were removed or replaced with a stub, which is exactly what this contract must catch.
 });
 
 describe("computeOnePlyLookahead -- Captain's Mode", () => {
@@ -359,6 +356,37 @@ describe("computeOnePlyLookahead -- Captain's Mode", () => {
       computeSuggestions: fakeCompute({ heroPool: [1, 2] }),
     }));
     expect(result.opponentResponse).toBe("NOT_COMPUTED");
+  });
+
+  test("Blocker 1+2 repair -- baseline de valor ANTES de nuestro propio turno + steal real vía CM_ACTION de ban aplicado por el kernel -> MATERIALIZED", async () => {
+    // Steps 1-2 (BAN_1) both belong to actor "first"=radiant -- dire has NO legal action at
+    // either step. `atStep2` is simultaneously: (a) the CM PRE-ACTION BASELINE fixture (our own
+    // next action is about to happen; dire cannot act yet; hero 1 remains protocol-available with
+    // real opponent value), and (b) the state OUR real ban is about to be applied against.
+    const ready = cmReadyState("s6-cm-real-ban-steal", [1, 2, 3, 4, 5]);
+    const atStep2 = advanceToStep(ready, [{ actor: "first", kind: "BAN", heroId: 5 }]);
+    expect(atStep2.captainsMode!.currentStep).toBe(2);
+
+    const result = await computeOnePlyLookahead(baseInput({
+      state: atStep2,
+      actor: "radiant",
+      // OUR own candidate action: ban hero 1. `applyOwnCandidateAction` (observation-point.ts)
+      // applies this through the SAME ProtocolKernel used everywhere else -- never a hand-rolled
+      // state -- advancing step 2 ("first"=radiant) into step 3 ("second"=dire).
+      topRecommendation: recommendationFor([{ slot: { side: "radiant", slotIndex: 2 }, hero: 1 }]),
+      computeSuggestions: fakeCompute({ heroPool: [1, 2, 3, 4] }),
+    }));
+
+    if (result.steal === "NOT_COMPUTED") throw new Error("unreachable");
+    expect(result.steal.status).toBe("MATERIALIZED");
+    expect(result.steal.heroId).toBe(1);
+    expect(result.steal.opponentBaselineValue).not.toBeNull(); // BASELINE IS VALUE, NOT ACTION: real value existed while it was still our own turn
+    expect(result.steal.afterOurActionValue).toBeNull(); // genuinely gone -- banned, never scored again
+
+    if (result.opponentResponse === "NOT_COMPUTED") throw new Error("unreachable");
+    expect(result.opponentResponse.status).toBe("PLAUSIBLE_RESPONSE");
+    expect(result.opponentResponse.actor).toBe("dire");
+    expect(result.opponentResponse.action?.hero).not.toBe(1); // dire's real response can never be the hero we just banned
   });
 
   test("#28 depth es literalmente 1 -- nunca lookahead recursivo", async () => {

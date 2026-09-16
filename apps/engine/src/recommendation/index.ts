@@ -16,8 +16,9 @@ export { translateRecommendationSetToLegacySuggestionSet } from "./translate-v1"
 // R1 S6 -- one-ply opponent lookahead public surface.
 export { opponentSideOf, applyOwnCandidateAction, locateOpponentObservationPoint } from "./observation-point";
 export type { ObservationPoint, ObservationPointStatus, OwnActionSimulationResult } from "./observation-point";
-export { computeOpponentModel, opponentValueFor, topPlausibleAction } from "./opponent-model";
-export type { OpponentModelInput, OpponentModelResult } from "./opponent-model";
+export { computeOpponentModel, computeOpponentValueBaseline, opponentValueFor, topPlausibleAction } from "./opponent-model";
+export type { OpponentModelInput, OpponentModelResult, OpponentValueBaselineResult } from "./opponent-model";
+export { isHeroProtocolAvailable, deriveOpponentAvailableHeroUniverse } from "./protocol-availability";
 export { buildOpponentResponse } from "./opponent-response";
 export { evaluateSteal } from "./steal";
 export { buildCounterfactualIdentity } from "./counterfactual-identity";

@@ -3,6 +3,7 @@ import type { DraftState } from "../draft/reducer";
 import type { SuggestionSet } from "../signals/mix";
 import { deriveLegalDecision, type LegalDecision } from "./decision";
 import { excludedHeroes, postValidateAction, type ComputeSuggestionsForRecommendation } from "./legality";
+import { deriveOpponentAvailableHeroUniverse } from "./protocol-availability";
 import { buildShortlist, type ShortlistEntry } from "./shortlist";
 import type { RecommendationAction } from "./types";
 
@@ -120,12 +121,63 @@ export async function computeOpponentModel(input: OpponentModelInput): Promise<O
   }
 }
 
-/** V6's own canonical score for `heroId` within an already-computed OpponentModelResult, or null
- * when that hero was never part of this opponent's own ranked universe (excluded, out of the
- * certified eligible set, or simply outside whatever V6 returned). Never a fabricated 0 -- absence
- * IS the answer for an unavailable/unconsidered hero. */
-export function opponentValueFor(model: OpponentModelResult, heroId: HeroId): number | null {
-  return model.suggestionSet?.suggestions.find((suggestion) => suggestion.hero === heroId)?.score ?? null;
+/** V6's own canonical score for `heroId` within an already-computed SuggestionSet, or null when
+ * that hero was never part of the ranked universe (excluded, out of the certified eligible set, or
+ * simply outside whatever V6 returned) -- or when no SuggestionSet exists at all (`null`, meaning
+ * "nothing was ever computed", never a fabricated stand-in). Never a fabricated 0 -- absence IS the
+ * answer for an unavailable/unconsidered hero. Takes a plain `SuggestionSet | null` (not a model
+ * object) so both `OpponentValueBaselineResult` and `OpponentModelResult` can share this single
+ * lookup without either shape needing to structurally resemble the other. */
+export function opponentValueFor(suggestionSet: SuggestionSet | null, heroId: HeroId): number | null {
+  return suggestionSet?.suggestions.find((suggestion) => suggestion.hero === heroId)?.score ?? null;
+}
+
+export interface OpponentValueBaselineResult {
+  /** The protocol-availability universe this baseline was valued against -- see
+   * `deriveOpponentAvailableHeroUniverse`. Never derived from whose turn it is. */
+  eligibleHeroIds: readonly HeroId[] | null;
+  /** Null when the universe was empty (nothing to value) or the V6 call failed -- see `failed`.
+   * Never a fabricated/empty SuggestionSet standing in for "nothing happened". */
+  suggestionSet: SuggestionSet | null;
+  /** True only when computeSuggestions threw. Distinct from "the universe was empty", which is
+   * `failed: false` with `suggestionSet: null`. */
+  failed: boolean;
+}
+
+/**
+ * OPPONENT VALUE BASELINE (Blocker 1 repair). Values `opponentSide`'s protocol-available hero
+ * universe against `input.state` WITHOUT ever claiming the opponent has a legal action right now --
+ * deliberately does NOT gate on `deriveLegalDecision(state, opponentSide).decision.actionCount`,
+ * unlike `computeOpponentModel`/`OpponentResponse` below, which both require an actual legal,
+ * hero-targeting decision point. A baseline exists whenever the protocol still certifies at least
+ * one hero as available, which is true for most of a Captain's Mode draft even while it is OUR OWN
+ * turn to act (e.g. our own CM ban) -- exactly the case `computeOpponentModel` structurally cannot
+ * answer, by design.
+ *
+ * Structurally cannot be mistaken for a legal response: this function never returns anything
+ * shaped like `LegalDecision`/`RecommendationDecision` (no `controlledSlots`, no `actionKind`), so
+ * a caller cannot feed its result into `topPlausibleAction`, which requires exactly those fields.
+ * "Value baseline" and "legal response" are different return types, not a shared one distinguished
+ * by a boolean flag.
+ */
+export async function computeOpponentValueBaseline(input: OpponentModelInput): Promise<OpponentValueBaselineResult> {
+  const { state, opponentSide, patch, computeSuggestions, seed } = input;
+  const eligibleHeroIds = deriveOpponentAvailableHeroUniverse(state);
+  if (eligibleHeroIds !== null && eligibleHeroIds.length === 0) {
+    return { eligibleHeroIds, suggestionSet: null, failed: false };
+  }
+
+  const legacyState = mutualVisibilityLegacyState(state, opponentSide, patch);
+  try {
+    const suggestionSet = await computeSuggestions(legacyState, null, {
+      teamOpening: true,
+      diversitySeed: seed,
+      candidateHeroIds: eligibleHeroIds ?? undefined,
+    });
+    return { eligibleHeroIds, suggestionSet, failed: false };
+  } catch {
+    return { eligibleHeroIds, suggestionSet: null, failed: true };
+  }
 }
 
 /**

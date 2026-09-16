@@ -4,7 +4,7 @@ import type { CmHeroEligibilitySnapshot, DraftProtocolState } from "../draft-pro
 import type { DraftState } from "../draft/reducer";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
 import type { ComputeSuggestionsForRecommendation } from "./legality";
-import { computeOpponentModel, opponentValueFor, topPlausibleAction } from "./opponent-model";
+import { computeOpponentModel, computeOpponentValueBaseline, opponentValueFor, topPlausibleAction } from "./opponent-model";
 
 function eligibilitySnapshot(heroIds: number[]): CmHeroEligibilitySnapshot {
   const base = {
@@ -194,8 +194,89 @@ describe("opponentValueFor", () => {
   test("héroe ausente del ranking -> null, nunca un 0 fabricado", async () => {
     const state = apRound1State("opp-value-absent");
     const model = await computeOpponentModel({ state, opponentSide: "dire", patch: "7.41e", computeSuggestions: fakeCompute([1, 2]) });
-    expect(opponentValueFor(model, 999)).toBeNull();
-    expect(opponentValueFor(model, 1)).toBe(100);
+    expect(opponentValueFor(model.suggestionSet, 999)).toBeNull();
+    expect(opponentValueFor(model.suggestionSet, 1)).toBe(100);
+  });
+
+  test("suggestionSet null (nada calculado nunca) -> null para cualquier héroe", () => {
+    expect(opponentValueFor(null, 1)).toBeNull();
+  });
+});
+
+describe("computeOpponentValueBaseline -- Blocker 1 repair: valor SIN fingir una acción legal", () => {
+  test("CM PRE-ACTION VALUE BASELINE -- no es el turno del rival (es nuestro propio turno de ban CM), pero el héroe sigue siendo protocolarmente disponible y V6 SÍ lo valora", async () => {
+    // Steps 1-2 (BAN_1) both belong to "first"=radiant -- dire (the opponent we model) has NO
+    // legal CM_ACTION at either step. This is exactly the case computeOpponentModel structurally
+    // cannot answer (see the existing "sin eligibilidad cargada" test above, and the equivalent
+    // here with eligibility loaded): it is OUR OWN turn, not theirs.
+    const ready = cmReadyState("opp-baseline-cm-pre-action", [1, 2, 3, 4, 5]);
+    expect(ready.captainsMode!.currentStep).toBe(1);
+
+    let received: readonly number[] | undefined;
+    const spy: ComputeSuggestionsForRecommendation = async (legacyState, accountId, options) => {
+      received = options?.candidateHeroIds;
+      return fakeCompute([1, 2, 3, 4, 5])(legacyState, accountId, options);
+    };
+
+    // computeOpponentModel (the LEGAL-RESPONSE model) still correctly reports no action -- this
+    // repair must never change that, only add a separate, honest valuation alongside it.
+    const legalResponseModel = await computeOpponentModel({ state: ready, opponentSide: "dire", patch: "7.41e", computeSuggestions: fakeCompute([1, 2, 3, 4, 5]) });
+    expect(legalResponseModel.suggestionSet).toBeNull();
+    expect(legalResponseModel.decision.actionCount).toBe(0);
+
+    const baseline = await computeOpponentValueBaseline({ state: ready, opponentSide: "dire", patch: "7.41e", computeSuggestions: spy });
+    expect(received).toEqual([1, 2, 3, 4, 5]); // the full remaining-eligible universe, never a fabricated action-derived set
+    expect(baseline.failed).toBe(false);
+    expect(opponentValueFor(baseline.suggestionSet, 1)).not.toBeNull(); // BASELINE IS VALUE, NOT ACTION -- real value exists here
+  });
+
+  test("CM ELIGIBILITY BASELINE -- un héroe fuera del snapshot certificado nunca entra al universo del baseline", async () => {
+    const ready = cmReadyState("opp-baseline-cm-eligibility", [1, 2, 3]);
+    let received: readonly number[] | undefined;
+    const spy: ComputeSuggestionsForRecommendation = async (legacyState, accountId, options) => {
+      received = options?.candidateHeroIds;
+      return fakeCompute([1, 2, 3, 99])(legacyState, accountId, options); // 99 is NOT in the certified snapshot
+    };
+    const baseline = await computeOpponentValueBaseline({ state: ready, opponentSide: "dire", patch: "7.41e", computeSuggestions: spy });
+    expect(received).toEqual([1, 2, 3]);
+    expect(opponentValueFor(baseline.suggestionSet, 99)).toBeNull(); // never scored -- LEGAL UNIVERSE FIRST applies to the baseline too
+  });
+
+  test("CM sin snapshot cargado -- universo vacío, sin llamada a V6, sin acción rival fabricada", async () => {
+    const created = createProtocolState("opp-baseline-cm-no-snapshot", "dota2/captains-mode");
+    if (!created.ok) throw new Error("setup");
+    const confirmed = applyProtocolCommand(created.state, { type: "CONFIRM_FIRST_PICK_SIDE", side: "radiant" }).state;
+    let calls = 0;
+    const spy: ComputeSuggestionsForRecommendation = async (legacyState, accountId, options) => {
+      calls += 1;
+      return fakeCompute([1, 2])(legacyState, accountId, options);
+    };
+    const baseline = await computeOpponentValueBaseline({ state: confirmed, opponentSide: "dire", patch: "7.41e", computeSuggestions: spy });
+    expect(calls).toBe(0);
+    expect(baseline.eligibleHeroIds).toEqual([]);
+    expect(baseline.suggestionSet).toBeNull();
+    expect(baseline.failed).toBe(false);
+  });
+
+  test("AP -- universo sin restricción (null); V6 sigue excluyendo baneados/confirmados vía mutualVisibilityLegacyState", async () => {
+    const created = createProtocolState("opp-baseline-ap", "dota2/ranked-all-pick");
+    if (!created.ok) throw new Error("setup");
+    const banned = applyProtocolCommand(created.state, { type: "RECORD_RESOLVED_BANS", heroes: [7] }).state;
+    const state = applyProtocolCommand(banned, { type: "BAN_RESOLUTION_COMPLETE" }).state;
+    const baseline = await computeOpponentValueBaseline({ state, opponentSide: "dire", patch: "7.41e", computeSuggestions: fakeCompute([7, 8]) });
+    expect(baseline.eligibleHeroIds).toBeNull();
+    expect(opponentValueFor(baseline.suggestionSet, 7)).toBeNull(); // banned, excluded by V6's own candidatePool
+    expect(opponentValueFor(baseline.suggestionSet, 8)).not.toBeNull();
+  });
+
+  test("computeSuggestions que lanza -> failed:true, nunca propaga la excepción", async () => {
+    const state = apRound1State("opp-baseline-throws");
+    const throwing: ComputeSuggestionsForRecommendation = async () => {
+      throw new Error("boom");
+    };
+    const baseline = await computeOpponentValueBaseline({ state, opponentSide: "dire", patch: "7.41e", computeSuggestions: throwing });
+    expect(baseline.failed).toBe(true);
+    expect(baseline.suggestionSet).toBeNull();
   });
 });
 

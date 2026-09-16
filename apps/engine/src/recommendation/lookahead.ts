@@ -1,7 +1,7 @@
 import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/types";
 import { buildCounterfactualIdentity } from "./counterfactual-identity";
 import type { ComputeSuggestionsForRecommendation } from "./legality";
-import { computeOpponentModel } from "./opponent-model";
+import { computeOpponentModel, computeOpponentValueBaseline } from "./opponent-model";
 import { applyOwnCandidateAction, locateOpponentObservationPoint, opponentSideOf } from "./observation-point";
 import { buildOpponentResponse } from "./opponent-response";
 import { evaluateSteal } from "./steal";
@@ -91,10 +91,11 @@ export async function computeOnePlyLookahead(input: OnePlyLookaheadInput): Promi
   const counterfactualState = observation.state;
 
   // ONE-PLY DEFINITION steps 5-6: opponent's own legal universe + V6 ranking, from THEIR
-  // perspective, both against the CURRENT state (baseline) and the counterfactual one (after) --
-  // bounded to exactly 2 extra V6 calls, run concurrently.
+  // perspective, both against the CURRENT state (baseline VALUE, never a fabricated legal action --
+  // see opponent-model.ts's computeOpponentValueBaseline) and the counterfactual one (after, a real
+  // legal-response model) -- bounded to exactly 2 extra V6 calls, run concurrently.
   const [baseline, after] = await Promise.all([
-    computeOpponentModel({ state, opponentSide, patch, computeSuggestions, seed }),
+    computeOpponentValueBaseline({ state, opponentSide, patch, computeSuggestions, seed }),
     computeOpponentModel({ state: counterfactualState, opponentSide, patch, computeSuggestions, seed }),
   ]);
   if (after.failed) degradations.push({ reason: "SNAPSHOT_UNAVAILABLE", detail: "S6: computeSuggestions falló al puntuar la respuesta rival (after)" });
@@ -104,7 +105,7 @@ export async function computeOnePlyLookahead(input: OnePlyLookaheadInput): Promi
 
   // ONE-PLY DEFINITION steps 7-8: one bounded plausible response + its counterfactual effect.
   const opponentResponse = buildOpponentResponse(opponentSide, after, counterfactualState, identity);
-  const steal = evaluateSteal(baseline, after, counterfactualState, candidateHeroesOf(topRecommendation));
+  const steal = evaluateSteal(state, baseline, after, counterfactualState, candidateHeroesOf(topRecommendation));
 
   const resultingEvaluation =
     opponentResponse.score === null
