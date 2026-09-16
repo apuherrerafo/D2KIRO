@@ -314,3 +314,141 @@ Re-verified after the repair: `bun run test` 1047 engine + 220 web + 398 scripts
 `apps/engine tsc --noEmit` clean; `apps/web tsc --noEmit` same pre-existing Bun-types failures,
 no regression; `apps/web lint` 0 errors, same pre-existing warnings; `verify-simplicity.sh` PASS;
 `bun run scripts/eval/gate.ts --enforce` PASS, no regression.
+
+## R1 S6 -- One-Ply Opponent Response + Steal + Counterfactual Lookahead
+
+Materializes the 4 fields S5 left as `NOT_COMPUTED` (`RecommendationSetV2.deferred`):
+`opponentResponse`, `steal`, `lookahead`, `counterfactual`. Branch `r1/opponent-lookahead`, base
+`165d774a`. Six new flat files under `recommendation/` (`observation-point.ts`, `opponent-model.ts`,
+`opponent-response.ts`, `steal.ts`, `counterfactual-identity.ts`, `lookahead.ts`) plus a
+`legality.ts` split out of `build.ts` (moved, not rewritten, to avoid a `build.ts -> lookahead.ts
+-> opponent-model.ts -> build.ts` import cycle). All flat in `recommendation/` on purpose:
+`architecture-guard.test.ts`'s scan is non-recursive, so a subdirectory would silently escape the
+determinism/Pro-Drafter guards -- keeping S6 flat keeps it covered by the same mechanical checks
+S5 already relies on.
+
+### Scope: `recommendations[0]` only, not an array
+
+`RecommendationDeferredFields` was already frozen as 4 SINGULAR fields on the SET, not an array
+keyed per recommendation. S6 keeps that shape: one opponent-perspective lookahead, computed for the
+TOP-ranked recommendation only. Bounded by construction to at most 2 extra V6 calls per
+`RecommendationSetV2` build (opponent "baseline", against the current state; opponent "after",
+against the counterfactual state reached by hypothetically applying `recommendations[0]`'s own
+action(s)), run concurrently via `Promise.all`.
+
+### One-ply definition
+
+For `recommendations[0]`: (1) apply its action(s) to the authoritative `DraftProtocolState` through
+`applyProtocolCommand` (never a second reducer -- CM's command is resolved via the kernel's own
+`legalGameplayActions` oracle, exactly like `decision.ts` does for our own side); (2) classify the
+result (`observation-point.ts`'s `locateOpponentObservationPoint`): `COLLISION_PENDING` if a 3rd+
+collision paused the kernel, `DRAFT_COMPLETE` if the draft ended, `NO_LEGAL_RESPONSE` if the
+opponent has no legal HERO-TARGETING action within this one ply (CM steps sharing the same relative
+actor twice in a row, or the opponent's only legal move being a hero-less `CM_BAN_SKIPPED`), else
+`READY`; (3) when `READY`, score the opponent's own legal/plausible universe via the SAME injected
+V6 entry point (never a second scoring engine), reusing `deriveLegalDecision`/`buildShortlist` for
+the opponent side exactly as S5 already does for our own; (4) pick the top surviving shortlist
+entry, re-validated against the true counterfactual state (`topPlausibleAction` scans in order,
+never trusts the shortlist's own top entry blindly); (5) attach. Never a second ply: `lookahead`'s
+`depth` field is the TypeScript literal `1`, not a number that could ever be 2.
+
+### Counterfactual observation point
+
+The exact point defined above -- the state reached by our own hypothetical action, classified by
+whether the OPPONENT has a legal, hero-targeting decision within it. Deliberately does not "skip"
+to a further step: CM steps 1-2 (both actor "first") correctly resolve to `NO_LEGAL_RESPONSE`
+rather than guessing a second own action to reach step 3.
+
+### Plausible vs probable
+
+No calibrated opponent-behavior model exists in this codebase. Every S6 score is V6's own canonical
+model score for the opponent's perspective, reused verbatim -- never converted into, rounded into,
+or described as a probability. Enforced mechanically: `architecture-guard.test.ts` greps all of
+`recommendation/**` (post comment-stripping) for `/probab/i` and fails the suite if it finds one.
+
+### Information-set discipline (the one real design bug this slice found and fixed)
+
+The first implementation used `project(state, opponentSide)` -- the opponent's own SELF-aware
+`PerspectiveDraftView` -- to build the opponent's V6 input, exactly like `build.ts` does for our own
+side. That is wrong for S6 specifically: `project(state, opponentSide)` correctly shows the
+opponent their OWN currently-sealed-but-unrevealed pick as KNOWN to themselves, but S6 attaches this
+model's OUTPUT to OUR OWN `RecommendationSetV2` -- so anything that varies with the opponent's still-
+hidden pick leaks it to us through an observable side channel the instant it changes what V6
+returns. Caught by the EXISTING S5 hidden-twin test (`build.test.ts`) once its
+`JSON.stringify(setX) === JSON.stringify(setY)` assertion started covering the new `deferred`
+fields too -- no new test had to be invented to catch a real regression.
+
+Fix: `opponent-model.ts`'s `mutualVisibilityLegacyState` builds the opponent's V6 input directly
+from the AUTHORITATIVE state, including ONLY what both sides can already verify right now -- bans
+(never sealed in either ruleset) and CONFIRMED/REVEALED picks. A still-sealed pick on EITHER side
+(including our own hypothetical action, if the round has not closed) is simply absent. For Captain's
+Mode this is byte-identical to the self-aware view (the frozen contract already declares CM fully
+revealed with no hidden mechanism at all); it only changes Ranked All Pick behavior, exactly where
+hiding is real. `counterfactual-identity.ts`'s `stateIdentity`/`perspectiveIdentity` are computed
+from `actor`'s OWN perspective (`project(counterfactualState, actor)`), never the opponent's --
+this is the value attached to OUR OWN output, so it must vary only with what WE can observe
+(including our own hypothetical action -- that is "stale recommendation" detection, not a leak),
+never with the opponent's private state.
+
+The task's own framing states this symmetrically ("tampoco uses hidden enemy information que
+nosotros no vemos") -- S5's information-set discipline (never leak OUR hidden info into what the
+opponent's model can see) already existed; S6 needed the mirror-image guarantee (never leak the
+OPPONENT's hidden info into what WE can see) and initially missed it. `lookahead.test.ts`'s
+"IMPORTANT TEST: OPPONENT INFORMATION SET" now covers both directions explicitly.
+
+### AP sealed semantics
+
+Because the opponent's model never uses their own hidden pick, a same-hero collision with a
+still-sealed opponent pick remains reachable through it: V6 may rank a hero the opponent secretly
+already holds, and the FINAL legality re-check (`topPlausibleAction`'s `postValidateAction`, calling
+`isSealedSelectionLegal` against the TRUE counterfactual state) is what correctly allows or rejects
+it -- never this model's own (deliberately incomplete) candidate pool. This is not a residual bug;
+it is the same collision-stays-legal invariant `legality.ts`'s own Blocker 2 doc already establishes
+for S5, now verified to hold through S6 too (`lookahead.test.ts` #5/#17).
+
+### CM sequential semantics
+
+Captain's Mode has no hidden information at all (frozen contract), so `mutualVisibilityLegacyState`
+reduces to the self-aware view there -- no special-casing needed. The next-actor logic (steps
+sharing the same relative actor never being skipped) falls entirely out of
+`legalGameplayActions(counterfactualState)` -- S6 never re-derives the 24-step table.
+
+### Steal semantics
+
+`steal.ts`'s `evaluateSteal` compares, for the strongest (`opponentBaselineValue`-sorted, heroId
+tie-broken) of our candidate's hero(es): its V6 score from the opponent's own perspective BEFORE our
+action (against the CURRENT, unmodified state -- always well-defined, because our own candidate
+hero was drawn from a legal shortlist for US, so it cannot already be banned/picked in that state)
+versus AFTER (against the counterfactual state). Absent-from-baseline -> `NOT_APPLICABLE` (never a
+threshold on "how good is good enough" -- presence in V6's own already-computed ranking IS the
+signal). Still present after -> `STILL_CONTESTABLE` (covers both "untouched" and "still sealed-
+hidden to them" -- V6 never excludes a hero it cannot see taken). Gone after -> `MATERIALIZED`,
+with `displacedResponse` set to the SAME action object as the sibling `opponentResponse.action`
+(never re-derived).
+
+### Boundedness / performance
+
+Two extra V6 calls maximum per `RecommendationSetV2` build, run concurrently. `topPlausibleAction`
+scans an already-bounded shortlist (`SHORTLIST_SIZE = 8`, unchanged from S5). Measured against a
+110-hero representative fixture (`lookahead.test.ts` #31): comfortably under the 500ms hard cutoff
+alongside the existing 300ms/500ms V6 budget for our own side.
+
+### Explicit S7+ deferrals
+
+No opponent probability calibration (no model exists to calibrate). No deep/recursive lookahead
+(`depth` is a literal `1`). No per-recommendation S6 (all 5 `recommendations[]` entries only ever
+get `recommendations[0]`'s single lookahead). No compound OPPONENT response (the opponent's own
+plausible action is always singular, even when their decision point is itself compound -- matches
+the task's own "selecciona UNA bounded plausible response"). No UI surface for any S6 field --
+`apps/web`'s `parseRecommendationSet` (`protocol-client.ts`) never reads `basedOn` or `deferred` at
+all today, so S6 required zero web changes; a future UI surface for
+`opponentResponse`/`steal`/`lookahead` is a real product-policy decision, deliberately left for a
+later slice rather than forced here (task's own instruction: "Prioridad S6 = engine contract
+correctness. No bloquear S6 por polish visual").
+
+Re-verified after this slice: `bun run test` 1094 engine (+47) / 220 web (unchanged) / 398 scripts
+(unchanged), 0 failures; `apps/engine tsc --noEmit` clean; `apps/web tsc --noEmit` same
+pre-existing Bun-types failures, no regression; `apps/web lint` 0 errors, same pre-existing
+warnings; `verify-simplicity.sh` PASS; `bun run scripts/eval/gate.ts --enforce` PASS (S6 never
+touches `apps/engine/src/signals/**`, so this gate is structurally unaffected); `git diff --check`
+clean.
