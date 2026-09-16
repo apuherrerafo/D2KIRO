@@ -109,6 +109,7 @@ class FakeProtocolEngine {
         decision: { actor: this.side, actionKind: openSlots.length > 0 ? "PICK" : null, controlledSlots: openSlots, actionCount: openSlots.length },
         recommendations,
         degradations: [],
+        deferred: { opponentResponse: "NOT_COMPUTED", steal: "NOT_COMPUTED", lookahead: "NOT_COMPUTED" },
         decisionContext: "team_opening",
       });
     }

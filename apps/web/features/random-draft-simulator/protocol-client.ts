@@ -181,12 +181,54 @@ export interface RecommendationDecisionV2 {
   actionCount: number;
 }
 
+// R1 S7 -- espejo a mano de RecommendationDeferredFields (apps/engine/src/recommendation/types.ts),
+// ampliado sólo con los campos que la UI del Copilot realmente lee. `deferred` sólo trae datos
+// reales para `recommendations[0]` (el motor nunca calcula S6 para el resto) -- el consumidor de
+// este tipo nunca debe asumir que aplica a cualquier otra recomendación del set. "Plausible", nunca
+// "probable": ningún campo de acá es una probabilidad calibrada, son puntajes V6 reutilizados tal
+// cual desde la perspectiva del rival.
+export const NOT_COMPUTED = "NOT_COMPUTED" as const;
+export type NotComputed = typeof NOT_COMPUTED;
+
+export type OnePlyStatus =
+  | "PLAUSIBLE_RESPONSE"
+  | "NO_LEGAL_RESPONSE"
+  | "COLLISION_PENDING"
+  | "DRAFT_COMPLETE"
+  | "OWN_ACTION_UNAVAILABLE"
+  | "SIMULATION_UNAVAILABLE";
+
+export type StealStatus = OnePlyStatus | "MATERIALIZED" | "STILL_CONTESTABLE" | "NOT_APPLICABLE";
+
+export interface OpponentResponseV2 {
+  status: OnePlyStatus;
+  action: RecommendationActionV2 | null;
+  confidence: SuggestionConfidence | null;
+}
+
+export interface StealEvaluationV2 {
+  status: StealStatus;
+  heroId: HeroId | null;
+}
+
+export interface OnePlyLookaheadV2 {
+  status: OnePlyStatus;
+  resultingEvaluation: { ourActionScore: number; opponentResponseScore: number | null; scoreDelta: number | null } | null;
+}
+
+export interface RecommendationDeferredFieldsV2 {
+  opponentResponse: OpponentResponseV2 | NotComputed;
+  steal: StealEvaluationV2 | NotComputed;
+  lookahead: OnePlyLookaheadV2 | NotComputed;
+}
+
 export interface RecommendationSetV2 {
   schema: "recommendation-set/v2";
   sessionId: string;
   decision: RecommendationDecisionV2;
   recommendations: RecommendationV2[];
   degradations: RecommendationDegradationV2[];
+  deferred: RecommendationDeferredFieldsV2;
   decisionContext: DraftDecisionContext | "no_action";
 }
 
@@ -222,13 +264,17 @@ function isConfidence(value: unknown): value is SuggestionConfidence {
   return value === "alta" || value === "media" || value === "baja";
 }
 
+function isRisk(value: unknown): value is { kind: string; detail: string } {
+  return isRecord(value) && typeof value.kind === "string" && typeof value.detail === "string";
+}
+
 function isRecommendation(value: unknown): value is RecommendationV2 {
   if (!isRecord(value)) return false;
   if (!Array.isArray(value.actions) || value.actions.length === 0) return false;
   if (!value.actions.every((action) => isRecord(action) && isRecommendationSlot(action.slot) && isHeroId(action.hero))) return false;
   if (typeof value.score !== "number" || !isConfidence(value.confidence)) return false;
   if (!isRecord(value.roleImpact) || !Object.values(value.roleImpact).every(isRoleImpact)) return false;
-  if (!Array.isArray(value.risks)) return false;
+  if (!Array.isArray(value.risks) || !value.risks.every(isRisk)) return false;
   return isLegacyProjection(value.legacy ?? null);
 }
 
@@ -243,6 +289,54 @@ function isRecommendationDecision(value: unknown): value is RecommendationDecisi
   return Array.isArray(value.controlledSlots) && value.controlledSlots.every(isRecommendationSlot) && typeof value.actionCount === "number";
 }
 
+function isOnePlyStatus(value: unknown): value is OnePlyStatus {
+  return value === "PLAUSIBLE_RESPONSE" || value === "NO_LEGAL_RESPONSE" || value === "COLLISION_PENDING"
+    || value === "DRAFT_COMPLETE" || value === "OWN_ACTION_UNAVAILABLE" || value === "SIMULATION_UNAVAILABLE";
+}
+
+function isStealStatus(value: unknown): value is StealStatus {
+  return isOnePlyStatus(value) || value === "MATERIALIZED" || value === "STILL_CONTESTABLE" || value === "NOT_APPLICABLE";
+}
+
+function isRecommendationAction(value: unknown): value is RecommendationActionV2 {
+  return isRecord(value) && isRecommendationSlot(value.slot) && isHeroId(value.hero);
+}
+
+function isOpponentResponse(value: unknown): value is OpponentResponseV2 {
+  if (!isRecord(value)) return false;
+  if (!isOnePlyStatus(value.status)) return false;
+  if (value.action !== null && !isRecommendationAction(value.action)) return false;
+  return value.confidence === null || isConfidence(value.confidence);
+}
+
+function isStealEvaluation(value: unknown): value is StealEvaluationV2 {
+  if (!isRecord(value)) return false;
+  if (!isStealStatus(value.status)) return false;
+  return value.heroId === null || isHeroId(value.heroId);
+}
+
+function isResultingEvaluation(value: unknown): value is OnePlyLookaheadV2["resultingEvaluation"] {
+  if (value === null) return true;
+  if (!isRecord(value)) return false;
+  return typeof value.ourActionScore === "number"
+    && (value.opponentResponseScore === null || typeof value.opponentResponseScore === "number")
+    && (value.scoreDelta === null || typeof value.scoreDelta === "number");
+}
+
+function isLookahead(value: unknown): value is OnePlyLookaheadV2 {
+  if (!isRecord(value)) return false;
+  if (!isOnePlyStatus(value.status)) return false;
+  return isResultingEvaluation(value.resultingEvaluation);
+}
+
+function isDeferredFields(value: unknown): value is RecommendationDeferredFieldsV2 {
+  if (!isRecord(value)) return false;
+  const okOpponent = value.opponentResponse === NOT_COMPUTED || isOpponentResponse(value.opponentResponse);
+  const okSteal = value.steal === NOT_COMPUTED || isStealEvaluation(value.steal);
+  const okLookahead = value.lookahead === NOT_COMPUTED || isLookahead(value.lookahead);
+  return okOpponent && okSteal && okLookahead;
+}
+
 function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
   if (!isRecord(value)) return null;
   if (value.schema !== "recommendation-set/v2") return null;
@@ -250,6 +344,7 @@ function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
   if (!isRecommendationDecision(value.decision)) return null;
   if (!Array.isArray(value.recommendations) || !value.recommendations.every(isRecommendation)) return null;
   if (!Array.isArray(value.degradations) || !value.degradations.every(isDegradation)) return null;
+  if (!isDeferredFields(value.deferred)) return null;
   return value as unknown as RecommendationSetV2;
 }
 
