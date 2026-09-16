@@ -10,7 +10,7 @@ import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
 import { buildSuggestions } from "../signals/mix";
-import type { MetaSnapshot } from "../signals/types";
+import type { MetaHeroInfo, MetaSnapshot } from "../signals/types";
 import { buildRecommendationSetV2, type ComputeSuggestionsForRecommendation } from "./build";
 import { evidenceIdentityHash } from "./evidence";
 import type { FunctionalRecommendationEvidence } from "./evidence";
@@ -527,5 +527,70 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
     const changedSet = await buildRecommendationSetV2({ ...input, computeSuggestions: changed.computeSuggestions });
     expect(changedSet.basedOn.evidenceVersion).not.toBe(left.basedOn.evidenceVersion);
     expect(JSON.stringify(changedSet)).not.toBe(JSON.stringify(left));
+  });
+});
+
+// R1 S6 BLOCKER REPAIR (Blocker 3) -- integration-level performance test against the REAL
+// canonical V6 path. The pre-repair version of this contract lived in lookahead.test.ts and timed
+// `fakeCompute` (a plain array filter/map, no real scoring) -- it would have kept passing even if
+// the real V6 calls were removed or replaced with a stub, which proves nothing about the actual
+// 500ms hard-cutoff contract. This test wires `computeSuggestions` straight to `buildSuggestions`
+// (the same function `computeSuggestionsForState`, the real production entry point in
+// server/app.ts, delegates to) -- no mock, no stub, anywhere in the path it measures.
+describe("buildRecommendationSetV2 -- rendimiento real (V6 real, sin mocks, Blocker 3)", () => {
+  const HERO_COUNT = 110;
+  const PERF_HERO_IDS = Array.from({ length: HERO_COUNT }, (_, index) => index + 1);
+  const PERF_META: MetaSnapshot = {
+    heroes: Object.fromEntries(PERF_HERO_IDS.map((id): [number, MetaHeroInfo] => [id, { id, localizedName: `Hero ${id}`, roles: ["Carry"] }])),
+    matchups: {},
+  };
+
+  const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
+    buildSuggestions(state, PERF_META, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+
+  /** Captain's Mode, step 2 (actor "first"=radiant, same as step 1) -- our own top recommendation
+   * is evaluated here, so applying it (inside buildRecommendationSetV2's S6 lookahead) advances
+   * into step 3 ("second"=dire), a REAL legal decision point for the opponent. This is the only
+   * step pairing that exercises BOTH S6 V6 calls in one build: the baseline against the pre-action
+   * state (dire cannot act yet) and the after-state call against the real post-action state (dire
+   * can). */
+  function representativeState(sessionId: string): DraftProtocolState {
+    const ready = cmReadyState(sessionId, PERF_HERO_IDS);
+    const step1 = applyProtocolCommand(ready, { type: "CM_ACTION", actor: "first", kind: "BAN", heroId: PERF_HERO_IDS[0]! });
+    if (step1.rejected) throw new Error(`fixture rejected: ${step1.rejected}`);
+    return step1.state;
+  }
+
+  async function buildOnce(sessionId: string) {
+    const state = representativeState(sessionId);
+    return buildRecommendationSetV2({ state, view: project(state, "radiant"), actor: "radiant", patch: "7.41e", computeSuggestions: realComputeSuggestions });
+  }
+
+  test("warm-up + 3 corridas medidas, cada una bajo 500ms -- RecommendationSet build -> S6 baseline V6 -> contrafactual -> S6 after V6 -> respuesta plausible/steal, todo con V6 real", async () => {
+    const warmup = await buildOnce("s6-perf-warmup"); // not measured -- JIT/module warm-up only
+    expect(warmup.recommendations.length).toBeGreaterThan(0);
+
+    const durations: number[] = [];
+    for (let run = 0; run < 3; run += 1) {
+      const start = performance.now();
+      const result = await buildOnce(`s6-perf-run-${run}`);
+      durations.push(performance.now() - start);
+
+      // Proves the REAL V6 path actually ran end to end (a stub standing in for V6 could still be
+      // fast, but could never legitimately produce these): real recommendations, and S6 actually
+      // reaching a concrete, scored opponent decision point.
+      expect(result.recommendations.length).toBeGreaterThan(0);
+      if (result.deferred.opponentResponse === "NOT_COMPUTED") throw new Error("unreachable");
+      expect(result.deferred.opponentResponse.status).toBe("PLAUSIBLE_RESPONSE");
+      expect(result.deferred.opponentResponse.score).not.toBeNull();
+    }
+
+    const max = Math.max(...durations);
+    const median = [...durations].sort((a, b) => a - b)[1]!;
+    console.log(`S6 real-V6 perf (${HERO_COUNT} heroes): runs=${durations.map((d) => d.toFixed(1)).join(",")}ms max=${max.toFixed(1)}ms median=${median.toFixed(1)}ms`);
+
+    // H0 hard compute budget -- a TEST/GATE property (this assertion), never a wall-clock branch
+    // inside RecommendationSetV2 itself (that would make semantic output depend on elapsed time).
+    for (const duration of durations) expect(duration).toBeLessThan(500);
   });
 });
