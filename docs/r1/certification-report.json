@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "certificationId": "r1-s7",
-  "commit": "b4f4c527bebb9b3be1bc652867d7fd8b76e564c7",
+  "commit": "3916b772efd412d114149474ce9df682492fc5cd",
   "branch": "r1/product-certification",
   "dirty": true,
   "gates": [
@@ -52,54 +52,54 @@
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/rulesets/ranked-all-pick.test.ts apps/engine/src/draft-protocol/party-context.test.ts apps/engine/src/draft-protocol/adapters/simulator-authority.test.ts apps/engine/src/draft-protocol/kernel.test.ts apps/engine/src/draft-protocol/kernel.adversarial.test.ts apps/engine/src/server/protocol-session.integration.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  78 pass |  0 fail |  242 expect() calls | Ran 78 tests across 6 files. [46.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  78 pass |  0 fail |  242 expect() calls | Ran 78 tests across 6 files. [47.00ms]"
     },
     {
       "id": "cm_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/rulesets/captains-mode.test.ts apps/engine/src/draft-protocol/adapters/cm-simulator.test.ts apps/engine/src/draft-protocol/eligibility.test.ts apps/engine/src/draft-protocol/trusted-eligibility.test.ts apps/engine/src/server/protocol-session.cm-acceptance.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  80 pass |  0 fail |  269 expect() calls | Ran 80 tests across 5 files. [54.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  80 pass |  0 fail |  269 expect() calls | Ran 80 tests across 5 files. [45.00ms]"
     },
     {
       "id": "recommendation_legality_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/recommendation/decision.test.ts apps/engine/src/recommendation/shortlist.test.ts apps/engine/src/recommendation/build.test.ts apps/engine/src/recommendation/architecture-guard.test.ts apps/engine/src/recommendation/translate-v1.test.ts",
       "status": "PASS",
-      "summary": "S6 real-V6 perf (110 heroes): runs=8.8,8.5,9.3ms max=9.3ms median=8.8ms | apps\\engine\\src\\recommendation\\build.test.ts: |  55 pass |  0 fail |  188 expect() calls | Ran 55 tests across 5 files. [122.00ms]"
+      "summary": "S6 real-V6 perf (110 heroes): runs=5.7,7.7,7.6ms max=7.7ms median=7.6ms | apps\\engine\\src\\recommendation\\build.test.ts: |  55 pass |  0 fail |  188 expect() calls | Ran 55 tests across 5 files. [109.00ms]"
     },
     {
       "id": "hidden_info_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/identity-hash.test.ts apps/engine/src/draft-protocol/perspective.test.ts apps/engine/src/recommendation/identity.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  20 pass |  0 fail |  37 expect() calls | Ran 20 tests across 3 files. [29.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  20 pass |  0 fail |  37 expect() calls | Ran 20 tests across 3 files. [30.00ms]"
     },
     {
       "id": "role_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/draft-protocol/roles/role-belief.test.ts apps/engine/src/draft-protocol/roles/joint-assignment.test.ts apps/engine/src/recommendation/role-impact.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  29 pass |  0 fail |  179 expect() calls | Ran 29 tests across 3 files. [19.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  29 pass |  0 fail |  179 expect() calls | Ran 29 tests across 3 files. [18.00ms]"
     },
     {
       "id": "s6_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/recommendation/lookahead.test.ts apps/engine/src/recommendation/observation-point.test.ts apps/engine/src/recommendation/opponent-model.test.ts apps/engine/src/recommendation/steal.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  55 pass |  0 fail |  142 expect() calls | Ran 55 tests across 4 files. [50.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  55 pass |  0 fail |  142 expect() calls | Ran 55 tests across 4 files. [40.00ms]"
     },
     {
       "id": "adapter_parity_gate",
       "klass": "required",
       "command": "bun test apps/engine/src/server/adapter-parity.integration.test.ts",
       "status": "PASS",
-      "summary": "bun test v1.4.2 (744846f84) |  1 pass |  0 fail |  34 expect() calls | Ran 1 test across 1 file. [33.00ms]"
+      "summary": "bun test v1.4.2 (744846f84) |  1 pass |  0 fail |  34 expect() calls | Ran 1 test across 1 file. [30.00ms]"
     }
   ],
   "overallStatus": "PASS",
   "r1GoldenStatus": "MISSING",
-  "functionalHash": "33966310f04582eab9903c17b737b3ab2ba8758c193263e21fdd8018864a4668",
+  "functionalHash": "5f19047baae038f9846fd9c4c018ca6ed66ab17b175412364ed6696172f812dc",
   "knownGaps": [
     {
       "id": "party_size_ui",
@@ -122,8 +122,8 @@
     "Auth/billing/Premium/matchmaking/deployment-architecture changes -- untouched, as instructed."
   ],
   "telemetry": {
-    "generatedAt": "2026-09-16T16:27:42.678Z",
-    "durationMs": 718,
+    "generatedAt": "2026-09-16T16:30:36.144Z",
+    "durationMs": 675,
     "node": "v26.3.0"
   }
 }

@@ -1,8 +1,8 @@
 # R1 S7 Certification Report
 
-Commit: `b4f4c527bebb9b3be1bc652867d7fd8b76e564c7` (branch `r1/product-certification`, dirty)
+Commit: `3916b772efd412d114149474ce9df682492fc5cd` (branch `r1/product-certification`, dirty)
 Overall status: **PASS**
-Functional hash: `33966310f04582eab9903c17b737b3ab2ba8758c193263e21fdd8018864a4668`
+Functional hash: `5f19047baae038f9846fd9c4c018ca6ed66ab17b175412364ed6696172f812dc`
 R1 Golden v1: **MISSING**
 
 ## Gates
@@ -15,13 +15,13 @@ R1 Golden v1: **MISSING**
 | web_lint | required | PASS | SKIPPED_REUSED: already required+green in CI job 'test' (needs:) |
 | verify_simplicity | required | PASS | SKIPPED_REUSED: already required+green in CI job 'verify-simplicity' (needs:) |
 | engine_quality_gate | required | PASS | SKIPPED_REUSED: already required+green in CI job 'intelligence-ci' (needs:) |
-| ap_gate | required | PASS | bun test v1.4.2 (744846f84) /  78 pass /  0 fail /  242 expect() calls / Ran 78 tests across 6 files. [46.00ms] |
-| cm_gate | required | PASS | bun test v1.4.2 (744846f84) /  80 pass /  0 fail /  269 expect() calls / Ran 80 tests across 5 files. [54.00ms] |
-| recommendation_legality_gate | required | PASS | S6 real-V6 perf (110 heroes): runs=8.8,8.5,9.3ms max=9.3ms median=8.8ms / apps\engine\src\recommendation\build.test.ts: /  55 pass /  0 fail /  188 expect() calls / Ran 55 tests across 5 files. [122.00ms] |
-| hidden_info_gate | required | PASS | bun test v1.4.2 (744846f84) /  20 pass /  0 fail /  37 expect() calls / Ran 20 tests across 3 files. [29.00ms] |
-| role_gate | required | PASS | bun test v1.4.2 (744846f84) /  29 pass /  0 fail /  179 expect() calls / Ran 29 tests across 3 files. [19.00ms] |
-| s6_gate | required | PASS | bun test v1.4.2 (744846f84) /  55 pass /  0 fail /  142 expect() calls / Ran 55 tests across 4 files. [50.00ms] |
-| adapter_parity_gate | required | PASS | bun test v1.4.2 (744846f84) /  1 pass /  0 fail /  34 expect() calls / Ran 1 test across 1 file. [33.00ms] |
+| ap_gate | required | PASS | bun test v1.4.2 (744846f84) /  78 pass /  0 fail /  242 expect() calls / Ran 78 tests across 6 files. [47.00ms] |
+| cm_gate | required | PASS | bun test v1.4.2 (744846f84) /  80 pass /  0 fail /  269 expect() calls / Ran 80 tests across 5 files. [45.00ms] |
+| recommendation_legality_gate | required | PASS | S6 real-V6 perf (110 heroes): runs=5.7,7.7,7.6ms max=7.7ms median=7.6ms / apps\engine\src\recommendation\build.test.ts: /  55 pass /  0 fail /  188 expect() calls / Ran 55 tests across 5 files. [109.00ms] |
+| hidden_info_gate | required | PASS | bun test v1.4.2 (744846f84) /  20 pass /  0 fail /  37 expect() calls / Ran 20 tests across 3 files. [30.00ms] |
+| role_gate | required | PASS | bun test v1.4.2 (744846f84) /  29 pass /  0 fail /  179 expect() calls / Ran 29 tests across 3 files. [18.00ms] |
+| s6_gate | required | PASS | bun test v1.4.2 (744846f84) /  55 pass /  0 fail /  142 expect() calls / Ran 55 tests across 4 files. [40.00ms] |
+| adapter_parity_gate | required | PASS | bun test v1.4.2 (744846f84) /  1 pass /  0 fail /  34 expect() calls / Ran 1 test across 1 file. [30.00ms] |
 
 ## Known gaps (not fabricated, not silently hidden)
 
@@ -31,4 +31,4 @@ R1 Golden v1: **MISSING**
 
 ## Non-functional telemetry (excluded from functionalHash)
 
-Generated at 2026-09-16T16:27:42.678Z, took 718ms, Node v26.3.0.
+Generated at 2026-09-16T16:30:36.144Z, took 675ms, Node v26.3.0.
