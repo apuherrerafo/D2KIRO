@@ -265,7 +265,6 @@ async function main(argv: string[]): Promise<number> {
       "Deep lookahead (multi-ply), MCTS/beam search, opponent-probability calibration -- S6 stays exactly one ply, uncalibrated, top-1-only by design; no S7 change to this mechanism.",
       "GuessingIndex/EvidenceCoverage UI surface -- explicitly deferred by the Fase 9.1 design (D4) to a follow-up once real usage data exists.",
       "Auth/billing/Premium/matchmaking/deployment-architecture changes -- untouched, as instructed.",
-      "R1-FIX-PAR-04 (docs/r1/golden/deterministic-fixtures-manifest.json): explicit manual-vs-simulator CM adapter parity test for FIRST=dire -- genuinely missing, not fabricated as covered.",
     ],
     telemetry: {
       generatedAt: new Date().toISOString(),
