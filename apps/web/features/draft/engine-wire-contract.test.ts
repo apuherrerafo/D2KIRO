@@ -2,12 +2,10 @@ import { beforeEach, expect, test } from "bun:test";
 import { createIdleDraftState } from "../../../engine/src/draft/reducer";
 import { buildServerMessage } from "../../../engine/src/server/session";
 import { buildSuggestions } from "../../../engine/src/signals/mix";
-import { bindPreviewSuggestions } from "../random-draft-simulator/use-random-draft-session";
-import { useRandomDraftStore } from "../random-draft-simulator/store";
 import { FakeSocket } from "./fake-socket";
 import { useDraftStore } from "./store";
 import type { ServerMessage as WebServerMessage } from "./types";
-import { isValidServerMessage, isValidSuggestionSet } from "./validation";
+import { isValidServerMessage } from "./validation";
 
 const engineDraftState = {
   ...createIdleDraftState("wire-contract"),
@@ -34,7 +32,7 @@ beforeEach(() => {
   });
 });
 
-test("gate: payloads reales de engine viajan por WS y preview HTTP hasta las tiendas Zustand", () => {
+test("gate: payloads reales de engine viajan por WS hasta la tienda Zustand del draft en vivo", () => {
   const engineSnapshot = buildServerMessage("snapshot", engineDraftState.lastSeq, engineDraftState);
   const engineSuggestionMessage = buildServerMessage("suggestions", engineDraftState.lastSeq, engineSuggestions);
 
@@ -54,22 +52,6 @@ test("gate: payloads reales de engine viajan por WS y preview HTTP hasta las tie
 
   expect(useDraftStore.getState().draftState?.sessionId).toBe(engineDraftState.sessionId);
   expect(useDraftStore.getState().suggestions?.decisionContext).toBe("team_opening");
-
-  const previewPayload: unknown = JSON.parse(JSON.stringify(engineSuggestions));
-  expect(isValidSuggestionSet(previewPayload)).toBe(true);
-  const preview = bindPreviewSuggestions(previewPayload, engineDraftState);
-  expect(preview?.sessionId).toBe(engineDraftState.sessionId);
-  expect(preview?.basedOnSeq).toBe(engineDraftState.lastSeq);
-
-  useRandomDraftStore.getState().setDraftState(engineDraftState, preview);
-  expect(useRandomDraftStore.getState().suggestions?.decisionContext).toBe("team_opening");
-});
-
-test("gate: un preview HTTP con forma alterada nunca se vincula a Zustand", () => {
-  const malformed = { ...engineSuggestions, computedInMs: "instantáneo" };
-
-  expect(isValidSuggestionSet(malformed)).toBe(false);
-  expect(bindPreviewSuggestions(malformed, engineDraftState)).toBeNull();
 });
 
 test("gate: degenerate engine payload crosses the web wire contract", () => {

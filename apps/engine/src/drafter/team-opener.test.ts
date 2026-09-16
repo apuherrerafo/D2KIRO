@@ -142,4 +142,41 @@ describe("recommendTeamOpeners", () => {
       "Warlock abre un plan de peleas de equipo.",
     ]);
   });
+
+  test("canonicalizes statistical matchups before scoring and rendering", () => {
+    const rows = [
+      { vsHero: 2, games: 200, wins: 76 },
+      { vsHero: 3, games: 200, wins: 76 },
+    ];
+    const request = (matchups: TeamOpenerCandidate["matchups"]) => ({
+      candidates: [{ hero: 1, baseScore: 0.6, strategy: "teamfight", matchups }],
+      banned: [2, 3],
+      heroNames: { 1: "One", 2: "Two", 3: "Three" },
+    });
+
+    const ordered = recommendTeamOpeners(request(rows));
+    const reversed = recommendTeamOpeners(request([...rows].reverse()));
+
+    expect(reversed).toEqual(ordered);
+    expect(ordered[0]!.score).toBeCloseTo(0.84, 10);
+    expect(ordered[0]!.evidence.map((item) => item.hero)).toEqual([2, 3]);
+    expect(ordered[0]!.summary).toContain("Two y Three");
+  });
+
+  test("all three-row permutations preserve the same opening output", () => {
+    const rows = [
+      { vsHero: 2, games: 200, wins: 76 },
+      { vsHero: 3, games: 200, wins: 76 },
+      { vsHero: 4, games: 200, wins: 76 },
+    ];
+    const permutations = [rows, [rows[0]!, rows[2]!, rows[1]!], [rows[1]!, rows[0]!, rows[2]!], [rows[1]!, rows[2]!, rows[0]!], [rows[2]!, rows[0]!, rows[1]!], [rows[2]!, rows[1]!, rows[0]!]];
+    const render = (matchups: TeamOpenerCandidate["matchups"]) => recommendTeamOpeners({
+      candidates: [{ hero: 1, baseScore: 0.6, strategy: "teamfight", matchups }],
+      banned: [2, 3, 4],
+      heroNames: { 1: "One", 2: "Two", 3: "Three", 4: "Four" },
+    });
+
+    const expected = render(rows);
+    for (const permutation of permutations) expect(render(permutation)).toEqual(expected);
+  });
 });

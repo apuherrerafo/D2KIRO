@@ -2,7 +2,7 @@ import "@/test-support/happy-dom";
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import type { DraftState, HeroId, SuggestionSet, TeamSide } from "@/features/draft/types";
+import type { HeroId, TeamSide } from "@/features/draft/types";
 import { useRandomDraftSession } from "../use-random-draft-session";
 import { useRandomDraftStore } from "../store";
 
@@ -14,7 +14,6 @@ function json(body: unknown, status = 200): Response {
 
 class FakeProtocolEngine {
   readonly requests: { url: string; body: Record<string, unknown> }[] = [];
-  readonly previews: { picks: DraftState["picks"]; archetypeIntent?: string; targetPosition?: number; teamOpening?: boolean; token?: string }[] = [];
   private sessionId = "protocol-browser-session";
   private side: TeamSide = "radiant";
   private round: 1 | 2 | 3 = 1;
@@ -80,20 +79,38 @@ class FakeProtocolEngine {
     if (url.endsWith("/api/heroes")) return json(HEROES);
     if (url.endsWith("/api/meta/hero-stats")) return json({ patchStats: {}, heroPositions: {} });
     if (url.endsWith("/api/auth/engine-token")) return json({ token: "fixture" });
-    if (url.endsWith("/api/suggestions/preview")) {
-      const preview = body as { picks: DraftState["picks"]; archetypeIntent?: string; targetPosition?: number; teamOpening?: boolean };
-      this.previews.push({ ...preview, token: new Headers(init?.headers).get("x-account-token") ?? undefined });
-      const response: SuggestionSet = {
-        schema: "suggestions/v1",
+    if (url.endsWith("/recommendations")) {
+      // R1 S5 (blocker 1) -- the ONLY recommendation source the browser hook may call. Shape
+      // mirrors RecommendationSet/v2 closely enough to satisfy protocol-client.ts's own validator.
+      const remaining = Math.max(0, this.capacity() - this.ownSealed.length);
+      const openSlots = Array.from({ length: remaining }, (_, slotIndex) => ({ side: this.side, slotIndex: this.ownSealed.length + slotIndex }));
+      const recommendations = openSlots.length >= 2
+        ? [{
+            actions: [{ slot: openSlots[0]!, hero: 29 }, { slot: openSlots[1]!, hero: 28 }],
+            score: 199,
+            confidence: "alta" as const,
+            roleImpact: {},
+            risks: [],
+            legacy: null,
+          }]
+        : openSlots.length === 1
+          ? [{
+              actions: [{ slot: openSlots[0]!, hero: 29 }],
+              score: 100,
+              confidence: "alta" as const,
+              roleImpact: {},
+              risks: [],
+              legacy: { hero: 29, signals: [], evidenceCoverage: 1, guessingIndex: 0, reason: "fixture" },
+            }]
+          : [];
+      return json({
+        schema: "recommendation-set/v2",
         sessionId: this.sessionId,
-        basedOnSeq: 0,
-        decisionContext: "blind_second_pick",
-        suggestions: [{ hero: 29, rank: 1, score: 1, signals: [], reason: "fixture", confidence: "alta", evidenceCoverage: 1, guessingIndex: 0 }],
-        comparison: null,
-        degraded: [],
-        computedInMs: 1,
-      };
-      return json(response);
+        decision: { actor: this.side, actionKind: openSlots.length > 0 ? "PICK" : null, controlledSlots: openSlots, actionCount: openSlots.length },
+        recommendations,
+        degradations: [],
+        decisionContext: "team_opening",
+      });
     }
     if (url.endsWith("/api/session/protocol")) {
       this.side = body.localSide as TeamSide;
@@ -188,14 +205,31 @@ test("el browser delega WAITING_FOR_COLLISION_AUTHORITY al endpoint simulator-au
   unmount();
 }, 10_000);
 
-test("el preview conserva intención, rol y token sin interferir con autoridad de protocolo", async () => {
+// R1 S5 (blockers 1 + 2 del checklist de tests) -- el Copilot humano del simulador debe consumir
+// SIEMPRE RecommendationSet/v2 (GET .../recommendations) y jamás /api/suggestions/preview, que
+// quedó exclusivamente para el camino legacy (no este simulador kernel-backed).
+test("el Copilot humano llama al endpoint de recomendaciones V2 del protocolo, nunca /api/suggestions/preview", async () => {
   const engine = new FakeProtocolEngine();
   globalThis.fetch = engine.fetch as typeof fetch;
   const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], playerPosition: 2 }));
-  await waitFor(() => expect(engine.previews.length).toBeGreaterThan(0));
-  act(() => result.current.actions.setArchetypeIntent("push"));
-  await waitFor(() => expect(engine.previews.some((preview) => preview.archetypeIntent === "push")).toBe(true));
-  expect(engine.previews.every((preview) => preview.targetPosition === 2)).toBe(true);
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
+
+  expect(result.current.state.recommendations?.schema).toBe("recommendation-set/v2");
+  expect(engine.requests.some((request) => request.url.endsWith("/recommendations"))).toBe(true);
+  expect(engine.requests.some((request) => request.url.endsWith("/api/suggestions/preview"))).toBe(false);
+  unmount();
+});
+
+test("una nueva ronda pide una recomendación compuesta fresca (2 slots abiertos -> 2 acciones)", async () => {
+  const engine = new FakeProtocolEngine();
+  globalThis.fetch = engine.fetch as typeof fetch;
+  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
+  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [] }));
+  await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
+
+  const recommendation = result.current.state.recommendations!.recommendations[0]!;
+  expect(recommendation.actions).toHaveLength(2); // round 1: capacity 2, nada pickeado todavía
+  expect(recommendation.legacy).toBeNull();
   unmount();
 });

@@ -1,27 +1,33 @@
 "use client";
 
 import { useEffect } from "react";
-import { ComparisonNote } from "@/components/comparison-note/ComparisonNote";
-import { ProDrafterEngineBadge, ProSuggestionRow } from "@/components/pro-drafter-panel/ProDrafterPanel";
+import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { SuggestionCard } from "@/components/suggestion-card/SuggestionCard";
 import { BUTTON_GHOST } from "@/features/draft/styles";
-import { isProDrafterEnabled } from "@/app/live-draft/live-config";
-import { DEGRADATION_LABELS } from "@/features/draft/constants";
-import type { DraftDecisionContext, DraftState, HeroId, SuggestionSet } from "@/features/draft/types";
+import { CONFIDENCE_LABELS } from "@/features/draft/constants";
+import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
-import { useCopilotProDrafter } from "../use-copilot-pro-drafter";
+import type { RecommendationSetV2, RecommendationV2 } from "../protocol-client";
+
+// R1 S5 (independent architecture review, blockers 1 + 8) -- this panel is the ONE human-facing
+// Copilot for the R1 ProtocolSession-backed simulator. It renders RecommendationSet/v2 ONLY:
+// no /api/suggestions/preview, no Pro-Drafter (`/api/v1/draft/pro-recommendations`), regardless of
+// ENABLE_PRO_DRAFTER -- that flag has no effect on this component at all. The functions below are
+// a pure presentational adapter (RecommendationSet/v2 -> view model): they never score, rank,
+// reinfer roles, or reconstruct a DraftState -- every field they read was already computed by the
+// engine (recommendation.score/confidence/legacy/roleImpact, verbatim).
 
 interface PreviewStatusNoticeProps {
   previewStatus: PreviewStatus;
-  hasSuggestions: boolean;
+  hasRecommendations: boolean;
   onRetry: () => void;
 }
 
 // Máquina explícita del Copilot (nunca "actualizando" indefinido): "loading" mientras se calcula,
 // "failed" ofrece reintentar en vez de quedarse congelado en silencio, "ready"/"idle" no agregan
-// texto propio -- el cuerpo de abajo ya decide qué mostrar con las sugerencias que tenga.
-function PreviewStatusNotice({ previewStatus, hasSuggestions, onRetry }: PreviewStatusNoticeProps) {
+// texto propio -- el cuerpo de abajo ya decide qué mostrar con las recomendaciones que tenga.
+function PreviewStatusNotice({ previewStatus, hasRecommendations, onRetry }: PreviewStatusNoticeProps) {
   if (previewStatus === "failed") {
     return (
       <div className="flex items-center justify-between gap-2 rounded-lg border border-signal-negative bg-surface-raised p-3">
@@ -32,23 +38,23 @@ function PreviewStatusNotice({ previewStatus, hasSuggestions, onRetry }: Preview
       </div>
     );
   }
-  if (previewStatus === "loading" || !hasSuggestions) {
+  if (previewStatus === "loading" || !hasRecommendations) {
     return <span className="text-caption text-content-muted">Calculando recomendación...</span>;
   }
   return null;
 }
 
-interface DegradedNoticeProps {
-  degraded: SuggestionSet["degraded"];
+interface DegradationsNoticeProps {
+  degradations: RecommendationSetV2["degradations"];
 }
 
-function DegradedNotice({ degraded }: DegradedNoticeProps) {
-  if (degraded.length === 0) return null;
+function DegradationsNotice({ degradations }: DegradationsNoticeProps) {
+  if (degradations.length === 0) return null;
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3">
-      {degraded.map((flag) => (
-        <span key={flag} className="text-caption text-signal-warning">
-          {DEGRADATION_LABELS[flag]}
+      {degradations.map((degradation) => (
+        <span key={`${degradation.reason}:${degradation.detail}`} className="text-caption text-signal-warning">
+          {degradation.detail}
         </span>
       ))}
     </div>
@@ -63,154 +69,146 @@ const DECISION_CONTEXT_LABELS: Record<DraftDecisionContext, string> = {
   no_signal_available: "No hay señales disponibles para votar",
 };
 
-function DecisionContextNotice({ decisionContext }: Pick<SuggestionSet, "decisionContext">) {
-  if (decisionContext === undefined) return null;
+function DecisionContextNotice({ decisionContext }: { decisionContext: RecommendationSetV2["decisionContext"] }) {
+  if (decisionContext === "no_action") return null;
   return <span className="text-caption font-semibold text-accent-primary">{DECISION_CONTEXT_LABELS[decisionContext]}</span>;
 }
 
-function selectFreshSuggestions(draftState: DraftState | null, suggestions: SuggestionSet | null): SuggestionSet | null {
-  if (!draftState || !suggestions) return null;
-  if (suggestions.basedOnSeq !== draftState.lastSeq) return null;
-  return suggestions;
+/** Pure presentational projection: a single-action Recommendation already carries its own honest
+ * V1 shape (`legacy`, populated by build.ts verbatim from the same V6 Suggestion) -- this only
+ * reshapes it plus the sibling score/confidence fields into what SuggestionCard already renders.
+ * A compound Recommendation (legacy: null) has no single-hero shape to project into -- see
+ * CompoundRecommendationCard below instead. */
+function toSuggestionViewModel(recommendation: RecommendationV2, rank: Suggestion["rank"]): Suggestion | null {
+  if (!recommendation.legacy) return null;
+  return {
+    hero: recommendation.legacy.hero,
+    rank,
+    score: recommendation.score,
+    signals: recommendation.legacy.signals,
+    reason: recommendation.legacy.reason,
+    confidence: recommendation.confidence,
+    evidenceCoverage: recommendation.legacy.evidenceCoverage,
+    guessingIndex: recommendation.legacy.guessingIndex,
+  };
 }
 
-export interface CopilotPanelProps {
-  draftState: DraftState | null;
-  suggestions: SuggestionSet | null;
+interface CompoundRecommendationCardProps {
+  recommendation: RecommendationV2;
   heroCatalog: Map<number, HeroMeta>;
-  previewStatus?: PreviewStatus;
-  onRetryPreview?: () => void;
-  onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
-  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  isPrimary: boolean;
 }
 
-interface CopilotPanelBodyProps {
-  draftState: DraftState | null;
-  suggestions: SuggestionSet | null;
-  heroCatalog: Map<number, HeroMeta>;
-  previewStatus: PreviewStatus;
-  onRetryPreview: () => void;
-  playerPosition?: 1 | 2 | 3 | 4 | 5;
-}
-
-// v5 puro -- comportamiento sin cambios respecto a antes de Fase 4, es lo que se sigue mostrando
-// con ENABLE_PRO_DRAFTER apagado del lado del cliente (default, dark-launch intacto).
-function V5CopilotBody({ draftState, suggestions, heroCatalog, previewStatus, onRetryPreview }: CopilotPanelBodyProps) {
-  const fresh = selectFreshSuggestions(draftState, suggestions);
-  // TSK-192: hasta 6 recomendaciones en un grid 2×3 compacto -- el rank 1 con borde de acento,
-  // el detalle (motivos, riesgos, señales) tras "Ver señales" en cada celda.
-  const ordered = [...(fresh?.suggestions ?? [])].sort((a, b) => a.rank - b.rank);
-
+// <Dominio><Cosa>: una recomendación de 2 héroes simultáneos (rondas 1/2 de Ranked All Pick, party
+// con más de un slot propio abierto) -- V6 no tiene un score de "sinergia del par" (build.ts's
+// score es la suma pura de los dos scores independientes), así que esta tarjeta muestra cada héroe
+// con su propio impacto de rol, nunca un número inventado que sugiera un cálculo conjunto que no
+// existe.
+function CompoundRecommendationCard({ recommendation, heroCatalog, isPrimary }: CompoundRecommendationCardProps) {
+  const base = "flex flex-col gap-2 rounded-lg border p-3";
+  const className = isPrimary ? `${base} border-accent-primary bg-surface-raised` : `${base} border-surface-border bg-surface-overlay`;
   return (
-    <>
-      <PreviewStatusNotice previewStatus={previewStatus} hasSuggestions={fresh !== null} onRetry={onRetryPreview} />
-      {fresh && <DegradedNotice degraded={fresh.degraded} />}
-      {fresh && <DecisionContextNotice decisionContext={fresh.decisionContext} />}
-      {ordered.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
-          {ordered.map((suggestion) => (
-            <SuggestionCard
-              key={suggestion.hero}
-              suggestion={suggestion}
-              heroMeta={heroCatalog.get(suggestion.hero)}
-              isPrimary={suggestion.rank === 1}
-              compact
-            />
-          ))}
-        </div>
-      )}
-      {fresh?.comparison && <ComparisonNote comparison={fresh.comparison} heroMeta={heroCatalog.get(fresh.comparison.vsHero)} />}
-    </>
-  );
-}
-
-// Fase 4 (consolidación del Simulador, sesión Gobernanza 2.0): Pro-Drafter en tiempo real -- se
-// re-dispara solo con cada pick/ban nuevo (useCopilotProDrafter), nunca a mano. El badge comunica
-// sin ambigüedad si lo que se ve salió del pipeline KNN/lane-sim/denial o cayó a v5 (fallback real,
-// o retrocompatibilidad si el flag del motor está apagado -- ver toProDrafterView). Reutiliza
-// ProDrafterEngineBadge/ProSuggestionRow tal cual (componente real, no una réplica visual
-// distinta, mismo criterio que ya aplicaba SuggestionCard/ComparisonNote acá).
-function ProDrafterCopilotBody({ draftState, heroCatalog, playerPosition, onSuggestedHeroIdsChange }: CopilotPanelBodyProps & {
-  onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
-}) {
-  const { view, isLoading, error } = useCopilotProDrafter(draftState, heroCatalog, playerPosition);
-  const suggestedHeroKey = view?.suggestions.map((suggestion) => suggestion.hero).join(",") ?? "";
-
-  // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta. Mientras llega la
-  // respuesta del nuevo estado no conservamos resaltados del estado anterior.
-  useEffect(() => {
-    if (!onSuggestedHeroIdsChange) return;
-    if (isLoading || !view) {
-      onSuggestedHeroIdsChange(new Set());
-      return;
-    }
-    onSuggestedHeroIdsChange(new Set(view.suggestions.map((suggestion) => suggestion.hero)));
-    // suggestedHeroKey estabiliza el view derivado y evita un efecto infinito.
-  }, [isLoading, onSuggestedHeroIdsChange, suggestedHeroKey]);
-
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        {view && <ProDrafterEngineBadge engineVersion={view.engineVersion} cacheHit={view.cacheHit} />}
+    <div className={className}>
+      <div className="flex items-center justify-between">
+        <span className="text-caption font-semibold text-content-primary">Dupla sugerida</span>
+        <span className="text-caption text-content-muted">{CONFIDENCE_LABELS[recommendation.confidence]}</span>
       </div>
-      {isLoading && <span className="text-caption text-content-muted">Calculando...</span>}
-      {error && <span className="text-caption text-signal-negative">No se pudo calcular la recomendación.</span>}
-      {!isLoading && view && view.suggestions.length === 0 && (
-        <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
-      )}
-      {!isLoading &&
-        view?.suggestions.map((suggestion) => <ProSuggestionRow key={suggestion.hero} suggestion={suggestion} heroCatalog={heroCatalog} />)}
-    </>
+      <div className="flex items-center gap-4">
+        {recommendation.actions.map((action) => {
+          const heroMeta = heroCatalog.get(action.hero);
+          const impact = recommendation.roleImpact[action.hero];
+          return (
+            <div key={action.hero} className="flex items-center gap-2">
+              <HeroIcon imgUrl={heroMeta?.imgUrl ?? ""} alt={heroMeta?.localizedName ?? `Héroe ${action.hero}`} size={40} />
+              <div className="flex flex-col">
+                <span className="text-caption text-content-primary">{heroMeta?.localizedName ?? `Héroe ${action.hero}`}</span>
+                {impact && impact.position !== null && (
+                  <span className="text-caption text-content-muted">Posición {impact.position}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-// <Dominio><Cosa>: sugerencias del Copilot durante la Blind_Round activa (Req. 6) -- mismas
-// SuggestionCard/ComparisonNote que la vista de draft normal, para que el usuario practique con
-// el componente real, no una réplica visual distinta. Con ENABLE_PRO_DRAFTER encendido del lado
-// del cliente, cambia a la vista de Pro-Drafter en tiempo real (Fase 4) -- apagado (default), el
-// árbol de render es exactamente el mismo que antes de esta fase. Early return, nunca un ternario
-// de renderizado condicional (regla dura de web.md).
-function noop() {
-  // Sin sesión del simulador todavía conectada a un retry real (p. ej. Draft en Vivo, que no pasa
-  // onRetryPreview) -- botón inerte en vez de un handler faltante.
+interface RecommendationListProps {
+  recommendationSet: RecommendationSetV2 | null;
+  heroCatalog: Map<number, HeroMeta>;
 }
 
-export function CopilotPanel({
-  draftState,
-  suggestions,
-  heroCatalog,
-  previewStatus = "idle",
-  onRetryPreview = noop,
-  onSuggestedHeroIdsChange,
-  playerPosition,
-}: CopilotPanelProps) {
-  if (isProDrafterEnabled()) {
+function RecommendationList({ recommendationSet, heroCatalog }: RecommendationListProps) {
+  if (!recommendationSet) return null;
+  const { recommendations } = recommendationSet;
+  if (recommendations.length === 0) return null;
+
+  const singleActionSuggestions = recommendations
+    .map((recommendation, index) => toSuggestionViewModel(recommendation, (Math.min(index + 1, 6)) as Suggestion["rank"]))
+    .filter((suggestion): suggestion is Suggestion => suggestion !== null);
+
+  if (singleActionSuggestions.length > 0) {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-        <span className="text-heading text-content-primary">Copilot</span>
-        <ProDrafterCopilotBody
-          draftState={draftState}
-          suggestions={suggestions}
-          heroCatalog={heroCatalog}
-          previewStatus={previewStatus}
-          onRetryPreview={onRetryPreview}
-          onSuggestedHeroIdsChange={onSuggestedHeroIdsChange}
-          playerPosition={playerPosition}
-        />
+      <div className="grid grid-cols-2 gap-2">
+        {singleActionSuggestions.map((suggestion) => (
+          <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={suggestion.rank === 1} compact />
+        ))}
       </div>
     );
   }
 
   return (
+    <div className="flex flex-col gap-2">
+      {recommendations.map((recommendation, index) => (
+        <CompoundRecommendationCard
+          key={recommendation.actions.map((action) => action.hero).join(",")}
+          recommendation={recommendation}
+          heroCatalog={heroCatalog}
+          isPrimary={index === 0}
+        />
+      ))}
+    </div>
+  );
+}
+
+export interface CopilotPanelProps {
+  recommendations: RecommendationSetV2 | null;
+  heroCatalog: Map<number, HeroMeta>;
+  previewStatus?: PreviewStatus;
+  onRetryPreview?: () => void;
+  onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
+}
+
+function noop() {
+  // Sin sesión del simulador todavía conectada a un retry real (p. ej. Draft en Vivo, que no pasa
+  // onRetryPreview) -- botón inerte en vez de un handler faltante.
+}
+
+export function CopilotPanel({ recommendations, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange }: CopilotPanelProps) {
+  const suggestedHeroKey = recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)).join(",") ?? "";
+
+  // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
+  // ya usaba la variante Pro-Drafter de este panel antes de esta migración.
+  useEffect(() => {
+    if (!onSuggestedHeroIdsChange) return;
+    const heroIds = recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
+    onSuggestedHeroIdsChange(new Set(heroIds));
+    // suggestedHeroKey estabiliza el conjunto derivado y evita un efecto infinito.
+  }, [onSuggestedHeroIdsChange, suggestedHeroKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasRecommendations = (recommendations?.recommendations.length ?? 0) > 0;
+
+  return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Copilot</span>
-      <V5CopilotBody
-        draftState={draftState}
-        suggestions={suggestions}
-        heroCatalog={heroCatalog}
-        previewStatus={previewStatus}
-        onRetryPreview={onRetryPreview}
-      />
+      <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations} onRetry={onRetryPreview} />
+      {recommendations && <DegradationsNotice degradations={recommendations.degradations} />}
+      {recommendations && <DecisionContextNotice decisionContext={recommendations.decisionContext} />}
+      {recommendations && !hasRecommendations && previewStatus === "ready" && (
+        <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
+      )}
+      <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />
     </div>
   );
 }

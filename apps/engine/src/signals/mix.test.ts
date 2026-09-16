@@ -581,6 +581,41 @@ describe("buildSuggestions", () => {
     expect(suggestedHeroes).toEqual([1]);
   });
 
+  // R1 S5 blocker 3 (independent architecture review) -- LEGAL ACTION FIRST: a certified legal
+  // universe (Captain's Mode's eligibleHeroIds) must be applied BEFORE ranking/TOP_N, never as a
+  // post-filter over the global top-N. Without `candidateHeroIds`, hero 1 (the single legal hero
+  // in this fixture) would rank outside the top 6 globally and never reach `suggestions` at all.
+  test("blocker 3 -- candidateHeroIds restringe el universo ANTES de TOP_N: un héroe legal fuera del top-6 global sigue siendo scoreado y recomendado", () => {
+    const heroes: Record<number, MetaHeroInfo> = { 1: { id: 1, localizedName: "Legal" } };
+    for (let hero = 2; hero <= 20; hero += 1) heroes[hero] = { id: hero, localizedName: `Hero ${hero}` };
+    // Every other hero out-scores hero 1 on counter -- without the fix, hero 1 never survives
+    // V6's own TOP_N=6 cutoff, so a post-filter against eligibleHeroIds=[1] would find nothing.
+    const state = draftState({ picks: { radiant: [], dire: [99] } });
+    const matchups: MetaSnapshot["matchups"] = { 1: [{ vsHero: 99, games: 300, wins: 150 }] };
+    for (let hero = 2; hero <= 20; hero += 1) matchups[hero] = [{ vsHero: 99, games: 300, wins: 280 }];
+    const snapshot = meta({ ...heroes, 99: { id: 99, localizedName: "Enemy" } }, { matchups });
+
+    const withoutRestriction = buildSuggestions(state, snapshot, { teamOpening: true });
+    expect(withoutRestriction.suggestions.map((s) => s.hero)).not.toContain(1);
+
+    const restricted = buildSuggestions(state, snapshot, { teamOpening: true, candidateHeroIds: [1] });
+    expect(restricted.suggestions.map((s) => s.hero)).toEqual([1]);
+  });
+
+  test("blocker 3 -- candidateHeroIds ausente: comportamiento byte-idéntico al actual (candado de regresión cero para llamadores legacy)", () => {
+    const state = draftState({ banned: [2], picks: { radiant: [3], dire: [4] } });
+    const snapshot = meta({
+      1: { id: 1, localizedName: "A" },
+      2: { id: 2, localizedName: "B" },
+      3: { id: 3, localizedName: "C" },
+      4: { id: 4, localizedName: "D" },
+    });
+    const before = buildSuggestions(state, snapshot);
+    const after = buildSuggestions(state, snapshot, { candidateHeroIds: undefined });
+    // computedInMs is runtime timing noise, irrelevant to the regression this candado guards.
+    expect({ ...after, computedInMs: 0 }).toEqual({ ...before, computedInMs: 0 });
+  });
+
   // TSK-210 (Fase 9.1, §16.7 E7 / AC1 bullet 2): candado de regresión cero al nivel de
   // `buildSuggestions`. Con `_legacyMixMode` el motor vuelve a la redistribución candidate-specific
   // de V6 -- mismo score exacto, mismo `confidence` por conteo de nulls, byte a byte.

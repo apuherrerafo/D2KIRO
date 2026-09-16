@@ -12,6 +12,7 @@ import { isTrustedServerOnlyCommand, legalActions, loadTrustedEligibilityArtifac
 import type { DraftPathArchetype } from "../../draft-paths/types";
 import type { DraftState } from "../../draft/reducer";
 import type { SuggestionSet } from "../../signals/mix";
+import { buildRecommendationSetV2, translateRecommendationSetToLegacySuggestionSet } from "../../recommendation";
 import { ProtocolSessionStore } from "../protocol-session";
 
 // R1 S2/S3 -- HTTP surface for kernel-backed draft sessions: the flow the frozen contract for
@@ -30,7 +31,19 @@ import { ProtocolSessionStore } from "../protocol-session";
 export type ComputeSuggestionsForDraftState = (
   state: DraftState,
   accountId: null,
-  options?: { archetypeIntent?: DraftPathArchetype },
+  // R1 S5: widened to include teamOpening/diversitySeed -- app.ts's real
+  // computeSuggestionsForState already accepts both (it forwards options straight into
+  // buildSuggestions); this type only used to advertise archetypeIntent because bot-selection was
+  // its only caller. recommendation/build.ts's buildRecommendationSetV2 is now a second real
+  // caller and needs both to reach V6.
+  options?: {
+    archetypeIntent?: DraftPathArchetype;
+    teamOpening?: boolean;
+    diversitySeed?: string;
+    // R1 S5 (blocker 3): the kernel's own certified legal hero universe, when the caller has one
+    // (recommendation/build.ts, for Captain's Mode) -- forwarded verbatim into buildSuggestions.
+    candidateHeroIds?: readonly number[];
+  },
 ) => Promise<SuggestionSet>;
 
 export interface ProtocolSessionRouteDeps {
@@ -231,12 +244,47 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     });
   }
 
+  /**
+   * R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
+   * Follows the exact same perspective-forbidden guard as `get()` above -- a caller can request
+   * only ITS OWN side's recommendations, never inject an arbitrary perspective (same trust
+   * boundary as the rest of this route family). `?format=legacy` returns the honest V1 projection
+   * (translate-v1.ts) for a caller that only understands `suggestions/v1` -- it is still V2
+   * underneath; nothing is rescored for that query param.
+   */
+  async function getRecommendations(sessionId: string, url: URL): Promise<Response> {
+    const sideParam = url.searchParams.get("side");
+    if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
+    const state = deps.store.get(sessionId);
+    const metadata = deps.store.metadata(sessionId);
+    if (!state || !metadata) return notFound();
+    if (sideParam !== null && sideParam !== metadata.localSide) {
+      return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    const view = deps.store.view(sessionId);
+    if (!view) return notFound();
+
+    const recommendationSet = await buildRecommendationSetV2({
+      state,
+      view,
+      actor: metadata.localSide,
+      patch: metadata.patch,
+      computeSuggestions: deps.computeSuggestions,
+    });
+
+    if (url.searchParams.get("format") === "legacy") {
+      return Response.json(translateRecommendationSetToLegacySuggestionSet(recommendationSet));
+    }
+    return Response.json(recommendationSet);
+  }
+
   return {
     post,
     get,
     postCommand,
     postSimulatorAuthority,
     postBotSelection,
+    getRecommendations,
     parseSessionId,
     parseSessionSubpath,
   };

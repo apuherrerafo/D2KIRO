@@ -22,6 +22,7 @@ import {
 } from "./calibration";
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V6 } from "./weights";
+import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
 
 export interface Suggestion {
   hero: HeroId;
@@ -63,6 +64,9 @@ export interface SuggestionSet {
   comparison: SuggestionComparison | null;
   degraded: DegradationFlag[];
   computedInMs: number;
+  /** Internal provenance transport for RecommendationSet/v2. Non-enumerable at runtime, so the
+   * legacy suggestions/v1 wire response remains byte-identical. */
+  functionalEvidence?: FunctionalRecommendationEvidence;
 }
 
 export interface BuildSuggestionsOptions {
@@ -103,6 +107,16 @@ export interface BuildSuggestionsOptions {
   // buildSuggestions vuelve a la redistribución candidate-specific de V6 (mixScore + normalize
   // sobre RAW_RANGE + computeConfidence por conteo de nulls), byte a byte. No lo usa producción.
   _legacyMixMode?: boolean;
+  // R1 S5 (independent architecture review, blocker 3 -- LEGAL ACTION FIRST): opcional,
+  // server-derived, determinista. Ausente -> comportamiento byte-idéntico al actual (ningún
+  // llamador legacy pasa esto). Cuando el llamador SÍ conoce un universo de héroes certificado
+  // (p. ej. el snapshot de elegibilidad de Captain's Mode), restringe el candidate pool a ESE
+  // conjunto ANTES de rankear/recortar a TOP_N -- nunca al revés ("rankear el catálogo global y
+  // filtrar después"), que puede perder al mejor héroe legal si cae fuera del top global. No es
+  // una segunda fuente de legalidad: el llamador es quien certifica este conjunto (recommendation/
+  // decision.ts's `eligibleHeroIds`, derivado de legalGameplayActions), este campo sólo le dice a
+  // V6 sobre qué universo rankear.
+  candidateHeroIds?: readonly HeroId[];
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -718,6 +732,12 @@ function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSugg
   let candidates = Object.keys(meta.heroes)
     .map(Number)
     .filter((hero) => !excluded.has(hero));
+  // Blocker 3: applied BEFORE ranking/TOP_N -- a certified legal universe (Captain's Mode) must
+  // never lose its best hero to a global top-N cutoff that never saw it as a candidate.
+  if (options.candidateHeroIds) {
+    const allowed = new Set(options.candidateHeroIds);
+    candidates = candidates.filter((hero) => allowed.has(hero));
+  }
   if (options.teamOpening || options.targetPosition === undefined) return candidates;
 
   const positions = options.heroPositions ?? MODULE_HERO_POSITIONS;
@@ -751,6 +771,83 @@ function diversifyEquivalentCandidates<T extends { hero: HeroId; score: number }
   return [...rotated, ...scored.filter((entry) => !frontierHeroes.has(entry.hero))];
 }
 
+/** Constructs the input-only provenance passed to RecommendationSet/v2. It intentionally reads
+ * the pre-ranking scorer pass (`raw`) and the team-opening inputs, never `ranked`, `suggestions`,
+ * scores, final reasons, confidence, or degradations. */
+function functionalRecommendationEvidence(
+  raw: readonly { hero: HeroId; signals: readonly SignalContribution[] }[],
+  meta: MetaSnapshot,
+  options: BuildSuggestionsOptions,
+  banned: readonly HeroId[],
+  heroPositions: HeroPositions,
+  heroCapabilities: readonly HeroCapabilities[],
+  heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]>,
+  isTeamOpening: boolean,
+): FunctionalRecommendationEvidence {
+  const candidateHeroes = new Set(raw.map((candidate) => candidate.hero));
+  const candidates = [...candidateHeroes].sort((a, b) => a - b);
+  const signalEvidence = raw.map((candidate) => ({
+    hero: candidate.hero,
+    signals: candidate.signals.map((signal) => ({
+      signal: signal.signal,
+      raw: signal.raw,
+      normalized: signal.normalized ?? null,
+      evidenceConfidence: signal.evidenceConfidence ?? null,
+      explanation: signal.explanation,
+      sampleSize: signal.sampleSize,
+      applicable: signal.applicable ?? null,
+    })),
+  }));
+  const positions = candidates.map((hero) => ({
+    hero,
+    positions: (heroPositions[hero] ?? []).map((entry) => ({ position: entry.position, matches: entry.matches })),
+  }));
+  if (!isTeamOpening) {
+    return { metaIsStale: options.metaIsStale === true, signalEvidence, heroPositions: positions, teamOpening: null, partyPreferredPositions: [] };
+  }
+
+  // Names of a candidate and of a banned counter are the only MetaHeroInfo fields read by the
+  // opening summary. A name for an unrelated, unbanned non-candidate is deliberately excluded.
+  const bannedSet = new Set(banned);
+  const referencedBannedCounters = candidates.flatMap((hero) => [
+    ...(meta.matchups[hero] ?? []).map((matchup) => matchup.vsHero),
+    ...(heroCounters.get(hero) ?? []).map((counter) => counter.vs),
+  ]).filter((hero) => bannedSet.has(hero));
+  const namedHeroes = new Set([...candidates, ...referencedBannedCounters]);
+  return {
+    metaIsStale: options.metaIsStale === true,
+    signalEvidence,
+    heroPositions: positions,
+    teamOpening: {
+      heroCapabilities: heroCapabilities
+        .filter((entry) => candidateHeroes.has(entry.hero))
+        .map((entry) => ({
+          hero: entry.hero,
+          damageType: entry.damageType,
+          hasInitiation: entry.hasInitiation,
+          hasCatch: entry.hasCatch,
+          hasWaveclear: entry.hasWaveclear,
+          structuralDamage: entry.structuralDamage,
+          teamfight: entry.teamfight,
+          scaling: entry.scaling,
+        })),
+      matchups: candidates.flatMap((hero) => (meta.matchups[hero] ?? []).map((matchup) => ({ hero, ...matchup }))),
+      curatedCounters: candidates.flatMap((hero) =>
+        (heroCounters.get(hero) ?? []).map((counter) => ({ hero, vsHero: counter.vs, level: counter.level, why: counter.why })),
+      ),
+      heroNames: [...namedHeroes]
+        .sort((a, b) => a - b)
+        .flatMap((hero) => (meta.heroes[hero] ? [{ hero, name: meta.heroes[hero]!.localizedName }] : [])),
+    },
+    partyPreferredPositions: [],
+  };
+}
+
+function attachFunctionalEvidence(suggestionSet: SuggestionSet, evidence: FunctionalRecommendationEvidence): SuggestionSet {
+  Object.defineProperty(suggestionSet, "functionalEvidence", { value: evidence, enumerable: false });
+  return suggestionSet;
+}
+
 export function buildSuggestions(
   state: DraftState,
   meta: MetaSnapshot,
@@ -768,6 +865,7 @@ export function buildSuggestions(
   // (costura S10/S9).
   const heroPositions = options.heroPositions ?? MODULE_HERO_POSITIONS;
   const heroCapabilities = options.heroCapabilities ?? MODULE_HERO_CAPABILITIES;
+  const heroCounters = options.heroCounters ?? MODULE_HERO_COUNTERS;
   // Al abrir un draft de equipo no existe todavía un "héroe del usuario". Excluir la señal de
   // hero pool evita que la comodidad de una sola cuenta decida la composición que el capitán está
   // armando para cinco jugadores; no es un cambio de peso sino una restricción de contexto.
@@ -776,18 +874,20 @@ export function buildSuggestions(
   // datos inyectables (heroPositions/heroCapabilities/archetypeIntent). Se construyen por llamada.
   const scorers: SignalScorer[] = [
     ...baseScorers,
-    createCounterScorer(options.heroCounters ?? MODULE_HERO_COUNTERS),
+    createCounterScorer(heroCounters),
     createPositionFitScorer(heroPositions),
     createTeamSynergyScorer(heroCapabilities),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
   ];
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
   const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
+  const emptyFunctionalEvidence = () =>
+    functionalRecommendationEvidence([], meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening);
 
   const voting = votingSignals(state, meta, options);
   if (voting.size === 0) {
     degraded.push("no_signal_available");
-    return {
+    return attachFunctionalEvidence({
       schema: "suggestions/v1",
       sessionId: state.sessionId,
       basedOnSeq: state.lastSeq,
@@ -796,12 +896,12 @@ export function buildSuggestions(
       comparison: null,
       degraded,
       computedInMs: now() - start,
-    };
+    }, emptyFunctionalEvidence());
   }
 
   const candidates = candidatePool(state, meta, options);
   if (candidates.length === 0) {
-    return {
+    return attachFunctionalEvidence({
       schema: "suggestions/v1",
       sessionId: state.sessionId,
       basedOnSeq: state.lastSeq,
@@ -810,7 +910,7 @@ export function buildSuggestions(
       comparison: null,
       degraded,
       computedInMs: now() - start,
-    };
+    }, emptyFunctionalEvidence());
   }
 
   const legacyMix = options._legacyMixMode === true;
@@ -903,7 +1003,7 @@ export function buildSuggestions(
           matchups: meta.matchups[entry.hero] ?? [],
           // TSK-191: la capa curada de counter-picks alimenta el alivio por bans de la apertura,
           // no sólo los matchups estadísticos ≥200 partidas.
-          curatedCounters: (options.heroCounters ?? MODULE_HERO_COUNTERS).get(entry.hero)?.map((c) => ({ vs: c.vs, level: c.level })) ?? [],
+          curatedCounters: heroCounters.get(entry.hero)?.map((c) => ({ vs: c.vs, level: c.level })) ?? [],
         })),
         banned: state.banned,
         heroNames: Object.fromEntries(Object.values(meta.heroes).map((entry) => [entry.id, entry.localizedName])),
@@ -961,7 +1061,7 @@ export function buildSuggestions(
   };
   });
 
-  return {
+  return attachFunctionalEvidence({
     schema: "suggestions/v1",
     sessionId: state.sessionId,
     basedOnSeq: state.lastSeq,
@@ -970,5 +1070,5 @@ export function buildSuggestions(
     comparison: buildComparison(suggestions),
     degraded,
     computedInMs: now() - start,
-  };
+  }, functionalRecommendationEvidence(raw, meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening));
 }
