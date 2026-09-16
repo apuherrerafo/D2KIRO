@@ -14,17 +14,143 @@ import type { DraftDecisionContext } from "../drafter/decision-context";
 // Pro-Drafter (drafter/team-opener.ts) is NOT wired into this module at all: see
 // architecture-guard.test.ts, which asserts recommendation/** never imports it.
 
-/** S6 (lookahead/opponent-modeling) is out of scope for this slice. Every deferred field carries
- * this exact literal -- never `null`, never a fabricated number -- so a consumer can never mistake
- * "not built yet" for "computed and empty/zero". */
+/** Literal marker for "not computed at all" -- distinct from every S6 sentinel below, which mean
+ * "computed, and here is exactly why no concrete response/steal/lookahead exists". Used only when
+ * there is no top recommendation to lookahead from at all (empty `recommendations[]`) or when V6
+ * itself never ran for our own side (no legal action / computeSuggestions failed) -- see
+ * build.ts's `emptyWithoutEvidence`/`empty` helpers, the only two call sites that still produce
+ * this literal after S6. */
 export const NOT_COMPUTED = "NOT_COMPUTED" as const;
 export type NotComputed = typeof NOT_COMPUTED;
 
+// ---------------------------------------------------------------------------------------------
+// S6 -- One-Ply Opponent Response + Steal + Counterfactual Lookahead.
+//
+// Scope: ONE opponent ply, computed for `recommendations[0]` only (the top-ranked candidate) --
+// `deferred` is a single set of 4 fields on the SET, not an array keyed per recommendation (that
+// is the frozen RecommendationDeferredFields shape S5 already committed to). Bounded by
+// construction: at most 2 extra V6 calls per RecommendationSetV2 build (one opponent "baseline"
+// call against the CURRENT state, one opponent "after" call against the counterfactual state
+// reached by hypothetically applying the top recommendation's own action(s) through the SAME
+// ProtocolKernel -- never a second reducer, never a mutation of the real session).
+//
+// "Plausible", never "probable"/"likely %": no calibrated opponent-behavior model exists. Every
+// score below is V6's own canonical model score, reused verbatim from the opponent's own
+// perspective -- never converted into, or described as, a probability.
+//
+// See lookahead.ts for the orchestrator and observation-point.ts/opponent-model.ts/steal.ts for
+// the primitives. All four sentinel-carrying literals below share ONE status vocabulary
+// (OnePlyStatus) so a caller never has to reconcile two different "why nothing is here" stories
+// for the same one-ply attempt.
+// ---------------------------------------------------------------------------------------------
+
+export type OnePlyStatus =
+  /** A concrete, legal, scored opponent action was found -- see `action`/`score`. */
+  | "PLAUSIBLE_RESPONSE"
+  /** The counterfactual state has no legal HERO-targeting action for the opponent within one ply
+   * (e.g. it is still our own side's turn again -- CM steps 1-2 share the same relative actor --
+   * or the opponent's only legal action is a hero-less CM_BAN_SKIPPED). Never fabricated. */
+  | "NO_LEGAL_RESPONSE"
+  /** Our hypothetical action itself produced a 3rd+ same-hero collision -- the kernel pauses in
+   * WAITING_FOR_COLLISION_AUTHORITY. No side has a legal gameplay action until an external
+   * authority resolves it, so no opponent response is invented. */
+  | "COLLISION_PENDING"
+  /** The counterfactual state reached COMPLETE -- no further decision exists for anyone. */
+  | "DRAFT_COMPLETE"
+  /** The kernel rejected the top recommendation's own hypothetical action while simulating it.
+   * Structurally unreachable in practice (build.ts already validated this exact action against
+   * the SAME state via postValidateAction before it became `recommendations[0]`), kept as an
+   * explicit fail-closed branch rather than letting a kernel rejection throw. */
+  | "OWN_ACTION_UNAVAILABLE"
+  /** The observation point was reachable and legal, but V6 could not be asked (computeSuggestions
+   * threw) or returned no scorable candidate for the opponent's certified universe. */
+  | "SIMULATION_UNAVAILABLE";
+
+export interface CounterfactualIdentity {
+  /** perspectiveStateHash of the OPPONENT's own view of the counterfactual (post-hypothetical-
+   * action) state -- same redaction discipline as basedOn.stateIdentity, computed from the
+   * opponent's perspective because that is whose legal/plausible universe this identity covers. */
+  stateIdentity: string;
+  /** Names WHICH perspective this is (ruleset + opponent side), separate from stateIdentity --
+   * same split as identity.ts's own perspectiveIdentity. */
+  perspectiveIdentity: string;
+  rulesHash: string;
+  /** Captain's Mode only -- content hash of the eligibility snapshot governing the opponent's
+   * certified universe at the counterfactual point. Null for Ranked All Pick and for CM with no
+   * snapshot loaded. */
+  eligibilityHash: string | null;
+  /** Functional hash of the evidence V6 actually produced for the opponent's "after" call --
+   * evidence.ts's evidenceIdentityHash, reused verbatim. Null whenever no opponent V6 call was
+   * ever made (NO_LEGAL_RESPONSE / COLLISION_PENDING / DRAFT_COMPLETE / OWN_ACTION_UNAVAILABLE). */
+  evidenceIdentity: string | null;
+  seed: string | null;
+}
+
+export interface OpponentResponse {
+  status: OnePlyStatus;
+  actor: TeamSide | null;
+  action: RecommendationAction | null;
+  /** V6's own canonical model score for `action.hero` from the opponent's perspective -- NOT a
+   * probability, NOT a percentage. Null whenever `action` is null. */
+  score: number | null;
+  confidence: "alta" | "media" | "baja" | null;
+  evidence: EvidenceItem[];
+  basedOnCounterfactualState: CounterfactualIdentity;
+}
+
+export type StealStatus =
+  | OnePlyStatus
+  /** Our candidate action truly removed a hero the opponent's own V6 model already considered a
+   * strong baseline candidate -- it is banned/confirmed-picked AND revealed to them now. */
+  | "MATERIALIZED"
+  /** The hero remains in the opponent's own visible/legal universe after our action (still sealed-
+   * but-hidden to them, or simply untouched) -- protocol-real availability, never "probably safe". */
+  | "STILL_CONTESTABLE"
+  /** Opponent modeling succeeded, but none of our candidate's hero(es) were ever a baseline
+   * candidate for the opponent at all (absent from their own V6 ranking before our action). */
+  | "NOT_APPLICABLE";
+
+export interface StealEvaluation {
+  status: StealStatus;
+  heroId: HeroId | null;
+  /** V6's own canonical model score for `heroId` from the opponent's perspective BEFORE our
+   * candidate action (the CURRENT, unmodified authoritative state) -- null when `heroId` is null
+   * or was never scored (absent from the opponent's own baseline ranking). */
+  opponentBaselineValue: number | null;
+  /** Same, from the opponent's perspective AFTER our candidate action (the counterfactual state).
+   * Null when `heroId` is null, or when the hero is genuinely gone from their universe (status
+   * MATERIALIZED) -- V6 never scores an already-banned/picked hero, so "gone" IS the absence,
+   * never a fabricated 0. */
+  afterOurActionValue: number | null;
+  /** The concrete action the opponent settles for once `heroId` is gone (status MATERIALIZED) --
+   * the SAME object as `opponentResponse.action` when both are computed, never re-derived. */
+  displacedResponse: RecommendationAction | null;
+  evidence: EvidenceItem[];
+}
+
+export interface OnePlyLookahead {
+  depth: 1;
+  status: OnePlyStatus;
+  ourAction: readonly RecommendationAction[];
+  /** Same object as the sibling `opponentResponse` field -- restated here because the frozen
+   * suggested shape names it as part of the lookahead container, never re-derived. */
+  opponentResponse: OpponentResponse | null;
+  resultingEvaluation: {
+    /** `recommendations[0].score` -- the same S5 number, restated for convenience, never
+     * recomputed. */
+    ourActionScore: number;
+    opponentResponseScore: number | null;
+    /** opponentResponseScore - ourActionScore, in canonical V6 model units. Purely descriptive --
+     * no threshold/verdict is attached to this number anywhere in this codebase. */
+    scoreDelta: number | null;
+  } | null;
+}
+
 export interface RecommendationDeferredFields {
-  opponentResponse: NotComputed;
-  steal: NotComputed;
-  lookahead: NotComputed;
-  counterfactual: NotComputed;
+  opponentResponse: OpponentResponse | NotComputed;
+  steal: StealEvaluation | NotComputed;
+  lookahead: OnePlyLookahead | NotComputed;
+  counterfactual: CounterfactualIdentity | NotComputed;
 }
 
 export function deferredFieldsNotComputed(): RecommendationDeferredFields {
@@ -128,10 +254,13 @@ export interface RecommendationRoleImpact {
 // ---------------------------------------------------------------------------------------------
 
 export interface EvidenceItem {
-  source: "v6-signal" | "role-belief" | "protocol-ruleset" | "cm-eligibility";
+  source: "v6-signal" | "role-belief" | "protocol-ruleset" | "cm-eligibility" | "opponent-model";
   version: string;
   subject: HeroId | null;
-  signal: SignalId | "role_belief" | "ruleset_identity" | "eligibility";
+  /** "opponent_model" (S6, opponent-model.ts/steal.ts): V6's canonical score for `subject` from
+   * the OPPONENT's own perspective -- structurally distinct from "v6-signal" (which is always
+   * OUR OWN side's score) so a consumer can never confuse the two by accident. */
+  signal: SignalId | "role_belief" | "ruleset_identity" | "eligibility" | "opponent_model";
   value: number | string | null;
   /** Weighted contribution to score, when this evidence item came from a scored signal. Null for
    * provenance-only evidence (ruleset identity, eligibility, role belief). */
