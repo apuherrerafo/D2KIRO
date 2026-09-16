@@ -1,4 +1,5 @@
 import { rulesHash } from "../draft-protocol";
+import { compareStatisticalMatchups } from "../draft/statistical-matchup";
 import type { RoleBeliefEvidence } from "../draft-protocol/roles/role-belief";
 import type { HeroId, RulesetIdentity } from "../draft-protocol/types";
 import type { SignalContribution } from "../signals/types";
@@ -116,7 +117,7 @@ export function evidenceIdentityHash(evidence: FunctionalRecommendationEvidence)
       .sort(byHero),
     teamOpening: evidence.teamOpening && {
       heroCapabilities: [...evidence.teamOpening.heroCapabilities].sort(byHero),
-      matchups: [...evidence.teamOpening.matchups].sort((a, b) => a.hero - b.hero || a.vsHero - b.vsHero || a.games - b.games || a.wins - b.wins),
+      matchups: [...evidence.teamOpening.matchups].sort((a, b) => a.hero - b.hero || compareStatisticalMatchups(a, b)),
       curatedCounters: [...evidence.teamOpening.curatedCounters].sort((a, b) => a.hero - b.hero || a.vsHero - b.vsHero || a.level.localeCompare(b.level) || a.why.localeCompare(b.why)),
       heroNames: [...evidence.teamOpening.heroNames].sort(byHero),
     },

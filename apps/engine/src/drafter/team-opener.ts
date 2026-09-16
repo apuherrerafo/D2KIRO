@@ -1,4 +1,5 @@
 import type { HeroId } from "../draft/reducer";
+import { canonicalizeStatisticalMatchups } from "../draft/statistical-matchup";
 
 const MIN_MATCHUP_GAMES = 200;
 // TSK-191: subido de 0.12 a 0.30 (valor de arranque QA-tuneable). Con 0.12 el alivio por bans
@@ -61,7 +62,9 @@ function counterRelief(candidate: TeamOpenerCandidate, banned: Set<HeroId>): Ope
     (entry) => ({ kind: "counter_relief" as const, hero: entry.vs, source: "curated" as const, level: entry.level }),
   );
 
-  const statisticalEvidence = candidate.matchups
+  // Rows come from meta storage and have no semantic insertion order. Canonicalize before
+  // selecting, scoring, or rendering them so equivalent matchup sets have one V6 output.
+  const statisticalEvidence = canonicalizeStatisticalMatchups(candidate.matchups)
     .filter(
       (matchup) =>
         banned.has(matchup.vsHero) &&
@@ -75,7 +78,7 @@ function counterRelief(candidate: TeamOpenerCandidate, banned: Set<HeroId>): Ope
 }
 
 function reliefScore(candidate: TeamOpenerCandidate, evidence: OpenerEvidence[]): number {
-  const byHero = new Map(candidate.matchups.map((matchup) => [matchup.vsHero, matchup]));
+  const byHero = new Map(canonicalizeStatisticalMatchups(candidate.matchups).map((matchup) => [matchup.vsHero, matchup]));
   const total = evidence.reduce((sum, item) => {
     if (item.source === "curated") return sum + CURATED_RELIEF[item.level];
     const matchup = byHero.get(item.hero);

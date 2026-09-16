@@ -9,7 +9,10 @@ import type { CmHeroEligibilitySnapshot, DraftProtocolState, TeamSide } from "..
 import type { DraftState } from "../draft/reducer";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
+import { buildSuggestions } from "../signals/mix";
+import type { MetaSnapshot } from "../signals/types";
 import { buildRecommendationSetV2, type ComputeSuggestionsForRecommendation } from "./build";
+import { evidenceIdentityHash } from "./evidence";
 import type { FunctionalRecommendationEvidence } from "./evidence";
 
 const HERO_POSITIONS: HeroPositions = {
@@ -434,5 +437,69 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
     const loaded = applyProtocolCommand(confirmed, { type: "LOAD_CM_ELIGIBILITY", snapshot }).state;
     const set = await buildFor(loaded, "radiant", [1, 2, 3]);
     expect(set.basedOn.heroEligibilityHash).toBe(snapshot.contentHash);
+  });
+
+  test("statistical matchup order has one V6, legacy, RecommendationSet, and identity output", async () => {
+    const rows = [
+      { vsHero: 2, games: 200, wins: 76 },
+      { vsHero: 3, games: 200, wins: 76 },
+    ];
+    const meta = (matchups: MetaSnapshot["matchups"]): MetaSnapshot => ({
+      heroes: Object.fromEntries(Array.from({ length: 10 }, (_, index) => {
+        const hero = index + 1;
+        return [hero, { id: hero, localizedName: ["One", "Two", "Three"][index] ?? `Hero ${hero}` }];
+      })),
+      matchups,
+    });
+    const state = cmReadyState("cm-statistical-order", Array.from({ length: 10 }, (_, index) => index + 1));
+    const banCommands = [
+      { actor: "first" as const, heroId: 2 },
+      { actor: "first" as const, heroId: 3 },
+      { actor: "second" as const, heroId: 4 },
+      { actor: "second" as const, heroId: 5 },
+      { actor: "first" as const, heroId: 6 },
+      { actor: "second" as const, heroId: 7 },
+      { actor: "second" as const, heroId: 8 },
+    ];
+    let pickState = state;
+    for (const command of banCommands) {
+      const result = applyProtocolCommand(pickState, { type: "CM_ACTION", actor: command.actor, kind: "BAN", heroId: command.heroId });
+      if (result.rejected) throw new Error(`fixture ban rejected: ${result.rejected}`);
+      pickState = result.state;
+    }
+
+    const compute = (matchups: MetaSnapshot["matchups"]) => {
+      let suggestionSet: SuggestionSet | undefined;
+      const computeSuggestions: ComputeSuggestionsForRecommendation = async (legacyState, _accountId, options) => {
+        suggestionSet = buildSuggestions(legacyState, meta(matchups), {
+          ...options,
+          heroPositions: HERO_POSITIONS,
+          heroCapabilities: [],
+          heroCounters: new Map(),
+        });
+        return suggestionSet;
+      };
+      return { computeSuggestions, suggestionSet: () => suggestionSet! };
+    };
+
+    const ordered = compute({ 1: rows });
+    const reversed = compute({ 1: [...rows].reverse() });
+    const input = { state: pickState, view: project(pickState, "radiant"), actor: "radiant" as const, patch: "7.41e", heroPositions: HERO_POSITIONS };
+    const left = await buildRecommendationSetV2({ ...input, computeSuggestions: ordered.computeSuggestions });
+    const right = await buildRecommendationSetV2({ ...input, computeSuggestions: reversed.computeSuggestions });
+
+    expect(evidenceIdentityHash(ordered.suggestionSet().functionalEvidence!)).toBe(evidenceIdentityHash(reversed.suggestionSet().functionalEvidence!));
+    expect(ordered.suggestionSet().suggestions).toEqual(reversed.suggestionSet().suggestions);
+    expect(ordered.suggestionSet().suggestions.find((suggestion) => suggestion.hero === 1)!.reason).toContain("Two y Three");
+    expect(left.recommendations.find((recommendation) => recommendation.actions[0]!.hero === 1)!.legacy!.reason).toBe(
+      right.recommendations.find((recommendation) => recommendation.actions[0]!.hero === 1)!.legacy!.reason,
+    );
+    expect(JSON.stringify(left)).toBe(JSON.stringify(right));
+    expect(left.basedOn.evidenceVersion).toBe(right.basedOn.evidenceVersion);
+
+    const changed = compute({ 1: [{ vsHero: 2, games: 200, wins: 75 }, rows[1]!] });
+    const changedSet = await buildRecommendationSetV2({ ...input, computeSuggestions: changed.computeSuggestions });
+    expect(changedSet.basedOn.evidenceVersion).not.toBe(left.basedOn.evidenceVersion);
+    expect(JSON.stringify(changedSet)).not.toBe(JSON.stringify(left));
   });
 });
