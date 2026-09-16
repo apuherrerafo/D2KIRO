@@ -7,6 +7,7 @@ import { getSteamPlayerProfile, type SteamPlayerProfile } from "@/lib/steam-prof
 
 const LOGIN_NONCE_COOKIE = "d2k_login_nonce";
 type SteamVerification = Awaited<ReturnType<typeof verifySteamCallback>>;
+type AuthFailure = "missing_nonce" | "nonce_mismatch" | "steam_verify_failed" | "invalid_steam_identity" | "account_create_failed" | "profile_fetch_failed" | "session_save_failed" | "auth_config_invalid";
 
 interface CallbackDependencies {
   readNonce: () => string | undefined;
@@ -18,7 +19,10 @@ interface CallbackDependencies {
   createToken: (accountId: number) => string;
 }
 
-function loginError(request: Request): NextResponse {
+function loginError(request: Request, failure: AuthFailure): NextResponse {
+  if (process.env.NODE_ENV === "development") {
+    console.error(`[auth] Steam login failed: ${failure}`);
+  }
   return NextResponse.redirect(new URL("/login?error=auth_failed", request.url));
 }
 
@@ -29,21 +33,35 @@ export function createCallbackHandler(dependencies: CallbackDependencies) {
     const params = new URL(request.url).searchParams;
     const expectedNonce = dependencies.readNonce();
     dependencies.clearNonce();
-    if (!expectedNonce || params.get("state") !== expectedNonce) return loginError(request);
+    if (!expectedNonce) return loginError(request, "missing_nonce");
+    if (params.get("state") !== expectedNonce) return loginError(request, "nonce_mismatch");
 
     try {
       const verification = await dependencies.verify(params);
-      if (!verification.ok) return loginError(request);
+      if (!verification.ok) return loginError(request, "steam_verify_failed");
 
       const accountId = steamId64ToSteam32(verification.steamId64);
-      if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(request);
-      if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(request);
+      if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(request, "invalid_steam_identity");
+      try {
+        if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(request, "account_create_failed");
+      } catch {
+        return loginError(request, "account_create_failed");
+      }
 
-      const profile = await dependencies.getProfile(accountId, verification.steamId64);
-      await dependencies.startSession(accountId, profile);
+      let profile: SteamPlayerProfile;
+      try {
+        profile = await dependencies.getProfile(accountId, verification.steamId64);
+      } catch {
+        return loginError(request, "profile_fetch_failed");
+      }
+      try {
+        await dependencies.startSession(accountId, profile);
+      } catch {
+        return loginError(request, "session_save_failed");
+      }
       return NextResponse.redirect(new URL("/", request.url));
     } catch {
-      return loginError(request);
+      return loginError(request, "steam_verify_failed");
     }
   };
 }
@@ -52,7 +70,7 @@ export async function GET(request: Request) {
   const cookieStore = await cookies();
   const internalSecret = process.env.INTERNAL_AUTH_SECRET;
   const engineUrl = process.env.ENGINE_INTERNAL_URL;
-  if (!internalSecret || internalSecret.length < 32 || !engineUrl) return loginError(request);
+  if (!internalSecret || internalSecret.length < 32 || !engineUrl) return loginError(request, "auth_config_invalid");
 
   return createCallbackHandler({
     readNonce: () => cookieStore.get(LOGIN_NONCE_COOKIE)?.value,

@@ -15,7 +15,7 @@ Esperá hasta ver un mensaje como este:
 
 ```
 [dev:mvp] Listo (si ambos procesos arrancaron sin error arriba).
-[dev:mvp] Simulador:      http://127.0.0.1:3000/simulator
+[dev:mvp] Simulador:      http://localhost:3000/simulator
 [dev:mvp] Motor (salud):  http://127.0.0.1:4000/api/health
 [dev:mvp] Ctrl+C detiene los dos procesos.
 ```
@@ -30,7 +30,7 @@ otra ventana de terminal que haya quedado abierta de una prueba anterior y volv�
 Abrí tu navegador en:
 
 ```
-http://127.0.0.1:3000/simulator
+http://localhost:3000/simulator
 ```
 
 La primera vez te va a pedir loguearte con Steam — es el login real, el mismo que en producción.

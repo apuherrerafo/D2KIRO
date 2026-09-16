@@ -85,6 +85,24 @@ describe("rutas de autenticación Steam", () => {
     expect(sessionStarted).toBe(false);
   });
 
+  test("callback no abre sesión cuando la creación de cuenta del motor falla", async () => {
+    let sessionStarted = false;
+    const handler = createCallbackHandler({
+      readNonce: () => NONCE,
+      clearNonce: () => undefined,
+      verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
+      createAccount: async () => { throw new Error("missing accounts table"); },
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      startSession: async () => { sessionStarted = true; },
+      createToken: () => "unused",
+    });
+
+    const failedResponse = await handler(new Request(`https://coach.example/api/auth/steam/callback?state=${NONCE}`));
+
+    expect(failedResponse.headers.get("location")).toBe("https://coach.example/login?error=auth_failed");
+    expect(sessionStarted).toBe(false);
+  });
+
   test("logout destruye la sesión y devuelve a login", async () => {
     let destroyed = false;
     const response = await createLogoutHandler(async () => { destroyed = true; })();
