@@ -1,14 +1,13 @@
-import { isSealedSelectionLegal } from "../draft-protocol";
 import { derivePerspectiveSuggestionInputs, perspectiveToLegacyDraftState } from "../draft-protocol/adapters/suggestion-bridge";
 import type { DraftProtocolState, HeroId, PerspectiveDraftView, TeamSide } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions";
 import type { SuggestionSet } from "../signals/mix";
-import type { DraftState } from "../draft/reducer";
 import { buildBasedOn } from "./identity";
 import { deriveLegalDecision } from "./decision";
 import { computeRoleImpact } from "./role-impact";
 import { buildCompoundCandidates, buildShortlist, type ShortlistEntry } from "./shortlist";
+import { excludedHeroes, postValidateAction, type ComputeSuggestionsForRecommendation } from "./legality";
 import {
   deriveRisks,
   evidenceFromEligibility,
@@ -18,6 +17,7 @@ import {
   evidenceIdentityHash,
   type FunctionalRecommendationEvidence,
 } from "./evidence";
+import { computeOnePlyLookahead } from "./lookahead";
 import { deferredFieldsNotComputed } from "./types";
 import type {
   Recommendation,
@@ -61,13 +61,7 @@ import type {
 
 export const RECOMMENDATION_OUTPUT_LIMIT = 5;
 
-/** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --
- * intentionally not imported from there, to avoid a route -> recommendation -> route cycle. */
-export type ComputeSuggestionsForRecommendation = (
-  state: DraftState,
-  accountId: null,
-  options?: { teamOpening?: boolean; diversitySeed?: string; candidateHeroIds?: readonly HeroId[] },
-) => Promise<SuggestionSet>;
+export type { ComputeSuggestionsForRecommendation } from "./legality";
 
 export interface BuildRecommendationSetV2Input {
   state: DraftProtocolState;
@@ -94,46 +88,6 @@ export interface BuildRecommendationSetV2Input {
 function pushUniqueDegradation(list: RecommendationDegradation[], entry: RecommendationDegradation): void {
   if (list.some((existing) => existing.reason === entry.reason && existing.detail === entry.detail)) return;
   list.push(entry);
-}
-
-function excludedHeroes(legacyState: DraftState): Set<HeroId> {
-  return new Set([...legacyState.banned, ...legacyState.picks.radiant, ...legacyState.picks.dire]);
-}
-
-/** Second, independent legality check against the SAME authoritative state a Recommendation is
- * about to be built from -- deliberately re-derives legality from `state` directly rather than
- * trusting `excludedHeroes(legacyState)` (the suggestion-bridge projection), so a bridging bug
- * cannot silently produce an illegal Recommendation.
- *
- * Blocker 2 (independent architecture review, hidden noninterference): the Ranked All Pick branch
- * used to also treat EVERY currently-sealed hero (both sides, including the opponent's
- * hidden-but-unrevealed selection) as "taken". That is wrong on two counts at once: it is not what
- * the kernel itself enforces (rulesets/ranked-all-pick.ts's own `heroAlreadyTaken` only checks
- * banned + CONFIRMED picks -- a same-hero collision between sides is legal, resolved later at
- * round close), and it let a hidden enemy sealed hero silently change which Recommendations this
- * side sees, purely through presence/absence, before that hero was ever revealed -- a real
- * information leak through an observable side channel. `isSealedSelectionLegal` is the kernel's
- * own per-heroId oracle for this exact slot; reusing it verbatim (instead of re-deriving a second,
- * divergent predicate here) makes it structurally impossible for this check to be either more
- * restrictive OR more permissive than the kernel's own SUBMIT_SEALED_SELECTION acceptance. */
-function postValidateAction(
-  state: DraftProtocolState,
-  heroId: HeroId,
-  eligibleHeroIds: readonly HeroId[] | null,
-  slot: RecommendationSlot,
-): boolean {
-  if (eligibleHeroIds !== null && !eligibleHeroIds.includes(heroId)) return false;
-  if (state.rankedAp) {
-    return isSealedSelectionLegal(state, slot.side, slot.slotIndex, heroId);
-  }
-  if (state.captainsMode) {
-    // Captain's Mode has no hidden information at all (perspective.ts's own contract: CM picks/
-    // bans are immediately REVEALED) -- banned/picked here can never include anything the actor
-    // couldn't already see, so no analogous leak exists on this branch.
-    const cm = state.captainsMode;
-    return !cm.bannedHeroes.includes(heroId) && !cm.picks.radiant.includes(heroId) && !cm.picks.dire.includes(heroId);
-  }
-  return false;
 }
 
 function evidenceForHero(
@@ -250,6 +204,22 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
     return empty("no_action");
   }
 
+  // R1 S6 -- one-ply opponent lookahead, computed ONLY for recommendations[0] (see types.ts's own
+  // header doc on `deferred` for why this stays a single set of 4 fields, not one per
+  // recommendation). Strictly additive: `recommendations` above is already S5-complete and is
+  // never read back from `lookaheadResult` -- a failure here can only ever change `deferred`
+  // and/or append a degradation, never the recommendations/decision/basedOn this function already
+  // committed to.
+  const lookaheadResult = await computeOnePlyLookahead({
+    state,
+    actor,
+    patch,
+    computeSuggestions,
+    seed,
+    topRecommendation: recommendations[0]!,
+  });
+  for (const degradation of lookaheadResult.degradations) pushUniqueDegradation(degradations, degradation);
+
   return {
     schema: "recommendation-set/v2",
     sessionId: view.sessionId,
@@ -257,7 +227,12 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
     decision: legal.decision,
     recommendations,
     degradations,
-    deferred: deferredFieldsNotComputed(),
+    deferred: {
+      opponentResponse: lookaheadResult.opponentResponse,
+      steal: lookaheadResult.steal,
+      lookahead: lookaheadResult.lookahead,
+      counterfactual: lookaheadResult.counterfactual,
+    },
     decisionContext: suggestionSet.decisionContext,
   };
 }

@@ -371,15 +371,35 @@ describe("buildRecommendationSetV2 -- Ranked All Pick", () => {
     expect(set1).toEqual(set2);
   });
 
-  test("S6 y campos derivados nunca contienen una probabilidad de oponente -- siempre NOT_COMPUTED", async () => {
+  test("R1 S6: opponentResponse/steal/lookahead/counterfactual quedan estructurados para recommendations[0], nunca una probabilidad numérica", async () => {
+    // Round 1, both radiant slots open + heroPool with exactly 2 heroes -> a single compound
+    // recommendation (see build.ts's own compound branch). After hypothetically sealing both
+    // radiant slots, dire's own 2 round-1 slots are STILL open (round only resolves once every
+    // slot across both sides is filled) -- a real, reachable one-ply opponent decision point.
     const state = apRound1State("ap-s6");
     const set = await buildFor(state, "radiant", [1, 2]);
-    expect(set.deferred).toEqual({
-      opponentResponse: "NOT_COMPUTED",
-      steal: "NOT_COMPUTED",
-      lookahead: "NOT_COMPUTED",
-      counterfactual: "NOT_COMPUTED",
-    });
+    expect(set.deferred.opponentResponse).not.toBe("NOT_COMPUTED");
+    expect(set.deferred.steal).not.toBe("NOT_COMPUTED");
+    expect(set.deferred.lookahead).not.toBe("NOT_COMPUTED");
+    expect(set.deferred.counterfactual).not.toBe("NOT_COMPUTED");
+    if (
+      set.deferred.opponentResponse === "NOT_COMPUTED" ||
+      set.deferred.steal === "NOT_COMPUTED" ||
+      set.deferred.lookahead === "NOT_COMPUTED" ||
+      set.deferred.counterfactual === "NOT_COMPUTED"
+    ) {
+      throw new Error("unreachable -- narrowed above");
+    }
+    // Same-hero collision remains legal pre-reveal (S1's own frozen contract): dire cannot yet
+    // see radiant's sealed picks, so V6 still ranks hero 1 for dire too -- the plausible response
+    // legitimately names an already-radiant-sealed hero.
+    expect(set.deferred.opponentResponse.status).toBe("PLAUSIBLE_RESPONSE");
+    expect(set.deferred.opponentResponse.actor).toBe("dire");
+    expect(typeof set.deferred.opponentResponse.score).toBe("number");
+    expect(set.deferred.steal.status).toBe("STILL_CONTESTABLE"); // hidden, not yet actually removed
+    expect(set.deferred.lookahead.depth).toBe(1);
+    // NO probability claim anywhere in the S6 payload -- structural guarantee, not a convention.
+    expect(JSON.stringify(set.deferred)).not.toMatch(/probab/i);
   });
 
   test("camino V6 canónico: score/signals de la recomendación single-action son EXACTAMENTE los de V6, sin reescalar", async () => {
@@ -469,15 +489,21 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
     }
 
     const compute = (matchups: MetaSnapshot["matchups"]) => {
+      // R1 S6: buildRecommendationSetV2 now also calls computeSuggestions for the OPPONENT's own
+      // perspective (baseline + after, one-ply lookahead) once radiant's own call already
+      // resolved -- capture only the FIRST call here (radiant's own, which this test's assertions
+      // are actually about) so this fixture stays correct regardless of how many further calls
+      // S6 makes.
       let suggestionSet: SuggestionSet | undefined;
       const computeSuggestions: ComputeSuggestionsForRecommendation = async (legacyState, _accountId, options) => {
-        suggestionSet = buildSuggestions(legacyState, meta(matchups), {
+        const result = buildSuggestions(legacyState, meta(matchups), {
           ...options,
           heroPositions: HERO_POSITIONS,
           heroCapabilities: [],
           heroCounters: new Map(),
         });
-        return suggestionSet;
+        if (suggestionSet === undefined) suggestionSet = result;
+        return result;
       };
       return { computeSuggestions, suggestionSet: () => suggestionSet! };
     };

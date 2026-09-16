@@ -47,15 +47,28 @@ describe("recommendation/** -- determinismo: sin reloj de pared ni azar sin semi
 });
 
 describe("recommendation/** -- S6 nunca se calcula por accidente", () => {
-  test("los 4 campos S6 son literalmente NOT_COMPUTED en su único punto de origen (types.ts)", () => {
+  test("NOT_COMPUTED sigue siendo un literal real en su único punto de origen (types.ts) -- sigue en uso para 'sin recommendations[0]'", () => {
     const types = sourceFiles().find((f) => f.path === "types.ts")!;
     expect(types.content).toContain('export const NOT_COMPUTED = "NOT_COMPUTED"');
   });
 
-  test("ningún archivo fuera de types.ts asigna un valor propio a opponentResponse/steal/lookahead/counterfactual", () => {
+  // R1 S6: opponentResponse/steal/lookahead/counterfactual ahora SÍ se calculan -- la regla ya no
+  // puede ser "nadie fuera de types.ts los asigna" (eso era el candado de la Fase pre-S6, cuando
+  // el único valor legal era NOT_COMPUTED). La regla real ahora: SÓLO el orquestador (lookahead.ts)
+  // y su único llamador (build.ts, que adjunta el resultado a `deferred` verbatim) pueden asignar
+  // estos 4 campos -- ningún otro archivo (una señal, un scorer, un adaptador de transporte) puede
+  // reintroducir un segundo punto de cómputo disperso.
+  const S6_ASSIGNMENT_ALLOWLIST = new Set(["types.ts", "build.ts", "lookahead.ts"]);
+
+  test("sólo build.ts y lookahead.ts (además de types.ts) asignan opponentResponse/steal/lookahead/counterfactual", () => {
     const offenders = sourceFiles().filter(
-      (f) => f.path !== "types.ts" && /\b(opponentResponse|steal|lookahead|counterfactual)\s*:/.test(f.content),
+      (f) => !S6_ASSIGNMENT_ALLOWLIST.has(f.path) && /\b(opponentResponse|steal|lookahead|counterfactual)\s*:/.test(f.content),
     );
+    expect(offenders.map((f) => f.path)).toEqual([]);
+  });
+
+  test("PROBABILITY CLAIMS: NONE -- ningún archivo de recommendation/** menciona probabilidad/probability en su código real", () => {
+    const offenders = sourceFiles().filter(({ content }) => /probab/i.test(content));
     expect(offenders.map((f) => f.path)).toEqual([]);
   });
 });
