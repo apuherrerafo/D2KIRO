@@ -24,6 +24,7 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/session/protocol/:sessionId",
   "/engine/api/session/protocol/:sessionId/command",
   "/engine/api/session/protocol/:sessionId/bot-selection",
+  "/engine/api/session/protocol/:sessionId/auto-drive",
   "/engine/api/session/protocol/:sessionId/simulator-authority",
   // R1 S7 (Blocker 2 investigation) -- missing from this allowlist since TSK-214 added the rest of
   // this family: fetchRecommendations() (protocol-client.ts) has been 404ing through this proxy in

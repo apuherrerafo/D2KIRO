@@ -92,6 +92,13 @@ export interface CreateProtocolSessionBody {
   localSide: TeamSide;
   adapterKind: "manual" | "simulator";
   partyContext: PartyContextInput;
+  humanPosition?: 1 | 2 | 3 | 4 | 5;
+  humanRosterSlot?: number;
+  simulatorSeed?: string;
+}
+
+function isDotaPosition(value: unknown): value is 1 | 2 | 3 | 4 | 5 {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
 }
 
 export function isValidCreateProtocolSessionBody(value: unknown): value is CreateProtocolSessionBody {
@@ -101,6 +108,15 @@ export function isValidCreateProtocolSessionBody(value: unknown): value is Creat
   if (!isTeamSide(value.localSide)) return false;
   if (value.adapterKind !== "manual" && value.adapterKind !== "simulator") return false;
   if (!isValidPartyContextInput(value.partyContext) || value.partyContext.side !== value.localSide) return false;
+  const hasSimulatorMetadata = value.humanPosition !== undefined
+    || value.humanRosterSlot !== undefined
+    || value.simulatorSeed !== undefined;
+  if (hasSimulatorMetadata) {
+    if (value.adapterKind !== "simulator") return false;
+    if (!isDotaPosition(value.humanPosition)) return false;
+    if (!Number.isInteger(value.humanRosterSlot) || (value.humanRosterSlot as number) < 0 || (value.humanRosterSlot as number) > 4) return false;
+    if (typeof value.simulatorSeed !== "string" || value.simulatorSeed.length === 0 || value.simulatorSeed.length > 64) return false;
+  }
   return true;
 }
 

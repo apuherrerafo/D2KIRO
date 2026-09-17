@@ -83,4 +83,12 @@ describe("resolveSimulatorCollisionAuthority -- S2.4 SIMULATOR_POLICY", () => {
     const second = resolveSimulatorCollisionAuthority(state, "FIXEDSD");
     expect(first).toEqual(second);
   });
+
+  test("determinismo de replay: el UUID de una sesión nueva no cambia el ganador", () => {
+    const firstState = driveToThirdCollision("fresh-session-a", [401, 402, 403]);
+    const secondState = driveToThirdCollision("fresh-session-b", [401, 402, 403]);
+
+    expect(resolveSimulatorCollisionAuthority(firstState, "FIXEDSD")?.command)
+      .toEqual(resolveSimulatorCollisionAuthority(secondState, "FIXEDSD")?.command);
+  });
 });

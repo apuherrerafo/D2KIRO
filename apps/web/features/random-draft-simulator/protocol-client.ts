@@ -102,16 +102,14 @@ async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
 export interface CreateSimulatorSessionOptions {
   rulesetId?: RulesetId;
   /**
-   * R1 S7 (Blocker 2) -- the human operator still submits every local-side sealed selection
-   * itself (the simulator's whole premise: coach your team's picks), so `controlledSlots` here is
-   * NOT "how many slots the browser is allowed to submit for" -- isCommandAuthorized never checked
-   * that (protocol-session.ts). It is purely the declared party-size metadata S4's role-belief
-   * system (role_gate) reads to size how much of the side is "known" vs a random teammate. Party 4
-   * is never offered here -- createPartyContext (engine, authoritative) rejects it with
-   * INVALID_PARTY_SIZE; the engine stays the one source of truth for that rule, never duplicated
-   * here (web.md/invariantes.md: "no reimplementes reglas en frontend").
+   * Legacy callers may still derive controlled slots from partySize. AP Solo Mid passes an
+   * explicit humanRosterSlot, which creates exactly one controlled slot and is enforced by the
+   * server's simulator-only authorization boundary.
    */
   partySize?: PartySize;
+  humanPosition?: 1 | 2 | 3 | 4 | 5;
+  humanRosterSlot?: number;
+  simulatorSeed?: string;
 }
 
 export async function createSimulatorProtocolSession(
@@ -122,6 +120,13 @@ export async function createSimulatorProtocolSession(
 ): Promise<string> {
   const partySize = options.partySize ?? 5;
   const controlledSlotCount = Math.min(partySize, 5);
+  const controlledSlots = options.humanRosterSlot === undefined
+    ? Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
+        side: localSide,
+        slotIndex,
+        controllerId: `simulator-local-${slotIndex}`,
+      }))
+    : [{ side: localSide, slotIndex: options.humanRosterSlot, controllerId: "simulator-human" }];
   const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -133,12 +138,11 @@ export async function createSimulatorProtocolSession(
       partyContext: {
         partySize,
         side: localSide,
-        controlledSlots: Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
-          side: localSide,
-          slotIndex,
-          controllerId: `simulator-local-${slotIndex}`,
-        })),
+        controlledSlots,
       },
+      humanPosition: options.humanPosition,
+      humanRosterSlot: options.humanRosterSlot,
+      simulatorSeed: options.simulatorSeed,
     }),
   });
   if (!response.ok) throw new Error(`protocol session creation failed (${response.status})`);
@@ -165,6 +169,36 @@ export function requestBotSelection(sessionId: string, fetchImpl: typeof fetch =
     headers: { "content-type": "application/json" },
     body: JSON.stringify({}),
   }).then(readSnapshot);
+}
+
+export type AutoDriveStopReason = "round_revealed" | "human_input" | "complete";
+
+export interface AutoDriveResult extends ProtocolSnapshot {
+  stopReason: AutoDriveStopReason;
+  completedRound: 1 | 2 | 3 | null;
+}
+
+export async function requestSoloMidAutoDrive(
+  sessionId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AutoDriveResult> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/auto-drive`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) throw new Error(`auto-drive request failed (${response.status})`);
+  const body: unknown = await response.json();
+  const snapshot = parseSnapshot(body);
+  if (!snapshot || !isRecord(body)) throw new Error("invalid auto-drive response");
+  if (body.stopReason !== "round_revealed" && body.stopReason !== "human_input" && body.stopReason !== "complete") {
+    throw new Error("invalid auto-drive stop reason");
+  }
+  const completedRound = body.completedRound;
+  if (completedRound !== null && completedRound !== 1 && completedRound !== 2 && completedRound !== 3) {
+    throw new Error("invalid completed round");
+  }
+  return { ...snapshot, stopReason: body.stopReason, completedRound };
 }
 
 export function resolveSimulatorAuthority(sessionId: string, seed: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {

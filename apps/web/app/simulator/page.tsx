@@ -1,15 +1,12 @@
 "use client";
 
-import type { JSX } from "react";
-import { useState } from "react";
+import { useState, type JSX } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
-import { CaptainsModeSimulator } from "@/features/captains-mode-simulator/components/CaptainsModeSimulator";
+import { BUTTON_SECONDARY } from "@/features/draft/styles";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
-import { DraftIntentSelector } from "@/components/draft-intent-selector/DraftIntentSelector";
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
@@ -28,13 +25,7 @@ interface PhaseViewProps {
 
 // Req. 1.1-1.4, 8.1, 8.4: configuración previa a cualquier draft.
 function IdlePhaseView({ session }: PhaseViewProps) {
-  return (
-    <div className="flex flex-col gap-4">
-      {/* TSK-182 (Fase 4.3b): elegir la intención de draft antes de arrancar; el Copilot la usa. */}
-      <DraftIntentSelector value={session.state.archetypeIntent} onChange={session.actions.setArchetypeIntent} />
-      <ConfigPanel onStart={session.startDraft} />
-    </div>
-  );
+  return <ConfigPanel onStart={session.startDraft} />;
 }
 
 // Transitorio -- el hook emite los 16 hero_banned justo después de esto y arranca la ronda 1
@@ -67,7 +58,6 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         />
       </div>
       <div className="flex flex-col gap-4">
-        <DraftIntentSelector value={session.state.archetypeIntent} onChange={session.actions.setArchetypeIntent} />
         {/* R1 S5 (blockers 1+8): la recomendación humana del simulador viene SIEMPRE de
             RecommendationSet/v2 -- ENABLE_PRO_DRAFTER no tiene ningún efecto sobre este panel ni
             sobre qué héroes se resaltan en la grilla. */}
@@ -105,37 +95,6 @@ function SimulatorHeader({ canReset, onReset }: SimulatorHeaderProps) {
       <span className="text-heading text-content-primary">Simulador de Draft</span>
       <button className={BUTTON_SECONDARY} onClick={onReset} type="button">
         Reiniciar draft
-      </button>
-    </div>
-  );
-}
-
-// R1 S7 (Blocker 2) -- entry point mínimo para probar las dos modalidades que ya certifica el
-// motor (ap_gate/cm_gate) pero que hasta ahora no tenían ninguna forma de llegar desde el
-// navegador. Cada modo monta un árbol de componentes totalmente separado (RandomDraftPage ya
-// existente / CaptainsModeSimulator nuevo) -- ningún estado se comparte entre ambos a propósito,
-// mismo criterio que el resto del proyecto usa para "una responsabilidad por componente".
-type SimulatorMode = "ranked_ap" | "captains_mode";
-
-interface ModeToggleProps {
-  mode: SimulatorMode;
-  onSelect: (mode: SimulatorMode) => void;
-}
-
-function ModeToggle({ mode, onSelect }: ModeToggleProps) {
-  function selectRankedAp() {
-    onSelect("ranked_ap");
-  }
-  function selectCaptainsMode() {
-    onSelect("captains_mode");
-  }
-  return (
-    <div className="flex gap-2">
-      <button type="button" onClick={selectRankedAp} className={mode === "ranked_ap" ? BUTTON_PRIMARY : BUTTON_SECONDARY}>
-        Ranked All Pick
-      </button>
-      <button type="button" onClick={selectCaptainsMode} className={mode === "captains_mode" ? BUTTON_PRIMARY : BUTTON_SECONDARY}>
-        Captain&apos;s Mode
       </button>
     </div>
   );
@@ -197,16 +156,11 @@ function RankedAllPickSimulator() {
   );
 }
 
-// <Dominio><Cosa>: ruta /simulator -- el ModeToggle decide qué árbol montar (Ranked All Pick,
-// existente, o Captain's Mode, R1 S7 Blocker 2); ninguno de los dos sabe que el otro existe.
+// Recovery build: /simulator expone únicamente el árbol certificado de AP Solo Mid.
 export default function SimulatorPage() {
-  const [mode, setMode] = useState<SimulatorMode>("ranked_ap");
-
   return (
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
-      <ModeToggle mode={mode} onSelect={setMode} />
-      {mode === "ranked_ap" && <RankedAllPickSimulator />}
-      {mode === "captains_mode" && <CaptainsModeSimulator />}
+      <RankedAllPickSimulator />
     </main>
   );
 }

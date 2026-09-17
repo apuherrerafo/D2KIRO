@@ -2,7 +2,7 @@ import "@/test-support/happy-dom";
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import type { HeroId, TeamSide } from "@/features/draft/types";
+import type { HeroId } from "@/features/draft/types";
 import { useRandomDraftSession } from "../use-random-draft-session";
 import { useRandomDraftStore } from "../store";
 
@@ -12,64 +12,35 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-class FakeProtocolEngine {
+/** Browser-contract fixture for the reduced AP Solo Mid product model.
+ * The server owns all nine external decisions; the browser only receives the human slot. */
+class FakeSoloMidProtocolEngine {
   readonly requests: { url: string; body: Record<string, unknown> }[] = [];
-  private sessionId = "protocol-browser-session";
-  private side: TeamSide = "radiant";
-  private round: 1 | 2 | 3 = 1;
-  private status: "ACTIVE" | "WAITING_FOR_COLLISION_AUTHORITY" | "COMPLETE" = "ACTIVE";
-  private phase: "BAN_RESOLUTION" | "PICK_ROUND_1" | "PICK_ROUND_2" | "PICK_ROUND_3" | "COMPLETE" = "BAN_RESOLUTION";
+  private readonly sessionId = "protocol-browser-session";
   private bans: HeroId[] = [];
-  private ownConfirmed: HeroId[] = [];
-  private enemyConfirmed: HeroId[] = [];
-  private ownSealed: HeroId[] = [];
-  private enemySealed: HeroId[] = [];
-  private nextBotHero = 30;
-  private authorityUsed = false;
-
-  constructor(private readonly pauseForCollisionAuthority = false) {}
-
-  private capacity(): number {
-    return this.round === 3 ? 1 : 2;
-  }
+  private humanHero: HeroId | null = null;
+  private atHumanSlot = false;
+  private complete = false;
 
   private snapshot() {
-    const remaining = Math.max(0, this.capacity() - this.ownSealed.length);
+    const own = this.atHumanSlot ? [21, 22, 23, 24, ...(this.humanHero === null ? [] : [this.humanHero])] : [];
+    const enemy = this.atHumanSlot ? [30, 31, 32, 33, ...(this.complete ? [34] : [])] : [];
     return {
       view: {
         schema: "draft-protocol-perspective/v1",
         sessionId: this.sessionId,
-        status: this.status,
-        viewerSide: this.side,
+        status: this.complete ? "COMPLETE" : "ACTIVE",
+        viewerSide: "radiant",
         bannedHeroes: this.bans,
-        ownPicks: [...this.ownConfirmed, ...this.ownSealed].map((heroId) => ({ visibility: "KNOWN", heroId })),
-        enemyPicks: [
-          ...this.enemyConfirmed.map((heroId) => ({ visibility: "REVEALED", heroId })),
-          ...this.enemySealed.map(() => ({ visibility: "HIDDEN" })),
-        ],
-        rankedAp: { phase: this.phase, banResolutionComplete: this.phase !== "BAN_RESOLUTION" },
+        ownPicks: own.map((heroId) => ({ visibility: "KNOWN", heroId })),
+        enemyPicks: enemy.map((heroId) => ({ visibility: "REVEALED", heroId })),
+        rankedAp: { phase: this.complete ? "COMPLETE" : this.atHumanSlot ? "PICK_ROUND_3" : "BAN_RESOLUTION", banResolutionComplete: this.atHumanSlot },
+        captainsMode: null,
       },
-      legalActions: Array.from({ length: remaining }, (_, slotIndex) => ({ type: "SUBMIT_SEALED_SELECTION", side: this.side, slotIndex: this.ownSealed.length + slotIndex })),
+      legalActions: this.atHumanSlot && this.humanHero === null
+        ? [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }]
+        : [],
     };
-  }
-
-  private closeRoundIfReady(): void {
-    if (this.ownSealed.length !== this.capacity() || this.enemySealed.length !== this.capacity()) return;
-    if (this.pauseForCollisionAuthority && !this.authorityUsed) {
-      this.status = "WAITING_FOR_COLLISION_AUTHORITY";
-      return;
-    }
-    this.ownConfirmed.push(...this.ownSealed);
-    this.enemyConfirmed.push(...this.enemySealed);
-    this.ownSealed = [];
-    this.enemySealed = [];
-    if (this.round === 3) {
-      this.status = "COMPLETE";
-      this.phase = "COMPLETE";
-      return;
-    }
-    this.round = (this.round + 1) as 2 | 3;
-    this.phase = this.round === 2 ? "PICK_ROUND_2" : "PICK_ROUND_3";
   }
 
   fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -79,63 +50,40 @@ class FakeProtocolEngine {
     if (url.endsWith("/api/heroes")) return json(HEROES);
     if (url.endsWith("/api/meta/hero-stats")) return json({ patchStats: {}, heroPositions: {} });
     if (url.endsWith("/api/auth/engine-token")) return json({ token: "fixture" });
+    if (url.endsWith("/api/session/protocol")) return json({ sessionId: this.sessionId, ruleset: {}, status: "ACTIVE" }, 201);
     if (url.endsWith("/recommendations")) {
-      // R1 S5 (blocker 1) -- the ONLY recommendation source the browser hook may call. Shape
-      // mirrors RecommendationSet/v2 closely enough to satisfy protocol-client.ts's own validator.
-      const remaining = Math.max(0, this.capacity() - this.ownSealed.length);
-      const openSlots = Array.from({ length: remaining }, (_, slotIndex) => ({ side: this.side, slotIndex: this.ownSealed.length + slotIndex }));
-      const recommendations = openSlots.length >= 2
-        ? [{
-            actions: [{ slot: openSlots[0]!, hero: 29 }, { slot: openSlots[1]!, hero: 28 }],
-            score: 199,
-            confidence: "alta" as const,
-            roleImpact: {},
-            risks: [],
-            legacy: null,
-          }]
-        : openSlots.length === 1
-          ? [{
-              actions: [{ slot: openSlots[0]!, hero: 29 }],
-              score: 100,
-              confidence: "alta" as const,
-              roleImpact: {},
-              risks: [],
-              legacy: { hero: 29, signals: [], evidenceCoverage: 1, guessingIndex: 0, reason: "fixture" },
-            }]
-          : [];
+      const recommendations = [35, 36, 37, 38, 39, 40].map((hero) => ({
+        actions: [{ slot: { side: "radiant", slotIndex: 0 }, hero }],
+        score: 100 - hero,
+        confidence: "alta" as const,
+        roleImpact: {},
+        risks: [],
+        legacy: { hero, signals: [], evidenceCoverage: 1, guessingIndex: 0, reason: "fixture" },
+      }));
       return json({
         schema: "recommendation-set/v2",
         sessionId: this.sessionId,
-        decision: { actor: this.side, actionKind: openSlots.length > 0 ? "PICK" : null, controlledSlots: openSlots, actionCount: openSlots.length },
+        decision: { actor: "radiant", actionKind: "PICK", controlledSlots: [{ side: "radiant", slotIndex: 0 }], actionCount: 1 },
         recommendations,
         degradations: [],
         deferred: { opponentResponse: "NOT_COMPUTED", steal: "NOT_COMPUTED", lookahead: "NOT_COMPUTED" },
-        decisionContext: "team_opening",
+        decisionContext: "closing_pick",
       });
-    }
-    if (url.endsWith("/api/session/protocol")) {
-      this.side = body.localSide as TeamSide;
-      return json({ sessionId: this.sessionId, ruleset: {}, status: "ACTIVE" }, 201);
     }
     if (url.endsWith("/command")) {
       const command = body.command as { type: string; heroes?: HeroId[]; heroId?: HeroId };
       if (command.type === "RECORD_RESOLVED_BANS") this.bans = [...(command.heroes ?? [])];
-      if (command.type === "BAN_RESOLUTION_COMPLETE") this.phase = "PICK_ROUND_1";
-      if (command.type === "SUBMIT_SEALED_SELECTION" && command.heroId) this.ownSealed.push(command.heroId);
+      if (command.type === "SUBMIT_SEALED_SELECTION" && command.heroId !== undefined) this.humanHero = command.heroId;
       return json({ accepted: true, ...this.snapshot() }, 202);
     }
-    if (url.endsWith("/bot-selection")) {
-      this.enemySealed.push(this.nextBotHero);
-      this.nextBotHero += 1;
-      this.closeRoundIfReady();
-      return json({ accepted: true, ...this.snapshot() });
-    }
-    if (url.endsWith("/simulator-authority")) {
-      if (this.status !== "WAITING_FOR_COLLISION_AUTHORITY") return json({ error: "no_collision_pending" }, 409);
-      this.authorityUsed = true;
-      this.status = "ACTIVE";
-      this.closeRoundIfReady();
-      return json({ accepted: true, ...this.snapshot() }, 202);
+    if (url.endsWith("/auto-drive")) {
+      if (!this.atHumanSlot) {
+        this.atHumanSlot = true;
+        return json({ ...this.snapshot(), stopReason: "human_input", completedRound: null, externalPicks: [] });
+      }
+      if (this.humanHero === null) return json({ error: "human_input_required" }, 409);
+      this.complete = true;
+      return json({ ...this.snapshot(), stopReason: "complete", completedRound: null, externalPicks: [] });
     }
     throw new Error(`fetch not mocked: ${url}`);
   };
@@ -152,85 +100,69 @@ afterEach(() => {
   useRandomDraftStore.getState().resetSession();
 });
 
-test("el browser completa AP usando exclusivamente la API de ProtocolSession", async () => {
-  const engine = new FakeProtocolEngine();
+async function startSoloMid() {
+  const engine = new FakeSoloMidProtocolEngine();
   globalThis.fetch = engine.fetch as typeof fetch;
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
-  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1 });
+  const hook = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
+  await act(async () => hook.result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", playerPosition: 2, personalBanList: [], partySize: 1 }));
+  return { engine, ...hook };
+}
 
-  const used = new Set<number>();
-  for (const round of [1, 2, 3] as const) {
-    const count = round === 3 ? 1 : 2;
-    const available = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId) && !used.has(heroId)).slice(0, count);
-    for (const heroId of available) {
-      used.add(heroId);
-      act(() => result.current.actions.confirmPick(heroId));
-    }
-    await act(async () => result.current.confirmRound());
-    if (round < 3) expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: round + 1 });
-  }
+test("el browser hace un solo pick humano y el server completa los otros nueve", async () => {
+  const { engine, result, unmount } = await startSoloMid();
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 3 });
+
+  act(() => result.current.actions.confirmPick(17));
+  await act(async () => result.current.confirmRound());
+
   expect(result.current.state.phase.type).toBe("complete");
-  expect(engine.requests.some((request) => request.url.endsWith("/api/session/manual"))).toBe(false);
-  expect(engine.requests.some((request) => request.url.includes("/ws/draft"))).toBe(false);
-  expect(engine.requests.filter((request) => request.url.endsWith("/bot-selection")).every((request) => Object.keys(request.body).length === 0)).toBe(true);
-  unmount();
-}, 20_000);
-
-test("los picks pendientes del usuario nunca entran al request de bot-selection", async () => {
-  const engine = new FakeProtocolEngine();
-  globalThis.fetch = engine.fetch as typeof fetch;
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
-  const picks = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId)).slice(0, 2);
-  for (const heroId of picks) act(() => result.current.actions.confirmPick(heroId));
-  await act(async () => result.current.confirmRound());
-  const botRequests = engine.requests.filter((request) => request.url.endsWith("/bot-selection"));
-  expect(botRequests.length).toBe(2);
-  expect(botRequests.every((request) => request.body.side === undefined && request.body.pendingUserPicks === undefined)).toBe(true);
-  unmount();
-}, 10_000);
-
-test("el browser delega WAITING_FOR_COLLISION_AUTHORITY al endpoint simulator-authority", async () => {
-  const engine = new FakeProtocolEngine(true);
-  globalThis.fetch = engine.fetch as typeof fetch;
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
-  const picks = HEROES.map((hero) => hero.id).filter((heroId) => !result.current.state.draftState!.banned.includes(heroId)).slice(0, 2);
-  for (const heroId of picks) act(() => result.current.actions.confirmPick(heroId));
-
-  await act(async () => result.current.confirmRound());
-
-  expect(engine.requests.filter((request) => request.url.endsWith("/simulator-authority"))).toHaveLength(1);
-  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 2 });
-  unmount();
-}, 10_000);
-
-// R1 S5 (blockers 1 + 2 del checklist de tests) -- el Copilot humano del simulador debe consumir
-// SIEMPRE RecommendationSet/v2 (GET .../recommendations) y jamás /api/suggestions/preview, que
-// quedó exclusivamente para el camino legacy (no este simulador kernel-backed).
-test("el Copilot humano llama al endpoint de recomendaciones V2 del protocolo, nunca /api/suggestions/preview", async () => {
-  const engine = new FakeProtocolEngine();
-  globalThis.fetch = engine.fetch as typeof fetch;
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
-  await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
-
-  expect(result.current.state.recommendations?.schema).toBe("recommendation-set/v2");
-  expect(engine.requests.some((request) => request.url.endsWith("/recommendations"))).toBe(true);
-  expect(engine.requests.some((request) => request.url.endsWith("/api/suggestions/preview"))).toBe(false);
+  expect(result.current.state.draftState?.picks.radiant).toHaveLength(5);
+  expect(result.current.state.draftState?.picks.dire).toHaveLength(5);
+  const humanCommands = engine.requests.filter((entry) => {
+    const command = entry.body.command as { type?: string } | undefined;
+    return command?.type === "SUBMIT_SEALED_SELECTION";
+  });
+  expect(humanCommands).toHaveLength(1);
+  expect(engine.requests.filter((entry) => entry.url.endsWith("/auto-drive"))).toHaveLength(2);
+  expect(engine.requests.some((entry) => entry.url.endsWith("/bot-selection"))).toBe(false);
+  expect(engine.requests.some((entry) => entry.url.endsWith("/simulator-authority"))).toBe(false);
   unmount();
 });
 
-test("una nueva ronda pide una recomendación compuesta fresca (2 slots abiertos -> 2 acciones)", async () => {
-  const engine = new FakeProtocolEngine();
-  globalThis.fetch = engine.fetch as typeof fetch;
-  const { result, unmount } = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", personalBanList: [], partySize: 5 }));
+test("la sesión transporta explícitamente Solo Radiant Mid, roster slot 4 y seed", async () => {
+  const { engine, unmount } = await startSoloMid();
+  const create = engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
+  expect(create.body).toMatchObject({
+    localSide: "radiant",
+    humanPosition: 2,
+    humanRosterSlot: 4,
+    simulatorSeed: "ABCDEFGH",
+    partyContext: {
+      partySize: 1,
+      controlledSlots: [{ side: "radiant", slotIndex: 4, controllerId: "simulator-human" }],
+    },
+  });
+  unmount();
+});
+
+test("el browser no envía picks pendientes ni decisiones externas al auto-drive", async () => {
+  const { engine, result, unmount } = await startSoloMid();
+  act(() => result.current.actions.confirmPick(17));
+  await act(async () => result.current.confirmRound());
+  const autoDriveRequests = engine.requests.filter((entry) => entry.url.endsWith("/auto-drive"));
+  expect(autoDriveRequests).toHaveLength(2);
+  expect(autoDriveRequests.every((entry) => Object.keys(entry.body).length === 0)).toBe(true);
+  unmount();
+});
+
+test("el Copilot humano consume RecommendationSet/v2 Top6 de una sola acción", async () => {
+  const { engine, result, unmount } = await startSoloMid();
   await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
 
-  const recommendation = result.current.state.recommendations!.recommendations[0]!;
-  expect(recommendation.actions).toHaveLength(2); // round 1: capacity 2, nada pickeado todavía
-  expect(recommendation.legacy).toBeNull();
+  expect(result.current.state.recommendations?.schema).toBe("recommendation-set/v2");
+  expect(result.current.state.recommendations?.recommendations).toHaveLength(6);
+  expect(result.current.state.recommendations?.recommendations.every((entry) => entry.actions.length === 1)).toBe(true);
+  expect(engine.requests.some((entry) => entry.url.endsWith("/recommendations"))).toBe(true);
+  expect(engine.requests.some((entry) => entry.url.endsWith("/api/suggestions/preview"))).toBe(false);
   unmount();
 });

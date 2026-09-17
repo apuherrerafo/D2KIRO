@@ -9,7 +9,7 @@ export { buildShortlist, buildCompoundCandidates, SHORTLIST_SIZE } from "./short
 export type { ShortlistEntry, CompoundCandidate } from "./shortlist";
 export { evidenceFromSignals, evidenceFromRoleBelief, evidenceFromRuleset, evidenceFromEligibility, deriveRisks } from "./evidence";
 export { excludedHeroes, postValidateAction } from "./legality";
-export { buildRecommendationSetV2, RECOMMENDATION_OUTPUT_LIMIT } from "./build";
+export { buildRecommendationSetV2, RECOMMENDATION_OUTPUT_LIMIT, SOLO_MID_RECOMMENDATION_OUTPUT_LIMIT } from "./build";
 export type { BuildRecommendationSetV2Input, ComputeSuggestionsForRecommendation } from "./build";
 export { translateRecommendationSetToLegacySuggestionSet } from "./translate-v1";
 

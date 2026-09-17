@@ -424,6 +424,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (protocolBotSelectionSessionId !== null && request.method === "POST") {
       return protocolSessionRoutes.postBotSelection(request, protocolBotSelectionSessionId);
     }
+    const protocolAutoDriveSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "auto-drive");
+    if (protocolAutoDriveSessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postAutoDrive(protocolAutoDriveSessionId);
+    }
     // R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
     const protocolRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "recommendations");
     if (protocolRecommendationsSessionId !== null && request.method === "GET") {

@@ -1,6 +1,7 @@
 import { captainsModeStepDefinition, legalGameplayActions } from "../draft-protocol";
 import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/types";
 import type { RecommendationDecision, RecommendationDegradation, RecommendationSlot } from "./types";
+import { rosterSlotForRoundSlot } from "../simulator/solo-mid-policy";
 
 // R1 S5 -- LEGAL ACTION FIRST. This module derives WHAT is being decided (decision.ts) and WHICH
 // heroes are legally nameable right now (the "hero universe"), from `legalGameplayActions(state)`
@@ -31,7 +32,11 @@ function emptyDecision(actor: TeamSide, phase: string | null): RecommendationDec
   return { actor, actionKind: null, phase, round: null, step: null, controlledSlots: [], actionCount: 0 };
 }
 
-function deriveRankedAllPick(state: DraftProtocolState, actor: TeamSide): LegalDecision {
+function deriveRankedAllPick(
+  state: DraftProtocolState,
+  actor: TeamSide,
+  controlledRosterSlots?: readonly number[],
+): LegalDecision {
   const rankedAp = state.rankedAp!;
   const degradations: RecommendationDegradation[] = [];
   if (state.degradation) degradations.push({ reason: state.degradation.reason, detail: state.degradation.detail });
@@ -54,7 +59,13 @@ function deriveRankedAllPick(state: DraftProtocolState, actor: TeamSide): LegalD
   // slots). `partyContext === null` means no party information was ever threaded (a legacy/no-party
   // session) -- unrestricted, byte-identical to behavior before this fix.
   const partyContext = rankedAp.partyContext;
-  if (partyContext && partyContext.side === actor) {
+  if (controlledRosterSlots !== undefined && rankedAp.round) {
+    const controlled = new Set(controlledRosterSlots);
+    controlledSlots = controlledSlots.filter((slot) => {
+      const rosterSlot = rosterSlotForRoundSlot(rankedAp.round!.round, slot.slotIndex);
+      return rosterSlot !== null && controlled.has(rosterSlot);
+    });
+  } else if (partyContext && partyContext.side === actor) {
     controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
   }
 
@@ -132,8 +143,12 @@ function deriveCaptainsMode(state: DraftProtocolState, actor: TeamSide): LegalDe
 
 /** LEGAL ACTION FIRST -- the only entry point build.ts uses to learn what is decidable and which
  * heroes may legally be named for it. Pure: reads state, never mutates, never calls the network. */
-export function deriveLegalDecision(state: DraftProtocolState, actor: TeamSide): LegalDecision {
-  if (state.rankedAp) return deriveRankedAllPick(state, actor);
+export function deriveLegalDecision(
+  state: DraftProtocolState,
+  actor: TeamSide,
+  controlledRosterSlots?: readonly number[],
+): LegalDecision {
+  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots);
   if (state.captainsMode) return deriveCaptainsMode(state, actor);
   return { decision: emptyDecision(actor, null), eligibleHeroIds: null, degradations: [{ reason: "RULESET_LOAD_FAILED", detail: "estado de protocolo sin ranked_ap ni captains_mode" }] };
 }

@@ -74,6 +74,26 @@ test("la sugerencia para la posición elegida explica el flex real del héroe", 
   expect(result.suggestions[0]?.reason).toContain("flexearse a support y offlane");
 });
 
+test("targetPosition=2 filtra uso Mid marginal antes del ranking final", () => {
+  const result = buildSuggestions(
+    draftState({ banned: [99] }),
+    meta({
+      1: { id: 1, localizedName: "Mid marginal" },
+      2: { id: 2, localizedName: "Mid real" },
+    }),
+    {
+      targetPosition: 2,
+      heroPositions: {
+        1: [{ position: 2, matches: 200 }, { position: 4, matches: 1800 }],
+        2: [{ position: 2, matches: 700 }, { position: 1, matches: 300 }],
+      },
+      heroCounters: new Map([[1, [{ vs: 99, level: "hard", why: "fixture" }]]]),
+    },
+  );
+
+  expect(result.suggestions.map((suggestion) => suggestion.hero)).toEqual([2]);
+});
+
 test("semillas distintas rotan alternativas de calidad equivalente sin volver inestable una misma partida", () => {
   const snapshot = meta({
     1: { id: 1, localizedName: "Uno" },

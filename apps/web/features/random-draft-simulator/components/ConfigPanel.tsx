@@ -5,7 +5,6 @@ import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { useHeroCatalog, type HeroMeta } from "@/features/draft/use-hero-catalog";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
-import type { TeamSide } from "@/features/draft/types";
 import { addHeroToBanList, removeHeroFromBanList } from "../ban-list";
 import { SEED_PATTERN } from "../constants";
 import { generateDraftSeed } from "../seeded-rng";
@@ -14,86 +13,6 @@ import type { HeroId } from "../types";
 import type { StartDraftConfig } from "../use-random-draft-session";
 
 const MAX_BAN_LIST = 4;
-
-function sideButtonClassName(current: TeamSide, target: TeamSide): string {
-  if (current === target) return BUTTON_PRIMARY;
-  return BUTTON_SECONDARY;
-}
-
-interface SideSelectorProps {
-  userSide: TeamSide;
-  onSelect: (side: TeamSide) => void;
-}
-
-const POSITION_OPTIONS: { value: 1 | 2 | 3 | 4 | 5; label: string }[] = [
-  { value: 1, label: "1 — Carry" },
-  { value: 2, label: "2 — Midlane" },
-  { value: 3, label: "3 — Offlane" },
-  { value: 4, label: "4 — Support" },
-  { value: 5, label: "5 — Hard support" },
-];
-
-// R1 S7 (Blocker 2): tamaño de party real de Ranked All Pick -- 4 no es una cola válida en Dota
-// (party-context.ts, VALID_PARTY_SIZES) y por eso nunca aparece como opción acá. El motor sigue
-// siendo la única fuente de verdad de esa regla (web.md: "no reimplementes reglas en frontend");
-// esta lista no la reimplementa, sólo no ofrece un valor que el motor de todos modos rechazaría.
-const PARTY_SIZE_OPTIONS: { value: 1 | 2 | 3 | 5; label: string }[] = [
-  { value: 1, label: "Solo" },
-  { value: 2, label: "Party de 2" },
-  { value: 3, label: "Party de 3" },
-  { value: 5, label: "Party de 5 (stack completo)" },
-];
-
-interface PartySizeFieldProps {
-  partySize: 1 | 2 | 3 | 5;
-  onSelect: (partySize: 1 | 2 | 3 | 5) => void;
-}
-
-function PartySizeField({ partySize, onSelect }: PartySizeFieldProps) {
-  function handleChange(event: ChangeEvent<HTMLSelectElement>) {
-    const value = Number(event.target.value) as 1 | 2 | 3 | 5;
-    if (value === 1 || value === 2 || value === 3 || value === 5) onSelect(value);
-  }
-  return (
-    <label className="flex flex-col gap-1" htmlFor="party-size">
-      <span className="text-caption text-content-secondary">Tamaño de tu party</span>
-      <select
-        id="party-size"
-        value={partySize}
-        onChange={handleChange}
-        className="w-fit rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary"
-      >
-        {PARTY_SIZE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function SideSelector({ userSide, onSelect }: SideSelectorProps) {
-  function selectRadiant() {
-    onSelect("radiant");
-  }
-  function selectDire() {
-    onSelect("dire");
-  }
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-caption text-content-secondary">Tu lado</span>
-      <div className="flex gap-2">
-        <button type="button" onClick={selectRadiant} className={sideButtonClassName(userSide, "radiant")}>
-          Radiant
-        </button>
-        <button type="button" onClick={selectDire} className={sideButtonClassName(userSide, "dire")}>
-          Dire
-        </button>
-      </div>
-    </div>
-  );
-}
 
 interface SeedFieldProps {
   draftSeed: string;
@@ -263,36 +182,16 @@ export interface ConfigPanelProps {
   onStart: (config: StartDraftConfig) => void;
 }
 
-// <Dominio><Cosa>: pantalla de configuración previa al Random_Draft_Simulator (fase idle) --
-// lado, draftSeed (reproducible, Req. 8.1/8.4) y Personal_Ban_List (Req. 1.1-1.4). userSide y
-// personalBanList persisten en localStorage entre sesiones (Req. 1.5); draftSeed no persiste --
-// una nueva sesión siempre propone una semilla nueva.
+// Recovery AP Solo Mid: modo, lado, party y posición son política fija visible, no controles.
+// Sólo la seed reproducible y Personal_Ban_List siguen siendo configurables aquí.
 export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const { config, setConfig } = useConfigPersistence();
   const { heroes: heroCatalog } = useHeroCatalog();
   const [draftSeed, setDraftSeed] = useState<string>(generateDraftSeed);
   const [banListError, setBanListError] = useState<string | null>(null);
 
-  const userSide = config?.userSide ?? "radiant";
-  const playerPosition = config?.playerPosition;
   const personalBanList = config?.personalBanList ?? [];
-  const partySize = config?.partySize ?? 5;
   const isSeedValid = SEED_PATTERN.test(draftSeed);
-
-  function selectSide(side: TeamSide) {
-    if (playerPosition === undefined) return;
-    setConfig({ userSide: side, playerPosition, personalBanList, partySize });
-  }
-
-  function selectPosition(event: ChangeEvent<HTMLSelectElement>) {
-    const position = Number(event.target.value) as 1 | 2 | 3 | 4 | 5;
-    if ([1, 2, 3, 4, 5].includes(position)) setConfig({ userSide, playerPosition: position, personalBanList, partySize });
-  }
-
-  function selectPartySize(nextPartySize: 1 | 2 | 3 | 5) {
-    if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList, partySize: nextPartySize });
-  }
 
   function regenerateSeed() {
     setDraftSeed(generateDraftSeed());
@@ -305,34 +204,29 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       return;
     }
     setBanListError(null);
-    if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList: result.list, partySize });
+    setConfig({ userSide: "radiant", playerPosition: 2, personalBanList: result.list, partySize: 1 });
   }
 
   function removeBanHero(heroId: HeroId) {
     setBanListError(null);
-    if (playerPosition === undefined) return;
-    setConfig({ userSide, playerPosition, personalBanList: removeHeroFromBanList(personalBanList, heroId), partySize });
+    setConfig({ userSide: "radiant", playerPosition: 2, personalBanList: removeHeroFromBanList(personalBanList, heroId), partySize: 1 });
   }
 
   function handleStart() {
     if (!isSeedValid) return;
-    if (playerPosition === undefined) return;
-    onStart({ draftSeed, userSide, playerPosition, personalBanList, partySize });
+    onStart({ draftSeed, userSide: "radiant", playerPosition: 2, personalBanList, partySize: 1 });
   }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4">
-      <span className="text-heading text-content-primary">Configurar Random Draft</span>
-      <SideSelector userSide={userSide} onSelect={selectSide} />
-      <label className="flex flex-col gap-1" htmlFor="player-position">
-        <span className="text-caption text-content-secondary">La posición que vas a jugar</span>
-        <select id="player-position" value={playerPosition ?? ""} onChange={selectPosition} className="w-fit rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary">
-          <option value="" disabled>Selecciona una posición</option>
-          {POSITION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </label>
-      <PartySizeField partySize={partySize} onSelect={selectPartySize} />
+      <span className="text-heading text-content-primary">Ranked All Pick</span>
+      <div className="flex flex-wrap gap-2 text-body text-content-secondary" aria-label="Configuración fija del simulador">
+        <span>Solo</span>
+        <span>·</span>
+        <span>Radiant</span>
+        <span>·</span>
+        <span>Posición 2 — Midlane</span>
+      </div>
       <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
       <PersonalBanListField
         personalBanList={personalBanList}
@@ -341,7 +235,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
         onAdd={addBanHero}
         onRemove={removeBanHero}
       />
-      <button type="button" onClick={handleStart} disabled={!isSeedValid || playerPosition === undefined} className={`self-start ${BUTTON_PRIMARY}`}>
+      <button type="button" onClick={handleStart} disabled={!isSeedValid} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft
       </button>
     </div>

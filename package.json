@@ -16,6 +16,7 @@
     "e2e": "playwright test",
     "test": "bun test apps/engine && bun test apps/web && bun test scripts",
     "verify:r1": "bun run scripts/r1/certify.ts",
-    "dev:mvp": "bun run scripts/dev-mvp.ts"
+    "dev:mvp": "bun run scripts/dev-mvp.ts",
+    "playtest:solo-mid": "bun run apps/engine/src/tools/solo-mid-playtest.ts"
   }
 }

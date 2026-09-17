@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { MIN_POSITION_MATCHES, loadHeroPositions, parseHeroPositions } from "./hero-positions";
+import {
+  isCandidateAdmittedForPosition,
+  loadHeroPositions,
+  MID_CANDIDATE_MIN_SHARE,
+  MIN_POSITION_MATCHES,
+  parseHeroPositions,
+  positionShare,
+} from "./hero-positions";
 
 // Smoke test contra el archivo real -- estructural, no de contenido (S10, testing-seams.md):
 // verifica que carga y es válido, nunca un valor exacto de un héroe puntual (eso se rompería en
@@ -18,6 +25,20 @@ test("loadHeroPositions() carga el archivo real: entradas válidas, sin héroes 
       expect(share.matches).toBeGreaterThanOrEqual(MIN_POSITION_MATCHES);
     }
   }
+});
+
+test("admisión Mid acepta posición dominante o share >= 25% y excluye uso marginal", () => {
+  const positions = {
+    1: [{ position: 2 as const, matches: 220 }, { position: 4 as const, matches: 780 }],
+    2: [{ position: 2 as const, matches: 250 }, { position: 4 as const, matches: 750 }],
+    3: [{ position: 2 as const, matches: 400 }, { position: 1 as const, matches: 300 }],
+  };
+
+  expect(MID_CANDIDATE_MIN_SHARE).toBe(0.25);
+  expect(positionShare(1, 2, positions)).toBe(0.22);
+  expect(isCandidateAdmittedForPosition(1, 2, positions)).toBe(false);
+  expect(isCandidateAdmittedForPosition(2, 2, positions)).toBe(true);
+  expect(isCandidateAdmittedForPosition(3, 2, positions)).toBe(true);
 });
 
 // El resto de los casos usa parseHeroPositions con fixtures sintéticos -- nunca el archivo real

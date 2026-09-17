@@ -41,6 +41,11 @@ export type HeroPositions = Record<HeroId, HeroPositionShare[]>;
 // verificado durante /pre-flight: Windranger, antes de aplicar el filtro).
 export const MIN_POSITION_MATCHES = 200;
 
+// AP Solo Mid recovery policy. This is an admission threshold, not a claim that 25% is an
+// eternal Dota truth. It is centralized here so a later expert review can tune one value without
+// adding a hero-name whitelist or changing V6's scoring weights.
+export const MID_CANDIDATE_MIN_SHARE = 0.25;
+
 const VALID_POSITIONS = new Set([1, 2, 3, 4, 5]);
 
 function isValidShare(value: unknown): value is HeroPositionShare {
@@ -86,4 +91,33 @@ export function parseHeroPositions(raw: unknown): HeroPositions {
 
 export function loadHeroPositions(): HeroPositions {
   return parseHeroPositions(rawPositions);
+}
+
+export function positionShare(
+  hero: HeroId,
+  position: 1 | 2 | 3 | 4 | 5,
+  positions: HeroPositions,
+): number {
+  const shares = positions[hero] ?? [];
+  const total = shares.reduce((sum, share) => sum + share.matches, 0);
+  if (total === 0) return 0;
+  return (shares.find((share) => share.position === position)?.matches ?? 0) / total;
+}
+
+/**
+ * Candidate admission happens before any scorer or final ranking. Mid is admitted when Position 2
+ * is dominant (ties included) OR its historical share reaches the audit's initial 25% threshold.
+ * Other target positions retain the pre-recovery "any curated presence" behavior.
+ */
+export function isCandidateAdmittedForPosition(
+  hero: HeroId,
+  targetPosition: 1 | 2 | 3 | 4 | 5,
+  positions: HeroPositions,
+): boolean {
+  const shares = positions[hero] ?? [];
+  const target = shares.find((share) => share.position === targetPosition);
+  if (!target) return false;
+  if (targetPosition !== 2) return true;
+  const dominantMatches = Math.max(...shares.map((share) => share.matches));
+  return target.matches === dominantMatches || positionShare(hero, 2, positions) >= MID_CANDIDATE_MIN_SHARE;
 }

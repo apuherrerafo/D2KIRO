@@ -6,7 +6,7 @@ import { createArchetypeFitScorer } from "./archetype-fit";
 import { createCounterScorer } from "./counter";
 import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
 import { heroPoolFitScorer } from "./hero-pool-fit";
-import { loadHeroPositions, type HeroPositions } from "./hero-positions";
+import { isCandidateAdmittedForPosition, loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
@@ -741,7 +741,7 @@ function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSugg
   if (options.teamOpening || options.targetPosition === undefined) return candidates;
 
   const positions = options.heroPositions ?? MODULE_HERO_POSITIONS;
-  candidates = candidates.filter((hero) => positions[hero]?.some((share) => share.position === options.targetPosition));
+  candidates = candidates.filter((hero) => isCandidateAdmittedForPosition(hero, options.targetPosition!, positions));
   if (!options.usePersonalPool) return candidates;
 
   const personalPool = new Set(meta.heroPool?.map((entry) => entry.hero) ?? []);

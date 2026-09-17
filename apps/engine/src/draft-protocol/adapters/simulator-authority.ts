@@ -49,8 +49,8 @@ function seedToUint32(seed: string): number {
 }
 
 /**
- * Deterministic given (seed, sessionId, round, heroId): the same simulator seed replayed against
- * the same collision always produces the same winner, so simulator scripts stay reproducible
+ * Deterministic given (seed, round, heroId): transport/session identity is deliberately excluded,
+ * so the same simulator seed replayed in a fresh session produces the same winner
  * (SPEC's determinism discipline, same as the rest of this repo's seeded RNG usage). Returns
  * `null` when there is no pending collision to resolve -- callers must check `legalActions`/
  * `availableCommands` anyway before calling this, this is just a defensive no-op rather than a
@@ -63,7 +63,7 @@ export function resolveSimulatorCollisionAuthority(
   const pending = state.rankedAp?.round?.pendingCollision;
   if (!pending) return null;
 
-  const rng = mulberry32(seedToUint32(`${seed}:${state.sessionId}:${pending.round}:${pending.heroId}`));
+  const rng = mulberry32(seedToUint32(`${seed}:${pending.round}:${pending.heroId}`));
   const winnerIndex = rng() < 0.5 ? 0 : 1;
   const winner: AuthoritativeCollisionResolution["winner"] = pending.contenders[winnerIndex]!;
 

@@ -8,11 +8,24 @@ import {
   isValidSubmitProtocolCommandBody,
   isTeamSide,
 } from "../../draft-protocol/validation";
-import { isTrustedServerOnlyCommand, legalActions, loadTrustedEligibilityArtifact } from "../../draft-protocol";
+import { isTrustedServerOnlyCommand, legalActions, loadTrustedEligibilityArtifact, project } from "../../draft-protocol";
+import type { DraftProtocolState } from "../../draft-protocol";
 import type { DraftPathArchetype } from "../../draft-paths/types";
 import type { DraftState } from "../../draft/reducer";
 import type { SuggestionSet } from "../../signals/mix";
-import { buildRecommendationSetV2, translateRecommendationSetToLegacySuggestionSet } from "../../recommendation";
+import {
+  buildRecommendationSetV2,
+  SOLO_MID_RECOMMENDATION_OUTPUT_LIMIT,
+  translateRecommendationSetToLegacySuggestionSet,
+} from "../../recommendation";
+import {
+  chooseExternalSuggestion,
+  deriveExternalDecisionSeed,
+  isSoloMidSimulatorMetadata,
+  participantForRoundSlot,
+  SOLO_MID_SIMULATOR_POLICY,
+  type ExternalPickRecord,
+} from "../../simulator/solo-mid-policy";
 import { ProtocolSessionStore } from "../protocol-session";
 
 // R1 S2/S3 -- HTTP surface for kernel-backed draft sessions: the flow the frozen contract for
@@ -39,6 +52,7 @@ export type ComputeSuggestionsForDraftState = (
   options?: {
     archetypeIntent?: DraftPathArchetype;
     teamOpening?: boolean;
+    targetPosition?: 1 | 2 | 3 | 4 | 5;
     diversitySeed?: string;
     // R1 S5 (blocker 3): the kernel's own certified legal hero universe, when the caller has one
     // (recommendation/build.ts, for Captain's Mode) -- forwarded verbatim into buildSuggestions.
@@ -86,6 +100,17 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     deps.store.evictStale();
     const body: unknown = await request.json().catch(() => null);
     if (!isValidCreateProtocolSessionBody(body)) return badRequest("invalid_body");
+    if (body.humanPosition !== undefined) {
+      const controlled = body.partyContext.controlledSlots;
+      const supported = body.rulesetId === "dota2/ranked-all-pick"
+        && body.localSide === SOLO_MID_SIMULATOR_POLICY.humanSide
+        && body.partyContext.partySize === SOLO_MID_SIMULATOR_POLICY.partySize
+        && controlled.length === 1
+        && controlled[0]?.slotIndex === SOLO_MID_SIMULATOR_POLICY.humanRosterSlot
+        && body.humanPosition === SOLO_MID_SIMULATOR_POLICY.humanPosition
+        && body.humanRosterSlot === SOLO_MID_SIMULATOR_POLICY.humanRosterSlot;
+      if (!supported) return Response.json({ error: "unsupported_simulator_policy" }, { status: 422 });
+    }
 
     const sessionId = crypto.randomUUID();
     const created = deps.store.create({
@@ -95,6 +120,9 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       partyContext: body.partyContext,
       localSide: body.localSide,
       adapterKind: body.adapterKind,
+      humanPosition: body.humanPosition,
+      humanRosterSlot: body.humanRosterSlot,
+      simulatorSeed: body.simulatorSeed,
     });
     if (!created.ok) return Response.json({ error: created.reason, detail: "detail" in created ? created.detail : undefined }, { status: 422 });
 
@@ -273,6 +301,102 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     });
   }
 
+  function externalPicks(state: DraftProtocolState): ExternalPickRecord[] {
+    if (!state.rankedAp) return [];
+    return state.rankedAp.confirmedPicks.flatMap((pick) => {
+      const participant = participantForRoundSlot(pick.side, pick.round, pick.slotIndex);
+      if (!participant || participant.control !== "external") return [];
+      return [{ side: pick.side, rosterSlot: participant.rosterSlot, position: participant.position, heroId: pick.heroId }];
+    });
+  }
+
+  /**
+   * AP Solo Mid server-side driver. It advances only external participants and pauses at exactly
+   * two observable boundaries: a round reveal, or Julio's single roster slot becoming legal.
+   */
+  async function postAutoDrive(sessionId: string): Promise<Response> {
+    let state = deps.store.get(sessionId);
+    const metadata = deps.store.metadata(sessionId);
+    if (!state || !metadata) return notFound();
+    if (!state.rankedAp || !isSoloMidSimulatorMetadata(metadata)) {
+      return Response.json({ error: "solo_mid_policy_required" }, { status: 403 });
+    }
+    const initialRound = state.rankedAp.round?.round ?? null;
+
+    for (let guard = 0; guard < 64; guard += 1) {
+      state = deps.store.get(sessionId)!;
+      const ranked = state.rankedAp!;
+      const currentRound = ranked.round?.round ?? null;
+      if (initialRound !== null && currentRound !== initialRound) {
+        return Response.json({
+          view: deps.store.view(sessionId),
+          legalActions: deps.store.authorizedLegalActions(sessionId),
+          stopReason: "round_revealed",
+          completedRound: initialRound,
+          externalPicks: externalPicks(state),
+        });
+      }
+      if (state.status === "COMPLETE") {
+        return Response.json({
+          view: deps.store.view(sessionId),
+          legalActions: deps.store.authorizedLegalActions(sessionId),
+          stopReason: initialRound === null ? "complete" : "round_revealed",
+          completedRound: initialRound,
+          externalPicks: externalPicks(state),
+        });
+      }
+      if (state.status === "WAITING_FOR_COLLISION_AUTHORITY") {
+        const resolution = resolveSimulatorCollisionAuthority(state, `${metadata.simulatorSeed}:collision:${currentRound}`);
+        if (!resolution) return Response.json({ error: "collision_resolution_unavailable" }, { status: 409 });
+        deps.store.apply(sessionId, resolution.command);
+        continue;
+      }
+      if (currentRound === null) {
+        return Response.json({ error: "no_open_round" }, { status: 409 });
+      }
+
+      const openActions = legalActions(state).filter(
+        (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> => action.type === "SUBMIT_SEALED_SELECTION",
+      );
+      const humanAction = openActions.find((action) => {
+        const participant = participantForRoundSlot(action.side, currentRound, action.slotIndex);
+        return participant?.control === "human";
+      });
+      if (humanAction) {
+        return Response.json({
+          view: deps.store.view(sessionId),
+          legalActions: deps.store.authorizedLegalActions(sessionId),
+          stopReason: "human_input",
+          completedRound: null,
+          externalPicks: externalPicks(state),
+        });
+      }
+
+      const action = openActions[0];
+      if (!action) return Response.json({ error: "no_external_action" }, { status: 409 });
+      const participant = participantForRoundSlot(action.side, currentRound, action.slotIndex);
+      if (!participant || participant.control !== "external") {
+        return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
+      }
+      const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0);
+      const derivedSeed = deriveExternalDecisionSeed(metadata.simulatorSeed!, participant, decisionIndex);
+      const participantView = project(state, participant.side);
+      const legacyState = perspectiveToLegacyDraftState(participantView, { patch: metadata.patch });
+      const suggestionSet = await deps.computeSuggestions(legacyState, null, {
+        targetPosition: participant.position,
+        teamOpening: false,
+        diversitySeed: derivedSeed,
+      });
+      const chosen = chooseExternalSuggestion(suggestionSet.suggestions, derivedSeed);
+      if (!chosen) return Response.json({ error: "no_suggestion_available" }, { status: 409 });
+      const result = deps.store.apply(sessionId, { ...action, heroId: chosen.hero });
+      if (!result || result.rejected) {
+        return Response.json({ error: "external_pick_rejected", rejected: result?.rejected }, { status: 409 });
+      }
+    }
+    return Response.json({ error: "auto_drive_guard_exhausted" }, { status: 409 });
+  }
+
   /**
    * R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
    * Follows the exact same perspective-forbidden guard as `get()` above -- a caller can request
@@ -300,6 +424,16 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       actor: metadata.localSide,
       patch: metadata.patch,
       computeSuggestions: deps.computeSuggestions,
+      seed: metadata.simulatorSeed ?? undefined,
+      targetPosition: isSoloMidSimulatorMetadata(metadata) ? metadata.humanPosition ?? undefined : undefined,
+      teamOpening: isSoloMidSimulatorMetadata(metadata) ? false : undefined,
+      outputLimit: isSoloMidSimulatorMetadata(metadata) ? SOLO_MID_RECOMMENDATION_OUTPUT_LIMIT : undefined,
+      controlledRosterSlots: isSoloMidSimulatorMetadata(metadata) && metadata.humanRosterSlot !== null
+        ? [metadata.humanRosterSlot]
+        : undefined,
+      partyPreferredPositions: isSoloMidSimulatorMetadata(metadata) && metadata.humanPosition !== null
+        ? [metadata.humanPosition]
+        : undefined,
     });
 
     // R1 S7 (safe telemetry) -- diagnóstico mínimo para el MVP: ningún héroe, ni propio ni rival,
@@ -331,6 +465,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     postCommand,
     postSimulatorAuthority,
     postBotSelection,
+    postAutoDrive,
     getRecommendations,
     parseSessionId,
     parseSessionSubpath,

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { DraftArchetype, TeamSide } from "@/features/draft/types";
+import { useCallback, useEffect, useRef } from "react";
+import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import { BLIND_ROUND_SPECS } from "./constants";
 import { useLowConfidenceStore } from "./low-confidence-store";
@@ -11,8 +11,7 @@ import {
   createSimulatorProtocolSession,
   fetchRecommendations,
   protocolViewToDraftState,
-  requestBotSelection,
-  resolveSimulatorAuthority,
+  requestSoloMidAutoDrive,
   submitProtocolCommand,
   type ProtocolPerspectiveView,
   type ProtocolSnapshot,
@@ -66,11 +65,10 @@ function visibleIds(slots: ProtocolPerspectiveView["ownPicks"]): HeroId[] {
 export type StartDraftConfig = Omit<DraftConfig, "patch">;
 
 export interface UseRandomDraftSessionResult {
-  state: RandomDraftState & { archetypeIntent: DraftArchetype | null };
+  state: RandomDraftState;
   actions: Pick<RandomDraftActions, "confirmPick" | "deselectPick"> & {
     resetDraft(): void;
     retryPreview(): void;
-    setArchetypeIntent(intent: DraftArchetype | null): void;
   };
   startDraft(config: StartDraftConfig): Promise<void>;
   confirmRound(): Promise<void>;
@@ -100,11 +98,6 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const protocolRef = useRef<ProtocolSnapshot | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const revealedRoundsRef = useRef<PicksByRound[]>([]);
-  // R1 S5 (blocker 1): archetypeIntent is kept as UI/session state (the selector stays usable) but
-  // does not yet reach RecommendationSet/v2 -- V2 has no archetypeIntent input today, unlike the
-  // retired /api/suggestions/preview path. Wiring that through is a real product/engine-contract
-  // decision outside this blocker set, not silently invented here.
-  const [archetypeIntent, setArchetypeIntentState] = useState<DraftArchetype | null>(null);
 
   const stopTimer = useCallback(function stopTimer(): void {
     if (timerIdRef.current !== null) clearInterval(timerIdRef.current);
@@ -115,7 +108,6 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     stopTimer();
     protocolRef.current = null;
     revealedRoundsRef.current = [];
-    setArchetypeIntentState(null);
     resetSession();
   }, [resetSession, stopTimer]);
 
@@ -146,10 +138,6 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const retryPreview = useCallback(function retryPreview(): void {
     void refreshRecommendations();
   }, [refreshRecommendations]);
-
-  const setArchetypeIntent = useCallback(function setArchetypeIntent(next: DraftArchetype | null): void {
-    setArchetypeIntentState(next);
-  }, []);
 
   const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot): void {
     protocolRef.current = snapshot;
@@ -183,105 +171,82 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         const rng = rngRef.current;
         const state = useRandomDraftStore.getState();
         if (!rng || state.phase.type !== "blind_round") return;
-        const missing = specForRound(round).picksPerTeam - state.phase.pendingUserPicks.length;
+        const missing = 1 - state.phase.pendingUserPicks.length;
         const filled = randomPickForSlots(missing, rng, state.draftState?.banned ?? [], state.phase.pendingUserPicks, allHeroIdsRef.current);
         for (const heroId of filled) useRandomDraftStore.getState().confirmPick(heroId);
       }
     }, TIMER_TICK_MS);
   }, [refreshRecommendations, stopTimer]);
 
-  const revealAndAdvance = useCallback(async function revealAndAdvance(round: 1 | 2 | 3, snapshot: ProtocolSnapshot): Promise<void> {
-    stopTimer();
-    syncSnapshot(snapshot);
-    const alreadyRevealed = (round - 1) * 2;
-    const userPicks = visibleIds(snapshot.view.ownPicks).slice(alreadyRevealed);
-    const botPicks = visibleIds(snapshot.view.enemyPicks).slice(alreadyRevealed);
-    const revealedRound = { userPicks, botPicks };
-    revealedRoundsRef.current = [...revealedRoundsRef.current.slice(0, round - 1), revealedRound];
-    useRandomDraftStore.getState().setVisualPhase({ type: "round_revealed", round, userPicks, botPicks, conflictBans: [] });
-    await new Promise((resolve) => setTimeout(resolve, REVEAL_PAUSE_MS));
-    if (protocolRef.current !== snapshot) return;
-
-    if (snapshot.view.status === "COMPLETE") {
-      const current = useRandomDraftStore.getState();
-      if (!current.config) return;
-      useRandomDraftStore.getState().setVisualPhase({
-        type: "complete",
-        summary: {
-          draftSeed: current.config.draftSeed,
-          userSide: current.config.userSide,
-          personalBanList: current.config.personalBanList,
-          resolvedBans: snapshot.view.bannedHeroes,
-          picksByRound: revealedRoundsRef.current,
-        },
-      });
-      const { sightings, reset } = useLowConfidenceStore.getState();
-      if (sightings.size > 0) {
-        void postLowConfidenceReport(snapshot.view.sessionId, current.config.patch || "unknown", [...sightings.values()]);
-        reset();
-      }
-      return;
-    }
-    const nextRound = roundFromView(snapshot.view);
-    if (nextRound) beginRound(nextRound);
-  }, [beginRound, stopTimer, syncSnapshot]);
-
-  const driveKernelUntilLocalInputOrReveal = useCallback(async function driveKernelUntilLocalInputOrReveal(
-    round: 1 | 2 | 3,
-    bansBefore: readonly HeroId[],
-  ): Promise<void> {
+  const driveExternalDraft = useCallback(async function driveExternalDraft(): Promise<void> {
     const currentSessionId = useRandomDraftStore.getState().sessionId;
     if (!currentSessionId || !protocolRef.current) return;
     try {
-      for (let guard = 0; guard < 12; guard += 1) {
-        let snapshot = protocolRef.current;
-        if (snapshot.view.status === "WAITING_FOR_COLLISION_AUTHORITY") {
-          snapshot = await resolveSimulatorAuthority(currentSessionId, useRandomDraftStore.getState().config!.draftSeed, fetchImpl);
-          syncSnapshot(snapshot);
-          continue;
-        }
-        const protocolRound = roundFromView(snapshot.view);
-        if (snapshot.view.status === "COMPLETE" || protocolRound !== round) {
-          await revealAndAdvance(round, snapshot);
+      for (let guard = 0; guard < 8; guard += 1) {
+        const result = await requestSoloMidAutoDrive(currentSessionId, fetchImpl);
+        syncSnapshot(result);
+        if (result.stopReason === "human_input") {
+          const humanRound = roundFromView(result.view);
+          if (!humanRound) throw new Error("human input requested without an AP round");
+          beginRound(humanRound);
           return;
         }
-        const localOpen = snapshot.legalActions.filter((action) => action.type === "SUBMIT_SEALED_SELECTION");
-        if (localOpen.length > 0) {
-          const conflictBans = snapshot.view.bannedHeroes.filter((heroId) => !bansBefore.includes(heroId));
-          beginRound(round, conflictBans);
+        if (result.stopReason === "round_revealed" && result.completedRound !== null) {
+          const round = result.completedRound;
+          const start = round === 1 ? 0 : round === 2 ? 2 : 4;
+          const count = round === 3 ? 1 : 2;
+          const userPicks = visibleIds(result.view.ownPicks).slice(start, start + count);
+          const botPicks = visibleIds(result.view.enemyPicks).slice(start, start + count);
+          const revealedRound = { userPicks, botPicks };
+          revealedRoundsRef.current[round - 1] = revealedRound;
+          useRandomDraftStore.getState().setVisualPhase({ type: "round_revealed", round, userPicks, botPicks, conflictBans: [] });
+          await new Promise((resolve) => setTimeout(resolve, REVEAL_PAUSE_MS));
+        }
+        if (result.view.status === "COMPLETE" || result.stopReason === "complete") {
+          const current = useRandomDraftStore.getState();
+          if (!current.config) return;
+          useRandomDraftStore.getState().setVisualPhase({
+            type: "complete",
+            summary: {
+              draftSeed: current.config.draftSeed,
+              userSide: current.config.userSide,
+              personalBanList: current.config.personalBanList,
+              resolvedBans: result.view.bannedHeroes,
+              picksByRound: revealedRoundsRef.current,
+            },
+          });
+          const { sightings, reset } = useLowConfidenceStore.getState();
+          if (sightings.size > 0) {
+            void postLowConfidenceReport(result.view.sessionId, current.config.patch || "unknown", [...sightings.values()]);
+            reset();
+          }
           return;
         }
-        snapshot = await requestBotSelection(currentSessionId, fetchImpl);
-        syncSnapshot(snapshot);
       }
-      throw new Error("protocol adapter guard exhausted");
+      throw new Error("solo-mid auto-drive guard exhausted");
     } catch (error) {
       console.error("[useRandomDraftSession] protocol drive failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [beginRound, fetchImpl, revealAndAdvance, syncSnapshot]);
+  }, [beginRound, fetchImpl, syncSnapshot]);
 
   const confirmRound = useCallback(async function confirmRound(): Promise<void> {
     stopTimer();
     const current = useRandomDraftStore.getState();
     const snapshot = protocolRef.current;
     if (current.phase.type !== "blind_round" || !current.sessionId || !snapshot) return;
-    const round = current.phase.round;
-    if (current.phase.pendingUserPicks.length !== specForRound(round).picksPerTeam) return;
-    const bansBefore = [...snapshot.view.bannedHeroes];
+    if (current.phase.pendingUserPicks.length !== 1) return;
     try {
-      for (const heroId of current.phase.pendingUserPicks) {
-        const action = protocolRef.current!.legalActions.find((candidate) => candidate.type === "SUBMIT_SEALED_SELECTION");
-        if (!action || action.type !== "SUBMIT_SEALED_SELECTION") throw new Error("no authorized local slot");
-        const next = await submitProtocolCommand(current.sessionId, { ...action, heroId }, fetchImpl);
-        syncSnapshot(next);
-      }
-      await driveKernelUntilLocalInputOrReveal(round, bansBefore);
+      const action = snapshot.legalActions.find((candidate) => candidate.type === "SUBMIT_SEALED_SELECTION");
+      if (!action || action.type !== "SUBMIT_SEALED_SELECTION") throw new Error("no authorized human slot");
+      const next = await submitProtocolCommand(current.sessionId, { ...action, heroId: current.phase.pendingUserPicks[0]! }, fetchImpl);
+      syncSnapshot(next);
+      await driveExternalDraft();
     } catch (error) {
       console.error("[useRandomDraftSession] protocol round submission failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [driveKernelUntilLocalInputOrReveal, fetchImpl, stopTimer, syncSnapshot]);
+  }, [driveExternalDraft, fetchImpl, stopTimer, syncSnapshot]);
 
   const startDraft = useCallback(async function startDraft(input: StartDraftConfig): Promise<void> {
     stopTimer();
@@ -297,7 +262,10 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         patch: nextConfig.patch,
       });
       const nextSessionId = await createSimulatorProtocolSession(nextConfig.patch, nextConfig.userSide, fetchImpl, {
-        partySize: nextConfig.partySize,
+        partySize: 1,
+        humanPosition: 2,
+        humanRosterSlot: 4,
+        simulatorSeed: nextConfig.draftSeed,
       });
       rngRef.current = createSeededRng(nextConfig.draftSeed);
       allHeroIdsRef.current = allHeroIds;
@@ -308,16 +276,16 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       syncSnapshot(snapshot);
       snapshot = await submitProtocolCommand(nextSessionId, { type: "BAN_RESOLUTION_COMPLETE" }, fetchImpl);
       syncSnapshot(snapshot);
-      beginRound(1);
+      await driveExternalDraft();
     } catch (error) {
       console.error("[useRandomDraftSession] protocol start failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [beginRound, fetchImpl, stopTimer, syncSnapshot]);
+  }, [driveExternalDraft, fetchImpl, stopTimer, syncSnapshot]);
 
   return {
-    state: { config, phase, sessionId, draftState, recommendations, previewStatus, staleWarning, lastSyncedAt, archetypeIntent, engineStatus },
-    actions: { confirmPick, deselectPick, resetDraft, retryPreview, setArchetypeIntent },
+    state: { config, phase, sessionId, draftState, recommendations, previewStatus, staleWarning, lastSyncedAt, engineStatus },
+    actions: { confirmPick, deselectPick, resetDraft, retryPreview },
     startDraft,
     confirmRound,
   };

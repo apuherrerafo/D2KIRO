@@ -16,7 +16,12 @@ import type { RecommendationSlot } from "./types";
 export type ComputeSuggestionsForRecommendation = (
   state: DraftState,
   accountId: null,
-  options?: { teamOpening?: boolean; diversitySeed?: string; candidateHeroIds?: readonly HeroId[] },
+  options?: {
+    teamOpening?: boolean;
+    targetPosition?: 1 | 2 | 3 | 4 | 5;
+    diversitySeed?: string;
+    candidateHeroIds?: readonly HeroId[];
+  },
 ) => Promise<SuggestionSet>;
 
 export function excludedHeroes(legacyState: DraftState): Set<HeroId> {

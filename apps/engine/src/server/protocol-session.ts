@@ -18,6 +18,7 @@ import {
   type RulesetId,
   type TeamSide,
 } from "../draft-protocol";
+import { isSoloMidSimulatorMetadata, participantForRoundSlot } from "../simulator/solo-mid-policy";
 
 // R1 S2.1/S2.5/S3 -- ProtocolSessionStore: the session-management layer for kernel-backed drafts.
 // Mirrors server/session.ts's shape (in-memory Map, lastAccessedAt, evictStale/TTL) so it reads
@@ -41,6 +42,10 @@ export interface ProtocolSessionMetadata {
   partyContext: PartyContext | null;
   localSide: TeamSide;
   adapterKind: "manual" | "simulator";
+  /** Explicit simulator participant metadata. Null outside the reduced AP Solo Mid policy. */
+  humanPosition: 1 | 2 | 3 | 4 | 5 | null;
+  humanRosterSlot: number | null;
+  simulatorSeed: string | null;
 }
 
 interface ProtocolSessionEntry {
@@ -66,6 +71,9 @@ export interface CreateProtocolSessionInput {
   partyContext?: PartyContextInput;
   localSide?: TeamSide;
   adapterKind?: "manual" | "simulator";
+  humanPosition?: 1 | 2 | 3 | 4 | 5;
+  humanRosterSlot?: number;
+  simulatorSeed?: string;
 }
 
 function oppositeSide(side: TeamSide): TeamSide {
@@ -98,7 +106,15 @@ export class ProtocolSessionStore {
     const partyContext = created.state.rankedAp?.partyContext ?? this.buildStandalonePartyContext(input.partyContext);
     this.sessions.set(input.sessionId, {
       state: created.state,
-      metadata: { patch: input.patch, partyContext, localSide, adapterKind: input.adapterKind ?? "manual" },
+      metadata: {
+        patch: input.patch,
+        partyContext,
+        localSide,
+        adapterKind: input.adapterKind ?? "manual",
+        humanPosition: input.humanPosition ?? null,
+        humanRosterSlot: input.humanRosterSlot ?? null,
+        simulatorSeed: input.simulatorSeed ?? null,
+      },
       lastAccessedAt: now,
     });
     return { ok: true, sessionId: input.sessionId, state: created.state };
@@ -187,7 +203,12 @@ export class ProtocolSessionStore {
     // loadTrustedEligibility(), and it is not this one.
     if (isTrustedServerOnlyCommand(command.type)) return false;
     if (command.type === "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION") return false;
-    if (command.type === "SUBMIT_SEALED_SELECTION") return command.side === metadata.localSide;
+    if (command.type === "SUBMIT_SEALED_SELECTION") {
+      if (command.side !== metadata.localSide) return false;
+      if (!state.rankedAp?.round || !isSoloMidSimulatorMetadata(metadata)) return true;
+      const participant = participantForRoundSlot(command.side, state.rankedAp.round.round, command.slotIndex);
+      return participant?.control === "human" && participant.rosterSlot === metadata.humanRosterSlot;
+    }
     if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
       return legalActions(state).some((action) => {
         if (action.type !== command.type || action.absoluteSide !== metadata.localSide || action.actor !== command.actor) return false;
@@ -202,7 +223,12 @@ export class ProtocolSessionStore {
     const metadata = this.metadata(sessionId);
     if (!state || !metadata) return null;
     return legalActions(state).filter((action) => {
-      if (action.type === "SUBMIT_SEALED_SELECTION") return action.side === metadata.localSide;
+      if (action.type === "SUBMIT_SEALED_SELECTION") {
+        if (action.side !== metadata.localSide) return false;
+        if (!state.rankedAp?.round || !isSoloMidSimulatorMetadata(metadata)) return true;
+        const participant = participantForRoundSlot(action.side, state.rankedAp.round.round, action.slotIndex);
+        return participant?.control === "human" && participant.rosterSlot === metadata.humanRosterSlot;
+      }
       if (action.type === "CM_ACTION" || action.type === "CM_BAN_SKIPPED" || action.type === "CM_AUTO_PICK") {
         return action.absoluteSide === metadata.localSide;
       }

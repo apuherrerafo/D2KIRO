@@ -6,7 +6,6 @@ import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import { BUTTON_GHOST } from "@/features/draft/styles";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { specForRound } from "../use-random-draft-session";
 import type { DraftPhase, HeroId } from "../types";
 
 type BlindRoundPhase = Extract<DraftPhase, { type: "blind_round" }>;
@@ -81,10 +80,9 @@ function BlindRoundActive({
   onDeselectPick,
   onConfirmRound,
 }: BlindRoundActiveProps) {
-  const spec = specForRound(phase.round);
   const unavailable = unavailableHeroIds(draftState, phase.pendingUserPicks);
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
-  const slotsLeft = spec.picksPerTeam - phase.pendingUserPicks.length;
+  const slotsLeft = 1 - phase.pendingUserPicks.length;
   const readyToAdvance = slotsLeft === 0;
 
   // TSK-087: auto-avanza en cuanto se completan los picks de la ronda -- pedido explícito del
@@ -109,7 +107,7 @@ function BlindRoundActive({
       {/* TSK-086: el timer de la ronda se ve ahora al centro de CompactBoard (page.tsx), no acá --
           nunca dos timers en pantalla al mismo tiempo. */}
       <span className="text-heading text-content-primary">
-        Ronda {phase.round} -- {phase.pendingUserPicks.length} de {spec.picksPerTeam} héroe(s) seleccionados
+        Tu pick Mid -- {phase.pendingUserPicks.length} de 1 héroe seleccionado
       </span>
       <ConflictBanner conflictBans={phase.conflictBans} heroCatalog={heroCatalog} />
       <div className="flex flex-wrap gap-3">
@@ -152,8 +150,8 @@ function RoundRevealedView({ phase, heroCatalog }: RoundRevealedViewProps) {
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Ronda {phase.round} -- revelada</span>
       <div className="grid gap-4 sm:grid-cols-2">
-        <RevealedSide title="Vos" picks={phase.userPicks} heroCatalog={heroCatalog} />
-        <RevealedSide title="Bot" picks={phase.botPicks} heroCatalog={heroCatalog} />
+        <RevealedSide title="Radiant" picks={phase.userPicks} heroCatalog={heroCatalog} />
+        <RevealedSide title="Dire" picks={phase.botPicks} heroCatalog={heroCatalog} />
       </div>
     </div>
   );

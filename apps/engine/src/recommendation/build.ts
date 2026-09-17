@@ -60,6 +60,7 @@ import type {
 // `seed`, threaded to V6's own `diversitySeed` and nowhere else.
 
 export const RECOMMENDATION_OUTPUT_LIMIT = 5;
+export const SOLO_MID_RECOMMENDATION_OUTPUT_LIMIT = 6;
 
 export type { ComputeSuggestionsForRecommendation } from "./legality";
 
@@ -83,6 +84,14 @@ export interface BuildRecommendationSetV2Input {
   /** Soft preference for whoever is requesting this recommendation -- applies to every candidate
    * hero equally. See role-impact.ts's RoleImpactInput doc for why no per-slot mapping exists. */
   partyPreferredPositions?: readonly Position[];
+  /** Explicit individual-role recommendation context. Omitted preserves the captain/team path. */
+  targetPosition?: Position;
+  /** `false` is meaningful: the human Solo Mid pick must never use team-opening policy. */
+  teamOpening?: boolean;
+  /** Simulator recovery preserves all six V6 suggestions; other callers keep the legacy limit. */
+  outputLimit?: number;
+  /** Stable roster identities controlled by this caller, mapped onto AP's round-scoped slots. */
+  controlledRosterSlots?: readonly number[];
 }
 
 function pushUniqueDegradation(list: RecommendationDegradation[], entry: RecommendationDegradation): void {
@@ -109,7 +118,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const legal = deriveLegalDecision(state, actor);
+  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots);
   const degradations: RecommendationDegradation[] = [...legal.degradations];
   const eligibilitySnapshot = state.captainsMode?.eligibilitySnapshot ?? null;
   // Blocker 6 (independent architecture review) -- identity inputs shared by every basedOn built
@@ -144,15 +153,14 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const legacyState = perspectiveToLegacyDraftState(view, { patch });
   let suggestionSet: SuggestionSet;
   try {
-    // teamOpening: true -- a kernel-backed session is by construction a captain drafting for a
-    // whole roster (accountId is always null on this path), never one logged-in user's own pick;
-    // this excludes V6's hero_pool_fit signal exactly like the simulator's own team-opening calls
-    // already do (mix.ts's own doc on `options.teamOpening`), rather than scoring against a
-    // personal pool that has no meaning here. Blocker 3: `candidateHeroIds` is the kernel's own
-    // certified legal universe (null = unrestricted, Ranked All Pick) -- V6 ranks ONLY that
-    // universe, never the global catalog filtered after the fact (see mix.ts's candidatePool).
+    // Legacy kernel-backed callers default to the captain/team-opening path. A caller representing
+    // one actual participant (AP Solo Mid) must opt out explicitly and provide its targetPosition.
+    // `candidateHeroIds` is the kernel's own certified legal universe (null = unrestricted,
+    // Ranked All Pick) -- V6 ranks ONLY that universe, never the global catalog filtered after the
+    // fact (see mix.ts's candidatePool).
     suggestionSet = await computeSuggestions(legacyState, null, {
-      teamOpening: true,
+      teamOpening: input.teamOpening ?? true,
+      targetPosition: input.targetPosition,
       diversitySeed: seed,
       candidateHeroIds: legal.eligibleHeroIds ?? undefined,
     });
@@ -196,8 +204,8 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
 
   const recommendations: Recommendation[] =
     legal.decision.actionCount >= 2
-      ? buildCompoundRecommendations(state, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, legal.eligibleHeroIds, metaIsStale, degradations)
-      : buildSingleRecommendations(state, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, legal.eligibleHeroIds, metaIsStale, suggestionSet, degradations);
+      ? buildCompoundRecommendations(state, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, legal.eligibleHeroIds, metaIsStale, degradations, input.outputLimit)
+      : buildSingleRecommendations(state, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, legal.eligibleHeroIds, metaIsStale, suggestionSet, degradations, input.outputLimit);
 
   if (recommendations.length === 0) {
     pushUniqueDegradation(degradations, { reason: "NO_LEGAL_HERO_UNIVERSE", detail: "el shortlist no sobrevivió la post-validación final contra el estado" });
@@ -248,10 +256,11 @@ function buildSingleRecommendations(
   metaIsStale: boolean,
   suggestionSet: SuggestionSet,
   degradations: RecommendationDegradation[],
+  outputLimit = RECOMMENDATION_OUTPUT_LIMIT,
 ): Recommendation[] {
   const out: Recommendation[] = [];
   for (const entry of shortlist) {
-    if (out.length >= RECOMMENDATION_OUTPUT_LIMIT) break;
+    if (out.length >= outputLimit) break;
     if (!postValidateAction(state, entry.hero, eligibleHeroIds, slot)) continue;
 
     const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
@@ -291,6 +300,7 @@ function buildCompoundRecommendations(
   eligibleHeroIds: readonly HeroId[] | null,
   metaIsStale: boolean,
   degradations: RecommendationDegradation[],
+  outputLimit = RECOMMENDATION_OUTPUT_LIMIT,
 ): Recommendation[] {
   if (slots.length < 2) return [];
   const [slotA, slotB] = slots;
@@ -298,7 +308,7 @@ function buildCompoundRecommendations(
   const out: Recommendation[] = [];
 
   for (const combo of combos) {
-    if (out.length >= RECOMMENDATION_OUTPUT_LIMIT) break;
+    if (out.length >= outputLimit) break;
     const [a, b] = combo.entries;
     // Step 1/2 (blocker 4 -- hero uniqueness + per-action legality) BEFORE any role/joint work.
     if (a.hero === b.hero) continue; // structurally unreachable (distinct shortlist entries), kept as an explicit guard
