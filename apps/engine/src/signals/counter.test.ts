@@ -264,6 +264,123 @@ describe("createCounterScorer -- degradacion (§14.10-6)", () => {
   });
 });
 
+// AP Solo Mid data/signal repair (Dota Judge root cause 3.1, P0 confirmado): `contribs` se
+// promediaba en vez de sumarse -- cubrir a DOS rivales revelados con la misma intensidad daba el
+// MISMO raw que cubrir a uno solo, y en el caso medido (mobility: Storm Spirit + Puck), un
+// candidato que contrarrestaba a AMBOS rivales rankeó #6 con el mismo raw que otro que sólo
+// contrarrestaba a UNO. La fórmula correcta es la suma de la evidencia disponible, no su promedio
+// -- estos casos no usan ningún nombre de héroe como regla de negocio, son puramente estructurales.
+describe("createCounterScorer -- agregación multi-rival (§ root cause 3.1, no promediar cobertura)", () => {
+  const HERO = 1;
+  const RIVAL_A = 10;
+  const RIVAL_B = 11;
+
+  test("dos positivos (medium c/u contra dos rivales distintos) -> raw es la SUMA, no el promedio", () => {
+    const curated = new Map([
+      [RIVAL_A, [{ vs: HERO, level: "medium" as const, why: "gana a A" }]],
+      [RIVAL_B, [{ vs: HERO, level: "medium" as const, why: "gana a B" }]],
+    ]);
+    const oneRival = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A] } }),
+      HERO,
+      meta(),
+    );
+    const twoRivals = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(oneRival.raw).toBeCloseTo(0.06, 10); // M.medium, un solo rival
+    expect(twoRivals.raw).toBeCloseTo(0.12, 10); // suma de dos medium -- NO 0.06 (lo que daría un promedio)
+    // El requisito literal del hallazgo: cubrir más rivales comparables nunca vale menos.
+    expect(twoRivals.raw as number).toBeGreaterThan(oneRival.raw as number);
+  });
+
+  test("dos negativos (medium c/u, el candidato es countereado por ambos) -> raw es la suma negativa", () => {
+    const curated = new Map([[HERO, [
+      { vs: RIVAL_A, level: "medium" as const, why: "A le gana" },
+      { vs: RIVAL_B, level: "medium" as const, why: "B le gana" },
+    ]]]);
+    const result = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(result.raw).toBeCloseTo(-0.12, 10);
+  });
+
+  test("positivo + negativo (uno a favor, uno en contra, ambos medium) -> se cancelan, no se promedian a -0.03/+0.03", () => {
+    const curated = new Map([
+      [RIVAL_A, [{ vs: HERO, level: "medium" as const, why: "gana a A" }]], // a favor de HERO
+      [HERO, [{ vs: RIVAL_B, level: "medium" as const, why: "B le gana a HERO" }]], // en contra de HERO
+    ]);
+    const result = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(result.raw).toBeCloseTo(0, 10); // +0.06 + (-0.06) -- ni 0.03 ni -0.03 (eso sería promedio)
+  });
+
+  test("positivo + neutral (el segundo rival no tiene NINGÚN dato, curado ni estadístico) -> no diluye al primero", () => {
+    const curated = new Map([[RIVAL_A, [{ vs: HERO, level: "medium" as const, why: "gana a A" }]]]);
+    // RIVAL_B no aparece en `curated` ni en `meta().matchups` -- capa curada Y estadística vacías
+    // para ese rival, así que no aporta ningún elemento a `contribs` (se salta, no cuenta como 0).
+    const withUnknown = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+    const withoutUnknown = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(withUnknown.raw).toBeCloseTo(0.06, 10);
+    expect(withUnknown.raw).toBeCloseTo(withoutUnknown.raw as number, 10); // el rival "unknown" no mueve la aguja
+  });
+
+  test("dos hard (0.12 c/u) -> la suma excede M.hard sin clamp cuando no hay alivio por bans, igual que hoy con un solo rival", () => {
+    const curated = new Map([
+      [RIVAL_A, [{ vs: HERO, level: "hard" as const, why: "gana duro a A" }]],
+      [RIVAL_B, [{ vs: HERO, level: "hard" as const, why: "gana duro a B" }]],
+    ]);
+    const result = createCounterScorer(curated).score(
+      draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } }),
+      HERO,
+      meta(),
+    );
+
+    expect(result.raw).toBeCloseTo(0.24, 10); // 2 x M.hard, sin clamp (banRelief === 0)
+  });
+
+  test("reproduce el caso medido: cubrir a dos rivales con medium nunca vale menos que cubrir a uno solo con medium", () => {
+    // Estructuralmente idéntico al hallazgo P0 (mobility: dos enemigos móviles). Riki-equivalente
+    // (A) contrarresta a AMBOS rivales con medium y no pierde contra ninguno; Huskar-equivalente
+    // (B) sólo contrarresta a uno de los dos, también medium. Ningún nombre de héroe real se usa
+    // como regla de negocio -- son IDs sintéticos.
+    const COVERS_BOTH = 20;
+    const COVERS_ONE = 21;
+    const curated = new Map([
+      [RIVAL_A, [
+        { vs: COVERS_BOTH, level: "medium" as const, why: "A cubre a ambos, parte 1" },
+        { vs: COVERS_ONE, level: "medium" as const, why: "B cubre a uno, parte 1" },
+      ]],
+      [RIVAL_B, [{ vs: COVERS_BOTH, level: "medium" as const, why: "A cubre a ambos, parte 2" }]],
+    ]);
+    const state = draftState({ picks: { radiant: [], dire: [RIVAL_A, RIVAL_B] } });
+
+    const coversBoth = createCounterScorer(curated).score(state, COVERS_BOTH, meta());
+    const coversOne = createCounterScorer(curated).score(state, COVERS_ONE, meta());
+
+    expect(coversBoth.raw as number).toBeGreaterThanOrEqual(coversOne.raw as number);
+  });
+});
+
 // TSK-188 (SPEC.md §14.13): alivio positivo "tus counters estan baneados = pick mas libre".
 describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => {
   const MORPHLING = 10;

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isCandidateAdmittedForPosition,
   loadHeroPositions,
+  MID_CANDIDATE_MIN_MATCHES,
   MID_CANDIDATE_MIN_SHARE,
   MIN_POSITION_MATCHES,
   parseHeroPositions,
@@ -27,11 +28,18 @@ test("loadHeroPositions() carga el archivo real: entradas válidas, sin héroes 
   }
 });
 
-test("admisión Mid acepta posición dominante o share >= 25% y excluye uso marginal", () => {
+test("MID_CANDIDATE_MIN_MATCHES es 3x MIN_POSITION_MATCHES -- derivado del propio piso del archivo, no inventado", () => {
+  expect(MID_CANDIDATE_MIN_MATCHES).toBe(MIN_POSITION_MATCHES * 3);
+});
+
+test("admisión Mid acepta posición dominante o share >= 25%, exige evidencia absoluta y excluye uso marginal", () => {
   const positions = {
-    1: [{ position: 2 as const, matches: 220 }, { position: 4 as const, matches: 780 }],
-    2: [{ position: 2 as const, matches: 250 }, { position: 4 as const, matches: 750 }],
-    3: [{ position: 2 as const, matches: 400 }, { position: 1 as const, matches: 300 }],
+    // Share 22%, muy por debajo de MID_CANDIDATE_MIN_SHARE -- rechazado en share, no en evidencia.
+    1: [{ position: 2 as const, matches: 660 }, { position: 4 as const, matches: 2340 }],
+    // Share exactamente 25% Y por encima del piso de evidencia absoluta -- admitido.
+    2: [{ position: 2 as const, matches: 750 }, { position: 4 as const, matches: 2250 }],
+    // Dominante (con una alternativa real de la que ser dominante) Y por encima del piso -- admitido.
+    3: [{ position: 2 as const, matches: 900 }, { position: 1 as const, matches: 700 }],
   };
 
   expect(MID_CANDIDATE_MIN_SHARE).toBe(0.25);
@@ -39,6 +47,40 @@ test("admisión Mid acepta posición dominante o share >= 25% y excluye uso marg
   expect(isCandidateAdmittedForPosition(1, 2, positions)).toBe(false);
   expect(isCandidateAdmittedForPosition(2, 2, positions)).toBe(true);
   expect(isCandidateAdmittedForPosition(3, 2, positions)).toBe(true);
+});
+
+// AP Solo Mid data/signal repair (Dota Judge root cause 2, hallazgo RC1): `hero-positions.json`
+// sólo registra una posición si superó MIN_POSITION_MATCHES -- una posición que sobrevive SOLA no
+// tiene con qué compararse, así que "dominante" era vacuamente cierto sin importar cuán marginal
+// fuera la evidencia real. Caso medido: un héroe con 285 partidas totales, todas en Mid, leía como
+// 100% de share y "dominante" -- exactamente el mismo shape que produce este fixture sintético.
+test("un único sobreviviente con volumen fino (100% de share) NO alcanza el piso de evidencia absoluta -> rechazado", () => {
+  const positions = { 1: [{ position: 2 as const, matches: 285 }] };
+
+  expect(positionShare(1, 2, positions)).toBe(1); // share vacuamente perfecto -- el bug real
+  expect(isCandidateAdmittedForPosition(1, 2, positions)).toBe(false);
+});
+
+test("un único sobreviviente con volumen sustancial (100% de share) SÍ alcanza el piso -> admitido", () => {
+  const positions = { 1: [{ position: 2 as const, matches: 3000 }] };
+
+  expect(isCandidateAdmittedForPosition(1, 2, positions)).toBe(true);
+});
+
+test("evidencia absoluta insuficiente en la posición objetivo rechaza aunque sea la posición dominante", () => {
+  // Dominante entre sus 2 posiciones listadas (300 > 250), pero ninguna cruza el piso absoluto --
+  // ambas son, en términos absolutos, evidencia marginal.
+  const positions = { 1: [{ position: 2 as const, matches: 300 }, { position: 4 as const, matches: 250 }] };
+
+  expect(isCandidateAdmittedForPosition(1, 2, positions)).toBe(false);
+});
+
+test("targetPosition distinto de 2 conserva el comportamiento previo: cualquier presencia curada admite", () => {
+  // El piso de evidencia absoluta es exclusivo de Mid (alcance congelado de esta fase: Ranked
+  // All Pick · Solo · Radiant · Position 2). Otras posiciones no cambian.
+  const positions = { 1: [{ position: 1 as const, matches: 201 }] };
+
+  expect(isCandidateAdmittedForPosition(1, 1, positions)).toBe(true);
 });
 
 // El resto de los casos usa parseHeroPositions con fixtures sintéticos -- nunca el archivo real

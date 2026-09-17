@@ -7,7 +7,7 @@ import { getMetaFreshness } from "./meta/provider";
 import { createApp } from "./server/app";
 import { createTokenRateLimiter } from "./server/edge";
 import { CURRENT_PATCH } from "./server/routes/meta";
-import { heroes, metaSync } from "./db/schema";
+import { metaSync } from "./db/schema";
 
 // R1 S7 (final blocker repair, Blocker 1) -- the real process startup, factored out of index.ts so
 // it has exactly ONE caller-supplied seam for TEST-ONLY capabilities, instead of index.ts reading
@@ -41,9 +41,13 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
       return { isStale: freshness.isStale, isRunning: hasRunningSync };
     },
     runSync: async () => {
-      const heroIdsForMatchups = db.select({ id: heroes.id }).from(heroes).all().map((hero) => hero.id);
+      // AP Solo Mid data/signal repair: `heroIdsForMatchups` ya NO se pre-calcula acá -- un
+      // snapshot de `heroes` tomado ANTES de que `runMetaSync` corra `syncHeroes` da `[]` en la
+      // primera sincronización de una base vacía, dejando `hero_matchups` permanentemente vacío
+      // (ver la nota en `runMetaSync`, sync.ts). Se omite el campo para que `runMetaSync` lo
+      // derive él mismo, después de sincronizar héroes.
       const syncId = beginMetaSync(db);
-      await runMetaSync(db, openDotaClient, syncId, { patch: CURRENT_PATCH, heroIdsForMatchups });
+      await runMetaSync(db, openDotaClient, syncId, { patch: CURRENT_PATCH });
     },
   });
   void globalMetaRefresh.start();

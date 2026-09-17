@@ -848,13 +848,63 @@ describe("TSK-210 -- mezcla por estado (Fase 9.1)", () => {
 
     // A(S) = {counter, position_fit}. w'_counter sobre ese denominador.
     const wCounter = SCORING_WEIGHTS_V6.counter / (SCORING_WEIGHTS_V6.counter + SCORING_WEIGHTS_V6.position_fit);
-    // μ_counter = normalized del único candidato con dato (el 1).
-    const muCounter = c1.normalized as number;
+    // μ_counter = normalized del único candidato con dato (el 1), topado en 50 (AP Solo Mid
+    // data/signal repair, root cause 3 Task B): el relleno de "sin dato" para `counter` nunca
+    // puede superar el neutro (50, raw=0), o "no saber" terminaría valiendo más que una ventaja
+    // real conocida. Este fixture da a propósito un candidato con edge FUERTE (normalized > 50)
+    // para que el candado ejercite el tope, no sólo el caso donde ya coincidía con la media cruda.
+    const muCounter = Math.min(c1.normalized as number, 50);
+    expect(c1.normalized as number).toBeGreaterThan(50); // si esto deja de ser cierto, el tope no se ejercita
 
     expect(c1.raw).not.toBeNull();
     expect(c2.raw).toBeNull(); // el hueco de datos NO se rellena en raw
-    expect(c2.weighted).toBeCloseTo(wCounter * muCounter, 8); // se rellena en weighted vía μ
+    expect(c2.weighted).toBeCloseTo(wCounter * muCounter, 8); // se rellena en weighted vía μ, topado en 50
     expect(c2.weighted).toBeGreaterThan(0);
+  });
+
+  // AP Solo Mid data/signal repair (Dota Judge root cause 3, Task B -- hallazgo RC8): reproduce el
+  // caso medido en producción -- un candidato SIN ningún dato de contrapick (raw:null) recibía un
+  // relleno μ(S) más alto que un candidato con evidencia REAL pero débil (+0.02), porque μ(S) era
+  // la media de TODOS los candidatos con dato, y un candidato con un edge fuerte en el mismo estado
+  // arrastraba esa media muy por encima del valor propio del candidato débil. "No saber" terminaba
+  // puntuando mejor que "saber algo bueno pero chico". El tope en 50 (neutro real) lo corrige: el
+  // relleno de UNKNOWN nunca puede superar el neutro, así que el candidato con evidencia real débil
+  // (cuyo propio normalized > 50) siempre le gana a UNKNOWN, sin importar qué tan fuerte sea la
+  // evidencia de un tercer candidato en el mismo estado.
+  test("AC2b -- UNKNOWN nunca supera a evidencia real débil, aunque otro candidato tenga evidencia fuerte en el mismo estado", () => {
+    const snapshot = meta(
+      {
+        1: { id: 1, localizedName: "Evidencia débil" },
+        2: { id: 2, localizedName: "Evidencia fuerte" },
+        3: { id: 3, localizedName: "Sin dato" },
+        50: { id: 50, localizedName: "Enemigo" },
+      },
+      {
+        matchups: {
+          // Débil: 0.52 vs 0.50 de base -> delta chico y positivo (misma naturaleza que el +0.02
+          // medido en producción).
+          1: [{ vsHero: 50, games: 300, wins: 156 }, { vsHero: 60, games: 300, wins: 150 }],
+          // Fuerte: 0.65 vs 0.50 de base -> delta grande, arrastra la media de "candidatos con
+          // dato" muy por encima del valor propio del candidato débil.
+          2: [{ vsHero: 50, games: 300, wins: 195 }, { vsHero: 60, games: 300, wins: 150 }],
+          // 3 no tiene NINGÚN matchup vs el enemigo revelado -> raw:null, se rellena con μ(S).
+        },
+      },
+    );
+
+    const result = buildSuggestions(stateWithEnemy(), snapshot, { heroPositions: CARRY_POS, heroCounters: new Map(), calibration: EMPTY_CAL });
+    const weak = result.suggestions.find((s) => s.hero === 1)!.signals.find((s) => s.signal === "counter")!;
+    const strong = result.suggestions.find((s) => s.hero === 2)!.signals.find((s) => s.signal === "counter")!;
+    const unknown = result.suggestions.find((s) => s.hero === 3)!.signals.find((s) => s.signal === "counter")!;
+
+    expect(weak.raw).not.toBeNull();
+    expect(weak.normalized as number).toBeGreaterThan(50); // evidencia real, aunque débil, sigue siendo positiva
+    expect(strong.normalized as number).toBeGreaterThan(weak.normalized as number); // el fuerte es, de hecho, más fuerte
+    expect(unknown.raw).toBeNull(); // el hueco de dato nunca se escribe en raw
+
+    // El corazón del candado: UNKNOWN (relleno μ) nunca le gana a la evidencia real débil, pese a
+    // que el candidato fuerte del mismo estado sí arrastraría la media cruda por encima de `weak`.
+    expect(unknown.weighted).toBeLessThanOrEqual(weak.weighted);
   });
 
   test("AC3 -- EvidenceCoverage: cobertura total -> 1; parcial -> w' de la señal con dato", () => {
@@ -1061,7 +1111,7 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
       const voting = votingSignals(state, snapshot, bareOptions());
       for (const signal of ALL_SIGNALS) {
         const structurally = applicable.has(signal);
-        const ready = dataReady(signal, snapshot);
+        const ready = dataReady(signal, state, snapshot);
         // regla formal (requisito 3.2 c3): la conjunción, nunca inferida de raw
         expect(voting.has(signal)).toBe(structurally && ready);
         // Caso C/D: no estructural => nunca vota aunque dataReady sea true
@@ -1076,8 +1126,8 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     const state = draftState({ picks: { radiant: [7], dire: [50] } });
     const snapshot = meta({});
     // dataReady ni siquiera acepta calibración como parámetro -> imposible que la use de interruptor.
-    expect(dataReady("patch_meta", snapshot)).toBe(false);
-    expect(dataReady("position_fit", snapshot)).toBe(true);
+    expect(dataReady("patch_meta", state, snapshot)).toBe(false); // sin patchStats, sin cobertura
+    expect(dataReady("position_fit", state, snapshot)).toBe(true);
     const votingA = [...votingSignals(state, snapshot, bareOptions())].sort();
     const votingB = [...votingSignals(state, snapshot, bareOptions())].sort();
     expect(votingA).toEqual(votingB);
@@ -1090,10 +1140,10 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     const snapshot = meta({});
     expect(structurallyApplicableSignals(before, snapshot, bareOptions()).has("counter")).toBe(false);
     expect(structurallyApplicableSignals(after, snapshot, bareOptions()).has("counter")).toBe(true);
-    // patch_meta estructuralmente aplicable en ambos, dataReady=false en ambos
+    // patch_meta estructuralmente aplicable en ambos, dataReady=false en ambos (sin patchStats)
     for (const s of [before, after]) {
       expect(structurallyApplicableSignals(s, snapshot, bareOptions()).has("patch_meta")).toBe(true);
-      expect(dataReady("patch_meta", snapshot)).toBe(false);
+      expect(dataReady("patch_meta", s, snapshot)).toBe(false);
       expect(votingSignals(s, snapshot, bareOptions()).has("patch_meta")).toBe(false);
     }
   });
@@ -1135,7 +1185,12 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
   });
 
   // ---- RAW ORTHOGONALITY: raw numérico NO fuerza dataReady=true ----
-  test("orthogonality -- patch_meta con patchStats >= 500 (raw numérico) SIGUE sin votar y con weighted 0", () => {
+  test("orthogonality -- patch_meta con patchStats >= 500 pero SÓLO 2 héroes de cobertura (raw numérico) SIGUE sin votar y con weighted 0", () => {
+    // AP Solo Mid data/signal repair: dataReady("patch_meta") ya no es un literal apagado -- este
+    // caso demuestra la ortogonalidad con un motivo REAL: el parche coincide (state.patch="7.36",
+    // draftState() default) y ambos héroes superan MIN_PATCH_GAMES, pero la cobertura (2 héroes) es
+    // muchísimo menor que MIN_PATCH_META_COVERAGE_HEROES -- un dataset roto/disperso sigue sin
+    // votar aunque el scorer produzca un raw numérico válido para esos 2 héroes puntuales.
     const patchStats = {
       1: [{ patch: "7.36", bracket: "archon" as const, picks: 5000, wins: 3000 }],
       2: [{ patch: "7.36", bracket: "archon" as const, picks: 5000, wins: 2000 }],
@@ -1145,9 +1200,9 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     for (const suggestion of result.suggestions) {
       const pm = suggestion.signals.find((s) => s.signal === "patch_meta")!;
       expect(pm.raw).not.toBeNull(); // el scorer produjo un winrate real
-      expect(pm.weighted).toBe(0); // pero dataReady=false => no vota
+      expect(pm.weighted).toBe(0); // pero dataReady=false (cobertura insuficiente) => no vota
     }
-    expect(dataReady("patch_meta", snapshot)).toBe(false);
+    expect(dataReady("patch_meta", draftState(), snapshot)).toBe(false);
     expect(votingSignals(draftState(), snapshot, { heroPositions: {} }).has("patch_meta")).toBe(false);
   });
 
@@ -1162,14 +1217,16 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
     expect(c?.raw).toBeNull();
   });
 
-  // ---- CP3b / Property 11: contrato R0 EXACTO de patch_meta + producción idéntica a pre-R0 ----
-  test("CP3b -- patch_meta: structurallyApplicable=true, dataReady=false, votes=false, weighted=0, reason='data_not_ready'", () => {
+  // ---- CP3b / Property 11: sin patchStats, patch_meta no vota (mismo shape que el contrato R0,
+  // ahora por una condición real -- ver el describe "patchMetaReady" más abajo para el caso donde
+  // SÍ vota) ----
+  test("CP3b -- patch_meta sin patchStats: structurallyApplicable=true, dataReady=false, votes=false, weighted=0, reason='data_not_ready'", () => {
     const state = draftState({ picks: { radiant: [7], dire: [50] } });
     const snapshot = meta({ 1: { id: 1, localizedName: "A" }, 7: { id: 7, localizedName: "Own" }, 50: { id: 50, localizedName: "Enemy" } });
     const opts = { heroCounters: new Map(), heroPositions: KNOWN_POS, calibration: EMPTY_CAL };
 
     expect(structurallyApplicableSignals(state, snapshot, opts).has("patch_meta")).toBe(true);
-    expect(dataReady("patch_meta", snapshot)).toBe(false);
+    expect(dataReady("patch_meta", state, snapshot)).toBe(false);
     expect(votingSignals(state, snapshot, opts).has("patch_meta")).toBe(false);
     expect(nonVotingReason("patch_meta", state, snapshot, opts)).toBe("data_not_ready");
 
@@ -1248,6 +1305,67 @@ describe("Task 12 -- data readiness por señal + contrato exacto de patch_meta",
       (SCORING_WEIGHTS_V6.position_fit / denom) * (pf.normalized as number) +
       (SCORING_WEIGHTS_V6.counter / denom) * (c.normalized as number);
     expect(top.score).toBeCloseTo(expectedScore, 8);
+  });
+
+  // ==========================================================================
+  // AP Solo Mid data/signal repair (Dota Judge root cause 1, 2026-09): `dataReady("patch_meta")`
+  // dejó de ser un literal `false` hardcodeado. Estos tres casos son los que el Dota Judge pidió
+  // explícitamente: parche fresco con cobertura real vota; parche equivocado no vota; dataset
+  // roto/disperso (pocos héroes, aunque cada uno individualmente supere MIN_PATCH_GAMES) no vota.
+  // ==========================================================================
+  describe("patchMetaReady -- cobertura real del parche, no un literal", () => {
+    // 30 héroes, cada uno con >= MIN_PATCH_GAMES en bracket bajo/medio para "7.41e" -- suficiente
+    // para pasar el piso absoluto (20) Y la mayoría relativa (aquí, 100% de los héroes con dato).
+    function richPatchStats(patch: string, heroCount: number) {
+      const stats: Record<number, { patch: string; bracket: "archon"; picks: number; wins: number }[]> = {};
+      for (let hero = 1; hero <= heroCount; hero++) {
+        stats[hero] = [{ patch, bracket: "archon", picks: 5000, wins: 2600 }];
+      }
+      return stats;
+    }
+
+    test("parche fresco con cobertura real (30 héroes, >=500 partidas c/u) -> patch_meta vota", () => {
+      const state = draftState({ patch: "7.41e" });
+      const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 30) });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(true);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(true);
+    });
+
+    test("parche equivocado (dataset fresco pero de OTRO parche) -> patch_meta no vota", () => {
+      // Mismo dataset "rico" de arriba, pero el estado de draft está en un parche distinto -- el
+      // caso real que originó el hallazgo: la base tenía 7.41e mientras un comentario legacy
+      // seguía citando "7.35d" como motivo del apagado.
+      const state = draftState({ patch: "7.35d" });
+      const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 30) });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(false);
+    });
+
+    test("dataset insuficiente/disperso (5 héroes, aunque cada uno supere MIN_PATCH_GAMES) -> patch_meta no vota", () => {
+      const state = draftState({ patch: "7.41e" });
+      const snapshot = meta({}, { patchStats: richPatchStats("7.41e", 5) });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+      expect(votingSignals(state, snapshot, bareOptions()).has("patch_meta")).toBe(false);
+    });
+
+    test("dataset roto (piso absoluto de héroes con cobertura alcanzado, pero por debajo de la mayoría relativa) -> patch_meta no vota", () => {
+      // 50 héroes con fila para "7.41e"; exactamente 20 superan MIN_PATCH_GAMES (cruza el piso
+      // absoluto de MIN_PATCH_META_COVERAGE_HEROES) pero son sólo el 40% del total -- la mayoría
+      // (30/50) sigue por debajo del umbral, así que la RATIO de cobertura falla aunque el conteo
+      // absoluto de héroes con cobertura ya no sea el motivo.
+      const stats: Record<number, { patch: string; bracket: "archon"; picks: number; wins: number }[]> = {};
+      for (let hero = 1; hero <= 50; hero++) {
+        const picks = hero <= 20 ? 5000 : 50; // exactamente 20/50 heroes cruzan MIN_PATCH_GAMES (500)
+        stats[hero] = [{ patch: "7.41e", bracket: "archon", picks, wins: Math.round(picks * 0.5) }];
+      }
+      const state = draftState({ patch: "7.41e" });
+      const snapshot = meta({}, { patchStats: stats });
+
+      expect(dataReady("patch_meta", state, snapshot)).toBe(false);
+    });
   });
 });
 

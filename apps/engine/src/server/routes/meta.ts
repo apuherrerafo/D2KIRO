@@ -1,6 +1,5 @@
 import { desc } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import * as schema from "../../db/schema";
 import { metaSync } from "../../db/schema";
 import type { OpenDotaClient } from "../../meta/opendota-client";
 import { getCachedMetaSnapshot, getMetaFreshness } from "../../meta/provider";
@@ -66,14 +65,14 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
   async function sync(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => ({}))) as { patch?: string };
     const patch = typeof body.patch === "string" && body.patch.length > 0 ? body.patch : CURRENT_PATCH;
-    const heroIdsForMatchups = deps.db
-      .select({ id: schema.heroes.id })
-      .from(schema.heroes)
-      .all()
-      .map((row) => row.id);
 
+    // AP Solo Mid data/signal repair: `heroIdsForMatchups` ya NO se pre-calcula acá -- un
+    // snapshot de `heroes` tomado ANTES de que `runMetaSync` corra `syncHeroes` da `[]` en la
+    // primera sincronización de una base vacía, dejando `hero_matchups` permanentemente vacío
+    // (confirmado: `meta_sync` con `status=ok` y `hero_matchups` en 0 filas). Se omite el campo
+    // para que `runMetaSync` lo derive él mismo, después de sincronizar héroes.
     const syncId = beginMetaSync(deps.db);
-    void runMetaSync(deps.db, deps.openDotaClient, syncId, { patch, heroIdsForMatchups });
+    void runMetaSync(deps.db, deps.openDotaClient, syncId, { patch });
 
     return Response.json({ syncId }, { status: 202 });
   }

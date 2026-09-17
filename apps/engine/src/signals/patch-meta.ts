@@ -1,7 +1,7 @@
 import type { Bracket } from "../meta/mappers";
 import type { HeroPatchBracketStat, SignalContribution, SignalScorer } from "./types";
 
-const MIN_PATCH_GAMES = 500;
+export const MIN_PATCH_GAMES = 500;
 
 // El producto está dirigido a jugadores de nivel bajo/medio, nunca a pro (architecture.md,
 // Bloque 1). No hay taxonomía oficial de Valve para ese corte -- se toma la mitad inferior de
@@ -9,7 +9,10 @@ const MIN_PATCH_GAMES = 500;
 // agregado. Immortal/divine/ancient/legend quedan fuera a propósito.
 const LOW_MID_BRACKETS: readonly Bracket[] = ["herald", "guardian", "crusader", "archon"];
 
-function lowMidTotals(rows: HeroPatchBracketStat[], patch: string): { games: number; wins: number } {
+// Exportada para que `mix.ts` (readiness de `patch_meta`, AP Solo Mid data/signal repair) mida la
+// COBERTURA agregada del parche sin duplicar el filtro de bracket -- misma función que ya usa el
+// scorer por candidato, aplicada aquí a nivel de dataset completo.
+export function lowMidTotals(rows: HeroPatchBracketStat[], patch: string): { games: number; wins: number } {
   return rows
     .filter((row) => row.patch === patch && LOW_MID_BRACKETS.includes(row.bracket))
     .reduce((acc, row) => ({ games: acc.games + row.picks, wins: acc.wins + row.wins }), {

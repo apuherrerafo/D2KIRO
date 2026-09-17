@@ -20,7 +20,12 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 export interface SyncMetaOptions {
   patch: string;
-  heroIdsForMatchups: number[];
+  // AP Solo Mid data/signal repair (Dota Judge root cause 3, matchup ingestion): opcional desde
+  // este repair -- ver la nota junto a su uso en `runMetaSync` para por qué el llamador ya NO debe
+  // pre-calcularlo consultando `heroes` ANTES de que esta función corra. Sigue aceptando un array
+  // explícito (los tests lo usan como DI real para controlar exactamente qué IDs se piden, sin
+  // depender del fixture de `/heroes`).
+  heroIdsForMatchups?: number[];
   now?: Clock;
   // Pausa entre cada pedido de matchups (default MATCHUP_DELAY_MS). Los tests lo bajan a 0.
   matchupDelayMs?: number;
@@ -67,10 +72,24 @@ export async function runMetaSync<TSchema extends Record<string, unknown>>(
   try {
     rowsWritten += await syncHeroes(db, client, now, issues);
     rowsWritten += await syncPatchStats(db, client, options.patch, now, issues);
+    // AP Solo Mid data/signal repair (Dota Judge root cause 3 -- matchup ingestion, confirmed:
+    // `hero_matchups` había quedado en 0 filas pese a que `meta_sync` corrió `status=ok`). Los dos
+    // llamadores reales (bootstrap.ts, routes/meta.ts) calculaban `heroIdsForMatchups` consultando
+    // la tabla `heroes` ANTES de invocar este sync -- en la primera sincronización de una base
+    // vacía eso da `[]`, así que `syncMatchups` nunca iteraba ningún héroe, incluso mientras
+    // `syncHeroes` (arriba, dentro de esta misma llamada) recién estaba poblando esa tabla. Un
+    // chequeo directo contra `meta_sync`/`hero_matchups` confirmó exactamente un sync histórico,
+    // 0 filas de matchups, terminado en 671ms -- imposible para 127 héroes a 1600ms cada uno,
+    // consistente con el loop de `syncMatchups` recibiendo un array vacío. Derivar la lista AQUÍ,
+    // después de `syncHeroes`, la toma de la tabla ya poblada por esta misma corrida (o por una
+    // anterior) en vez de un snapshot tomado antes de que hubiera algo que sincronizar. El campo
+    // sigue aceptando un array explícito -- lo usan los tests para DI real (sync.test.ts).
+    const heroIdsForMatchups =
+      options.heroIdsForMatchups ?? db.select({ id: heroes.id }).from(heroes).all().map((row) => row.id);
     rowsWritten += await syncMatchups(
       db,
       client,
-      options.heroIdsForMatchups,
+      heroIdsForMatchups,
       now,
       issues,
       options.matchupDelayMs ?? MATCHUP_DELAY_MS,

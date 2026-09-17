@@ -46,6 +46,28 @@ export const MIN_POSITION_MATCHES = 200;
 // adding a hero-name whitelist or changing V6's scoring weights.
 export const MID_CANDIDATE_MIN_SHARE = 0.25;
 
+// AP Solo Mid data/signal repair (Dota Judge root cause 2, 2026-09): `hero-positions.json` only
+// ever records a position once it clears `MIN_POSITION_MATCHES` -- positions below that cut are
+// dropped at collection time, never written to the file. That means a hero can survive with a
+// SINGLE listed position (e.g. 285 total matches, all at Mid) and trivially win the old
+// "dominant surviving position" check, because there is nothing else on record to compare it
+// against. The share denominator is the SAME distortion: `positionShare()` divides by the sum of
+// whatever survived, not the hero's true total games, so a thin single-survivor case reads as a
+// confident 100% share.
+//
+// `MID_CANDIDATE_MIN_MATCHES` is an absolute evidence floor for the ADMISSION decision, derived
+// from the file's own base floor (`MIN_POSITION_MATCHES`, "this position is worth recording at
+// all") rather than an invented number: 3x that floor is the difference between "this position
+// cleared the minimum to be listed" and "this is substantial, standalone evidence that the hero
+// plays this position," which is what admitting a hero as a Mid candidate actually claims. It does
+// not, and cannot, fix every boundary case -- `hero-positions.json` never recorded the hero's true
+// total games across ALL positions (including the ones that didn't clear 200), so the share for a
+// hero split across exactly two well-populated positions (e.g. a hero with thousands of games at
+// both Carry and Mid) is already a real, non-inflated number; whether 25% is the right cut for
+// those genuine borderline cases is a product-tuning question, not a data-integrity bug, and is
+// left untouched here.
+export const MID_CANDIDATE_MIN_MATCHES = MIN_POSITION_MATCHES * 3;
+
 const VALID_POSITIONS = new Set([1, 2, 3, 4, 5]);
 
 function isValidShare(value: unknown): value is HeroPositionShare {
@@ -105,9 +127,11 @@ export function positionShare(
 }
 
 /**
- * Candidate admission happens before any scorer or final ranking. Mid is admitted when Position 2
- * is dominant (ties included) OR its historical share reaches the audit's initial 25% threshold.
- * Other target positions retain the pre-recovery "any curated presence" behavior.
+ * Candidate admission happens before any scorer or final ranking. Mid requires meaningful absolute
+ * evidence first (`MID_CANDIDATE_MIN_MATCHES` -- rejects the thin single-survivor cases where
+ * "dominant" was vacuously true because nothing else was on record), and is then admitted when
+ * Position 2 is dominant (ties included) OR its historical share reaches the audit's initial 25%
+ * threshold. Other target positions retain the pre-recovery "any curated presence" behavior.
  */
 export function isCandidateAdmittedForPosition(
   hero: HeroId,
@@ -118,6 +142,7 @@ export function isCandidateAdmittedForPosition(
   const target = shares.find((share) => share.position === targetPosition);
   if (!target) return false;
   if (targetPosition !== 2) return true;
+  if (target.matches < MID_CANDIDATE_MIN_MATCHES) return false;
   const dominantMatches = Math.max(...shares.map((share) => share.matches));
   return target.matches === dominantMatches || positionShare(hero, 2, positions) >= MID_CANDIDATE_MIN_SHARE;
 }

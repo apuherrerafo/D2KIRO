@@ -16,8 +16,10 @@ const MAX_NAMED_ENEMIES = 2;
 //   2. Capa estadística (sólo rivales NO cubiertos por el curado): shrinkage hacia el baseline
 //      del candidato vía `shrinkEstimate` (`pro/shrinkage.ts`, TSK-165) -- una muestra chica
 //      tiende a `c_r = 0` ("sin señal"), no a un offset fijo.
-// `raw = mean(c_r)` sobre los rivales cubiertos; `null` si ninguno (idéntico a hoy).
-// Con `curated` vacío + `{ minGames: 200, shrinkPriorStrength: null }` reproduce el
+// `raw = sum(c_r)` sobre los rivales cubiertos (AP Solo Mid data/signal repair: era `mean`, ver
+// nota junto al cálculo -- promediar borraba la cobertura de enfrentar a más de un rival);
+// `null` si ninguno (idéntico a hoy). Con un solo rival cubierto, suma y promedio coinciden, así
+// que `curated` vacío + `{ minGames: 200, shrinkPriorStrength: null }` sigue reproduciendo el
 // comportamiento previo número por número (candado de regresión, §14.7).
 
 // §14.6 -- valores de arranque, ajustables tras el QA en el simulador (no reabren el SPEC).
@@ -204,13 +206,19 @@ export function createCounterScorer(
         };
       }
 
-      const meanRevealed =
-        contribs.length > 0 ? contribs.reduce((sum, value) => sum + value, 0) / contribs.length : 0;
-      // `banRelief === 0` -> `raw` es el `mean(c_r)` de 8A SIN clamp (candado de regresión §14.7:
-      // el fixture actual da 0.12222 > M.hard y debe seguir dándolo). Con alivio, el total sí se
-      // acota a `RAW_RANGE.counter`.
+      // AP Solo Mid data/signal repair (Dota Judge root cause 3.1, P0 confirmado y reproducido en
+      // counter.test.ts): `contribs` SE SUMABA COMO PROMEDIO, no como total -- un candidato que
+      // cubre a DOS rivales revelados con un `medium` cada uno (0.06 + 0.06) promediaba a 0.06,
+      // exactamente el mismo valor que cubrir a UN SOLO rival con `medium`. Cubrir el doble de
+      // amenazas terminaba valiendo lo mismo que cubrir la mitad -- el caso medido: Riki (medium
+      // vs Storm Y Puck, pierde contra ninguno) rankeó #6 con el mismo raw que Huskar (medium vs
+      // Puck solamente). La suma preserva la cobertura: dos evidencias positivas comparables nunca
+      // valen menos que una sola. Sigue SIN clamp antes del alivio (candado de regresión §14.7: el
+      // fixture de un solo rival da 0.12222 > M.hard y debe seguir dándolo -- con un solo elemento,
+      // suma y promedio coinciden). Con alivio, el total sí se acota a `RAW_RANGE.counter`.
+      const sumRevealed = contribs.reduce((sum, value) => sum + value, 0);
       const raw =
-        banRelief === 0 ? meanRevealed : Math.max(-M.hard, Math.min(M.hard, meanRevealed + banRelief));
+        banRelief === 0 ? sumRevealed : Math.max(-M.hard, Math.min(M.hard, sumRevealed + banRelief));
 
       let explanation: string;
       if (contribs.length > 0) {

@@ -7,7 +7,7 @@ import { createCounterScorer } from "./counter";
 import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { isCandidateAdmittedForPosition, loadHeroPositions, type HeroPositions } from "./hero-positions";
-import { patchMetaScorer } from "./patch-meta";
+import { lowMidTotals, MIN_PATCH_GAMES, patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
@@ -285,28 +285,51 @@ export function structurallyApplicableSignals(
 // (`StateWeightedContribution`) y Task 16 (`AvailableSignalsReport`).
 export type NonVotingReason = "data_not_ready" | "not_structurally_applicable";
 
+// AP Solo Mid data/signal repair (Dota Judge root cause 1, 2026-09): `patch_meta` votaba `false`
+// siempre -- un literal hardcodeado (`return false`) cuya justificación en el código citaba datos
+// de parche stale (`"7.35d"`/`""`) que ya no describen la base real (`hero_patch_stats`: 1016/1016
+// filas en `7.41e`, sincronizado el mismo día que corrió el playtest que encontró el defecto). El
+// gate seguía apagado por una razón que había expirado. `patchMetaReady` reemplaza el literal por
+// una condición verificable: ¿el dataset tiene cobertura real para EL PARCHE del estado actual?
+// Nunca `true` hardcodeado tampoco -- un parche equivocado o un dataset roto/disperso lo apagan
+// igual.
+const MIN_PATCH_META_COVERAGE_HEROES = 20; // amplitud mínima -- no "2 héroes con suerte"
+const MIN_PATCH_META_COVERAGE_RATIO = 0.5; // mayoría de los héroes con alguna fila de ESE parche
+
+function patchMetaReady(state: DraftState, meta: MetaSnapshot): boolean {
+  if (!state.patch || state.patch === "unknown") return false;
+  const rows = meta.patchStats ?? {};
+  let withAnyRowForPatch = 0;
+  let withCoverage = 0;
+  for (const heroRows of Object.values(rows)) {
+    if (!heroRows.some((row) => row.patch === state.patch)) continue;
+    withAnyRowForPatch++;
+    if (lowMidTotals(heroRows, state.patch).games >= MIN_PATCH_GAMES) withCoverage++;
+  }
+  if (withAnyRowForPatch === 0 || withCoverage < MIN_PATCH_META_COVERAGE_HEROES) return false;
+  return withCoverage / withAnyRowForPatch >= MIN_PATCH_META_COVERAGE_RATIO;
+}
+
 // `dataReady` -- flag explícito y verificable por señal: ¿los datos que la señal necesita son
 // confiables/frescos/completos? INDEPENDIENTE de structural applicability y de la calibración.
 // NUNCA se deriva de `raw`: una señal puede traer `raw` numérico y aun así no estar lista
-// (`patch_meta` con `patchStats` >= 500 partidas pero de un parche stale), y `raw:null` NO implica
-// `dataReady=false` (es un hueco de dato para ESE candidato, ortogonal a si la señal participa).
+// (`patch_meta` con `patchStats` >= 500 partidas pero de un parche que no es `state.patch`), y
+// `raw:null` NO implica `dataReady=false` (es un hueco de dato para ESE candidato, ortogonal a si
+// la señal participa).
 //
-// `patch_meta`: contrato R0 EXACTO (requisito 3.3) -- `structurallyApplicable=true`,
-// `dataReady=false`, `raw=null` aceptable, `votes=false`, `weighted=0`,
-// `nonVotingReason="data_not_ready"`. La data de parche está stale/mezclada/incompleta (audit
-// §4.3: `"7.35d"`/`""` 1016/1016, 81/127 matchups, meta muerto desde 2026-07-29). R0 **no**
-// enciende `patch_meta` ni ninguna señal con `dataReady=false` -- su activación real es una fase
-// posterior validada, medida contra el baseline aceptado (R0.2B). Antes de Task 12 esto era un
-// filtro ad-hoc por literal (`.filter((id) => id !== "patch_meta")`); ahora es un gate nombrado.
+// `patch_meta`: `structurallyApplicable=true` siempre; `dataReady` sale de `patchMetaReady` (arriba)
+// -- verificable, nunca un literal. Antes de Task 12 esto era un filtro ad-hoc por literal
+// (`.filter((id) => id !== "patch_meta")`); Task 12 lo volvió un gate nombrado; este repair lo hizo
+// una condición real en vez de una constante apagada a mano.
 //
 // Resto de señales: sus datos ya se validan en el borde de sus loaders/scorers (S9/S10, familia
-// S9) y en R0 se consideran listos (`default: true`). El split estructura/`dataReady` de
-// `hero_pool_fit` queda DIFERIDO -- ver la NOTA en `structurallyApplicableSignals`; con `default:
-// true` aquí el comportamiento es byte-idéntico porque la estructura ya lo gatea por pool presente.
-export function dataReady(signal: SignalId, _meta: MetaSnapshot): boolean {
+// S9) y se consideran listos (`default: true`). El split estructura/`dataReady` de `hero_pool_fit`
+// queda DIFERIDO -- ver la NOTA en `structurallyApplicableSignals`; con `default: true` aquí el
+// comportamiento es byte-idéntico porque la estructura ya lo gatea por pool presente.
+export function dataReady(signal: SignalId, state: DraftState, meta: MetaSnapshot): boolean {
   switch (signal) {
     case "patch_meta":
-      return false; // R0: no encender hasta reparar los datos de parche en una fase posterior
+      return patchMetaReady(state, meta);
     default:
       return true;
   }
@@ -323,7 +346,7 @@ export function votingSignals(
   options: BuildSuggestionsOptions,
 ): Set<SignalId> {
   const applicable = structurallyApplicableSignals(state, meta, options);
-  return new Set([...applicable].filter((signal) => dataReady(signal, meta)));
+  return new Set([...applicable].filter((signal) => dataReady(signal, state, meta)));
 }
 
 // Etiqueta de no-voto por señal (CP3: "toda señal que no vota se etiqueta con `nonVotingReason`").
@@ -337,7 +360,7 @@ export function nonVotingReason(
   options: BuildSuggestionsOptions,
 ): NonVotingReason | null {
   if (!structurallyApplicableSignals(state, meta, options).has(signal)) return "not_structurally_applicable";
-  if (!dataReady(signal, meta)) return "data_not_ready";
+  if (!dataReady(signal, state, meta)) return "data_not_ready";
   return null; // vota
 }
 
@@ -412,7 +435,7 @@ export function buildAvailableSignalsReport(
     const report: SignalStatusReport = {
       signal,
       structurallyApplicable,
-      dataReady: dataReady(signal, meta),
+      dataReady: dataReady(signal, state, meta),
       calibrated: isCalibrated(signal, calibration),
       votes,
     };
@@ -577,6 +600,17 @@ function reconcileWeightedToScore(
 
 // El único neutro del pipeline (§16.7 punto 3): si una señal está en `A(S)` pero NINGÚN candidato
 // del estado tiene `raw` para ella, su `μ` es 50. Nunca se escribe en `raw`.
+//
+// AP Solo Mid data/signal repair (Dota Judge root cause 3, Task B): para `counter` específicamente,
+// `μ` se topa en 50 (el neutro real -- `raw:0` en `RAW_RANGE.counter` normaliza justo ahí). Sin este
+// tope, un estado donde los pocos candidatos con dato de contrapick resultan ser positivos (ninguno
+// negativo) produce un `μ` por ENCIMA de 50, y un candidato sin ningún dato de contrapick ("unknown")
+// terminaba puntuando más que un candidato con evidencia real pero débil (caso medido: relleno 25.4
+// vs Earth Spirit +0.02 real = 22.6 -- "no saber" superaba a "saber algo bueno pero chico"). Taparlo
+// en 50 hace que UNKNOWN nunca reciba una ventaja artificial sobre evidencia conocida (positiva o
+// negativa): como techo, nunca puede superar a un candidato con contrapick genuinamente positivo, y
+// sigue reflejando fielmente un estado con evidencia predominantemente negativa (el tope sólo actúa
+// hacia arriba). No se toca ninguna otra señal -- root cause 3 es exclusivamente sobre `counter`.
 function stateMeansFor(
   scored: { signals: SignalContribution[] }[],
   available: Set<SignalId>,
@@ -590,7 +624,9 @@ function stateMeansFor(
         values.push(contribution.normalized);
       }
     }
-    means[signal] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 50;
+    let mean = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 50;
+    if (signal === "counter") mean = Math.min(mean, 50);
+    means[signal] = mean;
   }
   return means;
 }
@@ -975,15 +1011,14 @@ export function buildSuggestions(
   } else {
     // Conjunto que efectivamente vota y entra en la redistribución: `votes == (structurallyApplicable
     // AND dataReady)` (Task 12 / design §4.3a-b). Igual para todo candidato del estado. NO depende
-    // de la calibración -- ni como estructura (Task 11) ni como readiness. `patch_meta` queda fuera
-    // porque `dataReady("patch_meta") === false` (audit §4.3), no por un filtro por literal: así la
-    // salida observable de producción no cambia respecto a pre-R0 (donde `patch_meta` tampoco votaba:
-    // sólo entraba vía el acoplamiento a `calibration.signals.patch_meta`, ya retirado). Una señal
-    // aplicable pero no lista NO entra a `denom` ni a `stateMean`.
+    // de la calibración -- ni como estructura (Task 11) ni como readiness. `patch_meta` sale de
+    // `patchMetaReady(state, meta)` (AP Solo Mid data/signal repair): vota cuando el dataset cubre
+    // de verdad `state.patch`, no por un filtro por literal. Una señal aplicable pero no lista NO
+    // entra a `denom` ni a `stateMean`.
     const applicableSet = structurallyApplicableSignals(state, meta, options);
     // `voting` was computed above as the canonical degenerate-state predicate.
     const readyBySignal: Partial<Record<SignalId, boolean>> = {};
-    for (const id of applicableSet) readyBySignal[id] = dataReady(id, meta);
+    for (const id of applicableSet) readyBySignal[id] = dataReady(id, state, meta);
     const denom = [...voting].reduce((sum, id) => sum + SCORING_WEIGHTS_V6[id], 0);
     const wPrime: Partial<Record<SignalId, number>> = {};
     for (const id of voting) wPrime[id] = denom > 0 ? SCORING_WEIGHTS_V6[id] / denom : 0;
