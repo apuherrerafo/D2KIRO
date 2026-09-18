@@ -908,10 +908,15 @@ export function buildSuggestions(
   const baseScorers = options.teamOpening ? STATIC_SCORERS.filter((scorer) => scorer.id !== "hero_pool_fit") : STATIC_SCORERS;
   // position_fit, team_synergy y archetype_fit no pueden ser singletons de módulo: dependen de
   // datos inyectables (heroPositions/heroCapabilities/archetypeIntent). Se construyen por llamada.
+  // Blocker 1 (AP Solo Mid data/signal repair, 2026-09): same condition candidatePool() already
+  // uses to decide whether targetPosition governs admission at all -- team-opening composition
+  // never has a single human target, so it keeps the legacy fill/safety formula regardless of what
+  // `targetPosition` happens to hold.
+  const positionFitTarget = options.teamOpening ? undefined : options.targetPosition;
   const scorers: SignalScorer[] = [
     ...baseScorers,
     createCounterScorer(heroCounters),
-    createPositionFitScorer(heroPositions),
+    createPositionFitScorer(heroPositions, positionFitTarget),
     createTeamSynergyScorer(heroCapabilities),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
   ];
