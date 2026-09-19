@@ -92,8 +92,8 @@ export interface CreateProtocolSessionBody {
   localSide: TeamSide;
   adapterKind: "manual" | "simulator";
   partyContext: PartyContextInput;
+  /** AP Ranked Roles V1: the Player's declared personal position (required together with `simulatorSeed`). */
   humanPosition?: 1 | 2 | 3 | 4 | 5;
-  humanRosterSlot?: number;
   simulatorSeed?: string;
 }
 
@@ -108,13 +108,10 @@ export function isValidCreateProtocolSessionBody(value: unknown): value is Creat
   if (!isTeamSide(value.localSide)) return false;
   if (value.adapterKind !== "manual" && value.adapterKind !== "simulator") return false;
   if (!isValidPartyContextInput(value.partyContext) || value.partyContext.side !== value.localSide) return false;
-  const hasSimulatorMetadata = value.humanPosition !== undefined
-    || value.humanRosterSlot !== undefined
-    || value.simulatorSeed !== undefined;
+  const hasSimulatorMetadata = value.humanPosition !== undefined || value.simulatorSeed !== undefined;
   if (hasSimulatorMetadata) {
     if (value.adapterKind !== "simulator") return false;
     if (!isDotaPosition(value.humanPosition)) return false;
-    if (!Number.isInteger(value.humanRosterSlot) || (value.humanRosterSlot as number) < 0 || (value.humanRosterSlot as number) > 4) return false;
     if (typeof value.simulatorSeed !== "string" || value.simulatorSeed.length === 0 || value.simulatorSeed.length > 64) return false;
   }
   return true;
@@ -131,6 +128,16 @@ export function isValidSubmitProtocolCommandBody(value: unknown): value is Submi
   if (!isValidProtocolCommand(value.command)) return false;
   if (value.viewerSide !== undefined && value.viewerSide !== null && !isTeamSide(value.viewerSide)) return false;
   return true;
+}
+
+export interface ResolveBansBody {
+  /** The Player's own nominations (up to 4, `null` = empty slot). Deep-validated by the ban policy against the hero universe. */
+  playerBanPreferences: unknown[];
+}
+
+export function isValidResolveBansBody(value: unknown): value is ResolveBansBody {
+  if (!isRecord(value)) return false;
+  return Array.isArray(value.playerBanPreferences) && value.playerBanPreferences.length <= 4;
 }
 
 export interface SimulatorAuthorityBody {

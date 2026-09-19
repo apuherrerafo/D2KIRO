@@ -26,7 +26,9 @@ import type {
 // Transport arrival and event-log position never select a winner.
 
 const ROUND_CAPACITY: Record<1 | 2 | 3, number> = { 1: 2, 2: 2, 3: 1 };
-const ROUND_TIMER_MS: Record<1 | 2 | 3, number> = { 1: 25000, 2: 25000, 3: 20000 };
+// Exported (value unchanged) so the Simulator's timer layer reads the ruleset's own durations
+// instead of restating them.
+export const ROUND_TIMER_MS: Record<1 | 2 | 3, number> = { 1: 25000, 2: 25000, 3: 20000 };
 
 const SOURCE_MANIFEST = {
   phases: ["BAN_RESOLUTION", "PICK_ROUND_1", "PICK_ROUND_2", "PICK_ROUND_3", "COMPLETE"],
@@ -45,7 +47,11 @@ export const RANKED_ALL_PICK_IDENTITY: RulesetIdentity = Object.freeze({
   version: "1.0.0",
   rulesHash: rulesHash({ id: "dota2/ranked-all-pick", version: "1.0.0", manifest: SOURCE_MANIFEST }),
   applicableFromPatch: "7.35d",
-  verifiedThroughPatch: "7.41e",
+  // RULESET MECHANICS axis only (rounds, timers, collision) -- verified through 7.41f per the
+  // Product Owner (Wave 0 resolution). Independent from the DATA SNAPSHOT axis (CURRENT_PATCH /
+  // patchStats labels), which is deliberately NOT bumped: see docs/DATA_FRESHNESS_REPORT.md.
+  // Not an input of `rulesHash` (it hashes {id, version, manifest}), so the hash is unchanged.
+  verifiedThroughPatch: "7.41f",
   sourceManifestHash: SOURCE_MANIFEST_HASH,
 });
 

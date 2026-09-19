@@ -1,7 +1,7 @@
 import { captainsModeStepDefinition, legalGameplayActions } from "../draft-protocol";
 import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/types";
 import type { RecommendationDecision, RecommendationDegradation, RecommendationSlot } from "./types";
-import { rosterSlotForRoundSlot } from "../simulator/solo-mid-policy";
+import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
 
 // R1 S5 -- LEGAL ACTION FIRST. This module derives WHAT is being decided (decision.ts) and WHICH
 // heroes are legally nameable right now (the "hero universe"), from `legalGameplayActions(state)`

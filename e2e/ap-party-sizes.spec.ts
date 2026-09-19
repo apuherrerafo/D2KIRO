@@ -1,14 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("AP Solo Mid -- superficie reducida", () => {
-  test("expone sólo Ranked All Pick, Solo, Radiant y Posición 2 Mid", async ({ page }) => {
+test.describe("AP Ranked Roles -- superficie de configuración", () => {
+  test("el Player debe elegir lado y posición personal; no hay default de Radiant ni de Mid", async ({ page }) => {
     await page.goto("/simulator");
-    await expect(page.getByText("Ranked All Pick", { exact: true })).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByLabel("Configuración fija del simulador")).toContainText("Solo");
-    await expect(page.getByLabel("Configuración fija del simulador")).toContainText("Radiant");
-    await expect(page.getByLabel("Configuración fija del simulador")).toContainText("Posición 2");
-    await expect(page.locator("#party-size")).toHaveCount(0);
-    await expect(page.locator("#player-position")).toHaveCount(0);
+    await expect(page.getByText("Ranked All Pick — Ranked Roles", { exact: true })).toBeVisible({ timeout: 60_000 });
+    const sides = page.getByRole("group", { name: "Tu lado" });
+    await expect(sides.getByRole("button", { name: "Radiant", exact: true })).toBeVisible();
+    await expect(sides.getByRole("button", { name: "Dire", exact: true })).toBeVisible();
+    const positions = page.getByRole("group", { name: "Tu posición personal" });
+    for (const label of ["Carry", "Midlane", "Offlane", "Support", "Hard support"]) {
+      await expect(positions.getByRole("button", { name: new RegExp(label) }).first()).toBeVisible();
+    }
+    await expect(page.getByRole("button", { name: "Iniciar Draft" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Captain's Mode" })).toHaveCount(0);
     for (const intent of ["Push", "Teamfight", "Pickoff", "Scaling"]) {
       await expect(page.getByRole("button", { name: intent })).toHaveCount(0);

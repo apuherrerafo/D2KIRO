@@ -6,23 +6,22 @@ import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import { BLIND_ROUND_SPECS } from "./constants";
 import { useLowConfidenceStore } from "./low-confidence-store";
 import { loadMetaSnapshot } from "./meta-loader";
-import { initDraft } from "./orchestrator";
 import {
   createSimulatorProtocolSession,
   fetchRecommendations,
   protocolViewToDraftState,
-  requestSoloMidAutoDrive,
+  requestEnemyAutoDrive,
+  resolveSimulatorBans,
   submitProtocolCommand,
   type ProtocolPerspectiveView,
   type ProtocolSnapshot,
 } from "./protocol-client";
-import type { SeededRng } from "./seeded-rng";
-import { createSeededRng } from "./seeded-rng";
 import { useRandomDraftStore, type RandomDraftActions, type RandomDraftState } from "./store";
 import type { DraftConfig, HeroId, PicksByRound } from "./types";
 
 const TIMER_TICK_MS = 250;
 const REVEAL_PAUSE_MS = 2500;
+const AUTO_DRIVE_GUARD = 8;
 
 export function otherSide(side: TeamSide): TeamSide {
   return side === "radiant" ? "dire" : "radiant";
@@ -32,22 +31,9 @@ export function specForRound(round: 1 | 2 | 3) {
   return BLIND_ROUND_SPECS.find((spec) => spec.round === round)!;
 }
 
-export function randomPickForSlots(
-  count: number,
-  rng: SeededRng,
-  resolvedBans: HeroId[],
-  alreadyTaken: HeroId[],
-  allHeroIds: HeroId[],
-): HeroId[] {
-  const taken = new Set<HeroId>([...resolvedBans, ...alreadyTaken]);
-  const pool = allHeroIds.filter((heroId) => !taken.has(heroId));
-  const picks: HeroId[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const picked = rng.pick(pool.filter((heroId) => !picks.includes(heroId)));
-    if (picked === undefined) break;
-    picks.push(picked);
-  }
-  return picks;
+/** Roster seat of the first slot of a round (round 1 -> 0, round 2 -> 2, round 3 -> 4). A seat is a chronological seat, never a position. */
+export function roundSeatOffset(round: 1 | 2 | 3): number {
+  return round === 1 ? 0 : round === 2 ? 2 : 4;
 }
 
 function roundFromView(view: ProtocolPerspectiveView): 1 | 2 | 3 | null {
@@ -62,24 +48,44 @@ function visibleIds(slots: ProtocolPerspectiveView["ownPicks"]): HeroId[] {
   return slots.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
 }
 
+/** Own-side round slots the Player may fill right now, lowest first. The Player controls ALL of them. */
+export function ownOpenSlotIndexes(snapshot: ProtocolSnapshot): number[] {
+  return snapshot.legalActions
+    .flatMap((action) => (action.type === "SUBMIT_SEALED_SELECTION" && action.side === snapshot.view.viewerSide ? [action.slotIndex] : []))
+    .sort((a, b) => a - b);
+}
+
+function describeBanFailure(error: string, retryable: boolean): string {
+  if (error === "engine_unreachable") return "No se pudo contactar al motor para resolver los bans. No se inició el draft.";
+  if (error === "invalid_ban_preferences") return "Tus preferencias de ban no son válidas. Corregilas y reintentá.";
+  const suffix = retryable ? " Podés reintentar con los mismos datos." : "";
+  return `La resolución de bans falló (${error}); no se inició la Ronda 1 ni se inventaron bans.${suffix}`;
+}
+
 export type StartDraftConfig = Omit<DraftConfig, "patch">;
 
 export interface UseRandomDraftSessionResult {
   state: RandomDraftState;
-  actions: Pick<RandomDraftActions, "confirmPick" | "deselectPick"> & {
+  actions: Pick<RandomDraftActions, "confirmPick"> & {
+    /** Sella la selección del Player para el siguiente asiento abierto (inmediato; el asiento deja de acumular penalización). */
+    lockPick(heroId: HeroId): Promise<void>;
     resetDraft(): void;
     retryPreview(): void;
+    /** Reintenta la resolución de bans con los mismos datos y la misma seed (fail closed). */
+    retryBans(): Promise<void>;
   };
   startDraft(config: StartDraftConfig): Promise<void>;
-  confirmRound(): Promise<void>;
 }
 
 export interface UseRandomDraftSessionOptions {
   fetchImpl?: typeof fetch;
+  /** Pausa visual tras revelar una ronda. Sólo se sobreescribe en pruebas. */
+  revealPauseMs?: number;
 }
 
 export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}): UseRandomDraftSessionResult {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const revealPauseMs = options.revealPauseMs ?? REVEAL_PAUSE_MS;
   const config = useRandomDraftStore((state) => state.config);
   const phase = useRandomDraftStore((state) => state.phase);
   const sessionId = useRandomDraftStore((state) => state.sessionId);
@@ -90,14 +96,14 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const staleWarning = useRandomDraftStore((state) => state.staleWarning);
   const lastSyncedAt = useRandomDraftStore((state) => state.lastSyncedAt);
   const confirmPick = useRandomDraftStore((state) => state.confirmPick);
-  const deselectPick = useRandomDraftStore((state) => state.deselectPick);
   const resetSession = useRandomDraftStore((state) => state.resetSession);
 
-  const rngRef = useRef<SeededRng | null>(null);
-  const allHeroIdsRef = useRef<HeroId[]>([]);
   const protocolRef = useRef<ProtocolSnapshot | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const revealedRoundsRef = useRef<PicksByRound[]>([]);
+  const roundConflictsRef = useRef<{ round: number; bans: HeroId[] }>({ round: 0, bans: [] });
+  const lockingRef = useRef(false);
+  const attemptCounterRef = useRef(0);
 
   const stopTimer = useCallback(function stopTimer(): void {
     if (timerIdRef.current !== null) clearInterval(timerIdRef.current);
@@ -108,6 +114,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     stopTimer();
     protocolRef.current = null;
     revealedRoundsRef.current = [];
+    roundConflictsRef.current = { round: 0, bans: [] };
+    lockingRef.current = false;
     resetSession();
   }, [resetSession, stopTimer]);
 
@@ -148,17 +156,10 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     useRandomDraftStore.getState().setEngineStatus("ok");
   }, []);
 
-  const beginRound = useCallback(function beginRound(round: 1 | 2 | 3, conflictBans: HeroId[] = []): void {
+  // The countdown is visual only. When the base time runs out NOTHING is picked for the Player:
+  // the still-pending seats simply start losing gold (shown on screen; the engine owns the number).
+  const startTicker = useCallback(function startTicker(round: number): void {
     stopTimer();
-    useRandomDraftStore.getState().setVisualPhase({
-      type: "blind_round",
-      round,
-      timerRemainingMs: specForRound(round).timerMs,
-      pendingUserPicks: [],
-      conflictBans,
-      conflictCount: conflictBans.length > 0 ? 1 : 0,
-    });
-    void refreshRecommendations(); // one compound recommendation covers the whole round upfront
     timerIdRef.current = setInterval(function tick(): void {
       const current = useRandomDraftStore.getState().phase;
       if (current.type !== "blind_round" || current.round !== round) {
@@ -166,127 +167,209 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         return;
       }
       useRandomDraftStore.getState().tickTimer(TIMER_TICK_MS);
-      if (current.timerRemainingMs - TIMER_TICK_MS <= 0) {
-        stopTimer();
-        const rng = rngRef.current;
-        const state = useRandomDraftStore.getState();
-        if (!rng || state.phase.type !== "blind_round") return;
-        const missing = 1 - state.phase.pendingUserPicks.length;
-        const filled = randomPickForSlots(missing, rng, state.draftState?.banned ?? [], state.phase.pendingUserPicks, allHeroIdsRef.current);
-        for (const heroId of filled) useRandomDraftStore.getState().confirmPick(heroId);
-      }
     }, TIMER_TICK_MS);
-  }, [refreshRecommendations, stopTimer]);
+  }, [stopTimer]);
 
-  const driveExternalDraft = useCallback(async function driveExternalDraft(): Promise<void> {
+  const beginAttempt = useCallback(function beginAttempt(snapshot: ProtocolSnapshot, notice: string | null): void {
+    const round = roundFromView(snapshot.view);
+    if (!round) throw new Error("human input requested without an AP round");
+    const timer = snapshot.simulator;
+    const seats = timer?.pendingSeats ?? ownOpenSlotIndexes(snapshot).map((slotIndex) => roundSeatOffset(round) + slotIndex);
+    if (roundConflictsRef.current.round !== round) roundConflictsRef.current = { round, bans: [] };
+    useRandomDraftStore.getState().setVisualPhase({
+      type: "blind_round",
+      round,
+      timerRemainingMs: timer?.remainingMs ?? specForRound(round).timerMs,
+      timerDurationMs: timer?.durationMs ?? specForRound(round).timerMs,
+      pendingUserPicks: [],
+      attemptSeats: seats,
+      pendingSeats: seats,
+      goldPenaltyBySlot: timer?.goldPenaltyBySlot ?? [0, 0, 0, 0, 0],
+      penaltyRatePerSecond: timer?.penaltyRatePerSecond ?? 2,
+      penaltyElapsedMs: 0,
+      conflictBans: roundConflictsRef.current.bans,
+      conflictCount: roundConflictsRef.current.bans.length,
+      attemptId: (attemptCounterRef.current += 1),
+      notice,
+    });
+    void refreshRecommendations();
+    startTicker(round);
+  }, [refreshRecommendations, startTicker]);
+
+  const completeDraft = useCallback(function completeDraft(snapshot: ProtocolSnapshot): void {
+    stopTimer();
+    const current = useRandomDraftStore.getState();
+    if (!current.config) return;
+    useRandomDraftStore.getState().setVisualPhase({
+      type: "complete",
+      summary: {
+        draftSeed: current.config.draftSeed,
+        userSide: current.config.userSide,
+        personalBanList: current.config.personalBanList,
+        resolvedBans: snapshot.view.bannedHeroes,
+        picksByRound: revealedRoundsRef.current,
+      },
+    });
+    const { sightings, reset } = useLowConfidenceStore.getState();
+    if (sightings.size > 0) {
+      void postLowConfidenceReport(snapshot.view.sessionId, current.config.patch || "unknown", [...sightings.values()]);
+      reset();
+    }
+  }, [stopTimer]);
+
+  const revealRound = useCallback(async function revealRound(round: 1 | 2 | 3, snapshot: ProtocolSnapshot): Promise<void> {
+    const start = roundSeatOffset(round);
+    const count = round === 3 ? 1 : 2;
+    const userPicks = visibleIds(snapshot.view.ownPicks).slice(start, start + count);
+    const botPicks = visibleIds(snapshot.view.enemyPicks).slice(start, start + count);
+    revealedRoundsRef.current[round - 1] = { userPicks, botPicks };
+    roundConflictsRef.current = { round: 0, bans: [] };
+    useRandomDraftStore.getState().setVisualPhase({ type: "round_revealed", round, userPicks, botPicks, conflictBans: [] });
+    await new Promise((resolve) => setTimeout(resolve, revealPauseMs));
+  }, [revealPauseMs]);
+
+  // Drives the ENEMY side until the Player must act again (or the draft is over). Enemy decisions,
+  // collision reconciliation and hidden-information handling all live in the engine.
+  const advance = useCallback(async function advance(notice: string | null): Promise<void> {
     const currentSessionId = useRandomDraftStore.getState().sessionId;
-    if (!currentSessionId || !protocolRef.current) return;
+    if (!currentSessionId) return;
     try {
-      for (let guard = 0; guard < 8; guard += 1) {
-        const result = await requestSoloMidAutoDrive(currentSessionId, fetchImpl);
+      for (let guard = 0; guard < AUTO_DRIVE_GUARD; guard += 1) {
+        const result = await requestEnemyAutoDrive(currentSessionId, fetchImpl);
         syncSnapshot(result);
         if (result.stopReason === "human_input") {
-          const humanRound = roundFromView(result.view);
-          if (!humanRound) throw new Error("human input requested without an AP round");
-          beginRound(humanRound);
+          beginAttempt(result, notice);
           return;
         }
         if (result.stopReason === "round_revealed" && result.completedRound !== null) {
-          const round = result.completedRound;
-          const start = round === 1 ? 0 : round === 2 ? 2 : 4;
-          const count = round === 3 ? 1 : 2;
-          const userPicks = visibleIds(result.view.ownPicks).slice(start, start + count);
-          const botPicks = visibleIds(result.view.enemyPicks).slice(start, start + count);
-          const revealedRound = { userPicks, botPicks };
-          revealedRoundsRef.current[round - 1] = revealedRound;
-          useRandomDraftStore.getState().setVisualPhase({ type: "round_revealed", round, userPicks, botPicks, conflictBans: [] });
-          await new Promise((resolve) => setTimeout(resolve, REVEAL_PAUSE_MS));
+          await revealRound(result.completedRound, result);
         }
         if (result.view.status === "COMPLETE" || result.stopReason === "complete") {
-          const current = useRandomDraftStore.getState();
-          if (!current.config) return;
-          useRandomDraftStore.getState().setVisualPhase({
-            type: "complete",
-            summary: {
-              draftSeed: current.config.draftSeed,
-              userSide: current.config.userSide,
-              personalBanList: current.config.personalBanList,
-              resolvedBans: result.view.bannedHeroes,
-              picksByRound: revealedRoundsRef.current,
-            },
-          });
-          const { sightings, reset } = useLowConfidenceStore.getState();
-          if (sightings.size > 0) {
-            void postLowConfidenceReport(result.view.sessionId, current.config.patch || "unknown", [...sightings.values()]);
-            reset();
-          }
+          completeDraft(result);
           return;
         }
       }
-      throw new Error("solo-mid auto-drive guard exhausted");
+      throw new Error("enemy auto-drive guard exhausted");
     } catch (error) {
       console.error("[useRandomDraftSession] protocol drive failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [beginRound, fetchImpl, syncSnapshot]);
+  }, [beginAttempt, completeDraft, fetchImpl, revealRound, syncSnapshot]);
 
-  const confirmRound = useCallback(async function confirmRound(): Promise<void> {
+  // After the LAST own seat of an attempt is sealed the kernel resolves the round: either it is
+  // revealed (phase advances / draft completes) or a collision reopens seats (heroes banned, or the
+  // authority resolves the third collision). Nothing here decides any of that -- it only reads it.
+  const closeAttempt = useCallback(async function closeAttempt(
+    round: 1 | 2 | 3,
+    previousPhase: string | undefined,
+    previousBans: readonly HeroId[],
+    next: ProtocolSnapshot,
+  ): Promise<void> {
     stopTimer();
+    const newBans = next.view.bannedHeroes.filter((heroId) => !previousBans.includes(heroId));
+    const roundClosed = next.view.status === "COMPLETE" || next.view.rankedAp?.phase !== previousPhase;
+    if (roundClosed) {
+      await revealRound(round, next);
+      if (next.view.status === "COMPLETE") {
+        completeDraft(next);
+        return;
+      }
+      await advance(null);
+      return;
+    }
+    if (roundConflictsRef.current.round !== round) roundConflictsRef.current = { round, bans: [] };
+    roundConflictsRef.current = { round, bans: [...roundConflictsRef.current.bans, ...newBans] };
+    const notice = newBans.length > 0
+      ? "Colisión: elegiste el mismo héroe que el rival. Quedó baneado y los asientos afectados deben elegir de nuevo."
+      : "Tercera colisión de la ronda: el Simulator la resolvió y tu selección debe repetirse.";
+    await advance(notice);
+  }, [advance, completeDraft, revealRound, stopTimer]);
+
+  const lockPick = useCallback(async function lockPick(heroId: HeroId): Promise<void> {
     const current = useRandomDraftStore.getState();
     const snapshot = protocolRef.current;
-    if (current.phase.type !== "blind_round" || !current.sessionId || !snapshot) return;
-    if (current.phase.pendingUserPicks.length !== 1) return;
+    if (lockingRef.current || current.phase.type !== "blind_round" || !current.sessionId || !snapshot) return;
+    const openSlots = ownOpenSlotIndexes(snapshot);
+    const slotIndex = openSlots[0];
+    if (slotIndex === undefined) return;
+    const round = current.phase.round;
+    const previousPhase = snapshot.view.rankedAp?.phase;
+    const previousBans = [...snapshot.view.bannedHeroes];
+    lockingRef.current = true;
     try {
-      const action = snapshot.legalActions.find((candidate) => candidate.type === "SUBMIT_SEALED_SELECTION");
-      if (!action || action.type !== "SUBMIT_SEALED_SELECTION") throw new Error("no authorized human slot");
-      const next = await submitProtocolCommand(current.sessionId, { ...action, heroId: current.phase.pendingUserPicks[0]! }, fetchImpl);
+      const next = await submitProtocolCommand(
+        current.sessionId,
+        { type: "SUBMIT_SEALED_SELECTION", side: snapshot.view.viewerSide, slotIndex, heroId },
+        fetchImpl,
+      );
       syncSnapshot(next);
-      await driveExternalDraft();
+      if (next.accepted === false) {
+        useRandomDraftStore.getState().setRoundNotice(`Ese héroe no está disponible (${next.rejected ?? "rechazado"}). Elegí otro.`);
+        return;
+      }
+      useRandomDraftStore.getState().confirmPick(heroId);
+      useRandomDraftStore.getState().setRoundNotice(null);
+      if (openSlots.length > 1) {
+        if (next.simulator) useRandomDraftStore.getState().syncRoundTimer(next.simulator);
+        void refreshRecommendations();
+        return;
+      }
+      await closeAttempt(round, previousPhase, previousBans, next);
     } catch (error) {
-      console.error("[useRandomDraftSession] protocol round submission failed", error);
+      console.error("[useRandomDraftSession] protocol pick submission failed", error);
+      useRandomDraftStore.getState().setEngineStatus("unreachable");
+    } finally {
+      lockingRef.current = false;
+    }
+  }, [closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
+
+  // Fail closed: if ban resolution fails the session stays in ban configuration (phase "ban_failed")
+  // and the very same request can be retried. Round 1 is never started without a resolved ban set.
+  const resolveBans = useCallback(async function resolveBans(): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    if (!current.sessionId || !current.config) return;
+    const outcome = await resolveSimulatorBans(current.sessionId, current.config.personalBanList, fetchImpl);
+    if (!outcome.ok) {
+      useRandomDraftStore.getState().setVisualPhase({ type: "ban_failed", message: describeBanFailure(outcome.error, outcome.retryable) });
+      return;
+    }
+    syncSnapshot(outcome.snapshot);
+    useRandomDraftStore.getState().setVisualPhase({ type: "ban_phase_complete", resolvedBans: outcome.resolvedBans });
+    await advance(null);
+  }, [advance, fetchImpl, syncSnapshot]);
+
+  const retryBans = useCallback(async function retryBans(): Promise<void> {
+    try {
+      await resolveBans();
+    } catch (error) {
+      console.error("[useRandomDraftSession] ban retry failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [driveExternalDraft, fetchImpl, stopTimer, syncSnapshot]);
+  }, [resolveBans]);
 
   const startDraft = useCallback(async function startDraft(input: StartDraftConfig): Promise<void> {
     stopTimer();
     try {
-      const { meta, allHeroIds, metaBanPool, currentPatch } = await loadMetaSnapshot();
-      const nextConfig: DraftConfig = { ...input, patch: currentPatch };
-      const orchestratorResult = await initDraft({
-        draftSeed: nextConfig.draftSeed,
-        userSide: nextConfig.userSide,
-        personalBanList: nextConfig.personalBanList,
-        meta,
-        metaBanPool,
-        patch: nextConfig.patch,
-      });
+      const { currentPatch } = await loadMetaSnapshot();
+      const nextConfig: DraftConfig = { ...input, patch: currentPatch, partySize: 5 };
       const nextSessionId = await createSimulatorProtocolSession(nextConfig.patch, nextConfig.userSide, fetchImpl, {
-        partySize: 1,
-        humanPosition: 2,
-        humanRosterSlot: 4,
+        partySize: 5,
+        humanPosition: nextConfig.playerPosition,
         simulatorSeed: nextConfig.draftSeed,
       });
-      rngRef.current = createSeededRng(nextConfig.draftSeed);
-      allHeroIdsRef.current = allHeroIds;
       revealedRoundsRef.current = [];
-      useRandomDraftStore.getState().startSession(nextConfig, nextSessionId, orchestratorResult);
-
-      let snapshot = await submitProtocolCommand(nextSessionId, { type: "RECORD_RESOLVED_BANS", heroes: orchestratorResult.resolvedBans }, fetchImpl);
-      syncSnapshot(snapshot);
-      snapshot = await submitProtocolCommand(nextSessionId, { type: "BAN_RESOLUTION_COMPLETE" }, fetchImpl);
-      syncSnapshot(snapshot);
-      await driveExternalDraft();
+      roundConflictsRef.current = { round: 0, bans: [] };
+      useRandomDraftStore.getState().startSession(nextConfig, nextSessionId, { resolvedBans: [], rounds: [] });
+      await resolveBans();
     } catch (error) {
       console.error("[useRandomDraftSession] protocol start failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [driveExternalDraft, fetchImpl, stopTimer, syncSnapshot]);
+  }, [fetchImpl, resolveBans, stopTimer]);
 
   return {
     state: { config, phase, sessionId, draftState, recommendations, previewStatus, staleWarning, lastSyncedAt, engineStatus },
-    actions: { confirmPick, deselectPick, resetDraft, retryPreview },
+    actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans },
     startDraft,
-    confirmRound,
   };
 }

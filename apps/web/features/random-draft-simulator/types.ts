@@ -37,8 +37,11 @@ export interface DraftConfig {
   /** 8 chars A-Z0-9 */
   draftSeed: string;
   userSide: TeamSide;
-  /** Posición que el usuario jugará (1 carry ... 5 hard support). */
-  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  /**
+   * AP Ranked Roles V1: posición PERSONAL del Player (1 carry ... 5 hard support). Requerida.
+   * Identifica cuál de sus 5 roles es el suyo; nunca decide cuándo se pica ese héroe.
+   */
+  playerPosition: 1 | 2 | 3 | 4 | 5;
   personalBanList: HeroId[];
   patch: string;
   // R1 S7 (Blocker 2): tamaño de la party declarada al ProtocolSession -- 4 nunca es una opción
@@ -62,14 +65,32 @@ export interface DraftSummary {
 
 export type DraftPhase =
   | { type: "idle" }
+  // Fail closed: la resolución de bans falló -> NO se entra a Round 1; se puede reintentar.
+  | { type: "ban_failed"; message: string }
   | { type: "ban_phase_complete"; resolvedBans: HeroId[] }
   | {
       type: "blind_round";
       round: 1 | 2 | 3;
+      /** Tiempo base que queda (ms). Al llegar a 0 NO se asigna ningún héroe: sólo empieza la penalización. */
       timerRemainingMs: number;
+      timerDurationMs: number;
+      /** Héroes ya sellados por el Player en este intento de la ronda. */
       pendingUserPicks: HeroId[];
+      /** Asientos (0..4) que el Player debe llenar en este intento (2, 2, 1 -- o menos tras una colisión). */
+      attemptSeats: number[];
+      /** Asientos que siguen sin elegir. */
+      pendingSeats: number[];
+      /** Oro perdido por asiento (0..4), base del servidor. */
+      goldPenaltyBySlot: number[];
+      penaltyRatePerSecond: number;
+      /** Ms transcurridos desde el vencimiento (sólo visual; el servidor es la fuente de verdad). */
+      penaltyElapsedMs: number;
       conflictBans: HeroId[];
       conflictCount: number;
+      /** Se incrementa en cada intento (ronda inicial y cada repick por colisión): remonta el timer visual. */
+      attemptId: number;
+      /** Aviso visible de colisión / rechazo (nunca un estado silencioso). */
+      notice: string | null;
     }
   | {
       type: "round_revealed";

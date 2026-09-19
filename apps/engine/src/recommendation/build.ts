@@ -60,7 +60,7 @@ import type {
 // `seed`, threaded to V6's own `diversitySeed` and nowhere else.
 
 export const RECOMMENDATION_OUTPUT_LIMIT = 5;
-export const SOLO_MID_RECOMMENDATION_OUTPUT_LIMIT = 6;
+export const AP_RECOMMENDATION_OUTPUT_LIMIT = 6;
 
 export type { ComputeSuggestionsForRecommendation } from "./legality";
 
@@ -86,7 +86,7 @@ export interface BuildRecommendationSetV2Input {
   partyPreferredPositions?: readonly Position[];
   /** Explicit individual-role recommendation context. Omitted preserves the captain/team path. */
   targetPosition?: Position;
-  /** `false` is meaningful: the human Solo Mid pick must never use team-opening policy. */
+  /** `false` is meaningful: an individual-participant pick must never use team-opening policy. */
   teamOpening?: boolean;
   /** Simulator recovery preserves all six V6 suggestions; other callers keep the legacy limit. */
   outputLimit?: number;
@@ -154,7 +154,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   let suggestionSet: SuggestionSet;
   try {
     // Legacy kernel-backed callers default to the captain/team-opening path. A caller representing
-    // one actual participant (AP Solo Mid) must opt out explicitly and provide its targetPosition.
+    // one actual participant (one simulator seat) must opt out explicitly and provide its targetPosition.
     // `candidateHeroIds` is the kernel's own certified legal universe (null = unrestricted,
     // Ranked All Pick) -- V6 ranks ONLY that universe, never the global catalog filtered after the
     // fact (see mix.ts's candidatePool).

@@ -37,9 +37,29 @@ export type ProtocolLegalAction =
   | { type: "CM_BAN_SKIPPED"; step: number; actor: RelativeSide; absoluteSide: TeamSide }
   | { type: "CM_AUTO_PICK"; step: number; actor: RelativeSide; absoluteSide: TeamSide; eligibleHeroIds: HeroId[] };
 
+// AP Ranked Roles V1 -- Simulator-layer timer/gold-penalty projection (engine simulator/timer.ts).
+// Espejo a mano: sólo lo que la UI lee. Todo relativo al momento de la respuesta -- el cliente
+// nunca recibe un timestamp absoluto en el que deba confiar.
+export interface SimulatorTimerView {
+  round: 1 | 2 | 3;
+  durationMs: number;
+  remainingMs: number;
+  penaltyActive: boolean;
+  /** Roster seats (0..4) del Player que siguen sin elegir. */
+  pendingSeats: number[];
+  /** Oro perdido por asiento (0..4). */
+  goldPenaltyBySlot: number[];
+  penaltyRatePerSecond: number;
+}
+
 export interface ProtocolSnapshot {
   view: ProtocolPerspectiveView;
   legalActions: ProtocolLegalAction[];
+  /** null fuera de una sesión AP Simulator o antes de que la primera ronda se entregue al Player. */
+  simulator: SimulatorTimerView | null;
+  /** Sólo en la respuesta de un comando: el kernel lo aceptó o lo rechazó (motivo). */
+  accepted?: boolean;
+  rejected?: string;
 }
 
 type ProtocolCommand =
@@ -75,6 +95,28 @@ function isValidCaptainsModeView(value: unknown): boolean {
   return sideOk && typeof value.currentStep === "number";
 }
 
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number" && Number.isFinite(entry));
+}
+
+function parseSimulatorTimer(value: unknown): SimulatorTimerView | null {
+  if (!isRecord(value)) return null;
+  const round = value.round;
+  if (round !== 1 && round !== 2 && round !== 3) return null;
+  if (typeof value.durationMs !== "number" || typeof value.remainingMs !== "number") return null;
+  if (typeof value.penaltyActive !== "boolean" || typeof value.penaltyRatePerSecond !== "number") return null;
+  if (!isNumberArray(value.pendingSeats) || !isNumberArray(value.goldPenaltyBySlot)) return null;
+  return {
+    round,
+    durationMs: value.durationMs,
+    remainingMs: value.remainingMs,
+    penaltyActive: value.penaltyActive,
+    pendingSeats: value.pendingSeats,
+    goldPenaltyBySlot: value.goldPenaltyBySlot,
+    penaltyRatePerSecond: value.penaltyRatePerSecond,
+  };
+}
+
 function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   if (!isRecord(value) || !isRecord(value.view) || !Array.isArray(value.legalActions)) return null;
   const view = value.view;
@@ -89,7 +131,10 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   const captainsModeOk = view.captainsMode === undefined || view.captainsMode === null || isValidCaptainsModeView(view.captainsMode);
   if (!rankedApOk || !captainsModeOk) return null;
   if (view.rankedAp === null && (view.captainsMode === undefined || view.captainsMode === null)) return null;
-  return value as unknown as ProtocolSnapshot;
+  const snapshot = value as unknown as ProtocolSnapshot;
+  const accepted = typeof value.accepted === "boolean" ? { accepted: value.accepted } : {};
+  const rejected = typeof value.rejected === "string" ? { rejected: value.rejected } : {};
+  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ...accepted, ...rejected };
 }
 
 async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
@@ -101,14 +146,10 @@ async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
 
 export interface CreateSimulatorSessionOptions {
   rulesetId?: RulesetId;
-  /**
-   * Legacy callers may still derive controlled slots from partySize. AP Solo Mid passes an
-   * explicit humanRosterSlot, which creates exactly one controlled slot and is enforced by the
-   * server's simulator-only authorization boundary.
-   */
+  /** AP Ranked Roles V1 controla los 5 asientos propios: partySize 5 (default). */
   partySize?: PartySize;
+  /** Posición personal declarada del Player (1..5). Identifica su rol; nunca decide cuándo se pica. */
   humanPosition?: 1 | 2 | 3 | 4 | 5;
-  humanRosterSlot?: number;
   simulatorSeed?: string;
 }
 
@@ -120,13 +161,11 @@ export async function createSimulatorProtocolSession(
 ): Promise<string> {
   const partySize = options.partySize ?? 5;
   const controlledSlotCount = Math.min(partySize, 5);
-  const controlledSlots = options.humanRosterSlot === undefined
-    ? Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
-        side: localSide,
-        slotIndex,
-        controllerId: `simulator-local-${slotIndex}`,
-      }))
-    : [{ side: localSide, slotIndex: options.humanRosterSlot, controllerId: "simulator-human" }];
+  const controlledSlots = Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
+    side: localSide,
+    slotIndex,
+    controllerId: `simulator-local-${slotIndex}`,
+  }));
   const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -141,7 +180,6 @@ export async function createSimulatorProtocolSession(
         controlledSlots,
       },
       humanPosition: options.humanPosition,
-      humanRosterSlot: options.humanRosterSlot,
       simulatorSeed: options.simulatorSeed,
     }),
   });
@@ -178,7 +216,7 @@ export interface AutoDriveResult extends ProtocolSnapshot {
   completedRound: 1 | 2 | 3 | null;
 }
 
-export async function requestSoloMidAutoDrive(
+export async function requestEnemyAutoDrive(
   sessionId: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<AutoDriveResult> {
@@ -199,6 +237,43 @@ export async function requestSoloMidAutoDrive(
     throw new Error("invalid completed round");
   }
   return { ...snapshot, stopReason: body.stopReason, completedRound };
+}
+
+export type BanResolutionOutcome =
+  | { ok: true; resolvedBans: HeroId[]; snapshot: ProtocolSnapshot }
+  | { ok: false; retryable: boolean; error: string };
+
+/**
+ * AP Ranked Roles V1 -- ban resolution happens in the engine (BanResolutionPolicy, deterministic by
+ * seed). FAIL CLOSED: any failure returns `ok: false`; the caller must NOT start Round 1 and must
+ * offer a retry -- never fabricate or reduce the ban set client-side.
+ */
+export async function resolveSimulatorBans(
+  sessionId: string,
+  playerBanPreferences: (HeroId | null)[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<BanResolutionOutcome> {
+  let response: Response;
+  try {
+    response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/resolve-bans`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ playerBanPreferences }),
+    });
+  } catch {
+    return { ok: false, retryable: true, error: "engine_unreachable" };
+  }
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = isRecord(body) && typeof body.error === "string" ? body.error : `http_${response.status}`;
+    const retryable = isRecord(body) && body.retryable === true;
+    return { ok: false, retryable, error };
+  }
+  const snapshot = parseSnapshot(body);
+  if (!snapshot || !isRecord(body) || !Array.isArray(body.resolvedBans) || !body.resolvedBans.every(isHeroId)) {
+    return { ok: false, retryable: true, error: "invalid_ban_resolution_response" };
+  }
+  return { ok: true, resolvedBans: body.resolvedBans, snapshot };
 }
 
 export function resolveSimulatorAuthority(sessionId: string, seed: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {

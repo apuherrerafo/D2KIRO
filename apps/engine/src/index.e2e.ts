@@ -18,4 +18,6 @@ import { runEngine } from "./bootstrap";
 runEngine({
   cmEligibilityArtifactPath: process.env.CM_ELIGIBILITY_ARTIFACT_PATH,
   allowClientForcedBotSelection: true,
+  // Wave 1 acceptance smoke: lets the browser suite cross a round deadline deterministically.
+  allowTestClockControl: true,
 });

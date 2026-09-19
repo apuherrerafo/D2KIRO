@@ -25,6 +25,9 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/session/protocol/:sessionId/command",
   "/engine/api/session/protocol/:sessionId/bot-selection",
   "/engine/api/session/protocol/:sessionId/auto-drive",
+  // AP Ranked Roles V1 (Wave 1): server-side BanResolutionPolicy. Without this entry the browser gets
+  // a 404 through the proxy and the Simulator (correctly, fail closed) refuses to start Round 1.
+  "/engine/api/session/protocol/:sessionId/resolve-bans",
   "/engine/api/session/protocol/:sessionId/simulator-authority",
   // R1 S7 (Blocker 2 investigation) -- missing from this allowlist since TSK-214 added the rest of
   // this family: fetchRecommendations() (protocol-client.ts) has been 404ing through this proxy in

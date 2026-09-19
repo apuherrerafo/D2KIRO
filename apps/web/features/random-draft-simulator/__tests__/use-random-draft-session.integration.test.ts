@@ -2,91 +2,141 @@ import "@/test-support/happy-dom";
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import type { HeroId } from "@/features/draft/types";
+import type { HeroId, TeamSide } from "@/features/draft/types";
 import { useRandomDraftSession } from "../use-random-draft-session";
 import { useRandomDraftStore } from "../store";
 
 const HEROES = Array.from({ length: 40 }, (_, index) => ({ id: index + 1, localizedName: `Hero ${index + 1}`, roles: ["Carry"] }));
+const ROUND_CAPACITY: Record<number, number> = { 1: 2, 2: 2, 3: 1 };
+const ROUND_TIMER_MS: Record<number, number> = { 1: 25000, 2: 25000, 3: 20000 };
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-/** Browser-contract fixture for the reduced AP Solo Mid product model.
- * The server owns all nine external decisions; the browser only receives the human slot. */
-class FakeSoloMidProtocolEngine {
+interface FakeOptions {
+  /** Resolve-bans answers 422 (retryable) this many times before succeeding. */
+  banFailures?: number;
+  /** The Player's LAST pick of round 1 collides with the bot: hero banned, that seat reopens. */
+  collideRoundOnce?: boolean;
+}
+
+/**
+ * Browser-contract fixture for AP Ranked Roles V1. The engine owns bans, the Enemy Bot, the
+ * reveal and collisions; the browser only ever submits the Player's own seal for each of the 5 seats.
+ */
+class FakeApProtocolEngine {
   readonly requests: { url: string; body: Record<string, unknown> }[] = [];
   private readonly sessionId = "protocol-browser-session";
+  private side: TeamSide = "radiant";
+  private banFailuresLeft: number;
+  private collidePending: boolean;
   private bans: HeroId[] = [];
-  private humanHero: HeroId | null = null;
-  private atHumanSlot = false;
-  private complete = false;
+  private round: 1 | 2 | 3 | 0 | 4 = 0; // 0 = still in bans, 4 = complete
+  private own: HeroId[] = [];
+  private enemy: HeroId[] = [];
+  private openSlots: number[] = [];
 
-  private snapshot() {
-    const own = this.atHumanSlot ? [21, 22, 23, 24, ...(this.humanHero === null ? [] : [this.humanHero])] : [];
-    const enemy = this.atHumanSlot ? [30, 31, 32, 33, ...(this.complete ? [34] : [])] : [];
+  constructor(options: FakeOptions = {}) {
+    this.banFailuresLeft = options.banFailures ?? 0;
+    this.collidePending = options.collideRoundOnce ?? false;
+  }
+
+  private phaseName(): string {
+    if (this.round === 0) return "BAN_RESOLUTION";
+    if (this.round === 4) return "COMPLETE";
+    return `PICK_ROUND_${this.round}`;
+  }
+
+  private snapshot(extra: Record<string, unknown> = {}) {
+    const pickRound = this.round >= 1 && this.round <= 3 ? (this.round as 1 | 2 | 3) : null;
     return {
       view: {
         schema: "draft-protocol-perspective/v1",
         sessionId: this.sessionId,
-        status: this.complete ? "COMPLETE" : "ACTIVE",
-        viewerSide: "radiant",
+        status: this.round === 4 ? "COMPLETE" : "ACTIVE",
+        viewerSide: this.side,
         bannedHeroes: this.bans,
-        ownPicks: own.map((heroId) => ({ visibility: "KNOWN", heroId })),
-        enemyPicks: enemy.map((heroId) => ({ visibility: "REVEALED", heroId })),
-        rankedAp: { phase: this.complete ? "COMPLETE" : this.atHumanSlot ? "PICK_ROUND_3" : "BAN_RESOLUTION", banResolutionComplete: this.atHumanSlot },
+        ownPicks: this.own.map((heroId) => ({ visibility: "KNOWN", heroId })),
+        enemyPicks: this.enemy.map((heroId) => ({ visibility: "REVEALED", heroId })),
+        rankedAp: { phase: this.phaseName(), banResolutionComplete: this.round > 0 },
         captainsMode: null,
       },
-      legalActions: this.atHumanSlot && this.humanHero === null
-        ? [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }]
-        : [],
+      legalActions: this.openSlots.map((slotIndex) => ({ type: "SUBMIT_SEALED_SELECTION", side: this.side, slotIndex })),
+      simulator: pickRound === null
+        ? null
+        : {
+            round: pickRound,
+            durationMs: ROUND_TIMER_MS[pickRound],
+            remainingMs: ROUND_TIMER_MS[pickRound],
+            penaltyActive: false,
+            pendingSeats: this.openSlots.map((slotIndex) => (pickRound === 1 ? 0 : pickRound === 2 ? 2 : 4) + slotIndex),
+            goldPenaltyBySlot: [0, 0, 0, 0, 0],
+            penaltyRatePerSecond: 2,
+          },
+      ...extra,
     };
   }
 
   fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input);
-    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
     this.requests.push({ url, body });
     if (url.endsWith("/api/heroes")) return json(HEROES);
     if (url.endsWith("/api/meta/hero-stats")) return json({ patchStats: {}, heroPositions: {} });
     if (url.endsWith("/api/auth/engine-token")) return json({ token: "fixture" });
-    if (url.endsWith("/api/session/protocol")) return json({ sessionId: this.sessionId, ruleset: {}, status: "ACTIVE" }, 201);
-    if (url.endsWith("/recommendations")) {
-      const recommendations = [35, 36, 37, 38, 39, 40].map((hero) => ({
-        actions: [{ slot: { side: "radiant", slotIndex: 0 }, hero }],
-        score: 100 - hero,
-        confidence: "alta" as const,
-        roleImpact: {},
-        risks: [],
-        legacy: { hero, signals: [], evidenceCoverage: 1, guessingIndex: 0, reason: "fixture" },
-      }));
-      return json({
-        schema: "recommendation-set/v2",
-        sessionId: this.sessionId,
-        decision: { actor: "radiant", actionKind: "PICK", controlledSlots: [{ side: "radiant", slotIndex: 0 }], actionCount: 1 },
-        recommendations,
-        degradations: [],
-        deferred: { opponentResponse: "NOT_COMPUTED", steal: "NOT_COMPUTED", lookahead: "NOT_COMPUTED" },
-        decisionContext: "closing_pick",
-      });
+    if (url.endsWith("/api/session/protocol")) {
+      this.side = body.localSide as TeamSide;
+      return json({ sessionId: this.sessionId, ruleset: {}, status: "ACTIVE" }, 201);
     }
-    if (url.endsWith("/command")) {
-      const command = body.command as { type: string; heroes?: HeroId[]; heroId?: HeroId };
-      if (command.type === "RECORD_RESOLVED_BANS") this.bans = [...(command.heroes ?? [])];
-      if (command.type === "SUBMIT_SEALED_SELECTION" && command.heroId !== undefined) this.humanHero = command.heroId;
-      return json({ accepted: true, ...this.snapshot() }, 202);
+    if (url.endsWith("/resolve-bans")) {
+      if (this.banFailuresLeft > 0) {
+        this.banFailuresLeft -= 1;
+        return json({ error: "ban_resolution_failed", reason: "policy_failed", retryable: true }, 422);
+      }
+      this.bans = [30, 31, 32];
+      this.round = 1;
+      return json({ resolvedBans: this.bans, ...this.snapshot() });
+    }
+    if (url.endsWith("/recommendations")) {
+      return json({ error: "not_needed_in_this_fixture" }, 500);
     }
     if (url.endsWith("/auto-drive")) {
-      if (!this.atHumanSlot) {
-        this.atHumanSlot = true;
-        return json({ ...this.snapshot(), stopReason: "human_input", completedRound: null, externalPicks: [] });
+      if (this.round === 0) return json({ error: "no_open_round" }, 409);
+      if (this.round === 4) return json({ ...this.snapshot(), stopReason: "complete", completedRound: null });
+      if (this.openSlots.length === 0) {
+        this.openSlots = Array.from({ length: ROUND_CAPACITY[this.round]! }, (_, index) => index);
       }
-      if (this.humanHero === null) return json({ error: "human_input_required" }, 409);
-      this.complete = true;
-      return json({ ...this.snapshot(), stopReason: "complete", completedRound: null, externalPicks: [] });
+      return json({ ...this.snapshot(), stopReason: "human_input", completedRound: null });
+    }
+    if (url.endsWith("/command")) {
+      const command = body.command as { type: string; side: TeamSide; slotIndex: number; heroId: HeroId };
+      if (command.type !== "SUBMIT_SEALED_SELECTION") return json({ error: "action_forbidden" }, 403);
+      if (this.bans.includes(command.heroId) || this.own.includes(command.heroId) || this.enemy.includes(command.heroId)) {
+        return json({ accepted: false, rejected: "HERO_ALREADY_TAKEN", ...this.snapshot() }, 202);
+      }
+      this.own.push(command.heroId);
+      this.openSlots = this.openSlots.filter((slotIndex) => slotIndex !== command.slotIndex);
+      if (this.openSlots.length === 0) this.closeRound(command);
+      return json({ accepted: true, ...this.snapshot() }, 202);
     }
     throw new Error(`fetch not mocked: ${url}`);
   };
+
+  private closeRound(last: { slotIndex: number; heroId: HeroId }): void {
+    const round = this.round as 1 | 2 | 3;
+    if (this.collidePending && round === 1) {
+      this.collidePending = false;
+      this.bans = [...this.bans, last.heroId];
+      this.own = this.own.slice(0, -1);
+      this.openSlots = [last.slotIndex];
+      return;
+    }
+    const capacity = ROUND_CAPACITY[round]!;
+    for (let index = 0; index < capacity; index += 1) this.enemy.push(200 + this.enemy.length);
+    this.round = (round + 1) as 1 | 2 | 3 | 4;
+    this.openSlots = [];
+  }
 }
 
 let originalFetch: typeof fetch;
@@ -100,69 +150,127 @@ afterEach(() => {
   useRandomDraftStore.getState().resetSession();
 });
 
-async function startSoloMid() {
-  const engine = new FakeSoloMidProtocolEngine();
+async function startDraft(side: TeamSide, position: 1 | 2 | 3 | 4 | 5, options: FakeOptions = {}, personalBanList: HeroId[] = []) {
+  const engine = new FakeApProtocolEngine(options);
   globalThis.fetch = engine.fetch as typeof fetch;
-  const hook = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch }));
-  await act(async () => hook.result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: "radiant", playerPosition: 2, personalBanList: [], partySize: 1 }));
+  const hook = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch, revealPauseMs: 0 }));
+  await act(async () => hook.result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: side, playerPosition: position, personalBanList, partySize: 5 }));
   return { engine, ...hook };
 }
 
-test("el browser hace un solo pick humano y el server completa los otros nueve", async () => {
-  const { engine, result, unmount } = await startSoloMid();
-  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 3 });
+async function lock(result: { current: ReturnType<typeof useRandomDraftSession> }, heroId: HeroId): Promise<void> {
+  await act(async () => result.current.actions.lockPick(heroId));
+}
 
-  act(() => result.current.actions.confirmPick(17));
-  await act(async () => result.current.confirmRound());
+function commands(engine: FakeApProtocolEngine) {
+  return engine.requests
+    .filter((entry) => entry.url.endsWith("/command"))
+    .map((entry) => entry.body.command as { type: string; side: string; slotIndex: number; heroId: number });
+}
 
-  expect(result.current.state.phase.type).toBe("complete");
-  expect(result.current.state.draftState?.picks.radiant).toHaveLength(5);
-  expect(result.current.state.draftState?.picks.dire).toHaveLength(5);
-  const humanCommands = engine.requests.filter((entry) => {
-    const command = entry.body.command as { type?: string } | undefined;
-    return command?.type === "SUBMIT_SEALED_SELECTION";
+for (const side of ["radiant", "dire"] as TeamSide[]) {
+  test(`${side}: BANS -> R1 -> R2 -> R3 -> COMPLETE con los 5 picks del Player en el navegador`, async () => {
+    const { engine, result, unmount } = await startDraft(side, 4, {}, [10, 11]);
+    expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1, timerDurationMs: 25000, attemptSeats: [0, 1] });
+
+    // Support/Mid picks can happen in ANY round: the order below is arbitrary on purpose.
+    for (const heroId of [1, 2, 3, 4, 5]) await lock(result, heroId);
+
+    expect(result.current.state.phase.type).toBe("complete");
+    expect(result.current.state.draftState?.picks[side]).toEqual([1, 2, 3, 4, 5]);
+    const enemy = side === "radiant" ? "dire" : "radiant";
+    expect(result.current.state.draftState?.picks[enemy]).toHaveLength(5);
+    expect(result.current.state.draftState?.banned).toEqual([30, 31, 32]);
+    if (result.current.state.phase.type === "complete") expect(result.current.state.phase.summary.picksByRound.map((round) => round.userPicks.length)).toEqual([2, 2, 1]);
+
+    // Exactly five own seals, all for the Player's side, slots 0,1 / 0,1 / 0.
+    expect(commands(engine)).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 0, heroId: 1 },
+      { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 1, heroId: 2 },
+      { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 0, heroId: 3 },
+      { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 1, heroId: 4 },
+      { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 0, heroId: 5 },
+    ]);
+    unmount();
   });
-  expect(humanCommands).toHaveLength(1);
-  expect(engine.requests.filter((entry) => entry.url.endsWith("/auto-drive"))).toHaveLength(2);
-  expect(engine.requests.some((entry) => entry.url.endsWith("/bot-selection"))).toBe(false);
-  expect(engine.requests.some((entry) => entry.url.endsWith("/simulator-authority"))).toBe(false);
-  unmount();
-});
+}
 
-test("la sesión transporta explícitamente Solo Radiant Mid, roster slot 4 y seed", async () => {
-  const { engine, unmount } = await startSoloMid();
+test("la sesión transporta el lado, la posición personal, la seed y los 5 asientos controlados (nada de Solo Mid)", async () => {
+  const { engine, unmount } = await startDraft("dire", 5);
   const create = engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
   expect(create.body).toMatchObject({
-    localSide: "radiant",
-    humanPosition: 2,
-    humanRosterSlot: 4,
+    localSide: "dire",
+    humanPosition: 5,
     simulatorSeed: "ABCDEFGH",
-    partyContext: {
-      partySize: 1,
-      controlledSlots: [{ side: "radiant", slotIndex: 4, controllerId: "simulator-human" }],
-    },
+    partyContext: { partySize: 5, side: "dire" },
   });
+  expect((create.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
+    ["dire", 0], ["dire", 1], ["dire", 2], ["dire", 3], ["dire", 4],
+  ]);
+  expect("humanRosterSlot" in create.body).toBe(false);
   unmount();
 });
 
-test("el browser no envía picks pendientes ni decisiones externas al auto-drive", async () => {
-  const { engine, result, unmount } = await startSoloMid();
-  act(() => result.current.actions.confirmPick(17));
-  await act(async () => result.current.confirmRound());
-  const autoDriveRequests = engine.requests.filter((entry) => entry.url.endsWith("/auto-drive"));
-  expect(autoDriveRequests).toHaveLength(2);
-  expect(autoDriveRequests.every((entry) => Object.keys(entry.body).length === 0)).toBe(true);
+test("los bans los resuelve el motor: el navegador envía sólo sus nominaciones y nunca graba bans por /command", async () => {
+  const { engine, unmount } = await startDraft("radiant", 2, {}, [10, 11, 12, 13]);
+  const resolve = engine.requests.find((entry) => entry.url.endsWith("/resolve-bans"))!;
+  expect(resolve.body).toEqual({ playerBanPreferences: [10, 11, 12, 13] });
+  expect(commands(engine).some((command) => command.type === "RECORD_RESOLVED_BANS" || command.type === "BAN_RESOLUTION_COMPLETE")).toBe(false);
   unmount();
 });
 
-test("el Copilot humano consume RecommendationSet/v2 Top6 de una sola acción", async () => {
-  const { engine, result, unmount } = await startSoloMid();
-  await waitFor(() => expect(result.current.state.recommendations).not.toBeNull());
+test("FAIL CLOSED: si los bans fallan no se inicia la Ronda 1; el reintento funciona con los mismos datos", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2, { banFailures: 1 }, [10]);
+  expect(result.current.state.phase.type).toBe("ban_failed");
+  expect(engine.requests.some((entry) => entry.url.endsWith("/auto-drive"))).toBe(false);
+  expect(result.current.state.draftState).toBeNull();
 
-  expect(result.current.state.recommendations?.schema).toBe("recommendation-set/v2");
-  expect(result.current.state.recommendations?.recommendations).toHaveLength(6);
-  expect(result.current.state.recommendations?.recommendations.every((entry) => entry.actions.length === 1)).toBe(true);
-  expect(engine.requests.some((entry) => entry.url.endsWith("/recommendations"))).toBe(true);
+  await act(async () => result.current.actions.retryBans());
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1 });
+  const resolves = engine.requests.filter((entry) => entry.url.endsWith("/resolve-bans"));
+  expect(resolves).toHaveLength(2);
+  expect(resolves[1]!.body).toEqual(resolves[0]!.body);
+  unmount();
+});
+
+test("colisión: el héroe baneado y el asiento reabierto se muestran; el Player vuelve a elegir sólo ese asiento", async () => {
+  const { result, unmount } = await startDraft("dire", 3, { collideRoundOnce: true });
+  await lock(result, 1);
+  await lock(result, 2); // last of round 1 -> the fake engine reports a collision on it
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1, attemptSeats: [1], conflictBans: [2] });
+  const phase = result.current.state.phase;
+  expect(phase.type === "blind_round" && phase.notice).toContain("Colisión");
+  expect(result.current.state.draftState?.banned).toContain(2);
+
+  await lock(result, 6);
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 2 });
+  unmount();
+});
+
+test("un pick rechazado por el motor se explica en pantalla y no ocupa el asiento", async () => {
+  const { result, unmount } = await startDraft("radiant", 1);
+  await lock(result, 30); // banned
+  const phase = result.current.state.phase;
+  expect(phase).toMatchObject({ type: "blind_round", pendingUserPicks: [] });
+  expect(phase.type === "blind_round" && phase.notice).toContain("HERO_ALREADY_TAKEN");
+  unmount();
+});
+
+test("al vencer el timer NO se elige nada por el Player: sólo empieza la penalización visual", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  const before = commands(engine).length;
+  act(() => useRandomDraftStore.getState().tickTimer(60_000));
+  const phase = result.current.state.phase;
+  expect(phase).toMatchObject({ type: "blind_round", timerRemainingMs: 0, pendingUserPicks: [] });
+  expect(phase.type === "blind_round" && phase.penaltyElapsedMs).toBeGreaterThan(30_000);
+  expect(commands(engine)).toHaveLength(before);
+  unmount();
+});
+
+test("el Copilot humano sigue leyendo RecommendationSet/v2 (nunca /api/suggestions/preview)", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  await waitFor(() => expect(engine.requests.some((entry) => entry.url.endsWith("/recommendations"))).toBe(true));
   expect(engine.requests.some((entry) => entry.url.endsWith("/api/suggestions/preview"))).toBe(false);
+  expect(result.current.state.phase.type).toBe("blind_round");
   unmount();
 });

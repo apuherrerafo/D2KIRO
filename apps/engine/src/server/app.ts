@@ -82,6 +82,8 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   // que `index.ts` puede pasar (no lo pasa nunca); sólo `index.e2e.ts` lo fija en `true`,
   // hardcodeado -- no hay ninguna variable de entorno que lo controle en absoluto.
   allowClientForcedBotSelection?: boolean;
+  // Mismo patrón: sólo index.e2e.ts lo fija en true. Ver ProtocolSessionRouteDeps.allowTestClockControl.
+  allowTestClockControl?: boolean;
 }
 
 interface WsData {
@@ -132,6 +134,17 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       ? () => loadTrustedEligibilityArtifact(cmEligibilityArtifactPath)
       : undefined,
     allowClientForcedBotSelection: deps.allowClientForcedBotSelection === true,
+    allowTestClockControl: deps.allowTestClockControl === true,
+    heroUniverse: async () => {
+      const heroRows = await getAllHeroMeta(deps.db);
+      const meta = await getCachedMetaSnapshot<TSchema>(deps.db, null);
+      const totalPicks = (heroId: number): number => (meta.patchStats?.[heroId] ?? []).reduce((sum, stat) => sum + stat.picks, 0);
+      const allHeroIds = heroRows.map((hero) => hero.id);
+      // Proxy for "how likely to be banned": no ban-rate data exists in this project, so total pick volume orders the pool.
+      const metaOrder = [...allHeroIds].sort((a, b) => totalPicks(b) - totalPicks(a) || a - b);
+      return { allHeroIds, metaOrder };
+    },
+    heroPositions: deps.heroPositions,
   });
   const rateLimiter = createSessionRateLimiter();
   const accountTokenNow = deps.accountTokenNow ?? Date.now;
@@ -415,6 +428,14 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     const protocolCommandSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "command");
     if (protocolCommandSessionId !== null && request.method === "POST") {
       return protocolSessionRoutes.postCommand(request, protocolCommandSessionId);
+    }
+    const protocolResolveBansSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "resolve-bans");
+    if (protocolResolveBansSessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postResolveBans(request, protocolResolveBansSessionId);
+    }
+    const protocolTestClockSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "test-advance-clock");
+    if (protocolTestClockSessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postTestAdvanceClock(request, protocolTestClockSessionId);
     }
     const protocolSimulatorAuthoritySessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "simulator-authority");
     if (protocolSimulatorAuthoritySessionId !== null && request.method === "POST") {

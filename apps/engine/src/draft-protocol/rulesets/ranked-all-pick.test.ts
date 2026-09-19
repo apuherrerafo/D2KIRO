@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftProtocolState, ProtocolCommand } from "../types";
 import { applyProtocolCommand, createProtocolState } from "../kernel";
-import { isSealedSelectionLegal } from "./ranked-all-pick";
+import { isSealedSelectionLegal, RANKED_ALL_PICK_IDENTITY, ROUND_TIMER_MS } from "./ranked-all-pick";
 
 function createRankedAllPickState(sessionId: string): DraftProtocolState {
   const created = createProtocolState(sessionId, "dota2/ranked-all-pick");
@@ -226,5 +226,22 @@ describe("Ranked All Pick — isSealedSelectionLegal (Blocker 3, paridad con el 
   test("fuera de una ronda de picks (aún en bans) nunca es legal", () => {
     const state = createRankedAllPickState("s1");
     expect(isSealedSelectionLegal(state, "radiant", 0, 10)).toBe(false);
+  });
+});
+
+// AP Ranked Roles V1 / Wave 1 Task 13 -- RULESET MECHANICS axis. `verifiedThroughPatch` is
+// provenance of the rules (rounds, timers, collisions), independent from the data snapshot label.
+describe("Ranked All Pick -- identidad del ruleset (7.41f)", () => {
+  test("verifiedThroughPatch = 7.41f y timers 25/25/20 s", () => {
+    expect(RANKED_ALL_PICK_IDENTITY.verifiedThroughPatch).toBe("7.41f");
+    expect(RANKED_ALL_PICK_IDENTITY.applicableFromPatch).toBe("7.35d");
+    expect(ROUND_TIMER_MS).toEqual({ 1: 25000, 2: 25000, 3: 20000 });
+  });
+
+  test("rulesHash NO depende de verifiedThroughPatch: el hash del manifiesto sigue siendo el mismo valor de antes del cambio", () => {
+    // Value measured at HEAD (verifiedThroughPatch "7.41e") and after the bump: identical, because
+    // rulesHash hashes only { id, version, manifest }.
+    expect(RANKED_ALL_PICK_IDENTITY.rulesHash).toBe("b17158802863e9f8a430bfc2432b76c513428aa8357fa77b21a8e997f8fee184");
+    expect(RANKED_ALL_PICK_IDENTITY.sourceManifestHash).toBe("53362de87c458314a527e78187b399db7420237c55e94d90e60b59e1edd1f655");
   });
 });

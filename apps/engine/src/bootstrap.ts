@@ -20,6 +20,7 @@ import { metaSync } from "./db/schema";
 export interface EngineTestOverrides {
   cmEligibilityArtifactPath?: string;
   allowClientForcedBotSelection?: boolean;
+  allowTestClockControl?: boolean;
 }
 
 export function runEngine(testOverrides: EngineTestOverrides = {}): void {
@@ -64,6 +65,7 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
     tokenRateLimiter: createTokenRateLimiter(),
     cmEligibilityArtifactPath: testOverrides.cmEligibilityArtifactPath,
     allowClientForcedBotSelection: testOverrides.allowClientForcedBotSelection,
+    allowTestClockControl: testOverrides.allowTestClockControl,
   });
   const server = app.start("127.0.0.1", PORT);
 

@@ -9,7 +9,7 @@ import { addHeroToBanList, removeHeroFromBanList } from "../ban-list";
 import { SEED_PATTERN } from "../constants";
 import { generateDraftSeed } from "../seeded-rng";
 import { useConfigPersistence } from "../use-config-persistence";
-import type { HeroId } from "../types";
+import type { HeroId, TeamSide } from "../types";
 import type { StartDraftConfig } from "../use-random-draft-session";
 
 const MAX_BAN_LIST = 4;
@@ -147,7 +147,7 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
         Tu Personal_Ban_List ({personalBanList.length}/{MAX_BAN_LIST})
       </span>
       <span className="text-caption text-content-muted">
-        Cada héroe de esta lista tiene 50% de probabilidad de ser baneado al arrancar el draft.
+        Nominá hasta 4 héroes. Se resuelven junto con las nominaciones de los otros 9 jugadores: si llenás los 4 lugares, al menos uno se banea.
       </span>
       <div className="flex flex-wrap gap-2">
         {personalBanList.map((heroId) => (
@@ -182,19 +182,118 @@ export interface ConfigPanelProps {
   onStart: (config: StartDraftConfig) => void;
 }
 
-// Recovery AP Solo Mid: modo, lado, party y posición son política fija visible, no controles.
-// Sólo la seed reproducible y Personal_Ban_List siguen siendo configurables aquí.
+type PlayerPosition = 1 | 2 | 3 | 4 | 5;
+
+const SIDE_OPTIONS: { value: TeamSide; label: string }[] = [
+  { value: "radiant", label: "Radiant" },
+  { value: "dire", label: "Dire" },
+];
+
+// Terminología consistente con el resto del producto: nunca "pos 3" a secas sin el nombre al lado.
+const POSITION_OPTIONS: { value: PlayerPosition; label: string }[] = [
+  { value: 1, label: "Posición 1 — Carry" },
+  { value: 2, label: "Posición 2 — Midlane" },
+  { value: 3, label: "Posición 3 — Offlane" },
+  { value: 4, label: "Posición 4 — Support" },
+  { value: 5, label: "Posición 5 — Hard support" },
+];
+
+interface ChoiceButtonProps<T extends string | number> {
+  value: T;
+  label: string;
+  selected: boolean;
+  onSelectValue: (value: T) => void;
+}
+
+function ChoiceButton<T extends string | number>({ value, label, selected, onSelectValue }: ChoiceButtonProps<T>) {
+  function handleClick() {
+    onSelectValue(value);
+  }
+  const className = selected ? BUTTON_PRIMARY : BUTTON_SECONDARY;
+  return (
+    <button type="button" onClick={handleClick} aria-pressed={selected} className={className}>
+      {label}
+    </button>
+  );
+}
+
+interface SideFieldProps {
+  side: TeamSide | null;
+  onChange: (side: TeamSide) => void;
+}
+
+function SideField({ side, onChange }: SideFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Tu lado">
+      <span className="text-caption text-content-secondary">Tu lado (obligatorio)</span>
+      <div className="flex flex-wrap gap-2">
+        {SIDE_OPTIONS.map((option) => (
+          <ChoiceButton key={option.value} value={option.value} label={option.label} selected={side === option.value} onSelectValue={onChange} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface PositionFieldProps {
+  position: PlayerPosition | null;
+  onChange: (position: PlayerPosition) => void;
+}
+
+function PositionField({ position, onChange }: PositionFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Tu posición personal">
+      <span className="text-caption text-content-secondary">Tu posición personal (obligatoria)</span>
+      <span className="text-caption text-content-muted">
+        Indica cuál de los 5 roles de tu equipo es el tuyo. No determina cuándo se pica ese héroe: podés elegir cualquier rol en cualquier ronda.
+      </span>
+      <div className="flex flex-wrap gap-2">
+        {POSITION_OPTIONS.map((option) => (
+          <ChoiceButton key={option.value} value={option.value} label={option.label} selected={position === option.value} onSelectValue={onChange} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// AP Ranked Roles V1: lado y posición personal son elecciones del Player, obligatorias y sin
+// valor por defecto -- ni Radiant ni Midlane están cableados. Controlás los 5 asientos de tu equipo.
 export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const { config, setConfig } = useConfigPersistence();
   const { heroes: heroCatalog } = useHeroCatalog();
   const [draftSeed, setDraftSeed] = useState<string>(generateDraftSeed);
   const [banListError, setBanListError] = useState<string | null>(null);
+  const [chosenSide, setChosenSide] = useState<TeamSide | null>(null);
+  const [chosenPosition, setChosenPosition] = useState<PlayerPosition | null>(null);
 
-  const personalBanList = config?.personalBanList ?? [];
+  // Nominations live in local state first: they must work BEFORE side/position are chosen (persistence only
+  // happens once both are known), otherwise an early nomination would be silently dropped.
+  const [chosenBans, setChosenBans] = useState<HeroId[] | null>(null);
+  const personalBanList = chosenBans ?? config?.personalBanList ?? [];
+  const side = chosenSide ?? config?.userSide ?? null;
+  const position = chosenPosition ?? config?.playerPosition ?? null;
   const isSeedValid = SEED_PATTERN.test(draftSeed);
+  const canStart = isSeedValid && side !== null && position !== null;
+
+  function persist(next: { userSide?: TeamSide | null; playerPosition?: PlayerPosition | null; personalBanList?: HeroId[] }) {
+    const nextSide = next.userSide === undefined ? side : next.userSide;
+    const nextPosition = next.playerPosition === undefined ? position : next.playerPosition;
+    if (nextSide === null || nextPosition === null) return;
+    setConfig({ userSide: nextSide, playerPosition: nextPosition, personalBanList: next.personalBanList ?? personalBanList, partySize: 5 });
+  }
 
   function regenerateSeed() {
     setDraftSeed(generateDraftSeed());
+  }
+
+  function changeSide(nextSide: TeamSide) {
+    setChosenSide(nextSide);
+    persist({ userSide: nextSide });
+  }
+
+  function changePosition(nextPosition: PlayerPosition) {
+    setChosenPosition(nextPosition);
+    persist({ playerPosition: nextPosition });
   }
 
   function addBanHero(heroId: HeroId) {
@@ -204,29 +303,27 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       return;
     }
     setBanListError(null);
-    setConfig({ userSide: "radiant", playerPosition: 2, personalBanList: result.list, partySize: 1 });
+    setChosenBans(result.list);
+    persist({ personalBanList: result.list });
   }
 
   function removeBanHero(heroId: HeroId) {
     setBanListError(null);
-    setConfig({ userSide: "radiant", playerPosition: 2, personalBanList: removeHeroFromBanList(personalBanList, heroId), partySize: 1 });
+    const remaining = removeHeroFromBanList(personalBanList, heroId);
+    setChosenBans(remaining);
+    persist({ personalBanList: remaining });
   }
 
   function handleStart() {
-    if (!isSeedValid) return;
-    onStart({ draftSeed, userSide: "radiant", playerPosition: 2, personalBanList, partySize: 1 });
+    if (!canStart || side === null || position === null) return;
+    onStart({ draftSeed, userSide: side, playerPosition: position, personalBanList, partySize: 5 });
   }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4">
-      <span className="text-heading text-content-primary">Ranked All Pick</span>
-      <div className="flex flex-wrap gap-2 text-body text-content-secondary" aria-label="Configuración fija del simulador">
-        <span>Solo</span>
-        <span>·</span>
-        <span>Radiant</span>
-        <span>·</span>
-        <span>Posición 2 — Midlane</span>
-      </div>
+      <span className="text-heading text-content-primary">Ranked All Pick — Ranked Roles</span>
+      <SideField side={side} onChange={changeSide} />
+      <PositionField position={position} onChange={changePosition} />
       <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
       <PersonalBanListField
         personalBanList={personalBanList}
@@ -235,7 +332,8 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
         onAdd={addBanHero}
         onRemove={removeBanHero}
       />
-      <button type="button" onClick={handleStart} disabled={!isSeedValid} className={`self-start ${BUTTON_PRIMARY}`}>
+      {!canStart && <span className="text-caption text-content-muted">Elegí tu lado y tu posición personal para iniciar el draft.</span>}
+      <button type="button" onClick={handleStart} disabled={!canStart} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft
       </button>
     </div>

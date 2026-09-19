@@ -4,7 +4,7 @@ import { useState, type JSX } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
-import { BUTTON_SECONDARY } from "@/features/draft/styles";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
@@ -12,7 +12,7 @@ import { CopilotPanel } from "@/features/random-draft-simulator/components/Copil
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
-import { specForRound, useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
+import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -26,6 +26,25 @@ interface PhaseViewProps {
 // Req. 1.1-1.4, 8.1, 8.4: configuración previa a cualquier draft.
 function IdlePhaseView({ session }: PhaseViewProps) {
   return <ConfigPanel onStart={session.startDraft} />;
+}
+
+// Fail closed: la resolución de bans falló. No se inició la Ronda 1; el mismo pedido se puede reintentar.
+function BanFailedPhaseView({ session }: PhaseViewProps) {
+  if (session.state.phase.type !== "ban_failed") return null;
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-signal-negative bg-surface-raised p-4" role="alert" data-testid="ban-failed">
+      <span className="text-heading text-content-primary">No se pudieron resolver los bans</span>
+      <span className="text-body text-content-secondary">{session.state.phase.message}</span>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={session.actions.retryBans} className={BUTTON_PRIMARY}>
+          Reintentar bans
+        </button>
+        <button type="button" onClick={session.actions.resetDraft} className={BUTTON_SECONDARY}>
+          Volver a la configuración
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // Transitorio -- el hook emite los 16 hero_banned justo después de esto y arranca la ronda 1
@@ -52,9 +71,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           draftState={draftState}
           heroCatalog={heroCatalog}
           highlightedHeroIds={highlightedHeroIds}
-          onConfirmPick={session.actions.confirmPick}
-          onDeselectPick={session.actions.deselectPick}
-          onConfirmRound={session.confirmRound}
+          onLockPick={session.actions.lockPick}
         />
       </div>
       <div className="flex flex-col gap-4">
@@ -104,6 +121,7 @@ type PhaseView = (props: PhaseViewProps) => JSX.Element | null;
 
 const PHASE_VIEWS: Record<RandomDraftState["phase"]["type"], PhaseView> = {
   idle: IdlePhaseView,
+  ban_failed: BanFailedPhaseView,
   ban_phase_complete: BanPhaseCompletePhaseView,
   blind_round: ActiveRoundPhaseView,
   round_revealed: ActiveRoundPhaseView,
@@ -129,7 +147,7 @@ function RankedAllPickSimulator() {
   // resumen de bans por defecto, nunca queda un hueco vacío.
   const centerContent =
     phase.type === "blind_round" ? (
-      <DraftTimer key={`${phase.round}-${phase.conflictCount}`} waitMs={specForRound(phase.round).timerMs} />
+      <DraftTimer key={`${phase.round}-${phase.attemptId}`} waitMs={phase.timerDurationMs} />
     ) : undefined;
 
   return (
@@ -156,7 +174,7 @@ function RankedAllPickSimulator() {
   );
 }
 
-// Recovery build: /simulator expone únicamente el árbol certificado de AP Solo Mid.
+// /simulator: Ranked All Pick (Ranked Roles) -- el Player elige lado y posición personal y controla los 5 asientos de su equipo.
 export default function SimulatorPage() {
   return (
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">

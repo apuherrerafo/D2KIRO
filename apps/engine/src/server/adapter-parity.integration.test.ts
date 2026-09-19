@@ -119,8 +119,12 @@ describe("adapter parity real -- manual observations vs simulator HTTP routes", 
 
     expect(manualState.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
     expect(simulatorStore.get("adapter-parity")!.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
-    const resolution = resolveSimulatorCollisionAuthority(manualState, "ABCDEFGH");
-    if (!resolution) throw new Error("missing parity resolution");
+    // Ordering evidence comes from the simulator session ledger; the manual state has none of its own.
+    const resolution = resolveSimulatorCollisionAuthority(
+      manualState.rankedAp!.round!.pendingCollision!,
+      simulatorStore.registrationEvidence("adapter-parity")!,
+    );
+    if (!resolution.ok) throw new Error("missing parity resolution");
     manualState = observe(manualState, {
       type: "AP_COLLISION_RESOLUTION_OBSERVED",
       round: resolution.command.round,

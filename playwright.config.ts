@@ -69,6 +69,7 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
     storageState: "e2e/.tmp/session.json",
     trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   webServer: [
     {

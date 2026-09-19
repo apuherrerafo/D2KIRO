@@ -1,73 +1,101 @@
-import type { AuthoritativeCollisionResolution, DraftProtocolState, ProtocolCommand } from "../types";
+import type { AuthoritativeCollisionResolution, OpenSlot, PendingCollisionAuthority, ProtocolCommand, TeamSide } from "../types";
 
-// R1 S2.4 -- SIMULATOR collision authority adapter.
+// R1 S2.4 / AP Ranked Roles V1 (Wave 1, Task 11) -- SIMULATOR collision authority adapter.
 //
 // The kernel NEVER lets transport/arrival order pick a 3rd+ collision winner (S1, frozen
-// contract) -- it pauses in WAITING_FOR_COLLISION_AUTHORITY and waits for a separate,
-// out-of-band APPLY_AUTHORITATIVE_COLLISION_RESOLUTION command. In a real Ranked All Pick draft,
-// that command would eventually come from an observed authoritative source (a live game-state
-// integration -- future work, not this slice). The random-draft-simulator/bot-drafter scenarios
-// need to keep running unattended, so THIS module exists to supply one, deterministically, and
-// under a name that cannot be mistaken for official Valve arbitration.
+// contract) -- it canonicalizes ordering, pauses in WAITING_FOR_COLLISION_AUTHORITY and waits for a
+// separate, out-of-band APPLY_AUTHORITATIVE_COLLISION_RESOLUTION command. In a real Ranked All Pick
+// draft that authority is Valve; for the Simulator, THIS module supplies it.
 //
-// Explicitly NOT Valve's real tie-break rule (no such rule is published/verified) -- this is
-// PRODUCT_POLICY for simulation only, versioned so a future real-authority adapter can be swapped
-// in without silently changing simulator replay history. Mirrors party-context.ts's own
-// "foundation only, never invents a magnitude for real state" posture.
+// PRODUCT RULE (PD-022, Product Owner decision for Task 11): the third collision is won by
+// whoever REGISTERED FIRST. The kernel deliberately discards arrival order, so the ordering
+// evidence lives OUTSIDE the kernel, in the session-store registration ledger
+// (server/protocol-session.ts): one monotonic ordinal per ACCEPTED SUBMIT_SEALED_SELECTION. This
+// module only reads that evidence -- it has no seed, no PRNG, no hash and no other tie-break. If the
+// evidence is missing or ambiguous it FAILS CLOSED: no winner is chosen.
 //
-// This module NEVER touches DraftProtocolState directly. It only ever produces a
-// ProtocolCommand -- the caller must still route it through applyProtocolCommand (kernel.ts), the
-// one authoritative mutation path (Blocker 1, S1).
+// Not Valve internals; PRODUCT_POLICY for simulation only, versioned so a future real authority
+// adapter can be swapped in without silently changing simulator replay history.
+//
+// This module NEVER touches DraftProtocolState. It only ever produces a ProtocolCommand -- the
+// caller must still route it through applyProtocolCommand (kernel.ts), the one mutation path.
 
-export const SIMULATOR_COLLISION_POLICY_VERSION = "simulator-collision-authority/v1";
+export const SIMULATOR_COLLISION_POLICY_VERSION = "simulator-collision-authority/v2-first-registration";
 
-export interface SimulatorAuthorityResolution {
-  policy: typeof SIMULATOR_COLLISION_POLICY_VERSION;
-  command: Extract<ProtocolCommand, { type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION" }>;
+/** One ACCEPTED SUBMIT_SEALED_SELECTION, in the order the session store accepted it. */
+export interface RegistrationRecord {
+  /** Monotonic per session, starts at 1. Assigned only when the kernel accepted the command. */
+  ordinal: number;
+  round: 1 | 2 | 3;
+  /** `round.collisionsResolved` when the selection was accepted: identifies the selection attempt. */
+  collisionsResolved: number;
+  side: TeamSide;
+  slotIndex: number;
+  heroId: number;
 }
 
-// Small self-contained deterministic PRNG (mulberry32) -- apps/engine cannot import
-// apps/web/features/random-draft-simulator/seeded-rng.ts (the two apps are independent
-// processes, invariantes.md), so this is a fresh, minimal implementation rather than a shared
-// dependency. Not exported: this policy's own determinism is an implementation detail, never a
-// general-purpose RNG utility other code should reach for.
-function mulberry32(seed: number): () => number {
-  let state = seed | 0;
-  return function next(): number {
-    state = (state + 0x6d2b79f5) | 0;
-    let z = state;
-    z = Math.imul(z ^ (z >>> 15), z | 1);
-    z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
-    return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
-  };
+/** The ledger view for the session CURRENT round attempt. */
+export interface CollisionRegistrationEvidence {
+  collisionsResolved: number;
+  records: readonly RegistrationRecord[];
 }
 
-function seedToUint32(seed: string): number {
-  let acc = 0;
-  for (let i = 0; i < seed.length; i += 1) acc = (acc + seed.charCodeAt(i) * (i + 1)) >>> 0;
-  return acc;
+export type CollisionAuthorityFailureReason = "REGISTRATION_EVIDENCE_MISSING" | "REGISTRATION_EVIDENCE_AMBIGUOUS";
+
+export type SimulatorAuthorityOutcome =
+  | {
+      ok: true;
+      policy: typeof SIMULATOR_COLLISION_POLICY_VERSION;
+      command: Extract<ProtocolCommand, { type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION" }>;
+    }
+  | { ok: false; policy: typeof SIMULATOR_COLLISION_POLICY_VERSION; reason: CollisionAuthorityFailureReason; detail: string };
+
+function fail(reason: CollisionAuthorityFailureReason, detail: string): SimulatorAuthorityOutcome {
+  return { ok: false, policy: SIMULATOR_COLLISION_POLICY_VERSION, reason, detail };
+}
+
+function registrationFor(
+  pending: PendingCollisionAuthority,
+  evidence: CollisionRegistrationEvidence,
+  contender: OpenSlot,
+): { ok: true; ordinal: number } | { ok: false; reason: CollisionAuthorityFailureReason; detail: string } {
+  // Only THIS round CURRENT attempt participates: registrations from collision #1/#2 attempts or
+  // from any earlier round can never influence the winner.
+  const matches = evidence.records.filter(
+    (record) =>
+      record.round === pending.round &&
+      record.collisionsResolved === evidence.collisionsResolved &&
+      record.side === contender.side &&
+      record.slotIndex === contender.slotIndex &&
+      record.heroId === pending.heroId,
+  );
+  if (matches.length === 0) {
+    return { ok: false, reason: "REGISTRATION_EVIDENCE_MISSING", detail: `no registration for ${contender.side} slot ${contender.slotIndex}` };
+  }
+  if (matches.length > 1) {
+    return { ok: false, reason: "REGISTRATION_EVIDENCE_AMBIGUOUS", detail: `${matches.length} registrations for ${contender.side} slot ${contender.slotIndex}` };
+  }
+  return { ok: true, ordinal: matches[0]!.ordinal };
 }
 
 /**
- * Deterministic given (seed, round, heroId): transport/session identity is deliberately excluded,
- * so the same simulator seed replayed in a fresh session produces the same winner
- * (SPEC's determinism discipline, same as the rest of this repo's seeded RNG usage). Returns
- * `null` when there is no pending collision to resolve -- callers must check `legalActions`/
- * `availableCommands` anyway before calling this, this is just a defensive no-op rather than a
- * thrown error.
+ * Lower registration ordinal = registered first = wins. Requires authoritative ordering evidence:
+ * there is deliberately no overload or default that decides without it.
  */
 export function resolveSimulatorCollisionAuthority(
-  state: DraftProtocolState,
-  seed: string,
-): SimulatorAuthorityResolution | null {
-  const pending = state.rankedAp?.round?.pendingCollision;
-  if (!pending) return null;
+  pending: PendingCollisionAuthority,
+  evidence: CollisionRegistrationEvidence,
+): SimulatorAuthorityOutcome {
+  const [a, b] = pending.contenders;
+  const first = registrationFor(pending, evidence, a);
+  if (!first.ok) return fail(first.reason, first.detail);
+  const second = registrationFor(pending, evidence, b);
+  if (!second.ok) return fail(second.reason, second.detail);
+  if (first.ordinal === second.ordinal) return fail("REGISTRATION_EVIDENCE_AMBIGUOUS", "both contenders share one registration ordinal");
 
-  const rng = mulberry32(seedToUint32(`${seed}:${pending.round}:${pending.heroId}`));
-  const winnerIndex = rng() < 0.5 ? 0 : 1;
-  const winner: AuthoritativeCollisionResolution["winner"] = pending.contenders[winnerIndex]!;
-
+  const winner: AuthoritativeCollisionResolution["winner"] = first.ordinal < second.ordinal ? a : b;
   return {
+    ok: true,
     policy: SIMULATOR_COLLISION_POLICY_VERSION,
     command: {
       type: "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION",

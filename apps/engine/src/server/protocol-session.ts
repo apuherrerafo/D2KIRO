@@ -18,7 +18,19 @@ import {
   type RulesetId,
   type TeamSide,
 } from "../draft-protocol";
-import { isSoloMidSimulatorMetadata, participantForRoundSlot } from "../simulator/solo-mid-policy";
+import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
+import type { CollisionRegistrationEvidence, RegistrationRecord } from "../draft-protocol/adapters/simulator-authority";
+import { isApSimulatorMetadata } from "../simulator/session-config";
+import {
+  confirmSeat,
+  emptyCarried,
+  goldPenaltyAt,
+  seatsForOpenSlots,
+  startRoundTimer,
+  timerViewAt,
+  type SimulatorTimerRuntime,
+  type SimulatorTimerView,
+} from "../simulator/timer";
 
 // R1 S2.1/S2.5/S3 -- ProtocolSessionStore: the session-management layer for kernel-backed drafts.
 // Mirrors server/session.ts's shape (in-memory Map, lastAccessedAt, evictStale/TTL) so it reads
@@ -42,9 +54,12 @@ export interface ProtocolSessionMetadata {
   partyContext: PartyContext | null;
   localSide: TeamSide;
   adapterKind: "manual" | "simulator";
-  /** Explicit simulator participant metadata. Null outside the reduced AP Solo Mid policy. */
+  /**
+   * The Player's declared PERSONAL position (AP Ranked Roles V1: required for every seeded
+   * Simulator session). It identifies which of the five known roles is the Player's own; it never
+   * decides when that hero is picked. `null` only for legacy / non-AP-Simulator sessions.
+   */
   humanPosition: 1 | 2 | 3 | 4 | 5 | null;
-  humanRosterSlot: number | null;
   simulatorSeed: string | null;
 }
 
@@ -52,6 +67,22 @@ interface ProtocolSessionEntry {
   state: DraftProtocolState;
   metadata: ProtocolSessionMetadata;
   lastAccessedAt: number;
+  /** Simulator-layer timing (outside the kernel). Null until the Player is first handed control of a round. */
+  simulatorTimer: SimulatorTimerRuntime | null;
+  /**
+   * Registration ledger (Task 11). OUTSIDE DraftProtocolState: the kernel canonicalizes arrival
+   * order on purpose, so the order in which this store ACCEPTED each SUBMIT_SEALED_SELECTION is kept
+   * here, for the Simulator collision-#3 authority only. Append-only, never fed back to the kernel,
+   * never part of any replay or state hash.
+   */
+  registrations: RegistrationRecord[];
+  nextRegistrationOrdinal: number;
+  /**
+   * TEST-ONLY skew added to the clock the Simulator TIMER layer reads (never the kernel, never
+   * session eviction). Always 0 unless advanceTestClock was called, which only the test-gated route
+   * can do -- see ProtocolSessionRouteDeps.allowTestClockControl.
+   */
+  clockOffsetMs: number;
 }
 
 export type CreateProtocolSessionResult =
@@ -72,7 +103,6 @@ export interface CreateProtocolSessionInput {
   localSide?: TeamSide;
   adapterKind?: "manual" | "simulator";
   humanPosition?: 1 | 2 | 3 | 4 | 5;
-  humanRosterSlot?: number;
   simulatorSeed?: string;
 }
 
@@ -112,10 +142,13 @@ export class ProtocolSessionStore {
         localSide,
         adapterKind: input.adapterKind ?? "manual",
         humanPosition: input.humanPosition ?? null,
-        humanRosterSlot: input.humanRosterSlot ?? null,
         simulatorSeed: input.simulatorSeed ?? null,
       },
       lastAccessedAt: now,
+      simulatorTimer: null,
+      registrations: [],
+      nextRegistrationOrdinal: 1,
+      clockOffsetMs: 0,
     });
     return { ok: true, sessionId: input.sessionId, state: created.state };
   }
@@ -141,13 +174,132 @@ export class ProtocolSessionStore {
     return this.sessions.get(sessionId)?.metadata.partyContext ?? null;
   }
 
-  apply(sessionId: string, command: ProtocolCommand, now = Date.now()): KernelResult | null {
+  apply(sessionId: string, command: ProtocolCommand, now?: number): KernelResult | null {
     const entry = this.sessions.get(sessionId);
     if (!entry) return null;
+    const previous = entry.state;
     const result = applyProtocolCommand(entry.state, command);
     entry.state = result.state;
-    entry.lastAccessedAt = now;
+    entry.lastAccessedAt = now ?? Date.now();
+    if (!result.rejected) {
+      this.recordRegistration(entry, previous, command);
+      this.recordSeatConfirmation(entry, previous, command, now ?? Date.now() + entry.clockOffsetMs);
+    }
     return result;
+  }
+
+  /**
+   * Assigns the next monotonic ordinal to an ACCEPTED SUBMIT_SEALED_SELECTION -- and only to those:
+   * a rejected command never reaches this method. The attempt (collisionsResolved) is read from
+   * the state the command was accepted AGAINST, so a reopened seat new selection belongs to the
+   * new attempt. An integer sequence, not a wall clock: it gives a strict deterministic order.
+   */
+  private recordRegistration(entry: ProtocolSessionEntry, previous: DraftProtocolState, command: ProtocolCommand): void {
+    if (command.type !== "SUBMIT_SEALED_SELECTION") return;
+    const round = previous.rankedAp?.round;
+    if (!round) return;
+    entry.registrations.push({
+      ordinal: entry.nextRegistrationOrdinal,
+      round: round.round,
+      collisionsResolved: round.collisionsResolved,
+      side: command.side,
+      slotIndex: command.slotIndex,
+      heroId: command.heroId,
+    });
+    entry.nextRegistrationOrdinal += 1;
+  }
+
+  /**
+   * Ordering evidence for the collision the kernel is currently paused on. Null when there is no
+   * open round. The evidence carries the current attempt (collisionsResolved) so
+   * resolveSimulatorCollisionAuthority can ignore every earlier attempt and every earlier round.
+   */
+  registrationEvidence(sessionId: string): CollisionRegistrationEvidence | null {
+    const entry = this.sessions.get(sessionId);
+    const round = entry?.state.rankedAp?.round;
+    if (!entry || !round) return null;
+    return { collisionsResolved: round.collisionsResolved, records: [...entry.registrations] };
+  }
+
+  /**
+   * Applies `commands` all-or-nothing: if the kernel rejects any of them, the session is left
+   * exactly as it was. Used where a half-applied sequence would strand a session (e.g. ban
+   * resolution: recording the bans without completing the phase).
+   */
+  applyAtomically(
+    sessionId: string,
+    commands: readonly ProtocolCommand[],
+    now = Date.now(),
+  ): { ok: true; state: DraftProtocolState } | { ok: false; rejected: RejectionReasonV2; index: number } | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return null;
+    let state = entry.state;
+    const staged: { previous: DraftProtocolState; command: ProtocolCommand }[] = [];
+    for (const [index, command] of commands.entries()) {
+      const result = applyProtocolCommand(state, command);
+      if (result.rejected) return { ok: false, rejected: result.rejected, index };
+      staged.push({ previous: state, command });
+      state = result.state;
+    }
+    entry.state = state;
+    for (const { previous, command } of staged) this.recordRegistration(entry, previous, command);
+    entry.lastAccessedAt = now;
+    return { ok: true, state };
+  }
+
+  /** The seat a Player selection fills stops accruing late-pick penalty the moment it is sealed. */
+  private recordSeatConfirmation(
+    entry: ProtocolSessionEntry,
+    previous: DraftProtocolState,
+    command: ProtocolCommand,
+    now: number,
+  ): void {
+    if (command.type !== "SUBMIT_SEALED_SELECTION" || !entry.simulatorTimer) return;
+    if (command.side !== entry.metadata.localSide) return;
+    const round = previous.rankedAp?.round?.round;
+    if (!round) return;
+    const seat = rosterSlotForRoundSlot(round, command.slotIndex);
+    if (seat === null) return;
+    entry.simulatorTimer = confirmSeat(entry.simulatorTimer, seat, now);
+  }
+
+  /**
+   * Called when the Simulator hands control of a round (or of a collision repick) to the Player.
+   * Idempotent per attempt: the timer starts once, on the first call for a given (round, collision
+   * count), and any penalty already incurred in earlier attempts is carried over.
+   */
+  ensureSimulatorTimer(sessionId: string, at?: number): SimulatorTimerView | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || !isApSimulatorMetadata(entry.metadata)) return null;
+    const now = at ?? Date.now() + entry.clockOffsetMs;
+    const round = entry.state.rankedAp?.round;
+    if (!round) return null;
+    const key = `${round.round}:${round.collisionsResolved}`;
+    if (entry.simulatorTimer?.attemptKey !== key) {
+      const carried = entry.simulatorTimer ? goldPenaltyAt(entry.simulatorTimer, now).bySlot : emptyCarried();
+      const ownOpenSlots = round.openSlots.filter((slot) => slot.side === entry.metadata.localSide).map((slot) => slot.slotIndex);
+      entry.simulatorTimer = startRoundTimer(round.round, round.collisionsResolved, seatsForOpenSlots(round.round, ownOpenSlots), carried, now);
+    }
+    return timerViewAt(entry.simulatorTimer!, now);
+  }
+
+  /**
+   * TEST-ONLY: moves the Simulator timer clock of ONE session forward. Lets a browser acceptance
+   * test cross a round deadline deterministically instead of sleeping for 25 real seconds.
+   */
+  advanceTestClock(sessionId: string, ms: number): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || !Number.isFinite(ms) || ms <= 0) return false;
+    entry.clockOffsetMs += ms;
+    return true;
+  }
+
+  /** Read-only timer projection. Null outside AP Simulator sessions or before the first hand-off. */
+  simulatorTimerView(sessionId: string, at?: number): SimulatorTimerView | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry?.simulatorTimer || !isApSimulatorMetadata(entry.metadata)) return null;
+    const now = at ?? Date.now() + entry.clockOffsetMs;
+    return timerViewAt(entry.simulatorTimer, now);
   }
 
   /**
@@ -203,12 +355,13 @@ export class ProtocolSessionStore {
     // loadTrustedEligibility(), and it is not this one.
     if (isTrustedServerOnlyCommand(command.type)) return false;
     if (command.type === "APPLY_AUTHORITATIVE_COLLISION_RESOLUTION") return false;
-    if (command.type === "SUBMIT_SEALED_SELECTION") {
-      if (command.side !== metadata.localSide) return false;
-      if (!state.rankedAp?.round || !isSoloMidSimulatorMetadata(metadata)) return true;
-      const participant = participantForRoundSlot(command.side, state.rankedAp.round.round, command.slotIndex);
-      return participant?.control === "human" && participant.rosterSlot === metadata.humanRosterSlot;
+    // AP Simulator sessions: bans come only from the server-side BanResolutionPolicy (fail-closed).
+    // A client that could record its own "resolved" bans could skip the policy entirely.
+    if (isApSimulatorMetadata(metadata) && (command.type === "RECORD_RESOLVED_BANS" || command.type === "BAN_RESOLUTION_COMPLETE")) {
+      return false;
     }
+    // The Player controls every seat of their own side; the other side belongs to the Enemy Bot.
+    if (command.type === "SUBMIT_SEALED_SELECTION") return command.side === metadata.localSide;
     if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
       return legalActions(state).some((action) => {
         if (action.type !== command.type || action.absoluteSide !== metadata.localSide || action.actor !== command.actor) return false;
@@ -223,12 +376,10 @@ export class ProtocolSessionStore {
     const metadata = this.metadata(sessionId);
     if (!state || !metadata) return null;
     return legalActions(state).filter((action) => {
-      if (action.type === "SUBMIT_SEALED_SELECTION") {
-        if (action.side !== metadata.localSide) return false;
-        if (!state.rankedAp?.round || !isSoloMidSimulatorMetadata(metadata)) return true;
-        const participant = participantForRoundSlot(action.side, state.rankedAp.round.round, action.slotIndex);
-        return participant?.control === "human" && participant.rosterSlot === metadata.humanRosterSlot;
+      if (isApSimulatorMetadata(metadata) && (action.type === "RECORD_RESOLVED_BANS" || action.type === "BAN_RESOLUTION_COMPLETE")) {
+        return false;
       }
+      if (action.type === "SUBMIT_SEALED_SELECTION") return action.side === metadata.localSide;
       if (action.type === "CM_ACTION" || action.type === "CM_BAN_SKIPPED" || action.type === "CM_AUTO_PICK") {
         return action.absoluteSide === metadata.localSide;
       }

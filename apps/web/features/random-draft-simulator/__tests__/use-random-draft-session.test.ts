@@ -1,12 +1,10 @@
 // Pruebas de las funciones puras exportadas por use-random-draft-session.ts. El resto del hook
-// (refs, setInterval, HTTP) depende de renderizar un componente React -- no hay
-// `renderHook`/testing-library en este proyecto (ver testing-seams.md), así que esa parte se
-// verifica en un navegador real contra apps/engine (tarea 16.2), no aquí.
+// (refs, setInterval, HTTP) se prueba en use-random-draft-session.integration.test.ts con un motor
+// falso; la verificación en navegador real vive en el smoke E2E / la aceptación manual.
 
 import { test, expect } from "bun:test";
-import { otherSide, randomPickForSlots, specForRound } from "../use-random-draft-session";
-import { createSeededRng } from "../seeded-rng";
-import type { HeroId } from "../types";
+import type { ProtocolSnapshot } from "../protocol-client";
+import { otherSide, ownOpenSlotIndexes, roundSeatOffset, specForRound } from "../use-random-draft-session";
 
 test("otherSide devuelve el lado contrario", () => {
   expect(otherSide("radiant")).toBe("dire");
@@ -19,31 +17,38 @@ test("specForRound devuelve la spec exacta para cada ronda (2-2-1, 25s/25s/20s)"
   expect(specForRound(3)).toEqual({ round: 3, picksPerTeam: 1, timerMs: 20000 });
 });
 
-test("randomPickForSlots nunca elige un héroe baneado, ya tomado, o repetido (100 casos)", () => {
-  const allHeroIds: HeroId[] = Array.from({ length: 20 }, (_, i) => i + 1);
-
-  for (let caseIndex = 0; caseIndex < 100; caseIndex++) {
-    const rng = createSeededRng("ABCDEFGH");
-    const resolvedBans = allHeroIds.slice(0, 5);
-    const alreadyTaken = allHeroIds.slice(5, 8);
-    const count = caseIndex % 3; // 0, 1, 2
-
-    const picks = randomPickForSlots(count, rng, resolvedBans, alreadyTaken, allHeroIds);
-
-    expect(picks).toHaveLength(count);
-    expect(new Set(picks).size).toBe(picks.length);
-    for (const heroId of picks) {
-      expect(resolvedBans.includes(heroId)).toBe(false);
-      expect(alreadyTaken.includes(heroId)).toBe(false);
-    }
-  }
+test("roundSeatOffset: asiento cronológico 0/2/4 -- nunca una posición", () => {
+  expect([1, 2, 3].map((round) => roundSeatOffset(round as 1 | 2 | 3))).toEqual([0, 2, 4]);
 });
 
-test("randomPickForSlots retorna menos picks que los pedidos si el pool se agota", () => {
-  const allHeroIds: HeroId[] = [1, 2, 3];
-  const rng = createSeededRng("ABCDEFGH");
+function snapshot(viewerSide: "radiant" | "dire", legalActions: ProtocolSnapshot["legalActions"]): ProtocolSnapshot {
+  return {
+    view: {
+      schema: "draft-protocol-perspective/v1",
+      sessionId: "s",
+      status: "ACTIVE",
+      viewerSide,
+      bannedHeroes: [],
+      ownPicks: [],
+      enemyPicks: [],
+      rankedAp: { phase: "PICK_ROUND_1", banResolutionComplete: true },
+      captainsMode: null,
+    },
+    legalActions,
+    simulator: null,
+  };
+}
 
-  const picks = randomPickForSlots(5, rng, [1], [2], allHeroIds);
-
-  expect(picks).toEqual([3]);
+test("ownOpenSlotIndexes devuelve TODOS los asientos propios abiertos, del lado que sea", () => {
+  for (const side of ["radiant", "dire"] as const) {
+    const enemy = otherSide(side);
+    const result = ownOpenSlotIndexes(
+      snapshot(side, [
+        { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 1 },
+        { type: "SUBMIT_SEALED_SELECTION", side: enemy, slotIndex: 0 },
+        { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 0 },
+      ]),
+    );
+    expect(result).toEqual([0, 1]);
+  }
 });

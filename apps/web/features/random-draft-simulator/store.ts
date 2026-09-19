@@ -25,8 +25,8 @@ export interface RandomDraftState {
 
 export interface RandomDraftActions {
   startSession(config: DraftConfig, sessionId: string, orchestratorResult: OrchestratorResult): void;
+  /** Registra un héroe que el Player ya selló (lock) en el intento actual de la ronda. */
   confirmPick(heroId: HeroId): void;
-  deselectPick(heroId: HeroId): void;
   resetSession(): void;
   setDraftState(state: DraftState): void;
   setRecommendations(recommendations: RecommendationSetV2 | null): void;
@@ -34,6 +34,9 @@ export interface RandomDraftActions {
   setStaleInfo(isStale: boolean, syncedAt: string | null): void;
   setPreviewStatus(status: PreviewStatus): void;
   setEngineStatus(status: EngineStatus): void;
+  /** Sincroniza timer/penalización con la proyección del Simulator (fuente de verdad: el motor). */
+  syncRoundTimer(timer: { remainingMs: number; pendingSeats: number[]; goldPenaltyBySlot: number[]; penaltyRatePerSecond: number }): void;
+  setRoundNotice(notice: string | null): void;
   tickTimer(deltaMs: number): void;
 }
 
@@ -66,12 +69,6 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
     const { phase } = get();
     if (phase.type !== "blind_round" || phase.pendingUserPicks.includes(heroId)) return;
     set({ phase: { ...phase, pendingUserPicks: [...phase.pendingUserPicks, heroId] } });
-  },
-
-  deselectPick(heroId) {
-    const { phase } = get();
-    if (phase.type !== "blind_round") return;
-    set({ phase: { ...phase, pendingUserPicks: phase.pendingUserPicks.filter((id) => id !== heroId) } });
   },
 
   resetSession() {
@@ -112,9 +109,40 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
     set({ engineStatus: status });
   },
 
+  syncRoundTimer(timer) {
+    const { phase } = get();
+    if (phase.type !== "blind_round") return;
+    set({
+      phase: {
+        ...phase,
+        timerRemainingMs: timer.remainingMs,
+        pendingSeats: timer.pendingSeats,
+        goldPenaltyBySlot: timer.goldPenaltyBySlot,
+        penaltyRatePerSecond: timer.penaltyRatePerSecond,
+        penaltyElapsedMs: 0,
+      },
+    });
+  },
+
+  setRoundNotice(notice) {
+    const { phase } = get();
+    if (phase.type !== "blind_round") return;
+    set({ phase: { ...phase, notice } });
+  },
+
+  // Visual only: the countdown never advances the phase, resolves the protocol, or picks a hero.
+  // Once the base time is exhausted the elapsed overflow only feeds the on-screen gold-penalty
+  // estimate for the seats still pending -- the engine's timer is the source of truth.
   tickTimer(deltaMs) {
     const { phase } = get();
     if (phase.type !== "blind_round") return;
-    set({ phase: { ...phase, timerRemainingMs: Math.max(0, phase.timerRemainingMs - deltaMs) } });
+    const overflow = Math.max(0, deltaMs - phase.timerRemainingMs);
+    set({
+      phase: {
+        ...phase,
+        timerRemainingMs: Math.max(0, phase.timerRemainingMs - deltaMs),
+        penaltyElapsedMs: phase.pendingSeats.length > 0 ? phase.penaltyElapsedMs + overflow : phase.penaltyElapsedMs,
+      },
+    });
   },
 }));
