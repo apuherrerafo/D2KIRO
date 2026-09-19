@@ -19,6 +19,8 @@ interface FakeOptions {
   banFailures?: number;
   /** The Player's LAST pick of round 1 collides with the bot: hero banned, that seat reopens. */
   collideRoundOnce?: boolean;
+  /** Every Coach response after the first arrives "late": it carries an OLDER revision than the one already held. */
+  outOfOrderCoach?: boolean;
 }
 
 /**
@@ -36,8 +38,11 @@ class FakeApProtocolEngine {
   private own: HeroId[] = [];
   private enemy: HeroId[] = [];
   private openSlots: number[] = [];
+  private coachRevision = 0;
+  private readonly outOfOrderCoach: boolean;
 
   constructor(options: FakeOptions = {}) {
+    this.outOfOrderCoach = options.outOfOrderCoach ?? false;
     this.banFailuresLeft = options.banFailures ?? 0;
     this.collidePending = options.collideRoundOnce ?? false;
   }
@@ -46,6 +51,40 @@ class FakeApProtocolEngine {
     if (this.round === 0) return "BAN_RESOLUTION";
     if (this.round === 4) return "COMPLETE";
     return `PICK_ROUND_${this.round}`;
+  }
+
+  // AP Ranked Roles V1 / Wave 2: what the engine's `?format=v3` returns. The trigger/revision follow
+  // the Player's own seals, exactly like the real Coach orchestrator (the enemy never has to reveal).
+  private coachBody() {
+    this.coachRevision += 1;
+    const revision = this.outOfOrderCoach && this.coachRevision > 1 ? 0 : this.coachRevision;
+    return {
+      output: {
+        schema: "recommendation-output/v3",
+        sessionId: this.sessionId,
+        primaryAction: { strategy: { kind: "REVEAL_POSITION", position: 5, rationale: "fixture" }, label: `Sugerencia: revela Hard support (Pos 5) #${this.coachRevision}` },
+        shortlist: [{ heroId: 7, position: 5, roleStatus: "LIKELY", confidence: "media", badges: [], rationale: "fixture", score: 10, isFromPool: false }],
+        meta: {
+          round: this.round >= 1 && this.round <= 3 ? this.round : null,
+          phase: this.phaseName(),
+          ownPicksRemaining: 5 - this.own.length,
+          confidence: "media",
+          decisionContext: this.own.length === 0 ? "team_opening" : "blind_second_pick",
+          trigger: this.own.length === 0 ? "DRAFT_PICKS_STARTED" : "OWN_PICK_CONFIRMED",
+          revision,
+          basedOn: { stateIdentity: `state-${this.own.length}-${this.enemy.length}`, evidenceVersion: "v" },
+        },
+      },
+      recommendationSet: {
+        schema: "recommendation-set/v2",
+        sessionId: this.sessionId,
+        decision: { actor: this.side, actionKind: "PICK", controlledSlots: [], actionCount: 1 },
+        recommendations: [],
+        degradations: [],
+        deferred: { opponentResponse: "NOT_COMPUTED", steal: "NOT_COMPUTED", lookahead: "NOT_COMPUTED" },
+        decisionContext: "team_opening",
+      },
+    };
   }
 
   private snapshot(extra: Record<string, unknown> = {}) {
@@ -98,8 +137,8 @@ class FakeApProtocolEngine {
       this.round = 1;
       return json({ resolvedBans: this.bans, ...this.snapshot() });
     }
-    if (url.endsWith("/recommendations")) {
-      return json({ error: "not_needed_in_this_fixture" }, 500);
+    if (url.includes("/recommendations")) {
+      return json(this.coachBody());
     }
     if (url.endsWith("/auto-drive")) {
       if (this.round === 0) return json({ error: "no_open_round" }, 409);
@@ -269,8 +308,53 @@ test("al vencer el timer NO se elige nada por el Player: sólo empieza la penali
 
 test("el Copilot humano sigue leyendo RecommendationSet/v2 (nunca /api/suggestions/preview)", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 2);
-  await waitFor(() => expect(engine.requests.some((entry) => entry.url.endsWith("/recommendations"))).toBe(true));
+  await waitFor(() => expect(engine.requests.some((entry) => entry.url.includes("/recommendations"))).toBe(true));
   expect(engine.requests.some((entry) => entry.url.endsWith("/api/suggestions/preview"))).toBe(false);
   expect(result.current.state.phase.type).toBe("blind_round");
+  unmount();
+});
+
+// AP Ranked Roles V1 / Wave 2 -- Coach in the browser hook.
+test("COACH: hay acción primaria al abrir la Ronda 1 (antes del primer pick) y se recomputa tras el primer pick propio, sin esperar al rival", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
+  const first = result.current.state.coach!;
+  expect(first.primaryAction.label.length).toBeGreaterThan(0);
+  expect(first.meta.trigger).toBe("DRAFT_PICKS_STARTED");
+
+  await lock(result, 1); // one of the two Round-1 seats: the round has NOT closed, no enemy hero is revealed
+  await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(first.meta.revision));
+  const second = result.current.state.coach!;
+  expect(second.meta.trigger).toBe("OWN_PICK_CONFIRMED");
+  expect(second.meta.basedOn.stateIdentity).not.toBe(first.meta.basedOn.stateIdentity);
+  expect(result.current.state.draftState?.picks.dire).toEqual([]); // still nothing revealed
+  expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
+  unmount();
+});
+
+test("COACH: el Player ignora el consejo (elige un héroe que no está en la shortlist): se acepta, sin aviso, y el Coach recomputa", async () => {
+  const { result, unmount } = await startDraft("dire", 4);
+  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
+  const suggested = result.current.state.coach!.shortlist.map((card) => card.heroId);
+  const chosen = [1, 2, 3, 4].find((heroId) => !suggested.includes(heroId))!;
+  const before = result.current.state.coach!.meta.revision;
+  await lock(result, chosen);
+  expect(result.current.state.draftState?.picks.dire).toContain(chosen);
+  const phase = result.current.state.phase;
+  expect(phase.type === "blind_round" && phase.notice).toBeNull();
+  await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(before));
+  unmount();
+});
+
+test("COACH: una respuesta más vieja (revision menor) nunca pisa a una más nueva", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2, { outOfOrderCoach: true });
+  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
+  const held = result.current.state.coach!;
+  expect(held.meta.revision).toBe(1);
+
+  await lock(result, 1); // triggers a second recomputation, which the fake engine answers with revision 0
+  await waitFor(() => expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2));
+  await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
+  expect(result.current.state.coach).toEqual(held); // the late, older output was discarded
   unmount();
 });

@@ -8,7 +8,9 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
+import type { CoachOutput } from "../coach-client";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
+import { CoachPanel } from "./CoachPanel";
 
 // R1 S5 (independent architecture review, blockers 1 + 8) -- this panel is the ONE human-facing
 // Copilot for the R1 ProtocolSession-backed simulator. It renders RecommendationSet/v2 ONLY:
@@ -254,6 +256,8 @@ function RecommendationList({ recommendationSet, heroCatalog }: RecommendationLi
 
 export interface CopilotPanelProps {
   recommendations: RecommendationSetV2 | null;
+  /** AP Ranked Roles V1 / Wave 2: the Coach output (primary action + shortlist). When present it replaces the flat V2 list. */
+  coach?: CoachOutput | null;
   heroCatalog: Map<number, HeroMeta>;
   previewStatus?: PreviewStatus;
   onRetryPreview?: () => void;
@@ -265,37 +269,54 @@ function noop() {
   // onRetryPreview) -- botón inerte en vez de un handler faltante.
 }
 
-export function CopilotPanel({ recommendations, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange }: CopilotPanelProps) {
-  const suggestedHeroKey = recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)).join(",") ?? "";
+/** Heroes the Copilot currently points at: the Coach shortlist when there is one, else the V2 list. */
+function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: CoachOutput | null): HeroId[] {
+  if (coach) return coach.shortlist.map((card) => card.heroId);
+  return recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
+}
+
+// Sin Coach (Captain's Mode, un motor viejo): el desglose V2 de siempre. Con Coach: acción primaria +
+// shortlist, nunca la lista plana de 6.
+function LegacyRecommendationBody({ recommendations, heroCatalog }: { recommendations: RecommendationSetV2; heroCatalog: Map<number, HeroMeta> }) {
+  if (recommendations.recommendations.length === 0) return null;
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <RoleImpactNotice recommendation={recommendations.recommendations[0]} />
+        <RecommendationRisksNotice risks={recommendations.recommendations[0].risks} />
+        <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />
+      </div>
+      <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />
+    </>
+  );
+}
+
+export function CopilotPanel({ recommendations, coach = null, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange }: CopilotPanelProps) {
+  const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach).join(",");
 
   // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
   // ya usaba la variante Pro-Drafter de este panel antes de esta migración.
   useEffect(() => {
     if (!onSuggestedHeroIdsChange) return;
-    const heroIds = recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
-    onSuggestedHeroIdsChange(new Set(heroIds));
+    onSuggestedHeroIdsChange(new Set(suggestedHeroIdsOf(recommendations, coach)));
     // suggestedHeroKey estabiliza el conjunto derivado y evita un efecto infinito.
   }, [onSuggestedHeroIdsChange, suggestedHeroKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasRecommendations = (recommendations?.recommendations.length ?? 0) > 0;
+  const hasRecommendations = coach !== null || (recommendations?.recommendations.length ?? 0) > 0;
+  const decisionContext = coach?.meta.decisionContext ?? recommendations?.decisionContext ?? "no_action";
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
       <span className="text-heading text-content-primary">Copilot</span>
       <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations} onRetry={onRetryPreview} />
       {recommendations && <DegradationsNotice degradations={recommendations.degradations} />}
-      {recommendations && <DecisionContextNotice decisionContext={recommendations.decisionContext} />}
+      {(recommendations || coach) && <DecisionContextNotice decisionContext={decisionContext} />}
       {recommendations && !hasRecommendations && previewStatus === "ready" && (
         <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
       )}
-      {recommendations && hasRecommendations && (
-        <div className="flex flex-col gap-2">
-          <RoleImpactNotice recommendation={recommendations.recommendations[0]} />
-          <RecommendationRisksNotice risks={recommendations.recommendations[0].risks} />
-          <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />
-        </div>
-      )}
-      <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />
+      {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} />}
+      {coach && recommendations && <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />}
+      {!coach && recommendations && <LegacyRecommendationBody recommendations={recommendations} heroCatalog={heroCatalog} />}
     </div>
   );
 }

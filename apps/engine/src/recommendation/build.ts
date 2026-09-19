@@ -1,32 +1,29 @@
 import { derivePerspectiveSuggestionInputs, perspectiveToLegacyDraftState } from "../draft-protocol/adapters/suggestion-bridge";
-import type { DraftProtocolState, HeroId, PerspectiveDraftView, TeamSide } from "../draft-protocol/types";
+import type { DraftProtocolState, PerspectiveDraftView, TeamSide } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions";
 import type { SuggestionSet } from "../signals/mix";
 import { buildBasedOn } from "./identity";
 import { deriveLegalDecision } from "./decision";
-import { computeRoleImpact } from "./role-impact";
-import { buildCompoundCandidates, buildShortlist, type ShortlistEntry } from "./shortlist";
+import { buildShortlist } from "./shortlist";
 import { excludedHeroes, postValidateAction, type ComputeSuggestionsForRecommendation } from "./legality";
 import {
-  deriveRisks,
   evidenceFromEligibility,
-  evidenceFromRoleBelief,
   evidenceFromRuleset,
-  evidenceFromSignals,
   evidenceIdentityHash,
   type FunctionalRecommendationEvidence,
 } from "./evidence";
+import {
+  AP_RECOMMENDATION_OUTPUT_LIMIT,
+  buildCompoundRecommendations,
+  buildSingleRecommendations,
+  pushUniqueDegradation,
+  RECOMMENDATION_OUTPUT_LIMIT,
+  type ConstructContext,
+} from "./construct";
 import { computeOnePlyLookahead } from "./lookahead";
 import { deferredFieldsNotComputed } from "./types";
-import type {
-  Recommendation,
-  RecommendationAction,
-  RecommendationDegradation,
-  RecommendationRoleImpact,
-  RecommendationSetV2,
-  RecommendationSlot,
-} from "./types";
+import type { Recommendation, RecommendationDegradation, RecommendationSetV2 } from "./types";
 
 // R1 S5 -- RecommendationSet/v2 canonical builder. Pipeline (mandated end to end):
 //
@@ -59,8 +56,8 @@ import type {
 // architecture-guard.test.ts. The only source of intentional variation is the caller-supplied
 // `seed`, threaded to V6's own `diversitySeed` and nowhere else.
 
-export const RECOMMENDATION_OUTPUT_LIMIT = 5;
-export const AP_RECOMMENDATION_OUTPUT_LIMIT = 6;
+export { RECOMMENDATION_OUTPUT_LIMIT };
+export { AP_RECOMMENDATION_OUTPUT_LIMIT };
 
 export type { ComputeSuggestionsForRecommendation } from "./legality";
 
@@ -92,25 +89,6 @@ export interface BuildRecommendationSetV2Input {
   outputLimit?: number;
   /** Stable roster identities controlled by this caller, mapped onto AP's round-scoped slots. */
   controlledRosterSlots?: readonly number[];
-}
-
-function pushUniqueDegradation(list: RecommendationDegradation[], entry: RecommendationDegradation): void {
-  if (list.some((existing) => existing.reason === entry.reason && existing.detail === entry.detail)) return;
-  list.push(entry);
-}
-
-function evidenceForHero(
-  hero: HeroId,
-  signals: ShortlistEntry["suggestion"]["signals"],
-  roleEvidence: ReturnType<typeof computeRoleImpact>["evidenceByHero"],
-  state: DraftProtocolState,
-) {
-  const items = [...evidenceFromSignals(hero, signals), ...evidenceFromRoleBelief(hero, roleEvidence.get(hero) ?? [])];
-  items.push(evidenceFromRuleset(state.ruleset));
-  if (state.captainsMode?.eligibilitySnapshot) {
-    items.push(evidenceFromEligibility(state.captainsMode.eligibilitySnapshot.contentHash, state.captainsMode.eligibilitySnapshot.heroIds.length));
-  }
-  return items;
 }
 
 export async function buildRecommendationSetV2(input: BuildRecommendationSetV2Input): Promise<RecommendationSetV2> {
@@ -202,10 +180,20 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const metaIsStale = suggestionSet.degraded.includes("stale_meta");
   const sortedControlledSlots = [...legal.decision.controlledSlots].sort((a, b) => a.slotIndex - b.slotIndex);
 
+  // The kernel's own legality oracle + the per-hero context evidence a state-backed caller can supply.
+  const constructContext: ConstructContext = {
+    isLegal: (hero, slot) => postValidateAction(state, hero, legal.eligibleHeroIds, slot),
+    contextEvidence: [
+      evidenceFromRuleset(state.ruleset),
+      ...(state.captainsMode?.eligibilitySnapshot
+        ? [evidenceFromEligibility(state.captainsMode.eligibilitySnapshot.contentHash, state.captainsMode.eligibilitySnapshot.heroIds.length)]
+        : []),
+    ],
+  };
   const recommendations: Recommendation[] =
     legal.decision.actionCount >= 2
-      ? buildCompoundRecommendations(state, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, legal.eligibleHeroIds, metaIsStale, degradations, input.outputLimit)
-      : buildSingleRecommendations(state, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, legal.eligibleHeroIds, metaIsStale, suggestionSet, degradations, input.outputLimit);
+      ? buildCompoundRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, metaIsStale, degradations, input.outputLimit)
+      : buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, metaIsStale, suggestionSet, degradations, input.outputLimit);
 
   if (recommendations.length === 0) {
     pushUniqueDegradation(degradations, { reason: "NO_LEGAL_HERO_UNIVERSE", detail: "el shortlist no sobrevivió la post-validación final contra el estado" });
@@ -243,116 +231,6 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
     },
     decisionContext: suggestionSet.decisionContext,
   };
-}
-
-function buildSingleRecommendations(
-  state: DraftProtocolState,
-  shortlist: readonly ShortlistEntry[],
-  ownPicks: readonly HeroId[],
-  heroPositions: HeroPositions,
-  partyPreferredPositions: readonly Position[] | undefined,
-  slot: RecommendationSlot,
-  eligibleHeroIds: readonly HeroId[] | null,
-  metaIsStale: boolean,
-  suggestionSet: SuggestionSet,
-  degradations: RecommendationDegradation[],
-  outputLimit = RECOMMENDATION_OUTPUT_LIMIT,
-): Recommendation[] {
-  const out: Recommendation[] = [];
-  for (const entry of shortlist) {
-    if (out.length >= outputLimit) break;
-    if (!postValidateAction(state, entry.hero, eligibleHeroIds, slot)) continue;
-
-    const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
-    if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
-    const impact = roleImpact.impactByHero.get(entry.hero)!;
-    const action: RecommendationAction = { slot, hero: entry.hero };
-
-    out.push({
-      actions: [action],
-      score: entry.suggestion.score,
-      confidence: entry.suggestion.confidence,
-      evidence: evidenceForHero(entry.hero, entry.suggestion.signals, roleImpact.evidenceByHero, state),
-      signalsByHero: { [entry.hero]: entry.suggestion.signals },
-      roleImpact: { [entry.hero]: impact },
-      risks: deriveRisks(entry.suggestion.confidence, [impact], metaIsStale),
-      legal: true,
-      legacy: {
-        hero: entry.hero,
-        signals: entry.suggestion.signals,
-        evidenceCoverage: entry.suggestion.evidenceCoverage,
-        guessingIndex: entry.suggestion.guessingIndex,
-        reason: entry.suggestion.reason,
-        decisionContext: suggestionSet.decisionContext,
-      },
-    });
-  }
-  return out;
-}
-
-function buildCompoundRecommendations(
-  state: DraftProtocolState,
-  shortlist: readonly ShortlistEntry[],
-  ownPicks: readonly HeroId[],
-  heroPositions: HeroPositions,
-  partyPreferredPositions: readonly Position[] | undefined,
-  slots: readonly RecommendationSlot[],
-  eligibleHeroIds: readonly HeroId[] | null,
-  metaIsStale: boolean,
-  degradations: RecommendationDegradation[],
-  outputLimit = RECOMMENDATION_OUTPUT_LIMIT,
-): Recommendation[] {
-  if (slots.length < 2) return [];
-  const [slotA, slotB] = slots;
-  const combos = buildCompoundCandidates(shortlist);
-  const out: Recommendation[] = [];
-
-  for (const combo of combos) {
-    if (out.length >= outputLimit) break;
-    const [a, b] = combo.entries;
-    // Step 1/2 (blocker 4 -- hero uniqueness + per-action legality) BEFORE any role/joint work.
-    if (a.hero === b.hero) continue; // structurally unreachable (distinct shortlist entries), kept as an explicit guard
-    if (!postValidateAction(state, a.hero, eligibleHeroIds, slotA!) || !postValidateAction(state, b.hero, eligibleHeroIds, slotB!)) continue;
-
-    // Steps 3-5 (blocker 4 -- joint feasibility is a HARD GATE, not a warning): compute the same
-    // joint role assignment single-action recommendations already use, and DROP this pair entirely
-    // when it rejects as IMPOSSIBLE_ASSIGNMENT. A high-score pair that can never be jointly
-    // assigned a position must never be recommendable merely with a caveat attached -- the next,
-    // lower-scored-but-feasible pair takes its place because `combos` is already score-sorted
-    // (shortlist.ts's buildCompoundCandidates) and this loop simply continues past the rejected one.
-    const roleImpact = computeRoleImpact({ ownPicks, candidates: [a.hero, b.hero], heroPositions, partyPreferredPositions });
-    if (roleImpact.degradation) {
-      pushUniqueDegradation(degradations, roleImpact.degradation);
-      if (roleImpact.degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
-    }
-    const impactA = roleImpact.impactByHero.get(a.hero)!;
-    const impactB = roleImpact.impactByHero.get(b.hero)!;
-
-    const evidence = [
-      ...evidenceForHero(a.hero, a.suggestion.signals, roleImpact.evidenceByHero, state),
-      ...evidenceForHero(b.hero, b.suggestion.signals, roleImpact.evidenceByHero, state),
-    ];
-
-    out.push({
-      // Deterministic-but-arbitrary convention: higher-scored hero fills the lower-numbered open
-      // slot. The kernel treats both open slots as interchangeable (isSealedSelectionLegal has no
-      // hero-specific slot semantics) -- there is no "correct" assignment to recover here, only a
-      // stable one.
-      actions: [
-        { slot: slotA!, hero: a.hero },
-        { slot: slotB!, hero: b.hero },
-      ],
-      score: combo.score,
-      confidence: combo.confidence,
-      evidence,
-      signalsByHero: { [a.hero]: a.suggestion.signals, [b.hero]: b.suggestion.signals },
-      roleImpact: { [a.hero]: impactA, [b.hero]: impactB },
-      risks: deriveRisks(combo.confidence, [impactA, impactB], metaIsStale),
-      legal: true,
-      legacy: null,
-    });
-  }
-  return out;
 }
 
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();

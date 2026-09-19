@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef } from "react";
 import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import { BLIND_ROUND_SPECS } from "./constants";
+import { fetchRecommendationsWithCoach } from "./coach-client";
 import { useLowConfidenceStore } from "./low-confidence-store";
 import { loadMetaSnapshot } from "./meta-loader";
 import {
   createSimulatorProtocolSession,
-  fetchRecommendations,
   protocolViewToDraftState,
   requestEnemyAutoDrive,
   resolveSimulatorBans,
@@ -92,6 +92,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const draftState = useRandomDraftStore((state) => state.draftState);
   const engineStatus = useRandomDraftStore((state) => state.engineStatus);
   const recommendations = useRandomDraftStore((state) => state.recommendations);
+  const coach = useRandomDraftStore((state) => state.coach);
   const previewStatus = useRandomDraftStore((state) => state.previewStatus);
   const staleWarning = useRandomDraftStore((state) => state.staleWarning);
   const lastSyncedAt = useRandomDraftStore((state) => state.lastSyncedAt);
@@ -134,9 +135,15 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const requestSessionId = current.sessionId;
     useRandomDraftStore.getState().setPreviewStatus("loading");
     try {
-      const result = await fetchRecommendations(requestSessionId, fetchImpl);
+      const result = await fetchRecommendationsWithCoach(requestSessionId, fetchImpl);
       if (useRandomDraftStore.getState().sessionId !== requestSessionId) return; // superseded by a new/reset session
-      useRandomDraftStore.getState().setRecommendations(result);
+      // The Coach revision is monotonic per session: a slower, older response never overwrites a newer one.
+      const held = useRandomDraftStore.getState().coach;
+      const outdated = result.coach !== null && held !== null && result.coach.meta.revision < held.meta.revision;
+      if (!outdated) {
+        useRandomDraftStore.getState().setRecommendations(result.recommendationSet);
+        useRandomDraftStore.getState().setCoach(result.coach);
+      }
       useRandomDraftStore.getState().setPreviewStatus("ready");
     } catch {
       if (useRandomDraftStore.getState().sessionId === requestSessionId) useRandomDraftStore.getState().setPreviewStatus("failed");
@@ -368,7 +375,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }, [fetchImpl, resolveBans, stopTimer]);
 
   return {
-    state: { config, phase, sessionId, draftState, recommendations, previewStatus, staleWarning, lastSyncedAt, engineStatus },
+    state: { config, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus },
     actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans },
     startDraft,
   };

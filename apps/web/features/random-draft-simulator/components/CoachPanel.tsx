@@ -1,0 +1,171 @@
+"use client";
+
+import { HeroIcon } from "@/components/hero-icon/HeroIcon";
+import { CONFIDENCE_LABELS } from "@/features/draft/constants";
+import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleStatus, CoachStrategy } from "../coach-client";
+
+// AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
+// then the SHORTLIST (concrete hero options for that action). Everything shown is read verbatim from
+// the engine's RecommendationOutputV3: this file never scores, ranks or infers a role. How specific
+// the advice is comes only from `strategy.kind` -- a role-level action is never dressed up as a hero.
+//
+// The panel is advisory: the Player can pick any legal hero, and nothing here marks a choice as
+// wrong. Terminology in castellano, consistent with the rest of the product (web.md).
+
+const POSITION_LABELS: Record<CoachPosition, string> = {
+  1: "Carry",
+  2: "Midlane",
+  3: "Offlane",
+  4: "Support",
+  5: "Hard support",
+};
+
+const BADGE_LABELS: Record<CoachBadge, string> = {
+  COUNTER: "Counter",
+  SYNERGY: "Sinergia",
+  POSITION_FIT: "Encaja en la posición",
+  META: "Aporta el meta",
+  FLEX: "Flex",
+  YOUR_POOL: "Tu pool",
+  OUTSIDE_YOUR_POOL: "Fuera de tu pool",
+};
+
+const SHORTLIST_TITLES: Record<CoachStrategy["kind"], string> = {
+  REVEAL_POSITION: "Opciones de héroe para esta posición",
+  REVEAL_HERO: "Otras opciones",
+  DEFER_POSITION: "Opciones para otras posiciones",
+  REVEAL_FLEX: "Opciones flexibles",
+  OPPORTUNITY: "Opciones",
+};
+
+// Una posición sólo se muestra como hecho si el motor la tiene resuelta; si no, se dice.
+const ROLE_NOTES: Record<CoachRoleStatus, (position: CoachPosition) => string> = {
+  CONFIRMED_FORCED: (position) => `Posición: ${POSITION_LABELS[position]}`,
+  LIKELY: (position) => `Probable: ${POSITION_LABELS[position]}`,
+  UNRESOLVED: () => "Rol por definir",
+};
+
+function heroName(heroId: number, heroCatalog: Map<number, HeroMeta>): string {
+  return heroCatalog.get(heroId)?.localizedName ?? `Héroe ${heroId}`;
+}
+
+interface NamedHeroProps {
+  strategy: CoachStrategy;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+// Sólo una acción a nivel de héroe nombra un héroe (early return -- sin ternario).
+function NamedHero({ strategy, heroCatalog }: NamedHeroProps) {
+  if (strategy.kind !== "REVEAL_HERO") return null;
+  const meta = heroCatalog.get(strategy.heroId);
+  return (
+    <div className="flex items-center gap-2" data-testid="coach-named-hero" data-hero-id={strategy.heroId}>
+      <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(strategy.heroId, heroCatalog)} size={40} />
+      <span className="text-body font-semibold text-content-primary">{heroName(strategy.heroId, heroCatalog)}</span>
+    </div>
+  );
+}
+
+interface PrimaryActionProps {
+  coach: CoachOutput;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
+  const { strategy, label } = coach.primaryAction;
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-accent-primary bg-surface-overlay p-3"
+      data-testid="coach-primary-action"
+      data-strategy-kind={strategy.kind}
+      data-revision={coach.meta.revision}
+      data-trigger={coach.meta.trigger}
+      data-state-identity={coach.meta.basedOn.stateIdentity}
+    >
+      <span className="text-caption font-semibold text-accent-primary">Qué hacer ahora</span>
+      <span className="text-body font-semibold text-content-primary" data-testid="coach-primary-label">
+        {label}
+      </span>
+      <NamedHero strategy={strategy} heroCatalog={heroCatalog} />
+      <span className="text-caption text-content-secondary" data-testid="coach-primary-rationale">
+        {strategy.rationale}
+      </span>
+      <span className="text-caption text-content-muted">
+        {CONFIDENCE_LABELS[coach.meta.confidence]} · Es una sugerencia: podés elegir cualquier héroe legal.
+      </span>
+    </div>
+  );
+}
+
+interface BadgeListProps {
+  badges: CoachBadge[];
+}
+
+function BadgeList({ badges }: BadgeListProps) {
+  if (badges.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map((badge) => (
+        <span key={badge} className="rounded-md border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-secondary" data-testid="coach-badge">
+          {BADGE_LABELS[badge]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+interface HeroCardViewProps {
+  card: CoachHeroCard;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+function HeroCardView({ card, heroCatalog }: HeroCardViewProps) {
+  const meta = heroCatalog.get(card.heroId);
+  return (
+    <li className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-2" data-testid="coach-hero-card" data-hero-id={card.heroId}>
+      <div className="flex items-center gap-2">
+        <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(card.heroId, heroCatalog)} size={40} />
+        <div className="flex flex-col">
+          <span className="text-body font-semibold text-content-primary">{heroName(card.heroId, heroCatalog)}</span>
+          <span className="text-caption text-content-muted">{ROLE_NOTES[card.roleStatus](card.position)}</span>
+        </div>
+      </div>
+      <BadgeList badges={card.badges} />
+      <span className="text-caption text-content-secondary">{card.rationale}</span>
+    </li>
+  );
+}
+
+interface ShortlistProps {
+  coach: CoachOutput;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+function Shortlist({ coach, heroCatalog }: ShortlistProps) {
+  if (coach.shortlist.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2" data-testid="coach-shortlist">
+      <span className="text-caption font-semibold text-content-primary">{SHORTLIST_TITLES[coach.primaryAction.strategy.kind]}</span>
+      <ul className="grid grid-cols-1 gap-2">
+        {coach.shortlist.map((card) => (
+          <HeroCardView key={card.heroId} card={card} heroCatalog={heroCatalog} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export interface CoachPanelProps {
+  coach: CoachOutput;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+export function CoachPanel({ coach, heroCatalog }: CoachPanelProps) {
+  return (
+    <div className="flex flex-col gap-3" data-testid="coach-panel">
+      <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
+      <Shortlist coach={coach} heroCatalog={heroCatalog} />
+    </div>
+  );
+}

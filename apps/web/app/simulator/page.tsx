@@ -58,7 +58,7 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, recommendations, previewStatus } = session.state;
+  const { phase, draftState, recommendations, coach, previewStatus } = session.state;
   const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
 
@@ -77,9 +77,11 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
       <div className="flex flex-col gap-4">
         {/* R1 S5 (blockers 1+8): la recomendación humana del simulador viene SIEMPRE de
             RecommendationSet/v2 -- ENABLE_PRO_DRAFTER no tiene ningún efecto sobre este panel ni
-            sobre qué héroes se resaltan en la grilla. */}
+            sobre qué héroes se resaltan en la grilla. AP Ranked Roles V1 / Wave 2: sobre ese V2 el
+            motor construye la salida del Coach (acción primaria + shortlist), que este panel muestra. */}
         <CopilotPanel
           recommendations={recommendations}
+          coach={coach}
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={session.actions.retryPreview}

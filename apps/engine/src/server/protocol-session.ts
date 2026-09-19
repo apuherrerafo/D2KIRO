@@ -18,6 +18,7 @@ import {
   type RulesetId,
   type TeamSide,
 } from "../draft-protocol";
+import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
 import type { CollisionRegistrationEvidence, RegistrationRecord } from "../draft-protocol/adapters/simulator-authority";
 import { isApSimulatorMetadata } from "../simulator/session-config";
@@ -332,6 +333,25 @@ export class ProtocolSessionStore {
     const state = this.get(sessionId);
     const metadata = this.metadata(sessionId);
     return state && metadata ? project(state, metadata.localSide) : null;
+  }
+
+  /**
+   * The ONLY thing the Coach's recommendation path is allowed to be built from: the Player's own
+   * perspective view, the seats the client-facing `legalActions` already advertises as open, the
+   * Player's party structure and the patch. Assembled ONLY from `view()` / `authorizedLegalActions()`
+   * / metadata -- the same projections this store already returns to the browser -- so nothing the
+   * Player could not already see can enter it (no sealed enemy selection, no registration ledger, no
+   * Enemy Bot internals, no simulator seed). Null for an unknown session.
+   */
+  perspectiveRecommendationContext(sessionId: string): PerspectiveRecommendationContext | null {
+    const view = this.view(sessionId);
+    const metadata = this.metadata(sessionId);
+    const legal = this.authorizedLegalActions(sessionId);
+    if (!view || !metadata || !legal) return null;
+    const openOwnSlots = legal.flatMap((action) =>
+      action.type === "SUBMIT_SEALED_SELECTION" && action.side === metadata.localSide ? [{ side: action.side, slotIndex: action.slotIndex }] : [],
+    );
+    return { view, openOwnSlots, partyContext: metadata.partyContext, patch: metadata.patch };
   }
 
   botView(sessionId: string): PerspectiveDraftView | null {

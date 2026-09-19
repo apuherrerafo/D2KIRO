@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { DraftState } from "@/features/draft/types";
+import type { CoachOutput } from "./coach-client";
 import type { RecommendationSetV2 } from "./protocol-client";
 import type { OrchestratorResult } from "./orchestrator";
 import type { DraftConfig, DraftPhase, HeroId } from "./types";
@@ -17,6 +18,10 @@ export interface RandomDraftState {
   // R1 S5 (blocker 1): RecommendationSet/v2, the ONE recommendation truth for this session family
   // -- never a suggestions/v1 SuggestionSet built from a client-side hypothetical DraftState.
   recommendations: RecommendationSetV2 | null;
+  // AP Ranked Roles V1 / Wave 2: the Coach's RecommendationOutputV3 (primary action + shortlist),
+  // built by the engine ON the V2 set above. Null until the first computation, or when the engine
+  // has nothing to advise (no open seat).
+  coach: CoachOutput | null;
   staleWarning: boolean;
   lastSyncedAt: string | null;
   previewStatus: PreviewStatus;
@@ -30,6 +35,7 @@ export interface RandomDraftActions {
   resetSession(): void;
   setDraftState(state: DraftState): void;
   setRecommendations(recommendations: RecommendationSetV2 | null): void;
+  setCoach(coach: CoachOutput | null): void;
   setVisualPhase(phase: DraftPhase): void;
   setStaleInfo(isStale: boolean, syncedAt: string | null): void;
   setPreviewStatus(status: PreviewStatus): void;
@@ -48,6 +54,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   sessionId: null,
   draftState: null,
   recommendations: null,
+  coach: null,
   staleWarning: false,
   lastSyncedAt: null,
   previewStatus: "idle",
@@ -59,6 +66,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       sessionId,
       draftState: null,
       recommendations: null,
+      coach: null,
       phase: { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
       previewStatus: "idle",
       engineStatus: "ok",
@@ -78,6 +86,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       sessionId: null,
       draftState: null,
       recommendations: null,
+      coach: null,
       staleWarning: false,
       lastSyncedAt: null,
       previewStatus: "idle",
@@ -91,6 +100,10 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
 
   setRecommendations(recommendations) {
     set({ recommendations });
+  },
+
+  setCoach(coach) {
+    set({ coach });
   },
 
   setVisualPhase(phase) {

@@ -53,3 +53,56 @@ test("el momento visible se declara una sola vez en decisionContext, nunca repet
     expect(suggestion.reason).not.toContain("Pick 2 ciego: combina");
   }
 });
+
+// --- AP Ranked Roles V1 / Wave 2 (task 15): deriveDecisionContextFromView ------------------------
+import { deriveDecisionContextFromView } from "./decision-context";
+import type { PerspectiveDraftView, PerspectiveHeroSlot } from "../draft-protocol/types";
+
+const known = (heroId: number): PerspectiveHeroSlot => ({ visibility: "KNOWN", heroId });
+const revealed = (heroId: number): PerspectiveHeroSlot => ({ visibility: "REVEALED", heroId });
+const hidden = (): PerspectiveHeroSlot => ({ visibility: "HIDDEN" });
+
+function apView(phase: "PICK_ROUND_1" | "PICK_ROUND_2" | "PICK_ROUND_3", ownPicks: PerspectiveHeroSlot[], enemyPicks: PerspectiveHeroSlot[]): PerspectiveDraftView {
+  return {
+    schema: "draft-protocol-perspective/v1",
+    sessionId: "ctx-view",
+    ruleset: { id: "dota2/ranked-all-pick" } as PerspectiveDraftView["ruleset"],
+    status: "ACTIVE",
+    degradation: null,
+    viewerSide: "radiant",
+    bannedHeroes: [],
+    ownPicks,
+    enemyPicks,
+    rankedAp: { phase, banResolutionComplete: true },
+    captainsMode: null,
+  };
+}
+
+test("view: PICK_ROUND_1 sin picks propios confirmados -> team_opening", () => {
+  expect(deriveDecisionContextFromView(apView("PICK_ROUND_1", [], [hidden(), hidden()]))).toBe("team_opening");
+});
+
+test("view: PICK_ROUND_1 con un pick propio sellado (KNOWN) -> blind_second_pick, sin esperar al rival", () => {
+  expect(deriveDecisionContextFromView(apView("PICK_ROUND_1", [known(1)], [hidden(), hidden()]))).toBe("blind_second_pick");
+});
+
+test("view: dos rivales REVELADOS -> response_pick; cuatro -> closing_pick", () => {
+  expect(deriveDecisionContextFromView(apView("PICK_ROUND_2", [known(1), known(2)], [revealed(11), revealed(12), hidden(), hidden()]))).toBe("response_pick");
+  expect(deriveDecisionContextFromView(apView("PICK_ROUND_3", [known(1), known(2), known(3), known(4)], [revealed(11), revealed(12), revealed(13), revealed(14)]))).toBe("closing_pick");
+});
+
+test("view: un slot rival HIDDEN nunca cuenta como rival visible (no hay heroId que contar)", () => {
+  expect(deriveDecisionContextFromView(apView("PICK_ROUND_1", [known(1), known(2)], [hidden(), hidden()]))).toBe("blind_second_pick");
+});
+
+test("view: coincide con la derivación legacy en cada momento alcanzable de All Pick", () => {
+  const cases: [PerspectiveDraftView, Parameters<typeof activeState>, boolean][] = [
+    [apView("PICK_ROUND_1", [], [hidden(), hidden()]), [[], []], true],
+    [apView("PICK_ROUND_1", [known(1)], [hidden(), hidden()]), [[1], []], true],
+    [apView("PICK_ROUND_2", [known(1), known(2)], [revealed(11), revealed(12)]), [[1, 2], [11, 12]], true],
+    [apView("PICK_ROUND_3", [known(1), known(2), known(3), known(4)], [revealed(11), revealed(12), revealed(13), revealed(14)]), [[1, 2, 3, 4], [11, 12, 13, 14]], true],
+  ];
+  for (const [view, [own, enemy], teamOpening] of cases) {
+    expect(deriveDecisionContextFromView(view)).toBe(deriveDecisionContext(activeState(own, enemy), teamOpening));
+  }
+});

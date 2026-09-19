@@ -498,7 +498,7 @@ function isDeferredFields(value: unknown): value is RecommendationDeferredFields
   return okOpponent && okSteal && okLookahead;
 }
 
-function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
+export function parseRecommendationSet(value: unknown): RecommendationSetV2 | null {
   if (!isRecord(value)) return null;
   if (value.schema !== "recommendation-set/v2") return null;
   if (typeof value.sessionId !== "string") return null;

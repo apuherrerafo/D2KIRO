@@ -10,7 +10,7 @@ import {
   isTeamSide,
 } from "../../draft-protocol/validation";
 import { isTrustedServerOnlyCommand, legalActions, loadTrustedEligibilityArtifact } from "../../draft-protocol";
-import type { TeamSide } from "../../draft-protocol";
+import type { PerspectiveDraftView, TeamSide } from "../../draft-protocol";
 import type { DraftPathArchetype } from "../../draft-paths/types";
 import type { DraftState } from "../../draft/reducer";
 import type { SuggestionSet } from "../../signals/mix";
@@ -18,7 +18,9 @@ import {
   AP_RECOMMENDATION_OUTPUT_LIMIT,
   buildRecommendationSetV2,
   translateRecommendationSetToLegacySuggestionSet,
+  type RecommendationSetV2,
 } from "../../recommendation";
+import type { RecommendationOutputV3 } from "../../coach";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 import { rosterSlotForRoundSlot } from "../../simulator/ap-simulator-policy";
 import {
@@ -30,6 +32,7 @@ import {
 import { chooseEnemyBotHero, createEnemyBotConfig } from "../../simulator/enemy-bot";
 import { isApSimulatorMetadata } from "../../simulator/session-config";
 import { ProtocolSessionStore } from "../protocol-session";
+import { createCoachRecommendations } from "./coach-recommendations";
 
 // R1 S2/S3 -- HTTP surface for kernel-backed draft sessions: the flow the frozen contract for
 // this wave mandates end to end --
@@ -503,6 +506,36 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
   }
 
   /**
+   * The V2 set for one session/view -- the ONE place recommendation inputs are assembled (used by the
+   * plain V2 response and, injected, by the Coach). It reads the authoritative session; nothing
+   * downstream of the Coach ever does.
+   */
+  async function buildV2ForSession(sessionId: string, view: PerspectiveDraftView): Promise<RecommendationSetV2> {
+    const state = deps.store.get(sessionId)!;
+    const metadata = deps.store.metadata(sessionId)!;
+    return buildRecommendationSetV2({
+      state,
+      view,
+      actor: metadata.localSide,
+      patch: metadata.patch,
+      computeSuggestions: deps.computeSuggestions,
+      seed: metadata.simulatorSeed ?? undefined,
+      // AP Ranked Roles V1 / Wave 1: the Player controls all five own seats, so there is no
+      // single-participant `targetPosition` and no per-seat filter here. Personal-position
+      // intelligence (scoping, "YOUR POSITION NOW", hero pool) belongs to later waves.
+      outputLimit: isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined,
+    });
+  }
+
+  // Coach path: built ONLY from a perspective-safe context (see coach-recommendations.ts). The store is
+  // handed over through a narrow interface that cannot reach authoritative state.
+  const coachRecommendations = createCoachRecommendations({
+    source: deps.store,
+    computeSuggestions: deps.computeSuggestions,
+    heroPositions: deps.heroPositions,
+  });
+
+  /**
    * R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
    * Follows the exact same perspective-forbidden guard as `get()` above -- a caller can request
    * only ITS OWN side's recommendations, never inject an arbitrary perspective (same trust
@@ -523,18 +556,22 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (!view) return notFound();
 
     const startedAt = Date.now();
-    const recommendationSet = await buildRecommendationSetV2({
-      state,
-      view,
-      actor: metadata.localSide,
-      patch: metadata.patch,
-      computeSuggestions: deps.computeSuggestions,
-      seed: metadata.simulatorSeed ?? undefined,
-      // AP Ranked Roles V1 / Wave 1: the Player controls all five own seats, so there is no
-      // single-participant `targetPosition` and no per-seat filter here. Personal-position
-      // intelligence (scoping, "YOUR POSITION NOW", hero pool) belongs to later waves.
-      outputLimit: isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined,
-    });
+    // AP Ranked Roles V1 / Wave 2 -- `?format=v3` asks the Coach: a RecommendationOutputV3 plus the V2-shaped
+    // set it was built on. That set comes from the PERSPECTIVE-SAFE builder (never from authoritative
+    // state, so it is not identical to the legacy V2 body: no one-ply lookahead, no simulator seed). The
+    // plain and `?format=legacy` responses below are the legacy V2 path, unchanged.
+    const wantsCoach = url.searchParams.get("format") === "v3";
+    if (wantsCoach && !view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+    let recommendationSet: RecommendationSetV2;
+    let coachOutput: RecommendationOutputV3 | null = null;
+    if (wantsCoach) {
+      const recomputation = await coachRecommendations.recommend(sessionId, metadata.humanPosition);
+      if (!recomputation) return notFound();
+      recommendationSet = recomputation.recommendationSet;
+      coachOutput = recomputation.output;
+    } else {
+      recommendationSet = await buildV2ForSession(sessionId, view);
+    }
 
     // R1 S7 (safe telemetry) -- diagnóstico mínimo para el MVP: ningún héroe, ni propio ni rival,
     // ni ningún dato de personas. Sólo identidad/estado agregados, ya redactados por basedOn
@@ -556,6 +593,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (url.searchParams.get("format") === "legacy") {
       return Response.json(translateRecommendationSetToLegacySuggestionSet(recommendationSet));
     }
+    if (wantsCoach) return Response.json({ output: coachOutput, recommendationSet });
     return Response.json(recommendationSet);
   }
 

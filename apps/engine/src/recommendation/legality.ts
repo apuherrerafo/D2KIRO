@@ -1,7 +1,6 @@
 import { isSealedSelectionLegal } from "../draft-protocol";
 import type { DraftProtocolState, HeroId } from "../draft-protocol/types";
 import type { DraftState } from "../draft/reducer";
-import type { SuggestionSet } from "../signals/mix";
 import type { RecommendationSlot } from "./types";
 
 // R1 S5/S6 -- shared legality/transport primitives. Split out of build.ts (S5) so S6's
@@ -11,18 +10,7 @@ import type { RecommendationSlot } from "./types";
 // cycle). Neither function's behavior, nor this type's shape, changed by this move -- build.ts
 // re-exports both verbatim so `recommendation/index.ts`'s public surface is unchanged.
 
-/** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --
- * intentionally not imported from there, to avoid a route -> recommendation -> route cycle. */
-export type ComputeSuggestionsForRecommendation = (
-  state: DraftState,
-  accountId: null,
-  options?: {
-    teamOpening?: boolean;
-    targetPosition?: 1 | 2 | 3 | 4 | 5;
-    diversitySeed?: string;
-    candidateHeroIds?: readonly HeroId[];
-  },
-) => Promise<SuggestionSet>;
+export type { ComputeSuggestionsForRecommendation } from "./perspective-context";
 
 export function excludedHeroes(legacyState: DraftState): Set<HeroId> {
   return new Set([...legacyState.banned, ...legacyState.picks.radiant, ...legacyState.picks.dire]);
