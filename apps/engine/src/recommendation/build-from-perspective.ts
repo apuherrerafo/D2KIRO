@@ -33,6 +33,10 @@ export interface BuildRecommendationSetFromPerspectiveInput {
   heroPositions?: HeroPositions;
   calibrationMode?: "fallback" | "empirical";
   partyPreferredPositions?: readonly Position[];
+  /** A personal-position evaluation is a single advisory choice, not a claim about pick chronology. */
+  targetPosition?: Position;
+  /** Keeps a personal advisory evaluation independent from the team round's compound action count. */
+  singleSlotEvaluation?: boolean;
   teamOpening?: boolean;
   outputLimit?: number;
 }
@@ -45,7 +49,7 @@ function roundOf(phase: RankedApPhase | undefined): number | null {
 }
 
 /** The actor's decision, from the view + the seats the client is already told are open. */
-function deriveDecisionFrom(context: PerspectiveRecommendationContext): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
+function deriveDecisionFrom(context: PerspectiveRecommendationContext, singleSlotEvaluation: boolean): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
   const { view, partyContext } = context;
   const actor = view.viewerSide ?? "radiant";
   const degradations: RecommendationDegradation[] = [];
@@ -55,6 +59,7 @@ function deriveDecisionFrom(context: PerspectiveRecommendationContext): { decisi
   // A party may control only some of its own side's seats: never propose an action for a seat this
   // session does not drive (same cap as decision.ts, over the same information).
   if (partyContext && partyContext.side === actor) controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
+  if (singleSlotEvaluation) controlledSlots = controlledSlots.slice(0, 1);
 
   if (controlledSlots.length === 0 && view.status !== "COMPLETE") {
     degradations.push({
@@ -83,7 +88,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const { decision, degradations } = deriveDecisionFrom(context);
+  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true);
   const identityInputs = { view, eligibilitySnapshot: null, calibrationMode, seed: null, patch: context.patch, partyContext: context.partyContext };
   const basedOnWithoutEvidence = buildBasedOn({ ...identityInputs, evidenceHash: null });
 
@@ -105,6 +110,10 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   try {
     suggestionSet = await computeSuggestions(legacyState, null, {
       teamOpening: input.teamOpening ?? true,
+      targetPosition: input.targetPosition,
+      // Hero Pool remains a soft V6 signal. Restricting the candidate universe would make it an
+      // illegitimate hard gate and hide a clearly better outside-pool personal option.
+      usePersonalPool: false,
       diversitySeed: undefined,
       candidateHeroIds: undefined,
     });

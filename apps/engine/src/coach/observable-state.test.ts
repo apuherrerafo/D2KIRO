@@ -33,11 +33,18 @@ describe("buildCoachObservableState", () => {
 
   test("una asignación explícita del Player pisa la inferencia: la creencia pasa a CONFIRMED", () => {
     const v = view("PICK_ROUND_2", [known(50), known(51)], [revealed(70), revealed(71), hidden(), hidden()]);
-    const state = buildCoachObservableState(v, { heroPositions: HERO_POSITIONS, playerPositionAssignments: new Map([[70, 3 as const]]) });
-    const belief = state.enemyRoleBeliefs.get(70)!;
+    const state = buildCoachObservableState(v, { heroPositions: HERO_POSITIONS, playerPositionAssignments: new Map([[50, 1 as const]]) });
+    const belief = state.ownRoleBeliefs.get(50)!;
     expect(belief.status).toBe("CONFIRMED");
-    expect(belief.probabilities[3]).toBe(1);
+    expect(belief.probabilities[1]).toBe(1);
     expect(state.enemyRoleBeliefs.get(71)!.status).not.toBe("CONFIRMED");
+  });
+
+  test("an enemy assignment, even for a REVEALED hero, is discarded and stays soft", () => {
+    const v = view("PICK_ROUND_2", [known(50)], [revealed(70), revealed(71), hidden(), hidden()]);
+    const state = buildCoachObservableState(v, { heroPositions: HERO_POSITIONS, playerPositionAssignments: new Map([[70, 3 as const]]) });
+    expect(state.playerPositionAssignments.has(70)).toBe(false);
+    expect(state.enemyRoleBeliefs.get(70)!.status).not.toBe("CONFIRMED");
   });
 
   test("una asignación para un héroe que NO es legalmente visible se descarta (no sirve para sondear un pick oculto)", () => {

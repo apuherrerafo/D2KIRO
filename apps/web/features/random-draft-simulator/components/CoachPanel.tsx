@@ -142,6 +142,42 @@ interface ShortlistProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
+  const personal = coach.personalHeroView;
+  if (!personal) return null;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
+      <span className="text-caption font-semibold text-accent-primary">{personal.positionLabel}</span>
+      <ul className="grid grid-cols-1 gap-1">
+        {personal.heroes.map((hero) => <li key={hero.heroId} className="text-caption text-content-primary" data-hero-id={hero.heroId}>
+          {hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}
+        </li>)}
+      </ul>
+    </div>
+  );
+}
+
+function RoleBeliefs({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProps) {
+  if (!coach.roleBeliefs) return null;
+  const rows = (side: "own" | "enemy", label: string) => coach.roleBeliefs![side].map((belief) => {
+    const flex = belief.status !== "CONFIRMED" && belief.positions.length > 1;
+    const description = belief.status === "CONFIRMED"
+      ? `Pos${belief.positions[0]}`
+      : flex && side === "own"
+        ? `FLEX ${belief.positions.join("/")}`
+        : flex
+          ? `Likely Pos${belief.positions[0]} / Possible Pos${belief.positions[1]}`
+          : `Likely Pos${belief.positions[0]}`;
+    return <div key={`${side}-${belief.heroId}`} className="flex flex-wrap items-center gap-1 text-caption text-content-secondary" data-testid={`coach-${side}-role`}>
+      <span>{label}: {heroName(belief.heroId, heroCatalog)} — {description}</span>
+      {side === "own" && onAssignOwnPosition && belief.positions.map((position) => <button type="button" key={position} className="underline" onClick={() => onAssignOwnPosition(belief.heroId, position)}>Pos{position}</button>)}
+      {side === "own" && onAssignOwnPosition && belief.status === "CONFIRMED" && <button type="button" className="underline" onClick={() => onAssignOwnPosition(belief.heroId, null)}>Quitar</button>}
+    </div>;
+  });
+  if (coach.roleBeliefs.own.length === 0 && coach.roleBeliefs.enemy.length === 0) return null;
+  return <div className="flex flex-col gap-1" data-testid="coach-role-beliefs">{rows("own", "Tu equipo")}{rows("enemy", "Rival")}</div>;
+}
+
 function Shortlist({ coach, heroCatalog }: ShortlistProps) {
   if (coach.shortlist.length === 0) return null;
   return (
@@ -159,13 +195,16 @@ function Shortlist({ coach, heroCatalog }: ShortlistProps) {
 export interface CoachPanelProps {
   coach: CoachOutput;
   heroCatalog: Map<number, HeroMeta>;
+  onAssignOwnPosition?: (heroId: number, position: CoachPosition | null) => void;
 }
 
-export function CoachPanel({ coach, heroCatalog }: CoachPanelProps) {
+export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProps) {
   return (
     <div className="flex flex-col gap-3" data-testid="coach-panel">
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
+      <PersonalHeroView coach={coach} heroCatalog={heroCatalog} />
       <Shortlist coach={coach} heroCatalog={heroCatalog} />
+      <RoleBeliefs coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
     </div>
   );
 }

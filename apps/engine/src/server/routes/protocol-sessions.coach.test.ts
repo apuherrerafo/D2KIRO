@@ -145,4 +145,15 @@ describe("GET .../recommendations?format=v3", () => {
     const body = (await (await routes.getRecommendations(sessionId, url("?format=v3"))).json()) as { output: unknown };
     expect(body.output).toBeNull();
   });
+
+  test("position assignment rejects a revealed enemy hero", async () => {
+    const { routes, store, sessionId } = await setup();
+    store.apply(sessionId, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 1 });
+    store.apply(sessionId, { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 2 });
+    store.apply(sessionId, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 3 });
+    store.apply(sessionId, { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 1, heroId: 4 });
+    const response = await routes.postPositionAssignment(jsonRequest({ heroId: 3, position: 3 }), sessionId);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "own_team_assignment_only" });
+  });
 });

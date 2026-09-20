@@ -5,6 +5,8 @@ import type { PerspectiveRecommendationContext } from "../recommendation/perspec
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
+import { isCompatiblePosition } from "./observable-state";
+import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
 import { translateToRecommendationOutputV3, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
 import { deriveRevealStrategy } from "./reveal-strategy";
 
@@ -41,6 +43,8 @@ const MAX_TRACKED_SESSIONS = 256;
 export interface CoachOrchestratorDeps {
   /** Builds the V2 set from EXACTLY this perspective-safe context (buildRecommendationSetFromPerspective). */
   buildRecommendationSet(context: PerspectiveRecommendationContext): Promise<RecommendationSetV2>;
+  /** Independent personal evaluation, scoped by declared role (Wave 3). */
+  buildPersonalRecommendation?(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   heroPositions?: HeroPositions;
 }
 
@@ -56,6 +60,8 @@ export interface CoachRecomputation {
   output: RecommendationOutputV3 | null;
   /** The V2 set the output was built on -- unchanged, for every V2 consumer. */
   recommendationSet: RecommendationSetV2;
+  /** Separate personal-position set; never derived from the team set. */
+  personalRecommendationSet?: RecommendationSetV2;
   /** Engine-internal (not serialized by the route): what the Coach believed while computing. */
   coachState: CoachObservableState;
   trigger: CoachTrigger;
@@ -81,8 +87,8 @@ function assignmentsKey(assignments: ReadonlyMap<HeroId, Position>): string {
   return [...assignments].sort(([a], [b]) => a - b).map(([hero, position]) => `${hero}:${position}`).join(",");
 }
 
-function isVisibleHero(view: PerspectiveDraftView, heroId: HeroId): boolean {
-  return [...view.ownPicks, ...view.enemyPicks].some((slot) => slot.visibility !== "HIDDEN" && slot.heroId === heroId);
+function isOwnVisibleHero(view: PerspectiveDraftView, heroId: HeroId): boolean {
+  return view.ownPicks.some((slot) => slot.visibility !== "HIDDEN" && slot.heroId === heroId);
 }
 
 export class CoachOrchestrator {
@@ -120,8 +126,19 @@ export class CoachOrchestrator {
     const revision = (memory.lastSeq += 1);
     const assignments = new Map(memory.assignments);
 
-    const coachState = buildCoachObservableState(view, { heroPositions: this.deps.heroPositions, playerPositionAssignments: assignments });
+    const heroPool = input.config?.heroPool ?? [];
+    const coachState = buildCoachObservableState(view, {
+      heroPositions: this.deps.heroPositions,
+      playerPositionAssignments: assignments,
+      personalContext: input.playerPersonalPosition ? { position: input.playerPersonalPosition, heroPool: [...heroPool] } : null,
+    });
     const recommendationSet = await this.deps.buildRecommendationSet(input.context);
+    const personal = input.playerPersonalPosition && this.deps.buildPersonalRecommendation
+      ? await buildPersonalPositionRecommendation(input.context, input.playerPersonalPosition, heroPool, {
+          buildRecommendationSet: this.deps.buildPersonalRecommendation,
+          heroPositions: this.deps.heroPositions,
+        })
+      : null;
     const decisionContext = deriveDecisionContextFromView(view);
     // No open seat for this side (draft complete, or waiting on the other side): nothing to advise.
     // With an open seat there is ALWAYS an answer -- a role-level one when the evidence is thin.
@@ -141,13 +158,14 @@ export class CoachOrchestrator {
           revision,
         })
       : null;
+    if (output && personal) output.personalHeroView = personal.view;
 
     // Only the newest-started computation may move the session's "latest" bookkeeping forward.
     if (revision > memory.latestRevision) {
       memory.latestRevision = revision;
       memory.observed = { ...countVisible(view), assignments: assignmentsKey(assignments) };
     }
-    return { output, recommendationSet, coachState, trigger, revision };
+    return { output, recommendationSet, personalRecommendationSet: personal?.recommendationSet, coachState, trigger, revision };
   }
 
   /** Trigger 0: the pick phase just opened (BAN_RESOLUTION_COMPLETE). */
@@ -166,13 +184,20 @@ export class CoachOrchestrator {
   }
 
   /**
-   * Trigger 3: the Player assigned a position to a hero. Only a hero that is legally visible in the
-   * view can be assigned -- an assignment for a hidden or unknown hero is dropped, so this can
-   * never be used to probe (or influence the Coach with) a hidden enemy identity.
+   * Trigger 3: the Player assigned a position to one of their own visible flexible heroes. Enemy
+   * roles are public-evidence inference only; this boundary prevents a UI click from promoting an
+   * enemy LIKELY/POSSIBLE belief to hard truth.
    */
   onPlayerPositionAssigned(input: CoachRecomputeInput, heroId: HeroId, position: Position): Promise<CoachRecomputation> {
     const memory = this.memory(input.context.view.sessionId);
-    if (isVisibleHero(input.context.view, heroId)) memory.assignments.set(heroId, position);
+    if (isOwnVisibleHero(input.context.view, heroId) && isCompatiblePosition(heroId, position, this.deps.heroPositions)) memory.assignments.set(heroId, position);
+    return this.recompute(input, "PLAYER_POSITION_ASSIGNED");
+  }
+
+  /** Removing an own-team assignment restores observable inference; enemy/unknown IDs are ignored. */
+  onPlayerPositionCleared(input: CoachRecomputeInput, heroId: HeroId): Promise<CoachRecomputation> {
+    const memory = this.memory(input.context.view.sessionId);
+    if (isOwnVisibleHero(input.context.view, heroId)) memory.assignments.delete(heroId);
     return this.recompute(input, "PLAYER_POSITION_ASSIGNED");
   }
 

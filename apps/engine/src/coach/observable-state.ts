@@ -29,7 +29,7 @@ export interface CoachObservableState {
   enemyRoleBeliefs: Map<HeroId, RoleBelief>;
   /** Our own picks (KNOWN with certainty of identity, position still a belief unless assigned). */
   ownRoleBeliefs: Map<HeroId, RoleBelief>;
-  /** Explicit Player assignments -- override inference. Only visible heroes are kept. */
+  /** Explicit Player assignments -- own visible heroes only; never enemy role evidence. */
   playerPositionAssignments: Map<HeroId, Position>;
   personalContext: PlayerPersonalContext | null;
   /** Straight from `view.bannedHeroes` -- bans are visible to both sides. */
@@ -39,7 +39,7 @@ export interface CoachObservableState {
 export interface BuildCoachObservableStateInput {
   heroPositions?: HeroPositions;
   personalContext?: PlayerPersonalContext | null;
-  /** Requested Player assignments. Assignments for a hero that is not legally visible are dropped. */
+  /** Requested own-team assignments. Enemy, hidden and unknown hero IDs are dropped. */
   playerPositionAssignments?: ReadonlyMap<HeroId, Position>;
 }
 
@@ -54,20 +54,32 @@ function believe(
 ): Map<HeroId, RoleBelief> {
   const beliefs = new Map<HeroId, RoleBelief>();
   for (const heroId of heroIds) {
-    beliefs.set(heroId, computeRoleBelief({ heroId, confirmedPosition: assignments.get(heroId) ?? null, heroPositions }));
+    // Only explicit Player assignments are hard structural evidence. A LIKELY/UNRESOLVED
+    // inference is intentionally absent here: feeding it back would manufacture certainty.
+    const occupiedPositions = new Set<Position>();
+    for (const [assignedHero, position] of assignments) if (assignedHero !== heroId && heroIds.includes(assignedHero)) occupiedPositions.add(position);
+    beliefs.set(heroId, computeRoleBelief({ heroId, confirmedPosition: assignments.get(heroId) ?? null, occupiedPositions, heroPositions }));
   }
   return beliefs;
+}
+
+/** Explicit assignments may only name a position supported by public hero-position evidence. */
+export function isCompatiblePosition(heroId: HeroId, position: Position, heroPositions: HeroPositions | undefined): boolean {
+  const positions = heroPositions?.[heroId] ?? [];
+  // No public distribution means no basis to call an explicit correction incompatible. It remains
+  // a Player confirmation; when evidence exists, incompatible positions are rejected safely.
+  return positions.length === 0 || positions.some((entry) => entry.position === position);
 }
 
 /** Pure. Same view + same evidence -> same state. */
 export function buildCoachObservableState(view: PerspectiveDraftView, input: BuildCoachObservableStateInput = {}): CoachObservableState {
   const enemyHeroes = visibleHeroIds(view.enemyPicks, ["REVEALED"]);
   const ownHeroes = visibleHeroIds(view.ownPicks, ["KNOWN", "REVEALED"]);
-  const visible = new Set<HeroId>([...enemyHeroes, ...ownHeroes]);
+  const ownVisible = new Set<HeroId>(ownHeroes);
 
   const playerPositionAssignments = new Map<HeroId, Position>();
   for (const [heroId, position] of input.playerPositionAssignments ?? []) {
-    if (visible.has(heroId)) playerPositionAssignments.set(heroId, position);
+    if (ownVisible.has(heroId)) playerPositionAssignments.set(heroId, position);
   }
 
   return {

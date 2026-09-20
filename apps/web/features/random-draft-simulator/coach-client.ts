@@ -40,6 +40,9 @@ export interface CoachOutput {
   sessionId: string;
   primaryAction: { strategy: CoachStrategy; label: string };
   shortlist: CoachHeroCard[];
+  personalHeroView?: { position: CoachPosition; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
+  outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
+  roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
   meta: {
     round: 1 | 2 | 3 | null;
     phase: string | null;
@@ -50,6 +53,12 @@ export interface CoachOutput {
     revision: number;
     basedOn: { stateIdentity: string; evidenceVersion: string };
   };
+}
+
+export interface CoachRoleBelief {
+  heroId: HeroId;
+  status: "CONFIRMED" | "LIKELY" | "UNRESOLVED";
+  positions: CoachPosition[];
 }
 
 export interface RecommendationsWithCoach {
@@ -107,12 +116,34 @@ function isMeta(value: unknown): value is CoachOutput["meta"] {
     && typeof value.basedOn.stateIdentity === "string" && typeof value.basedOn.evidenceVersion === "string";
 }
 
+function isRoleBelief(value: unknown): value is CoachRoleBelief {
+  return isRecord(value) && isHeroId(value.heroId) && (value.status === "CONFIRMED" || value.status === "LIKELY" || value.status === "UNRESOLVED")
+    && Array.isArray(value.positions) && value.positions.length > 0 && value.positions.every(isPosition);
+}
+
+function isPersonalHeroView(value: unknown): boolean {
+  return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && Array.isArray(value.heroes)
+    && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean");
+}
+
 export function parseCoachOutput(value: unknown): CoachOutput | null {
   if (!isRecord(value) || value.schema !== "recommendation-output/v3" || typeof value.sessionId !== "string") return null;
   if (!isRecord(value.primaryAction) || !isStrategy(value.primaryAction.strategy) || typeof value.primaryAction.label !== "string") return null;
   if (!Array.isArray(value.shortlist) || !value.shortlist.every(isHeroCard)) return null;
   if (!isMeta(value.meta)) return null;
+  if (value.personalHeroView !== undefined && !isPersonalHeroView(value.personalHeroView)) return null;
+  if (value.roleBeliefs !== undefined && (!isRecord(value.roleBeliefs) || !Array.isArray(value.roleBeliefs.own) || !Array.isArray(value.roleBeliefs.enemy)
+    || !value.roleBeliefs.own.every(isRoleBelief) || !value.roleBeliefs.enemy.every(isRoleBelief))) return null;
   return value as unknown as CoachOutput;
+}
+
+export async function assignOwnCoachPosition(sessionId: string, heroId: HeroId, position: CoachPosition | null, fetchImpl: typeof fetch = fetch): Promise<void> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/position-assignment`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ heroId, position }),
+  });
+  if (!response.ok) throw new Error(`position assignment failed (${response.status})`);
 }
 
 /**

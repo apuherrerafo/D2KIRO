@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import { BLIND_ROUND_SPECS } from "./constants";
-import { fetchRecommendationsWithCoach } from "./coach-client";
+import { assignOwnCoachPosition, fetchRecommendationsWithCoach } from "./coach-client";
 import { useLowConfidenceStore } from "./low-confidence-store";
 import { loadMetaSnapshot } from "./meta-loader";
 import {
@@ -73,6 +73,7 @@ export interface UseRandomDraftSessionResult {
     retryPreview(): void;
     /** Reintenta la resolución de bans con los mismos datos y la misma seed (fail closed). */
     retryBans(): Promise<void>;
+    assignOwnPosition(heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null): Promise<void>;
   };
   startDraft(config: StartDraftConfig): Promise<void>;
 }
@@ -153,6 +154,13 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const retryPreview = useCallback(function retryPreview(): void {
     void refreshRecommendations();
   }, [refreshRecommendations]);
+
+  const assignOwnPosition = useCallback(async function assignOwnPosition(heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    if (!current.sessionId) return;
+    await assignOwnCoachPosition(current.sessionId, heroId, position, fetchImpl);
+    await refreshRecommendations();
+  }, [fetchImpl, refreshRecommendations]);
 
   const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot): void {
     protocolRef.current = snapshot;
@@ -376,7 +384,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
 
   return {
     state: { config, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus },
-    actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans },
+    actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans, assignOwnPosition },
     startDraft,
   };
 }

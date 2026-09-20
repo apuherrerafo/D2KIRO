@@ -85,6 +85,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={session.actions.retryPreview}
+          onAssignOwnPosition={session.actions.assignOwnPosition}
           onSuggestedHeroIdsChange={setHighlightedHeroIds}
         />
       </div>

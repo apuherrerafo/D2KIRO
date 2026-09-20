@@ -262,6 +262,7 @@ export interface CopilotPanelProps {
   previewStatus?: PreviewStatus;
   onRetryPreview?: () => void;
   onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
+  onAssignOwnPosition?: (heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null) => void;
 }
 
 function noop() {
@@ -291,7 +292,7 @@ function LegacyRecommendationBody({ recommendations, heroCatalog }: { recommenda
   );
 }
 
-export function CopilotPanel({ recommendations, coach = null, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange }: CopilotPanelProps) {
+export function CopilotPanel({ recommendations, coach = null, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange, onAssignOwnPosition }: CopilotPanelProps) {
   const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach).join(",");
 
   // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
@@ -314,7 +315,7 @@ export function CopilotPanel({ recommendations, coach = null, heroCatalog, previ
       {recommendations && !hasRecommendations && previewStatus === "ready" && (
         <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
       )}
-      {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} />}
+      {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />}
       {coach && recommendations && <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />}
       {!coach && recommendations && <LegacyRecommendationBody recommendations={recommendations} heroCatalog={heroCatalog} />}
     </div>

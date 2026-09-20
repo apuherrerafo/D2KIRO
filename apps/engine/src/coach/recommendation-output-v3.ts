@@ -6,6 +6,7 @@ import type { HeroPositions } from "../signals/hero-positions";
 import type { CoachObservableState } from "./observable-state";
 import { buildHeroCard, extractHeroCandidates, type Confidence, type HeroCandidate, type HeroCard } from "./hero-card";
 import { positionPhrase, type RevealStrategy } from "./reveal-strategy";
+import type { RoleBelief, RoleBeliefStatus } from "../draft-protocol/roles/role-belief";
 
 // AP Ranked Roles V1 / Wave 2 (task 18) -- RecommendationOutputV3: the Coach's UI contract, built
 // ON TOP of RecommendationSetV2 (never replacing it: V2 keeps serving its existing consumers).
@@ -57,9 +58,14 @@ export interface RecommendationOutputV3 {
   /** Wave 4. Absent unless real evidence exists (never by default). */
   opportunity?: { label: string; heroId?: HeroId; evidence: string };
   /** Wave 3. Absent unless a personal position is declared AND implemented. */
-  personalHeroView?: { positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number }[] };
+  personalHeroView?: { position: Position; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
   /** Wave 3. Absent unless a hero pool is configured. */
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
+  /** Observable role uncertainty only. The UI never receives Enemy Bot private assignments. */
+  roleBeliefs: {
+    own: RoleBeliefDisplay[];
+    enemy: RoleBeliefDisplay[];
+  };
   meta: {
     round: 1 | 2 | 3 | null;
     phase: RankedApPhase | null;
@@ -71,6 +77,23 @@ export interface RecommendationOutputV3 {
     /** Same object as the source RecommendationSetV2.basedOn: stale detection = compare stateIdentity + evidenceVersion. */
     basedOn: RecommendationBasedOn;
   };
+}
+
+export interface RoleBeliefDisplay {
+  heroId: HeroId;
+  status: RoleBeliefStatus;
+  positions: Position[];
+}
+
+function displayBeliefs(beliefs: ReadonlyMap<HeroId, RoleBelief>): RoleBeliefDisplay[] {
+  return [...beliefs]
+    .sort(([a], [b]) => a - b)
+    .map(([heroId, belief]) => ({
+      heroId,
+      status: belief.status,
+      // No Wave-3 threshold: show all publicly plausible positions, ordered by the actual belief.
+      positions: ([1, 2, 3, 4, 5] as const).filter((position) => belief.probabilities[position] > 0).sort((a, b) => belief.probabilities[b] - belief.probabilities[a] || a - b),
+    }));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -180,6 +203,7 @@ export function translateToRecommendationOutputV3(
     shortlist: orderForStrategy(candidates, revealStrategy)
       .slice(0, size)
       .map((candidate) => buildHeroCard(candidate, heroPool)),
+    roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },
     meta: {
       round: roundOf(phase),
       phase,

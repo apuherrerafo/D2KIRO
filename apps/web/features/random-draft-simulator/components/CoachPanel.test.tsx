@@ -1,6 +1,6 @@
 import "@/test-support/happy-dom";
 
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import type { CoachHeroCard, CoachOutput, CoachStrategy } from "../coach-client";
 import { NOT_COMPUTED, type RecommendationSetV2 } from "../protocol-client";
@@ -75,6 +75,22 @@ test("sin héroes en la shortlist la acción primaria sigue visible", () => {
   const view = render(<CoachPanel coach={coach(ROLE_ACTION, [])} heroCatalog={new Map()} />);
   expect(view.getByTestId("coach-primary-action")).toBeDefined();
   expect(view.queryByTestId("coach-shortlist")).toBeNull();
+});
+
+test("only own-team role beliefs expose manual assignment controls", () => {
+  const assignments: Array<[number, number | null]> = [];
+  const withBeliefs = coach(ROLE_ACTION);
+  withBeliefs.roleBeliefs = {
+    own: [{ heroId: 7, status: "LIKELY", positions: [3, 4] }],
+    enemy: [{ heroId: 8, status: "LIKELY", positions: [2, 3] }],
+  };
+  const rendered = render(<CoachPanel coach={withBeliefs} heroCatalog={new Map()} onAssignOwnPosition={(hero, position) => assignments.push([hero, position])} />);
+  const own = rendered.getByTestId("coach-own-role");
+  const enemy = rendered.getByTestId("coach-enemy-role");
+  expect(within(own).getAllByRole("button")).toHaveLength(2);
+  expect(within(enemy).queryAllByRole("button")).toHaveLength(0);
+  fireEvent.click(within(own).getByRole("button", { name: "Pos3" }));
+  expect(assignments).toEqual([[7, 3]]);
 });
 
 function v2(): RecommendationSetV2 {

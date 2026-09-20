@@ -49,7 +49,7 @@ import { createCoachRecommendations } from "./coach-recommendations";
 
 export type ComputeSuggestionsForDraftState = (
   state: DraftState,
-  accountId: null,
+  accountId: number | null,
   // R1 S5: widened to include teamOpening/diversitySeed -- app.ts's real
   // computeSuggestionsForState already accepts both (it forwards options straight into
   // buildSuggestions); this type only used to advertise archetypeIntent because bot-selection was
@@ -543,7 +543,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
    * (translate-v1.ts) for a caller that only understands `suggestions/v1` -- it is still V2
    * underneath; nothing is rescored for that query param.
    */
-  async function getRecommendations(sessionId: string, url: URL): Promise<Response> {
+  async function getRecommendations(sessionId: string, url: URL, accountId: number | null = null): Promise<Response> {
     const sideParam = url.searchParams.get("side");
     if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
     const state = deps.store.get(sessionId);
@@ -565,7 +565,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     let recommendationSet: RecommendationSetV2;
     let coachOutput: RecommendationOutputV3 | null = null;
     if (wantsCoach) {
-      const recomputation = await coachRecommendations.recommend(sessionId, metadata.humanPosition);
+      const recomputation = await coachRecommendations.recommend(sessionId, metadata.humanPosition, accountId);
       if (!recomputation) return notFound();
       recommendationSet = recomputation.recommendationSet;
       coachOutput = recomputation.output;
@@ -597,6 +597,24 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     return Response.json(recommendationSet);
   }
 
+  async function postPositionAssignment(request: Request, sessionId: string, accountId: number | null = null): Promise<Response> {
+    const metadata = deps.store.metadata(sessionId);
+    if (!metadata) return notFound();
+    const body: unknown = await request.json().catch(() => null);
+    if (typeof body !== "object" || body === null) return badRequest("invalid_body");
+    const value = body as Record<string, unknown>;
+    const heroId = value.heroId;
+    const position = value.position;
+    if (typeof heroId !== "number" || !Number.isInteger(heroId) || heroId <= 0) return badRequest("invalid_body");
+    if (position !== null && position !== 1 && position !== 2 && position !== 3 && position !== 4 && position !== 5) return badRequest("invalid_body");
+    const view = deps.store.view(sessionId);
+    const isOwnVisibleHero = view?.ownPicks.some((slot) => slot.visibility !== "HIDDEN" && slot.heroId === heroId) ?? false;
+    if (!isOwnVisibleHero) return Response.json({ error: "own_team_assignment_only" }, { status: 403 });
+    const recomputation = await coachRecommendations.assignPosition(sessionId, metadata.humanPosition, accountId, heroId, position);
+    if (!recomputation) return notFound();
+    return Response.json({ output: recomputation.output, recommendationSet: recomputation.recommendationSet }, { status: 202 });
+  }
+
   return {
     post,
     get,
@@ -606,6 +624,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     postTestAdvanceClock,
     postBotSelection,
     postAutoDrive,
+    postPositionAssignment,
     getRecommendations,
     parseSessionId,
     parseSessionSubpath,

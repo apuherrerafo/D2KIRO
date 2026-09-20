@@ -452,7 +452,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     // R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
     const protocolRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "recommendations");
     if (protocolRecommendationsSessionId !== null && request.method === "GET") {
-      return protocolSessionRoutes.getRecommendations(protocolRecommendationsSessionId, url);
+      const auth = request.headers.get("x-account-token") === null ? { ok: true as const, accountId: null } : requireHttpAccount(request);
+      return auth.ok ? protocolSessionRoutes.getRecommendations(protocolRecommendationsSessionId, url, auth.accountId) : auth.response;
+    }
+    const protocolPositionAssignmentSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "position-assignment");
+    if (protocolPositionAssignmentSessionId !== null && request.method === "POST") {
+      const auth = request.headers.get("x-account-token") === null ? { ok: true as const, accountId: null } : requireHttpAccount(request);
+      return auth.ok ? protocolSessionRoutes.postPositionAssignment(request, protocolPositionAssignmentSessionId, auth.accountId) : auth.response;
     }
     const protocolSessionId = protocolSessionRoutes.parseSessionId(url.pathname);
     if (protocolSessionId !== null && request.method === "GET") {

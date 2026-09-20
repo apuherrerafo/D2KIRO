@@ -35,10 +35,11 @@ export interface PerspectiveRecommendationContext {
  * intentionally not imported from there, to avoid a route -> recommendation -> route cycle. */
 export type ComputeSuggestionsForRecommendation = (
   state: DraftState,
-  accountId: null,
+  accountId: number | null,
   options?: {
     teamOpening?: boolean;
     targetPosition?: 1 | 2 | 3 | 4 | 5;
+    usePersonalPool?: boolean;
     diversitySeed?: string;
     candidateHeroIds?: readonly HeroId[];
   },

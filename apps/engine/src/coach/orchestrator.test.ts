@@ -155,7 +155,10 @@ describe("Coach orchestration over the real kernel", () => {
       const h = harness({ humanPosition: position, sessionId: "pp" });
       const seats = h.store.authorizedLegalActions(h.id)!.filter((action) => action.type === "SUBMIT_SEALED_SELECTION");
       expect(seats).toHaveLength(2); // both Round-1 seats are legal for every personal position
-      outputs.push(stripSession(await h.compute(position)));
+      const result = await h.compute(position);
+      // Personal position affects only the independent personal panel; it never changes legal
+      // seats, team primary action, or the team recommendation set.
+      outputs.push(JSON.stringify({ set: result.recommendationSet, primary: result.output!.primaryAction }));
     }
     expect(new Set(outputs).size).toBe(1);
   });
@@ -180,7 +183,7 @@ describe("Coach orchestration over the real kernel", () => {
 });
 
 describe("asignación de posición y concurrencia", () => {
-  test("el Player asigna la posición de un héroe rival REVELADO: enemyRoleBeliefs se actualiza y el Coach recomputa", async () => {
+  test("una asignación manual a un héroe rival REVELADO se ignora: enemyRoleBeliefs no se vuelve hard truth", async () => {
     const h = harness({ sessionId: "assign" });
     h.seal(h.side, 0, 1);
     h.seal(h.side, 1, 2);
@@ -192,8 +195,8 @@ describe("asignación de posición y concurrencia", () => {
 
     const after = await h.coach.onPlayerPositionAssigned({ context }, 9, 3);
     expect(after.trigger).toBe("PLAYER_POSITION_ASSIGNED");
-    expect(after.coachState.enemyRoleBeliefs.get(9)!.status).toBe("CONFIRMED");
-    expect(after.coachState.enemyRoleBeliefs.get(9)!.probabilities[3]).toBe(1);
+    expect(after.coachState.playerPositionAssignments.has(9)).toBe(false);
+    expect(after.coachState.enemyRoleBeliefs.get(9)!.status).not.toBe("CONFIRMED");
     expect(after.output!.meta.revision).toBeGreaterThan(before.output!.meta.revision);
   });
 

@@ -166,3 +166,43 @@ describe("6. compatibilidad legacy: el camino V2 autoritativo sigue igual, y el 
     expect(typeof buildRecommendationSetV2).toBe("function");
   });
 });
+
+describe("7. authenticated Hero Pool scope", () => {
+  test("different personal pools leave team output identical beyond opening and may change personal badges", async () => {
+    const h = harness({ sessionId: "personal-pool-scope" });
+    const calls: { accountId: number | null; targetPosition?: number; teamOpening?: boolean }[] = [];
+    const baseline = fakeCompute();
+    const computeWithPersonalPool = async (state: Parameters<ReturnType<typeof fakeCompute>>[0], accountId: number | null, options?: Parameters<ReturnType<typeof fakeCompute>>[2]) => {
+      calls.push({ accountId, targetPosition: options?.targetPosition, teamOpening: options?.teamOpening });
+      const set = await baseline(state, accountId, options);
+      if (accountId === null || options?.targetPosition !== 2) return set;
+      const poolHero = accountId === 101 ? 4 : 6;
+      return {
+        ...set,
+        suggestions: set.suggestions.map((suggestion) => suggestion.hero !== poolHero ? suggestion : {
+          ...suggestion,
+          signals: [...suggestion.signals, { signal: "hero_pool_fit" as const, raw: 1, normalized: 100, evidenceConfidence: 1, weighted: 1, explanation: "En tu pool", sampleSize: 1 }],
+        }),
+      };
+    };
+    const recommendations = createCoachRecommendations({ source: h.store, computeSuggestions: computeWithPersonalPool, heroPositions: HERO_POSITIONS });
+    const teamOnly = (result: Awaited<ReturnType<typeof recommendations.recommend>>) => ({
+      primaryAction: result?.output?.primaryAction,
+      shortlist: result?.output?.shortlist,
+      teamRecommendationSet: result?.recommendationSet,
+    });
+
+    const openingA = await recommendations.recommend(h.id, 2, 101);
+    const openingB = await recommendations.recommend(h.id, 2, 202);
+    expect(teamOnly(openingA)).toEqual(teamOnly(openingB));
+    expect(openingA!.output!.personalHeroView!.heroes.find((hero) => hero.heroId === 4)!.isFromPool).toBe(true);
+    expect(openingB!.output!.personalHeroView!.heroes.find((hero) => hero.heroId === 6)!.isFromPool).toBe(true);
+
+    h.seal(h.side, 0, 1);
+    const laterA = await recommendations.recommend(h.id, 2, 101);
+    const laterB = await recommendations.recommend(h.id, 2, 202);
+    expect(teamOnly(laterA)).toEqual(teamOnly(laterB));
+    expect(calls.filter((call) => call.teamOpening === true).every((call) => call.accountId === null)).toBe(true);
+    expect(calls.filter((call) => call.targetPosition === 2).map((call) => call.accountId).sort()).toEqual([101, 101, 202, 202]);
+  });
+});

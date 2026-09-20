@@ -16,6 +16,7 @@
     "e2e": "playwright test",
     "test:wave1:smoke": "bun run scripts/wave1-smoke.ts",
     "test:wave2:smoke": "bun run scripts/wave2-smoke.ts",
+    "test:wave3:smoke": "bun run scripts/wave3-smoke.ts",
     "test": "bun test apps/engine && bun test apps/web && bun test scripts",
     "verify:r1": "bun run scripts/r1/certify.ts",
     "dev:mvp": "bun run scripts/dev-mvp.ts"

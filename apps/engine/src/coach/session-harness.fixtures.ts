@@ -25,10 +25,11 @@ export const POOL = [1, 2, 3, 4, 5, 6, 7, 8];
 export const HERO_COUNTERING_ENEMY_9 = 5; // hero 5 gets a strong, data-backed counter signal ONLY once enemy hero 9 is revealed
 
 export function fakeCompute(): ComputeSuggestionsForRecommendation {
-  return async (state) => {
+  return async (state, _accountId, options) => {
     const excluded = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
     const enemyRevealed = new Set(state.localSide === "dire" ? state.picks.radiant : state.picks.dire);
-    const suggestions: Suggestion[] = POOL.filter((hero) => !excluded.has(hero)).map((hero, index) => {
+    const candidates = POOL.filter((hero) => !excluded.has(hero) && (options?.targetPosition === undefined || HERO_POSITIONS[hero]?.some((entry) => entry.position === options.targetPosition)));
+    const suggestions: Suggestion[] = candidates.map((hero, index) => {
       const countersRevealed = hero === HERO_COUNTERING_ENEMY_9 && enemyRevealed.has(9);
       const signals: SignalContribution[] = [
         { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 20 - index, explanation: `posición de ${hero}`, sampleSize: 100 },
@@ -106,6 +107,14 @@ export function harness(options: { side?: TeamSide; seed?: string; humanPosition
     heroPositions: HERO_POSITIONS,
     // The REAL Coach path: perspective-safe context in, perspective-safe builder. No authoritative state anywhere.
     buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS }),
+    buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({
+      context,
+      computeSuggestions: fakeCompute(),
+      heroPositions: HERO_POSITIONS,
+      targetPosition: position,
+      teamOpening: false,
+      singleSlotEvaluation: true,
+    }),
   });
   const seal = (sealSide: TeamSide, slotIndex: number, heroId: number) => {
     const command: ProtocolCommand = { type: "SUBMIT_SEALED_SELECTION", side: sealSide, slotIndex, heroId };
