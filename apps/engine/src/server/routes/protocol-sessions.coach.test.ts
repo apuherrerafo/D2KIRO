@@ -67,6 +67,46 @@ async function setup() {
   return { store, routes, sessionId, url };
 }
 
+// Wave 4A -- the Safe Core opportunity over HTTP. Curated positions and counters are INLINE fixtures injected
+// through the route deps: nothing here reads hero-positions.json or hero-counters.json.
+describe("GET .../recommendations?format=v3 -- opportunity (Safe Core)", () => {
+  const HARD_COUNTER = 7;
+  const HARD_COUNTER_B = 8; // Safe Core needs >= 2 curated hard counters (MIN_CURATED_HARD_COUNTER_COVERAGE)
+  async function setupWithCounters(bans: number[], hardCounters: number[] = [HARD_COUNTER, HARD_COUNTER_B]) {
+    const store = new ProtocolSessionStore();
+    const routes = createProtocolSessionRoutes({
+      store,
+      computeSuggestions: async () => fakeSuggestions([1, 2, 3, 4, 5, 6]),
+      heroPositions: { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 5, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
+      heroCounters: new Map([[1, hardCounters.map((vs) => ({ vs, level: "hard" as const, why: "fixture" }))]]),
+    });
+    const created = await routes.post(jsonRequest(CREATE_BODY));
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: bans }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+    const url = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v3`);
+    return { routes, sessionId, url };
+  }
+
+  test("counter duro curado baneado -> el JSON trae `opportunity` con procedencia CURATED; la acción primaria sigue presente", async () => {
+    const { routes, sessionId, url } = await setupWithCounters([HARD_COUNTER, HARD_COUNTER_B]);
+    const body = (await (await routes.getRecommendations(sessionId, url)).json()) as { output: RecommendationOutputV3 };
+    expect(body.output.opportunity).toMatchObject({ subtype: "SAFE_CORE", heroId: 1, counterEvidence: { sourceType: "CURATED", totalHardCounters: 2 } });
+    expect(body.output.primaryAction.label.length).toBeGreaterThan(0);
+  });
+
+  test("un héroe con UN solo counter duro curado, ya baneado -> el campo `opportunity` no existe en el JSON (piso de cobertura)", async () => {
+    const { routes, sessionId, url } = await setupWithCounters([HARD_COUNTER], [HARD_COUNTER]);
+    const raw = await (await routes.getRecommendations(sessionId, url)).text();
+    expect(raw).not.toContain('"opportunity"');
+  });
+
+  test("counter duro disponible -> el campo `opportunity` no existe en el JSON", async () => {
+    const { routes, sessionId, url } = await setupWithCounters([]);
+    const raw = await (await routes.getRecommendations(sessionId, url)).text();
+    expect(raw).not.toContain('"opportunity"');
+  });
+});
+
 describe("GET .../recommendations?format=v3", () => {
   test("devuelve { output: RecommendationOutputV3, recommendationSet: RecommendationSetV2 } con una acción primaria antes del primer pick", async () => {
     const { routes, sessionId, url } = await setup();

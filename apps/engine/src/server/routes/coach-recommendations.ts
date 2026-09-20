@@ -2,6 +2,7 @@ import { CoachOrchestrator, type CoachRecomputation } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
+import { loadHeroCounters, type CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
 // AP Ranked Roles V1 / Wave 2 (product review) -- the Coach's server-side entry point.
@@ -24,6 +25,8 @@ export interface CoachRecommendationsDeps {
   source: PerspectiveContextSource;
   computeSuggestions: ComputeSuggestionsForRecommendation;
   heroPositions?: HeroPositions;
+  /** Curated counter relationships (Safe Core, Wave 4A). Defaults to the validated `hero-counters.json`. */
+  heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
 }
 
 export interface CoachRecommendations {
@@ -34,6 +37,7 @@ export interface CoachRecommendations {
 
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
   const heroPositions = deps.heroPositions ?? MODULE_HERO_POSITIONS;
+  const heroCounters = deps.heroCounters ?? MODULE_HERO_COUNTERS;
   // Assignments are per observer/account. A pool overlay must not accidentally share state with
   // another account that happens to inspect the same simulator session.
   const coaches: { accountId: string; coach: CoachOrchestrator }[] = [];
@@ -51,6 +55,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
         deps.computeSuggestions(draft, accountId, options);
       coach = new CoachOrchestrator({
         heroPositions,
+        heroCounters,
         buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
         buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({
           context,
@@ -84,3 +89,4 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
 }
 
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
+const MODULE_HERO_COUNTERS = loadHeroCounters();

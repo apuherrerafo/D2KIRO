@@ -317,6 +317,7 @@ export type RecommendationDegradationReason =
   | "NO_ACTION_FOR_ACTOR"
   | "ROLE_ASSIGNMENT_IMPOSSIBLE"
   | "NO_LEGAL_HERO_UNIVERSE"
+  | "COMPOUND_FALLBACK_SINGLE_STEP"
   | "SNAPSHOT_UNAVAILABLE";
 
 export interface RecommendationDegradation {

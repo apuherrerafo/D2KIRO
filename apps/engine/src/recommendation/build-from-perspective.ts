@@ -144,10 +144,27 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
     contextEvidence: [evidenceFromRuleset(view.ruleset)],
   };
 
-  const recommendations: Recommendation[] =
+  let recommendations: Recommendation[] =
     decision.actionCount >= 2
       ? buildCompoundRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, metaIsStale, degradations, input.outputLimit)
       : buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, metaIsStale, suggestionSet, degradations, input.outputLimit);
+
+  // COMPOUND FALLBACK. The Coach answers "what is the best NEXT reveal decision?" -- the Player does not need a
+  // jointly-valid PAIR before sealing the first seat of a two-seat round, and the Coach recomputes after every own
+  // pick. When no pair survives joint role assignment (typically: the whole V6 top is heroes of one exclusive
+  // position, e.g. six Pos-1-only carries), degrade to the next single step instead of returning nothing. It is a
+  // fallback for a FAILED compound construction only: same shortlist, same perspective-derived legality, and the
+  // same role-feasibility gate (no pair is fabricated, no position data is loosened). Truly no legal single hero
+  // still falls through to NO_LEGAL_HERO_UNIVERSE below.
+  if (recommendations.length === 0 && decision.actionCount >= 2) {
+    recommendations = buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, metaIsStale, suggestionSet, degradations, input.outputLimit, true);
+    if (recommendations.length > 0) {
+      pushUniqueDegradation(degradations, {
+        reason: "COMPOUND_FALLBACK_SINGLE_STEP",
+        detail: "ningún par de héroes admite una asignación conjunta de roles; se recomienda el próximo pick individual y se recalcula al elegirlo",
+      });
+    }
+  }
 
   if (recommendations.length === 0) {
     pushUniqueDegradation(degradations, { reason: "NO_LEGAL_HERO_UNIVERSE", detail: "el shortlist no sobrevivió la post-validación final contra el estado" });

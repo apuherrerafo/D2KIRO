@@ -62,6 +62,9 @@ export function buildSingleRecommendations(
   suggestionSet: SuggestionSet,
   degradations: RecommendationDegradation[],
   outputLimit = RECOMMENDATION_OUTPUT_LIMIT,
+  // Compound-failure fallback only: the single step must still be role-feasible with the own picks already
+  // made (a hard gate, exactly like the compound one). Legacy single-seat callers keep their behaviour.
+  requireRoleFeasibility = false,
 ): Recommendation[] {
   const out: Recommendation[] = [];
   for (const entry of shortlist) {
@@ -70,6 +73,7 @@ export function buildSingleRecommendations(
 
     const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
     if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
+    if (requireRoleFeasibility && roleImpact.degradation?.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     const impact = roleImpact.impactByHero.get(entry.hero)!;
     const action: RecommendationAction = { slot, hero: entry.hero };
 

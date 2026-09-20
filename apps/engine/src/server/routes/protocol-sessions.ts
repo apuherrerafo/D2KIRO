@@ -21,6 +21,7 @@ import {
   type RecommendationSetV2,
 } from "../../recommendation";
 import type { RecommendationOutputV3 } from "../../coach";
+import type { CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 import { rosterSlotForRoundSlot } from "../../simulator/ap-simulator-policy";
 import {
@@ -99,6 +100,8 @@ export interface ProtocolSessionRouteDeps {
   banResolutionPolicy?: BanResolutionPolicy;
   /** Curated position evidence for the Enemy Bot's seat-constrained candidate universe (S10). Never the real file in tests. */
   heroPositions?: HeroPositions;
+  /** Curated counter relationships for the Coach's Safe Core opportunity (Wave 4A). Never the real file in tests. */
+  heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
   /**
    * TEST-ONLY construction-time seam (same pattern as allowClientForcedBotSelection). When true,
    * POST /:id/test-advance-clock can push the Simulator TIMER clock of a session forward so an
@@ -533,6 +536,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     source: deps.store,
     computeSuggestions: deps.computeSuggestions,
     heroPositions: deps.heroPositions,
+    heroCounters: deps.heroCounters,
   });
 
   /**

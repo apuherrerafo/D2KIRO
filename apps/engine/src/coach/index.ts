@@ -4,4 +4,5 @@ export * from "./hero-card";
 export * from "./personal-hero-view";
 export * from "./reveal-strategy";
 export * from "./recommendation-output-v3";
+export * from "./safe-core";
 export * from "./orchestrator";

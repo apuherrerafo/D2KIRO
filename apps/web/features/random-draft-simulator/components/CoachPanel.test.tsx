@@ -1,5 +1,7 @@
 import "@/test-support/happy-dom";
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import type { CoachHeroCard, CoachOutput, CoachStrategy } from "../coach-client";
@@ -91,6 +93,74 @@ test("only own-team role beliefs expose manual assignment controls", () => {
   expect(within(enemy).queryAllByRole("button")).toHaveLength(0);
   fireEvent.click(within(own).getByRole("button", { name: "Pos3" }));
   expect(assignments).toEqual([[7, 3]]);
+});
+
+function withOpportunity(): CoachOutput {
+  return {
+    ...coach(ROLE_ACTION),
+    opportunity: {
+      subtype: "SAFE_CORE",
+      label: "Ventana de core: 2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)",
+      heroId: 1,
+      evidence: "2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)",
+      counterEvidence: { kind: "COUNTER_RELIEF", sourceType: "CURATED", relieved: [{ heroId: 7, level: "hard", status: "BANNED" }, { heroId: 8, level: "hard", status: "BANNED" }], totalHardCounters: 2 },
+    },
+  };
+}
+
+test("Safe Core: el bloque de oportunidad aparece separado, DESPUÉS de la acción primaria y ANTES de la shortlist", () => {
+  const view = render(<CoachPanel coach={withOpportunity()} heroCatalog={new Map()} />);
+  const primary = view.getByTestId("coach-primary-action");
+  const opportunity = view.getByTestId("coach-opportunity");
+  const shortlist = view.getByTestId("coach-shortlist");
+  expect(primary.compareDocumentPosition(opportunity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(opportunity.compareDocumentPosition(shortlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(view.getByTestId("coach-opportunity-label").textContent).toBe("Ventana de core: 2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)");
+  expect(opportunity.getAttribute("data-hero-id")).toBe("1");
+  // It is not part of the shortlist: the shortlist still holds exactly its own cards.
+  expect(view.getAllByTestId("coach-hero-card")).toHaveLength(2);
+});
+
+test("Safe Core: la procedencia CURATED se ve como 'Evidencia curada' y nunca como estadística ni parche verificado", () => {
+  const view = render(<CoachPanel coach={withOpportunity()} heroCatalog={new Map()} />);
+  expect(view.getByTestId("coach-opportunity").getAttribute("data-source-type")).toBe("CURATED");
+  expect(view.getByTestId("coach-opportunity-source").textContent).toContain("Evidencia curada");
+  expect(view.getByTestId("coach-opportunity").textContent).not.toMatch(/estad[ií]stic|7\.41|win ?rate|meta|%/i);
+  expect(view.getByTestId("coach-opportunity-source").textContent).toContain("Es informativo");
+});
+
+const MIXED_EVIDENCE = "2 de 2 counters duros curados ya no están disponibles para el rival (1 baneado · 1 en tu equipo)";
+
+test("Safe Core: con alivio mixto (BANNED + OWN_PICK) la tarjeta muestra el detalle real y jamás 'baneados' para un pick propio", () => {
+  const coachOutput = withOpportunity();
+  const mixed: CoachOutput = {
+    ...coachOutput,
+    opportunity: {
+      ...coachOutput.opportunity!,
+      label: `Ventana de core: ${MIXED_EVIDENCE}`,
+      evidence: MIXED_EVIDENCE,
+      counterEvidence: { kind: "COUNTER_RELIEF", sourceType: "CURATED", relieved: [{ heroId: 7, level: "hard", status: "BANNED" }, { heroId: 8, level: "hard", status: "OWN_PICK" }], totalHardCounters: 2 },
+    },
+  };
+  const view = render(<CoachPanel coach={mixed} heroCatalog={new Map()} />);
+  const label = view.getByTestId("coach-opportunity-label").textContent ?? "";
+  expect(label).toBe(`Ventana de core: ${MIXED_EVIDENCE}`);
+  expect(label).toContain("1 baneado · 1 en tu equipo");
+  expect(label).not.toMatch(/2 baneados|2 de 2 counters duros curados baneados/);
+  expect(view.getByTestId("coach-opportunity-source").textContent).toContain("Evidencia curada");
+});
+
+test("Safe Core: la UI no tiene rama ni texto de evidencia estadística (sólo 'Evidencia curada')", () => {
+  const source = readFileSync(join(import.meta.dir, "CoachPanel.tsx"), "utf8");
+  expect(source).not.toMatch(/STATISTICAL|estad[ií]stic/i);
+  expect(source).toContain("Evidencia curada");
+  const view = render(<CoachPanel coach={withOpportunity()} heroCatalog={new Map()} />);
+  expect(view.getByTestId("coach-opportunity-source").textContent).not.toMatch(/estad[ií]stic|parche|win ?rate/i);
+});
+
+test("Safe Core: sin opportunity no se renderiza ningún bloque (ausente por defecto)", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("coach-opportunity")).toBeNull();
 });
 
 function v2(): RecommendationSetV2 {

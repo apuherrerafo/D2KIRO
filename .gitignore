@@ -36,3 +36,7 @@ playwright-report/
 # (sin este prefijo) siguen trackeados como snapshot histórico/documentación de la ola que construyó
 # este programa -- ya no son el destino de escritura de cada corrida.
 docs/r1/generated/
+
+# Bytecode de Python generado por los hooks de scripts/hooks/ (nunca se versiona)
+__pycache__/
+*.pyc

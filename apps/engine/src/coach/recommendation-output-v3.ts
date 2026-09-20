@@ -3,9 +3,11 @@ import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { RecommendationBasedOn, RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
+import type { CuratedCounter } from "../signals/hero-counters";
 import type { CoachObservableState } from "./observable-state";
 import { buildHeroCard, extractHeroCandidates, type Confidence, type HeroCandidate, type HeroCard } from "./hero-card";
 import { positionPhrase, type RevealStrategy } from "./reveal-strategy";
+import { detectSafeCoreWindow, type CounterReliefEvidence } from "./safe-core";
 import type { RoleBelief, RoleBeliefStatus } from "../draft-protocol/roles/role-belief";
 
 // AP Ranked Roles V1 / Wave 2 (task 18) -- RecommendationOutputV3: the Coach's UI contract, built
@@ -18,8 +20,9 @@ import type { RoleBelief, RoleBeliefStatus } from "../draft-protocol/roles/role-
 // OPTIONS, and it never upgrades the action to hero-level: `primaryAction.strategy` is the only
 // statement of how specific the Coach is being.
 //
-// Blocks owned by later waves are typed here but never populated in Wave 2 (no fabricated evidence):
-// `opportunity` (Wave 4, Safe Core), `personalHeroView` / `outsidePoolRecommendation` (Wave 3).
+// `opportunity` (Wave 4A) is the separate, informational Safe Core block: it never reorders the shortlist
+// and never changes `primaryAction`. It is populated only when curated counter evidence was supplied AND
+// the structural Safe Core rule holds (coach/safe-core.ts) -- never by default.
 
 /** How many hero options the shortlist carries (task 18's stated initial default; configurable per call). */
 export const COACH_SHORTLIST_SIZE = 5;
@@ -44,6 +47,17 @@ export interface CoachOutputConfig {
   heroPositions?: HeroPositions;
   /** Wave 3 (Hero Pool). Wave 2 callers omit it, so no pool badge/flag is ever produced. */
   heroPool?: readonly HeroId[];
+  /** Wave 4A: curated counter relationships (hero-counters.json, validated at load). Omitted -> no opportunity. */
+  heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+}
+
+/** The Safe Core opportunity block. `counterEvidence.sourceType` is always "CURATED" (the only approved counter evidence in V1). */
+export interface CoachOpportunity {
+  subtype: "SAFE_CORE";
+  label: string;
+  heroId: HeroId;
+  evidence: string;
+  counterEvidence: CounterReliefEvidence;
 }
 
 export interface RecommendationOutputV3 {
@@ -55,8 +69,8 @@ export interface RecommendationOutputV3 {
     label: string;
   };
   shortlist: HeroCard[];
-  /** Wave 4. Absent unless real evidence exists (never by default). */
-  opportunity?: { label: string; heroId?: HeroId; evidence: string };
+  /** Wave 4A. Absent (never null) unless real evidence exists. Informational: does not touch shortlist or primaryAction. */
+  opportunity?: CoachOpportunity;
   /** Wave 3. Absent unless a personal position is declared AND implemented. */
   personalHeroView?: { position: Position; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
   /** Wave 3. Absent unless a hero pool is configured. */
@@ -175,6 +189,19 @@ function deriveConfidence(candidates: readonly HeroCandidate[], strategy: Reveal
   return second && second.score === top.score ? stepDown(confidence) : confidence;
 }
 
+/**
+ * Safe Core is evaluated for V6's top candidate (design 17: `recommendations[0]`), NOT for whichever hero the
+ * primary action moved to the front of the shortlist -- otherwise a support-first opening would hide exactly
+ * the case the block exists for (a core that can be revealed earlier than the support prior suggests).
+ */
+function deriveOpportunity(candidates: readonly HeroCandidate[], view: CoachObservableState["view"], heroCounters: CoachOutputConfig["heroCounters"]): CoachOpportunity | null {
+  const top = candidates[0];
+  if (!top || !heroCounters) return null;
+  const signal = detectSafeCoreWindow(top.heroId, view, top.signals, heroCounters, { position: top.position, roleStatus: top.roleStatus });
+  if (!signal.isSafeWindow || !signal.counterEvidence) return null;
+  return { subtype: "SAFE_CORE", label: `Ventana de core: ${signal.evidence}`, heroId: top.heroId, evidence: signal.evidence, counterEvidence: signal.counterEvidence };
+}
+
 function roundOf(phase: RankedApPhase | null): 1 | 2 | 3 | null {
   if (phase === "PICK_ROUND_1") return 1;
   if (phase === "PICK_ROUND_2") return 2;
@@ -195,6 +222,7 @@ export function translateToRecommendationOutputV3(
   const view = coachState.view;
   const phase = view.rankedAp?.phase ?? null;
   const ownVisible = view.ownPicks.filter((slot) => slot.visibility !== "HIDDEN").length;
+  const opportunity = deriveOpportunity(candidates, view, config.heroCounters);
 
   return {
     schema: "recommendation-output/v3",
@@ -203,6 +231,7 @@ export function translateToRecommendationOutputV3(
     shortlist: orderForStrategy(candidates, revealStrategy)
       .slice(0, size)
       .map((candidate) => buildHeroCard(candidate, heroPool)),
+    ...(opportunity ? { opportunity } : {}),
     roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },
     meta: {
       round: roundOf(phase),

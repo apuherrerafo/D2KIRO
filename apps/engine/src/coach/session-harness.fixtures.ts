@@ -2,6 +2,7 @@ import type { ProtocolCommand, TeamSide } from "../draft-protocol/types";
 import { buildRecommendationSetFromPerspective } from "../recommendation/build-from-perspective";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
+import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
 import type { SignalContribution } from "../signals/types";
@@ -24,11 +25,11 @@ export const HERO_POSITIONS: HeroPositions = {
 export const POOL = [1, 2, 3, 4, 5, 6, 7, 8];
 export const HERO_COUNTERING_ENEMY_9 = 5; // hero 5 gets a strong, data-backed counter signal ONLY once enemy hero 9 is revealed
 
-export function fakeCompute(): ComputeSuggestionsForRecommendation {
+export function fakeCompute(pool: readonly number[] = POOL, positions: HeroPositions = HERO_POSITIONS): ComputeSuggestionsForRecommendation {
   return async (state, _accountId, options) => {
     const excluded = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
     const enemyRevealed = new Set(state.localSide === "dire" ? state.picks.radiant : state.picks.dire);
-    const candidates = POOL.filter((hero) => !excluded.has(hero) && (options?.targetPosition === undefined || HERO_POSITIONS[hero]?.some((entry) => entry.position === options.targetPosition)));
+    const candidates = pool.filter((hero) => !excluded.has(hero) && (options?.targetPosition === undefined || positions[hero]?.some((entry) => entry.position === options.targetPosition)));
     const suggestions: Suggestion[] = candidates.map((hero, index) => {
       const countersRevealed = hero === HERO_COUNTERING_ENEMY_9 && enemyRevealed.has(9);
       const signals: SignalContribution[] = [
@@ -84,7 +85,9 @@ export interface Harness {
   compute(personal?: 1 | 2 | 3 | 4 | 5): Promise<CoachRecomputation>;
 }
 
-export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[] } = {}): Harness {
+export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[] } = {}): Harness {
+  const positions = options.heroPositions ?? HERO_POSITIONS;
+  const pool = options.pool ?? POOL;
   const side = options.side ?? "radiant";
   const id = options.sessionId ?? "coach-it";
   const store = new ProtocolSessionStore();
@@ -104,13 +107,14 @@ export function harness(options: { side?: TeamSide; seed?: string; humanPosition
 
   // The closure the server layer supplies: it (and only it) holds the authoritative session.
   const coach = new CoachOrchestrator({
-    heroPositions: HERO_POSITIONS,
+    heroPositions: positions,
+    heroCounters: options.heroCounters,
     // The REAL Coach path: perspective-safe context in, perspective-safe builder. No authoritative state anywhere.
-    buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS }),
+    buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(pool, positions), heroPositions: positions }),
     buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({
       context,
-      computeSuggestions: fakeCompute(),
-      heroPositions: HERO_POSITIONS,
+      computeSuggestions: fakeCompute(pool, positions),
+      heroPositions: positions,
       targetPosition: position,
       teamOpening: false,
       singleSlotEvaluation: true,

@@ -35,11 +35,27 @@ export interface CoachHeroCard {
   isFromPool: boolean;
 }
 
+/** Espejo de `CoachOpportunity` del motor (Safe Core, Wave 4A). `sourceType` es únicamente "CURATED": no existe evidencia estadística aprobada. */
+export interface CoachOpportunity {
+  subtype: "SAFE_CORE";
+  label: string;
+  heroId: HeroId;
+  evidence: string;
+  counterEvidence: {
+    kind: "COUNTER_RELIEF";
+    sourceType: "CURATED";
+    relieved: { heroId: HeroId; level: "hard" | "medium"; status: "BANNED" | "OWN_PICK" }[];
+    totalHardCounters: number;
+  };
+}
+
 export interface CoachOutput {
   schema: "recommendation-output/v3";
   sessionId: string;
   primaryAction: { strategy: CoachStrategy; label: string };
   shortlist: CoachHeroCard[];
+  /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
+  opportunity?: CoachOpportunity;
   personalHeroView?: { position: CoachPosition; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
   roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
@@ -121,6 +137,18 @@ function isRoleBelief(value: unknown): value is CoachRoleBelief {
     && Array.isArray(value.positions) && value.positions.length > 0 && value.positions.every(isPosition);
 }
 
+function isRelievedCounter(value: unknown): boolean {
+  return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium")
+    && (value.status === "BANNED" || value.status === "OWN_PICK");
+}
+
+function isOpportunity(value: unknown): boolean {
+  if (!isRecord(value) || value.subtype !== "SAFE_CORE" || typeof value.label !== "string" || typeof value.evidence !== "string" || !isHeroId(value.heroId)) return false;
+  const proof = value.counterEvidence;
+  return isRecord(proof) && proof.kind === "COUNTER_RELIEF" && proof.sourceType === "CURATED"
+    && typeof proof.totalHardCounters === "number" && Array.isArray(proof.relieved) && proof.relieved.every(isRelievedCounter);
+}
+
 function isPersonalHeroView(value: unknown): boolean {
   return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && Array.isArray(value.heroes)
     && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean");
@@ -131,6 +159,7 @@ export function parseCoachOutput(value: unknown): CoachOutput | null {
   if (!isRecord(value.primaryAction) || !isStrategy(value.primaryAction.strategy) || typeof value.primaryAction.label !== "string") return null;
   if (!Array.isArray(value.shortlist) || !value.shortlist.every(isHeroCard)) return null;
   if (!isMeta(value.meta)) return null;
+  if (value.opportunity !== undefined && !isOpportunity(value.opportunity)) return null;
   if (value.personalHeroView !== undefined && !isPersonalHeroView(value.personalHeroView)) return null;
   if (value.roleBeliefs !== undefined && (!isRecord(value.roleBeliefs) || !Array.isArray(value.roleBeliefs.own) || !Array.isArray(value.roleBeliefs.enemy)
     || !value.roleBeliefs.own.every(isRoleBelief) || !value.roleBeliefs.enemy.every(isRoleBelief))) return null;

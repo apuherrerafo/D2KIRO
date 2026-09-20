@@ -98,6 +98,37 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
   );
 }
 
+// Procedencia de la evidencia de counters: la única aprobada en V1 es la curada.
+const CURATED_EVIDENCE_LABEL = "Evidencia curada";
+
+// Ventana de core (Safe Core): informativa y separada de la acción primaria y de la shortlist.
+function SafeCoreOpportunity({ coach, heroCatalog }: ShortlistProps) {
+  const opportunity = coach.opportunity;
+  if (!opportunity) return null;
+  const meta = heroCatalog.get(opportunity.heroId);
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-signal-positive bg-surface-overlay p-3"
+      data-testid="coach-opportunity"
+      data-subtype={opportunity.subtype}
+      data-hero-id={opportunity.heroId}
+      data-source-type={opportunity.counterEvidence.sourceType}
+    >
+      <span className="text-caption font-semibold text-signal-positive">Oportunidad</span>
+      <div className="flex items-center gap-2">
+        <HeroIcon imgUrl={meta?.imgUrl ?? ""} alt={heroName(opportunity.heroId, heroCatalog)} size={40} />
+        <span className="text-body font-semibold text-content-primary">{heroName(opportunity.heroId, heroCatalog)}</span>
+      </div>
+      <span className="text-caption text-content-secondary" data-testid="coach-opportunity-label">
+        {opportunity.label}
+      </span>
+      <span className="text-caption text-content-muted" data-testid="coach-opportunity-source">
+        {CURATED_EVIDENCE_LABEL} · Es informativo: podés ignorarlo.
+      </span>
+    </div>
+  );
+}
+
 interface BadgeListProps {
   badges: CoachBadge[];
 }
@@ -202,6 +233,7 @@ export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition }: CoachPan
   return (
     <div className="flex flex-col gap-3" data-testid="coach-panel">
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
+      <SafeCoreOpportunity coach={coach} heroCatalog={heroCatalog} />
       <PersonalHeroView coach={coach} heroCatalog={heroCatalog} />
       <Shortlist coach={coach} heroCatalog={heroCatalog} />
       <RoleBeliefs coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />

@@ -64,6 +64,54 @@ describe("parseCoachOutput", () => {
   });
 });
 
+describe("parseCoachOutput -- opportunity (Safe Core, Wave 4A)", () => {
+  const OPPORTUNITY = {
+    subtype: "SAFE_CORE",
+    label: "Ventana de core: 2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)",
+    heroId: 1,
+    evidence: "2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)",
+    counterEvidence: {
+      kind: "COUNTER_RELIEF",
+      sourceType: "CURATED",
+      relieved: [{ heroId: 7, level: "hard", status: "BANNED" }, { heroId: 8, level: "hard", status: "BANNED" }],
+      totalHardCounters: 2,
+    },
+  };
+
+  test("una salida sin opportunity sigue siendo válida (el bloque es ausente por defecto)", () => {
+    const parsed = parseCoachOutput(coachBody());
+    expect(parsed).not.toBeNull();
+    expect(parsed).not.toHaveProperty("opportunity");
+  });
+
+  test("acepta un opportunity SAFE_CORE bien formado y conserva su procedencia", () => {
+    const parsed = parseCoachOutput(coachBody({ opportunity: OPPORTUNITY }));
+    expect(parsed?.opportunity?.heroId).toBe(1);
+    expect(parsed?.opportunity?.counterEvidence.sourceType).toBe("CURATED");
+  });
+
+  test("rechaza STATISTICAL: no existe evidencia estadística aprobada en V1 (falla cerrado, como cualquier opportunity malformado)", () => {
+    const statistical = { ...OPPORTUNITY, counterEvidence: { ...OPPORTUNITY.counterEvidence, sourceType: "STATISTICAL" } };
+    expect(parseCoachOutput(coachBody({ opportunity: statistical }))).toBeNull();
+  });
+
+  test("rechaza una procedencia desconocida, ausente o de otro tipo", () => {
+    const withSource = (sourceType: unknown) => ({ ...OPPORTUNITY, counterEvidence: { ...OPPORTUNITY.counterEvidence, sourceType } });
+    for (const sourceType of ["VERIFIED_7_41F", "curated", "", null, 7, undefined]) {
+      expect(parseCoachOutput(coachBody({ opportunity: withSource(sourceType) }))).toBeNull();
+    }
+    const withoutSource = { kind: "COUNTER_RELIEF", relieved: OPPORTUNITY.counterEvidence.relieved, totalHardCounters: 2 };
+    expect(parseCoachOutput(coachBody({ opportunity: { ...OPPORTUNITY, counterEvidence: withoutSource } }))).toBeNull();
+  });
+
+  test("rechaza un opportunity malformado: sin heroId, subtipo desconocido, sin evidencia de alivio, null", () => {
+    expect(parseCoachOutput(coachBody({ opportunity: { ...OPPORTUNITY, heroId: undefined } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ opportunity: { ...OPPORTUNITY, subtype: "STEAL" } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ opportunity: { ...OPPORTUNITY, counterEvidence: undefined } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ opportunity: null }))).toBeNull();
+  });
+});
+
 describe("fetchRecommendationsWithCoach", () => {
   test("pide ?format=v3 con sólo el sessionId y devuelve V2 + Coach", async () => {
     const { impl, calls } = fetchReturning({ output: coachBody(), recommendationSet: V2 });

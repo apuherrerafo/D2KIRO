@@ -4,6 +4,7 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
+import type { CuratedCounter } from "../signals/hero-counters";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
 import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
@@ -46,6 +47,8 @@ export interface CoachOrchestratorDeps {
   /** Independent personal evaluation, scoped by declared role (Wave 3). */
   buildPersonalRecommendation?(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   heroPositions?: HeroPositions;
+  /** Wave 4A: curated counter relationships for the Safe Core opportunity. Omitted -> no opportunity is ever produced. */
+  heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
 }
 
 export interface CoachRecomputeInput {
@@ -153,6 +156,7 @@ export class CoachOrchestrator {
       ? translateToRecommendationOutputV3(recommendationSet, strategy, coachState, decisionContext, {
           ...input.config,
           heroPositions: this.deps.heroPositions,
+          heroCounters: this.deps.heroCounters,
           playerPersonalPosition: input.playerPersonalPosition ?? null,
           trigger,
           revision,
