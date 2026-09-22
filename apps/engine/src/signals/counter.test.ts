@@ -456,3 +456,107 @@ describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => 
     expect(scorer.score(withBans, 1, snapshot)).toEqual(scorer.score(noBans, 1, snapshot));
   });
 });
+
+describe("Wave 5 Hardening (H1/RH-R3) -- hasRevealedEnemyCounterEvidence producer logic", () => {
+  const CANDIDATE = 1;
+  const REVEALED_ENEMY = 10;
+  const BANNED_COUNTER = 99;
+
+  test("Case A: revealed enemy, negative statistical delta, positive ban relief, no curated relation -> false", () => {
+    // Candidate 1 has a banned counter (99) that gives positive ban relief (+0.04).
+    // Candidate 1 faces revealed enemy (10) where statistical delta is negative.
+    // Candidate 1 has NO curated relation against enemy 10.
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [CANDIDATE, [{ vs: BANNED_COUNTER, level: "hard", why: "Banned counter" }]],
+    ]);
+    const state = draftState({
+      banned: [BANNED_COUNTER],
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    // Matchup: 10 vs 10: 10 wins out of 50 (winrate 0.20), vs 88: 40 wins out of 50 (winrate 0.80).
+    // Overall baseline is (10 + 40) / 100 = 0.50.
+    // Observed winrate vs 10 is 0.20, delta is 0.20 - 0.50 = -0.30 (negative!).
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 10 },
+          { vsHero: 88, games: 50, wins: 40 },
+        ],
+      },
+    });
+
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).not.toBeNull();
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case B: revealed enemy, positive statistical delta -> true", () => {
+    // Candidate 1 faces revealed enemy (10) with positive statistical delta and no curated relations.
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    // Matchup: 40 wins out of 50 vs 10 (winrate 0.80), baseline 0.50 -> positive delta (+0.30)
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 40 },
+          { vsHero: 88, games: 50, wins: 10 },
+        ],
+      },
+    });
+
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+  });
+
+  test("Case C: revealed enemy, curated counter relation -> true", () => {
+    // Revealed enemy (10) is counter-picked by candidate 1 via curated relationship.
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [REVEALED_ENEMY, [{ vs: CANDIDATE, level: "hard", why: "Candidate counters revealed enemy" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, CANDIDATE, meta());
+
+    expect(result.raw).toBeCloseTo(0.12, 10);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+  });
+
+  test("Case D: ban relief only with no revealed-enemy advantage -> false", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [CANDIDATE, [{ vs: BANNED_COUNTER, level: "hard", why: "Banned counter" }]],
+    ]);
+
+    // D1: No revealed enemies at all, only ban relief
+    const stateNoEnemies = draftState({
+      banned: [BANNED_COUNTER],
+      picks: { radiant: [], dire: [] },
+    });
+    const resNoEnemies = createCounterScorer(curated).score(stateNoEnemies, CANDIDATE, meta());
+    expect(resNoEnemies.raw).toBeCloseTo(0.04, 10);
+    expect(resNoEnemies.hasRevealedEnemyCounterEvidence).toBe(false);
+
+    // D2: Revealed enemy present, but candidate has zero or negative matchup advantage
+    const stateWithEnemy = draftState({
+      banned: [BANNED_COUNTER],
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const snapshotEven = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 25 },
+          { vsHero: 88, games: 50, wins: 25 },
+        ],
+      },
+    });
+    const resWithEnemy = createCounterScorer(curated).score(stateWithEnemy, CANDIDATE, snapshotEven);
+    expect(resWithEnemy.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+});

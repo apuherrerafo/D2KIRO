@@ -5,8 +5,9 @@ import type { FunctionalRecommendationEvidence } from "../recommendation/evidenc
 import { createCoachRecommendations } from "../server/routes/coach-recommendations";
 import { loadHeroCounters, type CuratedCounter } from "../signals/hero-counters";
 import { isCandidateAdmittedForPosition, isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
+import { createCounterScorer } from "../signals/counter";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
-import type { SignalContribution } from "../signals/types";
+import type { HeroMatchupStat, MetaSnapshot, SignalContribution } from "../signals/types";
 import { credibleHeroesForPosition } from "./hero-card";
 import { isPersonalSeatCovered, personalCandidateUniverse } from "./personal-hero-view";
 import { harness } from "./session-harness.fixtures";
@@ -58,8 +59,62 @@ interface Call { candidateHeroIds: readonly number[] | undefined; targetPosition
  * Scripted V6. It mimics what the real engine does with the options it is given: a `targetPosition` admits any hero with a
  * curated presence there (the legacy predicate -- exactly what let Winter Wyvern into the Pos3 list), and `candidateHeroIds`
  * narrows the universe BEFORE ranking. Returns at most 6 suggestions (V6's TOP_N).
+ *
+ * Wave 5 Hardening (RH-R3): uses the REAL createCounterScorer producer to score candidates for S15 / counter evidence scenarios.
  */
-function scriptedCompute(options: ScriptOptions, calls: Call[] = [], positions: HeroPositions = POSITIONS): ComputeSuggestionsForRecommendation {
+function scriptedCompute(
+  options: ScriptOptions,
+  calls: Call[] = [],
+  positions: HeroPositions = POSITIONS,
+  heroCounters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map(),
+): ComputeSuggestionsForRecommendation {
+  const BANNED_FIXTURE_HERO = 90;
+  const combinedCurated = new Map<number, CuratedCounter[]>();
+  for (const [k, v] of heroCounters.entries()) {
+    combinedCurated.set(k, [...v]);
+  }
+  if (options.netNegativeWithBanRelief) {
+    for (const hero of options.netNegativeWithBanRelief) {
+      const existing = combinedCurated.get(hero) ?? [];
+      combinedCurated.set(hero, [...existing, { vs: BANNED_FIXTURE_HERO, level: "hard", why: "counter 90 baneado" }]);
+    }
+  }
+  if (options.banReliefOnly) {
+    for (const hero of options.banReliefOnly) {
+      const existing = combinedCurated.get(hero) ?? [];
+      combinedCurated.set(hero, [...existing, { vs: BANNED_FIXTURE_HERO, level: "hard", why: "counter 90 baneado" }]);
+    }
+  }
+
+  const matchups: Record<number, HeroMatchupStat[]> = {};
+  if (options.statisticalCounter) {
+    for (const hero of options.statisticalCounter) {
+      matchups[hero] = [
+        { vsHero: 40, games: 60, wins: 45 }, // positive delta vs revealed enemy 40
+        { vsHero: 88, games: 60, wins: 15 },
+      ];
+    }
+  }
+  if (options.netNegativeWithBanRelief) {
+    for (const hero of options.netNegativeWithBanRelief) {
+      matchups[hero] = [
+        { vsHero: 40, games: 50, wins: 24 }, // negative delta vs revealed enemy 40 (0.48 < baseline 0.50), compensated by ban relief
+        { vsHero: 88, games: 50, wins: 26 },
+      ];
+    }
+  }
+
+  const metaSnapshot: MetaSnapshot = {
+    heroes: {
+      40: { id: 40, localizedName: "héroe 40" },
+      41: { id: 41, localizedName: "héroe 41" },
+      [BANNED_FIXTURE_HERO]: { id: BANNED_FIXTURE_HERO, localizedName: `héroe ${BANNED_FIXTURE_HERO}` },
+    },
+    matchups,
+  };
+
+  const counterProducer = createCounterScorer(combinedCurated);
+
   return async (state, _account, opts) => {
     calls.push({ candidateHeroIds: opts?.candidateHeroIds, targetPosition: opts?.targetPosition, teamOpening: opts?.teamOpening });
     const excluded = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
@@ -67,27 +122,39 @@ function scriptedCompute(options: ScriptOptions, calls: Call[] = [], positions: 
     const candidates = (options.pool ?? Object.keys(positions).map(Number)).filter((hero) => !excluded.has(hero) && (allowed === null || allowed.has(hero)) && (opts?.targetPosition === undefined || isCandidateAdmittedForPosition(hero, opts.targetPosition, positions)));
     const suggestions: Suggestion[] = candidates
       .map((hero): Suggestion => {
-        const counterRaw = options.banReliefOnly?.includes(hero)
-          ? { raw: 0.04, sampleSize: 0, hasRevealedEnemyCounterEvidence: false, explanation: "1 de sus counters está baneado" }
-          : options.statisticalCounter?.includes(hero)
-          ? { raw: 0.05, sampleSize: 60, hasRevealedEnemyCounterEvidence: true, explanation: "Fuerte contra héroe 40" }
-          : options.netNegativeWithBanRelief?.includes(hero)
-          ? { raw: 0.02, sampleSize: 50, hasRevealedEnemyCounterEvidence: false, explanation: "Sin ventaja de contrapick conocida en este draft. 1 de sus counters está baneado" }
-          : null;
+        const hasCounterVote =
+          options.banReliefOnly?.includes(hero) ||
+          options.statisticalCounter?.includes(hero) ||
+          options.netNegativeWithBanRelief?.includes(hero);
+
+        let counterContrib: SignalContribution;
+        if (hasCounterVote) {
+          const stateForCounter =
+            (options.netNegativeWithBanRelief?.includes(hero) || options.banReliefOnly?.includes(hero)) &&
+            !state.banned.includes(BANNED_FIXTURE_HERO)
+              ? { ...state, banned: [...state.banned, BANNED_FIXTURE_HERO] }
+              : state;
+          const produced = counterProducer.score(stateForCounter, hero, metaSnapshot);
+          counterContrib = {
+            ...produced,
+            weighted: 5,
+          };
+        } else {
+          counterContrib = {
+            signal: "counter",
+            raw: null,
+            normalized: null,
+            evidenceConfidence: 0,
+            weighted: 0,
+            explanation: "sin datos",
+            sampleSize: 0,
+            hasRevealedEnemyCounterEvidence: false,
+          };
+        }
+
         const signals: SignalContribution[] = [
           { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: options.scores[hero] ?? 1, explanation: `posición de ${hero}`, sampleSize: 100 },
-          counterRaw
-            ? {
-                signal: "counter",
-                raw: counterRaw.raw,
-                normalized: 70,
-                evidenceConfidence: 1,
-                weighted: 5,
-                explanation: counterRaw.explanation,
-                sampleSize: counterRaw.sampleSize,
-                hasRevealedEnemyCounterEvidence: counterRaw.hasRevealedEnemyCounterEvidence,
-              }
-            : { signal: "counter", raw: null, normalized: null, evidenceConfidence: 0, weighted: 0, explanation: "sin datos", sampleSize: 0 },
+          counterContrib,
         ];
         return { hero, rank: 1, score: signals.reduce((sum, signal) => sum + signal.weighted, 0), signals, reason: `fixture ${hero}`, confidence: "alta", evidenceCoverage: 0.9, guessingIndex: 0.1 };
       })
@@ -113,7 +180,12 @@ function world(options: ScriptOptions, heroCounters?: ReadonlyMap<number, readon
   const pool = options.pool ?? Object.keys(positions).map(Number);
   const h = harness({ heroPositions: positions, pool, sessionId: "judge-remediation" });
   const calls: Call[] = [];
-  const coach = createCoachRecommendations({ source: h.store, computeSuggestions: scriptedCompute(options, calls, positions), heroPositions: positions, heroCounters: heroCounters ?? new Map() });
+  const coach = createCoachRecommendations({
+    source: h.store,
+    computeSuggestions: scriptedCompute(options, calls, positions, heroCounters),
+    heroPositions: positions,
+    heroCounters: heroCounters ?? new Map(),
+  });
   return { h, calls, ask: (personal: 1 | 2 | 3 | 4 | 5) => coach.recommend(h.id, personal, ACCOUNT) };
 }
 

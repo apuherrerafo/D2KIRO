@@ -32,7 +32,12 @@ describe("deriveHeroBadges", () => {
   test("las insignias reusan la regla que V6 ya aplica para CITAR una señal: dato propio + aporta; counter/synergy además raw > 0 (sin umbral nuevo)", () => {
     const hero: HeroFixture = {
       heroId: 1,
-      signals: [signal("counter", 0.01, 1), signal("team_synergy", 0.3, 2), signal("position_fit", 0.2, 3), signal("patch_meta", 0.1, 4)],
+      signals: [
+        signal("counter", 0.01, 1, { hasRevealedEnemyCounterEvidence: true }),
+        signal("team_synergy", 0.3, 2),
+        signal("position_fit", 0.2, 3),
+        signal("patch_meta", 0.1, 4),
+      ],
       impact: resolvedImpact(1),
     };
     // COUNTER additionally needs a REVEALED enemy to be about (Dota-Judge RB-3); POSITION_FIT is never a badge.
@@ -40,10 +45,14 @@ describe("deriveHeroBadges", () => {
   });
 
   describe("Dota-Judge RB-3 -- semántica de insignias", () => {
-    // Hero 7 = the candidate. A statistical counter vote carries sampleSize > 0 (games vs revealed enemies); a
+    // Hero 7 = the candidate. A statistical counter vote carries hasRevealedEnemyCounterEvidence: true; a
     // ban-relief-only vote carries sampleSize 0 (it names no enemy at all).
-    const statistical: HeroFixture = { heroId: 7, signals: [signal("counter", 0.05, 10, { sampleSize: 40 })], impact: resolvedImpact(3) };
-    const banReliefOnly: HeroFixture = { heroId: 7, signals: [signal("counter", 0.04, 10, { sampleSize: 0 })], impact: resolvedImpact(3) };
+    const statistical: HeroFixture = {
+      heroId: 7,
+      signals: [signal("counter", 0.05, 10, { sampleSize: 40, hasRevealedEnemyCounterEvidence: true })],
+      impact: resolvedImpact(3),
+    };
+    const banReliefOnly: HeroFixture = { heroId: 7, signals: [signal("counter", 0.04, 10, { sampleSize: 0, hasRevealedEnemyCounterEvidence: false })], impact: resolvedImpact(3) };
     const curated = new Map<number, CuratedCounter[]>([[50, [{ vs: 7, level: "hard", why: "fixture" }]]]);
 
     test("0 enemigos revelados -> 0 insignias COUNTER, aunque `counter` aporte (alivio de baneo / evidencia sin objetivo)", () => {
@@ -55,6 +64,25 @@ describe("deriveHeroBadges", () => {
     test("evidencia real contra un rival REVELADO -> COUNTER (estadística con partidas, o relación curada)", () => {
       expect(deriveHeroBadges(singleRec(statistical), [], 7, [], { revealedEnemies: [50] })).toContain("COUNTER");
       expect(deriveHeroBadges(singleRec(banReliefOnly), [], 7, [], { revealedEnemies: [50], heroCounters: curated })).toContain("COUNTER");
+    });
+
+    test("RH-R4 fail-safe: undefined hasRevealedEnemyCounterEvidence nunca infiere COUNTER de cadenas o sampleSize", () => {
+      const undefinedEvidence: HeroFixture = {
+        heroId: 7,
+        signals: [
+          signal("counter", 0.05, 10, {
+            sampleSize: 40,
+            hasRevealedEnemyCounterEvidence: undefined,
+            explanation: "Fuerte contra héroe 50",
+          }),
+        ],
+        impact: resolvedImpact(3),
+      };
+      // Without explicit hasRevealedEnemyCounterEvidence === true and without curated relation, COUNTER is blocked
+      expect(deriveHeroBadges(singleRec(undefinedEvidence), [], 7, [], { revealedEnemies: [50] })).not.toContain("COUNTER");
+
+      // But with curated relation against revealed enemy, COUNTER is allowed even if signal flag was undefined
+      expect(deriveHeroBadges(singleRec(undefinedEvidence), [], 7, [], { revealedEnemies: [50], heroCounters: curated })).toContain("COUNTER");
     });
 
     test("un aporte genérico de `counter` (sólo alivio de baneo) sin relación con el rival revelado NO da COUNTER", () => {

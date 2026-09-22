@@ -7,152 +7,271 @@ import {
   CERT_MIN_POSITION_MATCHES,
   EXPECTED_OBSERVATIONS_SCHEMA,
   evaluateIndependentCredibility,
+  validateHeroPopulationEntry,
   verifyHeroPositionCredibility,
   verifyPositionalDatasetCompleteness,
+  type RawHeroEntry,
   type RawObservationsDataset,
 } from "./independent-position-verifier";
 
 describe("WAVE 5 Hardening (H4) -- independent positional certification verifier", () => {
-  test("catches inflated secondary-position share caused by omitted counts", () => {
-    // A hero has:
-    // Pos 1 (dominant): 1000 matches
-    // Pos 3 (secondary): 350 matches
-    // Pos 2, 4, 5 (sub-floor): 150 matches each = 450 matches
-    // Total true matches = 1800.
+  // RH-R1 Case 1: sum(P1..P5) would falsely produce >= 25% but totalPopulationMatches correctly produces < 25%
+  test("RH-R1.1: uses totalPopulationMatches as denominator -- catches inflated share when sum(P1..P5) would falsely exceed 25%", () => {
+    // Hero has:
+    // Pos 1 (dominant): 700 matches
+    // Pos 3 (secondary): 300 matches
+    // sum(P1..P5) = 1000 matches.
+    // If sum(P1..P5) were used: share = 300 / 1000 = 30% (falsely >= 25%!).
     //
-    // In a floor-truncated dataset where counts < 200 were omitted:
-    // Surviving matches = 1000 + 350 = 1350.
-    // Inflated share = 350 / 1350 = 25.93% (falsely >= 25%!).
-    const truncatedObservations = [
-      { position: 1 as const, matches: 1000 },
-      { position: 3 as const, matches: 350 },
-    ];
-    const completeObservations = [
-      { position: 1 as const, matches: 1000 },
-      { position: 3 as const, matches: 350 },
-      { position: 2 as const, matches: 150 },
-      { position: 4 as const, matches: 150 },
-      { position: 5 as const, matches: 150 },
-    ];
+    // In final A2 dataset with unassigned population matches = 500:
+    // totalKnownPositionMatches = 1000
+    // unassignedMatches = 500
+    // totalPopulationMatches = 1500
+    // True share = 300 / 1500 = 20% (< 25%), so Pos 3 is NOT admitted by share.
+    const entry: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 1500,
+      totalKnownPositionMatches: 1000,
+      unassignedMatches: 500,
+      observations: [
+        { position: 1, matches: 700 },
+        { position: 3, matches: 300 },
+      ],
+    };
 
-    // Truncated observations inflate share to 25.9%
-    const truncatedResult = evaluateIndependentCredibility(truncatedObservations, 3);
-    expect(truncatedResult.positionShare).toBeGreaterThan(0.25);
-    expect(truncatedResult.isCredible).toBe(true);
-
-    // Complete denominator reveals true share is 19.44% (< 25%), so Pos 3 is NOT credible
-    const completeResult = evaluateIndependentCredibility(completeObservations, 3);
-    expect(completeResult.heroTotalMatches).toBe(1800);
-    expect(completeResult.positionShare).toBeCloseTo(350 / 1800, 4);
-    expect(completeResult.positionShare).toBeLessThan(0.25);
-    expect(completeResult.isCredible).toBe(false);
-    expect(completeResult.rejectionReason).toContain("Neither dominant nor >= 25% share");
-  });
-
-  test("catches a true >=25% secondary position", () => {
-    // Hero with 1000 Pos 1, 500 Pos 3, and 3x 50 matches in Pos 2, 4, 5.
-    // Total = 1650.
-    // Pos 3 share = 500 / 1650 = 30.3% >= 25%.
-    const observations = [
-      { position: 1 as const, matches: 1000 },
-      { position: 3 as const, matches: 500 },
-      { position: 2 as const, matches: 50 },
-      { position: 4 as const, matches: 50 },
-      { position: 5 as const, matches: 50 },
-    ];
-    const result = evaluateIndependentCredibility(observations, 3);
-    expect(result.heroTotalMatches).toBe(1650);
+    const result = evaluateIndependentCredibility(entry, 3);
+    expect(result.heroTotalMatches).toBe(1500);
+    expect(result.targetMatches).toBe(300);
     expect(result.dominantPosition).toBe(1);
-    expect(result.positionShare).toBeCloseTo(500 / 1650, 4);
-    expect(result.positionShare).toBeGreaterThanOrEqual(CERT_ADMISSION_MIN_SHARE);
-    expect(result.isCredible).toBe(true);
-  });
-
-  test("catches a <25% secondary position", () => {
-    // Hero with 1000 Pos 1, 300 Pos 3, and 3x 50 matches in Pos 2, 4, 5.
-    // Total = 1450.
-    // Pos 3 share = 300 / 1450 = 20.69% < 25%.
-    const observations = [
-      { position: 1 as const, matches: 1000 },
-      { position: 3 as const, matches: 300 },
-      { position: 2 as const, matches: 50 },
-      { position: 4 as const, matches: 50 },
-      { position: 5 as const, matches: 50 },
-    ];
-    const result = evaluateIndependentCredibility(observations, 3);
-    expect(result.heroTotalMatches).toBe(1450);
-    expect(result.dominantPosition).toBe(1);
-    expect(result.positionShare).toBeCloseTo(300 / 1450, 4);
+    expect(result.positionShare).toBeCloseTo(300 / 1500, 4);
     expect(result.positionShare).toBeLessThan(CERT_ADMISSION_MIN_SHARE);
     expect(result.isCredible).toBe(false);
+    expect(result.rejectionReason).toContain("Neither dominant nor >= 25% share");
   });
 
-  test("validates dominant position regardless of share", () => {
-    // Pos 1 is dominant (1000 matches)
-    const observations = [
-      { position: 1 as const, matches: 1000 },
-      { position: 3 as const, matches: 300 },
-      { position: 2 as const, matches: 50 },
-    ];
-    const result = evaluateIndependentCredibility(observations, 1);
+  // RH-R1 Case 2: totalPopulationMatches < totalKnownPositionMatches -> rejected
+  test("RH-R1.2: totalPopulationMatches < totalKnownPositionMatches -> rejected as corrupt", () => {
+    const entry: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 800,
+      totalKnownPositionMatches: 1000,
+      unassignedMatches: 0,
+      observations: [
+        { position: 1, matches: 600 },
+        { position: 3, matches: 400 },
+      ],
+    };
+
+    const result = evaluateIndependentCredibility(entry, 1);
+    expect(result.isCredible).toBe(false);
+    expect(result.rejectionReason).toContain("totalPopulationMatches (800) < totalKnownPositionMatches (1000)");
+
+    const validation = validateHeroPopulationEntry(entry);
+    expect(validation.valid).toBe(false);
+    expect(validation.error).toContain("totalPopulationMatches (800) < totalKnownPositionMatches (1000)");
+  });
+
+  // RH-R1 Case 3: negative / inconsistent unassignedMatches -> rejected
+  test("RH-R1.3: negative or inconsistent unassignedMatches -> rejected", () => {
+    // 3A: negative unassignedMatches
+    const negativeUnassigned: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 950,
+      totalKnownPositionMatches: 1000,
+      unassignedMatches: -50,
+      observations: [{ position: 1, matches: 1000 }],
+    };
+    const negResult = evaluateIndependentCredibility(negativeUnassigned, 1);
+    expect(negResult.isCredible).toBe(false);
+    expect(negResult.rejectionReason).toContain("unassignedMatches (-50) must be >= 0");
+
+    // 3B: inconsistent unassignedMatches (totalPopulation != totalKnown + unassigned)
+    const inconsistent: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 1500,
+      totalKnownPositionMatches: 1000,
+      unassignedMatches: 200, // 1000 + 200 = 1200 != 1500
+      observations: [{ position: 1, matches: 1000 }],
+    };
+    const incResult = evaluateIndependentCredibility(inconsistent, 1);
+    expect(incResult.isCredible).toBe(false);
+    expect(incResult.rejectionReason).toContain("population identity mismatch");
+  });
+
+  // RH-R1 Case 4: identity mismatch (known != sum(observations)) -> rejected
+  test("RH-R1.4: totalKnownPositionMatches !== sum(observations) -> rejected", () => {
+    const entry: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 1200,
+      totalKnownPositionMatches: 900, // sum is 600 + 400 = 1000 != 900
+      unassignedMatches: 300,
+      observations: [
+        { position: 1, matches: 600 },
+        { position: 3, matches: 400 },
+      ],
+    };
+
+    const result = evaluateIndependentCredibility(entry, 1);
+    expect(result.isCredible).toBe(false);
+    expect(result.rejectionReason).toContain("totalKnownPositionMatches (900) does not match sum of observations (1000)");
+  });
+
+  // RH-R1 Case 5: valid complete A2-style entry -> accepted
+  test("RH-R1.5: valid complete A2-style entry -> accepted and share computed against totalPopulationMatches", () => {
+    const entry: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 1600,
+      totalKnownPositionMatches: 1500,
+      unassignedMatches: 100,
+      observations: [
+        { position: 1, matches: 1000 },
+        { position: 3, matches: 500 },
+      ],
+    };
+
+    const result = evaluateIndependentCredibility(entry, 3);
+    expect(result.isCredible).toBe(true);
+    expect(result.heroTotalMatches).toBe(1600);
+    expect(result.targetMatches).toBe(500);
+    expect(result.positionShare).toBeCloseTo(500 / 1600, 4);
+    expect(result.positionShare).toBeGreaterThanOrEqual(CERT_ADMISSION_MIN_SHARE);
+    expect(result.rejectionReason).toBeUndefined();
+  });
+
+  // RH-R1 Case 6: dominant-position behavior remains correct
+  test("RH-R1.6: dominant position admitted even if share of total population is < 25%", () => {
+    // Dominant position with 1000 matches, but massive unassigned pool: totalPopulation = 5000.
+    // Share = 1000 / 5000 = 20% < 25%.
+    // Because Pos 1 is dominant, it must still be accepted.
+    const entry: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 5000,
+      totalKnownPositionMatches: 1300,
+      unassignedMatches: 3700,
+      observations: [
+        { position: 1, matches: 1000 },
+        { position: 3, matches: 300 },
+      ],
+    };
+
+    const result = evaluateIndependentCredibility(entry, 1);
     expect(result.dominantPosition).toBe(1);
+    expect(result.dominantMatches).toBe(1000);
+    expect(result.positionShare).toBeCloseTo(1000 / 5000, 4);
     expect(result.isCredible).toBe(true);
   });
 
   test("enforces Mid absolute evidence floor (600 matches)", () => {
     // Pos 2 with 400 matches (clears base 200, but fails Mid floor 600)
-    const observations = [
-      { position: 2 as const, matches: 400 },
-      { position: 4 as const, matches: 100 },
-    ];
-    const result = evaluateIndependentCredibility(observations, 2);
+    const entry: RawHeroEntry = {
+      hero: 1,
+      totalPopulationMatches: 500,
+      totalKnownPositionMatches: 500,
+      unassignedMatches: 0,
+      observations: [
+        { position: 2, matches: 400 },
+        { position: 4, matches: 100 },
+      ],
+    };
+    const result = evaluateIndependentCredibility(entry, 2);
     expect(result.isCredible).toBe(false);
     expect(result.rejectionReason).toContain(`below Mid floor ${CERT_MID_MIN_MATCHES}`);
   });
 
-  test("legacy / incomplete dataset rejection", () => {
-    // 1. Array-based v1 legacy dataset
-    const legacyArray = [{ hero: 1, positions: [{ position: 1, matches: 1000 }] }];
-    const arrayCheck = verifyPositionalDatasetCompleteness(legacyArray);
-    expect(arrayCheck.valid).toBe(false);
-    expect(arrayCheck.format).toBe("v1-floor-truncated");
-    expect(arrayCheck.error).toContain("Legacy floor-truncated dataset");
+  // RH-R2: Real completeness validation tests
+  describe("RH-R2: verifyPositionalDatasetCompleteness real completeness validation", () => {
+    test("rejects legacy floor-truncated array datasets", () => {
+      const legacyArray = [{ hero: 1, positions: [{ position: 1, matches: 1000 }] }];
+      const res = verifyPositionalDatasetCompleteness(legacyArray);
+      expect(res.valid).toBe(false);
+      expect(res.format).toBe("v1-floor-truncated");
+      expect(res.error).toContain("Legacy floor-truncated dataset");
+    });
 
-    // 2. Missing or incorrect schema
-    const invalidSchema = { schema: "wrong/v1", heroes: [] };
-    const schemaCheck = verifyPositionalDatasetCompleteness(invalidSchema);
-    expect(schemaCheck.valid).toBe(false);
-    expect(schemaCheck.error).toContain(`expected "${EXPECTED_OBSERVATIONS_SCHEMA}"`);
+    test("schema name alone is NOT sufficient: fails if heroes lack denominator metadata", () => {
+      const claimingV1WithoutDenominator: RawObservationsDataset = {
+        schema: EXPECTED_OBSERVATIONS_SCHEMA,
+        heroes: [
+          {
+            hero: 1,
+            // @ts-expect-error simulating legacy/corrupt object missing denominator fields
+            observations: [{ position: 1, matches: 1000 }],
+          },
+        ],
+      };
+      const res = verifyPositionalDatasetCompleteness(claimingV1WithoutDenominator);
+      expect(res.valid).toBe(false);
+      expect(res.format).toBe("hero-position-observations/v1");
+      expect(res.error).toContain("missing or non-integer denominator metadata");
+    });
 
-    // 3. Null or non-object
-    expect(verifyPositionalDatasetCompleteness(null).valid).toBe(false);
-    expect(verifyPositionalDatasetCompleteness("string").valid).toBe(false);
+    test("fails if any hero has invalid population identities", () => {
+      const corruptIdentity: RawObservationsDataset = {
+        schema: EXPECTED_OBSERVATIONS_SCHEMA,
+        heroes: [
+          {
+            hero: 1,
+            totalPopulationMatches: 1000,
+            totalKnownPositionMatches: 900,
+            unassignedMatches: 50, // 900 + 50 = 950 != 1000
+            observations: [{ position: 1, matches: 900 }],
+          },
+        ],
+      };
+      const res = verifyPositionalDatasetCompleteness(corruptIdentity);
+      expect(res.valid).toBe(false);
+      expect(res.error).toContain("population identity mismatch");
+    });
 
-    // 4. Valid v2 dataset
-    const validV2: RawObservationsDataset = {
-      schema: EXPECTED_OBSERVATIONS_SCHEMA,
-      heroes: [
-        {
-          hero: 1,
-          observations: [
-            { position: 1, matches: 1000 },
-            { position: 3, matches: 500 },
-          ],
-        },
-      ],
-    };
-    const validCheck = verifyPositionalDatasetCompleteness(validV2);
-    expect(validCheck.valid).toBe(true);
-    expect(validCheck.format).toBe("hero-position-observations/v1");
+    test("fails if any hero has totalPopulationMatches < totalKnownPositionMatches", () => {
+      const underflow: RawObservationsDataset = {
+        schema: EXPECTED_OBSERVATIONS_SCHEMA,
+        heroes: [
+          {
+            hero: 1,
+            totalPopulationMatches: 500,
+            totalKnownPositionMatches: 600,
+            unassignedMatches: 0,
+            observations: [{ position: 1, matches: 600 }],
+          },
+        ],
+      };
+      const res = verifyPositionalDatasetCompleteness(underflow);
+      expect(res.valid).toBe(false);
+      expect(res.error).toContain("totalPopulationMatches (500) < totalKnownPositionMatches (600)");
+    });
 
-    // Integration check: verifyHeroPositionCredibility on valid dataset
-    const cred = verifyHeroPositionCredibility(validV2, 1, 1);
-    expect(cred.isCredible).toBe(true);
+    test("accepts complete valid A2 dataset", () => {
+      const validA2: RawObservationsDataset = {
+        schema: EXPECTED_OBSERVATIONS_SCHEMA,
+        heroes: [
+          {
+            hero: 1,
+            totalPopulationMatches: 1600,
+            totalKnownPositionMatches: 1500,
+            unassignedMatches: 100,
+            observations: [
+              { position: 1, matches: 1000 },
+              { position: 3, matches: 500 },
+            ],
+          },
+        ],
+      };
+      const res = verifyPositionalDatasetCompleteness(validA2);
+      expect(res.valid).toBe(true);
+      expect(res.format).toBe("hero-position-observations/v1");
 
-    // Integration check: verifyHeroPositionCredibility on legacy dataset
-    const credLegacy = verifyHeroPositionCredibility(legacyArray, 1, 1);
-    expect(credLegacy.isCredible).toBe(false);
-    expect(credLegacy.rejectionReason).toContain("Legacy floor-truncated");
+      const cred = verifyHeroPositionCredibility(validA2, 1, 1);
+      expect(cred.isCredible).toBe(true);
+      expect(cred.heroTotalMatches).toBe(1600);
+    });
+
+    test("rejects invalid schema or malformed root", () => {
+      expect(verifyPositionalDatasetCompleteness(null).valid).toBe(false);
+      expect(verifyPositionalDatasetCompleteness("str").valid).toBe(false);
+      expect(verifyPositionalDatasetCompleteness({ schema: "other/v1" }).valid).toBe(false);
+      expect(verifyPositionalDatasetCompleteness({ schema: EXPECTED_OBSERVATIONS_SCHEMA, heroes: [] }).valid).toBe(false);
+    });
   });
 
   test("ARCHITECTURE GUARD: verifier does NOT import or call production admission helpers", () => {

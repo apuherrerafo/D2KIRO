@@ -70,20 +70,19 @@ export interface CounterEvidenceContext {
 
 /**
  * COUNTER means "this hero counters something on the enemy team you can see".
- * Wave 5 Hardening (H1): valid evidence requires that the candidate actually counters at least one
+ * Wave 5 Hardening (H1/RH-R4): valid evidence requires that the candidate actually counters at least one
  * currently revealed enemy:
- *   A. a curated counter relation against a revealed enemy; OR
- *   B. positive statistical matchup evidence against a revealed enemy.
+ *   - curated counter relation against a revealed enemy => valid
+ *   - explicit hasRevealedEnemyCounterEvidence === true => valid
+ *   - false => invalid
+ *   - undefined => invalid (must NOT infer positive counter evidence from player-facing copy or sampleSize)
  * Ban relief alone or negative/zero statistical matchup evidence must NEVER qualify.
  */
 function hasRevealedEnemyCounterEvidence(heroId: HeroId, signal: SignalContribution, context: CounterEvidenceContext | undefined): boolean {
   if (!context || context.revealedEnemies.length === 0) return false;
   const curated = context.heroCounters;
   if (curated && context.revealedEnemies.some((enemy) => (curated.get(enemy) ?? []).some((entry) => entry.vs === heroId))) return true;
-  if (signal.hasRevealedEnemyCounterEvidence !== undefined) return signal.hasRevealedEnemyCounterEvidence;
-  if (signal.sampleSize <= 0) return false;
-  if (signal.explanation.startsWith("Sin ventaja de contrapick")) return false;
-  return true;
+  return signal.hasRevealedEnemyCounterEvidence === true;
 }
 
 /**
