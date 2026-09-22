@@ -20,8 +20,8 @@ import {
 
 const MID = ["Puck", "Storm Spirit", "Queen of Pain", "Tinker", "Necrophos"];
 const CARRY = ["Anti-Mage", "Juggernaut", "Phantom Lancer", "Luna", "Sven"];
-const OFFLANE = ["Axe", "Tidehunter", "Slardar", "Sand King"];
-const SOFT_SUPPORT = ["Earthshaker", "Lion", "Windranger", "Vengeful Spirit"];
+const OFFLANE = ["Tidehunter", "Slardar", "Sand King", "Axe"];
+const SOFT_SUPPORT = ["Lion", "Windranger", "Vengeful Spirit", "Earthshaker"];
 const HARD_SUPPORT = ["Crystal Maiden", "Dazzle", "Witch Doctor", "Lich"];
 
 const STRATEGY_KINDS = ["REVEAL_POSITION", "REVEAL_HERO", "DEFER_POSITION", "REVEAL_FLEX", "OPPORTUNITY"];
@@ -251,7 +251,7 @@ test.describe("Wave 2 acceptance -- hidden information (deterministic setup thro
 
   /** The Coach's whole answer with the (necessarily different) session id removed. */
   function normalized(body: unknown): string {
-    return JSON.stringify(body, (key, value) => (key === "sessionId" ? undefined : value));
+    return JSON.stringify(body, (key, value) => (key === "sessionId" || key === "syncAgeMs" ? undefined : value));
   }
 
   test("D. two worlds differing ONLY in the hidden enemy identity: identical Coach output before the reveal; the reveal may then legally change it", async ({ request, baseURL }) => {

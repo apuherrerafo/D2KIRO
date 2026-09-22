@@ -16,7 +16,11 @@ test("el Copilot muestra el RecommendationSet/v2 de la ronda 1 (2 asientos) real
   await startButton.click();
 
   await expect(page.getByText(/Ronda 1 -- elegí 2 héroes/)).toBeVisible({ timeout: 60_000 });
-  const recommendation = await recommendationResponse.then((response) => response.json()) as {
+  const rawBody = (await recommendationResponse.then((response) => response.json())) as Record<string, any>;
+  if ("output" in rawBody && rawBody.output !== null) {
+    expect(rawBody.output.schema).toBe("recommendation-output/v3");
+  }
+  const recommendation = (rawBody.recommendationSet ?? rawBody) as {
     schema: string;
     decision: { actionCount: number; actor: string };
     recommendations: Array<{ actions: unknown[] }>;

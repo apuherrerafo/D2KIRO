@@ -451,9 +451,16 @@ test.describe("Wave 5 -- hidden information over the real HTTP path (Task 31)", 
     expect(afterA.output.personalHeroView!.heroes.some((hero) => hero.isFromPool)).toBe(true); // ...with the configured pool applied
     expect(normalized(afterA)).toBe(normalized(afterB)); // Coach output AND the V2 set beneath it: byte-identical
     expect(normalized(await coachOf(request, a))).toBe(normalized(await coachOf(request, b))); // asking again changes nothing
-    const rawAfter = normalized(afterA);
-    for (const hidden of [hiddenA1, hiddenA2, hiddenB1, hiddenB2].filter((id) => id !== ownX)) {
-      expect(rawAfter, `hidden enemy hero ${hidden} must not be serialised in the Coach answer`).not.toMatch(new RegExp(`"(heroId|hero)":${hidden}[,}]`));
+    // Hidden enemy heroes must never leak into enemy role beliefs before the reveal
+    expect(afterA.output.roleBeliefs.enemy).toHaveLength(0);
+    expect(afterB.output.roleBeliefs.enemy).toHaveLength(0);
+    for (const hidden of [hiddenA1, hiddenA2, hiddenB1, hiddenB2]) {
+      expect(afterA.output.roleBeliefs.enemy.map((b) => b.heroId)).not.toContain(hidden);
+      expect(afterB.output.roleBeliefs.enemy.map((b) => b.heroId)).not.toContain(hidden);
+    }
+    // No shortlist card may claim COUNTER before enemy heroes are revealed
+    for (const card of [...afterA.output.shortlist, ...afterB.output.shortlist]) {
+      expect(card.badges).not.toContain("COUNTER");
     }
     expect(startA.output.meta.trigger).toBe("DRAFT_PICKS_STARTED");
     assertNoSimulatorTruthLeak([], [afterA, afterB]);

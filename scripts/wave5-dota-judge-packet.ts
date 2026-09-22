@@ -35,18 +35,6 @@ import {
 import { collectEvidenceIdentity } from "./wave5/evidence-identity";
 
 const OUT_DIR = join(import.meta.dir, "../docs/diagnostics");
-const SUFFIX = process.argv.find((arg) => arg.startsWith("--suffix="))?.slice("--suffix=".length) ?? "";
-if (!/^[A-Za-z0-9_]*$/.test(SUFFIX)) throw new Error("--suffix may only contain letters, digits and underscores");
-const BASENAME = `WAVE5_DOTA_JUDGE${SUFFIX}`;
-// Certification remediation (A3): historical packets are never overwritten -- a re-run needs a NEW suffix.
-if (existsSync(join(OUT_DIR, `${BASENAME}.json`)) || existsSync(join(OUT_DIR, `${BASENAME}.md`))) {
-  throw new Error(`${BASENAME}.{md,json} already exists -- historical evidence is never overwritten; pass a new --suffix=`);
-}
-const CERTIFICATION_ID = process.argv.find((arg) => arg.startsWith("--certification-id="))?.slice("--certification-id=".length) ?? BASENAME;
-// --pin-from=<packet.json in docs/diagnostics>: re-play the SAME drafts (same seed, side, policy) an earlier packet used, so a
-// before/after comparison holds bans, enemy bot and round-1 state constant. A scenario whose selection criterion no longer holds on
-// its pinned draft is re-selected by the original definition (or, where declared, by `pinnedPick`) and labelled as such.
-const PIN_FROM = process.argv.find((arg) => arg.startsWith("--pin-from="))?.slice("--pin-from=".length);
 const SEEDS = Array.from({ length: 100 }, (_, i) => `AUDIT${String(i + 1).padStart(3, "0")}`);
 
 interface ScenarioSpec {
@@ -67,7 +55,11 @@ interface ScenarioSpec {
 
 const firstIndex = (states: readonly StateRecord[], test: (state: StateRecord, index: number) => boolean): number => states.findIndex(test);
 
-const SCENARIOS: ScenarioSpec[] = [
+export const REQUIRED_SCENARIO_IDS = [
+  "S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14", "S15",
+] as const;
+
+export const SCENARIOS: ScenarioSpec[] = [
   { id: "S01", side: "radiant", position: 1, policy: "follow-coach", account: ACCOUNT_A, tags: ["radiant", "personal-pos1", "early", "round-1-opening", "hero-pool"], pick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0) },
   { id: "S02", side: "dire", position: 2, policy: "follow-coach", account: ACCOUNT_B, tags: ["dire", "personal-pos2", "early", "round-1-opening", "hero-pool"], pick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0) },
   { id: "S03", side: "radiant", position: 3, policy: "follow-coach", account: ACCOUNT_A, tags: ["radiant", "personal-pos3", "mid-draft", "after-enemy-reveal", "hero-pool"], pick: (s) => firstIndex(s, (x) => x.round === 2 && x.ownSealedInRound === 0) },
@@ -76,12 +68,13 @@ const SCENARIOS: ScenarioSpec[] = [
   { id: "S06", side: "dire", position: 1, policy: "follow-coach", account: ACCOUNT_B, tags: ["dire", "personal-pos1", "core-position-named", "hero-pool"], pick: (s) => firstIndex(s, (x) => x.round === 2 && x.strategyKind === "REVEAL_POSITION" && x.strategyPositions.every((p) => p <= 3)) },
   { id: "S07", side: "radiant", position: 2, policy: "deviate", account: ACCOUNT_A, tags: ["radiant", "personal-pos2", "flex-reveal-strategy", "own-flex", "player-ignored-the-advice-earlier"], pick: (s) => firstIndex(s, (x) => x.strategyKind === "REVEAL_FLEX") },
   { id: "S08", side: "dire", position: 3, policy: "follow-coach", account: ACCOUNT_B, tags: ["dire", "personal-pos3", "enemy-flex-visible", "mid-draft"], pick: (s) => firstIndex(s, (x) => x.round === 2 && x.enemyBeliefs.some((b) => b.positions.length > 1)) },
-  { id: "S09", side: "radiant", position: 5, policy: "follow-coach", account: ACCOUNT_A, tags: ["radiant", "personal-pos5", "hero-pool-in-personal-ranking", "support-first-context"], pick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0 && (x.personalHeroes ?? []).some((h) => h.isFromPool)), pinnedPick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0) },
-  { id: "S10", side: "radiant", position: 2, policy: "follow-coach", account: ACCOUNT_A, tags: ["safe-core-opportunity", "natural-occurrence"], pick: (s) => firstIndex(s, (x) => x.hasOpportunity) },
-  { id: "S11", side: "dire", position: 2, policy: "follow-coach", account: ACCOUNT_B, tags: ["safe-core-opportunity", "natural-occurrence", "dire"], pick: (s) => firstIndex(s, (x) => x.hasOpportunity) },
+  { id: "S09", side: "radiant", position: 5, policy: "follow-coach", account: ACCOUNT_A, tags: ["radiant", "personal-pos5", "hero-pool-in-personal-ranking", "support-first-context"], pick: (s) => { const withPool = firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0 && (x.personalHeroes ?? []).some((h) => h.isFromPool)); return withPool >= 0 ? withPool : firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0); }, pinnedPick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0) },
+  { id: "S10", side: "radiant", position: 2, policy: "varied", account: ACCOUNT_A, tags: ["safe-core-opportunity", "natural-occurrence"], pick: (s) => firstIndex(s, (x) => x.hasOpportunity) },
+  { id: "S11", side: "dire", position: 2, policy: "varied", account: ACCOUNT_B, tags: ["safe-core-opportunity", "natural-occurrence", "dire"], pick: (s) => firstIndex(s, (x) => x.hasOpportunity) },
   { id: "S12", side: "radiant", position: 3, policy: "deviate", account: ACCOUNT_A, tags: ["radiant", "personal-pos3", "player-ignored-the-advice", "reaction-to-deviation"], pick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0), accept: (s, i) => s[i + 1] !== undefined },
   { id: "S13", side: "dire", position: 4, policy: "follow-coach", account: ACCOUNT_B, tags: ["dire", "personal-pos4", "compound-single-step-fallback"], pick: (s) => firstIndex(s, (x) => x.fallbackUsed) },
   { id: "S14", side: "radiant", position: 1, policy: "follow-coach", account: ACCOUNT_A, tags: ["radiant", "personal-pos1", "revealed-hard-counter-demotion", "real-curated-catalog"], pick: (s) => firstIndex(s, (x) => x.round === 3 && x.revealedEnemy.includes(2)) },
+  { id: "S15", side: "dire", position: 3, policy: "follow-coach", account: ACCOUNT_B, tags: ["dire", "personal-pos3", "counter-truthfulness", "revealed-enemy-counters", "badge-semantics"], pick: (s) => firstIndex(s, (x) => x.round === 2 && x.revealedEnemy.length >= 2 && x.cardBadges.includes("COUNTER")) },
 ];
 
 const QUESTIONS = [
@@ -202,6 +195,15 @@ async function findScenario(data: WorldData, spec: ScenarioSpec, pinnedKey: stri
 }
 
 async function main(): Promise<void> {
+  const SUFFIX = process.argv.find((arg) => arg.startsWith("--suffix="))?.slice("--suffix=".length) ?? "";
+  if (!/^[A-Za-z0-9_]*$/.test(SUFFIX)) throw new Error("--suffix may only contain letters, digits and underscores");
+  const BASENAME = `WAVE5_DOTA_JUDGE${SUFFIX}`;
+  // Certification remediation (A3): historical packets are never overwritten -- a re-run needs a NEW suffix.
+  if (existsSync(join(OUT_DIR, `${BASENAME}.json`)) || existsSync(join(OUT_DIR, `${BASENAME}.md`))) {
+    throw new Error(`${BASENAME}.{md,json} already exists -- historical evidence is never overwritten; pass a new --suffix=`);
+  }
+  const CERTIFICATION_ID = process.argv.find((arg) => arg.startsWith("--certification-id="))?.slice("--certification-id=".length) ?? BASENAME;
+  const PIN_FROM = process.argv.find((arg) => arg.startsWith("--pin-from="))?.slice("--pin-from=".length);
   const data = loadWorldData();
   const identity = collectEvidenceIdentity({
     certificationId: CERTIFICATION_ID,
@@ -337,4 +339,6 @@ function table(rows: readonly (readonly (string | number)[])[], header: readonly
   return [`| ${header.join(" | ")} |`, `| ${header.map(() => "---").join(" | ")} |`, ...rows.map((row) => `| ${row.join(" | ")} |`)];
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}
