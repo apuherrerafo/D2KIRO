@@ -105,6 +105,7 @@ interface CoachCard { heroId: number; position: number; roleStatus: string; conf
 interface CoachJson {
   primaryAction: { strategy: { kind: string; position?: number; possiblePositions?: number[]; rationale: string }; label: string };
   shortlist: CoachCard[];
+  roleCollision?: { infeasible: boolean; conflicts: { position: number; heroIds: number[] }[] };
   opportunity?: { label: string; heroId: number; evidence: string; counterEvidence: { sourceType: string; totalHardCounters: number; relieved: { heroId: number; level: string; status: string }[] } };
   personalHeroView?: { position: number; positionLabel: string; seatCovered?: boolean; heroes: { heroId: number; rank: number; isFromPool: boolean }[] };
   outsidePoolRecommendation?: { heroId: number; label: string; rationale: string };
@@ -133,6 +134,15 @@ function decisionPoint(data: WorldData, record: DraftRecord, index: number, labe
     sealedEnemySeatsNotYetRevealed: state.hiddenEnemySlots,
     coach: {
       overallConfidence: coach.meta.confidence,
+      roleCollision: coach.roleCollision
+        ? {
+            infeasible: coach.roleCollision.infeasible,
+            conflicts: coach.roleCollision.conflicts.map((c) => ({
+              position: POSITION_NAME[c.position] ?? `Pos ${c.position}`,
+              conflictingHeroes: c.heroIds.map((id) => heroRef(data, id)),
+            })),
+          }
+        : null,
       primaryAction: {
         kind: coach.primaryAction.strategy.kind,
         positionsNamed: (coach.primaryAction.strategy.position !== undefined ? [coach.primaryAction.strategy.position] : coach.primaryAction.strategy.possiblePositions ?? []).map((p) => POSITION_NAME[p]),
@@ -312,6 +322,12 @@ async function main(): Promise<void> {
       lines.push(`- Own revealed picks: ${names(point.ownRevealedPicks)}`);
       lines.push(`- Revealed enemy picks: ${names(point.revealedEnemyPicks)}`);
       lines.push(`- Enemy seats already sealed but not revealed: ${point.sealedEnemySeatsNotYetRevealed}`, "");
+      if (point.coach.roleCollision?.infeasible) {
+        const conflictDetails = point.coach.roleCollision.conflicts
+          .map((c) => `${c.position}: ${c.conflictingHeroes.map((h) => h.name).join(", ")}`)
+          .join("; ");
+        lines.push(`> ⚠️ **Role Collision detected:** ${conflictDetails || "No legal full team seating exists"}. Advice is recovery-mode.`, "");
+      }
       lines.push(`**Primary action:** ${point.coach.primaryAction.label}`, `_(kind ${point.coach.primaryAction.kind}; names: ${point.coach.primaryAction.positionsNamed.join(" / ") || "—"})_ — ${point.coach.primaryAction.rationale}`, "");
       lines.push("**Team shortlist:**", "", ...table(point.coach.teamShortlist.map((card) => [card.rank, card.name, card.positionShown, card.roleStatus, card.badges.join(", ") || "—", card.rationale.replaceAll("|", "\\|")]), ["#", "Hero", "Position shown", "Role status", "Badges", "Rationale"]), "");
       if (point.coach.personalHeroView) {

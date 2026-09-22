@@ -250,3 +250,53 @@ test("CoachPanel no muestra contenedor de degradaciones si no hay degradaciones"
   const view = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
   expect(view.queryByTestId("coach-degradations")).toBeNull();
 });
+
+test("CoachPanel con colisión de roles: muestra banner de colisión, acción de recuperación y opciones de recuperación", () => {
+  const collisionOutput: CoachOutput = {
+    ...coach(
+      { kind: "REVEAL_POSITION", position: 1, rationale: "Colisión de roles en tu equipo (conflicto en Midlane (Pos 2)): no existe asignación legal completa. Como recuperación, busca asegurar Carry (Pos 1)." },
+      [card(1, { position: 1, roleStatus: "CONFIRMED_FORCED" }), card(2, { position: 5, roleStatus: "CONFIRMED_FORCED" })],
+      "Recuperación (colisión de roles): revela Carry (Pos 1)",
+    ),
+    roleCollision: {
+      infeasible: true,
+      conflicts: [{ position: 2, heroIds: [76, 17] }],
+    },
+  };
+
+  const catalog = new Map<number, HeroMeta>([
+    [76, { id: 76, localizedName: "Outworld Destroyer", name: "npc_dota_hero_obsidian_destroyer", imgUrl: "", primaryAttr: "int", attackType: "ranged", roles: [] }],
+    [17, { id: 17, localizedName: "Storm Spirit", name: "npc_dota_hero_storm_spirit", imgUrl: "", primaryAttr: "int", attackType: "ranged", roles: [] }],
+  ]);
+
+  const view = render(<CoachPanel coach={collisionOutput} heroCatalog={catalog} />);
+
+  // 1. Banner de colisión de roles
+  const banner = view.getByTestId("coach-role-collision-banner");
+  expect(banner).toBeDefined();
+  expect(banner.textContent).toContain("Colisión de roles en tu equipo");
+  expect(banner.textContent).toContain("No existe una asignación legal completa");
+
+  // Conflicto específico detectado
+  const conflicts = view.getByTestId("coach-role-collision-conflicts");
+  expect(conflicts.textContent).toContain("Midlane: Outworld Destroyer, Storm Spirit");
+
+  // 2. Acción primaria marcada como recuperación
+  const primary = view.getByTestId("coach-primary-action");
+  expect(primary.getAttribute("data-role-collision")).toBe("true");
+  expect(view.getByTestId("coach-primary-label").textContent).toBe("Recuperación (colisión de roles): revela Carry (Pos 1)");
+  expect(primary.textContent).toContain("Qué hacer ahora (recuperación de colisión)");
+  expect(primary.textContent).toContain("Consejo de recuperación");
+
+  // 3. Shortlist titulada como opciones de recuperación
+  const shortlist = view.getByTestId("coach-shortlist");
+  expect(shortlist.textContent).toContain("Opciones de recuperación");
+
+  // 4. Las cartas de héroes candidatos mantienen su rol concreto y no colapsan a "Rol por definir"
+  const cards = view.getAllByTestId("coach-hero-card");
+  expect(cards[0].textContent).toContain("Posición: Carry");
+  expect(cards[1].textContent).toContain("Posición: Hard support");
+  expect(cards[0].textContent).not.toContain("Rol por definir");
+  expect(cards[1].textContent).not.toContain("Rol por definir");
+});
+

@@ -5,7 +5,7 @@ import type { RecommendationBasedOn, RecommendationDegradation, RecommendationSe
 import type { MetaReadiness } from "../meta/readiness";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
-import type { CoachObservableState } from "./observable-state";
+import type { CoachObservableState, RoleCollisionObservation } from "./observable-state";
 import { buildHeroCard, candidateServesPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type Confidence, type HeroCandidate, type HeroCard } from "./hero-card";
 import { positionPhrase, type RevealStrategy } from "./reveal-strategy";
 import { detectSafeCoreWindow, type CounterReliefEvidence } from "./safe-core";
@@ -75,6 +75,7 @@ export interface RecommendationOutputV3 {
     label: string;
   };
   shortlist: HeroCard[];
+  roleCollision?: RoleCollisionObservation;
   /** Wave 4A. Absent (never null) unless real evidence exists. Informational: does not touch shortlist or primaryAction. */
   opportunity?: CoachOpportunity;
   /** Wave 3. Absent unless a personal position is declared AND implemented. */
@@ -256,20 +257,27 @@ export function translateToRecommendationOutputV3(
   // Safe Core keeps judging V6's own leader (Wave 4A contract): the demotion above never feeds it.
   const opportunity = deriveOpportunity(v6Candidates, view, config.heroCounters);
 
+  const isCollision = coachState.roleCollision?.infeasible ?? false;
+  const baseLabel = labelForStrategy(revealStrategy);
+  const primaryLabel = isCollision
+    ? `Recuperación (colisión de roles): ${baseLabel.replace(/^Sugerencia:\s*/, "")}`
+    : baseLabel;
+
   return {
     schema: "recommendation-output/v3",
     sessionId: view.sessionId,
-    primaryAction: { strategy: revealStrategy, label: labelForStrategy(revealStrategy) },
+    primaryAction: { strategy: revealStrategy, label: primaryLabel },
     shortlist: orderForStrategy(candidates, revealStrategy, config.heroPositions, actionCandidates)
       .slice(0, size)
       .map((candidate) => buildHeroCard(candidate, heroPool, counterContext)),
     ...(opportunity ? { opportunity } : {}),
+    roleCollision: coachState.roleCollision,
     roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },
     meta: {
       round: roundOf(phase),
       phase,
       ownPicksRemaining: Math.max(5 - ownVisible, 0),
-      confidence: deriveConfidence(candidates, revealStrategy),
+      confidence: isCollision ? "baja" : deriveConfidence(candidates, revealStrategy),
       decisionContext,
       trigger: config.trigger ?? "REFRESH",
       revision: config.revision ?? 0,

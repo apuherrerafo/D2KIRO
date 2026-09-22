@@ -4,6 +4,7 @@ import type { Position, RoleBelief } from "../draft-protocol/roles/role-belief";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
+import type { RoleCollisionObservation } from "./observable-state";
 import { candidateServesPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 
 // AP Ranked Roles V1 / Wave 2 (task 16) -- Level 1 of the Coach: "given everything legally known
@@ -71,6 +72,7 @@ export interface DeriveRevealStrategyOptions {
   heroPositions?: HeroPositions;
   /** Curated counters (RB-4): the ranking's leader is judged AFTER the categorical revealed-hard-counter demotion. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  roleCollision?: RoleCollisionObservation;
 }
 
 function isOpeningContext(context: DraftDecisionContext): boolean {
@@ -102,8 +104,37 @@ function supportPrior(occupied: ReadonlySet<Position>, reason: string, serves: P
   };
 }
 
+function formatCollisionRationale(conflicts: readonly { position: Position; heroIds: readonly HeroId[] }[]): string {
+  if (conflicts.length === 0) {
+    return "Colisión de roles en tu equipo: no existe asignación legal completa.";
+  }
+  const conflictPositions = conflicts.map((c) => positionPhrase(c.position)).join(", ");
+  return `Colisión de roles en tu equipo (conflicto en ${conflictPositions}): no existe asignación legal completa.`;
+}
+
 /** No usable position evidence in the ranking: an honest, labelled fallback -- never a hero. */
-function positionFallback(context: DraftDecisionContext, occupied: ReadonlySet<Position>, reason: string, serves: PositionServes): RevealStrategy {
+function positionFallback(
+  context: DraftDecisionContext,
+  occupied: ReadonlySet<Position>,
+  reason: string,
+  serves: PositionServes,
+  roleCollision?: RoleCollisionObservation,
+): RevealStrategy {
+  if (roleCollision?.infeasible) {
+    const collisionReason = formatCollisionRationale(roleCollision.conflicts);
+    const conflicted = new Set<Position>(roleCollision.conflicts.map((c) => c.position));
+    const target = ALL_POSITIONS.find((pos) => !conflicted.has(pos) && !occupied.has(pos) && serves(pos))
+      ?? ALL_POSITIONS.find((pos) => !conflicted.has(pos) && serves(pos))
+      ?? ALL_POSITIONS.find((pos) => !conflicted.has(pos))
+      ?? ALL_POSITIONS.find((pos) => serves(pos))
+      ?? 5;
+    return {
+      kind: "REVEAL_POSITION",
+      position: target,
+      rationale: `${collisionReason} Como recuperación, busca asegurar ${positionPhrase(target)} para mitigar la falta de roles viables.`,
+    };
+  }
+
   const prior = isOpeningContext(context) ? supportPrior(occupied, reason, serves) : null;
   if (prior) return prior;
   // An uncovered seat the ranking can serve first; then any seat it can serve; only with no ranking at all, the plain uncovered seat.
@@ -131,23 +162,29 @@ export function deriveRevealStrategy(
   const top = candidates[0];
   const serves: PositionServes = (position) => candidates.some((candidate) => candidateServesPosition(candidate, position, options.heroPositions));
 
-  if (!top) return positionFallback(decisionContext, occupied, "No hay ranking de héroes disponible para este estado.", serves);
+  if (!top) return positionFallback(decisionContext, occupied, "No hay ranking de héroes disponible para este estado.", serves, options.roleCollision);
 
   const resolved = top.roleStatus !== "UNRESOLVED";
 
   // 1. V6 already points at a support seat: the evidence and any support prior agree.
   if (resolved && (top.position === 4 || top.position === 5)) {
-    return { kind: "REVEAL_POSITION", position: top.position, rationale: `El ranking de héroes se concentra en ${positionPhrase(top.position)}.` };
+    const rationale = options.roleCollision?.infeasible
+      ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, el ranking apunta a ${positionPhrase(top.position)}.`
+      : `El ranking de héroes se concentra en ${positionPhrase(top.position)}.`;
+    return { kind: "REVEAL_POSITION", position: top.position, rationale };
   }
 
   // 2. The best option's position is unresolved in V6's own role tiers AND the curated catalog registers
   //    it in two or more positions (the repo's own definition of Flex, signals/mix.ts flexibilityReason):
   //    keep the position open instead of naming one.
   if (!resolved && top.flexPositions.length >= 2) {
+    const rationale = options.roleCollision?.infeasible
+      ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, el candidato flexible puede cubrir ${top.flexPositions.map(positionPhrase).join(" o ")}.`
+      : `El mejor candidato puede jugar ${top.flexPositions.map(positionPhrase).join(" o ")}; no hace falta fijar la posición todavía.`;
     return {
       kind: "REVEAL_FLEX",
       possiblePositions: [...top.flexPositions],
-      rationale: `El mejor candidato puede jugar ${top.flexPositions.map(positionPhrase).join(" o ")}; no hace falta fijar la posición todavía.`,
+      rationale,
     };
   }
 
@@ -158,6 +195,9 @@ export function deriveRevealStrategy(
   }
 
   // 4. Otherwise the honest role the evidence points at (or the uncovered seat when it points nowhere).
-  if (!resolved) return positionFallback(decisionContext, occupied, "El ranking no aporta evidencia de posición.", serves);
-  return { kind: "REVEAL_POSITION", position: top.position, rationale: `La composición y el ranking apuntan a ${positionPhrase(top.position)}.` };
+  if (!resolved) return positionFallback(decisionContext, occupied, "El ranking no aporta evidencia de posición.", serves, options.roleCollision);
+  const rationale = options.roleCollision?.infeasible
+    ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, la composición apunta a ${positionPhrase(top.position)}.`
+    : `La composición y el ranking apuntan a ${positionPhrase(top.position)}.`;
+  return { kind: "REVEAL_POSITION", position: top.position, rationale };
 }

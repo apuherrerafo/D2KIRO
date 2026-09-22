@@ -80,7 +80,8 @@ describe("computeRoleImpact -- reads S4's joint-assignment, never reinfers", () 
       ]),
     });
     expect(result.degradation?.reason).toBe("ROLE_ASSIGNMENT_IMPOSSIBLE");
-    expect(result.impactByHero.get(2)?.status).toBe("UNRESOLVED");
+    expect(result.impactByHero.get(2)?.status).toBe("CONFIRMED_FORCED");
+    expect(result.impactByHero.get(2)?.position).toBe(5);
   });
 
   test("más de 5 héroes propios simultáneos degrada explícitamente en vez de lanzar", () => {

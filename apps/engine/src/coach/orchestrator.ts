@@ -159,6 +159,7 @@ export class CoachOrchestrator {
           ownRoleBeliefs: coachState.ownRoleBeliefs,
           heroPositions: this.deps.heroPositions,
           heroCounters: this.deps.heroCounters,
+          roleCollision: coachState.roleCollision,
         })
       : null;
     // "Reveal Pos P": the shortlist's candidate universe is decided BEFORE ranking (heroes credibly played at P), like the personal view.

@@ -49,9 +49,9 @@ describe("coach/** -- boundary: only a PerspectiveDraftView goes in", () => {
     expect(offenders.map((file) => file.path)).toEqual([]);
   });
 
-  test("lo único que coach/** importa de draft-protocol/ son tipos y RoleBelief (público)", () => {
+  test("lo único que coach/** importa de draft-protocol/ son tipos y roles públicos (RoleBelief, joint-assignment)", () => {
     const specs = files.flatMap(({ content }) => importSpecifiers(content)).filter((spec) => spec.includes("draft-protocol"));
-    expect(new Set(specs)).toEqual(new Set(["../draft-protocol/types", "../draft-protocol/roles/role-belief"]));
+    expect(new Set(specs)).toEqual(new Set(["../draft-protocol/types", "../draft-protocol/roles/role-belief", "../draft-protocol/roles/joint-assignment"]));
   });
 
   test("Pro-Drafter no es un segundo recomendador: nada de team-opener/pro-drafter", () => {

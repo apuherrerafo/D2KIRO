@@ -49,11 +49,17 @@ export interface CoachOpportunity {
   };
 }
 
+export interface CoachRoleCollision {
+  infeasible: boolean;
+  conflicts: readonly { position: CoachPosition; heroIds: readonly HeroId[] }[];
+}
+
 export interface CoachOutput {
   schema: "recommendation-output/v3";
   sessionId: string;
   primaryAction: { strategy: CoachStrategy; label: string };
   shortlist: CoachHeroCard[];
+  roleCollision?: CoachRoleCollision;
   /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
   opportunity?: CoachOpportunity;
   /** `seatCovered`: the Player's own picks already fill this position, so `heroes` is empty by design (engine mirror; absent in older payloads). */
@@ -206,6 +212,13 @@ function isPersonalHeroView(value: unknown): boolean {
     && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean");
 }
 
+function isRoleCollision(value: unknown): value is CoachRoleCollision {
+  return isRecord(value)
+    && typeof value.infeasible === "boolean"
+    && Array.isArray(value.conflicts)
+    && value.conflicts.every((c) => isRecord(c) && isPosition(c.position) && Array.isArray(c.heroIds) && c.heroIds.every(isHeroId));
+}
+
 export function parseCoachOutput(value: unknown): CoachOutput | null {
   if (!isRecord(value) || value.schema !== "recommendation-output/v3" || typeof value.sessionId !== "string") return null;
   if (!isRecord(value.primaryAction) || !isStrategy(value.primaryAction.strategy) || typeof value.primaryAction.label !== "string") return null;
@@ -213,6 +226,7 @@ export function parseCoachOutput(value: unknown): CoachOutput | null {
   if (!isMeta(value.meta)) return null;
   if (value.opportunity !== undefined && !isOpportunity(value.opportunity)) return null;
   if (value.personalHeroView !== undefined && !isPersonalHeroView(value.personalHeroView)) return null;
+  if (value.roleCollision !== undefined && !isRoleCollision(value.roleCollision)) return null;
   if (value.roleBeliefs !== undefined && (!isRecord(value.roleBeliefs) || !Array.isArray(value.roleBeliefs.own) || !Array.isArray(value.roleBeliefs.enemy)
     || !value.roleBeliefs.own.every(isRoleBelief) || !value.roleBeliefs.enemy.every(isRoleBelief))) return null;
   return value as unknown as CoachOutput;

@@ -1,3 +1,4 @@
+import { computeJointRoleAssignment, type JointAssignmentHeroInput } from "../draft-protocol/roles/joint-assignment";
 import { computeRoleBelief, type Position, type RoleBelief } from "../draft-protocol/roles/role-belief";
 import type { HeroId, PerspectiveDraftView, PerspectiveHeroSlot } from "../draft-protocol/types";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -23,6 +24,11 @@ export interface PlayerPersonalContext {
   heroPool: HeroId[];
 }
 
+export interface RoleCollisionObservation {
+  infeasible: boolean;
+  conflicts: readonly { position: Position; heroIds: readonly HeroId[] }[];
+}
+
 export interface CoachObservableState {
   view: PerspectiveDraftView;
   /** Only heroes the enemy has legally REVEALED. Never a hidden slot. */
@@ -34,6 +40,7 @@ export interface CoachObservableState {
   personalContext: PlayerPersonalContext | null;
   /** Straight from `view.bannedHeroes` -- bans are visible to both sides. */
   confirmedBans: HeroId[];
+  roleCollision: RoleCollisionObservation;
 }
 
 export interface BuildCoachObservableStateInput {
@@ -82,12 +89,24 @@ export function buildCoachObservableState(view: PerspectiveDraftView, input: Bui
     if (ownVisible.has(heroId)) playerPositionAssignments.set(heroId, position);
   }
 
+  const ownRoleBeliefs = believe(ownHeroes, playerPositionAssignments, input.heroPositions);
+  const ownHeroInputs: JointAssignmentHeroInput[] = ownHeroes.map((heroId) => ({
+    heroId,
+    belief: ownRoleBeliefs.get(heroId)!,
+  }));
+  const ownSeating = computeJointRoleAssignment(ownHeroInputs);
+  const roleCollision: RoleCollisionObservation = {
+    infeasible: ownSeating.rejected === "IMPOSSIBLE_ASSIGNMENT",
+    conflicts: ownSeating.conflicts ?? [],
+  };
+
   return {
     view,
     enemyRoleBeliefs: believe(enemyHeroes, playerPositionAssignments, input.heroPositions),
-    ownRoleBeliefs: believe(ownHeroes, playerPositionAssignments, input.heroPositions),
+    ownRoleBeliefs,
     playerPositionAssignments,
     personalContext: input.personalContext ?? null,
     confirmedBans: [...view.bannedHeroes],
+    roleCollision,
   };
 }

@@ -4,7 +4,7 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
@@ -69,6 +69,36 @@ function NamedHero({ strategy, heroCatalog }: NamedHeroProps) {
   );
 }
 
+function RoleCollisionBanner({ collision, heroCatalog }: { collision: CoachRoleCollision; heroCatalog: Map<number, HeroMeta> }) {
+  const conflictDetails = collision.conflicts.map((c) => {
+    const posName = POSITION_LABELS[c.position] ?? `Pos ${c.position}`;
+    const heroes = c.heroIds.map((id) => heroName(id, heroCatalog)).join(", ");
+    return heroes ? `${posName}: ${heroes}` : posName;
+  });
+
+  return (
+    <div
+      className="flex flex-col gap-1 rounded-lg border border-signal-danger bg-surface-raised p-3"
+      data-testid="coach-role-collision-banner"
+    >
+      <span className="text-caption font-semibold text-signal-danger">
+        Colisión de roles en tu equipo
+      </span>
+      <span className="text-caption text-content-primary">
+        No existe una asignación legal completa de roles para los héroes elegidos.
+      </span>
+      {conflictDetails.length > 0 && (
+        <span className="text-caption text-content-secondary" data-testid="coach-role-collision-conflicts">
+          Conflicto detectado en: {conflictDetails.join("; ")}
+        </span>
+      )}
+      <span className="text-caption text-content-muted">
+        Las recomendaciones a continuación son consejos de recuperación para mitigar el desbalance.
+      </span>
+    </div>
+  );
+}
+
 interface PrimaryActionProps {
   coach: CoachOutput;
   heroCatalog: Map<number, HeroMeta>;
@@ -76,16 +106,28 @@ interface PrimaryActionProps {
 
 function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
   const { strategy, label } = coach.primaryAction;
+  const isCollision = coach.roleCollision?.infeasible ?? false;
   return (
     <div
-      className="flex flex-col gap-2 rounded-lg border border-accent-primary bg-surface-overlay p-3"
+      className={`flex flex-col gap-2 rounded-lg border p-3 ${
+        isCollision
+          ? "border-signal-warning bg-surface-overlay"
+          : "border-accent-primary bg-surface-overlay"
+      }`}
       data-testid="coach-primary-action"
       data-strategy-kind={strategy.kind}
+      data-role-collision={isCollision ? "true" : "false"}
       data-revision={coach.meta.revision}
       data-trigger={coach.meta.trigger}
       data-state-identity={coach.meta.basedOn.stateIdentity}
     >
-      <span className="text-caption font-semibold text-accent-primary">Qué hacer ahora</span>
+      <span
+        className={`text-caption font-semibold ${
+          isCollision ? "text-signal-warning" : "text-accent-primary"
+        }`}
+      >
+        {isCollision ? "Qué hacer ahora (recuperación de colisión)" : "Qué hacer ahora"}
+      </span>
       <span className="text-body font-semibold text-content-primary" data-testid="coach-primary-label">
         {label}
       </span>
@@ -94,7 +136,7 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
         {strategy.rationale}
       </span>
       <span className="text-caption text-content-muted">
-        {CONFIDENCE_LABELS[coach.meta.confidence]} · Es una sugerencia: podés elegir cualquier héroe legal.
+        {CONFIDENCE_LABELS[coach.meta.confidence]} · {isCollision ? "Consejo de recuperación: mitiga el conflicto de roles." : "Es una sugerencia: podés elegir cualquier héroe legal."}
       </span>
     </div>
   );
@@ -264,9 +306,13 @@ function RoleBeliefs({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProp
 
 function Shortlist({ coach, heroCatalog }: ShortlistProps) {
   if (coach.shortlist.length === 0) return null;
+  const isCollision = coach.roleCollision?.infeasible ?? false;
+  const title = isCollision
+    ? "Opciones de recuperación"
+    : SHORTLIST_TITLES[coach.primaryAction.strategy.kind];
   return (
     <div className="flex flex-col gap-2" data-testid="coach-shortlist">
-      <span className="text-caption font-semibold text-content-primary">{SHORTLIST_TITLES[coach.primaryAction.strategy.kind]}</span>
+      <span className="text-caption font-semibold text-content-primary">{title}</span>
       <ul className="grid grid-cols-1 gap-2">
         {coach.shortlist.map((card) => (
           <HeroCardView key={card.heroId} card={card} heroCatalog={heroCatalog} />
@@ -310,6 +356,9 @@ export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition, degradatio
   const degradations = coach.meta.degradations ?? externalDegradations;
   return (
     <div className="flex flex-col gap-3" data-testid="coach-panel">
+      {coach.roleCollision?.infeasible && (
+        <RoleCollisionBanner collision={coach.roleCollision} heroCatalog={heroCatalog} />
+      )}
       {!suppressDegradations && degradations && degradations.length > 0 && <CoachDegradationsNotice degradations={degradations} />}
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
       <SafeCoreOpportunity coach={coach} heroCatalog={heroCatalog} />
