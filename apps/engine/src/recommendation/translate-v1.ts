@@ -1,5 +1,6 @@
-import type { SuggestionSet } from "../signals/mix";
+import type { DegradationFlag, SuggestionSet } from "../signals/mix";
 import type { RecommendationSetV2 } from "./types";
+
 
 // R1 S5 -- V2 -> V1 compatibility translator. PROJECTS ONLY: it never rescores, never re-derives a
 // role, never chooses a hero V2 didn't already rank first. A Recommendation only survives this
@@ -45,8 +46,15 @@ export function translateRecommendationSetToLegacySuggestionSet(v2: Recommendati
   };
 }
 
-const LEGACY_DEGRADATION_FLAGS = new Set(["stale_meta", "partial_signals", "unconfirmed_state", "unknown_format", "no_signal_available"]);
+const LEGACY_DEGRADATION_FLAGS = new Set<string>([
+  "stale_meta",
+  "partial_signals",
+  "unconfirmed_state",
+  "unknown_format",
+  "no_signal_available",
+  "patch_meta_data_not_ready",
+]);
 
-function isLegacyDegradationFlag(reason: string): reason is "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available" {
+function isLegacyDegradationFlag(reason: string): reason is DegradationFlag {
   return LEGACY_DEGRADATION_FLAGS.has(reason);
 }

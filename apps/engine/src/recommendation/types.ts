@@ -3,6 +3,8 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DegradationFlag } from "../signals/mix";
 import type { SignalContribution, SignalId } from "../signals/types";
 import type { DraftDecisionContext } from "../drafter/decision-context";
+import type { MetaReadiness } from "../meta/readiness";
+
 
 // R1 S5 -- RecommendationSet/v2 canonical contract. This is the ONE recommendation truth for
 // kernel-backed (draft-protocol) sessions: PerspectiveDraftView + legalGameplayActions + S4 role
@@ -334,4 +336,5 @@ export interface RecommendationSetV2 {
   degradations: readonly RecommendationDegradation[];
   deferred: RecommendationDeferredFields;
   decisionContext: DraftDecisionContext | "no_action";
+  readiness?: MetaReadiness;
 }

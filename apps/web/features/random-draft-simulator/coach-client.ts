@@ -56,7 +56,8 @@ export interface CoachOutput {
   shortlist: CoachHeroCard[];
   /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
   opportunity?: CoachOpportunity;
-  personalHeroView?: { position: CoachPosition; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
+  /** `seatCovered`: the Player's own picks already fill this position, so `heroes` is empty by design (engine mirror; absent in older payloads). */
+  personalHeroView?: { position: CoachPosition; positionLabel: string; seatCovered?: boolean; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
   roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
   meta: {
@@ -68,6 +69,15 @@ export interface CoachOutput {
     trigger: CoachTrigger;
     revision: number;
     basedOn: { stateIdentity: string; evidenceVersion: string };
+    readiness?: {
+      rulesetTarget: string;
+      empiricalPatchClaim: { patch: string | null; verified: boolean; basis: string };
+      syncFreshness: { syncedAt: string | null; syncAgeMs: number | null; isFresh: boolean; isStale: boolean };
+      patchCompatibility: "compatible" | "mismatched" | "unknown";
+      patchMeta: { ready: boolean; nonVotingReason: string | null; detail?: string };
+      metaIsStale: boolean;
+    };
+    degradations?: readonly { reason: string; detail: string }[];
   };
 }
 
@@ -123,13 +133,55 @@ function isHeroCard(value: unknown): value is CoachHeroCard {
     && typeof value.rationale === "string" && typeof value.score === "number" && typeof value.isFromPool === "boolean";
 }
 
+function isEmpiricalPatchClaim(value: unknown): boolean {
+  return isRecord(value)
+    && (value.patch === null || typeof value.patch === "string")
+    && typeof value.verified === "boolean"
+    && typeof value.basis === "string";
+}
+
+function isSyncFreshness(value: unknown): boolean {
+  return isRecord(value)
+    && (value.syncedAt === null || typeof value.syncedAt === "string")
+    && (value.syncAgeMs === null || (typeof value.syncAgeMs === "number" && Number.isFinite(value.syncAgeMs)))
+    && typeof value.isFresh === "boolean"
+    && typeof value.isStale === "boolean";
+}
+
+function isPatchMetaReadiness(value: unknown): boolean {
+  return isRecord(value)
+    && typeof value.ready === "boolean"
+    && (value.nonVotingReason === null || typeof value.nonVotingReason === "string")
+    && (value.detail === undefined || typeof value.detail === "string");
+}
+
+function isCoachReadiness(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const compatibilityOk = value.patchCompatibility === "compatible" || value.patchCompatibility === "mismatched" || value.patchCompatibility === "unknown";
+  return typeof value.rulesetTarget === "string"
+    && isEmpiricalPatchClaim(value.empiricalPatchClaim)
+    && isSyncFreshness(value.syncFreshness)
+    && compatibilityOk
+    && isPatchMetaReadiness(value.patchMeta)
+    && typeof value.metaIsStale === "boolean";
+}
+
+function isCoachDegradation(value: unknown): boolean {
+  return isRecord(value) && typeof value.reason === "string" && typeof value.detail === "string";
+}
+
 function isMeta(value: unknown): value is CoachOutput["meta"] {
   if (!isRecord(value) || !isRecord(value.basedOn)) return false;
   const roundOk = value.round === null || value.round === 1 || value.round === 2 || value.round === 3;
-  return roundOk && (value.phase === null || typeof value.phase === "string") && typeof value.ownPicksRemaining === "number"
-    && isConfidence(value.confidence) && typeof value.decisionContext === "string" && CONTEXTS.includes(value.decisionContext)
-    && typeof value.trigger === "string" && TRIGGERS.includes(value.trigger) && typeof value.revision === "number"
-    && typeof value.basedOn.stateIdentity === "string" && typeof value.basedOn.evidenceVersion === "string";
+  if (!roundOk || (value.phase !== null && typeof value.phase !== "string") || typeof value.ownPicksRemaining !== "number"
+    || !isConfidence(value.confidence) || typeof value.decisionContext !== "string" || !CONTEXTS.includes(value.decisionContext)
+    || typeof value.trigger !== "string" || !TRIGGERS.includes(value.trigger) || typeof value.revision !== "number"
+    || typeof value.basedOn.stateIdentity !== "string" || typeof value.basedOn.evidenceVersion !== "string") {
+    return false;
+  }
+  if (value.readiness !== undefined && !isCoachReadiness(value.readiness)) return false;
+  if (value.degradations !== undefined && (!Array.isArray(value.degradations) || !value.degradations.every(isCoachDegradation))) return false;
+  return true;
 }
 
 function isRoleBelief(value: unknown): value is CoachRoleBelief {
@@ -150,7 +202,7 @@ function isOpportunity(value: unknown): boolean {
 }
 
 function isPersonalHeroView(value: unknown): boolean {
-  return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && Array.isArray(value.heroes)
+  return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && (value.seatCovered === undefined || typeof value.seatCovered === "boolean") && Array.isArray(value.heroes)
     && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean");
 }
 

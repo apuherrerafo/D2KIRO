@@ -39,7 +39,7 @@ function isSignalId(value: unknown): boolean {
 }
 
 function isDegradationFlag(value: unknown): boolean {
-  return value === "stale_meta" || value === "partial_signals" || value === "unconfirmed_state" || value === "unknown_format" || value === "no_signal_available";
+  return typeof value === "string" && value.length > 0;
 }
 
 function isDecisionContext(value: unknown): boolean {

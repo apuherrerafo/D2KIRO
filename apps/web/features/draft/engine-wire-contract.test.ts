@@ -62,6 +62,9 @@ test("gate: degenerate engine payload crosses the web wire contract", () => {
   }, { heroPositions: {}, heroCapabilities: [] });
   const payload: unknown = JSON.parse(JSON.stringify(buildServerMessage("suggestions", degenerateState.lastSeq, engineDegenerate)));
 
-  expect(engineDegenerate).toMatchObject({ suggestions: [], degraded: ["no_signal_available"], decisionContext: "no_signal_available" });
+  expect(engineDegenerate.suggestions).toEqual([]);
+  expect(engineDegenerate.degraded).toContain("no_signal_available");
+  expect(engineDegenerate.degraded).toContain("patch_meta_data_not_ready");
+  expect(engineDegenerate.decisionContext).toBe("no_signal_available");
   expect(isValidServerMessage(payload)).toBe(true);
 });

@@ -5,6 +5,7 @@ import type { HeroCapabilities } from "../draft-paths/types";
 import { buildAvailableSignalsReport, buildComparison, buildSuggestions, dataReady, mixScore, nonVotingReason, structurallyApplicableSignals, votingSignals, type AvailableSignalsReport, type Suggestion } from "./mix";
 import { parseCalibration, type Calibration } from "./calibration";
 import type { MetaHeroInfo, MetaSnapshot, SignalContribution } from "./types";
+import type { MetaReadiness } from "../meta/readiness";
 
 // TSK-210 (Fase 9.1, costura S18): ninguna prueba lee data/generated/percentiles.json real.
 // EMPTY_CAL fuerza el fallback a RAW_RANGE dentro de calibratedNormalize; los fixtures con
@@ -1778,5 +1779,78 @@ describe("Task 16 -- AvailableSignalsReport por decisión", () => {
     expect(liveReport.voting).toEqual(["position_fit"]);
     expect(liveReport.decisionContext).not.toBe("no_signal_available");
     expect(buildSuggestions(live, snapshot, opts).suggestions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("PB-R3 -- Confidence consistency between legacy and new readiness callers", () => {
+  const snapshot = meta({
+    1: { id: 1, localizedName: "Hero 1" },
+    2: { id: 2, localizedName: "Hero 2" },
+    3: { id: 3, localizedName: "Hero 3" },
+  });
+  const heroPositions: HeroPositions = {
+    1: [{ position: 1, matches: 500 }],
+    2: [{ position: 2, matches: 500 }],
+    3: [{ position: 3, matches: 500 }],
+  };
+  const baseOpts = { heroCounters: new Map(), heroPositions, calibration: EMPTY_CAL };
+  const state = draftState({ localSide: "radiant", picks: { radiant: [], dire: [] } });
+
+  const staleReadiness: MetaReadiness = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41e", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2020-01-01T00:00:00Z", syncAgeMs: 99999999, isFresh: false, isStale: true },
+    patchCompatibility: "compatible",
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: true,
+  };
+
+  const freshReadiness: MetaReadiness = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41f", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2026-09-21T00:00:00Z", syncAgeMs: 1000, isFresh: true, isStale: false },
+    patchCompatibility: "compatible",
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: false,
+  };
+
+  test("new-interface-only caller receives confidence: 'media' and 'stale_meta' when readiness is stale", () => {
+    const legacyStale = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: true });
+    const newStale = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: staleReadiness });
+
+    expect(legacyStale.degraded).toContain("stale_meta");
+    expect(newStale.degraded).toContain("stale_meta");
+    expect(newStale.suggestions.length).toBeGreaterThan(0);
+    for (const s of newStale.suggestions) {
+      expect(s.confidence).toBe("media");
+    }
+    // New-interface-only caller receives exact same confidence as legacy caller
+    expect(newStale.suggestions.map((s) => s.confidence)).toEqual(legacyStale.suggestions.map((s) => s.confidence));
+  });
+
+  test("fresh caller (legacy or new interface) retains alta confidence and no stale_meta", () => {
+    const legacyFresh = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: false });
+    const newFresh = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: freshReadiness });
+
+    expect(legacyFresh.degraded).not.toContain("stale_meta");
+    expect(newFresh.degraded).not.toContain("stale_meta");
+    for (const s of newFresh.suggestions) {
+      expect(s.confidence).toBe("alta");
+    }
+    expect(newFresh.suggestions.map((s) => s.confidence)).toEqual(legacyFresh.suggestions.map((s) => s.confidence));
+  });
+
+  test("readiness metadata alone cannot alter ranking order or scores", () => {
+    const baseline = buildSuggestions(state, snapshot, baseOpts);
+    const legacyStale = buildSuggestions(state, snapshot, { ...baseOpts, metaIsStale: true });
+    const newStale = buildSuggestions(state, snapshot, { ...baseOpts, metaReadiness: staleReadiness });
+
+    // Ranking order of heroes must be identical
+    expect(legacyStale.suggestions.map((s) => s.hero)).toEqual(baseline.suggestions.map((s) => s.hero));
+    expect(newStale.suggestions.map((s) => s.hero)).toEqual(baseline.suggestions.map((s) => s.hero));
+
+    // Scores must be identical
+    expect(legacyStale.suggestions.map((s) => s.score)).toEqual(baseline.suggestions.map((s) => s.score));
+    expect(newStale.suggestions.map((s) => s.score)).toEqual(baseline.suggestions.map((s) => s.score));
   });
 });

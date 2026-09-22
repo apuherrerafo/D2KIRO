@@ -3,7 +3,8 @@ import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position, RoleBelief } from "../draft-protocol/roles/role-belief";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
-import { extractHeroCandidates } from "./hero-card";
+import type { CuratedCounter } from "../signals/hero-counters";
+import { candidateServesPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 
 // AP Ranked Roles V1 / Wave 2 (task 16) -- Level 1 of the Coach: "given everything legally known
 // right now, what is the best REVEAL decision?" -- which is NOT "which hero has the highest V6
@@ -26,6 +27,11 @@ import { extractHeroCandidates } from "./hero-card";
 // SUPPORT-FIRST IS A PRIOR, NOT A SCRIPT: with no stronger role evidence at an opening decision, the
 // prior nudges toward a support seat our picks do not cover yet. It is one branch, never keyed to the
 // round number, and the same code can answer any of Pos1..Pos5 or Flex.
+//
+// A POSITION CLAIM MUST BE EXECUTABLE (Dota-Judge RB-2): the strategy never names a position that no hero of
+// the ranking it was derived from can serve (`candidateServesPosition`). The prior is a preference among
+// positions the ranking CAN serve, not an override of the ranking -- if the prior's support seat has no
+// serving candidate, the prior yields to the next honest branch. No numeric threshold: it is set membership.
 //
 // The Player's personal position and Hero Pool are ACCEPTED (design signature) but do not influence
 // this decision: personal position never constrains pick timing (PD-001/PD-020), and pool scoping is
@@ -63,11 +69,15 @@ export interface DeriveRevealStrategyOptions {
   ownRoleBeliefs?: ReadonlyMap<HeroId, RoleBelief>;
   /** Curated position evidence: defines Flex the way the repo already does (a hero registered in 2+ positions). */
   heroPositions?: HeroPositions;
+  /** Curated counters (RB-4): the ranking's leader is judged AFTER the categorical revealed-hard-counter demotion. */
+  heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
 }
 
 function isOpeningContext(context: DraftDecisionContext): boolean {
   return context === "team_opening" || context === "blind_second_pick";
 }
+
+type PositionServes = (position: Position) => boolean;
 
 /** Positions our own picks already cover with a real belief (a neutral/unresolved belief covers nothing). */
 function occupiedPositions(beliefs: ReadonlyMap<HeroId, RoleBelief> | undefined): Set<Position> {
@@ -82,8 +92,8 @@ function occupiedPositions(beliefs: ReadonlyMap<HeroId, RoleBelief> | undefined)
 }
 
 /** The opening prior: with weak evidence, reveal a support seat our picks do not cover yet. Null when none is free. */
-function supportPrior(occupied: ReadonlySet<Position>, reason: string): RevealStrategy | null {
-  const support = SUPPORT_PRIOR_POSITIONS.find((position) => !occupied.has(position));
+function supportPrior(occupied: ReadonlySet<Position>, reason: string, serves: PositionServes): RevealStrategy | null {
+  const support = SUPPORT_PRIOR_POSITIONS.find((position) => !occupied.has(position) && serves(position));
   if (support === undefined) return null;
   return {
     kind: "REVEAL_POSITION",
@@ -93,10 +103,14 @@ function supportPrior(occupied: ReadonlySet<Position>, reason: string): RevealSt
 }
 
 /** No usable position evidence in the ranking: an honest, labelled fallback -- never a hero. */
-function positionFallback(context: DraftDecisionContext, occupied: ReadonlySet<Position>, reason: string): RevealStrategy {
-  const prior = isOpeningContext(context) ? supportPrior(occupied, reason) : null;
+function positionFallback(context: DraftDecisionContext, occupied: ReadonlySet<Position>, reason: string, serves: PositionServes): RevealStrategy {
+  const prior = isOpeningContext(context) ? supportPrior(occupied, reason, serves) : null;
   if (prior) return prior;
-  const free = ALL_POSITIONS.find((position) => !occupied.has(position)) ?? 5;
+  // An uncovered seat the ranking can serve first; then any seat it can serve; only with no ranking at all, the plain uncovered seat.
+  const free = ALL_POSITIONS.find((position) => !occupied.has(position) && serves(position))
+    ?? ALL_POSITIONS.find((position) => serves(position))
+    ?? ALL_POSITIONS.find((position) => !occupied.has(position))
+    ?? 5;
   return {
     kind: "REVEAL_POSITION",
     position: free,
@@ -105,7 +119,7 @@ function positionFallback(context: DraftDecisionContext, occupied: ReadonlySet<P
 }
 
 export function deriveRevealStrategy(
-  _view: PerspectiveDraftView,
+  view: PerspectiveDraftView,
   recommendations: RecommendationSetV2,
   _playerPersonalPosition: Position | null,
   _heroPool: readonly HeroId[],
@@ -113,9 +127,11 @@ export function deriveRevealStrategy(
   options: DeriveRevealStrategyOptions = {},
 ): RevealStrategy {
   const occupied = occupiedPositions(options.ownRoleBeliefs);
-  const top = extractHeroCandidates(recommendations, options.heroPositions)[0];
+  const candidates: HeroCandidate[] = demoteRevealedHardCountered(extractHeroCandidates(recommendations, options.heroPositions), revealedEnemyHeroes(view), options.heroCounters);
+  const top = candidates[0];
+  const serves: PositionServes = (position) => candidates.some((candidate) => candidateServesPosition(candidate, position, options.heroPositions));
 
-  if (!top) return positionFallback(decisionContext, occupied, "No hay ranking de héroes disponible para este estado.");
+  if (!top) return positionFallback(decisionContext, occupied, "No hay ranking de héroes disponible para este estado.", serves);
 
   const resolved = top.roleStatus !== "UNRESOLVED";
 
@@ -137,11 +153,11 @@ export function deriveRevealStrategy(
 
   // 3. The leader is a core (or has no position evidence): at an opening decision, the support prior.
   if (isOpeningContext(decisionContext)) {
-    const prior = supportPrior(occupied, "El ranking no obliga a abrir con un core.");
+    const prior = supportPrior(occupied, "El ranking no obliga a abrir con un core.", serves);
     if (prior) return prior;
   }
 
   // 4. Otherwise the honest role the evidence points at (or the uncovered seat when it points nowhere).
-  if (!resolved) return positionFallback(decisionContext, occupied, "El ranking no aporta evidencia de posición.");
+  if (!resolved) return positionFallback(decisionContext, occupied, "El ranking no aporta evidencia de posición.", serves);
   return { kind: "REVEAL_POSITION", position: top.position, rationale: `La composición y el ranking apuntan a ${positionPhrase(top.position)}.` };
 }

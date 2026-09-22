@@ -12,7 +12,7 @@ import { deriveDecisionContext } from "../drafter/decision-context";
 import { currentCaptainsModeTurn } from "../draft/turn-clock";
 import { getHealthStatus } from "../health";
 import type { OpenDotaClient } from "../meta/opendota-client";
-import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness } from "../meta/provider";
+import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness, getMetaReadiness } from "../meta/provider";
 import { requireAccount } from "./require-account";
 import { createAccountRoutes } from "./routes/account";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -196,8 +196,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     } catch {
       throw new SnapshotUnavailableError();
     }
-    const freshness = await getMetaFreshness(deps.db);
-    return buildSuggestions(state, meta, { metaIsStale: freshness.isStale, heroPositions: deps.heroPositions, ...options });
+    const readiness = await getMetaReadiness(deps.db, { state, meta });
+    return buildSuggestions(state, meta, {
+      metaIsStale: readiness.syncFreshness.isStale,
+      metaReadiness: readiness,
+      heroPositions: deps.heroPositions,
+      ...options,
+    });
   }
 
   // TSK-181 (Fase 4.3): SessionStore guarda la intención como `DraftPathArchetype | null` (null =

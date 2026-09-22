@@ -202,6 +202,19 @@ describe("Enemy Bot -- determinismo y variacion", () => {
     expect(others.some((sequence) => JSON.stringify(sequence) !== baseline)).toBe(true);
     for (const sequence of others) for (const heroId of sequence) expect(heroId).toBeGreaterThanOrEqual(10);
   });
+
+  // Wave 5 Task 34: EACH of three different seeds must differ from the baseline in at least one of the five slots
+  // (the test above only requires that SOME seed does), and every seed must replay byte-identically.
+  test("tres seeds distintas: cada una difiere del baseline en >= 1 asiento, y cada una se repite idéntica", async () => {
+    const baseline = await run("D2K00001");
+    for (const seed of ["D2K00002", "D2K00003", "ABCDEFGH"]) {
+      const sequence = await run(seed);
+      expect(sequence.some((heroId, seat) => heroId !== baseline[seat])).toBe(true);
+      expect(JSON.stringify(await run(seed))).toBe(JSON.stringify(sequence));
+      expect(sequence).toHaveLength(5);
+      expect(sequence.every((heroId) => heroId !== undefined)).toBe(true);
+    }
+  });
 });
 
 describe("Enemy Bot -- informacion oculta simetrica", () => {

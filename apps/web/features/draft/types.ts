@@ -104,7 +104,15 @@ export interface SuggestionComparison {
   delta: number;
 }
 
-export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available";
+export type KnownDegradationFlag =
+  | "stale_meta"
+  | "partial_signals"
+  | "unconfirmed_state"
+  | "unknown_format"
+  | "no_signal_available"
+  | "patch_meta_data_not_ready";
+
+export type DegradationFlag = KnownDegradationFlag | (string & {});
 
 export interface SuggestionSet {
   schema: "suggestions/v1";

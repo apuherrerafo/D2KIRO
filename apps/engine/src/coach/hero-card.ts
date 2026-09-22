@@ -1,7 +1,8 @@
-import type { HeroId } from "../draft-protocol/types";
+import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { Recommendation, RecommendationRoleImpact, RoleImpactStatus, RecommendationSetV2 } from "../recommendation/types";
-import type { HeroPositions } from "../signals/hero-positions";
+import type { CuratedCounter } from "../signals/hero-counters";
+import { isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
 import type { SignalContribution, SignalId } from "../signals/types";
 
 // AP Ranked Roles V1 / Wave 2 (task 17) -- HeroCard / HeroBadge and the per-hero projection of a
@@ -25,9 +26,9 @@ import type { SignalContribution, SignalId } from "../signals/types";
 export type Confidence = "alta" | "media" | "baja";
 
 export type HeroBadge =
-  | "COUNTER" // counter contributed with real matchup data (raw > 0)
+  | "COUNTER" // a counter relationship against a REVEALED enemy hero (see `hasRevealedEnemyCounterEvidence`)
   | "SYNERGY" // team_synergy contributed with real data (raw > 0)
-  | "POSITION_FIT" // position_fit contributed with real data
+  | "POSITION_FIT" // kept in the contract, but never derived: it was on ~every card (Dota-Judge RB-3)
   | "META" // patch_meta contributed with real data, and the meta snapshot is not stale
   | "FLEX" // the curated catalog registers the hero in 2+ positions
   | "YOUR_POOL" // Wave 3: only when a Hero Pool is supplied
@@ -50,15 +51,37 @@ export interface HeroCard {
 
 const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
 
+// Dota-Judge RB-3: `position_fit` is deliberately absent. It voted on essentially every card, so as a badge it
+// discriminated nothing; it stays an internal ranking signal and the card's own position/roleStatus remain shown.
 const SIGNAL_BADGES: Partial<Record<SignalId, HeroBadge>> = {
   counter: "COUNTER",
   team_synergy: "SYNERGY",
-  position_fit: "POSITION_FIT",
   patch_meta: "META",
 };
 
 /** Signals whose citation needs a positive `raw` (V6's existing counterContributed / synergyContributed). */
 const NEEDS_POSITIVE_RAW: ReadonlySet<SignalId> = new Set<SignalId>(["counter", "team_synergy"]);
+
+/** What a COUNTER badge is allowed to be about: only enemy heroes the Player can SEE, plus the curated relationships. */
+export interface CounterEvidenceContext {
+  revealedEnemies: readonly HeroId[];
+  heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+}
+
+/**
+ * COUNTER means "this hero counters something on the enemy team you can see". V6's `counter` raw also carries
+ * ban relief (curated counters of the CANDIDATE being banned), which needs no revealed enemy at all -- that is
+ * a different fact and never earns this badge. The evidence must be one of:
+ *   - a curated relationship: the candidate is listed as a counter (`vs`) of a revealed enemy hero; or
+ *   - statistical matchup evidence against revealed enemies: V6's counter `sampleSize` counts ONLY games versus
+ *     revealed enemies (curated and ban-relief terms report 0), so `sampleSize > 0` means such rows existed.
+ */
+function hasRevealedEnemyCounterEvidence(heroId: HeroId, signal: SignalContribution, context: CounterEvidenceContext | undefined): boolean {
+  if (!context || context.revealedEnemies.length === 0) return false;
+  const curated = context.heroCounters;
+  if (curated && context.revealedEnemies.some((enemy) => (curated.get(enemy) ?? []).some((entry) => entry.vs === heroId))) return true;
+  return signal.sampleSize > 0;
+}
 
 /**
  * The repo's definition of Flex: the curated catalog registers the hero in two or more positions
@@ -93,6 +116,7 @@ export function deriveHeroBadges(
   heroPool: readonly HeroId[],
   heroId: HeroId = recommendation.actions[0]!.hero,
   flexPositions: readonly Position[] = [],
+  counterContext?: CounterEvidenceContext,
 ): HeroBadge[] {
   const badges: HeroBadge[] = [];
   const metaStale = recommendation.risks.some((risk) => risk.kind === "degraded_meta");
@@ -101,6 +125,7 @@ export function deriveHeroBadges(
     const badge = SIGNAL_BADGES[signal.signal];
     if (!badge || !votedWithData(signal)) continue;
     if (NEEDS_POSITIVE_RAW.has(signal.signal) && (signal.raw ?? 0) <= 0) continue;
+    if (badge === "COUNTER" && !hasRevealedEnemyCounterEvidence(heroId, signal, counterContext)) continue;
     if (badge === "META" && metaStale) continue;
     badges.push(badge);
   }
@@ -170,13 +195,61 @@ function rationaleOf(candidate: HeroCandidate): string {
   return backed[0]?.explanation ?? "Sin señal con datos propios suficientes.";
 }
 
-export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[]): HeroCard {
+/**
+ * Can this candidate EXECUTE "reveal position P"? Judged by what the card itself will say:
+ *   - a candidate whose role V6 resolved serves exactly that position (never a second, hidden one);
+ *   - an unresolved candidate serves P when the curated evidence makes P credible for it
+ *     (`isCredibleForPosition` -- the approved admission policy, no threshold of this module's own).
+ * Structural, so a REVEAL_POSITION action and its shortlist cannot contradict each other (Dota-Judge RB-2).
+ */
+export function candidateServesPosition(candidate: HeroCandidate, position: Position, heroPositions: HeroPositions | undefined): boolean {
+  if (candidate.roleStatus !== "UNRESOLVED") return candidate.position === position;
+  return heroPositions !== undefined && isCredibleForPosition(candidate.heroId, position, heroPositions);
+}
+
+/**
+ * The heroes the curated evidence credibly places at `position` (`isCredibleForPosition`), sorted by id. Built from the
+ * position alone -- never from any ranking -- so it can be handed to V6 as a PRE-ranking candidate universe: the Player's
+ * personal ranking (RB-1) and the shortlist of a "reveal Pos P" action (RB-2) both start from it.
+ */
+export function credibleHeroesForPosition(position: Position, heroPositions: HeroPositions): HeroId[] {
+  return Object.keys(heroPositions)
+    .map(Number)
+    .filter((heroId) => isCredibleForPosition(heroId, position, heroPositions))
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Dota-Judge RB-4: a deterministic CATEGORICAL demotion -- not a weight, not a statistical model, not an exclusion.
+ * Candidates with no revealed enemy hero among their CURATED HARD counters keep their V6 order and go first; those
+ * with at least one follow, again in V6 order. If every candidate is hard-countered nothing is dropped and the
+ * order is exactly V6's. Medium counters are evidence only and never demote. Reads only heroes the Player can see.
+ */
+export function demoteRevealedHardCountered<T extends { heroId: HeroId }>(
+  candidates: readonly T[],
+  revealedEnemies: readonly HeroId[],
+  heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined,
+): T[] {
+  if (!heroCounters || revealedEnemies.length === 0) return [...candidates];
+  const revealed = new Set(revealedEnemies);
+  const isHardCountered = (candidate: T): boolean => (heroCounters.get(candidate.heroId) ?? []).some((entry) => entry.level === "hard" && revealed.has(entry.vs));
+  return [...candidates.filter((candidate) => !isHardCountered(candidate)), ...candidates.filter(isHardCountered)];
+}
+
+/** Enemy heroes legally visible to the Player (REVEALED only -- a sealed enemy seat has no hero in the view). */
+export function revealedEnemyHeroes(view: PerspectiveDraftView): HeroId[] {
+  const heroes: HeroId[] = [];
+  for (const slot of view.enemyPicks) if (slot.visibility === "REVEALED") heroes.push(slot.heroId);
+  return heroes;
+}
+
+export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[], counterContext?: CounterEvidenceContext): HeroCard {
   return {
     heroId: candidate.heroId,
     position: candidate.position,
     roleStatus: candidate.roleStatus,
     confidence: candidate.confidence,
-    badges: deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions),
+    badges: deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions, counterContext),
     rationale: rationaleOf(candidate),
     score: candidate.score,
     isFromPool: heroPool.includes(candidate.heroId),

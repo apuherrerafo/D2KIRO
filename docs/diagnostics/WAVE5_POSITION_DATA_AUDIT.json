@@ -1,0 +1,330 @@
+{
+  "schema": "wave5-position-data-audit/v1",
+  "inputs": {
+    "positionsFile": {
+      "path": "apps/engine/src/signals/hero-positions.json",
+      "sha256": "bc93884e1c733e05668c3627196c0901d9dca7ad0b15a337278bb35277047244",
+      "format": "v1-floor-truncated"
+    },
+    "snapshotUsedForNamesOnly": "eval/snapshots/W5-EMP-001.sqlite",
+    "packet": {
+      "file": "WAVE5_DOTA_JUDGE_POST_FIX.json",
+      "gitHead": "6c9e5fffe8531a3f6d034af285fef911be2d09a4"
+    }
+  },
+  "method": "For each hero: S = sum of the listed (>= floor) positions, k = 5 - listed positions, each unlisted count is in [0, floor-1]. True share of a listed position is in [m/(S+k*(floor-1)), m/S]; m/S is what the legacy code used. Dominance can never be overturned; share admissions can only be overturned, never added.",
+  "universeByPosition": [
+    {
+      "position": 1,
+      "legacy": 38,
+      "guaranteed": 35,
+      "unproven": 3
+    },
+    {
+      "position": 2,
+      "legacy": 23,
+      "guaranteed": 22,
+      "unproven": 1
+    },
+    {
+      "position": 3,
+      "legacy": 34,
+      "guaranteed": 32,
+      "unproven": 2
+    },
+    {
+      "position": 4,
+      "legacy": 29,
+      "guaranteed": 24,
+      "unproven": 5
+    },
+    {
+      "position": 5,
+      "legacy": 35,
+      "guaranteed": 33,
+      "unproven": 2
+    }
+  ],
+  "unprovenAdmissions": [
+    {
+      "hero": "Razor",
+      "heroId": 15,
+      "position": 1,
+      "matches": 312,
+      "listedTotal": 1026,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.1922365988909427,
+        0.30409356725146197
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Riki",
+      "heroId": 32,
+      "position": 1,
+      "matches": 231,
+      "listedTotal": 495,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.21153846153846154,
+        0.4666666666666667
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Chaos Knight",
+      "heroId": 81,
+      "position": 1,
+      "matches": 265,
+      "listedTotal": 654,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.21183053557154277,
+        0.40519877675840976
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Necrophos",
+      "heroId": 36,
+      "position": 2,
+      "matches": 1576,
+      "listedTotal": 5935,
+      "unlistedPositions": 2,
+      "shareRange": [
+        0.24885520290541607,
+        0.26554338668913224
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Earthshaker",
+      "heroId": 7,
+      "position": 3,
+      "matches": 1026,
+      "listedTotal": 3995,
+      "unlistedPositions": 2,
+      "shareRange": [
+        0.2335533803778739,
+        0.2568210262828536
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Marci",
+      "heroId": 136,
+      "position": 3,
+      "matches": 456,
+      "listedTotal": 1672,
+      "unlistedPositions": 1,
+      "shareRange": [
+        0.24371993586317478,
+        0.2727272727272727
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Venomancer",
+      "heroId": 40,
+      "position": 4,
+      "matches": 316,
+      "listedTotal": 816,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.22363765038924274,
+        0.3872549019607843
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Pugna",
+      "heroId": 45,
+      "position": 4,
+      "matches": 330,
+      "listedTotal": 759,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.24336283185840707,
+        0.43478260869565216
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Enchantress",
+      "heroId": 58,
+      "position": 4,
+      "matches": 456,
+      "listedTotal": 1504,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.21703950499762018,
+        0.30319148936170215
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Gyrocopter",
+      "heroId": 72,
+      "position": 4,
+      "matches": 268,
+      "listedTotal": 695,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.20743034055727555,
+        0.3856115107913669
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Silencer",
+      "heroId": 75,
+      "position": 4,
+      "matches": 550,
+      "listedTotal": 1980,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.21342646488164532,
+        0.2777777777777778
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Dark Willow",
+      "heroId": 119,
+      "position": 5,
+      "matches": 1100,
+      "listedTotal": 4211,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.22878535773710482,
+        0.2612206126810734
+      ],
+      "namedByReview": true
+    },
+    {
+      "hero": "Hoodwink",
+      "heroId": 123,
+      "position": 5,
+      "matches": 1761,
+      "listedTotal": 6604,
+      "unlistedPositions": 3,
+      "shareRange": [
+        0.24454936814331343,
+        0.266656571774682
+      ],
+      "namedByReview": true
+    }
+  ],
+  "reviewNamedHeroesCoveredByUnproven": [
+    "Chaos Knight",
+    "Riki",
+    "Marci",
+    "Silencer",
+    "Earthshaker",
+    "Razor",
+    "Necrophos",
+    "Venomancer",
+    "Pugna",
+    "Enchantress",
+    "Gyrocopter",
+    "Dark Willow",
+    "Hoodwink"
+  ],
+  "reviewNamedHeroesNotCovered": [],
+  "heroesWithoutPositionEvidence": [
+    {
+      "id": 66,
+      "name": "Chen",
+      "status": "UNAVAILABLE -- no position at/above the floor was retained; position_fit raw:null; no position invented"
+    }
+  ],
+  "packetExposure": {
+    "entriesGraded": 202,
+    "total": {
+      "dominant": 187,
+      "proven-by-share": 8,
+      "unproven-by-share": 7,
+      "not-admitted": 0
+    },
+    "bySurface": {
+      "personal ranking": {
+        "dominant": 86,
+        "proven-by-share": 7,
+        "unproven-by-share": 7,
+        "not-admitted": 0
+      },
+      "team shortlist": {
+        "dominant": 101,
+        "proven-by-share": 1,
+        "unproven-by-share": 0,
+        "not-admitted": 0
+      }
+    },
+    "unprovenOrWorse": [
+      {
+        "scenario": "S01",
+        "point": "S01/decision",
+        "surface": "personal ranking",
+        "hero": "Chaos Knight",
+        "position": 1,
+        "grade": "unproven-by-share",
+        "shareRange": "21.2%–40.5%"
+      },
+      {
+        "scenario": "S01",
+        "point": "S01/next",
+        "surface": "personal ranking",
+        "hero": "Chaos Knight",
+        "position": 1,
+        "grade": "unproven-by-share",
+        "shareRange": "21.2%–40.5%"
+      },
+      {
+        "scenario": "S01",
+        "point": "S01/next",
+        "surface": "personal ranking",
+        "hero": "Riki",
+        "position": 1,
+        "grade": "unproven-by-share",
+        "shareRange": "21.2%–46.7%"
+      },
+      {
+        "scenario": "S06",
+        "point": "S06/decision",
+        "surface": "personal ranking",
+        "hero": "Chaos Knight",
+        "position": 1,
+        "grade": "unproven-by-share",
+        "shareRange": "21.2%–40.5%"
+      },
+      {
+        "scenario": "S06",
+        "point": "S06/next",
+        "surface": "personal ranking",
+        "hero": "Chaos Knight",
+        "position": 1,
+        "grade": "unproven-by-share",
+        "shareRange": "21.2%–40.5%"
+      },
+      {
+        "scenario": "S12",
+        "point": "S12/decision",
+        "surface": "personal ranking",
+        "hero": "Marci",
+        "position": 3,
+        "grade": "unproven-by-share",
+        "shareRange": "24.4%–27.3%"
+      },
+      {
+        "scenario": "S13",
+        "point": "S13/decision",
+        "surface": "personal ranking",
+        "hero": "Silencer",
+        "position": 4,
+        "grade": "unproven-by-share",
+        "shareRange": "21.3%–27.8%"
+      }
+    ]
+  }
+}

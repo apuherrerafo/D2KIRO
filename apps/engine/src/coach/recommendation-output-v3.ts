@@ -1,11 +1,12 @@
 import type { DraftDecisionContext } from "../drafter/decision-context";
 import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import type { RecommendationBasedOn, RecommendationSetV2 } from "../recommendation/types";
+import type { RecommendationBasedOn, RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
+import type { MetaReadiness } from "../meta/readiness";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CoachObservableState } from "./observable-state";
-import { buildHeroCard, extractHeroCandidates, type Confidence, type HeroCandidate, type HeroCard } from "./hero-card";
+import { buildHeroCard, candidateServesPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type Confidence, type HeroCandidate, type HeroCard } from "./hero-card";
 import { positionPhrase, type RevealStrategy } from "./reveal-strategy";
 import { detectSafeCoreWindow, type CounterReliefEvidence } from "./safe-core";
 import type { RoleBelief, RoleBeliefStatus } from "../draft-protocol/roles/role-belief";
@@ -49,6 +50,11 @@ export interface CoachOutputConfig {
   heroPool?: readonly HeroId[];
   /** Wave 4A: curated counter relationships (hero-counters.json, validated at load). Omitted -> no opportunity. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /**
+   * V6 set built over a candidate universe restricted BEFORE ranking to the heroes credible for the REVEAL_POSITION target
+   * (orchestrator-supplied). Its heroes lead the shortlist of that action; the team set's serving heroes follow. Never used by other kinds.
+   */
+  actionRecommendationSet?: RecommendationSetV2;
 }
 
 /** The Safe Core opportunity block. `counterEvidence.sourceType` is always "CURATED" (the only approved counter evidence in V1). */
@@ -72,7 +78,13 @@ export interface RecommendationOutputV3 {
   /** Wave 4A. Absent (never null) unless real evidence exists. Informational: does not touch shortlist or primaryAction. */
   opportunity?: CoachOpportunity;
   /** Wave 3. Absent unless a personal position is declared AND implemented. */
-  personalHeroView?: { position: Position; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
+  personalHeroView?: {
+    position: Position;
+    positionLabel: string;
+    /** True when the own picks already fill this position in every feasible assignment: `heroes` is then empty by design. */
+    seatCovered: boolean;
+    heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[];
+  };
   /** Wave 3. Absent unless a hero pool is configured. */
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
   /** Observable role uncertainty only. The UI never receives Enemy Bot private assignments. */
@@ -90,6 +102,8 @@ export interface RecommendationOutputV3 {
     revision: number;
     /** Same object as the source RecommendationSetV2.basedOn: stale detection = compare stateIdentity + evidenceVersion. */
     basedOn: RecommendationBasedOn;
+    readiness?: MetaReadiness;
+    degradations?: readonly RecommendationDegradation[];
   };
 }
 
@@ -147,7 +161,17 @@ function fitsStrategy(candidate: HeroCandidate, strategy: RevealStrategy): boole
   return strategy.heroId !== undefined && candidate.heroId === strategy.heroId;
 }
 
-function orderForStrategy(candidates: readonly HeroCandidate[], strategy: RevealStrategy): HeroCandidate[] {
+function orderForStrategy(candidates: readonly HeroCandidate[], strategy: RevealStrategy, heroPositions: HeroPositions | undefined, actionCandidates: readonly HeroCandidate[] = []): HeroCandidate[] {
+  if (strategy.kind === "REVEAL_POSITION") {
+    const seen = new Set<HeroId>();
+    const pool = [...actionCandidates, ...candidates].filter((candidate) => (seen.has(candidate.heroId) ? false : (seen.add(candidate.heroId), true)));
+    candidates = pool;
+    // Dota-Judge RB-2: the options shown for "reveal Pos P" are the heroes that can execute it. The strategy is
+    // derived so at least one exists; an externally supplied strategy nobody serves degrades to the plain order
+    // (never an empty shortlist).
+    const serving = candidates.filter((candidate) => candidateServesPosition(candidate, strategy.position, heroPositions));
+    return serving.length > 0 ? serving : [...candidates];
+  }
   if (strategy.kind === "DEFER_POSITION") {
     // Deferring a position means not spending it now: options for OTHER positions lead.
     const others = candidates.filter((candidate) => !fitsStrategy(candidate, strategy));
@@ -218,19 +242,27 @@ export function translateToRecommendationOutputV3(
 ): RecommendationOutputV3 {
   const heroPool = config.heroPool ?? [];
   const size = config.shortlistSize ?? COACH_SHORTLIST_SIZE;
-  const candidates = extractHeroCandidates(recommendationSet, config.heroPositions);
   const view = coachState.view;
+  // V6 order, except heroes with a REVEALED enemy among their curated hard counters go behind those without (RB-4).
+  const revealedEnemies = revealedEnemyHeroes(view);
+  const v6Candidates = extractHeroCandidates(recommendationSet, config.heroPositions);
+  const candidates = demoteRevealedHardCountered(v6Candidates, revealedEnemies, config.heroCounters);
+  const counterContext = { revealedEnemies, heroCounters: config.heroCounters };
+  const actionCandidates = config.actionRecommendationSet
+    ? demoteRevealedHardCountered(extractHeroCandidates(config.actionRecommendationSet, config.heroPositions), revealedEnemies, config.heroCounters)
+    : [];
   const phase = view.rankedAp?.phase ?? null;
   const ownVisible = view.ownPicks.filter((slot) => slot.visibility !== "HIDDEN").length;
-  const opportunity = deriveOpportunity(candidates, view, config.heroCounters);
+  // Safe Core keeps judging V6's own leader (Wave 4A contract): the demotion above never feeds it.
+  const opportunity = deriveOpportunity(v6Candidates, view, config.heroCounters);
 
   return {
     schema: "recommendation-output/v3",
     sessionId: view.sessionId,
     primaryAction: { strategy: revealStrategy, label: labelForStrategy(revealStrategy) },
-    shortlist: orderForStrategy(candidates, revealStrategy)
+    shortlist: orderForStrategy(candidates, revealStrategy, config.heroPositions, actionCandidates)
       .slice(0, size)
-      .map((candidate) => buildHeroCard(candidate, heroPool)),
+      .map((candidate) => buildHeroCard(candidate, heroPool, counterContext)),
     ...(opportunity ? { opportunity } : {}),
     roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },
     meta: {
@@ -242,6 +274,8 @@ export function translateToRecommendationOutputV3(
       trigger: config.trigger ?? "REFRESH",
       revision: config.revision ?? 0,
       basedOn: recommendationSet.basedOn,
+      ...(recommendationSet.readiness ? { readiness: recommendationSet.readiness } : {}),
+      ...(recommendationSet.degradations ? { degradations: recommendationSet.degradations } : {}),
     },
   };
 }

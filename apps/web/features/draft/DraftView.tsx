@@ -257,7 +257,7 @@ function DegradedDraftState({ sessionId, draftState, suggestions, heroCatalog, o
           <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-4">
             {suggestions.degraded.map((flag) => (
               <span key={flag} className="text-caption text-signal-warning">
-                {DEGRADATION_LABELS[flag]}
+                {(DEGRADATION_LABELS as Record<string, string>)[flag] ?? flag}
               </span>
             ))}
           </div>

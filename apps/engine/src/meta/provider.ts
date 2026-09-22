@@ -5,6 +5,14 @@ import { accounts, heroMatchups, heroPatchStats, heroPool, heroes, metaSync } fr
 import type { HeroMatchupStat, HeroPatchBracketStat, HeroPoolEntry, MetaHeroInfo, MetaSnapshot } from "../signals/types";
 import { mapHeroStatsRow, type Bracket } from "./mappers";
 import { getValidatedSeed } from "./seed";
+import {
+  computeMetaReadiness,
+  computeSyncFreshness,
+  extractEmpiricalPatchLabel,
+  type MetaReadiness,
+  type SyncFreshness,
+} from "./readiness";
+
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
 export type AccountId = number;
@@ -192,11 +200,37 @@ export async function getMetaFreshness<TSchema extends Record<string, unknown>>(
     .limit(1)
     .all();
 
-  if (!lastOk?.finishedAt) return { syncedAt: null, isStale: true };
-
-  const ageMs = now() - new Date(lastOk.finishedAt).getTime();
-  return { syncedAt: lastOk.finishedAt, isStale: ageMs > FRESHNESS_WINDOW_MS };
+  const freshness = computeSyncFreshness(lastOk?.finishedAt ?? null, now);
+  return { syncedAt: freshness.syncedAt, isStale: freshness.isStale };
 }
+
+
+export async function getMetaReadiness<TSchema extends Record<string, unknown>>(
+  db: Db<TSchema>,
+  options: {
+    state?: import("../draft/reducer").DraftState | null;
+    meta?: MetaSnapshot | null;
+    rulesetTarget?: string;
+    now?: () => number;
+  } = {},
+): Promise<MetaReadiness> {
+  const freshness = await getMetaFreshness(db, options.now);
+  let empiricalPatch = options.meta ? extractEmpiricalPatchLabel(options.meta) : null;
+  if (!empiricalPatch) {
+    const [sample] = db.select({ patch: heroPatchStats.patch }).from(heroPatchStats).limit(1).all();
+    empiricalPatch = sample?.patch ?? null;
+  }
+  return computeMetaReadiness({
+    rulesetTarget: options.rulesetTarget,
+    syncedAt: freshness.syncedAt,
+    now: options.now,
+    empiricalPatch,
+    empiricalPatchVerified: false,
+    state: options.state,
+    meta: options.meta,
+  });
+}
+
 
 // Aditivo (TSK-010): forma pública para GET /api/heroes -- incluye img_url, requisito duro de UI
 // (dangerouslySetInnerHTML/host-de-imagen ya se validan en el borde de apps/web, no aquí).
