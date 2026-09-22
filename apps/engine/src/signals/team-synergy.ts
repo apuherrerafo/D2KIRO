@@ -98,24 +98,32 @@ export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): Signa
   return {
     id: "team_synergy",
     score(state, candidate): SignalContribution {
-      // No hay un equipo propio observado todavía (localSide desconocido o cero picks) -- no
-      // existe una "cobertura actual" contra la cual medir qué le falta al equipo, así que se
-      // trata como dato insuficiente (null), no como cobertura=0.
-      if (ownPicks(state).length === 0) {
+      // No hay un equipo propio observado todavía (localSide desconocido o cero picks) o ningún pick
+      // propio tiene capacidades tácticas conocidas -- no existe una "cobertura actual" contra la cual
+      // medir qué le falta al equipo, así que se trata como dato insuficiente (null), nunca asumiendo
+      // que un aliado desconocido carece de todas las capacidades ni cobertura=0.
+      const own = ownCapabilities(state, capabilities);
+      if (ownPicks(state).length === 0 || own.length === 0) {
         return {
           signal: "team_synergy",
           raw: null,
           weighted: 0,
-          explanation: "Sin picks propios todavía para evaluar sinergia de equipo",
+          explanation:
+            ownPicks(state).length === 0
+              ? "Sin picks propios todavía para evaluar sinergia de equipo"
+              : "Sin picks propios con capacidades tácticas conocidas para evaluar sinergia de equipo",
           sampleSize: 0,
         };
       }
 
       const candidateCapabilities = byHero.get(candidate);
       if (!candidateCapabilities) {
+        // Datos de capacidades desconocidos/no disponibles: raw: null (dato insuficiente).
+        // Nunca raw: 0, que asumiría falsamente que el héroe carece de todas las capacidades
+        // requeridas por el equipo (engine.md: raw: null es sagrado, nunca 0 ni 0.5).
         return {
           signal: "team_synergy",
-          raw: 0,
+          raw: null,
           weighted: 0,
           explanation: "Sin datos de capacidades tácticas para este héroe",
           sampleSize: 0,
