@@ -2,7 +2,7 @@ import { desc } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { metaSync } from "../../db/schema";
 import type { OpenDotaClient } from "../../meta/opendota-client";
-import { getCachedMetaSnapshot, getMetaFreshness } from "../../meta/provider";
+import { getCachedMetaSnapshot, getMetaFreshness, getMetaReadiness } from "../../meta/provider";
 import { beginMetaSync, runMetaSync } from "../../meta/sync";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
@@ -29,12 +29,14 @@ export interface MetaRouteDeps<TSchema extends Record<string, unknown>> {
 export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: MetaRouteDeps<TSchema>) {
   async function status(): Promise<Response> {
     const freshness = await getMetaFreshness(deps.db);
+    const readiness = await getMetaReadiness(deps.db);
     const [lastAttempt] = deps.db.select().from(metaSync).orderBy(desc(metaSync.id)).limit(1).all();
     return Response.json({
       syncedAt: freshness.syncedAt,
       lastUpdatedAt: freshness.syncedAt,
       isStale: freshness.isStale,
       lastSync: lastAttempt ? { status: lastAttempt.status, finishedAt: lastAttempt.finishedAt, error: lastAttempt.error } : null,
+      readiness,
     });
   }
 

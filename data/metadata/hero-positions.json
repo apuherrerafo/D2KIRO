@@ -1,0 +1,27 @@
+{
+  "source": "dota2protracker.com/meta?position=pos+N (third-party site, manual headless-browser scrape; 7000+ MMR bracket as selected on the site)",
+  "generatedAt": null,
+  "generatedAtNote": "exact retrieval instant not recorded; collected during the Fase 3 /pre-flight on 2026-08-21 (journal evt-20260821-048), committed 2026-08-22 in b56c24f",
+  "generatorVersion": "none -- manual scrape, no script was committed (legacy)",
+  "sampleWindow": null,
+  "patch": "7.41e",
+  "patchVerified": false,
+  "patchNote": "the label appears only in a code comment; the source table states no patch",
+  "rowCount": 238,
+  "heroCount": 126,
+  "schemaVersion": 1,
+  "format": "v1-floor-truncated",
+  "completeness": "INCOMPLETE: every (hero, position) row below MIN_POSITION_MATCHES (200) was discarded at collection and not retained. Listed positions are exact; the true per-hero denominator is unknown, only bounded: listedTotal <= T <= listedTotal + (5 - listedPositions) * 199.",
+  "denominatorCorrected": false,
+  "consequence": "positionShare() over this file is an UPPER bound of the true share. Dominant-position admission is unaffected; admission-by-share (>= 25%) can be overturned. See docs/diagnostics/WAVE5_POSITION_DATA_AUDIT.md.",
+  "heroesWithoutEvidence": [
+    {
+      "id": 66,
+      "name": "Chen",
+      "reason": "no position at/above the floor in the original collection; raw sub-floor counts were not retained -- evidence UNAVAILABLE (position_fit raw: null), no position invented"
+    }
+  ],
+  "sha256": "bc93884e1c733e05668c3627196c0901d9dca7ad0b15a337278bb35277047244",
+  "path": "apps/engine/src/signals/hero-positions.json",
+  "supersededBy": "hero-position-observations/v1 (scripts/positions/import-observations.ts) once raw per-position counts are obtained -- BLOCKED on source access (Cloudflare 403, 2026-09-20)"
+}

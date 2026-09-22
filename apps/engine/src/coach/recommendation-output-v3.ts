@@ -1,7 +1,8 @@
 import type { DraftDecisionContext } from "../drafter/decision-context";
 import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import type { RecommendationBasedOn, RecommendationSetV2 } from "../recommendation/types";
+import type { RecommendationBasedOn, RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
+import type { MetaReadiness } from "../meta/readiness";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CoachObservableState } from "./observable-state";
@@ -101,6 +102,8 @@ export interface RecommendationOutputV3 {
     revision: number;
     /** Same object as the source RecommendationSetV2.basedOn: stale detection = compare stateIdentity + evidenceVersion. */
     basedOn: RecommendationBasedOn;
+    readiness?: MetaReadiness;
+    degradations?: readonly RecommendationDegradation[];
   };
 }
 
@@ -271,6 +274,8 @@ export function translateToRecommendationOutputV3(
       trigger: config.trigger ?? "REFRESH",
       revision: config.revision ?? 0,
       basedOn: recommendationSet.basedOn,
+      ...(recommendationSet.readiness ? { readiness: recommendationSet.readiness } : {}),
+      ...(recommendationSet.degradations ? { degradations: recommendationSet.degradations } : {}),
     },
   };
 }

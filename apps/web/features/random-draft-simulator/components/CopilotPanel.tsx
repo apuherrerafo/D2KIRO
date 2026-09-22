@@ -48,20 +48,20 @@ function PreviewStatusNotice({ previewStatus, hasRecommendations, onRetry }: Pre
 }
 
 interface DegradationsNoticeProps {
-  degradations: RecommendationSetV2["degradations"];
+  degradations: readonly { reason: string; detail: string }[];
 }
 
 function DegradationsNotice({ degradations }: DegradationsNoticeProps) {
   const notices = new Map<string, string>();
   for (const degradation of degradations) {
     const text = playerFacingDegradation(degradation);
-    if (text) notices.set(`${degradation.reason}:${text}`, text);
+    if (text) notices.set(text, text);
   }
   if (notices.size === 0) return null;
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3">
-      {[...notices].map(([key, text]) => (
-        <span key={key} className="text-caption text-signal-warning">
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3" data-testid="copilot-degradations">
+      {[...notices.values()].map((text) => (
+        <span key={text} className="text-caption text-signal-warning">
           {text}
         </span>
       ))}
@@ -312,16 +312,21 @@ export function CopilotPanel({ recommendations, coach = null, heroCatalog, previ
   const hasRecommendations = coach !== null || (recommendations?.recommendations.length ?? 0) > 0;
   const decisionContext = coach?.meta.decisionContext ?? recommendations?.decisionContext ?? "no_action";
 
+  const allDegradations = [
+    ...(recommendations?.degradations ?? []),
+    ...(coach?.meta.degradations ?? []),
+  ];
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
       <span className="text-heading text-content-primary">Copilot</span>
       <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations={hasRecommendations} onRetry={onRetryPreview} />
-      {recommendations && <DegradationsNotice degradations={recommendations.degradations} />}
+      {allDegradations.length > 0 && <DegradationsNotice degradations={allDegradations} />}
       {(recommendations || coach) && <DecisionContextNotice decisionContext={decisionContext} />}
       {recommendations && !hasRecommendations && previewStatus === "ready" && (
         <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
       )}
-      {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />}
+      {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} suppressDegradations />}
       {coach && recommendations && <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />}
       {!coach && recommendations && <LegacyRecommendationBody recommendations={recommendations} heroCatalog={heroCatalog} />}
     </div>

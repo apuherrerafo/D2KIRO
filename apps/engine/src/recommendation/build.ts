@@ -230,7 +230,9 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
       counterfactual: lookaheadResult.counterfactual,
     },
     decisionContext: suggestionSet.decisionContext,
+    readiness: suggestionSet.readiness,
   };
+
 }
 
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();

@@ -231,3 +231,22 @@ test("Dota-Judge RB-1: con la posición abierta el ranking personal se lista com
   expect(view.queryByTestId("coach-personal-seat-covered")).toBeNull();
   expect(view.getByTestId("coach-personal-hero-view").textContent).toContain("Tu pool");
 });
+
+test("CoachPanel muestra aviso de degradación cuando patch_meta no está lista para votar", () => {
+  const output: CoachOutput = {
+    ...coach(ROLE_ACTION),
+    meta: {
+      ...coach(ROLE_ACTION).meta,
+      degradations: [{ reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" }],
+    },
+  };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  const notice = view.getByTestId("coach-degradations");
+  expect(notice.textContent).toContain("Datos de meta del parche no disponibles (señal no votante)");
+  expect(notice.textContent).not.toMatch(/V6|flag|_/i);
+});
+
+test("CoachPanel no muestra contenedor de degradaciones si no hay degradaciones", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
+});

@@ -185,7 +185,9 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
     degradations,
     deferred: deferredFieldsNotComputed(),
     decisionContext: suggestionSet.decisionContext,
+    readiness: suggestionSet.readiness,
   };
+
 }
 
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();

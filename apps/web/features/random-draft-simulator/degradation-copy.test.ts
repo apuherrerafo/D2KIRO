@@ -10,8 +10,14 @@ test("stale_meta se muestra como 'Datos de meta desactualizados', sin V6/flag/st
   expect(text).not.toMatch(/V6|flag|stale_meta/i);
 });
 
+test("patch_meta_data_not_ready se muestra como 'Datos de meta del parche no disponibles (señal no votante)'", () => {
+  const text = playerFacingDegradation({ reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" });
+  expect(text).toBe("Datos de meta del parche no disponibles (señal no votante)");
+  expect(text).not.toMatch(/V6|flag|_/i);
+});
+
 test("ningún flag legado del mezclador deja escapar vocabulario interno", () => {
-  for (const flag of ["partial_signals", "unconfirmed_state", "unknown_format", "no_signal_available"]) {
+  for (const flag of ["partial_signals", "unconfirmed_state", "unknown_format", "no_signal_available", "patch_meta_data_not_ready"]) {
     const text = playerFacingDegradation({ reason: flag, detail: `V6 degraded flag: ${flag}` });
     expect(text).not.toBeNull();
     expect(text).not.toMatch(/V6|flag|_/);

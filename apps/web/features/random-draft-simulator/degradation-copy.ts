@@ -12,6 +12,7 @@ const LEGACY_FLAG_COPY: Record<string, string> = {
   unconfirmed_state: "Estado del draft sin confirmar",
   unknown_format: "Formato de draft no reconocido",
   no_signal_available: "Sin señales suficientes para recomendar",
+  patch_meta_data_not_ready: "Datos de meta del parche no disponibles (señal no votante)",
 };
 
 const ENGINE_INTERNAL_DETAIL = /^V6 degraded flag:/;

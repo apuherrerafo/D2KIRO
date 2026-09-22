@@ -5,6 +5,7 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
 // then the SHORTLIST (concrete hero options for that action). Everything shown is read verbatim from
@@ -275,15 +276,41 @@ function Shortlist({ coach, heroCatalog }: ShortlistProps) {
   );
 }
 
+interface CoachDegradationsNoticeProps {
+  degradations: readonly { reason: string; detail: string }[];
+}
+
+function CoachDegradationsNotice({ degradations }: CoachDegradationsNoticeProps) {
+  const notices = new Map<string, string>();
+  for (const degradation of degradations) {
+    const text = playerFacingDegradation(degradation);
+    if (text) notices.set(text, text);
+  }
+  if (notices.size === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3" data-testid="coach-degradations">
+      {[...notices.values()].map((text) => (
+        <span key={text} className="text-caption text-signal-warning">
+          {text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export interface CoachPanelProps {
   coach: CoachOutput;
   heroCatalog: Map<number, HeroMeta>;
   onAssignOwnPosition?: (heroId: number, position: CoachPosition | null) => void;
+  degradations?: readonly { reason: string; detail: string }[];
+  suppressDegradations?: boolean;
 }
 
-export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProps) {
+export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition, degradations: externalDegradations, suppressDegradations = false }: CoachPanelProps) {
+  const degradations = coach.meta.degradations ?? externalDegradations;
   return (
     <div className="flex flex-col gap-3" data-testid="coach-panel">
+      {!suppressDegradations && degradations && degradations.length > 0 && <CoachDegradationsNotice degradations={degradations} />}
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
       <SafeCoreOpportunity coach={coach} heroCatalog={heroCatalog} />
       <PersonalHeroView coach={coach} heroCatalog={heroCatalog} />

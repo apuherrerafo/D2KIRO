@@ -145,3 +145,74 @@ describe("fetchRecommendationsWithCoach", () => {
     await expect(fetchRecommendationsWithCoach("s1", fetchReturning({ error: "x" }, 500).impl)).rejects.toThrow("failed (500)");
   });
 });
+
+describe("parseCoachOutput -- optional readiness and degradations structural validation (PB-R2)", () => {
+  const VALID_READINESS = {
+    rulesetTarget: "7.41f",
+    empiricalPatchClaim: { patch: "7.41e", verified: false, basis: "unverified" },
+    syncFreshness: { syncedAt: "2026-09-21T00:00:00Z", syncAgeMs: 5000, isFresh: true, isStale: false },
+    patchCompatibility: "compatible" as const,
+    patchMeta: { ready: true, nonVotingReason: null },
+    metaIsStale: false,
+  };
+
+  const VALID_DEGRADATIONS = [
+    { reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" },
+    { reason: "custom_future_flag", detail: "some details" },
+  ];
+
+  test("accepts well-formed readiness in meta", () => {
+    const parsed = parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: VALID_READINESS } }));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.meta.readiness?.rulesetTarget).toBe("7.41f");
+    expect(parsed?.meta.readiness?.syncFreshness.isFresh).toBe(true);
+  });
+
+  test("accepts well-formed degradations in meta, including forward-compatible unknown reasons", () => {
+    const parsed = parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: VALID_DEGRADATIONS } }));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.meta.degradations).toHaveLength(2);
+    expect(parsed?.meta.degradations?.[1].reason).toBe("custom_future_flag");
+  });
+
+  test("rejects malformed readiness safely (fail-closed, not blindly trusted)", () => {
+    // Non-record readiness
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: "not-a-record" } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: null } }))).toBeNull();
+
+    // Invalid rulesetTarget
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, rulesetTarget: 123 } } }))).toBeNull();
+
+    // Invalid empiricalPatchClaim
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, empiricalPatchClaim: { patch: 123, verified: false, basis: "x" } } } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, empiricalPatchClaim: { patch: "7.41e", verified: "yes", basis: "x" } } } }))).toBeNull();
+
+    // Invalid syncFreshness
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, syncFreshness: { syncedAt: 123, syncAgeMs: 50, isFresh: true, isStale: false } } } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, syncFreshness: { syncedAt: null, syncAgeMs: "old", isFresh: false, isStale: true } } } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, syncFreshness: { syncedAt: null, syncAgeMs: null, isFresh: "true", isStale: false } } } }))).toBeNull();
+
+    // Invalid patchCompatibility
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, patchCompatibility: "invalid_status" } } }))).toBeNull();
+
+    // Invalid patchMeta
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, patchMeta: { ready: "yes", nonVotingReason: null } } } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, patchMeta: { ready: false, nonVotingReason: 123 } } } }))).toBeNull();
+
+    // Invalid metaIsStale
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, readiness: { ...VALID_READINESS, metaIsStale: "false" } } }))).toBeNull();
+  });
+
+  test("rejects malformed degradations safely", () => {
+    // Non-array
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: "not-array" } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: 123 } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: {} } }))).toBeNull();
+
+    // Array with non-records or missing fields
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: [null] } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: [{ reason: 123, detail: "x" }] } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: [{ reason: "x" }] } }))).toBeNull();
+    expect(parseCoachOutput(coachBody({ meta: { ...coachBody().meta, degradations: [{ reason: "x", detail: 123 }] } }))).toBeNull();
+  });
+});

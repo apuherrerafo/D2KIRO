@@ -2,6 +2,7 @@ import "@/test-support/happy-dom";
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
+import type { CoachOutput } from "../coach-client";
 import { NOT_COMPUTED, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CopilotPanel } from "./CopilotPanel";
 
@@ -184,4 +185,83 @@ test("posición sugerida y riesgos de la recomendación top se muestran cuando e
   const view = render(<CopilotPanel recommendations={set} heroCatalog={HERO_CATALOG} previewStatus="ready" />);
   expect(view.getByText("Posición sugerida: Support")).toBeDefined();
   expect(view.getByText(/Pocas partidas recientes con este héroe\./)).toBeDefined();
+});
+
+function fixtureCoach(overrides: Partial<CoachOutput> = {}): CoachOutput {
+  return {
+    schema: "recommendation-output/v3",
+    sessionId: "copilot-ui",
+    primaryAction: { strategy: { kind: "REVEAL_POSITION", position: 5, rationale: "prior" }, label: "Sugerencia: Pos 5" },
+    shortlist: [{ heroId: 7, position: 5, roleStatus: "LIKELY", confidence: "media", badges: [], rationale: "r", score: 10, isFromPool: false }],
+    meta: {
+      round: 1,
+      phase: "PICK_ROUND_1",
+      ownPicksRemaining: 5,
+      confidence: "media",
+      decisionContext: "team_opening",
+      trigger: "DRAFT_PICKS_STARTED",
+      revision: 1,
+      basedOn: { stateIdentity: "id-1", evidenceVersion: "v" },
+    },
+    ...overrides,
+  };
+}
+
+test("PB-R1: cuando recommendations y nested coach contienen la misma degradación, se renderiza exactamente una vez", () => {
+  const set = recommendationSet({
+    degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }],
+  });
+  const coach = fixtureCoach({
+    meta: {
+      ...fixtureCoach().meta,
+      degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }],
+    },
+  });
+
+  const view = render(<CopilotPanel recommendations={set} coach={coach} heroCatalog={new Map()} previewStatus="ready" />);
+
+  // El usuario debe ver cada degradación exactamente una vez
+  const matching = view.getAllByText("Datos de meta desactualizados");
+  expect(matching).toHaveLength(1);
+
+  // CopilotPanel es el single rendering owner
+  expect(view.getByTestId("copilot-degradations")).toBeDefined();
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
+});
+
+test("PB-R1: cuando recommendations y coach tienen degradaciones distintas, ambas se muestran exactamente una vez", () => {
+  const set = recommendationSet({
+    degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }],
+  });
+  const coach = fixtureCoach({
+    meta: {
+      ...fixtureCoach().meta,
+      degradations: [{ reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" }],
+    },
+  });
+
+  const view = render(<CopilotPanel recommendations={set} coach={coach} heroCatalog={new Map()} previewStatus="ready" />);
+
+  expect(view.getAllByText("Datos de meta desactualizados")).toHaveLength(1);
+  expect(view.getAllByText("Datos de meta del parche no disponibles (señal no votante)")).toHaveLength(1);
+
+  // Single rendering owner
+  expect(view.getByTestId("copilot-degradations")).toBeDefined();
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
+});
+
+test("PB-R1: coach con degradaciones sin degradaciones en recommendations es renderizado por CopilotPanel exactamente una vez", () => {
+  const set = recommendationSet({ degradations: [] });
+  const coach = fixtureCoach({
+    meta: {
+      ...fixtureCoach().meta,
+      degradations: [{ reason: "patch_meta_data_not_ready", detail: "V6 degraded flag: patch_meta_data_not_ready" }],
+    },
+  });
+
+  const view = render(<CopilotPanel recommendations={set} coach={coach} heroCatalog={new Map()} previewStatus="ready" />);
+
+  expect(view.getAllByText("Datos de meta del parche no disponibles (señal no votante)")).toHaveLength(1);
+  expect(view.getByTestId("copilot-degradations")).toBeDefined();
+  expect(view.queryByTestId("coach-degradations")).toBeNull();
 });

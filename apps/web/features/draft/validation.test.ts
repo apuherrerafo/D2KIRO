@@ -121,4 +121,44 @@ describe("isValidServerMessage", () => {
     expect(isValidServerMessage(envelope("otro-tipo", validDraftState()))).toBe(false);
     expect(isValidServerMessage({ ...envelope("draft_state", validDraftState()), schema: "otro" })).toBe(false);
   });
+
+  describe("PB-R4 rollout compatibility -- forward-compatible degradation flags", () => {
+    test("accepts known degradation flags", () => {
+      for (const flag of ["stale_meta", "partial_signals", "unconfirmed_state", "unknown_format", "no_signal_available", "patch_meta_data_not_ready"]) {
+        expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), degraded: [flag] }))).toBe(true);
+      }
+    });
+
+    test("forward-compatible: accepts unknown future degradation flags without dropping suggestions", () => {
+      expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), degraded: ["future_experimental_flag", "stale_meta"] }))).toBe(true);
+    });
+
+    test("rejects malformed degradation flag values (non-string, empty string, null)", () => {
+      expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), degraded: [123] }))).toBe(false);
+      expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), degraded: [""] }))).toBe(false);
+      expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), degraded: [null] }))).toBe(false);
+      expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), degraded: [{ flag: "stale_meta" }] }))).toBe(false);
+    });
+
+    test("does not weaken validation of core recommendation fields", () => {
+      // Missing or invalid hero ID
+      expect(isValidServerMessage(withSuggestion({ hero: "not-a-number" }))).toBe(false);
+      expect(isValidServerMessage(withSuggestion({ hero: -1 }))).toBe(false);
+      expect(isValidServerMessage(withSuggestion({ hero: 0 }))).toBe(false);
+
+      // Invalid rank
+      expect(isValidServerMessage(withSuggestion({ rank: 7 }))).toBe(false);
+      expect(isValidServerMessage(withSuggestion({ rank: 0 }))).toBe(false);
+
+      // Invalid score
+      expect(isValidServerMessage(withSuggestion({ score: "high" }))).toBe(false);
+      expect(isValidServerMessage(withSuggestion({ score: Number.NaN }))).toBe(false);
+
+      // Invalid confidence
+      expect(isValidServerMessage(withSuggestion({ confidence: "very_high" }))).toBe(false);
+
+      // Invalid decision context
+      expect(isValidServerMessage(envelope("suggestions", { ...validSuggestionSet(), decisionContext: "unknown_context" }))).toBe(false);
+    });
+  });
 });

@@ -7,7 +7,7 @@ import { createCounterScorer } from "./counter";
 import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { isCandidateAdmittedForPosition, loadHeroPositions, type HeroPositions } from "./hero-positions";
-import { lowMidTotals, MIN_PATCH_GAMES, patchMetaScorer } from "./patch-meta";
+import { lowMidTotals, MIN_PATCH_GAMES, patchMetaReady, patchMetaScorer } from "./patch-meta";
 import { createPositionFitScorer } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
@@ -23,6 +23,7 @@ import {
 import type { MetaSnapshot, SignalContribution, SignalId, SignalScorer } from "./types";
 import { SCORING_WEIGHTS_V6 } from "./weights";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
+import { computeMetaReadiness, type MetaReadiness } from "../meta/readiness";
 
 export interface Suggestion {
   hero: HeroId;
@@ -44,7 +45,13 @@ export interface SuggestionEvidence {
   text: string;
 }
 
-export type DegradationFlag = "stale_meta" | "partial_signals" | "unconfirmed_state" | "unknown_format" | "no_signal_available";
+export type DegradationFlag =
+  | "stale_meta"
+  | "partial_signals"
+  | "unconfirmed_state"
+  | "unknown_format"
+  | "no_signal_available"
+  | "patch_meta_data_not_ready";
 
 // TSK-032: comparación explícita entre el pick #1 y el #2 -- "por qué le gana a la otra opción",
 // no solo la explicación independiente de cada sugerencia (`reason`). `signal` es la señal que
@@ -67,11 +74,15 @@ export interface SuggestionSet {
   /** Internal provenance transport for RecommendationSet/v2. Non-enumerable at runtime, so the
    * legacy suggestions/v1 wire response remains byte-identical. */
   functionalEvidence?: FunctionalRecommendationEvidence;
+  /** Phase B readiness and provenance semantics report. Non-enumerable at runtime. */
+  readiness?: MetaReadiness;
 }
 
 export interface BuildSuggestionsOptions {
   metaIsStale?: boolean;
+  metaReadiness?: MetaReadiness;
   now?: () => number; // inyectable para pruebas de rendimiento determinísticas
+
   // TSK-045 (Fase 3, SPEC.md §10.2, costura S10): ausente -> carga hero-positions.json real
   // (loadHeroPositions()). Las pruebas inyectan su propio fixture -- nunca dependen del archivo
   // real, que se regenera por parche.
@@ -237,7 +248,7 @@ function computeConfidence(signals: SignalContribution[], metaIsStale: boolean):
 export function structurallyApplicableSignals(
   state: DraftState,
   meta: MetaSnapshot,
-  options: BuildSuggestionsOptions,
+  options: BuildSuggestionsOptions = {},
 ): Set<SignalId> {
   const applicable = new Set<SignalId>();
   const facts = observedDraftFacts(state);
@@ -293,22 +304,8 @@ export type NonVotingReason = "data_not_ready" | "not_structurally_applicable";
 // una condición verificable: ¿el dataset tiene cobertura real para EL PARCHE del estado actual?
 // Nunca `true` hardcodeado tampoco -- un parche equivocado o un dataset roto/disperso lo apagan
 // igual.
-const MIN_PATCH_META_COVERAGE_HEROES = 20; // amplitud mínima -- no "2 héroes con suerte"
-const MIN_PATCH_META_COVERAGE_RATIO = 0.5; // mayoría de los héroes con alguna fila de ESE parche
+export { patchMetaReady };
 
-function patchMetaReady(state: DraftState, meta: MetaSnapshot): boolean {
-  if (!state.patch || state.patch === "unknown") return false;
-  const rows = meta.patchStats ?? {};
-  let withAnyRowForPatch = 0;
-  let withCoverage = 0;
-  for (const heroRows of Object.values(rows)) {
-    if (!heroRows.some((row) => row.patch === state.patch)) continue;
-    withAnyRowForPatch++;
-    if (lowMidTotals(heroRows, state.patch).games >= MIN_PATCH_GAMES) withCoverage++;
-  }
-  if (withAnyRowForPatch === 0 || withCoverage < MIN_PATCH_META_COVERAGE_HEROES) return false;
-  return withCoverage / withAnyRowForPatch >= MIN_PATCH_META_COVERAGE_RATIO;
-}
 
 // `dataReady` -- flag explícito y verificable por señal: ¿los datos que la señal necesita son
 // confiables/frescos/completos? INDEPENDIENTE de structural applicability y de la calibración.
@@ -343,7 +340,7 @@ export function dataReady(signal: SignalId, state: DraftState, meta: MetaSnapsho
 export function votingSignals(
   state: DraftState,
   meta: MetaSnapshot,
-  options: BuildSuggestionsOptions,
+  options: BuildSuggestionsOptions = {},
 ): Set<SignalId> {
   const applicable = structurallyApplicableSignals(state, meta, options);
   return new Set([...applicable].filter((signal) => dataReady(signal, state, meta)));
@@ -460,9 +457,9 @@ export function buildAvailableSignalsReport(
 }
 
 function confidenceFromCoverage(evidenceCoverage: number, metaIsStale: boolean): Suggestion["confidence"] {
+  if (evidenceCoverage < 0.5) return "baja";
   if (evidenceCoverage >= 0.75 && !metaIsStale) return "alta";
-  if (evidenceCoverage >= 0.5 || metaIsStale) return "media";
-  return "baja";
+  return "media";
 }
 
 // ---------- R0.3 / Task 13 (design §4.3 "Data Models" (b), requisito 3.1, CP2/CP4/CP10): fuente única ----------
@@ -819,6 +816,7 @@ function functionalRecommendationEvidence(
   heroCapabilities: readonly HeroCapabilities[],
   heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]>,
   isTeamOpening: boolean,
+  effectiveMetaIsStale: boolean = options.metaIsStale === true,
 ): FunctionalRecommendationEvidence {
   const candidateHeroes = new Set(raw.map((candidate) => candidate.hero));
   const candidates = [...candidateHeroes].sort((a, b) => a - b);
@@ -839,7 +837,7 @@ function functionalRecommendationEvidence(
     positions: (heroPositions[hero] ?? []).map((entry) => ({ position: entry.position, matches: entry.matches })),
   }));
   if (!isTeamOpening) {
-    return { metaIsStale: options.metaIsStale === true, signalEvidence, heroPositions: positions, teamOpening: null, partyPreferredPositions: [] };
+    return { metaIsStale: effectiveMetaIsStale, signalEvidence, heroPositions: positions, teamOpening: null, partyPreferredPositions: [] };
   }
 
   // Names of a candidate and of a banned counter are the only MetaHeroInfo fields read by the
@@ -851,7 +849,7 @@ function functionalRecommendationEvidence(
   ]).filter((hero) => bannedSet.has(hero));
   const namedHeroes = new Set([...candidates, ...referencedBannedCounters]);
   return {
-    metaIsStale: options.metaIsStale === true,
+    metaIsStale: effectiveMetaIsStale,
     signalEvidence,
     heroPositions: positions,
     teamOpening: {
@@ -879,8 +877,15 @@ function functionalRecommendationEvidence(
   };
 }
 
-function attachFunctionalEvidence(suggestionSet: SuggestionSet, evidence: FunctionalRecommendationEvidence): SuggestionSet {
+function attachFunctionalEvidence(
+  suggestionSet: SuggestionSet,
+  evidence: FunctionalRecommendationEvidence,
+  readiness?: MetaReadiness,
+): SuggestionSet {
   Object.defineProperty(suggestionSet, "functionalEvidence", { value: evidence, enumerable: false });
+  if (readiness) {
+    Object.defineProperty(suggestionSet, "readiness", { value: readiness, enumerable: false });
+  }
   return suggestionSet;
 }
 
@@ -891,8 +896,22 @@ export function buildSuggestions(
 ): SuggestionSet {
   const now = options.now ?? Date.now;
   const start = now();
+
+  const readiness = options.metaReadiness ?? computeMetaReadiness({
+    state,
+    meta,
+    now,
+    syncedAt: options.metaIsStale === false ? new Date(now()).toISOString() : null,
+  });
+  const effectiveMetaIsStale =
+    options.metaIsStale === true ||
+    readiness.syncFreshness.isStale === true ||
+    readiness.metaIsStale === true;
+
   const degraded: DegradationFlag[] = [];
-  if (options.metaIsStale) degraded.push("stale_meta");
+  if (effectiveMetaIsStale) {
+    degraded.push("stale_meta");
+  }
   if (state.quality.unconfirmed.length > 0) degraded.push("unconfirmed_state");
   if (state.format === "unknown") degraded.push("unknown_format");
 
@@ -923,9 +942,14 @@ export function buildSuggestions(
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;
   const decisionPolicy = deriveDecisionPolicy(state, isTeamOpening);
   const emptyFunctionalEvidence = () =>
-    functionalRecommendationEvidence([], meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening);
+    functionalRecommendationEvidence([], meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening, effectiveMetaIsStale);
 
+  const applicable = structurallyApplicableSignals(state, meta, options);
   const voting = votingSignals(state, meta, options);
+  if (applicable.has("patch_meta") && !voting.has("patch_meta")) {
+    degraded.push("patch_meta_data_not_ready");
+  }
+
   if (voting.size === 0) {
     degraded.push("no_signal_available");
     return attachFunctionalEvidence({
@@ -937,7 +961,7 @@ export function buildSuggestions(
       comparison: null,
       degraded,
       computedInMs: now() - start,
-    }, emptyFunctionalEvidence());
+    }, emptyFunctionalEvidence(), readiness);
   }
 
   const candidates = candidatePool(state, meta, options);
@@ -951,7 +975,7 @@ export function buildSuggestions(
       comparison: null,
       degraded,
       computedInMs: now() - start,
-    }, emptyFunctionalEvidence());
+    }, emptyFunctionalEvidence(), readiness);
   }
 
   const legacyMix = options._legacyMixMode === true;
@@ -1093,8 +1117,8 @@ export function buildSuggestions(
       .filter(Boolean)
       .join(" "),
     confidence: legacyMix
-      ? computeConfidence(signals, options.metaIsStale ?? false)
-      : confidenceFromCoverage(entry.evidenceCoverage, options.metaIsStale ?? false),
+      ? computeConfidence(signals, effectiveMetaIsStale)
+      : confidenceFromCoverage(entry.evidenceCoverage, effectiveMetaIsStale),
     evidenceCoverage: entry.evidenceCoverage,
     guessingIndex: entry.guessingIndex,
     evidence: buildEvidence(entry.contributions, roleReason, decisionPolicy, entry.openingReason),
@@ -1110,5 +1134,5 @@ export function buildSuggestions(
     comparison: buildComparison(suggestions),
     degraded,
     computedInMs: now() - start,
-  }, functionalRecommendationEvidence(raw, meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening));
+  }, functionalRecommendationEvidence(raw, meta, options, state.banned, heroPositions, heroCapabilities, heroCounters, isTeamOpening, effectiveMetaIsStale), readiness);
 }
