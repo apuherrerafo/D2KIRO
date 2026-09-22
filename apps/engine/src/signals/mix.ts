@@ -457,9 +457,9 @@ export function buildAvailableSignalsReport(
 }
 
 function confidenceFromCoverage(evidenceCoverage: number, metaIsStale: boolean): Suggestion["confidence"] {
+  if (evidenceCoverage < 0.5) return "baja";
   if (evidenceCoverage >= 0.75 && !metaIsStale) return "alta";
-  if (evidenceCoverage >= 0.5 || metaIsStale) return "media";
-  return "baja";
+  return "media";
 }
 
 // ---------- R0.3 / Task 13 (design §4.3 "Data Models" (b), requisito 3.1, CP2/CP4/CP10): fuente única ----------
@@ -901,12 +901,12 @@ export function buildSuggestions(
     state,
     meta,
     now,
-    syncedAt: null,
+    syncedAt: options.metaIsStale === false ? new Date(now()).toISOString() : null,
   });
   const effectiveMetaIsStale =
     options.metaIsStale === true ||
-    options.metaReadiness?.syncFreshness.isStale === true ||
-    options.metaReadiness?.metaIsStale === true;
+    readiness.syncFreshness.isStale === true ||
+    readiness.metaIsStale === true;
 
   const degraded: DegradationFlag[] = [];
   if (effectiveMetaIsStale) {

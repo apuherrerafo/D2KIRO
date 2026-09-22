@@ -69,7 +69,7 @@ describe("evidenceIdentityHash -- complete functional inputs", () => {
 
   test("meta stale changes confidence/degradation/risk inputs and identity", () => {
     const positionEvidence = { heroPositions: { 1: [{ position: 1 as const, matches: 1000 }] } };
-    const fresh = opening([1], [], positionEvidence);
+    const fresh = opening([1], [], { ...positionEvidence, metaIsStale: false });
     const stale = opening([1], [], { ...positionEvidence, metaIsStale: true });
     expect(fresh.suggestions[0]!.confidence).toBe("alta");
     expect(stale.suggestions[0]!.confidence).toBe("media");
