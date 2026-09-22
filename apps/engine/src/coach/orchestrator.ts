@@ -6,6 +6,7 @@ import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
+import { credibleHeroesForPosition } from "./hero-card";
 import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
 import { translateToRecommendationOutputV3, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
@@ -44,6 +45,11 @@ const MAX_TRACKED_SESSIONS = 256;
 export interface CoachOrchestratorDeps {
   /** Builds the V2 set from EXACTLY this perspective-safe context (buildRecommendationSetFromPerspective). */
   buildRecommendationSet(context: PerspectiveRecommendationContext): Promise<RecommendationSetV2>;
+  /**
+   * Team-level (no account overlay) V6 evaluation over a PRE-ranking candidate universe. Used only to fill the shortlist of a
+   * REVEAL_POSITION action with heroes that can execute it (Dota-Judge RB-2). Omitted -> the shortlist is drawn from the team set alone.
+   */
+  buildActionRecommendationSet?(context: PerspectiveRecommendationContext, candidateHeroIds: readonly HeroId[]): Promise<RecommendationSetV2>;
   /** Independent personal evaluation, scoped by declared role (Wave 3). */
   buildPersonalRecommendation?(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   heroPositions?: HeroPositions;
@@ -140,6 +146,8 @@ export class CoachOrchestrator {
       ? await buildPersonalPositionRecommendation(input.context, input.playerPersonalPosition, heroPool, {
           buildRecommendationSet: this.deps.buildPersonalRecommendation,
           heroPositions: this.deps.heroPositions,
+          heroCounters: this.deps.heroCounters,
+          ownRoleBeliefs: coachState.ownRoleBeliefs,
         })
       : null;
     const decisionContext = deriveDecisionContextFromView(view);
@@ -150,11 +158,17 @@ export class CoachOrchestrator {
       ? deriveRevealStrategy(view, recommendationSet, input.playerPersonalPosition ?? null, input.config?.heroPool ?? [], decisionContext, {
           ownRoleBeliefs: coachState.ownRoleBeliefs,
           heroPositions: this.deps.heroPositions,
+          heroCounters: this.deps.heroCounters,
         })
       : null;
+    // "Reveal Pos P": the shortlist's candidate universe is decided BEFORE ranking (heroes credibly played at P), like the personal view.
+    const actionRecommendationSet = strategy?.kind === "REVEAL_POSITION" && this.deps.buildActionRecommendationSet && this.deps.heroPositions
+      ? await this.deps.buildActionRecommendationSet(input.context, credibleHeroesForPosition(strategy.position, this.deps.heroPositions))
+      : undefined;
     const output = strategy
       ? translateToRecommendationOutputV3(recommendationSet, strategy, coachState, decisionContext, {
           ...input.config,
+          actionRecommendationSet,
           heroPositions: this.deps.heroPositions,
           heroCounters: this.deps.heroCounters,
           playerPersonalPosition: input.playerPersonalPosition ?? null,
@@ -169,7 +183,7 @@ export class CoachOrchestrator {
       memory.latestRevision = revision;
       memory.observed = { ...countVisible(view), assignments: assignmentsKey(assignments) };
     }
-    return { output, recommendationSet, personalRecommendationSet: personal?.recommendationSet, coachState, trigger, revision };
+    return { output, recommendationSet, personalRecommendationSet: personal?.recommendationSet ?? undefined, coachState, trigger, revision };
   }
 
   /** Trigger 0: the pick phase just opened (BAN_RESOLUTION_COMPLETE). */

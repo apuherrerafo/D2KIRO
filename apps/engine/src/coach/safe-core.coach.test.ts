@@ -49,8 +49,9 @@ describe("Safe Core opportunity -- Coach over the real kernel", () => {
     const { output } = await harness({ bans: [HARD_A], heroCounters: oneCounter }).compute();
     expect(output).not.toHaveProperty("opportunity");
     expect(JSON.stringify(output)).not.toContain('"opportunity"');
-    // The core is still on the shortlist and the normal Coach output is intact: only the block is withheld.
-    expect(output!.shortlist.map((card) => card.heroId)).toContain(CARRY);
+    // The normal Coach output is intact: only the block is withheld. (The shortlist lists heroes that can execute the
+    // primary action -- RB-2 -- so the core need not appear there; it stays V6's leader in the recommendation set.)
+    expect(output!.shortlist.length).toBeGreaterThan(0);
     expect(output!.primaryAction.label.length).toBeGreaterThan(0);
   });
 

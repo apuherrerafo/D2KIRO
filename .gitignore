@@ -25,6 +25,10 @@ eval/snapshots/*.sqlite-wal
 eval/snapshots/*.sqlite-shm
 !eval/snapshots/S1.sqlite
 
+# Certification remediation (Phase A, A1): frozen EMPIRICAL snapshots for Wave 5 certification packets (meta tables only,
+# no accounts/pools -- see scripts/eval/freeze-empirical-snapshot.ts). Immutable; each carries a `<id>.provenance.json`.
+!eval/snapshots/W5-EMP-*.sqlite
+
 # TSK-217: artefactos del E2E (copia de la base, cookie sellada, trazas)
 e2e/.tmp/
 test-results/
@@ -40,3 +44,8 @@ docs/r1/generated/
 # Bytecode de Python generado por los hooks de scripts/hooks/ (nunca se versiona)
 __pycache__/
 *.pyc
+
+# STRATZ raw snapshots (unresolved commercial/redistribution permissions)
+data/raw/
+*.stratz-raw.json
+

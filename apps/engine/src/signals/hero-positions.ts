@@ -25,13 +25,34 @@ import type { HeroId } from "../draft/reducer";
 //
 // PENDIENTE: Chen es el único héroe sin ninguna posición con >= 200 partidas en la recolección
 // de esta sesión (no llegó al umbral en ninguna de las 5). No es un bug -- `position_fit` lo
-// trata como `raw: null`, igual que cualquier hueco de dato -- pero si se quiere cerrarlo,
-// agregar su entrada a mano en `hero-positions.json` (mismo shape, sin necesidad de rejugar
-// todo el proceso de arriba por un solo héroe).
+// trata como `raw: null`, igual que cualquier hueco de dato. NO se le inventa una posición a mano.
+//
+// CERTIFICATION REMEDIATION (Phase A, A2) -- two file shapes, and why:
+//   v1 (legacy array `[{hero, positions:[{position, matches}]}]`): the collection step DISCARDED every
+//     position below `MIN_POSITION_MATCHES` before saving, so the hero's complete denominator is lost.
+//     It is "floor-truncated": listed positions are exact, the unlisted mass is unknown (< floor each).
+//   v2 (`hero-position-observations/v1`): retains EVERY observed (position, matches) row, including the
+//     ones below the floor. The share denominator is built from ALL of them; the admission floor is
+//     applied afterwards, as a separate step. `scripts/positions/import-observations.ts` generates it
+//     deterministically from raw page dumps (`scripts/positions/scrape-d2pt.ts`, manual).
+// Both parse into the same `HeroPositions` (the ADMITTED view every consumer already uses); only v2 stamps
+// `heroTotalMatches`, which is what makes `positionShare()` a true share instead of a share of survivors.
+
+export const HERO_POSITION_OBSERVATIONS_SCHEMA = "hero-position-observations/v1";
 
 export interface HeroPositionShare {
   position: 1 | 2 | 3 | 4 | 5; // carry | mid | offlane | soft support | hard support
   matches: number;
+  /**
+   * The hero's COMPLETE known denominator: the sum of matches over every position observed for it, including
+   * observations below `MIN_POSITION_MATCHES`. Present only when the dataset retained the full raw counts (v2).
+   * Absent (legacy v1 / hand-built fixtures) means "the listed positions are the complete set" -- which for v1
+   * production data is NOT true (floor-truncated); the dataset's completeness is recorded in its provenance.
+   */
+  heroTotalMatches?: number;
+  totalPopulationMatches?: number;
+  totalKnownPositionMatches?: number;
+  unassignedMatches?: number;
 }
 
 export type HeroPositions = Record<HeroId, HeroPositionShare[]>;
@@ -111,17 +132,82 @@ export function parseHeroPositions(raw: unknown): HeroPositions {
   return result;
 }
 
-export function loadHeroPositions(): HeroPositions {
-  return parseHeroPositions(rawPositions);
+function isObservation(value: unknown): value is { position: 1 | 2 | 3 | 4 | 5; matches: number } {
+  if (typeof value !== "object" || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return VALID_POSITIONS.has(row.position as number) && Number.isInteger(row.matches) && (row.matches as number) >= 0;
 }
 
+/**
+ * v2 (retained raw observations) -> the admitted `HeroPositions` view. Denominator and admission are two separate
+ * steps: `heroTotalMatches` sums EVERY valid observation (sub-floor ones included); only then is the floor applied
+ * to decide which positions are listed. A hero with any malformed/duplicated observation row is dropped whole --
+ * a partial hero would silently produce a wrong denominator. A hero with no position at/above the floor is left
+ * out (evidence unavailable -> `raw: null` downstream); no position is ever invented for it.
+ * Never throws; a file of another shape degrades to `{}`.
+ */
+export function parseHeroPositionObservations(raw: unknown): HeroPositions {
+  if (typeof raw !== "object" || raw === null) return {};
+  const file = raw as Record<string, unknown>;
+  if (file.schema !== HERO_POSITION_OBSERVATIONS_SCHEMA || !Array.isArray(file.heroes)) return {};
+
+  const result: HeroPositions = {};
+  for (const entry of file.heroes) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const { hero, observations } = entry as Record<string, unknown>;
+    if (!isValidHeroId(hero) || hero in result) continue;
+    if (!Array.isArray(observations) || !observations.every(isObservation)) continue;
+    if (new Set(observations.map((row) => row.position)).size !== observations.length) continue;
+
+    const totalKnownPositionMatches = observations.reduce((sum, row) => sum + row.matches, 0);
+    const totalPopulationMatches =
+      typeof entry.totalPopulationMatches === "number" &&
+      Number.isInteger(entry.totalPopulationMatches) &&
+      entry.totalPopulationMatches >= 0
+        ? entry.totalPopulationMatches
+        : totalKnownPositionMatches;
+    const unassignedMatches =
+      typeof entry.unassignedMatches === "number" &&
+      Number.isInteger(entry.unassignedMatches)
+        ? entry.unassignedMatches
+        : Math.max(0, totalPopulationMatches - totalKnownPositionMatches);
+
+    const heroTotalMatches = totalPopulationMatches;
+    const admitted = observations
+      .filter((row) => row.matches >= MIN_POSITION_MATCHES)
+      .sort((a, b) => b.matches - a.matches || a.position - b.position)
+      .map((row) => ({
+        position: row.position,
+        matches: row.matches,
+        heroTotalMatches,
+        totalPopulationMatches,
+        totalKnownPositionMatches,
+        unassignedMatches,
+      }));
+    if (admitted.length === 0) continue;
+
+    result[hero] = admitted;
+  }
+  return result;
+}
+
+export function loadHeroPositions(): HeroPositions {
+  return Array.isArray(rawPositions) ? parseHeroPositions(rawPositions) : parseHeroPositionObservations(rawPositions);
+}
+
+/**
+ * A position's share of the hero's matches. The denominator is the hero's COMPLETE known total when the dataset
+ * retained it (`heroTotalMatches`, v2); otherwise it falls back to the sum of the listed positions -- correct only
+ * when the listed set IS the complete set (hand-built fixtures), and an UPPER bound on the true share for
+ * floor-truncated v1 data (see the dataset's provenance `completeness`).
+ */
 export function positionShare(
   hero: HeroId,
   position: 1 | 2 | 3 | 4 | 5,
   positions: HeroPositions,
 ): number {
   const shares = positions[hero] ?? [];
-  const total = shares.reduce((sum, share) => sum + share.matches, 0);
+  const total = shares.find((share) => share.heroTotalMatches !== undefined)?.heroTotalMatches ?? shares.reduce((sum, share) => sum + share.matches, 0);
   if (total === 0) return 0;
   return (shares.find((share) => share.position === position)?.matches ?? 0) / total;
 }
@@ -145,4 +231,33 @@ export function isCandidateAdmittedForPosition(
   if (target.matches < MID_CANDIDATE_MIN_MATCHES) return false;
   const dominantMatches = Math.max(...shares.map((share) => share.matches));
   return target.matches === dominantMatches || positionShare(hero, 2, positions) >= MID_CANDIDATE_MIN_SHARE;
+}
+
+/**
+ * Wave 5 Dota-Judge remediation (RB-1/RB-2): "is this hero CREDIBLY played at `targetPosition`?" -- the
+ * question the Coach asks when a position is the thing being decided (the Player's personal position, or the
+ * position a Primary Action tells the Player to reveal).
+ *
+ * It applies the SAME approved admission policy that already governs Mid (`isCandidateAdmittedForPosition`)
+ * to every position, without adding any number of its own: the position is credible when it is the hero's
+ * dominant one (ties included) OR its historical share reaches the already-approved
+ * `MID_CANDIDATE_MIN_SHARE`. Mid delegates to the existing predicate untouched (it keeps its absolute
+ * evidence floor). The floor is deliberately NOT generalised: it repairs a Mid-specific single-survivor
+ * data problem, and applied to Pos1/3/4/5 it would drop genuine carries and supports whose curated counts
+ * are simply lower (Medusa, Naga Siren, Alchemist, Pugna, ...).
+ *
+ * `isCandidateAdmittedForPosition` itself is NOT changed: the Enemy Bot and the legacy V6 target-position
+ * path keep their "any curated presence" behaviour, so this fix cannot move anything outside the Coach.
+ */
+export function isCredibleForPosition(
+  hero: HeroId,
+  targetPosition: 1 | 2 | 3 | 4 | 5,
+  positions: HeroPositions,
+): boolean {
+  if (targetPosition === 2) return isCandidateAdmittedForPosition(hero, 2, positions);
+  const shares = positions[hero] ?? [];
+  const target = shares.find((share) => share.position === targetPosition);
+  if (!target) return false;
+  const dominantMatches = Math.max(...shares.map((share) => share.matches));
+  return target.matches === dominantMatches || positionShare(hero, targetPosition, positions) >= MID_CANDIDATE_MIN_SHARE;
 }

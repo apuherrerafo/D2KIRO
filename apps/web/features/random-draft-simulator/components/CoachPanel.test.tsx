@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
+import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CoachHeroCard, CoachOutput, CoachStrategy } from "../coach-client";
 import { NOT_COMPUTED, type RecommendationSetV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
@@ -91,8 +92,32 @@ test("only own-team role beliefs expose manual assignment controls", () => {
   const enemy = rendered.getByTestId("coach-enemy-role");
   expect(within(own).getAllByRole("button")).toHaveLength(2);
   expect(within(enemy).queryAllByRole("button")).toHaveLength(0);
-  fireEvent.click(within(own).getByRole("button", { name: "Pos3" }));
+  fireEvent.click(within(own).getByRole("button", { name: "Asignar Pos3" }));
   expect(assignments).toEqual([[7, 3]]);
+});
+
+test("Flex propio antes de asignar: 'FLEX x/y' y un botón 'Asignar PosN' por posición, sin 'Quitar'", () => {
+  const withBeliefs = coach(ROLE_ACTION);
+  withBeliefs.roleBeliefs = { own: [{ heroId: 7, status: "LIKELY", positions: [2, 3] }], enemy: [] };
+  const rendered = render(<CoachPanel coach={withBeliefs} heroCatalog={new Map([[7, { localizedName: "Kunkka" } as HeroMeta]])} onAssignOwnPosition={() => undefined} />);
+  const own = rendered.getByTestId("coach-own-role");
+  expect(own.textContent).toContain("Kunkka · FLEX 2/3");
+  expect(within(own).getAllByRole("button").map((button) => button.textContent)).toEqual(["Asignar Pos2", "Asignar Pos3"]);
+});
+
+test("Flex propio asignado: 'Asignado a PosN' (la posición una sola vez) y un único 'Quitar asignación' que libera al héroe", () => {
+  const assignments: Array<[number, number | null]> = [];
+  const withBeliefs = coach(ROLE_ACTION);
+  withBeliefs.roleBeliefs = { own: [{ heroId: 7, status: "CONFIRMED", positions: [2] }], enemy: [] };
+  const rendered = render(<CoachPanel coach={withBeliefs} heroCatalog={new Map([[7, { localizedName: "Kunkka" } as HeroMeta]])} onAssignOwnPosition={(hero, position) => assignments.push([hero, position])} />);
+  const own = rendered.getByTestId("coach-own-role");
+  expect(own.textContent).toContain("Kunkka · Asignado a Pos2");
+  expect(own.textContent?.match(/Pos2/g)).toHaveLength(1);
+  expect(own.textContent).not.toContain("FLEX");
+  const buttons = within(own).getAllByRole("button");
+  expect(buttons.map((button) => button.textContent)).toEqual(["Quitar asignación"]);
+  fireEvent.click(buttons[0]!);
+  expect(assignments).toEqual([[7, null]]);
 });
 
 function withOpportunity(): CoachOutput {
@@ -189,4 +214,20 @@ test("CopilotPanel con Coach: muestra acción primaria + shortlist (no la lista 
 test("CopilotPanel sin Coach (Captain's Mode / motor viejo) no muestra sección de Coach", () => {
   const view = render(<CopilotPanel recommendations={v2()} heroCatalog={new Map()} previewStatus="ready" />);
   expect(view.queryByTestId("coach-panel")).toBeNull();
+});
+
+test("Dota-Judge RB-1: con la posición personal ya cubierta se muestra 'Tu posición ya está cubierta' y ningún ranking", () => {
+  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: true, heroes: [] } };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  const personal = view.getByTestId("coach-personal-hero-view");
+  expect(personal.textContent).toContain("TU MID AHORA");
+  expect(view.getByTestId("coach-personal-seat-covered").textContent).toBe("Tu posición ya está cubierta");
+  expect(personal.querySelectorAll("[data-hero-id]")).toHaveLength(0);
+});
+
+test("Dota-Judge RB-1: con la posición abierta el ranking personal se lista como siempre", () => {
+  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: false, heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("coach-personal-seat-covered")).toBeNull();
+  expect(view.getByTestId("coach-personal-hero-view").textContent).toContain("Tu pool");
 });

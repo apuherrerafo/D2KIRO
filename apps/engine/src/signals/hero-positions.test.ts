@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  HERO_POSITION_OBSERVATIONS_SCHEMA,
   isCandidateAdmittedForPosition,
+  isCredibleForPosition,
   loadHeroPositions,
   MID_CANDIDATE_MIN_MATCHES,
   MID_CANDIDATE_MIN_SHARE,
   MIN_POSITION_MATCHES,
+  parseHeroPositionObservations,
   parseHeroPositions,
   positionShare,
 } from "./hero-positions";
@@ -146,3 +149,104 @@ test("parseHeroPositions filtra shares inválidos dentro de una entrada por lo d
 test("MIN_POSITION_MATCHES es una constante nombrada, no un número suelto (200)", () => {
   expect(MIN_POSITION_MATCHES).toBe(200);
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// Certification remediation (Phase A, A2): the share denominator is the hero's COMPLETE observed total, built from
+// every retained observation -- INCLUDING those below MIN_POSITION_MATCHES. The admission floor is a separate,
+// later step. Fixtures are inline (S10): none of these read hero-positions.json.
+// ---------------------------------------------------------------------------------------------------------------
+const observationsFile = (heroes: unknown[]) => ({ schema: HERO_POSITION_OBSERVATIONS_SCHEMA, heroes });
+
+test("v2: el denominador incluye las observaciones bajo el piso; las posiciones admitidas no", () => {
+  const positions = parseHeroPositionObservations(
+    observationsFile([
+      // 1026 at Pos3 + 2969 at Pos1 survive the floor; Pos2 (199) and Pos5 (199) do not -- they still count in the denominator.
+      { hero: 7, observations: [{ position: 1, matches: 2969 }, { position: 3, matches: 1026 }, { position: 2, matches: 199 }, { position: 5, matches: 199 }] },
+    ]),
+  );
+
+  expect(positions[7]!.map((share) => share.position)).toEqual([1, 3]); // admitted view: floor applied AFTER the denominator
+  expect(positions[7]!.every((share) => share.heroTotalMatches === 2969 + 1026 + 199 + 199)).toBe(true);
+  expect(positionShare(7, 3, positions)).toBeCloseTo(1026 / 4393, 10);
+});
+
+test("v2 vs v1: la MISMA evidencia admite un secundario en v1 (denominador de sobrevivientes) y lo rechaza en v2 (denominador completo)", () => {
+  // Real-shaped case (Earthshaker-like): 1026/3995 = 25.7% of survivors, but 1026/4393 = 23.4% of everything observed.
+  const survivorsOnly = { 7: [{ position: 1 as const, matches: 2969 }, { position: 3 as const, matches: 1026 }] };
+  const complete = parseHeroPositionObservations(
+    observationsFile([{ hero: 7, observations: [{ position: 1, matches: 2969 }, { position: 3, matches: 1026 }, { position: 2, matches: 199 }, { position: 5, matches: 199 }] }]),
+  );
+
+  expect(positionShare(7, 3, survivorsOnly)).toBeGreaterThanOrEqual(MID_CANDIDATE_MIN_SHARE);
+  expect(isCredibleForPosition(7, 3, survivorsOnly)).toBe(true); // the inflated admission
+  expect(positionShare(7, 3, complete)).toBeLessThan(MID_CANDIDATE_MIN_SHARE);
+  expect(isCredibleForPosition(7, 3, complete)).toBe(false); // the corrected one
+  expect(isCredibleForPosition(7, 1, complete)).toBe(true); // the dominant position is unaffected by the denominator
+});
+
+test("v2: un héroe sin ninguna posición >= piso (Chen) queda SIN evidencia -- no se le inventa una posición", () => {
+  const positions = parseHeroPositionObservations(
+    observationsFile([{ hero: 66, observations: [{ position: 5, matches: 150 }, { position: 4, matches: 120 }, { position: 1, matches: 10 }] }]),
+  );
+
+  expect(66 in positions).toBe(false);
+  expect(isCredibleForPosition(66, 5, positions)).toBe(false);
+  expect(isCandidateAdmittedForPosition(66, 5, positions)).toBe(false);
+});
+
+test("v2: filas malformadas o posición duplicada descartan al héroe entero; otro schema -> {}; nunca lanza", () => {
+  const positions = parseHeroPositionObservations(
+    observationsFile([
+      { hero: 1, observations: [{ position: 1, matches: 900 }, { position: 1, matches: 300 }] }, // duplicate position: ambiguous denominator
+      { hero: 2, observations: [{ position: 6, matches: 900 }] }, // position out of range
+      { hero: 3, observations: [{ position: 1, matches: -5 }] }, // negative count
+      { hero: 4, observations: [{ position: 1, matches: 900.5 }] }, // non-integer
+      { hero: 5, observations: [{ position: 1, matches: 900 }] }, // the only valid hero
+      { hero: 5, observations: [{ position: 2, matches: 900 }] }, // duplicate hero: first one wins
+      null,
+    ]),
+  );
+
+  expect(Object.keys(positions)).toEqual(["5"]);
+  expect(positions[5]![0]!.position).toBe(1);
+  expect(parseHeroPositionObservations({ schema: "something-else/v9", heroes: [] })).toEqual({});
+  expect(parseHeroPositionObservations(null)).toEqual({});
+  expect(parseHeroPositionObservations([])).toEqual({});
+});
+
+test("v2: el orden de las posiciones admitidas es determinista (matches desc, luego posición asc)", () => {
+  const positions = parseHeroPositionObservations(
+    observationsFile([{ hero: 9, observations: [{ position: 5, matches: 400 }, { position: 4, matches: 400 }, { position: 1, matches: 800 }] }]),
+  );
+
+  expect(positions[9]!.map((share) => share.position)).toEqual([1, 4, 5]);
+});
+
+test("sin heroTotalMatches (fixture / v1 legacy) positionShare cae a la suma de las posiciones listadas -- comportamiento previo intacto", () => {
+  const legacy = { 1: [{ position: 2 as const, matches: 660 }, { position: 4 as const, matches: 2340 }] };
+
+  expect(positionShare(1, 2, legacy)).toBe(0.22);
+});
+
+test("v2: totalPopulationMatches, totalKnownPositionMatches y unassignedMatches se preservan", () => {
+  const positions = parseHeroPositionObservations(
+    observationsFile([
+      {
+        hero: 10,
+        totalPopulationMatches: 1000,
+        totalKnownPositionMatches: 990,
+        unassignedMatches: 10,
+        observations: [
+          { position: 2, matches: 600 },
+          { position: 3, matches: 390 },
+        ],
+      },
+    ]),
+  );
+
+  expect(positions[10]![0]!.heroTotalMatches).toBe(1000);
+  expect(positions[10]![0]!.totalPopulationMatches).toBe(1000);
+  expect(positions[10]![0]!.totalKnownPositionMatches).toBe(990);
+  expect(positions[10]![0]!.unassignedMatches).toBe(10);
+});
+

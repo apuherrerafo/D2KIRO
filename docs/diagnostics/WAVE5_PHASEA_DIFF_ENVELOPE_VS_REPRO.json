@@ -1,0 +1,127 @@
+{
+  "a": "WAVE5_DOTA_JUDGE_PHASEA_REPRO.json",
+  "b": "WAVE5_DOTA_JUDGE_PHASEA_ENVELOPE.json",
+  "identityDifferences": [
+    "positional dataset mode (as-loaded vs synthetic envelope)"
+  ],
+  "changes": [
+    {
+      "scenario": "S01",
+      "point": "decision",
+      "surface": "personal ranking",
+      "before": "Weaver, Vengeful Spirit, Io, Gyrocopter, Chaos Knight",
+      "after": "Weaver, Vengeful Spirit, Io, Gyrocopter, Terrorblade"
+    },
+    {
+      "scenario": "S01",
+      "point": "next",
+      "surface": "personal ranking",
+      "before": "Chaos Knight, Spectre, Riki, Troll Warlord, Sven",
+      "after": "Spectre, Troll Warlord, Sven, Faceless Void, Ursa"
+    },
+    {
+      "scenario": "S06",
+      "point": "decision",
+      "surface": "personal ranking",
+      "before": "Chaos Knight, Spectre, Slark, Anti-Mage, Wraith King",
+      "after": "Spectre, Slark, Anti-Mage, Wraith King, Lifestealer"
+    },
+    {
+      "scenario": "S06",
+      "point": "next",
+      "surface": "personal ranking",
+      "before": "Chaos Knight, Spectre, Anti-Mage, Wraith King, Slark",
+      "after": "Spectre, Anti-Mage, Wraith King, Slark, Lifestealer"
+    },
+    {
+      "scenario": "S07",
+      "point": "decision",
+      "surface": "primary action",
+      "before": "REVEAL_FLEX: Sugerencia: revela un pick flexible (Support (Pos 4) / Hard support (Pos 5))",
+      "after": "REVEAL_FLEX: Sugerencia: revela un pick flexible (Hard support (Pos 5) / Support (Pos 4))"
+    },
+    {
+      "scenario": "S07",
+      "point": "decision",
+      "surface": "team shortlist",
+      "before": "Mirana, Silencer, Bounty Hunter, Omniknight, Dazzle",
+      "after": "Silencer, Venomancer, Enchantress, Rubick, Pugna"
+    },
+    {
+      "scenario": "S07",
+      "point": "decision",
+      "surface": "personal ranking",
+      "before": "Lina, Keeper of the Light, Earth Spirit, Invoker, Tinker",
+      "after": "Earth Spirit, Invoker, Puck, Ember Spirit, Pangolier"
+    },
+    {
+      "scenario": "S07",
+      "point": "next",
+      "surface": "primary action",
+      "before": "REVEAL_POSITION: Sugerencia: revela Carry (Pos 1)",
+      "after": "REVEAL_FLEX: Sugerencia: revela un pick flexible (Hard support (Pos 5) / Support (Pos 4))"
+    },
+    {
+      "scenario": "S07",
+      "point": "next",
+      "surface": "team shortlist",
+      "before": "Troll Warlord, Ursa, Terrorblade, Templar Assassin, Slark",
+      "after": "Silencer, Venomancer, Enchantress, Rubick, Pugna"
+    },
+    {
+      "scenario": "S07",
+      "point": "next",
+      "surface": "personal ranking",
+      "before": "Lina, Earth Spirit, Keeper of the Light, Invoker, Ember Spirit",
+      "after": "Earth Spirit, Invoker, Puck, Ember Spirit, Pangolier"
+    },
+    {
+      "scenario": "S09",
+      "point": "decision",
+      "surface": "team shortlist",
+      "before": "Lion, Zeus, Skywrath Mage, Techies",
+      "after": "Lion, Zeus, Skywrath Mage, Techies, Silencer"
+    },
+    {
+      "scenario": "S09",
+      "point": "next",
+      "surface": "team shortlist",
+      "before": "Troll Warlord, Juggernaut, Sven, Medusa",
+      "after": "Troll Warlord, Juggernaut, Sven, Medusa, Tiny"
+    },
+    {
+      "scenario": "S12",
+      "point": "decision",
+      "surface": "personal ranking",
+      "before": "Marci, Largo, Chaos Knight, Sand King, Axe",
+      "after": "Largo, Chaos Knight, Sand King, Axe, Magnus"
+    },
+    {
+      "scenario": "S12",
+      "point": "next",
+      "surface": "team shortlist",
+      "before": "Techies, Mirana, Bounty Hunter",
+      "after": "Techies, Mirana, Bounty Hunter, Nyx Assassin"
+    },
+    {
+      "scenario": "S13",
+      "point": "decision",
+      "surface": "personal ranking",
+      "before": "Weaver, Spirit Breaker, Phoenix, Zeus, Silencer",
+      "after": "Weaver, Spirit Breaker, Phoenix, Zeus, Grimstroke"
+    },
+    {
+      "scenario": "S13",
+      "point": "next",
+      "surface": "team shortlist",
+      "before": "Spirit Breaker, Phoenix, Zeus, Grimstroke",
+      "after": "Spirit Breaker, Phoenix, Zeus, Grimstroke, Rubick"
+    }
+  ],
+  "scenariosCompared": 13,
+  "scenariosOnDifferentDrafts": [
+    "S07"
+  ],
+  "pointsCompared": 24,
+  "pointsChanged": 12
+}

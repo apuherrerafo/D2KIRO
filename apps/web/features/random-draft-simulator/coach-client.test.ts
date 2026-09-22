@@ -57,6 +57,13 @@ describe("parseCoachOutput", () => {
     expect(parseCoachOutput({ schema: "other" })).toBeNull();
   });
 
+  test("personalHeroView: acepta seatCovered booleano (o ausente) y rechaza cualquier otro tipo", () => {
+    const view = (extra: Record<string, unknown>) => coachBody({ personalHeroView: { position: 2, positionLabel: "TU MID AHORA", heroes: [], ...extra } });
+    expect(parseCoachOutput(view({ seatCovered: true }))?.personalHeroView?.seatCovered).toBe(true);
+    expect(parseCoachOutput(view({}))).not.toBeNull();
+    expect(parseCoachOutput(view({ seatCovered: "yes" }))).toBeNull();
+  });
+
   test("REVEAL_HERO exige heroId; REVEAL_FLEX exige al menos una posición", () => {
     expect(parseCoachOutput(coachBody({ primaryAction: { strategy: { kind: "REVEAL_HERO", position: 2, rationale: "x" }, label: "x" } }))).toBeNull();
     expect(parseCoachOutput(coachBody({ primaryAction: { strategy: { kind: "REVEAL_HERO", heroId: 3, position: 2, rationale: "x" }, label: "x" } }))).not.toBeNull();

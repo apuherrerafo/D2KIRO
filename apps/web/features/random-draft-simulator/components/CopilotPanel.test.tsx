@@ -77,9 +77,24 @@ test("recomendaciones compuestas (legacy: null): se muestran como dupla, nunca v
 });
 
 test("degradaciones se muestran siempre que existan, ninguna se calla en silencio", () => {
-  const set = recommendationSet({ degradations: [{ reason: "stale_meta", detail: "El meta tiene más de 24 horas." }] });
+  const set = recommendationSet({ degradations: [{ reason: "stale_meta", detail: "V6 degraded flag: stale_meta" }] });
   const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
-  expect(view.getByText("El meta tiene más de 24 horas.")).toBeDefined();
+  expect(view.getByText("Datos de meta desactualizados")).toBeDefined();
+  expect(view.container.textContent).not.toMatch(/V6|flag|stale_meta/);
+});
+
+test("una lista de contradicciones vacía no renderiza ningún aviso", () => {
+  const set = recommendationSet({ degradations: [{ reason: "ROLE_ASSIGNMENT_IMPOSSIBLE", detail: "confirmaciones de posición contradictorias: []" }] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.container.textContent).not.toContain("contradictorias");
+  expect(view.container.textContent).not.toContain("[]");
+  expect(view.container.textContent).not.toContain("contradicen");
+});
+
+test("contradicciones reales se avisan en lenguaje llano", () => {
+  const set = recommendationSet({ degradations: [{ reason: "ROLE_ASSIGNMENT_IMPOSSIBLE", detail: 'confirmaciones de posición contradictorias: [{"position":1,"heroIds":[8,67]}]' }] });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getByText("Hay posiciones confirmadas que se contradicen entre sí")).toBeDefined();
 });
 
 test("sin recomendaciones (p. ej. CM fail-closed): estado explícito, nunca un panel en blanco", () => {
