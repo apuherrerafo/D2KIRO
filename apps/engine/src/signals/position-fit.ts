@@ -199,10 +199,10 @@ export function createPositionFitScorer(positions: HeroPositions, targetPosition
         };
       }
 
-      // Blocker 1 scope: only Position 2 (Mid) gets the target-aware formula today. Every other
-      // `targetPosition` (1/3/4/5) and the no-target case fall through to the legacy fill/safety
-      // formula below, unchanged.
-      if (targetPosition === 2) {
+      // Wave 5 Personal View repair: every targetPosition (1..5) gets the target-aware formula.
+      // The no-target case (team opening / general draft need) falls through to the legacy
+      // fill/safety formula below, unchanged.
+      if (targetPosition !== undefined) {
         return scoreForTargetPosition(candidate, targetPosition, positions);
       }
 
