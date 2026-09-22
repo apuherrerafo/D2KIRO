@@ -203,6 +203,7 @@ export function createCounterScorer(
           weighted: 0,
           explanation: "Sin datos suficientes de enfrentamientos para este candidato",
           sampleSize: 0,
+          hasRevealedEnemyCounterEvidence: false,
         };
       }
 
@@ -231,6 +232,12 @@ export function createCounterScorer(
         explanation = buildBanReliefClause(banReliefNames);
       }
 
+      // Wave 5 Hardening (H1): valid counter evidence requires that the candidate actually counters at
+      // least one currently revealed enemy (curated counter or positive statistical delta). Ban relief
+      // alone or net-negative/zero statistical evidence never qualifies.
+      const hasRevealedEnemyCounterEvidence =
+        positiveNames.length > 0 || statDeltas.some((d) => d.delta > 0);
+
       // `weighted` queda en 0: la mezcla y la redistribución cuando otras señales dan `null` es
       // responsabilidad de `mix.ts`, no de este scorer.
       return {
@@ -239,6 +246,7 @@ export function createCounterScorer(
         weighted: 0,
         explanation,
         sampleSize: statSampleSize,
+        hasRevealedEnemyCounterEvidence,
       };
     },
   };

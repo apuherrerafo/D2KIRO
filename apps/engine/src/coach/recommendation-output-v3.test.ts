@@ -9,6 +9,8 @@ import { hidden, known, neutralImpact, recSet, revealed, roleOnlyHero, signal, v
 const VIEW = view("PICK_ROUND_1", [known(50)], [hidden(), hidden()]);
 const STATE = buildCoachObservableState(VIEW);
 const MANY = Array.from({ length: 8 }, (_, index) => roleOnlyHero(index + 1, ((index % 5) + 1) as 1 | 2 | 3 | 4 | 5, 20 - index));
+// Eight heroes that ALL serve Pos 5, for the tests about shortlist size / shape (REVEAL_POSITION shows only serving heroes).
+const ALL_POS_5 = Array.from({ length: 8 }, (_, index) => roleOnlyHero(index + 1, 5, 20 - index));
 const POSITION: RevealStrategy = { kind: "REVEAL_POSITION", position: 5, rationale: "prior" };
 
 describe("translateToRecommendationOutputV3", () => {
@@ -28,8 +30,8 @@ describe("translateToRecommendationOutputV3", () => {
 
   test("shortlist <= 5 por defecto y configurable", () => {
     expect(COACH_SHORTLIST_SIZE).toBe(5);
-    expect(translateToRecommendationOutputV3(recSet(MANY), POSITION, STATE, "blind_second_pick").shortlist.length).toBeLessThanOrEqual(5);
-    expect(translateToRecommendationOutputV3(recSet(MANY), POSITION, STATE, "blind_second_pick", { shortlistSize: 3 }).shortlist).toHaveLength(3);
+    expect(translateToRecommendationOutputV3(recSet(ALL_POS_5), POSITION, STATE, "blind_second_pick").shortlist.length).toBeLessThanOrEqual(5);
+    expect(translateToRecommendationOutputV3(recSet(ALL_POS_5), POSITION, STATE, "blind_second_pick", { shortlistSize: 3 }).shortlist).toHaveLength(3);
   });
 
   test("meta.basedOn es el basedOn del RecommendationSetV2 de origen (mismo objeto)", () => {
@@ -57,17 +59,24 @@ describe("translateToRecommendationOutputV3", () => {
   });
 
   test("acción a nivel de rol + shortlist de héroes concretos: la shortlist no convierte la acción en héroe", () => {
-    const output = translateToRecommendationOutputV3(recSet(MANY), POSITION, STATE, "blind_second_pick");
+    const output = translateToRecommendationOutputV3(recSet(ALL_POS_5), POSITION, STATE, "blind_second_pick");
     expect(output.primaryAction.strategy.kind).toBe("REVEAL_POSITION");
     expect(output.primaryAction.strategy).not.toHaveProperty("heroId");
     expect(output.shortlist.length).toBeGreaterThan(1);
   });
 
-  test("la shortlist pone primero los héroes que encajan con la acción (Pos 5) y conserva el orden V6 dentro de cada grupo", () => {
+  test("RB-2: con REVEAL_POSITION(P) la shortlist son SÓLO héroes que sirven a P, en orden V6 (nunca 0/5 que ejecuten la acción)", () => {
     const output = translateToRecommendationOutputV3(recSet(MANY), POSITION, STATE, "blind_second_pick");
-    const fitting = output.shortlist.filter((card) => card.position === 5).map((card) => card.heroId);
-    expect(fitting.length).toBeGreaterThan(0);
-    expect(output.shortlist.slice(0, fitting.length).map((card) => card.heroId)).toEqual(fitting);
+    expect(output.shortlist.length).toBeGreaterThan(0);
+    expect(output.shortlist.every((card) => card.position === 5)).toBe(true);
+    const fixtureOrder = MANY.filter((hero) => hero.impact.position === 5).map((hero) => hero.heroId);
+    expect(output.shortlist.map((card) => card.heroId)).toEqual(fixtureOrder);
+  });
+
+  test("RB-2: una estrategia que nadie sirve (llamada directa) degrada al orden V6, nunca a una shortlist vacía", () => {
+    const orphan: RevealStrategy = { kind: "REVEAL_POSITION", position: 3, rationale: "r" };
+    const cores = [roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11)];
+    expect(translateToRecommendationOutputV3(recSet(cores), orphan, STATE, "blind_second_pick").shortlist.map((card) => card.heroId)).toEqual([1, 2]);
   });
 
   test("DEFER_POSITION: la shortlist no encabeza con héroes de la posición diferida", () => {

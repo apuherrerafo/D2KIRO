@@ -132,6 +132,28 @@ describe("5. una vez revelada, la identidad enemiga aparece en la entrada segura
   });
 });
 
+// design.md §15 caso 5 (Wave 5 Task 31): un héroe que el rival tiene sellado (HIDDEN) NO se excluye del pool
+// del Coach -- es legalmente elegible para el Player y puede ser su mejor recomendación (Req 20.6).
+describe("5b. un héroe sellado del rival sigue siendo recomendable (design.md §15-5)", () => {
+  test("con el héroe #1 del scorer sellado por el rival, el Coach lo sigue recomendando; su identidad no mueve la salida", async () => {
+    const TOP = 1; // fakeCompute ranks hero 1 first
+    const hiddenTop = harness({ sessionId: "hidden-top" });
+    const hiddenOther = harness({ sessionId: "hidden-top" });
+    hiddenTop.seal(hiddenTop.enemy, 0, TOP);
+    hiddenOther.seal(hiddenOther.enemy, 0, 30);
+    const ctx = hiddenTop.store.perspectiveRecommendationContext("hidden-top")!;
+    expect(ctx.view.enemyPicks).toEqual([{ visibility: "HIDDEN" }]);
+    expect(unavailableHeroesFrom(ctx.view).has(TOP)).toBe(false);
+    expect(isHeroSelectableFrom(ctx, TOP, ctx.openOwnSlots[0]!)).toBe(true);
+    const withHidden = await hiddenTop.compute();
+    // The hidden hero stays in V6's own ranking (asserted next). The Coach's shortlist only lists heroes that can
+    // execute the primary action (RB-2), so whether TOP appears there depends on the action -- not on hidden data.
+    expect(withHidden.output!.shortlist.length).toBeGreaterThan(0);
+    expect(withHidden.recommendationSet.recommendations[0]!.actions.some((action) => action.hero === TOP)).toBe(true);
+    expect(JSON.stringify(withHidden.output)).toBe(JSON.stringify((await hiddenOther.compute()).output)); // same visible state -> same advice
+  });
+});
+
 describe("6. compatibilidad legacy: el camino V2 autoritativo sigue igual, y el camino seguro produce lo mismo salvo lo que no puede calcular", () => {
   test("sin información oculta en juego: decisión, recomendaciones, degradaciones y basedOn coinciden; sólo `deferred` (lookahead) es NOT_COMPUTED en el camino seguro", async () => {
     const h = harness({ sessionId: "parity" });

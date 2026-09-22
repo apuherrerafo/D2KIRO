@@ -38,6 +38,11 @@ export interface BuildRecommendationSetFromPerspectiveInput {
   /** Keeps a personal advisory evaluation independent from the team round's compound action count. */
   singleSlotEvaluation?: boolean;
   teamOpening?: boolean;
+  /**
+   * Pre-ranking candidate universe (V6's own `candidateHeroIds`). Only the Coach's personal-position path supplies
+   * one -- a universe derived from the target position alone, never from the team shortlist. Team callers omit it.
+   */
+  candidateHeroIds?: readonly HeroId[];
   outputLimit?: number;
 }
 
@@ -115,7 +120,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
       // illegitimate hard gate and hide a clearly better outside-pool personal option.
       usePersonalPool: false,
       diversitySeed: undefined,
-      candidateHeroIds: undefined,
+      candidateHeroIds: input.candidateHeroIds,
     });
   } catch {
     pushUniqueDegradation(degradations, { reason: "SNAPSHOT_UNAVAILABLE", detail: "computeSuggestions falló; sin datos de meta disponibles" });

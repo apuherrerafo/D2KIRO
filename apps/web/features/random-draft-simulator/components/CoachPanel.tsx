@@ -2,6 +2,7 @@
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
+import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleStatus, CoachStrategy } from "../coach-client";
 
@@ -176,6 +177,14 @@ interface ShortlistProps {
 function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
   const personal = coach.personalHeroView;
   if (!personal) return null;
+  if (personal.seatCovered) {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
+        <span className="text-caption font-semibold text-accent-primary">{personal.positionLabel}</span>
+        <span className="text-caption text-content-secondary" data-testid="coach-personal-seat-covered">Tu posición ya está cubierta</span>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
       <span className="text-caption font-semibold text-accent-primary">{personal.positionLabel}</span>
@@ -188,25 +197,68 @@ function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
   );
 }
 
+type RoleBelief = NonNullable<CoachOutput["roleBeliefs"]>["own"][number];
+
+interface RoleBeliefRowProps {
+  belief: RoleBelief;
+  label: string;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+function EnemyRoleRow({ belief, label, heroCatalog }: RoleBeliefRowProps) {
+  const flex = belief.status !== "CONFIRMED" && belief.positions.length > 1;
+  const description = belief.status === "CONFIRMED"
+    ? `Pos${belief.positions[0]}`
+    : flex
+      ? `Likely Pos${belief.positions[0]} / Possible Pos${belief.positions[1]}`
+      : `Likely Pos${belief.positions[0]}`;
+  return <div className="flex flex-wrap items-center gap-1 text-caption text-content-secondary" data-testid="coach-enemy-role">
+    <span>{label}: {heroName(belief.heroId, heroCatalog)} — {description}</span>
+  </div>;
+}
+
+interface OwnRoleRowProps extends RoleBeliefRowProps {
+  onAssignOwnPosition?: (heroId: number, position: CoachPosition | null) => void;
+}
+
+// Own row: before an assignment the Player sees "<hero> · FLEX 3/2" with one "Asignar PosN" button
+// per plausible position; after it, "<hero> · Asignado a PosN" with a single "Quitar asignación".
+function OwnRoleRow({ belief, label, heroCatalog, onAssignOwnPosition }: OwnRoleRowProps) {
+  const name = heroName(belief.heroId, heroCatalog);
+  const assigned = belief.status === "CONFIRMED";
+  const flex = !assigned && belief.positions.length > 1;
+  const description = assigned
+    ? `Asignado a Pos${belief.positions[0]}`
+    : flex
+      ? `FLEX ${belief.positions.join("/")}`
+      : `Likely Pos${belief.positions[0]}`;
+  const clearAssignment = () => onAssignOwnPosition?.(belief.heroId, null);
+  return <div className="flex flex-wrap items-center gap-2 text-caption text-content-secondary" data-testid="coach-own-role">
+    <span>{label}: {name} · {description}</span>
+    {onAssignOwnPosition && !assigned && belief.positions.map((position) => <AssignPositionButton key={position} heroId={belief.heroId} position={position} onAssign={onAssignOwnPosition} />)}
+    {onAssignOwnPosition && assigned && <button type="button" className={BUTTON_COMPACT} onClick={clearAssignment}>Quitar asignación</button>}
+  </div>;
+}
+
+interface AssignPositionButtonProps {
+  heroId: number;
+  position: CoachPosition;
+  onAssign: (heroId: number, position: CoachPosition | null) => void;
+}
+
+function AssignPositionButton({ heroId, position, onAssign }: AssignPositionButtonProps) {
+  const assign = () => onAssign(heroId, position);
+  return <button type="button" className={BUTTON_COMPACT} onClick={assign}>Asignar Pos{position}</button>;
+}
+
 function RoleBeliefs({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProps) {
   if (!coach.roleBeliefs) return null;
-  const rows = (side: "own" | "enemy", label: string) => coach.roleBeliefs![side].map((belief) => {
-    const flex = belief.status !== "CONFIRMED" && belief.positions.length > 1;
-    const description = belief.status === "CONFIRMED"
-      ? `Pos${belief.positions[0]}`
-      : flex && side === "own"
-        ? `FLEX ${belief.positions.join("/")}`
-        : flex
-          ? `Likely Pos${belief.positions[0]} / Possible Pos${belief.positions[1]}`
-          : `Likely Pos${belief.positions[0]}`;
-    return <div key={`${side}-${belief.heroId}`} className="flex flex-wrap items-center gap-1 text-caption text-content-secondary" data-testid={`coach-${side}-role`}>
-      <span>{label}: {heroName(belief.heroId, heroCatalog)} — {description}</span>
-      {side === "own" && onAssignOwnPosition && belief.positions.map((position) => <button type="button" key={position} className="underline" onClick={() => onAssignOwnPosition(belief.heroId, position)}>Pos{position}</button>)}
-      {side === "own" && onAssignOwnPosition && belief.status === "CONFIRMED" && <button type="button" className="underline" onClick={() => onAssignOwnPosition(belief.heroId, null)}>Quitar</button>}
-    </div>;
-  });
-  if (coach.roleBeliefs.own.length === 0 && coach.roleBeliefs.enemy.length === 0) return null;
-  return <div className="flex flex-col gap-1" data-testid="coach-role-beliefs">{rows("own", "Tu equipo")}{rows("enemy", "Rival")}</div>;
+  const { own, enemy } = coach.roleBeliefs;
+  if (own.length === 0 && enemy.length === 0) return null;
+  return <div className="flex flex-col gap-2" data-testid="coach-role-beliefs">
+    {own.map((belief) => <OwnRoleRow key={`own-${belief.heroId}`} belief={belief} label="Tu equipo" heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />)}
+    {enemy.map((belief) => <EnemyRoleRow key={`enemy-${belief.heroId}`} belief={belief} label="Rival" heroCatalog={heroCatalog} />)}
+  </div>;
 }
 
 function Shortlist({ coach, heroCatalog }: ShortlistProps) {

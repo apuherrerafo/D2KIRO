@@ -56,7 +56,8 @@ export interface CoachOutput {
   shortlist: CoachHeroCard[];
   /** Bloque informativo de Safe Core: ausente salvo que exista evidencia real. No altera acción ni shortlist. */
   opportunity?: CoachOpportunity;
-  personalHeroView?: { position: CoachPosition; positionLabel: string; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
+  /** `seatCovered`: the Player's own picks already fill this position, so `heroes` is empty by design (engine mirror; absent in older payloads). */
+  personalHeroView?: { position: CoachPosition; positionLabel: string; seatCovered?: boolean; heroes: { heroId: HeroId; rank: number; score: number; isFromPool: boolean }[] };
   outsidePoolRecommendation?: { heroId: HeroId; label: string; rationale: string };
   roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
   meta: {
@@ -150,7 +151,7 @@ function isOpportunity(value: unknown): boolean {
 }
 
 function isPersonalHeroView(value: unknown): boolean {
-  return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && Array.isArray(value.heroes)
+  return isRecord(value) && isPosition(value.position) && typeof value.positionLabel === "string" && (value.seatCovered === undefined || typeof value.seatCovered === "boolean") && Array.isArray(value.heroes)
     && value.heroes.every((hero) => isRecord(hero) && isHeroId(hero.heroId) && typeof hero.rank === "number" && typeof hero.score === "number" && typeof hero.isFromPool === "boolean");
 }
 

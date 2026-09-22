@@ -38,6 +38,10 @@ const ENGINE_REWRITE_SOURCES = [
   // gap: confirmed via curl direct-to-engine (200, real RecommendationSet/v2) vs through this proxy
   // (404) with the exact same session id.
   "/engine/api/session/protocol/:sessionId/recommendations",
+  // Wave 5 (product certification): coach-client.ts `assignOwnCoachPosition` posts here when the Player assigns a
+  // position to an own Flex hero. It was missing from this allowlist, so the call 404ed through the proxy and the
+  // Own-Flex assignment silently did nothing in the real product (found by the Wave 5 browser journey).
+  "/engine/api/session/protocol/:sessionId/position-assignment",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",

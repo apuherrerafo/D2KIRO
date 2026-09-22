@@ -9,6 +9,7 @@ import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
 import type { CoachOutput } from "../coach-client";
+import { playerFacingDegradation } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
 
@@ -51,12 +52,17 @@ interface DegradationsNoticeProps {
 }
 
 function DegradationsNotice({ degradations }: DegradationsNoticeProps) {
-  if (degradations.length === 0) return null;
+  const notices = new Map<string, string>();
+  for (const degradation of degradations) {
+    const text = playerFacingDegradation(degradation);
+    if (text) notices.set(`${degradation.reason}:${text}`, text);
+  }
+  if (notices.size === 0) return null;
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-raised p-3">
-      {degradations.map((degradation) => (
-        <span key={`${degradation.reason}:${degradation.detail}`} className="text-caption text-signal-warning">
-          {degradation.detail}
+      {[...notices].map(([key, text]) => (
+        <span key={key} className="text-caption text-signal-warning">
+          {text}
         </span>
       ))}
     </div>

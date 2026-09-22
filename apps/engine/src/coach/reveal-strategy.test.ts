@@ -24,15 +24,26 @@ const kindOf = (strategy: RevealStrategy) => strategy.kind;
 
 describe("REVEAL_POSITION -- el prior support-first es un prior, no un guion", () => {
   test("team_opening + el líder es un core sin evidencia que obligue a abrir con él -> REVEAL_POSITION de un soporte (4 o 5), sin heroId", () => {
-    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11), roleOnlyHero(3, 3, 10)]);
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11), roleOnlyHero(3, 3, 10), roleOnlyHero(4, 5, 9)]);
     const strategy = deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening");
     expect(strategy.kind).toBe("REVEAL_POSITION");
     expect([4, 5]).toContain((strategy as { position: number }).position);
     expect(strategy).not.toHaveProperty("heroId");
   });
 
+  test("RB-2: el prior NO puede nombrar un soporte que ningún héroe del ranking sirve -> cede a la posición que la evidencia sí sirve", () => {
+    // Only cores in the ranking: a "reveal Support" claim would come with a shortlist that cannot execute it.
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11), roleOnlyHero(3, 3, 10)]);
+    expect(deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening")).toMatchObject({ kind: "REVEAL_POSITION", position: 1 });
+  });
+
+  test("RB-2: el prior elige el soporte que SÍ tiene héroes que lo sirven, aunque no sea el primero de su orden de preferencia", () => {
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 4, 11)]); // a Pos 4 exists, no Pos 5
+    expect(deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening")).toMatchObject({ kind: "REVEAL_POSITION", position: 4 });
+  });
+
   test("blind_second_pick con el soporte 5 ya cubierto por un pick propio -> el prior elige el 4 (no repite el 5)", () => {
-    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11)]);
+    const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11), roleOnlyHero(3, 4, 10)]);
     const ownBeliefs = new Map([[50, computeRoleBelief({ heroId: 50, confirmedPosition: 5 })]]);
     const strategy = deriveRevealStrategy(SECOND_PICK_VIEW, set, null, [], "blind_second_pick", { ownRoleBeliefs: ownBeliefs });
     expect(strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 4 });

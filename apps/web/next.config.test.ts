@@ -42,6 +42,10 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/command");
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/bot-selection");
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/simulator-authority");
+    // Wave 5 (product certification): the browser calls both of these (protocol-client.ts / coach-client.ts). The
+    // Own-Flex assignment call was missing from the allowlist and 404ed through the proxy in the real product.
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/recommendations");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/position-assignment");
     expect(sources).toContain("/engine/api/session/:sessionId/feedback");
     expect(sources).toContain("/engine/api/session/:sessionId/draft-paths");
     expect(sources).toContain("/engine/api/v1/draft/pro-recommendations");

@@ -1,4 +1,4 @@
-import { CoachOrchestrator, type CoachRecomputation } from "../../coach";
+import { CoachOrchestrator, personalCandidateUniverse, type CoachRecomputation } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
@@ -57,11 +57,14 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
         heroPositions,
         heroCounters,
         buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
+        buildActionRecommendationSet: (context, candidateHeroIds) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, candidateHeroIds, singleSlotEvaluation: true, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
         buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({
           context,
           computeSuggestions: computeForPersonal,
           heroPositions,
           targetPosition: position,
+          // Pre-ranking universe: only heroes credibly played at the Player's own position (Dota-Judge RB-1).
+          candidateHeroIds: personalCandidateUniverse(position, heroPositions),
           teamOpening: false,
           singleSlotEvaluation: true,
           outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,

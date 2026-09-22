@@ -81,6 +81,10 @@ export default defineConfig({
       command: "bun run src/index.e2e.ts",
       cwd: "apps/engine",
       port: ENGINE_PORT,
+      // Diagnostics only (scripts/wave2-repro.ts): E2E_ENGINE_LOG=1 pipes the engine's structured log
+      // (`recommendations_computed`: computedInMs + degradation reasons) into the runner's stdout.
+      // Off by default: no behaviour change for any other run.
+      stdout: process.env.E2E_ENGINE_LOG === "1" ? "pipe" : "ignore",
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
