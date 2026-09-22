@@ -63,14 +63,47 @@ describe("createTeamSynergyScorer", () => {
     expect(scorer.score(state, WAVECLEARER.hero, { heroes: {}, matchups: {} }).raw).toBeNull();
   });
 
-  test("candidato sin entrada en capabilities.json -> raw: 0, nunca null (es un hueco de dato del candidato, no del equipo)", () => {
+  test("candidato sin entrada en capabilities.json -> raw: null (dato insuficiente, nunca 0)", () => {
     const scorer = createTeamSynergyScorer([INITIATOR]);
     const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
 
     const result = scorer.score(state, 999, { heroes: {}, matchups: {} });
 
-    expect(result.raw).toBe(0);
+    expect(result.raw).toBeNull();
     expect(result.explanation).toContain("Sin datos de capacidades");
+  });
+
+  test("héroes con capacidades no curadas / CAPABILITY_DATA_UNAVAILABLE (131, 145, 155) reciben raw: null y nunca raw: 0", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
+
+    for (const heroId of [131, 145, 155]) {
+      const result = scorer.score(state, heroId, { heroes: {}, matchups: {} });
+      expect(result.raw).toBeNull();
+      expect(result.explanation).toContain("Sin datos de capacidades");
+    }
+  });
+
+  test("equipo propio con solo héroes uncurated / capacidades no disponibles -> raw: null (no asume que carecen de todo)", () => {
+    const scorer = createTeamSynergyScorer([INITIATOR]);
+    // Radiant solo tiene Ringmaster (131), sin capacidades en la lista inyectada
+    const state = draftState({ picks: { radiant: [131], dire: [] } });
+
+    const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
+
+    expect(result.raw).toBeNull();
+    expect(result.explanation).toContain("Sin picks propios con capacidades tácticas conocidas");
+  });
+
+  test("equipo propio con mezcla de conocido y desconocido: evalúa sobre lo conocido sin fallar", () => {
+    const scorer = createTeamSynergyScorer([WAVECLEARER, INITIATOR]);
+    // Radiant tiene WAVECLEARER y Ringmaster (131)
+    const state = draftState({ picks: { radiant: [WAVECLEARER.hero, 131], dire: [] } });
+
+    const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.explanation).toContain("initiation");
   });
 
   test("equipo sin iniciación: candidato que la aporta puntúa más que uno que repite algo ya cubierto", () => {

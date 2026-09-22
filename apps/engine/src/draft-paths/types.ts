@@ -2,6 +2,8 @@ import type { HeroId } from "../draft/reducer";
 
 export type CapabilityLevel = "low" | "medium" | "high";
 export type DamageType = "physical" | "magical" | "pure" | "mixed";
+export type CapabilityAvailability = "available" | "unavailable";
+export type CapabilityCoverageSemantic = "CURATED" | "UNCURATED" | "CAPABILITY_DATA_UNAVAILABLE";
 
 export interface HeroCapabilities {
   hero: HeroId;
