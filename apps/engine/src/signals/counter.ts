@@ -32,6 +32,20 @@ export const COUNTER_SHRINK_PRIOR_STRENGTH = 20;
 // "Partidas virtuales" hacia el baseline del candidato: 42 partidas conservan ~68% del delta,
 // 200 ~91%, 10 ~33%.
 
+/**
+ * Umbral mínimo de partidas para que una ventaja estadística califique para la insignia visible COUNTER.
+ * Basado en la distribución empírica congelada (mediana de partidas = 51, p40 = 40): a 40 partidas con
+ * shrinkPriorStrength = 20, el factor de contracción es 40/(40+20) = 0.667.
+ */
+export const STATISTICAL_COUNTER_BADGE_MIN_GAMES = 40;
+
+/**
+ * Ventaja estadística mínima (delta contraído sobre baseline) para que califique para la insignia visible COUNTER.
+ * +0.04 (+4.0% de delta contraído) se sitúa en el percentil 78 (p78) de todos los pares y top 47% de los positivos,
+ * requiriendo un delta observado crudo de al menos +6.0% a 40 partidas.
+ */
+export const STATISTICAL_COUNTER_BADGE_MIN_DELTA = 0.04;
+
 // TSK-188 (SPEC.md §14.13): término POSITIVO "tus counters están baneados = pick más libre".
 // No depende de picks rivales revelados -- vota desde el pick 1. Valores de arranque QA-tuneables.
 const BAN_RELIEF: Record<CuratedCounter["level"], number> = { hard: 0.04, medium: 0.02 };
@@ -44,6 +58,10 @@ export interface CounterScorerOptions {
   /** Fuerza del prior del shrinkage hacia el baseline del candidato. Default
    *  `COUNTER_SHRINK_PRIOR_STRENGTH`. `null` -> usa el delta crudo (comportamiento previo). */
   shrinkPriorStrength?: number | null;
+  /** Umbral de partidas para calificar para hasRevealedEnemyCounterEvidence (insignia COUNTER). Default STATISTICAL_COUNTER_BADGE_MIN_GAMES. */
+  badgeMinGames?: number;
+  /** Umbral de delta contraído para calificar para hasRevealedEnemyCounterEvidence (insignia COUNTER). Default STATISTICAL_COUNTER_BADGE_MIN_DELTA. */
+  badgeMinDelta?: number;
 }
 
 // `knownEnemies` no depende del candidato ni de `meta` -- se deriva sólo del `state`, que el
@@ -80,8 +98,20 @@ interface EnemyDelta {
   games: number;
 }
 
-// Explicación cuando SÓLO hubo capa estadística (idéntica a la previa).
-function buildStatisticalExplanation(meta: MetaSnapshot, deltas: EnemyDelta[]): string {
+// Explicación cuando SÓLO hubo capa estadística.
+function buildStatisticalExplanation(
+  meta: MetaSnapshot,
+  deltas: EnemyDelta[],
+  badgeMinGames = STATISTICAL_COUNTER_BADGE_MIN_GAMES,
+  badgeMinDelta = STATISTICAL_COUNTER_BADGE_MIN_DELTA,
+): string {
+  const qualifying = deltas
+    .filter((d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, MAX_NAMED_ENEMIES)
+    .map((d) => heroName(meta, d.vsHero));
+  if (qualifying.length > 0) return `Fuerte contra ${qualifying.join(" y ")}`;
+
   const strongAgainst = deltas
     .filter((d) => d.delta > 0)
     .sort((a, b) => b.delta - a.delta)
@@ -116,6 +146,8 @@ export function createCounterScorer(
   const minGames = options.minGames ?? COUNTER_MIN_GAMES;
   const shrinkPriorStrength =
     options.shrinkPriorStrength === undefined ? COUNTER_SHRINK_PRIOR_STRENGTH : options.shrinkPriorStrength;
+  const badgeMinGames = options.badgeMinGames ?? STATISTICAL_COUNTER_BADGE_MIN_GAMES;
+  const badgeMinDelta = options.badgeMinDelta ?? STATISTICAL_COUNTER_BADGE_MIN_DELTA;
 
   // Cache por instancia: el índice depende de `minGames`, así que no puede compartirse entre
   // scorers con distinto umbral.
@@ -138,7 +170,8 @@ export function createCounterScorer(
 
       const contribs: number[] = [];
       const negativeWhy: string[] = [];
-      const positiveNames: string[] = [];
+      const positiveHardNames: string[] = [];
+      const positiveMediumNames: string[] = [];
       const statDeltas: EnemyDelta[] = [];
       let statSampleSize = 0;
 
@@ -157,7 +190,11 @@ export function createCounterScorer(
         const counters = (curated.get(rival) ?? []).find((entry) => entry.vs === candidate);
         if (counters) {
           curatedValue += M[counters.level];
-          positiveNames.push(heroName(meta, rival));
+          if (counters.level === "hard") {
+            positiveHardNames.push(heroName(meta, rival));
+          } else {
+            positiveMediumNames.push(heroName(meta, rival));
+          }
           curatedHit = true;
         }
 
@@ -222,21 +259,30 @@ export function createCounterScorer(
         banRelief === 0 ? sumRevealed : Math.max(-M.hard, Math.min(M.hard, sumRevealed + banRelief));
 
       let explanation: string;
+      const allPositiveCurated = [...positiveHardNames, ...positiveMediumNames];
       if (contribs.length > 0) {
         const base =
-          negativeWhy.length > 0 || positiveNames.length > 0
-            ? buildCuratedExplanation(negativeWhy, positiveNames)
-            : buildStatisticalExplanation(meta, statDeltas);
+          negativeWhy.length > 0 || allPositiveCurated.length > 0
+            ? buildCuratedExplanation(negativeWhy, allPositiveCurated)
+            : buildStatisticalExplanation(meta, statDeltas, badgeMinGames, badgeMinDelta);
         explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
       } else {
         explanation = buildBanReliefClause(banReliefNames);
       }
 
-      // Wave 5 Hardening (H1): valid counter evidence requires that the candidate actually counters at
-      // least one currently revealed enemy (curated counter or positive statistical delta). Ban relief
-      // alone or net-negative/zero statistical evidence never qualifies.
+      // Wave 5 Domain Remediation: valid visible counter evidence requires:
+      // 1. Curated HARD counter against a revealed enemy (curated level="hard" only), OR
+      // 2. Statistical counter against a revealed enemy with sufficient sample floor and effect size:
+      //    games >= badgeMinGames (default 40) AND shrunk delta >= badgeMinDelta (default +0.04).
+      // Curated medium relations contribute to numerical scoring (+0.06) but do NOT qualify
+      // alone for the visible COUNTER claim.
+      // Ban relief alone or net-negative/sub-threshold statistical evidence never qualifies.
+      const hasCuratedHardCounter = positiveHardNames.length > 0;
+      const hasStatisticalCounter = statDeltas.some(
+        (d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta
+      );
       const hasRevealedEnemyCounterEvidence =
-        positiveNames.length > 0 || statDeltas.some((d) => d.delta > 0);
+        hasCuratedHardCounter || hasStatisticalCounter;
 
       // `weighted` queda en 0: la mezcla y la redistribución cuando otras señales dan `null` es
       // responsabilidad de `mix.ts`, no de este scorer.

@@ -128,6 +128,13 @@ describe("deriveHeroBadges", () => {
       const fit: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 20)], impact: resolvedImpact(3) };
       expect(deriveHeroBadges(singleRec(fit), [], 7)).not.toContain("POSITION_FIT");
     });
+
+    test("curated medium contra un rival revelado NO emite insignia COUNTER (solo level=hard califica)", () => {
+      const mediumCurated = new Map<number, CuratedCounter[]>([[50, [{ vs: 7, level: "medium", why: "fixture" }]]]);
+      expect(deriveHeroBadges(singleRec(banReliefOnly), [], 7, [], { revealedEnemies: [50], heroCounters: mediumCurated })).not.toContain("COUNTER");
+      const hardCurated = new Map<number, CuratedCounter[]>([[50, [{ vs: 7, level: "hard", why: "fixture" }]]]);
+      expect(deriveHeroBadges(singleRec(banReliefOnly), [], 7, [], { revealedEnemies: [50], heroCounters: hardCurated })).toContain("COUNTER");
+    });
   });
 
   describe("Dota-Judge RB-4 -- democión categórica por counter duro curado revelado", () => {
@@ -253,5 +260,22 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     const bare: HeroFixture = { heroId: 1, signals: [signal("counter", null, 3)], impact: resolvedImpact(1) };
     const [none] = extractHeroCandidates(recSet([bare]));
     expect(buildHeroCard(none!, []).rationale).toBe("Sin señal con datos propios suficientes.");
+  });
+
+  test("cuando la tarjeta tiene insignia COUNTER, el rationale prioriza la razón de counter sobre la de posición", () => {
+    // position_fit has higher weighted score (30) than counter (5), but because COUNTER badge is present,
+    // the card must explain WHO is being countered rather than just saying 'Cubre la posición que falta'
+    const heroWithCounterAndPos: HeroFixture = {
+      heroId: 7,
+      signals: [
+        signal("position_fit", 0.9, 30, { explanation: "Cubre la posición carry que a tu equipo le falta" }),
+        signal("counter", 0.05, 5, { hasRevealedEnemyCounterEvidence: true, explanation: "Fuerte contra Medusa" }),
+      ],
+      impact: resolvedImpact(1),
+    };
+    const [cand] = extractHeroCandidates(recSet([heroWithCounterAndPos]));
+    const card = buildHeroCard(cand!, [], { revealedEnemies: [94] });
+    expect(card.badges).toContain("COUNTER");
+    expect(card.rationale).toBe("Fuerte contra Medusa");
   });
 });

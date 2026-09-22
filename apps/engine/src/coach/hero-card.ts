@@ -81,7 +81,7 @@ export interface CounterEvidenceContext {
 function hasRevealedEnemyCounterEvidence(heroId: HeroId, signal: SignalContribution, context: CounterEvidenceContext | undefined): boolean {
   if (!context || context.revealedEnemies.length === 0) return false;
   const curated = context.heroCounters;
-  if (curated && context.revealedEnemies.some((enemy) => (curated.get(enemy) ?? []).some((entry) => entry.vs === heroId))) return true;
+  if (curated && context.revealedEnemies.some((enemy) => (curated.get(enemy) ?? []).some((entry) => entry.vs === heroId && entry.level === "hard"))) return true;
   return signal.hasRevealedEnemyCounterEvidence === true;
 }
 
@@ -192,7 +192,13 @@ export function extractHeroCandidates(set: RecommendationSetV2, heroPositions?: 
 }
 
 /** The phrase of the hero's strongest REAL signal (data-backed, highest contribution). */
-function rationaleOf(candidate: HeroCandidate): string {
+function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string {
+  if (hasCounterBadge) {
+    const counterSignal = candidate.signals.find((s) => s.signal === "counter" && votedWithData(s));
+    if (counterSignal?.explanation && !counterSignal.explanation.startsWith("Sin ")) {
+      return counterSignal.explanation;
+    }
+  }
   const backed = candidate.signals.filter(votedWithData).sort((a, b) => b.weighted - a.weighted);
   return backed[0]?.explanation ?? "Sin señal con datos propios suficientes.";
 }
@@ -246,13 +252,14 @@ export function revealedEnemyHeroes(view: PerspectiveDraftView): HeroId[] {
 }
 
 export function buildHeroCard(candidate: HeroCandidate, heroPool: readonly HeroId[], counterContext?: CounterEvidenceContext): HeroCard {
+  const badges = deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions, counterContext);
   return {
     heroId: candidate.heroId,
     position: candidate.position,
     roleStatus: candidate.roleStatus,
     confidence: candidate.confidence,
-    badges: deriveHeroBadges(candidate.recommendation, heroPool, candidate.heroId, candidate.flexPositions, counterContext),
-    rationale: rationaleOf(candidate),
+    badges,
+    rationale: rationaleOf(candidate, badges.includes("COUNTER")),
     score: candidate.score,
     isFromPool: heroPool.includes(candidate.heroId),
   };

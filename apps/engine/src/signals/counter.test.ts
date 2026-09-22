@@ -559,4 +559,59 @@ describe("Wave 5 Hardening (H1/RH-R3) -- hasRevealedEnemyCounterEvidence produce
     const resWithEnemy = createCounterScorer(curated).score(stateWithEnemy, CANDIDATE, snapshotEven);
     expect(resWithEnemy.hasRevealedEnemyCounterEvidence).toBe(false);
   });
+
+  test("Case E: curated medium contributes to score (+0.06) but hasRevealedEnemyCounterEvidence is false", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [REVEALED_ENEMY, [{ vs: CANDIDATE, level: "medium", why: "Candidate medium counters revealed enemy" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, CANDIDATE, meta());
+
+    expect(result.raw).toBeCloseTo(0.06, 10);
+    // Medium contributes to score, but does NOT qualify alone for the visible COUNTER claim
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case F: statistical counter below sample size floor (N < 40) does not qualify", () => {
+    // games: 25 (below floor 40), wins: 20 -> raw delta is high (+0.30), but sample is under floor
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 25, wins: 20 },
+          { vsHero: 88, games: 25, wins: 5 },
+        ],
+      },
+    });
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
+
+  test("Case G: statistical counter with shrunk delta below +0.04 does not qualify", () => {
+    // games: 50, wins: 26 -> winrate 0.52 vs baseline 0.50 -> delta +0.02 (below +0.04)
+    const snapshot = meta({
+      matchups: {
+        [CANDIDATE]: [
+          { vsHero: REVEALED_ENEMY, games: 50, wins: 26 },
+          { vsHero: 88, games: 50, wins: 24 },
+        ],
+      },
+    });
+    const state = draftState({
+      picks: { radiant: [], dire: [REVEALED_ENEMY] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, CANDIDATE, snapshot);
+
+    expect(result.raw).toBeGreaterThan(0);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+  });
 });
