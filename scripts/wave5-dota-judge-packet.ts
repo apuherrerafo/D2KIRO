@@ -81,6 +81,7 @@ const SCENARIOS: ScenarioSpec[] = [
   { id: "S11", side: "dire", position: 2, policy: "follow-coach", account: ACCOUNT_B, tags: ["safe-core-opportunity", "natural-occurrence", "dire"], pick: (s) => firstIndex(s, (x) => x.hasOpportunity) },
   { id: "S12", side: "radiant", position: 3, policy: "deviate", account: ACCOUNT_A, tags: ["radiant", "personal-pos3", "player-ignored-the-advice", "reaction-to-deviation"], pick: (s) => firstIndex(s, (x) => x.round === 1 && x.ownSealedInRound === 0), accept: (s, i) => s[i + 1] !== undefined },
   { id: "S13", side: "dire", position: 4, policy: "follow-coach", account: ACCOUNT_B, tags: ["dire", "personal-pos4", "compound-single-step-fallback"], pick: (s) => firstIndex(s, (x) => x.fallbackUsed) },
+  { id: "S14", side: "radiant", position: 1, policy: "follow-coach", account: ACCOUNT_A, tags: ["radiant", "personal-pos1", "revealed-hard-counter-demotion", "real-curated-catalog"], pick: (s) => firstIndex(s, (x) => x.round === 3 && x.revealedEnemy.includes(2)) },
 ];
 
 const QUESTIONS = [

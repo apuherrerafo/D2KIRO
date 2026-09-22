@@ -35,8 +35,8 @@ export function fakeCompute(pool: readonly number[] = POOL, positions: HeroPosit
       const signals: SignalContribution[] = [
         { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 20 - index, explanation: `posición de ${hero}`, sampleSize: 100 },
         countersRevealed
-          ? { signal: "counter", raw: 0.8, normalized: 90, evidenceConfidence: 1, weighted: 40, explanation: `counter de ${hero}`, sampleSize: 100 }
-          : { signal: "counter", raw: null, normalized: null, evidenceConfidence: 0, weighted: 0, explanation: "sin datos", sampleSize: 0 },
+          ? { signal: "counter", raw: 0.8, normalized: 90, evidenceConfidence: 1, weighted: 40, explanation: `counter de ${hero}`, sampleSize: 100, hasRevealedEnemyCounterEvidence: true }
+          : { signal: "counter", raw: null, normalized: null, evidenceConfidence: 0, weighted: 0, explanation: "sin datos", sampleSize: 0, hasRevealedEnemyCounterEvidence: false },
       ];
       return {
         hero,

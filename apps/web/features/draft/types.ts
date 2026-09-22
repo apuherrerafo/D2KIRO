@@ -75,6 +75,7 @@ export interface SignalContribution {
   // a este usuario ahora mismo" (pool nunca configurado) es distinto de `raw: null` ("hay hueco de
   // datos") -- mismo campo, mismo significado, que el motor ya define en signals/types.ts.
   applicable?: boolean;
+  hasRevealedEnemyCounterEvidence?: boolean;
 }
 
 export type SuggestionConfidence = "alta" | "media" | "baja";

@@ -69,18 +69,20 @@ export interface CounterEvidenceContext {
 }
 
 /**
- * COUNTER means "this hero counters something on the enemy team you can see". V6's `counter` raw also carries
- * ban relief (curated counters of the CANDIDATE being banned), which needs no revealed enemy at all -- that is
- * a different fact and never earns this badge. The evidence must be one of:
- *   - a curated relationship: the candidate is listed as a counter (`vs`) of a revealed enemy hero; or
- *   - statistical matchup evidence against revealed enemies: V6's counter `sampleSize` counts ONLY games versus
- *     revealed enemies (curated and ban-relief terms report 0), so `sampleSize > 0` means such rows existed.
+ * COUNTER means "this hero counters something on the enemy team you can see".
+ * Wave 5 Hardening (H1/RH-R4): valid evidence requires that the candidate actually counters at least one
+ * currently revealed enemy:
+ *   - curated counter relation against a revealed enemy => valid
+ *   - explicit hasRevealedEnemyCounterEvidence === true => valid
+ *   - false => invalid
+ *   - undefined => invalid (must NOT infer positive counter evidence from player-facing copy or sampleSize)
+ * Ban relief alone or negative/zero statistical matchup evidence must NEVER qualify.
  */
 function hasRevealedEnemyCounterEvidence(heroId: HeroId, signal: SignalContribution, context: CounterEvidenceContext | undefined): boolean {
   if (!context || context.revealedEnemies.length === 0) return false;
   const curated = context.heroCounters;
   if (curated && context.revealedEnemies.some((enemy) => (curated.get(enemy) ?? []).some((entry) => entry.vs === heroId))) return true;
-  return signal.sampleSize > 0;
+  return signal.hasRevealedEnemyCounterEvidence === true;
 }
 
 /**

@@ -487,6 +487,7 @@ export interface StateWeightedContribution {
   sampleSize: number;
   applicable?: boolean;
   evidenceConfidence?: number;
+  hasRevealedEnemyCounterEvidence?: boolean;
 }
 
 export interface ScoredCandidate {
@@ -511,6 +512,7 @@ function toSignalContribution(c: StateWeightedContribution): SignalContribution 
   };
   if (c.applicable !== undefined) base.applicable = c.applicable;
   if (c.evidenceConfidence !== undefined) base.evidenceConfidence = c.evidenceConfidence;
+  if (c.hasRevealedEnemyCounterEvidence !== undefined) base.hasRevealedEnemyCounterEvidence = c.hasRevealedEnemyCounterEvidence;
   return base;
 }
 
@@ -565,6 +567,7 @@ function mixCandidateByState(
       sampleSize: c.sampleSize,
       ...(c.applicable !== undefined ? { applicable: c.applicable } : {}),
       evidenceConfidence: c.evidenceConfidence,
+      ...(c.hasRevealedEnemyCounterEvidence !== undefined ? { hasRevealedEnemyCounterEvidence: c.hasRevealedEnemyCounterEvidence } : {}),
     };
   });
   return { hero, score, contributions, evidenceCoverage, guessingIndex: 1 - evidenceCoverage };

@@ -12,8 +12,12 @@
 // and the latency of the real Coach route. Exit code 1 if ANY invariant fails. It is NOT a test (tests never read real data) and is
 // never imported from apps/.
 import { cpus, platform, release, totalmem } from "node:os";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  verifyHeroPositionCredibility,
+  verifyPositionalDatasetCompleteness,
+} from "./wave5/independent-position-verifier";
 import {
   ACCOUNT_A,
   ACCOUNT_B,
@@ -340,6 +344,27 @@ async function main(): Promise<void> {
   if (separation.poolBadgeOnTeamList > 0) failures.push(`${separation.poolBadgeOnTeamList} team shortlists carried a pool badge`);
   if (twins.divergedAfterReveal === 0) failures.push("hidden-info twins: no post-reveal divergence observed -- the comparison would be vacuous");
 
+  // Wave 5 Hardening (H4): Independent positional certification check (non-circular)
+  const rawPositionsPath = join(import.meta.dir, "../apps/engine/src/signals/hero-positions.json");
+  const rawPositions = existsSync(rawPositionsPath) ? JSON.parse(readFileSync(rawPositionsPath, "utf8")) : null;
+  const datasetCompleteness = verifyPositionalDatasetCompleteness(rawPositions);
+  if (!datasetCompleteness.valid) {
+    failures.push(`POSITIONAL DATASET: ${datasetCompleteness.error}`);
+  } else {
+    for (const record of all) {
+      for (const state of record.states) {
+        if (!state.personalHeroes) continue;
+        for (const hero of state.personalHeroes) {
+          const cred = verifyHeroPositionCredibility(rawPositions, hero.heroId, record.spec.humanPosition);
+          if (!cred.isCredible) {
+            failures.push(`PERSONAL VIEW CREDIBILITY: Hero ${hero.heroId} ranked for Pos${record.spec.humanPosition} fails independent credibility check (${cred.rejectionReason})`);
+          }
+        }
+      }
+    }
+  }
+
+
   const byPolicy = POLICIES.map((policy) => {
     const records = all.filter((record) => record.spec.policy === policy);
     return { policy, drafts: records.length, completed: records.filter((record) => record.completed).length, states: records.reduce((n, record) => n + record.states.length, 0) };
@@ -412,7 +437,8 @@ async function main(): Promise<void> {
   const empirical = identity.data.empiricalSnapshot as { id: string | null; fileSha256?: string; logicalFingerprint?: string; certifiable: boolean };
   lines.push(`- **Evidence identity:** id \`${identity.certificationId}\` · comparable key \`${identity.comparableKey}\` · generated ${identity.generatedAt}`);
   lines.push(`- **Empirical snapshot:** \`${empirical.id ?? "LIVE DB (NOT certifiable)"}\` (file sha256 \`${empirical.fileSha256 ?? "n/a"}\`, logical \`${empirical.logicalFingerprint ?? "n/a"}\`), opened \`readonly\`; last \`ok\` sync ${data.syncedAt ?? "unknown"}; ${data.heroIds.length} heroes. Patch attribution: ${identity.data.empiricalPatchAttribution}. Ruleset target ${identity.data.rulesetTarget}. **Offline:** zero network, no sync, no external call of any kind.`);
-  lines.push(`- **Positional dataset:** \`${identity.data.positionalDataset.path}\` sha256 \`${identity.data.positionalDataset.sha256}\` — format ${identity.data.positionalDataset.format}, denominator corrected: **${identity.data.positionalDataset.denominatorCorrected ? "yes" : "NO"}**. ${identity.data.positionalDataset.completeness}. NOTE: the positional-validity checks below use this same dataset, so they cannot detect a defect in it.`);
+  lines.push(`- **Positional dataset:** \`${identity.data.positionalDataset.path}\` sha256 \`${identity.data.positionalDataset.sha256}\` — format ${identity.data.positionalDataset.format}, denominator corrected: **${identity.data.positionalDataset.denominatorCorrected ? "yes" : "NO"}**. ${identity.data.positionalDataset.completeness}.`);
+  lines.push(`- **Positional dataset & Personal View verification:** Verified independently via \`independent-position-verifier.ts\` (non-circular; recomputes total matches, dominant position and share directly from raw observations). Dataset valid: **${datasetCompleteness.valid ? "yes" : "NO"}** (${datasetCompleteness.format}). ${identity.data.positionalDataset.completeness}.`);
   lines.push("- **Real code path:** `ProtocolSessionStore` + `createProtocolSessionRoutes` (create → resolve-bans → auto-drive → command → recommendations) + the Enemy Bot + real V6 `buildSuggestions` + real `hero-positions.json` / `hero-counters.json` + the real perspective-safe Coach. Nothing is faked; the two test seams used are the ones `index.e2e.ts` already exposes (forced Enemy Bot selection).");
   lines.push(`- **Environment:** ${platform()} ${release()}, ${cpus()[0]?.model.trim() ?? "?"} × ${cpus().length}, ${(totalmem() / 2 ** 30).toFixed(1)} GiB RAM, Bun ${Bun.version}. Total wall time ${totalSeconds} s.`);
   lines.push("- **Every draft runs with a personal position (1–5, rotated across seeds and sides) and a configured 5-hero Hero Pool** (two different pools, alternating), i.e. the heaviest Coach path: team computation + PersonalHeroView.", "");

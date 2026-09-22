@@ -3,18 +3,19 @@ import { computeRoleBelief } from "../draft-protocol/roles/role-belief";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
 import { createCoachRecommendations } from "../server/routes/coach-recommendations";
-import type { CuratedCounter } from "../signals/hero-counters";
+import { loadHeroCounters, type CuratedCounter } from "../signals/hero-counters";
 import { isCandidateAdmittedForPosition, isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
+import { createCounterScorer } from "../signals/counter";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
-import type { SignalContribution } from "../signals/types";
+import type { HeroMatchupStat, MetaSnapshot, SignalContribution } from "../signals/types";
 import { credibleHeroesForPosition } from "./hero-card";
 import { isPersonalSeatCovered, personalCandidateUniverse } from "./personal-hero-view";
 import { harness } from "./session-harness.fixtures";
 
 // WAVE 5 -- Dota Judge remediation (RB-1..RB-4). Release regression suite for the judge scenarios S01 / S04 / S05 / S09 /
-// S12 / S13. It asserts the PRODUCT INVARIANT each scenario broke, never a copy of an expected hero ranking. Everything is
-// inline: no curated file, no SQLite, no network. Only V6's scorer is a scripted stand-in; the perspective-safe Coach, the
-// orchestrator, the position rules and the store are the real ones.
+// S12 / S13 / S14 / S15. It asserts the PRODUCT INVARIANT each scenario broke, never a copy of an expected hero ranking. Everything is
+// inline: no SQLite, no network. S14 tests against the real production curated hero-counters.json catalog. Only V6's scorer is a
+// scripted stand-in; the perspective-safe Coach, the orchestrator, the position rules and the store are the real ones.
 
 // ---- inline world -----------------------------------------------------------------------------------------------
 const POSITIONS: HeroPositions = {
@@ -48,6 +49,8 @@ interface ScriptOptions {
   banReliefOnly?: readonly number[];
   /** A statistical `counter` vote versus revealed enemies: raw > 0, sampleSize > 0. */
   statisticalCounter?: readonly number[];
+  /** Wave 5 H1/H3 loophole fixture: statistical delta <= 0, but ban relief makes raw > 0. hasRevealedEnemyCounterEvidence = false. */
+  netNegativeWithBanRelief?: readonly number[];
 }
 
 interface Call { candidateHeroIds: readonly number[] | undefined; targetPosition: number | undefined; teamOpening: boolean | undefined }
@@ -56,21 +59,102 @@ interface Call { candidateHeroIds: readonly number[] | undefined; targetPosition
  * Scripted V6. It mimics what the real engine does with the options it is given: a `targetPosition` admits any hero with a
  * curated presence there (the legacy predicate -- exactly what let Winter Wyvern into the Pos3 list), and `candidateHeroIds`
  * narrows the universe BEFORE ranking. Returns at most 6 suggestions (V6's TOP_N).
+ *
+ * Wave 5 Hardening (RH-R3): uses the REAL createCounterScorer producer to score candidates for S15 / counter evidence scenarios.
  */
-function scriptedCompute(options: ScriptOptions, calls: Call[] = []): ComputeSuggestionsForRecommendation {
+function scriptedCompute(
+  options: ScriptOptions,
+  calls: Call[] = [],
+  positions: HeroPositions = POSITIONS,
+  heroCounters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map(),
+): ComputeSuggestionsForRecommendation {
+  const BANNED_FIXTURE_HERO = 90;
+  const combinedCurated = new Map<number, CuratedCounter[]>();
+  for (const [k, v] of heroCounters.entries()) {
+    combinedCurated.set(k, [...v]);
+  }
+  if (options.netNegativeWithBanRelief) {
+    for (const hero of options.netNegativeWithBanRelief) {
+      const existing = combinedCurated.get(hero) ?? [];
+      combinedCurated.set(hero, [...existing, { vs: BANNED_FIXTURE_HERO, level: "hard", why: "counter 90 baneado" }]);
+    }
+  }
+  if (options.banReliefOnly) {
+    for (const hero of options.banReliefOnly) {
+      const existing = combinedCurated.get(hero) ?? [];
+      combinedCurated.set(hero, [...existing, { vs: BANNED_FIXTURE_HERO, level: "hard", why: "counter 90 baneado" }]);
+    }
+  }
+
+  const matchups: Record<number, HeroMatchupStat[]> = {};
+  if (options.statisticalCounter) {
+    for (const hero of options.statisticalCounter) {
+      matchups[hero] = [
+        { vsHero: 40, games: 60, wins: 45 }, // positive delta vs revealed enemy 40
+        { vsHero: 88, games: 60, wins: 15 },
+      ];
+    }
+  }
+  if (options.netNegativeWithBanRelief) {
+    for (const hero of options.netNegativeWithBanRelief) {
+      matchups[hero] = [
+        { vsHero: 40, games: 50, wins: 24 }, // negative delta vs revealed enemy 40 (0.48 < baseline 0.50), compensated by ban relief
+        { vsHero: 88, games: 50, wins: 26 },
+      ];
+    }
+  }
+
+  const metaSnapshot: MetaSnapshot = {
+    heroes: {
+      40: { id: 40, localizedName: "héroe 40" },
+      41: { id: 41, localizedName: "héroe 41" },
+      [BANNED_FIXTURE_HERO]: { id: BANNED_FIXTURE_HERO, localizedName: `héroe ${BANNED_FIXTURE_HERO}` },
+    },
+    matchups,
+  };
+
+  const counterProducer = createCounterScorer(combinedCurated);
+
   return async (state, _account, opts) => {
     calls.push({ candidateHeroIds: opts?.candidateHeroIds, targetPosition: opts?.targetPosition, teamOpening: opts?.teamOpening });
     const excluded = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
     const allowed = opts?.candidateHeroIds ? new Set(opts.candidateHeroIds) : null;
-    const candidates = (options.pool ?? ALL_HEROES).filter((hero) => !excluded.has(hero) && (allowed === null || allowed.has(hero)) && (opts?.targetPosition === undefined || isCandidateAdmittedForPosition(hero, opts.targetPosition, POSITIONS)));
+    const candidates = (options.pool ?? Object.keys(positions).map(Number)).filter((hero) => !excluded.has(hero) && (allowed === null || allowed.has(hero)) && (opts?.targetPosition === undefined || isCandidateAdmittedForPosition(hero, opts.targetPosition, positions)));
     const suggestions: Suggestion[] = candidates
       .map((hero): Suggestion => {
-        const counterRaw = options.banReliefOnly?.includes(hero) ? { raw: 0.04, sampleSize: 0 } : options.statisticalCounter?.includes(hero) ? { raw: 0.05, sampleSize: 60 } : null;
+        const hasCounterVote =
+          options.banReliefOnly?.includes(hero) ||
+          options.statisticalCounter?.includes(hero) ||
+          options.netNegativeWithBanRelief?.includes(hero);
+
+        let counterContrib: SignalContribution;
+        if (hasCounterVote) {
+          const stateForCounter =
+            (options.netNegativeWithBanRelief?.includes(hero) || options.banReliefOnly?.includes(hero)) &&
+            !state.banned.includes(BANNED_FIXTURE_HERO)
+              ? { ...state, banned: [...state.banned, BANNED_FIXTURE_HERO] }
+              : state;
+          const produced = counterProducer.score(stateForCounter, hero, metaSnapshot);
+          counterContrib = {
+            ...produced,
+            weighted: 5,
+          };
+        } else {
+          counterContrib = {
+            signal: "counter",
+            raw: null,
+            normalized: null,
+            evidenceConfidence: 0,
+            weighted: 0,
+            explanation: "sin datos",
+            sampleSize: 0,
+            hasRevealedEnemyCounterEvidence: false,
+          };
+        }
+
         const signals: SignalContribution[] = [
           { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: options.scores[hero] ?? 1, explanation: `posición de ${hero}`, sampleSize: 100 },
-          counterRaw
-            ? { signal: "counter", raw: counterRaw.raw, normalized: 70, evidenceConfidence: 1, weighted: 5, explanation: `counter de ${hero}`, sampleSize: counterRaw.sampleSize }
-            : { signal: "counter", raw: null, normalized: null, evidenceConfidence: 0, weighted: 0, explanation: "sin datos", sampleSize: 0 },
+          counterContrib,
         ];
         return { hero, rank: 1, score: signals.reduce((sum, signal) => sum + signal.weighted, 0), signals, reason: `fixture ${hero}`, confidence: "alta", evidenceCoverage: 0.9, guessingIndex: 0.1 };
       })
@@ -91,10 +175,17 @@ function scriptedCompute(options: ScriptOptions, calls: Call[] = []): ComputeSug
 
 const hard = (vs: number): CuratedCounter => ({ vs, level: "hard", why: "fixture" });
 
-function world(options: ScriptOptions, heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>) {
-  const h = harness({ heroPositions: POSITIONS, pool: options.pool ?? ALL_HEROES, sessionId: "judge-remediation" });
+function world(options: ScriptOptions, heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>, heroPositions?: HeroPositions) {
+  const positions = heroPositions ?? POSITIONS;
+  const pool = options.pool ?? Object.keys(positions).map(Number);
+  const h = harness({ heroPositions: positions, pool, sessionId: "judge-remediation" });
   const calls: Call[] = [];
-  const coach = createCoachRecommendations({ source: h.store, computeSuggestions: scriptedCompute(options, calls), heroPositions: POSITIONS, heroCounters: heroCounters ?? new Map() });
+  const coach = createCoachRecommendations({
+    source: h.store,
+    computeSuggestions: scriptedCompute(options, calls, positions, heroCounters),
+    heroPositions: positions,
+    heroCounters: heroCounters ?? new Map(),
+  });
   return { h, calls, ask: (personal: 1 | 2 | 3 | 4 | 5) => coach.recommend(h.id, personal, ACCOUNT) };
 }
 
@@ -260,6 +351,27 @@ describe("RB-3 -- badge semantics (Round 1 blind, S01)", () => {
     expect(byHero.get(31)).not.toContain("COUNTER");
   });
 
+  test("S15: rival revelado con ventaja estadística <= 0 compensada por alivio de baneo -> NO emite COUNTER", async () => {
+    // Hero 31 tiene partidos reales vs rival revelado 40 (sampleSize: 50), ventaja estadística <= 0,
+    // y alivio de baneo positivo que hace raw = 0.02 > 0 y weighted = 5 > 0.
+    // Hero 30 tiene ventaja estadística positiva (+0.05 > 0) vs rival 40.
+    const { h, ask } = world({ scores: { 30: 50, 31: 40, 32: 30 }, netNegativeWithBanRelief: [31], statisticalCounter: [30] });
+    playRoundOne(h, [20, 11], [40, 41]);
+    const shortlist = (await ask(2))!.output!.shortlist;
+    const byHero = new Map(shortlist.map((card) => [card.heroId, card.badges]));
+    expect(byHero.get(30)).toContain("COUNTER");
+    // El loophole está cerrado: hero 31 NO emite COUNTER
+    expect(byHero.get(31)).not.toContain("COUNTER");
+
+    // Con evidencia curada positiva separada contra el rival 40, SÍ emite COUNTER
+    const curated = new Map<number, CuratedCounter[]>([[40, [hard(31)]]]);
+    const withCurated = world({ scores: { 30: 50, 31: 40, 32: 30 }, netNegativeWithBanRelief: [31], statisticalCounter: [30] }, curated);
+    playRoundOne(withCurated.h, [20, 11], [40, 41]);
+    const shortlistWithCurated = (await withCurated.ask(2))!.output!.shortlist;
+    const byHeroWithCurated = new Map(shortlistWithCurated.map((card) => [card.heroId, card.badges]));
+    expect(byHeroWithCurated.get(31)).toContain("COUNTER");
+  });
+
   test("una relación curada contra un rival revelado da COUNTER aunque la señal no traiga partidas", async () => {
     const curated = new Map<number, CuratedCounter[]>([[40, [hard(31)]]]); // hero 31 is a listed counter of revealed hero 40
     const { h, ask } = world({ scores: { 30: 50, 31: 40, 32: 30 }, banReliefOnly: [31] }, curated);
@@ -332,5 +444,72 @@ describe("RB-4 -- revealed curated hard counters demote (S05: Meepo vs Axe)", ()
     playRoundOne(h, [20, 11], [40, 41]);
     const ids = (await ask(2))!.output!.personalHeroView!.heroes.map((hero) => hero.heroId);
     expect(ids).toEqual([31, 32, 30]);
+  });
+});
+
+// ---- RB-4: S14 (Real Production Curated Counter Catalog) -------------------------------------------------------------
+describe("RB-4: S14 -- real production curated hard counter demotion (Anti-Mage vs Axe)", () => {
+  // Real production catalog: hero-counters.json
+  // - Hero 1 (Anti-Mage) is hard-countered by Hero 2 (Axe):
+  //     { vs: 2, level: "hard", why: "Berserker's Call atraviesa Counterspell, impide Blink..." }
+  // - Hero 8 (Juggernaut) has medium counter vs Axe (never demotes):
+  //     { vs: 2, level: "medium", why: "Berserker's Call atraviesa Blade Fury..." }
+  // - Hero 4 (Bloodseeker) has no counter vs Axe.
+  // - All three (1, 4, 8) survive normal candidate admission for Pos 1.
+  // - Hero 2 (Axe) is admitted for Pos 3 (enemy offlaner).
+  const realCounters = loadHeroCounters();
+  const s14Positions: HeroPositions = {
+    ...POSITIONS,
+    1: [{ position: 1, matches: 1409 }], // Anti-Mage (dominant Pos 1)
+    2: [{ position: 3, matches: 4560 }], // Axe (dominant Pos 3)
+    4: [{ position: 1, matches: 1200 }], // Bloodseeker (dominant Pos 1)
+    8: [{ position: 1, matches: 3000 }], // Juggernaut (dominant Pos 1)
+  };
+  const pool = [1, 2, 4, 8, 11, 18, 41];
+  const scores = { 1: 95, 4: 80, 8: 70 }; // V6 scores: Anti-Mage #1, Bloodseeker #2, Juggernaut #3
+
+  test("S14: con Axe (2) REVELADO, Anti-Mage (1) baja categóricamente detrás de las alternativas válidas de su rol (4, 8)", async () => {
+    const { h, ask } = world({ scores, pool }, realCounters, s14Positions);
+    playRoundOne(h, [11, 18], [2, 41]); // Round 1: enemy reveals Axe (2) and support (41)
+    const output = (await ask(1))!.output!;
+
+    // 1. Hard-countered candidate (1) is categorically behind all non-hard-countered same-role alternatives (4, 8)
+    const personalIds = output.personalHeroView!.heroes.map((card) => card.heroId);
+    expect(personalIds.indexOf(1)).toBeGreaterThan(personalIds.indexOf(4));
+    expect(personalIds.indexOf(1)).toBeGreaterThan(personalIds.indexOf(8));
+
+    // 2. V6 relative ordering is preserved within each category
+    // Non-hard-countered category: 4 (score 80) comes before 8 (score 70)
+    expect(personalIds.indexOf(4)).toBeLessThan(personalIds.indexOf(8));
+    // Overall order of Pos 1 carries: [4, 8, 1]
+    expect(personalIds).toEqual([4, 8, 1]);
+
+    // 3. Candidate is demoted, not silently deleted solely because of RB-4
+    expect(personalIds).toContain(1);
+
+    // 4. Safe Core and unrelated behavior remain unchanged
+    expect(output.opportunity).toBeUndefined(); // Axe is not banned, no safe core
+  });
+
+  test("S14: un counter duro que el rival NO tiene revelado no demota a Anti-Mage (sólo lo visible cuenta)", async () => {
+    const { h, ask } = world({ scores, pool }, realCounters, s14Positions);
+    h.seal(h.side, 0, 11);
+    h.seal(h.enemy, 0, 2); // Axe sealed by enemy, still hidden (not revealed)
+    const output = (await ask(1))!.output!;
+    const personalIds = output.personalHeroView!.heroes.map((card) => card.heroId);
+    // Anti-Mage retains #1 because Axe is still hidden
+    expect(personalIds[0]).toBe(1);
+  });
+
+  test("S14: un counter MEDIUM de producción (Juggernaut vs Axe) nunca demota", async () => {
+    // Si Anti-Mage no está en pool, Juggernaut (8, score 90) y Bloodseeker (4, score 70)
+    const scoresNoAm = { 8: 90, 4: 70 };
+    const poolNoAm = [2, 4, 8, 11, 18, 41];
+    const { h, ask } = world({ scores: scoresNoAm, pool: poolNoAm }, realCounters, s14Positions);
+    playRoundOne(h, [11, 18], [2, 41]); // Axe (2) revealed
+    const output = (await ask(1))!.output!;
+    const personalIds = output.personalHeroView!.heroes.map((card) => card.heroId);
+    // Juggernaut (8) is medium-countered by Axe, but medium NEVER demotes, so Juggernaut stays #1
+    expect(personalIds).toEqual([8, 4]);
   });
 });
