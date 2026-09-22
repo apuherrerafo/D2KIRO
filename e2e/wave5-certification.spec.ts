@@ -166,7 +166,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
     confidence: body.output.meta.confidence,
     decisionContext: body.output.meta.decisionContext,
     set: body.recommendationSet,
-  }, (key, value) => (key === "sessionId" ? undefined : value));
+  }, (key, value) => (key === "sessionId" || key === "syncAgeMs" ? undefined : value));
   const withPoolA = await askCoach();
   await putPool(request, config.alternatePool);
   const withPoolB = await askCoach();
@@ -305,6 +305,18 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
   assertNoSimulatorTruthLeak(rec.snapshots(), rec.responses.map((entry) => entry.body));
 
+  // Drift guard: every hero ID emitted by the Coach across all recommendations must be resolvable by the fixture catalog.
+  for (const output of outputs) {
+    for (const card of output.shortlist) {
+      expect(FIXTURE_HERO_NAME_BY_ID.has(card.heroId), `Shortlist hero ${card.heroId} (${card.name}) must be resolvable in FIXTURE_HERO_NAME_BY_ID`).toBe(true);
+    }
+    if (output.personalHeroView) {
+      for (const hero of output.personalHeroView.heroes) {
+        expect(FIXTURE_HERO_NAME_BY_ID.has(hero.heroId), `Personal view hero ${hero.heroId} must be resolvable in FIXTURE_HERO_NAME_BY_ID`).toBe(true);
+      }
+    }
+  }
+
   journeys[side] = {
     side,
     outputs,
@@ -410,7 +422,7 @@ test.describe("Wave 5 -- hidden information over the real HTTP path (Task 31)", 
     expect(response.status()).toBe(200);
     return (await response.json()) as { output: CoachJson; recommendationSet: unknown };
   };
-  const normalized = (body: unknown) => JSON.stringify(body, (key, value) => (key === "sessionId" ? undefined : value));
+  const normalized = (body: unknown) => JSON.stringify(body, (key, value) => (key === "sessionId" || key === "syncAgeMs" ? undefined : value));
 
   test("H. identical Coach output on every surface before the reveal (incl. personal view, beliefs, availability, provenance); a legal divergence after it", async ({ request, baseURL }) => {
     annotate("seed", "TWINSEED");
@@ -588,4 +600,17 @@ test.describe("Wave 5 -- collision scenarios (Task 30)", () => {
       }
     });
   }
+});
+
+test.describe("Wave 5 -- fixture catalog drift protection", () => {
+  test("FIXTURE_HERO_NAME_BY_ID exhaustively covers every hero that the deterministic engine can emit", () => {
+    expect(FIXTURE_HERO_IDS.length).toBeGreaterThanOrEqual(127);
+    for (const heroId of FIXTURE_HERO_IDS) {
+      const name = FIXTURE_HERO_NAME_BY_ID.get(heroId);
+      expect(name).toBeDefined();
+      expect(typeof name).toBe("string");
+      expect(name!.length).toBeGreaterThan(0);
+      expect(FIXTURE_HERO_ID_BY_NAME.get(name!)).toBe(heroId);
+    }
+  });
 });
