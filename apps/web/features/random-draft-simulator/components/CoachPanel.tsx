@@ -78,10 +78,10 @@ function RoleCollisionBanner({ collision, heroCatalog }: { collision: CoachRoleC
 
   return (
     <div
-      className="flex flex-col gap-1 rounded-lg border border-signal-danger bg-surface-raised p-3"
+      className="flex flex-col gap-1 rounded-lg border border-signal-negative bg-surface-raised p-3"
       data-testid="coach-role-collision-banner"
     >
-      <span className="text-caption font-semibold text-signal-danger">
+      <span className="text-caption font-semibold text-signal-negative">
         Colisión de roles en tu equipo
       </span>
       <span className="text-caption text-content-primary">

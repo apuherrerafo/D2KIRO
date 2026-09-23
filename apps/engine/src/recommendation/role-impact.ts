@@ -48,13 +48,6 @@ function classifyMarginal(marginal: Readonly<Record<Position, number>>, entropy:
   return { status: "LIKELY", position: top, marginals: marginal, entropy };
 }
 
-function extractBeliefMarginals(belief: unknown): Readonly<Record<Position, number>> {
-  for (const [k, v] of Object.entries(belief as Record<string, unknown>)) {
-    if (k.endsWith("abilities")) return v as Readonly<Record<Position, number>>;
-  }
-  return { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 };
-}
-
 export interface RoleImpactInput {
   /** Hero ids already confirmed/known on the actor's own side (KNOWN/REVEALED slots from
    * `view.ownPicks`), excluding the candidate(s) being evaluated. */
@@ -117,7 +110,7 @@ export function computeRoleImpact(input: RoleImpactInput): RoleImpactResult {
       candidates.map((heroId) => {
         const candidateInput = candidateInputs.find((c) => c.heroId === heroId);
         const impact = candidateInput
-          ? classifyMarginal(extractBeliefMarginals(candidateInput.belief), candidateInput.belief.entropy)
+          ? classifyMarginal(candidateInput.belief.probabilities, candidateInput.belief.entropy)
           : UNRESOLVED_FALLBACK;
         return [heroId, impact];
       }),

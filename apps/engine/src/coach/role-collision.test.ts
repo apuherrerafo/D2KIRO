@@ -199,4 +199,66 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
     expect(stateA.roleCollision).toEqual(stateEnemyMid.roleCollision);
     expect(stateA.roleCollision).toEqual(stateEnemyCarry.roleCollision);
   });
+
+  test("explicit reproduction of S07: infeasible collision, conflicts detected, recovery framing, baja confidence, candidate role preserved", () => {
+    // S07: 4 support-only allies (Jakiro, Oracle, Pugna, Dark Willow) competing for Pos 4 and Pos 5
+    const s07Positions: HeroPositions = {
+      64: [{ position: 4, matches: 303 }, { position: 5, matches: 1304 }],
+      111: [{ position: 4, matches: 233 }, { position: 5, matches: 1946 }],
+      45: [{ position: 4, matches: 330 }, { position: 5, matches: 429 }],
+      119: [{ position: 4, matches: 3111 }, { position: 5, matches: 1100 }],
+      // Candidate hero: Juggernaut (Carry, Pos 1)
+      8: [{ position: 1, matches: 2000 }],
+    };
+
+    const s07View = view("PICK_ROUND_3", [known(64), known(111), known(45), known(119)], [revealed(5), revealed(81), revealed(86), revealed(97), hidden()]);
+    const coachState = buildCoachObservableState(s07View, { heroPositions: s07Positions });
+
+    // 1. roleCollision.infeasible = true
+    expect(coachState.roleCollision.infeasible).toBe(true);
+
+    // 2. conflict remains detected (Hall condition on {4, 5})
+    expect(coachState.roleCollision.conflicts.length).toBeGreaterThan(0);
+    const conflictPositions = coachState.roleCollision.conflicts.map((c) => c.position);
+    expect(conflictPositions).toContain(4);
+    expect(conflictPositions).toContain(5);
+
+    // 3. primary action still uses recovery framing
+    const candidatesSet = recSet([roleOnlyHero(8, 1, 15)]);
+    const strategy = deriveRevealStrategy(
+      s07View,
+      candidatesSet,
+      null,
+      [],
+      "closing_pick",
+      {
+        ownRoleBeliefs: coachState.ownRoleBeliefs,
+        heroPositions: s07Positions,
+        roleCollision: coachState.roleCollision,
+      },
+    );
+    expect(strategy.rationale).toContain("Colisión de roles en tu equipo");
+    expect(strategy.rationale).toContain("Como recuperación");
+
+    const output = translateToRecommendationOutputV3(
+      candidatesSet,
+      strategy,
+      coachState,
+      "closing_pick",
+      { heroPositions: s07Positions },
+    );
+
+    expect(output.roleCollision?.infeasible).toBe(true);
+    expect(output.primaryAction.label).toMatch(/^Recuperación \(colisión de roles\):/);
+
+    // 4. confidence = baja
+    expect(output.meta.confidence).toBe("baja");
+
+    // 5. candidate role labels remain meaningful
+    const juggernautCard = output.shortlist.find((c) => c.heroId === 8);
+    expect(juggernautCard).toBeDefined();
+    expect(juggernautCard?.position).toBe(1);
+    expect(["LIKELY", "CONFIRMED_FORCED"]).toContain(juggernautCard?.roleStatus ?? "");
+    expect(juggernautCard?.roleStatus).not.toBe("UNRESOLVED");
+  });
 });

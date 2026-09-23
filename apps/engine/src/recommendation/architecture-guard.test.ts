@@ -68,7 +68,12 @@ describe("recommendation/** -- S6 nunca se calcula por accidente", () => {
   });
 
   test("PROBABILITY CLAIMS: NONE -- ningún archivo de recommendation/** menciona probabilidad/probability en su código real", () => {
-    const offenders = sourceFiles().filter(({ content }) => /probab/i.test(content));
+    // S6 invariant: no probability claims in recommendations/lookahead/opponent-model/steal.
+    // Canonical RoleBelief.probabilities from draft-protocol/roles/role-belief is a typed S4 input consumed by role-impact.ts.
+    const offenders = sourceFiles().filter(({ path, content }) => {
+      const sanitized = path === "role-impact.ts" ? content.replace(/\bprobabilities\b/g, "") : content;
+      return /probab/i.test(sanitized);
+    });
     expect(offenders.map((f) => f.path)).toEqual([]);
   });
 });

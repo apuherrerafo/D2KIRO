@@ -271,10 +271,14 @@ test("CoachPanel con colisión de roles: muestra banner de colisión, acción de
 
   const view = render(<CoachPanel coach={collisionOutput} heroCatalog={catalog} />);
 
-  // 1. Banner de colisión de roles
+  // 1. Banner de colisión de roles con semántica visual válida de error/negativo
   const banner = view.getByTestId("coach-role-collision-banner");
   expect(banner).toBeDefined();
-  expect(banner.textContent).toContain("Colisión de roles en tu equipo");
+  expect(banner.className).toContain("border-signal-negative");
+  expect(banner.className).not.toContain("signal-danger");
+  const bannerTitle = within(banner).getByText("Colisión de roles en tu equipo");
+  expect(bannerTitle.className).toContain("text-signal-negative");
+  expect(bannerTitle.className).not.toContain("signal-danger");
   expect(banner.textContent).toContain("No existe una asignación legal completa");
 
   // Conflicto específico detectado
