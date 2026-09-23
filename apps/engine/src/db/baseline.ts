@@ -23,10 +23,10 @@ export function hydrateBaseline<TSchema extends Record<string, unknown>>(db: Db<
 
   const seedHeroes = Array.isArray(seedHeroesRaw) ? seedHeroesRaw.filter(isValidRawHero) : [];
   const seedStats = getValidatedSeed();
-  if (seedHeroes.length === 0 || seedStats.length === 0 || seedHeroes.length !== seedStats.length) return "invalid_baseline";
+  if (seedHeroes.length === 0 || seedStats.length === 0) return "invalid_baseline";
 
-  const statsByHeroId = new Set(seedStats.map((row) => row.id));
-  if (seedHeroes.some((hero) => !statsByHeroId.has(hero.id))) return "invalid_baseline";
+  const heroIds = new Set(seedHeroes.map((row) => row.id));
+  if (seedStats.some((stat) => !heroIds.has(stat.id))) return "invalid_baseline";
 
   db.transaction((tx) => {
     for (const hero of seedHeroes) tx.insert(heroes).values(mapHero(hero, BASELINE_UPDATED_AT)).run();

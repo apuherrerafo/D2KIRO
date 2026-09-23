@@ -26,24 +26,34 @@ function createTestDb() {
 
 afterEach(() => invalidateMetaSnapshotCache());
 
-test("una base totalmente vacía recibe un catálogo baseline no vacío", async () => {
+test("una base totalmente vacía recibe el catálogo completo de 127 héroes y stats de baseline sin OpenDota", async () => {
   const { db } = createTestDb();
 
   expect(hydrateBaseline(db)).toBe("hydrated");
-  expect(db.select().from(heroes).all().length).toBeGreaterThan(0);
-  expect(db.select().from(heroPatchStats).all().length).toBeGreaterThan(0);
-  expect(Object.keys((await buildMetaSnapshot(db, null)).heroes).length).toBeGreaterThan(0);
+  const heroRows = db.select().from(heroes).all();
+  const statRows = db.select().from(heroPatchStats).all();
+  const distinctStatHeroes = new Set(statRows.map((r) => r.heroId));
+
+  expect(heroRows).toHaveLength(127);
+  expect(statRows).toHaveLength(144);
+  expect(distinctStatHeroes.size).toBe(18);
+
+  const metaSnapshot = await buildMetaSnapshot(db, null);
+  expect(Object.keys(metaSnapshot.heroes)).toHaveLength(127);
+  expect(metaSnapshot.heroes[3]?.localizedName).toBe("Bane");
+  expect(metaSnapshot.heroes[7]?.localizedName).toBe("Earthshaker");
+  expect(metaSnapshot.heroes[10]?.localizedName).toBe("Morphling");
 });
 
-test("un segundo arranque no duplica el baseline", () => {
+test("el bootstrap es idempotente y no duplica ni modifica datos en arranques sucesivos", () => {
   const { db } = createTestDb();
   expect(hydrateBaseline(db)).toBe("hydrated");
-  const heroCount = db.select().from(heroes).all().length;
-  const statCount = db.select().from(heroPatchStats).all().length;
+  expect(db.select().from(heroes).all()).toHaveLength(127);
+  expect(db.select().from(heroPatchStats).all()).toHaveLength(144);
 
   expect(hydrateBaseline(db)).toBe("skipped_nonempty");
-  expect(db.select().from(heroes).all()).toHaveLength(heroCount);
-  expect(db.select().from(heroPatchStats).all()).toHaveLength(statCount);
+  expect(db.select().from(heroes).all()).toHaveLength(127);
+  expect(db.select().from(heroPatchStats).all()).toHaveLength(144);
 });
 
 test("una base existente no se sobrescribe aunque su catálogo esté vacío", () => {
