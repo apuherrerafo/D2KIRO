@@ -615,3 +615,175 @@ describe("Wave 5 Hardening (H1/RH-R3) -- hasRevealedEnemyCounterEvidence produce
     expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
   });
 });
+
+describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evidence", () => {
+  const RAZOR = 15;
+  const CRYSTAL_MAIDEN = 5;
+  const BRISTLEBACK = 99;
+  const CHAOS_KNIGHT = 81;
+  const MORPHLING = 10;
+  const HUSKAR = 59;
+  const ANCIENT_APPARITION = 68;
+  const MEDUSA = 94;
+
+  const testMeta = meta({
+    heroes: {
+      [RAZOR]: { id: RAZOR, localizedName: "Razor" },
+      [CRYSTAL_MAIDEN]: { id: CRYSTAL_MAIDEN, localizedName: "Crystal Maiden" },
+      [BRISTLEBACK]: { id: BRISTLEBACK, localizedName: "Bristleback" },
+      [CHAOS_KNIGHT]: { id: CHAOS_KNIGHT, localizedName: "Chaos Knight" },
+      [MORPHLING]: { id: MORPHLING, localizedName: "Morphling" },
+      [HUSKAR]: { id: HUSKAR, localizedName: "Huskar" },
+      [ANCIENT_APPARITION]: { id: ANCIENT_APPARITION, localizedName: "Ancient Apparition" },
+      [MEDUSA]: { id: MEDUSA, localizedName: "Medusa" },
+    },
+    matchups: {
+      [RAZOR]: [
+        // Qualifying statistical matchup: 40 wins / 50 games (0.80), baseline 0.50 -> delta +0.30
+        { vsHero: CRYSTAL_MAIDEN, games: 50, wins: 40 },
+        // Non-qualifying statistical matchup: 10 wins / 50 games (0.20) -> negative delta
+        { vsHero: CHAOS_KNIGHT, games: 50, wins: 10 },
+        { vsHero: 888, games: 50, wins: 25 },
+      ],
+      [ANCIENT_APPARITION]: [
+        { vsHero: 888, games: 50, wins: 25 },
+      ],
+      [1]: [
+        // Qualifying vs MEDUSA
+        { vsHero: MEDUSA, games: 50, wins: 40 },
+        // Negative vs 10
+        { vsHero: 10, games: 50, wins: 10 },
+        { vsHero: 888, games: 50, wins: 25 },
+      ],
+    },
+  });
+
+  test("1. S05-style case: badge earned vs Crystal Maiden; medium Bristleback relation exists; rationale names Crystal Maiden, not Bristleback", () => {
+    // Bristleback has a curated medium counter relation vs Razor
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [BRISTLEBACK, [{ vs: RAZOR, level: "medium", why: "Static Link drena su daño y Razor evita golpearlo por detras" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN, BRISTLEBACK] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    // Badge is legitimately earned against Crystal Maiden via statistical evidence
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    // Rationale must name Crystal Maiden, NOT Bristleback
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden");
+    expect(result.explanation).not.toContain("Bristleback");
+  });
+
+  test("2. hard curated badge: rationale names the hard curated target", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [HUSKAR, [{ vs: ANCIENT_APPARITION, level: "hard", why: "Ice Blast cancela la curación" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [HUSKAR] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, ANCIENT_APPARITION, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    expect(result.explanation).toBe("Le ganás a Huskar");
+  });
+
+  test("3. statistical-only badge: rationale names the qualifying statistical target", () => {
+    const state = draftState({
+      picks: { radiant: [], dire: [MEDUSA] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, 1, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    expect(result.explanation).toBe("Fuerte contra Medusa");
+  });
+
+  test("4. medium-only curated: no badge", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [BRISTLEBACK, [{ vs: RAZOR, level: "medium", why: "Medium counter relation" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [BRISTLEBACK] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    // Contributes numerically (+0.06), but NO badge
+    expect(result.raw).toBeCloseTo(0.06, 10);
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+    expect(result.explanation).toBe("Sin ventaja de contrapick conocida en este draft");
+  });
+
+  test("5. negative statistical relation: never used as positive COUNTER rationale", () => {
+    const state = draftState({
+      picks: { radiant: [], dire: [10] },
+    });
+    const scorer = createCounterScorer(NO_CURATED);
+    const result = scorer.score(state, 1, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
+    expect(result.explanation).not.toContain("Fuerte contra");
+    expect(result.explanation).toBe("Sin ventaja de contrapick conocida en este draft");
+  });
+
+  test("6. if multiple enemies exist: every enemy named in COUNTER rationale must independently qualify under visible badge semantics", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      // Medium relation (does not qualify)
+      [BRISTLEBACK, [{ vs: RAZOR, level: "medium", why: "Medium" }]],
+      // Negative curated relation: Morphling counters Razor
+      [RAZOR, [{ vs: MORPHLING, level: "hard", why: "Waveform rompe Static Link" }]],
+    ]);
+    // 4 revealed enemies:
+    // - Crystal Maiden: passes statistical threshold (qualifying)
+    // - Bristleback: medium curated (non-qualifying)
+    // - Chaos Knight: negative statistical delta (non-qualifying)
+    // - Morphling: negative curated why (enemy counters candidate)
+    const state = draftState({
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN, BRISTLEBACK, CHAOS_KNIGHT, MORPHLING] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    // ONLY Crystal Maiden independently qualifies; no other enemy is named
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden");
+    expect(result.explanation).not.toContain("Bristleback");
+    expect(result.explanation).not.toContain("Chaos Knight");
+    expect(result.explanation).not.toContain("Morphling");
+  });
+
+  test("7. ban relief text may be appended, but it must never replace the actual counter target that earned the badge", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      // Candidate's counter is banned -> positive ban relief (+0.04)
+      [RAZOR, [{ vs: MORPHLING, level: "hard", why: "Waveform rompe Static Link" }]],
+    ]);
+    const state = draftState({
+      banned: [MORPHLING],
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    // Preserves the counter target and appends ban relief clause
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling");
+  });
+
+  test("latent case: statistical COUNTER badge with negative curated counter against candidate never outputs negative explanation", () => {
+    const curated = new Map<HeroId, CuratedCounter[]>([
+      [RAZOR, [{ vs: MORPHLING, level: "hard", why: "Waveform rompe Static Link al instante" }]],
+    ]);
+    const state = draftState({
+      picks: { radiant: [], dire: [CRYSTAL_MAIDEN, MORPHLING] },
+    });
+    const scorer = createCounterScorer(curated);
+    const result = scorer.score(state, RAZOR, testMeta);
+
+    expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden");
+    expect(result.explanation).not.toContain("Waveform");
+  });
+});

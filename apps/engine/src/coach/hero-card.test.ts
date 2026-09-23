@@ -278,4 +278,138 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     expect(card.badges).toContain("COUNTER");
     expect(card.rationale).toBe("Fuerte contra Medusa");
   });
+
+  describe("provenance-aligned counter rationale on hero cards (Wave 5 follow-up)", () => {
+    test("1. S05-style case: badge earned vs Crystal Maiden, medium Bristleback relation exists -> rationale names Crystal Maiden, not Bristleback", () => {
+      const razorCandidate: HeroFixture = {
+        heroId: 15,
+        signals: [
+          signal("position_fit", 0.8, 20, { explanation: "Cubre la posición offlane que a tu equipo le falta" }),
+          signal("counter", 0.15, 15, {
+            hasRevealedEnemyCounterEvidence: true,
+            explanation: "Fuerte contra Crystal Maiden",
+          }),
+        ],
+        impact: resolvedImpact(3),
+      };
+      const [cand] = extractHeroCandidates(recSet([razorCandidate]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [5, 99] });
+      expect(card.badges).toContain("COUNTER");
+      expect(card.rationale).toBe("Fuerte contra Crystal Maiden");
+      expect(card.rationale).not.toContain("Bristleback");
+    });
+
+    test("2. hard curated badge: rationale names the hard curated target", () => {
+      const aaCandidate: HeroFixture = {
+        heroId: 68,
+        signals: [
+          signal("counter", 0.12, 25, {
+            hasRevealedEnemyCounterEvidence: true,
+            explanation: "Le ganás a Huskar",
+          }),
+        ],
+        impact: resolvedImpact(5),
+      };
+      const curated = new Map<number, CuratedCounter[]>([[59, [{ vs: 68, level: "hard", why: "fixture" }]]]);
+      const [cand] = extractHeroCandidates(recSet([aaCandidate]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [59], heroCounters: curated });
+      expect(card.badges).toContain("COUNTER");
+      expect(card.rationale).toBe("Le ganás a Huskar");
+    });
+
+    test("3. statistical-only badge: rationale names the qualifying statistical target", () => {
+      const candFixture: HeroFixture = {
+        heroId: 1,
+        signals: [
+          signal("counter", 0.08, 18, {
+            hasRevealedEnemyCounterEvidence: true,
+            explanation: "Fuerte contra Medusa",
+          }),
+        ],
+        impact: resolvedImpact(1),
+      };
+      const [cand] = extractHeroCandidates(recSet([candFixture]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [94] });
+      expect(card.badges).toContain("COUNTER");
+      expect(card.rationale).toBe("Fuerte contra Medusa");
+    });
+
+    test("4. medium-only curated: no badge", () => {
+      const mediumCandidate: HeroFixture = {
+        heroId: 15,
+        signals: [
+          signal("position_fit", 0.8, 20, { explanation: "Cubre la posición offlane que a tu equipo le falta" }),
+          signal("counter", 0.06, 10, {
+            hasRevealedEnemyCounterEvidence: false,
+            explanation: "Sin ventaja de contrapick conocida en este draft",
+          }),
+        ],
+        impact: resolvedImpact(3),
+      };
+      const curated = new Map<number, CuratedCounter[]>([[99, [{ vs: 15, level: "medium", why: "fixture" }]]]);
+      const [cand] = extractHeroCandidates(recSet([mediumCandidate]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [99], heroCounters: curated });
+      expect(card.badges).not.toContain("COUNTER");
+      // Rationale does not make false counter claim, uses position fit
+      expect(card.rationale).toBe("Cubre la posición offlane que a tu equipo le falta");
+      expect(card.rationale).not.toContain("Bristleback");
+    });
+
+    test("5. negative statistical relation: never used as positive COUNTER rationale", () => {
+      const negativeCandidate: HeroFixture = {
+        heroId: 1,
+        signals: [
+          signal("position_fit", 0.5, 10, { explanation: "Cubre la posición carry que a tu equipo le falta" }),
+          signal("counter", -0.05, 0, {
+            hasRevealedEnemyCounterEvidence: false,
+            explanation: "Sin ventaja de contrapick conocida en este draft",
+          }),
+        ],
+        impact: resolvedImpact(1),
+      };
+      const [cand] = extractHeroCandidates(recSet([negativeCandidate]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [10] });
+      expect(card.badges).not.toContain("COUNTER");
+      expect(card.rationale).toBe("Cubre la posición carry que a tu equipo le falta");
+    });
+
+    test("6. if multiple enemies exist: every enemy named in COUNTER rationale independently qualifies under visible badge semantics", () => {
+      const multiCandidate: HeroFixture = {
+        heroId: 15,
+        signals: [
+          signal("counter", 0.15, 20, {
+            hasRevealedEnemyCounterEvidence: true,
+            explanation: "Fuerte contra Crystal Maiden",
+          }),
+        ],
+        impact: resolvedImpact(3),
+      };
+      const [cand] = extractHeroCandidates(recSet([multiCandidate]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [5, 99, 81, 10] });
+      expect(card.badges).toContain("COUNTER");
+      expect(card.rationale).toBe("Fuerte contra Crystal Maiden");
+      expect(card.rationale).not.toContain("Bristleback");
+      expect(card.rationale).not.toContain("Chaos Knight");
+      expect(card.rationale).not.toContain("Morphling");
+    });
+
+    test("7. ban relief text may be appended, but it must never replace the actual counter target that earned the badge", () => {
+      const banReliefCandidate: HeroFixture = {
+        heroId: 15,
+        signals: [
+          signal("counter", 0.19, 22, {
+            hasRevealedEnemyCounterEvidence: true,
+            explanation: "Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling",
+          }),
+        ],
+        impact: resolvedImpact(3),
+      };
+      const [cand] = extractHeroCandidates(recSet([banReliefCandidate]));
+      const card = buildHeroCard(cand!, [], { revealedEnemies: [5] });
+      expect(card.badges).toContain("COUNTER");
+      expect(card.rationale).toBe("Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling");
+      expect(card.rationale).toContain("Crystal Maiden");
+      expect(card.rationale).toContain("Morphling");
+    });
+  });
 });

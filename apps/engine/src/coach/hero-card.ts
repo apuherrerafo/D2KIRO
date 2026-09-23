@@ -199,7 +199,9 @@ function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string 
       return counterSignal.explanation;
     }
   }
-  const backed = candidate.signals.filter(votedWithData).sort((a, b) => b.weighted - a.weighted);
+  const backed = candidate.signals
+    .filter((s) => votedWithData(s) && !s.explanation.startsWith("Sin "))
+    .sort((a, b) => b.weighted - a.weighted);
   return backed[0]?.explanation ?? "Sin señal con datos propios suficientes.";
 }
 

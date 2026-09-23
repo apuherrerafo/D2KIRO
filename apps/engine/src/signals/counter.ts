@@ -258,18 +258,6 @@ export function createCounterScorer(
       const raw =
         banRelief === 0 ? sumRevealed : Math.max(-M.hard, Math.min(M.hard, sumRevealed + banRelief));
 
-      let explanation: string;
-      const allPositiveCurated = [...positiveHardNames, ...positiveMediumNames];
-      if (contribs.length > 0) {
-        const base =
-          negativeWhy.length > 0 || allPositiveCurated.length > 0
-            ? buildCuratedExplanation(negativeWhy, allPositiveCurated)
-            : buildStatisticalExplanation(meta, statDeltas, badgeMinGames, badgeMinDelta);
-        explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
-      } else {
-        explanation = buildBanReliefClause(banReliefNames);
-      }
-
       // Wave 5 Domain Remediation: valid visible counter evidence requires:
       // 1. Curated HARD counter against a revealed enemy (curated level="hard" only), OR
       // 2. Statistical counter against a revealed enemy with sufficient sample floor and effect size:
@@ -278,11 +266,42 @@ export function createCounterScorer(
       // alone for the visible COUNTER claim.
       // Ban relief alone or net-negative/sub-threshold statistical evidence never qualifies.
       const hasCuratedHardCounter = positiveHardNames.length > 0;
-      const hasStatisticalCounter = statDeltas.some(
-        (d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta
+      const qualifyingStatDeltas = statDeltas.filter(
+        (d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta,
       );
+      const hasStatisticalCounter = qualifyingStatDeltas.length > 0;
       const hasRevealedEnemyCounterEvidence =
         hasCuratedHardCounter || hasStatisticalCounter;
+
+      let explanation: string;
+      if (hasCuratedHardCounter) {
+        // A. Curated hard relation earned the badge: explanation must name that hard-counter target.
+        // Medium curated relations and non-qualifying statistical relations are never named.
+        const base = `Le ganás a ${positiveHardNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`;
+        explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
+      } else if (hasStatisticalCounter) {
+        // B. Qualifying statistical relation earned the badge: explanation must name one or more
+        // revealed enemies whose statistical evidence itself passes games >= 40 and contracted delta >= +0.04.
+        // Medium curated relations and negative/sub-threshold statistical relations are never named.
+        const qualifyingNames = qualifyingStatDeltas
+          .sort((a, b) => b.delta - a.delta)
+          .slice(0, MAX_NAMED_ENEMIES)
+          .map((d) => heroName(meta, d.vsHero));
+        const base = `Fuerte contra ${qualifyingNames.join(" y ")}`;
+        explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
+      } else if (contribs.length > 0) {
+        // No qualifying positive counter against revealed enemies.
+        if (negativeWhy.length > 0) {
+          const base = negativeWhy.slice(0, MAX_NAMED_ENEMIES).join(" ");
+          explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
+        } else if (banRelief > 0) {
+          explanation = buildBanReliefClause(banReliefNames);
+        } else {
+          explanation = "Sin ventaja de contrapick conocida en este draft";
+        }
+      } else {
+        explanation = buildBanReliefClause(banReliefNames);
+      }
 
       // `weighted` queda en 0: la mezcla y la redistribución cuando otras señales dan `null` es
       // responsabilidad de `mix.ts`, no de este scorer.
