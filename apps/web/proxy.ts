@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { mintAccountToken } from "./lib/account-token";
+import { getCanonicalOrigin } from "./lib/canonical-origin";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
 
 function isPublicPath(pathname: string): boolean {
@@ -17,8 +18,10 @@ function cookieStoreFor(request: NextRequest, response: NextResponse): SessionCo
   };
 }
 
-function loginRedirect(request: NextRequest): NextResponse {
-  return NextResponse.redirect(new URL("/login", request.url));
+function loginRedirect(): NextResponse {
+  const origin = getCanonicalOrigin();
+  if (origin === null) return new NextResponse("Authentication unavailable", { status: 503 });
+  return NextResponse.redirect(new URL("/login", origin));
 }
 
 export async function proxy(request: NextRequest) {
@@ -32,7 +35,7 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   const session = await getSession(cookieStoreFor(request, response));
-  if (!await renewSessionIfNeeded(session)) return loginRedirect(request);
+  if (!await renewSessionIfNeeded(session)) return loginRedirect();
 
   if (!isEngineRewrite(request.nextUrl.pathname)) return response;
 

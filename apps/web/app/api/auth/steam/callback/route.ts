@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { mintAccountToken } from "@/lib/account-token";
+import { getCanonicalOrigin } from "@/lib/canonical-origin";
 import { getSession } from "@/lib/session";
 import { steamId64ToSteam32, verifySteamCallback } from "@/lib/steam-openid";
 import { getSteamPlayerProfile, type SteamPlayerProfile } from "@/lib/steam-profile";
@@ -11,6 +12,7 @@ type SteamVerification = Awaited<ReturnType<typeof verifySteamCallback>>;
 type AuthFailure = "missing_nonce" | "nonce_mismatch" | "steam_verify_failed" | "invalid_steam_identity" | "account_create_failed" | "profile_fetch_failed" | "session_save_failed" | "auth_config_invalid";
 
 interface CallbackDependencies {
+  publicOrigin: string | null;
   readNonce: () => string | undefined;
   clearNonce: () => void;
   verify: (params: URLSearchParams) => Promise<SteamVerification>;
@@ -21,11 +23,16 @@ interface CallbackDependencies {
   isAccountAllowed?: (accountId: number) => boolean;
 }
 
-function loginError(request: Request, failure: AuthFailure): NextResponse {
+function redirectToCanonicalPath(origin: string | null, path: string): NextResponse {
+  if (origin === null) return new NextResponse("Authentication is unavailable", { status: 503 });
+  return NextResponse.redirect(new URL(path, origin));
+}
+
+function loginError(origin: string | null, failure: AuthFailure): NextResponse {
   if (process.env.NODE_ENV === "development") {
     console.error(`[auth] Steam login failed: ${failure}`);
   }
-  return NextResponse.redirect(new URL("/login?error=auth_failed", request.url));
+  return redirectToCanonicalPath(origin, "/login?error=auth_failed");
 }
 
 export { mintAccountToken as createAccountToken } from "@/lib/account-token";
@@ -35,36 +42,36 @@ export function createCallbackHandler(dependencies: CallbackDependencies) {
     const params = new URL(request.url).searchParams;
     const expectedNonce = dependencies.readNonce();
     dependencies.clearNonce();
-    if (!expectedNonce) return loginError(request, "missing_nonce");
-    if (params.get("state") !== expectedNonce) return loginError(request, "nonce_mismatch");
+    if (!expectedNonce) return loginError(dependencies.publicOrigin, "missing_nonce");
+    if (params.get("state") !== expectedNonce) return loginError(dependencies.publicOrigin, "nonce_mismatch");
 
     try {
       const verification = await dependencies.verify(params);
-      if (!verification.ok) return loginError(request, "steam_verify_failed");
+      if (!verification.ok) return loginError(dependencies.publicOrigin, "steam_verify_failed");
 
       const accountId = steamId64ToSteam32(verification.steamId64);
-      if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(request, "invalid_steam_identity");
-      if (!(dependencies.isAccountAllowed?.(accountId) ?? true)) return NextResponse.redirect(new URL("/access-denied", request.url));
+      if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(dependencies.publicOrigin, "invalid_steam_identity");
+      if (!(dependencies.isAccountAllowed?.(accountId) ?? true)) return redirectToCanonicalPath(dependencies.publicOrigin, "/access-denied");
       try {
-        if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(request, "account_create_failed");
+        if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(dependencies.publicOrigin, "account_create_failed");
       } catch {
-        return loginError(request, "account_create_failed");
+        return loginError(dependencies.publicOrigin, "account_create_failed");
       }
 
       let profile: SteamPlayerProfile;
       try {
         profile = await dependencies.getProfile(accountId, verification.steamId64);
       } catch {
-        return loginError(request, "profile_fetch_failed");
+        return loginError(dependencies.publicOrigin, "profile_fetch_failed");
       }
       try {
         await dependencies.startSession(accountId, profile);
       } catch {
-        return loginError(request, "session_save_failed");
+        return loginError(dependencies.publicOrigin, "session_save_failed");
       }
-      return NextResponse.redirect(new URL("/", request.url));
+      return redirectToCanonicalPath(dependencies.publicOrigin, "/");
     } catch {
-      return loginError(request, "steam_verify_failed");
+      return loginError(dependencies.publicOrigin, "steam_verify_failed");
     }
   };
 }
@@ -73,9 +80,11 @@ export async function GET(request: Request) {
   const cookieStore = await cookies();
   const internalSecret = process.env.INTERNAL_AUTH_SECRET;
   const engineUrl = process.env.ENGINE_INTERNAL_URL;
-  if (!internalSecret || internalSecret.length < 32 || !engineUrl) return loginError(request, "auth_config_invalid");
+  const publicOrigin = getCanonicalOrigin();
+  if (!internalSecret || internalSecret.length < 32 || !engineUrl) return loginError(publicOrigin, "auth_config_invalid");
 
   return createCallbackHandler({
+    publicOrigin,
     readNonce: () => cookieStore.get(LOGIN_NONCE_COOKIE)?.value,
     clearNonce: () => cookieStore.delete(LOGIN_NONCE_COOKIE),
     verify: verifySteamCallback,

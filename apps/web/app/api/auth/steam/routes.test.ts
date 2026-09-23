@@ -29,6 +29,7 @@ describe("rutas de autenticación Steam", () => {
     const createdAccounts: Array<{ accountId: number; token: string }> = [];
     const sessions: Array<{ accountId: number; personaName: string; avatarUrl: string | null }> = [];
     const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
       readNonce: () => NONCE,
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
@@ -51,6 +52,7 @@ describe("rutas de autenticación Steam", () => {
     let created = false;
     let sessionStarted = false;
     const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
       readNonce: () => NONCE,
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
@@ -71,6 +73,7 @@ describe("rutas de autenticación Steam", () => {
   test("callback sin nonce coincidente se rechaza antes de verificar OpenID", async () => {
     let verified = false;
     const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
       readNonce: () => undefined,
       clearNonce: () => undefined,
       verify: async () => { verified = true; return { ok: false as const, error: "invalid signature" }; },
@@ -90,6 +93,7 @@ describe("rutas de autenticación Steam", () => {
     let created = false;
     let sessionStarted = false;
     const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
       readNonce: () => NONCE,
       clearNonce: () => undefined,
       verify: async () => ({ ok: false as const, error: "invalid signature" }),
@@ -109,6 +113,7 @@ describe("rutas de autenticación Steam", () => {
   test("callback no abre sesión cuando la creación de cuenta del motor falla", async () => {
     let sessionStarted = false;
     const handler = createCallbackHandler({
+      publicOrigin: "https://coach.example",
       readNonce: () => NONCE,
       clearNonce: () => undefined,
       verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
@@ -126,10 +131,19 @@ describe("rutas de autenticación Steam", () => {
 
   test("logout destruye la sesión y devuelve a login", async () => {
     let destroyed = false;
-    const response = await createLogoutHandler(async () => { destroyed = true; })();
+    const response = await createLogoutHandler(async () => { destroyed = true; }, "https://coach.example")();
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://coach.example/login");
+    expect(destroyed).toBe(true);
+  });
+
+  test("logout falla cerrado (503, sin redirect) si no hay origen público configurado", async () => {
+    let destroyed = false;
+    const response = await createLogoutHandler(async () => { destroyed = true; }, null)();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("location")).toBeNull();
     expect(destroyed).toBe(true);
   });
 });
