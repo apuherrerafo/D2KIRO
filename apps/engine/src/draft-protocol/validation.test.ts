@@ -119,6 +119,12 @@ describe("isValidCreateProtocolSessionBody", () => {
   test("rechaza partyContext malformado cuando está presente", () => {
     expect(isValidCreateProtocolSessionBody({ ...validBody, partyContext: { partySize: 4, side: "radiant", controlledSlots: [] } })).toBe(false);
   });
+  test("Live Companion: manual acepta humanPosition y rechaza simulatorSeed", () => {
+    const manualBody = { ...validBody, adapterKind: "manual" as const, humanPosition: 2 as const };
+    expect(isValidCreateProtocolSessionBody(manualBody)).toBe(true);
+    expect(isValidCreateProtocolSessionBody({ ...manualBody, humanPosition: 6 as unknown as 1 })).toBe(false);
+    expect(isValidCreateProtocolSessionBody({ ...manualBody, simulatorSeed: "seeded-bot" })).toBe(false);
+  });
 });
 
 describe("isValidSubmitProtocolCommandBody", () => {

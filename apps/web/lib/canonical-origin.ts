@@ -1,4 +1,4 @@
-const LOCAL_DEV_ORIGIN = "http://localhost:3000";
+const LOCAL_DEV_ORIGIN = process.env.LOCAL_DEV_ORIGIN ?? "http://localhost:3000";
 
 function parseOrigin(raw: string): string | null {
   try {

@@ -108,11 +108,15 @@ export function isValidCreateProtocolSessionBody(value: unknown): value is Creat
   if (!isTeamSide(value.localSide)) return false;
   if (value.adapterKind !== "manual" && value.adapterKind !== "simulator") return false;
   if (!isValidPartyContextInput(value.partyContext) || value.partyContext.side !== value.localSide) return false;
-  const hasSimulatorMetadata = value.humanPosition !== undefined || value.simulatorSeed !== undefined;
-  if (hasSimulatorMetadata) {
-    if (value.adapterKind !== "simulator") return false;
-    if (!isDotaPosition(value.humanPosition)) return false;
-    if (typeof value.simulatorSeed !== "string" || value.simulatorSeed.length === 0 || value.simulatorSeed.length > 64) return false;
+  if (value.adapterKind === "manual") {
+    if (value.simulatorSeed !== undefined) return false;
+    if (value.humanPosition !== undefined && !isDotaPosition(value.humanPosition)) return false;
+  } else {
+    const hasSimulatorMetadata = value.humanPosition !== undefined || value.simulatorSeed !== undefined;
+    if (hasSimulatorMetadata) {
+      if (!isDotaPosition(value.humanPosition)) return false;
+      if (typeof value.simulatorSeed !== "string" || value.simulatorSeed.length === 0 || value.simulatorSeed.length > 64) return false;
+    }
   }
   return true;
 }
