@@ -9,7 +9,7 @@ import { addHeroToBanList, removeHeroFromBanList } from "../ban-list";
 import { SEED_PATTERN } from "../constants";
 import { generateDraftSeed } from "../seeded-rng";
 import { useConfigPersistence } from "../use-config-persistence";
-import type { HeroId, TeamSide } from "../types";
+import type { HeroId, SessionMode, TeamSide } from "../types";
 import type { StartDraftConfig } from "../use-random-draft-session";
 
 const MAX_BAN_LIST = 4;
@@ -179,7 +179,38 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
 }
 
 export interface ConfigPanelProps {
-  onStart: (config: StartDraftConfig) => void;
+  onStart: (config: StartDraftConfig, mode: SessionMode) => void;
+}
+
+const MODE_OPTIONS: { value: SessionMode; label: string; description: string }[] = [
+  { value: "simulation", label: "Simulación", description: "Draft de práctica: el Enemy Bot elige por el rival, automático." },
+  {
+    value: "live_companion",
+    label: "Live Companion",
+    description: "Para usar junto a un draft REAL de Dota 2. Sin bot: reportás a mano cada ban/pick que ves en tu cliente.",
+  },
+];
+
+interface ModeFieldProps {
+  mode: SessionMode;
+  onChange: (mode: SessionMode) => void;
+}
+
+// MVP P0.1 -- decisión explícita, sin valor por defecto silencioso distinto al ya existente:
+// "simulation" es la primera opción y la que ya persistía antes de que este selector existiera,
+// así que el comportamiento de quien nunca toca este control queda exactamente igual.
+function ModeField({ mode, onChange }: ModeFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Modo de sesión">
+      <span className="text-caption text-content-secondary">Modo</span>
+      <div className="flex flex-wrap gap-2">
+        {MODE_OPTIONS.map((option) => (
+          <ChoiceButton key={option.value} value={option.value} label={option.label} selected={mode === option.value} onSelectValue={onChange} />
+        ))}
+      </div>
+      <span className="text-caption text-content-muted">{MODE_OPTIONS.find((option) => option.value === mode)?.description}</span>
+    </div>
+  );
 }
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5;
@@ -265,6 +296,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const [banListError, setBanListError] = useState<string | null>(null);
   const [chosenSide, setChosenSide] = useState<TeamSide | null>(null);
   const [chosenPosition, setChosenPosition] = useState<PlayerPosition | null>(null);
+  const [mode, setMode] = useState<SessionMode>("simulation");
 
   // Nominations live in local state first: they must work BEFORE side/position are chosen (persistence only
   // happens once both are known), otherwise an early nomination would be silently dropped.
@@ -316,22 +348,32 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
 
   function handleStart() {
     if (!canStart || side === null || position === null) return;
-    onStart({ draftSeed, userSide: side, playerPosition: position, personalBanList, partySize: 5 });
+    onStart({ draftSeed, userSide: side, playerPosition: position, personalBanList, partySize: 5 }, mode);
   }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Ranked All Pick — Ranked Roles</span>
+      <ModeField mode={mode} onChange={setMode} />
       <SideField side={side} onChange={changeSide} />
       <PositionField position={position} onChange={changePosition} />
-      <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
-      <PersonalBanListField
-        personalBanList={personalBanList}
-        heroCatalog={heroCatalog}
-        error={banListError}
-        onAdd={addBanHero}
-        onRemove={removeBanHero}
-      />
+      {mode === "simulation" && (
+        <>
+          <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
+          <PersonalBanListField
+            personalBanList={personalBanList}
+            heroCatalog={heroCatalog}
+            error={banListError}
+            onAdd={addBanHero}
+            onRemove={removeBanHero}
+          />
+        </>
+      )}
+      {mode === "live_companion" && (
+        <span className="text-caption text-content-muted">
+          En Live Companion vas a reportar los bans y picks reales a mano, apenas empiece el draft -- no hace falta seed ni nominaciones acá.
+        </span>
+      )}
       {!canStart && <span className="text-caption text-content-muted">Elegí tu lado y tu posición personal para iniciar el draft.</span>}
       <button type="button" onClick={handleStart} disabled={!canStart} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft

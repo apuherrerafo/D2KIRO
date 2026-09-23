@@ -189,10 +189,13 @@ describe("createProtocolSessionRoutes -- S2 HTTP surface", () => {
     expect(response.status).toBe(403);
   });
 
-  test("una sesión Radiant no puede actuar como Dire", async () => {
+  test("una sesión Simulator Radiant no puede actuar como Dire (el Enemy Bot es el único dueño de ese lado)", async () => {
     const store = new ProtocolSessionStore();
     const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([]) });
-    store.create({ sessionId: "action-side", rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant" });
+    // MVP P0.1 (Live Companion): esta restricción sigue siendo absoluta para adapterKind
+    // "simulator" -- explícito acá, ya no el default implícito, porque un adapterKind "manual"
+    // (Live Companion) SÍ puede actuar por el lado rival (protocol-session.live-companion.test.ts).
+    store.create({ sessionId: "action-side", rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator" });
     store.apply("action-side", { type: "BAN_RESOLUTION_COMPLETE" });
     const response = await routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: 9 } }), "action-side");
     expect(response.status).toBe(403);

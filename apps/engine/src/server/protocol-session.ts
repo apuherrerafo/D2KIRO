@@ -380,8 +380,14 @@ export class ProtocolSessionStore {
     if (isApSimulatorMetadata(metadata) && (command.type === "RECORD_RESOLVED_BANS" || command.type === "BAN_RESOLUTION_COMPLETE")) {
       return false;
     }
-    // The Player controls every seat of their own side; the other side belongs to the Enemy Bot.
-    if (command.type === "SUBMIT_SEALED_SELECTION") return command.side === metadata.localSide;
+    // The Player controls every seat of their own side; the other side belongs to the Enemy Bot --
+    // EXCEPT for a "manual" adapterKind session (Live Companion, no Enemy Bot at all): there, the
+    // Player is the sole observer of a REAL match and reports both sides' sealed selections as they
+    // are actually revealed. `adapterKind === "simulator"` keeps the exact prior restriction --
+    // SIMULATION mode's behavior is unchanged byte-for-byte.
+    if (command.type === "SUBMIT_SEALED_SELECTION") {
+      return command.side === metadata.localSide || metadata.adapterKind === "manual";
+    }
     if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
       return legalActions(state).some((action) => {
         if (action.type !== command.type || action.absoluteSide !== metadata.localSide || action.actor !== command.actor) return false;
@@ -399,7 +405,10 @@ export class ProtocolSessionStore {
       if (isApSimulatorMetadata(metadata) && (action.type === "RECORD_RESOLVED_BANS" || action.type === "BAN_RESOLUTION_COMPLETE")) {
         return false;
       }
-      if (action.type === "SUBMIT_SEALED_SELECTION") return action.side === metadata.localSide;
+      // Same manual-adapter exception as isCommandAuthorized above: a Live Companion session
+      // advertises BOTH sides' open seats (the Player must be able to report either one), a
+      // Simulator session still only advertises its own.
+      if (action.type === "SUBMIT_SEALED_SELECTION") return action.side === metadata.localSide || metadata.adapterKind === "manual";
       if (action.type === "CM_ACTION" || action.type === "CM_BAN_SKIPPED" || action.type === "CM_AUTO_PICK") {
         return action.absoluteSide === metadata.localSide;
       }

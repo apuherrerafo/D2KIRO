@@ -5,13 +5,17 @@ import type { DraftState } from "@/features/draft/types";
 import type { CoachOutput } from "./coach-client";
 import type { RecommendationSetV2 } from "./protocol-client";
 import type { OrchestratorResult } from "./orchestrator";
-import type { DraftConfig, DraftPhase, HeroId } from "./types";
+import type { DraftConfig, DraftPhase, HeroId, SessionMode } from "./types";
 
 export type PreviewStatus = "idle" | "loading" | "ready" | "failed";
 export type EngineStatus = "ok" | "unreachable";
 
 export interface RandomDraftState {
   config: DraftConfig | null;
+  // MVP P0.1 -- "simulation" (default, matches every behavior before this field existed) or
+  // "live_companion" (no Enemy Bot; manual entry). Fixed for the lifetime of a session -- set only
+  // by startSession, cleared only by resetSession.
+  sessionMode: SessionMode;
   phase: DraftPhase;
   sessionId: string | null;
   draftState: DraftState | null;
@@ -29,7 +33,7 @@ export interface RandomDraftState {
 }
 
 export interface RandomDraftActions {
-  startSession(config: DraftConfig, sessionId: string, orchestratorResult: OrchestratorResult): void;
+  startSession(config: DraftConfig, sessionId: string, orchestratorResult: OrchestratorResult, mode?: SessionMode): void;
   /** Registra un héroe que el Player ya selló (lock) en el intento actual de la ronda. */
   confirmPick(heroId: HeroId): void;
   resetSession(): void;
@@ -50,6 +54,7 @@ type RandomDraftStore = RandomDraftState & RandomDraftActions;
 
 export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   config: null,
+  sessionMode: "simulation",
   phase: { type: "idle" },
   sessionId: null,
   draftState: null,
@@ -60,14 +65,17 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   previewStatus: "idle",
   engineStatus: "ok",
 
-  startSession(config, sessionId, orchestratorResult) {
+  startSession(config, sessionId, orchestratorResult, mode = "simulation") {
     set({
       config,
       sessionId,
+      sessionMode: mode,
       draftState: null,
       recommendations: null,
       coach: null,
-      phase: { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
+      phase: mode === "live_companion"
+        ? { type: "live_ban_entry", observedBans: [], error: null }
+        : { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
       previewStatus: "idle",
       engineStatus: "ok",
     });
@@ -82,6 +90,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   resetSession() {
     set({
       config: null,
+      sessionMode: "simulation",
       phase: { type: "idle" },
       sessionId: null,
       draftState: null,

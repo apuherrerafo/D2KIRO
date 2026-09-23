@@ -151,6 +151,12 @@ export interface CreateSimulatorSessionOptions {
   /** Posición personal declarada del Player (1..5). Identifica su rol; nunca decide cuándo se pica. */
   humanPosition?: 1 | 2 | 3 | 4 | 5;
   simulatorSeed?: string;
+  /**
+   * MVP P0.1 -- default "simulator" (byte-identical to every call site before this field existed).
+   * "manual" is Live Companion: no Enemy Bot, no seeded ban policy -- the Player reports both
+   * sides' sealed selections and the observed bans by hand (see protocol-session.ts, engine side).
+   */
+  adapterKind?: "manual" | "simulator";
 }
 
 export async function createSimulatorProtocolSession(
@@ -173,7 +179,7 @@ export async function createSimulatorProtocolSession(
       rulesetId: options.rulesetId ?? "dota2/ranked-all-pick",
       patch,
       localSide,
-      adapterKind: "simulator",
+      adapterKind: options.adapterKind ?? "simulator",
       partyContext: {
         partySize,
         side: localSide,
@@ -187,6 +193,17 @@ export async function createSimulatorProtocolSession(
   const body: unknown = await response.json();
   if (!isRecord(body) || typeof body.sessionId !== "string" || body.sessionId.length === 0) throw new Error("invalid protocol session response");
   return body.sessionId;
+}
+
+/**
+ * MVP P0.1 (Live Companion) -- reads the current snapshot without submitting any command. Used
+ * once, right after creating a "manual" adapterKind session, to seed the board before the Player
+ * has reported anything: the ban-resolution simulator route (which returns a snapshot as a side
+ * effect) is never called in this mode, so nothing else primes `draftState` otherwise.
+ */
+export async function getProtocolSession(sessionId: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}`);
+  return readSnapshot(response);
 }
 
 export function submitProtocolCommand(

@@ -32,6 +32,7 @@ import { createProDrafterRoutes, handleLowConfidenceReport } from "./routes/pro-
 import { loadTrustedEligibilityArtifact } from "../draft-protocol";
 import { createProtocolSessionRoutes } from "./routes/protocol-sessions";
 import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
+import { createTelemetryRoutes } from "./routes/telemetry";
 import { createTeamGroupRoutes } from "./routes/team-groups";
 import { ProtocolSessionStore } from "./protocol-session";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
@@ -147,6 +148,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     heroPositions: deps.heroPositions,
   });
   const rateLimiter = createSessionRateLimiter();
+  // MVP P0.1 -- minimal client error reporting foundation. Own rate limiter instance (own key
+  // space: sessionId-or-IP, never the draft-event session ids above) so a telemetry burst can
+  // never consume the budget /ingest and /api/session/manual depend on.
+  const telemetryRoutes = createTelemetryRoutes({ rateLimiter: createSessionRateLimiter() });
   const accountTokenNow = deps.accountTokenNow ?? Date.now;
   const accountNonceStore = new Map<string, number>();
   const heroPoolRoutes = createHeroPoolRoutes({ db: deps.db, openDotaClient: deps.openDotaClient });
@@ -363,6 +368,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "POST" && url.pathname === "/ingest/draft-event") {
       return handleDraftEvent(request, { requireToken: true, rateLimit: true });
+    }
+    if (request.method === "POST" && url.pathname === "/api/telemetry/error") {
+      return telemetryRoutes.postError(request);
     }
     if (request.method === "POST" && url.pathname === "/api/session/manual") {
       // TSK-214: `rateLimit: true`. Antes era `false` porque esta ruta sólo era alcanzable en

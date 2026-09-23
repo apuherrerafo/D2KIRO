@@ -3,21 +3,25 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
+import { reportClientError } from "@/lib/telemetry-client";
 import { BLIND_ROUND_SPECS } from "./constants";
 import { assignOwnCoachPosition, fetchRecommendationsWithCoach } from "./coach-client";
+import { describeLiveCompanionRejection } from "./live-companion-rejection";
 import { useLowConfidenceStore } from "./low-confidence-store";
 import { loadMetaSnapshot } from "./meta-loader";
 import {
   createSimulatorProtocolSession,
+  getProtocolSession,
   protocolViewToDraftState,
   requestEnemyAutoDrive,
   resolveSimulatorBans,
   submitProtocolCommand,
+  type ProtocolLegalAction,
   type ProtocolPerspectiveView,
   type ProtocolSnapshot,
 } from "./protocol-client";
 import { useRandomDraftStore, type RandomDraftActions, type RandomDraftState } from "./store";
-import type { DraftConfig, HeroId, PicksByRound } from "./types";
+import type { DraftConfig, HeroId, PicksByRound, SessionMode } from "./types";
 
 const TIMER_TICK_MS = 250;
 const REVEAL_PAUSE_MS = 2500;
@@ -48,6 +52,30 @@ function visibleIds(slots: ProtocolPerspectiveView["ownPicks"]): HeroId[] {
   return slots.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
 }
 
+// LIVE_COMPANION -- SIMULATION populates revealedRoundsRef incrementally, one round at a time, via
+// revealRound() (never called in this mode: there is no artificial reveal pause to hang it off of).
+// At COMPLETE every slot is visible, so the same round/count slicing revealRound() uses can be
+// applied once, directly to the final view, to produce the identical PicksByRound[] shape the
+// session summary already expects.
+function picksByRoundFromView(view: ProtocolPerspectiveView): PicksByRound[] {
+  const own = visibleIds(view.ownPicks);
+  const enemy = visibleIds(view.enemyPicks);
+  return ([1, 2, 3] as const).map((round) => {
+    const start = roundSeatOffset(round);
+    const count = round === 3 ? 1 : 2;
+    return { userPicks: own.slice(start, start + count), botPicks: enemy.slice(start, start + count) };
+  });
+}
+
+// LIVE_COMPANION -- every currently open seat, EITHER side. A "manual" adapterKind session's
+// legalActions already carries both (protocol-session.ts's isCommandAuthorized/authorizedLegalActions
+// widen exactly this, and only for adapterKind "manual" -- SIMULATION's legalActions never include
+// the enemy side). This hook never filters by side itself: it shows/accepts whatever the engine
+// advertises as open, nothing invented client-side.
+function openSlotsFromLegalActions(actions: ProtocolLegalAction[]): { side: TeamSide; slotIndex: number }[] {
+  return actions.flatMap((action) => (action.type === "SUBMIT_SEALED_SELECTION" ? [{ side: action.side, slotIndex: action.slotIndex }] : []));
+}
+
 /** Own-side round slots the Player may fill right now, lowest first. The Player controls ALL of them. */
 export function ownOpenSlotIndexes(snapshot: ProtocolSnapshot): number[] {
   return snapshot.legalActions
@@ -74,8 +102,19 @@ export interface UseRandomDraftSessionResult {
     /** Reintenta la resolución de bans con los mismos datos y la misma seed (fail closed). */
     retryBans(): Promise<void>;
     assignOwnPosition(heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null): Promise<void>;
+    /**
+     * LIVE_COMPANION -- registra la lista completa de bans observados en el draft REAL y cierra
+     * la fase de bans (RECORD_RESOLVED_BANS + BAN_RESOLUTION_COMPLETE). Nunca inventa ni completa
+     * bans que el Player no escribió.
+     */
+    recordObservedBans(heroIds: HeroId[]): Promise<void>;
+    /**
+     * LIVE_COMPANION -- reporta un pick observado para `side` (propio o rival) en el próximo
+     * asiento abierto de ese lado. Nunca llama al Enemy Bot ni a auto-drive.
+     */
+    submitLiveSelection(side: TeamSide, heroId: HeroId): Promise<void>;
   };
-  startDraft(config: StartDraftConfig): Promise<void>;
+  startDraft(config: StartDraftConfig, mode?: SessionMode): Promise<void>;
 }
 
 export interface UseRandomDraftSessionOptions {
@@ -89,6 +128,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const revealPauseMs = options.revealPauseMs ?? REVEAL_PAUSE_MS;
   const config = useRandomDraftStore((state) => state.config);
   const phase = useRandomDraftStore((state) => state.phase);
+  const sessionMode = useRandomDraftStore((state) => state.sessionMode);
   const sessionId = useRandomDraftStore((state) => state.sessionId);
   const draftState = useRandomDraftStore((state) => state.draftState);
   const engineStatus = useRandomDraftStore((state) => state.engineStatus);
@@ -362,7 +402,85 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     }
   }, [resolveBans]);
 
-  const startDraft = useCallback(async function startDraft(input: StartDraftConfig): Promise<void> {
+  // LIVE_COMPANION -- the only "next state" computation this mode needs: read whatever the engine
+  // currently advertises as open (both sides) and show it. No timer, no reveal pause, no Enemy
+  // Bot call anywhere in this function -- the Player already told us what happened; the engine
+  // already applied it before this ran.
+  const beginLivePending = useCallback(function beginLivePending(snapshot: ProtocolSnapshot, notice: string | null): void {
+    if (snapshot.view.status === "COMPLETE") {
+      if (revealedRoundsRef.current.length === 0) revealedRoundsRef.current = picksByRoundFromView(snapshot.view);
+      completeDraft(snapshot);
+      return;
+    }
+    if (snapshot.view.status === "WAITING_FOR_COLLISION_AUTHORITY") {
+      // R1 P0.1 (documented scope cut) -- a 3rd+ blind collision within the SAME round needs an
+      // external authority (APPLY_AUTHORITATIVE_COLLISION_RESOLUTION), which this MVP does not yet
+      // expose for manual sessions. Surfaced explicitly, never silently stuck.
+      void reportClientError("collision_authority_unsupported", "live_pending", "kernel reached WAITING_FOR_COLLISION_AUTHORITY", sessionId ?? null, fetchImpl);
+      useRandomDraftStore.getState().setVisualPhase({ type: "live_collision_unsupported" });
+      return;
+    }
+    const round = roundFromView(snapshot.view);
+    if (!round) return;
+    useRandomDraftStore.getState().setVisualPhase({ type: "live_pending", round, openSlots: openSlotsFromLegalActions(snapshot.legalActions), notice });
+    void refreshRecommendations();
+  }, [completeDraft, fetchImpl, refreshRecommendations, sessionId]);
+
+  const recordObservedBans = useCallback(async function recordObservedBans(heroIds: HeroId[]): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    if (!current.sessionId || current.phase.type !== "live_ban_entry") return;
+    try {
+      const afterBans = await submitProtocolCommand(current.sessionId, { type: "RECORD_RESOLVED_BANS", heroes: heroIds }, fetchImpl);
+      if (afterBans.accepted === false) {
+        useRandomDraftStore.getState().setVisualPhase({ type: "live_ban_entry", observedBans: heroIds, error: describeLiveCompanionRejection(afterBans.rejected) });
+        return;
+      }
+      const afterComplete = await submitProtocolCommand(current.sessionId, { type: "BAN_RESOLUTION_COMPLETE" }, fetchImpl);
+      syncSnapshot(afterComplete);
+      if (afterComplete.accepted === false) {
+        useRandomDraftStore.getState().setVisualPhase({ type: "live_ban_entry", observedBans: heroIds, error: describeLiveCompanionRejection(afterComplete.rejected) });
+        return;
+      }
+      beginLivePending(afterComplete, null);
+    } catch (error) {
+      console.error("[useRandomDraftSession] recordObservedBans failed", error);
+      void reportClientError("draft_session_failure", "live_ban_entry", "recordObservedBans request failed", sessionId ?? null, fetchImpl);
+      useRandomDraftStore.getState().setEngineStatus("unreachable");
+    }
+  }, [beginLivePending, fetchImpl, sessionId, syncSnapshot]);
+
+  const submitLiveSelection = useCallback(async function submitLiveSelection(side: TeamSide, heroId: HeroId): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    const snapshot = protocolRef.current;
+    if (lockingRef.current || current.phase.type !== "live_pending" || !current.sessionId || !snapshot) return;
+    const slot = openSlotsFromLegalActions(snapshot.legalActions).find((candidate) => candidate.side === side);
+    if (!slot) return;
+    lockingRef.current = true;
+    try {
+      const next = await submitProtocolCommand(
+        current.sessionId,
+        { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: slot.slotIndex, heroId },
+        fetchImpl,
+      );
+      syncSnapshot(next);
+      if (next.accepted === false) {
+        const fresh = useRandomDraftStore.getState().phase;
+        if (fresh.type === "live_pending") {
+          useRandomDraftStore.getState().setVisualPhase({ ...fresh, notice: describeLiveCompanionRejection(next.rejected) });
+        }
+        return;
+      }
+      beginLivePending(next, null);
+    } catch (error) {
+      console.error("[useRandomDraftSession] submitLiveSelection failed", error);
+      void reportClientError("draft_session_failure", "live_pending", "submitLiveSelection request failed", sessionId ?? null, fetchImpl);
+      useRandomDraftStore.getState().setEngineStatus("unreachable");
+    } finally {
+      lockingRef.current = false;
+    }
+  }, [beginLivePending, fetchImpl, sessionId, syncSnapshot]);
+
+  const startDraft = useCallback(async function startDraft(input: StartDraftConfig, mode: SessionMode = "simulation"): Promise<void> {
     stopTimer();
     try {
       const { currentPatch } = await loadMetaSnapshot();
@@ -370,21 +488,30 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       const nextSessionId = await createSimulatorProtocolSession(nextConfig.patch, nextConfig.userSide, fetchImpl, {
         partySize: 5,
         humanPosition: nextConfig.playerPosition,
-        simulatorSeed: nextConfig.draftSeed,
+        // LIVE_COMPANION never sends a simulatorSeed: there is no seeded bot/ban-policy to drive,
+        // and isApSimulatorMetadata (engine side) requires adapterKind "simulator" anyway.
+        simulatorSeed: mode === "simulation" ? nextConfig.draftSeed : undefined,
+        adapterKind: mode === "simulation" ? "simulator" : "manual",
       });
       revealedRoundsRef.current = [];
       roundConflictsRef.current = { round: 0, bans: [] };
-      useRandomDraftStore.getState().startSession(nextConfig, nextSessionId, { resolvedBans: [], rounds: [] });
+      useRandomDraftStore.getState().startSession(nextConfig, nextSessionId, { resolvedBans: [], rounds: [] }, mode);
+      if (mode === "live_companion") {
+        const initial = await getProtocolSession(nextSessionId, fetchImpl);
+        syncSnapshot(initial);
+        return;
+      }
       await resolveBans();
     } catch (error) {
       console.error("[useRandomDraftSession] protocol start failed", error);
+      void reportClientError("draft_session_failure", "start_draft", "startDraft request failed", null, fetchImpl);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     }
-  }, [fetchImpl, resolveBans, stopTimer]);
+  }, [fetchImpl, resolveBans, stopTimer, syncSnapshot]);
 
   return {
-    state: { config, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus },
-    actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans, assignOwnPosition },
+    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus },
+    actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans, assignOwnPosition, recordObservedBans, submitLiveSelection },
     startDraft,
   };
 }

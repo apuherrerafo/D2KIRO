@@ -9,6 +9,7 @@ import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanP
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
+import { LiveBanEntryPanel, LivePendingPanel } from "@/features/random-draft-simulator/components/LiveCompanionPanel";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
@@ -17,6 +18,11 @@ import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
 type Session = ReturnType<typeof useRandomDraftSession>;
+
+// LIVE_COMPANION never renders a HeroGrid (LiveCompanionPanel uses HeroPicker's search box
+// instead, task spec section 4) -- CopilotPanel still requires this callback, so a stable no-op
+// function satisfies the prop without an inline anonymous handler (web.md).
+function noopSetHighlightedHeroIds(): void {}
 
 interface PhaseViewProps {
   session: Session;
@@ -93,6 +99,77 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   );
 }
 
+// LIVE_COMPANION -- fase de bans observados. Nunca llama a /resolve-bans (la política seeded del
+// Simulador): submits RECORD_RESOLVED_BANS + BAN_RESOLUTION_COMPLETE directo, con exactamente los
+// héroes que el Player escribió.
+function LiveBanEntryPhaseView({ session, heroCatalog }: PhaseViewProps) {
+  const [submitting, setSubmitting] = useState(false);
+  if (session.state.phase.type !== "live_ban_entry") return null;
+  const phase = session.state.phase;
+  async function handleConfirm(heroIds: number[]) {
+    setSubmitting(true);
+    try {
+      await session.actions.recordObservedBans(heroIds);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  return <LiveBanEntryPanel observedBans={phase.observedBans} error={phase.error} heroCatalog={heroCatalog} onConfirm={handleConfirm} submitting={submitting} />;
+}
+
+// LIVE_COMPANION -- fase activa de picks: reporta manualmente lo que el Player observa en el
+// draft real (propio Y rival). Nunca invoca auto-drive/bot-selection -- el Enemy Bot no existe en
+// este modo. El Coach (CopilotPanel) es EXACTAMENTE el mismo componente que SIMULATION usa, sin
+// ninguna bifurcación de cómo se arman/renderizan las recomendaciones.
+function LivePendingPhaseView({ session, heroCatalog }: PhaseViewProps) {
+  const { phase, draftState, recommendations, coach, previewStatus } = session.state;
+  if (phase.type !== "live_pending" || !draftState) return null;
+  return (
+    <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div className="flex flex-col gap-4">
+        <BanPhasePanel resolvedBans={draftState.banned} heroCatalog={heroCatalog} />
+        <LivePendingPanel
+          round={phase.round}
+          openSlots={phase.openSlots}
+          notice={phase.notice}
+          heroCatalog={heroCatalog}
+          banned={draftState.banned}
+          picks={draftState.picks}
+          localSide={draftState.localSide === "unknown" ? "radiant" : draftState.localSide}
+          onSubmit={session.actions.submitLiveSelection}
+        />
+      </div>
+      <div className="flex flex-col gap-4">
+        <CopilotPanel
+          recommendations={recommendations}
+          coach={coach}
+          heroCatalog={heroCatalog}
+          previewStatus={previewStatus}
+          onRetryPreview={session.actions.retryPreview}
+          onAssignOwnPosition={session.actions.assignOwnPosition}
+          onSuggestedHeroIdsChange={noopSetHighlightedHeroIds}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LiveCollisionUnsupportedPhaseView({ session }: PhaseViewProps) {
+  if (session.state.phase.type !== "live_collision_unsupported") return null;
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-signal-negative bg-surface-raised p-4" role="alert">
+      <span className="text-heading text-content-primary">Colisión no soportada todavía</span>
+      <span className="text-body text-content-secondary">
+        Ambos equipos parecen haber elegido el mismo héroe una 3ra vez en esta ronda. Ese caso necesita una autoridad externa que este MVP de Live
+        Companion todavía no expone -- reportalo y reiniciá el draft.
+      </span>
+      <button type="button" onClick={session.actions.resetDraft} className={`self-start ${BUTTON_SECONDARY}`}>
+        Reiniciar draft
+      </button>
+    </div>
+  );
+}
+
 function CompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
   if (session.state.phase.type !== "complete") return null;
   return (
@@ -128,6 +205,9 @@ const PHASE_VIEWS: Record<RandomDraftState["phase"]["type"], PhaseView> = {
   ban_phase_complete: BanPhaseCompletePhaseView,
   blind_round: ActiveRoundPhaseView,
   round_revealed: ActiveRoundPhaseView,
+  live_ban_entry: LiveBanEntryPhaseView,
+  live_pending: LivePendingPhaseView,
+  live_collision_unsupported: LiveCollisionUnsupportedPhaseView,
   complete: CompletePhaseView,
 };
 

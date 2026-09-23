@@ -52,6 +52,18 @@ export interface DraftConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Modo de sesión (MVP P0.1 -- Live Companion)
+// ---------------------------------------------------------------------------
+
+/**
+ * SIMULATION: comportamiento actual, sin cambios -- el motor conduce al Enemy Bot vía auto-drive.
+ * LIVE_COMPANION: sin Enemy Bot. El Player es el único observador de un draft REAL y reporta a
+ * mano los bans y los picks (propios Y rivales) a medida que los ve en su cliente de Dota 2.
+ * Los dos modos comparten el mismo kernel de protocolo -- nunca lo duplican (spec de la tarea).
+ */
+export type SessionMode = "simulation" | "live_companion";
+
+// ---------------------------------------------------------------------------
 // Fase de draft (Zustand store)
 // ---------------------------------------------------------------------------
 
@@ -99,6 +111,24 @@ export type DraftPhase =
       botPicks: HeroId[];
       conflictBans: HeroId[];
     }
+  // LIVE_COMPANION -- el Player reporta a mano los bans observados en el draft REAL antes de
+  // que el kernel abra la Ronda 1. Ningún timer, ninguna resolución simulada: exactamente los
+  // héroes que el Player escribió, ni uno más.
+  | { type: "live_ban_entry"; observedBans: HeroId[]; error: string | null }
+  // LIVE_COMPANION -- esperando que el Player reporte el próximo hecho observado (un pick propio
+  // o rival de los asientos hoy abiertos). `openSlots` viene tal cual de legalActions del motor
+  // (ya incluye AMBOS lados en un adapterKind "manual") -- esta pantalla nunca decide por su
+  // cuenta qué asiento está abierto.
+  | {
+      type: "live_pending";
+      round: 1 | 2 | 3;
+      openSlots: { side: TeamSide; slotIndex: number }[];
+      notice: string | null;
+    }
+  // Colisión de 3er orden dentro de la misma ronda: el kernel exige una autoridad externa
+  // (APPLY_AUTHORITATIVE_COLLISION_RESOLUTION) que este MVP todavía no expone -- caso raro, fuera
+  // de alcance de P0.1 (documentado). Nunca queda en silencio: se explica y no se puede avanzar.
+  | { type: "live_collision_unsupported" }
   | { type: "complete"; summary: DraftSummary };
 
 // ---------------------------------------------------------------------------
