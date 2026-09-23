@@ -4,6 +4,7 @@ import { mintAccountToken } from "@/lib/account-token";
 import { getSession } from "@/lib/session";
 import { steamId64ToSteam32, verifySteamCallback } from "@/lib/steam-openid";
 import { getSteamPlayerProfile, type SteamPlayerProfile } from "@/lib/steam-profile";
+import { isSteamIdAllowed } from "@/lib/beta-allowlist";
 
 const LOGIN_NONCE_COOKIE = "d2k_login_nonce";
 type SteamVerification = Awaited<ReturnType<typeof verifySteamCallback>>;
@@ -17,6 +18,7 @@ interface CallbackDependencies {
   getProfile: (accountId: number, steamId64: bigint) => Promise<SteamPlayerProfile>;
   startSession: (accountId: number, profile: SteamPlayerProfile) => Promise<void>;
   createToken: (accountId: number) => string;
+  isAccountAllowed?: (accountId: number) => boolean;
 }
 
 function loginError(request: Request, failure: AuthFailure): NextResponse {
@@ -42,6 +44,7 @@ export function createCallbackHandler(dependencies: CallbackDependencies) {
 
       const accountId = steamId64ToSteam32(verification.steamId64);
       if (!Number.isInteger(accountId) || accountId < 1 || accountId > 4_294_967_295) return loginError(request, "invalid_steam_identity");
+      if (!(dependencies.isAccountAllowed?.(accountId) ?? true)) return NextResponse.redirect(new URL("/access-denied", request.url));
       try {
         if (!await dependencies.createAccount(accountId, dependencies.createToken(accountId))) return loginError(request, "account_create_failed");
       } catch {
@@ -92,5 +95,6 @@ export async function GET(request: Request) {
       await session.save();
     },
     createToken: (accountId) => mintAccountToken(accountId, internalSecret),
+    isAccountAllowed: (accountId) => isSteamIdAllowed(accountId, process.env.BETA_ALLOWED_STEAM_IDS),
   })(request);
 }

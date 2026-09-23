@@ -3,7 +3,7 @@ import { mintAccountToken } from "./lib/account-token";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/healthz" || pathname.startsWith("/api/auth/");
+  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/");
 }
 
 function isEngineRewrite(pathname: string): boolean {

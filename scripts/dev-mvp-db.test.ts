@@ -25,10 +25,12 @@ test("una SQLite fresca de dev:mvp recibe el esquema real y permite crear una cu
   try {
     const accounts = sqlite.query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'accounts'").get();
     const migrationCount = sqlite.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM __drizzle_migrations").get();
+    const heroCount = sqlite.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM heroes").get();
     const accountColumns = sqlite.query<{ name: string }, []>("PRAGMA table_info(accounts)").all().map((column) => column.name);
 
     expect(accounts?.name).toBe("accounts");
     expect(migrationCount?.count).toBe(8);
+    expect(heroCount?.count).toBeGreaterThan(0);
     expect(accountColumns).toEqual(["steam_account_id", "personal_baseline_winrate", "created_at"]);
   } finally {
     sqlite.close();

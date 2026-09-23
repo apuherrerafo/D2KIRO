@@ -47,6 +47,27 @@ describe("rutas de autenticación Steam", () => {
     expect(sessions).toEqual([{ accountId: ACCOUNT_ID, personaName: "Kiro", avatarUrl: "https://avatars.steamstatic.com/avatar.jpg" }]);
   });
 
+  test("callback autenticado pero fuera de allowlist no crea cuenta ni sesión", async () => {
+    let created = false;
+    let sessionStarted = false;
+    const handler = createCallbackHandler({
+      readNonce: () => NONCE,
+      clearNonce: () => undefined,
+      verify: async () => ({ ok: true as const, steamId64: BigInt("76561197995753837") }),
+      isAccountAllowed: () => false,
+      createAccount: async () => { created = true; return true; },
+      getProfile: async () => ({ personaName: "unused", avatarUrl: null }),
+      startSession: async () => { sessionStarted = true; },
+      createToken: () => "unused",
+    });
+
+    const response = await handler(new Request(`https://coach.example/api/auth/steam/callback?state=${NONCE}`));
+
+    expect(response.headers.get("location")).toBe("https://coach.example/access-denied");
+    expect(created).toBe(false);
+    expect(sessionStarted).toBe(false);
+  });
+
   test("callback sin nonce coincidente se rechaza antes de verificar OpenID", async () => {
     let verified = false;
     const handler = createCallbackHandler({
