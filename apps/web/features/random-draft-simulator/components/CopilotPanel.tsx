@@ -240,7 +240,14 @@ function RecommendationList({ recommendationSet, heroCatalog }: RecommendationLi
     return (
       <div className="grid grid-cols-2 gap-2">
         {singleActionSuggestions.map((suggestion) => (
-          <SuggestionCard key={suggestion.hero} suggestion={suggestion} heroMeta={heroCatalog.get(suggestion.hero)} isPrimary={suggestion.rank === 1} compact />
+          <SuggestionCard
+            key={suggestion.hero}
+            suggestion={suggestion}
+            heroMeta={heroCatalog.get(suggestion.hero)}
+            isPrimary={suggestion.rank === 1}
+            compact
+            sessionId={recommendationSet.sessionId}
+          />
         ))}
       </div>
     );

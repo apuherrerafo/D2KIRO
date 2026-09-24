@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { createHmac } from "node:crypto";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { accounts, draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, settings, teamGroups, teamMembers } from "../db/schema";
+import { accounts, draftFeedback, heroes, heroMatchups, heroPatchStats, heroPool, metaSync, recommendationFeedback, settings, teamGroups, teamMembers } from "../db/schema";
 import type { HeroCapabilities } from "../draft-paths/types";
 import { OpenDotaClient } from "../meta/opendota-client";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -81,8 +81,14 @@ function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, comment TEXT NOT NULL,
       draft_state TEXT NOT NULL, suggestions TEXT, created_at TEXT NOT NULL
     );
+    CREATE TABLE recommendation_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, hero_id INTEGER NOT NULL,
+      target_position INTEGER, rating TEXT NOT NULL, reason TEXT, comment TEXT,
+      state_identity TEXT, ruleset_id TEXT, ruleset_version TEXT, account_id INTEGER,
+      created_at TEXT NOT NULL
+    );
   `);
-  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, accounts, heroPool, teamGroups, teamMembers, draftFeedback } });
+  const db = drizzle(sqlite, { schema: { heroes, heroMatchups, heroPatchStats, metaSync, settings, accounts, heroPool, teamGroups, teamMembers, draftFeedback, recommendationFeedback } });
   // TSK-095 (Fase 5): bridge temporal de las rutas HTTP de hero-pool -- `getSoleAccountId` necesita
   // una cuenta real para que las pruebas de GET/PUT /api/hero-pool ya existentes se comporten
   // exactamente igual que antes de esta fase (TSK-098 la reemplaza con el accountId real del token).

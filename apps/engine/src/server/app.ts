@@ -159,7 +159,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const teamGroupRoutes = createTeamGroupRoutes({ db: deps.db });
   const simulatorRoutes = createSimulatorSessionRoutes({ db: deps.db });
   const metaRoutes = createMetaRoutes({ db: deps.db, openDotaClient: deps.openDotaClient, heroPositions: deps.heroPositions });
-  const draftPathsRoutes = createDraftPathsRoutes({ db: deps.db, sessionStore, heroCapabilities: deps.heroCapabilities });
+  const draftPathsRoutes = createDraftPathsRoutes({
+    db: deps.db,
+    sessionStore,
+    protocolSessionStore,
+    heroCapabilities: deps.heroCapabilities,
+    requireAccount: (req, allowUnknown) => requireHttpAccount(req, allowUnknown),
+  });
   // Dark launch (pro-drafter-spec-v1.md §3): apagado por defecto, gate real es ENABLE_PRO_DRAFTER
   // (chequeado en el dispatch de abajo), no la sola existencia de esta instancia -- construirla no
   // toca la red ni SQLite, solo carga archivos estáticos ya usados en otras partes del motor.
@@ -508,6 +514,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     }
     if (request.method === "GET" && url.pathname === "/api/feedback") {
       return draftPathsRoutes.feedbackGet();
+    }
+    if (request.method === "GET" && url.pathname === "/api/recommendation-feedback") {
+      return draftPathsRoutes.recommendationFeedbackGet(url.searchParams.get("sessionId"));
     }
     const feedbackSessionId = draftPathsRoutes.parseFeedbackSessionId(url.pathname);
     if (feedbackSessionId !== null && request.method === "POST") {

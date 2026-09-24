@@ -1,6 +1,7 @@
 "use client";
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
+import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
@@ -135,6 +136,15 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
       <span className="text-caption text-content-secondary" data-testid="coach-primary-rationale">
         {strategy.rationale}
       </span>
+      {strategy.kind === "REVEAL_HERO" && Boolean(coach.sessionId) && (
+        <RecommendationFeedback
+          sessionId={coach.sessionId}
+          heroId={strategy.heroId}
+          targetPosition={strategy.position}
+          stateIdentity={coach.meta.basedOn.stateIdentity}
+          rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
+        />
+      )}
       <span className="text-caption text-content-muted">
         {CONFIDENCE_LABELS[coach.meta.confidence]} · {isCollision ? "Consejo de recuperación: mitiga el conflicto de roles." : "Es una sugerencia: podés elegir cualquier héroe legal."}
       </span>
@@ -166,6 +176,14 @@ function SafeCoreOpportunity({ coach, heroCatalog }: ShortlistProps) {
       <span className="text-caption text-content-secondary" data-testid="coach-opportunity-label">
         {opportunity.label}
       </span>
+      {Boolean(coach.sessionId) && (
+        <RecommendationFeedback
+          sessionId={coach.sessionId}
+          heroId={opportunity.heroId}
+          stateIdentity={coach.meta.basedOn.stateIdentity}
+          rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
+        />
+      )}
       <span className="text-caption text-content-muted" data-testid="coach-opportunity-source">
         {CURATED_EVIDENCE_LABEL} · Es informativo: podés ignorarlo.
       </span>
@@ -193,9 +211,12 @@ function BadgeList({ badges }: BadgeListProps) {
 interface HeroCardViewProps {
   card: CoachHeroCard;
   heroCatalog: Map<number, HeroMeta>;
+  sessionId?: string;
+  stateIdentity?: string | null;
+  rulesetVersion?: string | null;
 }
 
-function HeroCardView({ card, heroCatalog }: HeroCardViewProps) {
+function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVersion }: HeroCardViewProps) {
   const meta = heroCatalog.get(card.heroId);
   return (
     <li className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-2" data-testid="coach-hero-card" data-hero-id={card.heroId}>
@@ -208,6 +229,15 @@ function HeroCardView({ card, heroCatalog }: HeroCardViewProps) {
       </div>
       <BadgeList badges={card.badges} />
       <span className="text-caption text-content-secondary">{card.rationale}</span>
+      {Boolean(sessionId) && (
+        <RecommendationFeedback
+          sessionId={sessionId!}
+          heroId={card.heroId}
+          targetPosition={card.position}
+          stateIdentity={stateIdentity}
+          rulesetVersion={rulesetVersion}
+        />
+      )}
     </li>
   );
 }
@@ -310,12 +340,21 @@ function Shortlist({ coach, heroCatalog }: ShortlistProps) {
   const title = isCollision
     ? "Opciones de recuperación"
     : SHORTLIST_TITLES[coach.primaryAction.strategy.kind];
+  const rulesetVersion =
+    coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null;
   return (
     <div className="flex flex-col gap-2" data-testid="coach-shortlist">
       <span className="text-caption font-semibold text-content-primary">{title}</span>
       <ul className="grid grid-cols-1 gap-2">
         {coach.shortlist.map((card) => (
-          <HeroCardView key={card.heroId} card={card} heroCatalog={heroCatalog} />
+          <HeroCardView
+            key={card.heroId}
+            card={card}
+            heroCatalog={heroCatalog}
+            sessionId={coach.sessionId}
+            stateIdentity={coach.meta.basedOn.stateIdentity}
+            rulesetVersion={rulesetVersion}
+          />
         ))}
       </ul>
     </div>

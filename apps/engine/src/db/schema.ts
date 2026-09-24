@@ -119,3 +119,27 @@ export const draftFeedback = sqliteTable("draft_feedback", {
   suggestions: text("suggestions", { mode: "json" }),
   createdAt: text("created_at").notNull(),
 });
+
+// MVP Player Feedback: feedback granular por recomendación individual (thumbs up/down)
+export const recommendationFeedback = sqliteTable("recommendation_feedback", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: text("session_id").notNull(),
+  heroId: integer("hero_id").notNull(),
+  targetPosition: integer("target_position"),
+  rating: text("rating").notNull().$type<"positive" | "negative">(),
+  reason: text("reason").$type<
+    | "wrong_position"
+    | "poor_hero"
+    | "questionable_counter"
+    | "unclear_explanation"
+    | "not_useful"
+    | "other"
+  >(),
+  comment: text("comment"),
+  stateIdentity: text("state_identity"),
+  rulesetId: text("ruleset_id"),
+  rulesetVersion: text("ruleset_version"),
+  accountId: integer("account_id").references(() => accounts.steamAccountId),
+  createdAt: text("created_at").notNull(),
+});
+

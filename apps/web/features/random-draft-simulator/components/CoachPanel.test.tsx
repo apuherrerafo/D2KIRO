@@ -2,7 +2,7 @@ import "@/test-support/happy-dom";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { CoachHeroCard, CoachOutput, CoachStrategy } from "../coach-client";
@@ -303,4 +303,49 @@ test("CoachPanel con colisión de roles: muestra banner de colisión, acción de
   expect(cards[0].textContent).not.toContain("Rol por definir");
   expect(cards[1].textContent).not.toContain("Rol por definir");
 });
+
+test("CoachPanel: integra RecommendationFeedback en las cartas de la shortlist y en acción primaria si revela héroe", () => {
+  const heroAction: CoachStrategy = { kind: "REVEAL_HERO", heroId: 25, position: 2, rationale: "Fuerte pick de Mid." };
+  const view = render(<CoachPanel coach={coach(heroAction, [card(7), card(8)])} heroCatalog={new Map()} />);
+
+  const feedbackControls = view.getAllByTestId("recommendation-feedback-controls");
+  // 1 en PrimaryAction (porque es REVEAL_HERO) + 2 en Shortlist (2 cartas) = 3
+  expect(feedbackControls).toHaveLength(3);
+  expect(feedbackControls[0].textContent).toContain("¿Te sirvió?");
+});
+
+test("CoachPanel: enviar feedback positivo desde una carta de la shortlist transmite la identidad completa", async () => {
+  let capturedBody: Record<string, unknown> = {};
+  const originalFetch = global.fetch;
+  global.fetch = (async (_url: string, init: RequestInit) => {
+    capturedBody = JSON.parse(String(init.body));
+    return new Response(JSON.stringify({ accepted: true }), { status: 202 });
+  }) as typeof fetch;
+
+  try {
+    const view = render(<CoachPanel coach={coach(ROLE_ACTION, [card(7, { position: 4 })])} heroCatalog={new Map()} />);
+    const cardEl = view.getByTestId("coach-hero-card");
+    const thumbUp = within(cardEl).getByTestId("feedback-thumb-up");
+    act(() => {
+      fireEvent.click(thumbUp);
+    });
+
+    const submitBtn = within(cardEl).getByTestId("feedback-submit-btn");
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(view.getByTestId("feedback-submitted-state")).toBeDefined();
+    });
+
+    expect(capturedBody).toEqual({
+      rating: "positive",
+      heroId: 7,
+      targetPosition: 4,
+      stateIdentity: "id-1",
+    });
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 

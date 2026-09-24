@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { accounts, draftFeedback, heroMatchups, heroPool, teamGroups, teamMembers } from "./schema";
+import { accounts, draftFeedback, heroMatchups, heroPool, recommendationFeedback, teamGroups, teamMembers } from "./schema";
 
 export function getMatchupsForHero<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
@@ -181,3 +181,70 @@ export function insertDraftFeedback<TSchema extends Record<string, unknown>>(
 export function getAllDraftFeedback<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>) {
   return db.select().from(draftFeedback).orderBy(desc(draftFeedback.id)).all();
 }
+
+export type FeedbackNegativeReason =
+  | "wrong_position"
+  | "poor_hero"
+  | "questionable_counter"
+  | "unclear_explanation"
+  | "not_useful"
+  | "other";
+
+export interface RecommendationFeedbackWriteRow {
+  sessionId: string;
+  heroId: number;
+  targetPosition?: number | null;
+  rating: "positive" | "negative";
+  reason?: FeedbackNegativeReason | null;
+  comment?: string | null;
+  stateIdentity?: string | null;
+  rulesetId?: string | null;
+  rulesetVersion?: string | null;
+  accountId?: number | null;
+  createdAt: string;
+}
+
+export function insertRecommendationFeedback<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  row: RecommendationFeedbackWriteRow,
+) {
+  db.insert(recommendationFeedback).values(row).run();
+}
+
+export function getRecommendationFeedbackByTarget<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  sessionId: string,
+  heroId: number,
+  stateIdentity?: string | null,
+) {
+  if (stateIdentity) {
+    return db
+      .select()
+      .from(recommendationFeedback)
+      .where(
+        and(
+          eq(recommendationFeedback.sessionId, sessionId),
+          eq(recommendationFeedback.heroId, heroId),
+          eq(recommendationFeedback.stateIdentity, stateIdentity),
+        ),
+      )
+      .all();
+  }
+  return db
+    .select()
+    .from(recommendationFeedback)
+    .where(
+      and(
+        eq(recommendationFeedback.sessionId, sessionId),
+        eq(recommendationFeedback.heroId, heroId),
+      ),
+    )
+    .all();
+}
+
+export function getAllRecommendationFeedback<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+) {
+  return db.select().from(recommendationFeedback).orderBy(desc(recommendationFeedback.id)).all();
+}
+
