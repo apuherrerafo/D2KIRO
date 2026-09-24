@@ -515,9 +515,6 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "GET" && url.pathname === "/api/feedback") {
       return draftPathsRoutes.feedbackGet();
     }
-    if (request.method === "GET" && url.pathname === "/api/recommendation-feedback") {
-      return draftPathsRoutes.recommendationFeedbackGet(url.searchParams.get("sessionId"));
-    }
     const feedbackSessionId = draftPathsRoutes.parseFeedbackSessionId(url.pathname);
     if (feedbackSessionId !== null && request.method === "POST") {
       return draftPathsRoutes.feedbackPost(request, feedbackSessionId);

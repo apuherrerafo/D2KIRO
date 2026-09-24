@@ -176,8 +176,7 @@ export function createDraftPathsRoutes<TSchema extends Record<string, unknown>>(
     let rulesetVersion: string | null = null;
     if (protoSession) {
       rulesetId = protoSession.ruleset.id;
-      const meta = deps.protocolSessionStore?.metadata(sessionId);
-      rulesetVersion = meta?.patch ?? protoSession.ruleset.version;
+      rulesetVersion = protoSession.ruleset.verifiedThroughPatch ?? protoSession.ruleset.version;
     }
     if (!rulesetVersion && typeof body.rulesetVersion === "string" && body.rulesetVersion.length <= 64) {
       rulesetVersion = body.rulesetVersion;

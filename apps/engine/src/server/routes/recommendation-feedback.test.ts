@@ -119,7 +119,7 @@ describe("POST /api/session/:sessionId/feedback -- Recommendation Feedback", () 
     expect(row!.comment).toBeNull();
     expect(row!.stateIdentity).toBe("state-hash-round-1");
     expect(row!.rulesetId).toBe("dota2/ranked-all-pick");
-    expect(row!.rulesetVersion).toBe("7.41e");
+    expect(row!.rulesetVersion).toBe("7.41f");
     expect(row!.accountId).toBe(1001);
   });
 
@@ -343,12 +343,9 @@ describe("POST /api/session/:sessionId/feedback -- Recommendation Feedback", () 
     expect((await res.json()).error).toBe("sensitive_data_rejected");
   });
 
-  test("GET /api/recommendation-feedback devuelve las filas de feedback ordenadas por id desc", async () => {
+  test("GET /api/recommendation-feedback no está expuesto públicamente (404 Not found)", async () => {
     const res = await fetch(`${baseUrl}/api/recommendation-feedback`);
-    expect(res.status).toBe(200);
-    const rows = await res.json();
-    expect(Array.isArray(rows)).toBe(true);
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0].id).toBeGreaterThan(rows[rows.length - 1].id);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("Not found");
   });
 });
