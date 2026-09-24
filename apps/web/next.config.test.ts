@@ -50,11 +50,22 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/session/:sessionId/draft-paths");
     expect(sources).toContain("/engine/api/v1/draft/pro-recommendations");
     expect(sources).toContain("/engine/api/pro-drafter/low-confidence-report");
+    expect(sources).toContain("/engine/api/telemetry/error");
 
     expect(sources.some((source) => source.includes(":path*"))).toBe(false);
     // Sigue fuera y no se negocia: es el camino del capturador, exige `x-capture-token`, y ese
     // secreto no vive ni puede vivir en el navegador.
     expect(sources).not.toContain("/engine/ingest/draft-event");
     expect(sources).not.toContain("/engine/api/settings");
+  });
+
+  test("enruta /engine/api/telemetry/error al endpoint de telemetría del motor", async () => {
+    const rewrites = await loadRewrites();
+    const telemetryRewrite = rewrites.find((rewrite) => rewrite.source === "/engine/api/telemetry/error");
+
+    expect(telemetryRewrite).toBeDefined();
+    expect(telemetryRewrite?.destination).toBe(
+      `${process.env.ENGINE_INTERNAL_URL ?? "http://127.0.0.1:4000"}/api/telemetry/error`,
+    );
   });
 });

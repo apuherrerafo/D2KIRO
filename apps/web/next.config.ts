@@ -46,6 +46,8 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",
   "/engine/api/pro-drafter/low-confidence-report",
+  // MVP client telemetry relay: telemetry-client.ts posts client errors here
+  "/engine/api/telemetry/error",
 ] as const;
 
 const nextConfig: NextConfig = {
