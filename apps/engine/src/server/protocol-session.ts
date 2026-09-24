@@ -278,7 +278,18 @@ export class ProtocolSessionStore {
     const key = `${round.round}:${round.collisionsResolved}`;
     if (entry.simulatorTimer?.attemptKey !== key) {
       const carried = entry.simulatorTimer ? goldPenaltyAt(entry.simulatorTimer, now).bySlot : emptyCarried();
-      const ownOpenSlots = round.openSlots.filter((slot) => slot.side === entry.metadata.localSide).map((slot) => slot.slotIndex);
+      const controlledRosterSlots = new Set(
+        entry.metadata.partyContext?.controlledSlots
+          .filter((slot) => slot.side === entry.metadata.localSide)
+          .map((slot) => slot.slotIndex) ?? [0, 1, 2, 3, 4],
+      );
+      const ownOpenSlots = round.openSlots
+        .filter((slot) => slot.side === entry.metadata.localSide)
+        .filter((slot) => {
+          const rosterSlot = rosterSlotForRoundSlot(round.round, slot.slotIndex);
+          return rosterSlot !== null && controlledRosterSlots.has(rosterSlot);
+        })
+        .map((slot) => slot.slotIndex);
       entry.simulatorTimer = startRoundTimer(round.round, round.collisionsResolved, seatsForOpenSlots(round.round, ownOpenSlots), carried, now);
     }
     return timerViewAt(entry.simulatorTimer!, now);
@@ -386,7 +397,19 @@ export class ProtocolSessionStore {
     // are actually revealed. `adapterKind === "simulator"` keeps the exact prior restriction --
     // SIMULATION mode's behavior is unchanged byte-for-byte.
     if (command.type === "SUBMIT_SEALED_SELECTION") {
-      return command.side === metadata.localSide || metadata.adapterKind === "manual";
+      if (metadata.adapterKind === "manual") return true;
+      if (command.side !== metadata.localSide) return false;
+      if (isApSimulatorMetadata(metadata)) {
+        const round = state.rankedAp?.round?.round;
+        if (!round) return false;
+        const rosterSlot = rosterSlotForRoundSlot(round, command.slotIndex);
+        if (rosterSlot === null) return false;
+        const controlledSlots = metadata.partyContext?.controlledSlots;
+        if (controlledSlots) {
+          return controlledSlots.some((slot) => slot.side === command.side && slot.slotIndex === rosterSlot);
+        }
+      }
+      return true;
     }
     if (command.type === "CM_ACTION" || command.type === "CM_BAN_SKIPPED" || command.type === "CM_AUTO_PICK") {
       return legalActions(state).some((action) => {
@@ -408,7 +431,21 @@ export class ProtocolSessionStore {
       // Same manual-adapter exception as isCommandAuthorized above: a Live Companion session
       // advertises BOTH sides' open seats (the Player must be able to report either one), a
       // Simulator session still only advertises its own.
-      if (action.type === "SUBMIT_SEALED_SELECTION") return action.side === metadata.localSide || metadata.adapterKind === "manual";
+      if (action.type === "SUBMIT_SEALED_SELECTION") {
+        if (metadata.adapterKind === "manual") return true;
+        if (action.side !== metadata.localSide) return false;
+        if (isApSimulatorMetadata(metadata)) {
+          const round = state.rankedAp?.round?.round;
+          if (!round) return false;
+          const rosterSlot = rosterSlotForRoundSlot(round, action.slotIndex);
+          if (rosterSlot === null) return false;
+          const controlledSlots = metadata.partyContext?.controlledSlots;
+          if (controlledSlots) {
+            return controlledSlots.some((slot) => slot.side === action.side && slot.slotIndex === rosterSlot);
+          }
+        }
+        return true;
+      }
       if (action.type === "CM_ACTION" || action.type === "CM_BAN_SKIPPED" || action.type === "CM_AUTO_PICK") {
         return action.absoluteSide === metadata.localSide;
       }

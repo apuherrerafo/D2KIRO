@@ -22,7 +22,7 @@ import {
 
 const MID = ["Puck", "Storm Spirit", "Queen of Pain", "Tinker", "Necrophos"];
 const CARRY = ["Anti-Mage", "Juggernaut", "Phantom Lancer", "Luna", "Sven"];
-const OFFLANE = ["Tidehunter", "Slardar", "Sand King", "Axe"];
+const OFFLANE = ["Slardar", "Sand King", "Axe", "Tidehunter"];
 const SOFT_SUPPORT = ["Lion", "Windranger", "Vengeful Spirit", "Earthshaker"];
 const HARD_SUPPORT = ["Crystal Maiden", "Dazzle", "Witch Doctor", "Lich"];
 

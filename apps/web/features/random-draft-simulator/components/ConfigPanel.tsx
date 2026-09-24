@@ -214,10 +214,18 @@ function ModeField({ mode, onChange }: ModeFieldProps) {
 }
 
 type PlayerPosition = 1 | 2 | 3 | 4 | 5;
+type PartySize = 1 | 2 | 3 | 5;
 
 const SIDE_OPTIONS: { value: TeamSide; label: string }[] = [
   { value: "radiant", label: "Radiant" },
   { value: "dire", label: "Dire" },
+];
+
+const PARTY_SIZE_OPTIONS: { value: PartySize; label: string; description: string }[] = [
+  { value: 1, label: "Solo (1)", description: "Controlás 1 posición; tus 4 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 2, label: "Party 2", description: "Controlás 2 posiciones; tus 3 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 3, label: "Party 3", description: "Controlás 3 posiciones; tus 2 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 5, label: "Party 5", description: "Controlás las 5 posiciones de tu equipo; los 5 rivales son simulados automáticamente." },
 ];
 
 // Terminología consistente con el resto del producto: nunca "pos 3" a secas sin el nombre al lado.
@@ -248,6 +256,68 @@ function ChoiceButton<T extends string | number>({ value, label, selected, onSel
   );
 }
 
+interface PartySizeFieldProps {
+  partySize: PartySize;
+  onChange: (size: PartySize) => void;
+}
+
+function PartySizeField({ partySize, onChange }: PartySizeFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Tamaño de party">
+      <span className="text-caption text-content-secondary">Tamaño de party</span>
+      <div className="flex flex-wrap gap-2">
+        {PARTY_SIZE_OPTIONS.map((option) => (
+          <ChoiceButton
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            selected={partySize === option.value}
+            onSelectValue={onChange}
+          />
+        ))}
+      </div>
+      <span className="text-caption text-content-muted">
+        {PARTY_SIZE_OPTIONS.find((option) => option.value === partySize)?.description}
+      </span>
+    </div>
+  );
+}
+
+interface PartyPositionsFieldProps {
+  partySize: 2 | 3;
+  selectedPositions: PlayerPosition[];
+  onTogglePosition: (pos: PlayerPosition) => void;
+}
+
+function PartyPositionsField({ partySize, selectedPositions, onTogglePosition }: PartyPositionsFieldProps) {
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Posiciones de tu party">
+      <div className="flex items-center justify-between">
+        <span className="text-caption text-content-secondary">
+          Posiciones que controla tu party (elegí exactamente {partySize})
+        </span>
+        <span className={`text-caption ${selectedPositions.length === partySize ? "text-signal-positive" : "text-signal-warning"}`}>
+          {selectedPositions.length} de {partySize} seleccionadas
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {POSITION_OPTIONS.map((option) => {
+          const isSelected = selectedPositions.includes(option.value);
+          return (
+            <ChoiceButton
+              key={option.value}
+              value={option.value}
+              label={option.label}
+              selected={isSelected}
+              onSelectValue={onTogglePosition}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface SideFieldProps {
   side: TeamSide | null;
   onChange: (side: TeamSide) => void;
@@ -268,27 +338,38 @@ function SideField({ side, onChange }: SideFieldProps) {
 
 interface PositionFieldProps {
   position: PlayerPosition | null;
+  allowedPositions?: PlayerPosition[];
   onChange: (position: PlayerPosition) => void;
 }
 
-function PositionField({ position, onChange }: PositionFieldProps) {
+function PositionField({ position, allowedPositions, onChange }: PositionFieldProps) {
+  const options = allowedPositions
+    ? POSITION_OPTIONS.filter((opt) => allowedPositions.includes(opt.value))
+    : POSITION_OPTIONS;
+
   return (
     <div className="flex flex-col gap-1" role="group" aria-label="Tu posición personal">
       <span className="text-caption text-content-secondary">Tu posición personal (obligatoria)</span>
       <span className="text-caption text-content-muted">
-        Indica cuál de los 5 roles de tu equipo es el tuyo. No determina cuándo se pica ese héroe: podés elegir cualquier rol en cualquier ronda.
+        Indica cuál de los roles de tu party es el tuyo (determina tu Personal View en el Coach).
       </span>
-      <div className="flex flex-wrap gap-2">
-        {POSITION_OPTIONS.map((option) => (
-          <ChoiceButton key={option.value} value={option.value} label={option.label} selected={position === option.value} onSelectValue={onChange} />
-        ))}
-      </div>
+      {options.length === 0 ? (
+        <span className="text-caption text-signal-warning">
+          Primero seleccioná las posiciones de tu party arriba.
+        </span>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {options.map((option) => (
+            <ChoiceButton key={option.value} value={option.value} label={option.label} selected={position === option.value} onSelectValue={onChange} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // AP Ranked Roles V1: lado y posición personal son elecciones del Player, obligatorias y sin
-// valor por defecto -- ni Radiant ni Midlane están cableados. Controlás los 5 asientos de tu equipo.
+// valor por defecto -- ni Radiant ni Midlane están cableados.
 export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const { config, setConfig } = useConfigPersistence();
   const { heroes: heroCatalog } = useHeroCatalog();
@@ -296,6 +377,8 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const [banListError, setBanListError] = useState<string | null>(null);
   const [chosenSide, setChosenSide] = useState<TeamSide | null>(null);
   const [chosenPosition, setChosenPosition] = useState<PlayerPosition | null>(null);
+  const [chosenPartySize, setChosenPartySize] = useState<PartySize | null>(null);
+  const [chosenPartyPositions, setChosenPartyPositions] = useState<PlayerPosition[] | null>(null);
   const [mode, setMode] = useState<SessionMode>("simulation");
 
   // Nominations live in local state first: they must work BEFORE side/position are chosen (persistence only
@@ -304,18 +387,89 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const personalBanList = chosenBans ?? config?.personalBanList ?? [];
   const side = chosenSide ?? config?.userSide ?? null;
   const position = chosenPosition ?? config?.playerPosition ?? null;
-  const isSeedValid = SEED_PATTERN.test(draftSeed);
-  const canStart = isSeedValid && side !== null && position !== null;
+  const partySize = chosenPartySize ?? config?.partySize ?? 5;
+  const rawPartyPositions = chosenPartyPositions ?? config?.partyPositions ?? null;
 
-  function persist(next: { userSide?: TeamSide | null; playerPosition?: PlayerPosition | null; personalBanList?: HeroId[] }) {
+  const partyPositions: PlayerPosition[] =
+    partySize === 5
+      ? [1, 2, 3, 4, 5]
+      : partySize === 1
+        ? (position !== null ? [position] : [])
+        : (rawPartyPositions ?? []);
+
+  const isSeedValid = SEED_PATTERN.test(draftSeed);
+  const isPartyConfigValid =
+    mode === "live_companion" ||
+    (partySize === 5 && position !== null) ||
+    (partySize === 1 && position !== null) ||
+    ((partySize === 2 || partySize === 3) &&
+      partyPositions.length === partySize &&
+      new Set(partyPositions).size === partySize &&
+      position !== null &&
+      partyPositions.includes(position));
+
+  const canStart = isSeedValid && side !== null && position !== null && isPartyConfigValid;
+
+  function persist(next: {
+    userSide?: TeamSide | null;
+    playerPosition?: PlayerPosition | null;
+    personalBanList?: HeroId[];
+    partySize?: PartySize;
+    partyPositions?: PlayerPosition[];
+  }) {
     const nextSide = next.userSide === undefined ? side : next.userSide;
     const nextPosition = next.playerPosition === undefined ? position : next.playerPosition;
+    const nextPartySize = next.partySize === undefined ? partySize : next.partySize;
+    const nextPartyPositions = next.partyPositions === undefined ? partyPositions : next.partyPositions;
     if (nextSide === null || nextPosition === null) return;
-    setConfig({ userSide: nextSide, playerPosition: nextPosition, personalBanList: next.personalBanList ?? personalBanList, partySize: 5 });
+    setConfig({
+      userSide: nextSide,
+      playerPosition: nextPosition,
+      personalBanList: next.personalBanList ?? personalBanList,
+      partySize: nextPartySize,
+      partyPositions: nextPartyPositions,
+    });
   }
 
   function regenerateSeed() {
     setDraftSeed(generateDraftSeed());
+  }
+
+  function changePartySize(nextSize: PartySize) {
+    setChosenPartySize(nextSize);
+    if (nextSize === 5) {
+      setChosenPartyPositions([1, 2, 3, 4, 5]);
+      persist({ partySize: 5, partyPositions: [1, 2, 3, 4, 5] });
+    } else if (nextSize === 1) {
+      const nextP: PlayerPosition[] = position !== null ? [position] : [];
+      setChosenPartyPositions(nextP);
+      persist({ partySize: 1, partyPositions: nextP });
+    } else {
+      let initial: PlayerPosition[] = [];
+      if (position !== null) initial = [position];
+      setChosenPartyPositions(initial);
+      persist({ partySize: nextSize, partyPositions: initial });
+    }
+  }
+
+  function togglePartyPosition(pos: PlayerPosition) {
+    let next: PlayerPosition[];
+    if (partyPositions.includes(pos)) {
+      next = partyPositions.filter((p) => p !== pos);
+      if (position === pos) {
+        setChosenPosition(null);
+      }
+    } else {
+      if (partyPositions.length >= partySize) {
+        return;
+      }
+      next = [...partyPositions, pos];
+      if (position === null) {
+        setChosenPosition(pos);
+      }
+    }
+    setChosenPartyPositions(next);
+    persist({ partyPositions: next });
   }
 
   function changeSide(nextSide: TeamSide) {
@@ -325,7 +479,12 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
 
   function changePosition(nextPosition: PlayerPosition) {
     setChosenPosition(nextPosition);
-    persist({ playerPosition: nextPosition });
+    if (partySize === 1) {
+      setChosenPartyPositions([nextPosition]);
+      persist({ playerPosition: nextPosition, partyPositions: [nextPosition] });
+    } else {
+      persist({ playerPosition: nextPosition });
+    }
   }
 
   function addBanHero(heroId: HeroId) {
@@ -348,7 +507,24 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
 
   function handleStart() {
     if (!canStart || side === null || position === null) return;
-    onStart({ draftSeed, userSide: side, playerPosition: position, personalBanList, partySize: 5 }, mode);
+    const resolvedPositions: (1 | 2 | 3 | 4 | 5)[] =
+      partySize === 5
+        ? [1, 2, 3, 4, 5]
+        : partySize === 1
+          ? [position]
+          : partyPositions;
+
+    onStart(
+      {
+        draftSeed,
+        userSide: side,
+        playerPosition: position,
+        personalBanList,
+        partySize,
+        partyPositions: resolvedPositions,
+      },
+      mode,
+    );
   }
 
   return (
@@ -356,7 +532,23 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       <span className="text-heading text-content-primary">Ranked All Pick — Ranked Roles</span>
       <ModeField mode={mode} onChange={setMode} />
       <SideField side={side} onChange={changeSide} />
-      <PositionField position={position} onChange={changePosition} />
+      {mode === "simulation" && (
+        <>
+          <PartySizeField partySize={partySize} onChange={changePartySize} />
+          {(partySize === 2 || partySize === 3) && (
+            <PartyPositionsField
+              partySize={partySize}
+              selectedPositions={partyPositions}
+              onTogglePosition={togglePartyPosition}
+            />
+          )}
+        </>
+      )}
+      <PositionField
+        position={position}
+        allowedPositions={mode === "simulation" && (partySize === 2 || partySize === 3) ? partyPositions : undefined}
+        onChange={changePosition}
+      />
       {mode === "simulation" && (
         <>
           <SeedField draftSeed={draftSeed} isValid={isSeedValid} onChange={setDraftSeed} onRegenerate={regenerateSeed} />
@@ -374,7 +566,19 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
           En Live Companion vas a reportar los bans y picks reales a mano, apenas empiece el draft -- no hace falta seed ni nominaciones acá.
         </span>
       )}
-      {!canStart && <span className="text-caption text-content-muted">Elegí tu lado y tu posición personal para iniciar el draft.</span>}
+      {!canStart && (
+        <span className="text-caption text-signal-warning">
+          {side === null
+            ? "Elegí tu lado para continuar."
+            : (partySize === 2 || partySize === 3) && partyPositions.length !== partySize
+              ? `Elegí exactamente ${partySize} posiciones para tu party (${partyPositions.length} seleccionadas).`
+              : position === null
+                ? "Elegí cuál de las posiciones es tu posición personal."
+                : !isSeedValid
+                  ? "Verificá la semilla del draft."
+                  : "Completá la configuración para iniciar el draft."}
+        </span>
+      )}
       <button type="button" onClick={handleStart} disabled={!canStart} className={`self-start ${BUTTON_PRIMARY}`}>
         Iniciar Draft
       </button>

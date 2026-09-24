@@ -49,6 +49,8 @@ export interface DraftConfig {
   // (party-context.ts, autoridad real). Default 5 (comportamiento idéntico al de antes de esta
   // fase para cualquier config ya persistida).
   partySize: 1 | 2 | 3 | 5;
+  /** Posiciones asignadas a la party del jugador (deben ser exactamente partySize). */
+  partyPositions?: (1 | 2 | 3 | 4 | 5)[];
 }
 
 // ---------------------------------------------------------------------------

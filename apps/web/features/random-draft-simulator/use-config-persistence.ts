@@ -20,6 +20,7 @@ export interface PersistedConfig {
   // ANTES de este campo no se descarta como obsoleta, a diferencia de `playerPosition` (que sí
   // reventaba una config vieja sin él): 5 reproduce el comportamiento exacto de antes de esta fase.
   partySize: 1 | 2 | 3 | 5;
+  partyPositions?: (1 | 2 | 3 | 4 | 5)[];
 }
 
 export interface UseConfigPersistenceResult {
@@ -63,14 +64,35 @@ export function validatePersistedConfig(raw: unknown): PersistedConfig | null {
     return null;
   }
 
-  const rawPartySize = obj["partySize"];
-  const partySize = [1, 2, 3, 5].includes(rawPartySize as number) ? (rawPartySize as 1 | 2 | 3 | 5) : 5;
+  if (obj["partySize"] !== undefined && ![1, 2, 3, 5].includes(obj["partySize"] as number)) {
+    return null;
+  }
+  const partySize = (obj["partySize"] as 1 | 2 | 3 | 5) ?? 5;
+
+  let partyPositions: (1 | 2 | 3 | 4 | 5)[] | undefined = undefined;
+  if (obj["partyPositions"] !== undefined) {
+    if (!Array.isArray(obj["partyPositions"])) {
+      return null;
+    }
+    const validPositions = obj["partyPositions"].filter((pos): pos is 1 | 2 | 3 | 4 | 5 =>
+      [1, 2, 3, 4, 5].includes(pos as number),
+    );
+    if (
+      validPositions.length !== partySize ||
+      new Set(validPositions).size !== partySize ||
+      !validPositions.includes(obj["playerPosition"] as 1 | 2 | 3 | 4 | 5)
+    ) {
+      return null;
+    }
+    partyPositions = validPositions;
+  }
 
   return {
     userSide: obj["userSide"],
     playerPosition: obj["playerPosition"] as 1 | 2 | 3 | 4 | 5,
     personalBanList: obj["personalBanList"] as HeroId[],
     partySize,
+    ...(partyPositions ? { partyPositions } : {}),
   };
 }
 
@@ -93,7 +115,7 @@ function parseAndValidate(raw: string): PersistedConfig | null {
 
   try {
     parsed = JSON.parse(raw);
-  } catch (err) {
+  } catch {
     // La configuración es un dato local descartable: un valor corrupto no debe tumbar la UI.
     console.warn("[useConfigPersistence] JSON parse error; se ignorará la configuración guardada");
     return null;

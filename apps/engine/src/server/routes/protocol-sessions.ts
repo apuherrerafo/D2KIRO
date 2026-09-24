@@ -23,13 +23,14 @@ import {
 import type { RecommendationOutputV3 } from "../../coach";
 import type { CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
-import { rosterSlotForRoundSlot } from "../../simulator/ap-simulator-policy";
+import { positionForRosterSeat, rosterSeatForPosition, rosterSlotForRoundSlot, type DotaPosition } from "../../simulator/ap-simulator-policy";
 import {
   defaultBanResolutionPolicy,
   resolveSimulatorBans,
   type BanResolutionPolicy,
   type HeroUniverse,
 } from "../../simulator/ban-resolution";
+import { chooseAllyBotHero } from "../../simulator/ally-bot";
 import { chooseEnemyBotHero, createEnemyBotConfig } from "../../simulator/enemy-bot";
 import { isApSimulatorMetadata } from "../../simulator/session-config";
 import { ProtocolSessionStore } from "../protocol-session";
@@ -126,19 +127,35 @@ function oppositeSide(side: TeamSide): TeamSide {
 /**
  * A seeded Simulator session is an AP Ranked Roles V1 session: Ranked All Pick, the Player controls
  * all five seats of their own side. Any side and any personal position are supported -- what is
- * rejected is only a shape that would leave some own seat uncontrolled or controlled by the wrong side.
+/**
+ * AP Ranked Roles Simulator session policy:
+ * Supported controlled party sizes: 1, 2, 3, 5 (party 4 is explicitly unsupported).
+ * For each party size, exactly that many unique controlled roster seats on localSide (0..4).
+ * If humanPosition is provided, its assigned roster seat must be among the controlled seats.
  */
 function isSupportedApSimulatorBody(body: {
   rulesetId: string;
   localSide: TeamSide;
+  humanPosition?: DotaPosition;
   partyContext: { partySize: number; controlledSlots: { side: TeamSide; slotIndex: number }[] };
 }): boolean {
+  if (body.rulesetId !== "dota2/ranked-all-pick") return false;
+  const partySize = body.partyContext.partySize;
+  if (partySize !== 1 && partySize !== 2 && partySize !== 3 && partySize !== 5) return false;
   const controlled = body.partyContext.controlledSlots;
-  return body.rulesetId === "dota2/ranked-all-pick"
-    && body.partyContext.partySize === 5
-    && controlled.length === 5
-    && new Set(controlled.map((slot) => slot.slotIndex)).size === 5
-    && controlled.every((slot) => slot.side === body.localSide);
+  if (controlled.length !== partySize) return false;
+  const uniqueSlots = new Set(controlled.map((slot) => slot.slotIndex));
+  if (uniqueSlots.size !== partySize) return false;
+  if (!controlled.every((slot) => slot.side === body.localSide && slot.slotIndex >= 0 && slot.slotIndex <= 4)) {
+    return false;
+  }
+  if (body.humanPosition !== undefined) {
+    const playerSeat = rosterSeatForPosition(body.humanPosition);
+    if (playerSeat === null || !uniqueSlots.has(playerSeat)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
@@ -148,7 +165,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     deps.store.evictStale();
     const body: unknown = await request.json().catch(() => null);
     if (!isValidCreateProtocolSessionBody(body)) return badRequest("invalid_body");
-    if (body.humanPosition !== undefined && !isSupportedApSimulatorBody(body)) {
+    if (body.rulesetId === "dota2/ranked-all-pick" && (body.adapterKind === "simulator" || body.humanPosition !== undefined) && !isSupportedApSimulatorBody(body)) {
       return Response.json({ error: "unsupported_simulator_policy" }, { status: 422 });
     }
 
@@ -478,32 +495,85 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // Enemy seats first: after a collision the enemy re-picks (knowing the newly banned hero)
       // before the Player is handed the reopened seat back.
       const enemyAction = openActions.find((action) => action.side === botConfig.side);
-      if (!enemyAction) {
-        if (!openActions.some((action) => action.side === humanSide)) {
-          return Response.json({ error: "no_open_action" }, { status: 409 });
+      if (enemyAction) {
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, enemyAction.slotIndex);
+        if (rosterSlot === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
+        const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0) + ranked.bannedHeroes.length;
+        const decision = await chooseEnemyBotHero({
+          config: botConfig,
+          state,
+          slotIndex: enemyAction.slotIndex,
+          rosterSlot,
+          decisionIndex,
+          patch: metadata.patch,
+          computeSuggestions: deps.computeSuggestions,
+          heroPositions,
+        });
+        if (!decision) return Response.json({ error: "enemy_bot_no_valid_candidate" }, { status: 409 });
+        const result = deps.store.apply(sessionId, { ...enemyAction, heroId: decision.heroId });
+        if (!result || result.rejected) {
+          return Response.json({ error: "external_pick_rejected", rejected: result?.rejected }, { status: 409 });
         }
+        continue;
+      }
+
+      // Next: uncontrolled allied seats (Ally Bot).
+      const controlledRosterSlots = new Set(
+        metadata.partyContext?.controlledSlots
+          .filter((slot) => slot.side === humanSide)
+          .map((slot) => slot.slotIndex) ?? [0, 1, 2, 3, 4],
+      );
+
+      const uncontrolledAllyAction = openActions.find((action) => {
+        if (action.side !== humanSide) return false;
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, action.slotIndex);
+        return rosterSlot !== null && !controlledRosterSlots.has(rosterSlot);
+      });
+
+      if (uncontrolledAllyAction) {
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, uncontrolledAllyAction.slotIndex);
+        if (rosterSlot === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
+        const position = positionForRosterSeat(rosterSlot);
+        if (position === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
+        const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0) + ranked.bannedHeroes.length;
+        const decision = await chooseAllyBotHero({
+          seed: metadata.simulatorSeed!,
+          side: humanSide,
+          state,
+          slotIndex: uncontrolledAllyAction.slotIndex,
+          rosterSlot,
+          position,
+          decisionIndex,
+          patch: metadata.patch,
+          computeSuggestions: deps.computeSuggestions,
+          heroPositions,
+        });
+        if (!decision) return Response.json({ error: "ally_bot_no_valid_candidate" }, { status: 409 });
+        const result = deps.store.apply(sessionId, { ...uncontrolledAllyAction, heroId: decision.heroId });
+        if (!result || result.rejected) {
+          return Response.json({ error: "external_pick_rejected", rejected: result?.rejected }, { status: 409 });
+        }
+        continue;
+      }
+
+      // If we reach here, all open enemy seats and uncontrolled ally seats in this round are sealed.
+      // If there are open controlled human actions, hand over to the Player:
+      const hasControlledHumanAction = openActions.some((action) => {
+        if (action.side !== humanSide) return false;
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, action.slotIndex);
+        return rosterSlot !== null && controlledRosterSlots.has(rosterSlot);
+      });
+
+      if (hasControlledHumanAction) {
         deps.store.ensureSimulatorTimer(sessionId);
         return Response.json({ ...snapshotBody(sessionId), stopReason: "human_input", completedRound: null });
       }
 
-      const rosterSlot = rosterSlotForRoundSlot(currentRound, enemyAction.slotIndex);
-      if (rosterSlot === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
-      const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0) + ranked.bannedHeroes.length;
-      const decision = await chooseEnemyBotHero({
-        config: botConfig,
-        state,
-        slotIndex: enemyAction.slotIndex,
-        rosterSlot,
-        decisionIndex,
-        patch: metadata.patch,
-        computeSuggestions: deps.computeSuggestions,
-        heroPositions,
-      });
-      if (!decision) return Response.json({ error: "enemy_bot_no_valid_candidate" }, { status: 409 });
-      const result = deps.store.apply(sessionId, { ...enemyAction, heroId: decision.heroId });
-      if (!result || result.rejected) {
-        return Response.json({ error: "external_pick_rejected", rejected: result?.rejected }, { status: 409 });
+      if (openActions.length === 0) {
+        continue;
       }
+
+      return Response.json({ error: "no_open_action" }, { status: 409 });
     }
     return Response.json({ error: "auto_drive_guard_exhausted" }, { status: 409 });
   }

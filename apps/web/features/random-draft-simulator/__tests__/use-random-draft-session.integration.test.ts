@@ -189,11 +189,27 @@ afterEach(() => {
   useRandomDraftStore.getState().resetSession();
 });
 
-async function startDraft(side: TeamSide, position: 1 | 2 | 3 | 4 | 5, options: FakeOptions = {}, personalBanList: HeroId[] = []) {
+async function startDraft(
+  side: TeamSide,
+  position: 1 | 2 | 3 | 4 | 5,
+  options: FakeOptions = {},
+  personalBanList: HeroId[] = [],
+  partySize: 1 | 2 | 3 | 5 = 5,
+  partyPositions?: (1 | 2 | 3 | 4 | 5)[],
+) {
   const engine = new FakeApProtocolEngine(options);
   globalThis.fetch = engine.fetch as typeof fetch;
   const hook = renderHook(() => useRandomDraftSession({ fetchImpl: engine.fetch as typeof fetch, revealPauseMs: 0 }));
-  await act(async () => hook.result.current.startDraft({ draftSeed: "ABCDEFGH", userSide: side, playerPosition: position, personalBanList, partySize: 5 }));
+  await act(async () =>
+    hook.result.current.startDraft({
+      draftSeed: "ABCDEFGH",
+      userSide: side,
+      playerPosition: position,
+      personalBanList,
+      partySize,
+      partyPositions,
+    }),
+  );
   return { engine, ...hook };
 }
 
@@ -248,6 +264,40 @@ test("la sesión transporta el lado, la posición personal, la seed y los 5 asie
   ]);
   expect("humanRosterSlot" in create.body).toBe(false);
   unmount();
+});
+
+test("la sesión transporta Solo (partySize: 1) controlando únicamente el asiento de la posición elegida", async () => {
+  // Pos 1 -> seat 3
+  const { engine, unmount } = await startDraft("radiant", 1, {}, [], 1);
+  const create = engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
+  expect(create.body).toMatchObject({
+    localSide: "radiant",
+    humanPosition: 1,
+    simulatorSeed: "ABCDEFGH",
+    partyContext: { partySize: 1, side: "radiant" },
+  });
+  expect((create.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
+    ["radiant", 3],
+  ]);
+  unmount();
+});
+
+test("la sesión transporta Party 2 y Party 3 con los asientos correspondientes a sus posiciones asignadas", async () => {
+  // Party 2: Pos 2 (seat 4) + Pos 5 (seat 0)
+  const party2 = await startDraft("dire", 2, {}, [], 2, [2, 5]);
+  const req2 = party2.engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
+  expect((req2.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
+    ["dire", 4], ["dire", 0],
+  ]);
+  party2.unmount();
+
+  // Party 3: Pos 1 (seat 3) + Pos 3 (seat 2) + Pos 5 (seat 0)
+  const party3 = await startDraft("radiant", 5, {}, [], 3, [1, 3, 5]);
+  const req3 = party3.engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
+  expect((req3.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
+    ["radiant", 3], ["radiant", 2], ["radiant", 0],
+  ]);
+  party3.unmount();
 });
 
 test("los bans los resuelve el motor: el navegador envía sólo sus nominaciones y nunca graba bans por /command", async () => {

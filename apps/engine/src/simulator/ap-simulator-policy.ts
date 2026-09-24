@@ -39,14 +39,46 @@ export function rosterSlotForRoundSlot(round: 1 | 2 | 3, roundSlot: number): num
   return offset + roundSlot;
 }
 
-/** The Player controls every seat of `humanSide`; every seat of the other side is external (Enemy Bot). */
+/**
+ * Canonical mapping between Dota positions and stable roster seats (0..4) for Ranked Roles All Pick.
+ * Round 1: Hard Support (Pos 5, seat 0) and Support (Pos 4, seat 1).
+ * Round 2: Offlane (Pos 3, seat 2) and Carry (Pos 1, seat 3).
+ * Round 3: Midlane (Pos 2, seat 4).
+ */
+export const POSITION_FOR_ROSTER_SEAT: Readonly<Record<number, DotaPosition>> = Object.freeze({
+  0: 5,
+  1: 4,
+  2: 3,
+  3: 1,
+  4: 2,
+});
+
+export const ROSTER_SEAT_FOR_POSITION: Readonly<Record<DotaPosition, number>> = Object.freeze({
+  5: 0,
+  4: 1,
+  3: 2,
+  1: 3,
+  2: 4,
+});
+
+export function positionForRosterSeat(rosterSlot: number): DotaPosition | null {
+  return POSITION_FOR_ROSTER_SEAT[rosterSlot] ?? null;
+}
+
+export function rosterSeatForPosition(position: DotaPosition): number | null {
+  return ROSTER_SEAT_FOR_POSITION[position] ?? null;
+}
+
+/** The Player controls seats in `controlledSlots` (defaults to all own seats if omitted); other seats are external. */
 export function participantForRoundSlot(
   side: TeamSide,
   round: 1 | 2 | 3,
   roundSlot: number,
   humanSide: TeamSide,
+  controlledSlots?: readonly number[],
 ): SimulatorParticipant | null {
   const rosterSlot = rosterSlotForRoundSlot(round, roundSlot);
   if (rosterSlot === null) return null;
-  return { side, rosterSlot, control: side === humanSide ? "human" : "external" };
+  const isHuman = side === humanSide && (controlledSlots === undefined || controlledSlots.includes(rosterSlot));
+  return { side, rosterSlot, control: isHuman ? "human" : "external" };
 }

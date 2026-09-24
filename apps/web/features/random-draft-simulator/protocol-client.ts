@@ -150,6 +150,8 @@ export interface CreateSimulatorSessionOptions {
   partySize?: PartySize;
   /** Posición personal declarada del Player (1..5). Identifica su rol; nunca decide cuándo se pica. */
   humanPosition?: 1 | 2 | 3 | 4 | 5;
+  /** Posiciones que controla la party del jugador. */
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
   simulatorSeed?: string;
   /**
    * MVP P0.1 -- default "simulator" (byte-identical to every call site before this field existed).
@@ -159,6 +161,22 @@ export interface CreateSimulatorSessionOptions {
   adapterKind?: "manual" | "simulator";
 }
 
+export const ROSTER_SEAT_FOR_POSITION: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> = Object.freeze({
+  5: 0,
+  4: 1,
+  3: 2,
+  1: 3,
+  2: 4,
+});
+
+export const POSITION_FOR_ROSTER_SEAT: Readonly<Record<number, 1 | 2 | 3 | 4 | 5>> = Object.freeze({
+  0: 5,
+  1: 4,
+  2: 3,
+  3: 1,
+  4: 2,
+});
+
 export async function createSimulatorProtocolSession(
   patch: string,
   localSide: TeamSide,
@@ -166,8 +184,16 @@ export async function createSimulatorProtocolSession(
   options: CreateSimulatorSessionOptions = {},
 ): Promise<string> {
   const partySize = options.partySize ?? 5;
-  const controlledSlotCount = Math.min(partySize, 5);
-  const controlledSlots = Array.from({ length: controlledSlotCount }, (_, slotIndex) => ({
+  const slots: number[] =
+    options.partyPositions && options.partyPositions.length === partySize
+      ? options.partyPositions.map((pos) => ROSTER_SEAT_FOR_POSITION[pos])
+      : partySize === 5
+        ? [0, 1, 2, 3, 4]
+        : partySize === 1 && options.humanPosition
+          ? [ROSTER_SEAT_FOR_POSITION[options.humanPosition]]
+          : Array.from({ length: Math.min(partySize, 5) }, (_, i) => i);
+
+  const controlledSlots = slots.map((slotIndex) => ({
     side: localSide,
     slotIndex,
     controllerId: `simulator-local-${slotIndex}`,

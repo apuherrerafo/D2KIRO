@@ -25,12 +25,17 @@ export function buildOwnTeamRoleAssignments(): Record<DotaPosition, "assigned"> 
   return { 1: "assigned", 2: "assigned", 3: "assigned", 4: "assigned", 5: "assigned" };
 }
 
-/** The Player controls all five own-team seats; the kernel already models this through PartyContext. */
-export function buildOwnTeamPartyContext(side: TeamSide): PartyContextInput {
+/** Builds own-team PartyContext. Supports party sizes 1, 2, 3, 5; defaults to partySize 5 (all seats controlled). */
+export function buildOwnTeamPartyContext(
+  side: TeamSide,
+  partySize: 1 | 2 | 3 | 5 = 5,
+  controlledSlots?: readonly number[],
+): PartyContextInput {
+  const slots = controlledSlots ?? (partySize === 5 ? [0, 1, 2, 3, 4] : [0]);
   return {
-    partySize: 5,
+    partySize,
     side,
-    controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side, slotIndex, controllerId: "player" })),
+    controlledSlots: slots.map((slotIndex) => ({ side, slotIndex, controllerId: `player-${slotIndex}` })),
   };
 }
 

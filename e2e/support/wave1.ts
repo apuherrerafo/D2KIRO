@@ -134,6 +134,7 @@ export async function configureAndStart(page: Page, options: StartOptions): Prom
   const startButton = page.getByRole("button", { name: "Iniciar Draft" });
   await expect(startButton).toBeDisabled({ timeout: 60_000 });
   await page.getByRole("group", { name: "Tu lado" }).getByRole("button", { name: options.side, exact: true }).click();
+  await page.getByRole("group", { name: "Tamaño de party" }).getByRole("button", { name: "Party 5" }).click();
   await page.getByRole("group", { name: "Tu posición personal" }).getByRole("button", { name: options.position }).click();
   await page.locator('input[maxlength="8"]').fill(options.seed);
   for (const name of options.banNames ?? []) {

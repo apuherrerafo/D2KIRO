@@ -484,9 +484,11 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     stopTimer();
     try {
       const { currentPatch } = await loadMetaSnapshot();
-      const nextConfig: DraftConfig = { ...input, patch: currentPatch, partySize: 5 };
+      const partySize = input.partySize ?? 5;
+      const nextConfig: DraftConfig = { ...input, patch: currentPatch, partySize };
       const nextSessionId = await createSimulatorProtocolSession(nextConfig.patch, nextConfig.userSide, fetchImpl, {
-        partySize: 5,
+        partySize,
+        partyPositions: nextConfig.partyPositions,
         humanPosition: nextConfig.playerPosition,
         // LIVE_COMPANION never sends a simulatorSeed: there is no seeded bot/ban-policy to drive,
         // and isApSimulatorMetadata (engine side) requires adapterKind "simulator" anyway.

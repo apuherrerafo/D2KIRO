@@ -93,6 +93,14 @@ interface BlindRoundActiveProps {
   onLockPick: (heroId: HeroId) => void;
 }
 
+const SEAT_ROLE_NAMES: Record<number, string> = {
+  0: "Pos 5 (Hard support)",
+  1: "Pos 4 (Support)",
+  2: "Pos 3 (Offlane)",
+  3: "Pos 1 (Carry)",
+  4: "Pos 2 (Midlane)",
+};
+
 function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick }: BlindRoundActiveProps) {
   const unavailable = unavailableHeroIds(draftState, phase.pendingUserPicks);
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
@@ -108,17 +116,18 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
         Ronda {phase.round} -- elegí {total} {total === 1 ? "héroe" : "héroes"} para tu equipo ({locked} de {total} sellados)
       </span>
       <span className="text-caption text-content-muted">
-        Controlás los 5 asientos de tu equipo. Al elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
+        Controlás las posiciones de tu party. Los demás aliados son simulados automáticamente. Al elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
       </span>
       <ConflictBanner conflictBans={phase.conflictBans} notice={phase.notice} heroCatalog={heroCatalog} />
       <TimerExpiredNotice phase={phase} />
       <div className="flex flex-wrap gap-4">
         {phase.attemptSeats.map((seat, index) => {
           const heroId = phase.pendingUserPicks[index] ?? null;
+          const roleLabel = SEAT_ROLE_NAMES[seat] ? ` — ${SEAT_ROLE_NAMES[seat]}` : "";
           return (
             <SeatCard
               key={seat}
-              label={`Asiento ${index + 1}`}
+              label={`Asiento ${seat + 1}${roleLabel}`}
               heroId={heroId}
               heroMeta={heroId === null ? undefined : heroCatalog.get(heroId)}
               gold={displayedGoldPenalty(phase, seat)}

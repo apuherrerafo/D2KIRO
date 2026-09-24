@@ -4,6 +4,7 @@ import type { FunctionalRecommendationEvidence } from "../../recommendation/evid
 import type { HeroPositions } from "../../signals/hero-positions";
 import type { SuggestionSet } from "../../signals/mix";
 import { createEnemyBotConfig } from "../../simulator/enemy-bot";
+import { ROSTER_SEAT_FOR_POSITION } from "../../simulator/ap-simulator-policy";
 import type { BanResolutionPolicy, HeroUniverse } from "../../simulator/ban-resolution";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "./protocol-sessions";
@@ -117,6 +118,33 @@ async function createSession(routes: Routes, side: Side, position: Position, see
   return (await json<{ sessionId: string }>(response)).sessionId;
 }
 
+async function createPartySession(
+  routes: Routes,
+  side: Side,
+  personalPosition: Position,
+  partyPositions: Position[],
+  seed: string,
+): Promise<string> {
+  const partySize = partyPositions.length as 1 | 2 | 3 | 5;
+  const controlledSlots = partyPositions.map((p) => ({
+    side,
+    slotIndex: ROSTER_SEAT_FOR_POSITION[p],
+    controllerId: `player-${p}`,
+  }));
+  const body = {
+    rulesetId: "dota2/ranked-all-pick",
+    patch: "7.41e",
+    localSide: side,
+    adapterKind: "simulator",
+    partyContext: { partySize, side, controlledSlots },
+    humanPosition: personalPosition,
+    simulatorSeed: seed,
+  };
+  const response = await routes.post(post(body));
+  expect(response.status).toBe(201);
+  return (await json<{ sessionId: string }>(response)).sessionId;
+}
+
 async function resolveBans(routes: Routes, sessionId: string, prefs: (number | null)[] = []): Promise<Snapshot> {
   const response = await routes.postResolveBans(post({ playerBanPreferences: prefs }), sessionId);
   expect(response.status).toBe(200);
@@ -163,13 +191,49 @@ describe("AP Ranked Roles V1 -- side y posicion personal son libres", () => {
     }
   }
 
-  test("una party que no sea de 5 asientos propios se rechaza (sin sesion con asientos sin dueno)", async () => {
+  test("party 4 y combinaciones invalidas de party/posicion se rechazan con 422", async () => {
     const { routes } = makeRoutes();
-    const body = createBody("radiant", 2, "D2K00001");
-    body.partyContext = { partySize: 1 as unknown as 5, side: "radiant", controlledSlots: [{ side: "radiant", slotIndex: 4, controllerId: "julio" }] };
-    const response = await routes.post(post(body));
-    expect(response.status).toBe(422);
-    expect((await json<{ error: string }>(response)).error).toBe("unsupported_simulator_policy");
+
+    // Party 4 explícitamente no soportada
+    const body4 = createBody("radiant", 2, "D2K00001");
+    body4.partyContext = {
+      partySize: 4 as unknown as 5,
+      side: "radiant",
+      controlledSlots: [
+        { side: "radiant", slotIndex: 0, controllerId: "p0" },
+        { side: "radiant", slotIndex: 1, controllerId: "p1" },
+        { side: "radiant", slotIndex: 2, controllerId: "p2" },
+        { side: "radiant", slotIndex: 4, controllerId: "p4" },
+      ],
+    };
+    const response4 = await routes.post(post(body4));
+    expect(response4.status).toBe(400);
+    expect((await json<{ error: string }>(response4)).error).toBe("invalid_body");
+
+    // Posición personal del jugador no está en los slots controlados
+    const bodyMismatch = createBody("radiant", 2, "D2K00001"); // Pos 2 -> slot 4
+    bodyMismatch.partyContext = {
+      partySize: 1,
+      side: "radiant",
+      controlledSlots: [{ side: "radiant", slotIndex: 0, controllerId: "p0" }], // slot 0 -> Pos 5
+    };
+    const responseMismatch = await routes.post(post(bodyMismatch));
+    expect(responseMismatch.status).toBe(422);
+    expect((await json<{ error: string }>(responseMismatch)).error).toBe("unsupported_simulator_policy");
+
+    // Asientos duplicados
+    const bodyDup = createBody("radiant", 5, "D2K00001");
+    bodyDup.partyContext = {
+      partySize: 2,
+      side: "radiant",
+      controlledSlots: [
+        { side: "radiant", slotIndex: 0, controllerId: "p0" },
+        { side: "radiant", slotIndex: 0, controllerId: "p1" },
+      ],
+    };
+    const responseDup = await routes.post(post(bodyDup));
+    expect(responseDup.status).toBe(422);
+    expect((await json<{ error: string }>(responseDup)).error).toBe("unsupported_simulator_policy");
   });
 });
 
@@ -503,5 +567,215 @@ describe("AP Ranked Roles V1 -- temporizadores y penalizacion (capa del Simulato
     expect(late.goldPenaltyBySlot[4]).toBeGreaterThan(70);
     expect(store.get(sessionId)?.rankedAp?.round?.openSlots.some((slot) => slot.side === "radiant")).toBe(true);
     expect(store.get(sessionId)?.rankedAp?.confirmedPicks.filter((pick) => pick.side === "radiant")).toHaveLength(4);
+  });
+});
+
+describe("AP Realistic Party Simulator -- Solo (Pos 1..5), Party 2, Party 3, Party 5", () => {
+  test("Solo Pos 1: R1 es 100% simulada por Ally Bot, R2 espera al jugador para Pos1, R3 es simulada", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "SOLO_POS1_A";
+    const sessionId = await createPartySession(routes, "radiant", 1, [1], seed);
+
+    await resolveBans(routes, sessionId);
+
+    // Round 1 has no controlled seats -> autoDrive completes Round 1 with Ally Bot + Enemy Bot
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("round_revealed");
+    expect(r1.completedRound).toBe(1);
+
+    // Next autoDrive enters Round 2: Ally Bot seals Pos 3 (slot 0), human controls Pos 1 (slot 1)
+    const r2 = await autoDrive(routes, sessionId);
+    expect(r2.stopReason).toBe("human_input");
+    expect(r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1 },
+    ]);
+
+    // Human submits Pos 1 pick
+    await submitOwn(routes, sessionId, "radiant", 1, mine(1, 0));
+
+    // Next autoDrive completes Round 3 (Pos 2 simulated by Ally Bot) and reaches COMPLETE
+    const r3 = await autoDrive(routes, sessionId);
+    expect(r3.stopReason).toBe("round_revealed");
+    expect(r3.completedRound).toBe(3);
+    expect(r3.view.status).toBe("COMPLETE");
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+
+    // All 5 radiant positions picked and confirmed
+    const radiantPicks = store.get(sessionId)!.rankedAp!.confirmedPicks.filter((p) => p.side === "radiant");
+    expect(radiantPicks).toHaveLength(5);
+  });
+
+  test("Solo Pos 2: R1 y R2 son simuladas por Ally Bot, R3 espera al jugador para Pos2", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "SOLO_POS2_A";
+    const sessionId = await createPartySession(routes, "radiant", 2, [2], seed);
+
+    await resolveBans(routes, sessionId);
+
+    // R1 completes autonomously
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("round_revealed");
+    expect(r1.completedRound).toBe(1);
+
+    // R2 completes autonomously
+    const r2 = await autoDrive(routes, sessionId);
+    expect(r2.stopReason).toBe("round_revealed");
+    expect(r2.completedRound).toBe(2);
+
+    // R3 has Pos 2 (slot 0) controlled by human
+    const r3 = await autoDrive(routes, sessionId);
+    expect(r3.stopReason).toBe("human_input");
+    expect(r3.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
+    ]);
+
+    // Human picks Pos 2
+    await submitOwn(routes, sessionId, "radiant", 0, mine(2, 0));
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+  });
+
+  test("Solo Pos 3: R1 simulada, R2 espera Pos 3, R3 simulada", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "SOLO_POS3_A";
+    const sessionId = await createPartySession(routes, "radiant", 3, [3], seed);
+    await resolveBans(routes, sessionId);
+
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("round_revealed");
+
+    const r2 = await autoDrive(routes, sessionId);
+    expect(r2.stopReason).toBe("human_input");
+    expect(r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
+    ]);
+    await submitOwn(routes, sessionId, "radiant", 0, mine(3, 0));
+
+    const r3 = await autoDrive(routes, sessionId);
+    expect(r3.stopReason).toBe("round_revealed");
+    expect(r3.completedRound).toBe(3);
+    expect(r3.view.status).toBe("COMPLETE");
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+  });
+
+  test("Solo Pos 4: R1 espera Pos 4, R2 y R3 simuladas", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "SOLO_POS4_A";
+    const sessionId = await createPartySession(routes, "radiant", 4, [4], seed);
+    await resolveBans(routes, sessionId);
+
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("human_input");
+    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1 },
+    ]);
+    await submitOwn(routes, sessionId, "radiant", 1, mine(4, 0));
+
+    // Drive until completion (just as advance() does in client loop)
+    while (store.get(sessionId)?.status !== "COMPLETE") {
+      await autoDrive(routes, sessionId);
+    }
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+    const radiantPicks = store.get(sessionId)!.rankedAp!.confirmedPicks.filter((p) => p.side === "radiant");
+    expect(radiantPicks).toHaveLength(5);
+  });
+
+  test("Solo Pos 5: R1 espera Pos 5, R2 y R3 simuladas", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "SOLO_POS5_A";
+    const sessionId = await createPartySession(routes, "radiant", 5, [5], seed);
+    await resolveBans(routes, sessionId);
+
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("human_input");
+    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
+    ]);
+    await submitOwn(routes, sessionId, "radiant", 0, mine(5, 0));
+
+    const r2 = await autoDrive(routes, sessionId);
+    expect(r2.stopReason).toBe("round_revealed");
+
+    const r3 = await autoDrive(routes, sessionId);
+    expect(r3.stopReason).toBe("round_revealed");
+    expect(r3.completedRound).toBe(3);
+    expect(r3.view.status).toBe("COMPLETE");
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+  });
+
+  test("Party 2 (Pos 2 + Pos 5): R1 espera Pos 5, R2 es simulada, R3 espera Pos 2", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "PARTY_2_TEST";
+    const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], seed);
+    await resolveBans(routes, sessionId);
+
+    // R1: Ally Bot seals Pos 4 (slot 1), player controls Pos 5 (slot 0)
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("human_input");
+    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
+    ]);
+    await submitOwn(routes, sessionId, "radiant", 0, mine(5, 0));
+
+    // R2: Ally Bot seals both Pos 3 (slot 0) and Pos 1 (slot 1) -> round revealed
+    const r2 = await autoDrive(routes, sessionId);
+    expect(r2.stopReason).toBe("round_revealed");
+
+    // R3: player controls Pos 2 (slot 0)
+    const r3 = await autoDrive(routes, sessionId);
+    expect(r3.stopReason).toBe("human_input");
+    expect(r3.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
+    ]);
+    await submitOwn(routes, sessionId, "radiant", 0, mine(2, 0));
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+  });
+
+  test("Party 3 (Pos 1 + Pos 3 + Pos 5): R1 espera Pos 5, R2 espera Pos 3 y Pos 1, R3 simulada", async () => {
+    const { routes, store } = makeRoutes();
+    const seed = "PARTY_3_TEST";
+    const sessionId = await createPartySession(routes, "radiant", 1, [1, 3, 5], seed);
+    await resolveBans(routes, sessionId);
+
+    // R1: Pos 4 is simulated by Ally Bot; Pos 5 is controlled by human party
+    const r1 = await autoDrive(routes, sessionId);
+    expect(r1.stopReason).toBe("human_input");
+    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
+    ]);
+    await submitOwn(routes, sessionId, "radiant", 0, mine(5, 0));
+
+    // R2: both slots (Pos 3 slot 0 and Pos 1 slot 1) controlled by human party
+    const r2 = await autoDrive(routes, sessionId);
+    expect(r2.stopReason).toBe("human_input");
+    expect(r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toHaveLength(2);
+
+    await submitOwn(routes, sessionId, "radiant", 0, mine(3, 0));
+    await submitOwn(routes, sessionId, "radiant", 1, mine(1, 0));
+
+    // R3: Pos 2 is simulated by Ally Bot -> complete
+    const r3 = await autoDrive(routes, sessionId);
+    expect(r3.stopReason).toBe("round_revealed");
+    expect(r3.completedRound).toBe(3);
+    expect(r3.view.status).toBe("COMPLETE");
+    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+  });
+
+  test("Replay determinista: misma semilla + misma config de party => picks idénticos de bots", async () => {
+    const runDraft = async (seed: string) => {
+      const { routes, store } = makeRoutes();
+      const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], seed);
+      await resolveBans(routes, sessionId);
+      await autoDrive(routes, sessionId);
+      await submitOwn(routes, sessionId, "radiant", 0, mine(5, 1));
+      await autoDrive(routes, sessionId); // R2 autonomous
+      await autoDrive(routes, sessionId); // R3 stops for player
+      await submitOwn(routes, sessionId, "radiant", 0, mine(2, 1));
+      return store.get(sessionId)!.rankedAp!.confirmedPicks;
+    };
+
+    const run1 = await runDraft("DETERMINISTIC_SEED_123");
+    const run2 = await runDraft("DETERMINISTIC_SEED_123");
+
+    expect(run1).toEqual(run2);
   });
 });
