@@ -77,7 +77,7 @@ describe("GET .../recommendations?format=v3 -- opportunity (Safe Core)", () => {
     const routes = createProtocolSessionRoutes({
       store,
       computeSuggestions: async () => fakeSuggestions([1, 2, 3, 4, 5, 6]),
-      heroPositions: { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 5, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
+      heroPositions: { 1: [{ position: 1, matches: 1000 }, { position: 5, matches: 200 }], 2: [{ position: 5, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
       heroCounters: new Map([[1, hardCounters.map((vs) => ({ vs, level: "hard" as const, why: "fixture" }))]]),
     });
     const created = await routes.post(jsonRequest(CREATE_BODY));

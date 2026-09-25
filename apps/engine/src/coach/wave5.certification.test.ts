@@ -21,7 +21,7 @@ import { fakeCompute, harness, stripSession, type Harness } from "./session-harn
 // Fixture world. Hero 1 is V6's top and a resolved Carry; heroes 7/8 hard-counter it (curated), hero 4 medium.
 // Hero 6 is an own-team FLEX (Pos 2/3); hero 9 is a public enemy FLEX (Pos 1/2).
 const POSITIONS: HeroPositions = {
-  1: [{ position: 1, matches: 1000 }],
+  1: [{ position: 1, matches: 1000 }, { position: 5, matches: 200 }, { position: 4, matches: 200 }],
   2: [{ position: 5, matches: 1000 }],
   3: [{ position: 4, matches: 1000 }],
   4: [{ position: 2, matches: 1000 }],

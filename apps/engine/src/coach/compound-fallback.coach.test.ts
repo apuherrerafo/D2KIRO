@@ -28,7 +28,7 @@ const POSITIONS: HeroPositions = {
   [ENEMY_A]: [{ position: 2, matches: 1000 }],
   [ENEMY_B]: [{ position: 3, matches: 1000 }],
   ...Object.fromEntries(CARRIES.map((hero) => [hero, [{ position: 1, matches: 1000 }]])),
-  [MID]: [{ position: 2, matches: 1000 }],
+  [MID]: [{ position: 2, matches: 1000 }, { position: 3, matches: 1000 }],
   // Pos-5-only heroes: with hero 2 already holding Pos 5, they are infeasible even ALONE.
   40: [{ position: 5, matches: 1000 }],
   41: [{ position: 5, matches: 1000 }],
@@ -64,16 +64,17 @@ describe("compound fallback -- no feasible pair, legal single step exists", () =
     expect(reasons).toContain("COMPOUND_FALLBACK_SINGLE_STEP");
     expect(reasons).toContain("ROLE_ASSIGNMENT_IMPOSSIBLE"); // the pairs really were rejected first
     expect(reasons).not.toContain("NO_LEGAL_HERO_UNIVERSE");
-    // Every fallback action targets the FIRST open seat only (slot indexes restart every round).
+    // Every fallback action targets the seat matching the candidate's admitted position (slot 1 = Pos 1 carry).
     const slots = new Set(recommendationSet.recommendations.map((recommendation) => recommendation.actions[0]!.slot.slotIndex));
-    expect([...slots]).toEqual([0]);
+    expect([...slots]).toEqual([1]);
   });
 
   test("3. tras elegir la recomendación de fallback, el Coach recomputa para el asiento que queda", async () => {
     const h = roundTwo();
     const before = await h.compute();
     const chosen = heroesOf(before.output!)[0]!;
-    h.seal(h.side, 0, chosen);
+    const chosenSlot = before.recommendationSet.recommendations[0]!.actions[0]!.slot.slotIndex;
+    h.seal(h.side, chosenSlot, chosen);
     const after = await h.compute();
     expect(after.trigger).toBe("OWN_PICK_CONFIRMED");
     expect(after.recommendationSet.decision.actionCount).toBe(1);

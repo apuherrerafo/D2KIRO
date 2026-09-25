@@ -342,6 +342,7 @@ export type RecommendationPosition = 1 | 2 | 3 | 4 | 5;
 export interface RecommendationSlotV2 {
   side: TeamSide;
   slotIndex: number;
+  position?: RecommendationPosition | null;
 }
 
 export interface RecommendationActionV2 {
@@ -447,7 +448,8 @@ function isSignalContribution(value: unknown): value is SignalContribution {
 }
 
 function isRecommendationSlot(value: unknown): value is RecommendationSlotV2 {
-  return isRecord(value) && (value.side === "radiant" || value.side === "dire") && typeof value.slotIndex === "number";
+  return isRecord(value) && (value.side === "radiant" || value.side === "dire") && typeof value.slotIndex === "number"
+    && (value.position === undefined || value.position === null || isRecommendationPosition(value.position));
 }
 
 function isRoleImpact(value: unknown): value is RecommendationRoleImpactV2 {

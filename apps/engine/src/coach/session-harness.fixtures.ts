@@ -15,7 +15,7 @@ import type { CoachRecomputation } from "./orchestrator";
 // given (so anything that reaches it is exactly what the Player may legally know).
 
 export const HERO_POSITIONS: HeroPositions = {
-  1: [{ position: 1, matches: 1000 }],
+  1: [{ position: 1, matches: 1000 }, { position: 5, matches: 200 }, { position: 4, matches: 200 }],
   2: [{ position: 5, matches: 1000 }],
   3: [{ position: 4, matches: 1000 }],
   4: [{ position: 2, matches: 1000 }],

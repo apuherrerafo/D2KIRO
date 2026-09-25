@@ -53,14 +53,34 @@ function roundOf(phase: RankedApPhase | undefined): number | null {
   return null;
 }
 
+function positionForRoundSlot(round: number, slotIndex: number): Position | null {
+  if (round === 1) return slotIndex === 0 ? 5 : slotIndex === 1 ? 4 : null;
+  if (round === 2) return slotIndex === 0 ? 3 : slotIndex === 1 ? 1 : null;
+  if (round === 3) return slotIndex === 0 ? 2 : null;
+  return null;
+}
+
 /** The actor's decision, from the view + the seats the client is already told are open. */
-function deriveDecisionFrom(context: PerspectiveRecommendationContext, singleSlotEvaluation: boolean): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
+function deriveDecisionFrom(
+  context: PerspectiveRecommendationContext,
+  singleSlotEvaluation: boolean,
+  targetPosition?: Position,
+): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
   const { view, partyContext } = context;
   const actor = view.viewerSide ?? "radiant";
   const degradations: RecommendationDegradation[] = [];
   if (view.degradation) degradations.push({ reason: view.degradation.reason, detail: view.degradation.detail });
 
-  let controlledSlots: RecommendationSlot[] = context.openOwnSlots.filter((slot) => slot.side === actor).map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
+  const round = roundOf(view.rankedAp?.phase);
+  let controlledSlots: RecommendationSlot[] = context.openOwnSlots
+    .filter((slot) => slot.side === actor)
+    .map((slot) => {
+      let position: Position | null = null;
+      if (partyContext !== null && partyContext !== undefined && round !== null) {
+        position = positionForRoundSlot(round, slot.slotIndex);
+      }
+      return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
+    });
   // A party may control only some of its own side's seats: never propose an action for a seat this
   // session does not drive (same cap as decision.ts, over the same information).
   if (partyContext && partyContext.side === actor) controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
@@ -93,7 +113,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true);
+  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true, input.targetPosition);
   const identityInputs = { view, eligibilitySnapshot: null, calibrationMode, seed: null, patch: context.patch, partyContext: context.partyContext };
   const basedOnWithoutEvidence = buildBasedOn({ ...identityInputs, evidenceHash: null });
 
@@ -152,7 +172,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   let recommendations: Recommendation[] =
     decision.actionCount >= 2
       ? buildCompoundRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, metaIsStale, degradations, input.outputLimit)
-      : buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, metaIsStale, suggestionSet, degradations, input.outputLimit);
+      : buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, metaIsStale, suggestionSet, degradations, input.outputLimit, false, !input.singleSlotEvaluation);
 
   // COMPOUND FALLBACK. The Coach answers "what is the best NEXT reveal decision?" -- the Player does not need a
   // jointly-valid PAIR before sealing the first seat of a two-seat round, and the Coach recomputes after every own
@@ -162,7 +182,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   // same role-feasibility gate (no pair is fabricated, no position data is loosened). Truly no legal single hero
   // still falls through to NO_LEGAL_HERO_UNIVERSE below.
   if (recommendations.length === 0 && decision.actionCount >= 2) {
-    recommendations = buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots[0]!, metaIsStale, suggestionSet, degradations, input.outputLimit, true);
+    recommendations = buildSingleRecommendations(constructContext, shortlist, ownPicks, heroPositions, partyPreferredPositions, sortedControlledSlots, metaIsStale, suggestionSet, degradations, input.outputLimit, true);
     if (recommendations.length > 0) {
       pushUniqueDegradation(degradations, {
         reason: "COMPOUND_FALLBACK_SINGLE_STEP",

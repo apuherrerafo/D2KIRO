@@ -1,6 +1,6 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import type { HeroPositions } from "../signals/hero-positions";
+import { isCandidateAdmittedForPosition, type HeroPositions } from "../signals/hero-positions";
 import type { SuggestionSet } from "../signals/mix";
 import { deriveRisks, evidenceFromRoleBelief, evidenceFromSignals } from "./evidence";
 import { computeRoleImpact } from "./role-impact";
@@ -57,7 +57,7 @@ export function buildSingleRecommendations(
   ownPicks: readonly HeroId[],
   heroPositions: HeroPositions,
   partyPreferredPositions: readonly Position[] | undefined,
-  slot: RecommendationSlot,
+  slot: RecommendationSlot | readonly RecommendationSlot[],
   metaIsStale: boolean,
   suggestionSet: SuggestionSet,
   degradations: RecommendationDegradation[],
@@ -65,17 +65,26 @@ export function buildSingleRecommendations(
   // Compound-failure fallback only: the single step must still be role-feasible with the own picks already
   // made (a hard gate, exactly like the compound one). Legacy single-seat callers keep their behaviour.
   requireRoleFeasibility = false,
+  filterBySlotPosition = true,
 ): Recommendation[] {
+  const candidateSlots: readonly RecommendationSlot[] = Array.isArray(slot) ? slot : [slot];
   const out: Recommendation[] = [];
   for (const entry of shortlist) {
     if (out.length >= outputLimit) break;
-    if (!context.isLegal(entry.hero, slot)) continue;
+    const targetSlot = candidateSlots.find((s) => {
+      if (!context.isLegal(entry.hero, s)) return false;
+      if (filterBySlotPosition && s.position !== undefined && s.position !== null) {
+        return isCandidateAdmittedForPosition(entry.hero, s.position, heroPositions);
+      }
+      return true;
+    });
+    if (!targetSlot) continue;
 
     const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
     if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
     if (requireRoleFeasibility && roleImpact.degradation?.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     const impact = roleImpact.impactByHero.get(entry.hero)!;
-    const action: RecommendationAction = { slot, hero: entry.hero };
+    const action: RecommendationAction = { slot: targetSlot, hero: entry.hero };
 
     out.push({
       actions: [action],
@@ -115,12 +124,14 @@ export function buildCompoundRecommendations(
   const combos = buildCompoundCandidates(shortlist);
   const out: Recommendation[] = [];
 
+  const posA = slotA?.position;
+  const posB = slotB?.position;
+
   for (const combo of combos) {
     if (out.length >= outputLimit) break;
     const [a, b] = combo.entries;
     // Step 1/2 (blocker 4 -- hero uniqueness + per-action legality) BEFORE any role/joint work.
     if (a.hero === b.hero) continue; // structurally unreachable (distinct shortlist entries), kept as an explicit guard
-    if (!context.isLegal(a.hero, slotA!) || !context.isLegal(b.hero, slotB!)) continue;
 
     // Steps 3-5 (blocker 4 -- joint feasibility is a HARD GATE, not a warning): compute the same
     // joint role assignment single-action recommendations already use, and DROP this pair entirely
@@ -133,6 +144,27 @@ export function buildCompoundRecommendations(
       pushUniqueDegradation(degradations, roleImpact.degradation);
       if (roleImpact.degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     }
+
+    const directAdmitted = (posA === undefined || posA === null || isCandidateAdmittedForPosition(a.hero, posA, heroPositions))
+      && (posB === undefined || posB === null || isCandidateAdmittedForPosition(b.hero, posB, heroPositions));
+
+    const swappedAdmitted = (posA === undefined || posA === null || isCandidateAdmittedForPosition(b.hero, posA, heroPositions))
+      && (posB === undefined || posB === null || isCandidateAdmittedForPosition(a.hero, posB, heroPositions));
+
+    const directLegal = directAdmitted && context.isLegal(a.hero, slotA!) && context.isLegal(b.hero, slotB!);
+    const swappedLegal = swappedAdmitted && context.isLegal(b.hero, slotA!) && context.isLegal(a.hero, slotB!);
+
+    if (!directLegal && !swappedLegal) continue;
+
+    const assignedActions: RecommendationAction[] = directLegal
+      ? [
+          { slot: slotA!, hero: a.hero },
+          { slot: slotB!, hero: b.hero },
+        ]
+      : [
+          { slot: slotA!, hero: b.hero },
+          { slot: slotB!, hero: a.hero },
+        ];
     const impactA = roleImpact.impactByHero.get(a.hero)!;
     const impactB = roleImpact.impactByHero.get(b.hero)!;
 
@@ -142,14 +174,7 @@ export function buildCompoundRecommendations(
     ];
 
     out.push({
-      // Deterministic-but-arbitrary convention: higher-scored hero fills the lower-numbered open
-      // slot. The kernel treats both open slots as interchangeable (isSealedSelectionLegal has no
-      // hero-specific slot semantics) -- there is no "correct" assignment to recover here, only a
-      // stable one.
-      actions: [
-        { slot: slotA!, hero: a.hero },
-        { slot: slotB!, hero: b.hero },
-      ],
+      actions: assignedActions,
       score: combo.score,
       confidence: combo.confidence,
       evidence,

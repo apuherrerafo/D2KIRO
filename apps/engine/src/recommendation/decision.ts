@@ -1,7 +1,8 @@
 import { captainsModeStepDefinition, legalGameplayActions } from "../draft-protocol";
 import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/types";
 import type { RecommendationDecision, RecommendationDegradation, RecommendationSlot } from "./types";
-import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
+import { rosterSlotForRoundSlot, POSITION_FOR_ROSTER_SEAT, roundForPhase } from "../simulator/ap-simulator-policy";
+import type { Position } from "../draft-protocol/roles/role-belief";
 
 // R1 S5 -- LEGAL ACTION FIRST. This module derives WHAT is being decided (decision.ts) and WHICH
 // heroes are legally nameable right now (the "hero universe"), from `legalGameplayActions(state)`
@@ -41,24 +42,22 @@ function deriveRankedAllPick(
   const degradations: RecommendationDegradation[] = [];
   if (state.degradation) degradations.push({ reason: state.degradation.reason, detail: state.degradation.detail });
 
+  const partyContext = rankedAp.partyContext;
+  const round = rankedAp.round?.round ?? (rankedAp.phase ? roundForPhase(rankedAp.phase) : null);
   const openSlotsForActor = legalGameplayActions(state).filter(
     (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === actor,
   );
-  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
-
-  // Blocker 5 (independent architecture review): an open round slot on `actor`'s side is not
-  // automatically ONE THIS SESSION MAY ACT FOR -- a party may control only some of its own side's
-  // roster slots (participants.ts's controlled/external split), and this recommendation must never
-  // propose an action for an "external" slot (a real teammate this session doesn't drive), even
-  // though that slot's pick genuinely is open right now. `OpenSlot.slotIndex` is a round-scoped
-  // ordinal with no mapping to a roster position (this file's own header doc), so "which N of the
-  // open slots are ours" has no real per-slot identity to recover -- only a COUNT to respect: cap
-  // to `partyContext.controlledSlots.length`, keeping the lowest slotIndexes first (the same
-  // ascending, arbitrary-but-stable convention build.ts already uses to assign compound actions to
-  // slots). `partyContext === null` means no party information was ever threaded (a legacy/no-party
-  // session) -- unrestricted, byte-identical to behavior before this fix.
-  const partyContext = rankedAp.partyContext;
+  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => {
+    let position: Position | null = null;
+    if (partyContext !== null && partyContext !== undefined && round !== null) {
+      const rosterSlot = rosterSlotForRoundSlot(round as 1 | 2 | 3, slot.slotIndex);
+      if (rosterSlot !== null) {
+        position = (POSITION_FOR_ROSTER_SEAT[rosterSlot] as Position) ?? null;
+      }
+    }
+    return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
+  });
   if (controlledRosterSlots !== undefined && rankedAp.round) {
     const controlled = new Set(controlledRosterSlots);
     controlledSlots = controlledSlots.filter((slot) => {

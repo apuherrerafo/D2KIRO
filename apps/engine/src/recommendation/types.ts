@@ -218,6 +218,8 @@ export interface RecommendationSlot {
    * the CM step number for the single CM decision "slot". Never a roster position (0..4) -- see
    * decision.ts's header comment for why that mapping does not exist in the kernel today. */
   slotIndex: number;
+  /** Explicit roster seat position (1..5) associated with this slot if known, or null/undefined. */
+  position?: Position | null;
 }
 
 export interface RecommendationDecision {

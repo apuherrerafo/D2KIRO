@@ -27,11 +27,11 @@ const POSITIONS: HeroPositions = {
   15: [{ position: 4, matches: 2000 }, { position: 5, matches: 400 }], // support
   16: [{ position: 5, matches: 2000 }], // hard support only
   17: [{ position: 4, matches: 1500 }, { position: 1, matches: 1400 }], // flex support/carry
-  20: [{ position: 1, matches: 4000 }],
+  20: [{ position: 1, matches: 4000 }, { position: 5, matches: 200 }, { position: 4, matches: 200 }],
   21: [{ position: 1, matches: 3000 }],
-  30: [{ position: 2, matches: 1000 }], // Meepo-like mid
-  31: [{ position: 2, matches: 900 }],
-  32: [{ position: 2, matches: 800 }],
+  30: [{ position: 2, matches: 1000 }, { position: 3, matches: 50 }], // Meepo-like mid
+  31: [{ position: 2, matches: 900 }, { position: 3, matches: 50 }],
+  32: [{ position: 2, matches: 800 }, { position: 3, matches: 50 }],
   22: [{ position: 1, matches: 2500 }],
   23: [{ position: 2, matches: 2500 }],
   40: [{ position: 3, matches: 4000 }], // Axe-like enemy
