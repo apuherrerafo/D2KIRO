@@ -253,14 +253,16 @@ function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
   if (personal.seatCovered) {
     return (
       <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
-        <span className="text-caption font-semibold text-accent-primary">{personal.positionLabel}</span>
+        <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
+        <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
         <span className="text-caption text-content-secondary" data-testid="coach-personal-seat-covered">Tu posición ya está cubierta</span>
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
-      <span className="text-caption font-semibold text-accent-primary">{personal.positionLabel}</span>
+      <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
+      <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
       <ul className="grid grid-cols-1 gap-1">
         {personal.heroes.map((hero) => <li key={hero.heroId} className="text-caption text-content-primary" data-hero-id={hero.heroId}>
           {hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}

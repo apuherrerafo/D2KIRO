@@ -1,6 +1,6 @@
 import "@/test-support/happy-dom";
 
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import type { CoachOutput } from "../coach-client";
 import { NOT_COMPUTED, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
@@ -75,6 +75,120 @@ test("recomendaciones compuestas (legacy: null): se muestran como dupla, nunca v
   const view = render(<CopilotPanel recommendations={set} heroCatalog={new Map()} previewStatus="ready" />);
   expect(view.getAllByText("Dupla sugerida")).toHaveLength(2);
   expect(view.queryAllByRole("button", { name: "Ver señales" })).toHaveLength(0);
+});
+
+test("UX-02: con Coach presente expone los paquetes V2 en dos columnas antes del primer lock", () => {
+  const set = recommendationSet({
+    decision: {
+      actor: "radiant",
+      actionKind: "PICK",
+      controlledSlots: [{ side: "radiant", slotIndex: 0 }, { side: "radiant", slotIndex: 1 }],
+      actionCount: 2,
+    },
+    recommendations: [compound(1, 2, 199), compound(3, 4, 180)],
+  });
+  const catalog = new Map([
+    [1, { ...HERO_CATALOG.get(7)!, id: 1, localizedName: "Hero 1" }],
+    [2, { ...HERO_CATALOG.get(7)!, id: 2, localizedName: "Hero 2" }],
+    [3, { ...HERO_CATALOG.get(7)!, id: 3, localizedName: "Hero 3" }],
+    [4, { ...HERO_CATALOG.get(7)!, id: 4, localizedName: "Hero 4" }],
+  ]);
+  const view = render(
+    <CopilotPanel
+      recommendations={set}
+      coach={fixtureCoach({ personalHeroView: { position: 5, positionLabel: "Hard support", heroes: [] } })}
+      heroCatalog={catalog}
+      previewStatus="ready"
+      playerPosition={5}
+      partyPositions={[5, 4]}
+      roundPickState={{ round: 1, isMultiPickRound: true, lockedSlotIndexes: [] }}
+    />,
+  );
+
+  expect(view.getByText("2 picks en esta ronda")).toBeDefined();
+  expect(view.getByText("Paquetes V2 de ronda")).toBeDefined();
+  const pos5 = within(view.getByTestId("recommendation-column-slot-0"));
+  const pos4 = within(view.getByTestId("recommendation-column-slot-1"));
+  expect(pos5.getByText("Pos5 Hard Support")).toBeDefined();
+  expect(pos5.getByText("YOU · Vista personal / Hero Pool")).toBeDefined();
+  expect(pos4.getByText("Pos4 Support")).toBeDefined();
+  expect(pos4.getByText("PARTY · Recomendación por rol · sin Hero Pool personal")).toBeDefined();
+  expect(pos4.queryByText("Tu pool")).toBeNull();
+  expect(pos5.getByText("Hero 1")).toBeDefined();
+  expect(pos4.getByText("Hero 2")).toBeDefined();
+});
+
+test("UX-02: la segunda ronda presenta Pos3 Offlane y Pos1 Carry antes del primer lock", () => {
+  const set = recommendationSet({
+    decision: {
+      actor: "radiant",
+      actionKind: "PICK",
+      controlledSlots: [{ side: "radiant", slotIndex: 0 }, { side: "radiant", slotIndex: 1 }],
+      actionCount: 2,
+    },
+    recommendations: [compound(1, 2, 199)],
+  });
+  const view = render(
+    <CopilotPanel
+      recommendations={set}
+      heroCatalog={new Map()}
+      previewStatus="ready"
+      playerPosition={1}
+      partyPositions={[3, 1]}
+      roundPickState={{ round: 2, isMultiPickRound: true, lockedSlotIndexes: [] }}
+    />,
+  );
+
+  expect(within(view.getByTestId("recommendation-column-slot-0")).getByText("Pos3 Offlane")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-slot-1")).getByText("Pos1 Carry")).toBeDefined();
+});
+
+test("UX-02: tras el primer lock conserva la columna bloqueada como sustituida y reemplaza sólo la restante", () => {
+  const initial = recommendationSet({
+    decision: {
+      actor: "radiant",
+      actionKind: "PICK",
+      controlledSlots: [{ side: "radiant", slotIndex: 0 }, { side: "radiant", slotIndex: 1 }],
+      actionCount: 2,
+    },
+    recommendations: [compound(1, 2, 199)],
+  });
+  const catalog = new Map([
+    [1, { ...HERO_CATALOG.get(7)!, id: 1, localizedName: "Initial Pos5" }],
+    [2, { ...HERO_CATALOG.get(7)!, id: 2, localizedName: "Initial Pos4" }],
+    [8, { ...HERO_CATALOG.get(7)!, id: 8, localizedName: "Recomputed Pos4" }],
+  ]);
+  const view = render(
+    <CopilotPanel
+      recommendations={initial}
+      heroCatalog={catalog}
+      previewStatus="ready"
+      playerPosition={5}
+      partyPositions={[5, 4]}
+      roundPickState={{ round: 1, isMultiPickRound: true, lockedSlotIndexes: [] }}
+    />,
+  );
+  const remaining = recommendationSet({
+    decision: { actor: "radiant", actionKind: "PICK", controlledSlots: [{ side: "radiant", slotIndex: 1 }], actionCount: 1 },
+    recommendations: [{ ...singleAction(8, 90), actions: [{ slot: { side: "radiant", slotIndex: 1 }, hero: 8 }] }],
+  });
+
+  view.rerender(
+    <CopilotPanel
+      recommendations={remaining}
+      heroCatalog={catalog}
+      previewStatus="ready"
+      playerPosition={5}
+      partyPositions={[5, 4]}
+      roundPickState={{ round: 1, isMultiPickRound: true, lockedSlotIndexes: [0], lockedHeroesBySlot: { 0: 1 } }}
+    />,
+  );
+
+  expect(within(view.getByTestId("recommendation-column-slot-0")).getByText("Héroe y posición bloqueados")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-slot-0")).getByText("Initial Pos5")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-slot-1")).getByText("Recomendaciones iniciales sustituidas · recálculo actual")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-slot-1")).getByText("Recomputed Pos4")).toBeDefined();
+  expect(within(view.getByTestId("recommendation-column-slot-1")).queryByText("Initial Pos4")).toBeNull();
 });
 
 test("degradaciones se muestran siempre que existan, ninguna se calla en silencio", () => {

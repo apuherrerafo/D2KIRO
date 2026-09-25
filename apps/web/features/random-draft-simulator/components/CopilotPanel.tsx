@@ -12,6 +12,7 @@ import type { CoachOutput } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
+import { positionForRoundSlot, SIMULATOR_POSITION_LABELS } from "../roster";
 
 // R1 S5 (independent architecture review, blockers 1 + 8) -- this panel is the ONE human-facing
 // Copilot for the R1 ProtocolSession-backed simulator. It renders RecommendationSet/v2 ONLY:
@@ -227,6 +228,114 @@ interface RecommendationListProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+export interface RoundPickState {
+  round: 1 | 2 | 3;
+  isMultiPickRound: boolean;
+  lockedSlotIndexes: number[];
+  lockedHeroesBySlot?: Partial<Record<number, HeroId>>;
+}
+
+interface RoundRecommendationColumnProps {
+  slotIndex: number;
+  source: RecommendationSetV2 | null;
+  heroCatalog: Map<number, HeroMeta>;
+  round: 1 | 2 | 3;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+  state: "initial" | "locked" | "recomputed";
+  lockedHeroId?: HeroId;
+}
+
+function RoundRecommendationColumn({
+  slotIndex,
+  source,
+  heroCatalog,
+  round,
+  playerPosition,
+  partyPositions,
+  state,
+  lockedHeroId,
+}: RoundRecommendationColumnProps) {
+  const position = positionForRoundSlot(round, slotIndex);
+  const isPersonal = position === playerPosition;
+  const isParty = partyPositions?.includes(position) ?? true;
+  const controllerLabel = isPersonal
+    ? "YOU · Vista personal / Hero Pool"
+    : `${isParty ? "PARTY" : "ALLY BOT"} · Recomendación por rol · sin Hero Pool personal`;
+  const actions = (source?.recommendations ?? []).flatMap((recommendation, packageIndex) => {
+    const action = recommendation.actions.find((candidate) => candidate.slot.slotIndex === slotIndex);
+    return action ? [{ action, packageIndex }] : [];
+  });
+  const isLocked = state === "locked";
+  const isRecomputed = state === "recomputed";
+  const stateClass = isLocked ? "opacity-75" : "";
+  const lockedHero = lockedHeroId === undefined ? undefined : heroCatalog.get(lockedHeroId);
+  return (
+    <div className={`flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3 ${stateClass}`} data-testid={`recommendation-column-slot-${slotIndex}`}>
+      <span className="text-body font-semibold text-content-primary">Pos{position} {SIMULATOR_POSITION_LABELS[position]}</span>
+      <span className="text-caption text-content-muted">{controllerLabel}</span>
+      {isLocked && <span className="text-caption font-semibold text-signal-positive">Héroe y posición bloqueados</span>}
+      {isLocked && lockedHeroId !== undefined && (
+        <div className="flex items-center gap-2 text-caption font-semibold text-content-primary">
+          <HeroIcon imgUrl={lockedHero?.imgUrl ?? ""} alt={lockedHero?.localizedName ?? `Héroe ${lockedHeroId}`} size={40} />
+          <span>{lockedHero?.localizedName ?? `Héroe ${lockedHeroId}`}</span>
+        </div>
+      )}
+      {isRecomputed && <span className="text-caption font-semibold text-signal-warning">Recomendaciones iniciales sustituidas · recálculo actual</span>}
+      <ol className="flex flex-col gap-2">
+        {actions.map(({ action, packageIndex }) => {
+          const hero = heroCatalog.get(action.hero);
+          return (
+            <li key={`${packageIndex}-${action.hero}`} className="flex items-center gap-2 text-caption text-content-primary">
+              <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${action.hero}`} size={40} />
+              <span className="text-content-muted">Paquete {packageIndex + 1}</span>
+              <span className="font-semibold">{hero?.localizedName ?? `Héroe ${action.hero}`}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+interface RoundRecommendationColumnsProps {
+  current: RecommendationSetV2;
+  heroCatalog: Map<number, HeroMeta>;
+  roundPickState: RoundPickState;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+}
+
+function RoundRecommendationColumns({ current, heroCatalog, roundPickState, playerPosition, partyPositions }: RoundRecommendationColumnsProps) {
+  const roundSlotIndexes = [0, 1];
+  return (
+    <div className="flex flex-col gap-2" data-testid="round-recommendation-columns">
+      <span className="text-body font-semibold text-accent-primary">2 picks en esta ronda</span>
+      <span className="text-caption font-semibold text-content-secondary">Paquetes V2 de ronda</span>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {roundSlotIndexes.map((slotIndex) => {
+          const locked = roundPickState.lockedSlotIndexes.includes(slotIndex);
+          const state = locked ? "locked" : roundPickState.lockedSlotIndexes.length > 0 ? "recomputed" : "initial";
+          const source = locked ? null : current;
+          return (
+            <RoundRecommendationColumn
+              key={slotIndex}
+              slotIndex={slotIndex}
+              source={source}
+              heroCatalog={heroCatalog}
+              round={roundPickState.round}
+              playerPosition={playerPosition}
+              partyPositions={partyPositions}
+              state={state}
+              lockedHeroId={roundPickState.lockedHeroesBySlot?.[slotIndex]}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RecommendationList({ recommendationSet, heroCatalog }: RecommendationListProps) {
   if (!recommendationSet) return null;
   const { recommendations } = recommendationSet;
@@ -269,13 +378,16 @@ function RecommendationList({ recommendationSet, heroCatalog }: RecommendationLi
 
 export interface CopilotPanelProps {
   recommendations: RecommendationSetV2 | null;
-  /** AP Ranked Roles V1 / Wave 2: the Coach output (primary action + shortlist). When present it replaces the flat V2 list. */
+  /** AP Ranked Roles V1 / Wave 2: Coach output plus the V2 package/round recommendations. */
   coach?: CoachOutput | null;
   heroCatalog: Map<number, HeroMeta>;
   previewStatus?: PreviewStatus;
   onRetryPreview?: () => void;
   onSuggestedHeroIdsChange?: (heroIds: ReadonlySet<HeroId>) => void;
   onAssignOwnPosition?: (heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null) => void;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+  roundPickState?: RoundPickState;
 }
 
 function noop() {
@@ -289,10 +401,25 @@ function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: 
   return recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
 }
 
-// Sin Coach (Captain's Mode, un motor viejo): el desglose V2 de siempre. Con Coach: acción primaria +
-// shortlist, nunca la lista plana de 6.
-function LegacyRecommendationBody({ recommendations, heroCatalog }: { recommendations: RecommendationSetV2; heroCatalog: Map<number, HeroMeta> }) {
+// El V2 sigue visible con o sin Coach. En rondas 2-pick se proyecta por slot; en una ronda
+// single-pick conserva la lista compacta anterior.
+interface LegacyRecommendationBodyProps {
+  recommendations: RecommendationSetV2;
+  heroCatalog: Map<number, HeroMeta>;
+  roundPickState?: RoundPickState;
+  playerPosition?: 1 | 2 | 3 | 4 | 5;
+  partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
+}
+
+function LegacyRecommendationBody({
+  recommendations,
+  heroCatalog,
+  roundPickState,
+  playerPosition,
+  partyPositions,
+}: LegacyRecommendationBodyProps) {
   if (recommendations.recommendations.length === 0) return null;
+  const showMultiColumns = roundPickState?.isMultiPickRound === true;
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -300,12 +427,32 @@ function LegacyRecommendationBody({ recommendations, heroCatalog }: { recommenda
         <RecommendationRisksNotice risks={recommendations.recommendations[0].risks} />
         <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />
       </div>
-      <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />
+      {showMultiColumns && (
+        <RoundRecommendationColumns
+          current={recommendations}
+          heroCatalog={heroCatalog}
+          roundPickState={roundPickState}
+          playerPosition={playerPosition}
+          partyPositions={partyPositions}
+        />
+      )}
+      {!showMultiColumns && <RecommendationList recommendationSet={recommendations} heroCatalog={heroCatalog} />}
     </>
   );
 }
 
-export function CopilotPanel({ recommendations, coach = null, heroCatalog, previewStatus = "idle", onRetryPreview = noop, onSuggestedHeroIdsChange, onAssignOwnPosition }: CopilotPanelProps) {
+export function CopilotPanel({
+  recommendations,
+  coach = null,
+  heroCatalog,
+  previewStatus = "idle",
+  onRetryPreview = noop,
+  onSuggestedHeroIdsChange,
+  onAssignOwnPosition,
+  playerPosition,
+  partyPositions,
+  roundPickState,
+}: CopilotPanelProps) {
   const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach).join(",");
 
   // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
@@ -334,8 +481,15 @@ export function CopilotPanel({ recommendations, coach = null, heroCatalog, previ
         <span className="text-caption text-content-muted">Sin candidatos para el estado actual del draft.</span>
       )}
       {coach && <CoachPanel coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} suppressDegradations />}
-      {coach && recommendations && <OpponentIntelligenceNotice deferred={recommendations.deferred} heroCatalog={heroCatalog} />}
-      {!coach && recommendations && <LegacyRecommendationBody recommendations={recommendations} heroCatalog={heroCatalog} />}
+      {recommendations && (
+        <LegacyRecommendationBody
+          recommendations={recommendations}
+          heroCatalog={heroCatalog}
+          roundPickState={roundPickState}
+          playerPosition={playerPosition}
+          partyPositions={partyPositions}
+        />
+      )}
     </div>
   );
 }

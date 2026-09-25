@@ -20,6 +20,7 @@ function blindRound(overrides: Partial<BlindRound> = {}): BlindRound {
     timerRemainingMs: 10_000,
     timerDurationMs: 25_000,
     pendingUserPicks: [],
+    lockedUserPicks: {},
     attemptSeats: [0, 1],
     pendingSeats: [0, 1],
     goldPenaltyBySlot: [0, 0, 0, 0, 0],

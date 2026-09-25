@@ -7,6 +7,26 @@ async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
   return names.map((name) => name.trim()).filter((name) => name.length > 0);
 }
 
+function positionFromLabel(label: string): number {
+  const match = label.match(/Posición ([1-5])/);
+  if (!match) throw new Error(`invalid position label: ${label}`);
+  return Number(match[1]);
+}
+
+function hiddenEnemySeatsAtFirstHumanTurn(partySize: 1 | 2 | 3 | 5, partyPositions: string[], personalPosition: string): number {
+  const positions = partySize === 5
+    ? [1, 2, 3, 4, 5]
+    : partySize === 1
+      ? [positionFromLabel(personalPosition)]
+      : partyPositions.map(positionFromLabel);
+  const firstRound = Math.min(...positions.map((position) => {
+    if (position === 4 || position === 5) return 1;
+    if (position === 1 || position === 3) return 2;
+    return 3;
+  }));
+  return firstRound === 1 ? 5 : firstRound === 2 ? 3 : 1;
+}
+
 async function playPartyDraft(
   page: Page,
   side: "Radiant" | "Dire",
@@ -41,6 +61,14 @@ async function playPartyDraft(
   await startButton.click();
 
   await expect(page.getByTestId("resolved-bans")).toBeVisible({ timeout: 60_000 });
+  const roster = page.getByTestId("team-roster");
+  await expect(roster).toBeVisible();
+  await expect(roster.getByText("YOU", { exact: true })).toHaveCount(1);
+  await expect(roster.getByText("PARTY", { exact: true })).toHaveCount(partySize - 1);
+  await expect(roster.getByText("ALLY BOT", { exact: true })).toHaveCount(5 - partySize);
+  await expect(roster.getByText("Oculto hasta el reveal", { exact: true })).toHaveCount(
+    hiddenEnemySeatsAtFirstHumanTurn(partySize, partyPositions, personalPosition),
+  );
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (await page.getByText("Draft completo").isVisible()) break;
@@ -52,6 +80,12 @@ async function playPartyDraft(
   }
 
   await expect(page.getByText("Draft completo")).toBeVisible({ timeout: 90_000 });
+  await expect(roster.getByText("Oculto hasta el reveal", { exact: true })).toHaveCount(0);
+  await expect(roster.getByText("Sin elegir", { exact: true })).toHaveCount(0);
+  for (const position of [1, 2, 3, 4, 5]) {
+    await expect(roster.getByTestId(`own-roster-pos-${position}`)).toBeVisible();
+    await expect(roster.getByTestId(`enemy-roster-pos-${position}`)).toBeVisible();
+  }
   const own = await heroNamesIn(page, "summary-user-picks");
   const enemy = await heroNamesIn(page, "summary-bot-picks");
   expect(own).toHaveLength(5);

@@ -4,6 +4,10 @@ import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
 import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { useState } from "react";
+import { BUTTON_COMPACT } from "@/features/draft/styles";
+import { POSITION_FOR_ROSTER_SEAT } from "../protocol-client";
+import { roundSlotForRosterSeat, SIMULATOR_POSITION_LABELS } from "../roster";
 import type { DraftPhase, HeroId } from "../types";
 
 type BlindRoundPhase = Extract<DraftPhase, { type: "blind_round" }>;
@@ -90,7 +94,7 @@ interface BlindRoundActiveProps {
   // TSK-084: mismos candidatos que ya destaca el Copilot al lado -- un solo highlight dorado
   // consistente entre las dos superficies, no una segunda heurística.
   highlightedHeroIds: ReadonlySet<HeroId>;
-  onLockPick: (heroId: HeroId) => void;
+  onLockPick: (heroId: HeroId, slotIndex: number) => void;
 }
 
 const SEAT_ROLE_NAMES: Record<number, string> = {
@@ -101,12 +105,41 @@ const SEAT_ROLE_NAMES: Record<number, string> = {
   4: "Pos 2 (Midlane)",
 };
 
+interface SeatTargetButtonProps {
+  seat: number;
+  selected: boolean;
+  locked: boolean;
+  onSelect(seat: number): void;
+}
+
+function SeatTargetButton({ seat, selected, locked, onSelect }: SeatTargetButtonProps) {
+  const position = POSITION_FOR_ROSTER_SEAT[seat]!;
+  function handleSelect() {
+    onSelect(seat);
+  }
+  const selectedClass = selected ? "border-accent-primary text-accent-primary" : "border-surface-border text-content-secondary";
+  const actionLabel = locked ? "Sellado" : "Elegir para";
+  return (
+    <button type="button" className={`${BUTTON_COMPACT} ${selectedClass}`} disabled={locked} onClick={handleSelect}>
+      {actionLabel} Pos{position} {SIMULATOR_POSITION_LABELS[position]}
+    </button>
+  );
+}
+
 function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick }: BlindRoundActiveProps) {
-  const unavailable = unavailableHeroIds(draftState, phase.pendingUserPicks);
+  const availableSeats = phase.attemptSeats.filter((seat) => phase.lockedUserPicks[seat] === undefined);
+  const [preferredSeat, setPreferredSeat] = useState(availableSeats[0] ?? phase.attemptSeats[0] ?? 0);
+  const selectedSeat = availableSeats.includes(preferredSeat) ? preferredSeat : (availableSeats[0] ?? preferredSeat);
+  const lockedHeroIds = Object.values(phase.lockedUserPicks).filter((heroId): heroId is HeroId => heroId !== undefined);
+  const unavailable = unavailableHeroIds(draftState, lockedHeroIds);
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
   const total = phase.attemptSeats.length;
-  const locked = phase.pendingUserPicks.length;
+  const locked = lockedHeroIds.length;
   const canPick = locked < total;
+
+  function handleHeroSelect(heroId: HeroId) {
+    onLockPick(heroId, roundSlotForRosterSeat(phase.round, selectedSeat));
+  }
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
@@ -115,14 +148,15 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
       <span className="text-heading text-content-primary">
         Ronda {phase.round} -- elegí {total} {total === 1 ? "héroe" : "héroes"} para tu equipo ({locked} de {total} sellados)
       </span>
+      {total === 2 && <span className="text-body font-semibold text-accent-primary">2 picks en esta ronda</span>}
       <span className="text-caption text-content-muted">
         Controlás las posiciones de tu party. Los demás aliados son simulados automáticamente. Al elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
       </span>
       <ConflictBanner conflictBans={phase.conflictBans} notice={phase.notice} heroCatalog={heroCatalog} />
       <TimerExpiredNotice phase={phase} />
       <div className="flex flex-wrap gap-4">
-        {phase.attemptSeats.map((seat, index) => {
-          const heroId = phase.pendingUserPicks[index] ?? null;
+        {phase.attemptSeats.map((seat) => {
+          const heroId = phase.lockedUserPicks[seat] ?? null;
           const roleLabel = SEAT_ROLE_NAMES[seat] ? ` — ${SEAT_ROLE_NAMES[seat]}` : "";
           return (
             <SeatCard
@@ -135,7 +169,20 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
           );
         })}
       </div>
-      {canPick && <HeroGrid heroes={pickablePool} highlightedHeroIds={highlightedHeroIds} onSelect={onLockPick} />}
+      {canPick && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Posición para el próximo pick">
+          {phase.attemptSeats.map((seat) => (
+            <SeatTargetButton
+              key={seat}
+              seat={seat}
+              selected={seat === selectedSeat}
+              locked={phase.lockedUserPicks[seat] !== undefined}
+              onSelect={setPreferredSeat}
+            />
+          ))}
+        </div>
+      )}
+      {canPick && <HeroGrid heroes={pickablePool} highlightedHeroIds={highlightedHeroIds} onSelect={handleHeroSelect} />}
     </div>
   );
 }
@@ -184,7 +231,7 @@ export interface BlindRoundPanelProps {
   // TSK-084: opcional a propósito -- mismo criterio que HeroGrid.highlightedHeroIds, un caller
   // sin sugerencias frescas todavía (o ninguna) simplemente no resalta nada.
   highlightedHeroIds?: ReadonlySet<HeroId>;
-  onLockPick: (heroId: HeroId) => void;
+  onLockPick: (heroId: HeroId, slotIndex: number) => void;
 }
 
 const EMPTY_HIGHLIGHTED: ReadonlySet<HeroId> = new Set();

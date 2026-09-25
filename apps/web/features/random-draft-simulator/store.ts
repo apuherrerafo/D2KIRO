@@ -35,7 +35,7 @@ export interface RandomDraftState {
 export interface RandomDraftActions {
   startSession(config: DraftConfig, sessionId: string, orchestratorResult: OrchestratorResult, mode?: SessionMode): void;
   /** Registra un héroe que el Player ya selló (lock) en el intento actual de la ronda. */
-  confirmPick(heroId: HeroId): void;
+  confirmPick(heroId: HeroId, rosterSeat?: number): void;
   resetSession(): void;
   setDraftState(state: DraftState): void;
   setRecommendations(recommendations: RecommendationSetV2 | null): void;
@@ -81,10 +81,18 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
     });
   },
 
-  confirmPick(heroId) {
+  confirmPick(heroId, rosterSeat) {
     const { phase } = get();
     if (phase.type !== "blind_round" || phase.pendingUserPicks.includes(heroId)) return;
-    set({ phase: { ...phase, pendingUserPicks: [...phase.pendingUserPicks, heroId] } });
+    const targetSeat = rosterSeat ?? phase.attemptSeats.find((seat) => phase.lockedUserPicks[seat] === undefined);
+    if (targetSeat === undefined || !phase.attemptSeats.includes(targetSeat)) return;
+    set({
+      phase: {
+        ...phase,
+        pendingUserPicks: [...phase.pendingUserPicks, heroId],
+        lockedUserPicks: { ...phase.lockedUserPicks, [targetSeat]: heroId },
+      },
+    });
   },
 
   resetSession() {

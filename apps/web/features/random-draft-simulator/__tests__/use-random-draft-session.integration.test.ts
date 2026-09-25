@@ -58,6 +58,9 @@ class FakeApProtocolEngine {
   private coachBody() {
     this.coachRevision += 1;
     const revision = this.outOfOrderCoach && this.coachRevision > 1 ? 0 : this.coachRevision;
+    const controlledSlots = this.openSlots.map((slotIndex) => ({ side: this.side, slotIndex }));
+    const recommendationHeroes = controlledSlots.map((slot) => 10 + slot.slotIndex + this.own.length);
+    const recommendationActions = controlledSlots.map((slot, index) => ({ slot, hero: recommendationHeroes[index]! }));
     return {
       output: {
         schema: "recommendation-output/v3",
@@ -78,8 +81,22 @@ class FakeApProtocolEngine {
       recommendationSet: {
         schema: "recommendation-set/v2",
         sessionId: this.sessionId,
-        decision: { actor: this.side, actionKind: "PICK", controlledSlots: [], actionCount: 1 },
-        recommendations: [],
+        decision: { actor: this.side, actionKind: "PICK", controlledSlots, actionCount: controlledSlots.length },
+        recommendations: recommendationActions.length === 0 ? [] : [{
+          actions: recommendationActions,
+          score: 80,
+          confidence: "media",
+          roleImpact: Object.fromEntries(recommendationHeroes.map((hero, index) => [hero, {
+            status: "LIKELY",
+            position: this.round === 1 ? (index === 0 ? 5 : 4) : this.round === 2 ? (index === 0 ? 3 : 1) : 2,
+            marginals: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 },
+            entropy: 1,
+          }])),
+          risks: [],
+          legacy: recommendationActions.length === 1 ? {
+            hero: recommendationHeroes[0], signals: [], evidenceCoverage: 1, guessingIndex: 0, reason: "fixture",
+          } : null,
+        }],
         degradations: [],
         deferred: { opponentResponse: "NOT_COMPUTED", steal: "NOT_COMPUTED", lookahead: "NOT_COMPUTED" },
         decisionContext: "team_opening",
@@ -213,8 +230,8 @@ async function startDraft(
   return { engine, ...hook };
 }
 
-async function lock(result: { current: ReturnType<typeof useRandomDraftSession> }, heroId: HeroId): Promise<void> {
-  await act(async () => result.current.actions.lockPick(heroId));
+async function lock(result: { current: ReturnType<typeof useRandomDraftSession> }, heroId: HeroId, slotIndex?: number): Promise<void> {
+  await act(async () => result.current.actions.lockPick(heroId, slotIndex));
 }
 
 function commands(engine: FakeApProtocolEngine) {
@@ -378,6 +395,22 @@ test("COACH: hay acción primaria al abrir la Ronda 1 (antes del primer pick) y 
   expect(second.meta.trigger).toBe("OWN_PICK_CONFIRMED");
   expect(second.meta.basedOn.stateIdentity).not.toBe(first.meta.basedOn.stateIdentity);
   expect(result.current.state.draftState?.picks.dire).toEqual([]); // still nothing revealed
+  expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
+  unmount();
+});
+
+test("UX-02: cualquier slot controlado puede sellarse primero y sólo el restante se recalcula", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 5);
+  await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(2));
+
+  await lock(result, 7, 1);
+
+  expect(commands(engine)[0]).toEqual({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 7 });
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", lockedUserPicks: { 1: 7 } });
+  await waitFor(() => expect(result.current.state.recommendations?.decision).toMatchObject({
+    controlledSlots: [{ side: "radiant", slotIndex: 0 }],
+    actionCount: 1,
+  }));
   expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
   unmount();
 });

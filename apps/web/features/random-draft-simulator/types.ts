@@ -72,6 +72,9 @@ export type SessionMode = "simulation" | "live_companion";
 export interface DraftSummary {
   draftSeed: string;
   userSide: TeamSide;
+  playerPosition: 1 | 2 | 3 | 4 | 5;
+  partySize: 1 | 2 | 3 | 5;
+  partyPositions: (1 | 2 | 3 | 4 | 5)[];
   personalBanList: HeroId[];
   resolvedBans: HeroId[];
   picksByRound: PicksByRound[];
@@ -90,6 +93,8 @@ export type DraftPhase =
       timerDurationMs: number;
       /** Héroes ya sellados por el Player en este intento de la ronda. */
       pendingUserPicks: HeroId[];
+      /** Identidad sellada por asiento cronológico; permite elegir el segundo slot primero. */
+      lockedUserPicks: Partial<Record<number, HeroId>>;
       /** Asientos (0..4) que el Player debe llenar en este intento (2, 2, 1 -- o menos tras una colisión). */
       attemptSeats: number[];
       /** Asientos que siguen sin elegir. */

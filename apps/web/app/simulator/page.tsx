@@ -11,6 +11,7 @@ import { ConfigPanel } from "@/features/random-draft-simulator/components/Config
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { LiveBanEntryPanel, LivePendingPanel } from "@/features/random-draft-simulator/components/LiveCompanionPanel";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
+import { SimulatorTeamRoster } from "@/features/random-draft-simulator/components/SimulatorTeamRoster";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
@@ -65,7 +66,7 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, recommendations, coach, previewStatus } = session.state;
+  const { phase, draftState, recommendations, coach, previewStatus, config } = session.state;
   const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
 
@@ -94,6 +95,17 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           onRetryPreview={session.actions.retryPreview}
           onAssignOwnPosition={session.actions.assignOwnPosition}
           onSuggestedHeroIdsChange={setHighlightedHeroIds}
+          playerPosition={config?.playerPosition}
+          partyPositions={config?.partyPositions}
+          roundPickState={phase.type === "blind_round" ? {
+            round: phase.round,
+            isMultiPickRound: phase.attemptSeats.length === 2,
+            lockedSlotIndexes: Object.keys(phase.lockedUserPicks).map((seat) => Number(seat) - (phase.round === 1 ? 0 : phase.round === 2 ? 2 : 4)),
+            lockedHeroesBySlot: Object.fromEntries(Object.entries(phase.lockedUserPicks).map(([seat, heroId]) => [
+              Number(seat) - (phase.round === 1 ? 0 : phase.round === 2 ? 2 : 4),
+              heroId,
+            ])),
+          } : undefined}
         />
       </div>
     </div>
@@ -223,7 +235,7 @@ function RankedAllPickSimulator() {
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
 
-  const { phase, draftState } = session.state;
+  const { phase, draftState, config } = session.state;
 
   // TSK-086: mismo timer que antes vivía dentro de BlindRoundPanel, ahora armado acá para
   // pasarlo como centerContent de CompactBoard -- solo durante blind_round (única fase con un
@@ -252,6 +264,9 @@ function RankedAllPickSimulator() {
           heroCatalog={heroCatalog}
           centerContent={centerContent}
         />
+      )}
+      {draftState && config && (
+        <SimulatorTeamRoster draftState={draftState} config={config} phase={phase} heroCatalog={heroCatalog} />
       )}
       <ActivePanel session={session} heroCatalog={heroCatalog} />
     </div>

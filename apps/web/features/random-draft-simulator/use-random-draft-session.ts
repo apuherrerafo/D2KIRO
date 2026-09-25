@@ -21,6 +21,7 @@ import {
   type ProtocolSnapshot,
 } from "./protocol-client";
 import { useRandomDraftStore, type RandomDraftActions, type RandomDraftState } from "./store";
+import { rosterSeatForRoundSlot } from "./roster";
 import type { DraftConfig, HeroId, PicksByRound, SessionMode } from "./types";
 
 const TIMER_TICK_MS = 250;
@@ -95,8 +96,8 @@ export type StartDraftConfig = Omit<DraftConfig, "patch">;
 export interface UseRandomDraftSessionResult {
   state: RandomDraftState;
   actions: Pick<RandomDraftActions, "confirmPick"> & {
-    /** Sella la selección del Player para el siguiente asiento abierto (inmediato; el asiento deja de acumular penalización). */
-    lockPick(heroId: HeroId): Promise<void>;
+    /** Sella la selección del Player para un asiento abierto explícito. */
+    lockPick(heroId: HeroId, slotIndex?: number): Promise<void>;
     resetDraft(): void;
     retryPreview(): void;
     /** Reintenta la resolución de bans con los mismos datos y la misma seed (fail closed). */
@@ -237,6 +238,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       timerRemainingMs: timer?.remainingMs ?? specForRound(round).timerMs,
       timerDurationMs: timer?.durationMs ?? specForRound(round).timerMs,
       pendingUserPicks: [],
+      lockedUserPicks: {},
       attemptSeats: seats,
       pendingSeats: seats,
       goldPenaltyBySlot: timer?.goldPenaltyBySlot ?? [0, 0, 0, 0, 0],
@@ -260,6 +262,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       summary: {
         draftSeed: current.config.draftSeed,
         userSide: current.config.userSide,
+        playerPosition: current.config.playerPosition,
+        partySize: current.config.partySize,
+        partyPositions: current.config.partyPositions ?? (current.config.partySize === 5 ? [1, 2, 3, 4, 5] : [current.config.playerPosition]),
         personalBanList: current.config.personalBanList,
         resolvedBans: snapshot.view.bannedHeroes,
         picksByRound: revealedRoundsRef.current,
@@ -340,13 +345,13 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     await advance(notice);
   }, [advance, completeDraft, revealRound, stopTimer]);
 
-  const lockPick = useCallback(async function lockPick(heroId: HeroId): Promise<void> {
+  const lockPick = useCallback(async function lockPick(heroId: HeroId, requestedSlotIndex?: number): Promise<void> {
     const current = useRandomDraftStore.getState();
     const snapshot = protocolRef.current;
     if (lockingRef.current || current.phase.type !== "blind_round" || !current.sessionId || !snapshot) return;
     const openSlots = ownOpenSlotIndexes(snapshot);
-    const slotIndex = openSlots[0];
-    if (slotIndex === undefined) return;
+    const slotIndex = requestedSlotIndex ?? openSlots[0];
+    if (slotIndex === undefined || !openSlots.includes(slotIndex)) return;
     const round = current.phase.round;
     const previousPhase = snapshot.view.rankedAp?.phase;
     const previousBans = [...snapshot.view.bannedHeroes];
@@ -362,7 +367,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         useRandomDraftStore.getState().setRoundNotice(`Ese héroe no está disponible (${next.rejected ?? "rechazado"}). Elegí otro.`);
         return;
       }
-      useRandomDraftStore.getState().confirmPick(heroId);
+      useRandomDraftStore.getState().confirmPick(heroId, rosterSeatForRoundSlot(round, slotIndex));
       useRandomDraftStore.getState().setRoundNotice(null);
       if (openSlots.length > 1) {
         if (next.simulator) useRandomDraftStore.getState().syncRoundTimer(next.simulator);
