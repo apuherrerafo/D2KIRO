@@ -319,7 +319,7 @@ describe("RB-2 -- Primary Action and shortlist agree (S01, S09)", () => {
     const { ask, calls } = world({ scores: { 15: 50, 20: 40, 21: 30 } });
     const output = (await ask(5))!.output!;
     expect(output.primaryAction.strategy).toMatchObject({ kind: "REVEAL_POSITION", position: 4 });
-    expect(calls.some((call) => call.candidateHeroIds?.join(",") === "15,17" && call.targetPosition === undefined)).toBe(true);
+    expect(calls.some((call) => call.candidateHeroIds?.join(",") === "15,17" && call.targetPosition === 4 && call.teamOpening === false)).toBe(true);
     expect(output.shortlist.map((card) => card.heroId).sort((a, b) => a - b)).toEqual([15, 17]);
   });
 

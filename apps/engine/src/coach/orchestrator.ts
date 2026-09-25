@@ -49,7 +49,7 @@ export interface CoachOrchestratorDeps {
    * Team-level (no account overlay) V6 evaluation over a PRE-ranking candidate universe. Used only to fill the shortlist of a
    * REVEAL_POSITION action with heroes that can execute it (Dota-Judge RB-2). Omitted -> the shortlist is drawn from the team set alone.
    */
-  buildActionRecommendationSet?(context: PerspectiveRecommendationContext, candidateHeroIds: readonly HeroId[]): Promise<RecommendationSetV2>;
+  buildActionRecommendationSet?(context: PerspectiveRecommendationContext, candidateHeroIds: readonly HeroId[], targetPosition: Position): Promise<RecommendationSetV2>;
   /** Independent personal evaluation, scoped by declared role (Wave 3). */
   buildPersonalRecommendation?(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
   heroPositions?: HeroPositions;
@@ -164,7 +164,7 @@ export class CoachOrchestrator {
       : null;
     // "Reveal Pos P": the shortlist's candidate universe is decided BEFORE ranking (heroes credibly played at P), like the personal view.
     const actionRecommendationSet = strategy?.kind === "REVEAL_POSITION" && this.deps.buildActionRecommendationSet && this.deps.heroPositions
-      ? await this.deps.buildActionRecommendationSet(input.context, credibleHeroesForPosition(strategy.position, this.deps.heroPositions))
+      ? await this.deps.buildActionRecommendationSet(input.context, credibleHeroesForPosition(strategy.position, this.deps.heroPositions), strategy.position)
       : undefined;
     const output = strategy
       ? translateToRecommendationOutputV3(recommendationSet, strategy, coachState, decisionContext, {

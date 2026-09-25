@@ -192,10 +192,10 @@ describe("6. compatibilidad legacy: el camino V2 autoritativo sigue igual, y el 
 describe("7. authenticated Hero Pool scope", () => {
   test("different personal pools leave team output identical beyond opening and may change personal badges", async () => {
     const h = harness({ sessionId: "personal-pool-scope" });
-    const calls: { accountId: number | null; targetPosition?: number; teamOpening?: boolean }[] = [];
+    const calls: { accountId: number | null; targetPosition?: number; teamOpening?: boolean; candidateHeroIds?: readonly number[] }[] = [];
     const baseline = fakeCompute();
     const computeWithPersonalPool = async (state: Parameters<ReturnType<typeof fakeCompute>>[0], accountId: number | null, options?: Parameters<ReturnType<typeof fakeCompute>>[2]) => {
-      calls.push({ accountId, targetPosition: options?.targetPosition, teamOpening: options?.teamOpening });
+      calls.push({ accountId, targetPosition: options?.targetPosition, teamOpening: options?.teamOpening, candidateHeroIds: options?.candidateHeroIds });
       const set = await baseline(state, accountId, options);
       if (accountId === null || options?.targetPosition !== 2) return set;
       const poolHero = accountId === 101 ? 4 : 6;
@@ -220,11 +220,43 @@ describe("7. authenticated Hero Pool scope", () => {
     expect(openingA!.output!.personalHeroView!.heroes.find((hero) => hero.heroId === 4)!.isFromPool).toBe(true);
     expect(openingB!.output!.personalHeroView!.heroes.find((hero) => hero.heroId === 6)!.isFromPool).toBe(true);
 
+    const openingStrategy = openingA!.output!.primaryAction.strategy;
+    expect(openingStrategy.kind).toBe("REVEAL_POSITION");
+    if (openingStrategy.kind !== "REVEAL_POSITION") throw new Error("fixture must exercise a position reveal");
+    const openingTarget = openingStrategy.position;
+    expect(openingTarget).toBe(5);
+    expect(calls).toContainEqual(expect.objectContaining({
+      accountId: null,
+      targetPosition: openingTarget,
+      teamOpening: false,
+      candidateHeroIds: [2],
+    }));
+    // Personal View still targets the Player's position and consumes the authenticated overlay.
+    // The team action intentionally targets a different role and stays account-agnostic.
+    expect(calls).toContainEqual(expect.objectContaining({ accountId: 101, targetPosition: 2, teamOpening: false }));
+    expect(openingTarget).not.toBe(2);
+
     h.seal(h.side, 0, 1);
     const laterA = await recommendations.recommend(h.id, 2, 101);
     const laterB = await recommendations.recommend(h.id, 2, 202);
     expect(teamOnly(laterA)).toEqual(teamOnly(laterB));
     expect(calls.filter((call) => call.teamOpening === true).every((call) => call.accountId === null)).toBe(true);
     expect(calls.filter((call) => call.targetPosition === 2).map((call) => call.accountId).sort()).toEqual([101, 101, 202, 202]);
+  });
+
+  test("same target position reaches Team and Personal through the same target-aware scoring path", async () => {
+    const h = harness({ sessionId: "same-target-position" });
+    const calls: { accountId: number | null; targetPosition?: number; teamOpening?: boolean }[] = [];
+    const baseline = fakeCompute();
+    const trackedCompute: typeof baseline = async (state, accountId, options) => {
+      calls.push({ accountId, targetPosition: options?.targetPosition, teamOpening: options?.teamOpening });
+      return baseline(state, accountId, options);
+    };
+    const recommendations = createCoachRecommendations({ source: h.store, computeSuggestions: trackedCompute, heroPositions: HERO_POSITIONS });
+
+    const result = await recommendations.recommend(h.id, 5, 101);
+    expect(result!.output!.primaryAction.strategy).toEqual(expect.objectContaining({ kind: "REVEAL_POSITION", position: 5 }));
+    expect(calls).toContainEqual({ accountId: null, targetPosition: 5, teamOpening: false });
+    expect(calls).toContainEqual({ accountId: 101, targetPosition: 5, teamOpening: false });
   });
 });

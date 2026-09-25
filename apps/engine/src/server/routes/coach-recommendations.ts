@@ -57,7 +57,16 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
         heroPositions,
         heroCounters,
         buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
-        buildActionRecommendationSet: (context, candidateHeroIds) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, candidateHeroIds, singleSlotEvaluation: true, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
+        buildActionRecommendationSet: (context, candidateHeroIds, targetPosition) => buildRecommendationSetFromPerspective({
+          context,
+          computeSuggestions: computeForTeam,
+          heroPositions,
+          targetPosition,
+          candidateHeroIds,
+          teamOpening: false,
+          singleSlotEvaluation: true,
+          outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+        }),
         buildPersonalRecommendation: (context, position) => buildRecommendationSetFromPerspective({
           context,
           computeSuggestions: computeForPersonal,
