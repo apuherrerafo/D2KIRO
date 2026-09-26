@@ -31,7 +31,9 @@ export function runEngine(testOverrides: EngineTestOverrides = {}): void {
   // capturador (Overwolf/simulador) lo lea y lo use en esa misma corrida del motor.
   const captureToken = process.env.CAPTURE_TOKEN ?? crypto.randomUUID();
   if (!process.env.CAPTURE_TOKEN) {
-    console.log(`[dota2coach] CAPTURE_TOKEN no configurado — generado para esta corrida: ${captureToken}`);
+    // Es un bearer reutilizable para POST /ingest/draft-event: registrarlo expondría permisos de
+    // ingesta a cualquiera con acceso a los logs de runtime (incluidos los de Railway).
+    console.warn("[dota2coach] CAPTURE_TOKEN no configurado — se generó un token efímero, omitido de logs por seguridad.");
   }
 
   const openDotaClient = new OpenDotaClient();
