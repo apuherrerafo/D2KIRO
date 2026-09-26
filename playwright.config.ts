@@ -17,6 +17,24 @@ import { FIXTURE_HERO_IDS } from "./e2e/fixtures/hero-catalog";
 
 const ENGINE_PORT = 4100; // no 4000: no puede chocar con un `bun run dev` abierto del usuario
 const WEB_PORT = 3100;
+const externalBaseUrl = process.env.E2E_EXTERNAL_BASE_URL;
+const useExternalRuntime = externalBaseUrl !== undefined;
+
+// Certificación de runtime: el mismo suite puede apuntar a un contenedor Linux ya arrancado.
+// En ese modo sus secretos y su cuenta fixture pertenecen al runtime externo; generar unos nuevos
+// acá produciría una cookie que ese contenedor nunca podría verificar.
+if (useExternalRuntime && !process.env.E2E_SESSION_SECRET) {
+  throw new Error("E2E_EXTERNAL_BASE_URL requiere E2E_SESSION_SECRET del runtime externo");
+}
+if (useExternalRuntime && !/^[1-9]\d*$/.test(process.env.E2E_EXTERNAL_ACCOUNT_ID ?? "")) {
+  throw new Error("E2E_EXTERNAL_BASE_URL requiere E2E_EXTERNAL_ACCOUNT_ID válido del runtime externo");
+}
+if (useExternalRuntime && !process.env.E2E_EXTERNAL_ENGINE_URL) {
+  throw new Error("E2E_EXTERNAL_BASE_URL requiere E2E_EXTERNAL_ENGINE_URL para la costura de reloj E2E");
+}
+if (useExternalRuntime && !process.env.E2E_EXTERNAL_DB_PATH) {
+  throw new Error("E2E_EXTERNAL_BASE_URL requiere E2E_EXTERNAL_DB_PATH compartido para verificar persistencia E2E");
+}
 
 // Secretos SOLO de este proceso de prueba, generados en runtime. Nunca literales en el repo
 // (`verify-simplicity.sh` §2 lo bloquea, y con razón).
@@ -31,11 +49,14 @@ const INTERNAL_AUTH_SECRET = process.env.E2E_INTERNAL_AUTH_SECRET ?? randomBytes
 const TMP_DIR = resolve("e2e/.tmp");
 const E2E_DB = resolve(TMP_DIR, "e2e.sqlite");
 const CM_ELIGIBILITY_PATH = resolve(TMP_DIR, "cm-hero-eligibility.json");
+const BASE_URL = externalBaseUrl ?? `http://127.0.0.1:${WEB_PORT}`;
+const E2E_ACCOUNT_ID = useExternalRuntime ? process.env.E2E_EXTERNAL_ACCOUNT_ID! : "999000001";
+const EXTERNAL_DB_PATH = process.env.E2E_EXTERNAL_DB_PATH;
 
 // Misma razón que arriba: este bloque recrea `e2e/.tmp` UNA sola vez por corrida. Re-ejecutarlo
 // en cada worker borraría la cookie que `global-setup` acaba de escribir ("Error reading storage
 // state") y reconstruiría la base a mitad de una corrida en curso.
-if (!process.env.E2E_PREPARED) {
+if (!useExternalRuntime && !process.env.E2E_PREPARED) {
   rmSync(TMP_DIR, { recursive: true, force: true });
   mkdirSync(TMP_DIR, { recursive: true });
   bootstrapE2eDatabase(E2E_DB);
@@ -51,8 +72,11 @@ if (!process.env.E2E_PREPARED) {
 // El global setup necesita los mismos valores para sellar la cookie de sesión.
 process.env.E2E_SESSION_SECRET = SESSION_SECRET;
 process.env.E2E_INTERNAL_AUTH_SECRET = INTERNAL_AUTH_SECRET;
-process.env.E2E_DB_PATH = E2E_DB;
-process.env.E2E_BASE_URL = `http://127.0.0.1:${WEB_PORT}`;
+process.env.E2E_ACCOUNT_ID = E2E_ACCOUNT_ID;
+if (useExternalRuntime && EXTERNAL_DB_PATH) process.env.E2E_DB_PATH = EXTERNAL_DB_PATH;
+else if (useExternalRuntime) delete process.env.E2E_DB_PATH;
+else process.env.E2E_DB_PATH = E2E_DB;
+process.env.E2E_BASE_URL = BASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -66,12 +90,14 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   use: {
-    baseURL: `http://127.0.0.1:${WEB_PORT}`,
+    baseURL: BASE_URL,
     storageState: "e2e/.tmp/session.json",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  webServer: [
+  // E2E_EXTERNAL_BASE_URL certifica el contenedor Linux existente: Playwright no arranca ni
+  // motor ni Next locales. Sin la variable se conserva exactamente el harness aislado actual.
+  webServer: useExternalRuntime ? undefined : [
     {
       // R1 S7 (final blocker repair, Blocker 1): index.e2e.ts, NOT index.ts -- a structurally
       // separate file that Railway/`apps/engine`'s "start"/"dev" scripts never reference. It

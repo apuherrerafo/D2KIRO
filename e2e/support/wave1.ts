@@ -3,8 +3,12 @@ import { expect, type Page, type Response } from "@playwright/test";
 // Wave 1 acceptance smoke -- shared helpers. Reuses the existing Playwright/E2E harness
 // (playwright.config.ts, global-setup.ts, the fixture DB); nothing here is a second framework.
 
-/** Direct engine origin of the E2E harness (playwright.config.ts ENGINE_PORT). Only used for the test-only clock seam. */
-export const ENGINE_DIRECT = "http://127.0.0.1:4100";
+/** Direct engine origin of the E2E harness. Only used for the test-only clock seam. */
+export function engineDirectUrl(env: Record<string, string | undefined> = process.env): string {
+  return env.E2E_EXTERNAL_ENGINE_URL ?? "http://127.0.0.1:4100";
+}
+
+export const ENGINE_DIRECT = engineDirectUrl();
 
 export interface RecordedResponse {
   url: string;

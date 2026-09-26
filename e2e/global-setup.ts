@@ -25,22 +25,28 @@ async function run(): Promise<void> {
   const password = process.env.E2E_SESSION_SECRET;
   const dbPath = process.env.E2E_DB_PATH;
   const baseUrl = process.env.E2E_BASE_URL;
-  if (!password || !dbPath || !baseUrl) {
-    throw new Error("global-setup: falta E2E_SESSION_SECRET / E2E_DB_PATH / E2E_BASE_URL (los fija playwright.config.ts)");
+  const configuredAccountId = Number(process.env.E2E_ACCOUNT_ID);
+  if (!password || !baseUrl || !Number.isInteger(configuredAccountId) || configuredAccountId < 1) {
+    throw new Error("global-setup: falta E2E_SESSION_SECRET / E2E_BASE_URL / E2E_ACCOUNT_ID válido (los fija playwright.config.ts)");
   }
 
-  // El accountId se LEE de la base, nunca se escribe en el repo: es un Steam32 real y el proyecto
-  // lo trata como dato personal (security.md, Fase 1b) — jamás en un archivo, log o ticket.
-  const db = new Database(dbPath, { readonly: true });
-  const row = db.prepare("select steam_account_id as id from accounts limit 1").get() as { id: number } | undefined;
-  db.close();
-  if (!row) {
-    throw new Error("global-setup: la base de prueba no tiene ninguna cuenta; el E2E necesita una sesión válida.");
+  // El harness local lee su fixture desde la base que acaba de crear. En modo externo la cuenta
+  // se declara por entorno porque la SQLite vive dentro del contenedor Linux, nunca se abre desde
+  // Windows ni se copia al runner.
+  let accountId = configuredAccountId;
+  if (dbPath) {
+    const db = new Database(dbPath, { readonly: true });
+    const row = db.prepare("select steam_account_id as id from accounts limit 1").get() as { id: number } | undefined;
+    db.close();
+    if (!row) {
+      throw new Error("global-setup: la base de prueba no tiene ninguna cuenta; el E2E necesita una sesión válida.");
+    }
+    accountId = row.id;
   }
 
   const now = Date.now();
   const sealed = await sealData(
-    { accountId: row.id, issuedAt: now, firstLoginAt: now },
+    { accountId, issuedAt: now, firstLoginAt: now },
     { password, ttl: SESSION_TTL_SECONDS },
   );
 
