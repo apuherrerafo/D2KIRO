@@ -53,6 +53,7 @@ function roundOf(phase: RankedApPhase | undefined): number | null {
   return null;
 }
 
+/** Pure round-slot to position mapping for AP Ranked Roles simulator (R1: 5+4, R2: 3+1, R3: 2). */
 function positionForRoundSlot(round: number, slotIndex: number): Position | null {
   if (round === 1) return slotIndex === 0 ? 5 : slotIndex === 1 ? 4 : null;
   if (round === 2) return slotIndex === 0 ? 3 : slotIndex === 1 ? 1 : null;
@@ -64,9 +65,8 @@ function positionForRoundSlot(round: number, slotIndex: number): Position | null
 function deriveDecisionFrom(
   context: PerspectiveRecommendationContext,
   singleSlotEvaluation: boolean,
-  targetPosition?: Position,
 ): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
-  const { view, partyContext } = context;
+  const { view, partyContext, isSimulator } = context;
   const actor = view.viewerSide ?? "radiant";
   const degradations: RecommendationDegradation[] = [];
   if (view.degradation) degradations.push({ reason: view.degradation.reason, detail: view.degradation.detail });
@@ -76,7 +76,7 @@ function deriveDecisionFrom(
     .filter((slot) => slot.side === actor)
     .map((slot) => {
       let position: Position | null = null;
-      if (partyContext !== null && partyContext !== undefined && round !== null) {
+      if (isSimulator && partyContext !== null && partyContext !== undefined && round !== null) {
         position = positionForRoundSlot(round, slot.slotIndex);
       }
       return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
@@ -113,7 +113,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true, input.targetPosition);
+  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true);
   const identityInputs = { view, eligibilitySnapshot: null, calibrationMode, seed: null, patch: context.patch, partyContext: context.partyContext };
   const basedOnWithoutEvidence = buildBasedOn({ ...identityInputs, evidenceHash: null });
 

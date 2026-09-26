@@ -1,6 +1,6 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import { isCandidateAdmittedForPosition, type HeroPositions } from "../signals/hero-positions";
+import { isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
 import type { SuggestionSet } from "../signals/mix";
 import { deriveRisks, evidenceFromRoleBelief, evidenceFromSignals } from "./evidence";
 import { computeRoleImpact } from "./role-impact";
@@ -74,7 +74,7 @@ export function buildSingleRecommendations(
     const targetSlot = candidateSlots.find((s) => {
       if (!context.isLegal(entry.hero, s)) return false;
       if (filterBySlotPosition && s.position !== undefined && s.position !== null) {
-        return isCandidateAdmittedForPosition(entry.hero, s.position, heroPositions);
+        return isCredibleForPosition(entry.hero, s.position, heroPositions);
       }
       return true;
     });
@@ -145,11 +145,11 @@ export function buildCompoundRecommendations(
       if (roleImpact.degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     }
 
-    const directAdmitted = (posA === undefined || posA === null || isCandidateAdmittedForPosition(a.hero, posA, heroPositions))
-      && (posB === undefined || posB === null || isCandidateAdmittedForPosition(b.hero, posB, heroPositions));
+    const directAdmitted = (posA === undefined || posA === null || isCredibleForPosition(a.hero, posA, heroPositions))
+      && (posB === undefined || posB === null || isCredibleForPosition(b.hero, posB, heroPositions));
 
-    const swappedAdmitted = (posA === undefined || posA === null || isCandidateAdmittedForPosition(b.hero, posA, heroPositions))
-      && (posB === undefined || posB === null || isCandidateAdmittedForPosition(a.hero, posB, heroPositions));
+    const swappedAdmitted = (posA === undefined || posA === null || isCredibleForPosition(b.hero, posA, heroPositions))
+      && (posB === undefined || posB === null || isCredibleForPosition(a.hero, posB, heroPositions));
 
     const directLegal = directAdmitted && context.isLegal(a.hero, slotA!) && context.isLegal(b.hero, slotB!);
     const swappedLegal = swappedAdmitted && context.isLegal(b.hero, slotA!) && context.isLegal(a.hero, slotB!);

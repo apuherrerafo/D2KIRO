@@ -29,6 +29,8 @@ export interface PerspectiveRecommendationContext {
   openOwnSlots: readonly RecommendationSlot[];
   partyContext: PartyContext | null;
   patch: string;
+  /** Explicit simulator discriminator: only simulator sessions derive fixed role-to-seat schedules. */
+  isSimulator?: boolean;
 }
 
 /** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --

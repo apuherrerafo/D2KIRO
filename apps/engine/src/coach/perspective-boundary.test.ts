@@ -47,7 +47,7 @@ describe("2. el contexto de perspectiva contiene lo legalmente observable", () =
     h.seal(h.side, 0, 3); // own sealed
     const context = h.store.perspectiveRecommendationContext(h.id)!;
 
-    expect(Object.keys(context).sort()).toEqual(["openOwnSlots", "partyContext", "patch", "view"]);
+    expect(Object.keys(context).sort()).toEqual(["isSimulator", "openOwnSlots", "partyContext", "patch", "view"]);
     expect(context.view.bannedHeroes).toEqual([40, 41]); // confirmed bans
     expect(context.view.ownPicks).toEqual([{ visibility: "KNOWN", heroId: 3 }]); // own selection
     expect(context.view.enemyPicks).toEqual([{ visibility: "HIDDEN" }]); // enemy's sealed pick: no hero id
@@ -136,7 +136,7 @@ describe("5. una vez revelada, la identidad enemiga aparece en la entrada segura
 // del Coach -- es legalmente elegible para el Player y puede ser su mejor recomendación (Req 20.6).
 describe("5b. un héroe sellado del rival sigue siendo recomendable (design.md §15-5)", () => {
   test("con el héroe #1 del scorer sellado por el rival, el Coach lo sigue recomendando; su identidad no mueve la salida", async () => {
-    const TOP = 1; // fakeCompute ranks hero 1 first
+    const TOP = 2; // fakeCompute ranks hero 2 first (support)
     const hiddenTop = harness({ sessionId: "hidden-top" });
     const hiddenOther = harness({ sessionId: "hidden-top" });
     hiddenTop.seal(hiddenTop.enemy, 0, TOP);
@@ -167,6 +167,7 @@ describe("6. compatibilidad legacy: el camino V2 autoritativo sigue igual, y el 
       patch: "7.41e",
       computeSuggestions: fakeCompute(),
       heroPositions: HERO_POSITIONS,
+      isSimulator: h.store.isSimulator("parity"),
     });
     expect(JSON.stringify(safe.decision)).toBe(JSON.stringify(legacy.decision));
     expect(JSON.stringify(safe.recommendations)).toBe(JSON.stringify(legacy.recommendations));
@@ -179,7 +180,15 @@ describe("6. compatibilidad legacy: el camino V2 autoritativo sigue igual, y el 
     const h = harness({ sessionId: "parity-2" });
     const context = h.store.perspectiveRecommendationContext("parity-2")!;
     const safe = await buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS });
-    const legacy = await buildRecommendationSetV2({ state: h.store.get("parity-2")!, view: h.store.view("parity-2")!, actor: h.side, patch: "7.41e", computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS });
+    const legacy = await buildRecommendationSetV2({
+      state: h.store.get("parity-2")!,
+      view: h.store.view("parity-2")!,
+      actor: h.side,
+      patch: "7.41e",
+      computeSuggestions: fakeCompute(),
+      heroPositions: HERO_POSITIONS,
+      isSimulator: h.store.isSimulator("parity-2"),
+    });
     expect(safe.decision.actionCount).toBe(2);
     expect(JSON.stringify(safe.recommendations)).toBe(JSON.stringify(legacy.recommendations));
   });

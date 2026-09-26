@@ -89,6 +89,8 @@ export interface BuildRecommendationSetV2Input {
   outputLimit?: number;
   /** Stable roster identities controlled by this caller, mapped onto AP's round-scoped slots. */
   controlledRosterSlots?: readonly number[];
+  /** Explicit simulator discriminator: only simulator sessions derive fixed role-to-seat schedules. */
+  isSimulator?: boolean;
 }
 
 export async function buildRecommendationSetV2(input: BuildRecommendationSetV2Input): Promise<RecommendationSetV2> {
@@ -96,7 +98,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots);
+  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false);
   const degradations: RecommendationDegradation[] = [...legal.degradations];
   const eligibilitySnapshot = state.captainsMode?.eligibilitySnapshot ?? null;
   // Blocker 6 (independent architecture review) -- identity inputs shared by every basedOn built

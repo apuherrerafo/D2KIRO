@@ -37,6 +37,7 @@ function deriveRankedAllPick(
   state: DraftProtocolState,
   actor: TeamSide,
   controlledRosterSlots?: readonly number[],
+  isSimulator: boolean = false,
 ): LegalDecision {
   const rankedAp = state.rankedAp!;
   const degradations: RecommendationDegradation[] = [];
@@ -50,7 +51,7 @@ function deriveRankedAllPick(
   );
   let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => {
     let position: Position | null = null;
-    if (partyContext !== null && partyContext !== undefined && round !== null) {
+    if (isSimulator && partyContext !== null && partyContext !== undefined && round !== null) {
       const rosterSlot = rosterSlotForRoundSlot(round as 1 | 2 | 3, slot.slotIndex);
       if (rosterSlot !== null) {
         position = (POSITION_FOR_ROSTER_SEAT[rosterSlot] as Position) ?? null;
@@ -146,8 +147,9 @@ export function deriveLegalDecision(
   state: DraftProtocolState,
   actor: TeamSide,
   controlledRosterSlots?: readonly number[],
+  isSimulator: boolean = false,
 ): LegalDecision {
-  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots);
+  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots, isSimulator);
   if (state.captainsMode) return deriveCaptainsMode(state, actor);
   return { decision: emptyDecision(actor, null), eligibleHeroIds: null, degradations: [{ reason: "RULESET_LOAD_FAILED", detail: "estado de protocolo sin ranked_ap ni captains_mode" }] };
 }

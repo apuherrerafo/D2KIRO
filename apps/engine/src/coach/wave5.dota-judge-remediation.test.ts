@@ -27,11 +27,11 @@ const POSITIONS: HeroPositions = {
   15: [{ position: 4, matches: 2000 }, { position: 5, matches: 400 }], // support
   16: [{ position: 5, matches: 2000 }], // hard support only
   17: [{ position: 4, matches: 1500 }, { position: 1, matches: 1400 }], // flex support/carry
-  20: [{ position: 1, matches: 4000 }, { position: 5, matches: 200 }, { position: 4, matches: 200 }],
+  20: [{ position: 1, matches: 4000 }],
   21: [{ position: 1, matches: 3000 }],
-  30: [{ position: 2, matches: 1000 }, { position: 3, matches: 50 }], // Meepo-like mid
-  31: [{ position: 2, matches: 900 }, { position: 3, matches: 50 }],
-  32: [{ position: 2, matches: 800 }, { position: 3, matches: 50 }],
+  30: [{ position: 2, matches: 1000 }], // Meepo-like mid
+  31: [{ position: 2, matches: 900 }],
+  32: [{ position: 2, matches: 800 }],
   22: [{ position: 1, matches: 2500 }],
   23: [{ position: 2, matches: 2500 }],
   40: [{ position: 3, matches: 4000 }], // Axe-like enemy
@@ -178,7 +178,7 @@ const hard = (vs: number): CuratedCounter => ({ vs, level: "hard", why: "fixture
 function world(options: ScriptOptions, heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>, heroPositions?: HeroPositions) {
   const positions = heroPositions ?? POSITIONS;
   const pool = options.pool ?? Object.keys(positions).map(Number);
-  const h = harness({ heroPositions: positions, pool, sessionId: "judge-remediation" });
+  const h = harness({ heroPositions: positions, pool, sessionId: "judge-remediation", adapterKind: "manual" });
   const calls: Call[] = [];
   const coach = createCoachRecommendations({
     source: h.store,
@@ -389,7 +389,7 @@ describe("RB-3 -- badge semantics (Round 1 blind, S01)", () => {
 
   test("la evidencia de Safe Core no cambia: sigue siendo su bloque aparte (COUNTER_RELIEF curado)", async () => {
     const counters = new Map<number, CuratedCounter[]>([[20, [hard(30), hard(31)]]]);
-    const h = harness({ heroPositions: POSITIONS, pool: ALL_HEROES, sessionId: "safe-core-intact", bans: [30, 31] });
+    const h = harness({ heroPositions: POSITIONS, pool: ALL_HEROES, sessionId: "safe-core-intact", bans: [30, 31], adapterKind: "manual" });
     const coach = createCoachRecommendations({ source: h.store, computeSuggestions: scriptedCompute({ scores: { 20: 90, 21: 10 } }), heroPositions: POSITIONS, heroCounters: counters });
     const output = (await coach.recommend(h.id, 1, ACCOUNT))!.output!;
     expect(output.opportunity).toMatchObject({ subtype: "SAFE_CORE", heroId: 20 });

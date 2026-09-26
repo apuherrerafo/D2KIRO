@@ -152,7 +152,7 @@ describe("Coach orchestration over the real kernel", () => {
   test("POSICIÓN PERSONAL != TIMING: cualquier posición personal ve los mismos asientos legales en la Ronda 1 y el mismo consejo", async () => {
     const outputs: string[] = [];
     for (const position of [1, 2, 3, 4, 5] as const) {
-      const h = harness({ humanPosition: position, sessionId: "pp" });
+      const h = harness({ humanPosition: position, sessionId: "pp", adapterKind: "simulator" });
       const seats = h.store.authorizedLegalActions(h.id)!.filter((action) => action.type === "SUBMIT_SEALED_SELECTION");
       expect(seats).toHaveLength(2); // both Round-1 seats are legal for every personal position
       const result = await h.compute(position);

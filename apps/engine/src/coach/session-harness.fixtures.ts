@@ -15,7 +15,7 @@ import type { CoachRecomputation } from "./orchestrator";
 // given (so anything that reaches it is exactly what the Player may legally know).
 
 export const HERO_POSITIONS: HeroPositions = {
-  1: [{ position: 1, matches: 1000 }, { position: 5, matches: 200 }, { position: 4, matches: 200 }],
+  1: [{ position: 1, matches: 1000 }],
   2: [{ position: 5, matches: 1000 }],
   3: [{ position: 4, matches: 1000 }],
   4: [{ position: 2, matches: 1000 }],
@@ -85,7 +85,7 @@ export interface Harness {
   compute(personal?: 1 | 2 | 3 | 4 | 5): Promise<CoachRecomputation>;
 }
 
-export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[] } = {}): Harness {
+export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[]; adapterKind?: "simulator" | "manual" } = {}): Harness {
   const positions = options.heroPositions ?? HERO_POSITIONS;
   const pool = options.pool ?? POOL;
   const side = options.side ?? "radiant";
@@ -96,7 +96,7 @@ export function harness(options: { side?: TeamSide; seed?: string; humanPosition
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
     localSide: side,
-    adapterKind: "simulator",
+    adapterKind: options.adapterKind ?? "manual",
     humanPosition: options.humanPosition ?? 2,
     simulatorSeed: options.seed ?? "SEED0001",
     partyContext: { partySize: 5, side, controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side, slotIndex, controllerId: "player" })) },

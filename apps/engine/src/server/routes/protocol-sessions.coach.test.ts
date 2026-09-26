@@ -57,9 +57,9 @@ function fakeSuggestions(heroIds: number[]): SuggestionSet {
   };
 }
 
-async function setup() {
+async function setup(heroIds: number[] = [1, 2, 3, 4, 5, 6]) {
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions([1, 2, 3, 4, 5, 6]) });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: async () => fakeSuggestions(heroIds) });
   const created = await routes.post(jsonRequest(CREATE_BODY));
   const { sessionId } = (await created.json()) as { sessionId: string };
   store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
@@ -77,7 +77,14 @@ describe("GET .../recommendations?format=v3 -- opportunity (Safe Core)", () => {
     const routes = createProtocolSessionRoutes({
       store,
       computeSuggestions: async () => fakeSuggestions([1, 2, 3, 4, 5, 6]),
-      heroPositions: { 1: [{ position: 1, matches: 1000 }, { position: 5, matches: 200 }], 2: [{ position: 5, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
+      // Pre-staging hardening (isCredibleForPosition): hero 1's antiguo "pos5: 200" era sólo presencia
+      // curada residual (16.7% share, no dominante) -- bajo la regla endurecida ya no es creíble en
+      // Pos 5, así que ni entraba al slot de la ronda 1 ni podía ser el top candidate que Safe Core
+      // evalúa. Safe Core exige un CORE resuelto (Pos 1-3, safe-core.ts's CORE_POSITIONS) -- hero 1
+      // pasa a ser un flex genuino Pos 1 / Pos 5 (60/40, ambos por encima del piso de credibilidad)
+      // en vez de un Pos 5 puro: sigue siendo admisible en el slot de Pos 5 de esta ronda y su
+      // belief de rol resuelve a Pos 1 (core), restaurando el escenario que este test certifica.
+      heroPositions: { 1: [{ position: 1, matches: 600 }, { position: 5, matches: 400 }], 2: [{ position: 1, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
       heroCounters: new Map([[1, hardCounters.map((vs) => ({ vs, level: "hard" as const, why: "fixture" }))]]),
     });
     const created = await routes.post(jsonRequest(CREATE_BODY));
@@ -128,7 +135,16 @@ describe("GET .../recommendations?format=v3", () => {
   });
 
   test("el set embebido en v3 viene del camino SEGURO: mismas recomendaciones que el V2 legacy, sin lookahead (NOT_COMPUTED) ni seed del Simulator", async () => {
-    const { routes, sessionId, url } = await setup();
+    // Pre-staging hardening (isCredibleForPosition): `buildV2ForSession` (el camino V2 plano) nunca
+    // recibe `deps.heroPositions` -- siempre usa el `hero-positions.json` real (gap pre-existente,
+    // fuera de alcance de este hardening). Un `heroPositions` inyectado aquí sólo llegaría al camino
+    // del Coach, rompiendo la comparación en vez de arreglarla. Con las curated REALES, ninguno de
+    // los héroes 1-6 es creíble en Pos 4 bajo la regla ya endurecida -- el par R1 nunca existe y
+    // ambos caminos divergirían (V2 sin fallback de un solo paso vs. Coach con el de Wave 4A). Se
+    // usan dos héroes genuinamente dominantes en Pos 4 y Pos 5 en los datos curados reales (9 y 3)
+    // como los de mayor score, para que el par compuesto normal exista en ambos caminos por igual --
+    // restaura el escenario que este test certifica sin inventar credibilidad ni tocar producción.
+    const { routes, sessionId, url } = await setup([9, 3, 4, 5, 6, 7]);
     const plain = (await (await routes.getRecommendations(sessionId, url())).json()) as RecommendationSetV2;
     const embedded = ((await (await routes.getRecommendations(sessionId, url("?format=v3"))).json()) as { recommendationSet: RecommendationSetV2 }).recommendationSet;
     expect(embedded.recommendations).toEqual(plain.recommendations);

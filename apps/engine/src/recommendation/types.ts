@@ -215,8 +215,8 @@ export type RecommendationActionKind = "BAN" | "PICK";
 export interface RecommendationSlot {
   side: TeamSide;
   /** Ruleset-specific slot numbering: AP round-scoped open-slot index (types.ts's OpenSlot), or
-   * the CM step number for the single CM decision "slot". Never a roster position (0..4) -- see
-   * decision.ts's header comment for why that mapping does not exist in the kernel today. */
+   * the CM step number for the single CM decision "slot". In simulator sessions with known role
+   * mapping, `position` indicates the explicit Dota position (1..5) associated with this slot. */
   slotIndex: number;
   /** Explicit roster seat position (1..5) associated with this slot if known, or null/undefined. */
   position?: Position | null;

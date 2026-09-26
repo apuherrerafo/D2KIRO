@@ -597,6 +597,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // single-participant `targetPosition` and no per-seat filter here. Personal-position
       // intelligence (scoping, "YOUR POSITION NOW", hero pool) belongs to later waves.
       outputLimit: isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined,
+      isSimulator: metadata.adapterKind === "simulator",
     });
   }
 

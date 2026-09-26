@@ -21,6 +21,7 @@ const ENEMY_A = 20;
 const ENEMY_B = 21;
 const CARRIES = [11, 12, 13, 14, 15, 16, 17, 18];
 const MID = 22;
+const OFFLANER = 23;
 
 const POSITIONS: HeroPositions = {
   [SUPPORT_5]: [{ position: 5, matches: 1000 }],
@@ -28,15 +29,16 @@ const POSITIONS: HeroPositions = {
   [ENEMY_A]: [{ position: 2, matches: 1000 }],
   [ENEMY_B]: [{ position: 3, matches: 1000 }],
   ...Object.fromEntries(CARRIES.map((hero) => [hero, [{ position: 1, matches: 1000 }]])),
-  [MID]: [{ position: 2, matches: 1000 }, { position: 3, matches: 1000 }],
+  [MID]: [{ position: 2, matches: 1000 }],
+  [OFFLANER]: [{ position: 3, matches: 1000 }],
   // Pos-5-only heroes: with hero 2 already holding Pos 5, they are infeasible even ALONE.
   40: [{ position: 5, matches: 1000 }],
   41: [{ position: 5, matches: 1000 }],
 };
-const POOL = [SUPPORT_5, SUPPORT_4, ENEMY_A, ENEMY_B, ...CARRIES, MID];
+const POOL = [SUPPORT_5, SUPPORT_4, ENEMY_A, ENEMY_B, ...CARRIES, OFFLANER, MID];
 
 function roundTwo(options: { side?: TeamSide; sessionId?: string; pool?: number[]; bans?: number[] } = {}): Harness {
-  const h = harness({ side: options.side, sessionId: options.sessionId ?? "cf", heroPositions: POSITIONS, pool: options.pool ?? POOL, bans: options.bans });
+  const h = harness({ side: options.side, sessionId: options.sessionId ?? "cf", heroPositions: POSITIONS, pool: options.pool ?? POOL, bans: options.bans, adapterKind: "simulator" });
   h.seal(h.side, 0, SUPPORT_5);
   h.seal(h.side, 1, SUPPORT_4);
   h.seal(h.enemy, 0, ENEMY_A);
@@ -108,7 +110,7 @@ describe("compound fallback -- no feasible pair, legal single step exists", () =
   });
 
   test("5b. universo legal realmente vacío (todo baneado o elegido) -> NO_LEGAL_HERO_UNIVERSE, sin fallback", async () => {
-    const h = roundTwo({ bans: CARRIES.concat(MID), pool: POOL });
+    const h = roundTwo({ bans: CARRIES.concat([MID, OFFLANER]), pool: POOL });
     const { output, recommendationSet } = await h.compute();
     expect(recommendationSet.recommendations).toEqual([]);
     expect(recommendationSet.degradations.map((degradation) => degradation.reason)).toContain("NO_LEGAL_HERO_UNIVERSE");
@@ -159,7 +161,7 @@ describe("compound fallback -- no feasible pair, legal single step exists", () =
   });
 
   test("regresión: si SÍ existe un par factible, la recomendación sigue siendo compuesta y no aparece el fallback", async () => {
-    const h = roundTwo({ pool: [SUPPORT_5, SUPPORT_4, ENEMY_A, ENEMY_B, 11, MID, 12] }); // (11, 22) is a feasible pair
+    const h = roundTwo({ pool: [SUPPORT_5, SUPPORT_4, ENEMY_A, ENEMY_B, 11, OFFLANER, 12] }); // (11, 23) is a feasible pair (Pos 1 Carry + Pos 3 Offlane)
     const { recommendationSet } = await h.compute();
     expect(recommendationSet.recommendations.some((recommendation) => recommendation.actions.length === 2)).toBe(true);
     expect(recommendationSet.degradations.map((degradation) => degradation.reason)).not.toContain("COMPOUND_FALLBACK_SINGLE_STEP");

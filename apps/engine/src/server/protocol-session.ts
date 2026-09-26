@@ -362,7 +362,13 @@ export class ProtocolSessionStore {
     const openOwnSlots = legal.flatMap((action) =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === metadata.localSide ? [{ side: action.side, slotIndex: action.slotIndex }] : [],
     );
-    return { view, openOwnSlots, partyContext: metadata.partyContext, patch: metadata.patch };
+    return {
+      view,
+      openOwnSlots,
+      partyContext: metadata.partyContext,
+      patch: metadata.patch,
+      isSimulator: metadata.adapterKind === "simulator",
+    };
   }
 
   botView(sessionId: string): PerspectiveDraftView | null {
