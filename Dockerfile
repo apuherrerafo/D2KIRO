@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim AS base
 
 WORKDIR /app
 
@@ -50,6 +50,15 @@ COPY apps/web/eslint.config.mjs apps/web/next.config.ts apps/web/postcss.config.
 COPY scripts/start-railway.sh ./scripts/start-railway.sh
 COPY .env.example ./.env.example
 
+# El compilador de patrones profesionales es tooling de desarrollo: los tests del
+# motor lo importan, pero el runtime sólo lee el artefacto versionado
+# `pro-patterns.json`. Este target conserva esa frontera y permite certificar el
+# motor en Linux sin llevar scripts/pro al contenedor de Railway.
+FROM base AS test
+COPY scripts/pro/aggregate.ts scripts/pro/compile-patterns.ts ./scripts/pro/
+RUN bun test apps/engine
+
+FROM base AS runtime
 RUN cd apps/web && npm run build
 RUN chmod +x scripts/start-railway.sh
 

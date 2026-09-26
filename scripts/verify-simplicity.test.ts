@@ -203,7 +203,7 @@ test("trampa de ejecución: canario -- confirma que el mecanismo SÍ detecta bun
   const { path, markerPath, readMarker } = installExecutionTrap();
 
   const proc = Bun.spawn(
-    ["bash", "-lc", "bun test some/suite && bunx tsc --noEmit && tsc --noEmit -p tsconfig.json"],
+    ["bash", "-c", "bun test some/suite && bunx tsc --noEmit && tsc --noEmit -p tsconfig.json"],
     {
       cwd: REPO,
       env: { ...process.env, PATH: path, D2K_TRAP_MARKER: markerPath },
