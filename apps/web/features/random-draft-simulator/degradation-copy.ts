@@ -47,3 +47,18 @@ export function playerFacingDegradation(degradation: DegradationInput): string |
   if (ENGINE_INTERNAL_DETAIL.test(degradation.detail)) return GENERIC_LIMITED_DATA_COPY;
   return degradation.detail;
 }
+
+const RISK_COPY: Record<string, string> = {
+  degraded_meta: "Los datos de meta no están al día; la confianza de esta recomendación puede ser menor",
+  low_evidence: "Hay poca evidencia para esta recomendación",
+  unresolved_role: "Todavía no hay evidencia de posición para al menos un héroe de esta acción",
+};
+const ENGINE_INTERNAL_RISK_DETAIL = /stale_meta|snapshot|evidenceCoverage|V6/;
+
+/** The text the Player reads for one `RecommendationV2.risks` entry. `degraded_meta` is always the
+ * fixed copy; other kinds keep an already-plain detail and only swap engine vocabulary out. */
+export function playerFacingRisk(risk: { kind: string; detail: string }): string {
+  if (risk.kind === "degraded_meta") return RISK_COPY.degraded_meta ?? GENERIC_LIMITED_DATA_COPY;
+  if (ENGINE_INTERNAL_RISK_DETAIL.test(risk.detail)) return RISK_COPY[risk.kind] ?? GENERIC_LIMITED_DATA_COPY;
+  return risk.detail;
+}

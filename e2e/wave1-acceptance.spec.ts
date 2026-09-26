@@ -4,6 +4,7 @@ import {
   ENGINE_DIRECT,
   ROUND_HEADING,
   assertNoSimulatorTruthLeak,
+  awaitRoundHandlingCollision,
   configureAndStart,
   expectNotSelectable,
   firstEnabled,
@@ -38,7 +39,7 @@ function annotate(type: string, description: string): void {
 }
 
 /** Snapshot-level contract: enemy reveals only when the round closes; timers 25/25/20; hidden slots carry no hero. */
-function assertSnapshotContract(rec: Recorder): void {
+function assertSnapshotContract(rec: Recorder, repicks = 0): void {
   const snapshots = rec.snapshots();
   assertNoSimulatorTruthLeak(snapshots, rec.responses.map((entry) => entry.body));
   const revealedByPhase: Record<string, number> = { PICK_ROUND_1: 0, PICK_ROUND_2: 2, PICK_ROUND_3: 4, COMPLETE: 5 };
@@ -49,7 +50,16 @@ function assertSnapshotContract(rec: Recorder): void {
     expect(revealed, `revealed enemy heroes while ${phase}`).toBe(revealedByPhase[phase]);
   }
   const roundDurations = snapshots.filter((snapshot) => snapshot.stopReason === "human_input").map((snapshot) => snapshot.simulator?.durationMs);
-  expect(roundDurations).toEqual([25000, 25000, 20000]);
+  if (repicks === 0) {
+    expect(roundDurations).toEqual([25000, 25000, 20000]);
+    return;
+  }
+  // Each legal collision attempt is one more human attempt of its round, with that round's own timer (25/25/20).
+  expect(roundDurations.length).toBeGreaterThan(3); // a collision that reopens two seats is still ONE extra attempt
+  expect(roundDurations.length).toBeLessThanOrEqual(3 + repicks);
+  expect(roundDurations.every((duration) => duration === 25000 || duration === 20000)).toBe(true);
+  expect(roundDurations.filter((duration) => duration === 20000).length).toBeGreaterThanOrEqual(1);
+  expect(roundDurations.filter((duration) => duration === 25000).length).toBeGreaterThanOrEqual(2);
 }
 
 async function playFullDraft(
@@ -60,6 +70,7 @@ async function playFullDraft(
   const rec = record(page);
   await configureAndStart(page, options);
   const picked: string[] = [];
+  let repicks = 0;
 
   const rounds: [1 | 2 | 3, Alternatives][] = [[1, options.plan.r1], [2, options.plan.r2], [3, options.plan.r3]];
   for (const [round, alternatives] of rounds) {
@@ -73,8 +84,9 @@ async function playFullDraft(
       for (const options_ of alternatives) await firstEnabled(page, options_);
     }
     picked.push(...(await lockPicks(page, alternatives)));
+    // A legal collision reopens a seat instead of closing the round: re-pick through the UI, then continue.
+    repicks += await awaitRoundHandlingCollision(page, round < 3 ? new RegExp(`Ronda ${round} -- revelada|Ronda ${round + 1} -- elegí`) : /Draft completo/, alternatives.flat(2));
     if (round < 3) {
-      await expect(page.getByText(`Ronda ${round} -- revelada`)).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText("Equipo rival").first()).toBeVisible();
     }
   }
@@ -85,16 +97,16 @@ async function playFullDraft(
   expect(own).toHaveLength(5);
   expect(enemy).toHaveLength(5);
   expect(new Set([...own, ...enemy]).size).toBe(10);
-  expect([...own].sort()).toEqual([...picked].sort()); // no collision in these fixed seeds: the Player ends with exactly the 5 chosen heroes
+  if (repicks === 0) expect([...own].sort()).toEqual([...picked].sort()); // no collision: the Player ends with exactly the 5 chosen heroes
   await expect(page.getByText("El motor no está recibiendo este draft.")).toHaveCount(0);
 
   // The Player controlled all five own seats and never any enemy seat.
   const commands = rec.requests.filter((request) => request.path.endsWith("/command")).map((request) => (request.body as { command: { type: string; side: string } }).command);
-  expect(commands).toHaveLength(5);
+  expect(commands).toHaveLength(5 + repicks); // 5 seats + one command per legal collision re-pick
   const side = options.side.toLowerCase();
   expect(commands.every((command) => command.type === "SUBMIT_SEALED_SELECTION" && command.side === side)).toBe(true);
   expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
-  assertSnapshotContract(rec);
+  assertSnapshotContract(rec, repicks);
   return { rec, picked };
 }
 

@@ -9,7 +9,7 @@ import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
 import type { CoachOutput } from "../coach-client";
-import { playerFacingDegradation } from "../degradation-copy";
+import { playerFacingDegradation, playerFacingRisk } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
 import { positionForRoundSlot, SIMULATOR_POSITION_LABELS } from "../roster";
@@ -93,12 +93,6 @@ const POSITION_LABELS: Record<RecommendationPosition, string> = {
   5: "Hard support",
 };
 
-const RISK_LABELS: Record<string, string> = {
-  low_evidence: "Evidencia limitada",
-  unresolved_role: "Rol aún no resuelto",
-  degraded_meta: "Meta desactualizado",
-};
-
 /** Posición sugerida para el héroe de una recomendación de un solo héroe -- lee `roleImpact`
  * (S4, ya calculado por el motor) verbatim, nunca reinfiere el rol acá. Compuesta (2+ héroes) ya
  * muestra su propia posición por héroe en `CompoundRecommendationCard`. */
@@ -116,7 +110,7 @@ function RecommendationRisksNotice({ risks }: { risks: RecommendationV2["risks"]
     <div className="flex flex-col gap-1 rounded-md border border-signal-warning/50 bg-signal-warning/10 p-2">
       {risks.map((risk) => (
         <span key={`${risk.kind}:${risk.detail}`} className="text-caption text-signal-warning">
-          {RISK_LABELS[risk.kind] ?? risk.kind}: {risk.detail}
+          {playerFacingRisk(risk)}
         </span>
       ))}
     </div>

@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
-import { ROUND_HEADING, assertNoSimulatorTruthLeak, configureAndStart, firstEnabled, heroButton, heroNamesIn, record, type Recorder } from "./support/wave1";
+import { ROUND_HEADING, assertNoSimulatorTruthLeak, awaitRoundHandlingCollision, configureAndStart, firstEnabled, heroButton, heroNamesIn, record, type Recorder } from "./support/wave1";
 
 // WAVE 5 -- PRODUCT CERTIFICATION, browser layer (real Chromium, production web build, real engine, fixture DB).
 // Entry point: `bun run test:wave5:smoke`. Reuses the Wave 1/2 harness (playwright.config.ts, e2e/support/wave1.ts).
@@ -243,7 +243,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   }
   expect(ignoredName, "a legal hero outside the Coach's advice").not.toBeNull();
   await heroButton(page, ignoredName!).click();
-  await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 -- elegí/).first()).toBeVisible({ timeout: 30_000 });
+  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 -- elegí/, ANY_HERO);
   await expect(page.getByText(/no está disponible/)).toHaveCount(0); // deviating is legal: no rejection, no "wrong choice"
   await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
 
@@ -272,7 +272,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await heroButton(page, await firstEnabled(page, [...personalNames, ...ANY_HERO])).click();
 
   // ---------------------------------------------------------------- ROUND 3
-  await expect(page.getByText(ROUND_HEADING(3, 1))).toBeVisible({ timeout: 60_000 });
+  repicks += await awaitRoundHandlingCollision(page, ROUND_HEADING(3, 1), ANY_HERO);
   await assertTimerRunning(page);
   const round3 = await coachSnapshot(page);
   expect(round3.trigger).toBe("ROUND_REVEALED");
@@ -280,7 +280,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await heroButton(page, await firstEnabled(page, [...config.roundThreePlan, ...ANY_HERO])).click();
 
   // ---------------------------------------------------------------- COMPLETE
-  await expect(page.getByText("Draft completo")).toBeVisible({ timeout: 60_000 });
+  repicks += await awaitRoundHandlingCollision(page, /Draft completo/, ANY_HERO);
   const own = await heroNamesIn(page, "summary-user-picks");
   const enemy = await heroNamesIn(page, "summary-bot-picks");
   expect(own).toHaveLength(5);
@@ -300,7 +300,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   expect(getRevisions).toEqual([...getRevisions].sort((a, b) => a - b)); // sequential GET answers are monotonic (the POST/GET pair of an assignment may be logged in either order)
   expect(new Set(outputs.map((output) => output.meta.basedOn.perspectiveIdentity)).size).toBe(1); // one stable perspective the whole draft
   const commands = rec.requests.filter((request_) => request_.path.endsWith("/command")).map((request_) => (request_.body as { command: { type: string; side: string } }).command);
-  expect(commands).toHaveLength(5);
+  expect(commands).toHaveLength(5 + repicks); // 5 seats + one command per legal collision re-pick
   expect(commands.every((command) => command.type === "SUBMIT_SEALED_SELECTION" && command.side === side)).toBe(true); // only own-team seats
   expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
   assertNoSimulatorTruthLeak(rec.snapshots(), rec.responses.map((entry) => entry.body));

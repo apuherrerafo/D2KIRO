@@ -121,6 +121,34 @@ export async function firstEnabled(page: Page, names: readonly string[]): Promis
   throw new Error(`none of [${names.join(", ")}] is selectable`);
 }
 
+/**
+ * A legal collision is part of a real draft: when the Player's seal matches a hidden enemy pick the hero is banned and the
+ * colliding seat(s) reopen ("(N de M sellados)" with N < M, next to the collision notice). This waits for `expected` and,
+ * while the UI is instead asking for a re-pick, chooses another hero that is selectable right now (first of `preferred`)
+ * through the real grid. Returns how many re-picks it took, so callers can account for the extra commands. It must be
+ * called only after every seat of the round has been sealed. Never touches protocol state.
+ */
+export async function awaitRoundHandlingCollision(page: Page, expected: RegExp, preferred: readonly string[], maxRepicks = 4): Promise<number> {
+  const sealedCounter = page.getByText(/\(\d de \d sellados\)/).first();
+  const collision = page.getByText(/Baneados por colisión en esta ronda/);
+  const settled = page.getByText(expected).first();
+  const seatIsReopened = async (): Promise<boolean> => {
+    if (!(await collision.first().isVisible()) || !(await sealedCounter.isVisible())) return false;
+    const [, sealed, total] = /\((\d) de (\d) sellados\)/.exec(await sealedCounter.innerText()) ?? [];
+    return Number(sealed) < Number(total);
+  };
+  let repicks = 0;
+  for (;;) {
+    await expect.poll(async () => (await settled.isVisible()) || (await seatIsReopened()), { timeout: 60_000 }).toBe(true);
+    if (await settled.isVisible()) return repicks;
+    expect(repicks, "a round cannot need an unbounded number of re-picks").toBeLessThan(maxRepicks);
+    const before = await sealedCounter.innerText();
+    await heroButton(page, await firstEnabled(page, preferred)).click();
+    repicks++;
+    await expect.poll(async () => (await settled.isVisible()) || (await sealedCounter.innerText().catch(() => "")) !== before, { timeout: 30_000 }).toBe(true);
+  }
+}
+
 export interface StartOptions {
   side: "Radiant" | "Dire";
   position: string;

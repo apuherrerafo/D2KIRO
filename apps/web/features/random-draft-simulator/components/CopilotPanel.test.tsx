@@ -379,3 +379,20 @@ test("PB-R1: coach con degradaciones sin degradaciones en recommendations es ren
   expect(view.getByTestId("copilot-degradations")).toBeDefined();
   expect(view.queryByTestId("coach-degradations")).toBeNull();
 });
+
+test("riesgos del motor: el jugador no ve términos internos (stale_meta, snapshot, V6, enums)", () => {
+  const set = recommendationSet({
+    recommendations: [{
+      ...singleAction(7, 72),
+      risks: [
+        { kind: "degraded_meta", detail: "meta snapshot stale (stale_meta)" },
+        { kind: "low_evidence", detail: "evidenceCoverage baja en la señal V6 subyacente" },
+        { kind: "unresolved_role", detail: "sin evidencia de posición para al menos un héroe de la acción" },
+      ],
+    }],
+  });
+  const view = render(<CopilotPanel recommendations={set} heroCatalog={HERO_CATALOG} previewStatus="ready" />);
+  const text = view.container.textContent ?? "";
+  expect(text).not.toMatch(/stale_meta|snapshot|evidenceCoverage|V6|degraded_meta|low_evidence|unresolved_role/);
+  expect(text).toContain("Los datos de meta no están al día");
+});

@@ -3,6 +3,7 @@ import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS } from "./fixtures/hero-catal
 import {
   ROUND_HEADING,
   assertNoSimulatorTruthLeak,
+  awaitRoundHandlingCollision,
   configureAndStart,
   firstEnabled,
   heroButton,
@@ -121,6 +122,9 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
     } else {
       await heroButton(page, await firstEnabled(page, alternatives[0]!)).click();
     }
+    // A legal collision reopens a seat instead of closing the round: re-pick through the UI, then continue.
+    const next = run.plan[index + 1];
+    await awaitRoundHandlingCollision(page, next ? ROUND_HEADING((round + 1) as 2 | 3, next.length) : /Draft completo/, run.plan.flat(2));
   }
 
   await expect(page.getByText("Draft completo")).toBeVisible({ timeout: 60_000 });
