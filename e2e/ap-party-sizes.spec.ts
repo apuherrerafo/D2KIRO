@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "./support/failure-evidence";
+import type { Page } from "@playwright/test";
 
 async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
   const rows = page.locator(`[data-testid="${testId}"]`);

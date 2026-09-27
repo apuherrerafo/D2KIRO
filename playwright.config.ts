@@ -1,10 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { bootstrapE2eDatabase } from "./e2e/bootstrap-db";
-import { buildFixtureCmEligibilitySnapshot } from "./e2e/fixtures/cm-eligibility";
-import { FIXTURE_HERO_IDS } from "./e2e/fixtures/hero-catalog";
+import { devices } from "@playwright/test";
+import { runtimeForCurrentProcess, prepareLocalRuntime } from "./e2e/runtime";
 
 // TSK-217: hasta acá, NINGÚN test del proyecto abría la app real. El harness de Fase 9 mide el
 // motor offline con 2.164 replays y dice la verdad sobre el motor — pero el bug de TSK-214 vivió
@@ -15,10 +12,11 @@ import { FIXTURE_HERO_IDS } from "./e2e/fixtures/hero-catalog";
 // construida desde las migraciones reales + un catálogo de héroes fijo, reproducible en un
 // checkout limpio o en CI sin ningún paso manual.
 
-const ENGINE_PORT = 4100; // no 4000: no puede chocar con un `bun run dev` abierto del usuario
-const WEB_PORT = 3100;
+const ENGINE_PORT = Number(process.env.E2E_ENGINE_PORT ?? 4100);
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 3100);
 const externalBaseUrl = process.env.E2E_EXTERNAL_BASE_URL;
 const useExternalRuntime = externalBaseUrl !== undefined;
+const managedRuntime = process.env.E2E_MANAGED_RUNTIME === "1";
 
 // Certificación de runtime: el mismo suite puede apuntar a un contenedor Linux ya arrancado.
 // En ese modo sus secretos y su cuenta fixture pertenecen al runtime externo; generar unos nuevos
@@ -46,9 +44,9 @@ if (useExternalRuntime && !process.env.E2E_EXTERNAL_DB_PATH) {
 const SESSION_SECRET = process.env.E2E_SESSION_SECRET ?? randomBytes(32).toString("hex");
 const INTERNAL_AUTH_SECRET = process.env.E2E_INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
 
-const TMP_DIR = resolve("e2e/.tmp");
-const E2E_DB = resolve(TMP_DIR, "e2e.sqlite");
-const CM_ELIGIBILITY_PATH = resolve(TMP_DIR, "cm-hero-eligibility.json");
+const runtime = runtimeForCurrentProcess();
+const E2E_DB = runtime.dbPath;
+const CM_ELIGIBILITY_PATH = runtime.eligibilityPath;
 const BASE_URL = externalBaseUrl ?? `http://127.0.0.1:${WEB_PORT}`;
 const E2E_ACCOUNT_ID = useExternalRuntime ? process.env.E2E_EXTERNAL_ACCOUNT_ID! : "999000001";
 const EXTERNAL_DB_PATH = process.env.E2E_EXTERNAL_DB_PATH;
@@ -56,17 +54,14 @@ const EXTERNAL_DB_PATH = process.env.E2E_EXTERNAL_DB_PATH;
 // Misma razón que arriba: este bloque recrea `e2e/.tmp` UNA sola vez por corrida. Re-ejecutarlo
 // en cada worker borraría la cookie que `global-setup` acaba de escribir ("Error reading storage
 // state") y reconstruiría la base a mitad de una corrida en curso.
-if (!useExternalRuntime && !process.env.E2E_PREPARED) {
-  rmSync(TMP_DIR, { recursive: true, force: true });
-  mkdirSync(TMP_DIR, { recursive: true });
-  bootstrapE2eDatabase(E2E_DB);
+if (!useExternalRuntime && !process.env.E2E_RUNTIME_READY) {
+  prepareLocalRuntime(runtime);
   // Captain's Mode es fail-closed sin un artefacto de elegibilidad certificado server-side (no hay
   // depot real de Dota 2 en este entorno -- ver e2e/fixtures/cm-eligibility.ts). Mismo mecanismo
   // que produccion usaría (CM_ELIGIBILITY_ARTIFACT_PATH -> loadTrustedEligibilityArtifact), leído
   // únicamente por apps/engine/src/index.e2e.ts (nunca por index.ts, el entrypoint real de
   // Railway/"start"/"dev") -- ver el webServer.command de abajo (R1 S7, Blocker 1).
-  writeFileSync(CM_ELIGIBILITY_PATH, JSON.stringify(buildFixtureCmEligibilitySnapshot(FIXTURE_HERO_IDS)));
-  process.env.E2E_PREPARED = "1";
+  process.env.E2E_RUNTIME_READY = "1";
 }
 
 // El global setup necesita los mismos valores para sellar la cookie de sesión.
@@ -91,13 +86,18 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: BASE_URL,
-    storageState: "e2e/.tmp/session.json",
+    storageState: runtime.sessionPath,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   // E2E_EXTERNAL_BASE_URL certifica el contenedor Linux existente: Playwright no arranca ni
   // motor ni Next locales. Sin la variable se conserva exactamente el harness aislado actual.
-  webServer: useExternalRuntime ? undefined : [
+  outputDir: `${runtime.dir}/test-results`,
+  projects: [
+    { name: "chromium", testIgnore: "**/mobile-semantic.spec.ts", use: { browserName: "chromium" } },
+    { name: "webkit-mobile", testMatch: "**/mobile-semantic.spec.ts", use: { ...devices["iPhone 13"], browserName: "webkit" } },
+  ],
+  webServer: useExternalRuntime || managedRuntime ? undefined : [
     {
       // R1 S7 (final blocker repair, Blocker 1): index.e2e.ts, NOT index.ts -- a structurally
       // separate file that Railway/`apps/engine`'s "start"/"dev" scripts never reference. It

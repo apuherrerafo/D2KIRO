@@ -52,7 +52,7 @@ async function run(): Promise<void> {
 
   const { host } = new URL(baseUrl);
   writeFileSync(
-    resolve("e2e/.tmp/session.json"),
+    process.env.E2E_SESSION_PATH ?? resolve(process.env.E2E_RUNTIME_DIR ?? "e2e/.tmp", "session.json"),
     JSON.stringify({
       cookies: [{
         name: "d2k_session",

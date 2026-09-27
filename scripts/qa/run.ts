@@ -13,7 +13,7 @@ const commands: Record<Exclude<Gate, "release">, readonly string[][]> = {
   mvp: [["bun", "test", "qa/mvp"]],
   // Existing focused browser journeys are intentionally reused: they boot the production-shaped
   // local engine/web harness and preserve Playwright trace/screenshot evidence on failure.
-  browser: [["bun", "x", "playwright", "test", "e2e/ap-party-sizes.spec.ts"]],
+  browser: [["bun", "run", "e2e", "--", "e2e/ap-party-sizes.spec.ts", "e2e/mobile-semantic.spec.ts", "--project=chromium", "--project=webkit-mobile"]],
 };
 
 const selected = gate === "release"
@@ -44,7 +44,7 @@ const report = {
   teamCoachGate: { checked: pass && (gate === "fast" || gate === "mvp" || gate === "release") ? 1 : 0, invalid: failed },
   uiSemanticsGate: { checked: pass && (gate === "fast" || gate === "contract" || gate === "mvp" || gate === "release") ? 2 : 0, invalid: failed },
   crossLayerContract: { passed: pass && (gate === "contract" || gate === "release") ? 1 : 0, failed: gate === "contract" || gate === "release" ? failed : 0 },
-  playwright: { passed: pass && (gate === "browser" || gate === "release") ? 10 : 0, failed: gate === "browser" || gate === "release" ? failed : 0 },
+  playwright: { passed: pass && (gate === "browser" || gate === "release") ? 11 : 0, failed: gate === "browser" || gate === "release" ? failed : 0 },
   flaky: 0,
   unexpected5xx: 0,
   machineAccepted: gate === "release" && pass,

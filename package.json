@@ -13,7 +13,7 @@
     "pro:sync": "bun run scripts/pro/ingest-drafts.ts",
     "draft:test": "bun run scripts/test-pipeline.ts",
     "eval": "bun run scripts/eval/run.ts",
-    "e2e": "playwright test",
+    "e2e": "bun run scripts/e2e/run.ts",
     "test:wave1:smoke": "bun run scripts/wave1-smoke.ts",
     "test:wave2:smoke": "bun run scripts/wave2-smoke.ts",
     "test:wave3:smoke": "bun run scripts/wave3-smoke.ts",
