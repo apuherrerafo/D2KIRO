@@ -7,24 +7,9 @@ async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
   return names.map((name) => name.trim()).filter((name) => name.length > 0);
 }
 
-function positionFromLabel(label: string): number {
-  const match = label.match(/Posición ([1-5])/);
-  if (!match) throw new Error(`invalid position label: ${label}`);
-  return Number(match[1]);
-}
-
-function hiddenEnemySeatsAtFirstHumanTurn(partySize: 1 | 2 | 3 | 5, partyPositions: string[], personalPosition: string): number {
-  const positions = partySize === 5
-    ? [1, 2, 3, 4, 5]
-    : partySize === 1
-      ? [positionFromLabel(personalPosition)]
-      : partyPositions.map(positionFromLabel);
-  const firstRound = Math.min(...positions.map((position) => {
-    if (position === 4 || position === 5) return 1;
-    if (position === 1 || position === 3) return 2;
-    return 3;
-  }));
-  return firstRound === 1 ? 5 : firstRound === 2 ? 3 : 1;
+/** Enemy picks are private until the round's reveal; their visibility never follows human role chronology. */
+function hiddenEnemySeatsAtFirstHumanTurn(): number {
+  return 5;
 }
 
 async function playPartyDraft(
@@ -67,7 +52,7 @@ async function playPartyDraft(
   await expect(roster.getByText("PARTY", { exact: true })).toHaveCount(partySize - 1);
   await expect(roster.getByText("ALLY BOT", { exact: true })).toHaveCount(5 - partySize);
   await expect(roster.getByText("Oculto hasta el reveal", { exact: true })).toHaveCount(
-    hiddenEnemySeatsAtFirstHumanTurn(partySize, partyPositions, personalPosition),
+    hiddenEnemySeatsAtFirstHumanTurn(),
   );
 
   for (let attempt = 0; attempt < 60; attempt += 1) {
