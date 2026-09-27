@@ -24,5 +24,5 @@ export function parseBetaAllowedSteamIds(value: string | undefined): BetaAllowli
 // A malformed configured list fails closed, so an operator error never admits an unlisted user.
 export function isSteamIdAllowed(accountId: number, value: string | undefined): boolean {
   const allowlist = parseBetaAllowedSteamIds(value);
-  return !allowlist.configured || (!allowlist.malformed && allowlist.validIds.has(accountId));
+  return allowlist.configured && !allowlist.malformed && allowlist.validIds.has(accountId);
 }

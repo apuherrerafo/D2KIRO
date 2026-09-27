@@ -111,6 +111,7 @@ start_supervisor() {
   rm -f "$TEST_DIR/engine.pid" "$TEST_DIR/web.pid"
   SUPERVISION_TEST_DIR="$TEST_DIR" PATH="$TEST_DIR/bin:$PATH" ENGINE_PORT="$engine_port" PORT="$web_port" \
     SESSION_SECRET=test-session-secret INTERNAL_AUTH_SECRET=test-internal-secret PUBLIC_BASE_URL=http://example.test \
+    ENGINE_INTERNAL_URL=http://127.0.0.1:4000 DRAFT_LIVE_ENABLED=false BETA_ALLOWED_STEAM_IDS=35488109 \
     "$@" bash "$TEST_DIR/app/scripts/start-railway.sh" &
   SUPERVISOR_PID="$!"
   wait_for_file "$TEST_DIR/engine.pid"
@@ -138,6 +139,30 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 make_fixture
+
+assert_runtime_config_rejected() {
+  local name="$1"
+  shift
+  local output status
+  set +e
+  output="$(env PATH="$TEST_DIR/bin:$PATH" SESSION_SECRET=test-session-secret INTERNAL_AUTH_SECRET=test-internal-secret PUBLIC_BASE_URL=http://example.test \
+    ENGINE_INTERNAL_URL=http://127.0.0.1:4000 DRAFT_LIVE_ENABLED=false BETA_ALLOWED_STEAM_IDS=35488109 \
+    "$@" bash "$TEST_DIR/app/scripts/start-railway.sh" 2>&1)"
+  status="$?"
+  set -e
+  [ "$status" -ne 0 ] || fail "$name unexpectedly started"
+  [[ "$output" == *"Invalid required runtime configuration."* ]] || fail "$name did not report a generic configuration error"
+  [[ "$output" != *"35488109"* ]] || fail "$name leaked an allowlist ID"
+}
+
+assert_runtime_config_rejected "missing allowlist" env -u BETA_ALLOWED_STEAM_IDS
+assert_runtime_config_rejected "empty allowlist" BETA_ALLOWED_STEAM_IDS=
+assert_runtime_config_rejected "whitespace allowlist" BETA_ALLOWED_STEAM_IDS='  '
+assert_runtime_config_rejected "malformed allowlist" BETA_ALLOWED_STEAM_IDS='not-an-id'
+assert_runtime_config_rejected "missing engine URL" ENGINE_INTERNAL_URL=
+assert_runtime_config_rejected "wrong engine URL" ENGINE_INTERNAL_URL=http://engine.local:4000
+assert_runtime_config_rejected "missing draft-live flag" DRAFT_LIVE_ENABLED=
+assert_runtime_config_rejected "unsafe draft-live flag" DRAFT_LIVE_ENABLED=true
 
 BASE_PORT=$((42000 + ($$ % 1000) * 10))
 

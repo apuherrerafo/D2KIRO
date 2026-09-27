@@ -58,7 +58,7 @@ FROM base AS test
 COPY scripts/pro/aggregate.ts scripts/pro/compile-patterns.ts ./scripts/pro/
 RUN bun test apps/engine
 
-FROM base AS runtime
+FROM base AS runtime-build
 RUN cd apps/web && npm run build
 RUN chmod +x scripts/start-railway.sh
 
@@ -66,7 +66,14 @@ CMD ["./scripts/start-railway.sh"]
 
 # Linux browser certification gets a separate image target. It alone carries the
 # loopback relay for the engine's clock seam; the Railway runtime above does not.
-FROM runtime AS e2e-runtime
+FROM runtime-build AS e2e-runtime
 COPY scripts/start-e2e-runtime.ts ./scripts/start-e2e-runtime.ts
 
 CMD ["bun", "scripts/start-e2e-runtime.ts"]
+
+# Keep the production image as the implicit Docker target. The E2E relay remains available only
+# through its explicit target above, so Railway's default Docker build cannot ship it. Test files
+# and the only entry point that enables forced bot control are not runtime assets.
+FROM runtime-build AS runtime
+RUN find apps/engine/src -name '*.test.ts' -delete \
+  && rm -f apps/engine/src/index.e2e.ts

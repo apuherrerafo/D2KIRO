@@ -15,7 +15,6 @@ import { SimulatorTeamRoster } from "@/features/random-draft-simulator/component
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
-import { CaptainsModeSimulator } from "@/features/captains-mode-simulator/components/CaptainsModeSimulator";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
@@ -273,7 +272,7 @@ function RankedAllPickSimulator() {
   );
 }
 
-type GameMode = "ranked_all_pick" | "captains_mode";
+type GameMode = "ranked_all_pick";
 
 interface SimulatorModeSwitcherProps {
   mode: GameMode;
@@ -283,10 +282,6 @@ interface SimulatorModeSwitcherProps {
 function SimulatorModeSwitcher({ mode, onSelectMode }: SimulatorModeSwitcherProps) {
   function handleSelectAllPick() {
     onSelectMode("ranked_all_pick");
-  }
-
-  function handleSelectCaptainsMode() {
-    onSelectMode("captains_mode");
   }
 
   return (
@@ -300,24 +295,15 @@ function SimulatorModeSwitcher({ mode, onSelectMode }: SimulatorModeSwitcherProp
       >
         Ranked All Pick
       </button>
-      <button
-        type="button"
-        onClick={handleSelectCaptainsMode}
-        className={mode === "captains_mode" ? BUTTON_PRIMARY : BUTTON_SECONDARY}
-        data-testid="mode-tab-captains-mode"
-      >
-        Captains Mode
-      </button>
     </div>
   );
 }
 
 const MODE_VIEWS: Record<GameMode, () => JSX.Element> = {
   ranked_all_pick: RankedAllPickSimulator,
-  captains_mode: CaptainsModeSimulator,
 };
 
-// /simulator: selector de modo entre Ranked All Pick (Ranked Roles) y Captains Mode.
+// Private beta: /simulator exposes only the certified Ranked All Pick flow.
 export default function SimulatorPage() {
   const [gameMode, setGameMode] = useState<GameMode>("ranked_all_pick");
   const ActiveSimulator = MODE_VIEWS[gameMode];

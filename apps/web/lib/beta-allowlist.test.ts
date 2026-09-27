@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { isSteamIdAllowed, parseBetaAllowedSteamIds } from "./beta-allowlist";
 
 describe("BETA_ALLOWED_STEAM_IDS", () => {
-  test("sin valor o sólo espacios preserva el acceso normal", () => {
-    expect(isSteamIdAllowed(35488109, undefined)).toBe(true);
-    expect(isSteamIdAllowed(35488109, " ,  ")).toBe(true);
+  test("sin valor o sólo espacios falla cerrado", () => {
+    expect(isSteamIdAllowed(35488109, undefined)).toBe(false);
+    expect(isSteamIdAllowed(35488109, " ,  ")).toBe(false);
   });
   test("acepta IDs Steam32 separados por comas y espacios", () => {
     expect(isSteamIdAllowed(35488109, " 35488109, 123 ")).toBe(true);

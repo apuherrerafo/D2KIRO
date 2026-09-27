@@ -15,6 +15,41 @@ for required_var in SESSION_SECRET INTERNAL_AUTH_SECRET PUBLIC_BASE_URL; do
   fi
 done
 
+runtime_config_error() {
+  # Do not expose configuration values here: the allowlist contains personal Steam32 IDs.
+  echo "Invalid required runtime configuration." >&2
+  exit 1
+}
+
+trim_whitespace() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  printf '%s' "${value%"${value##*[![:space:]]}"}"
+}
+
+validate_beta_allowlist() {
+  local raw_entry entry
+  local -a entries
+  local allowlist="${BETA_ALLOWED_STEAM_IDS:-}"
+
+  [ -n "${allowlist//[[:space:]]/}" ] || runtime_config_error
+  [[ "$allowlist" != ,* && "$allowlist" != *, && "$allowlist" != *",,"* ]] || runtime_config_error
+  IFS=',' read -r -a entries <<< "$allowlist"
+
+  for raw_entry in "${entries[@]}"; do
+    entry="$(trim_whitespace "$raw_entry")"
+    [[ "$entry" =~ ^[1-9][0-9]*$ ]] || runtime_config_error
+    [ "${#entry}" -le 10 ] || runtime_config_error
+    (( 10#$entry <= 4294967295 )) || runtime_config_error
+  done
+}
+
+# Private-beta process topology and access controls are deployment invariants, not optional
+# application defaults. Validate before migrations or child processes can change state.
+[ "${ENGINE_INTERNAL_URL:-}" = "http://127.0.0.1:4000" ] || runtime_config_error
+[ "${DRAFT_LIVE_ENABLED:-}" = "false" ] || runtime_config_error
+validate_beta_allowlist
+
 cd apps/engine
 bun run db:migrate
 
