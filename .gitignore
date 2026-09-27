@@ -33,6 +33,7 @@ eval/snapshots/*.sqlite-shm
 e2e/.tmp/
 test-results/
 playwright-report/
+artifacts/qa/latest/
 .next-e2e/
 
 # R1 S7 (final blocker repair, Blocker 3): salida RUNTIME de "bun run verify:r1" -- nunca debe
@@ -48,4 +49,3 @@ __pycache__/
 # STRATZ raw snapshots (unresolved commercial/redistribution permissions)
 data/raw/
 *.stratz-raw.json
-

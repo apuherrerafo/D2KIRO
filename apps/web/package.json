@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "// ALLOWED": "zustand: única excepción de datos para la vista de draft en vivo (WebSocket), TSK-012, docs/agents/journal.md evt-20260727-049. @types/bun: solo tipos (sin código en runtime), mismo paquete ya aprobado y en uso en apps/engine desde TSK-001. @reduxjs/toolkit + react-redux: régimen de datos por defecto del sitio (RTK Query), TSK-014, docs/agents/journal.md evt-20260727-062. iron-session: sesión web cifrada del login Steam OpenID, TSK-100, docs/specs/SPEC.md §12.5.",
   "dependencies": {
