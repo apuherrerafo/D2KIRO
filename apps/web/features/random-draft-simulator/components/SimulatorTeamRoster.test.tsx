@@ -121,7 +121,7 @@ test("el rival conserva cinco estados ocultos y nunca filtra la identidad sellad
   expect(view.container.textContent).not.toContain("999");
 });
 
-test("el draft completo mapea de inmediato los diez héroes a Pos1-5", () => {
+test("el draft completo mapea de inmediato los cinco héroes propios a Pos1-5; el rival se muestra en orden de reveal", () => {
   const complete: DraftPhase = {
     type: "complete",
     summary: {
@@ -148,6 +148,101 @@ test("el draft completo mapea de inmediato los diez héroes a Pos1-5", () => {
   expect(ownSeat(view, 3).getByText("Hero 3")).toBeDefined();
   expect(ownSeat(view, 4).getByText("Hero 2")).toBeDefined();
   expect(ownSeat(view, 5).getByText("Hero 1")).toBeDefined();
-  expect(within(view.getByTestId("enemy-roster-pos-1")).getByText("Hero 9")).toBeDefined();
-  expect(within(view.getByTestId("enemy-roster-pos-2")).getByText("Hero 10")).toBeDefined();
+  // PD-027: el rival nunca se remapea por una tabla seat->posición fija -- se muestra en el mismo
+  // orden en que se reveló (índice de pick 0..4 -> asiento 1..5), sin ninguna etiqueta de posición.
+  expect(within(view.getByTestId("enemy-roster-pos-1")).getByText("Hero 6")).toBeDefined();
+  expect(within(view.getByTestId("enemy-roster-pos-2")).getByText("Hero 7")).toBeDefined();
+  expect(within(view.getByTestId("enemy-roster-pos-3")).getByText("Hero 8")).toBeDefined();
+  expect(within(view.getByTestId("enemy-roster-pos-4")).getByText("Hero 9")).toBeDefined();
+  expect(within(view.getByTestId("enemy-roster-pos-5")).getByText("Hero 10")).toBeDefined();
+  expect(view.queryByTestId("enemy-roster-role")).toBeNull();
+});
+
+test("PD-027: el rol visible del rival sale de RoleBelief del Coach, nunca de la cronología de pick", () => {
+  // Con la tabla fija vieja (ROSTER_SEAT_FOR_POSITION), el asiento 3 (Hero 9) se etiquetaba "Pos1".
+  // El Coach dice otra cosa: acá gana el Coach, nunca la cronología.
+  const complete: DraftPhase = {
+    type: "complete",
+    summary: {
+      draftSeed: "ABCDEFGH",
+      userSide: "radiant",
+      playerPosition: 2,
+      partySize: 5,
+      partyPositions: [1, 2, 3, 4, 5],
+      personalBanList: [],
+      resolvedBans: [],
+      picksByRound: [
+        { userPicks: [1, 2], botPicks: [6, 7] },
+        { userPicks: [3, 4], botPicks: [8, 9] },
+        { userPicks: [5], botPicks: [10] },
+      ],
+    },
+  };
+  const view = render(
+    <SimulatorTeamRoster
+      draftState={state([1, 2, 3, 4, 5], [6, 7, 8, 9, 10], "complete")}
+      config={config(5, 2)}
+      phase={complete}
+      heroCatalog={HERO_CATALOG}
+      enemyRoleBeliefs={[
+        { heroId: 9, status: "LIKELY", positions: [5] },
+        { heroId: 10, status: "UNRESOLVED", positions: [3, 2] },
+      ]}
+    />,
+  );
+
+  const heroNineSeat = within(view.getByTestId("enemy-roster-pos-4"));
+  expect(heroNineSeat.getByText("Hero 9")).toBeDefined();
+  expect(heroNineSeat.getByText("Likely Pos5")).toBeDefined();
+  expect(heroNineSeat.queryByText(/Pos1\b/)).toBeNull();
+
+  const heroTenSeat = within(view.getByTestId("enemy-roster-pos-5"));
+  expect(heroTenSeat.getByText("Hero 10")).toBeDefined();
+  expect(heroTenSeat.getByText("Likely Pos3 / Possible Pos2")).toBeDefined();
+});
+
+test("PD-027: sin RoleBelief confiable, el héroe rival se muestra sin ninguna etiqueta de rol fabricada", () => {
+  const view = render(
+    <SimulatorTeamRoster
+      draftState={state([1, 2, 3, 4, 5], [6, 7, 8, 9, 10], "complete")}
+      config={config(5, 2)}
+      phase={{
+        type: "complete",
+        summary: {
+          draftSeed: "ABCDEFGH",
+          userSide: "radiant",
+          playerPosition: 2,
+          partySize: 5,
+          partyPositions: [1, 2, 3, 4, 5],
+          personalBanList: [],
+          resolvedBans: [],
+          picksByRound: [
+            { userPicks: [1, 2], botPicks: [6, 7] },
+            { userPicks: [3, 4], botPicks: [8, 9] },
+            { userPicks: [5], botPicks: [10] },
+          ],
+        },
+      }}
+      heroCatalog={HERO_CATALOG}
+    />,
+  );
+
+  for (const seat of [1, 2, 3, 4, 5]) {
+    expect(within(view.getByTestId(`enemy-roster-pos-${seat}`)).queryByTestId("enemy-roster-role")).toBeNull();
+  }
+  expect(view.queryByText(/^Pos\d$/)).toBeNull();
+  expect(view.queryByText(/Likely/)).toBeNull();
+});
+
+test("PD-027: SimulatorTeamRoster nunca exige ni recibe la asignación privada de posición del Enemy Bot", () => {
+  // El componente sólo acepta `enemyRoleBeliefs` (evidencia del Coach) -- ningún campo de posición
+  // privada del Enemy Bot existe en sus props (compilaría distinto si lo necesitara). Renderiza
+  // completo sin esa información y sin que ningún texto de "posición interna"/seat privado escape al DOM.
+  const view = render(
+    <SimulatorTeamRoster draftState={state([1, 2, 3, 4, 5], [6, 7], "active")} config={config(5, 2)} phase={ACTIVE_PHASE} heroCatalog={HERO_CATALOG} />,
+  );
+
+  expect(view.getByTestId("team-roster")).toBeDefined();
+  expect(view.container.textContent).not.toMatch(/internal/i);
+  expect(view.container.textContent).not.toMatch(/private/i);
 });

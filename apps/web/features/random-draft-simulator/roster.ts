@@ -1,3 +1,4 @@
+import type { CoachRoleBelief } from "./coach-client";
 import { POSITION_FOR_ROSTER_SEAT, ROSTER_SEAT_FOR_POSITION, type RecommendationPosition } from "./protocol-client";
 import type { DraftConfig } from "./types";
 
@@ -29,6 +30,19 @@ export function positionForRoundSlot(round: 1 | 2 | 3, slotIndex: number): Recom
 
 export function rosterSeatForPosition(position: RecommendationPosition): number {
   return ROSTER_SEAT_FOR_POSITION[position];
+}
+
+/**
+ * PD-027: an enemy hero's displayed role never comes from pick chronology or the Enemy Bot's
+ * private position assignment -- only from the Coach's own probabilistic inference. Mirrors the
+ * exact wording CoachPanel's role-belief row already shows (`Pos${n}` when confirmed, otherwise
+ * `Likely`/`Possible`), so the Player never sees two different descriptions of the same belief.
+ */
+export function enemyRoleBeliefLabel(belief: CoachRoleBelief | undefined): string | null {
+  if (!belief) return null;
+  if (belief.status === "CONFIRMED") return `Pos${belief.positions[0]}`;
+  if (belief.positions.length > 1) return `Likely Pos${belief.positions[0]} / Possible Pos${belief.positions[1]}`;
+  return `Likely Pos${belief.positions[0]}`;
 }
 
 export function controllerForPosition(config: DraftConfig, position: RecommendationPosition): SimulatorController {

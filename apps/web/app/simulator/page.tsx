@@ -234,7 +234,7 @@ function RankedAllPickSimulator() {
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
 
-  const { phase, draftState, config } = session.state;
+  const { phase, draftState, config, coach } = session.state;
 
   // TSK-086: mismo timer que antes vivía dentro de BlindRoundPanel, ahora armado acá para
   // pasarlo como centerContent de CompactBoard -- solo durante blind_round (única fase con un
@@ -265,7 +265,13 @@ function RankedAllPickSimulator() {
         />
       )}
       {draftState && config && (
-        <SimulatorTeamRoster draftState={draftState} config={config} phase={phase} heroCatalog={heroCatalog} />
+        <SimulatorTeamRoster
+          draftState={draftState}
+          config={config}
+          phase={phase}
+          heroCatalog={heroCatalog}
+          enemyRoleBeliefs={coach?.roleBeliefs?.enemy}
+        />
       )}
       <ActivePanel session={session} heroCatalog={heroCatalog} />
     </div>
