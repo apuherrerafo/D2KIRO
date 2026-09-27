@@ -94,6 +94,9 @@ verifica línea por línea en ambas ubicaciones. Se leen cuando hacen falta, no 
 
 - **Fase 9** — V6-medido → V6-contextual: `.claude/rules/fase-9.md`
 - **Fase 9.1** — comparabilidad + calibración empírica: `.claude/rules/fase-9.1.md`
+- **AP Ranked Roles** (draft de producto vigente) — el contrato de producto vive en
+  `.kiro/specs/ap-ranked-roles-v1/product-decisions.md` y gana sobre requirements, design, código y
+  tests; su resumen vinculante está en `.claude/rules/invariantes.md`, sección "Draft AP Ranked Roles".
 
 ## MEMORIA
 - `docs/agents/journal.md` → **fuente de verdad**, append-only, nunca se comprime ni se borra. `verify-simplicity.sh` bloquea cualquier diff que elimine líneas de aquí.

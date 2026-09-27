@@ -4,6 +4,11 @@ This document records the binding product decisions for D2KIRO's Ranked Roles Al
 Each decision is explicit, numbered, and non-ambiguous. Decisions in this file take precedence
 over any implicit assumption in design or implementation work.
 
+**Supersession rule.** A decision changes only through a later PD that names it in a `Supersedes:`
+line; the old PD is marked SUPERSEDED in place and never deleted. New code, new tests, or commit
+messages never supersede a Product Decision. A change to AP product behavior without a matching PD
+in the same change is a governance defect.
+
 "D2KIRO" refers to the Draft Coach Assistant. "Player" refers to the human user.
 "Simulator" refers to the built-in Ranked Roles draft practice tool.
 
@@ -22,7 +27,10 @@ slot. The Coach does not penalize position-order decisions.
 
 ---
 
-## PD-002 — Simulator: Player Controls All Five Own-Team Selections
+## PD-002 — Simulator: Player Controls All Five Own-Team Selections — **SUPERSEDED by PD-026 (2026-09-27)**
+
+**Status:** Superseded by PD-026. The text below is retained for history. Party 5 under PD-026
+preserves this behavior; Solo, Party 2 and Party 3 replace it.
 
 **Decision:** In the Simulator, the Player manually controls all five hero selections for Own Team.
 There is no auto-pilot or bot co-pilot for the Player's own team. The five position slots (Carry,
@@ -372,12 +380,128 @@ not a structural change to the system.
 
 ---
 
+## PD-026 — Simulator Party Control Model: Humans Control Positions, Ally Bot Controls the Rest
+
+**Supersedes:** PD-002. **Approved by:** Product Owner, 2026-09-27.
+
+**Decision:** The Simulator reproduces real Ranked Roles party sizes. Before the draft, every human
+in the party declares a distinct Ranked Roles position. Control is assigned to POSITIONS
+(participants), never to chronological pick slots or seats.
+
+| Party size | Human-controlled positions | Ally Bot-controlled positions |
+|---|---|---|
+| Solo (1) | the Player's declared position | the remaining four |
+| Party 2 | the two declared positions | the remaining three |
+| Party 3 | the three declared positions | the remaining two |
+| Party 5 | all five | none |
+| Party 4 | unsupported | — |
+
+The Player's personal position (Req 21) is always one of the human-controlled positions.
+
+**Implication:**
+- Party 5 preserves the former PD-002 behavior: the humans control all five Own Team selections
+  and nothing is auto-filled.
+- In Solo / Party 2 / Party 3, the Ally Bot selects heroes only for the positions it controls:
+  - It never selects for, replaces, or overrides a human-controlled position.
+  - It uses only information an allied player may know (Own Team perspective; PD-009).
+  - It selects only legal heroes and is deterministic from the Simulator seed.
+- Ally Bot picks are Own Team picks: their heroes and positions are known Own Team truth for the
+  Player and for the Coach.
+- The Hero Pool remains the Player's personal pool only (PD-010 unchanged). Other party members
+  have no personal pool.
+- The Coach keeps its team-level scope (PD-023). Its actionable pick recommendations target the
+  human-controlled positions that are still unfilled. Ally Bot-controlled positions are team
+  context, never a prescription the Player cannot execute.
+- When a pick happens is governed by PD-027.
+
+---
+
+## PD-027 — Position, Pick Chronology and Control Are Independent; Role Information Boundary
+
+**Reaffirms:** PD-001, PD-003, PD-004, PD-005, PD-009, PD-012, PD-018, PD-020, PD-024.
+**Supersedes:** none. **Approved by:** Product Owner, 2026-09-27.
+
+**Decision:**
+
+1. **Vocabulary.** Exactly these concepts; none is a synonym of another:
+   - **assignedPosition** (Pos1..Pos5): the Own Team participant's Ranked Roles role, and the
+     participant's identity (exactly one Own Team participant per position). Known from the start
+     and stable for the whole draft.
+   - **controller**: who controls an assignedPosition — a human in the party or the Ally Bot.
+   - **roundSlot**: the round-scoped protocol slot of one of a side's simultaneous selections in
+     the CURRENT round (0 or 1 in Rounds 1–2; 0 in Round 3). A draft-protocol concept that carries
+     no role meaning. In AP code, `slotIndex` means roundSlot and nothing else.
+   - **pickOrdinal** (optional, derived 0..4): the chronological order of a side's picks. Not a
+     position and not a controller. The terms `rosterSeat` and `rosterSlot` are retired in favor of
+     `pickOrdinal` wherever chronology is actually intended.
+   - **Enemy private position**: the Enemy Bot's internal role for each of its picks.
+     Simulator-private only (point 5).
+
+   **The protocol kernel is position-agnostic.** It knows side, round, roundSlot, hero, collisions
+   and reveals, and never learns a position or a controller. Positions and control are
+   Simulator/Coach concepts.
+
+2. **No fixed chronology → position mapping** exists in any layer (Simulator, Coach, UI, tests):
+   - No "Round 1 = Pos5/Pos4, Round 2 = Pos3/Pos1, Round 3 = Pos2" schedule.
+   - No seat → position table.
+   - Pos2 may be revealed in Round 1, Pos5 in Round 3, and Pos1 may be the first Own Team reveal.
+   - Support-first is only an advisory Coach prior (PD-004), never a pick schedule.
+
+3. **Humans decide when.**
+   - A human-controlled position may be sealed in any round that has open Own Team capacity.
+   - When two humans act in the same round, they choose which of their positions fills which
+     round slot.
+   - Every Own Team pick records, at sealing time, the assignedPosition it fills. That binding
+     belongs to the Simulator session, not to the draft protocol. It is known Own Team truth for the
+     Player and the Coach, and it is never re-inferred.
+
+4. **Ally Bot scheduling.**
+   - The Ally Bot fills only the Own Team round capacity that remains after the humans have acted
+     in that round, or have explicitly left the rest of the round to the Ally Bot.
+   - The order in which bot-controlled positions are filled is deterministic from the Simulator
+     seed.
+   - Ally Bot scheduling never prevents a human-controlled position from being sealed in a round
+     where the human chooses to act. The only limit is real round capacity (2 / 2 / 1).
+   - The exact mechanism is a design decision, provided it preserves points 2 and 3 and
+     deterministic replay.
+
+5. **Enemy role information boundary.**
+   - The Enemy Bot's internal position assignment is Simulator-private truth. It is never exposed
+     to the Player, the Coach, recommendation evidence, or the normal roster UI.
+   - After an enemy hero is revealed, any role displayed for it comes only from:
+     - observable draft evidence;
+     - the Coach's role inference (probabilistic, PD-005 / PD-018);
+     - an explicit Player assignment, when that feature exists.
+   - It never comes from the pick chronology, a seat, or the private assignment.
+   - Without sufficient evidence, the role is shown as probabilistic ("Likely PosX / Possible
+     PosY") or not shown at all.
+
+6. **Human hero choice (PD-003 unchanged).**
+   - A human may select any legally available hero for any position they control, in any round.
+   - There is no positional block and no off-role warning.
+   - An off-role pick still fills the position the human chose; the Coach reasons from that
+     position.
+
+7. **Coach prescriptive recommendations.**
+   - Whenever the Coach recommends a specific hero for a specific PosN, that hero must satisfy
+     the canonical positional credibility policy for PosN (PD-024). Its thresholds are a design
+     decision, not a product decision (same precedent as PD-017).
+   - Role-level advice ("reveal your support now", "keep Mid unrevealed") and team-level strategic
+     advice name no hero-for-position pair and need no hero gate.
+
+**Implication:**
+- A fixed chronology → position mapping, an enemy role displayed from chronology or private
+  truth, or a Hero-for-PosN recommendation that fails credibility is a correctness defect.
+- Code or tests that encode any of them do not supersede this decision.
+
+---
+
 ## Summary Table
 
 | ID | Decision |
 |---|---|
 | PD-001 | Position ≠ Pick Order — position does not determine when a hero is selected |
-| PD-002 | Player controls all five own-team selections in the Simulator |
+| PD-002 | ~~Player controls all five own-team selections in the Simulator~~ — SUPERSEDED by PD-026 |
 | PD-003 | D2KIRO is an assistant, never an authority — no selections are blocked |
 | PD-004 | Support-first is a strategic prior, not a rule — no restrictions on early core picks |
 | PD-005 | Enemy role queue is hidden; Coach infers probable positions from observable Enemy draft evidence |
@@ -401,3 +525,5 @@ not a structural change to the system.
 | PD-023 | D2KIRO recommends for the team, not only for the Player's personal slot |
 | PD-024 | Positional fit must be based on evidence of actual play, not thematic archetype labels |
 | PD-025 | Current product target patch is 7.41f; patch data must be versionable |
+| PD-026 | Party control model: humans control declared positions (Solo/2/3/5); Ally Bot controls the rest; Party 4 unsupported |
+| PD-027 | Position ≠ pick chronology ≠ controller; the protocol kernel is position-agnostic; humans decide when; Ally Bot fills remaining capacity deterministically; enemy private position never displayed or used; Hero-for-PosN recommendations must be credible |

@@ -29,6 +29,25 @@ quedaba enterrado bajo el relato de cómo se llegó ahí. Los resúmenes de fase
   degrada, **nunca lanza**, nunca inyecta magnitudes arbitrarias.
 - **`applyDraftEvent` es pura**: sin I/O, sin reloj ni ids propios — se inyectan.
 
+## Draft AP Ranked Roles (contrato: `.kiro/specs/ap-ranked-roles-v1/product-decisions.md`)
+
+- **La semántica de producto de AP vive en `product-decisions.md`** y gana sobre requirements, design,
+  código y tests. Un cambio de comportamiento de producto exige un PD nuevo (o una supersesión explícita)
+  **en el mismo cambio**; código, tests o mensajes de commit nuevos nunca superseden un PD.
+- **Posición ≠ orden de pick ≠ controlador (PD-001, PD-026, PD-027).** Ninguna capa — motor, Coach,
+  web, tests — mapea una ronda, un `roundSlot` o un `pickOrdinal` a una posición. Los humanos controlan
+  **posiciones**, no asientos cronológicos. Sin tabla seat→posición ni cronograma R1/R2/R3→posición.
+- **El kernel de protocolo (`apps/engine/src/draft-protocol/**`) no conoce posiciones.** Sabe lado,
+  ronda, `roundSlot`, héroe, colisión y reveal. `controlledPositions` y `ownPickPositions` viven en la
+  capa de sesión del Simulador. `PartyContext` es estructural: **no es verdad de posición ni de
+  control** en AP. En código AP, `slotIndex` significa sólo `roundSlot`; para cronología se usa
+  `pickOrdinal`.
+- **La posición privada del Enemy Bot es verdad privada del Simulador** (PD-005, PD-009, PD-027):
+  nunca llega al Player, al Coach, a la evidencia de recomendación ni a la UI normal. Un rol enemigo
+  mostrado sale sólo de evidencia observable, `RoleBelief` o asignación explícita del Player.
+- **Un héroe recomendado para una PosN concreta** debe cumplir la credibilidad posicional canónica
+  (PD-024, PD-027). La elección del humano nunca se bloquea ni advierte (PD-003).
+
 ## Frontera `apps/engine` ↔ `apps/web`
 
 - Los dos procesos son independientes: `apps/web` **nunca** importa tipos de `apps/engine`. Hay

@@ -261,6 +261,10 @@ See wave sections below for full task details.
     - Any change requires modifying `DraftProtocolState` or `RankedApState` type definitions → STOP immediately and escalate.
 
 - [ ] 7. 5-slot Own Team PartyContext
+  - **SUPERSEDED by PD-026 (2026-09-27)** — the `partySize: 5` / all-seats-controlled semantics below now
+    describe only Party 5. AP control is by position (`controlledPositions`, session layer); `PartyContext`
+    is structural and inert for AP Simulator (`controlledSlots: []`). See design §11 ("Party control model",
+    "Rejected designs register") and PD-027. Historical text retained below.
   - Objective: Configure Own Team party context for AP sessions as `partySize: 5` with all 5 slots controlled by the Player, replacing the old `partySize: 1` / single-slot model.
   - Files/areas likely affected:
     - `apps/engine/src/server/routes/protocol-sessions.ts` (session creation input)

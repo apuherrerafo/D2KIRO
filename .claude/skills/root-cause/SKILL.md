@@ -15,6 +15,10 @@ Encontrar y reparar bugs con precisión quirúrgica.
 - Reproduce el fallo mentalmente después de tener el comando, no antes.
 - Localiza el componente culpable.
 - Descarta explícitamente otros componentes: "Descarto X porque no participa en este flujo."
+- **Contradicción de contrato ≠ bug local.** Si dos capas o dos suites de tests codifican significados
+  incompatibles del mismo concepto de dominio (p. ej. posición vs orden de pick), NO propongas opción A
+  ni B: detén la implementación, anota `result:blocked` en `journal.md` y escala a la reconciliación de
+  Product Decisions (`.kiro/specs/<feature>/product-decisions.md`) antes de tocar código.
 - Propón opción A (parche quirúrgico, 1 archivo máximo).
 - Propón opción B (punto medio, solo si es inevitable, pide permiso).
 - Anota en `journal.md`: `- [timestamp] tool:root-cause ticket:<id> result:ok|fail — [causa encontrada o por qué no]` (formato en `CLAUDE.md`).
@@ -22,4 +26,4 @@ Encontrar y reparar bugs con precisión quirúrgica.
 
 ## LÍMITES
 - Prohibido refactorizar archivos no implicados.
-- Máximo 1 archivo modificado para la opción A.
+- Máximo 1 archivo modificado para la opción A (no aplica a contradicciones de contrato — ver REGLAS).

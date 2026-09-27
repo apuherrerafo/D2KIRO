@@ -21,12 +21,18 @@ This document describes the **AP Ranked Roles V1 / MVP** behavior — the produc
 - **Simulator**: The built-in tool that lets the Player practice a full Ranked Roles All Pick draft
   without opening Dota 2.
 - **Side**: Radiant or Dire — the team faction. A first-class draft context.
-- **Own Team**: The five-player team the Player belongs to and controls in the Simulator.
+- **Own Team**: The five-player team the Player belongs to. In the Simulator its positions are
+  controlled by the human party members and, in Solo / Party 2 / Party 3, by the Ally Bot (PD-026).
+- **Ally Bot**: The Simulator participant that controls the Own Team positions not controlled by a
+  human (PD-026).
+- **Controller**: Who controls an assigned position: a human party member or the Ally Bot (Own
+  Team), or the Enemy Bot (Enemy Team).
 - **Enemy Team**: The opposing five-player team, controlled by the Enemy Bot in the Simulator.
 - **Position (Pos 1–5)**: A player's in-game role (Carry, Mid, Offlane, Soft Support, Hard
   Support). Position is a strategic concept independent of pick order.
 - **Pick Order**: The chronological slot in which a hero is selected during a round. Unrelated to
-  Position.
+  Position. The derived Own Team pick ordinal (0..4) is chronology only and never identifies a
+  position or a controller (PD-027).
 - **Role Assignment**: In Ranked Roles, each player pre-selected a role queue before the match.
   Own Team role assignments are known to the Coach. The enemy Ranked Roles role queue is hidden
   from the Coach for the entire draft.
@@ -184,32 +190,46 @@ about the game state.
 5. THE Coach SHALL never base any recommendation on the hidden Ranked Roles role queue of enemy
    players — only on legally observable draft information.
 
+6. EACH Own Team pick SHALL carry the assigned position it fills, recorded when it is sealed; THE
+   Coach SHALL treat it as known Own Team information (PD-027).
+
+7. THE Simulator SHALL display a role for a revealed enemy hero only from observable evidence, the
+   Coach's role inference, or an explicit Player assignment — never from pick chronology, a seat,
+   or the Enemy Bot's internal assignment (PD-027 point 5).
+
 ---
 
-### Requirement 5: Player Controls All Five Own-Team Selections
+### Requirement 5: Own Team Control by Party Size (PD-026)
 
-**User Story:** As a player, I want to manually control all five hero selections for my own team
-in the Simulator so that I can practice any draft scenario I choose.
+*Supersedes the former "Player Controls All Five Own-Team Selections" (PD-002).*
+
+**User Story:** As a player, I want to practice Ranked Roles drafts solo or with my real party
+size, controlling exactly the positions my party controls, so that practice matches real
+matchmaking.
 
 #### Acceptance Criteria
 
-1. THE Simulator SHALL require the Player to select all five heroes for Own Team across the three
-   rounds.
+1. BEFORE the draft, THE Simulator SHALL ask for the party size (Solo, 2, 3, 5) and one distinct
+   declared position per human; Party 4 SHALL be rejected.
 
-2. THE Simulator SHALL present five named position slots (Carry, Mid, Offlane, Soft Support, Hard
-   Support) as visual reference, but SHALL NOT restrict when in the pick order each position's
-   hero must be selected.
+2. THE Simulator SHALL let humans select heroes only for human-controlled positions, and SHALL let
+   the Ally Bot select only for the remaining positions.
 
 3. WHEN it is Own Team's turn within a round, THE Simulator SHALL accept any available (un-banned,
-   un-picked) hero chosen by the Player regardless of which slot or position that hero will fill.
-   Within the same round, Own Team may not select the same hero twice for two different Own Team
-   slots. A hero that the Enemy Bot has selected internally but not yet revealed is NOT excluded
-   from Own Team's selection — if both sides select the same hero, a collision is detected at
-   round resolution.
+   un-picked) hero chosen by a human for any unfilled human-controlled position, regardless of which
+   round slot that hero fills. Within the same round, Own Team may not select the same hero twice for
+   two different Own Team positions. A hero that the Enemy Bot has selected internally but not yet
+   revealed is NOT excluded from Own Team's selection — if both sides select the same hero, a
+   collision is detected at round resolution.
 
-4. THE Simulator SHALL NOT auto-select or pre-fill any Own Team slot without explicit Player input.
+4. THE Ally Bot SHALL select only after the humans have acted in that round or have explicitly left
+   the remaining round capacity to it; it SHALL never auto-fill, replace or override a
+   human-controlled position (PD-027 point 4).
 
-5. THE Simulator SHALL NOT prevent the Player from selecting a hero that the Coach did not
+5. IN Party 5, THE Simulator SHALL behave as the humans controlling all five selections, with no
+   auto-fill.
+
+6. THE Simulator SHALL NOT prevent the Player from selecting a hero that the Coach did not
    recommend.
 
 ---
@@ -243,6 +263,14 @@ realistic manner so that practice sessions are meaningful.
 
 6. THE Enemy Bot SHALL use real Dota 2 roles from hero position data — never inferred from hero
    name or label alone.
+
+7. THE Enemy Bot's internal position assignment SHALL remain Simulator-private: never displayed,
+   and never sent to the Player-visible state, the Coach, or recommendation evidence (PD-027
+   point 5).
+
+8. THE Ally Bot SHALL follow Requirement 5 criteria 2, 4 and 6 for the Own Team positions it
+   controls, with its position order deterministic from the Simulator seed (PD-026, PD-027
+   point 4).
 
 ---
 
@@ -324,6 +352,10 @@ mode demands.
 
 5. THE Coach SHALL never present the recommendation as an obligation — the Player retains full
    decision authority.
+
+6. WHEN the Coach recommends a specific hero for a specific position, THAT hero SHALL satisfy the
+   canonical positional credibility policy for that position (PD-024, PD-027 point 7). Role-level
+   and team-level advice that names no hero-for-position pair is exempt.
 
 ---
 
@@ -575,11 +607,13 @@ Simulator so that I have full situational awareness when making decisions.
 
 #### Acceptance Criteria
 
-1. THE Simulator SHALL display all revealed Own Team picks. WHEN a pick has a confirmed position,
-   display that position. WHEN a pick is a Flex Hero with unresolved position, display it as FLEX
+1. THE Simulator SHALL display every revealed Own Team pick under the position it fills, as
+   recorded when the pick was sealed (PD-027 point 3). WHEN a pick has no recorded position (for
+   example a manual Live session) and is a Flex Hero with unresolved position, display it as FLEX
    with its possible positions (e.g., FLEX 3/4) rather than forcing a single assignment.
 
-2. THE Simulator SHALL display all revealed Enemy Team picks.
+2. THE Simulator SHALL display all revealed Enemy Team picks; any role shown for an enemy pick
+   SHALL follow Requirement 4 criterion 7.
 
 3. THE Simulator SHALL display all confirmed bans.
 
@@ -613,6 +647,13 @@ Round 1.
    selection normally.
 
 5. THE Simulator SHALL not require the Player to fill support positions before core positions.
+
+6. THE rules in criteria 1–5 SHALL hold in every supported party size; Ally Bot scheduling SHALL
+   never prevent a human-controlled position from being selected in the round the human chooses
+   (PD-027 point 4).
+
+7. NO layer of the system SHALL map a round, a round slot, or a pick ordinal to a position
+   (PD-027 point 2).
 
 ---
 
@@ -671,7 +712,8 @@ Pool and show my personal options throughout the draft.
    "YOUR CARRY NOW") using the declared position throughout the draft.
 
 4. THE declared personal position SHALL NOT constrain when in the draft the Player selects their
-   own hero — the Player may fill their personal slot in any pick round (PD-001, PD-020).
+   own hero — the Player may fill their personal position in any pick round, in every supported
+   party size (PD-001, PD-020, PD-026, PD-027).
 
 5. IF the Player does not declare a personal position, THE Simulator SHALL still function, but
    personal Hero Pool loading and the personal hero view SHALL be unavailable until a position is

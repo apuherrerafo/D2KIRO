@@ -176,10 +176,20 @@ interface SimulatorSessionConfig {
   // Exactly one of each: Pos1, Pos2, Pos3, Pos4, Pos5 — known from matchmaking.
   // This is role identity, NOT pick chronology. A Pos2 (Mid) may pick in Round 1.
   // The Player's personal slot is identified by playerPersonalPosition.
-  // The other four slots represent teammates whose heroes the Player also controls in Simulator.
+  // The other four positions are controlled by the human party or by the Ally Bot (PD-026).
   ownTeamRoleAssignments: Record<1 | 2 | 3 | 4 | 5, "assigned">;
-  // Note: In Simulator, all 5 positions are controlled by the Player.
+  // Note (PD-026, supersedes the former "all 5 controlled by the Player"): control is by POSITION,
+  // see partySize / controlledPositions below. Party 5 = all five positions human-controlled.
   // Role assignments are known truth (Ranked Roles gives them); pick slots are NOT.
+
+  // Party size: 1 | 2 | 3 | 5. Party 4 is unsupported (PD-026).
+  partySize: 1 | 2 | 3 | 5;
+
+  // AP CONTROL SOURCE OF TRUTH (PD-026). Distinct positions controlled by humans; length ===
+  // partySize; includes playerPersonalPosition. Fixed at session creation and immutable.
+  // The Ally Bot controls the complement. This is NOT derived from chronology or from
+  // PartyContext.controlledSlots (which is structural and inert for AP, see §5 and §11).
+  controlledPositions: (1 | 2 | 3 | 4 | 5)[];
   
   // Seed para reproducibilidad determinística del Enemy Bot y bans simulados (Req 6.4)
   simulatorSeed: string;
@@ -366,6 +376,16 @@ El diseño define cuatro capas de estado con límites estrictos de visibilidad. 
 - `rankedAp.confirmedPicks[]` — picks ya revelados de rondas pasadas
 - `rankedAp.bannedHeroes[]` — héroes baneados
 
+**El kernel de protocolo es agnóstico a posiciones (PD-027).** Conoce lado, ronda, `roundSlot`
+(`slotIndex` de `OpenSlot` / `SealedSelection` / `ConfirmedPick`, con su significado round-scoped:
+0 o 1 en rondas 1–2, 0 en ronda 3), héroe, colisiones y reveals — y nada de posiciones ni
+controladores. `PartyContext` es "foundation only, no protocol-rule effect" (`draft-protocol/types.ts`,
+`party-context.ts`): el kernel lo valida y lo guarda pero no lo usa para legalidad. Para una sesión AP
+Simulator se crea como `{ partySize, side, controlledSlots: [] }`: estructuralmente válido y
+semánticamente inerte. **`ControlledSlot.slotIndex` nunca se lee ni se escribe como verdad de posición
+o de control en código AP.** Captains Mode y las sesiones manuales (Live) conservan su `partyContext`
+actual sin cambios.
+
 ### Capa B — PLAYER-VISIBLE STATE (PerspectiveDraftView)
 
 **Quién la produce**: `project(protocolState, config.side)` en `perspective.ts`. Es la única función autorizada para convertir Capa A en Capa B.
@@ -418,12 +438,32 @@ El kernel no gestiona tiempo. El Simulator es responsable del countdown, del ini
 
 ```typescript
 interface GoldPenaltyState {
-  bySlot: number[];        // length = 5, índice = roster slot del Player (0..4)
+  bySlot: number[];        // length = 5, índice = pickOrdinal propio (cronología 0..4); nunca una posición ni un controlador (PD-027)
   penaltyRatePerSecond: number;  // 2 oro/s (Req 7.2)
 }
 ```
 
 Separado del kernel. Actualizado por el Simulator cuando `penaltyStartedAt` no es null. Solo aplica a slots de Own Team con selección pendiente.
+
+### Own Pick Position Binding (capa de sesión del Simulator)
+
+```typescript
+// Vive en la entrada del ProtocolSessionStore, fuera del kernel (mismo precedente que Timer y Gold Penalty).
+interface OwnPickPositionBinding {
+  round: 1 | 2 | 3;
+  slotIndex: number;          // = roundSlot: el slotIndex round-scoped del kernel, sin cambio de significado
+  assignedPosition: 1 | 2 | 3 | 4 | 5;
+}
+// ownPickPositions: OwnPickPositionBinding[]   (sólo lado local)
+```
+
+- Se registra cuando el Simulator acepta una selección sellada propia: el kernel aplica
+  `SUBMIT_SEALED_SELECTION(side, slotIndex, heroId)` (sin cambios) y la sesión registra a qué
+  `assignedPosition` corresponde.
+- Es verdad conocida del Own Team para el Player y el Coach (PD-027 punto 3); nunca se re-infiere.
+- **Se elimina** cuando una colisión reabre ese `(round, roundSlot)`.
+- El snapshot puede exponerlo después como `ownAssignedPositions`, **sólo al lado propio**.
+- `assignedPosition` viaja fuera del comando del kernel (ver §11 "Pick de cualquier slot").
 
 ### EnemyBotInternalState
 
@@ -567,6 +607,8 @@ El Enemy Bot tiene acceso a `DraftProtocolState` para saber qué héroes están 
 3. `buildRecommendationSetV2` dado un `PerspectiveDraftView` con `enemyPicks` HIDDEN → ningún pick enemigo oculto aparece en las recomendaciones ni en las señales de counter
 4. `project(state, null)` (sin viewer) → todos los picks sealed aparecen como `HIDDEN` (neutral viewer)
 5. En `perspective.ts`, `hidden()` retorna un nuevo objeto en cada llamada (no singleton reutilizado)
+6. La UI del roster nunca etiqueta un héroe enemigo desde la cronología ni desde la asignación privada del Enemy Bot (PD-027 punto 5)
+7. Ninguna proyección, snapshot ni DOM contiene `internalPositionAssignments` ni `positionsByRosterSlot`
 
 ---
 
@@ -742,9 +784,15 @@ El `hero_pool` en DB está asociado al usuario globalmente. Para AP Ranked Roles
 
 ## 11. Own Team Control Model
 
+> **Actualización 2026-09-27 (PD-026 / PD-027).** El modelo "el Player controla los 5 selections" que
+> describe esta sección se conserva sólo como el caso **Party 5**. PD-026 lo generaliza a Solo / Party 2 /
+> Party 3 / Party 5 con control por **posición**. Las subsecciones nuevas de abajo ("Party control model",
+> "Canonical vocabulary", "Ally Bot scheduling", "Rejected designs register") mandan sobre cualquier
+> ejemplo de `controlledSlots: [0..4]` de esta sección.
+
 En AP Ranked Roles V1 el Player controla los 5 selections del Own Team. Este es el cambio de modelo más significativo respecto al recovery build.
 
-### Modelo general: 5 slots controlados
+### Modelo general: 5 slots controlados (legado — sólo Party 5; ver "Party control model (PD-026)")
 
 ```typescript
 // Configuración de partido del Simulator
@@ -774,6 +822,39 @@ The design removes the fixed `slot-ordinal → position` mapping from `SOLO_MID_
 
 When a Player fills a pick slot, they are associating that pick with one of the five known role slots — but they choose freely which role slot to fill at which pick moment.
 
+### Party control model (PD-026)
+
+`SimulatorSessionConfig.partySize` + `controlledPositions` (ver §4) son la **fuente de verdad del
+control en AP**:
+
+| Party | `controlledPositions` | Ally Bot controla |
+|---|---|---|
+| Solo (1) | la posición personal | las otras 4 |
+| Party 2 | 2 posiciones declaradas | las otras 3 |
+| Party 3 | 3 posiciones declaradas | las otras 2 |
+| Party 5 | `[1,2,3,4,5]` | ninguna |
+| Party 4 | no soportado | — |
+
+- `PartyContext` sigue siendo **estructural e inerte** para AP Simulator:
+  `{ partySize, side, controlledSlots: [] }`. **No es el oráculo de posición ni de control.**
+- El control pertenece a **posiciones / participantes**, nunca a asientos cronológicos.
+- Los picks del Ally Bot son picks del Own Team: su héroe y su posición son verdad conocida para el
+  Player y el Coach.
+
+### Canonical vocabulary (PD-027)
+
+| Concepto | Significado | Estable en el draft | Lo conoce el Coach | Lo conoce el Player | Capa |
+|---|---|---|---|---|---|
+| `assignedPosition` | Pos1..Pos5; identidad del participante del Own Team | Sí | Sí | Sí | Sesión Simulator / Coach |
+| `controller` | Humano o Ally Bot que controla un `assignedPosition` | Sí | Sí | Sí | Sesión Simulator |
+| `roundSlot` | `slotIndex` round-scoped del kernel (0/1 en R1–R2, 0 en R3) | No (por ronda) | Sí | Sí | Kernel de protocolo |
+| `pickOrdinal` | Orden cronológico 0..4 derivado; ni posición ni controlador | Sí (tras el hecho) | Sí | Sí | Derivado |
+| Enemy private position | Rol interno del Enemy Bot por pick | Sí | **No** | **No** | Simulator-private |
+
+- **En código AP, `slotIndex` significa únicamente `roundSlot`.** No existen dos significados de `slotIndex`.
+- Los términos `rosterSeat` / `rosterSlot` se retiran en favor de `pickOrdinal` donde se quiere decir
+  cronología. Las apariciones históricas de `rosterSlot` en este documento significan `pickOrdinal`.
+
 ### Slot ordinal vs. posición declarada
 
 En el recovery build, `SOLO_MID_SIMULATOR_POLICY.rosterPositions` asignaba posiciones según el orden fijo de picks: slot 0 = Pos5, slot 1 = Pos4, etc. Esto violaba PD-001 al hacer que la posición dependiera del orden de pick.
@@ -783,13 +864,45 @@ En el modelo generalizado:
 - La posición (Pos1-5) asociada a cada héroe se determina por declaración explícita del Player o por inferencia (`RoleBelief`)
 - No hay mapeo fijo slot-ordinal → posición
 
+### Rejected designs register
+
+Diseños rechazados explícitamente. Ninguno puede reaparecer en código de producción (candado:
+`no-solo-mid-residue.test.ts`, a extender en el commit de implementación):
+
+- `POSITION_FOR_ROSTER_SEAT`, `ROSTER_SEAT_FOR_POSITION`, `positionForRosterSeat`,
+  `rosterSeatForPosition`, `positionForRoundSlot` (motor y web), `SEAT_ROLE_NAMES` — reintroducidos por
+  `7af98c7` / `b8d4d20` / `5e39890`, en contradicción con este §11 y con PD-001 / PD-020.
+- `PartyContext.controlledSlots` como verdad de control o de posición en AP — `7af98c7`.
+- `ControlledSlot.slotIndex = position − 1` (reinterpretar el índice del kernel como posición) — rechazado
+  2026-09-27: sobrecarga un segundo concepto de "slot" con significado de posición y contradice PD-027.
+
 ### Pick de cualquier slot en cualquier ronda
 
 El Simulator acepta `SUBMIT_SEALED_SELECTION(side, slotIndex, heroId)` para cualquier combinación válida de (side, slotIndex) en la ronda actual. El kernel no tiene concepto de "este slotIndex debe tener tal posición". La validación es solo: slot está abierto + héroe disponible.
 
+**`assignedPosition` viaja fuera del comando del kernel.** El comando sigue siendo
+`SUBMIT_SEALED_SELECTION(side, slotIndex, heroId)` con `slotIndex = roundSlot`. Para una sesión AP
+Simulator, la posición viaja como campo hermano en el sobre de envío (`{ command, viewerSide,
+assignedPosition }`) y la valida la ruta, nunca el comando ni el validador del kernel. La sesión
+comprueba que la posición es controlada por un humano y aún no está ligada, aplica el comando al
+kernel y después registra el binding (§5 "Own Pick Position Binding"). Cualquier `roundSlot` propio
+abierto puede llevar cualquier posición humana sin cubrir.
+
 ### Slot personal del Player
 
 El slot personal se identifica por `playerPersonalPosition`, no por un índice fijo. Cuando el Player pica un héroe y lo asocia a su posición personal, ese slot queda marcado como "el slot del Player". Esta asociación es semántica (para el Coach), no un constraint del kernel.
+
+### Ally Bot scheduling (PD-027 punto 4)
+
+- Por ronda, el humano actúa primero. El Ally Bot llena la capacidad propia restante de la ronda
+  sólo después de que los humanos actuaron, o cuando el humano cede explícitamente el resto de la ronda.
+- El timer nunca elige automáticamente (§6 "Timer expirado"): ceder la ronda es una acción explícita del
+  humano, no disponible cuando las posiciones sin cubrir del Ally Bot no alcanzan para la capacidad
+  restante de la ronda.
+- El orden en que el Ally Bot cubre sus posiciones es una permutación determinista de las posiciones que
+  controla, derivada de `simulatorSeed` (namespace propio, mismo patrón que `deriveExternalDecisionSeed`).
+- El Ally Bot nunca impide que una posición controlada por un humano se selle en la ronda en que el humano
+  decide actuar; el único límite es la capacidad real de la ronda (2 / 2 / 1).
 
 ### Reemplazando SOLO_MID_SIMULATOR_POLICY
 
@@ -870,6 +983,11 @@ Misma lógica que el recovery build, generalizada para cualquier side y rosterSl
 
 `EnemyBotInternalState.pendingSelections` (picks sellados aún no revelados) nunca se serializa hacia el pipeline del Coach. La única comunicación entre el Enemy Bot y el Coach es a través de `project(protocolState, playerSide)`, que oculta estructuralmente los picks sellados del lado enemigo.
 
+`internalPositionAssignments` es una permutación sembrada por sesión, indexada por el `pickOrdinal`
+del propio Enemy Bot. Es **Enemy private position** (verdad privada del Simulator, PD-027 punto 5), no un
+mapeo compartido ni fijo, y su único consumidor es el driver del Enemy Bot. Nunca llega al Player, al
+Coach, a la evidencia de recomendación ni a la UI normal del roster.
+
 ### Variation policy
 
 `chooseExternalSuggestion` implementa la quality band de forma reutilizable:
@@ -938,6 +1056,15 @@ Si el Player asigna explícitamente una posición a un héroe enemigo:
 - La siguiente llamada a `computeRoleBelief` para ese héroe usará `confirmedPosition: position` → resultado `CONFIRMED` con entropy 0
 
 El Player puede remover o cambiar la asignación (Req 13.4). El Coach recalcula `RoleBelief` en el siguiente update.
+
+### Display del rol enemigo en el roster (PD-027 punto 5)
+
+El roster muestra un rol enemigo únicamente desde `RoleBelief` (evidencia observable, distribución
+probabilística, "Likely PosX / Possible PosY") o desde una asignación explícita del Player. Nunca desde la
+cronología del pick, un asiento o la asignación privada del Enemy Bot. Sin evidencia suficiente el rol
+se muestra probabilístico o no se muestra. Nota: `POST .../position-assignment` responde hoy 403
+(`own_team_assignment_only`) para héroes enemigos; la asignación manual de un rol enemigo (§13
+"Player assignment override") sigue siendo una brecha conocida, no un requisito de este commit.
 
 ### Lo que el Coach NO hace
 
@@ -1400,6 +1527,14 @@ Los endpoints existentes de `/api/sessions/protocol` se extienden para el nuevo 
 
 No se crea un namespace de API completamente nuevo salvo que la extensión requiera un nuevo recurso (ej: un endpoint dedicado para declarar `playerPersonalPosition` si no se puede pasar en la creación de sesión).
 
+**Actualización PD-026 / PD-027 (2026-09-27).** Para una sesión AP Simulator: la creación envía
+`controlledPositions` y un `partyContext` estructural `{ partySize, side, controlledSlots: [] }`
+(Captains Mode y manual conservan su `partyContext` actual); el envío de un pick propio usa el sobre
+`{ command, viewerSide, assignedPosition }` con `assignedPosition` como hermano del comando del kernel,
+que no cambia; el auto-drive acepta un indicador para ceder la capacidad restante de la ronda al Ally Bot;
+el snapshot puede exponer `ownAssignedPositions` sólo al lado propio. Sin ruta nueva ni cambio de la
+allowlist del proxy.
+
 ### Update de verifiedThroughPatch
 
 El cambio `"7.41e"` → `"7.41f"` en `RANKED_ALL_PICK_IDENTITY` impacta:
@@ -1448,6 +1583,8 @@ En particular, el reemplazo de `SOLO_MID_SIMULATOR_POLICY` debe ir acompañado d
 | `isSealedSelectionLegal(state, "dire", 0, puck)` cuando Dire ya seleccionó Puck | Retorna `false` (`alreadySealedBySameSide`) |
 | `buildRecommendationSetV2` con view con enemy HIDDEN picks | Ningún HIDDEN heroId aparece en `recommendations` ni en `evidence` |
 | Pipeline de Coach no accede a `DraftProtocolState` directamente | `architecture-guard.test.ts` (ya existe, verificar sigue siendo válido) |
+| Roster UI enemiga (PD-027 punto 5) | Un héroe enemigo nunca se etiqueta desde cronología ni desde `internalPositionAssignments`; el rol mostrado coincide con `RoleBelief` o no se muestra |
+| Ninguna proyección / snapshot / DOM contiene `internalPositionAssignments` | Ausente en todas las superficies visibles al Player |
 
 ### Player Personal Position
 
@@ -1457,6 +1594,11 @@ En particular, el reemplazo de `SOLO_MID_SIMULATOR_POLICY` debe ir acompañado d
 | Pick Mid (position=2) en Round 1 | Aceptado sin warnings ni bloqueos |
 | `playerPersonalPosition = null` | Simulator crea sesión; `personalHeroView` ausente en RecommendationOutputV3 |
 | `playerPersonalPosition = 3` + hero pool configurado para Pos3 | `personalHeroView.positionLabel = "TU OFFLANER AHORA"` y heroes filtrados por pool Pos3 |
+| Party 5: Pos2 en Round 1 y Pos5 en Round 3 (PD-027) | Cada pick queda ligado a la posición elegida, no a la ronda; etiquetas Pos2 / Pos5 |
+| Solo con Pos2: sellar en Round 1 (PD-026, PD-027) | Aceptado; el Ally Bot no sella antes de que el humano actúe o ceda la ronda |
+| Misma seed, dos corridas (Ally Bot) | Mismo orden de posiciones del Ally Bot (determinismo) |
+| Pick fuera de rol de un humano (PD-003, PD-027 punto 6) | Sin bloqueo ni advertencia; el Coach razona desde la posición elegida |
+| Hero-for-PosN del Coach (PD-027 punto 7) | Todo héroe recomendado para una PosN cumple la credibilidad posicional canónica |
 
 ### Ban Resolution
 

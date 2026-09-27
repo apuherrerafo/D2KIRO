@@ -4,7 +4,9 @@ globs: apps/engine/**/*.ts
 alwaysApply: false
 ---
 
-Fuente: `docs/specs/SPEC.md` (contrato de desarrollo, gana sobre cualquier otra interpretación).
+Fuente: `docs/specs/SPEC.md` (contrato de desarrollo; gana sobre cualquier otra interpretación dentro de
+su alcance de fases 1–9.x). Para el draft AP Ranked Roles manda
+`.kiro/specs/ap-ranked-roles-v1/product-decisions.md` (ver `invariantes.md`).
 
 **R0.4 Task 24 (2026-09-13):** las fases cerradas que antes vivían enteras aquí (1b, 2, 3, 4, 4.2,
 4.3, 5, 6, 8) se movieron a `docs/rules-archive/fase-N.md` — nada vinculante se perdió, sólo se
