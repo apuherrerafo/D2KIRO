@@ -36,6 +36,7 @@ function snapshot(viewerSide: "radiant" | "dire", legalActions: ProtocolSnapshot
     },
     legalActions,
     simulator: null,
+    ownAssignedPositions: [],
   };
 }
 

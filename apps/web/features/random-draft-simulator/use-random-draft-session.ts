@@ -14,6 +14,7 @@ import {
   getProtocolSession,
   protocolViewToDraftState,
   requestEnemyAutoDrive,
+  requestYield,
   resolveSimulatorBans,
   submitProtocolCommand,
   type ProtocolLegalAction,
@@ -21,7 +22,7 @@ import {
   type ProtocolSnapshot,
 } from "./protocol-client";
 import { useRandomDraftStore, type RandomDraftActions, type RandomDraftState } from "./store";
-import { rosterSeatForRoundSlot } from "./roster";
+import { controlledPositionsForConfig } from "./roster";
 import type { DraftConfig, HeroId, PicksByRound, SessionMode } from "./types";
 
 const TIMER_TICK_MS = 250;
@@ -96,8 +97,10 @@ export type StartDraftConfig = Omit<DraftConfig, "patch">;
 export interface UseRandomDraftSessionResult {
   state: RandomDraftState;
   actions: Pick<RandomDraftActions, "confirmPick"> & {
-    /** Sella la selección del Player para un asiento abierto explícito. */
-    lockPick(heroId: HeroId, slotIndex?: number): Promise<void>;
+    /** Sella la selección del Player para una posición humana controlada explícita (PD-026/PD-027). */
+    lockPick(heroId: HeroId, position?: 1 | 2 | 3 | 4 | 5): Promise<void>;
+    /** PD-026 ALLY BOT SCHEDULING -- cede la capacidad restante de la ronda al Ally Bot. */
+    yieldRound(): Promise<void>;
     resetDraft(): void;
     retryPreview(): void;
     /** Reintenta la resolución de bans con los mismos datos y la misma seed (fail closed). */
@@ -140,6 +143,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const lastSyncedAt = useRandomDraftStore((state) => state.lastSyncedAt);
   const confirmPick = useRandomDraftStore((state) => state.confirmPick);
   const resetSession = useRandomDraftStore((state) => state.resetSession);
+  const ownAssignedPositions = useRandomDraftStore((state) => state.ownAssignedPositions);
 
   const protocolRef = useRef<ProtocolSnapshot | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -206,6 +210,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot): void {
     protocolRef.current = snapshot;
     const current = useRandomDraftStore.getState();
+    useRandomDraftStore.getState().setOwnAssignedPositions(snapshot.ownAssignedPositions);
     if (!current.config) return;
     const authoritative = protocolViewToDraftState(snapshot.view, current.config.patch);
     useRandomDraftStore.getState().setDraftState(authoritative);
@@ -226,11 +231,20 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     }, TIMER_TICK_MS);
   }, [stopTimer]);
 
+  // PD-026/PD-027 WEB INTERACTION -- the human target picker shows ALL currently unfilled
+  // human-controlled positions, in every valid round (never a fixed round<->position schedule).
   const beginAttempt = useCallback(function beginAttempt(snapshot: ProtocolSnapshot, notice: string | null): void {
     const round = roundFromView(snapshot.view);
     if (!round) throw new Error("human input requested without an AP round");
     const timer = snapshot.simulator;
-    const seats = timer?.pendingSeats ?? ownOpenSlotIndexes(snapshot).map((slotIndex) => roundSeatOffset(round) + slotIndex);
+    const config = useRandomDraftStore.getState().config;
+    const controlledPositions = config ? controlledPositionsForConfig(config) : [];
+    const boundPositions = new Set(snapshot.ownAssignedPositions.map((binding) => binding.assignedPosition));
+    const attemptPositions = controlledPositions.filter((position) => !boundPositions.has(position));
+    // A yield only ever needs offering when there's a human position left to hand off, and the
+    // party doesn't already control all five (Party 5 has no Ally Bot capacity at all -- the
+    // server is still the final authority and rejects a yield it cannot honor).
+    const canYield = attemptPositions.length > 0 && controlledPositions.length < 5;
     if (roundConflictsRef.current.round !== round) roundConflictsRef.current = { round, bans: [] };
     useRandomDraftStore.getState().setVisualPhase({
       type: "blind_round",
@@ -239,8 +253,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       timerDurationMs: timer?.durationMs ?? specForRound(round).timerMs,
       pendingUserPicks: [],
       lockedUserPicks: {},
-      attemptSeats: seats,
-      pendingSeats: seats,
+      attemptPositions,
+      pendingPositions: attemptPositions,
       goldPenaltyBySlot: timer?.goldPenaltyBySlot ?? [0, 0, 0, 0, 0],
       penaltyRatePerSecond: timer?.penaltyRatePerSecond ?? 2,
       penaltyElapsedMs: 0,
@@ -248,6 +262,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       conflictCount: roundConflictsRef.current.bans.length,
       attemptId: (attemptCounterRef.current += 1),
       notice,
+      canYield,
     });
     void refreshRecommendations();
     startTicker(round);
@@ -345,13 +360,18 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     await advance(notice);
   }, [advance, completeDraft, revealRound, stopTimer]);
 
-  const lockPick = useCallback(async function lockPick(heroId: HeroId, requestedSlotIndex?: number): Promise<void> {
+  // PD-026/PD-027 ATOMIC OWN PICK: `assignedPosition` travels as a sibling field to the kernel
+  // command. Any currently open own round slot may be used -- the position is the human's choice,
+  // never derived from which slot it happens to land in.
+  const lockPick = useCallback(async function lockPick(heroId: HeroId, requestedPosition?: 1 | 2 | 3 | 4 | 5): Promise<void> {
     const current = useRandomDraftStore.getState();
     const snapshot = protocolRef.current;
     if (lockingRef.current || current.phase.type !== "blind_round" || !current.sessionId || !snapshot) return;
+    const position = requestedPosition ?? current.phase.attemptPositions[0];
+    if (position === undefined || !current.phase.attemptPositions.includes(position)) return;
     const openSlots = ownOpenSlotIndexes(snapshot);
-    const slotIndex = requestedSlotIndex ?? openSlots[0];
-    if (slotIndex === undefined || !openSlots.includes(slotIndex)) return;
+    const slotIndex = openSlots[0];
+    if (slotIndex === undefined) return;
     const round = current.phase.round;
     const previousPhase = snapshot.view.rankedAp?.phase;
     const previousBans = [...snapshot.view.bannedHeroes];
@@ -361,13 +381,14 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         current.sessionId,
         { type: "SUBMIT_SEALED_SELECTION", side: snapshot.view.viewerSide, slotIndex, heroId },
         fetchImpl,
+        position,
       );
       syncSnapshot(next);
       if (next.accepted === false) {
         useRandomDraftStore.getState().setRoundNotice(`Ese héroe no está disponible (${next.rejected ?? "rechazado"}). Elegí otro.`);
         return;
       }
-      useRandomDraftStore.getState().confirmPick(heroId, rosterSeatForRoundSlot(round, slotIndex));
+      useRandomDraftStore.getState().confirmPick(heroId, position);
       useRandomDraftStore.getState().setRoundNotice(null);
       if (openSlots.length > 1) {
         if (next.simulator) useRandomDraftStore.getState().syncRoundTimer(next.simulator);
@@ -382,6 +403,25 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       lockingRef.current = false;
     }
   }, [closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
+
+  // PD-026 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own Team
+  // capacity to the Ally Bot. The server is the final authority: a yield it cannot honor comes back
+  // as a rejection, surfaced as a round notice, never silently ignored.
+  const yieldRound = useCallback(async function yieldRound(): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    if (lockingRef.current || current.phase.type !== "blind_round" || !current.sessionId || !current.phase.canYield) return;
+    lockingRef.current = true;
+    try {
+      const snapshot = await requestYield(current.sessionId, fetchImpl);
+      syncSnapshot(snapshot);
+      await advance(null);
+    } catch (error) {
+      console.error("[useRandomDraftSession] yieldRound failed", error);
+      useRandomDraftStore.getState().setEngineStatus("unreachable");
+    } finally {
+      lockingRef.current = false;
+    }
+  }, [advance, fetchImpl, syncSnapshot]);
 
   // Fail closed: if ban resolution fails the session stays in ban configuration (phase "ban_failed")
   // and the very same request can be retried. Round 1 is never started without a resolved ban set.
@@ -517,8 +557,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }, [fetchImpl, resolveBans, stopTimer, syncSnapshot]);
 
   return {
-    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus },
-    actions: { confirmPick, lockPick, resetDraft, retryPreview, retryBans, assignOwnPosition, recordObservedBans, submitLiveSelection },
+    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus, ownAssignedPositions },
+    actions: { confirmPick, lockPick, yieldRound, resetDraft, retryPreview, retryBans, assignOwnPosition, recordObservedBans, submitLiveSelection },
     startDraft,
   };
 }

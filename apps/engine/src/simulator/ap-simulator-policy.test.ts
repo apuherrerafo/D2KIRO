@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { participantForRoundSlot, roundForPhase, rosterSlotForRoundSlot } from "./ap-simulator-policy";
+import { roundForPhase, rosterSlotForRoundSlot } from "./ap-simulator-policy";
 
 describe("AP Ranked Roles V1 -- seat utilities (no position, no side hardcode)", () => {
   test("mapea 2+2+1 a seats 0..4 (identidad de asiento cronologica, NO una posicion)", () => {
@@ -8,24 +8,6 @@ describe("AP Ranked Roles V1 -- seat utilities (no position, no side hardcode)",
     expect(rosterSlotForRoundSlot(3, 0)).toBe(4);
     expect(rosterSlotForRoundSlot(3, 1)).toBeNull();
     expect(rosterSlotForRoundSlot(1, 2)).toBeNull();
-  });
-
-  test("el Player controla TODOS los asientos de su lado, sea Radiant o Dire", () => {
-    for (const humanSide of ["radiant", "dire"] as const) {
-      const enemy = humanSide === "radiant" ? "dire" : "radiant";
-      for (const [round, capacity] of [[1, 2], [2, 2], [3, 1]] as const) {
-        for (let slot = 0; slot < capacity; slot += 1) {
-          expect(participantForRoundSlot(humanSide, round, slot, humanSide)?.control).toBe("human");
-          expect(participantForRoundSlot(enemy, round, slot, humanSide)?.control).toBe("external");
-        }
-      }
-    }
-  });
-
-  test("un participante no lleva posicion: la posicion no depende de cuando se pica", () => {
-    const participant = participantForRoundSlot("radiant", 1, 0, "radiant");
-    expect(participant).toEqual({ side: "radiant", rosterSlot: 0, control: "human" });
-    expect(participant).not.toHaveProperty("position");
   });
 
   test("roundForPhase", () => {

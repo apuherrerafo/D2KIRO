@@ -87,10 +87,18 @@ export interface BuildRecommendationSetV2Input {
   teamOpening?: boolean;
   /** Simulator recovery preserves all six V6 suggestions; other callers keep the legacy limit. */
   outputLimit?: number;
-  /** Stable roster identities controlled by this caller, mapped onto AP's round-scoped slots. */
+  /** Stable roster identities controlled by this caller, mapped onto AP's round-scoped slots. Legacy (non-AP-Simulator-controlledPositions) callers only -- see `humanOpenPositions`. */
   controlledRosterSlots?: readonly number[];
-  /** Explicit simulator discriminator: only simulator sessions derive fixed role-to-seat schedules. */
+  /** Explicit simulator discriminator: only simulator sessions target real Own Team positions. */
   isSimulator?: boolean;
+  /**
+   * PD-026/PD-027 -- Own Team's unfilled human-controlled positions (AP Simulator only), zipped
+   * onto open own slots in ascending-position order. Takes priority over `controlledRosterSlots`
+   * when present. Also folded into `basedOn.partyIdentity` so two states differing only here never
+   * share a recommendation identity.
+   */
+  humanOpenPositions?: readonly Position[] | null;
+  controlledPositions?: readonly Position[] | null;
 }
 
 export async function buildRecommendationSetV2(input: BuildRecommendationSetV2Input): Promise<RecommendationSetV2> {
@@ -98,7 +106,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false);
+  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false, input.humanOpenPositions ?? undefined);
   const degradations: RecommendationDegradation[] = [...legal.degradations];
   const eligibilitySnapshot = state.captainsMode?.eligibilitySnapshot ?? null;
   // Blocker 6 (independent architecture review) -- identity inputs shared by every basedOn built
@@ -112,6 +120,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
     seed: seed ?? null,
     patch,
     partyContext: state.rankedAp?.partyContext ?? null,
+    apControl: { controlledPositions: input.controlledPositions ?? null, humanOpenPositions: input.humanOpenPositions ?? null },
   };
   // No evidence has been computed yet at this point -- used for every return that never reaches
   // computeSuggestions (no legal action) or where computeSuggestions itself failed.

@@ -23,7 +23,7 @@ import {
 import type { RecommendationOutputV3 } from "../../coach";
 import type { CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
-import { positionForRosterSeat, rosterSeatForPosition, rosterSlotForRoundSlot, type DotaPosition } from "../../simulator/ap-simulator-policy";
+import { rosterSlotForRoundSlot, type DotaPosition } from "../../simulator/ap-simulator-policy";
 import {
   defaultBanResolutionPolicy,
   resolveSimulatorBans,
@@ -31,6 +31,7 @@ import {
   type HeroUniverse,
 } from "../../simulator/ban-resolution";
 import { chooseAllyBotHero } from "../../simulator/ally-bot";
+import { deriveAllyPositionOrder } from "../../simulator/ally-bot-roles";
 import { chooseEnemyBotHero, createEnemyBotConfig } from "../../simulator/enemy-bot";
 import { isApSimulatorMetadata } from "../../simulator/session-config";
 import { ProtocolSessionStore } from "../protocol-session";
@@ -124,37 +125,51 @@ function oppositeSide(side: TeamSide): TeamSide {
   return side === "radiant" ? "dire" : "radiant";
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseDotaPosition(value: unknown): DotaPosition | null {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 ? value : null;
+}
+
+/** Array of unique DotaPositions, non-empty. `null` for anything malformed -- never throws. */
+function parseControlledPositions(value: unknown): DotaPosition[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const seen = new Set<DotaPosition>();
+  for (const entry of value) {
+    const position = parseDotaPosition(entry);
+    if (position === null || seen.has(position)) return null;
+    seen.add(position);
+  }
+  return [...seen];
+}
+
 /**
  * A seeded Simulator session is an AP Ranked Roles V1 session: Ranked All Pick, the Player controls
- * all five seats of their own side. Any side and any personal position are supported -- what is
-/**
- * AP Ranked Roles Simulator session policy:
+ * all five seats of their own side. Any side and any personal position are supported.
+ *
+ * PD-026/PD-027 (governance) -- AP Ranked Roles Simulator session policy:
  * Supported controlled party sizes: 1, 2, 3, 5 (party 4 is explicitly unsupported).
- * For each party size, exactly that many unique controlled roster seats on localSide (0..4).
- * If humanPosition is provided, its assigned roster seat must be among the controlled seats.
+ * Own Team truth is `controlledPositions` (a Position set), never chronological roster seats:
+ * `partyContext.controlledSlots` is structural/inert for AP and MUST arrive empty.
+ * `controlledPositions.length` must equal `partySize`. If `humanPosition` is provided, it must be
+ * one of the controlled positions.
  */
 function isSupportedApSimulatorBody(body: {
   rulesetId: string;
   localSide: TeamSide;
   humanPosition?: DotaPosition;
   partyContext: { partySize: number; controlledSlots: { side: TeamSide; slotIndex: number }[] };
+  controlledPositions: DotaPosition[] | null;
 }): boolean {
   if (body.rulesetId !== "dota2/ranked-all-pick") return false;
   const partySize = body.partyContext.partySize;
   if (partySize !== 1 && partySize !== 2 && partySize !== 3 && partySize !== 5) return false;
-  const controlled = body.partyContext.controlledSlots;
-  if (controlled.length !== partySize) return false;
-  const uniqueSlots = new Set(controlled.map((slot) => slot.slotIndex));
-  if (uniqueSlots.size !== partySize) return false;
-  if (!controlled.every((slot) => slot.side === body.localSide && slot.slotIndex >= 0 && slot.slotIndex <= 4)) {
-    return false;
-  }
-  if (body.humanPosition !== undefined) {
-    const playerSeat = rosterSeatForPosition(body.humanPosition);
-    if (playerSeat === null || !uniqueSlots.has(playerSeat)) {
-      return false;
-    }
-  }
+  if (body.partyContext.controlledSlots.length !== 0) return false;
+  const positions = body.controlledPositions;
+  if (!positions || positions.length !== partySize) return false;
+  if (body.humanPosition !== undefined && !positions.includes(body.humanPosition)) return false;
   return true;
 }
 
@@ -163,10 +178,17 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     // Same opportunistic-cleanup discipline as SessionStore/simulator-sessions.ts -- no scheduler
     // of its own, just a cheap sweep on the path that creates new sessions.
     deps.store.evictStale();
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidCreateProtocolSessionBody(body)) return badRequest("invalid_body");
-    if (body.rulesetId === "dota2/ranked-all-pick" && (body.adapterKind === "simulator" || body.humanPosition !== undefined) && !isSupportedApSimulatorBody(body)) {
-      return Response.json({ error: "unsupported_simulator_policy" }, { status: 422 });
+    const rawBody: unknown = await request.json().catch(() => null);
+    if (!isValidCreateProtocolSessionBody(rawBody)) return badRequest("invalid_body");
+    const body = rawBody;
+    // PD-026/PD-027: `controlledPositions` is a sibling field the generic draft-protocol validator
+    // does not know about (draft-protocol/validation.ts stays untouched) -- read and validated here,
+    // at the route/session boundary, from the same raw JSON body.
+    const controlledPositions = parseControlledPositions(isRecord(rawBody) ? rawBody.controlledPositions : undefined);
+    if (body.rulesetId === "dota2/ranked-all-pick" && (body.adapterKind === "simulator" || body.humanPosition !== undefined)) {
+      if (!isSupportedApSimulatorBody({ ...body, controlledPositions })) {
+        return Response.json({ error: "unsupported_simulator_policy" }, { status: 422 });
+      }
     }
 
     const sessionId = crypto.randomUUID();
@@ -179,6 +201,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       adapterKind: body.adapterKind,
       humanPosition: body.humanPosition,
       simulatorSeed: body.simulatorSeed,
+      controlledPositions: controlledPositions ?? undefined,
     });
     if (!created.ok) return Response.json({ error: created.reason, detail: "detail" in created ? created.detail : undefined }, { status: 422 });
 
@@ -210,6 +233,9 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       view: deps.store.view(sessionId),
       legalActions: deps.store.authorizedLegalActions(sessionId),
       simulator: deps.store.simulatorTimerView(sessionId),
+      // PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only, never
+      // Enemy Bot's private role permutation. `[]` for a session with no bindings yet.
+      ownAssignedPositions: deps.store.ownAssignedPositions(sessionId),
     };
   }
 
@@ -238,8 +264,9 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
 
   async function postCommand(request: Request, sessionId: string): Promise<Response> {
     if (!deps.store.get(sessionId)) return notFound();
-    const body: unknown = await request.json().catch(() => null);
-    if (!isValidSubmitProtocolCommandBody(body)) return badRequest("invalid_body");
+    const rawBody: unknown = await request.json().catch(() => null);
+    if (!isValidSubmitProtocolCommandBody(rawBody)) return badRequest("invalid_body");
+    const body = rawBody;
     const metadata = deps.store.metadata(sessionId)!;
     if (body.viewerSide !== undefined && body.viewerSide !== null && body.viewerSide !== metadata.localSide) {
       return Response.json({ error: "perspective_forbidden" }, { status: 403 });
@@ -257,6 +284,24 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
         { status: 403 },
       );
     }
+
+    // PD-026/PD-027 ATOMIC OWN PICK OPERATION -- an AP Simulator Own Team submission binds a
+    // human-controlled position to the sealed selection atomically with the kernel command.
+    // `assignedPosition` travels as a SIBLING field to `command` (never inside it -- the kernel
+    // command shape is unchanged, draft-protocol/** stays position-agnostic) and is validated HERE,
+    // at the route/session boundary, never by the generic draft-protocol validator.
+    if (body.command.type === "SUBMIT_SEALED_SELECTION" && isApSimulatorMetadata(metadata) && metadata.controlledPositions && body.command.side === metadata.localSide) {
+      const assignedPosition = parseDotaPosition(isRecord(rawBody) ? rawBody.assignedPosition : undefined);
+      if (assignedPosition === null) return badRequest("invalid_assigned_position");
+      const outcome = deps.store.applyApSimulatorOwnSelection(sessionId, body.command, assignedPosition);
+      if (outcome.ok) return Response.json({ accepted: true, rejected: undefined, ...snapshotBody(sessionId) }, { status: 202 });
+      if (outcome.reason === "kernel_rejected") {
+        return Response.json({ accepted: false, rejected: outcome.rejected, ...snapshotBody(sessionId) }, { status: 202 });
+      }
+      if (outcome.reason === "session_not_found") return notFound();
+      return Response.json({ error: outcome.reason }, { status: 409 });
+    }
+
     if (!deps.store.isCommandAuthorized(sessionId, body.command)) {
       return Response.json({ error: "action_forbidden" }, { status: 403 });
     }
@@ -264,6 +309,21 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const result = deps.store.apply(sessionId, body.command);
     if (!result) return notFound();
     return Response.json({ accepted: !result.rejected, rejected: result.rejected, ...snapshotBody(sessionId) }, { status: 202 });
+  }
+
+  /**
+   * PD-026/PD-027 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own
+   * Team capacity to the Ally Bot. Rejected with 409 (never silently accepted) when the Ally Bot
+   * cannot legally absorb that capacity.
+   */
+  async function postYield(sessionId: string): Promise<Response> {
+    if (!deps.store.get(sessionId)) return notFound();
+    const outcome = deps.store.yieldRound(sessionId);
+    if (!outcome.ok) {
+      const status = outcome.reason === "session_not_found" ? 404 : 409;
+      return Response.json({ error: outcome.reason }, { status });
+    }
+    return Response.json(snapshotBody(sessionId));
   }
 
   /**
@@ -517,62 +577,55 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
         continue;
       }
 
-      // Next: uncontrolled allied seats (Ally Bot).
-      const controlledRosterSlots = new Set(
-        metadata.partyContext?.controlledSlots
-          .filter((slot) => slot.side === humanSide)
-          .map((slot) => slot.slotIndex) ?? [0, 1, 2, 3, 4],
-      );
+      const ownOpenActions = openActions.filter((action) => action.side === humanSide);
 
-      const uncontrolledAllyAction = openActions.find((action) => {
-        if (action.side !== humanSide) return false;
-        const rosterSlot = rosterSlotForRoundSlot(currentRound, action.slotIndex);
-        return rosterSlot !== null && !controlledRosterSlots.has(rosterSlot);
-      });
+      // PD-026/PD-027 ALLY BOT SCHEDULING -- session creation (isSupportedApSimulatorBody) requires
+      // `controlledPositions` for every AP Simulator session, so this is the only own-side policy
+      // an AP Simulator session reaches here with. HUMAN-FIRST: while a human-controlled position
+      // remains open and the human has not explicitly yielded, auto-drive stops here (never fills a
+      // human-controlled position with the Ally Bot). Only once there is no such position left, or
+      // the human yielded, does the Ally Bot fill the round's remaining Own Team capacity, from its
+      // own deterministic order (ally-bot-roles.ts) -- never from roster seat/round/pickOrdinal.
+      if (!metadata.controlledPositions) return Response.json({ error: "ap_simulator_requires_controlled_positions" }, { status: 409 });
 
-      if (uncontrolledAllyAction) {
-        const rosterSlot = rosterSlotForRoundSlot(currentRound, uncontrolledAllyAction.slotIndex);
-        if (rosterSlot === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
-        const position = positionForRosterSeat(rosterSlot);
-        if (position === null) return Response.json({ error: "participant_mapping_failed" }, { status: 409 });
+      if (ownOpenActions.length > 0) {
+        const humanOpen = deps.store.humanOpenPositions(sessionId) ?? [];
+        const yielded = deps.store.hasYieldedCurrentRound(sessionId);
+        if (humanOpen.length > 0 && !yielded) {
+          deps.store.ensureSimulatorTimer(sessionId);
+          return Response.json({ ...snapshotBody(sessionId), stopReason: "human_input", completedRound: null });
+        }
+
+        const allyPositions = deps.store.allyBotPositions(sessionId) ?? [];
+        const order = deriveAllyPositionOrder(metadata.simulatorSeed!, humanSide, allyPositions);
+        const filled = new Set((deps.store.ownAssignedPositions(sessionId) ?? []).map((binding) => binding.assignedPosition));
+        const nextPosition = order.find((position) => !filled.has(position));
+        if (nextPosition === undefined) return Response.json({ error: "ally_bot_positions_exhausted" }, { status: 409 });
+
+        const action = ownOpenActions[0]!;
+        const rosterSlot = rosterSlotForRoundSlot(currentRound, action.slotIndex) ?? -1;
         const decisionIndex = ranked.confirmedPicks.length + (ranked.round?.sealed.length ?? 0) + ranked.bannedHeroes.length;
         const decision = await chooseAllyBotHero({
           seed: metadata.simulatorSeed!,
           side: humanSide,
           state,
-          slotIndex: uncontrolledAllyAction.slotIndex,
+          slotIndex: action.slotIndex,
           rosterSlot,
-          position,
+          position: nextPosition,
           decisionIndex,
           patch: metadata.patch,
           computeSuggestions: deps.computeSuggestions,
           heroPositions,
         });
         if (!decision) return Response.json({ error: "ally_bot_no_valid_candidate" }, { status: 409 });
-        const result = deps.store.apply(sessionId, { ...uncontrolledAllyAction, heroId: decision.heroId });
-        if (!result || result.rejected) {
-          return Response.json({ error: "external_pick_rejected", rejected: result?.rejected }, { status: 409 });
+        const outcome = deps.store.applyAllyBotSelection(sessionId, { ...action, heroId: decision.heroId }, nextPosition);
+        if (!outcome.ok) {
+          return Response.json({ error: "external_pick_rejected", rejected: outcome.reason === "kernel_rejected" ? outcome.rejected : undefined }, { status: 409 });
         }
         continue;
       }
 
-      // If we reach here, all open enemy seats and uncontrolled ally seats in this round are sealed.
-      // If there are open controlled human actions, hand over to the Player:
-      const hasControlledHumanAction = openActions.some((action) => {
-        if (action.side !== humanSide) return false;
-        const rosterSlot = rosterSlotForRoundSlot(currentRound, action.slotIndex);
-        return rosterSlot !== null && controlledRosterSlots.has(rosterSlot);
-      });
-
-      if (hasControlledHumanAction) {
-        deps.store.ensureSimulatorTimer(sessionId);
-        return Response.json({ ...snapshotBody(sessionId), stopReason: "human_input", completedRound: null });
-      }
-
-      if (openActions.length === 0) {
-        continue;
-      }
-
+      if (openActions.length === 0) continue;
       return Response.json({ error: "no_open_action" }, { status: 409 });
     }
     return Response.json({ error: "auto_drive_guard_exhausted" }, { status: 409 });
@@ -598,6 +651,11 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // intelligence (scoping, "YOUR POSITION NOW", hero pool) belongs to later waves.
       outputLimit: isApSimulatorMetadata(metadata) ? AP_RECOMMENDATION_OUTPUT_LIMIT : undefined,
       isSimulator: metadata.adapterKind === "simulator",
+      // PD-026/PD-027 COACH TARGET POSITIONS -- undefined (not null) for a session created without
+      // controlledPositions, so decision.ts falls back to its pre-existing controlledRosterSlots/
+      // partyContext behavior byte-for-byte (Manual/Captain's Mode, legacy AP sessions).
+      controlledPositions: metadata.controlledPositions ?? undefined,
+      humanOpenPositions: deps.store.humanOpenPositions(sessionId) ?? undefined,
     });
   }
 
@@ -685,6 +743,15 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const view = deps.store.view(sessionId);
     const isOwnVisibleHero = view?.ownPicks.some((slot) => slot.visibility !== "HIDDEN" && slot.heroId === heroId) ?? false;
     if (!isOwnVisibleHero) return Response.json({ error: "own_team_assignment_only" }, { status: 403 });
+    // PD-026/PD-027 MANUAL POSITION ASSIGNMENT -- an AP Simulator hero whose position is already
+    // queue-bound (sealed through applyApSimulatorOwnSelection) is structural truth; a manual
+    // assignment to a DIFFERENT position must not overwrite it.
+    if (isApSimulatorMetadata(metadata) && metadata.controlledPositions) {
+      const queuePosition = deps.store.ownAssignedPositionForHero(sessionId, heroId);
+      if (queuePosition !== null && position !== null && position !== queuePosition) {
+        return Response.json({ error: "position_bound_by_queue", queuePosition }, { status: 409 });
+      }
+    }
     const recomputation = await coachRecommendations.assignPosition(sessionId, metadata.humanPosition, accountId, heroId, position);
     if (!recomputation) return notFound();
     return Response.json({ output: recomputation.output, recommendationSet: recomputation.recommendationSet }, { status: 202 });
@@ -694,6 +761,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     post,
     get,
     postCommand,
+    postYield,
     postSimulatorAuthority,
     postResolveBans,
     postTestAdvanceClock,

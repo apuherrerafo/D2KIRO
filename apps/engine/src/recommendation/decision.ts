@@ -1,7 +1,7 @@
 import { captainsModeStepDefinition, legalGameplayActions } from "../draft-protocol";
 import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/types";
 import type { RecommendationDecision, RecommendationDegradation, RecommendationSlot } from "./types";
-import { rosterSlotForRoundSlot, POSITION_FOR_ROSTER_SEAT, roundForPhase } from "../simulator/ap-simulator-policy";
+import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
 import type { Position } from "../draft-protocol/roles/role-belief";
 
 // R1 S5 -- LEGAL ACTION FIRST. This module derives WHAT is being decided (decision.ts) and WHICH
@@ -38,28 +38,29 @@ function deriveRankedAllPick(
   actor: TeamSide,
   controlledRosterSlots?: readonly number[],
   isSimulator: boolean = false,
+  humanOpenPositions?: readonly Position[],
 ): LegalDecision {
   const rankedAp = state.rankedAp!;
   const degradations: RecommendationDegradation[] = [];
   if (state.degradation) degradations.push({ reason: state.degradation.reason, detail: state.degradation.detail });
 
   const partyContext = rankedAp.partyContext;
-  const round = rankedAp.round?.round ?? (rankedAp.phase ? roundForPhase(rankedAp.phase) : null);
   const openSlotsForActor = legalGameplayActions(state).filter(
     (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === actor,
   );
-  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => {
-    let position: Position | null = null;
-    if (isSimulator && partyContext !== null && partyContext !== undefined && round !== null) {
-      const rosterSlot = rosterSlotForRoundSlot(round as 1 | 2 | 3, slot.slotIndex);
-      if (rosterSlot !== null) {
-        position = (POSITION_FOR_ROSTER_SEAT[rosterSlot] as Position) ?? null;
-      }
-    }
+  // PD-026/PD-027 COACH TARGET POSITIONS -- target unfilled HUMAN-controlled positions, never a
+  // round-seat mapping (the fixed chronology<->position table this used to read from,
+  // `POSITION_FOR_ROSTER_SEAT`, is deleted repo-wide). Positions are zipped to open own slots in
+  // ascending-position order (a stable, non-chronological tie-break).
+  const sortedOpenPositions = humanOpenPositions ? [...humanOpenPositions].sort((a, b) => a - b) : null;
+  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot, index) => {
+    const position: Position | null = isSimulator && sortedOpenPositions ? (sortedOpenPositions[index] ?? null) : null;
     return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
   });
-  if (controlledRosterSlots !== undefined && rankedAp.round) {
+  if (humanOpenPositions !== undefined) {
+    controlledSlots = controlledSlots.slice(0, humanOpenPositions.length);
+  } else if (controlledRosterSlots !== undefined && rankedAp.round) {
     const controlled = new Set(controlledRosterSlots);
     controlledSlots = controlledSlots.filter((slot) => {
       const rosterSlot = rosterSlotForRoundSlot(rankedAp.round!.round, slot.slotIndex);
@@ -148,8 +149,9 @@ export function deriveLegalDecision(
   actor: TeamSide,
   controlledRosterSlots?: readonly number[],
   isSimulator: boolean = false,
+  humanOpenPositions?: readonly Position[],
 ): LegalDecision {
-  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots, isSimulator);
+  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots, isSimulator, humanOpenPositions);
   if (state.captainsMode) return deriveCaptainsMode(state, actor);
   return { decision: emptyDecision(actor, null), eligibleHeroIds: null, degradations: [{ reason: "RULESET_LOAD_FAILED", detail: "estado de protocolo sin ranked_ap ni captains_mode" }] };
 }

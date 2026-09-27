@@ -394,11 +394,9 @@ describe("servidor Bun (TSK-010)", () => {
         patch: "7.41e",
         localSide: "radiant",
         adapterKind: "simulator",
-        partyContext: {
-          partySize: 5,
-          side: "radiant",
-          controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
-        },
+        // PD-026/PD-027: Own Team truth is controlledPositions, never chronological roster seats.
+        partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+        controlledPositions: [1, 2, 3, 4, 5],
       }),
     });
     expect(created.status).toBe(201);
@@ -1236,11 +1234,9 @@ describe("R1 S7 final blocker repair -- seams de test no se activan con variable
             patch: "7.41e",
             localSide: "radiant",
             adapterKind: "simulator",
-            partyContext: {
-              partySize: 5,
-              side: "radiant",
-              controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
-            },
+            // PD-026/PD-027: Own Team truth is controlledPositions, never chronological roster seats.
+            partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+            controlledPositions: [1, 2, 3, 4, 5],
           }),
         });
         const { sessionId } = (await created.json()) as { sessionId: string };

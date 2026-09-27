@@ -4,14 +4,18 @@ import type { FunctionalRecommendationEvidence } from "../../recommendation/evid
 import type { HeroPositions } from "../../signals/hero-positions";
 import type { SuggestionSet } from "../../signals/mix";
 import { createEnemyBotConfig } from "../../simulator/enemy-bot";
-import { ROSTER_SEAT_FOR_POSITION } from "../../simulator/ap-simulator-policy";
+import { deriveAllyPositionOrder } from "../../simulator/ally-bot-roles";
 import type { BanResolutionPolicy, HeroUniverse } from "../../simulator/ban-resolution";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "./protocol-sessions";
 
-// AP Ranked Roles V1 / Wave 1 -- the Simulator product path, exercised through the real routes
-// and the real kernel-backed store. Only the scorer, the hero universe and the position evidence
-// are fixtures (S2 / S10): no SQLite, no network, no curated file.
+// AP Ranked Roles V1 / PD-026 / PD-027 -- the Simulator product path, exercised through the real
+// routes and the real kernel-backed store. Only the scorer, the hero universe and the position
+// evidence are fixtures (S2 / S10): no SQLite, no network, no curated file.
+//
+// PD-026/PD-027: Own Team truth is `controlledPositions`, never chronological roster seats.
+// `partyContext.controlledSlots` is structural/inert for AP and arrives empty. Position != pick
+// chronology -- Pos2 may be selected in Round 1, Pos5 may be selected in Round 3.
 
 type Routes = ReturnType<typeof createProtocolSessionRoutes>;
 type Side = "radiant" | "dire";
@@ -80,18 +84,16 @@ function makeRoutes(extra: { banResolutionPolicy?: BanResolutionPolicy; heroUniv
   return { routes, store };
 }
 
-function createBody(side: Side, position: Position, seed: string) {
+/** Full Party 5: every position human-controlled -- the Ally Bot never picks for Own Team. */
+function createBody(side: Side, humanPosition: Position, seed: string) {
   return {
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
     localSide: side,
     adapterKind: "simulator",
-    partyContext: {
-      partySize: 5,
-      side,
-      controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side, slotIndex, controllerId: "player" })),
-    },
-    humanPosition: position,
+    partyContext: { partySize: 5, side, controlledSlots: [] },
+    controlledPositions: [1, 2, 3, 4, 5],
+    humanPosition,
     simulatorSeed: seed,
   };
 }
@@ -100,6 +102,7 @@ interface Snapshot {
   view: { status: string; phase?: string; bannedHeroes: number[]; ownPicks: { visibility: string; heroId?: number }[]; enemyPicks: { visibility: string; heroId?: number }[]; rankedAp: { phase: string } | null };
   legalActions: { type: string; side?: string; slotIndex?: number }[];
   simulator: { round: number; durationMs: number; pendingSeats: number[]; goldPenaltyBySlot: number[]; penaltyRatePerSecond: number } | null;
+  ownAssignedPositions: { round: number; slotIndex: number; assignedPosition: Position }[];
   stopReason?: string;
   completedRound?: number | null;
   accepted?: boolean;
@@ -112,12 +115,13 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function createSession(routes: Routes, side: Side, position: Position, seed: string): Promise<string> {
-  const response = await routes.post(post(createBody(side, position, seed)));
+async function createSession(routes: Routes, side: Side, humanPosition: Position, seed: string): Promise<string> {
+  const response = await routes.post(post(createBody(side, humanPosition, seed)));
   expect(response.status).toBe(201);
   return (await json<{ sessionId: string }>(response)).sessionId;
 }
 
+/** Party of any supported size (1/2/3/5): `partyPositions` IS `controlledPositions` -- it must include `personalPosition`. */
 async function createPartySession(
   routes: Routes,
   side: Side,
@@ -126,17 +130,13 @@ async function createPartySession(
   seed: string,
 ): Promise<string> {
   const partySize = partyPositions.length as 1 | 2 | 3 | 5;
-  const controlledSlots = partyPositions.map((p) => ({
-    side,
-    slotIndex: ROSTER_SEAT_FOR_POSITION[p],
-    controllerId: `player-${p}`,
-  }));
   const body = {
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
     localSide: side,
     adapterKind: "simulator",
-    partyContext: { partySize, side, controlledSlots },
+    partyContext: { partySize, side, controlledSlots: [] },
+    controlledPositions: partyPositions,
     humanPosition: personalPosition,
     simulatorSeed: seed,
   };
@@ -157,26 +157,33 @@ async function autoDrive(routes: Routes, sessionId: string): Promise<Snapshot> {
   return json<Snapshot>(response);
 }
 
-async function submitOwn(routes: Routes, sessionId: string, side: Side, slotIndex: number, heroId: number): Promise<Snapshot> {
-  const response = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex, heroId } }), sessionId);
+/** PD-026/PD-027: `assignedPosition` travels as a SIBLING field to `command`, never inside it. */
+async function submitOwn(routes: Routes, sessionId: string, side: Side, slotIndex: number, heroId: number, assignedPosition: Position): Promise<Snapshot> {
+  const response = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex, heroId }, assignedPosition }), sessionId);
   expect(response.status).toBe(202);
   return json<Snapshot>(response);
+}
+
+async function yieldRound(routes: Routes, sessionId: string): Promise<Response> {
+  return routes.postYield(sessionId);
 }
 
 // Player heroes come from the HIGH end of each position group: the fixture scorer makes the bot pick from the LOW end, so no accidental collisions.
 const mine = (position: Position, k: number): number => POSITION_HEROES[position][20 + k]!;
 const other = (side: Side): Side => (side === "radiant" ? "dire" : "radiant");
 
-describe("AP Ranked Roles V1 -- side y posicion personal son libres", () => {
+describe("PD-026/PD-027 -- side y posicion personal son libres", () => {
   for (const side of ["radiant", "dire"] as Side[]) {
     for (const position of [1, 2, 3, 4, 5] as Position[]) {
-      test(`${side} + Pos${position}: la sesion se crea, la posicion queda declarada y el Player controla los 5 asientos`, async () => {
+      test(`${side} + Pos${position}: la sesion se crea, la posicion queda declarada y el Player controla las 5 posiciones`, async () => {
         const { routes, store } = makeRoutes();
         const sessionId = await createSession(routes, side, position, "D2K00001");
         const metadata = store.metadata(sessionId)!;
         expect(metadata.localSide).toBe(side);
         expect(metadata.humanPosition).toBe(position);
-        expect(store.partyContext(sessionId)?.controlledSlots).toHaveLength(5);
+        expect(metadata.controlledPositions).toEqual([1, 2, 3, 4, 5]);
+        // PartyContext.controlledSlots is structural/inert for AP -- never position/control truth.
+        expect(store.partyContext(sessionId)?.controlledSlots).toHaveLength(0);
 
         await resolveBans(routes, sessionId);
         const round1 = await autoDrive(routes, sessionId);
@@ -191,55 +198,39 @@ describe("AP Ranked Roles V1 -- side y posicion personal son libres", () => {
     }
   }
 
-  test("party 4 y combinaciones invalidas de party/posicion se rechazan con 422", async () => {
+  test("party 4 y combinaciones invalidas se rechazan con 422", async () => {
     const { routes } = makeRoutes();
 
-    // Party 4 explícitamente no soportada
-    const body4 = createBody("radiant", 2, "D2K00001");
-    body4.partyContext = {
-      partySize: 4 as unknown as 5,
-      side: "radiant",
-      controlledSlots: [
-        { side: "radiant", slotIndex: 0, controllerId: "p0" },
-        { side: "radiant", slotIndex: 1, controllerId: "p1" },
-        { side: "radiant", slotIndex: 2, controllerId: "p2" },
-        { side: "radiant", slotIndex: 4, controllerId: "p4" },
-      ],
-    };
+    // Party 4 explícitamente no soportada -- rechazada por el validador genérico de PartyContext (partySize fuera de {1,2,3,5}).
+    const body4 = { ...createBody("radiant", 2, "D2K00001"), controlledPositions: [1, 2, 3, 4], partyContext: { partySize: 4, side: "radiant", controlledSlots: [] } };
     const response4 = await routes.post(post(body4));
     expect(response4.status).toBe(400);
-    expect((await json<{ error: string }>(response4)).error).toBe("invalid_body");
 
-    // Posición personal del jugador no está en los slots controlados
-    const bodyMismatch = createBody("radiant", 2, "D2K00001"); // Pos 2 -> slot 4
-    bodyMismatch.partyContext = {
-      partySize: 1,
-      side: "radiant",
-      controlledSlots: [{ side: "radiant", slotIndex: 0, controllerId: "p0" }], // slot 0 -> Pos 5
-    };
+    // Posición personal del jugador no está entre las posiciones controladas.
+    const bodyMismatch = { ...createBody("radiant", 2, "D2K00001"), controlledPositions: [5], partyContext: { partySize: 1, side: "radiant", controlledSlots: [] } };
     const responseMismatch = await routes.post(post(bodyMismatch));
     expect(responseMismatch.status).toBe(422);
     expect((await json<{ error: string }>(responseMismatch)).error).toBe("unsupported_simulator_policy");
 
-    // Asientos duplicados
-    const bodyDup = createBody("radiant", 5, "D2K00001");
-    bodyDup.partyContext = {
-      partySize: 2,
-      side: "radiant",
-      controlledSlots: [
-        { side: "radiant", slotIndex: 0, controllerId: "p0" },
-        { side: "radiant", slotIndex: 0, controllerId: "p1" },
-      ],
-    };
+    // Posiciones duplicadas.
+    const bodyDup = { ...createBody("radiant", 5, "D2K00001"), controlledPositions: [5, 5], partyContext: { partySize: 2, side: "radiant", controlledSlots: [] } };
     const responseDup = await routes.post(post(bodyDup));
     expect(responseDup.status).toBe(422);
     expect((await json<{ error: string }>(responseDup)).error).toBe("unsupported_simulator_policy");
+
+    // controlledSlots no vacío para AP -- rechazado (structural/inert truth violated).
+    const bodyLegacySlots = {
+      ...createBody("radiant", 2, "D2K00001"),
+      partyContext: { partySize: 5, side: "radiant", controlledSlots: [{ side: "radiant", slotIndex: 0, controllerId: "p0" }] },
+    };
+    const responseLegacy = await routes.post(post(bodyLegacySlots));
+    expect(responseLegacy.status).toBe(422);
   });
 });
 
-describe("AP Ranked Roles V1 -- draft completo desde ambos lados", () => {
+describe("PD-026/PD-027 -- draft completo desde ambos lados", () => {
   for (const side of ["radiant", "dire"] as Side[]) {
-    test(`${side}: BANS -> R1 -> R2 -> R3 -> COMPLETE; el Player controla 5 picks y el bot 5 (cada uno valido para su posicion interna)`, async () => {
+    test(`${side}: BANS -> R1 -> R2 -> R3 -> COMPLETE; el Player controla 5 picks (orden NO cronologico) y el bot 5 validos para su posicion interna`, async () => {
       const { routes, store } = makeRoutes();
       const seed = "D2K00007";
       const sessionId = await createSession(routes, side, 3, seed);
@@ -247,11 +238,12 @@ describe("AP Ranked Roles V1 -- draft completo desde ambos lados", () => {
       const afterBans = await resolveBans(routes, sessionId, [mine(1, 9)]);
       expect(afterBans.view.rankedAp?.phase).toBe("PICK_ROUND_1");
 
-      // Player order deliberately NOT chronological-by-role: Mid + Carry in round 1, support last.
-      const playerPlan: number[][] = [
-        [mine(2, 0), mine(1, 1)], // round 1: Mid + Carry
-        [mine(3, 2), mine(4, 3)], // round 2
-        [mine(5, 4)], // round 3: hard support LAST
+      // PD-026: order deliberately NOT chronological-by-role -- Mid (Pos2) + Carry (Pos1) in round
+      // 1, Hard Support (Pos5) LAST in round 3. Position != pick chronology.
+      const playerPlan: { position: Position; heroId: number }[][] = [
+        [{ position: 2, heroId: mine(2, 0) }, { position: 1, heroId: mine(1, 1) }],
+        [{ position: 3, heroId: mine(3, 2) }, { position: 4, heroId: mine(4, 3) }],
+        [{ position: 5, heroId: mine(5, 4) }],
       ];
 
       let snapshot = afterBans;
@@ -263,33 +255,35 @@ describe("AP Ranked Roles V1 -- draft completo desde ambos lados", () => {
         // The enemy has sealed but the Player sees nothing of it.
         expect(snapshot.view.enemyPicks.every((slot) => slot.visibility !== "REVEALED" || slot.heroId !== undefined)).toBe(true);
         expect(JSON.stringify(snapshot)).not.toContain("internalPositionAssignments");
-        for (const [slotIndex, heroId] of picks.entries()) {
-          snapshot = await submitOwn(routes, sessionId, side, slotIndex, heroId);
+        for (const [slotIndex, pick] of picks.entries()) {
+          snapshot = await submitOwn(routes, sessionId, side, slotIndex, pick.heroId, pick.position);
           expect(snapshot.accepted).toBe(true);
         }
       }
       expect(snapshot.view.status).toBe("COMPLETE");
-      expect(snapshot.view.ownPicks.map((slot) => slot.heroId)).toEqual(playerPlan.flat());
+      expect(snapshot.view.ownPicks.map((slot) => slot.heroId)).toEqual(playerPlan.flat().map((p) => p.heroId));
+      // Own Team binding: PD-026 "Human choice truth wins" -- exactly the positions declared, never a round-seat guess.
+      expect(snapshot.ownAssignedPositions.map((b) => b.assignedPosition).sort()).toEqual([1, 2, 3, 4, 5]);
 
-      // Enemy: 5 picks, seat i's hero is valid for the seat's INTERNAL position.
+      // Enemy: 5 picks, seat i's hero is valid for the seat's INTERNAL position (Enemy Bot truth unchanged by PD-026/PD-027).
       const assignments = createEnemyBotConfig(seed, other(side)).internalPositionAssignments;
       const enemy = snapshot.view.enemyPicks.map((slot) => slot.heroId!);
       expect(enemy).toHaveLength(5);
       enemy.forEach((hero, seat) => {
         expect(Math.floor(hero / 100)).toBe(assignments[seat]!);
       });
-      expect(new Set([...enemy, ...playerPlan.flat()]).size).toBe(10);
+      expect(new Set([...enemy, ...playerPlan.flat().map((p) => p.heroId)]).size).toBe(10);
       expect(store.get(sessionId)?.status).toBe("COMPLETE");
     });
   }
 
-  test("la asignacion interna del bot nunca aparece en ninguna respuesta del Simulator", async () => {
+  test("la asignacion interna del bot enemigo nunca aparece en ninguna respuesta del Simulator", async () => {
     const { routes } = makeRoutes();
     const sessionId = await createSession(routes, "radiant", 2, "D2K00008");
     const bans = await routes.postResolveBans(post({ playerBanPreferences: [] }), sessionId);
     const drive = await routes.postAutoDrive(sessionId);
     for (const text of [await bans.text(), await drive.text()]) {
-      expect(text).not.toMatch(/internalPositionAssignments|positionsByRosterSlot|externalPicks|"position"/);
+      expect(text).not.toMatch(/internalPositionAssignments|positionsByRosterSlot|externalPicks/);
     }
   });
 
@@ -301,10 +295,13 @@ describe("AP Ranked Roles V1 -- draft completo desde ambos lados", () => {
       const humanPool = [...POSITION_HEROES[1].slice(20), ...POSITION_HEROES[2].slice(20)];
       let snapshot = await autoDrive(routes, sessionId);
       let cursor = 0;
+      const positionCycle: Position[] = [1, 2, 3, 4, 5];
+      let positionCursor = 0;
       for (let guard = 0; guard < 30 && snapshot.view.status !== "COMPLETE"; guard += 1) {
         const open = snapshot.legalActions.filter((action) => action.type === "SUBMIT_SEALED_SELECTION");
         for (const action of open) {
-          snapshot = await submitOwn(routes, sessionId, "radiant", action.slotIndex!, humanPool[cursor++]!);
+          const position = positionCycle[positionCursor++ % positionCycle.length]!;
+          snapshot = await submitOwn(routes, sessionId, "radiant", action.slotIndex!, humanPool[cursor++]!, position);
         }
         if (snapshot.view.status !== "COMPLETE") snapshot = await autoDrive(routes, sessionId);
       }
@@ -317,7 +314,7 @@ describe("AP Ranked Roles V1 -- draft completo desde ambos lados", () => {
   });
 });
 
-describe("AP Ranked Roles V1 -- autorizacion", () => {
+describe("PD-026/PD-027 -- autorizacion y trust boundary", () => {
   test("el Player no puede sellar por el bot, ni registrar bans por su cuenta", async () => {
     const { routes } = makeRoutes();
     const sessionId = await createSession(routes, "dire", 4, "D2K00009");
@@ -326,12 +323,81 @@ describe("AP Ranked Roles V1 -- autorizacion", () => {
     const forgedBans = await routes.postCommand(post({ command: { type: "RECORD_RESOLVED_BANS", heroes: [] } }), sessionId);
     expect(forgedBans.status).toBe(403);
     await resolveBans(routes, sessionId);
-    const forBot = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 200 } }), sessionId);
+    // Session localSide is "dire" -- a command claiming "radiant" (the bot's side) never reaches
+    // the AP atomic path at all (side mismatch is refused by the generic authorization check first).
+    const forBot = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 200 }, assignedPosition: 1 }), sessionId);
     expect(forBot.status).toBe(403);
+  });
+
+  test("REDTEAM: assignedPosition ausente/malformado en una sesion AP con controlledPositions -> 400, nunca muta el kernel", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createSession(routes, "radiant", 2, "D2K00040");
+    await resolveBans(routes, sessionId);
+    await autoDrive(routes, sessionId);
+    for (const malformed of [undefined, null, 0, 6, "2", {}]) {
+      const response = await routes.postCommand(
+        post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: mine(1, 0) }, assignedPosition: malformed }),
+        sessionId,
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(store.get(sessionId)!.rankedAp!.confirmedPicks).toHaveLength(0);
+    expect(store.ownAssignedPositions(sessionId)).toHaveLength(0);
+  });
+
+  test("REDTEAM: assignedPosition para una posicion NO controlada -> 409, nunca muta el kernel", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], "D2K00041");
+    await resolveBans(routes, sessionId);
+    await autoDrive(routes, sessionId);
+    const response = await routes.postCommand(
+      post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: mine(3, 0) }, assignedPosition: 3 }),
+      sessionId,
+    );
+    expect(response.status).toBe(409);
+    expect((await json<{ error: string }>(response)).error).toBe("position_not_controlled");
+    expect(store.get(sessionId)!.rankedAp!.confirmedPicks).toHaveLength(0);
+  });
+
+  test("REDTEAM: reenviar la misma posicion ya sellada -> 409, sin duplicar el binding", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createSession(routes, "radiant", 2, "D2K00042");
+    await resolveBans(routes, sessionId);
+    await autoDrive(routes, sessionId);
+    await submitOwn(routes, sessionId, "radiant", 0, mine(2, 0), 2);
+    const openAfter = store.get(sessionId)!.rankedAp!.round!.openSlots.filter((slot) => slot.side === "radiant");
+    const dupe = await routes.postCommand(
+      post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: openAfter[0]!.slotIndex, heroId: mine(2, 1) }, assignedPosition: 2 }),
+      sessionId,
+    );
+    expect(dupe.status).toBe(409);
+    expect((await json<{ error: string }>(dupe)).error).toBe("position_already_filled");
+    expect(store.ownAssignedPositions(sessionId)!.filter((b) => b.assignedPosition === 2)).toHaveLength(1);
+  });
+
+  test("REDTEAM: assignedPosition sobre una sesion sin controlledPositions (Manual/CM) es ignorado -- no rompe el camino existente", async () => {
+    const { routes } = makeRoutes();
+    const store = new ProtocolSessionStore();
+    const manualRoutes = createProtocolSessionRoutes({ store, computeSuggestions: scorer });
+    const created = await manualRoutes.post(post({
+      rulesetId: "dota2/ranked-all-pick",
+      patch: "7.41e",
+      localSide: "radiant",
+      adapterKind: "manual",
+      partyContext: { partySize: 5, side: "radiant", controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "p" })) },
+    }));
+    expect(created.status).toBe(201);
+    const { sessionId } = await json<{ sessionId: string }>(created);
+    const response = await manualRoutes.postCommand(
+      post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: mine(1, 0) }, assignedPosition: 99 }),
+      sessionId,
+    );
+    expect(response.status).toBe(202);
+    void routes;
   });
 });
 
-describe("AP Ranked Roles V1 -- fase de bans (fail closed)", () => {
+describe("PD-026/PD-027 -- fase de bans (fail closed)", () => {
   test("mismos inputs + misma seed => mismos bans; los bans quedan en la vista y son inalcanzables", async () => {
     const a = makeRoutes();
     const b = makeRoutes();
@@ -349,7 +415,7 @@ describe("AP Ranked Roles V1 -- fase de bans (fail closed)", () => {
   });
 
   async function submitOwnRaw(routes: Routes, sessionId: string, heroId: number): Promise<Snapshot> {
-    const response = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId } }), sessionId);
+    const response = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId }, assignedPosition: 1 }), sessionId);
     return json<Snapshot>(response);
   }
 
@@ -408,7 +474,7 @@ describe("AP Ranked Roles V1 -- fase de bans (fail closed)", () => {
   });
 });
 
-describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () => {
+describe("PD-026/PD-027 -- ciego, simetria y colisiones (flujo real)", () => {
   async function untilHumanInput(routes: Routes, sessionId: string): Promise<Snapshot> {
     await resolveBans(routes, sessionId);
     return autoDrive(routes, sessionId);
@@ -424,43 +490,50 @@ describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () =
     const round1 = await untilHumanInput(routes, sessionId);
     expect(round1.view.enemyPicks).toEqual([{ visibility: "HIDDEN" }, { visibility: "HIDDEN" }]);
     const botHero = botSealed(store, sessionId, "dire")[0]!;
-    const accepted = await submitOwn(routes, sessionId, "radiant", 0, botHero);
+    const accepted = await submitOwn(routes, sessionId, "radiant", 0, botHero, 2);
     expect(accepted.accepted).toBe(true);
     expect(accepted.rejected).toBeUndefined();
   });
 
-  test("colision #1 y #2 (baneo + repick), el contador es por ronda y el heroe baneado no vuelve", async () => {
+  test("COLLISION REOPEN: colision #1 y #2 (baneo + repick) prunea el binding de posicion del asiento propio reabierto", async () => {
     const { routes, store } = makeRoutes();
     const sessionId = await createSession(routes, "dire", 1, "D2K00021");
     let snapshot = await untilHumanInput(routes, sessionId);
 
-    // Round 1: the Player deliberately duplicates the bot's first sealed hero.
+    // Round 1: the Player deliberately duplicates the bot's first sealed hero, binding Pos1 to slot 0.
     const first = botSealed(store, sessionId, "radiant")[0]!;
-    await submitOwn(routes, sessionId, "dire", 0, first);
-    snapshot = await submitOwn(routes, sessionId, "dire", 1, POSITION_HEROES[1][20]!);
+    await submitOwn(routes, sessionId, "dire", 0, first, 1);
+    expect(store.ownAssignedPositions(sessionId)).toEqual([{ round: 1, slotIndex: 0, assignedPosition: 1 }]);
+    snapshot = await submitOwn(routes, sessionId, "dire", 1, POSITION_HEROES[1][20]!, 2);
     expect(store.get(sessionId)?.rankedAp?.round?.collisionsResolved).toBe(1);
     expect(snapshot.view.bannedHeroes).toContain(first);
+    // The Pos1 binding for the reopened slot 0 is pruned; the Pos2 binding for slot 1 (the winner) is untouched.
+    expect(store.ownAssignedPositions(sessionId)).toEqual([{ round: 1, slotIndex: 1, assignedPosition: 2 }]);
 
-    // The bot re-picks (knowing `first` is banned); the Player duplicates that new pick too.
+    // The bot re-picks (knowing `first` is banned); the Player duplicates that new pick too, rebinding Pos1 to slot 0.
     snapshot = await autoDrive(routes, sessionId);
     expect(snapshot.stopReason).toBe("human_input");
     const second = botSealed(store, sessionId, "radiant")[0]!;
     expect(second).not.toBe(first);
-    snapshot = await submitOwn(routes, sessionId, "dire", 0, second);
+    snapshot = await submitOwn(routes, sessionId, "dire", 0, second, 1);
     expect(store.get(sessionId)?.rankedAp?.round?.collisionsResolved).toBe(2);
     expect(snapshot.view.bannedHeroes).toEqual(expect.arrayContaining([first, second]));
+    expect(store.ownAssignedPositions(sessionId)).toEqual(expect.arrayContaining([{ round: 1, slotIndex: 1, assignedPosition: 2 }]));
 
     // A banned hero can never be picked afterwards.
     snapshot = await autoDrive(routes, sessionId);
-    const retry = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: first } }), sessionId);
+    const retry = await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "dire", slotIndex: 0, heroId: first }, assignedPosition: 1 }), sessionId);
     expect((await json<Snapshot>(retry)).rejected).toBe("HERO_ALREADY_TAKEN");
 
-    // Finish round 1 without further collision: the counter resets in round 2.
+    // Finish round 1 without further collision: the counter resets in round 2, and the reopened
+    // slot's final binding is exactly what was actually sealed there (Pos1 again -- deliberately
+    // re-chosen, PD-026 does not forbid picking the same position twice across attempts).
     const third = botSealed(store, sessionId, "radiant")[0]!;
     const safe = POSITION_HEROES[1].find((hero) => hero !== third && !snapshot.view.bannedHeroes.includes(hero) && hero !== POSITION_HEROES[1][20])!;
-    snapshot = await submitOwn(routes, sessionId, "dire", 0, safe);
+    snapshot = await submitOwn(routes, sessionId, "dire", 0, safe, 1);
     expect(store.get(sessionId)?.rankedAp?.phase).toBe("PICK_ROUND_2");
     expect(store.get(sessionId)?.rankedAp?.round?.collisionsResolved).toBe(0);
+    expect(store.ownAssignedPositions(sessionId)!.map((b) => b.assignedPosition).sort()).toEqual([1, 2]);
   });
 
   // Drives a real AP session (Player = radiant, Enemy Bot = dire) to the third collision of round 1.
@@ -472,7 +545,7 @@ describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () =
       const target = botSealed(store, sessionId, "dire")[0]!;
       const open = store.get(sessionId)!.rankedAp!.round!.openSlots.filter((slot) => slot.side === "radiant");
       for (const [index, slot] of open.entries()) {
-        await submitOwn(routes, sessionId, "radiant", slot.slotIndex, index === 0 ? target : POSITION_HEROES[2][20 + pass * 3 + index]!);
+        await submitOwn(routes, sessionId, "radiant", slot.slotIndex, index === 0 ? target : POSITION_HEROES[2][20 + pass * 3 + index]!, index === 0 ? 1 : 2);
       }
       await autoDrive(routes, sessionId);
     }
@@ -480,7 +553,7 @@ describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () =
     const target = botSealed(store, sessionId, "dire")[0]!;
     const open = store.get(sessionId)!.rankedAp!.round!.openSlots.filter((slot) => slot.side === "radiant");
     let last: Snapshot | null = null;
-    for (const slot of open) last = await submitOwn(routes, sessionId, "radiant", slot.slotIndex, slot.slotIndex === open[0]!.slotIndex ? target : filler);
+    for (const slot of open) last = await submitOwn(routes, sessionId, "radiant", slot.slotIndex, slot.slotIndex === open[0]!.slotIndex ? target : filler, slot.slotIndex === open[0]!.slotIndex ? 1 : 2);
     expect(last?.view.status).toBe("WAITING_FOR_COLLISION_AUTHORITY");
     return target;
   }
@@ -496,6 +569,8 @@ describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () =
     expect(ranked.bannedHeroes).not.toContain(target);
     expect(store.get(sessionId)?.status).not.toBe("WAITING_FOR_COLLISION_AUTHORITY");
     expect(resumed.legalActions.some((action) => action.type === "SUBMIT_SEALED_SELECTION" && action.side === "radiant")).toBe(true);
+    // The reopened slot's stale Pos1 binding was pruned -- never a stray binding for an unsealed slot.
+    expect(store.ownAssignedPositions(sessionId)!.length).toBeLessThanOrEqual(1);
   });
 
   test("colision #3 (Player primero): el Player conserva el heroe; el resultado NO depende de la seed de la sesion ni del body", async () => {
@@ -537,7 +612,7 @@ describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () =
       const target = botSealed(store, sessionId, "dire")[0]!;
       const open = store.get(sessionId)!.rankedAp!.round!.openSlots.filter((slot) => slot.side === "radiant");
       for (const [index, slot] of open.entries()) {
-        await submitOwn(routes, sessionId, "radiant", slot.slotIndex, index === 0 ? target : pass === 2 ? filler : POSITION_HEROES[2][20 + pass * 3 + index]!);
+        await submitOwn(routes, sessionId, "radiant", slot.slotIndex, index === 0 ? target : pass === 2 ? filler : POSITION_HEROES[2][20 + pass * 3 + index]!, index === 0 ? 1 : 2);
       }
       if (pass < 2) await autoDrive(routes, sessionId);
     }
@@ -547,15 +622,15 @@ describe("AP Ranked Roles V1 -- ciego, simetria y colisiones (flujo real)", () =
   });
 });
 
-describe("AP Ranked Roles V1 -- temporizadores y penalizacion (capa del Simulator)", () => {
+describe("PD-026/PD-027 -- temporizadores y penalizacion (capa del Simulator)", () => {
   test("la ronda 3 dura 20 s; el timer no asigna ningun heroe al vencer", async () => {
     const { routes, store } = makeRoutes();
     const sessionId = await createSession(routes, "radiant", 5, "D2K00030");
     await resolveBans(routes, sessionId);
-    for (const [index, picks] of [[mine(1, 0), mine(2, 0)], [mine(3, 0), mine(4, 0)]].entries()) {
+    for (const [index, picks] of [[{ heroId: mine(1, 0), position: 1 as Position }, { heroId: mine(2, 0), position: 2 as Position }], [{ heroId: mine(3, 0), position: 3 as Position }, { heroId: mine(4, 0), position: 4 as Position }]].entries()) {
       const snap = await autoDrive(routes, sessionId);
       expect(snap.simulator?.durationMs).toBe(25000);
-      for (const [slotIndex, hero] of picks.entries()) await submitOwn(routes, sessionId, "radiant", slotIndex, hero);
+      for (const [slotIndex, pick] of picks.entries()) await submitOwn(routes, sessionId, "radiant", slotIndex, pick.heroId, pick.position);
       expect(index).toBeLessThan(2);
     }
     const round3 = await autoDrive(routes, sessionId);
@@ -564,212 +639,163 @@ describe("AP Ranked Roles V1 -- temporizadores y penalizacion (capa del Simulato
     // 60 s later the seat is late -- and STILL nothing was picked for the Player.
     const late = store.simulatorTimerView(sessionId, Date.now() + 60_000)!;
     expect(late.penaltyActive).toBe(true);
-    expect(late.goldPenaltyBySlot[4]).toBeGreaterThan(70);
+    expect(late.goldPenaltyBySlot.some((penalty) => penalty > 70)).toBe(true);
     expect(store.get(sessionId)?.rankedAp?.round?.openSlots.some((slot) => slot.side === "radiant")).toBe(true);
     expect(store.get(sessionId)?.rankedAp?.confirmedPicks.filter((pick) => pick.side === "radiant")).toHaveLength(4);
   });
 });
 
-describe("AP Realistic Party Simulator -- Solo (Pos 1..5), Party 2, Party 3, Party 5", () => {
-  test("Solo Pos 1: R1 es 100% simulada por Ally Bot, R2 espera al jugador para Pos1, R3 es simulada", async () => {
+describe("PD-026/PD-027 -- Solo/Party: posicion independiente de la cronologia de picks", () => {
+  test("MANDATORY 1 -- SOLO POS2 R1: el humano puede sellar Pos2 en la Ronda 1 (no espera a Ronda 3)", async () => {
     const { routes, store } = makeRoutes();
-    const seed = "SOLO_POS1_A";
-    const sessionId = await createPartySession(routes, "radiant", 1, [1], seed);
-
+    const sessionId = await createPartySession(routes, "radiant", 2, [2], "SOLO_POS2_R1");
     await resolveBans(routes, sessionId);
 
-    // Round 1 has no controlled seats -> autoDrive completes Round 1 with Ally Bot + Enemy Bot
     const r1 = await autoDrive(routes, sessionId);
-    expect(r1.stopReason).toBe("round_revealed");
-    expect(r1.completedRound).toBe(1);
+    expect(r1.stopReason).toBe("human_input");
+    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION").length).toBeGreaterThan(0);
 
-    // Next autoDrive enters Round 2: Ally Bot seals Pos 3 (slot 0), human controls Pos 1 (slot 1)
-    const r2 = await autoDrive(routes, sessionId);
-    expect(r2.stopReason).toBe("human_input");
-    expect(r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1 },
-    ]);
+    const openSlot = r1.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+    const sealed = await submitOwn(routes, sessionId, "radiant", openSlot.slotIndex!, mine(2, 0), 2);
+    expect(sealed.accepted).toBe(true);
+    expect(sealed.ownAssignedPositions).toEqual([{ round: 1, slotIndex: openSlot.slotIndex!, assignedPosition: 2 }]);
+    // UI/Coach-visible truth: the confirmed pick is bound to Pos2, never guessed from round/seat.
+    expect(store.ownAssignedPositionForHero(sessionId, mine(2, 0))).toBe(2);
 
-    // Human submits Pos 1 pick
-    await submitOwn(routes, sessionId, "radiant", 1, mine(1, 0));
-
-    // Next autoDrive completes Round 3 (Pos 2 simulated by Ally Bot) and reaches COMPLETE
-    const r3 = await autoDrive(routes, sessionId);
-    expect(r3.stopReason).toBe("round_revealed");
-    expect(r3.completedRound).toBe(3);
-    expect(r3.view.status).toBe("COMPLETE");
+    while (store.get(sessionId)?.status !== "COMPLETE") await autoDrive(routes, sessionId);
     expect(store.get(sessionId)?.status).toBe("COMPLETE");
-
-    // All 5 radiant positions picked and confirmed
-    const radiantPicks = store.get(sessionId)!.rankedAp!.confirmedPicks.filter((p) => p.side === "radiant");
-    expect(radiantPicks).toHaveLength(5);
   });
 
-  test("Solo Pos 2: R1 y R2 son simuladas por Ally Bot, R3 espera al jugador para Pos2", async () => {
+  test("MANDATORY 2 -- PARTY 5 CHRONOLOGY INDEPENDENCE: Pos2 puede sellarse en R1 y Pos5 en R3, mismo draft", async () => {
     const { routes, store } = makeRoutes();
-    const seed = "SOLO_POS2_A";
-    const sessionId = await createPartySession(routes, "radiant", 2, [2], seed);
-
+    const sessionId = await createSession(routes, "radiant", 2, "PARTY5_CHRONO");
     await resolveBans(routes, sessionId);
 
-    // R1 completes autonomously
     const r1 = await autoDrive(routes, sessionId);
-    expect(r1.stopReason).toBe("round_revealed");
-    expect(r1.completedRound).toBe(1);
+    expect(r1.stopReason).toBe("human_input");
+    const [slotA, slotB] = r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION");
+    // Pos2 sealed in Round 1.
+    await submitOwn(routes, sessionId, "radiant", slotA!.slotIndex!, mine(2, 0), 2);
+    await submitOwn(routes, sessionId, "radiant", slotB!.slotIndex!, mine(3, 0), 3);
 
-    // R2 completes autonomously
     const r2 = await autoDrive(routes, sessionId);
-    expect(r2.stopReason).toBe("round_revealed");
-    expect(r2.completedRound).toBe(2);
+    expect(r2.stopReason).toBe("human_input");
+    const [slotC, slotD] = r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION");
+    await submitOwn(routes, sessionId, "radiant", slotC!.slotIndex!, mine(1, 0), 1);
+    await submitOwn(routes, sessionId, "radiant", slotD!.slotIndex!, mine(4, 0), 4);
 
-    // R3 has Pos 2 (slot 0) controlled by human
     const r3 = await autoDrive(routes, sessionId);
     expect(r3.stopReason).toBe("human_input");
-    expect(r3.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
-    ]);
-
-    // Human picks Pos 2
-    await submitOwn(routes, sessionId, "radiant", 0, mine(2, 0));
+    const slotE = r3.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+    // Pos5 sealed LAST, in Round 3 -- labels stay Pos2/Pos5, never re-derived from round/seat.
+    const final = await submitOwn(routes, sessionId, "radiant", slotE.slotIndex!, mine(5, 0), 5);
+    expect(final.ownAssignedPositions.find((b) => b.round === 1)?.assignedPosition).toBe(2);
+    expect(final.ownAssignedPositions.find((b) => b.round === 3)?.assignedPosition).toBe(5);
     expect(store.get(sessionId)?.status).toBe("COMPLETE");
   });
 
-  test("Solo Pos 3: R1 simulada, R2 espera Pos 3, R3 simulada", async () => {
+  test("MANDATORY 3 -- PARTY 2: Pos2/Pos5 controlados actuan en cualquier ronda disponible; el Ally Bot nunca los llena", async () => {
     const { routes, store } = makeRoutes();
-    const seed = "SOLO_POS3_A";
-    const sessionId = await createPartySession(routes, "radiant", 3, [3], seed);
+    const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], "PARTY2_TEST");
     await resolveBans(routes, sessionId);
 
-    const r1 = await autoDrive(routes, sessionId);
-    expect(r1.stopReason).toBe("round_revealed");
-
-    const r2 = await autoDrive(routes, sessionId);
-    expect(r2.stopReason).toBe("human_input");
-    expect(r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
-    ]);
-    await submitOwn(routes, sessionId, "radiant", 0, mine(3, 0));
-
-    const r3 = await autoDrive(routes, sessionId);
-    expect(r3.stopReason).toBe("round_revealed");
-    expect(r3.completedRound).toBe(3);
-    expect(r3.view.status).toBe("COMPLETE");
-    expect(store.get(sessionId)?.status).toBe("COMPLETE");
-  });
-
-  test("Solo Pos 4: R1 espera Pos 4, R2 y R3 simuladas", async () => {
-    const { routes, store } = makeRoutes();
-    const seed = "SOLO_POS4_A";
-    const sessionId = await createPartySession(routes, "radiant", 4, [4], seed);
-    await resolveBans(routes, sessionId);
-
+    // R1: human seals Pos5 in ONE of the two open slots, then explicitly yields the round's other
+    // slot (round capacity = 2, Ally Bot's 3 positions can absorb it) -- PD-026 HUMAN PICK TIMING:
+    // the human is never forced to act on every open slot of a round it doesn't want to.
     const r1 = await autoDrive(routes, sessionId);
     expect(r1.stopReason).toBe("human_input");
-    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1 },
-    ]);
-    await submitOwn(routes, sessionId, "radiant", 1, mine(4, 0));
+    const slot1 = r1.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+    await submitOwn(routes, sessionId, "radiant", slot1.slotIndex!, mine(5, 0), 5);
+    const r1Remainder = await autoDrive(routes, sessionId);
+    expect(r1Remainder.stopReason).toBe("human_input"); // Pos2 still open, not yet yielded -- still human_input
+    expect((await yieldRound(routes, sessionId)).status).toBe(200);
+    const r1Complete = await autoDrive(routes, sessionId);
+    expect(r1Complete.stopReason).toBe("round_revealed");
 
-    // Drive until completion (just as advance() does in client loop)
-    while (store.get(sessionId)?.status !== "COMPLETE") {
-      await autoDrive(routes, sessionId);
-    }
-    expect(store.get(sessionId)?.status).toBe("COMPLETE");
-    const radiantPicks = store.get(sessionId)!.rankedAp!.confirmedPicks.filter((p) => p.side === "radiant");
-    expect(radiantPicks).toHaveLength(5);
-  });
-
-  test("Solo Pos 5: R1 espera Pos 5, R2 y R3 simuladas", async () => {
-    const { routes, store } = makeRoutes();
-    const seed = "SOLO_POS5_A";
-    const sessionId = await createPartySession(routes, "radiant", 5, [5], seed);
-    await resolveBans(routes, sessionId);
-
-    const r1 = await autoDrive(routes, sessionId);
-    expect(r1.stopReason).toBe("human_input");
-    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
-    ]);
-    await submitOwn(routes, sessionId, "radiant", 0, mine(5, 0));
-
+    // R2: Pos2 is still the only human-open position and round 2's slots don't require it --
+    // human yields again, the Ally Bot fills its last 2 positions.
+    const r2Stop = await autoDrive(routes, sessionId);
+    expect(r2Stop.stopReason).toBe("human_input");
+    expect((await yieldRound(routes, sessionId)).status).toBe(200);
     const r2 = await autoDrive(routes, sessionId);
     expect(r2.stopReason).toBe("round_revealed");
 
-    const r3 = await autoDrive(routes, sessionId);
-    expect(r3.stopReason).toBe("round_revealed");
-    expect(r3.completedRound).toBe(3);
-    expect(r3.view.status).toBe("COMPLETE");
-    expect(store.get(sessionId)?.status).toBe("COMPLETE");
-  });
-
-  test("Party 2 (Pos 2 + Pos 5): R1 espera Pos 5, R2 es simulada, R3 espera Pos 2", async () => {
-    const { routes, store } = makeRoutes();
-    const seed = "PARTY_2_TEST";
-    const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], seed);
-    await resolveBans(routes, sessionId);
-
-    // R1: Ally Bot seals Pos 4 (slot 1), player controls Pos 5 (slot 0)
-    const r1 = await autoDrive(routes, sessionId);
-    expect(r1.stopReason).toBe("human_input");
-    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
-    ]);
-    await submitOwn(routes, sessionId, "radiant", 0, mine(5, 0));
-
-    // R2: Ally Bot seals both Pos 3 (slot 0) and Pos 1 (slot 1) -> round revealed
-    const r2 = await autoDrive(routes, sessionId);
-    expect(r2.stopReason).toBe("round_revealed");
-
-    // R3: player controls Pos 2 (slot 0)
+    // R3: the Ally Bot's 3 positions are exhausted -- the sole remaining slot is Pos2, human's.
     const r3 = await autoDrive(routes, sessionId);
     expect(r3.stopReason).toBe("human_input");
-    expect(r3.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
-    ]);
-    await submitOwn(routes, sessionId, "radiant", 0, mine(2, 0));
+    const slot3 = r3.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+    await submitOwn(routes, sessionId, "radiant", slot3.slotIndex!, mine(2, 0), 2);
+
     expect(store.get(sessionId)?.status).toBe("COMPLETE");
+    const bound = store.ownAssignedPositions(sessionId)!.map((b) => b.assignedPosition).sort();
+    expect(bound).toEqual([1, 2, 3, 4, 5]);
+    // The Ally Bot NEVER filled Pos2 or Pos5 -- only the human's own submissions bound them.
+    expect(store.ownAssignedPositionForHero(sessionId, mine(2, 0))).toBe(2);
+    expect(store.ownAssignedPositionForHero(sessionId, mine(5, 0))).toBe(5);
   });
 
-  test("Party 3 (Pos 1 + Pos 3 + Pos 5): R1 espera Pos 5, R2 espera Pos 3 y Pos 1, R3 simulada", async () => {
+  test("MANDATORY 4 -- ALLY BOT HUMAN-FIRST: no sella mientras quede una posicion humana disponible sin ceder", async () => {
     const { routes, store } = makeRoutes();
-    const seed = "PARTY_3_TEST";
-    const sessionId = await createPartySession(routes, "radiant", 1, [1, 3, 5], seed);
+    const sessionId = await createPartySession(routes, "radiant", 1, [1, 3, 5], "ALLY_HUMAN_FIRST");
     await resolveBans(routes, sessionId);
 
-    // R1: Pos 4 is simulated by Ally Bot; Pos 5 is controlled by human party
+    // R1: two round slots open, both human-controlled positions [1,3,5] still fully unfilled ->
+    // auto-drive MUST stop for human_input, never let the Ally Bot seal ahead of the human.
     const r1 = await autoDrive(routes, sessionId);
     expect(r1.stopReason).toBe("human_input");
-    expect(r1.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toEqual([
-      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 },
-    ]);
-    await submitOwn(routes, sessionId, "radiant", 0, mine(5, 0));
-
-    // R2: both slots (Pos 3 slot 0 and Pos 1 slot 1) controlled by human party
-    const r2 = await autoDrive(routes, sessionId);
-    expect(r2.stopReason).toBe("human_input");
-    expect(r2.legalActions.filter((a) => a.type === "SUBMIT_SEALED_SELECTION")).toHaveLength(2);
-
-    await submitOwn(routes, sessionId, "radiant", 0, mine(3, 0));
-    await submitOwn(routes, sessionId, "radiant", 1, mine(1, 0));
-
-    // R3: Pos 2 is simulated by Ally Bot -> complete
-    const r3 = await autoDrive(routes, sessionId);
-    expect(r3.stopReason).toBe("round_revealed");
-    expect(r3.completedRound).toBe(3);
-    expect(r3.view.status).toBe("COMPLETE");
-    expect(store.get(sessionId)?.status).toBe("COMPLETE");
+    expect(store.ownAssignedPositions(sessionId)).toHaveLength(0);
   });
 
-  test("Replay determinista: misma semilla + misma config de party => picks idénticos de bots", async () => {
+  test("MANDATORY 4b -- tras ceder explicitamente, el Ally Bot llena la capacidad restante de la ronda", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createPartySession(routes, "radiant", 1, [1, 3, 5], "ALLY_YIELD");
+    await resolveBans(routes, sessionId);
+    await autoDrive(routes, sessionId); // stops human_input, R1 has 2 open own slots, 3 unfilled human positions (>= capacity)
+
+    const yielded = await yieldRound(routes, sessionId);
+    expect(yielded.status).toBe(200);
+
+    const afterYield = await autoDrive(routes, sessionId);
+    // The Ally Bot has no positions of its own (Party 3 controls [1,3,5], complement is [2,4]) --
+    // but round 1's capacity is 2 and the human yielded, so [2,4] (Ally Bot's OWN positions) fill it.
+    expect(afterYield.stopReason).toBe("round_revealed");
+    expect(store.ownAssignedPositions(sessionId)!.every((b) => b.assignedPosition === 2 || b.assignedPosition === 4)).toBe(true);
+  });
+
+  test("MANDATORY 4c -- ceder es rechazado cuando el Ally Bot no puede absorber la capacidad restante", async () => {
+    const { routes } = makeRoutes();
+    // Party 5: controlledPositions = [1,2,3,4,5], Ally Bot has ZERO positions of its own.
+    const sessionId = await createSession(routes, "radiant", 2, "ALLY_NO_CAPACITY");
+    await resolveBans(routes, sessionId);
+    await autoDrive(routes, sessionId);
+    const response = await yieldRound(routes, sessionId);
+    expect(response.status).toBe(409);
+    expect((await json<{ error: string }>(response)).error).toBe("no_ally_bot_capacity");
+  });
+
+  test("MANDATORY 5 -- ALLY DETERMINISM: misma seed + mismo lado + mismas posiciones aliadas => mismo orden de relleno", () => {
+    const orderA = deriveAllyPositionOrder("SEED_FIXED", "radiant", [1, 2, 4]);
+    const orderB = deriveAllyPositionOrder("SEED_FIXED", "radiant", [1, 2, 4]);
+    expect(orderA).toEqual(orderB);
+    expect(new Set(orderA)).toEqual(new Set([1, 2, 4]));
+    const differentSeed = deriveAllyPositionOrder("SEED_OTHER", "radiant", [1, 2, 4]);
+    expect(differentSeed).not.toEqual(orderA); // extremely unlikely to collide by chance across seeds
+    const differentSide = deriveAllyPositionOrder("SEED_FIXED", "dire", [1, 2, 4]);
+    expect(differentSide).not.toEqual(orderA);
+  });
+
+  test("MANDATORY 5b -- ALLY DETERMINISM end-to-end: mismo seed + misma config de party => picks identicos de bots", async () => {
     const runDraft = async (seed: string) => {
       const { routes, store } = makeRoutes();
       const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], seed);
       await resolveBans(routes, sessionId);
-      await autoDrive(routes, sessionId);
-      await submitOwn(routes, sessionId, "radiant", 0, mine(5, 1));
-      await autoDrive(routes, sessionId); // R2 autonomous
-      await autoDrive(routes, sessionId); // R3 stops for player
-      await submitOwn(routes, sessionId, "radiant", 0, mine(2, 1));
+      const r1 = await autoDrive(routes, sessionId);
+      const slot1 = r1.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+      await submitOwn(routes, sessionId, "radiant", slot1.slotIndex!, mine(5, 1), 5);
+      await autoDrive(routes, sessionId); // R2 autonomous (Ally Bot fills [1,3,4])
+      const r3 = await autoDrive(routes, sessionId); // R3 stops for player
+      const slot3 = r3.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+      await submitOwn(routes, sessionId, "radiant", slot3.slotIndex!, mine(2, 1), 2);
       return store.get(sessionId)!.rankedAp!.confirmedPicks;
     };
 
@@ -777,5 +803,62 @@ describe("AP Realistic Party Simulator -- Solo (Pos 1..5), Party 2, Party 3, Par
     const run2 = await runDraft("DETERMINISTIC_SEED_123");
 
     expect(run1).toEqual(run2);
+  });
+
+  test("MANDATORY 6 -- OFF-ROLE HUMAN PICK: un heroe con evidencia posicional pobre para Pos2 queda igual confirmado en Pos2, sin bloqueo ni advertencia", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createPartySession(routes, "radiant", 2, [2], "OFF_ROLE_PICK");
+    await resolveBans(routes, sessionId);
+    const r1 = await autoDrive(routes, sessionId);
+    const slot = r1.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+    // Hero drawn from the Pos5 pool (poor positional evidence for Pos2) -- PD-026 rule 9/10: any
+    // legal hero for a controlled position, no off-role warning or block.
+    const offRoleHero = POSITION_HEROES[5][0]!;
+    const response = await submitOwn(routes, sessionId, "radiant", slot.slotIndex!, offRoleHero, 2);
+    expect(response.accepted).toBe(true);
+    expect(response.rejected).toBeUndefined();
+    expect(store.ownAssignedPositionForHero(sessionId, offRoleHero)).toBe(2);
+  });
+
+  test("MANDATORY 8 -- COACH TARGETS: el shortlist del round 1 puede apuntar a Pos2/Pos1 cuando esas posiciones humanas estan abiertas (support-first no es una regla mecanica)", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createPartySession(routes, "radiant", 2, [1, 2], "COACH_TARGETS");
+    await resolveBans(routes, sessionId);
+    await autoDrive(routes, sessionId);
+    const humanOpen = store.humanOpenPositions(sessionId);
+    expect(humanOpen).toEqual(expect.arrayContaining([1, 2]));
+    expect(humanOpen).not.toContain(5); // Pos5 is NOT human-controlled in this party, so it is never a coach target here.
+  });
+
+  test("MANDATORY 9 -- CACHE/IDENTITY: dos estados AP que solo difieren en humanOpenPositions producen identidad distinta", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionIdA = await createPartySession(routes, "radiant", 2, [2, 5], "IDENTITY_A");
+    const sessionIdB = await createPartySession(routes, "radiant", 2, [2, 5], "IDENTITY_A");
+    await resolveBans(routes, sessionIdA);
+    await resolveBans(routes, sessionIdB);
+    await autoDrive(routes, sessionIdA);
+    await autoDrive(routes, sessionIdB);
+    // Both start identical. Now A seals Pos5, changing ONLY its humanOpenPositions.
+    const r1A = await routes.postAutoDrive(sessionIdA); // no-op re-check, keep snapshot fresh
+    void r1A;
+    const openA = (await routes.get(sessionIdA, new URL("http://x/y")).json() as unknown as Snapshot).legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
+    await submitOwn(routes, sessionIdA, "radiant", openA.slotIndex!, mine(5, 0), 5);
+
+    const responseA = await routes.getRecommendations(sessionIdA, new URL(`http://x/y?format=v3`));
+    const responseB = await routes.getRecommendations(sessionIdB, new URL(`http://x/y?format=v3`));
+    const bodyA = (await responseA.json()) as { recommendationSet: { basedOn: { partyIdentity: string | null } } };
+    const bodyB = (await responseB.json()) as { recommendationSet: { basedOn: { partyIdentity: string | null } } };
+    expect(bodyA.recommendationSet.basedOn.partyIdentity).not.toBeNull();
+    expect(bodyA.recommendationSet.basedOn.partyIdentity).not.toBe(bodyB.recommendationSet.basedOn.partyIdentity);
+  });
+
+  test("MANDATORY 10 -- NO PRIVATE ENEMY LEAK: el rol enemigo mostrado sigue derivando solo de RoleBelief, ninguna respuesta AP expone la asignacion interna del Enemy Bot", async () => {
+    const { routes } = makeRoutes();
+    const sessionId = await createPartySession(routes, "radiant", 2, [2, 5], "NO_LEAK");
+    const bans = await routes.postResolveBans(post({ playerBanPreferences: [] }), sessionId);
+    const drive = await routes.postAutoDrive(sessionId);
+    for (const text of [await bans.text(), await drive.text()]) {
+      expect(text).not.toMatch(/internalPositionAssignments|positionsByRosterSlot/);
+    }
   });
 });

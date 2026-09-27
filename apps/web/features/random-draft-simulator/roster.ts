@@ -1,5 +1,5 @@
 import type { CoachRoleBelief } from "./coach-client";
-import { POSITION_FOR_ROSTER_SEAT, ROSTER_SEAT_FOR_POSITION, type RecommendationPosition } from "./protocol-client";
+import { resolveControlledPositions, type RecommendationPosition } from "./protocol-client";
 import type { DraftConfig } from "./types";
 
 export type SimulatorController = "YOU" | "PARTY" | "ALLY BOT";
@@ -14,22 +14,16 @@ export const SIMULATOR_POSITION_LABELS: Readonly<Record<RecommendationPosition, 
   5: "Hard Support",
 });
 
+/**
+ * Chronological seat identity (0..4), used ONLY for the session-summary reconstruction
+ * (picksByRoundFromView) -- which round a hero was sealed in, never which POSITION it is. PD-026/
+ * PD-027 deleted the fixed chronology<->position table this module used to also export
+ * (positionForRoundSlot/rosterSeatForPosition/POSITION_FOR_ROSTER_SEAT/ROSTER_SEAT_FOR_POSITION) --
+ * position is now session-layer truth (ProtocolSnapshot.ownAssignedPositions), never derived here.
+ */
 export function rosterSeatForRoundSlot(round: 1 | 2 | 3, slotIndex: number): number {
   const offset = round === 1 ? 0 : round === 2 ? 2 : 4;
   return offset + slotIndex;
-}
-
-export function roundSlotForRosterSeat(round: 1 | 2 | 3, rosterSeat: number): number {
-  const offset = round === 1 ? 0 : round === 2 ? 2 : 4;
-  return rosterSeat - offset;
-}
-
-export function positionForRoundSlot(round: 1 | 2 | 3, slotIndex: number): RecommendationPosition {
-  return POSITION_FOR_ROSTER_SEAT[rosterSeatForRoundSlot(round, slotIndex)]!;
-}
-
-export function rosterSeatForPosition(position: RecommendationPosition): number {
-  return ROSTER_SEAT_FOR_POSITION[position];
 }
 
 /**
@@ -45,11 +39,18 @@ export function enemyRoleBeliefLabel(belief: CoachRoleBelief | undefined): strin
   return `Likely Pos${belief.positions[0]}`;
 }
 
+/**
+ * PD-026/PD-027 -- the session's Own Team human-controlled positions. Delegates to
+ * `resolveControlledPositions` (protocol-client.ts) -- the SAME function `createSimulatorProtocolSession`
+ * uses to build the real request -- so this can never silently diverge from what the engine was
+ * actually told, the way two independent copies of this fallback previously could.
+ */
+export function controlledPositionsForConfig(config: DraftConfig): RecommendationPosition[] {
+  return resolveControlledPositions(config.partySize, { partyPositions: config.partyPositions, humanPosition: config.playerPosition });
+}
+
 export function controllerForPosition(config: DraftConfig, position: RecommendationPosition): SimulatorController {
   if (config.playerPosition === position) return "YOU";
-  const controlledPositions = config.partySize === 5
-    ? SIMULATOR_POSITIONS
-    : (config.partyPositions ?? [config.playerPosition]);
-  if (controlledPositions.includes(position)) return "PARTY";
+  if (controlledPositionsForConfig(config).includes(position)) return "PARTY";
   return "ALLY BOT";
 }

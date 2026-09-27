@@ -37,6 +37,13 @@ export interface BasedOnInput {
    * evidenceIdentityHash over the computed SuggestionSet), or null when no evidence was computed
    * at all (no legal action / computeSuggestions failed) -- see RecommendationBasedOn.evidenceVersion. */
   evidenceHash: string | null;
+  /**
+   * PD-026/PD-027 -- AP Simulator Own Team control state (ProtocolSessionMetadata.controlledPositions
+   * / ProtocolSessionStore.humanOpenPositions). Folded into `partyIdentity` so two otherwise-identical
+   * AP states differing only in which human-controlled positions remain open never collapse to the
+   * same recommendation/cache identity. Absent/null for non-AP-Simulator sessions.
+   */
+  apControl?: { controlledPositions: readonly number[] | null; humanOpenPositions: readonly number[] | null } | null;
 }
 
 function perspectiveIdentity(view: PerspectiveDraftView): string {
@@ -53,18 +60,30 @@ function perspectiveIdentity(view: PerspectiveDraftView): string {
  * and the SET of controlled roster-slot indexes are functional -- `controllerId` is opaque
  * display metadata that never reaches kernel legality or role-impact computation, so it is
  * deliberately excluded (same discipline as identity-hash.ts excluding computedInMs/timestamps).
- * Sorted so insertion order of `controlledSlots` (never itself meaningful) can't move the hash. */
-function partyIdentity(partyContext: PartyContext | null): string | null {
-  if (!partyContext) return null;
+ * Sorted so insertion order of `controlledSlots` (never itself meaningful) can't move the hash.
+ *
+ * PD-026/PD-027 (Blocker: CACHE / IDENTITY) -- also folds in the AP Simulator control state
+ * (`controlledPositions`/`humanOpenPositions`), when present, for the same reason: two AP states
+ * that are otherwise structurally identical but differ in which human-controlled positions remain
+ * open must never hash identically -- the Coach's team recommendations legitimately differ between
+ * them (COACH TARGET POSITIONS). Both arrays sorted for the same order-independence reason above. */
+function partyIdentity(
+  partyContext: PartyContext | null,
+  apControl?: { controlledPositions: readonly number[] | null; humanOpenPositions: readonly number[] | null } | null,
+): string | null {
+  const hasApControl = apControl && (apControl.controlledPositions !== null || apControl.humanOpenPositions !== null);
+  if (!partyContext && !hasApControl) return null;
   return rulesHash({
-    partySize: partyContext.partySize,
-    side: partyContext.side,
-    controlledSlotIndexes: [...partyContext.controlledSlots.map((slot) => slot.slotIndex)].sort((a, b) => a - b),
+    partySize: partyContext?.partySize ?? null,
+    side: partyContext?.side ?? null,
+    controlledSlotIndexes: partyContext ? [...partyContext.controlledSlots.map((slot) => slot.slotIndex)].sort((a, b) => a - b) : null,
+    controlledPositions: apControl?.controlledPositions ? [...apControl.controlledPositions].sort((a, b) => a - b) : null,
+    humanOpenPositions: apControl?.humanOpenPositions ? [...apControl.humanOpenPositions].sort((a, b) => a - b) : null,
   });
 }
 
 export function buildBasedOn(input: BasedOnInput): RecommendationBasedOn {
-  const { view, eligibilitySnapshot, calibrationMode, seed, patch, partyContext, evidenceHash } = input;
+  const { view, eligibilitySnapshot, calibrationMode, seed, patch, partyContext, evidenceHash, apControl } = input;
   return {
     protocolId: view.ruleset.id,
     protocolVersion: view.ruleset.version,
@@ -73,7 +92,7 @@ export function buildBasedOn(input: BasedOnInput): RecommendationBasedOn {
     stateIdentity: perspectiveStateHash(view),
     perspectiveIdentity: perspectiveIdentity(view),
     patch,
-    partyIdentity: partyIdentity(partyContext),
+    partyIdentity: partyIdentity(partyContext, apControl),
     evidenceVersion: `${EVIDENCE_VERSION_BASE}+calibration:${calibrationMode}+evidence:${evidenceHash ?? "none"}`,
     seed: seed ?? null,
   };

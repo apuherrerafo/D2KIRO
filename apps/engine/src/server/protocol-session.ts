@@ -19,7 +19,7 @@ import {
   type TeamSide,
 } from "../draft-protocol";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
-import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
+import { rosterSlotForRoundSlot, type DotaPosition } from "../simulator/ap-simulator-policy";
 import type { CollisionRegistrationEvidence, RegistrationRecord } from "../draft-protocol/adapters/simulator-authority";
 import { isApSimulatorMetadata } from "../simulator/session-config";
 import {
@@ -62,7 +62,40 @@ export interface ProtocolSessionMetadata {
    */
   humanPosition: 1 | 2 | 3 | 4 | 5 | null;
   simulatorSeed: string | null;
+  /**
+   * PD-026/PD-027 -- Own Team's HUMAN-controlled positions for an AP Simulator session. This, not
+   * `partyContext.controlledSlots` (structural/inert for AP -- see party-context.ts), is the
+   * source of truth for "which positions may a human submit for." `null` for non-AP-Simulator
+   * sessions (Manual/Captain's Mode), which keep using `partyContext.controlledSlots` unchanged.
+   */
+  controlledPositions: DotaPosition[] | null;
 }
+
+/** Session-layer (never kernel) binding of a sealed Own Team selection to the human-chosen position it fills. */
+export interface OwnPickPositionBinding {
+  round: 1 | 2 | 3;
+  /** The round-scoped kernel slotIndex this binding was sealed against (ROUND-SCOPED SLOT semantics unchanged). */
+  slotIndex: number;
+  assignedPosition: DotaPosition;
+}
+
+export type ApSimulatorOwnSelectionResult =
+  | { ok: true; state: DraftProtocolState; ownAssignedPositions: OwnPickPositionBinding[] }
+  | {
+      ok: false;
+      reason:
+        | "session_not_found"
+        | "not_ap_simulator"
+        | "not_own_side"
+        | "no_open_round"
+        | "round_slot_not_open"
+        | "position_not_controlled"
+        | "position_already_filled"
+        | "kernel_rejected";
+      rejected?: RejectionReasonV2;
+    };
+
+export type YieldRoundResult = { ok: true } | { ok: false; reason: "session_not_found" | "not_ap_simulator" | "no_open_round" | "no_ally_bot_capacity" | "ally_bot_cannot_absorb_capacity" };
 
 interface ProtocolSessionEntry {
   state: DraftProtocolState;
@@ -84,6 +117,15 @@ interface ProtocolSessionEntry {
    * can do -- see ProtocolSessionRouteDeps.allowTestClockControl.
    */
   clockOffsetMs: number;
+  /**
+   * PD-026/PD-027 -- Own Team truth: which (round, roundSlot) sealed a given human-controlled
+   * position. Session-layer only, never fed back into the kernel. A binding is added ONLY after
+   * the kernel accepts the matching SUBMIT_SEALED_SELECTION (applyApSimulatorOwnSelection), and is
+   * pruned the moment its (round, slotIndex) reopens (collision reconciliation).
+   */
+  ownPickPositions: OwnPickPositionBinding[];
+  /** Rounds (by number) in which the human explicitly yielded remaining Own Team capacity to the Ally Bot. */
+  roundYielded: Set<number>;
 }
 
 export type CreateProtocolSessionResult =
@@ -105,6 +147,8 @@ export interface CreateProtocolSessionInput {
   adapterKind?: "manual" | "simulator";
   humanPosition?: 1 | 2 | 3 | 4 | 5;
   simulatorSeed?: string;
+  /** PD-026/PD-027 -- Own Team's human-controlled positions (AP Simulator only). See ProtocolSessionMetadata.controlledPositions. */
+  controlledPositions?: DotaPosition[];
 }
 
 function oppositeSide(side: TeamSide): TeamSide {
@@ -144,12 +188,15 @@ export class ProtocolSessionStore {
         adapterKind: input.adapterKind ?? "manual",
         humanPosition: input.humanPosition ?? null,
         simulatorSeed: input.simulatorSeed ?? null,
+        controlledPositions: input.controlledPositions ?? null,
       },
       lastAccessedAt: now,
       simulatorTimer: null,
       registrations: [],
       nextRegistrationOrdinal: 1,
       clockOffsetMs: 0,
+      ownPickPositions: [],
+      roundYielded: new Set(),
     });
     return { ok: true, sessionId: input.sessionId, state: created.state };
   }
@@ -185,8 +232,177 @@ export class ProtocolSessionStore {
     if (!result.rejected) {
       this.recordRegistration(entry, previous, command);
       this.recordSeatConfirmation(entry, previous, command, now ?? Date.now() + entry.clockOffsetMs);
+      this.pruneReopenedOwnPickPositions(entry);
     }
     return result;
+  }
+
+  /**
+   * PD-026/PD-027 COLLISION CONSISTENCY -- any binding whose (round, slotIndex) is, right now,
+   * back among the current round's open slots for the local side has been reopened (a collision
+   * reconciliation reopens the LOSING side's slot). Drop it: the winner's own binding (a
+   * different slotIndex) is untouched, and the reopened position becomes selectable again. Runs
+   * after every successful kernel apply, from whichever path triggered it (a direct Own Team
+   * submission, a bot pick, or collision-authority resolution) -- never special-cased per caller.
+   */
+  private pruneReopenedOwnPickPositions(entry: ProtocolSessionEntry): void {
+    if (entry.ownPickPositions.length === 0) return;
+    const round = entry.state.rankedAp?.round;
+    if (!round) return;
+    const reopened = new Set(
+      round.openSlots.filter((slot) => slot.side === entry.metadata.localSide && slot.slotIndex !== undefined).map((slot) => slot.slotIndex),
+    );
+    if (reopened.size === 0) return;
+    entry.ownPickPositions = entry.ownPickPositions.filter((binding) => !(binding.round === round.round && reopened.has(binding.slotIndex)));
+  }
+
+  /**
+   * PD-026/PD-027 -- the ONE atomic session-layer operation for an AP Simulator Own Team
+   * selection. Binds `assignedPosition` to the sealed selection IFF and ONLY IF the kernel
+   * accepts the matching command: no precondition failure ever mutates the kernel, and a kernel
+   * rejection never leaves a stray binding. See CLAUDE.md-adjacent task spec (PD-026/PD-027) for
+   * the exact precondition order this mirrors.
+   */
+  /**
+   * PD-026/PD-027 -- the ONE atomic session-layer operation for a CLIENT-FACING (human) AP
+   * Simulator Own Team selection. `assignedPosition` must be one of the session's
+   * `controlledPositions` -- this is the trust boundary the postCommand route relies on. Internal
+   * Ally Bot picks (its own complement positions, never client-reachable) go through
+   * `applyAllyBotSelection` instead, which shares every other precondition and the same
+   * kernel-then-bind atomicity, just against a different allowed-position set.
+   */
+  applyApSimulatorOwnSelection(
+    sessionId: string,
+    command: Extract<ProtocolCommand, { type: "SUBMIT_SEALED_SELECTION" }>,
+    assignedPosition: DotaPosition,
+    now = Date.now(),
+  ): ApSimulatorOwnSelectionResult {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || !entry.metadata.controlledPositions) return { ok: false, reason: "not_ap_simulator" };
+    return this.applyOwnTeamPositionSelection(sessionId, command, assignedPosition, entry.metadata.controlledPositions, now);
+  }
+
+  /** Internal-only counterpart of `applyApSimulatorOwnSelection` for the Ally Bot's own (uncontrolled) positions. Never reachable from a client request. */
+  applyAllyBotSelection(
+    sessionId: string,
+    command: Extract<ProtocolCommand, { type: "SUBMIT_SEALED_SELECTION" }>,
+    assignedPosition: DotaPosition,
+    now = Date.now(),
+  ): ApSimulatorOwnSelectionResult {
+    const allyPositions = this.allyBotPositions(sessionId);
+    if (!allyPositions) return { ok: false, reason: "not_ap_simulator" };
+    return this.applyOwnTeamPositionSelection(sessionId, command, assignedPosition, allyPositions, now);
+  }
+
+  private applyOwnTeamPositionSelection(
+    sessionId: string,
+    command: Extract<ProtocolCommand, { type: "SUBMIT_SEALED_SELECTION" }>,
+    assignedPosition: DotaPosition,
+    allowedPositions: readonly DotaPosition[],
+    now: number,
+  ): ApSimulatorOwnSelectionResult {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return { ok: false, reason: "session_not_found" };
+    const { metadata } = entry;
+    if (!isApSimulatorMetadata(metadata) || !metadata.controlledPositions) return { ok: false, reason: "not_ap_simulator" };
+    if (command.side !== metadata.localSide) return { ok: false, reason: "not_own_side" };
+    const round = entry.state.rankedAp?.round;
+    if (!round) return { ok: false, reason: "no_open_round" };
+    const slotOpen = round.openSlots.some((slot) => slot.side === command.side && slot.slotIndex === command.slotIndex);
+    if (!slotOpen) return { ok: false, reason: "round_slot_not_open" };
+    if (!allowedPositions.includes(assignedPosition)) return { ok: false, reason: "position_not_controlled" };
+    const alreadyFilled = entry.ownPickPositions.some((binding) => binding.assignedPosition === assignedPosition);
+    if (alreadyFilled) return { ok: false, reason: "position_already_filled" };
+
+    const previous = entry.state;
+    const result = applyProtocolCommand(previous, command);
+    if (result.rejected) return { ok: false, reason: "kernel_rejected", rejected: result.rejected };
+
+    entry.state = result.state;
+    entry.lastAccessedAt = now;
+    this.recordRegistration(entry, previous, command);
+    this.recordSeatConfirmation(entry, previous, command, now + entry.clockOffsetMs);
+    entry.ownPickPositions = [...entry.ownPickPositions, { round: round.round, slotIndex: command.slotIndex, assignedPosition }];
+    this.pruneReopenedOwnPickPositions(entry);
+    return { ok: true, state: entry.state, ownAssignedPositions: [...entry.ownPickPositions] };
+  }
+
+  /** Own Team binding projection (session-layer, never kernel state). `[]` for a session with no bindings yet, `null` for an unknown session. */
+  ownAssignedPositions(sessionId: string): OwnPickPositionBinding[] | null {
+    const entry = this.sessions.get(sessionId);
+    return entry ? [...entry.ownPickPositions] : null;
+  }
+
+  /**
+   * PD-026/PD-027 MANUAL POSITION ASSIGNMENT -- the queue-bound position for an already-sealed own
+   * hero, if any. Cross-references the kernel's confirmed picks (side/round/slotIndex/heroId)
+   * against the session-layer binding for that same (round, slotIndex). `null` when the hero was
+   * never queue-bound (picked before `controlledPositions` existed, or not an own pick at all).
+   */
+  ownAssignedPositionForHero(sessionId: string, heroId: number): DotaPosition | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return null;
+    const localSide = entry.metadata.localSide;
+    // A pick is bound the instant it is SEALED (own picks are visible to the Player immediately,
+    // long before the kernel's own round-resolution "confirmed" concept) -- check the current
+    // round's sealed selections first, then fall back to confirmedPicks for earlier rounds.
+    const round = entry.state.rankedAp?.round;
+    if (round) {
+      const sealed = round.sealed.find((selection) => selection.side === localSide && selection.heroId === heroId);
+      if (sealed) {
+        const binding = entry.ownPickPositions.find((b) => b.round === round.round && b.slotIndex === sealed.slotIndex);
+        if (binding) return binding.assignedPosition;
+      }
+    }
+    const confirmed = entry.state.rankedAp?.confirmedPicks.find((pick) => pick.side === localSide && pick.heroId === heroId);
+    if (!confirmed) return null;
+    const binding = entry.ownPickPositions.find((b) => b.round === confirmed.round && b.slotIndex === confirmed.slotIndex);
+    return binding?.assignedPosition ?? null;
+  }
+
+  /** `controlledPositions` minus positions already bound. `null` for a non-AP-Simulator or unknown session. */
+  humanOpenPositions(sessionId: string): DotaPosition[] | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || !entry.metadata.controlledPositions) return null;
+    const filled = new Set(entry.ownPickPositions.map((binding) => binding.assignedPosition));
+    return entry.metadata.controlledPositions.filter((position) => !filled.has(position));
+  }
+
+  /** The complement of `controlledPositions` within 1..5 -- the positions the Ally Bot owns. `null` for a non-AP-Simulator or unknown session. */
+  allyBotPositions(sessionId: string): DotaPosition[] | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || !entry.metadata.controlledPositions) return null;
+    const controlled = new Set(entry.metadata.controlledPositions);
+    return ([1, 2, 3, 4, 5] as DotaPosition[]).filter((position) => !controlled.has(position));
+  }
+
+  hasYieldedCurrentRound(sessionId: string): boolean {
+    const entry = this.sessions.get(sessionId);
+    const round = entry?.state.rankedAp?.round?.round;
+    if (!entry || !round) return false;
+    return entry.roundYielded.has(round);
+  }
+
+  /**
+   * PD-026/PD-027 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own
+   * Team capacity to the Ally Bot. Rejected (never silently accepted) when the Ally Bot cannot
+   * legally absorb that capacity: a yield the bot could not honor would strand the round with
+   * open own-side slots and nobody able to fill them.
+   */
+  yieldRound(sessionId: string): YieldRoundResult {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return { ok: false, reason: "session_not_found" };
+    if (!isApSimulatorMetadata(entry.metadata) || !entry.metadata.controlledPositions) return { ok: false, reason: "not_ap_simulator" };
+    const round = entry.state.rankedAp?.round;
+    if (!round) return { ok: false, reason: "no_open_round" };
+    const allyPositions = this.allyBotPositions(sessionId) ?? [];
+    if (allyPositions.length === 0) return { ok: false, reason: "no_ally_bot_capacity" };
+    const filled = new Set(entry.ownPickPositions.map((binding) => binding.assignedPosition));
+    const unfilledAllyPositions = allyPositions.filter((position) => !filled.has(position)).length;
+    const openOwnRoundSlots = round.openSlots.filter((slot) => slot.side === entry.metadata.localSide).length;
+    if (unfilledAllyPositions < openOwnRoundSlots) return { ok: false, reason: "ally_bot_cannot_absorb_capacity" };
+    entry.roundYielded.add(round.round);
+    return { ok: true };
   }
 
   /**
@@ -278,19 +494,28 @@ export class ProtocolSessionStore {
     const key = `${round.round}:${round.collisionsResolved}`;
     if (entry.simulatorTimer?.attemptKey !== key) {
       const carried = entry.simulatorTimer ? goldPenaltyAt(entry.simulatorTimer, now).bySlot : emptyCarried();
-      const controlledRosterSlots = new Set(
-        entry.metadata.partyContext?.controlledSlots
-          .filter((slot) => slot.side === entry.metadata.localSide)
-          .map((slot) => slot.slotIndex) ?? [0, 1, 2, 3, 4],
-      );
-      const ownOpenSlots = round.openSlots
-        .filter((slot) => slot.side === entry.metadata.localSide)
-        .filter((slot) => {
-          const rosterSlot = rosterSlotForRoundSlot(round.round, slot.slotIndex);
+      const ownOpenSlotIndexes = round.openSlots.filter((slot) => slot.side === entry.metadata.localSide).map((slot) => slot.slotIndex);
+      let pendingSlotIndexes: number[];
+      if (entry.metadata.controlledPositions) {
+        // PD-026/PD-027 -- capacity is no longer seat membership: min(open Own Team roundSlots,
+        // unfilled human-controlled positions), zero once the human has yielded the round. Which
+        // SEAT carries the penalty is still arbitrary bookkeeping (Do NOT re-key gold penalty by
+        // position in this P0) -- only the COUNT reflects human-controlled capacity.
+        const unfilledPositions = this.humanOpenPositions(sessionId) ?? [];
+        const capacity = this.hasYieldedCurrentRound(sessionId) ? 0 : Math.min(ownOpenSlotIndexes.length, unfilledPositions.length);
+        pendingSlotIndexes = ownOpenSlotIndexes.slice(0, capacity);
+      } else {
+        const controlledRosterSlots = new Set(
+          entry.metadata.partyContext?.controlledSlots
+            .filter((slot) => slot.side === entry.metadata.localSide)
+            .map((slot) => slot.slotIndex) ?? [0, 1, 2, 3, 4],
+        );
+        pendingSlotIndexes = ownOpenSlotIndexes.filter((slotIndex) => {
+          const rosterSlot = rosterSlotForRoundSlot(round.round, slotIndex);
           return rosterSlot !== null && controlledRosterSlots.has(rosterSlot);
-        })
-        .map((slot) => slot.slotIndex);
-      entry.simulatorTimer = startRoundTimer(round.round, round.collisionsResolved, seatsForOpenSlots(round.round, ownOpenSlots), carried, now);
+        });
+      }
+      entry.simulatorTimer = startRoundTimer(round.round, round.collisionsResolved, seatsForOpenSlots(round.round, pendingSlotIndexes), carried, now);
     }
     return timerViewAt(entry.simulatorTimer!, now);
   }
@@ -368,6 +593,10 @@ export class ProtocolSessionStore {
       partyContext: metadata.partyContext,
       patch: metadata.patch,
       isSimulator: metadata.adapterKind === "simulator",
+      // PD-026/PD-027 COACH TARGET POSITIONS -- Own Team truth the Coach targets, never a
+      // round-seat mapping. Both null for non-AP-Simulator/legacy AP Simulator sessions.
+      controlledPositions: metadata.controlledPositions,
+      humanOpenPositions: this.humanOpenPositions(sessionId),
     };
   }
 
@@ -406,6 +635,21 @@ export class ProtocolSessionStore {
       if (metadata.adapterKind === "manual") return true;
       if (command.side !== metadata.localSide) return false;
       if (isApSimulatorMetadata(metadata)) {
+        if (metadata.controlledPositions) {
+          // PD-026/PD-027: for a controlledPositions session, this generic path is defense-in-depth
+          // only -- currently UNREACHABLE for an own-side SUBMIT_SEALED_SELECTION, because
+          // postCommand dispatches every one of those to applyApSimulatorOwnSelection instead
+          // (never through isCommandAuthorized+apply). It authorizes any currently open own-side
+          // slot (position is decoupled from round-scoped slot) precisely because the REAL gate --
+          // the position binding itself -- lives only in the atomic operation. A future route or
+          // caller that mutates an AP-controlledPositions session via store.apply() directly, past
+          // this check, would seal a hero without ever binding a position: don't. Route AP Own Team
+          // submissions through applyApSimulatorOwnSelection (human) or applyAllyBotSelection
+          // (Ally Bot) -- never the generic apply() path.
+          const round = state.rankedAp?.round;
+          if (!round) return false;
+          return round.openSlots.some((slot) => slot.side === command.side && slot.slotIndex === command.slotIndex);
+        }
         const round = state.rankedAp?.round?.round;
         if (!round) return false;
         const rosterSlot = rosterSlotForRoundSlot(round, command.slotIndex);
@@ -441,6 +685,12 @@ export class ProtocolSessionStore {
         if (metadata.adapterKind === "manual") return true;
         if (action.side !== metadata.localSide) return false;
         if (isApSimulatorMetadata(metadata)) {
+          if (metadata.controlledPositions) {
+            // PD-026/PD-027: every currently open own-side round slot is advertised -- which
+            // human-controlled position it will bind to is the client's choice at submission time,
+            // not a fixed seat, so filtering by seat membership here would hide legitimate options.
+            return true;
+          }
           const round = state.rankedAp?.round?.round;
           if (!round) return false;
           const rosterSlot = rosterSlotForRoundSlot(round, action.slotIndex);

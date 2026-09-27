@@ -20,11 +20,9 @@ const CREATE_BODY = {
   adapterKind: "simulator",
   humanPosition: 2,
   simulatorSeed: "COACH001",
-  partyContext: {
-    partySize: 5,
-    side: "radiant",
-    controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "player" })),
-  },
+  // PD-026/PD-027: Own Team truth is `controlledPositions`, never chronological roster seats.
+  partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+  controlledPositions: [1, 2, 3, 4, 5],
 } as const;
 
 function fakeSuggestions(heroIds: number[]): SuggestionSet {

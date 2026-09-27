@@ -52,11 +52,20 @@ export interface SimulatorTimerView {
   penaltyRatePerSecond: number;
 }
 
+/** PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only. Espejo a mano de OwnPickPositionBinding (engine, server/protocol-session.ts). */
+export interface OwnAssignedPositionBinding {
+  round: 1 | 2 | 3;
+  slotIndex: number;
+  assignedPosition: 1 | 2 | 3 | 4 | 5;
+}
+
 export interface ProtocolSnapshot {
   view: ProtocolPerspectiveView;
   legalActions: ProtocolLegalAction[];
   /** null fuera de una sesión AP Simulator o antes de que la primera ronda se entregue al Player. */
   simulator: SimulatorTimerView | null;
+  /** PD-026/PD-027: binding sesión-capa de Own Team, `[]` si la sesión no tiene ninguno todavía. */
+  ownAssignedPositions: OwnAssignedPositionBinding[];
   /** Sólo en la respuesta de un comando: el kernel lo aceptó o lo rechazó (motivo). */
   accepted?: boolean;
   rejected?: string;
@@ -117,6 +126,15 @@ function parseSimulatorTimer(value: unknown): SimulatorTimerView | null {
   };
 }
 
+function isDotaPosition(value: unknown): value is 1 | 2 | 3 | 4 | 5 {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
+}
+
+function isOwnAssignedPositionBinding(value: unknown): value is OwnAssignedPositionBinding {
+  if (!isRecord(value)) return false;
+  return (value.round === 1 || value.round === 2 || value.round === 3) && typeof value.slotIndex === "number" && isDotaPosition(value.assignedPosition);
+}
+
 function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   if (!isRecord(value) || !isRecord(value.view) || !Array.isArray(value.legalActions)) return null;
   const view = value.view;
@@ -131,10 +149,13 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   const captainsModeOk = view.captainsMode === undefined || view.captainsMode === null || isValidCaptainsModeView(view.captainsMode);
   if (!rankedApOk || !captainsModeOk) return null;
   if (view.rankedAp === null && (view.captainsMode === undefined || view.captainsMode === null)) return null;
+  const ownAssignedPositions = Array.isArray(value.ownAssignedPositions) && value.ownAssignedPositions.every(isOwnAssignedPositionBinding)
+    ? value.ownAssignedPositions
+    : [];
   const snapshot = value as unknown as ProtocolSnapshot;
   const accepted = typeof value.accepted === "boolean" ? { accepted: value.accepted } : {};
   const rejected = typeof value.rejected === "string" ? { rejected: value.rejected } : {};
-  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ...accepted, ...rejected };
+  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ownAssignedPositions, ...accepted, ...rejected };
 }
 
 async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
@@ -161,21 +182,18 @@ export interface CreateSimulatorSessionOptions {
   adapterKind?: "manual" | "simulator";
 }
 
-export const ROSTER_SEAT_FOR_POSITION: Readonly<Record<1 | 2 | 3 | 4 | 5, number>> = Object.freeze({
-  5: 0,
-  4: 1,
-  3: 2,
-  1: 3,
-  2: 4,
-});
-
-export const POSITION_FOR_ROSTER_SEAT: Readonly<Record<number, 1 | 2 | 3 | 4 | 5>> = Object.freeze({
-  0: 5,
-  1: 4,
-  2: 3,
-  3: 1,
-  4: 2,
-});
+/**
+ * PD-026/PD-027 -- computes `controlledPositions` (Own Team's human-controlled positions), the
+ * session's real control truth. `partyContext.controlledSlots` is sent EMPTY: chronological roster
+ * seats are structural/inert for AP, never position/control truth.
+ */
+/** Exported so roster.ts's `controlledPositionsForConfig` derives the SAME set from a DraftConfig -- two independent copies of this fallback previously risked drifting apart (see PD-026/PD-027 redteam finding). */
+export function resolveControlledPositions(partySize: PartySize, options: CreateSimulatorSessionOptions): (1 | 2 | 3 | 4 | 5)[] {
+  if (options.partyPositions && options.partyPositions.length === partySize) return [...options.partyPositions];
+  if (partySize === 5) return [1, 2, 3, 4, 5];
+  if (partySize === 1 && options.humanPosition) return [options.humanPosition];
+  return [1, 2, 3, 4, 5].slice(0, partySize) as (1 | 2 | 3 | 4 | 5)[];
+}
 
 export async function createSimulatorProtocolSession(
   patch: string,
@@ -184,20 +202,7 @@ export async function createSimulatorProtocolSession(
   options: CreateSimulatorSessionOptions = {},
 ): Promise<string> {
   const partySize = options.partySize ?? 5;
-  const slots: number[] =
-    options.partyPositions && options.partyPositions.length === partySize
-      ? options.partyPositions.map((pos) => ROSTER_SEAT_FOR_POSITION[pos])
-      : partySize === 5
-        ? [0, 1, 2, 3, 4]
-        : partySize === 1 && options.humanPosition
-          ? [ROSTER_SEAT_FOR_POSITION[options.humanPosition]]
-          : Array.from({ length: Math.min(partySize, 5) }, (_, i) => i);
-
-  const controlledSlots = slots.map((slotIndex) => ({
-    side: localSide,
-    slotIndex,
-    controllerId: `simulator-local-${slotIndex}`,
-  }));
+  const controlledPositions = resolveControlledPositions(partySize, options);
   const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -206,11 +211,8 @@ export async function createSimulatorProtocolSession(
       patch,
       localSide,
       adapterKind: options.adapterKind ?? "simulator",
-      partyContext: {
-        partySize,
-        side: localSide,
-        controlledSlots,
-      },
+      partyContext: { partySize, side: localSide, controlledSlots: [] },
+      controlledPositions,
       humanPosition: options.humanPosition,
       simulatorSeed: options.simulatorSeed,
     }),
@@ -232,15 +234,30 @@ export async function getProtocolSession(sessionId: string, fetchImpl: typeof fe
   return readSnapshot(response);
 }
 
+/**
+ * PD-026/PD-027 -- `assignedPosition` travels as a SIBLING field to `command`, never inside it (the
+ * kernel command shape never changes). Only meaningful for an Own Team `SUBMIT_SEALED_SELECTION` on
+ * an AP Simulator session with `controlledPositions`; omitted for every other command.
+ */
 export function submitProtocolCommand(
   sessionId: string,
   command: ProtocolCommand,
   fetchImpl: typeof fetch = fetch,
+  assignedPosition?: 1 | 2 | 3 | 4 | 5,
 ): Promise<ProtocolSnapshot> {
   return fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/command`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ command }),
+    body: JSON.stringify(assignedPosition === undefined ? { command } : { command, assignedPosition }),
+  }).then(readSnapshot);
+}
+
+/** PD-026 ALLY BOT SCHEDULING -- yields the round's remaining Own Team capacity to the Ally Bot. */
+export function requestYield(sessionId: string, fetchImpl: typeof fetch = fetch): Promise<ProtocolSnapshot> {
+  return fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/yield`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
   }).then(readSnapshot);
 }
 

@@ -1,5 +1,6 @@
 import type { DraftState } from "../draft/reducer";
 import type { HeroId, PartyContext, PerspectiveDraftView } from "../draft-protocol/types";
+import type { Position } from "../draft-protocol/roles/role-belief";
 import type { SuggestionSet } from "../signals/mix";
 import type { RecommendationSlot } from "./types";
 
@@ -29,8 +30,16 @@ export interface PerspectiveRecommendationContext {
   openOwnSlots: readonly RecommendationSlot[];
   partyContext: PartyContext | null;
   patch: string;
-  /** Explicit simulator discriminator: only simulator sessions derive fixed role-to-seat schedules. */
+  /** Explicit simulator discriminator: only simulator sessions target real Own Team positions. */
   isSimulator?: boolean;
+  /**
+   * PD-026/PD-027 -- Own Team's human-controlled positions for an AP Simulator session
+   * (ProtocolSessionMetadata.controlledPositions), and the subset still unfilled
+   * (ProtocolSessionStore.humanOpenPositions). Both null for a non-AP-Simulator or legacy session
+   * -- the Coach then tags no position at all rather than guessing from round/slotIndex.
+   */
+  controlledPositions?: readonly Position[] | null;
+  humanOpenPositions?: readonly Position[] | null;
 }
 
 /** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --

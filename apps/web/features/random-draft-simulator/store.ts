@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { DraftState } from "@/features/draft/types";
 import type { CoachOutput } from "./coach-client";
-import type { RecommendationSetV2 } from "./protocol-client";
+import type { OwnAssignedPositionBinding, RecommendationSetV2 } from "./protocol-client";
 import type { OrchestratorResult } from "./orchestrator";
 import type { DraftConfig, DraftPhase, HeroId, SessionMode } from "./types";
 
@@ -30,12 +30,14 @@ export interface RandomDraftState {
   lastSyncedAt: string | null;
   previewStatus: PreviewStatus;
   engineStatus: EngineStatus;
+  /** PD-026/PD-027 -- Own Team's session-layer position binding, `[]` before the first own pick. */
+  ownAssignedPositions: OwnAssignedPositionBinding[];
 }
 
 export interface RandomDraftActions {
   startSession(config: DraftConfig, sessionId: string, orchestratorResult: OrchestratorResult, mode?: SessionMode): void;
-  /** Registra un héroe que el Player ya selló (lock) en el intento actual de la ronda. */
-  confirmPick(heroId: HeroId, rosterSeat?: number): void;
+  /** Registra un héroe que el Player ya selló (lock) para una posición del intento actual de la ronda. */
+  confirmPick(heroId: HeroId, position?: 1 | 2 | 3 | 4 | 5): void;
   resetSession(): void;
   setDraftState(state: DraftState): void;
   setRecommendations(recommendations: RecommendationSetV2 | null): void;
@@ -44,6 +46,7 @@ export interface RandomDraftActions {
   setStaleInfo(isStale: boolean, syncedAt: string | null): void;
   setPreviewStatus(status: PreviewStatus): void;
   setEngineStatus(status: EngineStatus): void;
+  setOwnAssignedPositions(bindings: OwnAssignedPositionBinding[]): void;
   /** Sincroniza timer/penalización con la proyección del Simulator (fuente de verdad: el motor). */
   syncRoundTimer(timer: { remainingMs: number; pendingSeats: number[]; goldPenaltyBySlot: number[]; penaltyRatePerSecond: number }): void;
   setRoundNotice(notice: string | null): void;
@@ -64,6 +67,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   lastSyncedAt: null,
   previewStatus: "idle",
   engineStatus: "ok",
+  ownAssignedPositions: [],
 
   startSession(config, sessionId, orchestratorResult, mode = "simulation") {
     set({
@@ -78,19 +82,22 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
         : { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
       previewStatus: "idle",
       engineStatus: "ok",
+      ownAssignedPositions: [],
     });
   },
 
-  confirmPick(heroId, rosterSeat) {
+  confirmPick(heroId, position) {
     const { phase } = get();
     if (phase.type !== "blind_round" || phase.pendingUserPicks.includes(heroId)) return;
-    const targetSeat = rosterSeat ?? phase.attemptSeats.find((seat) => phase.lockedUserPicks[seat] === undefined);
-    if (targetSeat === undefined || !phase.attemptSeats.includes(targetSeat)) return;
+    const targetPosition = position ?? phase.attemptPositions.find((candidate) => phase.lockedUserPicks[candidate] === undefined);
+    if (targetPosition === undefined || !phase.attemptPositions.includes(targetPosition)) return;
+    const pendingPositions = phase.pendingPositions.filter((candidate) => candidate !== targetPosition);
     set({
       phase: {
         ...phase,
         pendingUserPicks: [...phase.pendingUserPicks, heroId],
-        lockedUserPicks: { ...phase.lockedUserPicks, [targetSeat]: heroId },
+        lockedUserPicks: { ...phase.lockedUserPicks, [targetPosition]: heroId },
+        pendingPositions,
       },
     });
   },
@@ -108,6 +115,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       lastSyncedAt: null,
       previewStatus: "idle",
       engineStatus: "ok",
+      ownAssignedPositions: [],
     });
   },
 
@@ -139,6 +147,10 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
     set({ engineStatus: status });
   },
 
+  setOwnAssignedPositions(bindings) {
+    set({ ownAssignedPositions: bindings });
+  },
+
   syncRoundTimer(timer) {
     const { phase } = get();
     if (phase.type !== "blind_round") return;
@@ -146,7 +158,6 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       phase: {
         ...phase,
         timerRemainingMs: timer.remainingMs,
-        pendingSeats: timer.pendingSeats,
         goldPenaltyBySlot: timer.goldPenaltyBySlot,
         penaltyRatePerSecond: timer.penaltyRatePerSecond,
         penaltyElapsedMs: 0,
@@ -171,7 +182,7 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       phase: {
         ...phase,
         timerRemainingMs: Math.max(0, phase.timerRemainingMs - deltaMs),
-        penaltyElapsedMs: phase.pendingSeats.length > 0 ? phase.penaltyElapsedMs + overflow : phase.penaltyElapsedMs,
+        penaltyElapsedMs: phase.pendingPositions.length > 0 ? phase.penaltyElapsedMs + overflow : phase.penaltyElapsedMs,
       },
     });
   },

@@ -66,9 +66,13 @@ describe("compound fallback -- no feasible pair, legal single step exists", () =
     expect(reasons).toContain("COMPOUND_FALLBACK_SINGLE_STEP");
     expect(reasons).toContain("ROLE_ASSIGNMENT_IMPOSSIBLE"); // the pairs really were rejected first
     expect(reasons).not.toContain("NO_LEGAL_HERO_UNIVERSE");
-    // Every fallback action targets the seat matching the candidate's admitted position (slot 1 = Pos 1 carry).
+    // PD-026/PD-027: this harness carries no `controlledPositions`, so slots get no position tag
+    // at all (Simulator sessions without it are a legacy/degraded config, unreachable via the real
+    // route) -- the slot NUMBER the fallback lands on is therefore no longer pinned to a fixed
+    // chronology<->position schedule. What still must hold: every fallback action targets the SAME
+    // single slot, consistently (deterministic construction, never split across seats).
     const slots = new Set(recommendationSet.recommendations.map((recommendation) => recommendation.actions[0]!.slot.slotIndex));
-    expect([...slots]).toEqual([1]);
+    expect(slots.size).toBe(1);
   });
 
   test("3. tras elegir la recomendación de fallback, el Coach recomputa para el asiento que queda", async () => {

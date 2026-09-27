@@ -468,6 +468,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (protocolAutoDriveSessionId !== null && request.method === "POST") {
       return protocolSessionRoutes.postAutoDrive(protocolAutoDriveSessionId);
     }
+    // PD-026/PD-027 -- human yields remaining Own Team round capacity to the Ally Bot.
+    const protocolYieldSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "yield");
+    if (protocolYieldSessionId !== null && request.method === "POST") {
+      return protocolSessionRoutes.postYield(protocolYieldSessionId);
+    }
     // R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
     const protocolRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "recommendations");
     if (protocolRecommendationsSessionId !== null && request.method === "GET") {

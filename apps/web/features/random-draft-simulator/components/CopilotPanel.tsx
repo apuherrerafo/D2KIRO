@@ -12,7 +12,7 @@ import type { CoachOutput } from "../coach-client";
 import { playerFacingDegradation, playerFacingRisk } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
-import { positionForRoundSlot, SIMULATOR_POSITION_LABELS } from "../roster";
+import { SIMULATOR_POSITION_LABELS } from "../roster";
 
 // R1 S5 (independent architecture review, blockers 1 + 8) -- this panel is the ONE human-facing
 // Copilot for the R1 ProtocolSession-backed simulator. It renders RecommendationSet/v2 ONLY:
@@ -224,40 +224,39 @@ interface RecommendationListProps {
 
 export interface RoundPickState {
   round: 1 | 2 | 3;
-  isMultiPickRound: boolean;
-  lockedSlotIndexes: number[];
-  lockedHeroesBySlot?: Partial<Record<number, HeroId>>;
+  /** PD-026/PD-027 COACH TARGET POSITIONS -- posiciones humanas ya selladas en este intento; nunca un índice de slot. */
+  lockedPositions: RecommendationPosition[];
+  lockedHeroesByPosition?: Partial<Record<RecommendationPosition, HeroId>>;
 }
 
 interface RoundRecommendationColumnProps {
-  slotIndex: number;
+  position: RecommendationPosition;
   source: RecommendationSetV2 | null;
   heroCatalog: Map<number, HeroMeta>;
-  round: 1 | 2 | 3;
   playerPosition?: 1 | 2 | 3 | 4 | 5;
   partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
   state: "initial" | "locked" | "recomputed";
   lockedHeroId?: HeroId;
 }
 
+/** PD-026/PD-027 COPILOT UI -- columns represent unfilled human-controlled positions, exactly as
+ * the engine tagged them (`humanOpenPositions`), never a round-slot mapping computed here. */
 function RoundRecommendationColumn({
-  slotIndex,
+  position,
   source,
   heroCatalog,
-  round,
   playerPosition,
   partyPositions,
   state,
   lockedHeroId,
 }: RoundRecommendationColumnProps) {
-  const position = positionForRoundSlot(round, slotIndex);
   const isPersonal = position === playerPosition;
   const isParty = partyPositions?.includes(position) ?? true;
   const controllerLabel = isPersonal
     ? "YOU · Vista personal / Hero Pool"
     : `${isParty ? "PARTY" : "ALLY BOT"} · Recomendación por rol · sin Hero Pool personal`;
   const actions = (source?.recommendations ?? []).flatMap((recommendation, packageIndex) => {
-    const action = recommendation.actions.find((candidate) => candidate.slot.slotIndex === slotIndex);
+    const action = recommendation.actions.find((candidate) => candidate.slot.position === position);
     return action ? [{ action, packageIndex }] : [];
   });
   const isLocked = state === "locked";
@@ -265,7 +264,7 @@ function RoundRecommendationColumn({
   const stateClass = isLocked ? "opacity-75" : "";
   const lockedHero = lockedHeroId === undefined ? undefined : heroCatalog.get(lockedHeroId);
   return (
-    <div className={`flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3 ${stateClass}`} data-testid={`recommendation-column-slot-${slotIndex}`}>
+    <div className={`flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3 ${stateClass}`} data-testid={`recommendation-column-position-${position}`}>
       <span className="text-body font-semibold text-content-primary">Pos{position} {SIMULATOR_POSITION_LABELS[position]}</span>
       <span className="text-caption text-content-muted">{controllerLabel}</span>
       {isLocked && <span className="text-caption font-semibold text-signal-positive">Héroe y posición bloqueados</span>}
@@ -300,28 +299,38 @@ interface RoundRecommendationColumnsProps {
   partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
 }
 
+/** Distinct, ascending positions the current recommendation set actually tagged -- exactly the
+ * engine's `humanOpenPositions`-derived columns, never a fixed round-slot count. */
+function activeTargetPositions(recommendationSet: RecommendationSetV2): RecommendationPosition[] {
+  const positions = new Set<RecommendationPosition>();
+  for (const slot of recommendationSet.decision.controlledSlots) {
+    if (slot.position !== undefined && slot.position !== null) positions.add(slot.position);
+  }
+  return [...positions].sort((a, b) => a - b);
+}
+
 function RoundRecommendationColumns({ current, heroCatalog, roundPickState, playerPosition, partyPositions }: RoundRecommendationColumnsProps) {
-  const roundSlotIndexes = [0, 1];
+  const active = activeTargetPositions(current);
+  const allPositions = [...new Set([...active, ...roundPickState.lockedPositions])].sort((a, b) => a - b);
   return (
     <div className="flex flex-col gap-2" data-testid="round-recommendation-columns">
-      <span className="text-body font-semibold text-accent-primary">2 picks en esta ronda</span>
+      <span className="text-body font-semibold text-accent-primary">{allPositions.length} posiciones en juego en esta ronda</span>
       <span className="text-caption font-semibold text-content-secondary">Paquetes V2 de ronda</span>
       <div className="grid gap-2 sm:grid-cols-2">
-        {roundSlotIndexes.map((slotIndex) => {
-          const locked = roundPickState.lockedSlotIndexes.includes(slotIndex);
-          const state = locked ? "locked" : roundPickState.lockedSlotIndexes.length > 0 ? "recomputed" : "initial";
+        {allPositions.map((position) => {
+          const locked = roundPickState.lockedPositions.includes(position);
+          const state = locked ? "locked" : roundPickState.lockedPositions.length > 0 ? "recomputed" : "initial";
           const source = locked ? null : current;
           return (
             <RoundRecommendationColumn
-              key={slotIndex}
-              slotIndex={slotIndex}
+              key={position}
+              position={position}
               source={source}
               heroCatalog={heroCatalog}
-              round={roundPickState.round}
               playerPosition={playerPosition}
               partyPositions={partyPositions}
               state={state}
-              lockedHeroId={roundPickState.lockedHeroesBySlot?.[slotIndex]}
+              lockedHeroId={roundPickState.lockedHeroesByPosition?.[position]}
             />
           );
         })}
@@ -413,7 +422,11 @@ function LegacyRecommendationBody({
   partyPositions,
 }: LegacyRecommendationBodyProps) {
   if (recommendations.recommendations.length === 0) return null;
-  const showMultiColumns = roundPickState?.isMultiPickRound === true;
+  const activePositions = activeTargetPositions(recommendations);
+  const allPositions = new Set([...activePositions, ...(roundPickState?.lockedPositions ?? [])]);
+  // PD-026/PD-027 COPILOT UI -- multi-column view whenever 2+ distinct human-controlled positions
+  // are in play this attempt, never a fixed "round 1/2 = 2 columns" assumption.
+  const showMultiColumns = roundPickState !== undefined && allPositions.size >= 2;
   return (
     <>
       <div className="flex flex-col gap-2">

@@ -4,7 +4,7 @@ import { cleanup, render, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { protocolViewToDraftState, type ProtocolPerspectiveView } from "../protocol-client";
+import { protocolViewToDraftState, type OwnAssignedPositionBinding, type ProtocolPerspectiveView } from "../protocol-client";
 import type { DraftConfig, DraftPhase } from "../types";
 import { SimulatorTeamRoster } from "./SimulatorTeamRoster";
 
@@ -65,8 +65,8 @@ const ACTIVE_PHASE: DraftPhase = {
   timerDurationMs: 25_000,
   pendingUserPicks: [],
   lockedUserPicks: {},
-  attemptSeats: [0, 1],
-  pendingSeats: [0, 1],
+  attemptPositions: [1, 2, 3, 4, 5],
+  pendingPositions: [1, 2, 3, 4, 5],
   goldPenaltyBySlot: [0, 0, 0, 0, 0],
   penaltyRatePerSecond: 2,
   penaltyElapsedMs: 0,
@@ -74,7 +74,20 @@ const ACTIVE_PHASE: DraftPhase = {
   conflictCount: 0,
   attemptId: 1,
   notice: null,
+  canYield: false,
 };
+
+// PD-026/PD-027: Own Team hero-by-position is session-layer truth (ownAssignedPositions), never a
+// fixed seat<->position table. This fixture reconstructs the SAME layout the old fixed table would
+// have produced (seat0->Pos5, seat1->Pos4, seat2->Pos3, seat3->Pos1, seat4->Pos2), only now
+// expressed as explicit bindings the way the real engine reports them.
+const OLD_TABLE_BINDINGS: OwnAssignedPositionBinding[] = [
+  { round: 1, slotIndex: 0, assignedPosition: 5 }, // seat 0 -> Hero 1
+  { round: 1, slotIndex: 1, assignedPosition: 4 }, // seat 1 -> Hero 2
+  { round: 2, slotIndex: 0, assignedPosition: 3 }, // seat 2 -> Hero 3
+  { round: 2, slotIndex: 1, assignedPosition: 1 }, // seat 3 -> Hero 4
+  { round: 3, slotIndex: 0, assignedPosition: 2 }, // seat 4 -> Hero 5
+];
 
 function ownSeat(view: ReturnType<typeof render>, position: number) {
   return within(view.getByTestId(`own-roster-pos-${position}`));
@@ -87,7 +100,7 @@ test.each([
   ["Party5", config(5, 2), { 1: "PARTY", 2: "YOU", 3: "PARTY", 4: "PARTY", 5: "PARTY" }],
 ] as const)("%s: cada Pos1-5 identifica YOU, PARTY o ALLY BOT", (_label, draftConfig, controllers) => {
   const view = render(
-    <SimulatorTeamRoster draftState={state()} config={draftConfig} phase={ACTIVE_PHASE} heroCatalog={HERO_CATALOG} />,
+    <SimulatorTeamRoster draftState={state()} config={draftConfig} phase={ACTIVE_PHASE} heroCatalog={HERO_CATALOG} ownAssignedPositions={[]} />,
   );
 
   for (const position of [1, 2, 3, 4, 5] as const) {
@@ -113,6 +126,7 @@ test("el rival conserva cinco estados ocultos y nunca filtra la identidad sellad
       config={config(1, 2)}
       phase={ACTIVE_PHASE}
       heroCatalog={new Map([[999, { ...HERO_CATALOG.get(1)!, id: 999, localizedName: "SECRET HERO" }]])}
+      ownAssignedPositions={[]}
     />,
   );
 
@@ -140,7 +154,13 @@ test("el draft completo mapea de inmediato los cinco héroes propios a Pos1-5; e
     },
   };
   const view = render(
-    <SimulatorTeamRoster draftState={state([1, 2, 3, 4, 5], [6, 7, 8, 9, 10], "complete")} config={config(5, 2)} phase={complete} heroCatalog={HERO_CATALOG} />,
+    <SimulatorTeamRoster
+      draftState={state([1, 2, 3, 4, 5], [6, 7, 8, 9, 10], "complete")}
+      config={config(5, 2)}
+      phase={complete}
+      heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={OLD_TABLE_BINDINGS}
+    />,
   );
 
   expect(ownSeat(view, 1).getByText("Hero 4")).toBeDefined();
@@ -184,6 +204,7 @@ test("PD-027: el rol visible del rival sale de RoleBelief del Coach, nunca de la
       config={config(5, 2)}
       phase={complete}
       heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={OLD_TABLE_BINDINGS}
       enemyRoleBeliefs={[
         { heroId: 9, status: "LIKELY", positions: [5] },
         { heroId: 10, status: "UNRESOLVED", positions: [3, 2] },
@@ -224,6 +245,7 @@ test("PD-027: sin RoleBelief confiable, el héroe rival se muestra sin ninguna e
         },
       }}
       heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={OLD_TABLE_BINDINGS}
     />,
   );
 
@@ -239,7 +261,13 @@ test("PD-027: SimulatorTeamRoster nunca exige ni recibe la asignación privada d
   // privada del Enemy Bot existe en sus props (compilaría distinto si lo necesitara). Renderiza
   // completo sin esa información y sin que ningún texto de "posición interna"/seat privado escape al DOM.
   const view = render(
-    <SimulatorTeamRoster draftState={state([1, 2, 3, 4, 5], [6, 7], "active")} config={config(5, 2)} phase={ACTIVE_PHASE} heroCatalog={HERO_CATALOG} />,
+    <SimulatorTeamRoster
+      draftState={state([1, 2, 3, 4, 5], [6, 7], "active")}
+      config={config(5, 2)}
+      phase={ACTIVE_PHASE}
+      heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={[]}
+    />,
   );
 
   expect(view.getByTestId("team-roster")).toBeDefined();

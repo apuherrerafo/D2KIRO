@@ -79,6 +79,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           heroCatalog={heroCatalog}
           highlightedHeroIds={highlightedHeroIds}
           onLockPick={session.actions.lockPick}
+          onYield={session.actions.yieldRound}
         />
       </div>
       <div className="flex flex-col gap-4">
@@ -98,12 +99,10 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           partyPositions={config?.partyPositions}
           roundPickState={phase.type === "blind_round" ? {
             round: phase.round,
-            isMultiPickRound: phase.attemptSeats.length === 2,
-            lockedSlotIndexes: Object.keys(phase.lockedUserPicks).map((seat) => Number(seat) - (phase.round === 1 ? 0 : phase.round === 2 ? 2 : 4)),
-            lockedHeroesBySlot: Object.fromEntries(Object.entries(phase.lockedUserPicks).map(([seat, heroId]) => [
-              Number(seat) - (phase.round === 1 ? 0 : phase.round === 2 ? 2 : 4),
-              heroId,
-            ])),
+            // PD-026/PD-027: keyed by POSITION directly -- Object.keys/values already gives exactly
+            // the shape RoundPickState wants, no round-slot arithmetic needed.
+            lockedPositions: Object.keys(phase.lockedUserPicks).map(Number) as (1 | 2 | 3 | 4 | 5)[],
+            lockedHeroesByPosition: phase.lockedUserPicks,
           } : undefined}
         />
       </div>
@@ -270,6 +269,7 @@ function RankedAllPickSimulator() {
           config={config}
           phase={phase}
           heroCatalog={heroCatalog}
+          ownAssignedPositions={session.state.ownAssignedPositions}
           enemyRoleBeliefs={coach?.roleBeliefs?.enemy}
         />
       )}

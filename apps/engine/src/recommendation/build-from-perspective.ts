@@ -53,37 +53,33 @@ function roundOf(phase: RankedApPhase | undefined): number | null {
   return null;
 }
 
-/** Pure round-slot to position mapping for AP Ranked Roles simulator (R1: 5+4, R2: 3+1, R3: 2). */
-function positionForRoundSlot(round: number, slotIndex: number): Position | null {
-  if (round === 1) return slotIndex === 0 ? 5 : slotIndex === 1 ? 4 : null;
-  if (round === 2) return slotIndex === 0 ? 3 : slotIndex === 1 ? 1 : null;
-  if (round === 3) return slotIndex === 0 ? 2 : null;
-  return null;
-}
-
 /** The actor's decision, from the view + the seats the client is already told are open. */
 function deriveDecisionFrom(
   context: PerspectiveRecommendationContext,
   singleSlotEvaluation: boolean,
 ): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
-  const { view, partyContext, isSimulator } = context;
+  const { view, partyContext, isSimulator, humanOpenPositions } = context;
   const actor = view.viewerSide ?? "radiant";
   const degradations: RecommendationDegradation[] = [];
   if (view.degradation) degradations.push({ reason: view.degradation.reason, detail: view.degradation.detail });
 
-  const round = roundOf(view.rankedAp?.phase);
+  // PD-026/PD-027 COACH TARGET POSITIONS -- target unfilled HUMAN-controlled positions, never a
+  // round-seat mapping. Positions are zipped to open own slots in ascending-position order (a
+  // stable, non-chronological tie-break), never derived from round/slotIndex.
+  const sortedOpenPositions = humanOpenPositions ? [...humanOpenPositions].sort((a, b) => a - b) : null;
   let controlledSlots: RecommendationSlot[] = context.openOwnSlots
     .filter((slot) => slot.side === actor)
-    .map((slot) => {
-      let position: Position | null = null;
-      if (isSimulator && partyContext !== null && partyContext !== undefined && round !== null) {
-        position = positionForRoundSlot(round, slot.slotIndex);
-      }
+    .map((slot, index) => {
+      const position: Position | null = isSimulator && sortedOpenPositions ? (sortedOpenPositions[index] ?? null) : null;
       return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
     });
-  // A party may control only some of its own side's seats: never propose an action for a seat this
-  // session does not drive (same cap as decision.ts, over the same information).
-  if (partyContext && partyContext.side === actor) controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
+  if (humanOpenPositions !== null && humanOpenPositions !== undefined) {
+    controlledSlots = controlledSlots.slice(0, humanOpenPositions.length);
+  } else if (partyContext && partyContext.side === actor) {
+    // A party may control only some of its own side's seats: never propose an action for a seat
+    // this session does not drive (same cap as decision.ts, over the same information).
+    controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
+  }
   if (singleSlotEvaluation) controlledSlots = controlledSlots.slice(0, 1);
 
   if (controlledSlots.length === 0 && view.status !== "COMPLETE") {
@@ -114,7 +110,15 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const calibrationMode = input.calibrationMode ?? "fallback";
 
   const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true);
-  const identityInputs = { view, eligibilitySnapshot: null, calibrationMode, seed: null, patch: context.patch, partyContext: context.partyContext };
+  const identityInputs = {
+    view,
+    eligibilitySnapshot: null,
+    calibrationMode,
+    seed: null,
+    patch: context.patch,
+    partyContext: context.partyContext,
+    apControl: { controlledPositions: context.controlledPositions ?? null, humanOpenPositions: context.humanOpenPositions ?? null },
+  };
   const basedOnWithoutEvidence = buildBasedOn({ ...identityInputs, evidenceHash: null });
 
   const emptyWith = (basedOn: RecommendationSetV2["basedOn"], decisionContext: RecommendationSetV2["decisionContext"]): RecommendationSetV2 => ({

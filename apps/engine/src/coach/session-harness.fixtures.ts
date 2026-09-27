@@ -85,7 +85,7 @@ export interface Harness {
   compute(personal?: 1 | 2 | 3 | 4 | 5): Promise<CoachRecomputation>;
 }
 
-export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[]; adapterKind?: "simulator" | "manual" } = {}): Harness {
+export function harness(options: { side?: TeamSide; seed?: string; humanPosition?: 1 | 2 | 3 | 4 | 5; sessionId?: string; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroPositions?: HeroPositions; pool?: readonly number[]; adapterKind?: "simulator" | "manual"; controlledPositions?: (1 | 2 | 3 | 4 | 5)[] } = {}): Harness {
   const positions = options.heroPositions ?? HERO_POSITIONS;
   const pool = options.pool ?? POOL;
   const side = options.side ?? "radiant";
@@ -99,7 +99,13 @@ export function harness(options: { side?: TeamSide; seed?: string; humanPosition
     adapterKind: options.adapterKind ?? "manual",
     humanPosition: options.humanPosition ?? 2,
     simulatorSeed: options.seed ?? "SEED0001",
-    partyContext: { partySize: 5, side, controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side, slotIndex, controllerId: "player" })) },
+    // PD-026/PD-027: controlledSlots is structural/inert for AP -- kept non-empty here only for
+    // Manual Live fixtures (which still use seat-based control); Simulator fixtures that opt into
+    // `controlledPositions` get an empty controlledSlots, matching the real route's contract.
+    partyContext: options.controlledPositions
+      ? { partySize: options.controlledPositions.length as 1 | 2 | 3 | 5, side, controlledSlots: [] }
+      : { partySize: 5, side, controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side, slotIndex, controllerId: "player" })) },
+    controlledPositions: options.controlledPositions,
   });
   if (!created.ok) throw new Error("setup failed");
   const applied = store.applyAtomically(id, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);

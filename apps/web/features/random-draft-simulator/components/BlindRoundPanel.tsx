@@ -5,13 +5,13 @@ import { HeroGrid } from "@/components/hero-grid/HeroGrid";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { useState } from "react";
-import { BUTTON_COMPACT } from "@/features/draft/styles";
-import { POSITION_FOR_ROSTER_SEAT } from "../protocol-client";
-import { roundSlotForRosterSeat, SIMULATOR_POSITION_LABELS } from "../roster";
+import { BUTTON_COMPACT, BUTTON_GHOST } from "@/features/draft/styles";
+import { SIMULATOR_POSITION_LABELS } from "../roster";
 import type { DraftPhase, HeroId } from "../types";
 
 type BlindRoundPhase = Extract<DraftPhase, { type: "blind_round" }>;
 type RoundRevealedPhase = Extract<DraftPhase, { type: "round_revealed" }>;
+type Position = 1 | 2 | 3 | 4 | 5;
 
 function unavailableHeroIds(draftState: DraftState | null, lockedPicks: HeroId[]): Set<HeroId> {
   const unavailable = new Set<HeroId>(lockedPicks);
@@ -22,10 +22,12 @@ function unavailableHeroIds(draftState: DraftState | null, lockedPicks: HeroId[]
   return unavailable;
 }
 
-/** Gold shown for a seat: the engine's figure plus what has elapsed on screen since the last sync, for a seat still pending. */
-export function displayedGoldPenalty(phase: BlindRoundPhase, seat: number): number {
-  const base = phase.goldPenaltyBySlot[seat] ?? 0;
-  if (!phase.pendingSeats.includes(seat)) return base;
+/** PD-026/PD-027: gold penalty bookkeeping stays seat-indexed on the wire (never re-keyed by
+ * position in this P0) -- the UI shows the aggregate total, since a "seat" no longer identifies
+ * anything the Player chose. */
+function totalGoldPenalty(phase: BlindRoundPhase): number {
+  const base = phase.goldPenaltyBySlot.reduce((sum, value) => sum + value, 0);
+  if (phase.pendingPositions.length === 0) return base;
   return base + Math.floor((phase.penaltyElapsedMs * phase.penaltyRatePerSecond) / 1000);
 }
 
@@ -50,25 +52,22 @@ function ConflictBanner({ conflictBans, notice, heroCatalog }: ConflictBannerPro
   );
 }
 
-interface SeatCardProps {
-  label: string;
+interface PositionCardProps {
+  position: Position;
   heroId: HeroId | null;
   heroMeta: HeroMeta | undefined;
-  gold: number;
 }
 
-// Un asiento del Player: ya sellado (héroe) o pendiente. Cada uno acumula su penalización por separado.
-function SeatCard({ label, heroId, heroMeta, gold }: SeatCardProps) {
+// Una posición humana controlada: ya sellada (héroe) o pendiente. PD-026/PD-027: nunca un asiento
+// cronológico -- la identidad mostrada es siempre PosN, la que el Player efectivamente eligió.
+function PositionCard({ position, heroId, heroMeta }: PositionCardProps) {
   return (
-    <div className="flex flex-col items-center gap-1" data-testid="round-seat">
-      <span className="text-caption text-content-secondary">{label}</span>
+    <div className="flex flex-col items-center gap-1" data-testid="round-position-card">
+      <span className="text-caption text-content-secondary">
+        Pos{position} {SIMULATOR_POSITION_LABELS[position]}
+      </span>
       {heroId !== null && <DraftHeroSlot heroId={heroId} heroMeta={heroMeta} variant="pick" />}
       {heroId === null && <span className="text-caption text-content-muted">Pendiente</span>}
-      {gold > 0 && (
-        <span className="text-caption text-signal-negative tabular-nums" data-testid="gold-penalty">
-          -{gold} oro
-        </span>
-      )}
     </div>
   );
 }
@@ -79,10 +78,24 @@ interface TimerNoticeProps {
 
 // Al vencer el tiempo base NO se elige nada por el Player: sólo se explica qué está pasando.
 function TimerExpiredNotice({ phase }: TimerNoticeProps) {
-  if (phase.timerRemainingMs > 0 || phase.pendingSeats.length === 0) return null;
+  if (phase.timerRemainingMs > 0 || phase.pendingPositions.length === 0) return null;
   return (
     <span className="text-caption text-signal-warning" role="alert" data-testid="timer-expired">
-      Se acabó el tiempo base: cada asiento pendiente pierde {phase.penaltyRatePerSecond} de oro por segundo. Podés seguir eligiendo.
+      Se acabó el tiempo base: tus posiciones pendientes pierden {phase.penaltyRatePerSecond} de oro por segundo. Podés seguir eligiendo.
+    </span>
+  );
+}
+
+interface GoldPenaltyNoticeProps {
+  phase: BlindRoundPhase;
+}
+
+function GoldPenaltyNotice({ phase }: GoldPenaltyNoticeProps) {
+  const gold = totalGoldPenalty(phase);
+  if (gold <= 0) return null;
+  return (
+    <span className="text-caption text-signal-negative tabular-nums" data-testid="gold-penalty">
+      -{gold} oro perdido en esta ronda
     </span>
   );
 }
@@ -94,28 +107,22 @@ interface BlindRoundActiveProps {
   // TSK-084: mismos candidatos que ya destaca el Copilot al lado -- un solo highlight dorado
   // consistente entre las dos superficies, no una segunda heurística.
   highlightedHeroIds: ReadonlySet<HeroId>;
-  onLockPick: (heroId: HeroId, slotIndex: number) => void;
+  onLockPick: (heroId: HeroId, position: Position) => void;
+  onYield: () => void;
 }
 
-const SEAT_ROLE_NAMES: Record<number, string> = {
-  0: "Pos 5 (Hard support)",
-  1: "Pos 4 (Support)",
-  2: "Pos 3 (Offlane)",
-  3: "Pos 1 (Carry)",
-  4: "Pos 2 (Midlane)",
-};
-
-interface SeatTargetButtonProps {
-  seat: number;
+interface PositionTargetButtonProps {
+  position: Position;
   selected: boolean;
   locked: boolean;
-  onSelect(seat: number): void;
+  onSelect(position: Position): void;
 }
 
-function SeatTargetButton({ seat, selected, locked, onSelect }: SeatTargetButtonProps) {
-  const position = POSITION_FOR_ROSTER_SEAT[seat]!;
+// PD-026/PD-027: el picker de posición humano muestra TODAS las posiciones humanas controladas
+// que siguen sin sellar, en cualquier ronda válida -- nunca un calendario fijo asiento<->posición.
+function PositionTargetButton({ position, selected, locked, onSelect }: PositionTargetButtonProps) {
   function handleSelect() {
-    onSelect(seat);
+    onSelect(position);
   }
   const selectedClass = selected ? "border-accent-primary text-accent-primary" : "border-surface-border text-content-secondary";
   const actionLabel = locked ? "Sellado" : "Elegir para";
@@ -126,19 +133,22 @@ function SeatTargetButton({ seat, selected, locked, onSelect }: SeatTargetButton
   );
 }
 
-function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick }: BlindRoundActiveProps) {
-  const availableSeats = phase.attemptSeats.filter((seat) => phase.lockedUserPicks[seat] === undefined);
-  const [preferredSeat, setPreferredSeat] = useState(availableSeats[0] ?? phase.attemptSeats[0] ?? 0);
-  const selectedSeat = availableSeats.includes(preferredSeat) ? preferredSeat : (availableSeats[0] ?? preferredSeat);
+function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick, onYield }: BlindRoundActiveProps) {
+  const availablePositions = phase.attemptPositions.filter((position) => phase.lockedUserPicks[position] === undefined);
+  const [preferredPosition, setPreferredPosition] = useState<Position | undefined>(availablePositions[0] ?? phase.attemptPositions[0]);
+  const selectedPosition = preferredPosition !== undefined && availablePositions.includes(preferredPosition)
+    ? preferredPosition
+    : (availablePositions[0] ?? preferredPosition);
   const lockedHeroIds = Object.values(phase.lockedUserPicks).filter((heroId): heroId is HeroId => heroId !== undefined);
   const unavailable = unavailableHeroIds(draftState, lockedHeroIds);
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
-  const total = phase.attemptSeats.length;
+  const total = phase.attemptPositions.length;
   const locked = lockedHeroIds.length;
-  const canPick = locked < total;
+  const canPick = locked < total && selectedPosition !== undefined;
 
   function handleHeroSelect(heroId: HeroId) {
-    onLockPick(heroId, roundSlotForRosterSeat(phase.round, selectedSeat));
+    if (selectedPosition === undefined) return;
+    onLockPick(heroId, selectedPosition);
   }
 
   return (
@@ -148,38 +158,39 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
       <span className="text-heading text-content-primary">
         Ronda {phase.round} -- elegí {total} {total === 1 ? "héroe" : "héroes"} para tu equipo ({locked} de {total} sellados)
       </span>
-      {total === 2 && <span className="text-body font-semibold text-accent-primary">2 picks en esta ronda</span>}
       <span className="text-caption text-content-muted">
-        Controlás las posiciones de tu party. Los demás aliados son simulados automáticamente. Al elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
+        Controlás tus posiciones (Pos{phase.attemptPositions.join(", Pos")}). Los demás aliados son simulados
+        automáticamente. Al elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
       </span>
       <ConflictBanner conflictBans={phase.conflictBans} notice={phase.notice} heroCatalog={heroCatalog} />
       <TimerExpiredNotice phase={phase} />
       <div className="flex flex-wrap gap-4">
-        {phase.attemptSeats.map((seat) => {
-          const heroId = phase.lockedUserPicks[seat] ?? null;
-          const roleLabel = SEAT_ROLE_NAMES[seat] ? ` — ${SEAT_ROLE_NAMES[seat]}` : "";
-          return (
-            <SeatCard
-              key={seat}
-              label={`Asiento ${seat + 1}${roleLabel}`}
-              heroId={heroId}
-              heroMeta={heroId === null ? undefined : heroCatalog.get(heroId)}
-              gold={displayedGoldPenalty(phase, seat)}
-            />
-          );
-        })}
+        {phase.attemptPositions.map((position) => (
+          <PositionCard
+            key={position}
+            position={position}
+            heroId={phase.lockedUserPicks[position] ?? null}
+            heroMeta={phase.lockedUserPicks[position] === undefined ? undefined : heroCatalog.get(phase.lockedUserPicks[position]!)}
+          />
+        ))}
       </div>
+      <GoldPenaltyNotice phase={phase} />
       {canPick && (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Posición para el próximo pick">
-          {phase.attemptSeats.map((seat) => (
-            <SeatTargetButton
-              key={seat}
-              seat={seat}
-              selected={seat === selectedSeat}
-              locked={phase.lockedUserPicks[seat] !== undefined}
-              onSelect={setPreferredSeat}
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Posición para el próximo pick">
+          {phase.attemptPositions.map((position) => (
+            <PositionTargetButton
+              key={position}
+              position={position}
+              selected={position === selectedPosition}
+              locked={phase.lockedUserPicks[position] !== undefined}
+              onSelect={setPreferredPosition}
             />
           ))}
+          {phase.canYield && (
+            <button type="button" className={BUTTON_GHOST} onClick={onYield} data-testid="yield-round-button">
+              Ceder el resto de la ronda al Ally Bot
+            </button>
+          )}
         </div>
       )}
       {canPick && <HeroGrid heroes={pickablePool} highlightedHeroIds={highlightedHeroIds} onSelect={handleHeroSelect} />}
@@ -231,7 +242,8 @@ export interface BlindRoundPanelProps {
   // TSK-084: opcional a propósito -- mismo criterio que HeroGrid.highlightedHeroIds, un caller
   // sin sugerencias frescas todavía (o ninguna) simplemente no resalta nada.
   highlightedHeroIds?: ReadonlySet<HeroId>;
-  onLockPick: (heroId: HeroId, slotIndex: number) => void;
+  onLockPick: (heroId: HeroId, position: Position) => void;
+  onYield: () => void;
 }
 
 const EMPTY_HIGHLIGHTED: ReadonlySet<HeroId> = new Set();
@@ -244,6 +256,7 @@ export function BlindRoundPanel({
   heroCatalog,
   highlightedHeroIds = EMPTY_HIGHLIGHTED,
   onLockPick,
+  onYield,
 }: BlindRoundPanelProps) {
   if (phase.type === "round_revealed") {
     return <RoundRevealedView phase={phase} heroCatalog={heroCatalog} />;
@@ -255,6 +268,7 @@ export function BlindRoundPanel({
       draftState={draftState}
       heroCatalog={heroCatalog}
       onLockPick={onLockPick}
+      onYield={onYield}
     />
   );
 }

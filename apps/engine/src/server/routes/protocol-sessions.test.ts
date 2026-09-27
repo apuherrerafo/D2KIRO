@@ -13,11 +13,10 @@ const CREATE_BODY = {
   patch: "7.41e",
   localSide: "radiant",
   adapterKind: "simulator",
-  partyContext: {
-    partySize: 5,
-    side: "radiant",
-    controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
-  },
+  // PD-026/PD-027: Own Team truth is `controlledPositions`, never chronological roster seats --
+  // `partyContext.controlledSlots` is structural/inert for AP and must arrive empty.
+  partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+  controlledPositions: [1, 2, 3, 4, 5],
 } as const;
 
 function fakeSuggestions(heroIds: number[]): SuggestionSet {

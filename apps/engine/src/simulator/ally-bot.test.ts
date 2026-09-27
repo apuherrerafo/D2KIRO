@@ -3,7 +3,7 @@ import { applyProtocolCommand, createProtocolState, type DraftProtocolState, typ
 import type { DraftState } from "../draft/reducer";
 import { type HeroPositions } from "../signals/hero-positions";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
-import { positionForRosterSeat, type DotaPosition } from "./ap-simulator-policy";
+import type { DotaPosition } from "./ap-simulator-policy";
 import { chooseAllyBotHero } from "./ally-bot";
 import type { BotComputeSuggestions } from "./enemy-bot";
 
@@ -55,9 +55,9 @@ function freshRound1(bans: number[] = []): DraftProtocolState {
 describe("Ally Bot -- selección determinista de aliados", () => {
   test("elige solo héroes admitidos para la posición asignada al asiento", async () => {
     const state = freshRound1();
-    // Seat 0 corresponds to Pos 5 (Hard Support: heroes 50..59)
-    const pos5 = positionForRosterSeat(0)!;
-    expect(pos5).toBe(5);
+    // PD-026/PD-027: position is chosen independently of seat/round -- this fixture targets Pos 5
+    // (Hard Support: heroes 50..59) directly, never derived from a chronological seat.
+    const pos5: DotaPosition = 5;
 
     const decision = await chooseAllyBotHero({
       seed: "SEED_A",
@@ -83,7 +83,7 @@ describe("Ally Bot -- selección determinista de aliados", () => {
     // Ban heroes 50, 51, 52, 53, 54, 55, 56, 57, 58 (leaving only 59 available for Pos 5)
     const bans = [50, 51, 52, 53, 54, 55, 56, 57, 58];
     const state = freshRound1(bans);
-    const pos5 = positionForRosterSeat(0)!;
+    const pos5: DotaPosition = 5;
 
     const decision = await chooseAllyBotHero({
       seed: "SEED_B",
@@ -119,7 +119,7 @@ describe("Ally Bot -- selección determinista de aliados", () => {
       50: [{ position: 5, matches: 1000 }, { position: 4, matches: 1000 }],
     };
 
-    const pos4 = positionForRosterSeat(1)!;
+    const pos4: DotaPosition = 4;
     const decision = await chooseAllyBotHero({
       seed: "SEED_C",
       side: "radiant",
@@ -175,7 +175,7 @@ describe("Ally Bot -- selección determinista de aliados", () => {
 
   test("determinismo estricto: misma semilla + rol + índice => misma decisión", async () => {
     const state = freshRound1();
-    const pos = positionForRosterSeat(2)!; // Pos 3
+    const pos: DotaPosition = 3;
 
     const d1 = await chooseAllyBotHero({
       seed: "SAME_SEED",
@@ -213,7 +213,7 @@ describe("Ally Bot -- selección determinista de aliados", () => {
     // Ban ALL 10 heroes of Pos 5
     const bans = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
     const state = freshRound1(bans);
-    const pos5 = positionForRosterSeat(0)!;
+    const pos5: DotaPosition = 5;
 
     const decision = await chooseAllyBotHero({
       seed: "SEED_EMPTY",

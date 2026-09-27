@@ -9,6 +9,7 @@ import { useRandomDraftStore } from "../store";
 const HEROES = Array.from({ length: 40 }, (_, index) => ({ id: index + 1, localizedName: `Hero ${index + 1}`, roles: ["Carry"] }));
 const ROUND_CAPACITY: Record<number, number> = { 1: 2, 2: 2, 3: 1 };
 const ROUND_TIMER_MS: Record<number, number> = { 1: 25000, 2: 25000, 3: 20000 };
+type Position = 1 | 2 | 3 | 4 | 5;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -23,9 +24,16 @@ interface FakeOptions {
   outOfOrderCoach?: boolean;
 }
 
+interface OwnBinding {
+  round: 1 | 2 | 3;
+  slotIndex: number;
+  assignedPosition: Position;
+}
+
 /**
- * Browser-contract fixture for AP Ranked Roles V1. The engine owns bans, the Enemy Bot, the
- * reveal and collisions; the browser only ever submits the Player's own seal for each of the 5 seats.
+ * Browser-contract fixture for AP Ranked Roles V1 / PD-026/PD-027. The engine owns bans, the Enemy
+ * Bot, the reveal, collisions AND the Own Team position binding; the browser only ever submits the
+ * Player's own seal for an open round slot plus its chosen `assignedPosition` (sibling field).
  */
 class FakeApProtocolEngine {
   readonly requests: { url: string; body: Record<string, unknown> }[] = [];
@@ -38,6 +46,7 @@ class FakeApProtocolEngine {
   private own: HeroId[] = [];
   private enemy: HeroId[] = [];
   private openSlots: number[] = [];
+  private ownBindings: OwnBinding[] = [];
   private coachRevision = 0;
   private readonly outOfOrderCoach: boolean;
 
@@ -58,7 +67,9 @@ class FakeApProtocolEngine {
   private coachBody() {
     this.coachRevision += 1;
     const revision = this.outOfOrderCoach && this.coachRevision > 1 ? 0 : this.coachRevision;
-    const controlledSlots = this.openSlots.map((slotIndex) => ({ side: this.side, slotIndex }));
+    const boundPositions = new Set(this.ownBindings.map((binding) => binding.assignedPosition));
+    const openPositions = ([1, 2, 3, 4, 5] as Position[]).filter((position) => !boundPositions.has(position));
+    const controlledSlots = this.openSlots.map((slotIndex, index) => ({ side: this.side, slotIndex, position: openPositions[index] ?? null }));
     const recommendationHeroes = controlledSlots.map((slot) => 10 + slot.slotIndex + this.own.length);
     const recommendationActions = controlledSlots.map((slot, index) => ({ slot, hero: recommendationHeroes[index]! }));
     return {
@@ -88,7 +99,7 @@ class FakeApProtocolEngine {
           confidence: "media",
           roleImpact: Object.fromEntries(recommendationHeroes.map((hero, index) => [hero, {
             status: "LIKELY",
-            position: this.round === 1 ? (index === 0 ? 5 : 4) : this.round === 2 ? (index === 0 ? 3 : 1) : 2,
+            position: controlledSlots[index]?.position ?? null,
             marginals: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 },
             entropy: 1,
           }])),
@@ -130,6 +141,7 @@ class FakeApProtocolEngine {
             goldPenaltyBySlot: [0, 0, 0, 0, 0],
             penaltyRatePerSecond: 2,
           },
+      ownAssignedPositions: this.ownBindings,
       ...extra,
     };
   }
@@ -173,6 +185,10 @@ class FakeApProtocolEngine {
       }
       this.own.push(command.heroId);
       this.openSlots = this.openSlots.filter((slotIndex) => slotIndex !== command.slotIndex);
+      const assignedPosition = body.assignedPosition as Position | undefined;
+      if (assignedPosition !== undefined) {
+        this.ownBindings = [...this.ownBindings, { round: this.round as 1 | 2 | 3, slotIndex: command.slotIndex, assignedPosition }];
+      }
       if (this.openSlots.length === 0) this.closeRound(command);
       return json({ accepted: true, ...this.snapshot() }, 202);
     }
@@ -186,6 +202,8 @@ class FakeApProtocolEngine {
       this.bans = [...this.bans, last.heroId];
       this.own = this.own.slice(0, -1);
       this.openSlots = [last.slotIndex];
+      // PD-026/PD-027 COLLISION REOPEN: the reopened slot's position binding is pruned.
+      this.ownBindings = this.ownBindings.filter((binding) => !(binding.round === round && binding.slotIndex === last.slotIndex));
       return;
     }
     const capacity = ROUND_CAPACITY[round]!;
@@ -230,8 +248,8 @@ async function startDraft(
   return { engine, ...hook };
 }
 
-async function lock(result: { current: ReturnType<typeof useRandomDraftSession> }, heroId: HeroId, slotIndex?: number): Promise<void> {
-  await act(async () => result.current.actions.lockPick(heroId, slotIndex));
+async function lock(result: { current: ReturnType<typeof useRandomDraftSession> }, heroId: HeroId, position?: Position): Promise<void> {
+  await act(async () => result.current.actions.lockPick(heroId, position));
 }
 
 function commands(engine: FakeApProtocolEngine) {
@@ -243,10 +261,17 @@ function commands(engine: FakeApProtocolEngine) {
 for (const side of ["radiant", "dire"] as TeamSide[]) {
   test(`${side}: BANS -> R1 -> R2 -> R3 -> COMPLETE con los 5 picks del Player en el navegador`, async () => {
     const { engine, result, unmount } = await startDraft(side, 4, {}, [10, 11]);
-    expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1, timerDurationMs: 25000, attemptSeats: [0, 1] });
+    expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1, timerDurationMs: 25000, attemptPositions: [1, 2, 3, 4, 5] });
 
-    // Support/Mid picks can happen in ANY round: the order below is arbitrary on purpose.
-    for (const heroId of [1, 2, 3, 4, 5]) await lock(result, heroId);
+    // PD-026/PD-027: position != pick chronology -- the order below is deliberately NOT ascending.
+    const picks: { heroId: HeroId; position: Position }[] = [
+      { heroId: 1, position: 3 },
+      { heroId: 2, position: 1 },
+      { heroId: 3, position: 5 },
+      { heroId: 4, position: 2 },
+      { heroId: 5, position: 4 },
+    ];
+    for (const pick of picks) await lock(result, pick.heroId, pick.position);
 
     expect(result.current.state.phase.type).toBe("complete");
     expect(result.current.state.draftState?.picks[side]).toEqual([1, 2, 3, 4, 5]);
@@ -254,8 +279,9 @@ for (const side of ["radiant", "dire"] as TeamSide[]) {
     expect(result.current.state.draftState?.picks[enemy]).toHaveLength(5);
     expect(result.current.state.draftState?.banned).toEqual([30, 31, 32]);
     if (result.current.state.phase.type === "complete") expect(result.current.state.phase.summary.picksByRound.map((round) => round.userPicks.length)).toEqual([2, 2, 1]);
+    expect(result.current.state.ownAssignedPositions.map((binding) => binding.assignedPosition).sort()).toEqual([1, 2, 3, 4, 5]);
 
-    // Exactly five own seals, all for the Player's side, slots 0,1 / 0,1 / 0.
+    // Exactly five own seals, all for the Player's side, slots 0,1 / 0,1 / 0 (round-scoped, FIFO).
     expect(commands(engine)).toEqual([
       { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 0, heroId: 1 },
       { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: 1, heroId: 2 },
@@ -267,53 +293,45 @@ for (const side of ["radiant", "dire"] as TeamSide[]) {
   });
 }
 
-test("la sesión transporta el lado, la posición personal, la seed y los 5 asientos controlados (nada de Solo Mid)", async () => {
+test("la sesión transporta el lado, la posición personal, la seed y las 5 posiciones controladas (nada de Solo Mid)", async () => {
   const { engine, unmount } = await startDraft("dire", 5);
   const create = engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
   expect(create.body).toMatchObject({
     localSide: "dire",
     humanPosition: 5,
     simulatorSeed: "ABCDEFGH",
-    partyContext: { partySize: 5, side: "dire" },
+    // PD-026/PD-027: controlledSlots is structural/inert for AP -- Own Team truth is controlledPositions.
+    partyContext: { partySize: 5, side: "dire", controlledSlots: [] },
+    controlledPositions: [1, 2, 3, 4, 5],
   });
-  expect((create.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
-    ["dire", 0], ["dire", 1], ["dire", 2], ["dire", 3], ["dire", 4],
-  ]);
   expect("humanRosterSlot" in create.body).toBe(false);
   unmount();
 });
 
-test("la sesión transporta Solo (partySize: 1) controlando únicamente el asiento de la posición elegida", async () => {
-  // Pos 1 -> seat 3
+test("la sesión transporta Solo (partySize: 1) controlando únicamente la posición elegida", async () => {
   const { engine, unmount } = await startDraft("radiant", 1, {}, [], 1);
   const create = engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
   expect(create.body).toMatchObject({
     localSide: "radiant",
     humanPosition: 1,
     simulatorSeed: "ABCDEFGH",
-    partyContext: { partySize: 1, side: "radiant" },
+    partyContext: { partySize: 1, side: "radiant", controlledSlots: [] },
+    controlledPositions: [1],
   });
-  expect((create.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
-    ["radiant", 3],
-  ]);
   unmount();
 });
 
-test("la sesión transporta Party 2 y Party 3 con los asientos correspondientes a sus posiciones asignadas", async () => {
-  // Party 2: Pos 2 (seat 4) + Pos 5 (seat 0)
+test("la sesión transporta Party 2 y Party 3 con las posiciones asignadas exactas (nunca un asiento)", async () => {
   const party2 = await startDraft("dire", 2, {}, [], 2, [2, 5]);
   const req2 = party2.engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
-  expect((req2.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
-    ["dire", 4], ["dire", 0],
-  ]);
+  expect(req2.body.controlledPositions).toEqual([2, 5]);
+  expect((req2.body.partyContext as { controlledSlots: unknown[] }).controlledSlots).toEqual([]);
   party2.unmount();
 
-  // Party 3: Pos 1 (seat 3) + Pos 3 (seat 2) + Pos 5 (seat 0)
   const party3 = await startDraft("radiant", 5, {}, [], 3, [1, 3, 5]);
   const req3 = party3.engine.requests.find((entry) => entry.url.endsWith("/api/session/protocol"))!;
-  expect((req3.body.partyContext as { controlledSlots: { slotIndex: number; side: string }[] }).controlledSlots.map((slot) => [slot.side, slot.slotIndex])).toEqual([
-    ["radiant", 3], ["radiant", 2], ["radiant", 0],
-  ]);
+  expect(req3.body.controlledPositions).toEqual([1, 3, 5]);
+  expect((req3.body.partyContext as { controlledSlots: unknown[] }).controlledSlots).toEqual([]);
   party3.unmount();
 });
 
@@ -339,23 +357,25 @@ test("FAIL CLOSED: si los bans fallan no se inicia la Ronda 1; el reintento func
   unmount();
 });
 
-test("colisión: el héroe baneado y el asiento reabierto se muestran; el Player vuelve a elegir sólo ese asiento", async () => {
+test("colisión: el héroe baneado se muestra y la posición reabierta vuelve a estar disponible", async () => {
   const { result, unmount } = await startDraft("dire", 3, { collideRoundOnce: true });
-  await lock(result, 1);
-  await lock(result, 2); // last of round 1 -> the fake engine reports a collision on it
-  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1, attemptSeats: [1], conflictBans: [2] });
-  const phase = result.current.state.phase;
-  expect(phase.type === "blind_round" && phase.notice).toContain("Colisión");
+  await lock(result, 1, 1);
+  await lock(result, 2, 2); // last of round 1 -> the fake engine reports a collision on it, pruning Pos2's binding
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 1, conflictBans: [2] });
+  const collided = result.current.state.phase;
+  expect(collided.type === "blind_round" && collided.attemptPositions).toContain(2);
+  expect(collided.type === "blind_round" && collided.attemptPositions).not.toContain(1); // Pos1's binding survived the collision
+  expect(collided.type === "blind_round" && collided.notice).toContain("Colisión");
   expect(result.current.state.draftState?.banned).toContain(2);
 
-  await lock(result, 6);
+  await lock(result, 6, 2);
   expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 2 });
   unmount();
 });
 
-test("un pick rechazado por el motor se explica en pantalla y no ocupa el asiento", async () => {
+test("un pick rechazado por el motor se explica en pantalla y no ocupa la posición", async () => {
   const { result, unmount } = await startDraft("radiant", 1);
-  await lock(result, 30); // banned
+  await lock(result, 30, 1); // banned
   const phase = result.current.state.phase;
   expect(phase).toMatchObject({ type: "blind_round", pendingUserPicks: [] });
   expect(phase.type === "blind_round" && phase.notice).toContain("HERO_ALREADY_TAKEN");
@@ -389,7 +409,7 @@ test("COACH: hay acción primaria al abrir la Ronda 1 (antes del primer pick) y 
   expect(first.primaryAction.label.length).toBeGreaterThan(0);
   expect(first.meta.trigger).toBe("DRAFT_PICKS_STARTED");
 
-  await lock(result, 1); // one of the two Round-1 seats: the round has NOT closed, no enemy hero is revealed
+  await lock(result, 1, 1); // one of the two Round-1 seats: the round has NOT closed, no enemy hero is revealed
   await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(first.meta.revision));
   const second = result.current.state.coach!;
   expect(second.meta.trigger).toBe("OWN_PICK_CONFIRMED");
@@ -399,18 +419,15 @@ test("COACH: hay acción primaria al abrir la Ronda 1 (antes del primer pick) y 
   unmount();
 });
 
-test("UX-02: cualquier slot controlado puede sellarse primero y sólo el restante se recalcula", async () => {
+test("UX-02: cualquier posición controlada puede sellarse primero y sólo el resto se recalcula", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 5);
   await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(2));
 
-  await lock(result, 7, 1);
+  await lock(result, 7, 2);
 
-  expect(commands(engine)[0]).toEqual({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 1, heroId: 7 });
-  expect(result.current.state.phase).toMatchObject({ type: "blind_round", lockedUserPicks: { 1: 7 } });
-  await waitFor(() => expect(result.current.state.recommendations?.decision).toMatchObject({
-    controlledSlots: [{ side: "radiant", slotIndex: 0 }],
-    actionCount: 1,
-  }));
+  expect(commands(engine)[0]).toEqual({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 7 });
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", lockedUserPicks: { 2: 7 } });
+  await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(1));
   expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
   unmount();
 });
@@ -421,7 +438,7 @@ test("COACH: el Player ignora el consejo (elige un héroe que no está en la sho
   const suggested = result.current.state.coach!.shortlist.map((card) => card.heroId);
   const chosen = [1, 2, 3, 4].find((heroId) => !suggested.includes(heroId))!;
   const before = result.current.state.coach!.meta.revision;
-  await lock(result, chosen);
+  await lock(result, chosen, 4);
   expect(result.current.state.draftState?.picks.dire).toContain(chosen);
   const phase = result.current.state.phase;
   expect(phase.type === "blind_round" && phase.notice).toBeNull();
@@ -435,7 +452,7 @@ test("COACH: una respuesta más vieja (revision menor) nunca pisa a una más nue
   const held = result.current.state.coach!;
   expect(held.meta.revision).toBe(1);
 
-  await lock(result, 1); // triggers a second recomputation, which the fake engine answers with revision 0
+  await lock(result, 1, 2); // triggers a second recomputation, which the fake engine answers with revision 0
   await waitFor(() => expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2));
   await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
   expect(result.current.state.coach).toEqual(held); // the late, older output was discarded

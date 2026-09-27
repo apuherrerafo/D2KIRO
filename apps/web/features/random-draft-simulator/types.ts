@@ -93,13 +93,14 @@ export type DraftPhase =
       timerDurationMs: number;
       /** Héroes ya sellados por el Player en este intento de la ronda. */
       pendingUserPicks: HeroId[];
-      /** Identidad sellada por asiento cronológico; permite elegir el segundo slot primero. */
-      lockedUserPicks: Partial<Record<number, HeroId>>;
-      /** Asientos (0..4) que el Player debe llenar en este intento (2, 2, 1 -- o menos tras una colisión). */
-      attemptSeats: number[];
-      /** Asientos que siguen sin elegir. */
-      pendingSeats: number[];
-      /** Oro perdido por asiento (0..4), base del servidor. */
+      /** PD-026/PD-027: identidad sellada por POSICIÓN humana controlada, nunca por asiento
+       * cronológico -- Pos2 puede sellarse en Ronda 1, Pos5 en Ronda 3. */
+      lockedUserPicks: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId>>;
+      /** TODAS las posiciones humanas controladas que siguen sin sellar (no sólo las "de esta ronda" -- position != pick chronology). */
+      attemptPositions: (1 | 2 | 3 | 4 | 5)[];
+      /** attemptPositions menos las ya bloqueadas en este intento -- lo que el timer sigue penalizando. */
+      pendingPositions: (1 | 2 | 3 | 4 | 5)[];
+      /** Oro perdido por asiento (0..4), base del servidor -- bookkeeping interno, nunca re-indexado por posición (P0). */
       goldPenaltyBySlot: number[];
       penaltyRatePerSecond: number;
       /** Ms transcurridos desde el vencimiento (sólo visual; el servidor es la fuente de verdad). */
@@ -110,6 +111,8 @@ export type DraftPhase =
       attemptId: number;
       /** Aviso visible de colisión / rechazo (nunca un estado silencioso). */
       notice: string | null;
+      /** PD-026 ALLY BOT SCHEDULING: puede ceder la capacidad restante de la ronda al Ally Bot ahora mismo. */
+      canYield: boolean;
     }
   | {
       type: "round_revealed";
