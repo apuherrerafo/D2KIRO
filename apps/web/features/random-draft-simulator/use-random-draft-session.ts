@@ -390,7 +390,16 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       }
       useRandomDraftStore.getState().confirmPick(heroId, position);
       useRandomDraftStore.getState().setRoundNotice(null);
-      if (openSlots.length > 1) {
+      // The number of open round seats is not the number of remaining human decisions: in a
+      // Solo/Party session an open own seat may belong to the Ally Bot. Keep waiting only while
+      // an actual human-controlled position remains unbound; otherwise resume auto-drive so the
+      // Ally Bot can complete the round.
+      const hasRemainingHumanPosition = current.config !== null
+        && controlledPositionsForConfig(current.config).some(
+          (candidate) => !next.ownAssignedPositions.some((binding) => binding.assignedPosition === candidate),
+        );
+      const roundStillOpen = next.view.status !== "COMPLETE" && next.view.rankedAp?.phase === previousPhase;
+      if (hasRemainingHumanPosition && roundStillOpen && openSlots.length > 1) {
         if (next.simulator) useRandomDraftStore.getState().syncRoundTimer(next.simulator);
         void refreshRecommendations();
         return;

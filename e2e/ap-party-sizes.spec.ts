@@ -120,6 +120,38 @@ test.describe("AP Ranked Roles -- superficie de configuración", () => {
 });
 
 test.describe("AP Ranked Roles -- Acceptance Journeys", () => {
+  test("Solo Pos2: un sello humano aceptado reanuda auto-drive para que el Ally Bot complete la capacidad restante", async ({ page }) => {
+    await page.goto("/simulator");
+    await page.getByRole("group", { name: "Tu lado" }).getByRole("button", { name: "Radiant", exact: true }).click();
+    await page.getByRole("group", { name: "Tamaño de party" }).getByRole("button", { name: "Solo (1)" }).click();
+    await page.getByRole("group", { name: "Tu posición personal" }).getByRole("button", { name: "Posición 2 — Midlane" }).click();
+    await page.getByRole("button", { name: "Iniciar Draft" }).click();
+    await expect(page.getByTestId("resolved-bans")).toBeVisible({ timeout: 60_000 });
+
+    const commandResponse = page.waitForResponse((response) =>
+      response.request().method() === "POST"
+      && /\/engine\/api\/session\/protocol\/[^/]+\/command$/.test(new URL(response.url()).pathname)
+      && response.status() === 202,
+    );
+    const autoDriveRequest = page.waitForRequest((request) =>
+      request.method() === "POST"
+      && /\/engine\/api\/session\/protocol\/[^/]+\/auto-drive$/.test(new URL(request.url()).pathname),
+      { timeout: 15_000 },
+    );
+
+    await page.locator("button[title]:not([disabled])").first().click();
+    const accepted = await commandResponse.then((response) => response.json() as Promise<{
+      accepted: boolean;
+      view: { rankedAp: { phase: string } | null };
+      ownAssignedPositions: Array<{ assignedPosition: number }>;
+    }>);
+    expect(accepted.accepted).toBe(true);
+    expect(accepted.view.rankedAp?.phase).toBe("PICK_ROUND_1");
+    expect(accepted.ownAssignedPositions.map((binding) => binding.assignedPosition)).toEqual([2]);
+
+    await autoDriveRequest;
+  });
+
   test("All Pick Solo Pos 1 (Carry) completa con aliados simulados", async ({ page }) => {
     await playPartyDraft(page, "Radiant", 1, [], "Posición 1 — Carry");
   });
