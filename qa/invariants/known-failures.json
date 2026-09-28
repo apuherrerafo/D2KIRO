@@ -1,0 +1,15 @@
+{
+  "schema": "qa-known-failures/v1",
+  "knownFailures": [
+    {
+      "id": "INV-OWN-002",
+      "reason": "Position != Chronology (task premise, section 16): humanOpenPositions can hold more positions than this round has open own-side slots (e.g. Party3 with 3 unfilled positions but only 2 round slots open). The V2/V3 recommendation surface can only ever offer as many concrete positions as there are open slots THIS round, so a human-controlled position with no open slot yet is structurally not offerable. Not fixed in this task -- tracked for the separate Position != Chronology remediation audit."
+    }
+  ],
+  "shrunkEntries": [
+    {
+      "id": "INV-CHRONO-001",
+      "removedBecause": "Hypothesized (task section 16) as a direct consequence of INV-OWN-002, but NOT reproduced: measured exhaustively across every ascending/descending/deferred order-variant pair of all 26 control sets on both sides, comparing decision.controlledSlots offered positions at every matching (humanOpenPositions content, round) checkpoint -- zero violations found (2679 assertions run). Root cause of the null result: apps/engine/src/recommendation/build.ts's own position-tagging for a controlledPositions session assigns humanOpenPositions to round slots in a fixed ASCENDING, capacity-truncated order that is a PURE function of the current humanOpenPositions set + round capacity -- never of the history/order in which earlier positions were bound. INV-OWN-002 (capacity truncation: only min(roundCapacity, |humanOpenPositions|) positions are offered) is real and independently confirmed; which SPECIFIC positions get truncated is deterministic-by-content, not order-dependent, so INV-CHRONO-001 as literally defined (the OFFERED SET depends on fill order) does not hold for the channel this oracle observes. Per this registry's own semantics (a known failure that unexpectedly passes must shrink the registry, not stay stale), removed rather than force-fit a weak signal. Does not reopen INV-OWN-002, which remains a real, separately confirmed defect."
+    }
+  ]
+}

@@ -41,6 +41,14 @@ describe("QA critical contract gate", () => {
     expect(store.ownAssignedPositions(sessionId)).toEqual([{ round: 1, slotIndex: 1, assignedPosition: 2 }]);
   });
 
+  // KNOWN-WRONG: contradicts PD-026/PD-027, see INV-OWN-001/002 (docs/product/invariants.md).
+  // This test only proves that two HAND-CONSTRUCTED fixtures (v2/coach arrays built inline, never
+  // driven through the real ProtocolSessionStore/routes) can be told apart -- it never checks that
+  // a real Coach primaryAction actually stays within the session's real humanOpenPositions. The
+  // independent ownership oracle (qa/invariants/ownership.test.ts, INV-OWN-001) drives the REAL
+  // store/routes and finds exactly the violation this test's name implies is impossible: a Coach
+  // targeting Pos1 while the human only controls Pos2 (Solo Pos2 minimal counterexample). Left in
+  // place as historical evidence (SPEC.md task instructions: do not delete), not fixed here.
   test("QA-SEM-001 keeps V2 Pos2 and Coach Pos1 semantically distinct", () => {
     const v2 = [{ actions: [{ hero: 25, slot: { position: 2 } }] }];
     const coach = [{ heroId: 1, position: 1 }, { heroId: 8, position: 1 }];

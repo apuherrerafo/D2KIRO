@@ -3,10 +3,12 @@
   "dependencies": {},
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@types/bun": "latest",
     "better-sqlite3": "^13.0.3",
     "husky": "^9.1.7",
     "iron-session": "^8.0.4",
-    "lint-staged": "^17.3.0"
+    "lint-staged": "^17.3.0",
+    "typescript": "latest"
   },
   "scripts": {
     "prepare": "husky",
@@ -30,6 +32,8 @@
     "qa:browser": "bun scripts/qa/run.ts browser",
     "qa:release": "bun scripts/qa/run.ts release",
     "qa:staging-auth": "bun scripts/qa/staging.ts auth",
-    "qa:staging-smoke": "bun scripts/qa/staging.ts smoke"
+    "qa:staging-smoke": "bun scripts/qa/staging.ts smoke",
+    "qa:typecheck": "tsc --noEmit -p qa/tsconfig.json",
+    "qa:invariants": "bun test qa/invariants"
   }
 }
