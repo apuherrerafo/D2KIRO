@@ -114,7 +114,25 @@ function assignedPositions(snapshot: Json): number[] {
   return snapshot.ownAssignedPositions.flatMap((entry) => isRecord(entry) && Number.isInteger(entry.assignedPosition) ? [entry.assignedPosition] : []);
 }
 
-async function chooseHero(page: Page, sessionIdValue: string, assignedPosition: 1 | 2 | 3 | 4 | 5): Promise<Json> {
+// Espejo exacto de los `reason` 409 de `applyOwnTeamPositionSelection`
+// (apps/engine/src/server/protocol-session.ts) -- cada uno es un fallo de estado de
+// sesión/protocolo (la posición ya está ligada, el slot no está abierto, la sesión no es
+// AP-simulator, etc.), nunca "este héroe puntual no sirve". Ningún otro héroe del catálogo cambia
+// ese resultado: probar el resto solo produciría el mismo 409 repetido hasta agotarlo, ocultando
+// la causa real detrás de "no_accepted_human_pick" (el bug real de SMOKE-07: la progresión
+// reintentaba una posición ya asignada y el harness brute-forceaba el catálogo entero antes de
+// reportarlo).
+const STRUCTURAL_REJECTION_CLASSES = new Set([
+  "session_not_found",
+  "not_ap_simulator",
+  "not_own_side",
+  "no_open_round",
+  "round_slot_not_open",
+  "position_not_controlled",
+  "position_already_filled",
+]);
+
+export async function chooseHero(page: Page, sessionIdValue: string, assignedPosition: 1 | 2 | 3 | 4 | 5): Promise<Json> {
   const heroes = await browserRequest(page, "/engine/api/heroes");
   required(heroes.status === 200 && Array.isArray(heroes.body), "hero_catalog_unavailable");
   const before = await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(sessionIdValue)}`);
@@ -137,6 +155,12 @@ async function chooseHero(page: Page, sessionIdValue: string, assignedPosition: 
       throw new SmokeFailure(
         { route, method: "POST", status: submitted.status, expectedStatus: 202, errorClass: submitted.errorClass },
         `hero_submit_${submitted.status}`,
+      );
+    }
+    if (submitted.status === 409 && submitted.errorClass !== null && STRUCTURAL_REJECTION_CLASSES.has(submitted.errorClass)) {
+      throw new SmokeFailure(
+        { route, method: "POST", status: submitted.status, expectedStatus: 202, errorClass: submitted.errorClass },
+        `hero_submit_structural_${submitted.errorClass}`,
       );
     }
   }
@@ -205,7 +229,34 @@ async function party2(page: Page): Promise<void> {
   required(isRecord(progressed.view) && typeof progressed.view.status === "string", "party2_progression_stalled");
 }
 
-async function progress(page: Page, id: string): Promise<void> {
+export type ProgressionAction =
+  | { type: "complete" }
+  | { type: "human_pick"; position: 1 | 2 | 3 | 4 | 5 }
+  | { type: "auto_drive" };
+
+/**
+ * Position != chronology (SMOKE-07 root cause): a controlled position already bound in
+ * `ownAssignedPositions` is never re-picked just because the round still shows an open radiant
+ * slot -- AP picks are sealed per-slot, not per-position (see ranked-all-pick.ts), so an open
+ * radiant slot can belong to the Ally Bot's own complement or to a DIFFERENT still-unbound
+ * controlled position. The previous harness assumed "any open radiant slot -> retry position 2",
+ * which reproduced the exact 409 position_already_filled once position 2 was already sealed by
+ * soloPos2().
+ */
+export function decideProgressionAction(
+  snapshot: Json,
+  controlledPositions: readonly (1 | 2 | 3 | 4 | 5)[],
+): ProgressionAction {
+  if (isRecord(snapshot.view) && snapshot.view.status === "COMPLETE") return { type: "complete" };
+  const filled = new Set(assignedPositions(snapshot));
+  const openHumanPosition = controlledPositions.find((position) => !filled.has(position));
+  const actions = Array.isArray(snapshot.legalActions) ? snapshot.legalActions : [];
+  const ownSlotOpen = actions.some((entry) => isRecord(entry) && entry.type === "SUBMIT_SEALED_SELECTION" && entry.side === "radiant");
+  if (openHumanPosition !== undefined && ownSlotOpen) return { type: "human_pick", position: openHumanPosition };
+  return { type: "auto_drive" };
+}
+
+export async function progress(page: Page, id: string, controlledPositions: readonly (1 | 2 | 3 | 4 | 5)[]): Promise<void> {
   let lastIdentity = "";
   for (let transition = 0; transition < 5; transition += 1) {
     const current = await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(id)}`);
@@ -214,11 +265,10 @@ async function progress(page: Page, id: string): Promise<void> {
     const identity = JSON.stringify({ status: isRecord(snapshot.view) ? snapshot.view.status : null, bans: isRecord(snapshot.view) ? snapshot.view.bannedHeroes : null, own: isRecord(snapshot.view) ? snapshot.view.ownPicks : null });
     if (identity === lastIdentity) throw new Error("progression_freeze");
     lastIdentity = identity;
-    if (isRecord(snapshot.view) && snapshot.view.status === "COMPLETE") return;
-    const actions = snapshot.legalActions as unknown[];
-    const hasOwnPick = actions.some((entry) => isRecord(entry) && entry.type === "SUBMIT_SEALED_SELECTION" && entry.side === "radiant");
-    if (hasOwnPick) await chooseHero(page, id, 2);
-    await autoDrive(page, id);
+    const decision = decideProgressionAction(snapshot, controlledPositions);
+    if (decision.type === "complete") return;
+    if (decision.type === "human_pick") await chooseHero(page, id, decision.position);
+    else await autoDrive(page, id);
   }
   const finalSnapshot = await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(id)}`);
   required(finalSnapshot.status === 200, "progression_final_snapshot_failed");
@@ -398,7 +448,9 @@ async function stagingSmoke(): Promise<Result> {
     console.log(formatScenarioProgress(failure.scenario, true));
     lastGoodState = failure.scenario;
     failure = { scenario: "SMOKE-07 BASIC PROGRESSION", route: "/engine/api/session/protocol/:id/auto-drive", method: "POST", status: null, expectedStatus: 200, errorClass: null };
-    await progress(page, solo);
+    // soloPos2() ya asignó la posición 2 (su única posición controlada) -- se la pasamos a
+    // progress() para que sepa que ninguna posición humana sigue abierta, en vez de asumirlo.
+    await progress(page, solo, [2]);
     console.log(formatScenarioProgress(failure.scenario, true));
     lastGoodState = failure.scenario;
     failure = { scenario: "SMOKE-06 PARTY2", route: "/engine/api/session/protocol", method: "POST", status: null, expectedStatus: 201, errorClass: null };
@@ -440,16 +492,32 @@ async function stagingSmoke(): Promise<Result> {
   }
 }
 
-if (import.meta.main) {
-  const command = process.argv[2];
-  if (command === "auth") {
-    process.exitCode = await authBootstrap();
-  } else if (command === "smoke") {
-    const result = await stagingSmoke();
-    // El bloque de diagnóstico de un fallo ya arranca con "STAGING_SMOKE_FAIL" (impreso dentro de
-    // stagingSmoke) — evita duplicar esa línea suelta al final.
-    if (result !== "STAGING_SMOKE_FAIL") console.log(result);
-  } else {
+export interface CliDeps {
+  authBootstrap: () => Promise<number>;
+  stagingSmoke: () => Promise<Result>;
+}
+
+// Release-gate contract: PASS -> 0, any other outcome (FAIL, AUTH_STATE_REQUIRED, an unexpected
+// exception) -> non-zero. Before this, `smoke` always exited 0 regardless of the printed result --
+// invalid for CI/release gating, since a failing gate that reports success is worse than no gate.
+export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
+  const command = argv[2];
+  try {
+    if (command === "auth") return await deps.authBootstrap();
+    if (command === "smoke") {
+      const result = await deps.stagingSmoke();
+      // El bloque de diagnóstico de un fallo ya arranca con "STAGING_SMOKE_FAIL" (impreso dentro de
+      // stagingSmoke) — evita duplicar esa línea suelta al final.
+      if (result !== "STAGING_SMOKE_FAIL") console.log(result);
+      return result === "STAGING_SMOKE_PASS" ? 0 : 1;
+    }
     throw new Error("usage: bun scripts/qa/staging.ts <auth|smoke>");
+  } catch (caught) {
+    console.error(caught instanceof Error ? caught.message : "unexpected_smoke_cli_error");
+    return 1;
   }
+}
+
+if (import.meta.main) {
+  process.exitCode = await runCli(process.argv, { authBootstrap, stagingSmoke });
 }

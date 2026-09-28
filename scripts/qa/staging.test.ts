@@ -1,10 +1,16 @@
 import { expect, test } from "bun:test";
+import type { Page } from "@playwright/test";
 import {
+  chooseHero,
+  decideProgressionAction,
   formatFailureReport,
   formatScenarioProgress,
   pollUntilAuthenticated,
+  progress,
   redactSessionId,
+  runCli,
   type AuthPoller,
+  type CliDeps,
   type SmokeFailureReport,
 } from "./staging";
 
@@ -138,4 +144,229 @@ test("redactSessionId trunca un id largo y nunca devuelve el valor completo", ()
   expect(redacted).not.toBe(fullSessionId);
   expect(redacted.startsWith("11111111")).toBe(true);
   expect(redacted.length).toBeLessThan(fullSessionId.length);
+});
+
+// PART A (release-gate exit code): antes de esto, `smoke` imprimía STAGING_SMOKE_FAIL pero
+// terminaba con código 0 -- un gate que nunca puede fallar no es un gate. `runCli` inyecta
+// `stagingSmoke`/`authBootstrap` para probar el mapeo resultado -> código de salida sin tocar
+// Playwright ni la red real.
+function fakeDeps(overrides: Partial<CliDeps> = {}): CliDeps {
+  return {
+    authBootstrap: async () => 0,
+    stagingSmoke: async () => "STAGING_SMOKE_PASS",
+    ...overrides,
+  };
+}
+
+test("CLI exit: smoke con STAGING_SMOKE_PASS -> codigo 0", async () => {
+  const exitCode = await runCli(["bun", "staging.ts", "smoke"], fakeDeps({ stagingSmoke: async () => "STAGING_SMOKE_PASS" }));
+
+  expect(exitCode).toBe(0);
+});
+
+test("CLI exit: smoke con STAGING_SMOKE_FAIL -> codigo distinto de cero", async () => {
+  const exitCode = await runCli(["bun", "staging.ts", "smoke"], fakeDeps({ stagingSmoke: async () => "STAGING_SMOKE_FAIL" }));
+
+  expect(exitCode).not.toBe(0);
+});
+
+test("CLI exit: smoke con AUTH_STATE_REQUIRED -> codigo distinto de cero", async () => {
+  const exitCode = await runCli(["bun", "staging.ts", "smoke"], fakeDeps({ stagingSmoke: async () => "AUTH_STATE_REQUIRED" }));
+
+  expect(exitCode).not.toBe(0);
+});
+
+test("CLI exit: una excepcion inesperada durante smoke -> codigo distinto de cero, nunca lanza", async () => {
+  const exitCode = await runCli(
+    ["bun", "staging.ts", "smoke"],
+    fakeDeps({
+      stagingSmoke: async () => {
+        throw new Error("unexpected_playwright_crash");
+      },
+    }),
+  );
+
+  expect(exitCode).not.toBe(0);
+});
+
+test("CLI exit: auth propaga el codigo de authBootstrap tal cual", async () => {
+  const okCode = await runCli(["bun", "staging.ts", "auth"], fakeDeps({ authBootstrap: async () => 0 }));
+  const failCode = await runCli(["bun", "staging.ts", "auth"], fakeDeps({ authBootstrap: async () => 1 }));
+
+  expect(okCode).toBe(0);
+  expect(failCode).toBe(1);
+});
+
+test("CLI exit: comando desconocido -> codigo distinto de cero, nunca lanza fuera de runCli", async () => {
+  const exitCode = await runCli(["bun", "staging.ts", "bogus"], fakeDeps());
+
+  expect(exitCode).not.toBe(0);
+});
+
+// SMOKE-07 BASIC PROGRESSION (fix): el harness reintentaba la posición 2 en cada transición sin
+// mirar si seguía abierta -- una vez que soloPos2() ya la había sellado, eso reproducía 409
+// position_already_filled contra staging real. `decideProgressionAction` es la decisión pura
+// (sin Page/red) que reemplaza ese hardcode; `progress`/`chooseHero` se prueban con un Page falso
+// para probar la orquestación completa, cero red real (mismo criterio que S6/S7).
+
+function fakePage(
+  handler: (route: string, init?: { method?: string; body?: unknown }) => { status: number; body: unknown; errorClass: string | null },
+): Page {
+  return {
+    async evaluate(_fn: unknown, arg: unknown) {
+      const { route, init } = arg as { route: string; init?: { method?: string; body?: unknown } };
+      return handler(route, init);
+    },
+  } as unknown as Page;
+}
+
+test("decideProgressionAction: con la única posición controlada ya asignada, nunca decide otro pick humano", () => {
+  const snapshot = {
+    view: { status: "PICK_ROUND_2" },
+    legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 3 }],
+    ownAssignedPositions: [{ assignedPosition: 2 }],
+  };
+
+  const decision = decideProgressionAction(snapshot, [2]);
+
+  expect(decision).toEqual({ type: "auto_drive" });
+});
+
+test("decideProgressionAction: con una posición controlada legítimamente abierta, decide un pick humano para esa posición", () => {
+  const snapshot = {
+    view: { status: "PICK_ROUND_1" },
+    legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }],
+    ownAssignedPositions: [{ assignedPosition: 2 }],
+  };
+
+  const decision = decideProgressionAction(snapshot, [2, 5]);
+
+  expect(decision).toEqual({ type: "human_pick", position: 5 });
+});
+
+test("decideProgressionAction: status COMPLETE siempre declara completo, nunca intenta otro pick", () => {
+  const snapshot = { view: { status: "COMPLETE" }, legalActions: [], ownAssignedPositions: [{ assignedPosition: 2 }] };
+
+  const decision = decideProgressionAction(snapshot, [2]);
+
+  expect(decision).toEqual({ type: "complete" });
+});
+
+test("chooseHero: un rechazo estructural (position_already_filled) corta en el primer intento, no prueba todo el catálogo", async () => {
+  let commandAttempts = 0;
+  const page = fakePage((route) => {
+    if (route === "/engine/api/heroes") {
+      return { status: 200, body: [{ id: 1 }, { id: 2 }, { id: 3 }], errorClass: null };
+    }
+    if (route.endsWith("/command")) {
+      commandAttempts += 1;
+      return { status: 409, body: { error: "position_already_filled" }, errorClass: "position_already_filled" };
+    }
+    return {
+      status: 200,
+      body: { view: { bannedHeroes: [] }, legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }] },
+      errorClass: null,
+    };
+  });
+
+  await expect(chooseHero(page, "session-1", 2)).rejects.toThrow("hero_submit_structural_position_already_filled");
+  expect(commandAttempts).toBe(1);
+});
+
+test("chooseHero: un rechazo específico de un héroe (kernel_rejected, 202) sigue probando el resto del catálogo", async () => {
+  const attempted: number[] = [];
+  const page = fakePage((route, init) => {
+    if (route === "/engine/api/heroes") {
+      return { status: 200, body: [{ id: 1 }, { id: 2 }, { id: 3 }], errorClass: null };
+    }
+    if (route.endsWith("/command")) {
+      const body = init?.body as { command?: { heroId?: number } } | undefined;
+      const heroId = body?.command?.heroId ?? -1;
+      attempted.push(heroId);
+      if (heroId === 1) {
+        return { status: 202, body: { accepted: false, rejected: "HERO_ALREADY_TAKEN", view: { bannedHeroes: [] }, legalActions: [] }, errorClass: null };
+      }
+      return {
+        status: 202,
+        body: { accepted: true, view: { bannedHeroes: [] }, legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }] },
+        errorClass: null,
+      };
+    }
+    return {
+      status: 200,
+      body: { view: { bannedHeroes: [] }, legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }] },
+      errorClass: null,
+    };
+  });
+
+  const result = await chooseHero(page, "session-1", 2);
+
+  expect(attempted).toEqual([1, 2]);
+  expect(result).toEqual({
+    accepted: true,
+    view: { bannedHeroes: [] },
+    legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }],
+  });
+});
+
+test("progress: con Pos2 ya asignada nunca reintenta el pick (aunque el comando fallaría con 409) y llega a COMPLETE -- deja correr SMOKE-06 PARTY2 después", async () => {
+  let commandCalls = 0;
+  let getCalls = 0;
+  const page = fakePage((route) => {
+    if (route.endsWith("/command")) {
+      commandCalls += 1;
+      return { status: 409, body: { error: "position_already_filled" }, errorClass: "position_already_filled" };
+    }
+    if (route.endsWith("/auto-drive")) {
+      return { status: 200, body: { view: { status: "PICK_ROUND_3", bannedHeroes: [] }, legalActions: [] }, errorClass: null };
+    }
+    getCalls += 1;
+    // Cada llamada de progress() a este GET es una transición: sólo hace falta que el estado
+    // cambie de una a la siguiente para que el guard `progression_freeze` no interfiera (a
+    // diferencia del siguiente test, aquí chooseHero() nunca se invoca, así que sólo el propio
+    // loop de progress() consume `getCalls`).
+    const status = getCalls >= 2 ? "COMPLETE" : "PICK_ROUND_2";
+    return {
+      status: 200,
+      body: { view: { status, bannedHeroes: [] }, legalActions: [], ownAssignedPositions: [{ assignedPosition: 2 }] },
+      errorClass: null,
+    };
+  });
+
+  await progress(page, "session-1", [2]);
+
+  expect(commandCalls).toBe(0);
+});
+
+test("progress: con Pos5 aún abierta sí ejecuta un pick humano para esa posición", async () => {
+  let filled = [2];
+  let commandCalls = 0;
+  let getCalls = 0;
+  const page = fakePage((route) => {
+    if (route === "/engine/api/heroes") return { status: 200, body: [{ id: 101 }], errorClass: null };
+    if (route.endsWith("/command")) {
+      commandCalls += 1;
+      filled = [2, 5];
+      return { status: 202, body: { accepted: true, view: { status: "PICK_ROUND_3", bannedHeroes: [] }, legalActions: [] }, errorClass: null };
+    }
+    if (route.endsWith("/auto-drive")) {
+      return { status: 200, body: { view: { status: "PICK_ROUND_3", bannedHeroes: [] }, legalActions: [] }, errorClass: null };
+    }
+    getCalls += 1;
+    const status = getCalls >= 3 ? "COMPLETE" : "PICK_ROUND_2";
+    return {
+      status: 200,
+      body: {
+        view: { status, bannedHeroes: [] },
+        legalActions: [{ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0 }],
+        ownAssignedPositions: filled.map((position) => ({ assignedPosition: position })),
+      },
+      errorClass: null,
+    };
+  });
+
+  await progress(page, "session-1", [2, 5]);
+
+  expect(commandCalls).toBe(1);
+  expect(filled).toEqual([2, 5]);
 });
