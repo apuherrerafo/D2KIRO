@@ -203,21 +203,67 @@ function saveFailure(dir: string, failure: FailureContext, consoleErrors: string
   writeFileSync(resolve(dir, "failure.json"), `${JSON.stringify({ ...failure, consoleErrors, networkFailures, ...metadata }, null, 2)}\n`);
 }
 
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 5 * 60_000;
+const AUTH_BOOTSTRAP_POLL_INTERVAL_MS = 1_500;
+
+export interface AuthPoller {
+  check(): Promise<boolean>;
+  wait(ms: number): Promise<void>;
+}
+
+function contextAuthPoller(context: BrowserContext): AuthPoller {
+  return {
+    async check() {
+      const response = await context.request.get(`${STAGING_URL}/api/auth/session`, { failOnStatusCode: false });
+      if (!response.ok()) return false;
+      const body: unknown = await response.json().catch(() => null);
+      return isRecord(body) && Number.isInteger(body.accountId);
+    },
+    wait(ms) {
+      return new Promise((resolveWait) => setTimeout(resolveWait, ms));
+    },
+  };
+}
+
+export async function pollUntilAuthenticated(poller: AuthPoller, timeoutMs: number, intervalMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      if (await poller.check()) return true;
+    } catch {
+      // Transient errors (e.g. mid-navigation through the Steam redirect chain) — keep polling.
+    }
+    await poller.wait(intervalMs);
+  }
+  return false;
+}
+
 async function authBootstrap(): Promise<number> {
   mkdirSync(resolve(".qa-auth"), { recursive: true });
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
+    // Polling runs against context.request (Node-side, shares the context's cookie jar) rather
+    // than an in-page fetch: clicking "Entrar con Steam" navigates the page through Steam's
+    // OpenID redirect chain, which destroys any in-page JS execution context mid-poll and was
+    // closing the browser before the user could finish logging in.
     await page.goto(`${STAGING_URL}/login`, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(async () => {
-      const response = await fetch("/api/auth/session", { cache: "no-store" });
-      if (!response.ok) return false;
-      const body: unknown = await response.json();
-      return typeof body === "object" && body !== null && Number.isInteger((body as { accountId?: unknown }).accountId);
-    }, undefined, { timeout: 10 * 60_000 });
+    const authenticatedInTime = await pollUntilAuthenticated(
+      contextAuthPoller(context),
+      AUTH_BOOTSTRAP_TIMEOUT_MS,
+      AUTH_BOOTSTRAP_POLL_INTERVAL_MS,
+    );
+    if (!authenticatedInTime) {
+      console.error("AUTH_BOOTSTRAP_TIMEOUT");
+      return 1;
+    }
     await context.storageState({ path: AUTH_STATE_PATH });
     try { chmodSync(AUTH_STATE_PATH, 0o600); } catch { /* Windows ACLs are managed outside POSIX mode bits. */ }
+    if (!existsSync(AUTH_STATE_PATH) || statSync(AUTH_STATE_PATH).size === 0) {
+      console.error("AUTH_BOOTSTRAP_EMPTY_STATE");
+      return 1;
+    }
     return 0;
   } finally {
     await browser.close();
@@ -268,11 +314,13 @@ async function stagingSmoke(): Promise<Result> {
   }
 }
 
-const command = process.argv[2];
-if (command === "auth") {
-  process.exitCode = await authBootstrap();
-} else if (command === "smoke") {
-  console.log(await stagingSmoke());
-} else {
-  throw new Error("usage: bun scripts/qa/staging.ts <auth|smoke>");
+if (import.meta.main) {
+  const command = process.argv[2];
+  if (command === "auth") {
+    process.exitCode = await authBootstrap();
+  } else if (command === "smoke") {
+    console.log(await stagingSmoke());
+  } else {
+    throw new Error("usage: bun scripts/qa/staging.ts <auth|smoke>");
+  }
 }
