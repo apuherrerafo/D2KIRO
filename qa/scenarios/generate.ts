@@ -54,8 +54,6 @@ for (const position of POSITIONS) {
     HERO_POSITIONS[hero] = [{ position, matches: 1000 }];
   }
 }
-const ALL_HEROES = [...FILLER, ...Object.keys(HERO_POSITIONS).map(Number)];
-const HERO_UNIVERSE: HeroUniverse = { allHeroIds: ALL_HEROES, metaOrder: ALL_HEROES };
 
 /** The human's fixed hero for one of their own positions. One pick per position per session -- no collision with bot offsets (0..19). */
 export function humanHeroFor(position: Position): number {
@@ -110,14 +108,35 @@ const computeSuggestions: ComputeSuggestionsForDraftState = async (state: DraftS
 
 export type Routes = ReturnType<typeof createProtocolSessionRoutes>;
 
-/** Fresh, isolated store + routes wired to the deterministic fixtures above. One per scenario run. */
-export function createFixtureRoutes(): { store: ProtocolSessionStore; routes: Routes } {
+/**
+ * Universe for a given `HeroPositions` map -- filler bot-pick offsets (0..19, S2/S10 seam
+ * discipline) plus every hero the map itself registers. Factored out so a caller with its OWN
+ * (e.g. flex-hero) `HeroPositions` map -- see `createFixtureRoutes` below -- gets a matching
+ * universe instead of the stock one, which would silently exclude its extra hero ids from ban
+ * resolution / Ally Bot eligibility.
+ */
+export function heroUniverseFor(heroPositions: HeroPositions): HeroUniverse {
+  const ids = [...FILLER, ...Object.keys(heroPositions).map(Number)];
+  return { allHeroIds: ids, metaOrder: ids };
+}
+
+/**
+ * Fresh, isolated store + routes wired to the deterministic fixtures above. One per scenario run.
+ * Optional `heroPositions` override (default: the stock single-position-only `HERO_POSITIONS`) --
+ * added for the FLEX-HERO reproducer (`qa/invariants/binding.test.ts`, INV-BIND-001): stock
+ * fixture heroes are all single-position, which trivially agrees with any explicit position
+ * assignment and hides the "RoleBelief vs authoritative binding" defect that only a genuinely
+ * flexible hero (credible at 2+ positions, weighted AWAY from the bound one) can expose. Every
+ * EXISTING no-arg call site (the 26x2x3 ownership matrix) is byte-identical: `HERO_POSITIONS` and
+ * `heroUniverseFor(HERO_POSITIONS)` reproduce exactly what this function built before this change.
+ */
+export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS): { store: ProtocolSessionStore; routes: Routes } {
   const store = new ProtocolSessionStore();
   const routes = createProtocolSessionRoutes({
     store,
     computeSuggestions,
-    heroPositions: HERO_POSITIONS,
-    heroUniverse: async () => HERO_UNIVERSE,
+    heroPositions,
+    heroUniverse: async () => heroUniverseFor(heroPositions),
   });
   return { store, routes };
 }
