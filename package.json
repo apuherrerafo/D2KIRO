@@ -28,6 +28,8 @@
     "qa:contract": "bun scripts/qa/run.ts contract",
     "qa:mvp": "bun scripts/qa/run.ts mvp",
     "qa:browser": "bun scripts/qa/run.ts browser",
-    "qa:release": "bun scripts/qa/run.ts release"
+    "qa:release": "bun scripts/qa/run.ts release",
+    "qa:staging-auth": "bun scripts/qa/staging.ts auth",
+    "qa:staging-smoke": "bun scripts/qa/staging.ts smoke"
   }
 }

@@ -13,7 +13,7 @@ const commands: Record<Exclude<Gate, "release">, readonly string[][]> = {
   mvp: [["bun", "test", "qa/mvp"]],
   // Existing focused browser journeys are intentionally reused: they boot the production-shaped
   // local engine/web harness and preserve Playwright trace/screenshot evidence on failure.
-  browser: [["bun", "run", "e2e", "--", "e2e/ap-party-sizes.spec.ts", "e2e/mobile-semantic.spec.ts", "--project=chromium", "--project=webkit-mobile"]],
+  browser: [["bun", "run", "e2e", "--", "e2e/protocol-session-auth-proxy.spec.ts", "e2e/ap-party-sizes.spec.ts", "e2e/mobile-semantic.spec.ts", "--project=chromium", "--project=webkit-mobile"]],
 };
 
 const selected = gate === "release"

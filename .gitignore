@@ -34,6 +34,8 @@ e2e/.tmp/
 test-results/
 playwright-report/
 artifacts/qa/latest/
+.qa-auth/
+artifacts/qa/staging/
 .next-e2e/
 
 # R1 S7 (final blocker repair, Blocker 3): salida RUNTIME de "bun run verify:r1" -- nunca debe
