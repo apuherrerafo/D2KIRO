@@ -20,12 +20,17 @@ interface HttpResult {
 interface FailureContext {
   scenario: string;
   route: string;
+  method: string | null;
   status: number | null;
+  expectedStatus: number | null;
   errorClass: string | null;
 }
 
 class SmokeFailure extends Error {
-  constructor(readonly context: Pick<FailureContext, "route" | "status" | "errorClass">, message: string) {
+  constructor(
+    readonly context: Pick<FailureContext, "route" | "method" | "status" | "expectedStatus" | "errorClass">,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -116,40 +121,61 @@ async function chooseHero(page: Page, sessionIdValue: string, assignedPosition: 
   required(before.status === 200, "protocol_snapshot_unavailable");
   const slotIndex = firstOpenOwnSlot(responseSnapshot(before));
   const banned = new Set(isRecord(before.body) && isRecord(before.body.view) && Array.isArray(before.body.view.bannedHeroes) ? before.body.view.bannedHeroes : []);
+  const route = `/engine/api/session/protocol/${encodeURIComponent(sessionIdValue)}/command`;
+  // Se recuerda el último intento para que, si ningún héroe es aceptado, el reporte de fallo
+  // apunte al endpoint y status reales (p.ej. 409 repetido) en vez del escenario exterior stale.
+  let lastAttempt: HttpResult | null = null;
   for (const hero of heroes.body) {
     if (!isRecord(hero) || !Number.isInteger(hero.id) || banned.has(hero.id)) continue;
-    const submitted = await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(sessionIdValue)}/command`, {
+    const submitted = await browserRequest(page, route, {
       method: "POST",
       body: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: hero.id }, assignedPosition },
     });
+    lastAttempt = submitted;
     if (submitted.status === 202 && isRecord(submitted.body) && submitted.body.accepted === true) return responseSnapshot(submitted);
-    if (submitted.status >= 500) throw new Error(`hero_submit_${submitted.status}`);
+    if (submitted.status >= 500) {
+      throw new SmokeFailure(
+        { route, method: "POST", status: submitted.status, expectedStatus: 202, errorClass: submitted.errorClass },
+        `hero_submit_${submitted.status}`,
+      );
+    }
   }
-  throw new Error("no_accepted_human_pick");
+  throw new SmokeFailure(
+    { route, method: "POST", status: lastAttempt?.status ?? null, expectedStatus: 202, errorClass: lastAttempt?.errorClass ?? null },
+    "no_accepted_human_pick",
+  );
 }
 
 async function autoDrive(page: Page, id: string): Promise<Json> {
-  const result = await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(id)}/auto-drive`, { method: "POST", body: {} });
-  if (result.status !== 200) throw new SmokeFailure({ route: `/engine/api/session/protocol/${encodeURIComponent(id)}/auto-drive`, status: result.status, errorClass: result.errorClass }, "auto_drive_failed");
+  const route = `/engine/api/session/protocol/${encodeURIComponent(id)}/auto-drive`;
+  const result = await browserRequest(page, route, { method: "POST", body: {} });
+  if (result.status !== 200) throw new SmokeFailure({ route, method: "POST", status: result.status, expectedStatus: 200, errorClass: result.errorClass }, "auto_drive_failed");
   return responseSnapshot(result);
 }
 
 async function resolveBans(page: Page, id: string): Promise<Json> {
-  const result = await browserRequest(page, `/engine/api/session/protocol/${encodeURIComponent(id)}/resolve-bans`, { method: "POST", body: { playerBanPreferences: [] } });
-  if (result.status !== 200) throw new SmokeFailure({ route: `/engine/api/session/protocol/${encodeURIComponent(id)}/resolve-bans`, status: result.status, errorClass: result.errorClass }, "resolve_bans_failed");
+  const route = `/engine/api/session/protocol/${encodeURIComponent(id)}/resolve-bans`;
+  const result = await browserRequest(page, route, { method: "POST", body: { playerBanPreferences: [] } });
+  if (result.status !== 200) throw new SmokeFailure({ route, method: "POST", status: result.status, expectedStatus: 200, errorClass: result.errorClass }, "resolve_bans_failed");
   return responseSnapshot(result);
 }
 
 async function createSession(page: Page, positions: readonly (1 | 2 | 3 | 4 | 5)[], seed: string): Promise<string> {
-  const created = await browserRequest(page, "/engine/api/session/protocol", { method: "POST", body: makeSessionBody(positions, seed) });
-  if (created.status !== 201) throw new SmokeFailure({ route: "/engine/api/session/protocol", status: created.status, errorClass: created.errorClass }, "session_create_failed");
+  const route = "/engine/api/session/protocol";
+  const created = await browserRequest(page, route, { method: "POST", body: makeSessionBody(positions, seed) });
+  if (created.status !== 201) throw new SmokeFailure({ route, method: "POST", status: created.status, expectedStatus: 201, errorClass: created.errorClass }, "session_create_failed");
   return sessionId(created);
 }
 
 async function assertHealth(page: Page): Promise<void> {
-  const health = await browserRequest(page, "/healthz");
-  required(health.status === 200 && isRecord(health.body), "healthz_failed");
-  required(health.body.ok === true && health.body.next === "ok" && health.body.engine === "ok", "health_or_engine_not_ok");
+  const route = "/healthz";
+  const health = await browserRequest(page, route);
+  if (health.status !== 200 || !isRecord(health.body)) {
+    throw new SmokeFailure({ route, method: "GET", status: health.status, expectedStatus: 200, errorClass: health.errorClass }, "healthz_failed");
+  }
+  if (health.body.ok !== true || health.body.next !== "ok" || health.body.engine !== "ok") {
+    throw new SmokeFailure({ route, method: "GET", status: health.status, expectedStatus: 200, errorClass: "health_or_engine_not_ok" }, "health_or_engine_not_ok");
+  }
 }
 
 async function soloPos2(page: Page): Promise<string> {
@@ -201,6 +227,80 @@ async function progress(page: Page, id: string): Promise<void> {
 function saveFailure(dir: string, failure: FailureContext, consoleErrors: string[], networkFailures: string[], metadata: Json): void {
   mkdirSync(dir, { recursive: true });
   writeFileSync(resolve(dir, "failure.json"), `${JSON.stringify({ ...failure, consoleErrors, networkFailures, ...metadata }, null, 2)}\n`);
+}
+
+export function formatScenarioProgress(scenario: string, passed: boolean): string {
+  return `${scenario}: ${passed ? "PASS" : "FAIL"}`;
+}
+
+// El id de sesión de draft no es un secreto (no es cookie/token de cuenta), pero igual se trunca
+// antes de imprimirlo a terminal — mismo criterio de cautela que el resto del harness.
+export function redactSessionId(id: string): string {
+  if (id.length <= 8) return "***";
+  return `${id.slice(0, 8)}...redacted`;
+}
+
+export interface SmokeFailureReport {
+  scenario: string;
+  route: string;
+  method: string | null;
+  status: number | null;
+  expectedStatus: number | null;
+  errorClass: string | null;
+  errorMessage: string;
+  lastGoodState: string;
+  unexpected5xx: number;
+  artifactDir: string;
+  sessionId: string | null;
+}
+
+export function formatFailureReport(report: SmokeFailureReport): string {
+  const lines = [
+    "STAGING_SMOKE_FAIL",
+    "",
+    "FAILED_SCENARIO:",
+    report.scenario,
+    "",
+    "FAILED_ROUTE:",
+    report.route,
+    "",
+    "HTTP_METHOD:",
+    report.method ?? "N/A",
+    "",
+    "HTTP_STATUS:",
+    report.status === null ? "N/A" : String(report.status),
+    "",
+    "FAILURE_CLASS:",
+    report.errorClass ?? "unknown",
+    "",
+    "LAST_GOOD_STATE:",
+    report.lastGoodState,
+    "",
+    "FIRST_BAD_STATE:",
+    report.scenario,
+    "",
+    "ERROR_MESSAGE:",
+    report.errorMessage,
+    "",
+    "UNEXPECTED_5XX:",
+    String(report.unexpected5xx),
+    "",
+    "ARTIFACT_DIR:",
+    report.artifactDir,
+  ];
+  if (report.sessionId !== null) {
+    lines.push("", "SESSION_ID:", redactSessionId(report.sessionId));
+  }
+  if (report.expectedStatus !== null) {
+    lines.push(
+      "",
+      "EXPECTED_STATUS:",
+      String(report.expectedStatus),
+      "ACTUAL_STATUS:",
+      report.status === null ? "N/A" : String(report.status),
+    );
+  }
+  return lines.join("\n");
 }
 
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 5 * 60_000;
@@ -277,7 +377,9 @@ async function stagingSmoke(): Promise<Result> {
   const page = await context.newPage();
   const consoleErrors: string[] = [];
   const networkFailures: string[] = [];
-  let failure: FailureContext = { scenario: "bootstrap", route: "/", status: null, errorClass: null };
+  let failure: FailureContext = { scenario: "bootstrap", route: "/", method: "GET", status: null, expectedStatus: null, errorClass: null };
+  let lastGoodState = "NONE";
+  let lastSessionId: string | null = null;
   page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
   page.on("requestfailed", (request) => networkFailures.push(`${request.method()} ${new URL(request.url()).pathname}`));
   await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
@@ -285,29 +387,53 @@ async function stagingSmoke(): Promise<Result> {
   try {
     await page.goto(`${STAGING_URL}/simulator`, { waitUntil: "domcontentloaded" });
     required(await authenticated(page), "authenticated_session_missing");
-    failure = { scenario: "SMOKE-01 HEALTH", route: "/healthz", status: null, errorClass: null };
+    lastGoodState = "AUTHENTICATED";
+    failure = { scenario: "SMOKE-01 HEALTH", route: "/healthz", method: "GET", status: null, expectedStatus: 200, errorClass: null };
     await assertHealth(page);
-    failure = { scenario: "SMOKE-02/03/04/05 SOLO POS2", route: "/engine/api/session/protocol", status: null, errorClass: null };
+    console.log(formatScenarioProgress(failure.scenario, true));
+    lastGoodState = failure.scenario;
+    failure = { scenario: "SMOKE-02/03/04/05 SOLO POS2", route: "/engine/api/session/protocol", method: "POST", status: null, expectedStatus: 201, errorClass: null };
     const solo = await soloPos2(page);
-    failure = { scenario: "SMOKE-07 BASIC PROGRESSION", route: "/engine/api/session/protocol/:id/auto-drive", status: null, errorClass: null };
+    lastSessionId = solo;
+    console.log(formatScenarioProgress(failure.scenario, true));
+    lastGoodState = failure.scenario;
+    failure = { scenario: "SMOKE-07 BASIC PROGRESSION", route: "/engine/api/session/protocol/:id/auto-drive", method: "POST", status: null, expectedStatus: 200, errorClass: null };
     await progress(page, solo);
-    failure = { scenario: "SMOKE-06 PARTY2", route: "/engine/api/session/protocol", status: null, errorClass: null };
+    console.log(formatScenarioProgress(failure.scenario, true));
+    lastGoodState = failure.scenario;
+    failure = { scenario: "SMOKE-06 PARTY2", route: "/engine/api/session/protocol", method: "POST", status: null, expectedStatus: 201, errorClass: null };
     await party2(page);
+    console.log(formatScenarioProgress(failure.scenario, true));
     await context.tracing.stop();
     return "STAGING_SMOKE_PASS";
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : "unknown_failure";
     if (caught instanceof SmokeFailure) failure = { ...failure, ...caught.context };
     else failure.errorClass = message;
+    console.log(formatScenarioProgress(failure.scenario, false));
     mkdirSync(artifactDir, { recursive: true });
     await page.screenshot({ path: resolve(artifactDir, "failure.png"), fullPage: true }).catch(() => undefined);
     await context.tracing.stop({ path: resolve(artifactDir, "trace.zip") }).catch(() => undefined);
+    const unexpected5xx = failure.status !== null && failure.status >= 500 ? 1 : 0;
     saveFailure(artifactDir, failure, consoleErrors, networkFailures, {
       stagingUrl: STAGING_URL,
       sha: STAGING_SHA,
       deployment: STAGING_DEPLOYMENT,
-      unexpected5xx: failure.status !== null && failure.status >= 500 ? 1 : 0,
+      unexpected5xx,
     });
+    console.log(formatFailureReport({
+      scenario: failure.scenario,
+      route: failure.route,
+      method: failure.method,
+      status: failure.status,
+      expectedStatus: failure.expectedStatus,
+      errorClass: failure.errorClass,
+      errorMessage: message,
+      lastGoodState,
+      unexpected5xx,
+      artifactDir,
+      sessionId: lastSessionId,
+    }));
     return "STAGING_SMOKE_FAIL";
   } finally {
     await browser.close();
@@ -319,7 +445,10 @@ if (import.meta.main) {
   if (command === "auth") {
     process.exitCode = await authBootstrap();
   } else if (command === "smoke") {
-    console.log(await stagingSmoke());
+    const result = await stagingSmoke();
+    // El bloque de diagnóstico de un fallo ya arranca con "STAGING_SMOKE_FAIL" (impreso dentro de
+    // stagingSmoke) — evita duplicar esa línea suelta al final.
+    if (result !== "STAGING_SMOKE_FAIL") console.log(result);
   } else {
     throw new Error("usage: bun scripts/qa/staging.ts <auth|smoke>");
   }
