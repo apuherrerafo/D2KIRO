@@ -174,7 +174,7 @@ function isSupportedApSimulatorBody(body: {
 }
 
 export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
-  async function post(request: Request): Promise<Response> {
+  async function post(request: Request, ownerAccountId: number | null = null): Promise<Response> {
     // Same opportunistic-cleanup discipline as SessionStore/simulator-sessions.ts -- no scheduler
     // of its own, just a cheap sweep on the path that creates new sessions.
     deps.store.evictStale();
@@ -196,6 +196,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       sessionId,
       rulesetId: body.rulesetId,
       patch: body.patch,
+      ownerAccountId,
       partyContext: body.partyContext,
       localSide: body.localSide,
       adapterKind: body.adapterKind,
@@ -769,6 +770,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     postAutoDrive,
     postPositionAssignment,
     getRecommendations,
+    isOwnedBy: deps.store.isOwnedBy.bind(deps.store),
     parseSessionId,
     parseSessionSubpath,
   };

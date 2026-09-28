@@ -100,6 +100,7 @@ export type YieldRoundResult = { ok: true } | { ok: false; reason: "session_not_
 interface ProtocolSessionEntry {
   state: DraftProtocolState;
   metadata: ProtocolSessionMetadata;
+  ownerAccountId: number | null;
   lastAccessedAt: number;
   /** Simulator-layer timing (outside the kernel). Null until the Player is first handed control of a round. */
   simulatorTimer: SimulatorTimerRuntime | null;
@@ -142,6 +143,8 @@ export interface CreateProtocolSessionInput {
   sessionId: string;
   rulesetId: RulesetId;
   patch: string;
+  /** Verified HTTP identity; null is reserved for server-side and local test sessions. */
+  ownerAccountId?: number | null;
   partyContext?: PartyContextInput;
   localSide?: TeamSide;
   adapterKind?: "manual" | "simulator";
@@ -190,6 +193,7 @@ export class ProtocolSessionStore {
         simulatorSeed: input.simulatorSeed ?? null,
         controlledPositions: input.controlledPositions ?? null,
       },
+      ownerAccountId: input.ownerAccountId ?? null,
       lastAccessedAt: now,
       simulatorTimer: null,
       registrations: [],
@@ -216,6 +220,13 @@ export class ProtocolSessionStore {
 
   metadata(sessionId: string): ProtocolSessionMetadata | null {
     return this.sessions.get(sessionId)?.metadata ?? null;
+  }
+
+  /** null = session absent; local/test sessions deliberately have no HTTP owner. */
+  isOwnedBy(sessionId: string, accountId: number): boolean | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return null;
+    return entry.ownerAccountId === accountId;
   }
 
   partyContext(sessionId: string): PartyContext | null {

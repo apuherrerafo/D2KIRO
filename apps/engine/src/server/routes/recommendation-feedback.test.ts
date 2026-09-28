@@ -68,7 +68,7 @@ describe("POST /api/session/:sessionId/feedback -- Recommendation Feedback", () 
     // Create an authoritative protocol session to test trusted session reference
     const sessionRes = await fetch(`${baseUrl}/api/session/protocol`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-account-token": mintToken(1001) },
       body: JSON.stringify({
         rulesetId: "dota2/ranked-all-pick",
         patch: "7.41e",

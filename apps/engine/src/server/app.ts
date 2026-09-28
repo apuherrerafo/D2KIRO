@@ -368,6 +368,14 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       : { ok: true as const, accountId };
   }
 
+  function requireProtocolAccount(request: Request, sessionId?: string) {
+    const auth = requireHttpAccount(request);
+    if (!auth.ok || sessionId === undefined) return auth;
+    const ownership = protocolSessionRoutes.isOwnedBy(sessionId, auth.accountId);
+    if (ownership !== false) return auth;
+    return { ok: false as const, response: Response.json({ error: "protocol_session_forbidden" }, { status: 403 }) };
+  }
+
   async function routeApiRequest(request: Request, url: URL): Promise<Response> {
     if (request.method === "GET" && url.pathname === "/api/health") {
       return Response.json({ ...getHealthStatus(sessionStore.size), authMode: deps.internalAuthSecret ? "multi_tenant" : "single_tenant_local" });
@@ -438,55 +446,61 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "POST" && url.pathname === "/api/simulator/sessions") {
       return simulatorRoutes.post();
     }
-    // R1 S2/S3 -- kernel-backed protocol sessions. No account gate: same posture as
-    // /api/session/manual and /api/simulator/sessions (local capturers/simulators, not
-    // account-scoped data) -- account scoping for this path is future work, not this wave's scope.
     if (request.method === "POST" && url.pathname === "/api/session/protocol") {
-      return protocolSessionRoutes.post(request);
+      const auth = requireProtocolAccount(request);
+      return auth.ok ? protocolSessionRoutes.post(request, auth.accountId) : auth.response;
     }
     const protocolCommandSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "command");
     if (protocolCommandSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postCommand(request, protocolCommandSessionId);
+      const auth = requireProtocolAccount(request, protocolCommandSessionId);
+      return auth.ok ? protocolSessionRoutes.postCommand(request, protocolCommandSessionId) : auth.response;
     }
     const protocolResolveBansSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "resolve-bans");
     if (protocolResolveBansSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postResolveBans(request, protocolResolveBansSessionId);
+      const auth = requireProtocolAccount(request, protocolResolveBansSessionId);
+      return auth.ok ? protocolSessionRoutes.postResolveBans(request, protocolResolveBansSessionId) : auth.response;
     }
     const protocolTestClockSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "test-advance-clock");
     if (protocolTestClockSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postTestAdvanceClock(request, protocolTestClockSessionId);
+      const auth = requireProtocolAccount(request, protocolTestClockSessionId);
+      return auth.ok ? protocolSessionRoutes.postTestAdvanceClock(request, protocolTestClockSessionId) : auth.response;
     }
     const protocolSimulatorAuthoritySessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "simulator-authority");
     if (protocolSimulatorAuthoritySessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postSimulatorAuthority(request, protocolSimulatorAuthoritySessionId);
+      const auth = requireProtocolAccount(request, protocolSimulatorAuthoritySessionId);
+      return auth.ok ? protocolSessionRoutes.postSimulatorAuthority(request, protocolSimulatorAuthoritySessionId) : auth.response;
     }
     const protocolBotSelectionSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "bot-selection");
     if (protocolBotSelectionSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postBotSelection(request, protocolBotSelectionSessionId);
+      const auth = requireProtocolAccount(request, protocolBotSelectionSessionId);
+      return auth.ok ? protocolSessionRoutes.postBotSelection(request, protocolBotSelectionSessionId) : auth.response;
     }
     const protocolAutoDriveSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "auto-drive");
     if (protocolAutoDriveSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postAutoDrive(protocolAutoDriveSessionId);
+      const auth = requireProtocolAccount(request, protocolAutoDriveSessionId);
+      return auth.ok ? protocolSessionRoutes.postAutoDrive(protocolAutoDriveSessionId) : auth.response;
     }
     // PD-026/PD-027 -- human yields remaining Own Team round capacity to the Ally Bot.
     const protocolYieldSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "yield");
     if (protocolYieldSessionId !== null && request.method === "POST") {
-      return protocolSessionRoutes.postYield(protocolYieldSessionId);
+      const auth = requireProtocolAccount(request, protocolYieldSessionId);
+      return auth.ok ? protocolSessionRoutes.postYield(protocolYieldSessionId) : auth.response;
     }
     // R1 S5 -- RecommendationSet/v2: the one recommendation truth for kernel-backed sessions.
     const protocolRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "recommendations");
     if (protocolRecommendationsSessionId !== null && request.method === "GET") {
-      const auth = request.headers.get("x-account-token") === null ? { ok: true as const, accountId: null } : requireHttpAccount(request);
+      const auth = requireProtocolAccount(request, protocolRecommendationsSessionId);
       return auth.ok ? protocolSessionRoutes.getRecommendations(protocolRecommendationsSessionId, url, auth.accountId) : auth.response;
     }
     const protocolPositionAssignmentSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "position-assignment");
     if (protocolPositionAssignmentSessionId !== null && request.method === "POST") {
-      const auth = request.headers.get("x-account-token") === null ? { ok: true as const, accountId: null } : requireHttpAccount(request);
+      const auth = requireProtocolAccount(request, protocolPositionAssignmentSessionId);
       return auth.ok ? protocolSessionRoutes.postPositionAssignment(request, protocolPositionAssignmentSessionId, auth.accountId) : auth.response;
     }
     const protocolSessionId = protocolSessionRoutes.parseSessionId(url.pathname);
     if (protocolSessionId !== null && request.method === "GET") {
-      return protocolSessionRoutes.get(protocolSessionId, url);
+      const auth = requireProtocolAccount(request, protocolSessionId);
+      return auth.ok ? protocolSessionRoutes.get(protocolSessionId, url) : auth.response;
     }
     const simulatorSessionId = simulatorRoutes.parseStateSessionId(url.pathname);
     if (simulatorSessionId !== null && request.method === "GET") {

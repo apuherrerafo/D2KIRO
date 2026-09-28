@@ -894,6 +894,56 @@ describe("cuentas HTTP multi-tenant (TSK-098)", () => {
     expect((await unauthorized)[0]?.type).toBe("error");
     expect(await closed).toBe(1008);
   });
+
+  test("las sesiones de protocolo exigen identidad y propiedad en toda su superficie HTTP", async () => {
+    const otherAccountId = 555555555;
+    testDb.insert(accounts).values({ steamAccountId: otherAccountId, personalBaselineWinrate: null, createdAt: "2026-07-27T00:00:00.000Z" }).run();
+    const body = {
+      rulesetId: "dota2/ranked-all-pick",
+      patch: "7.41e",
+      localSide: "radiant",
+      adapterKind: "simulator",
+      partyContext: { partySize: 5, side: "radiant", controlledSlots: [] },
+      controlledPositions: [1, 2, 3, 4, 5],
+      humanPosition: 1,
+      simulatorSeed: "AUTHFIX1",
+    };
+    const create = (headers?: HeadersInit) => fetch(`${baseUrl}/api/session/protocol`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+
+    const created = await create(accountHeader(999999999));
+    const { sessionId } = await created.json() as { sessionId: string };
+    const statuses = {
+      create: { owner: created.status, unauthenticated: (await create()).status },
+      recommendations: {
+        owner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/recommendations`, { headers: accountHeader(999999999) })).status,
+        unauthenticated: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/recommendations`)).status,
+        nonOwner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/recommendations`, { headers: accountHeader(otherAccountId) })).status,
+      },
+      resolveBans: {
+        owner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/resolve-bans`, { method: "POST", headers: accountHeader(999999999) })).status,
+        unauthenticated: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/resolve-bans`, { method: "POST" })).status,
+        nonOwner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/resolve-bans`, { method: "POST", headers: accountHeader(otherAccountId) })).status,
+      },
+      autoDrive: {
+        owner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/auto-drive`, { method: "POST", headers: accountHeader(999999999) })).status,
+        unauthenticated: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/auto-drive`, { method: "POST" })).status,
+        nonOwner: (await fetch(`${baseUrl}/api/session/protocol/${sessionId}/auto-drive`, { method: "POST", headers: accountHeader(otherAccountId) })).status,
+      },
+    };
+
+    expect(statuses).toEqual({
+      create: { owner: 201, unauthenticated: 401 },
+      recommendations: { owner: 200, unauthenticated: 401, nonOwner: 403 },
+      // 400 means the owner reached the route and its body validation; auth failures occur first.
+      resolveBans: { owner: 400, unauthenticated: 401, nonOwner: 403 },
+      // 409 is the protocol's legitimate initial-state response: owner authentication reached the route.
+      autoDrive: { owner: 409, unauthenticated: 401, nonOwner: 403 },
+    });
+  });
 });
 
 // TSK-073 (spec §2.3): describe aparte, con su propia app y una tabla de turnos SINTÉTICA
