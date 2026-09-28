@@ -8,7 +8,7 @@
     "husky": "^9.1.7",
     "iron-session": "^8.0.4",
     "lint-staged": "^17.3.0",
-    "typescript": "latest"
+    "typescript": "5.9.3"
   },
   "scripts": {
     "prepare": "husky",
@@ -34,6 +34,7 @@
     "qa:staging-auth": "bun scripts/qa/staging.ts auth",
     "qa:staging-smoke": "bun scripts/qa/staging.ts smoke",
     "qa:typecheck": "tsc --noEmit -p qa/tsconfig.json",
+    "qa:typecheck:invariants": "tsc --noEmit -p qa/tsconfig.invariants.json",
     "qa:invariants": "bun test qa/invariants"
   }
 }

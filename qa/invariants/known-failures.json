@@ -3,7 +3,7 @@
   "knownFailures": [
     {
       "id": "INV-OWN-002",
-      "reason": "Position != Chronology (task premise, section 16): humanOpenPositions can hold more positions than this round has open own-side slots (e.g. Party3 with 3 unfilled positions but only 2 round slots open). The V2/V3 recommendation surface can only ever offer as many concrete positions as there are open slots THIS round, so a human-controlled position with no open slot yet is structurally not offerable. Not fixed in this task -- tracked for the separate Position != Chronology remediation audit."
+      "reason": "Position != Chronology (D2KIRO Phase 1.6 premise review correction): NOT merely that round capacity limits HOW MANY humanOpenPositions can be offered this round (that part is real, but round capacity alone would only ever explain a COUNT deficit, not which specific positions go unoffered). The actual defect is in apps/engine/src/recommendation/build.ts's own position-tagging for a controlledPositions session: it assigns humanOpenPositions to the round's open own-side slots via sort(humanOpenPositions)[i] -- a fixed ASCENDING order, capacity-truncated. Round capacity determines HOW MANY human-controlled positions may act this round; it should never determine WHICH ones are eligible, but the ascending-first tagging makes it do exactly that -- e.g. Party5 (5 human positions, round capacity 2/2/1) offers Pos1+Pos2 first, then Pos3+Pos4, then Pos5 last, every time, regardless of which positions the human would rather act on first. Not fixed in this task -- tracked for the separate Position != Chronology remediation audit."
     }
   ],
   "shrunkEntries": [

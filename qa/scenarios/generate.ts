@@ -256,6 +256,14 @@ export interface Checkpoint {
   filledPosition: Position | null;
   controlledPositions: readonly Position[];
   humanOpenPositions: readonly Position[];
+  /**
+   * PD-026/PD-027 -- true once the human has explicitly handed this round's remaining Own Team
+   * capacity to the Ally Bot (`postYield`). Read directly from `ProtocolSessionStore.hasYieldedCurrentRound`
+   * (session-layer truth, not re-derived) so INV-OWN-004 can compute humanRoundCapacity without ever
+   * treating `authorizedLegalActions`/`snapshot.legalActions` -- side/protocol legality, which still
+   * advertises the round's own-side slots for the Ally Bot to fill -- as if it meant human capacity.
+   */
+  hasYieldedCurrentRound: boolean;
   snapshot: PublicSnapshot;
   v2: PublicV2 | null;
   v3: PublicV3 | null;
@@ -270,7 +278,7 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function fetchRecommendations(routes: Routes, sessionId: string): Promise<{ v2: PublicV2 | null; v3: PublicV3 | null; rawText: string }> {
+export async function fetchRecommendations(routes: Routes, sessionId: string): Promise<{ v2: PublicV2 | null; v3: PublicV3 | null; rawText: string }> {
   const v2Response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations`));
   const v2Text = await v2Response.clone().text();
   const v2 = v2Response.status === 200 ? (JSON.parse(v2Text) as PublicV2) : null;
@@ -311,6 +319,7 @@ function buildCheckpoint(
     filledPosition,
     controlledPositions,
     humanOpenPositions,
+    hasYieldedCurrentRound: store.hasYieldedCurrentRound(sessionId),
     snapshot,
     v2: rec.v2,
     v3: rec.v3,

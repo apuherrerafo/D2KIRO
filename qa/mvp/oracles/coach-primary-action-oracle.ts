@@ -18,8 +18,12 @@ export type PublicCoachStrategy =
   | { kind: string };
 
 export function primaryActionPositions(strategy: PublicCoachStrategy): readonly Position[] | null {
-  if (strategy.kind === "REVEAL_POSITION" || strategy.kind === "REVEAL_HERO") return [strategy.position];
-  if (strategy.kind === "REVEAL_FLEX") return strategy.possiblePositions;
+  // The `"position" in strategy` / `"possiblePositions" in strategy` guards (not just the `kind`
+  // check) are load-bearing: PublicCoachStrategy's `{ kind: string }` catch-all member structurally
+  // overlaps every specific `kind` literal, so a bare `strategy.kind === "REVEAL_POSITION"` check
+  // alone does not narrow it away and `.position`/`.possiblePositions` would not typecheck.
+  if ((strategy.kind === "REVEAL_POSITION" || strategy.kind === "REVEAL_HERO") && "position" in strategy) return [strategy.position];
+  if (strategy.kind === "REVEAL_FLEX" && "possiblePositions" in strategy) return strategy.possiblePositions;
   if (strategy.kind === "REVEAL_SUPPORT_EARLY") return [4, 5];
   return null;
 }
