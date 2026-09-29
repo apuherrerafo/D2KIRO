@@ -59,6 +59,18 @@ describe("engine rewrites", () => {
     expect(sources).not.toContain("/engine/api/settings");
   });
 
+  test("enruta /engine/api/session/protocol/:sessionId/yield al motor", async () => {
+    const rewrites = await loadRewrites();
+    const yieldRewrite = rewrites.find(
+      (rewrite) => rewrite.source === "/engine/api/session/protocol/:sessionId/yield",
+    );
+
+    expect(yieldRewrite).toBeDefined();
+    expect(yieldRewrite?.destination).toBe(
+      `${process.env.ENGINE_INTERNAL_URL ?? "http://127.0.0.1:4000"}/api/session/protocol/:sessionId/yield`,
+    );
+  });
+
   test("enruta /engine/api/telemetry/error al endpoint de telemetría del motor", async () => {
     const rewrites = await loadRewrites();
     const telemetryRewrite = rewrites.find((rewrite) => rewrite.source === "/engine/api/telemetry/error");

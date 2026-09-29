@@ -25,6 +25,7 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/session/protocol/:sessionId/command",
   "/engine/api/session/protocol/:sessionId/bot-selection",
   "/engine/api/session/protocol/:sessionId/auto-drive",
+  "/engine/api/session/protocol/:sessionId/yield",
   // AP Ranked Roles V1 (Wave 1): server-side BanResolutionPolicy. Without this entry the browser gets
   // a 404 through the proxy and the Simulator (correctly, fail closed) refuses to start Round 1.
   "/engine/api/session/protocol/:sessionId/resolve-bans",
