@@ -66,9 +66,33 @@ export interface ProtocolSnapshot {
   simulator: SimulatorTimerView | null;
   /** PD-026/PD-027: binding sesión-capa de Own Team, `[]` si la sesión no tiene ninguno todavía. */
   ownAssignedPositions: OwnAssignedPositionBinding[];
+  /**
+   * P0-3 (INV-YIELD-001) -- la MISMA precondición que `POST /yield` evalúa (ProtocolSessionStore.
+   * canYield, protocol-session.ts), servida en cada snapshot para que este cliente nunca tenga que
+   * aproximarla por su cuenta. `false` fuera de una sesión AP Simulator.
+   */
+  canYield: boolean;
   /** Sólo en la respuesta de un comando: el kernel lo aceptó o lo rechazó (motivo). */
   accepted?: boolean;
   rejected?: string;
+}
+
+/**
+ * P0-3 (INV-YIELD-002) -- lanzado por readSnapshot() para una respuesta HTTP no-ok CUYO cuerpo
+ * trae un código de error de dominio (p. ej. 409 `ally_bot_cannot_absorb_capacity`). Distinguible
+ * de una falla de red/motor inalcanzable: un llamador que necesita reaccionar distinto ante un
+ * rechazo de dominio (nunca "engineStatus: unreachable" para esto) puede usar `instanceof`.
+ */
+export class ProtocolRequestError extends Error {
+  readonly status: number;
+  readonly errorCode: string | null;
+
+  constructor(status: number, errorCode: string | null) {
+    super(`protocol request failed (${status}${errorCode ? `: ${errorCode}` : ""})`);
+    this.name = "ProtocolRequestError";
+    this.status = status;
+    this.errorCode = errorCode;
+  }
 }
 
 type ProtocolCommand =
@@ -152,14 +176,24 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   const ownAssignedPositions = Array.isArray(value.ownAssignedPositions) && value.ownAssignedPositions.every(isOwnAssignedPositionBinding)
     ? value.ownAssignedPositions
     : [];
+  // P0-3 (INV-YIELD-001): absent (non-AP-Simulator / legacy session, or a response shape from
+  // before this field existed) degrades to `false` -- never manufactures Yield eligibility.
+  const canYield = value.canYield === true;
   const snapshot = value as unknown as ProtocolSnapshot;
   const accepted = typeof value.accepted === "boolean" ? { accepted: value.accepted } : {};
   const rejected = typeof value.rejected === "string" ? { rejected: value.rejected } : {};
-  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ownAssignedPositions, ...accepted, ...rejected };
+  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ownAssignedPositions, canYield, ...accepted, ...rejected };
 }
 
 async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {
-  if (!response.ok) throw new Error(`protocol request failed (${response.status})`);
+  if (!response.ok) {
+    // P0-3 (INV-YIELD-002) -- preserve the JSON body's `error` field (a domain-level rejection code,
+    // e.g. `ally_bot_cannot_absorb_capacity`) instead of discarding it: a caller needs it to tell a
+    // domain rejection apart from a real network/engine failure.
+    const body: unknown = await response.json().catch(() => null);
+    const errorCode = isRecord(body) && typeof body.error === "string" ? body.error : null;
+    throw new ProtocolRequestError(response.status, errorCode);
+  }
   const parsed = parseSnapshot(await response.json());
   if (!parsed) throw new Error("invalid protocol response");
   return parsed;

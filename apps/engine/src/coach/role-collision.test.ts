@@ -53,7 +53,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
         heroPositions: POSITIONS_DATASET,
         roleCollision: coachState.roleCollision,
       },
-    );
+    )!;
 
     // 3. Rationale explains the role collision and provides recovery advice without claiming an uncovered seat
     expect(strategy.rationale).toContain("Colisión de roles en tu equipo (conflicto en Midlane (Pos 2)): no existe asignación legal completa.");
@@ -96,7 +96,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
         heroPositions: POSITIONS_DATASET,
         roleCollision: coachState.roleCollision,
       },
-    );
+    )!;
 
     expect(strategy.rationale).not.toContain("Colisión de roles");
 
@@ -135,7 +135,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
         heroPositions: POSITIONS_DATASET,
         roleCollision: coachState.roleCollision,
       },
-    );
+    )!;
 
     const output = translateToRecommendationOutputV3(
       candidatesSet,
@@ -236,7 +236,7 @@ describe("Role Collision Remediation (Generic & Soundness)", () => {
         heroPositions: s07Positions,
         roleCollision: coachState.roleCollision,
       },
-    );
+    )!;
     expect(strategy.rationale).toContain("Colisión de roles en tu equipo");
     expect(strategy.rationale).toContain("Como recuperación");
 

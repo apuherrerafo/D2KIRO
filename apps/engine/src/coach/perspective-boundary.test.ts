@@ -47,9 +47,11 @@ describe("2. el contexto de perspectiva contiene lo legalmente observable", () =
     h.seal(h.side, 0, 3); // own sealed
     const context = h.store.perspectiveRecommendationContext(h.id)!;
 
-    // PD-026/PD-027: widened with controlledPositions/humanOpenPositions (Own Team AP control
-    // state, both null outside a controlledPositions AP Simulator session) -- still exhaustive.
-    expect(Object.keys(context).sort()).toEqual(["controlledPositions", "humanOpenPositions", "isSimulator", "openOwnSlots", "partyContext", "patch", "view"]);
+    // PD-026/PD-027: widened with controlledPositions/humanOpenPositions/ownAssignedPositions (Own
+    // Team AP control state, all null outside a controlledPositions AP Simulator session) -- still
+    // exhaustive. ownAssignedPositions (P0-2, INV-BIND-001) is own-side-only authoritative binding
+    // truth -- same trust category as controlledPositions/humanOpenPositions, never enemy data.
+    expect(Object.keys(context).sort()).toEqual(["controlledPositions", "humanOpenPositions", "isSimulator", "openOwnSlots", "ownAssignedPositions", "partyContext", "patch", "view"]);
     expect(context.view.bannedHeroes).toEqual([40, 41]); // confirmed bans
     expect(context.view.ownPicks).toEqual([{ visibility: "KNOWN", heroId: 3 }]); // own selection
     expect(context.view.enemyPicks).toEqual([{ visibility: "HIDDEN" }]); // enemy's sealed pick: no hero id

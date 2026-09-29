@@ -40,6 +40,16 @@ export interface PerspectiveRecommendationContext {
    */
   controlledPositions?: readonly Position[] | null;
   humanOpenPositions?: readonly Position[] | null;
+  /**
+   * P0-2 (INV-BIND-001) -- the AUTHORITATIVE own-team position binding for each currently-visible
+   * own hero (ProtocolSessionStore.ownAssignedPositionForHero, sealed-time truth, never
+   * re-inferred). OWN-SIDE ONLY (PD-027 point 5): no enemy position, confirmed or private, is ever
+   * representable here. `null`/absent for a non-AP-Simulator or legacy session, same convention as
+   * `controlledPositions`/`humanOpenPositions` above -- the Coach then has no authoritative binding
+   * to consult and keeps reasoning from RoleBelief inference alone, exactly as before this field
+   * existed.
+   */
+  ownAssignedPositions?: ReadonlyMap<HeroId, Position> | null;
 }
 
 /** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --

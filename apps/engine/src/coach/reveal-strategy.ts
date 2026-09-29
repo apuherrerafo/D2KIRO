@@ -73,6 +73,15 @@ export interface DeriveRevealStrategyOptions {
   /** Curated counters (RB-4): the ranking's leader is judged AFTER the categorical revealed-hard-counter demotion. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   roleCollision?: RoleCollisionObservation;
+  /**
+   * P0-1 (INV-OWN-001, PD-026/PD-027) -- the ONLY positions this decision may name as the human's
+   * action, straight from ProtocolSessionStore.humanOpenPositions (session-layer truth, never
+   * re-derived here). `null`/omitted for a non-AP-Simulator or legacy session -- the ALL_POSITIONS
+   * domain then applies, unconstrained, exactly as before this option existed. Non-null (including
+   * `[]`) for an AP Simulator session: every REVEAL_POSITION/REVEAL_FLEX target below is drawn
+   * from this set, never manufactured outside it.
+   */
+  humanOpenPositions?: readonly Position[] | null;
 }
 
 function isOpeningContext(context: DraftDecisionContext): boolean {
@@ -93,9 +102,19 @@ function occupiedPositions(beliefs: ReadonlyMap<HeroId, RoleBelief> | undefined)
   return occupied;
 }
 
-/** The opening prior: with weak evidence, reveal a support seat our picks do not cover yet. Null when none is free. */
-function supportPrior(occupied: ReadonlySet<Position>, reason: string, serves: PositionServes): RevealStrategy | null {
-  const support = SUPPORT_PRIOR_POSITIONS.find((position) => !occupied.has(position) && serves(position));
+/** P0-1: the domain a human-facing position claim may be drawn from. `null` (non-AP-Simulator/legacy) keeps the old, unconstrained ALL_POSITIONS domain. */
+function positionDomain(humanOpenPositions: readonly Position[] | null | undefined): readonly Position[] {
+  return humanOpenPositions ?? ALL_POSITIONS;
+}
+
+/** The last-resort default when every domain-restricted search comes up empty. `null` when the domain itself is empty -- P0-1: never manufacture a target outside it. */
+function domainDefault(domain: readonly Position[]): Position | null {
+  return domain.includes(5) ? 5 : (domain[0] ?? null);
+}
+
+/** The opening prior: with weak evidence, reveal a support seat our picks do not cover yet, among the positions the human may still act on. Null when none is free. */
+function supportPrior(occupied: ReadonlySet<Position>, reason: string, serves: PositionServes, domain: readonly Position[]): RevealStrategy | null {
+  const support = SUPPORT_PRIOR_POSITIONS.find((position) => domain.includes(position) && !occupied.has(position) && serves(position));
   if (support === undefined) return null;
   return {
     kind: "REVEAL_POSITION",
@@ -112,22 +131,30 @@ function formatCollisionRationale(conflicts: readonly { position: Position; hero
   return `Colisión de roles en tu equipo (conflicto en ${conflictPositions}): no existe asignación legal completa.`;
 }
 
-/** No usable position evidence in the ranking: an honest, labelled fallback -- never a hero. */
+/**
+ * No usable position evidence in the ranking: an honest, labelled fallback -- never a hero.
+ * P0-1: every search below is restricted to `domain` (humanOpenPositions when the session is an AP
+ * Simulator one; ALL_POSITIONS otherwise). `null` only when `domain` itself is empty -- P0-1's
+ * "do not manufacture a target": the caller (deriveRevealStrategy) then reports no action, the
+ * same existing representation already used when there is nothing to decide.
+ */
 function positionFallback(
   context: DraftDecisionContext,
   occupied: ReadonlySet<Position>,
   reason: string,
   serves: PositionServes,
+  domain: readonly Position[],
   roleCollision?: RoleCollisionObservation,
-): RevealStrategy {
+): RevealStrategy | null {
   if (roleCollision?.infeasible) {
     const collisionReason = formatCollisionRationale(roleCollision.conflicts);
     const conflicted = new Set<Position>(roleCollision.conflicts.map((c) => c.position));
-    const target = ALL_POSITIONS.find((pos) => !conflicted.has(pos) && !occupied.has(pos) && serves(pos))
-      ?? ALL_POSITIONS.find((pos) => !conflicted.has(pos) && serves(pos))
-      ?? ALL_POSITIONS.find((pos) => !conflicted.has(pos))
-      ?? ALL_POSITIONS.find((pos) => serves(pos))
-      ?? 5;
+    const target = domain.find((pos) => !conflicted.has(pos) && !occupied.has(pos) && serves(pos))
+      ?? domain.find((pos) => !conflicted.has(pos) && serves(pos))
+      ?? domain.find((pos) => !conflicted.has(pos))
+      ?? domain.find((pos) => serves(pos))
+      ?? domainDefault(domain);
+    if (target === null) return null;
     return {
       kind: "REVEAL_POSITION",
       position: target,
@@ -135,13 +162,14 @@ function positionFallback(
     };
   }
 
-  const prior = isOpeningContext(context) ? supportPrior(occupied, reason, serves) : null;
+  const prior = isOpeningContext(context) ? supportPrior(occupied, reason, serves, domain) : null;
   if (prior) return prior;
   // An uncovered seat the ranking can serve first; then any seat it can serve; only with no ranking at all, the plain uncovered seat.
-  const free = ALL_POSITIONS.find((position) => !occupied.has(position) && serves(position))
-    ?? ALL_POSITIONS.find((position) => serves(position))
-    ?? ALL_POSITIONS.find((position) => !occupied.has(position))
-    ?? 5;
+  const free = domain.find((position) => !occupied.has(position) && serves(position))
+    ?? domain.find((position) => serves(position))
+    ?? domain.find((position) => !occupied.has(position))
+    ?? domainDefault(domain);
+  if (free === null) return null;
   return {
     kind: "REVEAL_POSITION",
     position: free,
@@ -156,18 +184,19 @@ export function deriveRevealStrategy(
   _heroPool: readonly HeroId[],
   decisionContext: DraftDecisionContext,
   options: DeriveRevealStrategyOptions = {},
-): RevealStrategy {
+): RevealStrategy | null {
   const occupied = occupiedPositions(options.ownRoleBeliefs);
+  const domain = positionDomain(options.humanOpenPositions);
   const candidates: HeroCandidate[] = demoteRevealedHardCountered(extractHeroCandidates(recommendations, options.heroPositions), revealedEnemyHeroes(view), options.heroCounters);
   const top = candidates[0];
   const serves: PositionServes = (position) => candidates.some((candidate) => candidateServesPosition(candidate, position, options.heroPositions));
 
-  if (!top) return positionFallback(decisionContext, occupied, "No hay ranking de héroes disponible para este estado.", serves, options.roleCollision);
+  if (!top) return positionFallback(decisionContext, occupied, "No hay ranking de héroes disponible para este estado.", serves, domain, options.roleCollision);
 
   const resolved = top.roleStatus !== "UNRESOLVED";
 
-  // 1. V6 already points at a support seat: the evidence and any support prior agree.
-  if (resolved && (top.position === 4 || top.position === 5)) {
+  // 1. V6 already points at a support seat the human may still act on: the evidence and any support prior agree.
+  if (resolved && (top.position === 4 || top.position === 5) && domain.includes(top.position)) {
     const rationale = options.roleCollision?.infeasible
       ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, el ranking apunta a ${positionPhrase(top.position)}.`
       : `El ranking de héroes se concentra en ${positionPhrase(top.position)}.`;
@@ -175,27 +204,34 @@ export function deriveRevealStrategy(
   }
 
   // 2. The best option's position is unresolved in V6's own role tiers AND the curated catalog registers
-  //    it in two or more positions (the repo's own definition of Flex, signals/mix.ts flexibilityReason):
-  //    keep the position open instead of naming one.
+  //    it in two or more positions (the repo's own definition of Flex, signals/mix.ts flexibilityReason)
+  //    the human may still act on: keep the position open among only those, instead of naming one.
   if (!resolved && top.flexPositions.length >= 2) {
-    const rationale = options.roleCollision?.infeasible
-      ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, el candidato flexible puede cubrir ${top.flexPositions.map(positionPhrase).join(" o ")}.`
-      : `El mejor candidato puede jugar ${top.flexPositions.map(positionPhrase).join(" o ")}; no hace falta fijar la posición todavía.`;
-    return {
-      kind: "REVEAL_FLEX",
-      possiblePositions: [...top.flexPositions],
-      rationale,
-    };
+    const humanFlexPositions = top.flexPositions.filter((position) => domain.includes(position));
+    if (humanFlexPositions.length >= 2) {
+      const rationale = options.roleCollision?.infeasible
+        ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, el candidato flexible puede cubrir ${humanFlexPositions.map(positionPhrase).join(" o ")}.`
+        : `El mejor candidato puede jugar ${humanFlexPositions.map(positionPhrase).join(" o ")}; no hace falta fijar la posición todavía.`;
+      return {
+        kind: "REVEAL_FLEX",
+        possiblePositions: humanFlexPositions,
+        rationale,
+      };
+    }
   }
 
   // 3. The leader is a core (or has no position evidence): at an opening decision, the support prior.
   if (isOpeningContext(decisionContext)) {
-    const prior = supportPrior(occupied, "El ranking no obliga a abrir con un core.", serves);
+    const prior = supportPrior(occupied, "El ranking no obliga a abrir con un core.", serves, domain);
     if (prior) return prior;
   }
 
-  // 4. Otherwise the honest role the evidence points at (or the uncovered seat when it points nowhere).
-  if (!resolved) return positionFallback(decisionContext, occupied, "El ranking no aporta evidencia de posición.", serves, options.roleCollision);
+  // 4. Otherwise the honest role the evidence points at (or the uncovered seat when it points nowhere),
+  //    constrained to what the human may still act on (P0-1).
+  if (!resolved || !domain.includes(top.position)) {
+    const reason = resolved ? "El ranking apunta a una posición que no controlás en esta ronda." : "El ranking no aporta evidencia de posición.";
+    return positionFallback(decisionContext, occupied, reason, serves, domain, options.roleCollision);
+  }
   const rationale = options.roleCollision?.infeasible
     ? `${formatCollisionRationale(options.roleCollision.conflicts)} Como recuperación, la composición apunta a ${positionPhrase(top.position)}.`
     : `La composición y el ranking apuntan a ${positionPhrase(top.position)}.`;

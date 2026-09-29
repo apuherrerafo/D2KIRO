@@ -37,6 +37,13 @@ interface PublicSnapshotLite {
   view: { rankedAp: { phase: string } | null; status: string };
   legalActions: { type: string; side?: string; slotIndex?: number }[];
   ownAssignedPositions: { round: number; slotIndex: number; assignedPosition: Position }[];
+  /**
+   * P0-3 CLOSURE -- the server-provided precondition truth (ProtocolSessionStore.canYield,
+   * snapshotBody() in routes/protocol-sessions.ts) now travels on every snapshot. The web's real
+   * formula (use-random-draft-session.ts's `beginAttempt`) reads this field verbatim instead of
+   * approximating it locally -- see webCanYield() below, updated to match.
+   */
+  canYield?: boolean;
   stopReason?: string;
   error?: string;
 }
@@ -46,15 +53,22 @@ function post(body: unknown): Request {
 }
 
 /**
- * Literal mirror of `use-random-draft-session.ts`'s `beginAttempt` -- NOT the server's own
- * precondition (see the file header). `controlledPositions`/`boundPositions` are session-layer
- * truth (`ProtocolSessionStore.metadata` / the public snapshot's `ownAssignedPositions`), exactly
- * what the real web client has access to via the same public routes.
+ * P0-3 CLOSURE -- literal mirror of `use-random-draft-session.ts`'s `beginAttempt`, updated in the
+ * SAME change that fixed it: the client no longer approximates Yield eligibility from
+ * `controlledPositions`/`boundPositions` (that formula is exactly the confirmed bug this file
+ * exists to catch -- see the file header's BUG note, kept verbatim below for the historical record).
+ * It now reads the server-provided `canYield` field verbatim (`snapshot.canYield`, sourced from
+ * `ProtocolSessionStore.canYield` -- the SAME precondition `POST /yield` itself enforces). The
+ * mirror below reflects that: `controlledPositions`/`boundPositions` still compute `attemptPositions`
+ * (the client still needs that set to render the Yield affordance's target positions), but no longer
+ * feed the eligibility decision itself -- `snapshotCanYield` does, taken straight from the real
+ * route's own response, never re-derived here. This keeps the oracle's own discipline intact
+ * (section 5: "do not duplicate the server's internal precondition into the oracle") in the other
+ * direction too: now that the client itself no longer duplicates it, neither does this mirror.
  */
-function webCanYield(controlledPositions: readonly Position[], boundPositions: ReadonlySet<Position>): { attemptPositions: Position[]; canYield: boolean } {
+function webCanYield(controlledPositions: readonly Position[], boundPositions: ReadonlySet<Position>, snapshotCanYield: boolean): { attemptPositions: Position[]; canYield: boolean } {
   const attemptPositions = controlledPositions.filter((position) => !boundPositions.has(position));
-  const canYield = attemptPositions.length > 0 && controlledPositions.length < 5;
-  return { attemptPositions, canYield };
+  return { attemptPositions, canYield: snapshotCanYield };
 }
 
 function minimalCounterexample(extra: Record<string, unknown>): string {
@@ -123,7 +137,7 @@ describe("INV-YIELD-001 -- the web may advertise Yield only in states where the 
     const ownRoundSlotCount = drive.legalActions.filter((action) => action.type === "SUBMIT_SEALED_SELECTION" && action.side === side).length;
     expect(ownRoundSlotCount, "test premise: round 2 opens with 2 own-side slots (canonical counterexample)").toBe(2);
 
-    const { attemptPositions, canYield } = webCanYield(controlledPositions, boundPositions);
+    const { attemptPositions, canYield } = webCanYield(controlledPositions, boundPositions, drive.canYield ?? false);
 
     // ---- The actual server precondition: never duplicated here, only OBSERVED. ----
     const yieldResponse = await routes.postYield(sessionId);

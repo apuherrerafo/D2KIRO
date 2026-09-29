@@ -237,6 +237,10 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only, never
       // Enemy Bot's private role permutation. `[]` for a session with no bindings yet.
       ownAssignedPositions: deps.store.ownAssignedPositions(sessionId),
+      // P0-3 (INV-YIELD-001) -- the SAME precondition `POST /yield` enforces, exposed so the web
+      // never has to approximate it on its own. `false` for a non-AP-Simulator session (the store
+      // returns `false` there too -- `yieldPrecondition`'s `not_ap_simulator` branch).
+      canYield: deps.store.canYield(sessionId),
     };
   }
 

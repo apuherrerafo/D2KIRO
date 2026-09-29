@@ -395,12 +395,13 @@ export class ProtocolSessionStore {
   }
 
   /**
-   * PD-026/PD-027 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own
-   * Team capacity to the Ally Bot. Rejected (never silently accepted) when the Ally Bot cannot
-   * legally absorb that capacity: a yield the bot could not honor would strand the round with
-   * open own-side slots and nobody able to fill them.
+   * P0-3 (INV-YIELD-001) -- the SINGLE precondition check `yieldRound()` enforces, factored out so
+   * it can also be read WITHOUT the side effect (`canYield()` below). This is the one and only
+   * place the "can the Ally Bot legally absorb this round's remaining Own Team capacity" logic is
+   * allowed to live -- `apps/web` must never re-derive or approximate it (task section 7: "Do NOT
+   * make the Web duplicate the server's Ally Bot absorption formula").
    */
-  yieldRound(sessionId: string): YieldRoundResult {
+  private yieldPrecondition(sessionId: string): YieldRoundResult {
     const entry = this.sessions.get(sessionId);
     if (!entry) return { ok: false, reason: "session_not_found" };
     if (!isApSimulatorMetadata(entry.metadata) || !entry.metadata.controlledPositions) return { ok: false, reason: "not_ap_simulator" };
@@ -412,8 +413,32 @@ export class ProtocolSessionStore {
     const unfilledAllyPositions = allyPositions.filter((position) => !filled.has(position)).length;
     const openOwnRoundSlots = round.openSlots.filter((slot) => slot.side === entry.metadata.localSide).length;
     if (unfilledAllyPositions < openOwnRoundSlots) return { ok: false, reason: "ally_bot_cannot_absorb_capacity" };
+    return { ok: true };
+  }
+
+  /**
+   * PD-026/PD-027 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own
+   * Team capacity to the Ally Bot. Rejected (never silently accepted) when the Ally Bot cannot
+   * legally absorb that capacity: a yield the bot could not honor would strand the round with
+   * open own-side slots and nobody able to fill them.
+   */
+  yieldRound(sessionId: string): YieldRoundResult {
+    const precondition = this.yieldPrecondition(sessionId);
+    if (!precondition.ok) return precondition;
+    const entry = this.sessions.get(sessionId)!;
+    const round = entry.state.rankedAp!.round!;
     entry.roundYielded.add(round.round);
     return { ok: true };
+  }
+
+  /**
+   * P0-3 (INV-YIELD-001) -- whether `POST /yield` would accept right now, WITHOUT calling it. The
+   * one source of truth the public snapshot exposes (`snapshotBody().canYield`,
+   * routes/protocol-sessions.ts) so `apps/web` reads server truth directly instead of maintaining
+   * its own approximation of this precondition.
+   */
+  canYield(sessionId: string): boolean {
+    return this.yieldPrecondition(sessionId).ok;
   }
 
   /**
@@ -598,6 +623,19 @@ export class ProtocolSessionStore {
     const openOwnSlots = legal.flatMap((action) =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === metadata.localSide ? [{ side: action.side, slotIndex: action.slotIndex }] : [],
     );
+    // P0-2 (INV-BIND-001) -- own-side-only authoritative position bindings for every own hero this
+    // side can already legally see (KNOWN/REVEALED; never HIDDEN, which carries no heroId at all).
+    // Sourced only from ownAssignedPositionForHero() -- the same session-layer truth
+    // humanOpenPositions() itself is built from -- never from RoleBelief or any inference.
+    const ownAssignedPositions = metadata.controlledPositions
+      ? new Map(
+          view.ownPicks.flatMap((slot) => {
+            if (slot.visibility === "HIDDEN") return [];
+            const assigned = this.ownAssignedPositionForHero(sessionId, slot.heroId);
+            return assigned === null ? [] : [[slot.heroId, assigned] as const];
+          }),
+        )
+      : null;
     return {
       view,
       openOwnSlots,
@@ -608,6 +646,7 @@ export class ProtocolSessionStore {
       // round-seat mapping. Both null for non-AP-Simulator/legacy AP Simulator sessions.
       controlledPositions: metadata.controlledPositions,
       humanOpenPositions: this.humanOpenPositions(sessionId),
+      ownAssignedPositions,
     };
   }
 

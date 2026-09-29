@@ -12,6 +12,7 @@ import { loadMetaSnapshot } from "./meta-loader";
 import {
   createSimulatorProtocolSession,
   getProtocolSession,
+  ProtocolRequestError,
   protocolViewToDraftState,
   requestEnemyAutoDrive,
   requestYield,
@@ -90,6 +91,14 @@ function describeBanFailure(error: string, retryable: boolean): string {
   if (error === "invalid_ban_preferences") return "Tus preferencias de ban no son válidas. Corregilas y reintentá.";
   const suffix = retryable ? " Podés reintentar con los mismos datos." : "";
   return `La resolución de bans falló (${error}); no se inició la Ronda 1 ni se inventaron bans.${suffix}`;
+}
+
+/** P0-3 (INV-YIELD-002) -- a domain-level rejection of POST /yield, explained in place (round notice), never mapped to "engine unreachable". */
+function describeYieldRejection(errorCode: string | null): string {
+  if (errorCode === "ally_bot_cannot_absorb_capacity") return "El Ally Bot ya no puede absorber el resto de esta ronda. Elegí vos las posiciones que faltan.";
+  if (errorCode === "no_ally_bot_capacity") return "Tu party controla las 5 posiciones: no hay Ally Bot al que cederle la ronda.";
+  if (errorCode === "no_open_round") return "No hay una ronda abierta para ceder en este momento.";
+  return `No se pudo ceder la ronda (${errorCode ?? "rechazado"}). Elegí manualmente.`;
 }
 
 export type StartDraftConfig = Omit<DraftConfig, "patch">;
@@ -241,10 +250,13 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const controlledPositions = config ? controlledPositionsForConfig(config) : [];
     const boundPositions = new Set(snapshot.ownAssignedPositions.map((binding) => binding.assignedPosition));
     const attemptPositions = controlledPositions.filter((position) => !boundPositions.has(position));
-    // A yield only ever needs offering when there's a human position left to hand off, and the
-    // party doesn't already control all five (Party 5 has no Ally Bot capacity at all -- the
-    // server is still the final authority and rejects a yield it cannot honor).
-    const canYield = attemptPositions.length > 0 && controlledPositions.length < 5;
+    // P0-3 (INV-YIELD-001) -- server-provided truth (ProtocolSessionStore.canYield, the SAME
+    // precondition POST /yield itself enforces), never re-derived here. The web must not duplicate
+    // the server's Ally Bot absorption formula (round capacity vs. unfilled Ally positions) --
+    // a local approximation is exactly what let the web advertise Yield in states the server
+    // would reject (Party2 round 1 deferred entirely, round 2 opens with more own-side slots than
+    // the Ally Bot has unfilled positions left to absorb).
+    const canYield = snapshot.canYield;
     if (roundConflictsRef.current.round !== round) roundConflictsRef.current = { round, bans: [] };
     useRandomDraftStore.getState().setVisualPhase({
       type: "blind_round",
@@ -425,6 +437,16 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       syncSnapshot(snapshot);
       await advance(null);
     } catch (error) {
+      // P0-3 (INV-YIELD-002) -- a domain-level rejection (the server responded; it just said no,
+      // e.g. 409 ally_bot_cannot_absorb_capacity) is NOT engine/network unreachability. The server
+      // is the final authority (this callback only runs when the LAST-KNOWN snapshot said
+      // canYield -- a race can still make the actual attempt land after state moved on): surfaced
+      // as a round notice, the same pattern lockPick already uses for a rejected pick, never as
+      // "unreachable".
+      if (error instanceof ProtocolRequestError) {
+        useRandomDraftStore.getState().setRoundNotice(describeYieldRejection(error.errorCode));
+        return;
+      }
       console.error("[useRandomDraftSession] yieldRound failed", error);
       useRandomDraftStore.getState().setEngineStatus("unreachable");
     } finally {

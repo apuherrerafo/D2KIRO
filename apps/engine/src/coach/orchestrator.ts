@@ -134,6 +134,15 @@ export class CoachOrchestrator {
     const trigger = explicitTrigger ?? this.classify(memory, view);
     const revision = (memory.lastSeq += 1);
     const assignments = new Map(memory.assignments);
+    // P0-2 (INV-BIND-001) -- authoritative own-team position bindings (sealed-time session truth,
+    // PD-027 point 3) always win over a stale/absent manual assignment for the SAME hero: merged
+    // on top, never the other way around. This is what makes believe() treat that hero's position
+    // as CONFIRMED (computeRoleBelief's confirmedPosition path) instead of leaving it to
+    // RoleBelief's own evidence-based argmax, which is the exact defect INV-BIND-001 exists to
+    // catch. Bypasses isCompatiblePosition on purpose: an authoritative binding is session truth
+    // the human actually chose, not a correction that needs curated-evidence validation -- an
+    // off-role pick still fills the position the human chose (PD-027 point 6).
+    for (const [heroId, position] of input.context.ownAssignedPositions ?? []) assignments.set(heroId, position);
 
     const heroPool = input.config?.heroPool ?? [];
     const coachState = buildCoachObservableState(view, {
@@ -160,6 +169,11 @@ export class CoachOrchestrator {
           heroPositions: this.deps.heroPositions,
           heroCounters: this.deps.heroCounters,
           roleCollision: coachState.roleCollision,
+          // P0-1 (INV-OWN-001) -- null/absent for a non-AP-Simulator or legacy session (same
+          // convention as the context field itself), which keeps the pre-P0-1 unconstrained
+          // behaviour exactly as it was. Non-null for an AP Simulator session: every human-facing
+          // position claim below must come from this set, never from ALL_POSITIONS.
+          humanOpenPositions: input.context.humanOpenPositions,
         })
       : null;
     // "Reveal Pos P": the shortlist's candidate universe is decided BEFORE ranking (heroes credibly played at P), like the personal view.
@@ -182,7 +196,12 @@ export class CoachOrchestrator {
     // Only the newest-started computation may move the session's "latest" bookkeeping forward.
     if (revision > memory.latestRevision) {
       memory.latestRevision = revision;
-      memory.observed = { ...countVisible(view), assignments: assignmentsKey(assignments) };
+      // Trigger bookkeeping tracks EXPLICIT UI assignments only (memory.assignments, unmerged) --
+      // classify()'s next call compares against the same source. Snapshotting the merged
+      // `assignments` (which also carries the authoritative P0-2 bindings, re-derived fresh from
+      // session truth every call) here would desync the two and misclassify the trigger as
+      // PLAYER_POSITION_ASSIGNED on every subsequent recompute, even with no player action.
+      memory.observed = { ...countVisible(view), assignments: assignmentsKey(memory.assignments) };
     }
     return { output, recommendationSet, personalRecommendationSet: personal?.recommendationSet ?? undefined, coachState, trigger, revision };
   }

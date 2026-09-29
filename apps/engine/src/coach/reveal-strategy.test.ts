@@ -20,12 +20,12 @@ function metaDominantHero(heroId: number, position: Position): HeroFixture {
   return { heroId, signals: [signal("patch_meta", 0.6, 30), signal("position_fit", 0.6, 10), signal("counter", null, 0)], impact: resolvedImpact(position) };
 }
 
-const kindOf = (strategy: RevealStrategy) => strategy.kind;
+const kindOf = (strategy: RevealStrategy | null) => strategy?.kind ?? null;
 
 describe("REVEAL_POSITION -- el prior support-first es un prior, no un guion", () => {
   test("team_opening + el líder es un core sin evidencia que obligue a abrir con él -> REVEAL_POSITION de un soporte (4 o 5), sin heroId", () => {
     const set = recSet([roleOnlyHero(1, 1, 12), roleOnlyHero(2, 2, 11), roleOnlyHero(3, 3, 10), roleOnlyHero(4, 5, 9)]);
-    const strategy = deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening");
+    const strategy = deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening")!;
     expect(strategy.kind).toBe("REVEAL_POSITION");
     expect([4, 5]).toContain((strategy as { position: number }).position);
     expect(strategy).not.toHaveProperty("heroId");
@@ -89,7 +89,7 @@ describe("evidence-scaled specificity: sin criterio justificado, Wave 2 NO nombr
 
   test("un meta dominante tampoco: en la apertura, con un core al frente, manda el prior de soporte y no se nombra al héroe", () => {
     const set = recSet([metaDominantHero(1, 1), roleOnlyHero(2, 5, 12), roleOnlyHero(3, 4, 11)]);
-    const strategy = deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening");
+    const strategy = deriveRevealStrategy(OPENING_VIEW, set, null, [], "team_opening")!;
     expect(strategy.kind).toBe("REVEAL_POSITION");
     expect(strategy).not.toHaveProperty("heroId");
   });
@@ -104,7 +104,7 @@ describe("evidence-scaled specificity: sin criterio justificado, Wave 2 NO nombr
       recSet([roleOnlyHero(1, 3, 50), { heroId: 2, signals: [signal("position_fit", 0.7, 10), signal("counter", 0.5, 10)], impact: resolvedImpact(1) }]),
     ];
     const heroPositions: HeroPositions = { 1: [{ position: 2, matches: 500 }, { position: 3, matches: 400 }] };
-    const seen = new Set<string>();
+    const seen = new Set<string | null>();
     for (const set of sets) {
       for (const context of ["team_opening", "blind_second_pick", "response_pick", "closing_pick"] as const) {
         for (const positions of [undefined, heroPositions]) seen.add(kindOf(deriveRevealStrategy(RESPONSE_VIEW, set, null, [], context, { heroPositions: positions })));
@@ -115,11 +115,11 @@ describe("evidence-scaled specificity: sin criterio justificado, Wave 2 NO nombr
 
   test("sin candidatos V6 (p. ej. sin meta) sigue habiendo una acción a nivel de posición, nunca un héroe ni un vacío", () => {
     const empty = recSet([]);
-    const opening = deriveRevealStrategy(OPENING_VIEW, empty, null, [], "team_opening");
+    const opening = deriveRevealStrategy(OPENING_VIEW, empty, null, [], "team_opening")!;
     expect(opening.kind).toBe("REVEAL_POSITION");
     expect(opening).not.toHaveProperty("heroId");
     expect(opening.rationale.length).toBeGreaterThan(0);
-    expect(deriveRevealStrategy(RESPONSE_VIEW, empty, null, [], "response_pick").kind).toBe("REVEAL_POSITION");
+    expect(deriveRevealStrategy(RESPONSE_VIEW, empty, null, [], "response_pick")!.kind).toBe("REVEAL_POSITION");
   });
 });
 
