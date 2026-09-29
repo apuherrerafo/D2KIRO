@@ -95,7 +95,7 @@ export type ApSimulatorOwnSelectionResult =
       rejected?: RejectionReasonV2;
     };
 
-export type YieldRoundResult = { ok: true } | { ok: false; reason: "session_not_found" | "not_ap_simulator" | "no_open_round" | "no_ally_bot_capacity" | "ally_bot_cannot_absorb_capacity" };
+export type YieldRoundResult = { ok: true } | { ok: false; reason: "session_not_found" | "not_ap_simulator" | "no_open_round" | "round_already_yielded" | "no_ally_bot_capacity" | "ally_bot_cannot_absorb_capacity" };
 
 interface ProtocolSessionEntry {
   state: DraftProtocolState;
@@ -407,6 +407,7 @@ export class ProtocolSessionStore {
     if (!isApSimulatorMetadata(entry.metadata) || !entry.metadata.controlledPositions) return { ok: false, reason: "not_ap_simulator" };
     const round = entry.state.rankedAp?.round;
     if (!round) return { ok: false, reason: "no_open_round" };
+    if (entry.roundYielded.has(round.round)) return { ok: false, reason: "round_already_yielded" };
     const allyPositions = this.allyBotPositions(sessionId) ?? [];
     if (allyPositions.length === 0) return { ok: false, reason: "no_ally_bot_capacity" };
     const filled = new Set(entry.ownPickPositions.map((binding) => binding.assignedPosition));

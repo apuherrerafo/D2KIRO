@@ -162,6 +162,40 @@ describe("INV-YIELD-001 -- the web may advertise Yield only in states where the 
     }
     expect(ok, "the web must never advertise Yield as actionable in a state where POST /yield is rejected").toBe(true);
   });
+
+  test("once a round is yielded, the snapshot withdraws Yield and a duplicate POST is rejected", async () => {
+    const { store, routes } = createFixtureRoutes();
+    const side = "radiant" as const;
+    const created = await routes.post(
+      post({
+        rulesetId: "dota2/ranked-all-pick",
+        patch: "7.41f",
+        localSide: side,
+        adapterKind: "simulator",
+        partyContext: { partySize: 3 as const, side, controlledSlots: [] as const },
+        controlledPositions: [1, 3, 5] as const,
+        humanPosition: 1 as const,
+        simulatorSeed: "YIELD-DUPLICATE-0001",
+      }),
+    );
+    expect(created.status).toBe(201);
+    const { sessionId } = (await created.json()) as { sessionId: string };
+
+    expect((await routes.postResolveBans(post({ playerBanPreferences: [] }), sessionId)).status).toBe(200);
+    const beforeYield = (await (await routes.postAutoDrive(sessionId)).json()) as PublicSnapshotLite;
+    expect(beforeYield.stopReason).toBe("human_input");
+    expect(beforeYield.canYield).toBe(true);
+
+    const firstYield = await routes.postYield(sessionId);
+    expect(firstYield.status).toBe(200);
+    expect(((await firstYield.json()) as PublicSnapshotLite).canYield).toBe(false);
+    const currentRound = store.get(sessionId)!.rankedAp!.round!.round;
+
+    const duplicateYield = await routes.postYield(sessionId);
+    expect(duplicateYield.status).toBe(409);
+    expect((await duplicateYield.json()).error).toBe("round_already_yielded");
+    expect(store.get(sessionId)!.rankedAp!.round!.round).toBe(currentRound);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------

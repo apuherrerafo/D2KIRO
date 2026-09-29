@@ -109,6 +109,7 @@ interface Snapshot {
   rejected?: string;
   resolvedBans?: number[];
   error?: string;
+  canYield?: boolean;
 }
 
 async function json<T>(response: Response): Promise<T> {
@@ -760,6 +761,26 @@ describe("PD-026/PD-027 -- Solo/Party: posicion independiente de la cronologia d
     // but round 1's capacity is 2 and the human yielded, so [2,4] (Ally Bot's OWN positions) fill it.
     expect(afterYield.stopReason).toBe("round_revealed");
     expect(store.ownAssignedPositions(sessionId)!.every((b) => b.assignedPosition === 2 || b.assignedPosition === 4)).toBe(true);
+  });
+
+  test("P0-3: una ronda ya cedida no puede cederse dos veces sin avanzar", async () => {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createPartySession(routes, "radiant", 1, [1, 3, 5], "DUPLICATE_YIELD");
+    await resolveBans(routes, sessionId);
+
+    const beforeFirstYield = await autoDrive(routes, sessionId);
+    expect(beforeFirstYield.stopReason).toBe("human_input");
+    expect(beforeFirstYield.canYield).toBe(true);
+
+    const firstYield = await yieldRound(routes, sessionId);
+    expect(firstYield.status).toBe(200);
+    expect((await json<Snapshot>(firstYield)).canYield).toBe(false);
+    const roundAfterFirstYield = store.get(sessionId)!.rankedAp!.round!.round;
+
+    const secondYield = await yieldRound(routes, sessionId);
+    expect(secondYield.status).toBe(409);
+    expect((await json<{ error: string }>(secondYield)).error).toBe("round_already_yielded");
+    expect(store.get(sessionId)!.rankedAp!.round!.round).toBe(roundAfterFirstYield);
   });
 
   test("MANDATORY 4c -- ceder es rechazado cuando el Ally Bot no puede absorber la capacidad restante", async () => {
