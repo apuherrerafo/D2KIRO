@@ -1,14 +1,31 @@
 import { expect, type Page, type Response } from "@playwright/test";
+import { mintAccountToken } from "../../apps/web/lib/account-token";
 
 // Wave 1 acceptance smoke -- shared helpers. Reuses the existing Playwright/E2E harness
 // (playwright.config.ts, global-setup.ts, the fixture DB); nothing here is a second framework.
 
-/** Direct engine origin of the E2E harness. Only used for the test-only clock seam. */
+/**
+ * Direct engine origin of the E2E harness. Only used for the test-only clock seam. Resolution order: the external
+ * runtime's URL, then the port the managed runner reserved (`E2E_ENGINE_PORT`, random per run), then the dev default.
+ */
 export function engineDirectUrl(env: Record<string, string | undefined> = process.env): string {
-  return env.E2E_EXTERNAL_ENGINE_URL ?? "http://127.0.0.1:4100";
+  if (env.E2E_EXTERNAL_ENGINE_URL) return env.E2E_EXTERNAL_ENGINE_URL;
+  return `http://127.0.0.1:${env.E2E_ENGINE_PORT ?? 4100}`;
 }
 
 export const ENGINE_DIRECT = engineDirectUrl();
+
+/**
+ * The engine authenticates every session route (owner-bound sessions). The browser reaches it through the /engine proxy,
+ * which injects `x-account-token` from the session cookie; the test-only clock seam is deliberately NOT proxied, so a
+ * direct call mints the same single-use token for the fixture account (same secret, same account as the browser cookie).
+ */
+export function engineDirectHeaders(env: Record<string, string | undefined> = process.env): Record<string, string> {
+  const secret = env.E2E_INTERNAL_AUTH_SECRET;
+  const accountId = Number(env.E2E_ACCOUNT_ID);
+  if (!secret || !Number.isInteger(accountId)) return {};
+  return { "x-account-token": mintAccountToken(accountId, secret) };
+}
 
 export interface RecordedResponse {
   url: string;

@@ -220,9 +220,12 @@ test.describe("Wave 2 acceptance -- hidden information (deterministic setup thro
 
   async function createWorld(request: APIRequestContext, baseURL: string, seed: string): Promise<World> {
     const api = `${baseURL}/engine/api/session/protocol`;
-    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "player" })) };
+    // OLD_ASSERTION/fixture: chronological `controlledSlots` with no `controlledPositions` (the pre-PD-026 shape).
+    // WHY_OBSOLETE: the engine's AP policy rejects it (422 unsupported_simulator_policy): Own Team truth is a Position set.
+    // NEW_PRODUCT_CONTRACT: `controlledSlots` arrives empty and `controlledPositions.length === partySize`.
+    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [] };
     const created = await request.post(api, {
-      data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, humanPosition: 2, simulatorSeed: seed },
+      data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, controlledPositions: [1, 2, 3, 4, 5], humanPosition: 2, simulatorSeed: seed },
     });
     expect(created.status()).toBe(201);
     const { sessionId } = (await created.json()) as { sessionId: string };
@@ -243,7 +246,8 @@ test.describe("Wave 2 acceptance -- hidden information (deterministic setup thro
 
   async function sealOwn(request: APIRequestContext, world: World, slotIndex: number, heroId: number) {
     const response = await request.post(`${world.api}/${world.sessionId}/command`, {
-      data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId } },
+      // AP session policy: every own seal binds a controlled, still-unbound position (Round 1 here: slot 0 -> Pos1, slot 1 -> Pos2).
+      data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId }, assignedPosition: slotIndex + 1 },
     });
     const body = (await response.json()) as { accepted: boolean; view: { enemyPicks: { visibility: string; heroId?: number }[] } };
     expect(body.accepted).toBe(true);

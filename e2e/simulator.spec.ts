@@ -34,7 +34,8 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   await expect(page.getByText(/AHORA$/)).toHaveCount(0);
   await expect(page.getByTestId("round-recommendation-columns")).toHaveCount(0);
   await expect(page.getByTestId("coach-panel")).toHaveCount(0);
-  // COHERENCE-013 in the real browser: the selector's highlighted position IS the Coach target.
+  // COHERENCE-013 / PSR-002 in the real browser: with no navigation the highlighted position is the viewed one AND the recommendation.
+  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0);
   const target = await page.getByTestId("current-decision-target").getAttribute("data-target-position");
   const targetButton = page.getByRole("group", { name: "Posición para el próximo pick" }).getByRole("button", { name: new RegExp(`Pos${target} `) });
   await expect(targetButton).toHaveClass(/border-accent-primary/);
@@ -88,12 +89,19 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   const target = page.getByTestId("current-decision-target");
   await expect(target).toBeVisible({ timeout: 60_000 });
   const firstTarget = Number(await target.getAttribute("data-target-position"));
-  const chosen = firstTarget === 5 ? 4 : 5; // deliberately not Pos1, and a navigation away from the Coach's view
+  const chosen = firstTarget === 5 ? 4 : 5; // deliberately not Pos1, and a navigation away from the Coach's recommendation
 
-  // Selector navigation: the Coach answers for the chosen position (selector == Coach target).
+  // Selector navigation (PSR-002). OLD_ASSERTION: the banner's data-target-position became `chosen`.
+  // WHY_OBSOLETE: that conflated "the Coach recommends" with "the Player is inspecting".
+  // NEW_PRODUCT_CONTRACT: navigation moves only the VIEWED position; the recommendation is untouched.
   const selector = page.getByRole("group", { name: "Posición para el próximo pick" });
   await selector.getByRole("button", { name: new RegExp(`Pos${chosen} `) }).click();
-  await expect(target).toHaveAttribute("data-target-position", String(chosen), { timeout: 30_000 });
+  const viewed = page.getByTestId("current-decision-viewed");
+  await expect(viewed).toHaveAttribute("data-viewed-position", String(chosen), { timeout: 30_000 });
+  await expect(viewed).toContainText(`Estás viendo Pos${chosen}`);
+  await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${firstTarget}`);
+  await expect(target).toHaveAttribute("data-target-position", String(firstTarget)); // recommendation did not move
+  await expect(page.getByTestId("current-decision-candidates")).toContainText(`Pos${chosen} `);
   const cardsBefore = await decisionHeroIds(page);
 
   await page.locator("button[title]:not([disabled])").first().click();
@@ -108,5 +116,6 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   // The previous (Pos`chosen`) card set is gone: a new target owns the list now. A flex hero may
   // legitimately be credible at both positions, so the check is on the set, not on each hero.
   expect(cardsAfter).not.toEqual(cardsBefore);
+  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0); // a real pick resets navigation to the recomputed recommendation
   await expect(page.getByText("ALLY BOT", { exact: true })).toHaveCount(0); // Party5: no allied bot exists to act
 });

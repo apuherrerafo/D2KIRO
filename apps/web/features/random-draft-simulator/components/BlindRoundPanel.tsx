@@ -111,7 +111,7 @@ interface BlindRoundActiveProps {
   onLockPick: (heroId: HeroId, position: Position) => void;
   onYield: () => void;
   humanActionability: HumanActionability | null;
-  /** The Coach's current target (V4 decision / the Player's requested view). The selector renders exactly this. */
+  /** The position being VIEWED (V4 decision `viewedPosition` / the Player's requested view) -- never the Coach recommendation. The selector renders exactly this. */
   selectedTarget: Position | null;
   onSelectTarget?: (position: Position) => void;
 }
@@ -159,8 +159,8 @@ function PositionTargetButton({ position, selected, locked, onSelect }: Position
 function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick, onYield, humanActionability, selectedTarget, onSelectTarget }: BlindRoundActiveProps) {
   const availablePositions = phase.attemptPositions.filter((position) => phase.lockedUserPicks[position] === undefined);
   const [preferredPosition, setPreferredPosition] = useState<Position | undefined>(availablePositions[0] ?? phase.attemptPositions[0]);
-  // COHERENCE-013 -- the selector shows the Coach's target whenever there is one; the local choice is
-  // only a fallback while the Coach is loading/unavailable (the Player can always pick).
+  // COHERENCE-013 / PSR-002 -- the selector shows the viewed position whenever there is one; the local
+  // choice is only a fallback while the Coach is loading/unavailable (the Player can always pick).
   const localPosition = preferredPosition !== undefined && availablePositions.includes(preferredPosition)
     ? preferredPosition
     : (availablePositions[0] ?? preferredPosition);

@@ -2,9 +2,11 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
 import {
   ENGINE_DIRECT,
+  engineDirectHeaders,
   ROUND_HEADING,
   assertNoSimulatorTruthLeak,
   awaitRoundHandlingCollision,
+  type SnapshotBody,
   configureAndStart,
   expectNotSelectable,
   firstEnabled,
@@ -33,6 +35,9 @@ interface DraftPlan {
   r2: Alternatives;
   r3: Alternatives;
 }
+
+/** Party5: 5 human positions pending in Round 1; 2 sealed per round (capacity 2/2/1) -> 5 / 3 / 1 still pending. */
+const PENDING_POSITIONS_BY_ROUND: Record<1 | 2 | 3, number> = { 1: 5, 2: 3, 3: 1 };
 
 function annotate(type: string, description: string): void {
   test.info().annotations.push({ type, description });
@@ -77,7 +82,11 @@ async function playFullDraft(
     const capacity = alternatives.length;
     // Round capacities are exactly 2 / 2 / 1 and the Player owns every seat.
     await expect(page.getByText(ROUND_HEADING(round, capacity))).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId("round-seat")).toHaveCount(capacity);
+    // OLD_ASSERTION: `round-seat` count == capacity. WHY_OBSOLETE: V4 separates round CAPACITY (picks that fit now) from the
+    //   PENDING human positions (which positions are still open); the retired seat cards conflated them.
+    // NEW_PRODUCT_CONTRACT: `round-capacity` carries the capacity; one `round-position-card` per pending position (5/3/1).
+    await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", String(capacity));
+    await expect(page.getByTestId("round-position-card")).toHaveCount(PENDING_POSITIONS_BY_ROUND[round]);
     if (round === 1) {
       await expect(page.getByTestId("resolved-bans")).toBeVisible();
       // No pick-order-by-position rule: every planned role (incl. Mid/Carry now, support later) has a legal hero right now.
@@ -187,21 +196,38 @@ test.describe("Wave 1 acceptance -- ban flow (browser)", () => {
 });
 
 test.describe("Wave 1 acceptance -- timers and gold penalty (deterministic clock)", () => {
-  async function advance(request: APIRequestContext, page: Page, sessionId: string, ms: number): Promise<void> {
+  type SimulatorView = NonNullable<SnapshotBody["simulator"]>;
+
+  async function advance(request: APIRequestContext, page: Page, sessionId: string, ms: number): Promise<SimulatorView> {
     // Server-side Simulator timer clock (test-only seam, gated to index.e2e.ts) + the browser fake clock, in lockstep.
-    const response = await request.post(`${ENGINE_DIRECT}/api/session/protocol/${sessionId}/test-advance-clock`, { data: { ms } });
+    // The engine origin is the runner's reserved port (ENGINE_DIRECT), never a hard-coded 4100.
+    const response = await request.post(`${ENGINE_DIRECT}/api/session/protocol/${sessionId}/test-advance-clock`, { data: { ms }, headers: engineDirectHeaders() });
     expect(response.status()).toBe(200);
     await page.clock.runFor(ms);
+    return ((await response.json()) as { simulator: SimulatorView }).simulator;
   }
 
-  async function goldOf(page: Page, seatIndex: number): Promise<number> {
-    const label = page.getByTestId("round-seat").nth(seatIndex).getByTestId("gold-penalty");
+  /** Engine-truth timer view through the same /engine proxy the browser uses. */
+  async function simulatorOf(request: APIRequestContext, baseURL: string, sessionId: string): Promise<SimulatorView> {
+    const response = await request.get(`${baseURL}/engine/api/session/protocol/${sessionId}`);
+    expect(response.status()).toBe(200);
+    return ((await response.json()) as { simulator: SimulatorView }).simulator;
+  }
+
+  /** The Player-visible aggregate ("-N oro perdido en esta ronda"); 0 when the notice is not shown. */
+  async function shownGold(page: Page): Promise<number> {
+    const label = page.getByTestId("gold-penalty");
     if ((await label.count()) === 0) return 0;
     const match = /-(\d+) oro/.exec(await label.innerText());
     return match ? Number(match[1]) : 0;
   }
 
-  test("expiry starts 2 gold/s per pending seat; locked seats stop; nothing is auto-picked; the Player can still pick", async ({ page, request }) => {
+  // OLD_ASSERTION: per-seat `round-seat` cards each carried a `gold-penalty` label; "Pendiente" was counted on 2 seats.
+  // WHY_OBSOLETE: V4 renders one card per PENDING POSITION (5 in Party5 Round 1) and ONE aggregate gold notice; the
+  //   per-seat numbers are engine truth (`simulator.goldPenaltyBySlot`), not DOM.
+  // NEW_PRODUCT_CONTRACT: the Player sees the expiry notice + an aggregate loss; per-seat freezing is proven on the
+  //   engine timer view the UI is fed from; nothing is auto-picked.
+  test("expiry starts 2 gold/s per pending seat; locked seats stop; nothing is auto-picked; the Player can still pick", async ({ page, request, baseURL }) => {
     annotate("seed", "WAVE1TMR");
     await page.clock.install();
     const rec = record(page);
@@ -214,27 +240,32 @@ test.describe("Wave 1 acceptance -- timers and gold penalty (deterministic clock
     await expect(page.getByTestId("timer-expired")).toHaveCount(0);
 
     // Cross the 25 s deadline by 3+ s WITHOUT picking anything.
-    await advance(request, page, sessionId, 28_000);
+    const expired = await advance(request, page, sessionId, 28_000);
     await expect(page.getByTestId("timer-expired")).toBeVisible();
     await expect(page.getByTestId("timer-expired")).toContainText("2 de oro por segundo");
-    expect(await goldOf(page, 0)).toBeGreaterThanOrEqual(6);
-    expect(await goldOf(page, 1)).toBeGreaterThanOrEqual(6);
-    // No hero was selected for the Player: still two pending seats, zero commands sent.
-    await expect(page.getByTestId("round-seat").getByText("Pendiente")).toHaveCount(2);
+    expect(expired.goldPenaltyBySlot[0]).toBeGreaterThanOrEqual(6); // engine truth: both pending seats accrue
+    expect(expired.goldPenaltyBySlot[1]).toBeGreaterThanOrEqual(6);
+    await expect.poll(() => shownGold(page)).toBeGreaterThanOrEqual(6); // ...and the Player sees the loss
+    // No hero was selected for the Player: every human position is still pending, zero commands sent.
+    await expect(page.getByTestId("round-position-card").getByText("Pendiente")).toHaveCount(5);
     expect(rec.requests.filter((request_) => request_.path.endsWith("/command"))).toHaveLength(0);
 
-    // The Player can still choose after expiry: lock seat 1 -- its penalty freezes, seat 2 keeps accruing.
+    // The Player can still choose after expiry: lock one seat -- its penalty freezes, the other keeps accruing.
     const first = await firstEnabled(page, [...MID, ...CARRY]);
     await heroButton(page, first).click();
     await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
-    const lockedGold = await goldOf(page, 0);
-    const pendingGold = await goldOf(page, 1);
+    const afterLock = await simulatorOf(request, baseURL!, sessionId);
+    expect(afterLock.pendingSeats).toHaveLength(1);
+    const lockedSeat = [0, 1].find((seat) => !afterLock.pendingSeats.includes(seat))!;
+    const pendingSeat = afterLock.pendingSeats[0]!;
+    const lockedGold = afterLock.goldPenaltyBySlot[lockedSeat]!;
+    const pendingGold = afterLock.goldPenaltyBySlot[pendingSeat]!;
     expect(lockedGold).toBeGreaterThanOrEqual(6);
     expect(pendingGold).toBeGreaterThanOrEqual(6);
 
-    await advance(request, page, sessionId, 5_000);
-    expect(await goldOf(page, 0)).toBe(lockedGold); // locked seat: frozen
-    const grown = (await goldOf(page, 1)) - pendingGold;
+    const later = await advance(request, page, sessionId, 5_000);
+    expect(later.goldPenaltyBySlot[lockedSeat]).toBe(lockedGold); // locked seat: frozen
+    const grown = later.goldPenaltyBySlot[pendingSeat]! - pendingGold;
     expect(grown).toBeGreaterThanOrEqual(10); // pending seat: 2 gold/s x 5 s
     expect(grown).toBeLessThanOrEqual(13);
 
@@ -254,18 +285,28 @@ test.describe("Wave 1 acceptance -- hidden information and collision (determinis
   /** Plays only round 1 through the API the UI uses and reports what the Player later SEES the enemy reveal. */
   async function revealedRound1(request: APIRequestContext, baseURL: string, seed: string): Promise<{ heroes: number[]; bansBefore: number } | null> {
     const api = `${baseURL}/engine/api/session/protocol`;
-    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "player" })) };
+    // Fixture migrated to the AP session policy (PD-026/PD-027): empty `controlledSlots` + explicit `controlledPositions`
+    // (the old chronological-slot shape is rejected with 422 unsupported_simulator_policy).
+    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [] };
     const created = await request.post(api, {
-      data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, humanPosition: 2, simulatorSeed: seed },
+      data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, controlledPositions: [1, 2, 3, 4, 5], humanPosition: 2, simulatorSeed: seed },
     });
+    // A probe that FAILS (bad fixture, engine error) is a test failure with its status -- never a silent "no collision" null
+    // and never a dereference of a `view` the failed response does not have. Only a real collision returns null.
+    expect(created.status(), `probe ${seed}: create session`).toBe(201);
     const { sessionId } = (await created.json()) as { sessionId: string };
-    await request.post(`${api}/${sessionId}/resolve-bans`, { data: { playerBanPreferences: [] } });
-    const drive = await (await request.post(`${api}/${sessionId}/auto-drive`, { data: {} })).json() as { view: { bannedHeroes: number[] } };
+    const resolvedBans = await request.post(`${api}/${sessionId}/resolve-bans`, { data: { playerBanPreferences: [] } });
+    expect(resolvedBans.status(), `probe ${seed}: resolve-bans`).toBe(200);
+    const driveResponse = await request.post(`${api}/${sessionId}/auto-drive`, { data: {} });
+    expect(driveResponse.status(), `probe ${seed}: auto-drive`).toBe(200);
+    const drive = (await driveResponse.json()) as { view: { bannedHeroes: number[] } };
     let last: { view: { bannedHeroes: number[]; enemyPicks: { visibility: string; heroId?: number }[] } } | null = null;
     for (const [slotIndex, name] of ["Clockwerk", "Dazzle"].entries()) {
       const response = await request.post(`${api}/${sessionId}/command`, {
-        data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: FIXTURE_HERO_ID_BY_NAME.get(name) } },
+        // AP session policy: every own seal binds a controlled, still-unbound position (slot 0 -> Pos1, slot 1 -> Pos2).
+        data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: FIXTURE_HERO_ID_BY_NAME.get(name) }, assignedPosition: slotIndex + 1 },
       });
+      expect([200, 202], `probe ${seed}: seal slot ${slotIndex}`).toContain(response.status());
       last = (await response.json()) as typeof last;
     }
     if (!last || last.view.bannedHeroes.length !== drive.view.bannedHeroes.length) return null; // a collision happened in the probe
