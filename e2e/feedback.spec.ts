@@ -14,11 +14,12 @@ test.describe("Modern Coach Recommendation Feedback", () => {
     await startButton.click();
 
     // Wait for Round 1 and Coach recommendations
-    await expect(page.getByText(/Ronda 1 -- elegí 2 héroes/)).toBeVisible({ timeout: 60_000 });
-    const coachPanel = page.locator('[data-testid="coach-panel"]');
+    await expect(page.getByText(/Ronda 1 · 2 espacios de pick disponibles/)).toBeVisible({ timeout: 60_000 });
+    // Product Semantics Recovery WP3: feedback attaches to the ONE displayed ranked result (V4 cards).
+    const coachPanel = page.locator('[data-testid="current-decision-panel"]');
     await expect(coachPanel).toBeVisible({ timeout: 30_000 });
 
-    const heroCards = page.locator('[data-testid="coach-hero-card"]');
+    const heroCards = page.locator('[data-testid="current-decision-card"]');
     await expect(heroCards.first()).toBeVisible({ timeout: 30_000 });
     const cardCount = await heroCards.count();
     expect(cardCount).toBeGreaterThan(0);

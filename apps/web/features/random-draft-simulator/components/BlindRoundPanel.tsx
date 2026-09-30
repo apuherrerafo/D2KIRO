@@ -128,10 +128,9 @@ function RoundCapacityNotice({ round, actionability }: RoundCapacityNoticeProps)
   const capacity = actionability.roundCapacity;
   const label = capacity === 1 ? "1 espacio de pick disponible" : `${capacity} espacios de pick disponibles`;
   return (
-    <div className="flex flex-col gap-1" data-testid="round-capacity" data-round-capacity={capacity}>
-      <span className="text-heading text-content-primary">Ronda {round}</span>
-      <span className="text-body font-semibold text-accent-primary">{label}</span>
-    </div>
+    <span className="text-heading text-content-primary" data-testid="round-capacity" data-round-capacity={capacity}>
+      Ronda {round} · {label}
+    </span>
   );
 }
 

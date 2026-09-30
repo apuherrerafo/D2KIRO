@@ -264,6 +264,25 @@ interface PublicV3 {
   shortlist: PublicCoachCard[];
 }
 
+/**
+ * Product Semantics Recovery -- the public V4 CurrentHumanDecision JSON, typed from the wire contract
+ * only (never imported from the engine: this generator must stay independent of the decision code).
+ */
+export type PublicV4Candidates =
+  | { state: "RANKED"; targetPosition: Position; cards: { heroId: number; position: Position; rank: number; score: number; confidence: string; isFromPool: boolean }[]; degradations: { reason: string; detail: string }[] }
+  | { state: "UNRANKED_POSITIONAL"; targetPosition: Position; alternatives: Record<string, unknown>[]; reason: string; degradations: { reason: string; detail: string }[] }
+  | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: { reason: string; detail: string }[] };
+
+export type PublicV4Decision =
+  | { kind: "ACTIONABLE"; actionablePositions: Position[]; roundCapacity: number; targetPosition: Position; targetBasis: string; targetRationale: string; candidates: PublicV4Candidates; personalPoolApplied: boolean }
+  | { kind: "NO_HUMAN_ACTION"; actionablePositions: Position[]; roundCapacity: number; reason: string };
+
+export interface PublicV4 {
+  schema: string;
+  decision: PublicV4Decision;
+  meta: { revision: number; basedOn: { stateIdentity: string } };
+}
+
 export interface Checkpoint {
   scenarioId: string;
   side: Side;
@@ -286,6 +305,12 @@ export interface Checkpoint {
   snapshot: PublicSnapshot;
   v2: PublicV2 | null;
   v3: PublicV3 | null;
+  /** The public V4 CurrentHumanDecision (`?format=v4`), or null when the route did not answer 200. */
+  v4: PublicV4 | null;
+  /** Raw V4 response body, for structural (key-level) checks. */
+  v4RawText: string;
+  /** The session's declared personal position (metadata), for COHERENCE-007. */
+  humanPosition: Position | null;
   rawResponseText: string; // full serialized text of every response folded into this checkpoint, for INV-LEAK-001's mechanical scan
 }
 
@@ -297,7 +322,7 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchRecommendations(routes: Routes, sessionId: string): Promise<{ v2: PublicV2 | null; v3: PublicV3 | null; rawText: string }> {
+export async function fetchRecommendations(routes: Routes, sessionId: string): Promise<{ v2: PublicV2 | null; v3: PublicV3 | null; v4: PublicV4 | null; v4RawText: string; rawText: string }> {
   const v2Response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations`));
   const v2Text = await v2Response.clone().text();
   const v2 = v2Response.status === 200 ? (JSON.parse(v2Text) as PublicV2) : null;
@@ -309,7 +334,10 @@ export async function fetchRecommendations(routes: Routes, sessionId: string): P
     const body = JSON.parse(v3Text) as { output: PublicV3 | null };
     v3 = body.output;
   }
-  return { v2, v3, rawText: `${v2Text}\n${v3Text}` };
+  const v4Response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v4`));
+  const v4Text = await v4Response.clone().text();
+  const v4 = v4Response.status === 200 ? (JSON.parse(v4Text) as { output: PublicV4 }).output : null;
+  return { v2, v3, v4, v4RawText: v4Text, rawText: `${v2Text}\n${v3Text}\n${v4Text}` };
 }
 
 function buildCheckpoint(
@@ -319,7 +347,7 @@ function buildCheckpoint(
   step: CheckpointStep,
   filledPosition: Position | null,
   snapshot: PublicSnapshot,
-  rec: { v2: PublicV2 | null; v3: PublicV3 | null; rawText: string },
+  rec: { v2: PublicV2 | null; v3: PublicV3 | null; v4: PublicV4 | null; v4RawText: string; rawText: string },
   snapshotRawText: string,
 ): Checkpoint {
   const controlledPositions = store.metadata(sessionId)?.controlledPositions ?? [];
@@ -342,6 +370,9 @@ function buildCheckpoint(
     snapshot,
     v2: rec.v2,
     v3: rec.v3,
+    v4: rec.v4,
+    v4RawText: rec.v4RawText,
+    humanPosition: store.metadata(sessionId)?.humanPosition ?? null,
     rawResponseText: `${snapshotRawText}\n${rec.rawText}`,
   };
 }

@@ -85,7 +85,7 @@ async function playFullDraft(
     }
     picked.push(...(await lockPicks(page, alternatives)));
     // A legal collision reopens a seat instead of closing the round: re-pick through the UI, then continue.
-    repicks += await awaitRoundHandlingCollision(page, round < 3 ? new RegExp(`Ronda ${round} -- revelada|Ronda ${round + 1} -- elegí`) : /Draft completo/, alternatives.flat(2));
+    repicks += await awaitRoundHandlingCollision(page, round < 3 ? new RegExp(`Ronda ${round} -- revelada|Ronda ${round + 1} · `) : /Draft completo/, alternatives.flat(2));
     if (round < 3) {
       await expect(page.getByText("Equipo rival").first()).toBeVisible();
     }
@@ -173,7 +173,7 @@ test.describe("Wave 1 acceptance -- ban flow (browser)", () => {
     });
     await configureAndStart(page, { side: "Dire", position: "Posición 1 — Carry", seed: "WAVE1FCL", banNames: ["Zeus"] });
     await expect(page.getByTestId("ban-failed")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(/Ronda 1 -- elegí/)).toHaveCount(0);
+    await expect(page.getByText(/Ronda 1 · /)).toHaveCount(0);
     expect(rec.requests.some((request) => request.path.endsWith("/auto-drive"))).toBe(false);
     expect(rec.requests.some((request) => request.path.endsWith("/command"))).toBe(false);
 
@@ -226,7 +226,7 @@ test.describe("Wave 1 acceptance -- timers and gold penalty (deterministic clock
     // The Player can still choose after expiry: lock seat 1 -- its penalty freezes, seat 2 keeps accruing.
     const first = await firstEnabled(page, [...MID, ...CARRY]);
     await heroButton(page, first).click();
-    await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+    await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
     const lockedGold = await goldOf(page, 0);
     const pendingGold = await goldOf(page, 1);
     expect(lockedGold).toBeGreaterThanOrEqual(6);
@@ -303,11 +303,11 @@ test.describe("Wave 1 acceptance -- hidden information and collision (determinis
     // Pick the enemy hero A (hidden to us) plus a harmless hero -> collision at the round close.
     const other = await firstEnabled(page, ["Tinker", "Necrophos", "Luna", "Sven"].filter((name) => name !== enemyA && name !== enemyB));
     await heroButton(page, enemyA).click();
-    await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+    await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
     await heroButton(page, other).click();
 
     await expect(page.getByText(/Baneados por colisión en esta ronda/)).toContainText(enemyA, { timeout: 30_000 });
-    await expect(page.getByText(/elegí 1 héroe/)).toBeVisible(); // only the colliding seat reopened
+    await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1"); // only the colliding seat reopened
     await expectNotSelectable(page, enemyA); // availability updated: the collision-banned hero is gone
     const afterCollision = rec.snapshots().at(-1)!;
     expect(afterCollision.view.bannedHeroes).toContain(FIXTURE_HERO_ID_BY_NAME.get(enemyA));

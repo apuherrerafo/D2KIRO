@@ -182,7 +182,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   const flexName = await firstEnabled(page, config.flexAssignment ? FLEX_CANDIDATES : [...config.roundThreePlan, ...ANY_HERO]);
   const flexId = FIXTURE_HERO_ID_BY_NAME.get(flexName)!;
   await heroButton(page, flexName).click();
-  await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+  await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
   const afterFirst = await coachSnapshot(page);
   expect(afterFirst.revision).toBeGreaterThan(start.revision);
@@ -243,7 +243,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   }
   expect(ignoredName, "a legal hero outside the Coach's advice").not.toBeNull();
   await heroButton(page, ignoredName!).click();
-  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 -- elegí/, ANY_HERO);
+  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 · /, ANY_HERO);
   await expect(page.getByText(/no está disponible/)).toHaveCount(0); // deviating is legal: no rejection, no "wrong choice"
   await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
 
@@ -265,7 +265,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // Follow the Coach for one seat, take the personal ranking's #1 for the other.
   const followName = FIXTURE_HERO_NAME_BY_ID.get(round2.shortlist[0]!)!;
   await heroButton(page, followName).click();
-  await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+  await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
   const personalIds = await personal.locator("li").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
   const personalNames = personalIds.map((id) => FIXTURE_HERO_NAME_BY_ID.get(id)!).filter((name) => name !== followName);

@@ -107,7 +107,7 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
       const firstName = await firstEnabled(page, alternatives[0]!);
       const requestsBefore = recommendationRequests(rec);
       await heroButton(page, firstName).click();
-      await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+      await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
       await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
       const afterFirst = await snapshotOfCoach(page);
       expect(afterFirst.revision).toBeGreaterThan(atStart.revision);
@@ -189,7 +189,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     await heroButton(page, ignored!).click();
 
     // Accepted: the seat is sealed, no rejection notice, no HTTP error -- and the Coach has recomputed.
-    await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+    await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
     await expect(page.getByText(/no está disponible/)).toHaveCount(0);
     await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
     const after = await snapshotOfCoach(page);
@@ -202,7 +202,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     // The draft keeps going: the second seat is still open and can be sealed.
     const second = await firstEnabled(page, [...CARRY, ...MID].filter((name) => name !== ignored));
     await heroButton(page, second).click();
-    await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 -- elegí/).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 · /).first()).toBeVisible({ timeout: 30_000 });
     expect(commandsSoFar(rec)).toBe(2);
     expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
   });
