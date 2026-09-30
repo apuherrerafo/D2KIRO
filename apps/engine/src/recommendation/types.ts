@@ -4,6 +4,7 @@ import type { DegradationFlag } from "../signals/mix";
 import type { SignalContribution, SignalId } from "../signals/types";
 import type { DraftDecisionContext } from "../drafter/decision-context";
 import type { MetaReadiness } from "../meta/readiness";
+import type { HumanActionability } from "./human-actionability";
 
 
 // R1 S5 -- RecommendationSet/v2 canonical contract. This is the ONE recommendation truth for
@@ -235,6 +236,13 @@ export interface RecommendationDecision {
   /** Every slot currently open AND legal for `actor` right now -- the compound universe. */
   controlledSlots: readonly RecommendationSlot[];
   actionCount: number;
+  /**
+   * Product Semantics Recovery WP1 -- present only for AP Simulator sessions with
+   * `controlledPositions`: which human positions are eligible, separately from how many picks fit
+   * this round. When present, `controlledSlots` holds exactly `roundCapacity` slots and never
+   * narrows `eligiblePositions` (see human-actionability.ts).
+   */
+  humanActionability?: HumanActionability;
 }
 
 // ---------------------------------------------------------------------------------------------

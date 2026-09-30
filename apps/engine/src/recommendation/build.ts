@@ -5,6 +5,7 @@ import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions
 import type { SuggestionSet } from "../signals/mix";
 import { buildBasedOn } from "./identity";
 import { deriveLegalDecision } from "./decision";
+import type { HumanActionability } from "./human-actionability";
 import { buildShortlist } from "./shortlist";
 import { excludedHeroes, postValidateAction, type ComputeSuggestionsForRecommendation } from "./legality";
 import {
@@ -99,6 +100,8 @@ export interface BuildRecommendationSetV2Input {
    */
   humanOpenPositions?: readonly Position[] | null;
   controlledPositions?: readonly Position[] | null;
+  /** WP1 -- ProtocolSessionStore.humanActionability (eligibility vs. round capacity vs. yield). Wins over `humanOpenPositions` for slot derivation. */
+  humanActionability?: HumanActionability | null;
 }
 
 export async function buildRecommendationSetV2(input: BuildRecommendationSetV2Input): Promise<RecommendationSetV2> {
@@ -106,7 +109,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false, input.humanOpenPositions ?? undefined);
+  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false, input.humanOpenPositions ?? undefined, input.humanActionability ?? undefined);
   const degradations: RecommendationDegradation[] = [...legal.degradations];
   const eligibilitySnapshot = state.captainsMode?.eligibilitySnapshot ?? null;
   // Blocker 6 (independent architecture review) -- identity inputs shared by every basedOn built

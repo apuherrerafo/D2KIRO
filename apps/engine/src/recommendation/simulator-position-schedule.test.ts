@@ -3,11 +3,13 @@ import { buildRecommendationSetV2 } from "./build";
 import { buildRecommendationSetFromPerspective } from "./build-from-perspective";
 import { HERO_POSITIONS, fakeCompute, harness, type Harness } from "../coach/session-harness.fixtures";
 
-// PD-026/PD-027 regression lock. This file used to pin a FIXED chronology<->position schedule
-// (R1 -> Pos5+Pos4, R2 -> Pos3+Pos1, R3 -> Pos2) -- that schedule is deleted repo-wide (position !=
-// pick chronology). What replaces it: recommendation slot `.position` tags are driven by
-// `humanOpenPositions` (the session's still-unfilled human-controlled positions, ascending order),
-// never by round/slotIndex. The discriminator is still the session's real `adapterKind` (via
+// PD-026/PD-027 + WP1 regression lock. This file used to pin a FIXED chronology<->position schedule
+// (R1 -> Pos5+Pos4, R2 -> Pos3+Pos1, R3 -> Pos2), and after that an ASCENDING zip of
+// `humanOpenPositions` onto round slots (Party5 R1 -> Pos1+Pos2) -- both let round capacity decide
+// WHICH positions were offered (INV-OWN-002). What replaces them (WP1, human-actionability.ts): the
+// decision carries `humanActionability` -- every eligible human position, never truncated -- and
+// exactly `roundCapacity` slots. A slot is tagged with a position only when every eligible position
+// fits this round (the tagged set IS the eligible set); otherwise slots stay untagged. The discriminator is still the session's real `adapterKind` (via
 // `store.isSimulator`) AND `controlledPositions` being set -- Manual Live always carries a
 // partyContext and must get no tags; a Simulator session without `controlledPositions` (legacy,
 // unreachable through the real route since PD-026/PD-027) also gets no tags, degrading safely.
@@ -63,36 +65,43 @@ describe("Manual Live con partyContext: sin etiquetas de posición derivadas del
   }
 });
 
-describe("Simulator con controlledPositions: la etiqueta de posición sigue a humanOpenPositions, nunca a round/slotIndex", () => {
-  test("nada sellado todavia: humanOpenPositions = las 5 controladas -> ronda 1 etiqueta Pos1 + Pos2 (orden ascendente, no cronologico)", async () => {
+async function v3Decision(h: Harness, id: string) {
+  const context = h.store.perspectiveRecommendationContext(id)!;
+  return (await buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS })).decision;
+}
+
+describe("Simulator con controlledPositions: elegibilidad completa + capacidad de ronda, nunca un zip posición<->slot", () => {
+  test("Party5 ronda 1, nada sellado: 5 posiciones elegibles, capacidad 2, slots SIN etiqueta (no Pos1+Pos2)", async () => {
     const id = "sim-early";
     const h = harness({ sessionId: id, adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5] });
-    expect(await v3Positions(h, id)).toEqual([1, 2]);
-    expect(await legacyPositions(h, id)).toEqual([1, 2]);
+    const decision = await v3Decision(h, id);
+    expect(decision.humanActionability).toEqual({ eligiblePositions: [1, 2, 3, 4, 5], roundCapacity: 2, hasHumanAction: true, noActionReason: null });
+    expect(decision.actionCount).toBe(2);
+    expect(await v3Positions(h, id)).toEqual([undefined, undefined]);
+    expect(await legacyPositions(h, id)).toEqual([undefined, undefined]);
   });
 
-  test("humanOpenPositions se reduce con cada pick propio, y la etiqueta de las rondas siguientes refleja SOLO lo que queda", async () => {
+  test("la elegibilidad se reduce con cada pick propio; la etiqueta sólo aparece cuando lo elegible cabe entero en la ronda", async () => {
     const id = "sim-shrink";
     const h = harness({ sessionId: id, adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5] });
-
-    // Before any pick: all 5 open -> round 1's two slots tag Pos1 + Pos2 (ascending).
-    expect(await v3Positions(h, id)).toEqual([1, 2]);
-    expect(await legacyPositions(h, id)).toEqual([1, 2]);
 
     // Player deliberately picks Pos5 (Hard Support) and Pos3 (Offlane) FIRST, in round 1 -- the
     // exact non-chronological order PD-026/PD-027 exists to allow.
     const r1a = h.store.applyApSimulatorOwnSelection(id, { type: "SUBMIT_SEALED_SELECTION", side: h.side, slotIndex: 0, heroId: OWN_HEROES[0]! }, 5);
     if (!r1a.ok) throw new Error("setup");
+    // After ONE pick, round 1 still has one own slot: the remaining FOUR positions stay eligible, capacity 1.
+    expect((await v3Decision(h, id)).humanActionability).toEqual({ eligiblePositions: [1, 2, 3, 4], roundCapacity: 1, hasHumanAction: true, noActionReason: null });
     const r1b = h.store.applyApSimulatorOwnSelection(id, { type: "SUBMIT_SEALED_SELECTION", side: h.side, slotIndex: 1, heroId: OWN_HEROES[1]! }, 3);
     if (!r1b.ok) throw new Error("setup");
     const enemyR1a = h.store.apply(id, { type: "SUBMIT_SEALED_SELECTION", side: h.enemy, slotIndex: 0, heroId: ENEMY_HEROES[0]! });
     const enemyR1b = h.store.apply(id, { type: "SUBMIT_SEALED_SELECTION", side: h.enemy, slotIndex: 1, heroId: ENEMY_HEROES[1]! });
     if (!enemyR1a || enemyR1a.rejected || !enemyR1b || enemyR1b.rejected) throw new Error("setup");
 
-    // Now in round 2: humanOpenPositions = [1, 2, 4] (5 and 3 are bound) -> ascending tags Pos1 + Pos2.
-    expect(await v3Positions(h, id)).toEqual([1, 2]);
-    expect(await legacyPositions(h, id)).toEqual([1, 2]);
+    // Round 2: [1, 2, 4] eligible, capacity 2 -> untagged (3 positions do not fit 2 slots).
     expect(h.store.humanOpenPositions(id)).toEqual([1, 2, 4]);
+    expect((await v3Decision(h, id)).humanActionability?.eligiblePositions).toEqual([1, 2, 4]);
+    expect(await v3Positions(h, id)).toEqual([undefined, undefined]);
+    expect(await legacyPositions(h, id)).toEqual([undefined, undefined]);
 
     const r2a = h.store.applyApSimulatorOwnSelection(id, { type: "SUBMIT_SEALED_SELECTION", side: h.side, slotIndex: 0, heroId: OWN_HEROES[2]! }, 1);
     if (!r2a.ok) throw new Error("setup");
@@ -102,8 +111,8 @@ describe("Simulator con controlledPositions: la etiqueta de posición sigue a hu
     const enemyR2b = h.store.apply(id, { type: "SUBMIT_SEALED_SELECTION", side: h.enemy, slotIndex: 1, heroId: ENEMY_HEROES[3]! });
     if (!enemyR2a || enemyR2a.rejected || !enemyR2b || enemyR2b.rejected) throw new Error("setup");
 
-    // Round 3: only Pos4 remains -- proves the LAST-picked position is never forced into a fixed
-    // "Pos2 always closes" schedule; here it's Pos4 that closes, because that's what the human left.
+    // Round 3: only Pos4 remains and it fits the round -- the tag is the eligible set itself. Proves
+    // the LAST-picked position is never forced into a fixed "Pos2 always closes" schedule.
     expect(h.store.humanOpenPositions(id)).toEqual([4]);
     expect(await v3Positions(h, id)).toEqual([4]);
     expect(await legacyPositions(h, id)).toEqual([4]);

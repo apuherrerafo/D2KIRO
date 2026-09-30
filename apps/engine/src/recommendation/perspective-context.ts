@@ -2,6 +2,7 @@ import type { DraftState } from "../draft/reducer";
 import type { HeroId, PartyContext, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { SuggestionSet } from "../signals/mix";
+import type { HumanActionability } from "./human-actionability";
 import type { RecommendationSlot } from "./types";
 
 // AP Ranked Roles V1 / Wave 2 (product review) -- the PERSPECTIVE-SAFE recommendation input.
@@ -40,6 +41,12 @@ export interface PerspectiveRecommendationContext {
    */
   controlledPositions?: readonly Position[] | null;
   humanOpenPositions?: readonly Position[] | null;
+  /**
+   * WP1 -- ProtocolSessionStore.humanActionability: eligible human positions vs. current round
+   * capacity vs. yield. `null`/absent for a non-AP-Simulator or legacy session, which then keeps the
+   * pre-WP1 slot derivation exactly as it was.
+   */
+  humanActionability?: HumanActionability | null;
   /**
    * P0-2 (INV-BIND-001) -- the AUTHORITATIVE own-team position binding for each currently-visible
    * own hero (ProtocolSessionStore.ownAssignedPositionForHero, sealed-time truth, never

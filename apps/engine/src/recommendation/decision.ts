@@ -3,6 +3,7 @@ import type { DraftProtocolState, HeroId, TeamSide } from "../draft-protocol/typ
 import type { RecommendationDecision, RecommendationDegradation, RecommendationSlot } from "./types";
 import { rosterSlotForRoundSlot } from "../simulator/ap-simulator-policy";
 import type { Position } from "../draft-protocol/roles/role-belief";
+import { deriveHumanActionability, humanDecisionSlots, type HumanActionability } from "./human-actionability";
 
 // R1 S5 -- LEGAL ACTION FIRST. This module derives WHAT is being decided (decision.ts) and WHICH
 // heroes are legally nameable right now (the "hero universe"), from `legalGameplayActions(state)`
@@ -39,6 +40,7 @@ function deriveRankedAllPick(
   controlledRosterSlots?: readonly number[],
   isSimulator: boolean = false,
   humanOpenPositions?: readonly Position[],
+  humanActionability?: HumanActionability,
 ): LegalDecision {
   const rankedAp = state.rankedAp!;
   const degradations: RecommendationDegradation[] = [];
@@ -49,16 +51,19 @@ function deriveRankedAllPick(
     (action): action is Extract<typeof action, { type: "SUBMIT_SEALED_SELECTION" }> =>
       action.type === "SUBMIT_SEALED_SELECTION" && action.side === actor,
   );
-  // PD-026/PD-027 COACH TARGET POSITIONS -- target unfilled HUMAN-controlled positions, never a
-  // round-seat mapping (the fixed chronology<->position table this used to read from,
-  // `POSITION_FOR_ROSTER_SEAT`, is deleted repo-wide). Positions are zipped to open own slots in
-  // ascending-position order (a stable, non-chronological tie-break).
-  const sortedOpenPositions = humanOpenPositions ? [...humanOpenPositions].sort((a, b) => a - b) : null;
-  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot, index) => {
-    const position: Position | null = isSimulator && sortedOpenPositions ? (sortedOpenPositions[index] ?? null) : null;
-    return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
-  });
-  if (humanOpenPositions !== undefined) {
+  // PD-026/PD-027 + WP1 -- target unfilled HUMAN-controlled positions, never a round-seat mapping
+  // (the fixed chronology<->position table `POSITION_FOR_ROSTER_SEAT` is deleted repo-wide). A
+  // simulator session's decision covers exactly the round's human capacity; positions are never
+  // zipped onto slots (human-actionability.ts) -- eligibility travels whole on the decision.
+  let controlledSlots: RecommendationSlot[] = openSlotsForActor.map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
+  const actionability = isSimulator
+    ? (humanActionability ?? (humanOpenPositions !== undefined
+        ? deriveHumanActionability({ humanOpenPositions, openOwnRoundSlots: openSlotsForActor.length, yieldedCurrentRound: false, draftComplete: state.status === "COMPLETE" })
+        : null))
+    : null;
+  if (actionability) {
+    controlledSlots = humanDecisionSlots(actionability, controlledSlots);
+  } else if (humanOpenPositions !== undefined) {
     controlledSlots = controlledSlots.slice(0, humanOpenPositions.length);
   } else if (controlledRosterSlots !== undefined && rankedAp.round) {
     const controlled = new Set(controlledRosterSlots);
@@ -86,6 +91,7 @@ function deriveRankedAllPick(
       step: null,
       controlledSlots,
       actionCount: controlledSlots.length,
+      ...(actionability ? { humanActionability: actionability } : {}),
     },
     eligibleHeroIds: null,
     degradations,
@@ -150,8 +156,9 @@ export function deriveLegalDecision(
   controlledRosterSlots?: readonly number[],
   isSimulator: boolean = false,
   humanOpenPositions?: readonly Position[],
+  humanActionability?: HumanActionability,
 ): LegalDecision {
-  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots, isSimulator, humanOpenPositions);
+  if (state.rankedAp) return deriveRankedAllPick(state, actor, controlledRosterSlots, isSimulator, humanOpenPositions, humanActionability);
   if (state.captainsMode) return deriveCaptainsMode(state, actor);
   return { decision: emptyDecision(actor, null), eligibleHeroIds: null, degradations: [{ reason: "RULESET_LOAD_FAILED", detail: "estado de protocolo sin ranked_ap ni captains_mode" }] };
 }

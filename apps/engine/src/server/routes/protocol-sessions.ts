@@ -241,6 +241,9 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // never has to approximate it on its own. `false` for a non-AP-Simulator session (the store
       // returns `false` there too -- `yieldPrecondition`'s `not_ap_simulator` branch).
       canYield: deps.store.canYield(sessionId),
+      // WP1 -- eligible human positions vs. current round capacity vs. yield, server-derived. `null`
+      // for a session without controlledPositions. The web reads this instead of re-deriving it.
+      humanActionability: deps.store.humanActionability(sessionId),
     };
   }
 
@@ -661,6 +664,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // partyContext behavior byte-for-byte (Manual/Captain's Mode, legacy AP sessions).
       controlledPositions: metadata.controlledPositions ?? undefined,
       humanOpenPositions: deps.store.humanOpenPositions(sessionId) ?? undefined,
+      humanActionability: deps.store.humanActionability(sessionId),
     });
   }
 

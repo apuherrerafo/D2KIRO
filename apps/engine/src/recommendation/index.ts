@@ -2,6 +2,8 @@
 export * from "./types";
 export { buildBasedOn, EVIDENCE_VERSION_BASE } from "./identity";
 export { deriveLegalDecision } from "./decision";
+export { deriveHumanActionability, humanDecisionSlots } from "./human-actionability";
+export type { HumanActionability, NoHumanActionReason } from "./human-actionability";
 export type { LegalDecision } from "./decision";
 export { computeRoleImpact } from "./role-impact";
 export type { RoleImpactInput, RoleImpactResult } from "./role-impact";

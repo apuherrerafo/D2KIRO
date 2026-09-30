@@ -19,6 +19,7 @@ import {
   type TeamSide,
 } from "../draft-protocol";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import { deriveHumanActionability, type HumanActionability } from "../recommendation/human-actionability";
 import { rosterSlotForRoundSlot, type DotaPosition } from "../simulator/ap-simulator-policy";
 import type { CollisionRegistrationEvidence, RegistrationRecord } from "../draft-protocol/adapters/simulator-authority";
 import { isApSimulatorMetadata } from "../simulator/session-config";
@@ -91,6 +92,7 @@ export type ApSimulatorOwnSelectionResult =
         | "round_slot_not_open"
         | "position_not_controlled"
         | "position_already_filled"
+        | "round_yielded"
         | "kernel_rejected";
       rejected?: RejectionReasonV2;
     };
@@ -290,6 +292,10 @@ export class ProtocolSessionStore {
   ): ApSimulatorOwnSelectionResult {
     const entry = this.sessions.get(sessionId);
     if (!entry || !entry.metadata.controlledPositions) return { ok: false, reason: "not_ap_simulator" };
+    // WP1 (INV-OWN-004) -- a yielded round's remaining own capacity belongs to the Ally Bot: no
+    // human selection is accepted for it, even while unbound human positions remain. Checked before
+    // anything else can touch the kernel. The Ally Bot path (applyAllyBotSelection) is unaffected.
+    if (this.hasYieldedCurrentRound(sessionId)) return { ok: false, reason: "round_yielded" };
     return this.applyOwnTeamPositionSelection(sessionId, command, assignedPosition, entry.metadata.controlledPositions, now);
   }
 
@@ -385,6 +391,25 @@ export class ProtocolSessionStore {
     if (!entry || !entry.metadata.controlledPositions) return null;
     const controlled = new Set(entry.metadata.controlledPositions);
     return ([1, 2, 3, 4, 5] as DotaPosition[]).filter((position) => !controlled.has(position));
+  }
+
+  /**
+   * WP1 -- the ONE server-derived HumanActionability projection (recommendation/human-actionability.ts):
+   * eligible human positions, kept apart from how many picks fit this round, and whether a yield
+   * removed the human action. `null` for a non-AP-Simulator session or one without
+   * `controlledPositions` (Manual / Captain's Mode / legacy), which keep their previous behaviour.
+   */
+  humanActionability(sessionId: string): HumanActionability | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || !entry.metadata.controlledPositions || !isApSimulatorMetadata(entry.metadata)) return null;
+    const localSide = entry.metadata.localSide;
+    const openOwnRoundSlots = entry.state.rankedAp?.round?.openSlots.filter((slot) => slot.side === localSide).length ?? 0;
+    return deriveHumanActionability({
+      humanOpenPositions: this.humanOpenPositions(sessionId) ?? [],
+      openOwnRoundSlots,
+      yieldedCurrentRound: this.hasYieldedCurrentRound(sessionId),
+      draftComplete: entry.state.status === "COMPLETE",
+    });
   }
 
   hasYieldedCurrentRound(sessionId: string): boolean {
@@ -538,8 +563,7 @@ export class ProtocolSessionStore {
         // unfilled human-controlled positions), zero once the human has yielded the round. Which
         // SEAT carries the penalty is still arbitrary bookkeeping (Do NOT re-key gold penalty by
         // position in this P0) -- only the COUNT reflects human-controlled capacity.
-        const unfilledPositions = this.humanOpenPositions(sessionId) ?? [];
-        const capacity = this.hasYieldedCurrentRound(sessionId) ? 0 : Math.min(ownOpenSlotIndexes.length, unfilledPositions.length);
+        const capacity = this.humanActionability(sessionId)?.roundCapacity ?? 0;
         pendingSlotIndexes = ownOpenSlotIndexes.slice(0, capacity);
       } else {
         const controlledRosterSlots = new Set(
@@ -647,6 +671,7 @@ export class ProtocolSessionStore {
       // round-seat mapping. Both null for non-AP-Simulator/legacy AP Simulator sessions.
       controlledPositions: metadata.controlledPositions,
       humanOpenPositions: this.humanOpenPositions(sessionId),
+      humanActionability: this.humanActionability(sessionId),
       ownAssignedPositions,
     };
   }
