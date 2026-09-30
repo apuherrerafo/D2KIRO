@@ -21,11 +21,11 @@ const RANKED: CandidateResult = {
   degradations: [],
 };
 
-function output(candidates: CandidateResult, targetBasis: TargetBasis = "STRATEGIC", actionablePositions: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5]): CurrentDecisionOutput {
+function output(candidates: CandidateResult, targetBasis: TargetBasis = "STRATEGIC", actionablePositions: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5], recommended: 1 | 2 | 3 | 4 | 5 = candidates.targetPosition): CurrentDecisionOutput {
   return {
     schema: "recommendation-output/v4",
     sessionId: "s",
-    decision: { kind: "ACTIONABLE", actionablePositions, roundCapacity: 2, targetPosition: candidates.targetPosition, targetBasis, targetRationale: "rationale fixture", candidates, personalPoolApplied: false },
+    decision: { kind: "ACTIONABLE", actionablePositions, roundCapacity: 2, targetPosition: recommended, targetBasis, targetRationale: "rationale fixture", viewedPosition: candidates.targetPosition, candidates, personalPoolApplied: false },
     roleBeliefs: { own: [], enemy: [] },
     meta: { round: 1, phase: "PICK_ROUND_1", decisionContext: "team_opening", trigger: "DRAFT_PICKS_STARTED", revision: 1, basedOn: { stateIdentity: "id", evidenceVersion: "v" } },
   };
@@ -42,9 +42,23 @@ test("STRATEGIC: 'Objetivo recomendado' + 'Ranking para Pos3' con cartas numerad
 test("COHERENCE-005: DETERMINISTIC_DEFAULT nunca usa el texto de objetivo recomendado", () => {
   const view = render(<CurrentDecisionPanel output={output(RANKED, "DETERMINISTIC_DEFAULT")} heroCatalog={new Map()} />);
   const target = view.getByTestId("current-decision-target").textContent ?? "";
-  expect(target).toContain("Sin prioridad estratégica");
-  expect(target).toContain("Vista inicial: Pos3 Offlane");
+  expect(target).toContain("No hay una prioridad estratégica clara");
+  expect(target).toContain("Vista inicial sugerida: Pos3 Offlane");
   expect(target).not.toContain("Objetivo recomendado");
+  expect(view.queryByTestId("current-decision-viewed")).toBeNull(); // viewing the recommended position: no second notice
+});
+
+test("PSR-002: mirando una posición distinta de la recomendada -> 'Coach sugiere PosR' + 'Estás viendo PosV'; el banner de recomendación no cambia", () => {
+  const rankedPos5: CandidateResult = { ...RANKED, targetPosition: 5, cards: RANKED.state === "RANKED" ? RANKED.cards.map((card) => ({ ...card, position: 5 as const })) : [] };
+  const view = render(<CurrentDecisionPanel output={output(rankedPos5, "DETERMINISTIC_DEFAULT", [1, 2, 3, 4, 5], 1)} heroCatalog={new Map()} />);
+  const banner = view.getByTestId("current-decision-target");
+  expect(banner.getAttribute("data-target-position")).toBe("1"); // still the Coach's recommendation
+  expect(banner.textContent).toContain("Vista inicial sugerida: Pos1");
+  const notice = view.getByTestId("current-decision-viewed");
+  expect(notice.textContent).toContain("Estás viendo Pos5");
+  expect(view.getByTestId("current-decision-coach-suggests").textContent).toBe("Coach sugiere Pos1 Carry");
+  expect(view.getByTestId("current-decision-candidates").textContent).toContain("Ranking para Pos5");
+  expect(view.getAllByTestId("current-decision-target")).toHaveLength(1); // one recommendation owner
 });
 
 test("DETERMINISTIC_DEFAULT con una sola posición: 'Única posición pendiente'", () => {

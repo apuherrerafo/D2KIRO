@@ -305,9 +305,12 @@ export type ActionableDecision = {
   kind: "ACTIONABLE";
   actionablePositions: CoachPosition[];
   roundCapacity: number;
+  /** The Coach's RECOMMENDED position (default view); never moved by the Player's navigation. */
   targetPosition: CoachPosition;
   targetBasis: TargetBasis;
   targetRationale: string;
+  /** The position the Player is INSPECTING; `candidates` belong to it. */
+  viewedPosition: CoachPosition;
   candidates: CandidateResult;
   personalPoolApplied: boolean;
 };
@@ -377,7 +380,8 @@ function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
   if (!isPosition(value.targetPosition) || !value.actionablePositions.includes(value.targetPosition)) return false;
   if (value.targetBasis !== "STRATEGIC" && value.targetBasis !== "DETERMINISTIC_DEFAULT") return false;
   if (typeof value.targetRationale !== "string" || typeof value.personalPoolApplied !== "boolean") return false;
-  return isCandidateResult(value.candidates, value.targetPosition, value.personalPoolApplied);
+  if (!isPosition(value.viewedPosition) || !value.actionablePositions.includes(value.viewedPosition)) return false;
+  return isCandidateResult(value.candidates, value.viewedPosition, value.personalPoolApplied);
 }
 
 export function parseCurrentDecisionOutput(value: unknown): CurrentDecisionOutput | null {
@@ -396,12 +400,12 @@ export function parseCurrentDecisionOutput(value: unknown): CurrentDecisionOutpu
 }
 
 /**
- * The ONE source of the Simulator's current human decision. `targetPosition` is the position the
- * Player chose to view in the selector (navigation); the engine validates it and answers with the
- * decision's actual target -- the selector always renders that answer, never its own guess.
+ * The ONE source of the Simulator's current human decision. `viewedPosition` is the position the
+ * Player chose to inspect in the selector (navigation); the engine validates it and answers with the
+ * decision's actual `viewedPosition` (candidates) alongside the untouched Coach recommendation.
  */
-export async function fetchCurrentDecision(sessionId: string, targetPosition: CoachPosition | null = null, fetchImpl: typeof fetch = fetch): Promise<CurrentDecisionOutput> {
-  const target = targetPosition === null ? "" : `&target=${targetPosition}`;
+export async function fetchCurrentDecision(sessionId: string, viewedPosition: CoachPosition | null = null, fetchImpl: typeof fetch = fetch): Promise<CurrentDecisionOutput> {
+  const target = viewedPosition === null ? "" : `&target=${viewedPosition}`;
   const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/recommendations?format=v4${target}`);
   if (!response.ok) throw new Error(`current decision request failed (${response.status})`);
   const body: unknown = await response.json();

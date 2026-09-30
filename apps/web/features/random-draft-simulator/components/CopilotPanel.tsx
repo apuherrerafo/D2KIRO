@@ -398,8 +398,6 @@ export interface CopilotPanelProps {
    * degradation banner are not rendered next to it (COHERENCE-001/010/012).
    */
   currentDecision?: CurrentDecisionOutput | null;
-  /** The position the Player asked to view in the selector (for the "Vista elegida" header). */
-  requestedTarget?: CoachPosition | null;
 }
 
 function noop() {
@@ -470,7 +468,6 @@ export function CopilotPanel({
   partyPositions,
   roundPickState,
   currentDecision = null,
-  requestedTarget = null,
 }: CopilotPanelProps) {
   const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach, currentDecision).join(",");
 
@@ -487,7 +484,7 @@ export function CopilotPanel({
       <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
         <span className="text-heading text-content-primary">Copilot</span>
         <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations onRetry={onRetryPreview} />
-        <CurrentDecisionPanel output={currentDecision} heroCatalog={heroCatalog} requestedTarget={requestedTarget} onAssignOwnPosition={onAssignOwnPosition} />
+        <CurrentDecisionPanel output={currentDecision} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
       </div>
     );
   }

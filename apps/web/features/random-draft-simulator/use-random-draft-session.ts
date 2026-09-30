@@ -253,8 +253,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const selectTarget = useCallback(function selectTarget(position: 1 | 2 | 3 | 4 | 5): void {
     const current = useRandomDraftStore.getState();
     if (current.phase.type !== "blind_round" || current.requestedTarget === position) return;
-    const shownTarget = current.currentDecision?.decision.kind === "ACTIONABLE" ? current.currentDecision.decision.targetPosition : null;
-    if (current.requestedTarget === null && shownTarget === position) return;
+    const shownView = current.currentDecision?.decision.kind === "ACTIONABLE" ? current.currentDecision.decision.viewedPosition : null;
+    if (current.requestedTarget === null && shownView === position) return;
     useRandomDraftStore.getState().setRequestedTarget(position);
     useRandomDraftStore.getState().setCurrentDecision(null);
     void refreshRecommendations();

@@ -68,10 +68,11 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, recommendations, coach, previewStatus, config, currentDecision, requestedTarget, humanActionability } = session.state;
   const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
-  // COHERENCE-013 -- the selector and the Coach share ONE target: the V4 decision's (or the view the
-  // Player just requested, while the engine recomputes it).
-  const decisionTarget = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.targetPosition : null;
-  const selectedTarget = requestedTarget ?? decisionTarget;
+  // PSR-002 -- the selector highlights the position being VIEWED (the V4 decision's viewedPosition, or the
+  // one the Player just requested while the engine recomputes). The Coach RECOMMENDATION is a separate
+  // field of the same decision and is rendered only by CurrentDecisionPanel.
+  const decisionView = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.viewedPosition : null;
+  const selectedTarget = requestedTarget ?? decisionView;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -98,7 +99,6 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           recommendations={recommendations}
           coach={coach}
           currentDecision={currentDecision}
-          requestedTarget={requestedTarget}
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={session.actions.retryPreview}

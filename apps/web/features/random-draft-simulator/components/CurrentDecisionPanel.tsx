@@ -31,12 +31,11 @@ const NO_ACTION_COPY: Record<NoHumanActionReason, string> = {
 
 interface TargetHeaderProps {
   decision: ActionableDecision;
-  /** The position the Player asked to view in the selector (null = the engine chose). */
-  requestedTarget: CoachPosition | null;
 }
 
-// Exactly one of three headers -- STRATEGIC advice never shares wording with a default/navigation view.
-function TargetHeader({ decision, requestedTarget }: TargetHeaderProps) {
+// The Coach RECOMMENDATION only (targetPosition/targetBasis): exactly one of three headers -- STRATEGIC
+// advice never shares wording with a default view. What the Player is inspecting is `ViewedPositionNotice`.
+function TargetHeader({ decision }: TargetHeaderProps) {
   const common = { "data-testid": "current-decision-target", "data-target-position": decision.targetPosition, "data-target-basis": decision.targetBasis };
   if (decision.targetBasis === "STRATEGIC") {
     return (
@@ -54,19 +53,27 @@ function TargetHeader({ decision, requestedTarget }: TargetHeaderProps) {
       </div>
     );
   }
-  if (requestedTarget === decision.targetPosition) {
-    return (
-      <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-3" {...common}>
-        <span className="text-caption font-semibold text-content-primary">Vista elegida: {positionName(decision.targetPosition)}</span>
-        <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">{decision.targetRationale}</span>
-      </div>
-    );
-  }
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-3" {...common}>
-      <span className="text-caption font-semibold text-content-primary">Sin prioridad estratégica</span>
-      <span className="text-caption text-content-secondary">Vista inicial: {positionName(decision.targetPosition)}</span>
-      <span className="text-caption text-content-muted" data-testid="current-decision-rationale">{decision.targetRationale}</span>
+      <span className="text-caption font-semibold text-content-primary">No hay una prioridad estratégica clara</span>
+      <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">Vista inicial sugerida: {positionName(decision.targetPosition)}</span>
+    </div>
+  );
+}
+
+interface ViewedPositionNoticeProps {
+  decision: ActionableDecision;
+}
+
+// Only when the Player inspects a position other than the recommended one: navigation is stated as
+// navigation, and the recommendation is restated unchanged -- clicking never re-labels the Coach's advice.
+function ViewedPositionNotice({ decision }: ViewedPositionNoticeProps) {
+  if (decision.viewedPosition === decision.targetPosition) return null;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="current-decision-viewed" data-viewed-position={decision.viewedPosition}>
+      <span className="text-caption font-semibold text-content-primary">Estás viendo {positionName(decision.viewedPosition)}</span>
+      <span className="text-caption text-content-secondary" data-testid="current-decision-coach-suggests">Coach sugiere {positionName(decision.targetPosition)}</span>
+      <span className="text-caption text-content-muted">Cambiar de vista no cambia la sugerencia del Coach.</span>
     </div>
   );
 }
@@ -199,28 +206,27 @@ function NoHumanActionView({ reason }: NoHumanActionViewProps) {
 export interface CurrentDecisionPanelProps {
   output: CurrentDecisionOutput;
   heroCatalog: Map<number, HeroMeta>;
-  requestedTarget?: CoachPosition | null;
   onAssignOwnPosition?: (heroId: number, position: CoachPosition | null) => void;
 }
 
 interface DecisionBodyProps {
   output: CurrentDecisionOutput;
   heroCatalog: Map<number, HeroMeta>;
-  requestedTarget: CoachPosition | null;
 }
 
-function DecisionBody({ output, heroCatalog, requestedTarget }: DecisionBodyProps) {
+function DecisionBody({ output, heroCatalog }: DecisionBodyProps) {
   const { decision } = output;
   if (decision.kind === "NO_HUMAN_ACTION") return <NoHumanActionView reason={decision.reason} />;
   return (
     <>
-      <TargetHeader decision={decision} requestedTarget={requestedTarget} />
+      <TargetHeader decision={decision} />
+      <ViewedPositionNotice decision={decision} />
       <CandidateSection candidates={decision.candidates} output={output} heroCatalog={heroCatalog} />
     </>
   );
 }
 
-export function CurrentDecisionPanel({ output, heroCatalog, requestedTarget = null, onAssignOwnPosition }: CurrentDecisionPanelProps) {
+export function CurrentDecisionPanel({ output, heroCatalog, onAssignOwnPosition }: CurrentDecisionPanelProps) {
   return (
     <div
       className="flex flex-col gap-3"
@@ -231,7 +237,7 @@ export function CurrentDecisionPanel({ output, heroCatalog, requestedTarget = nu
       data-state-identity={output.meta.basedOn.stateIdentity}
     >
       {output.roleCollision?.infeasible && <RoleCollisionBanner collision={output.roleCollision} heroCatalog={heroCatalog} />}
-      <DecisionBody output={output} heroCatalog={heroCatalog} requestedTarget={requestedTarget} />
+      <DecisionBody output={output} heroCatalog={heroCatalog} />
       <CoachRoleBeliefs roleBeliefs={output.roleBeliefs} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
     </div>
   );

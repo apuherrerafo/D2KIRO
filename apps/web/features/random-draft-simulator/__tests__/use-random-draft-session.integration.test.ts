@@ -133,8 +133,10 @@ class FakeApProtocolEngine {
     const actionablePositions = ([1, 2, 3, 4, 5] as Position[]).filter((position) => !boundPositions.has(position));
     const roundCapacity = Math.min(this.openSlots.length, actionablePositions.length);
     const requested = Number(new URL(url, "http://fixture.local").searchParams.get("target"));
-    const targetPosition = actionablePositions.includes(requested as Position) ? (requested as Position) : actionablePositions[0];
-    const decision = roundCapacity === 0 || targetPosition === undefined
+    // PSR-002: the recommendation (default = lowest eligible) never follows `target`; only the viewed position does.
+    const targetPosition = actionablePositions[0];
+    const viewedPosition = actionablePositions.includes(requested as Position) ? (requested as Position) : targetPosition;
+    const decision = roundCapacity === 0 || targetPosition === undefined || viewedPosition === undefined
       ? { kind: "NO_HUMAN_ACTION", actionablePositions: [], roundCapacity: 0, reason: this.round === 4 ? "DRAFT_COMPLETE" : "ROUND_COMPLETE" }
       : {
           kind: "ACTIONABLE",
@@ -143,10 +145,11 @@ class FakeApProtocolEngine {
           targetPosition,
           targetBasis: "DETERMINISTIC_DEFAULT",
           targetRationale: "fixture",
+          viewedPosition,
           candidates: {
             state: "RANKED",
-            targetPosition,
-            cards: [{ heroId: 10 + this.own.length, position: targetPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false }],
+            targetPosition: viewedPosition,
+            cards: [{ heroId: 10 + this.own.length, position: viewedPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false }],
             degradations: [],
           },
           personalPoolApplied: false,
@@ -541,16 +544,25 @@ test("COHERENCE-014: tras un pick la decisión anterior desaparece al instante y
   unmount();
 });
 
-test("navegación del selector: pedir otra posición retira la decisión vigente y el objetivo nuevo ES la posición pedida", async () => {
+test("navegación del selector (PSR-002): pedir otra posición retira la decisión vigente; la posición VISTA cambia y la recomendación del Coach no", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 2);
   await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  const recommended = actionable(result).targetPosition;
   act(() => result.current.actions.selectTarget(4));
-  expect(result.current.state.currentDecision).toBeNull(); // no stale target while the engine recomputes
+  expect(result.current.state.currentDecision).toBeNull(); // no stale cards while the engine recomputes
   expect(result.current.state.requestedTarget).toBe(4);
   await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
-  expect(actionable(result).targetPosition).toBe(4);
+  expect(actionable(result).viewedPosition).toBe(4);
+  expect(actionable(result).targetPosition).toBe(recommended);
+  expect(actionable(result).candidates.targetPosition).toBe(4);
   expect(engine.requests.some((entry) => entry.url.includes("format=v4&target=4"))).toBe(true);
+
+  act(() => result.current.actions.selectTarget(5));
+  await waitFor(() => expect(actionable(result).viewedPosition).toBe(5));
+  expect(actionable(result).targetPosition).toBe(recommended);
+  expect(actionable(result).candidates.targetPosition).toBe(5); // no stale Pos4 cards
+
   await lock(result, 9, 4);
-  expect(result.current.state.requestedTarget).toBeNull(); // a pick resets navigation: the next target is recomputed
+  expect(result.current.state.requestedTarget).toBeNull(); // a pick resets navigation: the next decision is recomputed
   unmount();
 });
