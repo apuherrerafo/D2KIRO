@@ -18,9 +18,11 @@ import { displayBeliefs, type CoachTrigger, type RoleBeliefDisplay } from "./rec
 //   decision.kind         -- is there a human action right now at all (from HumanActionability)?
 //   actionablePositions   -- EVERY eligible human position (never truncated by round capacity)
 //   roundCapacity         -- how many picks fit this round (never which positions)
-//   targetPosition        -- the ONE position the candidates below belong to
-//   targetBasis           -- STRATEGIC (evidence supports a priority) or DETERMINISTIC_DEFAULT
-//                            (no priority -- a stable initial view, never presented as advice)
+//   targetPosition        -- the Coach's RECOMMENDED position (never moved by navigation)
+//   targetBasis           -- STRATEGIC (reserved: a real cross-position priority signal; the engine does
+//                            not emit it today) or DETERMINISTIC_DEFAULT (no priority -- a stable initial
+//                            view, never presented as advice). User navigation is NOT a basis.
+//   viewedPosition        -- the position the Player is inspecting; the ONE position `candidates` belong to
 //   candidates.state      -- RANKED | UNRANKED_POSITIONAL | UNAVAILABLE: exactly one candidate
 //                            provenance, with the degradations of THAT result only
 //   personalPoolApplied   -- the Personal Hero Pool influenced these candidates (only possible when
@@ -70,9 +72,12 @@ export type CurrentHumanDecision =
       kind: "ACTIONABLE";
       actionablePositions: Position[];
       roundCapacity: number;
+      /** The Coach's RECOMMENDED position (default view). Never changed by the Player navigating the selector. */
       targetPosition: Position;
       targetBasis: TargetBasis;
       targetRationale: string;
+      /** The position the Player is INSPECTING; `candidates` belong to it. Equals targetPosition unless the Player navigated. */
+      viewedPosition: Position;
       candidates: CandidateResult;
       personalPoolApplied: boolean;
     }

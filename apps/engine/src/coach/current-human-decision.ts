@@ -42,75 +42,42 @@ export interface DecisionTarget {
 
 export interface SelectDecisionTargetInput {
   eligiblePositions: readonly Position[];
-  /** The team-level (position-agnostic, no personal pool) evaluation of this state. */
-  teamEvaluation: RecommendationSetV2;
-  view: PerspectiveDraftView;
   playerPersonalPosition: Position | null;
-  heroPositions?: HeroPositions;
-  heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
-  /**
-   * A position the Player chose to VIEW in the position selector (navigation). Honoured only when it is
-   * eligible; when it is not the engine's own strategic target it is reported as DETERMINISTIC_DEFAULT
-   * -- a presentation choice, never promoted to advice.
-   */
-  requestedTarget?: Position | null;
 }
 
-/** The stable default: the Player's own position when it is still eligible, else the lowest eligible one. Navigation only. */
+/** The stable default: the Player's own position when it is still eligible, else the lowest eligible one. */
 function defaultTarget(eligible: readonly Position[], personal: Position | null): Position {
   return personal !== null && eligible.includes(personal) ? personal : eligible[0]!;
 }
 
 /**
- * STRATEGIC only when the evidence supports a real priority AMONG alternatives: two or more eligible
- * positions, a trustworthy team ranking, a leader whose role V6 resolved to an eligible position, and
- * no equally-scored candidate resolved to a DIFFERENT eligible position (a tie is not a priority).
- * Otherwise DETERMINISTIC_DEFAULT -- and its rationale says so, it never claims to be advice.
+ * The Coach's recommended target. PSR-001: STRATEGIC means "defensible evidence that one eligible human
+ * position should be prioritised over the others". The engine has NO cross-position priority signal --
+ * V6 ranks heroes, not positions, and "the top hero happens to resolve to Pos X" is a property of that
+ * hero, not a comparison between positions -- so this never returns STRATEGIC. It returns the stable
+ * default and says so. (`TargetBasis` keeps "STRATEGIC" as a reserved wire value for a future real signal.)
+ * Never influenced by what the Player is viewing.
  */
 export function selectDecisionTarget(input: SelectDecisionTargetInput): DecisionTarget {
-  const selection = selectEngineTarget(input);
-  const requested = input.requestedTarget ?? null;
-  if (requested === null || requested === selection.targetPosition || !input.eligiblePositions.includes(requested)) return selection;
-  const context = selection.targetBasis === "STRATEGIC"
-    ? `el Coach no la prioriza estratégicamente (su objetivo sería ${positionPhrase(selection.targetPosition)}).`
-    : "no hay prioridad estratégica entre tus posiciones pendientes.";
-  return { targetPosition: requested, targetBasis: "DETERMINISTIC_DEFAULT", targetRationale: `Vista elegida por vos: ${positionPhrase(requested)}; ${context}` };
-}
-
-function selectEngineTarget(input: SelectDecisionTargetInput): DecisionTarget {
   const eligible = [...input.eligiblePositions].sort((a, b) => a - b);
   if (eligible.length === 0) throw new Error("selectDecisionTarget requires at least one eligible position");
   const fallback = defaultTarget(eligible, input.playerPersonalPosition);
-
   if (eligible.length === 1) {
     return { targetPosition: fallback, targetBasis: "DETERMINISTIC_DEFAULT", targetRationale: `${positionPhrase(fallback)} es tu única posición humana pendiente: no hay prioridad que elegir.` };
   }
-
-  const noPriority = (reason: string): DecisionTarget => ({
+  return {
     targetPosition: fallback,
     targetBasis: "DETERMINISTIC_DEFAULT",
-    targetRationale: `${reason} Se muestra ${positionPhrase(fallback)} como vista inicial; podés elegir cualquiera de tus posiciones pendientes.`,
-  });
-
-  if (input.teamEvaluation.recommendations.length === 0 || invalidatesRanking(input.teamEvaluation.degradations)) {
-    return noPriority("No hay un ranking de equipo confiable para priorizar una posición.");
-  }
-
-  const candidates: HeroCandidate[] = demoteRevealedHardCountered(extractHeroCandidates(input.teamEvaluation, input.heroPositions), revealedEnemyHeroes(input.view), input.heroCounters);
-  const resolvedEligible = candidates.filter((candidate) => candidate.roleStatus !== "UNRESOLVED" && eligible.includes(candidate.position));
-  const leader = resolvedEligible[0];
-  if (!leader) return noPriority("El ranking de equipo no resuelve la posición de ningún candidato entre tus posiciones pendientes.");
-
-  const rival = resolvedEligible.find((candidate) => candidate.position !== leader.position);
-  if (rival && rival.score === leader.score) {
-    return noPriority(`El ranking de equipo empata entre ${positionPhrase(leader.position)} y ${positionPhrase(rival.position)}.`);
-  }
-
-  return {
-    targetPosition: leader.position,
-    targetBasis: "STRATEGIC",
-    targetRationale: `El mejor candidato del ranking de equipo con posición resuelta juega ${positionPhrase(leader.position)}.`,
+    targetRationale: `No hay una prioridad estratégica clara entre tus posiciones pendientes. Vista inicial sugerida: ${positionPhrase(fallback)}.`,
   };
+}
+
+/**
+ * PSR-002: the position the Player is INSPECTING. Navigation only -- honoured when eligible, otherwise
+ * the recommendation itself. It never changes the recommendation, ownership or session state.
+ */
+export function resolveViewedPosition(eligiblePositions: readonly Position[], recommended: Position, requested: Position | null | undefined): Position {
+  return requested != null && eligiblePositions.includes(requested) ? requested : recommended;
 }
 
 export interface DeriveCandidateResultInput {
@@ -198,9 +165,12 @@ export function buildCurrentHumanDecision(input: BuildCurrentHumanDecisionInput)
     kind: "ACTIONABLE",
     actionablePositions: [...actionability.eligiblePositions],
     roundCapacity: actionability.roundCapacity,
+    // The Coach recommendation (never moved by navigation)...
     targetPosition: input.target.targetPosition,
     targetBasis: input.target.targetBasis,
     targetRationale: input.target.targetRationale,
+    // ...and the position the candidates below belong to (what the Player is inspecting).
+    viewedPosition: input.candidates.targetPosition,
     candidates: input.candidates,
     personalPoolApplied: input.personalPoolApplied,
   };

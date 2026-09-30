@@ -114,14 +114,28 @@ describe("WP2 -- Solo Pos1..Pos5", () => {
 });
 
 describe("WP2 -- Party2 / Party3", () => {
-  test("Party2 no contigua Pos2 + Pos5: ambas accionables, capacidad 2, UN objetivo con cartas de ese objetivo", async () => {
+  test("Party2 no contigua Pos2 + Pos5: ambas accionables, capacidad 2, UN objetivo (default, no estratégico) con cartas de ese objetivo", async () => {
     const s = await session([2, 5], { leadOrder: [5, 2, 1, 3, 4] });
     const decision = actionable(await v4(s));
     expect(decision.actionablePositions).toEqual([2, 5]);
     expect(decision.roundCapacity).toBe(2);
-    expect(decision.targetBasis).toBe("STRATEGIC");
-    expect(decision.targetPosition).toBe(5);
-    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 5)).toBe(true);
+    // PSR-001: the top hero resolves to Pos5, but a hero rank is not a priority between positions.
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(decision.targetPosition).toBe(2); // the Player's own position (humanPosition = 2)
+    expect(decision.viewedPosition).toBe(2);
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 2)).toBe(true);
+  });
+
+  test("PSR-001: el héroe líder pertenece a Pos1 o a Pos4 -> la base del objetivo es la MISMA (DETERMINISTIC_DEFAULT) y el objetivo no sigue al ranking", async () => {
+    const leaderIsPos1 = await session([1, 2, 3, 4, 5], { humanPosition: 2, leadOrder: [1, 2, 3, 4, 5] });
+    const leaderIsPos4 = await session([1, 2, 3, 4, 5], { humanPosition: 2, leadOrder: [4, 1, 2, 3, 5] });
+    const a = actionable(await v4(leaderIsPos1));
+    const b = actionable(await v4(leaderIsPos4));
+    expect(a.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(b.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(a.targetPosition).toBe(2);
+    expect(b.targetPosition).toBe(2);
+    expect(a.targetRationale).toBe(b.targetRationale);
   });
 
   test("Party2 permutación de cronología: misma propiedad (Pos2 sellada en slot 0 vs slot 1) -> misma decisión", async () => {
@@ -141,8 +155,8 @@ describe("WP2 -- Party2 / Party3", () => {
     const decision = actionable(await v4(s));
     expect(decision.actionablePositions).toEqual([1, 3, 5]);
     expect(decision.roundCapacity).toBe(2);
-    expect(decision.targetPosition).toBe(3);
-    expect(decision.targetBasis).toBe("STRATEGIC");
+    expect(decision.targetPosition).toBe(1); // humanPosition = controlledPositions[0]; the Pos3-leading ranking does not move it
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
   });
 });
 
@@ -153,13 +167,18 @@ describe("WP2 -- Party5", () => {
     const decision = actionable(await v4(s));
     expect(decision.actionablePositions).toEqual([1, 2, 3, 4, 5]);
     expect(decision.roundCapacity).toBe(2);
-    expect(decision.targetPosition).toBe(3);
-    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 3)).toBe(true);
+    expect(decision.targetPosition).toBe(1); // default = the Player's own position; the Pos3-leading V6 order is not a priority
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(decision.targetRationale).toContain("No hay una prioridad estratégica clara");
+    expect(decision.viewedPosition).toBe(1);
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 1)).toBe(true);
   });
 
   test("primer pick manual NO es Pos1 (Pos3): binding correcto y el objetivo se recalcula entre las cuatro restantes", async () => {
     const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
-    const before = actionable(await v4(s));
+    const viewingPos3 = await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v4&target=3"));
+    const before = actionable(((await viewingPos3.json()) as { output: RecommendationOutputV4 }).output);
+    expect(visibleHeroes(before).every((hero) => heroPosition(hero) === 3)).toBe(true);
     const response = await s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex: 0, heroId: 300 }, assignedPosition: 3 }), s.sessionId);
     expect(response.status).toBe(202);
     expect(s.store.ownAssignedPositions(s.sessionId)).toEqual([{ round: 1, slotIndex: 0, assignedPosition: 3 }]);
@@ -168,19 +187,20 @@ describe("WP2 -- Party5", () => {
     expect(decision.actionablePositions).toEqual([1, 2, 4, 5]);
     expect(decision.roundCapacity).toBe(1);
     expect(decision.targetPosition).not.toBe(3);
-    expect(decision.targetPosition).toBe(1); // next resolved leader among the remaining four
+    expect(decision.targetPosition).toBe(1); // recomputed default among the remaining four (the Player's own Pos1)
     expect(visibleHeroes(decision)).not.toContain(300);
-    expect(visibleHeroes(decision).some((hero) => visibleHeroes(before).includes(hero))).toBe(false); // no stale card survives
+    // OLD: "no card of the previous decision survives" -- obsolete: the default target (Pos1) legitimately
+    // stays the same, so its cards may repeat. NEW: nothing of the SEALED position (Pos3) survives.
+    expect(visibleHeroes(decision).some((hero) => heroPosition(hero) === 3)).toBe(false);
     expect(after.meta.revision).toBeGreaterThan(0);
   });
 
-  test("sin evidencia de prioridad (ranking de equipo empata): DETERMINISTIC_DEFAULT, nunca presentado como estratégico", async () => {
-    // Two leaders resolved to different eligible positions with the SAME score is not a priority.
+  test("sin evidencia de prioridad (ranking degradado): DETERMINISTIC_DEFAULT, nunca presentado como estratégico", async () => {
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 4, degraded: ["no_signal_available"] });
     const decision = actionable(await v4(s));
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
     expect(decision.targetPosition).toBe(4); // the Player's own position is the stable initial view
-    expect(decision.targetRationale).toContain("vista inicial");
+    expect(decision.targetRationale).toContain("Vista inicial sugerida");
   });
 });
 
@@ -265,12 +285,14 @@ describe("WP2 -- Personal Hero Pool sólo para la posición personal", () => {
     expect(decision.candidates.cards.find((card) => card.heroId === 200)?.isFromPool).toBe(true);
   });
 
-  test("objetivo != posición personal: el pool NO toca la decisión activa (ninguna llamada con cuenta, ninguna marca)", async () => {
+  test("posición VISTA != posición personal: el pool NO toca las cartas activas (ninguna llamada con cuenta, ninguna marca); la recomendación sigue en la personal", async () => {
     const calls: FixtureOptions["calls"] = [];
-    // Party5, personal Pos2, but the team ranking leads with Pos3 -> target Pos3.
+    // Party5, personal Pos2 (the recommended default); the Player views Pos3.
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 2, leadOrder: [3, 1, 2, 4, 5], pool: [300, 200], calls });
-    const decision = actionable(await v4(s, 4242));
-    expect(decision.targetPosition).toBe(3);
+    const response = await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v4&target=3"), 4242);
+    const decision = actionable(((await response.json()) as { output: RecommendationOutputV4 }).output);
+    expect(decision.viewedPosition).toBe(3);
+    expect(decision.targetPosition).toBe(2);
     expect(decision.personalPoolApplied).toBe(false);
     expect(calls.every((call) => call.accountId === null)).toBe(true);
     if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
@@ -301,27 +323,63 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
     return s.routes.getRecommendations(s.sessionId, new URL(`http://127.0.0.1/x?format=v4${query}`));
   }
 
-  test("elegir otra posición pendiente: el objetivo ES esa posición, marcado como vista (no estratégico), con cartas sólo de esa posición", async () => {
-    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
-    const decision = actionable(((await (await v4With(s, "&target=2")).json()) as { output: RecommendationOutputV4 }).output);
-    expect(decision.targetPosition).toBe(2);
-    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetRationale).toContain("Vista elegida por vos");
-    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 2)).toBe(true);
+  async function decisionWith(s: Session, query: string) {
+    return actionable(((await (await v4With(s, query)).json()) as { output: RecommendationOutputV4 }).output);
+  }
+
+  test("PSR-002: Coach recomienda Pos1; el usuario mira Pos3 y luego Pos5 -> la recomendación NO se mueve, las cartas siguen a la vista, sin cartas viejas", async () => {
+    const s = await session([1, 2, 3, 4, 5], { humanPosition: 1, leadOrder: [3, 1, 2, 4, 5] });
+    const base = await decisionWith(s, "");
+    expect(base.targetPosition).toBe(1);
+    expect(base.viewedPosition).toBe(1);
+
+    const viewPos3 = await decisionWith(s, "&target=3");
+    expect(viewPos3.targetPosition).toBe(1);
+    expect(viewPos3.targetBasis).toBe(base.targetBasis);
+    expect(viewPos3.targetRationale).toBe(base.targetRationale);
+    expect(viewPos3.viewedPosition).toBe(3);
+    expect(viewPos3.candidates.targetPosition).toBe(3);
+    expect(viewPos3.actionablePositions).toEqual(base.actionablePositions);
+    expect(visibleHeroes(viewPos3).every((hero) => heroPosition(hero) === 3)).toBe(true);
+
+    const viewPos5 = await decisionWith(s, "&target=5");
+    expect(viewPos5.targetPosition).toBe(1);
+    expect(viewPos5.viewedPosition).toBe(5);
+    expect(visibleHeroes(viewPos5).every((hero) => heroPosition(hero) === 5)).toBe(true);
+    expect(visibleHeroes(viewPos5).some((hero) => visibleHeroes(viewPos3).includes(hero))).toBe(false); // no stale Pos3 card
   });
 
-  test("pedir el mismo objetivo estratégico no cambia nada", async () => {
-    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
-    const decision = actionable(((await (await v4With(s, "&target=3")).json()) as { output: RecommendationOutputV4 }).output);
-    expect(decision.targetBasis).toBe("STRATEGIC");
-    expect(decision.targetPosition).toBe(3);
+  test("PSR-002: navegar no muta la sesión (sin cambios de propiedad, misma cronología de estado)", async () => {
+    const s = await session([1, 2, 3, 4, 5], { humanPosition: 1 });
+    const before = JSON.stringify({ own: s.store.ownAssignedPositions(s.sessionId), open: s.store.humanOpenPositions(s.sessionId), status: s.store.get(s.sessionId)?.status });
+    for (const position of POSITIONS) await decisionWith(s, `&target=${position}`);
+    const after = JSON.stringify({ own: s.store.ownAssignedPositions(s.sessionId), open: s.store.humanOpenPositions(s.sessionId), status: s.store.get(s.sessionId)?.status });
+    expect(after).toBe(before);
   });
 
-  test("una posición ya sellada nunca se vuelve objetivo; un target inválido es 400", async () => {
+  test("PSR-002: pedir la misma posición recomendada no cambia nada", async () => {
+    const s = await session([1, 2, 3, 4, 5], { humanPosition: 1, leadOrder: [3, 1, 2, 4, 5] });
+    const decision = await decisionWith(s, "&target=1");
+    expect(decision.targetPosition).toBe(1);
+    expect(decision.viewedPosition).toBe(1);
+  });
+
+  test("tras un pick real la recomendación se recalcula desde el estado nuevo aunque el usuario estuviera mirando otra posición", async () => {
+    const s = await session([1, 2, 3, 4, 5], { humanPosition: 1, leadOrder: [3, 1, 2, 4, 5] });
+    await s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex: 0, heroId: 100 }, assignedPosition: 1 }), s.sessionId);
+    const decision = await decisionWith(s, "&target=3");
+    expect(decision.actionablePositions).not.toContain(1);
+    expect(decision.targetPosition).not.toBe(1); // the sealed position is never recommended again
+    expect(decision.targetPosition).toBe(2); // lowest remaining eligible: personal Pos1 is gone
+    expect(decision.viewedPosition).toBe(3);
+  });
+
+  test("una posición ya sellada nunca se vuelve objetivo ni vista; un target inválido es 400", async () => {
     const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
     await s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex: 0, heroId: 200 }, assignedPosition: 2 }), s.sessionId);
-    const decision = actionable(((await (await v4With(s, "&target=2")).json()) as { output: RecommendationOutputV4 }).output);
+    const decision = await decisionWith(s, "&target=2");
     expect(decision.targetPosition).not.toBe(2);
+    expect(decision.viewedPosition).not.toBe(2);
     expect(decision.actionablePositions).not.toContain(2);
     for (const bad of ["9", "0", "1.5", "abc", ""]) expect((await v4With(s, `&target=${bad}`)).status).toBe(400);
   });

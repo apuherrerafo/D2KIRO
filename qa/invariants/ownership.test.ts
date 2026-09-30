@@ -90,7 +90,7 @@ describe("INV-OWN-001 -- human-facing action target must belong to humanOpenPosi
       test(`INV-OWN-001 ${checkpoint.scenarioId} @ ${checkpoint.step}${checkpoint.round !== null ? ` round ${checkpoint.round}` : ""}`, () => {
         // Product Semantics Recovery: the V4 CurrentHumanDecision is the human-facing action surface
         // the Simulator renders -- its target and actionable positions are judged too.
-        const v4Targets = checkpoint.v4?.decision.kind === "ACTIONABLE" ? [checkpoint.v4.decision.targetPosition, ...checkpoint.v4.decision.actionablePositions] : [];
+        const v4Targets = checkpoint.v4?.decision.kind === "ACTIONABLE" ? [checkpoint.v4.decision.targetPosition, checkpoint.v4.decision.viewedPosition, ...checkpoint.v4.decision.actionablePositions] : [];
         const targets = [...(primaryActionPositions(checkpoint.v3!.primaryAction.strategy) ?? []), ...v4Targets];
         const offending = targets.filter((position) => !checkpoint.humanOpenPositions.includes(position));
         const ok = offending.length === 0;
@@ -172,7 +172,7 @@ function humanFacingOfferedPositions(checkpoint: Checkpoint): ReadonlySet<Positi
   const offeredV2 = (checkpoint.v2?.decision.controlledSlots ?? []).map((slot) => slot.position).filter((p): p is Position => p != null);
   const primaryTargets = checkpoint.v3 ? (primaryActionPositions(checkpoint.v3.primaryAction.strategy) ?? []) : [];
   const shortlistTargets = (checkpoint.v3?.shortlist ?? []).map((card) => card.position).filter((p): p is Position => p != null);
-  const v4Offered = checkpoint.v4?.decision.kind === "ACTIONABLE" ? [checkpoint.v4.decision.targetPosition, ...checkpoint.v4.decision.actionablePositions] : [];
+  const v4Offered = checkpoint.v4?.decision.kind === "ACTIONABLE" ? [checkpoint.v4.decision.targetPosition, checkpoint.v4.decision.viewedPosition, ...checkpoint.v4.decision.actionablePositions] : [];
   return new Set([...offeredV2, ...primaryTargets, ...shortlistTargets, ...v4Offered]);
 }
 

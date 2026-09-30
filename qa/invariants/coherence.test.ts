@@ -94,8 +94,8 @@ describe("COHERENCE-001 -- one current decision, one target, every candidate bel
       const positions = decision.candidates.state === "RANKED"
         ? decision.candidates.cards.map((card) => card.position)
         : decision.candidates.state === "UNRANKED_POSITIONAL" ? decision.candidates.alternatives.map((alternative) => alternative.position as Position) : [];
-      const ok = decision.candidates.targetPosition === decision.targetPosition && positions.every((position) => position === decision.targetPosition)
-        && decision.actionablePositions.includes(decision.targetPosition);
+      const ok = decision.candidates.targetPosition === decision.viewedPosition && positions.every((position) => position === decision.viewedPosition)
+        && decision.actionablePositions.includes(decision.viewedPosition) && decision.actionablePositions.includes(decision.targetPosition);
       if (!ok) fail("COHERENCE-001", checkpoint, { positions });
       expect(ok).toBe(true);
     });
@@ -133,14 +133,12 @@ describe("COHERENCE-003 / COHERENCE-004 -- an unranked result never carries rank
   }
 });
 
-describe("COHERENCE-005 -- STRATEGIC is claimed only when there is a real choice among positions", () => {
+describe("COHERENCE-005 -- PSR-001: the engine never claims STRATEGIC (no cross-position priority signal exists); the basis is honest", () => {
   for (const { checkpoint, index } of CHECKPOINTS) {
     if (checkpoint.v4?.decision.kind !== "ACTIONABLE") continue;
     test(`COHERENCE-005 ${label(checkpoint, index)}`, () => {
       const decision = checkpoint.v4!.decision as Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>;
-      const ok = (decision.targetBasis === "STRATEGIC" || decision.targetBasis === "DETERMINISTIC_DEFAULT")
-        && (decision.targetBasis !== "STRATEGIC" || decision.actionablePositions.length >= 2)
-        && decision.targetRationale.length > 0;
+      const ok = decision.targetBasis === "DETERMINISTIC_DEFAULT" && decision.targetRationale.length > 0;
       if (!ok) fail("COHERENCE-005", checkpoint, {});
       expect(ok).toBe(true);
     });
@@ -153,7 +151,7 @@ describe("COHERENCE-006 -- every visible card is legal and credible for the acti
     test(`COHERENCE-006 ${label(checkpoint, index)}`, () => {
       const decision = checkpoint.v4!.decision as Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>;
       const gone = unavailableHeroes(checkpoint);
-      const offending = visibleHeroes(checkpoint.v4!).filter((hero) => gone.has(hero) || fixturePosition(hero) !== decision.targetPosition);
+      const offending = visibleHeroes(checkpoint.v4!).filter((hero) => gone.has(hero) || fixturePosition(hero) !== decision.viewedPosition);
       if (offending.length > 0) fail("COHERENCE-006", checkpoint, { offending });
       expect(offending).toEqual([]);
     });
@@ -166,7 +164,7 @@ describe("COHERENCE-007 -- the personal pool applies only when the target is the
     test(`COHERENCE-007 ${label(checkpoint, index)}`, () => {
       const decision = checkpoint.v4!.decision as Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>;
       const poolCards = decision.candidates.state === "RANKED" ? decision.candidates.cards.filter((card) => card.isFromPool) : [];
-      const ok = (!decision.personalPoolApplied || decision.targetPosition === checkpoint.humanPosition) && (decision.personalPoolApplied || poolCards.length === 0);
+      const ok = (!decision.personalPoolApplied || decision.viewedPosition === checkpoint.humanPosition) && (decision.personalPoolApplied || poolCards.length === 0);
       if (!ok) fail("COHERENCE-007", checkpoint, { humanPosition: checkpoint.humanPosition });
       expect(ok).toBe(true);
     });
@@ -275,22 +273,31 @@ describe("COHERENCE-012 -- degradations are carried only by the candidate result
   }
 });
 
-test("COHERENCE-013 -- a requested view of an eligible position becomes THE target (selector == Coach); an ineligible one never does", async () => {
+test("COHERENCE-013 -- a requested view moves ONLY viewedPosition (candidates); the Coach recommendation never moves; an ineligible view never applies", async () => {
   const spec = enumerateScenarios().find((candidate) => candidate.controlSet.id === "party5" && candidate.side === "radiant")!;
   const { store, routes } = createFixtureRoutes();
   const post = (body: unknown) => new Request("http://qa.local/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const created = await routes.post(post({ rulesetId: "dota2/ranked-all-pick", patch: "7.41f", localSide: "radiant", adapterKind: "simulator", partyContext: { partySize: 5, side: "radiant", controlledSlots: [] }, controlledPositions: [1, 2, 3, 4, 5], humanPosition: 2, simulatorSeed: spec.seed }));
   const { sessionId } = (await created.json()) as { sessionId: string };
   await routes.postResolveBans(post({ playerBanPreferences: [] }), sessionId);
+  const baseline = (await (await routes.getRecommendations(sessionId, new URL("http://qa.local/x?format=v4"))).json()) as { output: PublicV4 };
+  const baselineDecision = baseline.output.decision;
+  if (baselineDecision.kind !== "ACTIONABLE") throw new Error("expected ACTIONABLE");
   for (const position of [1, 2, 3, 4, 5] as Position[]) {
     const response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/x?format=v4&target=${position}`));
     const { output } = (await response.json()) as { output: PublicV4 };
-    expect(output.decision.kind === "ACTIONABLE" && output.decision.targetPosition).toBe(position);
+    if (output.decision.kind !== "ACTIONABLE") throw new Error("expected ACTIONABLE");
+    expect(output.decision.viewedPosition).toBe(position);
+    expect(output.decision.targetPosition).toBe(baselineDecision.targetPosition); // PSR-002: recommendation untouched
+    expect(output.decision.targetBasis).toBe(baselineDecision.targetBasis);
+    expect(output.decision.actionablePositions).toEqual(baselineDecision.actionablePositions);
     expect(visibleHeroes(output).every((hero) => fixturePosition(hero) === position)).toBe(true);
   }
   const slot = store.authorizedLegalActions(sessionId)!.find((action) => action.type === "SUBMIT_SEALED_SELECTION") as { slotIndex: number };
   await routes.postCommand(post({ command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: slot.slotIndex, heroId: 420 }, assignedPosition: 4 }), sessionId);
   const { output } = (await (await routes.getRecommendations(sessionId, new URL("http://qa.local/x?format=v4&target=4"))).json()) as { output: PublicV4 };
+  // Position 4 is now sealed: an ineligible view is ignored and falls back to the (recomputed) recommendation.
+  expect(output.decision.kind === "ACTIONABLE" && output.decision.viewedPosition).not.toBe(4);
   expect(output.decision.kind === "ACTIONABLE" && output.decision.targetPosition).not.toBe(4);
 });
 
@@ -300,7 +307,7 @@ describe("COHERENCE-014 -- after an own pick the decision is recomputed: no boun
     test(`COHERENCE-014 ${label(checkpoint, index)}`, () => {
       const decision = checkpoint.v4!.decision;
       const gone = unavailableHeroes(checkpoint);
-      const staleTarget = decision.kind === "ACTIONABLE" && !checkpoint.humanOpenPositions.includes(decision.targetPosition);
+      const staleTarget = decision.kind === "ACTIONABLE" && (!checkpoint.humanOpenPositions.includes(decision.targetPosition) || !checkpoint.humanOpenPositions.includes(decision.viewedPosition));
       const ok = !decision.actionablePositions.includes(checkpoint.filledPosition!) && !staleTarget && visibleHeroes(checkpoint.v4!).every((hero) => !gone.has(hero));
       if (!ok) fail("COHERENCE-014", checkpoint, { filledPosition: checkpoint.filledPosition });
       expect(ok).toBe(true);

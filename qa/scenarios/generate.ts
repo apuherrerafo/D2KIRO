@@ -274,7 +274,7 @@ export type PublicV4Candidates =
   | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: { reason: string; detail: string }[] };
 
 export type PublicV4Decision =
-  | { kind: "ACTIONABLE"; actionablePositions: Position[]; roundCapacity: number; targetPosition: Position; targetBasis: string; targetRationale: string; candidates: PublicV4Candidates; personalPoolApplied: boolean }
+  | { kind: "ACTIONABLE"; actionablePositions: Position[]; roundCapacity: number; targetPosition: Position; targetBasis: string; targetRationale: string; viewedPosition: Position; candidates: PublicV4Candidates; personalPoolApplied: boolean }
   | { kind: "NO_HUMAN_ACTION"; actionablePositions: Position[]; roundCapacity: number; reason: string };
 
 export interface PublicV4 {
