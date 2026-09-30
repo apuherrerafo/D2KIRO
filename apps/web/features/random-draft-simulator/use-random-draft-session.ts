@@ -172,6 +172,14 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   // response for a state the Player already moved past (a pick, a navigation) is dropped.
   const refreshSeqRef = useRef(0);
 
+  // P1 (Greptile PR #9) -- clearing currentDecision makes every in-flight V4 request obsolete. Every
+  // clear goes through here so a response started BEFORE the transition can never write the old
+  // target/cards back (final pick, yield, new attempt, target change).
+  const clearCurrentDecision = useCallback(function clearCurrentDecision(): void {
+    refreshSeqRef.current += 1;
+    useRandomDraftStore.getState().setCurrentDecision(null);
+  }, []);
+
   const stopTimer = useCallback(function stopTimer(): void {
     if (timerIdRef.current !== null) clearInterval(timerIdRef.current);
     timerIdRef.current = null;
@@ -256,9 +264,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const shownView = current.currentDecision?.decision.kind === "ACTIONABLE" ? current.currentDecision.decision.viewedPosition : null;
     if (current.requestedTarget === null && shownView === position) return;
     useRandomDraftStore.getState().setRequestedTarget(position);
-    useRandomDraftStore.getState().setCurrentDecision(null);
+    clearCurrentDecision();
     void refreshRecommendations();
-  }, [refreshRecommendations]);
+  }, [clearCurrentDecision, refreshRecommendations]);
 
   const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot): void {
     protocolRef.current = snapshot;
@@ -305,7 +313,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     if (roundConflictsRef.current.round !== round) roundConflictsRef.current = { round, bans: [] };
     // A new attempt is a new decision: nothing from the previous one (target, cards) survives it.
     useRandomDraftStore.getState().setRequestedTarget(null);
-    useRandomDraftStore.getState().setCurrentDecision(null);
+    clearCurrentDecision();
     useRandomDraftStore.getState().setVisualPhase({
       type: "blind_round",
       round,
@@ -326,7 +334,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     });
     void refreshRecommendations();
     startTicker(round);
-  }, [refreshRecommendations, startTicker]);
+  }, [clearCurrentDecision, refreshRecommendations, startTicker]);
 
   const completeDraft = useCallback(function completeDraft(snapshot: ProtocolSnapshot): void {
     stopTimer();
@@ -453,7 +461,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       // COHERENCE-014 -- the decision the Player just acted on is gone: its target and cards leave the
       // screen now, and the next decision is recomputed from the new binding (never the old target).
       useRandomDraftStore.getState().setRequestedTarget(null);
-      useRandomDraftStore.getState().setCurrentDecision(null);
+      clearCurrentDecision();
       // The number of open round seats is not the number of remaining human decisions: in a
       // Solo/Party session an open own seat may belong to the Ally Bot. Keep waiting only while
       // an actual human-controlled position remains unbound; otherwise resume auto-drive so the
@@ -475,7 +483,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     } finally {
       lockingRef.current = false;
     }
-  }, [closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
+  }, [clearCurrentDecision, closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
 
   // PD-026 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own Team
   // capacity to the Ally Bot. The server is the final authority: a yield it cannot honor comes back
@@ -488,7 +496,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       const snapshot = await requestYield(current.sessionId, fetchImpl);
       // After a yield there is no human action for this round: nothing from the previous decision stays up.
       useRandomDraftStore.getState().setRequestedTarget(null);
-      useRandomDraftStore.getState().setCurrentDecision(null);
+      clearCurrentDecision();
       syncSnapshot(snapshot);
       await advance(null);
     } catch (error) {
@@ -507,7 +515,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     } finally {
       lockingRef.current = false;
     }
-  }, [advance, fetchImpl, syncSnapshot]);
+  }, [advance, clearCurrentDecision, fetchImpl, syncSnapshot]);
 
   // Fail closed: if ban resolution fails the session stays in ban configuration (phase "ban_failed")
   // and the very same request can be retried. Round 1 is never started without a resolved ban set.

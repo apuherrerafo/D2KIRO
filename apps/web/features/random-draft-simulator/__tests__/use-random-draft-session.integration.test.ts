@@ -53,6 +53,8 @@ class FakeApProtocolEngine {
   private readonly outOfOrderCoach: boolean;
   private holdNextDecision: boolean;
   private release: (() => void) | null = null;
+  /** Server truth for `canYield` (the real engine computes it; this fixture lets a test force it). */
+  yieldable = false;
 
   constructor(options: FakeOptions = {}) {
     this.outOfOrderCoach = options.outOfOrderCoach ?? false;
@@ -118,6 +120,11 @@ class FakeApProtocolEngine {
         decisionContext: "team_opening",
       },
     };
+  }
+
+  /** Hold the NEXT `?format=v4` response until `releaseHeld()` (same mechanism as `holdFirstDecision`). */
+  holdNext(): void {
+    this.holdNextDecision = true;
   }
 
   releaseHeld(): void {
@@ -199,6 +206,7 @@ class FakeApProtocolEngine {
             penaltyRatePerSecond: 2,
           },
       ownAssignedPositions: this.ownBindings,
+      canYield: this.yieldable,
       ...extra,
     };
   }
@@ -243,6 +251,10 @@ class FakeApProtocolEngine {
         this.openSlots = Array.from({ length: ROUND_CAPACITY[this.round]! }, (_, index) => index);
       }
       return json({ ...this.snapshot(), stopReason: "human_input", completedRound: null });
+    }
+    if (url.endsWith("/yield")) {
+      this.closeRound({ slotIndex: 0, heroId: -1 });
+      return json(this.snapshot());
     }
     if (url.endsWith("/command")) {
       const command = body.command as { type: string; side: TeamSide; slotIndex: number; heroId: HeroId };
@@ -541,6 +553,45 @@ test("COHERENCE-014: tras un pick la decisión anterior desaparece al instante y
   await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
   expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]); // never the stale [1..5] decision
   expect(actionable(result).actionablePositions).not.toContain(1);
+  unmount();
+});
+
+// P1 (Greptile PR #9) -- clearing the decision must invalidate requests already in flight. Both tests
+// hold the LAST round's V4 request (no later attempt exists to supersede it), run the transition that
+// clears the decision, then let the old response land. The old pre-action decision must never return.
+async function reachLastPickWithHeldDecision() {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  for (const [heroId, position] of [[1, 1], [2, 2], [3, 3]] as [HeroId, Position][]) await lock(result, heroId, position);
+  engine.yieldable = true; // round 3 opens advertising Yield (server truth)
+  engine.holdNext();
+  await lock(result, 4, 4); // closes round 2 -> round 3 opens -> its V4 request is now held in flight
+  await waitFor(() => expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 3 }));
+  await waitFor(() => expect(engine.requests.filter((entry) => entry.url.includes("format=v4")).length).toBeGreaterThanOrEqual(5));
+  expect(result.current.state.currentDecision).toBeNull(); // still pending
+  return { engine, result, unmount };
+}
+
+test("P1: el pick final del draft invalida la petición V4 en vuelo -- su respuesta tardía nunca reaparece", async () => {
+  const { engine, result, unmount } = await reachLastPickWithHeldDecision();
+  await lock(result, 5, 5);
+  expect(result.current.state.phase.type).toBe("complete");
+  expect(result.current.state.currentDecision).toBeNull();
+
+  await act(async () => engine.releaseHeld()); // the pre-pick response (target 5, cards) finally lands
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(result.current.state.currentDecision).toBeNull();
+  unmount();
+});
+
+test("P1: un Yield exitoso invalida la petición V4 en vuelo -- su respuesta tardía nunca reaparece", async () => {
+  const { engine, result, unmount } = await reachLastPickWithHeldDecision();
+  await act(async () => result.current.actions.yieldRound());
+  expect(result.current.state.phase.type).toBe("complete");
+  expect(result.current.state.currentDecision).toBeNull();
+
+  await act(async () => engine.releaseHeld());
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(result.current.state.currentDecision).toBeNull();
   unmount();
 });
 
