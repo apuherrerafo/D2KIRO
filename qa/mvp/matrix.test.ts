@@ -46,7 +46,7 @@ for (const scenario of MVP_SCENARIOS) {
     // WP1 (Product Semantics Recovery): eligibility is carried whole and is never truncated by round
     // capacity; round slots carry a position tag only when every eligible position fits this round.
     const decision = payload.recommendationSet.decision;
-    expect(decision.humanActionability?.eligiblePositions).toEqual(scenario.expectedControl);
+    expect(decision.humanActionability?.eligiblePositions).toEqual([...scenario.expectedControl]);
     expect(decision.controlledSlots.length).toBe(decision.humanActionability?.roundCapacity ?? -1);
     for (const slot of decision.controlledSlots) if (slot.position !== undefined) expect(scenario.expectedControl).toContain(slot.position);
     for (const action of payload.recommendationSet.recommendations.flatMap((recommendation) => recommendation.actions)) {

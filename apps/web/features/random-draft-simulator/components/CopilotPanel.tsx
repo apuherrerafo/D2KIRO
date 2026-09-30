@@ -8,7 +8,7 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
-import { currentDecisionHeroIds, type CoachOutput, type CoachPosition, type CurrentDecisionOutput } from "../coach-client";
+import { currentDecisionHeroIds, type CoachOutput, type CurrentDecisionOutput } from "../coach-client";
 import { playerFacingDegradation, playerFacingRisk } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
