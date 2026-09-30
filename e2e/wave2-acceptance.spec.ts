@@ -25,7 +25,6 @@ const OFFLANE = ["Slardar", "Sand King", "Axe", "Tidehunter"];
 const SOFT_SUPPORT = ["Lion", "Windranger", "Vengeful Spirit", "Earthshaker"];
 const HARD_SUPPORT = ["Crystal Maiden", "Dazzle", "Witch Doctor", "Lich"];
 
-const STRATEGY_KINDS = ["REVEAL_POSITION", "REVEAL_HERO", "DEFER_POSITION", "REVEAL_FLEX", "OPPORTUNITY"];
 
 interface CoachJson {
   primaryAction: { strategy: { kind: string; position?: number; heroId?: number }; label: string };
@@ -47,20 +46,24 @@ function coachOutputs(rec: Recorder): CoachJson[] {
     });
 }
 
+// Product Semantics Recovery: the Simulator's Coach is the ONE V4 CurrentHumanDecision panel. The
+// contract certified here is unchanged (an answer before the first pick, recomputed after an own pick
+// before any reveal, advisory only); only the surface it is read from moved from V3 to V4.
 function primary(page: Page) {
-  return page.getByTestId("coach-primary-action");
+  return page.getByTestId("current-decision-panel");
 }
 
 async function snapshotOfCoach(page: Page) {
   const action = primary(page);
   await expect(action).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
   return {
-    kind: (await action.getAttribute("data-strategy-kind"))!,
+    kind: (await action.getAttribute("data-decision-kind"))!,
     trigger: (await action.getAttribute("data-trigger"))!,
     revision: Number(await action.getAttribute("data-revision")),
     identity: (await action.getAttribute("data-state-identity"))!,
-    label: (await page.getByTestId("coach-primary-label").innerText()).trim(),
-    shortlist: await page.getByTestId("coach-hero-card").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
+    label: (await page.getByTestId("current-decision-target").innerText()).trim(),
+    shortlist: await page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
   };
 }
 
@@ -94,10 +97,10 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
 
     // (a) An actionable Coach answer exists at the START of every round, before the Player picks.
     const atStart = await snapshotOfCoach(page);
-    expect(STRATEGY_KINDS).toContain(atStart.kind);
+    expect(atStart.kind).toBe("ACTIONABLE"); // V4: a human action exists at the start of every round
     expect(atStart.label.length).toBeGreaterThan(0);
     expect(atStart.shortlist.length).toBeGreaterThan(0);
-    await expect(page.getByTestId("coach-shortlist")).toBeVisible();
+    await expect(page.getByTestId("current-decision-candidates")).toBeVisible();
     kindsSeen.push(`${atStart.kind}[${atStart.label.replace(/^Sugerencia: /, "")}]`);
     if (round === 1) expect(atStart.trigger).toBe("DRAFT_PICKS_STARTED");
     else expect(atStart.trigger).toBe("ROUND_REVEALED"); // Round 2/3 open only after the enemy reveal

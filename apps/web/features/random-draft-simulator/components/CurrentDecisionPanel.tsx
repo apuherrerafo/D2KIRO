@@ -227,6 +227,7 @@ export function CurrentDecisionPanel({ output, heroCatalog, requestedTarget = nu
       data-testid="current-decision-panel"
       data-decision-kind={output.decision.kind}
       data-revision={output.meta.revision}
+      data-trigger={output.meta.trigger}
       data-state-identity={output.meta.basedOn.stateIdentity}
     >
       {output.roleCollision?.infeasible && <RoleCollisionBanner collision={output.roleCollision} heroCatalog={heroCatalog} />}
