@@ -295,3 +295,34 @@ describe("WP2 -- el contrato V3 no cambia", () => {
     expect(response.status).toBe(422);
   });
 });
+
+describe("WP3 soporte -- navegación del selector (target=P)", () => {
+  async function v4With(s: Session, query: string) {
+    return s.routes.getRecommendations(s.sessionId, new URL(`http://127.0.0.1/x?format=v4${query}`));
+  }
+
+  test("elegir otra posición pendiente: el objetivo ES esa posición, marcado como vista (no estratégico), con cartas sólo de esa posición", async () => {
+    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
+    const decision = actionable(((await (await v4With(s, "&target=2")).json()) as { output: RecommendationOutputV4 }).output);
+    expect(decision.targetPosition).toBe(2);
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(decision.targetRationale).toContain("Vista elegida por vos");
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 2)).toBe(true);
+  });
+
+  test("pedir el mismo objetivo estratégico no cambia nada", async () => {
+    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
+    const decision = actionable(((await (await v4With(s, "&target=3")).json()) as { output: RecommendationOutputV4 }).output);
+    expect(decision.targetBasis).toBe("STRATEGIC");
+    expect(decision.targetPosition).toBe(3);
+  });
+
+  test("una posición ya sellada nunca se vuelve objetivo; un target inválido es 400", async () => {
+    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
+    await s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex: 0, heroId: 200 }, assignedPosition: 2 }), s.sessionId);
+    const decision = actionable(((await (await v4With(s, "&target=2")).json()) as { output: RecommendationOutputV4 }).output);
+    expect(decision.targetPosition).not.toBe(2);
+    expect(decision.actionablePositions).not.toContain(2);
+    for (const bad of ["9", "0", "1.5", "abc", ""]) expect((await v4With(s, `&target=${bad}`)).status).toBe(400);
+  });
+});

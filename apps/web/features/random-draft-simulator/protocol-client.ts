@@ -59,6 +59,18 @@ export interface OwnAssignedPositionBinding {
   assignedPosition: 1 | 2 | 3 | 4 | 5;
 }
 
+/**
+ * Product Semantics Recovery WP1 -- espejo a mano de HumanActionability (engine,
+ * recommendation/human-actionability.ts): posiciones humanas elegibles SEPARADAS de cuántos picks
+ * caben en la ronda actual. Verdad del servidor: la web nunca la re-deriva.
+ */
+export interface HumanActionability {
+  eligiblePositions: (1 | 2 | 3 | 4 | 5)[];
+  roundCapacity: number;
+  hasHumanAction: boolean;
+  noActionReason: "YIELDED" | "ROUND_COMPLETE" | "DRAFT_COMPLETE" | null;
+}
+
 export interface ProtocolSnapshot {
   view: ProtocolPerspectiveView;
   legalActions: ProtocolLegalAction[];
@@ -72,6 +84,8 @@ export interface ProtocolSnapshot {
    * aproximarla por su cuenta. `false` fuera de una sesión AP Simulator.
    */
   canYield: boolean;
+  /** WP1 -- null/ausente fuera de una sesión AP Simulator con controlledPositions (o en una respuesta previa a este campo). */
+  humanActionability?: HumanActionability | null;
   /** Sólo en la respuesta de un comando: el kernel lo aceptó o lo rechazó (motivo). */
   accepted?: boolean;
   rejected?: string;
@@ -159,6 +173,15 @@ function isOwnAssignedPositionBinding(value: unknown): value is OwnAssignedPosit
   return (value.round === 1 || value.round === 2 || value.round === 3) && typeof value.slotIndex === "number" && isDotaPosition(value.assignedPosition);
 }
 
+function parseHumanActionability(value: unknown): HumanActionability | null {
+  if (!isRecord(value) || !Array.isArray(value.eligiblePositions) || !value.eligiblePositions.every(isDotaPosition)) return null;
+  if (typeof value.roundCapacity !== "number" || !Number.isInteger(value.roundCapacity) || value.roundCapacity < 0) return null;
+  if (typeof value.hasHumanAction !== "boolean") return null;
+  const reasonOk = value.noActionReason === null || value.noActionReason === "YIELDED" || value.noActionReason === "ROUND_COMPLETE" || value.noActionReason === "DRAFT_COMPLETE";
+  if (!reasonOk || value.hasHumanAction !== (value.noActionReason === null)) return null;
+  return { eligiblePositions: [...value.eligiblePositions], roundCapacity: value.roundCapacity, hasHumanAction: value.hasHumanAction, noActionReason: value.noActionReason as HumanActionability["noActionReason"] };
+}
+
 function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   if (!isRecord(value) || !isRecord(value.view) || !Array.isArray(value.legalActions)) return null;
   const view = value.view;
@@ -182,7 +205,7 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   const snapshot = value as unknown as ProtocolSnapshot;
   const accepted = typeof value.accepted === "boolean" ? { accepted: value.accepted } : {};
   const rejected = typeof value.rejected === "string" ? { rejected: value.rejected } : {};
-  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ownAssignedPositions, canYield, ...accepted, ...rejected };
+  return { ...snapshot, simulator: parseSimulatorTimer(value.simulator), ownAssignedPositions, canYield, humanActionability: parseHumanActionability(value.humanActionability), ...accepted, ...rejected };
 }
 
 async function readSnapshot(response: Response): Promise<ProtocolSnapshot> {

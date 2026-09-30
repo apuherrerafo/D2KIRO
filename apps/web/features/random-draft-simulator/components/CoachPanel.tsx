@@ -5,7 +5,7 @@ import { RecommendationFeedback } from "@/components/recommendation-feedback/Rec
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleBelief, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
@@ -24,7 +24,7 @@ const POSITION_LABELS: Record<CoachPosition, string> = {
   5: "Hard support",
 };
 
-const BADGE_LABELS: Record<CoachBadge, string> = {
+export const BADGE_LABELS: Record<CoachBadge, string> = {
   COUNTER: "Counter",
   SYNERGY: "Sinergia",
   POSITION_FIT: "Encaja en la posición",
@@ -70,7 +70,7 @@ function NamedHero({ strategy, heroCatalog }: NamedHeroProps) {
   );
 }
 
-function RoleCollisionBanner({ collision, heroCatalog }: { collision: CoachRoleCollision; heroCatalog: Map<number, HeroMeta> }) {
+export function RoleCollisionBanner({ collision, heroCatalog }: { collision: CoachRoleCollision; heroCatalog: Map<number, HeroMeta> }) {
   const conflictDetails = collision.conflicts.map((c) => {
     const posName = POSITION_LABELS[c.position] ?? `Pos ${c.position}`;
     const heroes = c.heroIds.map((id) => heroName(id, heroCatalog)).join(", ");
@@ -247,31 +247,6 @@ interface ShortlistProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
-function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
-  const personal = coach.personalHeroView;
-  if (!personal) return null;
-  if (personal.seatCovered) {
-    return (
-      <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
-        <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
-        <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
-        <span className="text-caption text-content-secondary" data-testid="coach-personal-seat-covered">Tu posición ya está cubierta</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
-      <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
-      <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
-      <ul className="grid grid-cols-1 gap-1">
-        {personal.heroes.map((hero) => <li key={hero.heroId} className="text-caption text-content-primary" data-hero-id={hero.heroId}>
-          {hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}
-        </li>)}
-      </ul>
-    </div>
-  );
-}
-
 type RoleBelief = NonNullable<CoachOutput["roleBeliefs"]>["own"][number];
 
 interface RoleBeliefRowProps {
@@ -326,9 +301,16 @@ function AssignPositionButton({ heroId, position, onAssign }: AssignPositionButt
   return <button type="button" className={BUTTON_COMPACT} onClick={assign}>Asignar Pos{position}</button>;
 }
 
-function RoleBeliefs({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProps) {
-  if (!coach.roleBeliefs) return null;
-  const { own, enemy } = coach.roleBeliefs;
+export interface CoachRoleBeliefsProps {
+  roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
+  heroCatalog: Map<number, HeroMeta>;
+  onAssignOwnPosition?: (heroId: number, position: CoachPosition | null) => void;
+}
+
+/** Observable role uncertainty + own-hero position assignment. Context for the decision, never a decision surface. */
+export function CoachRoleBeliefs({ roleBeliefs, heroCatalog, onAssignOwnPosition }: CoachRoleBeliefsProps) {
+  if (!roleBeliefs) return null;
+  const { own, enemy } = roleBeliefs;
   if (own.length === 0 && enemy.length === 0) return null;
   return <div className="flex flex-col gap-2" data-testid="coach-role-beliefs">
     {own.map((belief) => <OwnRoleRow key={`own-${belief.heroId}`} belief={belief} label="Tu equipo" heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />)}
@@ -403,9 +385,11 @@ export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition, degradatio
       {!suppressDegradations && degradations && degradations.length > 0 && <CoachDegradationsNotice degradations={degradations} />}
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
       <SafeCoreOpportunity coach={coach} heroCatalog={heroCatalog} />
-      <PersonalHeroView coach={coach} heroCatalog={heroCatalog} />
+      {/* Product Semantics Recovery WP3: the personal "TU <POS> AHORA" / "solo tu asiento" block is no
+          longer rendered as a second, simultaneous current-action panel. V3 still carries
+          personalHeroView on the wire (contract unchanged); the Simulator reads V4 instead. */}
       <Shortlist coach={coach} heroCatalog={heroCatalog} />
-      <RoleBeliefs coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
+      <CoachRoleBeliefs roleBeliefs={coach.roleBeliefs} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
     </div>
   );
 }

@@ -22,6 +22,8 @@ interface FakeOptions {
   collideRoundOnce?: boolean;
   /** Every Coach response after the first arrives "late": it carries an OLDER revision than the one already held. */
   outOfOrderCoach?: boolean;
+  /** The FIRST `?format=v4` response is held until `releaseHeld()` -- a slow response that lands after the Player acted. */
+  holdFirstDecision?: boolean;
 }
 
 interface OwnBinding {
@@ -49,9 +51,12 @@ class FakeApProtocolEngine {
   private ownBindings: OwnBinding[] = [];
   private coachRevision = 0;
   private readonly outOfOrderCoach: boolean;
+  private holdNextDecision: boolean;
+  private release: (() => void) | null = null;
 
   constructor(options: FakeOptions = {}) {
     this.outOfOrderCoach = options.outOfOrderCoach ?? false;
+    this.holdNextDecision = options.holdFirstDecision ?? false;
     this.banFailuresLeft = options.banFailures ?? 0;
     this.collidePending = options.collideRoundOnce ?? false;
   }
@@ -115,6 +120,55 @@ class FakeApProtocolEngine {
     };
   }
 
+  releaseHeld(): void {
+    this.release?.();
+    this.release = null;
+  }
+
+  // Product Semantics Recovery WP3: what the engine's `?format=v4` returns, derived from this fake's own
+  // state -- actionable = unbound human positions, capacity = min(open own slots, actionable), one target.
+  private currentDecisionBody(url: string) {
+    this.coachRevision += 1;
+    const boundPositions = new Set(this.ownBindings.map((binding) => binding.assignedPosition));
+    const actionablePositions = ([1, 2, 3, 4, 5] as Position[]).filter((position) => !boundPositions.has(position));
+    const roundCapacity = Math.min(this.openSlots.length, actionablePositions.length);
+    const requested = Number(new URL(url, "http://fixture.local").searchParams.get("target"));
+    const targetPosition = actionablePositions.includes(requested as Position) ? (requested as Position) : actionablePositions[0];
+    const decision = roundCapacity === 0 || targetPosition === undefined
+      ? { kind: "NO_HUMAN_ACTION", actionablePositions: [], roundCapacity: 0, reason: this.round === 4 ? "DRAFT_COMPLETE" : "ROUND_COMPLETE" }
+      : {
+          kind: "ACTIONABLE",
+          actionablePositions,
+          roundCapacity,
+          targetPosition,
+          targetBasis: "DETERMINISTIC_DEFAULT",
+          targetRationale: "fixture",
+          candidates: {
+            state: "RANKED",
+            targetPosition,
+            cards: [{ heroId: 10 + this.own.length, position: targetPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false }],
+            degradations: [],
+          },
+          personalPoolApplied: false,
+        };
+    return {
+      output: {
+        schema: "recommendation-output/v4",
+        sessionId: this.sessionId,
+        decision,
+        roleBeliefs: { own: [], enemy: [] },
+        meta: {
+          round: this.round >= 1 && this.round <= 3 ? this.round : null,
+          phase: this.phaseName(),
+          decisionContext: this.own.length === 0 ? "team_opening" : "blind_second_pick",
+          trigger: this.own.length === 0 ? "DRAFT_PICKS_STARTED" : "OWN_PICK_CONFIRMED",
+          revision: this.coachRevision,
+          basedOn: { stateIdentity: `state-${this.own.length}-${this.enemy.length}`, evidenceVersion: "v" },
+        },
+      },
+    };
+  }
+
   private snapshot(extra: Record<string, unknown> = {}) {
     const pickRound = this.round >= 1 && this.round <= 3 ? (this.round as 1 | 2 | 3) : null;
     return {
@@ -165,6 +219,16 @@ class FakeApProtocolEngine {
       this.bans = [30, 31, 32];
       this.round = 1;
       return json({ resolvedBans: this.bans, ...this.snapshot() });
+    }
+    if (url.includes("/recommendations") && url.includes("format=v4")) {
+      const body = this.currentDecisionBody(url);
+      if (this.holdNextDecision) {
+        this.holdNextDecision = false;
+        await new Promise<void>((resolve) => {
+          this.release = resolve;
+        });
+      }
+      return json(body);
     }
     if (url.includes("/recommendations")) {
       return json(this.coachBody());
@@ -401,60 +465,92 @@ test("el Copilot humano sigue leyendo RecommendationSet/v2 (nunca /api/suggestio
   unmount();
 });
 
-// AP Ranked Roles V1 / Wave 2 -- Coach in the browser hook.
-test("COACH: hay acción primaria al abrir la Ronda 1 (antes del primer pick) y se recomputa tras el primer pick propio, sin esperar al rival", async () => {
+// Product Semantics Recovery WP3 -- the Simulator's Coach in the browser hook reads ONLY the V4
+// CurrentHumanDecision; V3 (`coach`) and V2 (`recommendations`) are never populated next to it.
+function actionable(result: { current: ReturnType<typeof useRandomDraftSession> }) {
+  const decision = result.current.state.currentDecision?.decision;
+  if (!decision || decision.kind !== "ACTIONABLE") throw new Error("expected an ACTIONABLE current decision");
+  return decision;
+}
+
+test("COACH: hay decisión actual al abrir la Ronda 1 (antes del primer pick) y se recomputa tras el primer pick propio, sin esperar al rival", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 2);
-  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
-  const first = result.current.state.coach!;
-  expect(first.primaryAction.label.length).toBeGreaterThan(0);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  const first = result.current.state.currentDecision!;
   expect(first.meta.trigger).toBe("DRAFT_PICKS_STARTED");
+  expect(actionable(result).actionablePositions).toEqual([1, 2, 3, 4, 5]);
+  expect(actionable(result).roundCapacity).toBe(2);
+  expect(engine.requests.some((entry) => entry.url.includes("format=v4"))).toBe(true);
+  expect(engine.requests.some((entry) => entry.url.includes("format=v3"))).toBe(false);
+  expect(result.current.state.coach).toBeNull(); // COHERENCE-010: no legacy decision next to V4
+  expect(result.current.state.recommendations).toBeNull();
 
   await lock(result, 1, 1); // one of the two Round-1 seats: the round has NOT closed, no enemy hero is revealed
-  await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(first.meta.revision));
-  const second = result.current.state.coach!;
+  await waitFor(() => expect(result.current.state.currentDecision?.meta.revision ?? 0).toBeGreaterThan(first.meta.revision));
+  const second = result.current.state.currentDecision!;
   expect(second.meta.trigger).toBe("OWN_PICK_CONFIRMED");
   expect(second.meta.basedOn.stateIdentity).not.toBe(first.meta.basedOn.stateIdentity);
+  expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]);
   expect(result.current.state.draftState?.picks.dire).toEqual([]); // still nothing revealed
-  expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
   unmount();
 });
 
 test("UX-02: cualquier posición controlada puede sellarse primero y sólo el resto se recalcula", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 5);
-  await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(2));
+  await waitFor(() => expect(actionable(result).roundCapacity).toBe(2));
 
   await lock(result, 7, 2);
 
   expect(commands(engine)[0]).toEqual({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 7 });
   expect(result.current.state.phase).toMatchObject({ type: "blind_round", lockedUserPicks: { 2: 7 } });
-  await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(1));
+  await waitFor(() => expect(result.current.state.currentDecision?.decision.roundCapacity).toBe(1));
+  expect(actionable(result).actionablePositions).toEqual([1, 3, 4, 5]);
   expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
   unmount();
 });
 
-test("COACH: el Player ignora el consejo (elige un héroe que no está en la shortlist): se acepta, sin aviso, y el Coach recomputa", async () => {
+test("COACH: el Player ignora el consejo (elige un héroe fuera de los candidatos): se acepta, sin aviso, y la decisión se recalcula", async () => {
   const { result, unmount } = await startDraft("dire", 4);
-  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
-  const suggested = result.current.state.coach!.shortlist.map((card) => card.heroId);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  const decision = actionable(result);
+  const suggested = decision.candidates.state === "RANKED" ? decision.candidates.cards.map((card) => card.heroId) : [];
   const chosen = [1, 2, 3, 4].find((heroId) => !suggested.includes(heroId))!;
-  const before = result.current.state.coach!.meta.revision;
+  const before = result.current.state.currentDecision!.meta.revision;
   await lock(result, chosen, 4);
   expect(result.current.state.draftState?.picks.dire).toContain(chosen);
   const phase = result.current.state.phase;
   expect(phase.type === "blind_round" && phase.notice).toBeNull();
-  await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(before));
+  await waitFor(() => expect(result.current.state.currentDecision?.meta.revision ?? 0).toBeGreaterThan(before));
   unmount();
 });
 
-test("COACH: una respuesta más vieja (revision menor) nunca pisa a una más nueva", async () => {
-  const { engine, result, unmount } = await startDraft("radiant", 2, { outOfOrderCoach: true });
-  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
-  const held = result.current.state.coach!;
-  expect(held.meta.revision).toBe(1);
+test("COHERENCE-014: tras un pick la decisión anterior desaparece al instante y una respuesta lenta previa al pick nunca reaparece", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2, { holdFirstDecision: true });
+  // The first V4 response (pre-pick state: 5 actionable positions) is still in flight.
+  await waitFor(() => expect(engine.requests.some((entry) => entry.url.includes("format=v4"))).toBe(true));
+  expect(result.current.state.currentDecision).toBeNull();
 
-  await lock(result, 1, 2); // triggers a second recomputation, which the fake engine answers with revision 0
-  await waitFor(() => expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2));
+  await lock(result, 1, 1);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]);
+
+  await act(async () => engine.releaseHeld()); // the slow, pre-pick response finally lands
   await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
-  expect(result.current.state.coach).toEqual(held); // the late, older output was discarded
+  expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]); // never the stale [1..5] decision
+  expect(actionable(result).actionablePositions).not.toContain(1);
+  unmount();
+});
+
+test("navegación del selector: pedir otra posición retira la decisión vigente y el objetivo nuevo ES la posición pedida", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  act(() => result.current.actions.selectTarget(4));
+  expect(result.current.state.currentDecision).toBeNull(); // no stale target while the engine recomputes
+  expect(result.current.state.requestedTarget).toBe(4);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  expect(actionable(result).targetPosition).toBe(4);
+  expect(engine.requests.some((entry) => entry.url.includes("format=v4&target=4"))).toBe(true);
+  await lock(result, 9, 4);
+  expect(result.current.state.requestedTarget).toBeNull(); // a pick resets navigation: the next target is recomputed
   unmount();
 });

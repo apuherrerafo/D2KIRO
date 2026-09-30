@@ -65,9 +65,13 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, recommendations, coach, previewStatus, config } = session.state;
+  const { phase, draftState, recommendations, coach, previewStatus, config, currentDecision, requestedTarget, humanActionability } = session.state;
   const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
+  // COHERENCE-013 -- the selector and the Coach share ONE target: the V4 decision's (or the view the
+  // Player just requested, while the engine recomputes it).
+  const decisionTarget = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.targetPosition : null;
+  const selectedTarget = requestedTarget ?? decisionTarget;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -80,6 +84,9 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           highlightedHeroIds={highlightedHeroIds}
           onLockPick={session.actions.lockPick}
           onYield={session.actions.yieldRound}
+          humanActionability={humanActionability}
+          selectedTarget={selectedTarget}
+          onSelectTarget={session.actions.selectTarget}
         />
       </div>
       <div className="flex flex-col gap-4">
@@ -90,6 +97,8 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         <CopilotPanel
           recommendations={recommendations}
           coach={coach}
+          currentDecision={currentDecision}
+          requestedTarget={requestedTarget}
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={session.actions.retryPreview}

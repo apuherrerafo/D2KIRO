@@ -37,7 +37,7 @@ export interface CoachRecommendations {
    * Product Semantics Recovery WP2 -- the V4 CurrentHumanDecision. `undefined` for an unknown session,
    * `null` for a session without HumanActionability (non-AP-Simulator).
    */
-  recommendCurrentDecision(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null): Promise<CurrentDecisionRecomputation | null | undefined>;
+  recommendCurrentDecision(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null, requestedTarget?: 1 | 2 | 3 | 4 | 5 | null): Promise<CurrentDecisionRecomputation | null | undefined>;
 }
 
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
@@ -113,10 +113,10 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       if (!context) return null;
       return coachFor(accountId).recompute({ context, playerPersonalPosition });
     },
-    async recommendCurrentDecision(sessionId, playerPersonalPosition, accountId = null) {
+    async recommendCurrentDecision(sessionId, playerPersonalPosition, accountId = null, requestedTarget = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return undefined;
-      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null });
+      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null, requestedTarget });
     },
     async assignPosition(sessionId, playerPersonalPosition, accountId, heroId, position) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);

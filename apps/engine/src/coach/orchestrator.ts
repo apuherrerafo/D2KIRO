@@ -79,6 +79,8 @@ export interface CoachRecomputeInput {
 export interface CurrentDecisionRecomputeInput extends CoachRecomputeInput {
   /** The authenticated account's pool overlay exists for this request (personal pool CAN apply). */
   personalPoolAvailable?: boolean;
+  /** Position the Player chose to view in the selector (validated as eligible by selectDecisionTarget). */
+  requestedTarget?: Position | null;
 }
 
 export interface CurrentDecisionRecomputation {
@@ -254,7 +256,7 @@ export class CoachOrchestrator {
     let sourceSet = teamEvaluation;
     let decision = buildCurrentHumanDecision({ actionability, target: null, candidates: null, personalPoolApplied: false });
     if (actionability.hasHumanAction) {
-      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, teamEvaluation, view, playerPersonalPosition: personal, heroPositions, heroCounters: this.deps.heroCounters });
+      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, teamEvaluation, view, playerPersonalPosition: personal, heroPositions, heroCounters: this.deps.heroCounters, requestedTarget: input.requestedTarget ?? null });
       // COHERENCE-007: the Personal Hero Pool may shape the active decision ONLY for the personal position.
       const personalPoolApplied = input.personalPoolAvailable === true && personal !== null && target.targetPosition === personal;
       const targetRanking = await buildTargetRanking(input.context, target.targetPosition, personalPoolApplied);

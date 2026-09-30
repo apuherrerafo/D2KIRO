@@ -216,21 +216,18 @@ test("CopilotPanel sin Coach (Captain's Mode / motor viejo) no muestra sección 
   expect(view.queryByTestId("coach-panel")).toBeNull();
 });
 
-test("Dota-Judge RB-1: con la posición personal ya cubierta se muestra 'Tu posición ya está cubierta' y ningún ranking", () => {
-  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: true, heroes: [] } };
-  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
-  const personal = view.getByTestId("coach-personal-hero-view");
-  expect(personal.textContent).toContain("TU MID AHORA");
-  expect(view.getByTestId("coach-personal-seat-covered").textContent).toBe("Tu posición ya está cubierta");
-  expect(personal.querySelectorAll("[data-hero-id]")).toHaveLength(0);
-});
-
-test("Dota-Judge RB-1: con la posición abierta el ranking personal se lista como siempre", () => {
-  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: false, heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
-  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
-  expect(view.queryByTestId("coach-personal-seat-covered")).toBeNull();
-  expect(view.getByTestId("coach-personal-hero-view").textContent).toContain("Tu pool");
-});
+// Product Semantics Recovery WP3 (COHERENCE-002): the personal "TU <POS> AHORA" / "solo tu asiento"
+// block was an independent, simultaneous current-action panel next to the primary action. It is no
+// longer rendered -- the V3 wire still carries personalHeroView (contract unchanged), the UI ignores it.
+for (const seatCovered of [true, false]) {
+  test(`personalHeroView (seatCovered: ${seatCovered}) NO se renderiza como panel de acción independiente`, () => {
+    const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered, heroes: seatCovered ? [] : [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
+    const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+    expect(view.queryByTestId("coach-personal-hero-view")).toBeNull();
+    expect(view.container.textContent).not.toContain("TU MID AHORA");
+    expect(view.container.textContent).not.toContain("solo tu asiento");
+  });
+}
 
 test("CoachPanel muestra aviso de degradación cuando patch_meta no está lista para votar", () => {
   const output: CoachOutput = {

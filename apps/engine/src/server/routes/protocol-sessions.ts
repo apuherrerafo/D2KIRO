@@ -703,7 +703,11 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     // human action, so no second recommendation set is put on the wire next to it.
     if (url.searchParams.get("format") === "v4") {
       if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
-      const current = await coachRecommendations.recommendCurrentDecision(sessionId, metadata.humanPosition, accountId);
+      // Optional selector navigation. External input: validated here, before any recommendation logic.
+      const targetParam = url.searchParams.get("target");
+      const requestedTarget = targetParam === null ? null : parseDotaPosition(Number(targetParam));
+      if (targetParam !== null && (requestedTarget === null || !/^[1-5]$/.test(targetParam))) return badRequest("invalid_target");
+      const current = await coachRecommendations.recommendCurrentDecision(sessionId, metadata.humanPosition, accountId, requestedTarget);
       if (current === undefined) return notFound();
       if (current === null) return Response.json({ error: "current_decision_requires_controlled_positions" }, { status: 422 });
       console.log(JSON.stringify({

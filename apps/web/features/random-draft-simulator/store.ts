@@ -2,8 +2,8 @@
 
 import { create } from "zustand";
 import type { DraftState } from "@/features/draft/types";
-import type { CoachOutput } from "./coach-client";
-import type { OwnAssignedPositionBinding, RecommendationSetV2 } from "./protocol-client";
+import type { CoachOutput, CurrentDecisionOutput } from "./coach-client";
+import type { HumanActionability, OwnAssignedPositionBinding, RecommendationSetV2 } from "./protocol-client";
 import type { OrchestratorResult } from "./orchestrator";
 import type { DraftConfig, DraftPhase, HeroId, SessionMode } from "./types";
 
@@ -26,6 +26,17 @@ export interface RandomDraftState {
   // built by the engine ON the V2 set above. Null until the first computation, or when the engine
   // has nothing to advise (no open seat).
   coach: CoachOutput | null;
+  /**
+   * Product Semantics Recovery WP3 -- the Simulator's ONE current human decision
+   * (RecommendationOutputV4). When present it is the only current-action source: neither `coach` (V3)
+   * nor `recommendations` (V2) is rendered next to it. Cleared the instant the state it described
+   * changes (own pick, yield, navigation) so a stale target/card set is never on screen.
+   */
+  currentDecision: CurrentDecisionOutput | null;
+  /** Position the Player chose to view in the selector; the engine validates it. Reset after every own pick. */
+  requestedTarget: 1 | 2 | 3 | 4 | 5 | null;
+  /** WP1 -- server-derived eligibility vs. round capacity, from the latest snapshot. */
+  humanActionability: HumanActionability | null;
   staleWarning: boolean;
   lastSyncedAt: string | null;
   previewStatus: PreviewStatus;
@@ -42,6 +53,9 @@ export interface RandomDraftActions {
   setDraftState(state: DraftState): void;
   setRecommendations(recommendations: RecommendationSetV2 | null): void;
   setCoach(coach: CoachOutput | null): void;
+  setCurrentDecision(currentDecision: CurrentDecisionOutput | null): void;
+  setRequestedTarget(position: 1 | 2 | 3 | 4 | 5 | null): void;
+  setHumanActionability(actionability: HumanActionability | null): void;
   setVisualPhase(phase: DraftPhase): void;
   setStaleInfo(isStale: boolean, syncedAt: string | null): void;
   setPreviewStatus(status: PreviewStatus): void;
@@ -63,6 +77,9 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   draftState: null,
   recommendations: null,
   coach: null,
+  currentDecision: null,
+  requestedTarget: null,
+  humanActionability: null,
   staleWarning: false,
   lastSyncedAt: null,
   previewStatus: "idle",
@@ -77,6 +94,9 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       draftState: null,
       recommendations: null,
       coach: null,
+      currentDecision: null,
+      requestedTarget: null,
+      humanActionability: null,
       phase: mode === "live_companion"
         ? { type: "live_ban_entry", observedBans: [], error: null }
         : { type: "ban_phase_complete", resolvedBans: orchestratorResult.resolvedBans },
@@ -111,6 +131,9 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       draftState: null,
       recommendations: null,
       coach: null,
+      currentDecision: null,
+      requestedTarget: null,
+      humanActionability: null,
       staleWarning: false,
       lastSyncedAt: null,
       previewStatus: "idle",
@@ -129,6 +152,18 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
 
   setCoach(coach) {
     set({ coach });
+  },
+
+  setCurrentDecision(currentDecision) {
+    set({ currentDecision });
+  },
+
+  setRequestedTarget(requestedTarget) {
+    set({ requestedTarget });
+  },
+
+  setHumanActionability(humanActionability) {
+    set({ humanActionability });
   },
 
   setVisualPhase(phase) {

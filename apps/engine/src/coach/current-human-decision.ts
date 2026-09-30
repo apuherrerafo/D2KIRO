@@ -48,6 +48,12 @@ export interface SelectDecisionTargetInput {
   playerPersonalPosition: Position | null;
   heroPositions?: HeroPositions;
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /**
+   * A position the Player chose to VIEW in the position selector (navigation). Honoured only when it is
+   * eligible; when it is not the engine's own strategic target it is reported as DETERMINISTIC_DEFAULT
+   * -- a presentation choice, never promoted to advice.
+   */
+  requestedTarget?: Position | null;
 }
 
 /** The stable default: the Player's own position when it is still eligible, else the lowest eligible one. Navigation only. */
@@ -62,6 +68,16 @@ function defaultTarget(eligible: readonly Position[], personal: Position | null)
  * Otherwise DETERMINISTIC_DEFAULT -- and its rationale says so, it never claims to be advice.
  */
 export function selectDecisionTarget(input: SelectDecisionTargetInput): DecisionTarget {
+  const selection = selectEngineTarget(input);
+  const requested = input.requestedTarget ?? null;
+  if (requested === null || requested === selection.targetPosition || !input.eligiblePositions.includes(requested)) return selection;
+  const context = selection.targetBasis === "STRATEGIC"
+    ? `el Coach no la prioriza estratégicamente (su objetivo sería ${positionPhrase(selection.targetPosition)}).`
+    : "no hay prioridad estratégica entre tus posiciones pendientes.";
+  return { targetPosition: requested, targetBasis: "DETERMINISTIC_DEFAULT", targetRationale: `Vista elegida por vos: ${positionPhrase(requested)}; ${context}` };
+}
+
+function selectEngineTarget(input: SelectDecisionTargetInput): DecisionTarget {
   const eligible = [...input.eligiblePositions].sort((a, b) => a - b);
   if (eligible.length === 0) throw new Error("selectDecisionTarget requires at least one eligible position");
   const fallback = defaultTarget(eligible, input.playerPersonalPosition);
