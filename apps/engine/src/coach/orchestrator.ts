@@ -252,11 +252,14 @@ export class CoachOrchestrator {
     const coachState = buildCoachObservableState(view, { heroPositions, playerPositionAssignments: assignments, personalContext: null });
     const personal = input.playerPersonalPosition ?? null;
 
-    // Identifies the observed state for NO_HUMAN_ACTION; with an action the target ranking below replaces
-    // it as the source (target selection no longer reads a team ranking -- PSR-001).
-    let sourceSet = await buildTeamEvaluation(input.context);
+    // P2 (Greptile PR #9): the team evaluation only identifies the observed state for NO_HUMAN_ACTION.
+    // With an action the viewed-position target ranking is the source (PSR-001), so the team
+    // evaluation is never computed on that path.
+    let sourceSet: RecommendationSetV2;
     let decision = buildCurrentHumanDecision({ actionability, target: null, candidates: null, personalPoolApplied: false });
-    if (actionability.hasHumanAction) {
+    if (!actionability.hasHumanAction) {
+      sourceSet = await buildTeamEvaluation(input.context);
+    } else {
       const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget);
