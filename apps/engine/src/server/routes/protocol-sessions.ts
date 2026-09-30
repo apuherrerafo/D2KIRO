@@ -698,6 +698,28 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (!view) return notFound();
 
     const startedAt = Date.now();
+    // Product Semantics Recovery WP2 -- `?format=v4`: the ONE authoritative CurrentHumanDecision
+    // (RecommendationOutputV4). Only the output travels: the web renders nothing else for the current
+    // human action, so no second recommendation set is put on the wire next to it.
+    if (url.searchParams.get("format") === "v4") {
+      if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+      const current = await coachRecommendations.recommendCurrentDecision(sessionId, metadata.humanPosition, accountId);
+      if (current === undefined) return notFound();
+      if (current === null) return Response.json({ error: "current_decision_requires_controlled_positions" }, { status: 422 });
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event: "current_decision_computed",
+        sessionId,
+        stateIdentity: current.output.meta.basedOn.stateIdentity,
+        protocolStatus: view.status,
+        decisionKind: current.output.decision.kind,
+        targetBasis: current.output.decision.kind === "ACTIONABLE" ? current.output.decision.targetBasis : null,
+        candidateState: current.output.decision.kind === "ACTIONABLE" ? current.output.decision.candidates.state : null,
+        degradations: current.sourceSet.degradations.map((degradation) => degradation.reason),
+        computedInMs: Date.now() - startedAt,
+      }));
+      return Response.json({ output: current.output });
+    }
     // AP Ranked Roles V1 / Wave 2 -- `?format=v3` asks the Coach: a RecommendationOutputV3 plus the V2-shaped
     // set it was built on. That set comes from the PERSPECTIVE-SAFE builder (never from authoritative
     // state, so it is not identical to the legacy V2 body: no one-ply lookahead, no simulator seed). The

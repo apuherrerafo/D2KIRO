@@ -1,0 +1,297 @@
+import { describe, expect, test } from "bun:test";
+import type { TeamSide } from "../draft-protocol/types";
+import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
+import type { DegradationFlag, Suggestion, SuggestionSet } from "../signals/mix";
+import type { HeroPositions } from "../signals/hero-positions";
+import type { SignalContribution } from "../signals/types";
+import { ProtocolSessionStore } from "../server/protocol-session";
+import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "../server/routes/protocol-sessions";
+import { RANKING_INVALIDATING_REASONS } from "./current-human-decision";
+import type { CurrentHumanDecision, RecommendationOutputV4 } from "./recommendation-output-v4";
+
+// Product Semantics Recovery WP2 -- CurrentHumanDecision over the REAL store + REAL routes + REAL
+// perspective-safe builders. Only V6 is a deterministic fixture; hero positions are an inline fixture
+// (S10: never the curated file). Heroes are `position * 100 + k`, credible at exactly one position.
+
+type Position = 1 | 2 | 3 | 4 | 5;
+const POSITIONS: readonly Position[] = [1, 2, 3, 4, 5];
+const HERO_POSITIONS: HeroPositions = {};
+for (const position of POSITIONS) for (let k = 0; k < 8; k += 1) HERO_POSITIONS[position * 100 + k] = [{ position, matches: 1000 }];
+const ALL_HEROES = Object.keys(HERO_POSITIONS).map(Number);
+const heroPosition = (hero: number): Position => Math.floor(hero / 100) as Position;
+
+interface FixtureOptions {
+  /** Team-level V6 order: heroes of these positions lead, in this order. */
+  leadOrder?: readonly Position[];
+  degraded?: DegradationFlag[];
+  throws?: boolean;
+  /** Heroes the account's pool overlay marks "En tu pool" (only when an accountId reaches V6). */
+  pool?: readonly number[];
+  calls?: { accountId: number | null; targetPosition?: Position }[];
+}
+
+function fixtureCompute(options: FixtureOptions = {}): ComputeSuggestionsForDraftState {
+  return async (state, accountId, computeOptions) => {
+    options.calls?.push({ accountId, targetPosition: computeOptions?.targetPosition });
+    if (options.throws) throw new Error("V6 down");
+    const taken = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
+    const lead = options.leadOrder ?? POSITIONS;
+    const universe = (computeOptions?.candidateHeroIds ?? ALL_HEROES).filter((hero) => !taken.has(hero));
+    const ordered = [...universe].sort((a, b) => lead.indexOf(heroPosition(a)) - lead.indexOf(heroPosition(b)) || a - b);
+    const suggestions: Suggestion[] = ordered.slice(0, 12).map((hero, index) => {
+      const signals: SignalContribution[] = [
+        { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 100 - index, explanation: `posición de ${hero}`, sampleSize: 100 },
+      ];
+      if (accountId !== null && options.pool?.includes(hero)) {
+        signals.push({ signal: "hero_pool_fit", raw: 1, normalized: 100, evidenceConfidence: 1, weighted: 1, explanation: "En tu pool de héroes", sampleSize: 1, applicable: true });
+      }
+      return { hero, rank: Math.min(index + 1, 6) as Suggestion["rank"], score: 100 - index, signals, reason: "fixture", confidence: "alta" as const, evidenceCoverage: 1, guessingIndex: 0 };
+    });
+    const functionalEvidence: FunctionalRecommendationEvidence = { metaIsStale: false, signalEvidence: suggestions.map((s) => ({ hero: s.hero, signals: [] })), heroPositions: [], teamOpening: null, partyPreferredPositions: [] };
+    const set: SuggestionSet = { schema: "suggestions/v1", sessionId: state.sessionId, basedOnSeq: state.lastSeq, decisionContext: "team_opening", suggestions, comparison: null, degraded: options.degraded ?? [], computedInMs: 0, functionalEvidence };
+    return set;
+  };
+}
+
+function jsonRequest(body: unknown): Request {
+  return new Request("http://127.0.0.1/x", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } });
+}
+
+async function session(controlledPositions: Position[], options: FixtureOptions & { side?: TeamSide; humanPosition?: Position; heroPositions?: HeroPositions } = {}) {
+  const side = options.side ?? "radiant";
+  const store = new ProtocolSessionStore();
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: options.heroPositions ?? HERO_POSITIONS });
+  const created = await routes.post(jsonRequest({
+    rulesetId: "dota2/ranked-all-pick",
+    patch: "7.41e",
+    localSide: side,
+    adapterKind: "simulator",
+    humanPosition: options.humanPosition ?? controlledPositions[0],
+    simulatorSeed: "WP2-SEED",
+    partyContext: { partySize: controlledPositions.length, side, controlledSlots: [] },
+    controlledPositions,
+  }));
+  if (created.status !== 201) throw new Error(`create failed ${created.status}`);
+  const { sessionId } = (await created.json()) as { sessionId: string };
+  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
+  const enemy: TeamSide = side === "radiant" ? "dire" : "radiant";
+  return { store, routes, sessionId, side, enemy };
+}
+
+type Session = Awaited<ReturnType<typeof session>>;
+
+async function v4(s: Session, accountId: number | null = null): Promise<RecommendationOutputV4> {
+  const response = await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v4"), accountId);
+  expect(response.status).toBe(200);
+  return ((await response.json()) as { output: RecommendationOutputV4 }).output;
+}
+
+function actionable(output: RecommendationOutputV4): Extract<CurrentHumanDecision, { kind: "ACTIONABLE" }> {
+  if (output.decision.kind !== "ACTIONABLE") throw new Error(`expected ACTIONABLE, got ${output.decision.kind}`);
+  return output.decision;
+}
+
+function visibleHeroes(decision: Extract<CurrentHumanDecision, { kind: "ACTIONABLE" }>): number[] {
+  if (decision.candidates.state === "RANKED") return decision.candidates.cards.map((card) => card.heroId);
+  if (decision.candidates.state === "UNRANKED_POSITIONAL") return decision.candidates.alternatives.map((alternative) => alternative.heroId);
+  return [];
+}
+
+describe("WP2 -- Solo Pos1..Pos5", () => {
+  for (const position of POSITIONS) {
+    test(`Solo Pos${position}: una posición accionable, capacidad 1, objetivo Pos${position} (default, no estratégico), cartas creíbles para Pos${position}`, async () => {
+      const s = await session([position]);
+      const decision = actionable(await v4(s));
+      expect(decision.actionablePositions).toEqual([position]);
+      expect(decision.roundCapacity).toBe(1);
+      expect(decision.targetPosition).toBe(position);
+      expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+      expect(decision.candidates.state).toBe("RANKED");
+      expect(visibleHeroes(decision).length).toBeGreaterThan(0);
+      expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === position)).toBe(true);
+    });
+  }
+});
+
+describe("WP2 -- Party2 / Party3", () => {
+  test("Party2 no contigua Pos2 + Pos5: ambas accionables, capacidad 2, UN objetivo con cartas de ese objetivo", async () => {
+    const s = await session([2, 5], { leadOrder: [5, 2, 1, 3, 4] });
+    const decision = actionable(await v4(s));
+    expect(decision.actionablePositions).toEqual([2, 5]);
+    expect(decision.roundCapacity).toBe(2);
+    expect(decision.targetBasis).toBe("STRATEGIC");
+    expect(decision.targetPosition).toBe(5);
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 5)).toBe(true);
+  });
+
+  test("Party2 permutación de cronología: misma propiedad (Pos2 sellada en slot 0 vs slot 1) -> misma decisión", async () => {
+    const a = await session([2, 5], { leadOrder: [5, 2, 1, 3, 4] });
+    const b = await session([2, 5], { leadOrder: [5, 2, 1, 3, 4] });
+    const pick = (s: Session, slotIndex: number) => s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex, heroId: 200 }, assignedPosition: 2 }), s.sessionId);
+    expect((await pick(a, 0)).status).toBe(202);
+    expect((await pick(b, 1)).status).toBe(202);
+    const decisionA = actionable(await v4(a));
+    const decisionB = actionable(await v4(b));
+    expect({ ...decisionA }).toEqual({ ...decisionB });
+    expect(decisionA.actionablePositions).toEqual([5]);
+  });
+
+  test("Party3 Pos1 + Pos3 + Pos5: tres accionables, capacidad 2, un solo objetivo", async () => {
+    const s = await session([1, 3, 5], { leadOrder: [3, 1, 5, 2, 4] });
+    const decision = actionable(await v4(s));
+    expect(decision.actionablePositions).toEqual([1, 3, 5]);
+    expect(decision.roundCapacity).toBe(2);
+    expect(decision.targetPosition).toBe(3);
+    expect(decision.targetBasis).toBe("STRATEGIC");
+  });
+});
+
+describe("WP2 -- Party5", () => {
+  test("Ronda 1: 5 accionables, capacidad 2, UN objetivo, candidatos sólo de ese objetivo", async () => {
+    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
+    expect(s.store.allyBotPositions(s.sessionId)).toEqual([]);
+    const decision = actionable(await v4(s));
+    expect(decision.actionablePositions).toEqual([1, 2, 3, 4, 5]);
+    expect(decision.roundCapacity).toBe(2);
+    expect(decision.targetPosition).toBe(3);
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 3)).toBe(true);
+  });
+
+  test("primer pick manual NO es Pos1 (Pos3): binding correcto y el objetivo se recalcula entre las cuatro restantes", async () => {
+    const s = await session([1, 2, 3, 4, 5], { leadOrder: [3, 1, 2, 4, 5] });
+    const before = actionable(await v4(s));
+    const response = await s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex: 0, heroId: 300 }, assignedPosition: 3 }), s.sessionId);
+    expect(response.status).toBe(202);
+    expect(s.store.ownAssignedPositions(s.sessionId)).toEqual([{ round: 1, slotIndex: 0, assignedPosition: 3 }]);
+    const after = await v4(s);
+    const decision = actionable(after);
+    expect(decision.actionablePositions).toEqual([1, 2, 4, 5]);
+    expect(decision.roundCapacity).toBe(1);
+    expect(decision.targetPosition).not.toBe(3);
+    expect(decision.targetPosition).toBe(1); // next resolved leader among the remaining four
+    expect(visibleHeroes(decision)).not.toContain(300);
+    expect(visibleHeroes(decision).some((hero) => visibleHeroes(before).includes(hero))).toBe(false); // no stale card survives
+    expect(after.meta.revision).toBeGreaterThan(0);
+  });
+
+  test("sin evidencia de prioridad (ranking de equipo empata): DETERMINISTIC_DEFAULT, nunca presentado como estratégico", async () => {
+    // Two leaders resolved to different eligible positions with the SAME score is not a priority.
+    const s = await session([1, 2, 3, 4, 5], { humanPosition: 4, degraded: ["no_signal_available"] });
+    const decision = actionable(await v4(s));
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(decision.targetPosition).toBe(4); // the Player's own position is the stable initial view
+    expect(decision.targetRationale).toContain("vista inicial");
+  });
+});
+
+describe("WP2 -- estado de candidatos explícito", () => {
+  test("RANKED: rank/score/confidence presentes, sin degradación que invalide el ranking", async () => {
+    const decision = actionable(await v4(await session([2])));
+    expect(decision.candidates.state).toBe("RANKED");
+    if (decision.candidates.state !== "RANKED") return;
+    expect(decision.candidates.cards.map((card) => card.rank)).toEqual(decision.candidates.cards.map((_, index) => index + 1));
+    expect(decision.candidates.degradations.some((d) => RANKING_INVALIDATING_REASONS.has(d.reason))).toBe(false);
+  });
+
+  test("UNRANKED_POSITIONAL: V6 caído -> alternativas legales de la posición, SIN rank/score/confidence en el wire", async () => {
+    const s = await session([2], { throws: true });
+    const response = await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v4"));
+    const raw = await response.text();
+    const decision = actionable((JSON.parse(raw) as { output: RecommendationOutputV4 }).output);
+    expect(decision.candidates.state).toBe("UNRANKED_POSITIONAL");
+    if (decision.candidates.state !== "UNRANKED_POSITIONAL") return;
+    expect(decision.candidates.alternatives.length).toBeGreaterThan(0);
+    expect(decision.candidates.alternatives.every((alternative) => heroPosition(alternative.heroId) === 2 && alternative.position === 2)).toBe(true);
+    for (const alternative of decision.candidates.alternatives) {
+      expect(Object.keys(alternative).sort()).toEqual(["heroId", "position"]);
+    }
+    expect(raw).not.toContain('"rank"');
+    expect(raw).not.toContain('"confidence"');
+  });
+
+  test("NEGATIVO: 'ranking no disponible' + cartas rankeadas es irrepresentable -- no_signal_available nunca produce RANKED", async () => {
+    const decision = actionable(await v4(await session([2], { degraded: ["no_signal_available"] })));
+    expect(decision.candidates.state).not.toBe("RANKED");
+    expect(decision.candidates.degradations.some((d) => d.reason === "no_signal_available")).toBe(true);
+  });
+
+  test("UNAVAILABLE: ningún héroe creíble y legal para el objetivo", async () => {
+    const noPos2: HeroPositions = Object.fromEntries(Object.entries(HERO_POSITIONS).filter(([hero]) => heroPosition(Number(hero)) !== 2));
+    const decision = actionable(await v4(await session([2], { heroPositions: noPos2 })));
+    expect(decision.candidates.state).toBe("UNAVAILABLE");
+    expect(decision.targetPosition).toBe(2);
+  });
+});
+
+describe("WP2 -- sin acción humana", () => {
+  test("YIELD: NO_HUMAN_ACTION con razón YIELDED, sin objetivo ni candidatos", async () => {
+    const s = await session([2, 5]);
+    expect((await s.routes.postYield(s.sessionId)).status).toBe(200);
+    const output = await v4(s);
+    expect(output.decision).toEqual({ kind: "NO_HUMAN_ACTION", actionablePositions: [], roundCapacity: 0, reason: "YIELDED" });
+  });
+
+  test("COMPLETE: NO_HUMAN_ACTION con razón DRAFT_COMPLETE", async () => {
+    const s = await session([1, 2, 3, 4, 5]);
+    // Party5: every own pick goes through the human path (no Ally Bot); rounds hold 2/2/1 own slots.
+    const order: Position[] = [4, 1, 5, 2, 3];
+    const roundSlots = [[0, 1], [0, 1], [0]];
+    let own = 0;
+    for (const slots of roundSlots) {
+      for (const slotIndex of slots) {
+        const position = order[own]!;
+        const response = await s.routes.postCommand(jsonRequest({ command: { type: "SUBMIT_SEALED_SELECTION", side: s.side, slotIndex, heroId: position * 100 + 7 }, assignedPosition: position }), s.sessionId);
+        expect(response.status).toBe(202);
+        own += 1;
+      }
+      for (const slotIndex of slots) {
+        const result = s.store.apply(s.sessionId, { type: "SUBMIT_SEALED_SELECTION", side: s.enemy, slotIndex, heroId: 900 + own * 2 + slotIndex });
+        if (!result || result.rejected) throw new Error(`enemy ${result?.rejected}`);
+      }
+    }
+    expect(s.store.get(s.sessionId)?.status).toBe("COMPLETE");
+    expect((await v4(s)).decision).toEqual({ kind: "NO_HUMAN_ACTION", actionablePositions: [], roundCapacity: 0, reason: "DRAFT_COMPLETE" });
+  });
+});
+
+describe("WP2 -- Personal Hero Pool sólo para la posición personal", () => {
+  test("objetivo == posición personal: el pool entra al ranking (accountId llega a V6) y se marca", async () => {
+    const calls: FixtureOptions["calls"] = [];
+    const s = await session([2], { humanPosition: 2, pool: [200], calls });
+    const decision = actionable(await v4(s, 4242));
+    expect(decision.personalPoolApplied).toBe(true);
+    expect(calls.filter((call) => call.accountId !== null).every((call) => call.targetPosition === 2)).toBe(true);
+    if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
+    expect(decision.candidates.cards.find((card) => card.heroId === 200)?.isFromPool).toBe(true);
+  });
+
+  test("objetivo != posición personal: el pool NO toca la decisión activa (ninguna llamada con cuenta, ninguna marca)", async () => {
+    const calls: FixtureOptions["calls"] = [];
+    // Party5, personal Pos2, but the team ranking leads with Pos3 -> target Pos3.
+    const s = await session([1, 2, 3, 4, 5], { humanPosition: 2, leadOrder: [3, 1, 2, 4, 5], pool: [300, 200], calls });
+    const decision = actionable(await v4(s, 4242));
+    expect(decision.targetPosition).toBe(3);
+    expect(decision.personalPoolApplied).toBe(false);
+    expect(calls.every((call) => call.accountId === null)).toBe(true);
+    if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
+    expect(decision.candidates.cards.every((card) => card.isFromPool === false)).toBe(true);
+  });
+});
+
+describe("WP2 -- el contrato V3 no cambia", () => {
+  test("?format=v3 sigue devolviendo recommendation-output/v3", async () => {
+    const s = await session([1, 2, 3, 4, 5]);
+    const body = (await (await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v3"))).json()) as { output: { schema: string } };
+    expect(body.output.schema).toBe("recommendation-output/v3");
+  });
+
+  test("V4 sólo existe para sesiones con HumanActionability (Manual -> 422, nunca inventado)", async () => {
+    const store = new ProtocolSessionStore();
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(), heroPositions: HERO_POSITIONS });
+    const created = await routes.post(jsonRequest({ rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "manual", partyContext: { partySize: 5, side: "radiant", controlledSlots: [] }, controlledPositions: [1, 2, 3, 4, 5] }));
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+    const response = await routes.getRecommendations(sessionId, new URL("http://127.0.0.1/x?format=v4"));
+    expect(response.status).toBe(422);
+  });
+});

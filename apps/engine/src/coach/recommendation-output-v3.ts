@@ -114,7 +114,7 @@ export interface RoleBeliefDisplay {
   positions: Position[];
 }
 
-function displayBeliefs(beliefs: ReadonlyMap<HeroId, RoleBelief>): RoleBeliefDisplay[] {
+export function displayBeliefs(beliefs: ReadonlyMap<HeroId, RoleBelief>): RoleBeliefDisplay[] {
   return [...beliefs]
     .sort(([a], [b]) => a - b)
     .map(([heroId, belief]) => ({

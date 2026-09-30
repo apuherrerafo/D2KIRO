@@ -1,4 +1,4 @@
-import { CoachOrchestrator, personalCandidateUniverse, type CoachRecomputation } from "../../coach";
+import { CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
@@ -33,6 +33,11 @@ export interface CoachRecommendations {
   /** Null for an unknown session. */
   recommend(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null): Promise<CoachRecomputation | null>;
   assignPosition(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null, heroId: number, position: 1 | 2 | 3 | 4 | 5 | null): Promise<CoachRecomputation | null>;
+  /**
+   * Product Semantics Recovery WP2 -- the V4 CurrentHumanDecision. `undefined` for an unknown session,
+   * `null` for a session without HumanActionability (non-AP-Simulator).
+   */
+  recommendCurrentDecision(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null): Promise<CurrentDecisionRecomputation | null | undefined>;
 }
 
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
@@ -78,6 +83,25 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
           singleSlotEvaluation: true,
           outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
         }),
+        // V4: ONE position-agnostic team evaluation (target selection over every eligible position,
+        // never the account's pool) and ONE ranking for the chosen target.
+        buildTeamEvaluation: (context) => buildRecommendationSetFromPerspective({
+          context,
+          computeSuggestions: computeForTeam,
+          heroPositions,
+          singleSlotEvaluation: true,
+          outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+        }),
+        buildTargetRanking: (context, targetPosition, usePersonalPool) => buildRecommendationSetFromPerspective({
+          context,
+          computeSuggestions: usePersonalPool ? computeForPersonal : computeForTeam,
+          heroPositions,
+          targetPosition,
+          candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),
+          teamOpening: false,
+          singleSlotEvaluation: true,
+          outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+        }),
       });
       coaches.push({ accountId: key, coach });
     }
@@ -88,6 +112,11 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return null;
       return coachFor(accountId).recompute({ context, playerPersonalPosition });
+    },
+    async recommendCurrentDecision(sessionId, playerPersonalPosition, accountId = null) {
+      const context = deps.source.perspectiveRecommendationContext(sessionId);
+      if (!context) return undefined;
+      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null });
     },
     async assignPosition(sessionId, playerPersonalPosition, accountId, heroId, position) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);

@@ -11,6 +11,8 @@ import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
 import { translateToRecommendationOutputV3, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
 import { deriveRevealStrategy } from "./reveal-strategy";
+import { buildCurrentHumanDecision, deriveCandidateResult, selectDecisionTarget } from "./current-human-decision";
+import { buildRecommendationOutputV4, type RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // AP Ranked Roles V1 / Wave 2 (task 19) -- Coach orchestration: one continuous pipeline
 //
@@ -52,6 +54,16 @@ export interface CoachOrchestratorDeps {
   buildActionRecommendationSet?(context: PerspectiveRecommendationContext, candidateHeroIds: readonly HeroId[], targetPosition: Position): Promise<RecommendationSetV2>;
   /** Independent personal evaluation, scoped by declared role (Wave 3). */
   buildPersonalRecommendation?(context: PerspectiveRecommendationContext, position: Position): Promise<RecommendationSetV2>;
+  /**
+   * Product Semantics Recovery WP2 -- the team-level, position-agnostic, no-personal-pool evaluation
+   * the V4 target is selected from (one single-slot V6 run over every eligible position).
+   */
+  buildTeamEvaluation?(context: PerspectiveRecommendationContext): Promise<RecommendationSetV2>;
+  /**
+   * WP2 -- the ONE target-specific ranking of a V4 decision: pre-ranking universe = heroes credible at
+   * `targetPosition`. `usePersonalPool` is true only when the target is the Player's personal position.
+   */
+  buildTargetRanking?(context: PerspectiveRecommendationContext, targetPosition: Position, usePersonalPool: boolean): Promise<RecommendationSetV2>;
   heroPositions?: HeroPositions;
   /** Wave 4A: curated counter relationships for the Safe Core opportunity. Omitted -> no opportunity is ever produced. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
@@ -62,6 +74,19 @@ export interface CoachRecomputeInput {
   /** Declared personal position (Wave 3 consumes it; Wave 2 only threads it through, timing-neutral). */
   playerPersonalPosition?: Position | null;
   config?: Omit<CoachOutputConfig, "revision" | "trigger" | "playerPersonalPosition">;
+}
+
+export interface CurrentDecisionRecomputeInput extends CoachRecomputeInput {
+  /** The authenticated account's pool overlay exists for this request (personal pool CAN apply). */
+  personalPoolAvailable?: boolean;
+}
+
+export interface CurrentDecisionRecomputation {
+  output: RecommendationOutputV4;
+  /** The ranking the candidates came from (the target ranking, or the empty team evaluation). */
+  sourceSet: RecommendationSetV2;
+  trigger: CoachTrigger;
+  revision: number;
 }
 
 export interface CoachRecomputation {
@@ -204,6 +229,52 @@ export class CoachOrchestrator {
       memory.observed = { ...countVisible(view), assignments: assignmentsKey(memory.assignments) };
     }
     return { output, recommendationSet, personalRecommendationSet: personal?.recommendationSet ?? undefined, coachState, trigger, revision };
+  }
+
+  /**
+   * Product Semantics Recovery WP2 -- the V4 CurrentHumanDecision. Shares this session's revision and
+   * trigger bookkeeping (and the Player's own-hero assignments) with the V3 path. Returns null when
+   * the context carries no HumanActionability (non-AP-Simulator session) or the deps cannot build it.
+   */
+  async recomputeCurrentDecision(input: CurrentDecisionRecomputeInput, explicitTrigger?: CoachTrigger): Promise<CurrentDecisionRecomputation | null> {
+    const { view } = input.context;
+    const actionability = input.context.humanActionability;
+    const { buildTeamEvaluation, buildTargetRanking } = this.deps;
+    const heroPositions = this.deps.heroPositions;
+    if (!actionability || !buildTeamEvaluation || !buildTargetRanking || !heroPositions) return null;
+    const memory = this.memory(view.sessionId);
+    const trigger = explicitTrigger ?? this.classify(memory, view);
+    const revision = (memory.lastSeq += 1);
+    const assignments = new Map(memory.assignments);
+    for (const [heroId, position] of input.context.ownAssignedPositions ?? []) assignments.set(heroId, position);
+    const coachState = buildCoachObservableState(view, { heroPositions, playerPositionAssignments: assignments, personalContext: null });
+    const personal = input.playerPersonalPosition ?? null;
+
+    const teamEvaluation = await buildTeamEvaluation(input.context);
+    let sourceSet = teamEvaluation;
+    let decision = buildCurrentHumanDecision({ actionability, target: null, candidates: null, personalPoolApplied: false });
+    if (actionability.hasHumanAction) {
+      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, teamEvaluation, view, playerPersonalPosition: personal, heroPositions, heroCounters: this.deps.heroCounters });
+      // COHERENCE-007: the Personal Hero Pool may shape the active decision ONLY for the personal position.
+      const personalPoolApplied = input.personalPoolAvailable === true && personal !== null && target.targetPosition === personal;
+      const targetRanking = await buildTargetRanking(input.context, target.targetPosition, personalPoolApplied);
+      sourceSet = targetRanking;
+      const candidates = deriveCandidateResult({ targetPosition: target.targetPosition, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied });
+      decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied });
+    }
+    const output = buildRecommendationOutputV4({
+      decision,
+      coachState,
+      decisionContext: deriveDecisionContextFromView(view),
+      source: { basedOn: sourceSet.basedOn, ...(sourceSet.readiness ? { readiness: sourceSet.readiness } : {}) },
+      trigger,
+      revision,
+    });
+    if (revision > memory.latestRevision) {
+      memory.latestRevision = revision;
+      memory.observed = { ...countVisible(view), assignments: assignmentsKey(memory.assignments) };
+    }
+    return { output, sourceSet, trigger, revision };
   }
 
   /** Trigger 0: the pick phase just opened (BAN_RESOLUTION_COMPLETE). */
