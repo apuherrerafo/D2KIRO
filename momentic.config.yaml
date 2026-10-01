@@ -40,8 +40,8 @@ browser:
 ai:
   # Reuse decisions from past runs so the AI picks the same elements and assertions. See https://momentic.ai/docs/ai/memory
   useMemory: true
-  # Let the AI find a path forward when a step fails. See https://momentic.ai/docs/reliability/auto-maintenance#failure-recovery
-  failureRecovery: true
+  # Product Oracles must fail closed on step deviations; do not let AI recovery find an alternate path.
+  failureRecovery: false
   # Version of each AI agent. See https://momentic.ai/docs/ai/agents
   agentConfig:
     locator: v5
