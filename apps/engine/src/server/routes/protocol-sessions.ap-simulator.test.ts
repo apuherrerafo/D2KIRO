@@ -102,7 +102,7 @@ interface Snapshot {
   view: { status: string; phase?: string; bannedHeroes: number[]; ownPicks: { visibility: string; heroId?: number }[]; enemyPicks: { visibility: string; heroId?: number }[]; rankedAp: { phase: string } | null };
   legalActions: { type: string; side?: string; slotIndex?: number }[];
   simulator: { round: number; durationMs: number; pendingSeats: number[]; goldPenaltyBySlot: number[]; penaltyRatePerSecond: number } | null;
-  ownAssignedPositions: { round: number; slotIndex: number; assignedPosition: Position }[];
+  ownAssignedPositions: { round: number; slotIndex: number; assignedPosition: Position; heroId: number }[];
   stopReason?: string;
   completedRound?: number | null;
   accepted?: boolean;
@@ -659,7 +659,7 @@ describe("PD-026/PD-027 -- Solo/Party: posicion independiente de la cronologia d
     const openSlot = r1.legalActions.find((a) => a.type === "SUBMIT_SEALED_SELECTION")!;
     const sealed = await submitOwn(routes, sessionId, "radiant", openSlot.slotIndex!, mine(2, 0), 2);
     expect(sealed.accepted).toBe(true);
-    expect(sealed.ownAssignedPositions).toEqual([{ round: 1, slotIndex: openSlot.slotIndex!, assignedPosition: 2 }]);
+    expect(sealed.ownAssignedPositions).toEqual([{ round: 1, slotIndex: openSlot.slotIndex!, assignedPosition: 2, heroId: mine(2, 0) }]);
     // UI/Coach-visible truth: the confirmed pick is bound to Pos2, never guessed from round/seat.
     expect(store.ownAssignedPositionForHero(sessionId, mine(2, 0))).toBe(2);
 
@@ -880,6 +880,92 @@ describe("PD-026/PD-027 -- Solo/Party: posicion independiente de la cronologia d
     const drive = await routes.postAutoDrive(sessionId);
     for (const text of [await bans.text(), await drive.text()]) {
       expect(text).not.toMatch(/internalPositionAssignments|positionsByRosterSlot/);
+    }
+  });
+});
+
+describe("collision survivor -- el snapshot proyecta { heroId, round, slotIndex, assignedPosition } desde el estado autoritativo", () => {
+  function botSealed(store: ProtocolSessionStore, sessionId: string, botSide: Side): number[] {
+    return (store.get(sessionId)?.rankedAp?.round?.sealed ?? []).filter((entry) => entry.side === botSide).map((entry) => entry.heroId);
+  }
+
+  function knownOwnHeroIds(snapshot: Snapshot): number[] {
+    return snapshot.view.ownPicks.flatMap((slot) => (slot.visibility === "HIDDEN" || slot.heroId === undefined ? [] : [slot.heroId]));
+  }
+
+  function byPosition(snapshot: Snapshot) {
+    return [...snapshot.ownAssignedPositions].sort((a, b) => a.assignedPosition - b.assignedPosition);
+  }
+
+  // Same seed, same submission chronology (survivor first, then the colliding pick, then the
+  // re-pick) in both cases -- ONLY the round-scoped slotIndex differs. view.ownPicks is therefore
+  // byte-identical between the two, and only the server projection can tell them apart.
+  async function driveCollisionRound(survivorSlot: number, collisionSlot: number) {
+    const { routes, store } = makeRoutes();
+    const sessionId = await createSession(routes, "radiant", 2, "COLLISION_SURVIVOR");
+    await resolveBans(routes, sessionId);
+    const round1 = await autoDrive(routes, sessionId);
+    expect(round1.stopReason).toBe("human_input");
+    const survivor = mine(5, 0);
+    const replacement = mine(2, 0);
+
+    const afterSurvivor = await submitOwn(routes, sessionId, "radiant", survivorSlot, survivor, 5);
+    // Sealed path: still inside the open round, nothing resolved yet.
+    expect(afterSurvivor.ownAssignedPositions).toEqual([{ round: 1, slotIndex: survivorSlot, assignedPosition: 5, heroId: survivor }]);
+    const hiddenEnemy = botSealed(store, sessionId, "dire");
+    expect(hiddenEnemy.length).toBeGreaterThan(0);
+    expect(afterSurvivor.view.enemyPicks.every((slot) => slot.visibility === "HIDDEN")).toBe(true);
+    for (const hero of hiddenEnemy) expect(afterSurvivor.ownAssignedPositions.some((binding) => binding.heroId === hero)).toBe(false);
+
+    const collided = hiddenEnemy[0]!;
+    const reopened = await submitOwn(routes, sessionId, "radiant", collisionSlot, collided, 2);
+    expect(store.get(sessionId)?.rankedAp?.round?.collisionsResolved).toBe(1);
+    expect(reopened.view.bannedHeroes).toContain(collided);
+
+    await autoDrive(routes, sessionId);
+    const closed = await submitOwn(routes, sessionId, "radiant", collisionSlot, replacement, 2);
+    expect(store.get(sessionId)?.rankedAp?.phase).toBe("PICK_ROUND_2");
+    return { reopened, closed, survivor, replacement, collided };
+  }
+
+  test.each([
+    ["sobreviviente slot 0 / colision slot 1", 0, 1],
+    ["sobreviviente slot 1 / colision slot 0", 1, 0],
+  ] as const)("colision reabierta (%s): el sobreviviente resuelve a su heroe confirmado, la colisionada no aparece", async (_label, survivorSlot, collisionSlot) => {
+    const { reopened, survivor, collided } = await driveCollisionRound(survivorSlot, collisionSlot);
+    // Confirmed path: the colliding binding was pruned; the survivor resolves to its confirmed hero.
+    expect(reopened.ownAssignedPositions).toEqual([{ round: 1, slotIndex: survivorSlot, assignedPosition: 5, heroId: survivor }]);
+    expect(reopened.ownAssignedPositions.some((binding) => binding.heroId === collided)).toBe(false);
+    expect(reopened.legalActions.filter((action) => action.type === "SUBMIT_SEALED_SELECTION")).toEqual([
+      { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: collisionSlot },
+    ]);
+  });
+
+  test.each([
+    ["sobreviviente slot 0 / re-pick slot 1", 0, 1],
+    ["sobreviviente slot 1 / re-pick slot 0", 1, 0],
+  ] as const)("ronda cerrada (%s): cada posicion trae su propio heroe, sin depender de la cronologia", async (_label, survivorSlot, repickSlot) => {
+    const { closed, survivor, replacement } = await driveCollisionRound(survivorSlot, repickSlot);
+    expect(byPosition(closed)).toEqual([
+      { round: 1, slotIndex: repickSlot, assignedPosition: 2, heroId: replacement },
+      { round: 1, slotIndex: survivorSlot, assignedPosition: 5, heroId: survivor },
+    ]);
+    // Own-side only: every projected hero is one the Player already sees as an own pick.
+    const known = knownOwnHeroIds(closed);
+    for (const binding of closed.ownAssignedPositions) expect(known).toContain(binding.heroId);
+  });
+
+  test("CONTRATO: las dos ordenaciones de slot producen el MISMO view.ownPicks y solo el snapshot proyectado las distingue", async () => {
+    const a = await driveCollisionRound(0, 1);
+    const b = await driveCollisionRound(1, 0);
+    // Chronology is identical: a client reading ownPicks order alone cannot tell A from B.
+    expect(a.closed.view.ownPicks).toEqual(b.closed.view.ownPicks);
+    expect(knownOwnHeroIds(a.closed)).toEqual([a.survivor, a.replacement]);
+    // The projection is what differs -- and in both it maps Pos5 -> survivor, Pos2 -> replacement.
+    expect(a.closed.ownAssignedPositions).not.toEqual(b.closed.ownAssignedPositions);
+    for (const snapshot of [a.closed, b.closed]) {
+      expect(snapshot.ownAssignedPositions.find((binding) => binding.assignedPosition === 5)?.heroId).toBe(a.survivor);
+      expect(snapshot.ownAssignedPositions.find((binding) => binding.assignedPosition === 2)?.heroId).toBe(a.replacement);
     }
   });
 });
