@@ -51,22 +51,32 @@ export function deriveHumanActionability(input: DeriveHumanActionabilityInput): 
 }
 
 /**
+ * The eligible positions the round's heroes must jointly cover -- a SET, never a slot -> position
+ * map. Defined only when every eligible position fits this round (`eligible === capacity`): then the
+ * round's heroes must be assignable onto exactly those positions (any order), which is what keeps a
+ * carry-only hero out of a Solo Pos2 round without tying any position to any slot. When more
+ * positions are eligible than the round holds (Party5), no hero is excluded by eligibility alone.
+ */
+export function roundCoveringPositions(actionability: HumanActionability | null | undefined): readonly Position[] | undefined {
+  if (!actionability || !actionability.hasHumanAction) return undefined;
+  return actionability.eligiblePositions.length === actionability.roundCapacity ? actionability.eligiblePositions : undefined;
+}
+
+/**
  * The round slots a human decision covers, derived from HumanActionability instead of zipping
  * positions onto slots. Exactly `roundCapacity` open own slots are taken (lowest slotIndex first --
  * round-scoped slots are interchangeable, the kernel never ties a slot to a player).
  *
- * A slot is tagged with a position ONLY when that tag cannot narrow eligibility: when every eligible
- * position fits this round (`eligible <= capacity`), the tagged set IS the eligible set. When more
- * positions are eligible than the round can hold (Party5 Round 1: 5 eligible, capacity 2), slots
- * stay untagged -- which of the eligible positions a human fills is the human's choice at submit
- * time, never a fixed ascending schedule.
+ * PD-001: POSITION != PICK ORDER != ROUND SLOT != CONTROLLER. A normal human round slot is ALWAYS
+ * positionless -- Solo, Party2, Party3 and Party5 alike, whether or not every eligible position
+ * happens to fit the round. Which eligible position a human fills with which hero is decided only
+ * when the human submits `hero + assignedPosition`; never by a slotIndex -> position schedule.
+ * Eligibility lives exclusively in `HumanActionability.eligiblePositions`.
  */
 export function humanDecisionSlots(actionability: HumanActionability, openOwnSlots: readonly RecommendationSlot[]): RecommendationSlot[] {
   if (!actionability.hasHumanAction) return [];
-  const slots = [...openOwnSlots].sort((a, b) => a.slotIndex - b.slotIndex).slice(0, actionability.roundCapacity);
-  const tagPositions = actionability.eligiblePositions.length <= actionability.roundCapacity;
-  return slots.map((slot, index) => {
-    const position = tagPositions ? actionability.eligiblePositions[index] : undefined;
-    return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== undefined ? { position } : {}) };
-  });
+  return [...openOwnSlots]
+    .sort((a, b) => a.slotIndex - b.slotIndex)
+    .slice(0, actionability.roundCapacity)
+    .map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
 }

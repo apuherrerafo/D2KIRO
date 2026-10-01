@@ -40,10 +40,12 @@ test("QA-P0-001 baseline probe: Solo Pos2 does not serialize carry-only candidat
   store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
   const response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v3`));
   expect(response.status).toBe(200);
-  const body = await response.json() as { recommendationSet: { decision: { controlledSlots: { position?: number }[] }; recommendations: { actions: { hero: number }[] }[] }; output: { shortlist: { heroId: number }[] } | null };
+  const body = await response.json() as { recommendationSet: { decision: { controlledSlots: { position?: number }[]; humanActionability?: { eligiblePositions: number[]; roundCapacity: number } }; recommendations: { actions: { hero: number }[] }[] }; output: { shortlist: { heroId: number }[] } | null };
   expect(store.metadata(sessionId)?.controlledPositions).toEqual([2]);
   expect(store.humanOpenPositions(sessionId)).toEqual([2]);
-  expect(body.recommendationSet.decision.controlledSlots.map((slot) => slot.position)).toEqual([2]);
+  // PD-001: eligibility lives on humanActionability; the generic round slot carries NO position.
+  expect(body.recommendationSet.decision.humanActionability).toMatchObject({ eligiblePositions: [2], roundCapacity: 1 });
+  expect(body.recommendationSet.decision.controlledSlots.map((slot) => slot.position)).toEqual([undefined]);
   const serialized = body.recommendationSet.recommendations.flatMap((entry) => entry.actions.map((action) => action.hero));
   const coach = body.output?.shortlist.map((card) => card.heroId) ?? [];
   expect(serialized).toEqual([MID_ID]);

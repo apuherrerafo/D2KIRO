@@ -5,7 +5,7 @@ import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions
 import type { SuggestionSet } from "../signals/mix";
 import { buildBasedOn } from "./identity";
 import { deriveLegalDecision } from "./decision";
-import type { HumanActionability } from "./human-actionability";
+import { roundCoveringPositions, type HumanActionability } from "./human-actionability";
 import { buildShortlist } from "./shortlist";
 import { excludedHeroes, postValidateAction, type ComputeSuggestionsForRecommendation } from "./legality";
 import {
@@ -195,6 +195,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const sortedControlledSlots = [...legal.decision.controlledSlots].sort((a, b) => a.slotIndex - b.slotIndex);
 
   // The kernel's own legality oracle + the per-hero context evidence a state-backed caller can supply.
+  const coveringPositions = roundCoveringPositions(legal.decision.humanActionability);
   const constructContext: ConstructContext = {
     isLegal: (hero, slot) => postValidateAction(state, hero, legal.eligibleHeroIds, slot),
     contextEvidence: [
@@ -203,6 +204,8 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
         ? [evidenceFromEligibility(state.captainsMode.eligibilitySnapshot.contentHash, state.captainsMode.eligibilitySnapshot.heroIds.length)]
         : []),
     ],
+    // PD-001: eligibility admits heroes as a SET; no position is ever attached to a round slot.
+    ...(coveringPositions ? { coveringPositions } : {}),
   };
   const recommendations: Recommendation[] =
     legal.decision.actionCount >= 2

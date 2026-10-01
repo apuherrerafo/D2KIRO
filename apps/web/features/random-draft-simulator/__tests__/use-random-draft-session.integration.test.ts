@@ -76,7 +76,8 @@ class FakeApProtocolEngine {
     const revision = this.outOfOrderCoach && this.coachRevision > 1 ? 0 : this.coachRevision;
     const boundPositions = new Set(this.ownBindings.map((binding) => binding.assignedPosition));
     const openPositions = ([1, 2, 3, 4, 5] as Position[]).filter((position) => !boundPositions.has(position));
-    const controlledSlots = this.openSlots.map((slotIndex, index) => ({ side: this.side, slotIndex, position: openPositions[index] ?? null }));
+    // PD-001: a generic round slot is positionless; positions are only a role inference on `roleImpact`.
+    const controlledSlots = this.openSlots.map((slotIndex) => ({ side: this.side, slotIndex }));
     const recommendationHeroes = controlledSlots.map((slot) => 10 + slot.slotIndex + this.own.length);
     const recommendationActions = controlledSlots.map((slot, index) => ({ slot, hero: recommendationHeroes[index]! }));
     return {
@@ -106,7 +107,7 @@ class FakeApProtocolEngine {
           confidence: "media",
           roleImpact: Object.fromEntries(recommendationHeroes.map((hero, index) => [hero, {
             status: "LIKELY",
-            position: controlledSlots[index]?.position ?? null,
+            position: openPositions[index] ?? null,
             marginals: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 },
             entropy: 1,
           }])),

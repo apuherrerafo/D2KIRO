@@ -155,3 +155,59 @@ describe("WP1 -- Position != pick chronology (metamórfico)", () => {
     expect(s.store.allyBotPositions(s.sessionId)).toEqual([1, 3, 4]);
   });
 });
+
+// PD-001 -- POSITION != PICK ORDER != ROUND SLOT != CONTROLLER. Authoritative own-position truth is born
+// ONLY at submit (hero + assignedPosition); it is never inferred from slotIndex, round, pick ordinal or
+// candidate order. Through the REAL store and the REAL public routes.
+describe("PD-001 -- assignedPosition enviada por el humano es la única autoridad", () => {
+  test("B. Party2 Pos2+Pos5: Pos5 primero y Pos2 después -> ambas legales, bindings exactos sin inversión cronológica", async () => {
+    const s = await session([2, 5]);
+    expect((await humanPick(s, 0, 505, 5)).status).toBe(202);
+    expect(s.store.humanActionability(s.sessionId)).toEqual({ eligiblePositions: [2], roundCapacity: 1, hasHumanAction: true, noActionReason: null });
+    expect((await humanPick(s, 1, 202, 2)).status).toBe(202);
+    expect(s.store.ownAssignedPositions(s.sessionId)).toEqual([
+      { round: 1, slotIndex: 0, assignedPosition: 5 },
+      { round: 1, slotIndex: 1, assignedPosition: 2 },
+    ]);
+    expect(s.store.humanOpenPositions(s.sessionId)).toEqual([]);
+  });
+
+  test("C. orden inverso: Pos2 primero y Pos5 después -> también legal, bindings exactos", async () => {
+    const s = await session([2, 5]);
+    expect((await humanPick(s, 0, 202, 2)).status).toBe(202);
+    expect((await humanPick(s, 1, 505, 5)).status).toBe(202);
+    expect(s.store.ownAssignedPositions(s.sessionId)).toEqual([
+      { round: 1, slotIndex: 0, assignedPosition: 2 },
+      { round: 1, slotIndex: 1, assignedPosition: 5 },
+    ]);
+    expect(s.store.humanOpenPositions(s.sessionId)).toEqual([]);
+  });
+
+  test("el slot no decide la posición: Pos5 en slot 1 y Pos2 en slot 0 también es legal", async () => {
+    const s = await session([2, 5]);
+    expect((await humanPick(s, 1, 505, 5)).status).toBe(202);
+    expect((await humanPick(s, 0, 202, 2)).status).toBe(202);
+    expect(s.store.ownAssignedPositions(s.sessionId)).toEqual([
+      { round: 1, slotIndex: 1, assignedPosition: 5 },
+      { round: 1, slotIndex: 0, assignedPosition: 2 },
+    ]);
+  });
+
+  test("D. Solo Pos3: el slot genérico es sin posición y enviar assignedPosition = 3 se acepta", async () => {
+    const s = await session([3]);
+    expect(s.store.humanActionability(s.sessionId)).toEqual({ eligiblePositions: [3], roundCapacity: 1, hasHumanAction: true, noActionReason: null });
+    const v2 = (await (await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x"))).json()) as RecommendationSetV2;
+    expect(v2.decision.controlledSlots.length).toBe(1);
+    expect(v2.decision.controlledSlots.every((slot) => slot.position === undefined)).toBe(true);
+    expect((await humanPick(s, 0, 303, 3)).status).toBe(202);
+    expect(s.store.ownAssignedPositions(s.sessionId)).toEqual([{ round: 1, slotIndex: 0, assignedPosition: 3 }]);
+  });
+
+  test("Party2 Pos2+Pos5 antes de sellar: V2 expone elegibilidad completa y ningún slot con posición", async () => {
+    const s = await session([2, 5]);
+    const v2 = (await (await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x"))).json()) as RecommendationSetV2;
+    expect(v2.decision.humanActionability).toEqual({ eligiblePositions: [2, 5], roundCapacity: 2, hasHumanAction: true, noActionReason: null });
+    expect(v2.decision.controlledSlots.length).toBe(2);
+    expect(v2.decision.controlledSlots.every((slot) => slot.position === undefined)).toBe(true);
+  });
+});

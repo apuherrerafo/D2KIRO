@@ -268,7 +268,11 @@ interface PublicSnapshot {
 }
 
 interface PublicV2 {
-  decision: { controlledSlots: { side: string; slotIndex: number; position?: Position | null }[] };
+  decision: {
+    // PD-001: a generic human round slot is positionless; eligibility lives on humanActionability.
+    controlledSlots: { side: string; slotIndex: number; position?: Position | null }[];
+    humanActionability?: { eligiblePositions: Position[]; roundCapacity: number; hasHumanAction: boolean };
+  };
   recommendations: { actions: { slot: { position?: Position | null }; hero: number }[] }[];
 }
 

@@ -8,8 +8,9 @@ import { HERO_POSITIONS, fakeCompute, harness, type Harness } from "../coach/ses
 // `humanOpenPositions` onto round slots (Party5 R1 -> Pos1+Pos2) -- both let round capacity decide
 // WHICH positions were offered (INV-OWN-002). What replaces them (WP1, human-actionability.ts): the
 // decision carries `humanActionability` -- every eligible human position, never truncated -- and
-// exactly `roundCapacity` slots. A slot is tagged with a position only when every eligible position
-// fits this round (the tagged set IS the eligible set); otherwise slots stay untagged. The discriminator is still the session's real `adapterKind` (via
+// exactly `roundCapacity` slots. PD-001: a generic human round slot is NEVER tagged with a position --
+// not for Solo, Party2, Party3 nor Party5, whether or not every eligible position fits the round. The
+// discriminator is still the session's real `adapterKind` (via
 // `store.isSimulator`) AND `controlledPositions` being set -- Manual Live always carries a
 // partyContext and must get no tags; a Simulator session without `controlledPositions` (legacy,
 // unreachable through the real route since PD-026/PD-027) also gets no tags, degrading safely.
@@ -81,7 +82,7 @@ describe("Simulator con controlledPositions: elegibilidad completa + capacidad d
     expect(await legacyPositions(h, id)).toEqual([undefined, undefined]);
   });
 
-  test("la elegibilidad se reduce con cada pick propio; la etiqueta sólo aparece cuando lo elegible cabe entero en la ronda", async () => {
+  test("la elegibilidad se reduce con cada pick propio; los slots genéricos NUNCA llevan etiqueta de posición", async () => {
     const id = "sim-shrink";
     const h = harness({ sessionId: id, adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5] });
 
@@ -111,11 +112,57 @@ describe("Simulator con controlledPositions: elegibilidad completa + capacidad d
     const enemyR2b = h.store.apply(id, { type: "SUBMIT_SEALED_SELECTION", side: h.enemy, slotIndex: 1, heroId: ENEMY_HEROES[3]! });
     if (!enemyR2a || enemyR2a.rejected || !enemyR2b || enemyR2b.rejected) throw new Error("setup");
 
-    // Round 3: only Pos4 remains and it fits the round -- the tag is the eligible set itself. Proves
-    // the LAST-picked position is never forced into a fixed "Pos2 always closes" schedule.
+    // Round 3: only Pos4 remains and it fits the round -- eligibility says [4], yet the generic round slot
+    // stays positionless (PD-001). Proves the LAST-picked position is never forced into a fixed
+    // "Pos2 always closes" schedule, and that a single eligible position is not a slot tag either.
     expect(h.store.humanOpenPositions(id)).toEqual([4]);
-    expect(await v3Positions(h, id)).toEqual([4]);
-    expect(await legacyPositions(h, id)).toEqual([4]);
+    expect((await v3Decision(h, id)).humanActionability).toEqual({ eligiblePositions: [4], roundCapacity: 1, hasHumanAction: true, noActionReason: null });
+    expect(await v3Positions(h, id)).toEqual([undefined]);
+    expect(await legacyPositions(h, id)).toEqual([undefined]);
+  });
+
+  // PD-001 -- G. Party2 Pos2+Pos5: every eligible position fits the round, and still NO slot is tagged.
+  test("Party2 Pos2+Pos5 antes de sellar: elegibles [2,5], capacidad 2, ningún slot de ronda se presenta como Pos2/Pos5 (V2 y V3)", async () => {
+    const id = "sim-party2";
+    const h = harness({ sessionId: id, adapterKind: "simulator", controlledPositions: [2, 5] });
+    const decision = await v3Decision(h, id);
+    expect(decision.humanActionability).toEqual({ eligiblePositions: [2, 5], roundCapacity: 2, hasHumanAction: true, noActionReason: null });
+    expect(decision.actionCount).toBe(2);
+    expect(decision.controlledSlots.length).toBe(2);
+    expect(await v3Positions(h, id)).toEqual([undefined, undefined]);
+    expect(await legacyPositions(h, id)).toEqual([undefined, undefined]);
+    for (const set of [
+      await buildRecommendationSetFromPerspective({ context: h.store.perspectiveRecommendationContext(id)!, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS }),
+      await buildRecommendationSetV2({
+        state: h.store.get(id)!, view: h.store.view(id)!, actor: h.side, patch: "7.41e", computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS,
+        isSimulator: true, controlledPositions: h.store.metadata(id)!.controlledPositions ?? undefined, humanOpenPositions: h.store.humanOpenPositions(id) ?? undefined,
+      }),
+    ]) {
+      for (const recommendation of set.recommendations) for (const action of recommendation.actions) expect(action.slot.position).toBeUndefined();
+    }
+  });
+
+  // PD-001 -- H. A synthetic single-target evaluation is explicitly scoped to its target; the placeholder
+  // slot index it rides on never changes that target.
+  test("evaluación sintética de un objetivo: lleva el objetivo explícito y cambiar el slot de relleno no lo cambia", async () => {
+    const id = "sim-synthetic";
+    const h = harness({ sessionId: id, adapterKind: "simulator", controlledPositions: [2, 5] });
+    const evaluate = async (targetPosition: 2 | 5) => (await buildRecommendationSetFromPerspective({
+      context: h.store.perspectiveRecommendationContext(id)!, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, targetPosition, teamOpening: false, singleSlotEvaluation: true,
+    })).decision;
+    const first = await evaluate(2);
+    expect(first.controlledSlots).toHaveLength(1);
+    expect(first.controlledSlots[0]!.position).toBe(2);
+    const firstSlotIndex = first.controlledSlots[0]!.slotIndex;
+
+    // Seal own slot 0 as Pos5 -> the only open own slot is now a different slot index.
+    const sealed = h.store.applyApSimulatorOwnSelection(id, { type: "SUBMIT_SEALED_SELECTION", side: h.side, slotIndex: 0, heroId: OWN_HEROES[0]! }, 5);
+    if (!sealed.ok) throw new Error("setup");
+    const second = await evaluate(2);
+    expect(second.controlledSlots[0]!.slotIndex).not.toBe(firstSlotIndex);
+    expect(second.controlledSlots[0]!.position).toBe(2);
+    // The explicit target is whatever the caller scoped, independent of the slot it rides on.
+    expect((await evaluate(5)).controlledSlots[0]!.position).toBe(5);
   });
 
   test("sin controlledPositions (legacy, inalcanzable por la ruta real): Simulator no etiqueta ninguna posición -- degrada, nunca inventa una", async () => {

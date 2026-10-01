@@ -121,7 +121,9 @@ function ownTwoViolations(runs: RunRecord[]): { checkpoint: Checkpoint; unoffere
       // uses: zero after an explicit yield), not side legality: after a yield the open own-side slots are
       // the Ally Bot's, and a human offering there would itself violate INV-OWN-004.
       if (humanRoundCapacity(checkpoint) === 0 || checkpoint.humanOpenPositions.length === 0) continue;
-      const offeredV2 = new Set((checkpoint.v2?.decision.controlledSlots ?? []).map((slot) => slot.position).filter((p): p is Position => p != null));
+      // PD-001: a generic round slot never names a position -- V2 offers positions through
+      // `humanActionability.eligiblePositions`, never through `controlledSlots[].position`.
+      const offeredV2 = new Set(checkpoint.v2?.decision.humanActionability?.eligiblePositions ?? []);
       const offeredCoach = new Set((checkpoint.v3?.shortlist ?? []).map((card) => card.position).filter((p): p is Position => p != null));
       // Product Semantics Recovery WP1/WP2: V4 `actionablePositions` is the authoritative offering of every
       // human position the Player may act on this round (the selector renders exactly these).
@@ -144,6 +146,26 @@ test("INV-OWN-002 (known failure registry) -- reachability gap must still be rea
     expect(violations.length, "INV-OWN-002 is listed as a known failure but found ZERO violations across the whole matrix -- shrink known-failures.json deliberately, do not leave it stale").toBeGreaterThan(0);
   } else {
     expect(violations.length).toBe(0);
+  }
+});
+
+// ---------------------------------------------------------------------------------------------
+// PD-001 (POSITION != PICK ORDER != ROUND SLOT != CONTROLLER) -- a generic human round slot never
+// carries a position, in ANY control set (Solo/Party2/Party3/Party5), whether or not every eligible
+// position happens to fit the round. Position truth is born only at submit (hero + assignedPosition).
+// ---------------------------------------------------------------------------------------------
+describe("PD-001 -- generic human round slots are positionless", () => {
+  for (const run of MATRIX) {
+    for (const checkpoint of run.checkpoints) {
+      const slots = checkpoint.v2?.decision.controlledSlots ?? [];
+      if (slots.length === 0) continue;
+      test(`PD-001 ${checkpoint.scenarioId} @ ${checkpoint.step}${checkpoint.round !== null ? ` round ${checkpoint.round}` : ""} (checkpoint #${run.checkpoints.indexOf(checkpoint)})`, () => {
+        expect(slots.filter((slot) => slot.position !== undefined && slot.position !== null)).toEqual([]);
+        for (const action of (checkpoint.v2?.recommendations ?? []).flatMap((recommendation) => recommendation.actions)) {
+          expect(action.slot.position === undefined || action.slot.position === null).toBe(true);
+        }
+      });
+    }
   }
 });
 

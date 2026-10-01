@@ -41,6 +41,12 @@ export interface ConstructContext {
    * only: never written back into HeroPositions. Absent -> own picks are inferred, as before.
    */
   ownConfirmedPositions?: ReadonlyMap<HeroId, Position>;
+  /**
+   * PD-001 -- the human-eligible positions the round's heroes must jointly cover (HumanActionability,
+   * `roundCoveringPositions`). A SET: it admits or rejects a hero, but is never attached to a slot.
+   * Applies only to slots that carry no explicit `position`.
+   */
+  coveringPositions?: readonly Position[];
 }
 
 export function pushUniqueDegradation(list: RecommendationDegradation[], entry: RecommendationDegradation): void {
@@ -81,6 +87,9 @@ export function buildSingleRecommendations(
       if (!context.isLegal(entry.hero, s)) return false;
       if (filterBySlotPosition && s.position !== undefined && s.position !== null) {
         return isCredibleForPosition(entry.hero, s.position, heroPositions);
+      }
+      if (filterBySlotPosition && context.coveringPositions) {
+        return context.coveringPositions.some((position) => isCredibleForPosition(entry.hero, position, heroPositions));
       }
       return true;
     });
@@ -130,8 +139,12 @@ export function buildCompoundRecommendations(
   const combos = buildCompoundCandidates(shortlist);
   const out: Recommendation[] = [];
 
-  const posA = slotA?.position;
-  const posB = slotB?.position;
+  // An explicit slot position wins (synthetic/advisory slots). Otherwise the eligible set must be
+  // jointly covered: each hero is checked against one of the covering positions, in either order
+  // (direct / swapped below) -- the positions are an admission test, not a slot assignment.
+  const covering = context.coveringPositions && context.coveringPositions.length === 2 ? context.coveringPositions : undefined;
+  const posA = slotA?.position ?? covering?.[0];
+  const posB = slotB?.position ?? covering?.[1];
 
   for (const combo of combos) {
     if (out.length >= outputLimit) break;

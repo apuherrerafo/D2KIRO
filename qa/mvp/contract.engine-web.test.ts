@@ -23,9 +23,11 @@ test("contract:engine-web preserves V2 Pos2 and Coach team semantics through HTT
   const body = await response.json() as { recommendationSet: unknown; output: unknown };
   const v2 = parseRecommendationSet(body.recommendationSet);
   expect(v2).not.toBeNull();
-  expect(v2!.decision.controlledSlots.map((slot) => slot.position)).toEqual([2]);
+  // PD-001: Solo Pos2 eligibility travels on humanActionability; the generic round slot is positionless.
+  expect((body.recommendationSet as { decision: { humanActionability?: unknown } }).decision.humanActionability).toMatchObject({ eligiblePositions: [2], roundCapacity: 1 });
+  expect(v2!.decision.controlledSlots.map((slot) => slot.position)).toEqual([undefined]);
   useRandomDraftStore.getState().setRecommendations(v2);
-  expect(useRandomDraftStore.getState().recommendations?.decision.controlledSlots.map((slot) => slot.position)).toEqual([2]);
+  expect(useRandomDraftStore.getState().recommendations?.decision.controlledSlots.map((slot) => slot.position)).toEqual([undefined]);
 
   const coach = body.output === null ? null : parseCoachOutput(body.output);
   expect(body.output === null || coach !== null).toBe(true);
