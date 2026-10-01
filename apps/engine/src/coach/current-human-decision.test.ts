@@ -7,7 +7,7 @@ import type { SignalContribution } from "../signals/types";
 import { heroPoolFitScorer } from "../signals/hero-pool-fit";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "../server/routes/protocol-sessions";
-import { RANKING_INVALIDATING_REASONS } from "./current-human-decision";
+import { RANKING_INVALIDATING_REASONS, deriveCandidateResult } from "./current-human-decision";
 import type { CurrentHumanDecision, RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // Product Semantics Recovery WP2 -- CurrentHumanDecision over the REAL store + REAL routes + REAL
@@ -442,5 +442,51 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
     expect(decision.viewedPosition).not.toBe(2);
     expect(decision.actionablePositions).not.toContain(2);
     for (const bad of ["9", "0", "1.5", "abc", ""]) expect((await v4With(s, `&target=${bad}`)).status).toBe(400);
+  });
+});
+
+// Greptile PR #9 review #3 (P1): a flex hero credible at the viewed position whose role V6 already RESOLVED to
+// another position must not be shown as a ranked card for the viewed one (it would carry LIKELY/CONFIRMED_FORCED
+// under the wrong position label).
+describe("deriveCandidateResult -- resolved role vs viewed position", () => {
+  const FLEX = 900;
+  const flexPositions: HeroPositions = { [FLEX]: [{ position: 2, matches: 1000 }, { position: 4, matches: 1000 }] };
+  const view = { bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never;
+
+  function ranking(status: "LIKELY" | "CONFIRMED_FORCED" | "UNRESOLVED", resolvedPosition: Position | null) {
+    const impact = { status, position: resolvedPosition, marginals: { 1: 0, 2: 0.5, 3: 0, 4: 0.5, 5: 0 }, entropy: 1 };
+    const recommendation = {
+      actions: [{ hero: FLEX }],
+      roleImpact: { [FLEX]: impact },
+      signalsByHero: { [FLEX]: [] },
+      risks: [],
+      confidence: "media",
+    };
+    return { recommendations: [recommendation], degradations: [] } as never;
+  }
+
+  function derive(status: "LIKELY" | "CONFIRMED_FORCED" | "UNRESOLVED", resolvedPosition: Position | null, targetPosition: Position) {
+    return deriveCandidateResult({ targetPosition, targetRanking: ranking(status, resolvedPosition), view, heroPositions: flexPositions, personalPoolApplied: false });
+  }
+
+  for (const status of ["LIKELY", "CONFIRMED_FORCED"] as const) {
+    test(`${status} resuelto a Pos2, objetivo Pos4 -> NO es carta rankeada de Pos4`, () => {
+      const result = derive(status, 2, 4);
+      expect(result.state).not.toBe("RANKED");
+      expect(result.state).toBe("UNRANKED_POSITIONAL");
+    });
+
+    test(`${status} resuelto a Pos4, objetivo Pos4 -> sigue elegible`, () => {
+      const result = derive(status, 4, 4);
+      expect(result.state).toBe("RANKED");
+      if (result.state !== "RANKED") return;
+      expect(result.cards.map((card) => card.heroId)).toEqual([FLEX]);
+      expect(result.cards[0]?.roleStatus).toBe(status);
+    });
+  }
+
+  test("UNRESOLVED con evidencia curada de Pos4, objetivo Pos4 -> sigue admisible", () => {
+    const result = derive("UNRESOLVED", null, 4);
+    expect(result.state).toBe("RANKED");
   });
 });

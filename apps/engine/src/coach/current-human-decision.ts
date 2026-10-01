@@ -4,8 +4,8 @@ import type { HumanActionability } from "../recommendation/human-actionability";
 import { unavailableHeroesFrom } from "../recommendation/perspective-context";
 import type { RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
-import { isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
-import { buildHeroCard, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
+import type { HeroPositions } from "../signals/hero-positions";
+import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
 
@@ -122,8 +122,9 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
 
   if (!invalidatesRanking(degradations)) {
     const candidates = demoteRevealedHardCountered(extractHeroCandidates(targetRanking, heroPositions), revealedEnemyHeroes(view), input.heroCounters)
-      // COHERENCE-006: every visible card is legal and credible for THIS target, whatever else V6 returned.
-      .filter((candidate) => !unavailable.has(candidate.heroId) && isCredibleForPosition(candidate.heroId, targetPosition, heroPositions));
+      // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
+      // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
+      .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
       const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
