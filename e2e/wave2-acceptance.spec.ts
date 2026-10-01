@@ -25,7 +25,6 @@ const OFFLANE = ["Slardar", "Sand King", "Axe", "Tidehunter"];
 const SOFT_SUPPORT = ["Lion", "Windranger", "Vengeful Spirit", "Earthshaker"];
 const HARD_SUPPORT = ["Crystal Maiden", "Dazzle", "Witch Doctor", "Lich"];
 
-const STRATEGY_KINDS = ["REVEAL_POSITION", "REVEAL_HERO", "DEFER_POSITION", "REVEAL_FLEX", "OPPORTUNITY"];
 
 interface CoachJson {
   primaryAction: { strategy: { kind: string; position?: number; heroId?: number }; label: string };
@@ -47,20 +46,24 @@ function coachOutputs(rec: Recorder): CoachJson[] {
     });
 }
 
+// Product Semantics Recovery: the Simulator's Coach is the ONE V4 CurrentHumanDecision panel. The
+// contract certified here is unchanged (an answer before the first pick, recomputed after an own pick
+// before any reveal, advisory only); only the surface it is read from moved from V3 to V4.
 function primary(page: Page) {
-  return page.getByTestId("coach-primary-action");
+  return page.getByTestId("current-decision-panel");
 }
 
 async function snapshotOfCoach(page: Page) {
   const action = primary(page);
   await expect(action).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
   return {
-    kind: (await action.getAttribute("data-strategy-kind"))!,
+    kind: (await action.getAttribute("data-decision-kind"))!,
     trigger: (await action.getAttribute("data-trigger"))!,
     revision: Number(await action.getAttribute("data-revision")),
     identity: (await action.getAttribute("data-state-identity"))!,
-    label: (await page.getByTestId("coach-primary-label").innerText()).trim(),
-    shortlist: await page.getByTestId("coach-hero-card").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
+    label: (await page.getByTestId("current-decision-target").innerText()).trim(),
+    shortlist: await page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
   };
 }
 
@@ -94,10 +97,10 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
 
     // (a) An actionable Coach answer exists at the START of every round, before the Player picks.
     const atStart = await snapshotOfCoach(page);
-    expect(STRATEGY_KINDS).toContain(atStart.kind);
+    expect(atStart.kind).toBe("ACTIONABLE"); // V4: a human action exists at the start of every round
     expect(atStart.label.length).toBeGreaterThan(0);
     expect(atStart.shortlist.length).toBeGreaterThan(0);
-    await expect(page.getByTestId("coach-shortlist")).toBeVisible();
+    await expect(page.getByTestId("current-decision-candidates")).toBeVisible();
     kindsSeen.push(`${atStart.kind}[${atStart.label.replace(/^Sugerencia: /, "")}]`);
     if (round === 1) expect(atStart.trigger).toBe("DRAFT_PICKS_STARTED");
     else expect(atStart.trigger).toBe("ROUND_REVEALED"); // Round 2/3 open only after the enemy reveal
@@ -107,7 +110,7 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
       const firstName = await firstEnabled(page, alternatives[0]!);
       const requestsBefore = recommendationRequests(rec);
       await heroButton(page, firstName).click();
-      await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+      await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
       await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
       const afterFirst = await snapshotOfCoach(page);
       expect(afterFirst.revision).toBeGreaterThan(atStart.revision);
@@ -189,7 +192,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     await heroButton(page, ignored!).click();
 
     // Accepted: the seat is sealed, no rejection notice, no HTTP error -- and the Coach has recomputed.
-    await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+    await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
     await expect(page.getByText(/no está disponible/)).toHaveCount(0);
     await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
     const after = await snapshotOfCoach(page);
@@ -202,7 +205,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
     // The draft keeps going: the second seat is still open and can be sealed.
     const second = await firstEnabled(page, [...CARRY, ...MID].filter((name) => name !== ignored));
     await heroButton(page, second).click();
-    await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 -- elegí/).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 · /).first()).toBeVisible({ timeout: 30_000 });
     expect(commandsSoFar(rec)).toBe(2);
     expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);
   });
@@ -217,9 +220,12 @@ test.describe("Wave 2 acceptance -- hidden information (deterministic setup thro
 
   async function createWorld(request: APIRequestContext, baseURL: string, seed: string): Promise<World> {
     const api = `${baseURL}/engine/api/session/protocol`;
-    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "player" })) };
+    // OLD_ASSERTION/fixture: chronological `controlledSlots` with no `controlledPositions` (the pre-PD-026 shape).
+    // WHY_OBSOLETE: the engine's AP policy rejects it (422 unsupported_simulator_policy): Own Team truth is a Position set.
+    // NEW_PRODUCT_CONTRACT: `controlledSlots` arrives empty and `controlledPositions.length === partySize`.
+    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [] };
     const created = await request.post(api, {
-      data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, humanPosition: 2, simulatorSeed: seed },
+      data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, controlledPositions: [1, 2, 3, 4, 5], humanPosition: 2, simulatorSeed: seed },
     });
     expect(created.status()).toBe(201);
     const { sessionId } = (await created.json()) as { sessionId: string };
@@ -240,7 +246,8 @@ test.describe("Wave 2 acceptance -- hidden information (deterministic setup thro
 
   async function sealOwn(request: APIRequestContext, world: World, slotIndex: number, heroId: number) {
     const response = await request.post(`${world.api}/${world.sessionId}/command`, {
-      data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId } },
+      // AP session policy: every own seal binds a controlled, still-unbound position (Round 1 here: slot 0 -> Pos1, slot 1 -> Pos2).
+      data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId }, assignedPosition: slotIndex + 1 },
     });
     const body = (await response.json()) as { accepted: boolean; view: { enemyPicks: { visibility: string; heroId?: number }[] } };
     expect(body.accepted).toBe(true);

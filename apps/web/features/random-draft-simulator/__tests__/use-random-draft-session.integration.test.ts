@@ -22,6 +22,8 @@ interface FakeOptions {
   collideRoundOnce?: boolean;
   /** Every Coach response after the first arrives "late": it carries an OLDER revision than the one already held. */
   outOfOrderCoach?: boolean;
+  /** The FIRST `?format=v4` response is held until `releaseHeld()` -- a slow response that lands after the Player acted. */
+  holdFirstDecision?: boolean;
 }
 
 interface OwnBinding {
@@ -49,9 +51,14 @@ class FakeApProtocolEngine {
   private ownBindings: OwnBinding[] = [];
   private coachRevision = 0;
   private readonly outOfOrderCoach: boolean;
+  private holdNextDecision: boolean;
+  private release: (() => void) | null = null;
+  /** Server truth for `canYield` (the real engine computes it; this fixture lets a test force it). */
+  yieldable = false;
 
   constructor(options: FakeOptions = {}) {
     this.outOfOrderCoach = options.outOfOrderCoach ?? false;
+    this.holdNextDecision = options.holdFirstDecision ?? false;
     this.banFailuresLeft = options.banFailures ?? 0;
     this.collidePending = options.collideRoundOnce ?? false;
   }
@@ -69,7 +76,8 @@ class FakeApProtocolEngine {
     const revision = this.outOfOrderCoach && this.coachRevision > 1 ? 0 : this.coachRevision;
     const boundPositions = new Set(this.ownBindings.map((binding) => binding.assignedPosition));
     const openPositions = ([1, 2, 3, 4, 5] as Position[]).filter((position) => !boundPositions.has(position));
-    const controlledSlots = this.openSlots.map((slotIndex, index) => ({ side: this.side, slotIndex, position: openPositions[index] ?? null }));
+    // PD-001: a generic round slot is positionless; positions are only a role inference on `roleImpact`.
+    const controlledSlots = this.openSlots.map((slotIndex) => ({ side: this.side, slotIndex }));
     const recommendationHeroes = controlledSlots.map((slot) => 10 + slot.slotIndex + this.own.length);
     const recommendationActions = controlledSlots.map((slot, index) => ({ slot, hero: recommendationHeroes[index]! }));
     return {
@@ -99,7 +107,7 @@ class FakeApProtocolEngine {
           confidence: "media",
           roleImpact: Object.fromEntries(recommendationHeroes.map((hero, index) => [hero, {
             status: "LIKELY",
-            position: controlledSlots[index]?.position ?? null,
+            position: openPositions[index] ?? null,
             marginals: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2 },
             entropy: 1,
           }])),
@@ -111,6 +119,63 @@ class FakeApProtocolEngine {
         degradations: [],
         deferred: { opponentResponse: "NOT_COMPUTED", steal: "NOT_COMPUTED", lookahead: "NOT_COMPUTED" },
         decisionContext: "team_opening",
+      },
+    };
+  }
+
+  /** Hold the NEXT `?format=v4` response until `releaseHeld()` (same mechanism as `holdFirstDecision`). */
+  holdNext(): void {
+    this.holdNextDecision = true;
+  }
+
+  releaseHeld(): void {
+    this.release?.();
+    this.release = null;
+  }
+
+  // Product Semantics Recovery WP3: what the engine's `?format=v4` returns, derived from this fake's own
+  // state -- actionable = unbound human positions, capacity = min(open own slots, actionable), one target.
+  private currentDecisionBody(url: string) {
+    this.coachRevision += 1;
+    const boundPositions = new Set(this.ownBindings.map((binding) => binding.assignedPosition));
+    const actionablePositions = ([1, 2, 3, 4, 5] as Position[]).filter((position) => !boundPositions.has(position));
+    const roundCapacity = Math.min(this.openSlots.length, actionablePositions.length);
+    const requested = Number(new URL(url, "http://fixture.local").searchParams.get("target"));
+    // PSR-002: the recommendation (default = lowest eligible) never follows `target`; only the viewed position does.
+    const targetPosition = actionablePositions[0];
+    const viewedPosition = actionablePositions.includes(requested as Position) ? (requested as Position) : targetPosition;
+    const decision = roundCapacity === 0 || targetPosition === undefined || viewedPosition === undefined
+      ? { kind: "NO_HUMAN_ACTION", actionablePositions: [], roundCapacity: 0, reason: this.round === 4 ? "DRAFT_COMPLETE" : "ROUND_COMPLETE" }
+      : {
+          kind: "ACTIONABLE",
+          actionablePositions,
+          roundCapacity,
+          targetPosition,
+          targetBasis: "DETERMINISTIC_DEFAULT",
+          targetRationale: "fixture",
+          viewedPosition,
+          candidates: {
+            state: "RANKED",
+            targetPosition: viewedPosition,
+            cards: [{ heroId: 10 + this.own.length, position: viewedPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false }],
+            degradations: [],
+          },
+          personalPoolApplied: false,
+        };
+    return {
+      output: {
+        schema: "recommendation-output/v4",
+        sessionId: this.sessionId,
+        decision,
+        roleBeliefs: { own: [], enemy: [] },
+        meta: {
+          round: this.round >= 1 && this.round <= 3 ? this.round : null,
+          phase: this.phaseName(),
+          decisionContext: this.own.length === 0 ? "team_opening" : "blind_second_pick",
+          trigger: this.own.length === 0 ? "DRAFT_PICKS_STARTED" : "OWN_PICK_CONFIRMED",
+          revision: this.coachRevision,
+          basedOn: { stateIdentity: `state-${this.own.length}-${this.enemy.length}`, evidenceVersion: "v" },
+        },
       },
     };
   }
@@ -142,6 +207,7 @@ class FakeApProtocolEngine {
             penaltyRatePerSecond: 2,
           },
       ownAssignedPositions: this.ownBindings,
+      canYield: this.yieldable,
       ...extra,
     };
   }
@@ -166,6 +232,16 @@ class FakeApProtocolEngine {
       this.round = 1;
       return json({ resolvedBans: this.bans, ...this.snapshot() });
     }
+    if (url.includes("/recommendations") && url.includes("format=v4")) {
+      const body = this.currentDecisionBody(url);
+      if (this.holdNextDecision) {
+        this.holdNextDecision = false;
+        await new Promise<void>((resolve) => {
+          this.release = resolve;
+        });
+      }
+      return json(body);
+    }
     if (url.includes("/recommendations")) {
       return json(this.coachBody());
     }
@@ -176,6 +252,10 @@ class FakeApProtocolEngine {
         this.openSlots = Array.from({ length: ROUND_CAPACITY[this.round]! }, (_, index) => index);
       }
       return json({ ...this.snapshot(), stopReason: "human_input", completedRound: null });
+    }
+    if (url.endsWith("/yield")) {
+      this.closeRound({ slotIndex: 0, heroId: -1 });
+      return json(this.snapshot());
     }
     if (url.endsWith("/command")) {
       const command = body.command as { type: string; side: TeamSide; slotIndex: number; heroId: HeroId };
@@ -401,60 +481,140 @@ test("el Copilot humano sigue leyendo RecommendationSet/v2 (nunca /api/suggestio
   unmount();
 });
 
-// AP Ranked Roles V1 / Wave 2 -- Coach in the browser hook.
-test("COACH: hay acción primaria al abrir la Ronda 1 (antes del primer pick) y se recomputa tras el primer pick propio, sin esperar al rival", async () => {
+// Product Semantics Recovery WP3 -- the Simulator's Coach in the browser hook reads ONLY the V4
+// CurrentHumanDecision; V3 (`coach`) and V2 (`recommendations`) are never populated next to it.
+function actionable(result: { current: ReturnType<typeof useRandomDraftSession> }) {
+  const decision = result.current.state.currentDecision?.decision;
+  if (!decision || decision.kind !== "ACTIONABLE") throw new Error("expected an ACTIONABLE current decision");
+  return decision;
+}
+
+test("COACH: hay decisión actual al abrir la Ronda 1 (antes del primer pick) y se recomputa tras el primer pick propio, sin esperar al rival", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 2);
-  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
-  const first = result.current.state.coach!;
-  expect(first.primaryAction.label.length).toBeGreaterThan(0);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  const first = result.current.state.currentDecision!;
   expect(first.meta.trigger).toBe("DRAFT_PICKS_STARTED");
+  expect(actionable(result).actionablePositions).toEqual([1, 2, 3, 4, 5]);
+  expect(actionable(result).roundCapacity).toBe(2);
+  expect(engine.requests.some((entry) => entry.url.includes("format=v4"))).toBe(true);
+  expect(engine.requests.some((entry) => entry.url.includes("format=v3"))).toBe(false);
+  expect(result.current.state.coach).toBeNull(); // COHERENCE-010: no legacy decision next to V4
+  expect(result.current.state.recommendations).toBeNull();
 
   await lock(result, 1, 1); // one of the two Round-1 seats: the round has NOT closed, no enemy hero is revealed
-  await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(first.meta.revision));
-  const second = result.current.state.coach!;
+  await waitFor(() => expect(result.current.state.currentDecision?.meta.revision ?? 0).toBeGreaterThan(first.meta.revision));
+  const second = result.current.state.currentDecision!;
   expect(second.meta.trigger).toBe("OWN_PICK_CONFIRMED");
   expect(second.meta.basedOn.stateIdentity).not.toBe(first.meta.basedOn.stateIdentity);
+  expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]);
   expect(result.current.state.draftState?.picks.dire).toEqual([]); // still nothing revealed
-  expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
   unmount();
 });
 
 test("UX-02: cualquier posición controlada puede sellarse primero y sólo el resto se recalcula", async () => {
   const { engine, result, unmount } = await startDraft("radiant", 5);
-  await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(2));
+  await waitFor(() => expect(actionable(result).roundCapacity).toBe(2));
 
   await lock(result, 7, 2);
 
   expect(commands(engine)[0]).toEqual({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 7 });
   expect(result.current.state.phase).toMatchObject({ type: "blind_round", lockedUserPicks: { 2: 7 } });
-  await waitFor(() => expect(result.current.state.recommendations?.decision.actionCount).toBe(1));
+  await waitFor(() => expect(result.current.state.currentDecision?.decision.roundCapacity).toBe(1));
+  expect(actionable(result).actionablePositions).toEqual([1, 3, 4, 5]);
   expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2);
   unmount();
 });
 
-test("COACH: el Player ignora el consejo (elige un héroe que no está en la shortlist): se acepta, sin aviso, y el Coach recomputa", async () => {
+test("COACH: el Player ignora el consejo (elige un héroe fuera de los candidatos): se acepta, sin aviso, y la decisión se recalcula", async () => {
   const { result, unmount } = await startDraft("dire", 4);
-  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
-  const suggested = result.current.state.coach!.shortlist.map((card) => card.heroId);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  const decision = actionable(result);
+  const suggested = decision.candidates.state === "RANKED" ? decision.candidates.cards.map((card) => card.heroId) : [];
   const chosen = [1, 2, 3, 4].find((heroId) => !suggested.includes(heroId))!;
-  const before = result.current.state.coach!.meta.revision;
+  const before = result.current.state.currentDecision!.meta.revision;
   await lock(result, chosen, 4);
   expect(result.current.state.draftState?.picks.dire).toContain(chosen);
   const phase = result.current.state.phase;
   expect(phase.type === "blind_round" && phase.notice).toBeNull();
-  await waitFor(() => expect(result.current.state.coach!.meta.revision).toBeGreaterThan(before));
+  await waitFor(() => expect(result.current.state.currentDecision?.meta.revision ?? 0).toBeGreaterThan(before));
   unmount();
 });
 
-test("COACH: una respuesta más vieja (revision menor) nunca pisa a una más nueva", async () => {
-  const { engine, result, unmount } = await startDraft("radiant", 2, { outOfOrderCoach: true });
-  await waitFor(() => expect(result.current.state.coach).not.toBeNull());
-  const held = result.current.state.coach!;
-  expect(held.meta.revision).toBe(1);
+test("COHERENCE-014: tras un pick la decisión anterior desaparece al instante y una respuesta lenta previa al pick nunca reaparece", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2, { holdFirstDecision: true });
+  // The first V4 response (pre-pick state: 5 actionable positions) is still in flight.
+  await waitFor(() => expect(engine.requests.some((entry) => entry.url.includes("format=v4"))).toBe(true));
+  expect(result.current.state.currentDecision).toBeNull();
 
-  await lock(result, 1, 2); // triggers a second recomputation, which the fake engine answers with revision 0
-  await waitFor(() => expect(engine.requests.filter((entry) => entry.url.includes("/recommendations")).length).toBeGreaterThanOrEqual(2));
+  await lock(result, 1, 1);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]);
+
+  await act(async () => engine.releaseHeld()); // the slow, pre-pick response finally lands
   await waitFor(() => expect(result.current.state.previewStatus).toBe("ready"));
-  expect(result.current.state.coach).toEqual(held); // the late, older output was discarded
+  expect(actionable(result).actionablePositions).toEqual([2, 3, 4, 5]); // never the stale [1..5] decision
+  expect(actionable(result).actionablePositions).not.toContain(1);
+  unmount();
+});
+
+// P1 (Greptile PR #9) -- clearing the decision must invalidate requests already in flight. Both tests
+// hold the LAST round's V4 request (no later attempt exists to supersede it), run the transition that
+// clears the decision, then let the old response land. The old pre-action decision must never return.
+async function reachLastPickWithHeldDecision() {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  for (const [heroId, position] of [[1, 1], [2, 2], [3, 3]] as [HeroId, Position][]) await lock(result, heroId, position);
+  engine.yieldable = true; // round 3 opens advertising Yield (server truth)
+  engine.holdNext();
+  await lock(result, 4, 4); // closes round 2 -> round 3 opens -> its V4 request is now held in flight
+  await waitFor(() => expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 3 }));
+  await waitFor(() => expect(engine.requests.filter((entry) => entry.url.includes("format=v4")).length).toBeGreaterThanOrEqual(5));
+  expect(result.current.state.currentDecision).toBeNull(); // still pending
+  return { engine, result, unmount };
+}
+
+test("P1: el pick final del draft invalida la petición V4 en vuelo -- su respuesta tardía nunca reaparece", async () => {
+  const { engine, result, unmount } = await reachLastPickWithHeldDecision();
+  await lock(result, 5, 5);
+  expect(result.current.state.phase.type).toBe("complete");
+  expect(result.current.state.currentDecision).toBeNull();
+
+  await act(async () => engine.releaseHeld()); // the pre-pick response (target 5, cards) finally lands
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(result.current.state.currentDecision).toBeNull();
+  unmount();
+});
+
+test("P1: un Yield exitoso invalida la petición V4 en vuelo -- su respuesta tardía nunca reaparece", async () => {
+  const { engine, result, unmount } = await reachLastPickWithHeldDecision();
+  await act(async () => result.current.actions.yieldRound());
+  expect(result.current.state.phase.type).toBe("complete");
+  expect(result.current.state.currentDecision).toBeNull();
+
+  await act(async () => engine.releaseHeld());
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  expect(result.current.state.currentDecision).toBeNull();
+  unmount();
+});
+
+test("navegación del selector (PSR-002): pedir otra posición retira la decisión vigente; la posición VISTA cambia y la recomendación del Coach no", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  const recommended = actionable(result).targetPosition;
+  act(() => result.current.actions.selectTarget(4));
+  expect(result.current.state.currentDecision).toBeNull(); // no stale cards while the engine recomputes
+  expect(result.current.state.requestedTarget).toBe(4);
+  await waitFor(() => expect(result.current.state.currentDecision).not.toBeNull());
+  expect(actionable(result).viewedPosition).toBe(4);
+  expect(actionable(result).targetPosition).toBe(recommended);
+  expect(actionable(result).candidates.targetPosition).toBe(4);
+  expect(engine.requests.some((entry) => entry.url.includes("format=v4&target=4"))).toBe(true);
+
+  act(() => result.current.actions.selectTarget(5));
+  await waitFor(() => expect(actionable(result).viewedPosition).toBe(5));
+  expect(actionable(result).targetPosition).toBe(recommended);
+  expect(actionable(result).candidates.targetPosition).toBe(5); // no stale Pos4 cards
+
+  await lock(result, 9, 4);
+  expect(result.current.state.requestedTarget).toBeNull(); // a pick resets navigation: the next decision is recomputed
   unmount();
 });

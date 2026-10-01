@@ -5,7 +5,7 @@ import { RecommendationFeedback } from "@/components/recommendation-feedback/Rec
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import type { CoachBadge, CoachHeroCard, CoachOpportunity, CoachOutput, CoachPosition, CoachRoleBelief, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
@@ -24,7 +24,7 @@ const POSITION_LABELS: Record<CoachPosition, string> = {
   5: "Hard support",
 };
 
-const BADGE_LABELS: Record<CoachBadge, string> = {
+export const BADGE_LABELS: Record<CoachBadge, string> = {
   COUNTER: "Counter",
   SYNERGY: "Sinergia",
   POSITION_FIT: "Encaja en la posición",
@@ -70,7 +70,7 @@ function NamedHero({ strategy, heroCatalog }: NamedHeroProps) {
   );
 }
 
-function RoleCollisionBanner({ collision, heroCatalog }: { collision: CoachRoleCollision; heroCatalog: Map<number, HeroMeta> }) {
+export function RoleCollisionBanner({ collision, heroCatalog }: { collision: CoachRoleCollision; heroCatalog: Map<number, HeroMeta> }) {
   const conflictDetails = collision.conflicts.map((c) => {
     const posName = POSITION_LABELS[c.position] ?? `Pos ${c.position}`;
     const heroes = c.heroIds.map((id) => heroName(id, heroCatalog)).join(", ");
@@ -155,9 +155,17 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
 // Procedencia de la evidencia de counters: la única aprobada en V1 es la curada.
 const CURATED_EVIDENCE_LABEL = "Evidencia curada";
 
-// Ventana de core (Safe Core): informativa y separada de la acción primaria y de la shortlist.
-function SafeCoreOpportunity({ coach, heroCatalog }: ShortlistProps) {
-  const opportunity = coach.opportunity;
+// Ventana de core (Safe Core): informativa y separada de la acción primaria y de la shortlist. La comparten
+// el Coach V3 (Live Companion) y la decisión V4 del Simulador: nunca es objetivo ni mueve la vista.
+export interface SafeCoreOpportunityProps {
+  opportunity: CoachOpportunity | undefined;
+  sessionId: string;
+  stateIdentity: string;
+  rulesetVersion: string | null;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+export function SafeCoreOpportunity({ opportunity, sessionId, stateIdentity, rulesetVersion, heroCatalog }: SafeCoreOpportunityProps) {
   if (!opportunity) return null;
   const meta = heroCatalog.get(opportunity.heroId);
   return (
@@ -176,12 +184,12 @@ function SafeCoreOpportunity({ coach, heroCatalog }: ShortlistProps) {
       <span className="text-caption text-content-secondary" data-testid="coach-opportunity-label">
         {opportunity.label}
       </span>
-      {Boolean(coach.sessionId) && (
+      {Boolean(sessionId) && (
         <RecommendationFeedback
-          sessionId={coach.sessionId}
+          sessionId={sessionId}
           heroId={opportunity.heroId}
-          stateIdentity={coach.meta.basedOn.stateIdentity}
-          rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
+          stateIdentity={stateIdentity}
+          rulesetVersion={rulesetVersion}
         />
       )}
       <span className="text-caption text-content-muted" data-testid="coach-opportunity-source">
@@ -326,9 +334,16 @@ function AssignPositionButton({ heroId, position, onAssign }: AssignPositionButt
   return <button type="button" className={BUTTON_COMPACT} onClick={assign}>Asignar Pos{position}</button>;
 }
 
-function RoleBeliefs({ coach, heroCatalog, onAssignOwnPosition }: CoachPanelProps) {
-  if (!coach.roleBeliefs) return null;
-  const { own, enemy } = coach.roleBeliefs;
+export interface CoachRoleBeliefsProps {
+  roleBeliefs?: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
+  heroCatalog: Map<number, HeroMeta>;
+  onAssignOwnPosition?: (heroId: number, position: CoachPosition | null) => void;
+}
+
+/** Observable role uncertainty + own-hero position assignment. Context for the decision, never a decision surface. */
+export function CoachRoleBeliefs({ roleBeliefs, heroCatalog, onAssignOwnPosition }: CoachRoleBeliefsProps) {
+  if (!roleBeliefs) return null;
+  const { own, enemy } = roleBeliefs;
   if (own.length === 0 && enemy.length === 0) return null;
   return <div className="flex flex-col gap-2" data-testid="coach-role-beliefs">
     {own.map((belief) => <OwnRoleRow key={`own-${belief.heroId}`} belief={belief} label="Tu equipo" heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />)}
@@ -402,10 +417,19 @@ export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition, degradatio
       )}
       {!suppressDegradations && degradations && degradations.length > 0 && <CoachDegradationsNotice degradations={degradations} />}
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
-      <SafeCoreOpportunity coach={coach} heroCatalog={heroCatalog} />
+      <SafeCoreOpportunity
+        opportunity={coach.opportunity}
+        sessionId={coach.sessionId}
+        stateIdentity={coach.meta.basedOn.stateIdentity}
+        rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
+        heroCatalog={heroCatalog}
+      />
+      {/* V3 / Live Companion ONLY: the Simulator renders CurrentDecisionPanel (V4) and never mounts this
+          panel (CopilotPanel returns before it when a V4 decision exists), so no second personal
+          current-action surface can appear in Simulation. */}
       <PersonalHeroView coach={coach} heroCatalog={heroCatalog} />
       <Shortlist coach={coach} heroCatalog={heroCatalog} />
-      <RoleBeliefs coach={coach} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
+      <CoachRoleBeliefs roleBeliefs={coach.roleBeliefs} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
     </div>
   );
 }

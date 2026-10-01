@@ -6,6 +6,7 @@ import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { useState } from "react";
 import { BUTTON_COMPACT, BUTTON_GHOST } from "@/features/draft/styles";
+import type { HumanActionability } from "../protocol-client";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
 import type { DraftPhase, HeroId } from "../types";
 
@@ -109,6 +110,28 @@ interface BlindRoundActiveProps {
   highlightedHeroIds: ReadonlySet<HeroId>;
   onLockPick: (heroId: HeroId, position: Position) => void;
   onYield: () => void;
+  humanActionability: HumanActionability | null;
+  /** The position being VIEWED (V4 decision `viewedPosition` / the Player's requested view) -- never the Coach recommendation. The selector renders exactly this. */
+  selectedTarget: Position | null;
+  onSelectTarget?: (position: Position) => void;
+}
+
+interface RoundCapacityNoticeProps {
+  round: 1 | 2 | 3;
+  actionability: HumanActionability | null;
+}
+
+// WP3 -- round capacity (how many picks fit NOW) is shown apart from the pending positions (which
+// positions are still open): Party5 Round 1 is "2 espacios", never "elegí 5 héroes".
+function RoundCapacityNotice({ round, actionability }: RoundCapacityNoticeProps) {
+  if (!actionability) return <span className="text-heading text-content-primary">Ronda {round}</span>;
+  const capacity = actionability.roundCapacity;
+  const label = capacity === 1 ? "1 espacio de pick disponible" : `${capacity} espacios de pick disponibles`;
+  return (
+    <span className="text-heading text-content-primary" data-testid="round-capacity" data-round-capacity={capacity}>
+      Ronda {round} · {label}
+    </span>
+  );
 }
 
 interface PositionTargetButtonProps {
@@ -133,34 +156,43 @@ function PositionTargetButton({ position, selected, locked, onSelect }: Position
   );
 }
 
-function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick, onYield }: BlindRoundActiveProps) {
+function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick, onYield, humanActionability, selectedTarget, onSelectTarget }: BlindRoundActiveProps) {
   const availablePositions = phase.attemptPositions.filter((position) => phase.lockedUserPicks[position] === undefined);
   const [preferredPosition, setPreferredPosition] = useState<Position | undefined>(availablePositions[0] ?? phase.attemptPositions[0]);
-  const selectedPosition = preferredPosition !== undefined && availablePositions.includes(preferredPosition)
+  // COHERENCE-013 / PSR-002 -- the selector shows the viewed position whenever there is one; the local
+  // choice is only a fallback while the Coach is loading/unavailable (the Player can always pick).
+  const localPosition = preferredPosition !== undefined && availablePositions.includes(preferredPosition)
     ? preferredPosition
     : (availablePositions[0] ?? preferredPosition);
+  const selectedPosition = selectedTarget !== null && availablePositions.includes(selectedTarget) ? selectedTarget : localPosition;
   const lockedHeroIds = Object.values(phase.lockedUserPicks).filter((heroId): heroId is HeroId => heroId !== undefined);
   const unavailable = unavailableHeroIds(draftState, lockedHeroIds);
   const pickablePool = Array.from(heroCatalog.values()).filter((hero) => !unavailable.has(hero.id));
-  const total = phase.attemptPositions.length;
-  const locked = lockedHeroIds.length;
-  const canPick = locked < total && selectedPosition !== undefined;
+  const noHumanAction = humanActionability !== null && !humanActionability.hasHumanAction;
+  const canPick = availablePositions.length > 0 && selectedPosition !== undefined && !noHumanAction;
+  const pendingLabel = availablePositions.map((position) => `Pos${position}`).join(" ");
 
   function handleHeroSelect(heroId: HeroId) {
     if (selectedPosition === undefined) return;
     onLockPick(heroId, selectedPosition);
   }
 
+  function handleSelectPosition(position: Position) {
+    setPreferredPosition(position);
+    onSelectTarget?.(position);
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       {/* TSK-086: el timer de la ronda se ve al centro de CompactBoard (page.tsx), no acá -- nunca
           dos timers en pantalla al mismo tiempo. */}
-      <span className="text-heading text-content-primary">
-        Ronda {phase.round} -- elegí {total} {total === 1 ? "héroe" : "héroes"} para tu equipo ({locked} de {total} sellados)
+      <RoundCapacityNotice round={phase.round} actionability={humanActionability} />
+      <span className="text-caption text-content-secondary" data-testid="pending-human-positions">
+        Posiciones humanas pendientes: {pendingLabel}
       </span>
       <span className="text-caption text-content-muted">
-        Controlás tus posiciones (Pos{phase.attemptPositions.join(", Pos")}). Los demás aliados son simulados
-        automáticamente. Al elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
+        Elegís vos qué posición completa cada pick. Los demás aliados son simulados automáticamente. Al
+        elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
       </span>
       <ConflictBanner conflictBans={phase.conflictBans} notice={phase.notice} heroCatalog={heroCatalog} />
       <TimerExpiredNotice phase={phase} />
@@ -183,7 +215,7 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
               position={position}
               selected={position === selectedPosition}
               locked={phase.lockedUserPicks[position] !== undefined}
-              onSelect={setPreferredPosition}
+              onSelect={handleSelectPosition}
             />
           ))}
           {phase.canYield && (
@@ -244,6 +276,11 @@ export interface BlindRoundPanelProps {
   highlightedHeroIds?: ReadonlySet<HeroId>;
   onLockPick: (heroId: HeroId, position: Position) => void;
   onYield: () => void;
+  /** WP1 -- server-derived eligibility vs. round capacity (latest snapshot). */
+  humanActionability?: HumanActionability | null;
+  /** WP3 -- the Coach's current target; the position selector renders exactly this. */
+  selectedTarget?: Position | null;
+  onSelectTarget?: (position: Position) => void;
 }
 
 const EMPTY_HIGHLIGHTED: ReadonlySet<HeroId> = new Set();
@@ -257,6 +294,9 @@ export function BlindRoundPanel({
   highlightedHeroIds = EMPTY_HIGHLIGHTED,
   onLockPick,
   onYield,
+  humanActionability = null,
+  selectedTarget = null,
+  onSelectTarget,
 }: BlindRoundPanelProps) {
   if (phase.type === "round_revealed") {
     return <RoundRevealedView phase={phase} heroCatalog={heroCatalog} />;
@@ -269,6 +309,9 @@ export function BlindRoundPanel({
       heroCatalog={heroCatalog}
       onLockPick={onLockPick}
       onYield={onYield}
+      humanActionability={humanActionability}
+      selectedTarget={selectedTarget}
+      onSelectTarget={onSelectTarget}
     />
   );
 }

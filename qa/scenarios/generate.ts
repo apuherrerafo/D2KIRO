@@ -27,6 +27,7 @@
  */
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
+import { heroPoolFitScorer } from "../../apps/engine/src/signals/hero-pool-fit";
 import type { SuggestionSet } from "../../apps/engine/src/signals/mix";
 import type { HeroUniverse } from "../../apps/engine/src/simulator/ban-resolution";
 import { ProtocolSessionStore } from "../../apps/engine/src/server/protocol-session";
@@ -65,46 +66,57 @@ export function humanHeroFor(position: Position): number {
  * degrades silently into SNAPSHOT_UNAVAILABLE, which the invariant oracle must never mistake for a
  * real, actionable result). Always returns non-empty suggestions while any position hero remains
  * untaken -- deterministic, no network, no curated dataset.
+ *
+ * `accountPools` (COHERENCE-007 account-backed coverage only; omitted by the ownership matrix, whose
+ * output is then unchanged): each account's configured Hero Pool. The pool signal is the REAL
+ * `heroPoolFitScorer` over the account overlay the route asked for (no accountId -> empty pool ->
+ * `applicable: false`), and in-pool heroes lead the order -- a ranking the pool visibly shaped.
  */
-const computeSuggestions: ComputeSuggestionsForDraftState = async (state: DraftState, _accountId, options): Promise<SuggestionSet> => {
-  const taken = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
-  // Ally/Enemy Bot decisions post-validate that the chosen hero lies within the candidate universe
-  // they requested (position-credible heroes for that seat) -- honoring `candidateHeroIds` here is
-  // required, not optional, or every bot decision is rejected as "no valid candidate".
-  const basePool = options?.candidateHeroIds ?? Object.keys(HERO_POSITIONS).map(Number);
-  const pool = basePool.filter((hero) => !taken.has(hero));
-  const heroes = pool.slice(0, 6);
-  return {
-    schema: "suggestions/v1",
-    sessionId: state.sessionId,
-    basedOnSeq: state.lastSeq,
-    decisionContext: "team_opening",
-    suggestions: heroes.map((hero, index) => ({
-      hero,
-      rank: (index + 1) as 1 | 2 | 3 | 4 | 5 | 6,
-      score: 100 - index,
-      signals: [],
-      reason: "qa fixture (deterministic, no network, no curated dataset)",
-      confidence: "alta" as const,
-      evidenceCoverage: 1,
-      guessingIndex: 0,
-    })),
-    comparison: null,
-    degraded: [],
-    computedInMs: 0,
-    // REQUIRED at runtime despite the optional `?` in the type: build-from-perspective.ts / build.ts
-    // degrade to SNAPSHOT_UNAVAILABLE and an EMPTY recommendation set the instant this is falsy
-    // ("computeSuggestions no entregó evidencia funcional"). Omitting it is exactly the vacuous-pass
-    // failure mode task section 8 warns about ("[] == []" must never count as correctness) -- keep it.
-    functionalEvidence: {
-      metaIsStale: false,
-      signalEvidence: heroes.map((hero) => ({ hero, signals: [] })),
-      heroPositions: [],
-      teamOpening: null,
-      partyPreferredPositions: [],
-    },
+function createComputeSuggestions(accountPools?: ReadonlyMap<number, readonly number[]>): ComputeSuggestionsForDraftState {
+  return async (state: DraftState, accountId, options): Promise<SuggestionSet> => {
+    const taken = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
+    // Ally/Enemy Bot decisions post-validate that the chosen hero lies within the candidate universe
+    // they requested (position-credible heroes for that seat) -- honoring `candidateHeroIds` here is
+    // required, not optional, or every bot decision is rejected as "no valid candidate".
+    const basePool = options?.candidateHeroIds ?? Object.keys(HERO_POSITIONS).map(Number);
+    let pool = basePool.filter((hero) => !taken.has(hero));
+    const heroPool = (accountId === null ? [] : accountPools?.get(accountId) ?? [])
+      .map((hero) => ({ hero, source: "manual" as const, personalWinrate: null, personalGames: 0, updatedAt: "2026-09-30" }));
+    if (accountPools) pool = [...pool].sort((a, b) => Number(heroPool.some((entry) => entry.hero === b)) - Number(heroPool.some((entry) => entry.hero === a)));
+    const signalsFor = (hero: number) => (accountPools ? [heroPoolFitScorer.score(state, hero, { heroes: {}, matchups: {}, heroPool })] : []);
+    const heroes = pool.slice(0, 6);
+    return {
+      schema: "suggestions/v1",
+      sessionId: state.sessionId,
+      basedOnSeq: state.lastSeq,
+      decisionContext: "team_opening",
+      suggestions: heroes.map((hero, index) => ({
+        hero,
+        rank: (index + 1) as 1 | 2 | 3 | 4 | 5 | 6,
+        score: 100 - index,
+        signals: signalsFor(hero),
+        reason: "qa fixture (deterministic, no network, no curated dataset)",
+        confidence: "alta" as const,
+        evidenceCoverage: 1,
+        guessingIndex: 0,
+      })),
+      comparison: null,
+      degraded: [],
+      computedInMs: 0,
+      // REQUIRED at runtime despite the optional `?` in the type: build-from-perspective.ts / build.ts
+      // degrade to SNAPSHOT_UNAVAILABLE and an EMPTY recommendation set the instant this is falsy
+      // ("computeSuggestions no entregó evidencia funcional"). Omitting it is exactly the vacuous-pass
+      // failure mode task section 8 warns about ("[] == []" must never count as correctness) -- keep it.
+      functionalEvidence: {
+        metaIsStale: false,
+        signalEvidence: heroes.map((hero) => ({ hero, signals: [] })),
+        heroPositions: [],
+        teamOpening: null,
+        partyPreferredPositions: [],
+      },
+    };
   };
-};
+}
 
 export type Routes = ReturnType<typeof createProtocolSessionRoutes>;
 
@@ -129,12 +141,13 @@ export function heroUniverseFor(heroPositions: HeroPositions): HeroUniverse {
  * flexible hero (credible at 2+ positions, weighted AWAY from the bound one) can expose. Every
  * EXISTING no-arg call site (the 26x2x3 ownership matrix) is byte-identical: `HERO_POSITIONS` and
  * `heroUniverseFor(HERO_POSITIONS)` reproduce exactly what this function built before this change.
+ * Optional `accountPools` (account-backed COHERENCE-007): see `createComputeSuggestions`.
  */
-export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS): { store: ProtocolSessionStore; routes: Routes } {
+export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS, accountPools?: ReadonlyMap<number, readonly number[]>): { store: ProtocolSessionStore; routes: Routes } {
   const store = new ProtocolSessionStore();
   const routes = createProtocolSessionRoutes({
     store,
-    computeSuggestions,
+    computeSuggestions: createComputeSuggestions(accountPools),
     heroPositions,
     heroUniverse: async () => heroUniverseFor(heroPositions),
   });
@@ -255,13 +268,36 @@ interface PublicSnapshot {
 }
 
 interface PublicV2 {
-  decision: { controlledSlots: { side: string; slotIndex: number; position?: Position | null }[] };
+  decision: {
+    // PD-001: a generic human round slot is positionless; eligibility lives on humanActionability.
+    controlledSlots: { side: string; slotIndex: number; position?: Position | null }[];
+    humanActionability?: { eligiblePositions: Position[]; roundCapacity: number; hasHumanAction: boolean };
+  };
   recommendations: { actions: { slot: { position?: Position | null }; hero: number }[] }[];
 }
 
 interface PublicV3 {
   primaryAction: { strategy: PublicCoachStrategy; label: string };
   shortlist: PublicCoachCard[];
+}
+
+/**
+ * Product Semantics Recovery -- the public V4 CurrentHumanDecision JSON, typed from the wire contract
+ * only (never imported from the engine: this generator must stay independent of the decision code).
+ */
+export type PublicV4Candidates =
+  | { state: "RANKED"; targetPosition: Position; cards: { heroId: number; position: Position; rank: number; score: number; confidence: string; isFromPool: boolean }[]; degradations: { reason: string; detail: string }[] }
+  | { state: "UNRANKED_POSITIONAL"; targetPosition: Position; alternatives: Record<string, unknown>[]; reason: string; degradations: { reason: string; detail: string }[] }
+  | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: { reason: string; detail: string }[] };
+
+export type PublicV4Decision =
+  | { kind: "ACTIONABLE"; actionablePositions: Position[]; roundCapacity: number; targetPosition: Position; targetBasis: string; targetRationale: string; viewedPosition: Position; candidates: PublicV4Candidates; personalPoolApplied: boolean }
+  | { kind: "NO_HUMAN_ACTION"; actionablePositions: Position[]; roundCapacity: number; reason: string };
+
+export interface PublicV4 {
+  schema: string;
+  decision: PublicV4Decision;
+  meta: { revision: number; basedOn: { stateIdentity: string } };
 }
 
 export interface Checkpoint {
@@ -286,6 +322,12 @@ export interface Checkpoint {
   snapshot: PublicSnapshot;
   v2: PublicV2 | null;
   v3: PublicV3 | null;
+  /** The public V4 CurrentHumanDecision (`?format=v4`), or null when the route did not answer 200. */
+  v4: PublicV4 | null;
+  /** Raw V4 response body, for structural (key-level) checks. */
+  v4RawText: string;
+  /** The session's declared personal position (metadata), for COHERENCE-007. */
+  humanPosition: Position | null;
   rawResponseText: string; // full serialized text of every response folded into this checkpoint, for INV-LEAK-001's mechanical scan
 }
 
@@ -297,7 +339,7 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchRecommendations(routes: Routes, sessionId: string): Promise<{ v2: PublicV2 | null; v3: PublicV3 | null; rawText: string }> {
+export async function fetchRecommendations(routes: Routes, sessionId: string): Promise<{ v2: PublicV2 | null; v3: PublicV3 | null; v4: PublicV4 | null; v4RawText: string; rawText: string }> {
   const v2Response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations`));
   const v2Text = await v2Response.clone().text();
   const v2 = v2Response.status === 200 ? (JSON.parse(v2Text) as PublicV2) : null;
@@ -309,7 +351,10 @@ export async function fetchRecommendations(routes: Routes, sessionId: string): P
     const body = JSON.parse(v3Text) as { output: PublicV3 | null };
     v3 = body.output;
   }
-  return { v2, v3, rawText: `${v2Text}\n${v3Text}` };
+  const v4Response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v4`));
+  const v4Text = await v4Response.clone().text();
+  const v4 = v4Response.status === 200 ? (JSON.parse(v4Text) as { output: PublicV4 }).output : null;
+  return { v2, v3, v4, v4RawText: v4Text, rawText: `${v2Text}\n${v3Text}\n${v4Text}` };
 }
 
 function buildCheckpoint(
@@ -319,7 +364,7 @@ function buildCheckpoint(
   step: CheckpointStep,
   filledPosition: Position | null,
   snapshot: PublicSnapshot,
-  rec: { v2: PublicV2 | null; v3: PublicV3 | null; rawText: string },
+  rec: { v2: PublicV2 | null; v3: PublicV3 | null; v4: PublicV4 | null; v4RawText: string; rawText: string },
   snapshotRawText: string,
 ): Checkpoint {
   const controlledPositions = store.metadata(sessionId)?.controlledPositions ?? [];
@@ -342,6 +387,9 @@ function buildCheckpoint(
     snapshot,
     v2: rec.v2,
     v3: rec.v3,
+    v4: rec.v4,
+    v4RawText: rec.v4RawText,
+    humanPosition: store.metadata(sessionId)?.humanPosition ?? null,
     rawResponseText: `${snapshotRawText}\n${rec.rawText}`,
   };
 }

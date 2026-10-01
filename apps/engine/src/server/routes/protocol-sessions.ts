@@ -241,6 +241,9 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // never has to approximate it on its own. `false` for a non-AP-Simulator session (the store
       // returns `false` there too -- `yieldPrecondition`'s `not_ap_simulator` branch).
       canYield: deps.store.canYield(sessionId),
+      // WP1 -- eligible human positions vs. current round capacity vs. yield, server-derived. `null`
+      // for a session without controlledPositions. The web reads this instead of re-deriving it.
+      humanActionability: deps.store.humanActionability(sessionId),
     };
   }
 
@@ -661,6 +664,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       // partyContext behavior byte-for-byte (Manual/Captain's Mode, legacy AP sessions).
       controlledPositions: metadata.controlledPositions ?? undefined,
       humanOpenPositions: deps.store.humanOpenPositions(sessionId) ?? undefined,
+      humanActionability: deps.store.humanActionability(sessionId),
     });
   }
 
@@ -694,6 +698,32 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (!view) return notFound();
 
     const startedAt = Date.now();
+    // Product Semantics Recovery WP2 -- `?format=v4`: the ONE authoritative CurrentHumanDecision
+    // (RecommendationOutputV4). Only the output travels: the web renders nothing else for the current
+    // human action, so no second recommendation set is put on the wire next to it.
+    if (url.searchParams.get("format") === "v4") {
+      if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+      // Optional selector navigation. External input: validated here, before any recommendation logic.
+      const targetParam = url.searchParams.get("target");
+      const requestedTarget = targetParam === null ? null : parseDotaPosition(Number(targetParam));
+      if (targetParam !== null && (requestedTarget === null || !/^[1-5]$/.test(targetParam))) return badRequest("invalid_target");
+      const current = await coachRecommendations.recommendCurrentDecision(sessionId, metadata.humanPosition, accountId, requestedTarget);
+      if (current === undefined) return notFound();
+      if (current === null) return Response.json({ error: "current_decision_requires_controlled_positions" }, { status: 422 });
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event: "current_decision_computed",
+        sessionId,
+        stateIdentity: current.output.meta.basedOn.stateIdentity,
+        protocolStatus: view.status,
+        decisionKind: current.output.decision.kind,
+        targetBasis: current.output.decision.kind === "ACTIONABLE" ? current.output.decision.targetBasis : null,
+        candidateState: current.output.decision.kind === "ACTIONABLE" ? current.output.decision.candidates.state : null,
+        degradations: current.sourceSet.degradations.map((degradation) => degradation.reason),
+        computedInMs: Date.now() - startedAt,
+      }));
+      return Response.json({ output: current.output });
+    }
     // AP Ranked Roles V1 / Wave 2 -- `?format=v3` asks the Coach: a RecommendationOutputV3 plus the V2-shaped
     // set it was built on. That set comes from the PERSPECTIVE-SAFE builder (never from authoritative
     // state, so it is not identical to the legacy V2 body: no one-ply lookahead, no simulator seed). The

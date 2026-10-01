@@ -1,14 +1,31 @@
 import { expect, type Page, type Response } from "@playwright/test";
+import { mintAccountToken } from "../../apps/web/lib/account-token";
 
 // Wave 1 acceptance smoke -- shared helpers. Reuses the existing Playwright/E2E harness
 // (playwright.config.ts, global-setup.ts, the fixture DB); nothing here is a second framework.
 
-/** Direct engine origin of the E2E harness. Only used for the test-only clock seam. */
+/**
+ * Direct engine origin of the E2E harness. Only used for the test-only clock seam. Resolution order: the external
+ * runtime's URL, then the port the managed runner reserved (`E2E_ENGINE_PORT`, random per run), then the dev default.
+ */
 export function engineDirectUrl(env: Record<string, string | undefined> = process.env): string {
-  return env.E2E_EXTERNAL_ENGINE_URL ?? "http://127.0.0.1:4100";
+  if (env.E2E_EXTERNAL_ENGINE_URL) return env.E2E_EXTERNAL_ENGINE_URL;
+  return `http://127.0.0.1:${env.E2E_ENGINE_PORT ?? 4100}`;
 }
 
 export const ENGINE_DIRECT = engineDirectUrl();
+
+/**
+ * The engine authenticates every session route (owner-bound sessions). The browser reaches it through the /engine proxy,
+ * which injects `x-account-token` from the session cookie; the test-only clock seam is deliberately NOT proxied, so a
+ * direct call mints the same single-use token for the fixture account (same secret, same account as the browser cookie).
+ */
+export function engineDirectHeaders(env: Record<string, string | undefined> = process.env): Record<string, string> {
+  const secret = env.E2E_INTERNAL_AUTH_SECRET;
+  const accountId = Number(env.E2E_ACCOUNT_ID);
+  if (!secret || !Number.isInteger(accountId)) return {};
+  return { "x-account-token": mintAccountToken(accountId, secret) };
+}
 
 export interface RecordedResponse {
   url: string;
@@ -125,31 +142,33 @@ export async function firstEnabled(page: Page, names: readonly string[]): Promis
   throw new Error(`none of [${names.join(", ")}] is selectable`);
 }
 
+/** Product Semantics Recovery WP3: human pick capacity left in the current round (`data-round-capacity`), -1 when not shown. */
+export async function roundCapacity(page: Page): Promise<number> {
+  const notice = page.getByTestId("round-capacity").first();
+  if (!(await notice.isVisible().catch(() => false))) return -1;
+  return Number((await notice.getAttribute("data-round-capacity")) ?? "-1");
+}
+
 /**
  * A legal collision is part of a real draft: when the Player's seal matches a hidden enemy pick the hero is banned and the
- * colliding seat(s) reopen ("(N de M sellados)" with N < M, next to the collision notice). This waits for `expected` and,
+ * colliding seat(s) reopen (round capacity back above 0, next to the collision notice). This waits for `expected` and,
  * while the UI is instead asking for a re-pick, chooses another hero that is selectable right now (first of `preferred`)
  * through the real grid. Returns how many re-picks it took, so callers can account for the extra commands. It must be
  * called only after every seat of the round has been sealed. Never touches protocol state.
  */
 export async function awaitRoundHandlingCollision(page: Page, expected: RegExp, preferred: readonly string[], maxRepicks = 4): Promise<number> {
-  const sealedCounter = page.getByText(/\(\d de \d sellados\)/).first();
   const collision = page.getByText(/Baneados por colisión en esta ronda/);
   const settled = page.getByText(expected).first();
-  const seatIsReopened = async (): Promise<boolean> => {
-    if (!(await collision.first().isVisible()) || !(await sealedCounter.isVisible())) return false;
-    const [, sealed, total] = /\((\d) de (\d) sellados\)/.exec(await sealedCounter.innerText()) ?? [];
-    return Number(sealed) < Number(total);
-  };
+  const seatIsReopened = async (): Promise<boolean> => (await collision.first().isVisible()) && (await roundCapacity(page)) > 0;
   let repicks = 0;
   for (;;) {
     await expect.poll(async () => (await settled.isVisible()) || (await seatIsReopened()), { timeout: 60_000 }).toBe(true);
     if (await settled.isVisible()) return repicks;
     expect(repicks, "a round cannot need an unbounded number of re-picks").toBeLessThan(maxRepicks);
-    const before = await sealedCounter.innerText();
+    const before = await roundCapacity(page);
     await heroButton(page, await firstEnabled(page, preferred)).click();
     repicks++;
-    await expect.poll(async () => (await settled.isVisible()) || (await sealedCounter.innerText().catch(() => "")) !== before, { timeout: 30_000 }).toBe(true);
+    await expect.poll(async () => (await settled.isVisible()) || (await roundCapacity(page)) !== before, { timeout: 30_000 }).toBe(true);
   }
 }
 
@@ -177,8 +196,12 @@ export async function configureAndStart(page: Page, options: StartOptions): Prom
   await startButton.click();
 }
 
+/** Round header: "Ronda N · K espacio(s) de pick disponible(s)" -- K is round CAPACITY, never the pending-position count. */
 export const ROUND_HEADING = (round: 1 | 2 | 3, count: number) =>
-  new RegExp(`Ronda ${round} -- elegí ${count} ${count === 1 ? "héroe" : "héroes"}`);
+  new RegExp(`Ronda ${round} · ${count} ${count === 1 ? "espacio de pick disponible" : "espacios de pick disponibles"}`);
+
+/** Any open human round, whatever its remaining capacity. */
+export const ANY_ROUND_HEADING = (round: 1 | 2 | 3) => new RegExp(`Ronda ${round} · \\d+ espacios? de pick disponibles?`);
 
 export async function heroNamesIn(page: Page, testId: string): Promise<string[]> {
   const rows = page.locator(`[data-testid="${testId}"]`);
@@ -206,7 +229,7 @@ export async function lockPicks(page: Page, alternatives: readonly (readonly str
     const name = await firstEnabled(page, options.filter((candidate) => !picked.includes(candidate)));
     await heroButton(page, name).click();
     picked.push(name);
-    if (index < total - 1) await expect(page.getByText(`(${index + 1} de ${total} sellados)`)).toBeVisible();
+    if (index < total - 1) await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", String(total - index - 1));
   }
   return picked;
 }

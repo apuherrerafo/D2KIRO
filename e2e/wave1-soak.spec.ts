@@ -72,8 +72,9 @@ async function runDraft(request: APIRequestContext, baseURL: string, side: Side,
     return body;
   }
 
-  const partyContext = { partySize: 5, side, controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side, slotIndex, controllerId: "player" })) };
-  const created = await call("create", "", { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: side, adapterKind: "simulator", partyContext, humanPosition: position, simulatorSeed: seed });
+  // Fixture migrated to the AP session policy (PD-026/PD-027): empty `controlledSlots` + explicit `controlledPositions`.
+  const partyContext = { partySize: 5, side, controlledSlots: [] };
+  const created = await call("create", "", { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: side, adapterKind: "simulator", partyContext, controlledPositions: [1, 2, 3, 4, 5], humanPosition: position, simulatorSeed: seed });
   if (!created) return { outcome, snapshots, bodies };
   const sessionId = created.sessionId as string;
   if (!(await call("resolve-bans", `/${sessionId}/resolve-bans`, { playerBanPreferences: banPrefs }))) return { outcome, snapshots, bodies };
@@ -91,13 +92,19 @@ async function runDraft(request: APIRequestContext, baseURL: string, side: Side,
       return { outcome, snapshots, bodies };
     }
     const bansBefore = view!.bannedHeroes.length;
+    // AP session policy: every own seal binds a controlled, still-unbound position -- read from the engine's own
+    // bindings (a collision re-opens a seat AND frees its position), never guessed from the round/slot order.
+    let latest: Record<string, any> = drive;
     for (const slot of open) {
       const taken = new Set<number>([...view!.bannedHeroes, ...view!.ownPicks.flatMap((s) => (s.heroId ? [s.heroId] : [])), ...view!.enemyPicks.flatMap((s) => (s.heroId ? [s.heroId] : []))]);
       const hero = chooseHero(seed, (step += 1), taken);
-      const submitted = await call("submit", `/${sessionId}/command`, { command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: slot.slotIndex, heroId: hero } });
+      const bound = new Set<number>(((latest.ownAssignedPositions ?? []) as { assignedPosition: number }[]).map((binding) => binding.assignedPosition));
+      const assignedPosition = ([1, 2, 3, 4, 5] as const).find((candidate) => !bound.has(candidate))!;
+      const submitted = await call("submit", `/${sessionId}/command`, { command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: slot.slotIndex, heroId: hero }, assignedPosition });
       if (!submitted) return { outcome, snapshots, bodies };
       if (submitted.accepted === false) failures.push(`pick ${hero} rejected: ${submitted.rejected}`);
       view = submitted.view;
+      latest = submitted;
     }
     outcome.collisions += view!.bannedHeroes.length - bansBefore;
     if (view!.status === "COMPLETE") break;

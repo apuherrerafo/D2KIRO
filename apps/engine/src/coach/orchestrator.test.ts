@@ -233,3 +233,46 @@ describe("asignación de posición y concurrencia", () => {
     expect(firstDone.output!.primaryAction.label.length).toBeGreaterThan(0);
   });
 });
+
+// P2 (Greptile PR #9) -- the team evaluation only exists to identify the observed state of a
+// NO_HUMAN_ACTION decision. An actionable request is sourced by the viewed-position target ranking,
+// so computing the team evaluation there is wasted work on every load, selector change and post-pick refresh.
+describe("recomputeCurrentDecision: lazy source computation", () => {
+  function countingCoach() {
+    const calls = { team: 0, target: 0 };
+    const coach = new CoachOrchestrator({
+      heroPositions: HERO_POSITIONS,
+      buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS }),
+      buildTeamEvaluation: (context) => {
+        calls.team += 1;
+        return buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, singleSlotEvaluation: true });
+      },
+      buildTargetRanking: (context, targetPosition) => {
+        calls.target += 1;
+        return buildRecommendationSetFromPerspective({ context, computeSuggestions: fakeCompute(), heroPositions: HERO_POSITIONS, targetPosition, teamOpening: false, singleSlotEvaluation: true });
+      },
+    });
+    return { coach, calls };
+  }
+
+  test("ACTIONABLE: sólo corre el ranking de la posición vista; la evaluación de equipo no se calcula", async () => {
+    const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5] });
+    const { coach, calls } = countingCoach();
+    const context = h.store.perspectiveRecommendationContext(h.id)!;
+    expect(context.humanActionability?.hasHumanAction).toBe(true);
+    const result = await coach.recomputeCurrentDecision({ context, playerPersonalPosition: 2 });
+    expect(result!.output.decision.kind).toBe("ACTIONABLE");
+    expect(calls).toEqual({ team: 0, target: 1 });
+  });
+
+  test("NO_HUMAN_ACTION: la evaluación de equipo sigue identificando el estado y no se pide ningún ranking de posición", async () => {
+    const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5] });
+    const { coach, calls } = countingCoach();
+    const context = h.store.perspectiveRecommendationContext(h.id)!;
+    const idle = { ...context, humanActionability: { eligiblePositions: [], roundCapacity: 0, hasHumanAction: false, noActionReason: "ROUND_COMPLETE" as const } };
+    const result = await coach.recomputeCurrentDecision({ context: idle, playerPersonalPosition: 2 });
+    expect(result!.output.decision.kind).toBe("NO_HUMAN_ACTION");
+    expect(result!.sourceSet.basedOn).toBeDefined();
+    expect(calls).toEqual({ team: 1, target: 0 });
+  });
+});

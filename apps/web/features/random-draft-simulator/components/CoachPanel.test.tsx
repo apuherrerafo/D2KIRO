@@ -216,20 +216,27 @@ test("CopilotPanel sin Coach (Captain's Mode / motor viejo) no muestra sección 
   expect(view.queryByTestId("coach-panel")).toBeNull();
 });
 
-test("Dota-Judge RB-1: con la posición personal ya cubierta se muestra 'Tu posición ya está cubierta' y ningún ranking", () => {
-  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: true, heroes: [] } };
+// Greptile PR #9 (P1) -- Live Companion still runs on V3: the personal position / Hero Pool view the engine
+// sends in `personalHeroView` is shown there. (The Simulator never mounts CoachPanel under V4 -- see
+// CurrentDecisionPanel.test.tsx: no "TU <POS> AHORA" / "solo tu asiento" next to the V4 decision.)
+test("Live Companion / V3: personalHeroView con héroes se muestra (posición + Hero Pool)", () => {
+  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: false, heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
   const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
   const personal = view.getByTestId("coach-personal-hero-view");
   expect(personal.textContent).toContain("TU MID AHORA");
-  expect(view.getByTestId("coach-personal-seat-covered").textContent).toBe("Tu posición ya está cubierta");
-  expect(personal.querySelectorAll("[data-hero-id]")).toHaveLength(0);
+  expect(personal.textContent).toContain("Tu pool");
+  expect(personal.textContent).toContain("Héroe 7");
 });
 
-test("Dota-Judge RB-1: con la posición abierta el ranking personal se lista como siempre", () => {
-  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: false, heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
+test("Live Companion / V3: personalHeroView con el asiento cubierto lo dice", () => {
+  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: true, heroes: [] } };
   const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
-  expect(view.queryByTestId("coach-personal-seat-covered")).toBeNull();
-  expect(view.getByTestId("coach-personal-hero-view").textContent).toContain("Tu pool");
+  expect(view.getByTestId("coach-personal-seat-covered").textContent).toBe("Tu posición ya está cubierta");
+});
+
+test("sin personalHeroView en la salida V3 no se renderiza ningún bloque personal", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("coach-personal-hero-view")).toBeNull();
 });
 
 test("CoachPanel muestra aviso de degradación cuando patch_meta no está lista para votar", () => {

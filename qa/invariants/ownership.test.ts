@@ -28,7 +28,7 @@ import knownFailuresRegistry from "./known-failures.json";
 // real violation exists); if that count ever drops to zero the registry has "shrunk" and this
 // aggregate test must fail, per the exact semantics the task specifies.
 // ---------------------------------------------------------------------------------------------
-const KNOWN_FAILURE_IDS = new Set(knownFailuresRegistry.knownFailures.map((entry) => entry.id));
+const KNOWN_FAILURE_IDS = new Set((knownFailuresRegistry.knownFailures as readonly { id: string }[]).map((entry) => entry.id));
 
 function isKnown(id: string): boolean {
   return KNOWN_FAILURE_IDS.has(id);
@@ -88,8 +88,10 @@ describe("INV-OWN-001 -- human-facing action target must belong to humanOpenPosi
     for (const checkpoint of run.checkpoints) {
       if (!checkpoint.v3 || checkpoint.humanOpenPositions.length === 0) continue; // nothing to claim ownership of, or Coach unavailable this checkpoint
       test(`INV-OWN-001 ${checkpoint.scenarioId} @ ${checkpoint.step}${checkpoint.round !== null ? ` round ${checkpoint.round}` : ""}`, () => {
-        const targets = primaryActionPositions(checkpoint.v3!.primaryAction.strategy);
-        if (targets === null) return; // strategy kind carries no position claim (e.g. a hero-only OPPORTUNITY) -- nothing to check
+        // Product Semantics Recovery: the V4 CurrentHumanDecision is the human-facing action surface
+        // the Simulator renders -- its target and actionable positions are judged too.
+        const v4Targets = checkpoint.v4?.decision.kind === "ACTIONABLE" ? [checkpoint.v4.decision.targetPosition, checkpoint.v4.decision.viewedPosition, ...checkpoint.v4.decision.actionablePositions] : [];
+        const targets = [...(primaryActionPositions(checkpoint.v3!.primaryAction.strategy) ?? []), ...v4Targets];
         const offending = targets.filter((position) => !checkpoint.humanOpenPositions.includes(position));
         const ok = offending.length === 0;
         if (!ok) {
@@ -115,11 +117,18 @@ function ownTwoViolations(runs: RunRecord[]): { checkpoint: Checkpoint; unoffere
   const violations: { checkpoint: Checkpoint; unoffered: Position[] }[] = [];
   for (const run of runs) {
     for (const checkpoint of run.checkpoints) {
-      const ownCapacityThisRound = checkpoint.snapshot.legalActions.some((action) => action.type === "SUBMIT_SEALED_SELECTION" && action.side === checkpoint.side);
-      if (!ownCapacityThisRound || checkpoint.humanOpenPositions.length === 0) continue;
-      const offeredV2 = new Set((checkpoint.v2?.decision.controlledSlots ?? []).map((slot) => slot.position).filter((p): p is Position => p != null));
+      // "While humans still have own-team action capacity" -- HUMAN capacity (the same formula INV-OWN-004
+      // uses: zero after an explicit yield), not side legality: after a yield the open own-side slots are
+      // the Ally Bot's, and a human offering there would itself violate INV-OWN-004.
+      if (humanRoundCapacity(checkpoint) === 0 || checkpoint.humanOpenPositions.length === 0) continue;
+      // PD-001: a generic round slot never names a position -- V2 offers positions through
+      // `humanActionability.eligiblePositions`, never through `controlledSlots[].position`.
+      const offeredV2 = new Set(checkpoint.v2?.decision.humanActionability?.eligiblePositions ?? []);
       const offeredCoach = new Set((checkpoint.v3?.shortlist ?? []).map((card) => card.position).filter((p): p is Position => p != null));
-      const unoffered = checkpoint.humanOpenPositions.filter((position) => !offeredV2.has(position) && !offeredCoach.has(position));
+      // Product Semantics Recovery WP1/WP2: V4 `actionablePositions` is the authoritative offering of every
+      // human position the Player may act on this round (the selector renders exactly these).
+      const offeredV4 = new Set(checkpoint.v4?.decision.actionablePositions ?? []);
+      const unoffered = checkpoint.humanOpenPositions.filter((position) => !offeredV2.has(position) && !offeredCoach.has(position) && !offeredV4.has(position));
       if (unoffered.length > 0) violations.push({ checkpoint, unoffered });
     }
   }
@@ -137,6 +146,26 @@ test("INV-OWN-002 (known failure registry) -- reachability gap must still be rea
     expect(violations.length, "INV-OWN-002 is listed as a known failure but found ZERO violations across the whole matrix -- shrink known-failures.json deliberately, do not leave it stale").toBeGreaterThan(0);
   } else {
     expect(violations.length).toBe(0);
+  }
+});
+
+// ---------------------------------------------------------------------------------------------
+// PD-001 (POSITION != PICK ORDER != ROUND SLOT != CONTROLLER) -- a generic human round slot never
+// carries a position, in ANY control set (Solo/Party2/Party3/Party5), whether or not every eligible
+// position happens to fit the round. Position truth is born only at submit (hero + assignedPosition).
+// ---------------------------------------------------------------------------------------------
+describe("PD-001 -- generic human round slots are positionless", () => {
+  for (const run of MATRIX) {
+    for (const checkpoint of run.checkpoints) {
+      const slots = checkpoint.v2?.decision.controlledSlots ?? [];
+      if (slots.length === 0) continue;
+      test(`PD-001 ${checkpoint.scenarioId} @ ${checkpoint.step}${checkpoint.round !== null ? ` round ${checkpoint.round}` : ""} (checkpoint #${run.checkpoints.indexOf(checkpoint)})`, () => {
+        expect(slots.filter((slot) => slot.position !== undefined && slot.position !== null)).toEqual([]);
+        for (const action of (checkpoint.v2?.recommendations ?? []).flatMap((recommendation) => recommendation.actions)) {
+          expect(action.slot.position === undefined || action.slot.position === null).toBe(true);
+        }
+      });
+    }
   }
 });
 
@@ -165,7 +194,8 @@ function humanFacingOfferedPositions(checkpoint: Checkpoint): ReadonlySet<Positi
   const offeredV2 = (checkpoint.v2?.decision.controlledSlots ?? []).map((slot) => slot.position).filter((p): p is Position => p != null);
   const primaryTargets = checkpoint.v3 ? (primaryActionPositions(checkpoint.v3.primaryAction.strategy) ?? []) : [];
   const shortlistTargets = (checkpoint.v3?.shortlist ?? []).map((card) => card.position).filter((p): p is Position => p != null);
-  return new Set([...offeredV2, ...primaryTargets, ...shortlistTargets]);
+  const v4Offered = checkpoint.v4?.decision.kind === "ACTIONABLE" ? [checkpoint.v4.decision.targetPosition, checkpoint.v4.decision.viewedPosition, ...checkpoint.v4.decision.actionablePositions] : [];
+  return new Set([...offeredV2, ...primaryTargets, ...shortlistTargets, ...v4Offered]);
 }
 
 describe("INV-OWN-003 -- a bound position is never offered again", () => {
@@ -224,7 +254,8 @@ describe("INV-OWN-004 -- zero human round capacity means no human pick action is
       test(`INV-OWN-004 ${checkpoint.scenarioId} @ ${checkpoint.step}${checkpoint.round !== null ? ` round ${checkpoint.round}` : ""} (checkpoint #${run.checkpoints.indexOf(checkpoint)})`, () => {
         const offeredV2 = checkpoint.v2?.decision.controlledSlots ?? [];
         const primaryTargets = checkpoint.v3 ? (primaryActionPositions(checkpoint.v3.primaryAction.strategy) ?? []) : [];
-        const ok = offeredV2.length === 0 && primaryTargets.length === 0;
+        const v4NoAction = checkpoint.v4 === null || (checkpoint.v4.decision.kind === "NO_HUMAN_ACTION" && checkpoint.v4.decision.actionablePositions.length === 0);
+        const ok = offeredV2.length === 0 && primaryTargets.length === 0 && v4NoAction;
         if (!ok) {
           console.error(
             minimalCounterexample("INV-OWN-004", checkpoint, {

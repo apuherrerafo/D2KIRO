@@ -12,8 +12,9 @@ test("AP collision conserva kernel, información sellada y Conflict_Ban", async 
       partyContext: {
         partySize: 5,
         side: "radiant",
-        controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: `p${slotIndex}` })),
+        controlledSlots: [], // AP policy (PD-026/PD-027): slots are inert; ownership is `controlledPositions`
       },
+      controlledPositions: [1, 2, 3, 4, 5],
     },
   });
   expect(created.status()).toBe(201);

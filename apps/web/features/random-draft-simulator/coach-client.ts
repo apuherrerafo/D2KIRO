@@ -262,3 +262,166 @@ export async function fetchRecommendationsWithCoach(sessionId: string, fetchImpl
   if (!plain) throw new Error("invalid recommendations response");
   return { recommendationSet: plain, coach: null };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Product Semantics Recovery -- RecommendationOutputV4 / CurrentHumanDecision. Espejo a mano del
+// contrato congelado del motor (apps/engine/src/coach/recommendation-output-v4.ts). Es la ÚNICA
+// fuente de la decisión humana actual en el Simulador: objetivo, capacidad de ronda, posiciones
+// pendientes y UNA procedencia de candidatos. Se valida en el borde: una respuesta que no cumple el
+// contrato se rechaza entera, nunca se renderiza a medias.
+// ---------------------------------------------------------------------------------------------
+
+export type TargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT";
+export type NoHumanActionReason = "YIELDED" | "ROUND_COMPLETE" | "DRAFT_COMPLETE";
+
+export interface RankedCandidateCard {
+  heroId: HeroId;
+  position: CoachPosition;
+  rank: number;
+  score: number;
+  confidence: SuggestionConfidence;
+  roleStatus: CoachRoleStatus;
+  badges: CoachBadge[];
+  rationale: string;
+  isFromPool: boolean;
+}
+
+export interface PositionalAlternative {
+  heroId: HeroId;
+  position: CoachPosition;
+}
+
+export interface CandidateDegradation {
+  reason: string;
+  detail: string;
+}
+
+export type CandidateResult =
+  | { state: "RANKED"; targetPosition: CoachPosition; cards: RankedCandidateCard[]; degradations: CandidateDegradation[] }
+  | { state: "UNRANKED_POSITIONAL"; targetPosition: CoachPosition; alternatives: PositionalAlternative[]; reason: string; degradations: CandidateDegradation[] }
+  | { state: "UNAVAILABLE"; targetPosition: CoachPosition; reason: string; degradations: CandidateDegradation[] };
+
+export type ActionableDecision = {
+  kind: "ACTIONABLE";
+  actionablePositions: CoachPosition[];
+  roundCapacity: number;
+  /** The Coach's RECOMMENDED position (default view); never moved by the Player's navigation. */
+  targetPosition: CoachPosition;
+  targetBasis: TargetBasis;
+  targetRationale: string;
+  /** The position the Player is INSPECTING; `candidates` belong to it. */
+  viewedPosition: CoachPosition;
+  candidates: CandidateResult;
+  personalPoolApplied: boolean;
+};
+
+export type CurrentHumanDecision =
+  | ActionableDecision
+  | { kind: "NO_HUMAN_ACTION"; actionablePositions: []; roundCapacity: 0; reason: NoHumanActionReason };
+
+export interface CurrentDecisionOutput {
+  schema: "recommendation-output/v4";
+  sessionId: string;
+  decision: CurrentHumanDecision;
+  roleBeliefs: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
+  roleCollision?: CoachRoleCollision;
+  /** Safe Core: informational only, never part of `decision` (mirror of the engine's V4 `opportunity`). */
+  opportunity?: CoachOpportunity;
+  meta: {
+    round: 1 | 2 | 3 | null;
+    phase: string | null;
+    decisionContext: string;
+    trigger: CoachTrigger;
+    revision: number;
+    basedOn: { stateIdentity: string; evidenceVersion: string };
+    readiness?: NonNullable<CoachOutput["meta"]["readiness"]>;
+  };
+}
+
+function isRankedCard(value: unknown, target: CoachPosition): value is RankedCandidateCard {
+  if (!isRecord(value)) return false;
+  const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
+  return isHeroId(value.heroId) && value.position === target && typeof value.rank === "number" && Number.isInteger(value.rank) && value.rank >= 1
+    && typeof value.score === "number" && Number.isFinite(value.score) && isConfidence(value.confidence) && roleOk
+    && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
+    && typeof value.rationale === "string" && typeof value.isFromPool === "boolean";
+}
+
+/** An unranked alternative carries exactly {heroId, position}: any ranking field is a contract violation. */
+function isPositionalAlternative(value: unknown, target: CoachPosition): value is PositionalAlternative {
+  return isRecord(value) && isHeroId(value.heroId) && value.position === target
+    && Object.keys(value).every((key) => key === "heroId" || key === "position");
+}
+
+function isDegradationList(value: unknown): value is CandidateDegradation[] {
+  return Array.isArray(value) && value.every(isCoachDegradation);
+}
+
+function isCandidateResult(value: unknown, target: CoachPosition, personalPoolApplied: boolean): value is CandidateResult {
+  if (!isRecord(value) || value.targetPosition !== target || !isDegradationList(value.degradations)) return false;
+  if (value.state === "RANKED") {
+    return Array.isArray(value.cards) && value.cards.length > 0 && value.cards.every((card) => isRankedCard(card, target))
+      && (personalPoolApplied || value.cards.every((card) => isRecord(card) && card.isFromPool === false));
+  }
+  if (value.state === "UNRANKED_POSITIONAL") {
+    return typeof value.reason === "string" && Array.isArray(value.alternatives) && value.alternatives.length > 0
+      && value.alternatives.every((alternative) => isPositionalAlternative(alternative, target));
+  }
+  if (value.state === "UNAVAILABLE") return typeof value.reason === "string";
+  return false;
+}
+
+function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
+  if (!isRecord(value) || !Array.isArray(value.actionablePositions) || !value.actionablePositions.every(isPosition)) return false;
+  if (value.kind === "NO_HUMAN_ACTION") {
+    return value.actionablePositions.length === 0 && value.roundCapacity === 0
+      && (value.reason === "YIELDED" || value.reason === "ROUND_COMPLETE" || value.reason === "DRAFT_COMPLETE");
+  }
+  if (value.kind !== "ACTIONABLE" || value.actionablePositions.length === 0) return false;
+  if (typeof value.roundCapacity !== "number" || !Number.isInteger(value.roundCapacity) || value.roundCapacity < 1) return false;
+  if (!isPosition(value.targetPosition) || !value.actionablePositions.includes(value.targetPosition)) return false;
+  if (value.targetBasis !== "STRATEGIC" && value.targetBasis !== "DETERMINISTIC_DEFAULT") return false;
+  if (typeof value.targetRationale !== "string" || typeof value.personalPoolApplied !== "boolean") return false;
+  if (!isPosition(value.viewedPosition) || !value.actionablePositions.includes(value.viewedPosition)) return false;
+  return isCandidateResult(value.candidates, value.viewedPosition, value.personalPoolApplied);
+}
+
+export function parseCurrentDecisionOutput(value: unknown): CurrentDecisionOutput | null {
+  if (!isRecord(value) || value.schema !== "recommendation-output/v4" || typeof value.sessionId !== "string") return null;
+  if (!isCurrentHumanDecision(value.decision)) return null;
+  if (!isRecord(value.roleBeliefs) || !Array.isArray(value.roleBeliefs.own) || !Array.isArray(value.roleBeliefs.enemy)
+    || !value.roleBeliefs.own.every(isRoleBelief) || !value.roleBeliefs.enemy.every(isRoleBelief)) return null;
+  if (value.roleCollision !== undefined && !isRoleCollision(value.roleCollision)) return null;
+  if (value.opportunity !== undefined && !isOpportunity(value.opportunity)) return null;
+  const meta = value.meta;
+  if (!isRecord(meta) || !isRecord(meta.basedOn) || typeof meta.basedOn.stateIdentity !== "string" || typeof meta.basedOn.evidenceVersion !== "string") return null;
+  const roundOk = meta.round === null || meta.round === 1 || meta.round === 2 || meta.round === 3;
+  if (!roundOk || (meta.phase !== null && typeof meta.phase !== "string") || typeof meta.decisionContext !== "string"
+    || typeof meta.trigger !== "string" || !TRIGGERS.includes(meta.trigger) || typeof meta.revision !== "number") return null;
+  if (meta.readiness !== undefined && !isCoachReadiness(meta.readiness)) return null;
+  return value as unknown as CurrentDecisionOutput;
+}
+
+/**
+ * The ONE source of the Simulator's current human decision. `viewedPosition` is the position the
+ * Player chose to inspect in the selector (navigation); the engine validates it and answers with the
+ * decision's actual `viewedPosition` (candidates) alongside the untouched Coach recommendation.
+ */
+export async function fetchCurrentDecision(sessionId: string, viewedPosition: CoachPosition | null = null, fetchImpl: typeof fetch = fetch): Promise<CurrentDecisionOutput> {
+  const target = viewedPosition === null ? "" : `&target=${viewedPosition}`;
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/recommendations?format=v4${target}`);
+  if (!response.ok) throw new Error(`current decision request failed (${response.status})`);
+  const body: unknown = await response.json();
+  const output = isRecord(body) ? parseCurrentDecisionOutput(body.output) : null;
+  if (!output) throw new Error("invalid current decision response");
+  return output;
+}
+
+/** Heroes the current decision actually shows (ranked cards or positional alternatives), in display order. */
+export function currentDecisionHeroIds(output: CurrentDecisionOutput | null): HeroId[] {
+  if (!output || output.decision.kind !== "ACTIONABLE") return [];
+  const { candidates } = output.decision;
+  if (candidates.state === "RANKED") return candidates.cards.map((card) => card.heroId);
+  if (candidates.state === "UNRANKED_POSITIONAL") return candidates.alternatives.map((alternative) => alternative.heroId);
+  return [];
+}

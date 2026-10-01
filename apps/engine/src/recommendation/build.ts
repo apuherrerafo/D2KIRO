@@ -5,6 +5,7 @@ import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions
 import type { SuggestionSet } from "../signals/mix";
 import { buildBasedOn } from "./identity";
 import { deriveLegalDecision } from "./decision";
+import { eligibleHumanPositions, type HumanActionability } from "./human-actionability";
 import { buildShortlist } from "./shortlist";
 import { excludedHeroes, postValidateAction, type ComputeSuggestionsForRecommendation } from "./legality";
 import {
@@ -99,6 +100,8 @@ export interface BuildRecommendationSetV2Input {
    */
   humanOpenPositions?: readonly Position[] | null;
   controlledPositions?: readonly Position[] | null;
+  /** WP1 -- ProtocolSessionStore.humanActionability (eligibility vs. round capacity vs. yield). Wins over `humanOpenPositions` for slot derivation. */
+  humanActionability?: HumanActionability | null;
 }
 
 export async function buildRecommendationSetV2(input: BuildRecommendationSetV2Input): Promise<RecommendationSetV2> {
@@ -106,7 +109,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false, input.humanOpenPositions ?? undefined);
+  const legal = deriveLegalDecision(state, actor, input.controlledRosterSlots, input.isSimulator ?? false, input.humanOpenPositions ?? undefined, input.humanActionability ?? undefined);
   const degradations: RecommendationDegradation[] = [...legal.degradations];
   const eligibilitySnapshot = state.captainsMode?.eligibilitySnapshot ?? null;
   // Blocker 6 (independent architecture review) -- identity inputs shared by every basedOn built
@@ -192,6 +195,7 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
   const sortedControlledSlots = [...legal.decision.controlledSlots].sort((a, b) => a.slotIndex - b.slotIndex);
 
   // The kernel's own legality oracle + the per-hero context evidence a state-backed caller can supply.
+  const eligiblePositions = eligibleHumanPositions(legal.decision.humanActionability);
   const constructContext: ConstructContext = {
     isLegal: (hero, slot) => postValidateAction(state, hero, legal.eligibleHeroIds, slot),
     contextEvidence: [
@@ -200,6 +204,8 @@ export async function buildRecommendationSetV2(input: BuildRecommendationSetV2In
         ? [evidenceFromEligibility(state.captainsMode.eligibilitySnapshot.contentHash, state.captainsMode.eligibilitySnapshot.heroIds.length)]
         : []),
     ],
+    // PD-001: the eligible human positions admit heroes as a SET (injective, any order); no position is ever attached to a round slot.
+    ...(eligiblePositions ? { eligibleHumanPositions: eligiblePositions } : {}),
   };
   const recommendations: Recommendation[] =
     legal.decision.actionCount >= 2

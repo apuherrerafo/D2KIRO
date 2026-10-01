@@ -26,7 +26,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { createFixtureRoutes, humanHeroFor, HERO_POSITIONS, fetchRecommendations, type Position } from "../scenarios/generate";
+import { createFixtureRoutes, humanHeroFor, HERO_POSITIONS, fetchRecommendations, type Position, type PublicV4 } from "../scenarios/generate";
 import { primaryActionPositions } from "../mvp/oracles/coach-primary-action-oracle";
 
 // A hero id far outside the stock fixture's range (100..529, S2/S10 seam discipline) and outside
@@ -148,4 +148,69 @@ describe("INV-BIND-001 -- authoritative own-team position bindings outrank RoleB
     }
     expect(ok).toBe(true);
   });
+
+  // Greptile PR #9 (P1) -- the same invariant, judged on the V4 ranking's ROLE FEASIBILITY. Adversarial
+  // premise: HERO A's empirical evidence is EXCLUSIVELY Pos2, but the human authoritatively bound it to
+  // Pos1. Pos2 stays human-open. A Pos2-only candidate must therefore be role-feasible at Pos2: the
+  // only way "Pos2 is already occupied" can appear is if inference re-reads HERO A as Pos2 and
+  // ignores the binding. Expected oracle (independent of production code): with A at Pos1 and the
+  // candidate at Pos2, an injective assignment trivially exists -- so no ROLE_ASSIGNMENT_IMPOSSIBLE.
+  test("V4: own hero with Pos2-only evidence bound to Pos1 never makes a Pos2-only candidate role-infeasible at the still-open Pos2", async () => {
+    const POS2_ONLY_HERO_A = 90002;
+    const heroPositions: HeroPositions = { ...HERO_POSITIONS, [POS2_ONLY_HERO_A]: [{ position: 2, matches: 1000 }] };
+    const { store, routes } = createFixtureRoutes(heroPositions);
+    const side = "radiant" as const;
+    const created = await routes.post(postJson({
+      rulesetId: "dota2/ranked-all-pick",
+      patch: "7.41f",
+      localSide: side,
+      adapterKind: "simulator",
+      partyContext: { partySize: 2, side, controlledSlots: [] },
+      controlledPositions: [1, 2],
+      humanPosition: 1,
+      simulatorSeed: "BINDGATE-0002",
+    }));
+    expect(created.status).toBe(201);
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    expect((await routes.postResolveBans(postJson({ playerBanPreferences: [] }), sessionId)).status).toBe(200);
+
+    const drive = (await (await routes.postAutoDrive(sessionId)).json()) as PublicSnapshotLite & { stopReason?: string };
+    expect(drive.stopReason).toBe("human_input");
+    const slot = drive.legalActions.find((action) => action.type === "SUBMIT_SEALED_SELECTION" && action.side === side)!;
+    const submit = await routes.postCommand(
+      postJson({ command: { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: slot.slotIndex, heroId: POS2_ONLY_HERO_A }, assignedPosition: 1 }),
+      sessionId,
+    );
+    expect(submit.status).toBe(202);
+
+    // Premises, from session truth only.
+    expect(store.ownAssignedPositionForHero(sessionId, POS2_ONLY_HERO_A), "premise: HERO A is authoritatively bound to Pos1").toBe(1);
+    expect(store.humanOpenPositions(sessionId), "premise: Pos2 remains human-open").toEqual([2]);
+    if (store.humanActionability(sessionId)?.hasHumanAction !== true) {
+      const next = (await (await routes.postAutoDrive(sessionId)).json()) as { stopReason?: string };
+      expect(next.stopReason, "premise: the human still has to act on Pos2").toBe("human_input");
+    }
+
+    const response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v4&target=2`));
+    expect(response.status).toBe(200);
+    const { output } = (await response.json()) as { output: PublicV4 };
+    expect(output.decision.kind).toBe("ACTIONABLE");
+    const decision = output.decision as Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>;
+    expect(decision.viewedPosition).toBe(2);
+    const candidates = decision.candidates;
+    const roleImpossible = candidates.degradations.filter((degradation) => degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE");
+    if (roleImpossible.length > 0 || candidates.state !== "RANKED") {
+      console.error(minimalCounterexample({ step: "V4 viewing Pos2 after HERO A bound to Pos1", heroA: POS2_ONLY_HERO_A, candidates }));
+    }
+    expect(roleImpossible).toEqual([]);
+    expect(candidates.state).toBe("RANKED");
+    const cards = candidates.state === "RANKED" ? candidates.cards : [];
+    // Fixture oracle: every stock Pos2 hero is id 2xx; HERO A itself is taken.
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.every((card) => card.position === 2 && Math.floor(card.heroId / 100) === 2)).toBe(true);
+  });
 });
+
+function postJson(body: unknown): Request {
+  return new Request("http://qa.local/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+}

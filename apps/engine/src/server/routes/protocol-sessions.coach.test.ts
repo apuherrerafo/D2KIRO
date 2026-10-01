@@ -75,14 +75,14 @@ describe("GET .../recommendations?format=v3 -- opportunity (Safe Core)", () => {
     const routes = createProtocolSessionRoutes({
       store,
       computeSuggestions: async () => fakeSuggestions([1, 2, 3, 4, 5, 6]),
-      // Pre-staging hardening (isCredibleForPosition): hero 1's antiguo "pos5: 200" era sólo presencia
-      // curada residual (16.7% share, no dominante) -- bajo la regla endurecida ya no es creíble en
-      // Pos 5, así que ni entraba al slot de la ronda 1 ni podía ser el top candidate que Safe Core
-      // evalúa. Safe Core exige un CORE resuelto (Pos 1-3, safe-core.ts's CORE_POSITIONS) -- hero 1
-      // pasa a ser un flex genuino Pos 1 / Pos 5 (60/40, ambos por encima del piso de credibilidad)
-      // en vez de un Pos 5 puro: sigue siendo admisible en el slot de Pos 5 de esta ronda y su
-      // belief de rol resuelve a Pos 1 (core), restaurando el escenario que este test certifica.
-      heroPositions: { 1: [{ position: 1, matches: 600 }, { position: 5, matches: 400 }], 2: [{ position: 1, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
+      // WP1 (Product Semantics Recovery): Party5 Round 1 no longer tags its two round slots with a
+      // fixed ascending Pos1+Pos2 schedule -- 5 eligible positions, capacity 2, untagged slots. The
+      // earlier fixture (hero 1 flex Pos1/Pos5 next to a pure-Pos1 hero 2) only resolved hero 1 to a
+      // core because that schedule forced the pair onto a "Pos1 slot". Here hero 1 is a plain core
+      // (Pos 1) and hero 2 a mid, so V6's leading pair jointly resolves hero 1 to Pos 1 on its own
+      // evidence -- the scenario this test certifies (a resolved core leader whose curated hard
+      // counters are banned) without any slot<->position schedule.
+      heroPositions: { 1: [{ position: 1, matches: 1000 }], 2: [{ position: 2, matches: 1000 }], 3: [{ position: 4, matches: 1000 }], 4: [{ position: 2, matches: 1000 }], 5: [{ position: 3, matches: 1000 }], 6: [{ position: 3, matches: 1000 }] },
       heroCounters: new Map([[1, hardCounters.map((vs) => ({ vs, level: "hard" as const, why: "fixture" }))]]),
     });
     const created = await routes.post(jsonRequest(CREATE_BODY));

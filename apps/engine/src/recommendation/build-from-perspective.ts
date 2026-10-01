@@ -5,6 +5,7 @@ import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions
 import type { SuggestionSet } from "../signals/mix";
 import { buildCompoundRecommendations, buildSingleRecommendations, pushUniqueDegradation, type ConstructContext } from "./construct";
 import { evidenceFromRuleset, evidenceIdentityHash, type FunctionalRecommendationEvidence } from "./evidence";
+import { deriveHumanActionability, humanDecisionSlots, eligibleHumanPositions, type HumanActionability } from "./human-actionability";
 import { buildBasedOn } from "./identity";
 import { isHeroSelectableFrom, unavailableHeroesFrom, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "./perspective-context";
 import { buildShortlist } from "./shortlist";
@@ -53,39 +54,60 @@ function roundOf(phase: RankedApPhase | undefined): number | null {
   return null;
 }
 
+/**
+ * WP1 -- the session's HumanActionability, or (for a hand-built simulator context that only carries
+ * `humanOpenPositions`) the same projection derived from what the context already holds. `null` for
+ * a non-simulator context, which keeps its pre-WP1 slot derivation.
+ */
+function actionabilityOf(context: PerspectiveRecommendationContext, ownOpenSlots: readonly RecommendationSlot[]): HumanActionability | null {
+  if (!context.isSimulator) return null;
+  if (context.humanActionability) return context.humanActionability;
+  if (!context.humanOpenPositions) return null;
+  return deriveHumanActionability({
+    humanOpenPositions: context.humanOpenPositions,
+    openOwnRoundSlots: ownOpenSlots.length,
+    yieldedCurrentRound: false,
+    draftComplete: context.view.status === "COMPLETE",
+  });
+}
+
 /** The actor's decision, from the view + the seats the client is already told are open. */
 function deriveDecisionFrom(
   context: PerspectiveRecommendationContext,
   singleSlotEvaluation: boolean,
+  evaluationPosition: Position | undefined,
 ): { decision: RecommendationDecision; degradations: RecommendationDegradation[] } {
-  const { view, partyContext, isSimulator, humanOpenPositions } = context;
+  const { view, partyContext, humanOpenPositions } = context;
   const actor = view.viewerSide ?? "radiant";
   const degradations: RecommendationDegradation[] = [];
   if (view.degradation) degradations.push({ reason: view.degradation.reason, detail: view.degradation.detail });
 
-  // PD-026/PD-027 COACH TARGET POSITIONS -- target unfilled HUMAN-controlled positions, never a
-  // round-seat mapping. Positions are zipped to open own slots in ascending-position order (a
-  // stable, non-chronological tie-break), never derived from round/slotIndex.
-  const sortedOpenPositions = humanOpenPositions ? [...humanOpenPositions].sort((a, b) => a - b) : null;
-  let controlledSlots: RecommendationSlot[] = context.openOwnSlots
-    .filter((slot) => slot.side === actor)
-    .map((slot, index) => {
-      const position: Position | null = isSimulator && sortedOpenPositions ? (sortedOpenPositions[index] ?? null) : null;
-      return { side: slot.side, slotIndex: slot.slotIndex, ...(position !== null ? { position } : {}) };
-    });
-  if (humanOpenPositions !== null && humanOpenPositions !== undefined) {
+  const ownOpenSlots = context.openOwnSlots.filter((slot) => slot.side === actor);
+  // PD-026/PD-027 + WP1 -- a simulator session's human decision covers exactly `roundCapacity`
+  // slots. Positions are never zipped onto slots: eligibility is carried whole on the decision.
+  const actionability = actionabilityOf(context, ownOpenSlots);
+  let controlledSlots: RecommendationSlot[] = ownOpenSlots.map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex }));
+  if (actionability) {
+    controlledSlots = humanDecisionSlots(actionability, ownOpenSlots);
+  } else if (humanOpenPositions !== null && humanOpenPositions !== undefined) {
     controlledSlots = controlledSlots.slice(0, humanOpenPositions.length);
   } else if (partyContext && partyContext.side === actor) {
     // A party may control only some of its own side's seats: never propose an action for a seat
     // this session does not drive (same cap as decision.ts, over the same information).
     controlledSlots = controlledSlots.slice(0, partyContext.controlledSlots.length);
   }
-  if (singleSlotEvaluation) controlledSlots = controlledSlots.slice(0, 1);
+  // A single advisory evaluation is ONE position-scoped choice: its slot carries the evaluated
+  // position (or none, for a position-agnostic evaluation), never a tag borrowed from a round slot.
+  if (singleSlotEvaluation) {
+    controlledSlots = controlledSlots.slice(0, 1).map((slot) => ({ side: slot.side, slotIndex: slot.slotIndex, ...(evaluationPosition !== undefined ? { position: evaluationPosition } : {}) }));
+  }
 
   if (controlledSlots.length === 0 && view.status !== "COMPLETE") {
     degradations.push({
       reason: "NO_ACTION_FOR_ACTOR",
-      detail: `no hay slot sellado abierto para ${actor} en este momento (phase ${view.rankedAp?.phase}, status ${view.status})`,
+      detail: actionability?.noActionReason === "YIELDED"
+        ? `la ronda fue cedida al Ally Bot: no queda acción humana para ${actor} en esta ronda`
+        : `no hay slot sellado abierto para ${actor} en este momento (phase ${view.rankedAp?.phase}, status ${view.status})`,
     });
   }
 
@@ -98,6 +120,7 @@ function deriveDecisionFrom(
       step: null,
       controlledSlots,
       actionCount: controlledSlots.length,
+      ...(actionability ? { humanActionability: actionability } : {}),
     },
     degradations,
   };
@@ -109,7 +132,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const heroPositions = input.heroPositions ?? MODULE_HERO_POSITIONS;
   const calibrationMode = input.calibrationMode ?? "fallback";
 
-  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true);
+  const { decision, degradations } = deriveDecisionFrom(context, input.singleSlotEvaluation === true, input.targetPosition);
   const identityInputs = {
     view,
     eligibilitySnapshot: null,
@@ -168,9 +191,15 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const ownPicks: HeroId[] = derivePerspectiveSuggestionInputs(view).ownPicks;
   const metaIsStale = suggestionSet.degraded.includes("stale_meta");
   const sortedControlledSlots = [...decision.controlledSlots].sort((a, b) => a.slotIndex - b.slotIndex);
+  const eligiblePositions = eligibleHumanPositions(decision.humanActionability);
   const constructContext: ConstructContext = {
     isLegal: (hero, slot) => isHeroSelectableFrom(context, hero, slot),
     contextEvidence: [evidenceFromRuleset(view.ruleset)],
+    // INV-BIND-001 (Greptile PR #9): a bound own hero occupies its bound position in role feasibility,
+    // so inference can never re-read it at its empirical position and steal a still-open one.
+    ...(context.ownAssignedPositions ? { ownConfirmedPositions: context.ownAssignedPositions } : {}),
+    // PD-001: the eligible human positions admit heroes as a SET (injective, any order); no position is ever attached to a round slot.
+    ...(eligiblePositions ? { eligibleHumanPositions: eligiblePositions } : {}),
   };
 
   let recommendations: Recommendation[] =

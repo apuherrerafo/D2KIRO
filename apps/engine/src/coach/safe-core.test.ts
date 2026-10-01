@@ -3,7 +3,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as coachBarrel from "./index";
-import { MIN_CURATED_HARD_COUNTER_COVERAGE, detectSafeCoreWindow, type SafeCoreRole, type SafeCoreSignal } from "./safe-core";
+import { MIN_CURATED_HARD_COUNTER_COVERAGE, detectSafeCoreWindow, safeCoreWindowPossible, type SafeCoreRole, type SafeCoreSignal } from "./safe-core";
 import { hidden, known, revealed, signal, view } from "./test.fixtures";
 
 // AP Ranked Roles V1 / Wave 4A (task 24) -- Safe Core V1 as a pure function. Inline fixtures only: no
@@ -275,5 +275,33 @@ describe("detectSafeCoreWindow -- Safe Core V1", () => {
 
   test("es pura: la misma entrada produce byte a byte la misma salida", () => {
     expect(JSON.stringify(detect([COUNTER_A, COUNTER_B]))).toBe(JSON.stringify(detect([COUNTER_A, COUNTER_B])));
+  });
+});
+
+// Greptile PR #9 (P1): the V4 path only pays for a team evaluation when this pre-check passes, so it must be a
+// NECESSARY condition of the detector -- never false when the detector would say "safe window".
+describe("safeCoreWindowPossible -- precondición necesaria del detector", () => {
+  const scenarios: { name: string; bans: number[]; own: ReturnType<typeof known>[]; enemy: ReturnType<typeof hidden>[] }[] = [
+    { name: "sin bans", bans: [], own: [known(50)], enemy: [hidden()] },
+    { name: "un counter duro baneado, otro disponible", bans: [COUNTER_A], own: [known(50)], enemy: [hidden()] },
+    { name: "ambos baneados", bans: [COUNTER_A, COUNTER_B], own: [known(50)], enemy: [hidden()] },
+    { name: "uno baneado, otro propio", bans: [COUNTER_A], own: [known(COUNTER_B)], enemy: [hidden()] },
+    { name: "ambos propios (ninguno baneado)", bans: [], own: [known(COUNTER_A), known(COUNTER_B)], enemy: [hidden()] },
+    { name: "ambos baneados + counter medio revelado en el rival", bans: [COUNTER_A, COUNTER_B], own: [known(50)], enemy: [revealed(COUNTER_MEDIUM)] },
+  ];
+  for (const scenario of scenarios) {
+    test(`${scenario.name}: detector seguro => precondición verdadera`, () => {
+      const v = view("PICK_ROUND_1", scenario.own, scenario.enemy, scenario.bans);
+      const safe = detectSafeCoreWindow(CARRY, v, WITH_POSITION, COUNTERS, CORE).isSafeWindow;
+      if (safe) expect(safeCoreWindowPossible(v, COUNTERS)).toBe(true);
+      // And it is not vacuous: states with nothing relieved, or a live curated counter, are rejected cheaply.
+    });
+  }
+
+  test("no es vacía: sin bans, con un counter disponible o con un counter revelado -> false", () => {
+    expect(safeCoreWindowPossible(view("PICK_ROUND_1", [known(50)], [hidden()], []), COUNTERS)).toBe(false);
+    expect(safeCoreWindowPossible(view("PICK_ROUND_1", [known(50)], [hidden()], [COUNTER_A]), COUNTERS)).toBe(false);
+    expect(safeCoreWindowPossible(view("PICK_ROUND_1", [known(50)], [revealed(COUNTER_MEDIUM)], [COUNTER_A, COUNTER_B]), COUNTERS)).toBe(false);
+    expect(safeCoreWindowPossible(view("PICK_ROUND_1", [known(50)], [hidden()], [COUNTER_A, COUNTER_B]), COUNTERS)).toBe(true);
   });
 });

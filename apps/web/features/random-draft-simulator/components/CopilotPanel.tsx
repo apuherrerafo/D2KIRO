@@ -8,10 +8,11 @@ import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { DraftDecisionContext, HeroId, Suggestion } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { PreviewStatus } from "../store";
-import type { CoachOutput } from "../coach-client";
+import { currentDecisionHeroIds, type CoachOutput, type CurrentDecisionOutput } from "../coach-client";
 import { playerFacingDegradation, playerFacingRisk } from "../degradation-copy";
 import { NOT_COMPUTED, type RecommendationPosition, type RecommendationSetV2, type RecommendationV2 } from "../protocol-client";
 import { CoachPanel } from "./CoachPanel";
+import { CurrentDecisionPanel } from "./CurrentDecisionPanel";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
 
 // R1 S5 (independent architecture review, blockers 1 + 8) -- this panel is the ONE human-facing
@@ -391,6 +392,12 @@ export interface CopilotPanelProps {
   playerPosition?: 1 | 2 | 3 | 4 | 5;
   partyPositions?: readonly (1 | 2 | 3 | 4 | 5)[];
   roundPickState?: RoundPickState;
+  /**
+   * Product Semantics Recovery WP3 -- the V4 CurrentHumanDecision. When present it is the ONLY
+   * current-action content of this panel: the V3 Coach body, the legacy V2 body and the V2
+   * degradation banner are not rendered next to it (COHERENCE-001/010/012).
+   */
+  currentDecision?: CurrentDecisionOutput | null;
 }
 
 function noop() {
@@ -398,8 +405,9 @@ function noop() {
   // onRetryPreview) -- botón inerte en vez de un handler faltante.
 }
 
-/** Heroes the Copilot currently points at: the Coach shortlist when there is one, else the V2 list. */
-function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: CoachOutput | null): HeroId[] {
+/** Heroes the Copilot currently points at: the V4 decision's candidates, else the Coach shortlist, else the V2 list. */
+function suggestedHeroIdsOf(recommendations: RecommendationSetV2 | null, coach: CoachOutput | null, currentDecision: CurrentDecisionOutput | null = null): HeroId[] {
+  if (currentDecision) return currentDecisionHeroIds(currentDecision);
   if (coach) return coach.shortlist.map((card) => card.heroId);
   return recommendations?.recommendations.flatMap((r) => r.actions.map((a) => a.hero)) ?? [];
 }
@@ -459,16 +467,27 @@ export function CopilotPanel({
   playerPosition,
   partyPositions,
   roundPickState,
+  currentDecision = null,
 }: CopilotPanelProps) {
-  const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach).join(",");
+  const suggestedHeroKey = suggestedHeroIdsOf(recommendations, coach, currentDecision).join(",");
 
   // La cuadrícula y el Copilot deben reflejar exactamente la misma respuesta -- mismo criterio que
   // ya usaba la variante Pro-Drafter de este panel antes de esta migración.
   useEffect(() => {
     if (!onSuggestedHeroIdsChange) return;
-    onSuggestedHeroIdsChange(new Set(suggestedHeroIdsOf(recommendations, coach)));
+    onSuggestedHeroIdsChange(new Set(suggestedHeroIdsOf(recommendations, coach, currentDecision)));
     // suggestedHeroKey estabiliza el conjunto derivado y evita un efecto infinito.
   }, [onSuggestedHeroIdsChange, suggestedHeroKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (currentDecision) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="copilot-panel">
+        <span className="text-heading text-content-primary">Copilot</span>
+        <PreviewStatusNotice previewStatus={previewStatus} hasRecommendations onRetry={onRetryPreview} />
+        <CurrentDecisionPanel output={currentDecision} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
+      </div>
+    );
+  }
 
   const hasRecommendations = coach !== null || (recommendations?.recommendations.length ?? 0) > 0;
   const decisionContext = coach?.meta.decisionContext ?? recommendations?.decisionContext ?? "no_action";

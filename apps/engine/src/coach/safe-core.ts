@@ -171,3 +171,31 @@ export function detectSafeCoreWindow(
     counterEvidence: { kind: "COUNTER_RELIEF", sourceType: "CURATED", relieved, totalHardCounters: hard.length },
   };
 }
+
+/**
+ * Cheap NECESSARY condition for `detectSafeCoreWindow` to ever return `isSafeWindow: true` for ANY hero of
+ * this view: some curated hero has >= MIN coverage of distinct hard counters, every one of them is banned or on
+ * our own team (at least one banned), and no curated counter of it is revealed on the enemy team. It reads the
+ * same public evidence as the detector and never decides a window itself -- it only lets a caller skip the
+ * (expensive) V6 team evaluation the detector's verdict needs when no hero could possibly qualify.
+ */
+export function safeCoreWindowPossible(view: PerspectiveDraftView, heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]>): boolean {
+  const banned = new Set<HeroId>(view.bannedHeroes);
+  if (banned.size === 0) return false;
+  const own = visibleIds(view.ownPicks, ["KNOWN", "REVEALED"]);
+  const enemy = visibleIds(view.enemyPicks, ["REVEALED"]);
+  for (const curated of heroCounters.values()) {
+    const hard = new Set<HeroId>();
+    for (const entry of curated) if (entry.level === "hard") hard.add(entry.vs);
+    if (hard.size < MIN_CURATED_HARD_COUNTER_COVERAGE) continue;
+    if (curated.some((entry) => enemy.has(entry.vs))) continue;
+    let bannedCount = 0;
+    let allOffTable = true;
+    for (const vs of hard) {
+      if (banned.has(vs)) bannedCount += 1;
+      else if (!own.has(vs)) { allOffTable = false; break; }
+    }
+    if (allOffTable && bannedCount > 0) return true;
+  }
+  return false;
+}

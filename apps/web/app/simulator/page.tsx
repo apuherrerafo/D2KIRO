@@ -65,9 +65,14 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // mostrando, ahora leyendo `draftState.banned` (incluye los Conflict_Ban que se hayan agregado) en
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
-  const { phase, draftState, recommendations, coach, previewStatus, config } = session.state;
+  const { phase, draftState, recommendations, coach, previewStatus, config, currentDecision, requestedTarget, humanActionability } = session.state;
   const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
+  // PSR-002 -- the selector highlights the position being VIEWED (the V4 decision's viewedPosition, or the
+  // one the Player just requested while the engine recomputes). The Coach RECOMMENDATION is a separate
+  // field of the same decision and is rendered only by CurrentDecisionPanel.
+  const decisionView = currentDecision?.decision.kind === "ACTIONABLE" ? currentDecision.decision.viewedPosition : null;
+  const selectedTarget = requestedTarget ?? decisionView;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -80,6 +85,9 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
           highlightedHeroIds={highlightedHeroIds}
           onLockPick={session.actions.lockPick}
           onYield={session.actions.yieldRound}
+          humanActionability={humanActionability}
+          selectedTarget={selectedTarget}
+          onSelectTarget={session.actions.selectTarget}
         />
       </div>
       <div className="flex flex-col gap-4">
@@ -90,6 +98,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         <CopilotPanel
           recommendations={recommendations}
           coach={coach}
+          currentDecision={currentDecision}
           heroCatalog={heroCatalog}
           previewStatus={previewStatus}
           onRetryPreview={session.actions.retryPreview}

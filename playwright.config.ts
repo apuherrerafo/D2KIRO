@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 import { devices } from "@playwright/test";
 import { runtimeForCurrentProcess, prepareLocalRuntime } from "./e2e/runtime";
+import { resolveInternalAuthSecret } from "./e2e/support/internal-auth-secret";
 
 // TSK-217: hasta acá, NINGÚN test del proyecto abría la app real. El harness de Fase 9 mide el
 // motor offline con 2.164 replays y dice la verdad sobre el motor — pero el bug de TSK-214 vivió
@@ -42,7 +43,7 @@ if (useExternalRuntime && !process.env.E2E_EXTERNAL_DB_PATH) {
 // fijados, cada worker generaría secretos distintos de los que recibió el servidor web, y la
 // cookie sellada dejaría de abrirse.
 const SESSION_SECRET = process.env.E2E_SESSION_SECRET ?? randomBytes(32).toString("hex");
-const INTERNAL_AUTH_SECRET = process.env.E2E_INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
+const INTERNAL_AUTH_SECRET = resolveInternalAuthSecret(process.env, useExternalRuntime);
 
 const runtime = runtimeForCurrentProcess();
 const E2E_DB = runtime.dbPath;

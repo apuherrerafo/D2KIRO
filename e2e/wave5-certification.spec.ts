@@ -20,7 +20,6 @@ const CARRY_POOL = ["Anti-Mage", "Sven", "Luna"];
 const SUPPORT_POOL = ["Crystal Maiden", "Dazzle", "Witch Doctor"];
 const FLEX_CANDIDATES = ["Kunkka", "Sand King", "Slardar", "Earthshaker", "Windranger", "Necrophos", "Razor"]; // 2+ curated positions
 const ANY_HERO = Array.from(FIXTURE_HERO_NAME_BY_ID.values());
-const STRATEGY_KINDS = ["REVEAL_POSITION", "REVEAL_HERO", "DEFER_POSITION", "REVEAL_FLEX", "OPPORTUNITY"];
 
 // Internal / debug vocabulary that must never reach the Player (UX certification, automated part).
 const INTERNAL_TERMS = /V6 degraded|stale_meta|contradictorias|solo[\s_-]?mid|SOLO_MID|REVEAL_(POSITION|HERO|FLEX)|DEFER_POSITION|CONFIRMED_FORCED|UNRESOLVED|YOUR_POOL|OUTSIDE_YOUR_POOL|PLAYER_POSITION_ASSIGNED|OWN_PICK_CONFIRMED|stateIdentity|perspectiveIdentity|\bundefined\b|\bNaN\b|\[object /i;
@@ -38,29 +37,54 @@ function annotate(type: string, description: string): void {
   test.info().annotations.push({ type, description });
 }
 
-/** Every Coach output the browser received (recommendations GET + position-assignment POST), in arrival order. */
-function coachOutputs(rec: Recorder): CoachJson[] {
+// Product Semantics Recovery: the Simulator's current-decision surface is the V4 CurrentHumanDecision (one visual owner).
+// The journeys certify the same contract as before -- an answer before the first pick, recomputed after every own pick and
+// every reveal, advisory only, pool only where it applies -- read from the V4 panel instead of the retired V3 panel.
+interface V4Json {
+  schema: string;
+  decision: {
+    kind: string;
+    actionablePositions: number[];
+    roundCapacity: number;
+    targetPosition: number;
+    targetBasis: string;
+    viewedPosition: number;
+    personalPoolApplied: boolean;
+    candidates: { state: string; targetPosition: number; cards?: { heroId: number; position: number; isFromPool: boolean }[]; alternatives?: { heroId: number }[] };
+  };
+  roleBeliefs: { own: { heroId: number; status: string; positions: number[] }[]; enemy: { heroId: number; status: string; positions: number[] }[] };
+  meta: { round: number | null; trigger: string; revision: number; basedOn: { stateIdentity: string; perspectiveIdentity: string; evidenceVersion: string } };
+}
+
+/** Every V4 decision the browser received (recommendations GET), in arrival order. */
+function decisionOutputs(rec: Recorder): V4Json[] {
   return rec.responses
-    .filter((entry) => entry.status === 200 || entry.status === 202)
-    .filter((entry) => (entry.method === "GET" && entry.path.endsWith("/recommendations")) || (entry.method === "POST" && entry.path.endsWith("/position-assignment")))
+    .filter((entry) => entry.status === 200 && entry.method === "GET" && entry.path.endsWith("/recommendations"))
     .flatMap((entry) => {
-      const body = entry.body as { output?: CoachJson | null } | null;
-      return body?.output ? [body.output] : [];
+      const body = entry.body as { output?: V4Json | null } | null;
+      return body?.output?.schema === "recommendation-output/v4" ? [body.output] : [];
     });
 }
 
-const primary = (page: Page) => page.getByTestId("coach-primary-action");
+/** Hero ids the decision offers (ranked cards or, when unranked, positional alternatives). */
+function offeredHeroIds(output: V4Json): number[] {
+  const { candidates } = output.decision;
+  return (candidates.cards ?? candidates.alternatives ?? []).map((candidate) => candidate.heroId);
+}
+
+const primary = (page: Page) => page.getByTestId("current-decision-panel");
 
 async function coachSnapshot(page: Page) {
-  const action = primary(page);
-  await expect(action).toBeVisible({ timeout: 60_000 });
+  const panel = primary(page);
+  await expect(panel).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("coach-primary-action")).toHaveCount(0); // no V3 decision next to V4
   return {
-    kind: (await action.getAttribute("data-strategy-kind"))!,
-    trigger: (await action.getAttribute("data-trigger"))!,
-    revision: Number(await action.getAttribute("data-revision")),
-    identity: (await action.getAttribute("data-state-identity"))!,
-    label: (await page.getByTestId("coach-primary-label").innerText()).trim(),
-    shortlist: await page.getByTestId("coach-hero-card").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
+    kind: (await panel.getAttribute("data-decision-kind"))!,
+    trigger: (await panel.getAttribute("data-trigger"))!,
+    revision: Number(await panel.getAttribute("data-revision")),
+    identity: (await panel.getAttribute("data-state-identity"))!,
+    label: (await page.getByTestId("current-decision-target").innerText()).trim(),
+    shortlist: await page.locator('[data-testid="current-decision-card"], [data-testid="current-decision-alternative"]').evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))),
   };
 }
 
@@ -105,21 +129,24 @@ async function assertTimerRunning(page: Page): Promise<void> {
 
 interface JourneySummary {
   side: "radiant" | "dire";
-  outputs: CoachJson[];
+  outputs: V4Json[];
   triggers: string[];
-  kinds: string[];
+  targetBases: string[];
   perspectiveIdentities: string[];
   ownCommandSides: string[];
   outputKeys: string[];
-  personalHeroViewSeen: boolean;
-  poolBadgeOnTeamList: boolean;
+  /** The Personal Hero Pool shaped the candidates at least once (only possible when the viewed position is the personal one). */
+  poolAppliedSeen: boolean;
+  /** A pool mark on a card while the pool was NOT applied -- COHERENCE-007 violation, must stay false. */
+  poolMarkWithoutPool: boolean;
 }
 const journeys: Partial<Record<"radiant" | "dire", JourneySummary>> = {};
 
 interface JourneyConfig {
   side: "Radiant" | "Dire";
   position: string;
-  personalLabel: RegExp;
+  /** The Player's personal position (Pos number) -- the Coach's default view, and the only one where the pool applies. */
+  personalPosition: 1 | 2 | 3 | 4 | 5;
   seed: string;
   bans: string[];
   pool: readonly string[];
@@ -140,98 +167,90 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await expect(page.getByText(ROUND_HEADING(1, 2))).toBeVisible({ timeout: 60_000 });
   await assertTimerRunning(page);
   const start = await coachSnapshot(page);
-  expect(STRATEGY_KINDS).toContain(start.kind);
+  expect(start.kind).toBe("ACTIONABLE");
   expect(start.trigger).toBe("DRAFT_PICKS_STARTED");
   expect(start.shortlist.length).toBeGreaterThan(0);
 
-  // Initial PersonalHeroView ("TU [ROLE] AHORA"): separate from the team recommendation, with the Hero Pool marked.
-  const personal = page.getByTestId("coach-personal-hero-view");
-  await expect(personal).toBeVisible();
-  await expect(personal).toContainText(config.personalLabel);
-  await expect(personal).toContainText("Tu pool");
-  await expect(page.locator('[data-testid="coach-shortlist"] [data-testid="coach-personal-hero-view"]')).toHaveCount(0); // never nested in the team list
-  await expect(page.getByTestId("coach-shortlist")).toBeVisible();
+  // OLD_ASSERTION: a SEPARATE "TU [ROLE] AHORA" personal panel (`coach-personal-hero-view`) carried the Hero Pool, next to the team shortlist.
+  // WHY_OBSOLETE: WP3 removed the parallel panel -- one visual owner. Two panels for one decision is exactly what PSR fixed.
+  // NEW_PRODUCT_CONTRACT: the pool shapes the ACTIVE candidates only when the viewed position is the Player's personal position
+  //   (COHERENCE-007). The Coach's default recommendation is that position; viewing any other position never applies the pool.
+  await expect(page.getByTestId("coach-personal-hero-view")).toHaveCount(0); // the parallel panel stays gone
+  await expect(page.getByText(/AHORA$/)).toHaveCount(0);
+  await expect(page.getByTestId("current-decision-target")).toHaveAttribute("data-target-position", String(config.personalPosition));
+  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0); // recommended == viewed
   await assertPlayerFacingCopyIsClean(page);
   await shot(page, side, "1-round1-opening");
 
-  // TEAM / PERSONAL separation over the real HTTP path: same visible draft, a DIFFERENT personal pool.
+  // PERSONAL vs OTHER-POSITION separation over the real HTTP path: same visible draft, a DIFFERENT personal pool.
   const sessionId = rec.sessionId()!;
-  const askCoach = async () => (await (await request.get(`/engine/api/session/protocol/${sessionId}/recommendations?format=v3`)).json()) as { output: CoachJson; recommendationSet: unknown };
-  const teamSurface = (body: { output: CoachJson; recommendationSet: unknown }) => JSON.stringify({
-    primaryAction: body.output.primaryAction,
-    shortlist: body.output.shortlist,
-    opportunity: body.output.opportunity ?? null,
-    roleBeliefs: body.output.roleBeliefs,
-    basedOn: body.output.meta.basedOn,
-    confidence: body.output.meta.confidence,
-    decisionContext: body.output.meta.decisionContext,
-    set: body.recommendationSet,
-  }, (key, value) => (key === "sessionId" || key === "syncAgeMs" ? undefined : value));
-  const withPoolA = await askCoach();
+  const askDecision = async (viewed: number | null) => {
+    const query = viewed === null ? "" : `&target=${viewed}`;
+    const response = await request.get(`/engine/api/session/protocol/${sessionId}/recommendations?format=v4${query}`);
+    expect(response.status()).toBe(200);
+    return ((await response.json()) as { output: V4Json }).output;
+  };
+  const otherPosition = ([1, 2, 3, 4, 5] as const).find((position) => position !== config.personalPosition)!;
+  const marks = (output: V4Json) => (output.decision.candidates.cards ?? []).filter((card) => card.isFromPool).map((card) => card.heroId);
+  const poolNames = (names: readonly string[]) => names.map((name) => FIXTURE_HERO_ID_BY_NAME.get(name)!);
+  const personalA = await askDecision(null);
+  const otherA = await askDecision(otherPosition);
   await putPool(request, config.alternatePool);
-  const withPoolB = await askCoach();
-  expect(teamSurface(withPoolB)).toBe(teamSurface(withPoolA)); // team primary action, shortlist, badges + order, Safe Core: identical
-  expect(withPoolA.output.shortlist.flatMap((card) => card.badges)).not.toContain("YOUR_POOL");
-  expect(JSON.stringify(withPoolB.output.personalHeroView)).not.toBe(JSON.stringify(withPoolA.output.personalHeroView)); // ...the personal view is where a pool shows
-  const poolIds = (body: typeof withPoolA) => body.output.personalHeroView!.heroes.filter((hero) => hero.isFromPool).map((hero) => hero.heroId).sort();
-  expect(poolIds(withPoolA).every((id) => config.pool.map((name) => FIXTURE_HERO_ID_BY_NAME.get(name)).includes(id))).toBe(true);
-  expect(poolIds(withPoolB).every((id) => config.alternatePool.map((name) => FIXTURE_HERO_ID_BY_NAME.get(name)).includes(id))).toBe(true);
+  const personalB = await askDecision(null);
+  const otherB = await askDecision(otherPosition);
+  const strip = (output: V4Json) => JSON.stringify(output, (key, value) => (key === "sessionId" || key === "syncAgeMs" || key === "revision" || key === "trigger" ? undefined : value));
+  expect(personalA.decision.personalPoolApplied).toBe(true); // viewed == personal: the pool applies
+  expect(otherA.decision.personalPoolApplied).toBe(false); // another position: it never does
+  expect(otherA.decision.viewedPosition).toBe(otherPosition);
+  expect(otherA.decision.targetPosition).toBe(personalA.decision.targetPosition); // navigation never moved the recommendation
+  expect(strip(otherB)).toBe(strip(otherA)); // ...and the other-position decision is identical whatever the pool is
+  expect(marks(otherA)).toEqual([]);
+  expect(marks(personalA).every((id) => poolNames(config.pool).includes(id))).toBe(true);
+  expect(marks(personalB).every((id) => poolNames(config.alternatePool).includes(id))).toBe(true);
+  expect(strip(personalB)).not.toBe(strip(personalA)); // the personal-position decision is where a pool shows
   await putPool(request, config.pool); // back to the journey's own pool
 
   // FIRST ALLIED PICK -- a FLEX hero when the journey exercises assignment. The Coach recomputes BEFORE allied pick #2.
   const flexName = await firstEnabled(page, config.flexAssignment ? FLEX_CANDIDATES : [...config.roundThreePlan, ...ANY_HERO]);
   const flexId = FIXTURE_HERO_ID_BY_NAME.get(flexName)!;
   await heroButton(page, flexName).click();
-  await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+  await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
   const afterFirst = await coachSnapshot(page);
   expect(afterFirst.revision).toBeGreaterThan(start.revision);
   expect(afterFirst.identity).not.toBe(start.identity);
   expect(afterFirst.shortlist).not.toContain(flexId);
   expect(rec.snapshots().at(-1)!.view.enemyPicks.every((slot) => slot.visibility === "HIDDEN")).toBe(true); // recomputed with nothing revealed
-  await expect(personal).not.toContainText(flexName); // the personal ranking also reacted (own pick is gone from it)
 
   if (config.flexAssignment) {
-    // OWN FLEX: shown as FLEX x/y, the Player assigns a compatible position through the UI, the Coach recomputes.
+    // OLD_ASSERTION: an own Flex hero was shown as "FLEX x/y" (unresolved) and the Player then assigned a compatible position
+    //   through the row's "Asignar PosN" button, which recomputed the Coach.
+    // WHY_OBSOLETE: in AP Ranked Roles (PD-026/PD-027) every own pick binds the position the Player chose AT THE MOMENT OF THE PICK
+    //   (the assignedPosition sibling of the command) -- an authoritative binding, so a Flex hero is never left unresolved.
+    // NEW_PRODUCT_CONTRACT: the picked hero is immediately "Asignado a Pos<the position in view>", there is nothing left to assign,
+    //   and a later declaration of a different position for that hero cannot override the authoritative binding; a hero that is
+    //   not ours is still refused.
     const row = page.getByTestId("coach-own-role").filter({ hasText: flexName });
-    await expect(row).toContainText(/FLEX \d\/\d/);
-    annotate("ux-flex-row-before-assignment", (await row.innerText()).replace(/\s+/g, " ").trim());
-    const flexPositions = ((await row.innerText()).match(/FLEX ([\d/]+)/)![1]!).split("/").map(Number);
-    expect(flexPositions.length).toBeGreaterThan(1);
-    const chosen = flexPositions[1]!;
-    const revisionBefore = (await coachSnapshot(page)).revision;
-    const [assignResponse] = await Promise.all([
-      page.waitForResponse((response) => response.url().includes("/position-assignment") && response.request().method() === "POST"),
-      row.getByRole("button", { name: `Asignar Pos${chosen}`, exact: true }).click(),
-    ]);
-    expect(assignResponse.status(), "POST .../position-assignment through the /engine proxy").toBe(202);
-    // The POST itself is the Coach recompute for the assignment; the UI then refetches, so the DISPLAYED trigger is REFRESH.
-    expect(((await assignResponse.json()) as { output: CoachJson }).output.meta.trigger).toBe("PLAYER_POSITION_ASSIGNED");
-    await expect(row).not.toContainText("FLEX", { timeout: 30_000 }); // the slot resolved to a single position on screen
-    const afterAssign = await coachSnapshot(page);
-    expect(afterAssign.revision).toBeGreaterThan(revisionBefore);
-    await expect(row).toContainText(`Asignado a Pos${chosen}`);
-    await expect(row.getByRole("button", { name: "Quitar asignación" })).toBeVisible();
+    await expect(row).toContainText(`Asignado a Pos${config.personalPosition}`);
+    await expect(row).not.toContainText("FLEX");
     await expect(row.getByRole("button", { name: /^Asignar Pos/ })).toHaveCount(0);
-    annotate("ux-flex-row-after-assignment", (await row.innerText()).replace(/\s+/g, " ").trim());
-    await shot(page, side, "2-flex-assigned");
+    annotate("ux-own-role-row-after-pick", (await row.innerText()).replace(/\s+/g, " ").trim());
+    await shot(page, side, "2-own-hero-bound");
 
-    // An incompatible assignment fails safely (ignored, never corrupts the belief); a hero that is not ours is refused.
     const assignApi = `/engine/api/session/protocol/${sessionId}/position-assignment`;
-    const incompatible = flexPositions.includes(5) ? (flexPositions.includes(1) ? null : 1) : 5;
-    if (incompatible !== null) {
-      const ignored = await request.post(assignApi, { data: { heroId: flexId, position: incompatible } });
-      expect(ignored.status()).toBe(202);
-      const belief = ((await ignored.json()) as { output: CoachJson }).output.roleBeliefs.own.find((entry) => entry.heroId === flexId)!;
-      expect(belief).toMatchObject({ status: "CONFIRMED", positions: [chosen] }); // the earlier, valid declaration still stands
-    }
+    const declaredPosition = config.personalPosition === 1 ? 5 : 1;
+    const ignored = await request.post(assignApi, { data: { heroId: flexId, position: declaredPosition } });
+    expect(ignored.status(), "a declaration over an authoritative binding is refused, never silently applied").toBe(409);
+    const stillBound = await request.get(`/engine/api/session/protocol/${sessionId}/recommendations?format=v4`);
+    const belief = ((await stillBound.json()) as { output: V4Json }).output.roleBeliefs.own.find((entry) => entry.heroId === flexId)!;
+    expect(belief).toMatchObject({ status: "CONFIRMED", positions: [config.personalPosition] }); // the authoritative binding still stands
     const stranger = FIXTURE_HERO_IDS.find((id) => id !== flexId)!;
     expect((await request.post(assignApi, { data: { heroId: stranger, position: 1 } })).status()).toBe(403);
     await assertPlayerFacingCopyIsClean(page);
   }
 
-  // SECOND ALLIED PICK -- a legal hero that IGNORES the Coach (neither on the shortlist nor in the personal ranking).
-  const advised = new Set([...(await coachSnapshot(page)).shortlist, ...(await personal.locator("li").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id")))))]);
+  // SECOND ALLIED PICK -- a legal hero that IGNORES the Coach (not among the candidates it offers).
+  const advised = new Set((await coachSnapshot(page)).shortlist);
   let ignoredName: string | null = null;
   for (const name of ANY_HERO) {
     const id = FIXTURE_HERO_ID_BY_NAME.get(name)!;
@@ -243,7 +262,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   }
   expect(ignoredName, "a legal hero outside the Coach's advice").not.toBeNull();
   await heroButton(page, ignoredName!).click();
-  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 -- elegí/, ANY_HERO);
+  let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 · /, ANY_HERO);
   await expect(page.getByText(/no está disponible/)).toHaveCount(0); // deviating is legal: no rejection, no "wrong choice"
   await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
 
@@ -262,14 +281,13 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await assertPlayerFacingCopyIsClean(page);
   await shot(page, side, "3-round2-after-reveal");
 
-  // Follow the Coach for one seat, take the personal ranking's #1 for the other.
+  // Follow the Coach for one seat, take a pool hero (the Player's own preference) for the other.
   const followName = FIXTURE_HERO_NAME_BY_ID.get(round2.shortlist[0]!)!;
   await heroButton(page, followName).click();
-  await expect(page.getByText("(1 de 2 sellados)")).toBeVisible();
+  await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
-  const personalIds = await personal.locator("li").evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-hero-id"))));
-  const personalNames = personalIds.map((id) => FIXTURE_HERO_NAME_BY_ID.get(id)!).filter((name) => name !== followName);
-  await heroButton(page, await firstEnabled(page, [...personalNames, ...ANY_HERO])).click();
+  // The other seat: the Player's own preference (a pool hero when one is legal right now), whatever the Coach offers.
+  await heroButton(page, await firstEnabled(page, [...config.pool.filter((name) => name !== followName), ...ANY_HERO])).click();
 
   // ---------------------------------------------------------------- ROUND 3
   repicks += await awaitRoundHandlingCollision(page, ROUND_HEADING(3, 1), ANY_HERO);
@@ -290,14 +308,12 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   await shot(page, side, "4-complete");
 
   // Server-side facts, from what the browser actually received.
-  const outputs = coachOutputs(rec);
+  const outputs = decisionOutputs(rec);
   expect(outputs.length).toBeGreaterThanOrEqual(5); // 3 round starts + 2 own-pick recomputes (+1 per Flex assignment)
+  expect(outputs.every((output) => output.decision.kind === "ACTIONABLE" || output.decision.kind === "NO_HUMAN_ACTION")).toBe(true);
   const revisions = outputs.map((output) => output.meta.revision);
   expect(new Set(revisions).size).toBe(revisions.length); // every Coach answer has its own revision
-  const getRevisions = rec.responses
-    .filter((entry) => entry.method === "GET" && entry.path.endsWith("/recommendations") && entry.status === 200)
-    .flatMap((entry) => ((entry.body as { output?: CoachJson | null } | null)?.output ? [(entry.body as { output: CoachJson }).output.meta.revision] : []));
-  expect(getRevisions).toEqual([...getRevisions].sort((a, b) => a - b)); // sequential GET answers are monotonic (the POST/GET pair of an assignment may be logged in either order)
+  expect(revisions).toEqual([...revisions].sort((a, b) => a - b)); // sequential GET answers are monotonic
   expect(new Set(outputs.map((output) => output.meta.basedOn.perspectiveIdentity)).size).toBe(1); // one stable perspective the whole draft
   const commands = rec.requests.filter((request_) => request_.path.endsWith("/command")).map((request_) => (request_.body as { command: { type: string; side: string } }).command);
   expect(commands).toHaveLength(5 + repicks); // 5 seats + one command per legal collision re-pick
@@ -307,28 +323,24 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
 
   // Drift guard: every hero ID emitted by the Coach across all recommendations must be resolvable by the fixture catalog.
   for (const output of outputs) {
-    for (const card of output.shortlist) {
-      expect(FIXTURE_HERO_NAME_BY_ID.has(card.heroId), `Shortlist hero ${card.heroId} (${card.name}) must be resolvable in FIXTURE_HERO_NAME_BY_ID`).toBe(true);
-    }
-    if (output.personalHeroView) {
-      for (const hero of output.personalHeroView.heroes) {
-        expect(FIXTURE_HERO_NAME_BY_ID.has(hero.heroId), `Personal view hero ${hero.heroId} must be resolvable in FIXTURE_HERO_NAME_BY_ID`).toBe(true);
-      }
+    for (const heroId of offeredHeroIds(output)) {
+      expect(FIXTURE_HERO_NAME_BY_ID.has(heroId), `Offered hero ${heroId} must be resolvable in FIXTURE_HERO_NAME_BY_ID`).toBe(true);
     }
   }
 
+  const actionable = outputs.filter((output) => output.decision.kind === "ACTIONABLE");
   journeys[side] = {
     side,
     outputs,
     triggers: [...new Set(outputs.map((output) => output.meta.trigger))].sort(),
-    kinds: outputs.map((output) => output.primaryAction.strategy.kind),
+    targetBases: actionable.map((output) => output.decision.targetBasis),
     perspectiveIdentities: [...new Set(outputs.map((output) => output.meta.basedOn.perspectiveIdentity))],
     ownCommandSides: [...new Set(commands.map((command) => command.side))],
     outputKeys: Object.keys(outputs[0]!).sort(),
-    personalHeroViewSeen: outputs.some((output) => output.personalHeroView !== undefined),
-    poolBadgeOnTeamList: outputs.some((output) => output.shortlist.some((card) => card.badges.includes("YOUR_POOL"))),
+    poolAppliedSeen: actionable.some((output) => output.decision.personalPoolApplied),
+    poolMarkWithoutPool: actionable.some((output) => !output.decision.personalPoolApplied && (output.decision.candidates.cards ?? []).some((card) => card.isFromPool)),
   };
-  annotate("coach-strategy-kinds", journeys[side]!.kinds.join(","));
+  annotate("coach-target-bases", journeys[side]!.targetBases.join(","));
   await putPool(request, []); // leave the shared fixture account as found
   return rec;
 }
@@ -338,7 +350,7 @@ test.describe.serial("Wave 5 -- complete MVP journeys (Tasks 28, 29, 32, 33)", (
     await playJourney(page, request, {
       side: "Radiant",
       position: "Posición 2 — Midlane",
-      personalLabel: /TU MID AHORA/,
+      personalPosition: 2,
       seed: "WAVE5RAD",
       bans: ["Zeus", "Lina", "Sniper", "Anti-Mage"],
       pool: MID_POOL,
@@ -352,7 +364,7 @@ test.describe.serial("Wave 5 -- complete MVP journeys (Tasks 28, 29, 32, 33)", (
     await playJourney(page, request, {
       side: "Dire",
       position: "Posición 5 — Hard support",
-      personalLabel: /TU HARD SUPPORT AHORA/,
+      personalPosition: 5,
       seed: "WAVE5DIR",
       bans: [],
       pool: SUPPORT_POOL,
@@ -372,9 +384,11 @@ test.describe.serial("Wave 5 -- complete MVP journeys (Tasks 28, 29, 32, 33)", (
       expect(radiant!.triggers).toContain(trigger);
       expect(dire!.triggers).toContain(trigger);
     }
-    expect(radiant!.personalHeroViewSeen).toBe(true);
-    expect(dire!.personalHeroViewSeen).toBe(true);
-    expect(radiant!.poolBadgeOnTeamList || dire!.poolBadgeOnTeamList).toBe(false); // a pool never leaks into the team list, on either side
+    expect(radiant!.poolAppliedSeen).toBe(true); // the pool shaped the personal-position candidates on both sides
+    expect(dire!.poolAppliedSeen).toBe(true);
+    expect(radiant!.poolMarkWithoutPool || dire!.poolMarkWithoutPool).toBe(false); // a pool mark never appears where the pool was not applied, on either side
+    expect(radiant!.targetBases.every((basis) => basis === "DETERMINISTIC_DEFAULT")).toBe(true); // PSR-001: no fabricated strategic priority, on either side
+    expect(dire!.targetBases.every((basis) => basis === "DETERMINISTIC_DEFAULT")).toBe(true);
     expect(radiant!.ownCommandSides).toEqual(["radiant"]);
     expect(dire!.ownCommandSides).toEqual(["dire"]); // every allied pick was a Dire pick
     expect(radiant!.perspectiveIdentities).toHaveLength(1);
@@ -393,8 +407,9 @@ test.describe("Wave 5 -- hidden information over the real HTTP path (Task 31)", 
   const api = (baseURL: string) => `${baseURL}/engine/api/session/protocol`;
 
   async function createWorld(request: APIRequestContext, baseURL: string, seed: string) {
-    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "player" })) };
-    const created = await request.post(api(baseURL), { data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, humanPosition: 2, simulatorSeed: seed } });
+    // Fixture migrated to the AP session policy (PD-026/PD-027): empty `controlledSlots` + explicit `controlledPositions`.
+    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [] };
+    const created = await request.post(api(baseURL), { data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, controlledPositions: [1, 2, 3, 4, 5], humanPosition: 2, simulatorSeed: seed } });
     expect(created.status()).toBe(201);
     const { sessionId } = (await created.json()) as { sessionId: string };
     // The product's own ban resolution. Same seed -> same bans (a different seed would change the bans, which IS visible);
@@ -412,7 +427,8 @@ test.describe("Wave 5 -- hidden information over the real HTTP path (Task 31)", 
     expect(((await response.json()) as { accepted: boolean }).accepted).toBe(true);
   };
   const sealOwn = async (request: APIRequestContext, world: World, slotIndex: number, hero: number) => {
-    const response = await request.post(`${world.base}/command`, { data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: hero } } });
+    // AP session policy: every own seal binds a controlled, still-unbound position (Round 1 here: slot 0 -> Pos1, slot 1 -> Pos2).
+    const response = await request.post(`${world.base}/command`, { data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: hero }, assignedPosition: slotIndex + 1 } });
     const body = (await response.json()) as { accepted: boolean; view: { enemyPicks: { visibility: string; heroId?: number }[] } };
     expect(body.accepted).toBe(true);
     return body;
@@ -492,8 +508,9 @@ test.describe("Wave 5 -- collision scenarios (Task 30)", () => {
   const base = (baseURL: string) => `${baseURL}/engine/api/session/protocol`;
 
   async function start(request: APIRequestContext, baseURL: string, seed: string) {
-    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [0, 1, 2, 3, 4].map((slotIndex) => ({ side: "radiant", slotIndex, controllerId: "player" })) };
-    const created = await request.post(base(baseURL), { data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, humanPosition: 2, simulatorSeed: seed } });
+    // Fixture migrated to the AP session policy (PD-026/PD-027): empty `controlledSlots` + explicit `controlledPositions`.
+    const partyContext = { partySize: 5, side: "radiant", controlledSlots: [] };
+    const created = await request.post(base(baseURL), { data: { rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", partyContext, controlledPositions: [1, 2, 3, 4, 5], humanPosition: 2, simulatorSeed: seed } });
     const { sessionId } = (await created.json()) as { sessionId: string };
     const resolved = await request.post(`${base(baseURL)}/${sessionId}/resolve-bans`, { data: { playerBanPreferences: [] } });
     expect(resolved.status()).toBe(200);
@@ -511,7 +528,10 @@ test.describe("Wave 5 -- collision scenarios (Task 30)", () => {
         return (await response.json()) as Snapshot;
       },
       async ownSeal(slotIndex: number, hero: number) {
-        const response = await request.post(`${url}/command`, { data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: hero } } });
+        // AP session policy: bind the lowest controlled position that is still unbound (a collision re-opens the seat AND frees its position).
+        const bound = new Set(((await (await request.get(url)).json()) as { ownAssignedPositions?: { assignedPosition: number }[] }).ownAssignedPositions?.map((binding) => binding.assignedPosition) ?? []);
+        const assignedPosition = [1, 2, 3, 4, 5].find((position) => !bound.has(position))!;
+        const response = await request.post(`${url}/command`, { data: { command: { type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex, heroId: hero }, assignedPosition } });
         expect([200, 202]).toContain(response.status());
         return (await response.json()) as Snapshot;
       },

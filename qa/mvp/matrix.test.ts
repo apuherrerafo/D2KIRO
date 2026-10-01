@@ -42,11 +42,16 @@ for (const scenario of MVP_SCENARIOS) {
     store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
     const recommendationResponse = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?format=v3`));
     expect(recommendationResponse.status).toBe(200);
-    const payload = await recommendationResponse.json() as { recommendationSet: { decision: { controlledSlots: { position?: 1 | 2 | 3 | 4 | 5 }[] }; recommendations: { actions: { hero: number; slot: { position?: 1 | 2 | 3 | 4 | 5 } }[] }[] } };
-    for (const slot of payload.recommendationSet.decision.controlledSlots) expect(scenario.expectedControl).toContain(slot.position);
+    const payload = await recommendationResponse.json() as { recommendationSet: { decision: { controlledSlots: { position?: 1 | 2 | 3 | 4 | 5 }[]; humanActionability?: { eligiblePositions: number[]; roundCapacity: number } }; recommendations: { actions: { hero: number; slot: { position?: 1 | 2 | 3 | 4 | 5 } }[] }[] } };
+    // WP1 (Product Semantics Recovery): eligibility is carried whole and is never truncated by round
+    // capacity; round slots carry a position tag only when every eligible position fits this round.
+    const decision = payload.recommendationSet.decision;
+    expect(decision.humanActionability?.eligiblePositions).toEqual([...scenario.expectedControl]);
+    expect(decision.controlledSlots.length).toBe(decision.humanActionability?.roundCapacity ?? -1);
+    for (const slot of decision.controlledSlots) if (slot.position !== undefined) expect(scenario.expectedControl).toContain(slot.position);
     for (const action of payload.recommendationSet.recommendations.flatMap((recommendation) => recommendation.actions)) {
-      expect(action.slot.position).toBeDefined();
-      expect(independentlyCredibleForPosition(QA_EVIDENCE, action.hero, action.slot.position!).credible).toBe(true);
+      if (action.slot.position === undefined) continue; // an untagged slot makes no positional claim (5 eligible, 2 slots)
+      expect(independentlyCredibleForPosition(QA_EVIDENCE, action.hero, action.slot.position).credible).toBe(true);
     }
   });
 }

@@ -5,7 +5,7 @@ import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import { reportClientError } from "@/lib/telemetry-client";
 import { BLIND_ROUND_SPECS } from "./constants";
-import { assignOwnCoachPosition, fetchRecommendationsWithCoach } from "./coach-client";
+import { assignOwnCoachPosition, fetchCurrentDecision, fetchRecommendationsWithCoach } from "./coach-client";
 import { describeLiveCompanionRejection } from "./live-companion-rejection";
 import { useLowConfidenceStore } from "./low-confidence-store";
 import { loadMetaSnapshot } from "./meta-loader";
@@ -116,6 +116,11 @@ export interface UseRandomDraftSessionResult {
     retryBans(): Promise<void>;
     assignOwnPosition(heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null): Promise<void>;
     /**
+     * WP3 -- el selector de posición pide ver otra posición pendiente. El motor valida y responde con
+     * el objetivo real; hasta entonces la decisión anterior se retira (nunca queda un objetivo viejo).
+     */
+    selectTarget(position: 1 | 2 | 3 | 4 | 5): void;
+    /**
      * LIVE_COMPANION -- registra la lista completa de bans observados en el draft REAL y cierra
      * la fase de bans (RECORD_RESOLVED_BANS + BAN_RESOLUTION_COMPLETE). Nunca inventa ni completa
      * bans que el Player no escribió.
@@ -153,6 +158,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const confirmPick = useRandomDraftStore((state) => state.confirmPick);
   const resetSession = useRandomDraftStore((state) => state.resetSession);
   const ownAssignedPositions = useRandomDraftStore((state) => state.ownAssignedPositions);
+  const currentDecision = useRandomDraftStore((state) => state.currentDecision);
+  const requestedTarget = useRandomDraftStore((state) => state.requestedTarget);
+  const humanActionability = useRandomDraftStore((state) => state.humanActionability);
 
   const protocolRef = useRef<ProtocolSnapshot | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,6 +168,17 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const roundConflictsRef = useRef<{ round: number; bans: HeroId[] }>({ round: 0, bans: [] });
   const lockingRef = useRef(false);
   const attemptCounterRef = useRef(0);
+  // WP3 (COHERENCE-014) -- only the LATEST recommendation request may write the store: a slower
+  // response for a state the Player already moved past (a pick, a navigation) is dropped.
+  const refreshSeqRef = useRef(0);
+
+  // P1 (Greptile PR #9) -- clearing currentDecision makes every in-flight V4 request obsolete. Every
+  // clear goes through here so a response started BEFORE the transition can never write the old
+  // target/cards back (final pick, yield, new attempt, target change).
+  const clearCurrentDecision = useCallback(function clearCurrentDecision(): void {
+    refreshSeqRef.current += 1;
+    useRandomDraftStore.getState().setCurrentDecision(null);
+  }, []);
 
   const stopTimer = useCallback(function stopTimer(): void {
     if (timerIdRef.current !== null) clearInterval(timerIdRef.current);
@@ -188,7 +207,30 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const current = useRandomDraftStore.getState();
     if (!current.sessionId) return;
     const requestSessionId = current.sessionId;
+    const requestSeq = (refreshSeqRef.current += 1);
     useRandomDraftStore.getState().setPreviewStatus("loading");
+    // Product Semantics Recovery WP3 -- SIMULATION reads ONLY the V4 CurrentHumanDecision. V2/V3 are
+    // cleared so no second target, shortlist or degradation can render next to it. Live Companion
+    // (manual sessions carry no HumanActionability) keeps the V3 path below.
+    if (current.sessionMode === "simulation") {
+      try {
+        const output = await fetchCurrentDecision(requestSessionId, current.requestedTarget, fetchImpl);
+        if (useRandomDraftStore.getState().sessionId !== requestSessionId || refreshSeqRef.current !== requestSeq) return;
+        // Same monotonic-revision rule as the V3 path: an older computation never overwrites a newer one.
+        const heldDecision = useRandomDraftStore.getState().currentDecision;
+        if (heldDecision !== null && output.meta.revision < heldDecision.meta.revision) {
+          useRandomDraftStore.getState().setPreviewStatus("ready");
+          return;
+        }
+        useRandomDraftStore.getState().setRecommendations(null);
+        useRandomDraftStore.getState().setCoach(null);
+        useRandomDraftStore.getState().setCurrentDecision(output);
+        useRandomDraftStore.getState().setPreviewStatus("ready");
+      } catch {
+        if (useRandomDraftStore.getState().sessionId === requestSessionId && refreshSeqRef.current === requestSeq) useRandomDraftStore.getState().setPreviewStatus("failed");
+      }
+      return;
+    }
     try {
       const result = await fetchRecommendationsWithCoach(requestSessionId, fetchImpl);
       if (useRandomDraftStore.getState().sessionId !== requestSessionId) return; // superseded by a new/reset session
@@ -216,10 +258,21 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     await refreshRecommendations();
   }, [fetchImpl, refreshRecommendations]);
 
+  const selectTarget = useCallback(function selectTarget(position: 1 | 2 | 3 | 4 | 5): void {
+    const current = useRandomDraftStore.getState();
+    if (current.phase.type !== "blind_round" || current.requestedTarget === position) return;
+    const shownView = current.currentDecision?.decision.kind === "ACTIONABLE" ? current.currentDecision.decision.viewedPosition : null;
+    if (current.requestedTarget === null && shownView === position) return;
+    useRandomDraftStore.getState().setRequestedTarget(position);
+    clearCurrentDecision();
+    void refreshRecommendations();
+  }, [clearCurrentDecision, refreshRecommendations]);
+
   const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot): void {
     protocolRef.current = snapshot;
     const current = useRandomDraftStore.getState();
     useRandomDraftStore.getState().setOwnAssignedPositions(snapshot.ownAssignedPositions);
+    useRandomDraftStore.getState().setHumanActionability(snapshot.humanActionability ?? null);
     if (!current.config) return;
     const authoritative = protocolViewToDraftState(snapshot.view, current.config.patch);
     useRandomDraftStore.getState().setDraftState(authoritative);
@@ -258,6 +311,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     // the Ally Bot has unfilled positions left to absorb).
     const canYield = snapshot.canYield;
     if (roundConflictsRef.current.round !== round) roundConflictsRef.current = { round, bans: [] };
+    // A new attempt is a new decision: nothing from the previous one (target, cards) survives it.
+    useRandomDraftStore.getState().setRequestedTarget(null);
+    clearCurrentDecision();
     useRandomDraftStore.getState().setVisualPhase({
       type: "blind_round",
       round,
@@ -278,7 +334,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     });
     void refreshRecommendations();
     startTicker(round);
-  }, [refreshRecommendations, startTicker]);
+  }, [clearCurrentDecision, refreshRecommendations, startTicker]);
 
   const completeDraft = useCallback(function completeDraft(snapshot: ProtocolSnapshot): void {
     stopTimer();
@@ -402,6 +458,10 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       }
       useRandomDraftStore.getState().confirmPick(heroId, position);
       useRandomDraftStore.getState().setRoundNotice(null);
+      // COHERENCE-014 -- the decision the Player just acted on is gone: its target and cards leave the
+      // screen now, and the next decision is recomputed from the new binding (never the old target).
+      useRandomDraftStore.getState().setRequestedTarget(null);
+      clearCurrentDecision();
       // The number of open round seats is not the number of remaining human decisions: in a
       // Solo/Party session an open own seat may belong to the Ally Bot. Keep waiting only while
       // an actual human-controlled position remains unbound; otherwise resume auto-drive so the
@@ -423,7 +483,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     } finally {
       lockingRef.current = false;
     }
-  }, [closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
+  }, [clearCurrentDecision, closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
 
   // PD-026 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own Team
   // capacity to the Ally Bot. The server is the final authority: a yield it cannot honor comes back
@@ -434,6 +494,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     lockingRef.current = true;
     try {
       const snapshot = await requestYield(current.sessionId, fetchImpl);
+      // After a yield there is no human action for this round: nothing from the previous decision stays up.
+      useRandomDraftStore.getState().setRequestedTarget(null);
+      clearCurrentDecision();
       syncSnapshot(snapshot);
       await advance(null);
     } catch (error) {
@@ -452,7 +515,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     } finally {
       lockingRef.current = false;
     }
-  }, [advance, fetchImpl, syncSnapshot]);
+  }, [advance, clearCurrentDecision, fetchImpl, syncSnapshot]);
 
   // Fail closed: if ban resolution fails the session stays in ban configuration (phase "ban_failed")
   // and the very same request can be retried. Round 1 is never started without a resolved ban set.
@@ -588,8 +651,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }, [fetchImpl, resolveBans, stopTimer, syncSnapshot]);
 
   return {
-    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, previewStatus, staleWarning, lastSyncedAt, engineStatus, ownAssignedPositions },
-    actions: { confirmPick, lockPick, yieldRound, resetDraft, retryPreview, retryBans, assignOwnPosition, recordObservedBans, submitLiveSelection },
+    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, currentDecision, requestedTarget, humanActionability, previewStatus, staleWarning, lastSyncedAt, engineStatus, ownAssignedPositions },
+    actions: { confirmPick, lockPick, yieldRound, resetDraft, retryPreview, retryBans, assignOwnPosition, selectTarget, recordObservedBans, submitLiveSelection },
     startDraft,
   };
 }

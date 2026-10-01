@@ -35,6 +35,41 @@ export interface ConstructContext {
   isLegal(hero: HeroId, slot: RecommendationSlot): boolean;
   /** Evidence appended after each hero's own evidence (ruleset identity, CM eligibility). */
   contextEvidence: readonly EvidenceItem[];
+  /**
+   * INV-BIND-001 -- authoritative own-team position bindings (session truth). Each bound own pick holds
+   * exactly its bound position in role feasibility, whatever its empirical evidence says. Feasibility
+   * only: never written back into HeroPositions. Absent -> own picks are inferred, as before.
+   */
+  ownConfirmedPositions?: ReadonlyMap<HeroId, Position>;
+  /**
+   * PD-001 -- EVERY human-controlled open position (HumanActionability, `eligibleHumanPositions`),
+   * whether or not they all fit this round. A SET used only to ADMIT heroes: a single recommendation
+   * needs a hero credible for SOME member; a compound one needs its heroes assignable to DISTINCT
+   * members, in any order. It is never attached to a slot and never read as a slot schedule.
+   * Applies only to slots that carry no explicit `position`.
+   */
+  eligibleHumanPositions?: readonly Position[];
+}
+
+/**
+ * Can heroes `x` and `y` take two DISTINCT positions, `x` from `allowedX` and `y` from `allowedY`?
+ * `undefined` allowed = that side is unconstrained. An explicit/synthetic pair (both sides a single
+ * explicit position) keeps its historical per-side check with no distinctness requirement.
+ */
+function admitsDistinctPositions(
+  x: HeroId,
+  allowedX: readonly Position[] | undefined,
+  y: HeroId,
+  allowedY: readonly Position[] | undefined,
+  heroPositions: HeroPositions,
+  requireDistinct: boolean,
+): boolean {
+  const credibleX = (allowedX ?? []).filter((position) => isCredibleForPosition(x, position, heroPositions));
+  const credibleY = (allowedY ?? []).filter((position) => isCredibleForPosition(y, position, heroPositions));
+  if (allowedX === undefined && allowedY === undefined) return true;
+  if (allowedX === undefined) return credibleY.length > 0;
+  if (allowedY === undefined) return credibleX.length > 0;
+  return credibleX.some((px) => credibleY.some((py) => !requireDistinct || px !== py));
 }
 
 export function pushUniqueDegradation(list: RecommendationDegradation[], entry: RecommendationDegradation): void {
@@ -76,11 +111,14 @@ export function buildSingleRecommendations(
       if (filterBySlotPosition && s.position !== undefined && s.position !== null) {
         return isCredibleForPosition(entry.hero, s.position, heroPositions);
       }
+      if (filterBySlotPosition && context.eligibleHumanPositions) {
+        return context.eligibleHumanPositions.some((position) => isCredibleForPosition(entry.hero, position, heroPositions));
+      }
       return true;
     });
     if (!targetSlot) continue;
 
-    const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
+    const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions, ownConfirmedPositions: context.ownConfirmedPositions });
     if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
     if (requireRoleFeasibility && roleImpact.degradation?.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     const impact = roleImpact.impactByHero.get(entry.hero)!;
@@ -124,8 +162,16 @@ export function buildCompoundRecommendations(
   const combos = buildCompoundCandidates(shortlist);
   const out: Recommendation[] = [];
 
-  const posA = slotA?.position;
-  const posB = slotB?.position;
+  // An explicit slot position wins (synthetic/advisory slots). A positionless slot is admitted against
+  // the whole eligible human set (any size): the pair needs an injective assignment onto two DISTINCT
+  // eligible positions, in either hero order -- an admission test, never a slot -> position mapping.
+  const allowedForSlot = (slot: RecommendationSlot | undefined): readonly Position[] | undefined => {
+    if (slot?.position !== undefined && slot.position !== null) return [slot.position];
+    return context.eligibleHumanPositions;
+  };
+  const allowedA = allowedForSlot(slotA);
+  const allowedB = allowedForSlot(slotB);
+  const bothExplicit = [slotA, slotB].every((slot) => slot?.position !== undefined && slot.position !== null);
 
   for (const combo of combos) {
     if (out.length >= outputLimit) break;
@@ -139,17 +185,16 @@ export function buildCompoundRecommendations(
     // assigned a position must never be recommendable merely with a caveat attached -- the next,
     // lower-scored-but-feasible pair takes its place because `combos` is already score-sorted
     // (shortlist.ts's buildCompoundCandidates) and this loop simply continues past the rejected one.
-    const roleImpact = computeRoleImpact({ ownPicks, candidates: [a.hero, b.hero], heroPositions, partyPreferredPositions });
+    const roleImpact = computeRoleImpact({ ownPicks, candidates: [a.hero, b.hero], heroPositions, partyPreferredPositions, ownConfirmedPositions: context.ownConfirmedPositions });
     if (roleImpact.degradation) {
       pushUniqueDegradation(degradations, roleImpact.degradation);
       if (roleImpact.degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     }
 
-    const directAdmitted = (posA === undefined || posA === null || isCredibleForPosition(a.hero, posA, heroPositions))
-      && (posB === undefined || posB === null || isCredibleForPosition(b.hero, posB, heroPositions));
-
-    const swappedAdmitted = (posA === undefined || posA === null || isCredibleForPosition(b.hero, posA, heroPositions))
-      && (posB === undefined || posB === null || isCredibleForPosition(a.hero, posB, heroPositions));
+    // Position admission is independent of slot legality: for a generic round both orders see the same
+    // set, so the verdict is symmetric; only explicit slot positions make direct/swapped differ.
+    const directAdmitted = admitsDistinctPositions(a.hero, allowedA, b.hero, allowedB, heroPositions, !bothExplicit);
+    const swappedAdmitted = admitsDistinctPositions(b.hero, allowedA, a.hero, allowedB, heroPositions, !bothExplicit);
 
     const directLegal = directAdmitted && context.isLegal(a.hero, slotA!) && context.isLegal(b.hero, slotB!);
     const swappedLegal = swappedAdmitted && context.isLegal(b.hero, slotA!) && context.isLegal(a.hero, slotB!);
