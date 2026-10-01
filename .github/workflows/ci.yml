@@ -249,3 +249,103 @@ jobs:
           # every run (see scripts/r1/certify.ts's REPORT_DIR comment).
           path: docs/r1/generated/certification-report.*
           retention-days: 90
+
+  # ---------------------------------------------------------------------------
+  # TEMPORARY -- infrastructure-only, never merged. Runs `bun run qa:release` on Linux against the
+  # EXACT MVP candidate SHA (local Windows Smart App Control blocks Playwright WebKit). The CI
+  # branch's own commit is NOT the candidate: checkout replaces the working tree with CANDIDATE_SHA.
+  mvp-final-certification-candidate:
+    name: mvp-final-certification-candidate
+    if: github.event_name == 'pull_request' && github.head_ref == 'ci/mvp-final-certification-runner'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CANDIDATE_SHA: d0848c7f77ab4e8329d1819bd8e25a6b56804822
+      # Pins Playwright's per-run output (test-results/, traces, screenshots, runtime.log) to a
+      # known path so it can be uploaded; by default e2e/runtime.ts uses an mkdtemp under tmpdir.
+      E2E_RUNTIME_DIR: ${{ github.workspace }}/../d2kiro-playwright-runtime
+    steps:
+      - name: Checkout exact MVP candidate
+        uses: actions/checkout@v4
+        with:
+          ref: d0848c7f77ab4e8329d1819bd8e25a6b56804822
+          # verify-simplicity.sh diffs against merge-base(origin/master, HEAD).
+          fetch-depth: 0
+
+      - name: Verify checked-out SHA is the candidate
+        run: |
+          ACTUAL="$(git rev-parse HEAD)"
+          echo "candidate HEAD=$ACTUAL"
+          [ "$ACTUAL" = "$CANDIDATE_SHA" ] || { echo "HEAD $ACTUAL != candidate $CANDIDATE_SHA"; exit 1; }
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Verify Bun matches packageManager pin
+        run: |
+          EXPECTED_PM="$(node -p "require('./package.json').packageManager")"
+          case "$EXPECTED_PM" in
+            bun@[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "package.json#packageManager no es 'bun@<semver exacto>': '$EXPECTED_PM'"; exit 1 ;;
+          esac
+          EXPECTED="${EXPECTED_PM#bun@}"
+          ACTUAL="$(bun --version)"
+          echo "expected=$EXPECTED actual=$ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ] || { echo "Bun version drift: setup-bun instaló $ACTUAL, packageManager fija $EXPECTED"; exit 1; }
+
+      - name: Install dependencies (root)
+        run: bun install --frozen-lockfile
+
+      - name: Install dependencies (apps/engine)
+        working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
+      - name: Install dependencies (apps/web)
+        working-directory: apps/web
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright Chromium + WebKit
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Re-verify candidate SHA before testing
+        run: |
+          ACTUAL="$(git rev-parse HEAD)"
+          echo "candidate HEAD=$ACTUAL"
+          [ "$ACTUAL" = "$CANDIDATE_SHA" ] || { echo "HEAD $ACTUAL != candidate $CANDIDATE_SHA"; exit 1; }
+
+      # No retries: a failure is terminal (scripts/qa/run.ts itself stops at the first failure).
+      - name: qa:release
+        id: qa
+        run: bun run qa:release
+
+      - name: Verify report.json identity and machine acceptance
+        if: always() && steps.qa.outcome != 'skipped'
+        run: |
+          REPORT=artifacts/qa/latest/report.json
+          [ -f "$REPORT" ] || { echo "missing $REPORT"; exit 1; }
+          cat "$REPORT"
+          SHA="$(node -p "require('./$REPORT').sha")"
+          ACCEPTED="$(node -p "require('./$REPORT').machineAccepted")"
+          echo "report.sha=$SHA report.machineAccepted=$ACCEPTED"
+          [ "$SHA" = "$CANDIDATE_SHA" ] || { echo "report.sha $SHA != candidate $CANDIDATE_SHA"; exit 1; }
+          [ "$ACCEPTED" = "true" ] || { echo "machineAccepted is not true"; exit 1; }
+
+      # Only reached when qa:release and the report check passed (default success() condition).
+      - name: Root scripts tests
+        run: bun test scripts
+
+      - name: verify-simplicity
+        run: bash scripts/verify-simplicity.sh
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mvp-final-certification-d0848c7
+          path: |
+            artifacts/qa/latest/**
+            test-results/**
+            ${{ env.E2E_RUNTIME_DIR }}/test-results/**
+            ${{ env.E2E_RUNTIME_DIR }}/runtime.log
+          if-no-files-found: warn
+          retention-days: 90
