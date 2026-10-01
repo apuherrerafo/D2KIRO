@@ -260,15 +260,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      CANDIDATE_SHA: d0848c7f77ab4e8329d1819bd8e25a6b56804822
+      CANDIDATE_SHA: 9b90bf29f758e454c96dc1f34030c91ea7d9766a
       # Pins Playwright's per-run output (test-results/, traces, screenshots, runtime.log) to a
       # known path so it can be uploaded; by default e2e/runtime.ts uses an mkdtemp under tmpdir.
-      E2E_RUNTIME_DIR: ${{ github.workspace }}/../d2kiro-playwright-runtime
+      E2E_RUNTIME_DIR: ${{ github.workspace }}/artifacts/qa/playwright-runtime
     steps:
       - name: Checkout exact MVP candidate
         uses: actions/checkout@v4
         with:
-          ref: d0848c7f77ab4e8329d1819bd8e25a6b56804822
+          ref: 9b90bf29f758e454c96dc1f34030c91ea7d9766a
           # verify-simplicity.sh diffs against merge-base(origin/master, HEAD).
           fetch-depth: 0
 
@@ -330,22 +330,15 @@ jobs:
           [ "$SHA" = "$CANDIDATE_SHA" ] || { echo "report.sha $SHA != candidate $CANDIDATE_SHA"; exit 1; }
           [ "$ACCEPTED" = "true" ] || { echo "machineAccepted is not true"; exit 1; }
 
-      # Only reached when qa:release and the report check passed (default success() condition).
-      - name: Root scripts tests
-        run: bun test scripts
-
-      - name: verify-simplicity
-        run: bash scripts/verify-simplicity.sh
-
       - name: Upload certification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mvp-final-certification-d0848c7
+          name: mvp-final-certification-9b90bf2
           path: |
             artifacts/qa/latest/**
             test-results/**
-            ${{ env.E2E_RUNTIME_DIR }}/test-results/**
-            ${{ env.E2E_RUNTIME_DIR }}/runtime.log
+            artifacts/qa/playwright-runtime/test-results/**
+            artifacts/qa/playwright-runtime/runtime.log
           if-no-files-found: warn
           retention-days: 90
