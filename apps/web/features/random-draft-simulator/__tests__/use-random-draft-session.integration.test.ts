@@ -30,6 +30,8 @@ interface OwnBinding {
   round: 1 | 2 | 3;
   slotIndex: number;
   assignedPosition: Position;
+  /** Joined server-side from kernel state on (round, slotIndex) -- mirrors the real snapshot projection. */
+  heroId: HeroId;
 }
 
 /**
@@ -267,7 +269,7 @@ class FakeApProtocolEngine {
       this.openSlots = this.openSlots.filter((slotIndex) => slotIndex !== command.slotIndex);
       const assignedPosition = body.assignedPosition as Position | undefined;
       if (assignedPosition !== undefined) {
-        this.ownBindings = [...this.ownBindings, { round: this.round as 1 | 2 | 3, slotIndex: command.slotIndex, assignedPosition }];
+        this.ownBindings = [...this.ownBindings, { round: this.round as 1 | 2 | 3, slotIndex: command.slotIndex, assignedPosition, heroId: command.heroId }];
       }
       if (this.openSlots.length === 0) this.closeRound(command);
       return json({ accepted: true, ...this.snapshot() }, 202);
