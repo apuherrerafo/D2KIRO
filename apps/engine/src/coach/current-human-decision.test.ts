@@ -3,6 +3,7 @@ import type { TeamSide } from "../draft-protocol/types";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
 import type { DegradationFlag, Suggestion, SuggestionSet } from "../signals/mix";
 import type { HeroPositions } from "../signals/hero-positions";
+import type { CuratedCounter } from "../signals/hero-counters";
 import type { SignalContribution } from "../signals/types";
 import { heroPoolFitScorer } from "../signals/hero-pool-fit";
 import { ProtocolSessionStore } from "../server/protocol-session";
@@ -68,10 +69,10 @@ function jsonRequest(body: unknown): Request {
   return new Request("http://127.0.0.1/x", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } });
 }
 
-async function session(controlledPositions: Position[], options: FixtureOptions & { side?: TeamSide; humanPosition?: Position; heroPositions?: HeroPositions } = {}) {
+async function session(controlledPositions: Position[], options: FixtureOptions & { side?: TeamSide; humanPosition?: Position; heroPositions?: HeroPositions; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]> } = {}) {
   const side = options.side ?? "radiant";
   const store = new ProtocolSessionStore();
-  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: options.heroPositions ?? HERO_POSITIONS });
+  const routes = createProtocolSessionRoutes({ store, computeSuggestions: fixtureCompute(options), heroPositions: options.heroPositions ?? HERO_POSITIONS, ...(options.heroCounters ? { heroCounters: options.heroCounters } : {}) });
   const created = await routes.post(jsonRequest({
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
@@ -84,7 +85,7 @@ async function session(controlledPositions: Position[], options: FixtureOptions 
   }));
   if (created.status !== 201) throw new Error(`create failed ${created.status}`);
   const { sessionId } = (await created.json()) as { sessionId: string };
-  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
+  if (!store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }])?.ok) throw new Error("bans");
   const enemy: TeamSide = side === "radiant" ? "dire" : "radiant";
   return { store, routes, sessionId, side, enemy };
 }
@@ -488,5 +489,64 @@ describe("deriveCandidateResult -- resolved role vs viewed position", () => {
   test("UNRESOLVED con evidencia curada de Pos4, objetivo Pos4 -> sigue admisible", () => {
     const result = derive("UNRESOLVED", null, 4);
     expect(result.state).toBe("RANKED");
+  });
+});
+
+// Greptile PR #9 (P1) -- Safe Core survives in the V4 Simulation path as an INFORMATIONAL block. Same rule and
+// same subject as V3 (V6's team-level leader), curated + public evidence only, never a target or a view.
+describe("Safe Core en V4 -- informativa, nunca dueña de la acción", () => {
+  // The V6 team leader is hero 100 (Pos1). Curated: 201 and 202 counter it HARD (inline fixture, never hero-counters.json).
+  const curated = (vs: number): CuratedCounter => ({ vs, level: "hard", why: `fixture ${vs}` });
+  const COUNTERS = new Map<number, CuratedCounter[]>([[100, [curated(201), curated(202)]]]);
+  const teamEvaluations = (calls: NonNullable<FixtureOptions["calls"]>) => calls.filter((call) => call.targetPosition === undefined).length;
+
+  test("A. ventana real: los dos counters duros curados están baneados -> UNA oportunidad informativa del líder de V6", async () => {
+    const s = await session([1, 2, 3, 4, 5], { bans: [201, 202], heroCounters: COUNTERS });
+    const output = await v4(s);
+    expect(output.opportunity).toMatchObject({ subtype: "SAFE_CORE", heroId: 100 });
+    expect(output.opportunity?.counterEvidence.sourceType).toBe("CURATED");
+    expect(output.opportunity?.counterEvidence.relieved.map((entry) => entry.heroId).sort()).toEqual([201, 202]);
+  });
+
+  test("B. el mismo estado sin evidencia que la sostenga (un counter duro sigue disponible) -> sin oportunidad, y sin evaluación de equipo extra", async () => {
+    const calls: NonNullable<FixtureOptions["calls"]> = [];
+    const s = await session([1, 2, 3, 4, 5], { bans: [201], heroCounters: COUNTERS, calls });
+    const output = await v4(s);
+    expect(output).not.toHaveProperty("opportunity");
+    expect(teamEvaluations(calls)).toBe(0);
+    const noBans = await session([1, 2, 3, 4, 5], { heroCounters: COUNTERS, calls });
+    expect(await v4(noBans)).not.toHaveProperty("opportunity");
+    expect(teamEvaluations(calls)).toBe(0); // nothing to relieve -> the team V6 run is never paid
+  });
+
+  test("C. la oportunidad NO mueve objetivo, vista, capacidad ni el orden de candidatos", async () => {
+    const withWindow = await v4(await session([1, 2, 3, 4, 5], { bans: [201, 202], heroCounters: COUNTERS }));
+    const without = await v4(await session([1, 2, 3, 4, 5], { bans: [201, 202] }));
+    expect(withWindow.opportunity).toBeDefined();
+    expect(without).not.toHaveProperty("opportunity");
+    const a = actionable(withWindow);
+    const b = actionable(without);
+    expect(a.targetPosition).toBe(b.targetPosition);
+    expect(a.targetBasis).toBe(b.targetBasis);
+    expect(a.viewedPosition).toBe(b.viewedPosition);
+    expect(a.roundCapacity).toBe(b.roundCapacity);
+    expect(a.actionablePositions).toEqual(b.actionablePositions);
+    expect(visibleHeroes(a)).toEqual(visibleHeroes(b));
+    expect(JSON.stringify(a)).not.toContain("SAFE_CORE");
+  });
+
+  test("D. sólo evidencia pública: ningún input privado existe en la firma y el resultado no cambia con otra cuenta", async () => {
+    const s = await session([1, 2, 3, 4, 5], { bans: [201, 202], heroCounters: COUNTERS });
+    const anonymous = (await v4(s)).opportunity;
+    const account = (await v4(s, 4242)).opportunity;
+    expect(account).toEqual(anonymous);
+  });
+
+  test("la oportunidad sólo acompaña a una decisión ACCIONABLE (nunca a NO_HUMAN_ACTION)", async () => {
+    const s = await session([2, 5], { bans: [201, 202], heroCounters: COUNTERS });
+    expect((await s.routes.postYield(s.sessionId)).status).toBe(200);
+    const output = await v4(s);
+    expect(output.decision.kind).toBe("NO_HUMAN_ACTION");
+    expect(output).not.toHaveProperty("opportunity");
   });
 });

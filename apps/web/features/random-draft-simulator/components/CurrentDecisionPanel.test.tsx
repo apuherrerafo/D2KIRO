@@ -123,3 +123,43 @@ test("borde: una salida V4 con cartas rankeadas junto a un estado UNRANKED es re
   expect(parseCurrentDecisionOutput(poolWithoutPersonal)).toBeNull();
   expect(parseCurrentDecisionOutput(output(RANKED))).not.toBeNull();
 });
+
+// Greptile PR #9 (P1) -- Simulation (V4) keeps ONE current-action surface: no V3 "TU <POS> AHORA" / "solo tu asiento"
+// panel, even if a stale V3 coach (with personalHeroView) were still around -- CopilotPanel returns on V4 first.
+test("Simulation / V4: ningún panel personal paralelo ('TU <POS> AHORA' / 'solo tu asiento')", () => {
+  const staleV3 = { schema: "recommendation-output/v3", sessionId: "s", primaryAction: { strategy: { kind: "REVEAL_POSITION", position: 5, rationale: "x" }, label: "Sugerencia" }, shortlist: [], personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: false, heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] }, meta: { round: 1, phase: "PICK_ROUND_1", ownPicksRemaining: 5, confidence: "media", decisionContext: "team_opening", trigger: "DRAFT_PICKS_STARTED", revision: 3, basedOn: { stateIdentity: "id", evidenceVersion: "v" } } } as unknown as Parameters<typeof CopilotPanel>[0]["coach"];
+  const view = render(<CopilotPanel recommendations={null} coach={staleV3} currentDecision={output(RANKED)} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.queryByTestId("coach-panel")).toBeNull();
+  expect(view.queryByTestId("coach-personal-hero-view")).toBeNull();
+  expect(view.container.textContent).not.toContain("TU MID AHORA");
+  expect(view.container.textContent).not.toContain("solo tu asiento");
+  expect(view.getAllByTestId("current-decision-panel")).toHaveLength(1);
+});
+
+const SAFE_CORE = {
+  subtype: "SAFE_CORE" as const,
+  label: "Ventana de core: 2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)",
+  heroId: 99,
+  evidence: "2 de 2 counters duros curados ya no están disponibles para el rival (2 baneados)",
+  counterEvidence: { kind: "COUNTER_RELIEF" as const, sourceType: "CURATED" as const, relieved: [{ heroId: 7, level: "hard" as const, status: "BANNED" as const }, { heroId: 8, level: "hard" as const, status: "BANNED" as const }], totalHardCounters: 2 },
+};
+
+test("Safe Core en V4: se muestra como bloque informativo y no cambia objetivo, vista ni cartas", () => {
+  const withWindow = { ...output(RANKED), opportunity: SAFE_CORE };
+  const view = render(<CopilotPanel recommendations={null} currentDecision={withWindow} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(view.getByTestId("coach-opportunity-label").textContent).toBe(SAFE_CORE.label);
+  expect(view.getByTestId("coach-opportunity-source").textContent).toContain("Es informativo");
+  expect(view.queryByTestId("coach-panel")).toBeNull(); // the V3 Coach panel is NOT back
+  expect(view.getAllByTestId("current-decision-target")).toHaveLength(1);
+  expect(view.getByTestId("current-decision-target").getAttribute("data-target-position")).toBe("3");
+  expect(view.getAllByTestId("current-decision-card").map((card) => card.getAttribute("data-rank"))).toEqual(["1", "2"]);
+  cleanup();
+  const without = render(<CopilotPanel recommendations={null} currentDecision={output(RANKED)} heroCatalog={new Map()} previewStatus="ready" />);
+  expect(without.queryByTestId("coach-opportunity")).toBeNull();
+});
+
+test("borde: una oportunidad V4 malformada rechaza la salida entera; una válida pasa", () => {
+  expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: SAFE_CORE })?.opportunity?.heroId).toBe(99);
+  expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: { ...SAFE_CORE, subtype: "OTHER" } })).toBeNull();
+  expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: { ...SAFE_CORE, counterEvidence: { ...SAFE_CORE.counterEvidence, sourceType: "STATISTICAL" } } })).toBeNull();
+});

@@ -219,7 +219,7 @@ function deriveConfidence(candidates: readonly HeroCandidate[], strategy: Reveal
  * primary action moved to the front of the shortlist -- otherwise a support-first opening would hide exactly
  * the case the block exists for (a core that can be revealed earlier than the support prior suggests).
  */
-function deriveOpportunity(candidates: readonly HeroCandidate[], view: CoachObservableState["view"], heroCounters: CoachOutputConfig["heroCounters"]): CoachOpportunity | null {
+export function deriveOpportunity(candidates: readonly HeroCandidate[], view: CoachObservableState["view"], heroCounters: CoachOutputConfig["heroCounters"]): CoachOpportunity | null {
   const top = candidates[0];
   if (!top || !heroCounters) return null;
   const signal = detectSafeCoreWindow(top.heroId, view, top.signals, heroCounters, { position: top.position, roleStatus: top.roleStatus });

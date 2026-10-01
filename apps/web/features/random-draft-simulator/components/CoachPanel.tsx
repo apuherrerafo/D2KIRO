@@ -5,7 +5,7 @@ import { RecommendationFeedback } from "@/components/recommendation-feedback/Rec
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import { BUTTON_COMPACT } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import type { CoachBadge, CoachHeroCard, CoachOutput, CoachPosition, CoachRoleBelief, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
+import type { CoachBadge, CoachHeroCard, CoachOpportunity, CoachOutput, CoachPosition, CoachRoleBelief, CoachRoleCollision, CoachRoleStatus, CoachStrategy } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 
 // AP Ranked Roles V1 / Wave 2 -- the Coach: PRIMARY ACTION first (what to reveal / preserve / do now),
@@ -155,9 +155,17 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
 // Procedencia de la evidencia de counters: la única aprobada en V1 es la curada.
 const CURATED_EVIDENCE_LABEL = "Evidencia curada";
 
-// Ventana de core (Safe Core): informativa y separada de la acción primaria y de la shortlist.
-function SafeCoreOpportunity({ coach, heroCatalog }: ShortlistProps) {
-  const opportunity = coach.opportunity;
+// Ventana de core (Safe Core): informativa y separada de la acción primaria y de la shortlist. La comparten
+// el Coach V3 (Live Companion) y la decisión V4 del Simulador: nunca es objetivo ni mueve la vista.
+export interface SafeCoreOpportunityProps {
+  opportunity: CoachOpportunity | undefined;
+  sessionId: string;
+  stateIdentity: string;
+  rulesetVersion: string | null;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+export function SafeCoreOpportunity({ opportunity, sessionId, stateIdentity, rulesetVersion, heroCatalog }: SafeCoreOpportunityProps) {
   if (!opportunity) return null;
   const meta = heroCatalog.get(opportunity.heroId);
   return (
@@ -176,12 +184,12 @@ function SafeCoreOpportunity({ coach, heroCatalog }: ShortlistProps) {
       <span className="text-caption text-content-secondary" data-testid="coach-opportunity-label">
         {opportunity.label}
       </span>
-      {Boolean(coach.sessionId) && (
+      {Boolean(sessionId) && (
         <RecommendationFeedback
-          sessionId={coach.sessionId}
+          sessionId={sessionId}
           heroId={opportunity.heroId}
-          stateIdentity={coach.meta.basedOn.stateIdentity}
-          rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
+          stateIdentity={stateIdentity}
+          rulesetVersion={rulesetVersion}
         />
       )}
       <span className="text-caption text-content-muted" data-testid="coach-opportunity-source">
@@ -245,6 +253,31 @@ function HeroCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVers
 interface ShortlistProps {
   coach: CoachOutput;
   heroCatalog: Map<number, HeroMeta>;
+}
+
+function PersonalHeroView({ coach, heroCatalog }: ShortlistProps) {
+  const personal = coach.personalHeroView;
+  if (!personal) return null;
+  if (personal.seatCovered) {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
+        <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
+        <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
+        <span className="text-caption text-content-secondary" data-testid="coach-personal-seat-covered">Tu posición ya está cubierta</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-accent-primary/50 bg-surface-overlay p-3" data-testid="coach-personal-hero-view">
+      <span className="text-caption font-semibold text-accent-primary">Vista personal / Hero Pool · solo tu asiento</span>
+      <span className="text-caption text-content-secondary">{personal.positionLabel}</span>
+      <ul className="grid grid-cols-1 gap-1">
+        {personal.heroes.map((hero) => <li key={hero.heroId} className="text-caption text-content-primary" data-hero-id={hero.heroId}>
+          {hero.rank}. {heroName(hero.heroId, heroCatalog)}{hero.isFromPool ? " · Tu pool" : ""}
+        </li>)}
+      </ul>
+    </div>
+  );
 }
 
 type RoleBelief = NonNullable<CoachOutput["roleBeliefs"]>["own"][number];
@@ -384,10 +417,17 @@ export function CoachPanel({ coach, heroCatalog, onAssignOwnPosition, degradatio
       )}
       {!suppressDegradations && degradations && degradations.length > 0 && <CoachDegradationsNotice degradations={degradations} />}
       <PrimaryAction coach={coach} heroCatalog={heroCatalog} />
-      <SafeCoreOpportunity coach={coach} heroCatalog={heroCatalog} />
-      {/* Product Semantics Recovery WP3: the personal "TU <POS> AHORA" / "solo tu asiento" block is no
-          longer rendered as a second, simultaneous current-action panel. V3 still carries
-          personalHeroView on the wire (contract unchanged); the Simulator reads V4 instead. */}
+      <SafeCoreOpportunity
+        opportunity={coach.opportunity}
+        sessionId={coach.sessionId}
+        stateIdentity={coach.meta.basedOn.stateIdentity}
+        rulesetVersion={coach.meta.readiness?.empiricalPatchClaim?.patch ?? coach.meta.readiness?.rulesetTarget ?? null}
+        heroCatalog={heroCatalog}
+      />
+      {/* V3 / Live Companion ONLY: the Simulator renders CurrentDecisionPanel (V4) and never mounts this
+          panel (CopilotPanel returns before it when a V4 decision exists), so no second personal
+          current-action surface can appear in Simulation. */}
+      <PersonalHeroView coach={coach} heroCatalog={heroCatalog} />
       <Shortlist coach={coach} heroCatalog={heroCatalog} />
       <CoachRoleBeliefs roleBeliefs={coach.roleBeliefs} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
     </div>

@@ -6,10 +6,11 @@ import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
-import { credibleHeroesForPosition } from "./hero-card";
+import { credibleHeroesForPosition, extractHeroCandidates } from "./hero-card";
+import { safeCoreWindowPossible } from "./safe-core";
 import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
-import { translateToRecommendationOutputV3, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
+import { deriveOpportunity, translateToRecommendationOutputV3, type CoachOpportunity, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
 import { deriveRevealStrategy } from "./reveal-strategy";
 import { buildCurrentHumanDecision, deriveCandidateResult, rankingAppliedPersonalPool, resolveViewedPosition, selectDecisionTarget } from "./current-human-decision";
 import { buildRecommendationOutputV4, type RecommendationOutputV4 } from "./recommendation-output-v4";
@@ -257,6 +258,7 @@ export class CoachOrchestrator {
     // evaluation is never computed on that path.
     let sourceSet: RecommendationSetV2;
     let decision = buildCurrentHumanDecision({ actionability, target: null, candidates: null, personalPoolApplied: false });
+    let opportunity: CoachOpportunity | null = null;
     if (!actionability.hasHumanAction) {
       sourceSet = await buildTeamEvaluation(input.context);
     } else {
@@ -271,6 +273,7 @@ export class CoachOrchestrator {
       sourceSet = targetRanking;
       const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied });
+      opportunity = await this.deriveSafeCoreOpportunity(input.context);
     }
     const output = buildRecommendationOutputV4({
       decision,
@@ -279,12 +282,31 @@ export class CoachOrchestrator {
       source: { basedOn: sourceSet.basedOn, ...(sourceSet.readiness ? { readiness: sourceSet.readiness } : {}) },
       trigger,
       revision,
+      opportunity,
     });
     if (revision > memory.latestRevision) {
       memory.latestRevision = revision;
       memory.observed = { ...countVisible(view), assignments: assignmentsKey(memory.assignments) };
     }
     return { output, sourceSet, trigger, revision };
+  }
+
+  /**
+   * Safe Core for a V4 decision: the SAME rule and the SAME subject as V3 (V6's team-level leader, no account
+   * overlay -- `buildRecommendationSet`), fed only by public/curated evidence. The team evaluation runs ONLY when
+   * `safeCoreWindowPossible` says some curated hero could qualify, so a state with no ban evidence never pays for it.
+   * Informational: a failure here yields no opportunity, never a failed decision.
+   */
+  private async deriveSafeCoreOpportunity(context: PerspectiveRecommendationContext): Promise<CoachOpportunity | null> {
+    const { heroCounters, heroPositions } = this.deps;
+    if (!heroCounters || !safeCoreWindowPossible(context.view, heroCounters)) return null;
+    try {
+      const teamSet = await this.deps.buildRecommendationSet(context);
+      if (teamSet.decision.actionCount === 0) return null;
+      return deriveOpportunity(extractHeroCandidates(teamSet, heroPositions), context.view, heroCounters);
+    } catch {
+      return null;
+    }
   }
 
   /** Trigger 0: the pick phase just opened (BAN_RESOLUTION_COMPLETE). */

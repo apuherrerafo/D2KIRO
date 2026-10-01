@@ -7,7 +7,7 @@ import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PositionalAlternative, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
-import { BADGE_LABELS, CoachRoleBeliefs, RoleCollisionBanner } from "./CoachPanel";
+import { BADGE_LABELS, CoachRoleBeliefs, RoleCollisionBanner, SafeCoreOpportunity } from "./CoachPanel";
 
 // Product Semantics Recovery WP3 -- the ONE visual owner of the Simulator's current human decision.
 // Everything here is read verbatim from RecommendationOutputV4: one target line, one candidate
@@ -238,6 +238,14 @@ export function CurrentDecisionPanel({ output, heroCatalog, onAssignOwnPosition 
     >
       {output.roleCollision?.infeasible && <RoleCollisionBanner collision={output.roleCollision} heroCatalog={heroCatalog} />}
       <DecisionBody output={output} heroCatalog={heroCatalog} />
+      {/* Safe Core: informational, outside the decision -- no target, no view, no capacity, no ordering. */}
+      <SafeCoreOpportunity
+        opportunity={output.opportunity}
+        sessionId={output.sessionId}
+        stateIdentity={output.meta.basedOn.stateIdentity}
+        rulesetVersion={output.meta.readiness?.empiricalPatchClaim?.patch ?? output.meta.readiness?.rulesetTarget ?? null}
+        heroCatalog={heroCatalog}
+      />
       <CoachRoleBeliefs roleBeliefs={output.roleBeliefs} heroCatalog={heroCatalog} onAssignOwnPosition={onAssignOwnPosition} />
     </div>
   );

@@ -325,6 +325,8 @@ export interface CurrentDecisionOutput {
   decision: CurrentHumanDecision;
   roleBeliefs: { own: CoachRoleBelief[]; enemy: CoachRoleBelief[] };
   roleCollision?: CoachRoleCollision;
+  /** Safe Core: informational only, never part of `decision` (mirror of the engine's V4 `opportunity`). */
+  opportunity?: CoachOpportunity;
   meta: {
     round: 1 | 2 | 3 | null;
     phase: string | null;
@@ -390,6 +392,7 @@ export function parseCurrentDecisionOutput(value: unknown): CurrentDecisionOutpu
   if (!isRecord(value.roleBeliefs) || !Array.isArray(value.roleBeliefs.own) || !Array.isArray(value.roleBeliefs.enemy)
     || !value.roleBeliefs.own.every(isRoleBelief) || !value.roleBeliefs.enemy.every(isRoleBelief)) return null;
   if (value.roleCollision !== undefined && !isRoleCollision(value.roleCollision)) return null;
+  if (value.opportunity !== undefined && !isOpportunity(value.opportunity)) return null;
   const meta = value.meta;
   if (!isRecord(meta) || !isRecord(meta.basedOn) || typeof meta.basedOn.stateIdentity !== "string" || typeof meta.basedOn.evidenceVersion !== "string") return null;
   const roundOk = meta.round === null || meta.round === 1 || meta.round === 2 || meta.round === 3;

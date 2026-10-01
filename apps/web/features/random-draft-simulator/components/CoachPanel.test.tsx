@@ -216,18 +216,28 @@ test("CopilotPanel sin Coach (Captain's Mode / motor viejo) no muestra sección 
   expect(view.queryByTestId("coach-panel")).toBeNull();
 });
 
-// Product Semantics Recovery WP3 (COHERENCE-002): the personal "TU <POS> AHORA" / "solo tu asiento"
-// block was an independent, simultaneous current-action panel next to the primary action. It is no
-// longer rendered -- the V3 wire still carries personalHeroView (contract unchanged), the UI ignores it.
-for (const seatCovered of [true, false]) {
-  test(`personalHeroView (seatCovered: ${seatCovered}) NO se renderiza como panel de acción independiente`, () => {
-    const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered, heroes: seatCovered ? [] : [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
-    const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
-    expect(view.queryByTestId("coach-personal-hero-view")).toBeNull();
-    expect(view.container.textContent).not.toContain("TU MID AHORA");
-    expect(view.container.textContent).not.toContain("solo tu asiento");
-  });
-}
+// Greptile PR #9 (P1) -- Live Companion still runs on V3: the personal position / Hero Pool view the engine
+// sends in `personalHeroView` is shown there. (The Simulator never mounts CoachPanel under V4 -- see
+// CurrentDecisionPanel.test.tsx: no "TU <POS> AHORA" / "solo tu asiento" next to the V4 decision.)
+test("Live Companion / V3: personalHeroView con héroes se muestra (posición + Hero Pool)", () => {
+  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: false, heroes: [{ heroId: 7, rank: 1, score: 10, isFromPool: true }] } };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  const personal = view.getByTestId("coach-personal-hero-view");
+  expect(personal.textContent).toContain("TU MID AHORA");
+  expect(personal.textContent).toContain("Tu pool");
+  expect(personal.textContent).toContain("Héroe 7");
+});
+
+test("Live Companion / V3: personalHeroView con el asiento cubierto lo dice", () => {
+  const output: CoachOutput = { ...coach(ROLE_ACTION), personalHeroView: { position: 2, positionLabel: "TU MID AHORA", seatCovered: true, heroes: [] } };
+  const view = render(<CoachPanel coach={output} heroCatalog={new Map()} />);
+  expect(view.getByTestId("coach-personal-seat-covered").textContent).toBe("Tu posición ya está cubierta");
+});
+
+test("sin personalHeroView en la salida V3 no se renderiza ningún bloque personal", () => {
+  const view = render(<CoachPanel coach={coach(ROLE_ACTION)} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("coach-personal-hero-view")).toBeNull();
+});
 
 test("CoachPanel muestra aviso de degradación cuando patch_meta no está lista para votar", () => {
   const output: CoachOutput = {

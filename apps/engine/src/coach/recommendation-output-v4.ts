@@ -7,7 +7,7 @@ import type { RecommendationBasedOn, RecommendationDegradation, RoleImpactStatus
 import type { Confidence, HeroBadge } from "./hero-card";
 import type { RoleCollisionObservation } from "./observable-state";
 import type { CoachObservableState } from "./observable-state";
-import { displayBeliefs, type CoachTrigger, type RoleBeliefDisplay } from "./recommendation-output-v3";
+import { displayBeliefs, type CoachOpportunity, type CoachTrigger, type RoleBeliefDisplay } from "./recommendation-output-v3";
 
 // Product Semantics Recovery -- CONTRACT FREEZE: RecommendationOutputV4 / CurrentHumanDecision.
 //
@@ -95,6 +95,11 @@ export interface RecommendationOutputV4 {
   /** Observable role uncertainty (context for manual position assignment) -- never a decision surface. */
   roleBeliefs: { own: RoleBeliefDisplay[]; enemy: RoleBeliefDisplay[] };
   roleCollision?: RoleCollisionObservation;
+  /**
+   * Safe Core (Wave 4A) -- INFORMATIONAL only, never part of `decision`: it names no target, moves no view,
+   * changes no capacity and reorders no candidate. Absent (never null) unless curated public evidence supports it.
+   */
+  opportunity?: CoachOpportunity;
   meta: {
     round: 1 | 2 | 3 | null;
     phase: RankedApPhase | null;
@@ -123,6 +128,7 @@ export interface BuildRecommendationOutputV4Input {
   source: { basedOn: RecommendationBasedOn; readiness?: MetaReadiness };
   trigger: CoachTrigger;
   revision: number;
+  opportunity?: CoachOpportunity | null;
 }
 
 export function buildRecommendationOutputV4(input: BuildRecommendationOutputV4Input): RecommendationOutputV4 {
@@ -134,6 +140,7 @@ export function buildRecommendationOutputV4(input: BuildRecommendationOutputV4In
     decision: input.decision,
     roleBeliefs: { own: displayBeliefs(coachState.ownRoleBeliefs), enemy: displayBeliefs(coachState.enemyRoleBeliefs) },
     ...(coachState.roleCollision ? { roleCollision: coachState.roleCollision } : {}),
+    ...(input.opportunity ? { opportunity: input.opportunity } : {}),
     meta: {
       round: roundOf(phase),
       phase,
