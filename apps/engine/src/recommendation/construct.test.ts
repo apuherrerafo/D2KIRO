@@ -312,3 +312,29 @@ describe("Multi-Pick Package Position Column Alignment (construct.ts)", () => {
     expect(isCandidateAdmittedForPosition(20, 4, TEST_POSITIONS)).toBe(true);
   });
 });
+
+// Greptile PR #9 (P1, INV-BIND-001) -- an own hero whose evidence is Pos1-only but that the human
+// authoritatively bound to Pos5 must occupy Pos5, never Pos1, in the hard role-feasibility gate.
+describe("authoritative own bindings in role feasibility (construct.ts)", () => {
+  const ownHeroBoundOffRole = 40; // Pos1-only evidence
+  const pos1OnlyCandidate = 99;
+  const slot: RecommendationSlot = { side: "radiant", slotIndex: 1 };
+
+  function run(context: ConstructContext) {
+    const degradations: Parameters<typeof buildSingleRecommendations>[8] = [];
+    const recs = buildSingleRecommendations(context, [makeEntry(pos1OnlyCandidate, 90)], [ownHeroBoundOffRole], TEST_POSITIONS, undefined, slot, false, DUMMY_SUGGESTION_SET, degradations, 5, true);
+    return { recs, degradations };
+  }
+
+  test("bound to Pos5: a Pos1-only candidate stays role-feasible at the open Pos1", () => {
+    const { recs, degradations } = run({ ...makeContext(), ownConfirmedPositions: new Map<HeroId, Position>([[ownHeroBoundOffRole, 5]]) });
+    expect(recs.map((rec) => rec.actions[0]!.hero)).toEqual([pos1OnlyCandidate]);
+    expect(degradations.filter((degradation) => degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE")).toEqual([]);
+  });
+
+  test("without the binding, the same own hero is inferred at Pos1 and the candidate is dropped (lock is sensitive)", () => {
+    const { recs, degradations } = run(makeContext());
+    expect(recs).toEqual([]);
+    expect(degradations.some((degradation) => degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE")).toBe(true);
+  });
+});

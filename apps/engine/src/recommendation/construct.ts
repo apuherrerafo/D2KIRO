@@ -35,6 +35,12 @@ export interface ConstructContext {
   isLegal(hero: HeroId, slot: RecommendationSlot): boolean;
   /** Evidence appended after each hero's own evidence (ruleset identity, CM eligibility). */
   contextEvidence: readonly EvidenceItem[];
+  /**
+   * INV-BIND-001 -- authoritative own-team position bindings (session truth). Each bound own pick holds
+   * exactly its bound position in role feasibility, whatever its empirical evidence says. Feasibility
+   * only: never written back into HeroPositions. Absent -> own picks are inferred, as before.
+   */
+  ownConfirmedPositions?: ReadonlyMap<HeroId, Position>;
 }
 
 export function pushUniqueDegradation(list: RecommendationDegradation[], entry: RecommendationDegradation): void {
@@ -80,7 +86,7 @@ export function buildSingleRecommendations(
     });
     if (!targetSlot) continue;
 
-    const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions });
+    const roleImpact = computeRoleImpact({ ownPicks, candidates: [entry.hero], heroPositions, partyPreferredPositions, ownConfirmedPositions: context.ownConfirmedPositions });
     if (roleImpact.degradation) pushUniqueDegradation(degradations, roleImpact.degradation);
     if (requireRoleFeasibility && roleImpact.degradation?.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;
     const impact = roleImpact.impactByHero.get(entry.hero)!;
@@ -139,7 +145,7 @@ export function buildCompoundRecommendations(
     // assigned a position must never be recommendable merely with a caveat attached -- the next,
     // lower-scored-but-feasible pair takes its place because `combos` is already score-sorted
     // (shortlist.ts's buildCompoundCandidates) and this loop simply continues past the rejected one.
-    const roleImpact = computeRoleImpact({ ownPicks, candidates: [a.hero, b.hero], heroPositions, partyPreferredPositions });
+    const roleImpact = computeRoleImpact({ ownPicks, candidates: [a.hero, b.hero], heroPositions, partyPreferredPositions, ownConfirmedPositions: context.ownConfirmedPositions });
     if (roleImpact.degradation) {
       pushUniqueDegradation(degradations, roleImpact.degradation);
       if (roleImpact.degradation.reason === "ROLE_ASSIGNMENT_IMPOSSIBLE") continue;

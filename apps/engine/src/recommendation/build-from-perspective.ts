@@ -194,6 +194,9 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const constructContext: ConstructContext = {
     isLegal: (hero, slot) => isHeroSelectableFrom(context, hero, slot),
     contextEvidence: [evidenceFromRuleset(view.ruleset)],
+    // INV-BIND-001 (Greptile PR #9): a bound own hero occupies its bound position in role feasibility,
+    // so inference can never re-read it at its empirical position and steal a still-open one.
+    ...(context.ownAssignedPositions ? { ownConfirmedPositions: context.ownAssignedPositions } : {}),
   };
 
   let recommendations: Recommendation[] =
