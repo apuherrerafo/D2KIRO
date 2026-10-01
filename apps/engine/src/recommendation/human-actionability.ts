@@ -51,15 +51,15 @@ export function deriveHumanActionability(input: DeriveHumanActionabilityInput): 
 }
 
 /**
- * The eligible positions the round's heroes must jointly cover -- a SET, never a slot -> position
- * map. Defined only when every eligible position fits this round (`eligible === capacity`): then the
- * round's heroes must be assignable onto exactly those positions (any order), which is what keeps a
- * carry-only hero out of a Solo Pos2 round without tying any position to any slot. When more
- * positions are eligible than the round holds (Party5), no hero is excluded by eligibility alone.
+ * Every human-controlled position still open, whenever a human action exists -- a SET, never a
+ * slot -> position map, and never truncated to the round's capacity. It is an ADMISSION constraint
+ * for Coach recommendations: K recommended heroes must admit an injective assignment onto K DISTINCT
+ * members of this set (any order). It says nothing about which slot owns which position -- normal
+ * human round slots stay positionless (see `humanDecisionSlots`). `undefined` when no human may act.
  */
-export function roundCoveringPositions(actionability: HumanActionability | null | undefined): readonly Position[] | undefined {
+export function eligibleHumanPositions(actionability: HumanActionability | null | undefined): readonly Position[] | undefined {
   if (!actionability || !actionability.hasHumanAction) return undefined;
-  return actionability.eligiblePositions.length === actionability.roundCapacity ? actionability.eligiblePositions : undefined;
+  return actionability.eligiblePositions;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { deriveHumanActionability, humanDecisionSlots, roundCoveringPositions } from "./human-actionability";
+import { deriveHumanActionability, humanDecisionSlots, eligibleHumanPositions } from "./human-actionability";
 
 // WP1 -- the pure projection. Eligibility (which positions) is never truncated by capacity (how many).
 
@@ -101,14 +101,24 @@ describe("humanDecisionSlots", () => {
   });
 });
 
-describe("roundCoveringPositions (conjunto de elegibilidad, nunca un mapa slot -> posición)", () => {
-  test("lo elegible cabe entero en la ronda: devuelve el conjunto; si no cabe (Party5) o no hay acción: undefined", () => {
+describe("eligibleHumanPositions (conjunto de elegibilidad completo, nunca un mapa slot -> posición)", () => {
+  test("toda posición elegible se conserva aunque no quepa en la ronda (Party3 [1,3,5] cap 2, Party5); sin acción humana o sin datos: undefined", () => {
     const fits = deriveHumanActionability({ humanOpenPositions: [5, 2], openOwnRoundSlots: 2, yieldedCurrentRound: false, draftComplete: false });
+    const party3 = deriveHumanActionability({ humanOpenPositions: [5, 1, 3], openOwnRoundSlots: 2, yieldedCurrentRound: false, draftComplete: false });
     const party5 = deriveHumanActionability({ humanOpenPositions: [1, 2, 3, 4, 5], openOwnRoundSlots: 2, yieldedCurrentRound: false, draftComplete: false });
     const yielded = deriveHumanActionability({ humanOpenPositions: [2, 5], openOwnRoundSlots: 2, yieldedCurrentRound: true, draftComplete: false });
-    expect(roundCoveringPositions(fits)).toEqual([2, 5]);
-    expect(roundCoveringPositions(party5)).toBeUndefined();
-    expect(roundCoveringPositions(yielded)).toBeUndefined();
-    expect(roundCoveringPositions(null)).toBeUndefined();
+    expect(eligibleHumanPositions(fits)).toEqual([2, 5]);
+    expect(eligibleHumanPositions(party3)).toEqual([1, 3, 5]);
+    expect(party3.roundCapacity).toBe(2);
+    expect(eligibleHumanPositions(party5)).toEqual([1, 2, 3, 4, 5]);
+    expect(eligibleHumanPositions(yielded)).toBeUndefined();
+    expect(eligibleHumanPositions(null)).toBeUndefined();
+  });
+
+  test("el conjunto de elegibilidad no crea posiciones en los slots de ronda", () => {
+    const party3 = deriveHumanActionability({ humanOpenPositions: [1, 3, 5], openOwnRoundSlots: 2, yieldedCurrentRound: false, draftComplete: false });
+    const decisionSlots = humanDecisionSlots(party3, slots(2));
+    expect(decisionSlots).toHaveLength(2);
+    for (const slot of decisionSlots) expect("position" in slot).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions
 import type { SuggestionSet } from "../signals/mix";
 import { buildCompoundRecommendations, buildSingleRecommendations, pushUniqueDegradation, type ConstructContext } from "./construct";
 import { evidenceFromRuleset, evidenceIdentityHash, type FunctionalRecommendationEvidence } from "./evidence";
-import { deriveHumanActionability, humanDecisionSlots, roundCoveringPositions, type HumanActionability } from "./human-actionability";
+import { deriveHumanActionability, humanDecisionSlots, eligibleHumanPositions, type HumanActionability } from "./human-actionability";
 import { buildBasedOn } from "./identity";
 import { isHeroSelectableFrom, unavailableHeroesFrom, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "./perspective-context";
 import { buildShortlist } from "./shortlist";
@@ -191,15 +191,15 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const ownPicks: HeroId[] = derivePerspectiveSuggestionInputs(view).ownPicks;
   const metaIsStale = suggestionSet.degraded.includes("stale_meta");
   const sortedControlledSlots = [...decision.controlledSlots].sort((a, b) => a.slotIndex - b.slotIndex);
-  const coveringPositions = roundCoveringPositions(decision.humanActionability);
+  const eligiblePositions = eligibleHumanPositions(decision.humanActionability);
   const constructContext: ConstructContext = {
     isLegal: (hero, slot) => isHeroSelectableFrom(context, hero, slot),
     contextEvidence: [evidenceFromRuleset(view.ruleset)],
     // INV-BIND-001 (Greptile PR #9): a bound own hero occupies its bound position in role feasibility,
     // so inference can never re-read it at its empirical position and steal a still-open one.
     ...(context.ownAssignedPositions ? { ownConfirmedPositions: context.ownAssignedPositions } : {}),
-    // PD-001: eligibility admits heroes as a SET; no position is ever attached to a round slot.
-    ...(coveringPositions ? { coveringPositions } : {}),
+    // PD-001: the eligible human positions admit heroes as a SET (injective, any order); no position is ever attached to a round slot.
+    ...(eligiblePositions ? { eligibleHumanPositions: eligiblePositions } : {}),
   };
 
   let recommendations: Recommendation[] =
