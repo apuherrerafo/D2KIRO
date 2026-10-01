@@ -1,0 +1,19 @@
+fileType: momentic/test/v2
+id: oracle-party5-first-human-pick
+name: Product Oracle — Party5 first pick consumes one position and one unit of round capacity
+url: https://d2kiro-5r4j-staging.up.railway.app
+steps:
+  - module: ../modules/authenticated-staging.module.yaml
+  - click: The "Radiant" side option
+  - click: The "Party 5" party size option
+  - click: The "Posición 2 — Midlane" personal position option
+  - click: The "Iniciar Draft" button
+  - checkPageContains:
+      text: Ronda 1
+      timeout: 20000
+  - click: The "Elegir para Pos3 Offlane" position button
+  - click: Any selectable hero portrait in the hero grid that is not banned, dimmed or disabled
+  - assert: Pos3 Offlane is no longer listed as pending and now shows the hero that was just chosen, and the roster slot for Pos3 Offlane shows that hero
+  - assert: Exactly four human positions (Pos1, Pos2, Pos4, Pos5) are still listed as pending
+  - assert: The Round 1 header shows Round 1 and exactly 1 pick space/capacity remaining
+  - assert: The Copilot recommendation area was recomputed after the pick and no longer offers option cards for Pos3 Offlane
