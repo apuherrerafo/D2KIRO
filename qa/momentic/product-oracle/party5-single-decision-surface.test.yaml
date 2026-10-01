@@ -1,0 +1,17 @@
+fileType: momentic/test/v2
+id: oracle-party5-single-decision
+name: Product Oracle — Party5 Round1 shows one canonical current-decision surface
+url: https://d2kiro-5r4j-staging.up.railway.app
+steps:
+  - module: ../modules/authenticated-staging.module.yaml
+  - click: The "Radiant" side option
+  - click: The "Party 5" party size option
+  - click: The "Posición 2 — Midlane" personal position option
+  - click: The "Iniciar Draft" button
+  - checkPageContains:
+      text: Ronda 1
+      timeout: 20000
+  - assert: Exactly one panel tells the user what to do now in the current decision (the Copilot current-decision-panel with its target and candidate section)
+  - checkPageDoesNotContain: TU MID AHORA
+  - assert: There is no separate personal-position panel (such as "Vista personal / Hero Pool" or coach-personal-hero-view) and no legacy round recommendation columns competing with the main decision surface
+  - assert: There is no second recommendation panel or competing current-action recommendation surface

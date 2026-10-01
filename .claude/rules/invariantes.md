@@ -90,7 +90,15 @@ quedaba enterrado bajo el relato de cómo se llegó ahí. Los resúmenes de fase
   `hero-counters.json`, `percentiles.json`, las SQLite, el Golden Dataset): fixtures inline. Esos
   archivos se regeneran por parche — un test atado a su contenido no falla al romperse el código,
   falla al cambiar el meta.
-- **Cero red real** en cualquier prueba. Fixtures grabados.
+- **Cero red real** en toda prueba automatizada hermética (unitaria, de integración, de regresión,
+  de protocolo determinista, de scoring) — todo lo que corre `bun run test`. Fixtures inline,
+  grabados o sintéticos.
+- **Excepción acotada: validación explícita del producto desplegado.** El smoke autenticado de
+  staging (`bun run qa:staging-smoke`), la certificación de release contra staging y los Momentic
+  Product Oracles (`qa/momentic/`) sí usan red real, **sólo** contra el deploy designado de
+  staging, porque su objeto es validar el producto desplegado. Condiciones: comando explícito
+  opt-in, **nunca** dentro de `bun run test`; estado de auth y secretos fuera del repo
+  (`.qa-auth/`, ignorado); separados de la suite hermética.
 - Cada `SignalScorer` tiene su archivo de prueba propio, aislado de los demás.
 - **Un candado se verifica en rojo antes de darlo por bueno.** Si la prueba pasa con y sin el
   arreglo, no es un candado.
