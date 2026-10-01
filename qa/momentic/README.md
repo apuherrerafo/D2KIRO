@@ -3,6 +3,16 @@
 Definiciones deterministas de los oráculos de producto contra staging. Todo lo versionado aquí es
 no secreto; el estado de autenticación vive **fuera** del repo.
 
+## Categoría: validación del producto desplegado, no suite hermética
+
+Estos oráculos usan **red real contra el deploy de staging** a propósito: validan el producto
+desplegado, igual que `bun run qa:staging-smoke`. Es la excepción acotada que define
+`.claude/rules/invariantes.md` (sección Pruebas) a "cero red real" — que sigue rigiendo sin
+excepción para toda la suite hermética de `bun run test`.
+
+- Se corren **sólo** con un comando explícito (ver "Correr"); `bun run test` nunca los ejecuta.
+- El estado de auth y cualquier secreto quedan fuera del repo.
+
 ## Qué está versionado
 
 - `momentic.config.yaml` (raíz) — configuración del proyecto Momentic, genérica.
