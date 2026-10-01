@@ -8,7 +8,6 @@ import type { OwnAssignedPositionBinding, RecommendationPosition } from "../prot
 import {
   controllerForPosition,
   enemyRoleBeliefLabel,
-  rosterSeatForRoundSlot,
   SIMULATOR_POSITION_LABELS,
   SIMULATOR_POSITIONS,
   type SimulatorController,
@@ -100,32 +99,14 @@ function picksByRosterSeat(picks: readonly HeroId[]): Map<number, HeroId> {
 }
 
 /**
- * PD-026/PD-027 -- Own Team hero-by-position, reconstructed from the session-layer binding
- * (`ownAssignedPositions`), never from a fixed seat<->position table. Only CLOSED rounds' bindings
- * are cross-referenced against the seat-ordered `picks` array (safe: that ordering is settled once
- * a round resolves); the CURRENT in-progress attempt's picks come straight from `phase.lockedUserPicks`,
- * already keyed by position from this client's own successful submission -- the live array's
- * mid-round seat ordering is never assumed.
+ * PD-026/PD-027 -- Own Team hero-by-position, read straight from the server projection
+ * (`ownAssignedPositions`: each binding already carries the heroId the engine joined against
+ * authoritative kernel state on (round, slotIndex)). Never reconstructed from pick chronology,
+ * array order, seat arithmetic or `lockedUserPicks` -- position != pick order != slot. A binding
+ * pruned by a collision simply is not here, so only the reopened position shows as unpicked.
  */
-function ownPicksByPosition(
-  picks: readonly HeroId[],
-  phase: DraftPhase,
-  bindings: readonly OwnAssignedPositionBinding[],
-): Map<RecommendationPosition, HeroId> {
-  const completedSeatCount = phase.type === "blind_round" ? (phase.round === 1 ? 0 : phase.round === 2 ? 2 : 4) : picks.length;
-  const byPosition = new Map<RecommendationPosition, HeroId>();
-  for (const binding of bindings) {
-    const seat = rosterSeatForRoundSlot(binding.round, binding.slotIndex);
-    if (seat >= completedSeatCount) continue;
-    const heroId = picks[seat];
-    if (heroId !== undefined) byPosition.set(binding.assignedPosition, heroId);
-  }
-  if (phase.type === "blind_round") {
-    for (const [position, heroId] of Object.entries(phase.lockedUserPicks)) {
-      if (heroId !== undefined) byPosition.set(Number(position) as RecommendationPosition, heroId);
-    }
-  }
-  return byPosition;
+function ownPicksByPosition(bindings: readonly OwnAssignedPositionBinding[]): Map<RecommendationPosition, HeroId> {
+  return new Map(bindings.map((binding) => [binding.assignedPosition, binding.heroId]));
 }
 
 interface OwnRosterSideProps {
@@ -193,6 +174,7 @@ function EnemyRosterSide({ bySeat, heroCatalog, roleBeliefs }: EnemyRosterSidePr
 export interface SimulatorTeamRosterProps {
   draftState: DraftState;
   config: DraftConfig;
+  /** Not used for Own Team reconstruction (server projection is the only source); kept for the caller's contract. */
   phase: DraftPhase;
   heroCatalog: Map<number, HeroMeta>;
   /** PD-026/PD-027 -- Own Team's session-layer position binding (ProtocolSnapshot.ownAssignedPositions). */
@@ -202,13 +184,12 @@ export interface SimulatorTeamRosterProps {
 }
 
 /** Own Team: persistent Pos1-5 identity, known session truth. Enemy: reveal order + Coach inference only (PD-027). */
-export function SimulatorTeamRoster({ draftState, config, phase, heroCatalog, ownAssignedPositions, enemyRoleBeliefs }: SimulatorTeamRosterProps) {
-  const own = draftState.localSide === "dire" ? draftState.picks.dire : draftState.picks.radiant;
+export function SimulatorTeamRoster({ draftState, config, heroCatalog, ownAssignedPositions, enemyRoleBeliefs }: SimulatorTeamRosterProps) {
   const enemy = draftState.localSide === "dire" ? draftState.picks.radiant : draftState.picks.dire;
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="team-roster">
       <span className="text-heading text-content-primary">Roster Pos1-5</span>
-      <OwnRosterSide byPosition={ownPicksByPosition(own, phase, ownAssignedPositions)} config={config} heroCatalog={heroCatalog} />
+      <OwnRosterSide byPosition={ownPicksByPosition(ownAssignedPositions)} config={config} heroCatalog={heroCatalog} />
       <EnemyRosterSide bySeat={picksByRosterSeat(enemy)} heroCatalog={heroCatalog} roleBeliefs={enemyRoleBeliefs} />
     </div>
   );

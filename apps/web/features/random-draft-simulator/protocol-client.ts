@@ -52,11 +52,17 @@ export interface SimulatorTimerView {
   penaltyRatePerSecond: number;
 }
 
-/** PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only. Espejo a mano de OwnPickPositionBinding (engine, server/protocol-session.ts). */
+/**
+ * PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only. Espejo a mano
+ * de OwnAssignedPositionProjection (engine, server/protocol-session.ts). `heroId` lo une el servidor
+ * contra el estado autoritativo del kernel por (round, slotIndex): este cliente nunca lo deduce de
+ * la cronología de picks, del orden del array ni de la aritmética de asientos.
+ */
 export interface OwnAssignedPositionBinding {
   round: 1 | 2 | 3;
   slotIndex: number;
   assignedPosition: 1 | 2 | 3 | 4 | 5;
+  heroId: HeroId;
 }
 
 /**
@@ -170,7 +176,20 @@ function isDotaPosition(value: unknown): value is 1 | 2 | 3 | 4 | 5 {
 
 function isOwnAssignedPositionBinding(value: unknown): value is OwnAssignedPositionBinding {
   if (!isRecord(value)) return false;
-  return (value.round === 1 || value.round === 2 || value.round === 3) && typeof value.slotIndex === "number" && isDotaPosition(value.assignedPosition);
+  const slotIndexOk = typeof value.slotIndex === "number" && Number.isInteger(value.slotIndex) && value.slotIndex >= 0;
+  return (value.round === 1 || value.round === 2 || value.round === 3) && slotIndexOk && isDotaPosition(value.assignedPosition) && isHeroId(value.heroId);
+}
+
+/**
+ * Las bindings son hechos del roster propio: una lista con un elemento malformado, o con una
+ * posición/héroe repetido, se descarta ENTERA (`[]`) en vez de confiar en parte de ella.
+ */
+function parseOwnAssignedPositions(value: unknown): OwnAssignedPositionBinding[] {
+  if (!Array.isArray(value) || !value.every(isOwnAssignedPositionBinding)) return [];
+  const positions = new Set(value.map((binding) => binding.assignedPosition));
+  const heroes = new Set(value.map((binding) => binding.heroId));
+  if (positions.size !== value.length || heroes.size !== value.length) return [];
+  return value.map((binding) => ({ round: binding.round, slotIndex: binding.slotIndex, assignedPosition: binding.assignedPosition, heroId: binding.heroId }));
 }
 
 function parseHumanActionability(value: unknown): HumanActionability | null {
@@ -196,9 +215,7 @@ function parseSnapshot(value: unknown): ProtocolSnapshot | null {
   const captainsModeOk = view.captainsMode === undefined || view.captainsMode === null || isValidCaptainsModeView(view.captainsMode);
   if (!rankedApOk || !captainsModeOk) return null;
   if (view.rankedAp === null && (view.captainsMode === undefined || view.captainsMode === null)) return null;
-  const ownAssignedPositions = Array.isArray(value.ownAssignedPositions) && value.ownAssignedPositions.every(isOwnAssignedPositionBinding)
-    ? value.ownAssignedPositions
-    : [];
+  const ownAssignedPositions = parseOwnAssignedPositions(value.ownAssignedPositions);
   // P0-3 (INV-YIELD-001): absent (non-AP-Simulator / legacy session, or a response shape from
   // before this field existed) degrades to `false` -- never manufactures Yield eligibility.
   const canYield = value.canYield === true;
