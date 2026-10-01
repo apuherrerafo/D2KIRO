@@ -95,6 +95,16 @@ function isFromPersonalPool(candidate: HeroCandidate): boolean {
   return candidate.signals.some((signal) => signal.signal === "hero_pool_fit" && signal.explanation.startsWith("En tu pool"));
 }
 
+/**
+ * COHERENCE-007 provenance (Greptile PR #9): did the Personal Hero Pool actually vote in THIS ranking?
+ * Read from the ranking's own `hero_pool_fit` signal -- `applicable: false` for a pool that is absent or
+ * empty -- never approximated from "an account is present".
+ */
+export function rankingAppliedPersonalPool(ranking: RecommendationSetV2): boolean {
+  return ranking.recommendations.some((recommendation) =>
+    Object.values(recommendation.signalsByHero).some((signals) => signals.some((signal) => signal.signal === "hero_pool_fit" && signal.applicable === true)));
+}
+
 /** Legal heroes curated as credible for the target, in id order (explicitly NOT a ranking). */
 function positionalAlternatives(target: Position, view: PerspectiveDraftView, heroPositions: HeroPositions, size: number): PositionalAlternative[] {
   const unavailable = unavailableHeroesFrom(view);

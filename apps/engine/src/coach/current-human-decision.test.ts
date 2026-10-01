@@ -4,6 +4,7 @@ import type { FunctionalRecommendationEvidence } from "../recommendation/evidenc
 import type { DegradationFlag, Suggestion, SuggestionSet } from "../signals/mix";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { SignalContribution } from "../signals/types";
+import { heroPoolFitScorer } from "../signals/hero-pool-fit";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "../server/routes/protocol-sessions";
 import { RANKING_INVALIDATING_REASONS } from "./current-human-decision";
@@ -27,6 +28,11 @@ interface FixtureOptions {
   throws?: boolean;
   /** Heroes the account's pool overlay marks "En tu pool" (only when an accountId reaches V6). */
   pool?: readonly number[];
+  /**
+   * Per-account configured Hero Pool, scored by the REAL `heroPoolFitScorer` (absent/empty pool ->
+   * `applicable: false`, exactly like an account overlay without pool rows). No accountId -> no pool.
+   */
+  accountPools?: ReadonlyMap<number, readonly number[]>;
   calls?: { accountId: number | null; targetPosition?: Position }[];
 }
 
@@ -44,6 +50,11 @@ function fixtureCompute(options: FixtureOptions = {}): ComputeSuggestionsForDraf
       ];
       if (accountId !== null && options.pool?.includes(hero)) {
         signals.push({ signal: "hero_pool_fit", raw: 1, normalized: 100, evidenceConfidence: 1, weighted: 1, explanation: "En tu pool de héroes", sampleSize: 1, applicable: true });
+      }
+      if (options.accountPools) {
+        const heroPool = (accountId === null ? [] : options.accountPools.get(accountId) ?? [])
+          .map((poolHero) => ({ hero: poolHero, source: "manual" as const, personalWinrate: null, personalGames: 0, updatedAt: "2026-09-30" }));
+        signals.push(heroPoolFitScorer.score(state, hero, { heroes: {}, matchups: {}, heroPool }));
       }
       return { hero, rank: Math.min(index + 1, 6) as Suggestion["rank"], score: 100 - index, signals, reason: "fixture", confidence: "alta" as const, evidenceCoverage: 1, guessingIndex: 0 };
     });
@@ -297,6 +308,55 @@ describe("WP2 -- Personal Hero Pool sólo para la posición personal", () => {
     expect(calls.every((call) => call.accountId === null)).toBe(true);
     if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
     expect(decision.candidates.cards.every((card) => card.isFromPool === false)).toBe(true);
+  });
+});
+
+// Greptile PR #9 (P2) -- personalPoolApplied is provenance: true only when the pool really voted in the
+// ranking. Authentication alone is not a pool.
+describe("personalPoolApplied refleja si el pool realmente votó, no si hay cuenta", () => {
+  const ACCOUNT_WITHOUT_POOL = 7001;
+  const ACCOUNT_WITH_POOL = 4242;
+  const accountPools = new Map<number, readonly number[]>([[ACCOUNT_WITH_POOL, [201, 300]]]);
+
+  async function decisionFor(accountId: number | null, target: Position | null, calls: NonNullable<FixtureOptions["calls"]>) {
+    const s = await session([2, 3], { humanPosition: 2, accountPools, calls });
+    const query = target === null ? "format=v4" : `format=v4&target=${target}`;
+    const response = await s.routes.getRecommendations(s.sessionId, new URL(`http://127.0.0.1/x?${query}`), accountId);
+    expect(response.status).toBe(200);
+    return actionable(((await response.json()) as { output: RecommendationOutputV4 }).output);
+  }
+
+  test("A: autenticado SIN pool configurado, viendo su posición personal -> false (la cuenta sí llegó a V6)", async () => {
+    const calls: NonNullable<FixtureOptions["calls"]> = [];
+    const decision = await decisionFor(ACCOUNT_WITHOUT_POOL, null, calls);
+    expect(decision.viewedPosition).toBe(2);
+    expect(calls.some((call) => call.accountId === ACCOUNT_WITHOUT_POOL)).toBe(true);
+    expect(decision.personalPoolApplied).toBe(false);
+    if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
+    expect(decision.candidates.cards.every((card) => card.isFromPool === false)).toBe(true);
+  });
+
+  test("B: autenticado CON pool, viendo su posición personal -> true y la carta del pool se marca", async () => {
+    const decision = await decisionFor(ACCOUNT_WITH_POOL, null, []);
+    expect(decision.viewedPosition).toBe(2);
+    expect(decision.personalPoolApplied).toBe(true);
+    if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
+    expect(decision.candidates.cards.filter((card) => card.isFromPool).map((card) => card.heroId)).toEqual([201]);
+  });
+
+  test("C: la misma cuenta con pool, viendo OTRA posición -> false y ninguna marca (aunque el pool tenga héroes de esa posición)", async () => {
+    const calls: NonNullable<FixtureOptions["calls"]> = [];
+    const decision = await decisionFor(ACCOUNT_WITH_POOL, 3, calls);
+    expect(decision.viewedPosition).toBe(3);
+    expect(decision.personalPoolApplied).toBe(false);
+    expect(calls.every((call) => call.accountId === null)).toBe(true);
+    if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
+    expect(decision.candidates.cards.every((card) => card.isFromPool === false)).toBe(true);
+  });
+
+  test("D: anónimo -> false", async () => {
+    const decision = await decisionFor(null, null, []);
+    expect(decision.personalPoolApplied).toBe(false);
   });
 });
 

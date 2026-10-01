@@ -11,7 +11,7 @@ import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
 import { translateToRecommendationOutputV3, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
 import { deriveRevealStrategy } from "./reveal-strategy";
-import { buildCurrentHumanDecision, deriveCandidateResult, resolveViewedPosition, selectDecisionTarget } from "./current-human-decision";
+import { buildCurrentHumanDecision, deriveCandidateResult, rankingAppliedPersonalPool, resolveViewedPosition, selectDecisionTarget } from "./current-human-decision";
 import { buildRecommendationOutputV4, type RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // AP Ranked Roles V1 / Wave 2 (task 19) -- Coach orchestration: one continuous pipeline
@@ -77,7 +77,7 @@ export interface CoachRecomputeInput {
 }
 
 export interface CurrentDecisionRecomputeInput extends CoachRecomputeInput {
-  /** The authenticated account's pool overlay exists for this request (personal pool CAN apply). */
+  /** An authenticated account is present, so its pool overlay CAN be requested. Whether it applied is read from the ranking. */
   personalPoolAvailable?: boolean;
   /** Position the Player chose to view in the selector (validated as eligible by selectDecisionTarget). */
   requestedTarget?: Position | null;
@@ -263,9 +263,11 @@ export class CoachOrchestrator {
       const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget);
-      // COHERENCE-007: the Personal Hero Pool may shape the active candidates ONLY when the viewed position is the personal one.
-      const personalPoolApplied = input.personalPoolAvailable === true && personal !== null && viewed === personal;
-      const targetRanking = await buildTargetRanking(input.context, viewed, personalPoolApplied);
+      // COHERENCE-007: the Personal Hero Pool may shape the active candidates ONLY when the viewed position is the personal one...
+      const usePersonalPool = input.personalPoolAvailable === true && personal !== null && viewed === personal;
+      const targetRanking = await buildTargetRanking(input.context, viewed, usePersonalPool);
+      // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
+      const personalPoolApplied = usePersonalPool && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
       const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied });

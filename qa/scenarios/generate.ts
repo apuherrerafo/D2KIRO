@@ -27,6 +27,7 @@
  */
 import type { DraftState } from "../../apps/engine/src/draft/reducer";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
+import { heroPoolFitScorer } from "../../apps/engine/src/signals/hero-pool-fit";
 import type { SuggestionSet } from "../../apps/engine/src/signals/mix";
 import type { HeroUniverse } from "../../apps/engine/src/simulator/ban-resolution";
 import { ProtocolSessionStore } from "../../apps/engine/src/server/protocol-session";
@@ -65,46 +66,57 @@ export function humanHeroFor(position: Position): number {
  * degrades silently into SNAPSHOT_UNAVAILABLE, which the invariant oracle must never mistake for a
  * real, actionable result). Always returns non-empty suggestions while any position hero remains
  * untaken -- deterministic, no network, no curated dataset.
+ *
+ * `accountPools` (COHERENCE-007 account-backed coverage only; omitted by the ownership matrix, whose
+ * output is then unchanged): each account's configured Hero Pool. The pool signal is the REAL
+ * `heroPoolFitScorer` over the account overlay the route asked for (no accountId -> empty pool ->
+ * `applicable: false`), and in-pool heroes lead the order -- a ranking the pool visibly shaped.
  */
-const computeSuggestions: ComputeSuggestionsForDraftState = async (state: DraftState, _accountId, options): Promise<SuggestionSet> => {
-  const taken = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
-  // Ally/Enemy Bot decisions post-validate that the chosen hero lies within the candidate universe
-  // they requested (position-credible heroes for that seat) -- honoring `candidateHeroIds` here is
-  // required, not optional, or every bot decision is rejected as "no valid candidate".
-  const basePool = options?.candidateHeroIds ?? Object.keys(HERO_POSITIONS).map(Number);
-  const pool = basePool.filter((hero) => !taken.has(hero));
-  const heroes = pool.slice(0, 6);
-  return {
-    schema: "suggestions/v1",
-    sessionId: state.sessionId,
-    basedOnSeq: state.lastSeq,
-    decisionContext: "team_opening",
-    suggestions: heroes.map((hero, index) => ({
-      hero,
-      rank: (index + 1) as 1 | 2 | 3 | 4 | 5 | 6,
-      score: 100 - index,
-      signals: [],
-      reason: "qa fixture (deterministic, no network, no curated dataset)",
-      confidence: "alta" as const,
-      evidenceCoverage: 1,
-      guessingIndex: 0,
-    })),
-    comparison: null,
-    degraded: [],
-    computedInMs: 0,
-    // REQUIRED at runtime despite the optional `?` in the type: build-from-perspective.ts / build.ts
-    // degrade to SNAPSHOT_UNAVAILABLE and an EMPTY recommendation set the instant this is falsy
-    // ("computeSuggestions no entregó evidencia funcional"). Omitting it is exactly the vacuous-pass
-    // failure mode task section 8 warns about ("[] == []" must never count as correctness) -- keep it.
-    functionalEvidence: {
-      metaIsStale: false,
-      signalEvidence: heroes.map((hero) => ({ hero, signals: [] })),
-      heroPositions: [],
-      teamOpening: null,
-      partyPreferredPositions: [],
-    },
+function createComputeSuggestions(accountPools?: ReadonlyMap<number, readonly number[]>): ComputeSuggestionsForDraftState {
+  return async (state: DraftState, accountId, options): Promise<SuggestionSet> => {
+    const taken = new Set([...state.banned, ...state.picks.radiant, ...state.picks.dire]);
+    // Ally/Enemy Bot decisions post-validate that the chosen hero lies within the candidate universe
+    // they requested (position-credible heroes for that seat) -- honoring `candidateHeroIds` here is
+    // required, not optional, or every bot decision is rejected as "no valid candidate".
+    const basePool = options?.candidateHeroIds ?? Object.keys(HERO_POSITIONS).map(Number);
+    let pool = basePool.filter((hero) => !taken.has(hero));
+    const heroPool = (accountId === null ? [] : accountPools?.get(accountId) ?? [])
+      .map((hero) => ({ hero, source: "manual" as const, personalWinrate: null, personalGames: 0, updatedAt: "2026-09-30" }));
+    if (accountPools) pool = [...pool].sort((a, b) => Number(heroPool.some((entry) => entry.hero === b)) - Number(heroPool.some((entry) => entry.hero === a)));
+    const signalsFor = (hero: number) => (accountPools ? [heroPoolFitScorer.score(state, hero, { heroes: {}, matchups: {}, heroPool })] : []);
+    const heroes = pool.slice(0, 6);
+    return {
+      schema: "suggestions/v1",
+      sessionId: state.sessionId,
+      basedOnSeq: state.lastSeq,
+      decisionContext: "team_opening",
+      suggestions: heroes.map((hero, index) => ({
+        hero,
+        rank: (index + 1) as 1 | 2 | 3 | 4 | 5 | 6,
+        score: 100 - index,
+        signals: signalsFor(hero),
+        reason: "qa fixture (deterministic, no network, no curated dataset)",
+        confidence: "alta" as const,
+        evidenceCoverage: 1,
+        guessingIndex: 0,
+      })),
+      comparison: null,
+      degraded: [],
+      computedInMs: 0,
+      // REQUIRED at runtime despite the optional `?` in the type: build-from-perspective.ts / build.ts
+      // degrade to SNAPSHOT_UNAVAILABLE and an EMPTY recommendation set the instant this is falsy
+      // ("computeSuggestions no entregó evidencia funcional"). Omitting it is exactly the vacuous-pass
+      // failure mode task section 8 warns about ("[] == []" must never count as correctness) -- keep it.
+      functionalEvidence: {
+        metaIsStale: false,
+        signalEvidence: heroes.map((hero) => ({ hero, signals: [] })),
+        heroPositions: [],
+        teamOpening: null,
+        partyPreferredPositions: [],
+      },
+    };
   };
-};
+}
 
 export type Routes = ReturnType<typeof createProtocolSessionRoutes>;
 
@@ -129,12 +141,13 @@ export function heroUniverseFor(heroPositions: HeroPositions): HeroUniverse {
  * flexible hero (credible at 2+ positions, weighted AWAY from the bound one) can expose. Every
  * EXISTING no-arg call site (the 26x2x3 ownership matrix) is byte-identical: `HERO_POSITIONS` and
  * `heroUniverseFor(HERO_POSITIONS)` reproduce exactly what this function built before this change.
+ * Optional `accountPools` (account-backed COHERENCE-007): see `createComputeSuggestions`.
  */
-export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS): { store: ProtocolSessionStore; routes: Routes } {
+export function createFixtureRoutes(heroPositions: HeroPositions = HERO_POSITIONS, accountPools?: ReadonlyMap<number, readonly number[]>): { store: ProtocolSessionStore; routes: Routes } {
   const store = new ProtocolSessionStore();
   const routes = createProtocolSessionRoutes({
     store,
-    computeSuggestions,
+    computeSuggestions: createComputeSuggestions(accountPools),
     heroPositions,
     heroUniverse: async () => heroUniverseFor(heroPositions),
   });

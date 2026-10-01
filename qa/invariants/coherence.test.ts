@@ -171,6 +171,65 @@ describe("COHERENCE-007 -- the personal pool applies only when the target is the
   }
 });
 
+// Greptile PR #9 (P2) -- the matrix above is anonymous, so personalPoolApplied is always false there and
+// a pool leak into another position would leave it green. This focused scenario sends a REAL account
+// through the route, with a configured pool holding one hero of each human position.
+describe("COHERENCE-007 (account-backed) -- a configured pool shapes the personal position and never another", () => {
+  const ACCOUNT = 4242;
+  // Offset 19: never inside the fixture's natural top-6 for its position, so it only shows up if the pool put it there.
+  const POOL_POS2 = 219;
+  const POOL_POS3 = 319;
+  const PERSONAL: Position = 2;
+  const OTHER: Position = 3;
+
+  async function v4At(routes: ReturnType<typeof createFixtureRoutes>["routes"], sessionId: string, accountId: number | null, target: Position | null) {
+    const query = target === null ? "format=v4" : `format=v4&target=${target}`;
+    const response = await routes.getRecommendations(sessionId, new URL(`http://qa.local/${sessionId}/recommendations?${query}`), accountId);
+    expect(response.status).toBe(200);
+    const { output } = (await response.json()) as { output: PublicV4 };
+    expect(output.decision.kind).toBe("ACTIONABLE");
+    return output.decision as Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>;
+  }
+  const rankedHeroes = (decision: Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>) => (decision.candidates.state === "RANKED" ? decision.candidates.cards.map((card) => card.heroId) : []);
+  const poolCards = (decision: Extract<PublicV4["decision"], { kind: "ACTIONABLE" }>) => (decision.candidates.state === "RANKED" ? decision.candidates.cards.filter((card) => card.isFromPool).map((card) => card.heroId) : []);
+
+  test("viewing P (personal) the pool applies; navigating to Q it does not, and Q's ranking carries no pool overlay", async () => {
+    const { routes } = createFixtureRoutes(undefined, new Map([[ACCOUNT, [POOL_POS2, POOL_POS3]]]));
+    const postJson = (body: unknown) => new Request("http://qa.local/x", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const created = await routes.post(postJson({
+      rulesetId: "dota2/ranked-all-pick",
+      patch: "7.41f",
+      localSide: "radiant",
+      adapterKind: "simulator",
+      partyContext: { partySize: 2, side: "radiant", controlledSlots: [] },
+      controlledPositions: [PERSONAL, OTHER],
+      humanPosition: PERSONAL,
+      simulatorSeed: "COH007-ACCOUNT",
+    }));
+    expect(created.status).toBe(201);
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    expect((await routes.postResolveBans(postJson({ playerBanPreferences: [] }), sessionId)).status).toBe(200);
+    expect(((await (await routes.postAutoDrive(sessionId)).json()) as { stopReason?: string }).stopReason).toBe("human_input");
+
+    const personal = await v4At(routes, sessionId, ACCOUNT, null);
+    expect(personal.actionablePositions).toEqual([PERSONAL, OTHER]);
+    expect(personal.viewedPosition).toBe(PERSONAL);
+    expect(personal.personalPoolApplied).toBe(true);
+    expect(poolCards(personal)).toEqual([POOL_POS2]);
+    expect(rankedHeroes(personal)[0]).toBe(POOL_POS2);
+
+    const other = await v4At(routes, sessionId, ACCOUNT, OTHER);
+    const otherAnonymous = await v4At(routes, sessionId, null, OTHER);
+    expect(other.viewedPosition).toBe(OTHER);
+    expect(other.targetPosition).toBe(PERSONAL);
+    expect(other.personalPoolApplied).toBe(false);
+    expect(poolCards(other)).toEqual([]);
+    expect(rankedHeroes(other)).not.toContain(POOL_POS3);
+    expect(rankedHeroes(other).length).toBeGreaterThan(0);
+    expect(rankedHeroes(other)).toEqual(rankedHeroes(otherAnonymous));
+  });
+});
+
 describe("COHERENCE-008 -- actionable positions are the whole eligible set, never truncated by round capacity", () => {
   for (const { checkpoint, index } of CHECKPOINTS) {
     if (!checkpoint.v4) continue;
