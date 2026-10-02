@@ -146,6 +146,10 @@ function Get-SteamLibraries($SteamRoots) {
 # Last resort when Steam's own records lead nowhere: the usual library folders at each fixed drive's root.
 function Get-FallbackLibraries {
   $libraries = New-Object System.Collections.ArrayList
+  if ($env:D2KIRO_TEST_FALLBACK_LIBRARIES) {
+    foreach ($path in ($env:D2KIRO_TEST_FALLBACK_LIBRARIES -split ';')) { Add-UniquePath $libraries $path }
+    return ,$libraries
+  }
   if ($env:D2KIRO_TEST_STEAM_ROOT) { return ,$libraries }
   foreach ($drive in [IO.DriveInfo]::GetDrives()) {
     $usable = $false
@@ -169,8 +173,7 @@ function Find-DotaCfgFolders($Libraries, [bool]$IncludeLeftovers) {
     if ([IO.File]::Exists([IO.Path]::Combine($library, 'steamapps\appmanifest_570.acf'))) { Add-UniquePath $registered $cfg } else { Add-UniquePath $leftovers $cfg }
   }
   if ($IncludeLeftovers) { foreach ($cfg in $leftovers) { Add-UniquePath $registered $cfg } }
-  if ($registered.Count -gt 0) { return ,$registered }
-  return ,$leftovers
+  return ,$registered
 }
 
 # The cfg rides at the end of this file as data. Exact shape or nothing: the very file the site generates

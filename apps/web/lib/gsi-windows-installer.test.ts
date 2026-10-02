@@ -131,14 +131,14 @@ function fakeMachine(options: { libraries: string[]; dotaIn: string[]; manifestI
   return { root, downloads, steam, dotaCfg };
 }
 
-function run(machine: FakeMachine, fileName: string, contents: string): { exitCode: number; output: string } {
+function run(machine: FakeMachine, fileName: string, contents: string, extraEnv?: Record<string, string>): { exitCode: number; output: string } {
   const path = join(machine.downloads, fileName);
   writeFileSync(path, contents);
   // Like Explorer's double-click: absolute path, wrapped as cmd /s /c ""<path>"" (verbatim, so a folder
   // name with & ( ) ^ is not re-parsed by the test harness; `call` would mangle carets).
   const result = spawnSync("cmd.exe", ["/d", "/s", "/c", `""${path}""`], {
     cwd: machine.downloads,
-    env: { ...process.env, D2KIRO_TEST_STEAM_ROOT: machine.steam, D2KIRO_TEST_NO_DIALOG: "1" },
+    env: { ...process.env, D2KIRO_TEST_STEAM_ROOT: machine.steam, D2KIRO_TEST_NO_DIALOG: "1", ...extraEnv },
     windowsVerbatimArguments: true,
     encoding: "utf8",
   });
@@ -180,6 +180,69 @@ describe.skipIf(!onWindows)("Windows GSI installer (real cmd.exe + PowerShell ru
     expect(existsSync(installedCfg(machine, "SteamLibrary"))).toBe(true);
     expect(existsSync(installedCfg(machine, "OldLibrary"))).toBe(false);
   }, 30_000);
+
+  test("stale Dota copy in Steam libraries does not terminate discovery: continues to active Dota in fallback library", () => {
+    // Steam library has a stale Dota copy (files exist, but appmanifest_570.acf is missing)
+    const machine = fakeMachine({ libraries: ["StaleLibrary"], dotaIn: ["StaleLibrary"], manifestIn: [] });
+    // Fallback library has the real active Dota copy (files exist AND appmanifest_570.acf exists)
+    const fallbackDir = join(machine.root, "FallbackActiveLibrary");
+    const fallbackDotaCfg = join(fallbackDir, "steamapps", "common", "dota 2 beta", "game", "dota", "cfg");
+    mkdirSync(fallbackDotaCfg, { recursive: true });
+    writeFileSync(join(fallbackDir, "steamapps", "appmanifest_570.acf"), '"AppState"\r\n{\r\n}\r\n');
+
+    const { exitCode } = run(machine, GSI_WINDOWS_INSTALLER_FILENAME, buildWindowsGsiInstaller(CFG), {
+      D2KIRO_TEST_FALLBACK_LIBRARIES: fallbackDir,
+    });
+
+    expect(exitCode).toBe(0);
+    // Stale copy must NOT be configured
+    expect(existsSync(installedCfg(machine, "StaleLibrary"))).toBe(false);
+    // Valid active installation in fallback library MUST be configured
+    expect(existsSync(join(fallbackDotaCfg, "gamestate_integration", GSI_CFG_FILENAME))).toBe(true);
+    expect(readFileSync(join(fallbackDotaCfg, "gamestate_integration", GSI_CFG_FILENAME), "utf8").replace(/\r\n/g, "\n")).toBe(CFG);
+  }, 30_000);
+
+  test("only a stale Dota copy exists with no active installation anywhere: fails closed, not treated as successful discovery", () => {
+    // Steam library has only a stale copy (no manifest anywhere)
+    const machine = fakeMachine({ libraries: ["StaleLibrary"], dotaIn: ["StaleLibrary"], manifestIn: [] });
+
+    const { exitCode, output } = run(machine, GSI_WINDOWS_INSTALLER_FILENAME, buildWindowsGsiInstaller(CFG));
+
+    expect(exitCode).toBe(2);
+    expect(output).toContain("No encontramos Dota 2");
+    expect(existsSync(installedCfg(machine, "StaleLibrary"))).toBe(false);
+  }, 30_000);
+
+  test("a truncated installer executed by cmd.exe fails closed: non-zero exit, no cfg written, sibling files untouched", () => {
+    const machine = fakeMachine({ libraries: ["SteamLibrary"], dotaIn: ["SteamLibrary"] });
+    const siblingPath = join(machine.downloads, "important-document.txt");
+    writeFileSync(siblingPath, "untouched user data");
+    const dotaAutoexec = join(machine.dotaCfg("SteamLibrary"), "autoexec.cfg");
+    writeFileSync(dotaAutoexec, "keep");
+
+    const genuine = buildWindowsGsiInstaller(CFG);
+
+    // Truncate at different stages:
+    // 1. In batch header
+    // 2. Mid-script (before #D2KIRO-SCRIPT-END)
+    // 3. Between script end and cfg begin
+    // 4. Mid-cfg (before #D2KIRO-CFG-END)
+    const truncations = [
+      genuine.slice(0, genuine.indexOf("function Show-Result")),
+      genuine.slice(0, genuine.indexOf("#D2KIRO-SCRIPT-END") - 40),
+      genuine.slice(0, genuine.indexOf("#D2KIRO-CFG-BEGIN") + 5),
+      genuine.slice(0, genuine.indexOf("#D2KIRO-CFG-END") - 20),
+      genuine.slice(0, genuine.indexOf("#D2KIRO-CFG-END")),
+    ];
+
+    for (const truncated of truncations) {
+      const { exitCode } = run(machine, GSI_WINDOWS_INSTALLER_FILENAME, truncated);
+      expect(exitCode).not.toBe(0);
+      expect(existsSync(installedCfg(machine, "SteamLibrary"))).toBe(false);
+      expect(readFileSync(siblingPath, "utf8")).toBe("untouched user data");
+      expect(readFileSync(dotaAutoexec, "utf8")).toBe("keep");
+    }
+  }, 60_000);
 
   test("Dota not found: clear message, exit 2, nothing written anywhere, the installer still removes itself", () => {
     const machine = fakeMachine({ libraries: ["SteamLibrary"], dotaIn: [] });
