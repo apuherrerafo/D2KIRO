@@ -154,6 +154,21 @@ describe("live diagnostics -- states", () => {
     const text = formatLiveDiagnosticReport(buildLiveDiagnostics({ engine: "unreachable", dotaLink: true, status: liveStatus("s", { connection: "connected", gsi: gsi() }) }));
     expect(line(text, "engine")).toBe("unreachable");
     expect(line(text, "remoteGsiHttps")).toBe("NO");
+    // The cached connection/age are said to be last-known, not a live reading.
+    expect(line(text, "reading")).toBe("last_known");
+    expect(line(report(liveStatus("s", { connection: "connected", gsi: gsi() })), "reading")).toBe("live");
+    expect(line(report(null), "reading")).toBe("none");
+  });
+
+  test("engine unreachable: the panel labels the cached connection and packet age as last-known", () => {
+    const view = render(<LiveDiagnosticsPanel engine="unreachable" dotaLink status={liveStatus("s", { connection: "connected", gsi: gsi() })} />);
+    expect(view.getByTestId("live-diagnostics-summary").textContent).toContain("último estado conocido");
+    expect(view.getByTestId("diag-connection-state").textContent).toContain("último conocido");
+    expect(view.getByTestId("diag-connection-age").textContent).toContain("último conocido");
+    view.unmount();
+    const live = render(<LiveDiagnosticsPanel engine="ok" dotaLink status={liveStatus("s", { connection: "connected", gsi: gsi() })} />);
+    expect(live.getByTestId("live-diagnostics").textContent).not.toContain("conocido");
+    live.unmount();
   });
 
   test("validation: the additive diagnostics fields are optional, and refused when malformed", () => {
@@ -195,6 +210,7 @@ describe("Copiar diagnóstico", () => {
           "D2KIRO LIVE DIAGNOSTIC",
           "engine: ok",
           "dotaLink: YES",
+          "reading: live",
           "connection: connected",
           "firstGsiPacket: YES",
           "lastUpdateAgeMs: 532",

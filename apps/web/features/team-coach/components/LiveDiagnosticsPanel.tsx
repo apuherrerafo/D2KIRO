@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buildLiveDiagnostics, formatLiveDiagnosticReport, type DiagnosticRow, type LiveDiagnosticsInput, type Presence } from "../live-diagnostics";
+import { buildLiveDiagnostics, formatLiveDiagnosticReport, type DiagnosticRow, type LiveDiagnostics, type LiveDiagnosticsInput, type Presence } from "../live-diagnostics";
 import { CHIP, CODE_BOX, PANEL, STATUS_PILL_MUTED, STATUS_PILL_OK, STATUS_PILL_WARN } from "../styles";
 
 // /live-draft "Diagnóstico de conexión": qué informa Dota de verdad, en vivo (se actualiza con cada
@@ -38,6 +38,22 @@ function ageText(ms: number | null): string {
   if (ms === null) return "—";
   if (ms < 1_000) return `${ms} ms`;
   return `${(ms / 1_000).toFixed(1)} s`;
+}
+
+function connectionText(diagnostics: LiveDiagnostics): string {
+  return CONNECTION_TEXT[diagnostics.connection] ?? diagnostics.connection;
+}
+
+/** A cached reading (the engine stopped answering) is never shown as if it were current. */
+function lastKnown(diagnostics: LiveDiagnostics, value: string): string {
+  if (diagnostics.reading === "last_known") return `${value} (último conocido)`;
+  return value;
+}
+
+function summaryText(diagnostics: LiveDiagnostics): string {
+  const age = ageText(diagnostics.lastUpdateAgeMs);
+  if (diagnostics.reading === "last_known") return `motor sin respuesta · último estado conocido: ${connectionText(diagnostics)} · último paquete ${age}`;
+  return `${connectionText(diagnostics)} · último paquete ${age}`;
 }
 
 function Row({ label, presence, testId }: { label: string; presence: Presence; testId: string }) {
@@ -105,7 +121,7 @@ export function LiveDiagnosticsPanel(props: LiveDiagnosticsPanelProps) {
       <summary className="cursor-pointer text-body text-content-primary">
         Diagnóstico de conexión
         <span className="ml-2 text-caption text-content-muted" data-testid="live-diagnostics-summary">
-          {CONNECTION_TEXT[diagnostics.connection] ?? diagnostics.connection} · último paquete {ageText(diagnostics.lastUpdateAgeMs)}
+          {summaryText(diagnostics)}
         </span>
       </summary>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -113,8 +129,8 @@ export function LiveDiagnosticsPanel(props: LiveDiagnosticsPanelProps) {
           <span className="text-caption font-semibold text-content-muted">CONEXIÓN</span>
           <ul className="flex flex-col gap-1">
             <Row label="Primer paquete de Dota recibido" presence={presenceOfFlag(diagnostics.firstGsiPacket)} testId="diag-connection-first-packet" />
-            <ValueRow label="Estado" value={CONNECTION_TEXT[diagnostics.connection] ?? diagnostics.connection} testId="diag-connection-state" />
-            <ValueRow label="Último paquete hace" value={ageText(diagnostics.lastUpdateAgeMs)} testId="diag-connection-age" />
+            <ValueRow label="Estado" value={lastKnown(diagnostics, connectionText(diagnostics))} testId="diag-connection-state" />
+            <ValueRow label="Último paquete hace" value={lastKnown(diagnostics, ageText(diagnostics.lastUpdateAgeMs))} testId="diag-connection-age" />
             <Row label="Dota → D2KIRO por HTTPS activo" presence={presenceOfFlag(diagnostics.remoteGsiHttps)} testId="diag-connection-remote-https" />
           </ul>
         </div>

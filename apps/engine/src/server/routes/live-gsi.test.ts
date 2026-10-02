@@ -413,6 +413,21 @@ describe("connection diagnostics (/live-draft \"Diagnóstico de conexión\")", (
     expect(t.status(issued.sessionId).gsi?.telemetry).toContain(GSI_ITEM_CHANGES);
     for (const leaked of ["item_tango", "item_branches", "item_magic_wand", "itemsKey", "matchKey"]) expect(status).not.toContain(leaked);
   });
+
+  test("a new match does not compare its inventory with the previous match's (re-queue is not an item change)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const inMatch = (matchId: string, items: string[]) =>
+      gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, matchId, gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", telemetry: true, items });
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", matchId: "1234567890", draft: "empty" }));
+    await t.post(issued.liveId, inMatch("1234567890", ["item_tango", "item_branches"]));
+    // Next game: a new draft, then its first inventory report -- different items, but nothing changed WITHIN this match.
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", matchId: "1234567891", draft: "empty" }));
+    await t.post(issued.liveId, inMatch("1234567891", ["item_quelling_blade"]));
+    expect(t.status(issued.sessionId).gsi?.telemetry).not.toContain(GSI_ITEM_CHANGES);
+    await t.post(issued.liveId, inMatch("1234567891", ["item_quelling_blade", "item_magic_wand"]));
+    expect(t.status(issued.sessionId).gsi?.telemetry).toContain(GSI_ITEM_CHANGES);
+  });
 });
 
 describe("privacy", () => {

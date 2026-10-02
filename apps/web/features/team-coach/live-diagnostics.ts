@@ -11,6 +11,12 @@ import type { LiveCaptureStatus, LiveConnection } from "./types";
 
 export type Presence = "YES" | "PARTIAL" | "NO";
 
+/**
+ * `live`: the engine answered the last status poll. `last_known`: it did not, so connection and packet age
+ * are the last successful reading, not a current one. `none`: no status was ever read for this link.
+ */
+export type DiagnosticReading = "live" | "last_known" | "none";
+
 export interface DiagnosticRow {
   key: string;
   label: string;
@@ -20,6 +26,7 @@ export interface DiagnosticRow {
 export interface LiveDiagnostics {
   engine: LiveEngineStatus;
   dotaLink: boolean;
+  reading: DiagnosticReading;
   connection: LiveConnection | "none";
   firstGsiPacket: boolean;
   /** Server-measured ms since the last GSI update; null before the first one. */
@@ -84,6 +91,12 @@ function telemetryPresence(observed: ReadonlySet<string>, labels: readonly strin
   return "PARTIAL";
 }
 
+function readingOf(engine: LiveEngineStatus, status: LiveCaptureStatus | null): DiagnosticReading {
+  if (status === null) return "none";
+  if (engine === "ok") return "live";
+  return "last_known";
+}
+
 function count(value: number): number {
   if (!Number.isFinite(value) || value < 0) return 0;
   return Math.floor(value);
@@ -119,6 +132,7 @@ export function buildLiveDiagnostics({ engine, dotaLink, status }: LiveDiagnosti
   return {
     engine,
     dotaLink,
+    reading: readingOf(engine, status),
     connection: status?.connection ?? "none",
     firstGsiPacket: gsi !== null,
     lastUpdateAgeMs: typeof age === "number" && Number.isFinite(age) ? Math.max(0, Math.round(age)) : null,
@@ -149,6 +163,7 @@ export function formatLiveDiagnosticReport(diagnostics: LiveDiagnostics): string
     "D2KIRO LIVE DIAGNOSTIC",
     `engine: ${diagnostics.engine}`,
     `dotaLink: ${yesNo(diagnostics.dotaLink)}`,
+    `reading: ${diagnostics.reading}`,
     `connection: ${diagnostics.connection}`,
     `firstGsiPacket: ${yesNo(diagnostics.firstGsiPacket)}`,
     `lastUpdateAgeMs: ${diagnostics.lastUpdateAgeMs ?? "n/a"}`,

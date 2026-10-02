@@ -327,7 +327,8 @@ export class LiveCaptureRegistry {
     restarted.captureDetail = entry.captureDetail;
     restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
     restarted.lastGsiAt = entry.lastGsiAt;
-    restarted.gsiItemsKey = entry.gsiItemsKey;
+    // A new match's first inventory is never compared with the previous match's (that is not an item change).
+    restarted.gsiItemsKey = null;
     this.entries.set(sessionId, restarted);
     return restarted;
   }
