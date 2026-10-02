@@ -84,6 +84,16 @@ jobs:
         working-directory: apps/engine
         run: bun install --frozen-lockfile
 
+      # scripts/dev-mvp-db.test.ts ejecuta a propósito la migración REAL del motor
+      # (`bun run src/db/migrate.ts` con cwd apps/engine, vía ensureManualMvpDatabase), que importa
+      # drizzle-orm de apps/engine/node_modules. Sin este paso el job root falla con "Cannot find
+      # module 'drizzle-orm/bun-sqlite/migrator'" (TSK-236) -- no se mockea ni se duplica la
+      # dependencia en la raíz.
+      - name: Install apps/engine dependencies (needed by scripts/' real engine migration test)
+        if: matrix.target == 'root'
+        working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
       - name: Type-check
         if: matrix.typecheck
         working-directory: ${{ matrix.dir }}
