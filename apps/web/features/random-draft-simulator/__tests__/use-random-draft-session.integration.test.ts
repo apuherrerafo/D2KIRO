@@ -1,8 +1,11 @@
 import "@/test-support/happy-dom";
 
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createElement } from "react";
 import type { HeroId, TeamSide } from "@/features/draft/types";
+import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { SimulatorTeamRoster } from "../components/SimulatorTeamRoster";
 import { useRandomDraftSession } from "../use-random-draft-session";
 import { useRandomDraftStore } from "../store";
 
@@ -20,6 +23,10 @@ interface FakeOptions {
   banFailures?: number;
   /** The Player's LAST pick of round 1 collides with the bot: hero banned, that seat reopens. */
   collideRoundOnce?: boolean;
+  /** With `collideRoundOnce`: the collision hits the Player's FIRST round-1 seal (slot 0) instead of the last. */
+  collideFirstOwnPick?: boolean;
+  /** Every binding is served with a malformed heroId -- the client must not trust any of it. */
+  malformedBindingHeroId?: boolean;
   /** Every Coach response after the first arrives "late": it carries an OLDER revision than the one already held. */
   outOfOrderCoach?: boolean;
   /** The FIRST `?format=v4` response is held until `releaseHeld()` -- a slow response that lands after the Player acted. */
@@ -30,6 +37,8 @@ interface OwnBinding {
   round: 1 | 2 | 3;
   slotIndex: number;
   assignedPosition: Position;
+  /** Joined server-side from kernel state on (round, slotIndex) -- mirrors the real snapshot projection. */
+  heroId: HeroId;
 }
 
 /**
@@ -43,6 +52,8 @@ class FakeApProtocolEngine {
   private side: TeamSide = "radiant";
   private banFailuresLeft: number;
   private collidePending: boolean;
+  private readonly collideFirstOwnPick: boolean;
+  private readonly malformedBindingHeroId: boolean;
   private bans: HeroId[] = [];
   private round: 1 | 2 | 3 | 0 | 4 = 0; // 0 = still in bans, 4 = complete
   private own: HeroId[] = [];
@@ -61,6 +72,8 @@ class FakeApProtocolEngine {
     this.holdNextDecision = options.holdFirstDecision ?? false;
     this.banFailuresLeft = options.banFailures ?? 0;
     this.collidePending = options.collideRoundOnce ?? false;
+    this.collideFirstOwnPick = options.collideFirstOwnPick ?? false;
+    this.malformedBindingHeroId = options.malformedBindingHeroId ?? false;
   }
 
   private phaseName(): string {
@@ -206,7 +219,7 @@ class FakeApProtocolEngine {
             goldPenaltyBySlot: [0, 0, 0, 0, 0],
             penaltyRatePerSecond: 2,
           },
-      ownAssignedPositions: this.ownBindings,
+      ownAssignedPositions: this.malformedBindingHeroId ? this.ownBindings.map((binding) => ({ ...binding, heroId: 0 })) : this.ownBindings,
       canYield: this.yieldable,
       ...extra,
     };
@@ -267,7 +280,7 @@ class FakeApProtocolEngine {
       this.openSlots = this.openSlots.filter((slotIndex) => slotIndex !== command.slotIndex);
       const assignedPosition = body.assignedPosition as Position | undefined;
       if (assignedPosition !== undefined) {
-        this.ownBindings = [...this.ownBindings, { round: this.round as 1 | 2 | 3, slotIndex: command.slotIndex, assignedPosition }];
+        this.ownBindings = [...this.ownBindings, { round: this.round as 1 | 2 | 3, slotIndex: command.slotIndex, assignedPosition, heroId: command.heroId }];
       }
       if (this.openSlots.length === 0) this.closeRound(command);
       return json({ accepted: true, ...this.snapshot() }, 202);
@@ -279,11 +292,14 @@ class FakeApProtocolEngine {
     const round = this.round as 1 | 2 | 3;
     if (this.collidePending && round === 1) {
       this.collidePending = false;
-      this.bans = [...this.bans, last.heroId];
-      this.own = this.own.slice(0, -1);
-      this.openSlots = [last.slotIndex];
+      const first = this.ownBindings.find((binding) => binding.round === round);
+      const collided = this.collideFirstOwnPick && first ? { slotIndex: first.slotIndex, heroId: first.heroId } : last;
+      this.bans = [...this.bans, collided.heroId];
+      // Like the kernel: the survivor stays (confirmed first), the collided hero leaves own picks.
+      this.own = this.own.filter((heroId) => heroId !== collided.heroId);
+      this.openSlots = [collided.slotIndex];
       // PD-026/PD-027 COLLISION REOPEN: the reopened slot's position binding is pruned.
-      this.ownBindings = this.ownBindings.filter((binding) => !(binding.round === round && binding.slotIndex === last.slotIndex));
+      this.ownBindings = this.ownBindings.filter((binding) => !(binding.round === round && binding.slotIndex === collided.slotIndex));
       return;
     }
     const capacity = ROUND_CAPACITY[round]!;
@@ -450,6 +466,77 @@ test("colisión: el héroe baneado se muestra y la posición reabierta vuelve a 
 
   await lock(result, 6, 2);
   expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 2 });
+  unmount();
+});
+
+const ROSTER_CATALOG = new Map<number, HeroMeta>(
+  HEROES.map((hero) => [hero.id, { id: hero.id, name: `npc_dota_hero_${hero.id}`, localizedName: hero.localizedName, imgUrl: "", primaryAttr: "str", attackType: "Melee", roles: hero.roles }]),
+);
+
+function renderOwnRoster(state: ReturnType<typeof useRandomDraftSession>["state"]) {
+  const view = render(
+    createElement(SimulatorTeamRoster, {
+      draftState: state.draftState!,
+      config: state.config!,
+      phase: state.phase,
+      heroCatalog: ROSTER_CATALOG,
+      ownAssignedPositions: state.ownAssignedPositions,
+    }),
+  );
+  return { seat: (position: Position) => within(view.getByTestId(`own-roster-pos-${position}`)), unmountRoster: view.unmount };
+}
+
+const LICH = 5;
+const TINKER = 7;
+const REPICK = 1;
+
+// RELEASE BLOCKER (collision survivor), end to end through the hook: Lich sealed for Pos5, Tinker for
+// Pos2, Tinker collides. Both slot orderings. The roster renders straight from the hook state.
+test.each([
+  ["sobreviviente slot 0 / colisión slot 1", false, [{ heroId: LICH, position: 5 }, { heroId: TINKER, position: 2 }], 0, 1],
+  ["sobreviviente slot 1 / colisión slot 0", true, [{ heroId: TINKER, position: 2 }, { heroId: LICH, position: 5 }], 1, 0],
+] as const)("colisión (%s): Pos5 conserva a Lich y no es elegible; sólo Pos2 reabre; la ronda cerrada no intercambia héroes", async (_label, collideFirstOwnPick, seals, survivorSlot, collisionSlot) => {
+  const { engine, result, unmount } = await startDraft("radiant", 2, { collideRoundOnce: true, collideFirstOwnPick });
+  for (const seal of seals) await lock(result, seal.heroId, seal.position);
+
+  // Reopened collision state.
+  const reopened = result.current.state.phase;
+  expect(reopened).toMatchObject({ type: "blind_round", round: 1, conflictBans: [TINKER] });
+  expect(reopened.type === "blind_round" && reopened.pendingPositions).toContain(2);
+  expect(reopened.type === "blind_round" && reopened.pendingPositions).not.toContain(5);
+  expect(reopened.type === "blind_round" && reopened.attemptPositions).not.toContain(5);
+  expect(result.current.state.ownAssignedPositions).toEqual([{ round: 1, slotIndex: survivorSlot, assignedPosition: 5, heroId: LICH }]);
+  expect(result.current.state.draftState?.banned).toContain(TINKER);
+  expect(result.current.state.draftState?.picks.radiant).toEqual([LICH]);
+  const reopenedRoster = renderOwnRoster(result.current.state);
+  expect(reopenedRoster.seat(5).getByText("Hero 5")).toBeDefined();
+  expect(reopenedRoster.seat(2).getByText("Sin elegir")).toBeDefined();
+  expect(reopenedRoster.seat(2).queryByText("Hero 7")).toBeNull();
+  reopenedRoster.unmountRoster();
+
+  // Pos5 cannot be re-chosen: the hook refuses it without ever reaching the engine.
+  const before = commands(engine).length;
+  await lock(result, 3, 5);
+  expect(commands(engine)).toHaveLength(before);
+
+  // Re-pick into the reopened slot closes the round.
+  await lock(result, REPICK, 2);
+  expect(result.current.state.phase).toMatchObject({ type: "blind_round", round: 2 });
+  expect(commands(engine).map((command) => command.slotIndex)).toEqual([0, 1, collisionSlot]);
+  const closedRoster = renderOwnRoster(result.current.state);
+  expect(closedRoster.seat(5).getByText("Hero 5")).toBeDefined();
+  expect(closedRoster.seat(2).getByText("Hero 1")).toBeDefined();
+  closedRoster.unmountRoster();
+  unmount();
+});
+
+test("una binding con heroId malformado nunca se vuelve un hecho del roster propio", async () => {
+  const { result, unmount } = await startDraft("radiant", 2, { malformedBindingHeroId: true });
+  await lock(result, LICH, 5);
+  expect(result.current.state.ownAssignedPositions).toEqual([]);
+  const roster = renderOwnRoster(result.current.state);
+  expect(roster.seat(5).getByText("Sin elegir")).toBeDefined();
+  roster.unmountRoster();
   unmount();
 });
 

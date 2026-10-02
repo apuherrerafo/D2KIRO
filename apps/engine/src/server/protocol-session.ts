@@ -5,6 +5,7 @@ import {
   project,
   type CreateProtocolStateResult,
   type DraftProtocolState,
+  type HeroId,
   type KernelResult,
   type LegalAction,
   type PartyContext,
@@ -78,6 +79,16 @@ export interface OwnPickPositionBinding {
   /** The round-scoped kernel slotIndex this binding was sealed against (ROUND-SCOPED SLOT semantics unchanged). */
   slotIndex: number;
   assignedPosition: DotaPosition;
+}
+
+/**
+ * Public, own-side-only projection of an `OwnPickPositionBinding`: the binding JOINED against
+ * authoritative kernel state on (round, slotIndex), never a second stored copy of the hero. The
+ * web renders Own Team hero-by-position straight from this -- it never reconstructs it from pick
+ * chronology, array order or seat arithmetic (position != pick order != slot).
+ */
+export interface OwnAssignedPositionProjection extends OwnPickPositionBinding {
+  heroId: HeroId;
 }
 
 export type ApSimulatorOwnSelectionResult =
@@ -348,6 +359,30 @@ export class ProtocolSessionStore {
   ownAssignedPositions(sessionId: string): OwnPickPositionBinding[] | null {
     const entry = this.sessions.get(sessionId);
     return entry ? [...entry.ownPickPositions] : null;
+  }
+
+  /**
+   * Own Team binding projection ENRICHED with the hero that fills it, for the public snapshot.
+   * Each binding is joined against authoritative kernel state on (round, slotIndex), own side
+   * only: first the current round's sealed selections (a binding exists the instant its selection
+   * is sealed), then `confirmedPicks`. Total for every surviving binding -- a confirmed slot is
+   * never reopened, so (side, round, slotIndex) matches at most one kernel record, and a reopened
+   * binding has already been pruned (pruneReopenedOwnPickPositions). A binding that somehow
+   * matches nothing is dropped, never guessed: no roster fact without an authoritative hero.
+   * Only own-side heroes the Player can already see (KNOWN in `view()`) can ever appear here.
+   * `null` for an unknown session.
+   */
+  ownAssignedPositionProjection(sessionId: string): OwnAssignedPositionProjection[] | null {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return null;
+    const localSide = entry.metadata.localSide;
+    const rankedAp = entry.state.rankedAp;
+    return entry.ownPickPositions.flatMap((binding) => {
+      const sameSlot = (record: { side: TeamSide; slotIndex: number }) => record.side === localSide && record.slotIndex === binding.slotIndex;
+      const sealed = rankedAp?.round?.round === binding.round ? rankedAp.round.sealed.find(sameSlot) : undefined;
+      const heroId = sealed?.heroId ?? rankedAp?.confirmedPicks.find((pick) => pick.round === binding.round && sameSlot(pick))?.heroId;
+      return heroId === undefined ? [] : [{ ...binding, heroId }];
+    });
   }
 
   /**

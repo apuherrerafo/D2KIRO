@@ -58,7 +58,9 @@ function state(own: number[] = [], enemy: number[] = [], phase: DraftState["phas
   };
 }
 
-const ACTIVE_PHASE: DraftPhase = {
+type BlindRoundPhase = Extract<DraftPhase, { type: "blind_round" }>;
+
+const ACTIVE_PHASE: BlindRoundPhase = {
   type: "blind_round",
   round: 1,
   timerRemainingMs: 25_000,
@@ -80,13 +82,14 @@ const ACTIVE_PHASE: DraftPhase = {
 // PD-026/PD-027: Own Team hero-by-position is session-layer truth (ownAssignedPositions), never a
 // fixed seat<->position table. This fixture reconstructs the SAME layout the old fixed table would
 // have produced (seat0->Pos5, seat1->Pos4, seat2->Pos3, seat3->Pos1, seat4->Pos2), only now
-// expressed as explicit bindings the way the real engine reports them.
+// expressed as explicit bindings the way the real engine reports them -- each one carrying the
+// heroId the server joined from kernel state.
 const OLD_TABLE_BINDINGS: OwnAssignedPositionBinding[] = [
-  { round: 1, slotIndex: 0, assignedPosition: 5 }, // seat 0 -> Hero 1
-  { round: 1, slotIndex: 1, assignedPosition: 4 }, // seat 1 -> Hero 2
-  { round: 2, slotIndex: 0, assignedPosition: 3 }, // seat 2 -> Hero 3
-  { round: 2, slotIndex: 1, assignedPosition: 1 }, // seat 3 -> Hero 4
-  { round: 3, slotIndex: 0, assignedPosition: 2 }, // seat 4 -> Hero 5
+  { round: 1, slotIndex: 0, assignedPosition: 5, heroId: 1 },
+  { round: 1, slotIndex: 1, assignedPosition: 4, heroId: 2 },
+  { round: 2, slotIndex: 0, assignedPosition: 3, heroId: 3 },
+  { round: 2, slotIndex: 1, assignedPosition: 1, heroId: 4 },
+  { round: 3, slotIndex: 0, assignedPosition: 2, heroId: 5 },
 ];
 
 function ownSeat(view: ReturnType<typeof render>, position: number) {
@@ -273,4 +276,74 @@ test("PD-027: SimulatorTeamRoster nunca exige ni recibe la asignación privada d
   expect(view.getByTestId("team-roster")).toBeDefined();
   expect(view.container.textContent).not.toMatch(/internal/i);
   expect(view.container.textContent).not.toMatch(/private/i);
+});
+
+// RELEASE BLOCKER (collision survivor) -- Radiant Party5 round 1: Lich (Hero 5) sealed for Pos5,
+// Tinker (Hero 7) for Pos2, and the enemy also picked Tinker. Collision: Tinker banned, Tinker's
+// slot reopened, Lich survives as a confirmed pick. Captured with both slot orderings, because
+// position != slot and the kernel appends survivors to confirmedPicks BEFORE the re-pick,
+// regardless of slotIndex -- so `ownPicks` is byte-identical in both orderings and only the
+// server projection (heroId per binding) can tell them apart.
+function afterCollisionPhase(round: 1 | 2 | 3, pendingPositions: (1 | 2 | 3 | 4 | 5)[]): DraftPhase {
+  // beginAttempt() opens a fresh attempt after a collision: lockedUserPicks starts empty.
+  return { ...ACTIVE_PHASE, round, lockedUserPicks: {}, attemptPositions: pendingPositions, pendingPositions, attemptId: 2 };
+}
+
+const LICH = 5;
+const TINKER = 7;
+const REPICK = 1;
+
+test.each([
+  ["Lich slot 0 / Tinker slot 1", { round: 1, slotIndex: 0, assignedPosition: 5, heroId: LICH }],
+  ["Lich slot 1 / Tinker slot 0", { round: 1, slotIndex: 1, assignedPosition: 5, heroId: LICH }],
+] as const)("colisión parcial (%s): el sobreviviente sigue en su posición y la colisionada queda pendiente", (_label, survivorBinding) => {
+  const view = render(
+    <SimulatorTeamRoster
+      draftState={{ ...state([LICH]), banned: [TINKER] }}
+      config={config(5, 2)}
+      phase={afterCollisionPhase(1, [1, 2, 3, 4])}
+      heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={[survivorBinding]}
+    />,
+  );
+
+  expect(ownSeat(view, 5).getByText("Hero 5")).toBeDefined();
+  expect(ownSeat(view, 5).queryByText("Sin elegir")).toBeNull();
+  expect(ownSeat(view, 2).getByText("Sin elegir")).toBeDefined();
+  expect(view.queryByText("Hero 7")).toBeNull();
+});
+
+test.each([
+  ["Lich slot 0 / re-pick slot 1", [{ round: 1, slotIndex: 0, assignedPosition: 5, heroId: LICH }, { round: 1, slotIndex: 1, assignedPosition: 2, heroId: REPICK }]],
+  ["Lich slot 1 / re-pick slot 0", [{ round: 1, slotIndex: 1, assignedPosition: 5, heroId: LICH }, { round: 1, slotIndex: 0, assignedPosition: 2, heroId: REPICK }]],
+] as const)("ronda cerrada tras colisión (%s): Lich en Pos5 y el re-pick en Pos2, nunca intercambiados", (_label, bindings) => {
+  const view = render(
+    <SimulatorTeamRoster
+      draftState={{ ...state([LICH, REPICK]), banned: [TINKER] }}
+      config={config(5, 2)}
+      phase={afterCollisionPhase(2, [1, 3, 4])}
+      heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={[...bindings]}
+    />,
+  );
+
+  expect(ownSeat(view, 5).getByText("Hero 5")).toBeDefined();
+  expect(ownSeat(view, 2).getByText("Hero 1")).toBeDefined();
+  expect(view.queryByText("Hero 7")).toBeNull();
+});
+
+test("el roster propio no se reconstruye desde la cronología: el mismo ownPicks con otra proyección cambia el mapeo", () => {
+  // Same draftState.picks in both renders; only the server projection differs -- and wins.
+  const view = render(
+    <SimulatorTeamRoster
+      draftState={state([LICH, REPICK])}
+      config={config(5, 2)}
+      phase={afterCollisionPhase(2, [1, 3, 4])}
+      heroCatalog={HERO_CATALOG}
+      ownAssignedPositions={[{ round: 1, slotIndex: 0, assignedPosition: 2, heroId: LICH }, { round: 1, slotIndex: 1, assignedPosition: 5, heroId: REPICK }]}
+    />,
+  );
+
+  expect(ownSeat(view, 2).getByText("Hero 5")).toBeDefined();
+  expect(ownSeat(view, 5).getByText("Hero 1")).toBeDefined();
 });

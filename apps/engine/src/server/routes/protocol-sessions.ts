@@ -235,8 +235,10 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       legalActions: deps.store.authorizedLegalActions(sessionId),
       simulator: deps.store.simulatorTimerView(sessionId),
       // PD-026/PD-027 SNAPSHOT / OWN POSITION PROJECTION -- Own Team binding, own side only, never
-      // Enemy Bot's private role permutation. `[]` for a session with no bindings yet.
-      ownAssignedPositions: deps.store.ownAssignedPositions(sessionId),
+      // Enemy Bot's private role permutation. `[]` for a session with no bindings yet. Each entry
+      // carries the heroId the server joined from kernel state on (round, slotIndex), so the web
+      // never infers hero-by-position from pick chronology.
+      ownAssignedPositions: deps.store.ownAssignedPositionProjection(sessionId),
       // P0-3 (INV-YIELD-001) -- the SAME precondition `POST /yield` enforces, exposed so the web
       // never has to approximate it on its own. `false` for a non-AP-Simulator session (the store
       // returns `false` there too -- `yieldPrecondition`'s `not_ap_simulator` branch).
