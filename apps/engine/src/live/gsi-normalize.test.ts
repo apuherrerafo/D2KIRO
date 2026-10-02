@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { gsiPayload, SENTINELS } from "./gsi.fixtures";
-import { normalizeGsi, observationsFromGsi } from "./gsi-normalize";
+import { draftFactCount, normalizeGsi, observationsFromGsi } from "./gsi-normalize";
 
 // TSK-219 -- the GSI allowlist. Pure: payload in, facts out. Fixtures are synthetic (gsi.fixtures.ts).
 
@@ -87,6 +87,22 @@ describe("normalizeGsi -- privacy", () => {
     // Not sent by this payload -> not claimed.
     expect(update.telemetry).not.toContain("net_worth");
     expect(update.telemetry.every((label) => /^[a-z_]+$/.test(label))).toBe(true);
+  });
+
+  test("the inventory is reduced to a one-way key: equal items -> equal key, a change -> a new key, no item names kept", () => {
+    const inMatch = (items?: string[]) => normalizeGsi(gsiPayload({ gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", heroId: 8, telemetry: true, items }));
+    const before = inMatch(["item_tango", "item_branches"]);
+    expect(before.itemsKey).toMatch(/^[0-9a-f]{16}$/);
+    expect(inMatch(["item_tango", "item_branches"]).itemsKey).toBe(before.itemsKey);
+    expect(inMatch(["item_tango", "item_magic_wand"]).itemsKey).not.toBe(before.itemsKey);
+    expect(JSON.stringify(before)).not.toContain("item_branches");
+    expect(normalizeGsi(gsiPayload({ heroId: 8 })).itemsKey).toBeNull();
+    expect(normalizeGsi({ items: { slot0: { name: "<script>" } } }).itemsKey).toBeNull();
+  });
+
+  test("draft fact count: bans + picks + our own hero", () => {
+    expect(draftFactCount(normalizeGsi(gsiPayload({ teamName: "radiant", draft: "empty" })))).toBe(0);
+    expect(draftFactCount(normalizeGsi(gsiPayload({ teamName: "radiant", heroId: 11, draft: { radiant: { bans: [10], picks: [11] }, dire: { picks: [21] } } })))).toBe(4);
   });
 });
 

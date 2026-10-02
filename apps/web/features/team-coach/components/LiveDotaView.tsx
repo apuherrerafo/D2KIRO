@@ -6,6 +6,7 @@ import { useLiveTeamCoachStore } from "../live-store";
 import type { GsiLinkView } from "../types";
 import { useGsiLink, type UseGsiLinkResult } from "../use-gsi-link";
 import { DotaConnectPanel, DotaLinkControls } from "./DotaConnectPanel";
+import { LiveDiagnosticsPanel } from "./LiveDiagnosticsPanel";
 import { LiveTeamCoachView } from "./LiveTeamCoachView";
 
 // TSK-219 -- /live-draft on the deployed site. The Player's account has (or not) a Dota link:
@@ -61,6 +62,7 @@ export function LiveDotaView({ setupError = null, fetchImpl }: LiveDotaViewProps
     return (
       <Shell>
         <DotaConnectPanel setupError={message} awaitingDownload={gsi.awaitingDownload} onDownload={handleDownload} />
+        <LiveDiagnosticsPanel engine="ok" dotaLink={false} status={null} />
       </Shell>
     );
   }
@@ -76,8 +78,11 @@ interface LinkedLiveViewProps {
 
 function LinkedLiveView({ link, gsi, setupError, onDownload }: LinkedLiveViewProps) {
   const captureStatus = useLiveTeamCoachStore((state) => state.captureStatus);
+  const engineStatus = useLiveTeamCoachStore((state) => state.engineStatus);
+  // Only the status of THIS link's session counts (the store may still hold a previous one).
+  const linkStatus = captureStatus !== null && captureStatus.sessionId === link.sessionId ? captureStatus : null;
   // Dota has not reported on this link yet (status not loaded, or no GSI update ever): keep the setup open.
-  const waitingForDota = captureStatus === null || captureStatus.sessionId !== link.sessionId || captureStatus.gsi === null || captureStatus.gsi === undefined;
+  const waitingForDota = linkStatus === null || linkStatus.gsi === null || linkStatus.gsi === undefined;
   function handleDisconnect() {
     void gsi.disconnect();
   }
@@ -91,6 +96,7 @@ function LinkedLiveView({ link, gsi, setupError, onDownload }: LinkedLiveViewPro
         onDownload={onDownload}
         onDisconnect={handleDisconnect}
       />
+      <LiveDiagnosticsPanel engine={engineStatus} dotaLink status={linkStatus} />
     </LiveTeamCoachView>
   );
 }

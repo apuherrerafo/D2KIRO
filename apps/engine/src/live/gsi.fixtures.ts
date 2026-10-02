@@ -24,6 +24,8 @@ interface GsiFixtureOptions {
   /** Spectator-style draft block: team2 = Radiant, team3 = Dire. */
   draft?: { radiant?: { picks?: number[]; bans?: number[] }; dire?: { picks?: number[]; bans?: number[] } } | "empty";
   telemetry?: boolean;
+  /** Inventory item names (slot0..) when `telemetry` is on; default tango + blink. */
+  items?: string[];
 }
 
 function draftTeam(team: { picks?: number[]; bans?: number[] } | undefined, homeTeam: boolean): Record<string, unknown> {
@@ -68,7 +70,9 @@ export function gsiPayload(options: GsiFixtureOptions = {}): Record<string, unkn
     payload.draft = { activeteam: 2, pick: true, activeteam_time_remaining: 25, team2: draftTeam(options.draft.radiant, true), team3: draftTeam(options.draft.dire, false) };
   }
   if (options.telemetry) {
-    payload.items = { slot0: { name: "item_tango", charges: 3 }, slot1: { name: "item_blink", cooldown: 0 } };
+    payload.items = options.items
+      ? Object.fromEntries(options.items.map((name, index) => [`slot${index}`, { name }]))
+      : { slot0: { name: "item_tango", charges: 3 }, slot1: { name: "item_blink", cooldown: 0 } };
     payload.abilities = { ability0: { name: "test_ability", level: 1, can_cast: true, cooldown: 0, ultimate: false } };
   }
   if (options.token !== undefined) payload.auth = { token: options.token };

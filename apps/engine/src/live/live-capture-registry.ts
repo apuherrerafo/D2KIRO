@@ -2,7 +2,7 @@ import type { HeroId, TeamSide } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ProtocolSessionStore } from "../server/protocol-session";
-import { observationsFromGsi, type GsiDraftCapabilities, type GsiPhase, type GsiUpdate } from "./gsi-normalize";
+import { draftFactCount, observationsFromGsi, type GsiDraftCapabilities, type GsiPhase, type GsiUpdate } from "./gsi-normalize";
 import { applyLiveObservation, emptyLiveFacts, observationFromDraftEvent, replayLiveFacts, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
 
 // Live Dota capture sessions: the bridge between observed facts (Dota GSI through the link-authenticated
@@ -36,14 +36,30 @@ export interface LiveDetectedPick {
   at: string;
 }
 
+/** Match telemetry label (diagnostics): the inventory changed between two GSI updates. */
+export const GSI_ITEM_CHANGES = "item_changes";
+
 /** What the player's own Dota client actually reports (capability discovery, never values). */
-export interface LiveGsiStatus {
+interface LiveGsiObserved {
   gameState: string | null;
   phase: GsiPhase;
   /** Accumulated over the current draft: did the client EVER send each draft field? */
   draft: GsiDraftCapabilities;
+  /** This draft: an update stated MORE draft facts (bans + picks + own hero) than an earlier one. */
+  draftProgression: boolean;
   /** Match telemetry capability labels observed so far (presence only). */
   telemetry: string[];
+}
+
+export interface LiveGsiStatus extends LiveGsiObserved {
+  /** Server clock: ms since the last GSI update (the browser's clock is never trusted for this). */
+  lastPacketAgeMs: number;
+  /**
+   * A GSI update arrived within LIVE_STALE_AFTER_MS. GSI updates only ever reach the registry through the
+   * link-authenticated `/api/live/gsi/<liveId>`, whose cfg URI is always https (lib/gsi-config.ts) --
+   * so `active` IS "remote GSI over HTTPS is live".
+   */
+  active: boolean;
 }
 
 export interface LiveCaptureStatus {
@@ -79,7 +95,13 @@ interface LiveEntry {
   lastDetectedPick: LiveDetectedPick | null;
   deferredPicks: number;
   rejectedFacts: number;
-  gsi: LiveGsiStatus | null;
+  gsi: LiveGsiObserved | null;
+  /** Last GSI update (any phase, heartbeats included). Survives a draft restart: it is the connection. */
+  lastGsiAt: number | null;
+  /** Draft facts the last draft-phase GSI update stated; null before the first one of this draft. */
+  gsiDraftFacts: number | null;
+  /** Hash of the last inventory GSI reported (gsi-normalize `itemsKey`). */
+  gsiItemsKey: string | null;
   /** Hash of the match the current facts belong to (GSI `map.matchid`, one-way). */
   matchKey: string | null;
   /**
@@ -213,12 +235,19 @@ export class LiveCaptureRegistry {
     const newMatch = update.phase === "draft" && update.matchKey !== null && entry.matchKey !== null && update.matchKey !== entry.matchKey;
     if (newMatch || (update.phase === "draft" && entry.ended)) entry = this.restart(sessionId, entry);
     entry.lastEventAt = this.now();
+    entry.lastGsiAt = entry.lastEventAt;
     // A heartbeat keeps the live session alive (protocol store TTL) while Dota sits in the menu.
     this.deps.store.get(sessionId, entry.lastEventAt);
     if (update.phase === "draft" && update.matchKey !== null) entry.matchKey = update.matchKey;
     // Leaving hero selection (into the match, or back to the menu after an abandoned draft) ends this draft.
     if ((update.phase === "match" || update.phase === "idle") && entry.facts.started) entry.ended = true;
-    const gsi = mergeGsiStatus(entry.gsi, update);
+    // Diagnostics only (presence, never values): did the draft advance / the inventory change between updates?
+    const factCount = update.phase === "draft" ? draftFactCount(update) : null;
+    const progressed = factCount !== null && entry.gsiDraftFacts !== null && factCount > entry.gsiDraftFacts;
+    if (factCount !== null) entry.gsiDraftFacts = Math.max(factCount, entry.gsiDraftFacts ?? 0);
+    const itemsChanged = update.itemsKey !== null && entry.gsiItemsKey !== null && update.itemsKey !== entry.gsiItemsKey;
+    if (update.itemsKey !== null) entry.gsiItemsKey = update.itemsKey;
+    const gsi = mergeGsiStatus(entry.gsi, update, progressed, itemsChanged);
     entry.gsi = gsi;
     if (update.phase === "draft") {
       // Honest capture state: without a draft block the game only told us our side and our hero.
@@ -262,7 +291,7 @@ export class LiveCaptureRegistry {
       picks: entry.facts.picks.length,
       deferredPicks: entry.deferredPicks,
       rejectedFacts: entry.rejectedFacts,
-      gsi: entry.gsi === null ? null : { ...entry.gsi, draft: { ...entry.gsi.draft }, telemetry: [...entry.gsi.telemetry] },
+      gsi: gsiStatusOf(entry, now),
     };
   }
 
@@ -296,7 +325,10 @@ export class LiveCaptureRegistry {
     restarted.eventOrder = entry.eventOrder;
     restarted.captureHealth = entry.captureHealth;
     restarted.captureDetail = entry.captureDetail;
-    restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities() };
+    restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
+    restarted.lastGsiAt = entry.lastGsiAt;
+    // A new match's first inventory is never compared with the previous match's (that is not an item change).
+    restarted.gsiItemsKey = null;
     this.entries.set(sessionId, restarted);
     return restarted;
   }
@@ -337,6 +369,9 @@ export class LiveCaptureRegistry {
       deferredPicks: 0,
       rejectedFacts: 0,
       gsi: null,
+      lastGsiAt: null,
+      gsiDraftFacts: null,
+      gsiItemsKey: null,
       matchKey: null,
       suppressed: new Set(),
     };
@@ -347,12 +382,25 @@ function noDraftCapabilities(): GsiDraftCapabilities {
   return { draftBlock: false, side: false, ownHero: false, bans: false, allyPicks: false, enemyPicks: false };
 }
 
-function mergeGsiStatus(previous: LiveGsiStatus | null, update: GsiUpdate): LiveGsiStatus {
+function gsiStatusOf(entry: LiveEntry, now: number): LiveGsiStatus | null {
+  if (entry.gsi === null || entry.lastGsiAt === null) return null;
+  const lastPacketAgeMs = Math.max(0, now - entry.lastGsiAt);
+  return {
+    ...entry.gsi,
+    draft: { ...entry.gsi.draft },
+    telemetry: [...entry.gsi.telemetry],
+    lastPacketAgeMs,
+    active: lastPacketAgeMs <= LIVE_STALE_AFTER_MS,
+  };
+}
+
+function mergeGsiStatus(previous: LiveGsiObserved | null, update: GsiUpdate, progressed: boolean, itemsChanged: boolean): LiveGsiObserved {
   const draft = previous?.draft ?? noDraftCapabilities();
   // Draft capabilities only count while drafting; match telemetry accumulates across the match.
   const seen = update.phase === "draft" ? update.capabilities : noDraftCapabilities();
   const telemetry = new Set(previous?.telemetry ?? []);
   for (const label of update.telemetry) telemetry.add(label);
+  if (itemsChanged) telemetry.add(GSI_ITEM_CHANGES);
   return {
     gameState: update.gameState,
     phase: update.phase,
@@ -364,6 +412,7 @@ function mergeGsiStatus(previous: LiveGsiStatus | null, update: GsiUpdate): Live
       allyPicks: draft.allyPicks || seen.allyPicks,
       enemyPicks: draft.enemyPicks || seen.enemyPicks,
     },
+    draftProgression: (previous?.draftProgression ?? false) || progressed,
     telemetry: [...telemetry].sort(),
   };
 }

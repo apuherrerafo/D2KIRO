@@ -105,7 +105,10 @@ function isGsiStatus(value: unknown): value is LiveGsiStatus {
     isRecord(value.draft) &&
     GSI_DRAFT_KEYS.every((key) => typeof (value.draft as Record<string, unknown>)[key] === "boolean") &&
     Array.isArray(value.telemetry) &&
-    value.telemetry.every(isString)
+    value.telemetry.every(isString) &&
+    (value.draftProgression === undefined || typeof value.draftProgression === "boolean") &&
+    (value.lastPacketAgeMs === undefined || (typeof value.lastPacketAgeMs === "number" && Number.isFinite(value.lastPacketAgeMs) && value.lastPacketAgeMs >= 0)) &&
+    (value.active === undefined || typeof value.active === "boolean")
   );
 }
 

@@ -3,7 +3,7 @@ import type { TeamCoachBoard } from "../../coach";
 import { fakeCompute } from "../../coach/session-harness.fixtures";
 import { createGsiLinkTestDb, gsiPayload, SENTINELS } from "../../live/gsi.fixtures";
 import { createGsiLinkStore, GSI_LINK_TTL_MS } from "../../live/gsi-links";
-import { GSI_DRAFT_PARTIAL, LiveCaptureRegistry, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
+import { GSI_DRAFT_PARTIAL, GSI_ITEM_CHANGES, LiveCaptureRegistry, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createLiveGsiRoutes, GSI_MAX_BODY_BYTES } from "./live-gsi";
@@ -364,6 +364,69 @@ describe("draft capture through the kernel", () => {
     t.advance(1_000);
     await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "dire", matchId: "1234567891", draft: "empty" }));
     expect(t.status(issued.sessionId)).toMatchObject({ draftPhase: "hero_selection", localSide: "dire", bans: 0, picks: 0 });
+  });
+});
+
+describe("connection diagnostics (/live-draft \"Diagnóstico de conexión\")", () => {
+  test("packet age comes from the server clock; past the stale window GSI is no longer active", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    expect(t.status(issued.sessionId).gsi).toBeNull();
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, gameState: null }));
+    expect(t.status(issued.sessionId).gsi).toMatchObject({ lastPacketAgeMs: 0, active: true });
+    t.advance(532);
+    expect(t.status(issued.sessionId).gsi).toMatchObject({ lastPacketAgeMs: 532, active: true });
+    t.advance(LIVE_STALE_AFTER_MS);
+    expect(t.status(issued.sessionId)).toMatchObject({ connection: "stale", gsi: { lastPacketAgeMs: LIVE_STALE_AFTER_MS + 532, active: false } });
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, gameState: null }));
+    expect(t.status(issued.sessionId)).toMatchObject({ connection: "connected", gsi: { lastPacketAgeMs: 0, active: true } });
+  });
+
+  test("draft capabilities accumulate as Dota reports them; progression needs the draft to GROW between updates", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const opening = gsiPayload({ token: issued.token, teamName: "radiant", draft: { radiant: { bans: [10] } } });
+    await t.post(issued.liveId, opening);
+    expect(t.status(issued.sessionId).gsi).toMatchObject({ draft: { draftBlock: true, side: true, bans: true, ownHero: false, allyPicks: false, enemyPicks: false }, draftProgression: false });
+    // The same state again is not progression.
+    await t.post(issued.liveId, opening);
+    expect(t.status(issued.sessionId).gsi?.draftProgression).toBe(false);
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, draft: { radiant: { bans: [10], picks: [11] }, dire: { picks: [21] } } }));
+    expect(t.status(issued.sessionId).gsi).toMatchObject({ draft: { ownHero: true, allyPicks: true, enemyPicks: true }, draftProgression: true });
+    // Sticky for this draft, reset by a new match's draft.
+    await t.post(issued.liveId, opening);
+    expect(t.status(issued.sessionId).gsi?.draftProgression).toBe(true);
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "dire", matchId: "1234567891", draft: "empty" }));
+    expect(t.status(issued.sessionId).gsi).toMatchObject({ draft: { draftBlock: false, bans: false, allyPicks: false }, draftProgression: false });
+  });
+
+  test("item changes are detected between match updates -- presence only, never the items", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const inMatch = (items: string[]) => gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", telemetry: true, items });
+    await t.post(issued.liveId, inMatch(["item_tango", "item_branches"]));
+    await t.post(issued.liveId, inMatch(["item_tango", "item_branches"]));
+    expect(t.status(issued.sessionId).gsi?.telemetry).toContain("items");
+    expect(t.status(issued.sessionId).gsi?.telemetry).not.toContain(GSI_ITEM_CHANGES);
+    await t.post(issued.liveId, inMatch(["item_tango", "item_magic_wand"]));
+    const status = JSON.stringify(t.status(issued.sessionId));
+    expect(t.status(issued.sessionId).gsi?.telemetry).toContain(GSI_ITEM_CHANGES);
+    for (const leaked of ["item_tango", "item_branches", "item_magic_wand", "itemsKey", "matchKey"]) expect(status).not.toContain(leaked);
+  });
+
+  test("a new match does not compare its inventory with the previous match's (re-queue is not an item change)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const inMatch = (matchId: string, items: string[]) =>
+      gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, matchId, gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", telemetry: true, items });
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", matchId: "1234567890", draft: "empty" }));
+    await t.post(issued.liveId, inMatch("1234567890", ["item_tango", "item_branches"]));
+    // Next game: a new draft, then its first inventory report -- different items, but nothing changed WITHIN this match.
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", matchId: "1234567891", draft: "empty" }));
+    await t.post(issued.liveId, inMatch("1234567891", ["item_quelling_blade"]));
+    expect(t.status(issued.sessionId).gsi?.telemetry).not.toContain(GSI_ITEM_CHANGES);
+    await t.post(issued.liveId, inMatch("1234567891", ["item_quelling_blade", "item_magic_wand"]));
+    expect(t.status(issued.sessionId).gsi?.telemetry).toContain(GSI_ITEM_CHANGES);
   });
 });
 
