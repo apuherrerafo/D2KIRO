@@ -26,6 +26,8 @@
     "test": "bun test apps/engine && bun test apps/web && bun test scripts",
     "verify:r1": "bun run scripts/r1/certify.ts",
     "dev:mvp": "bun run scripts/dev-mvp.ts",
+    "dev:live": "bun run scripts/dev-live.ts",
+    "probe:gsi": "bun run scripts/live/gsi-probe/probe.ts",
     "qa:fast": "bun scripts/qa/run.ts fast",
     "qa:contract": "bun scripts/qa/run.ts contract",
     "qa:mvp": "bun scripts/qa/run.ts mvp",
