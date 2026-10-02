@@ -13,9 +13,11 @@ interface NavLinkDef {
 // cuenta + pool + Simulador de Draft. `/live-draft`, `/team-groups` y `/heroes` salen del array
 // pero sus rutas, componentes y tests quedan intactos: siguen alcanzables por URL directa.
 // Reversible -- volver a agregarlos es editar este array.
+// TSK-219: "Draft en vivo" vuelve -- ya no depende de un motor local, funciona en el sitio desplegado.
 export function buildNavLinks(): NavLinkDef[] {
   return [
     { href: "/simulator", label: "Simulador de Draft" },
+    { href: "/live-draft", label: "Draft en vivo" },
     { href: "/hero-pool", label: "Mi pool" },
     { href: "/meta", label: "Meta" },
     { href: "/settings", label: "Configuración" },

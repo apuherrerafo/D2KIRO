@@ -71,6 +71,12 @@ export interface ProtocolSessionMetadata {
    * sessions (Manual/Captain's Mode), which keep using `partyContext.controlledSlots` unchanged.
    */
   controlledPositions: DotaPosition[] | null;
+  /**
+   * Live Dota capture (Overwolf + manual fallback) on a "manual" session: its kernel state is a pure
+   * function of the observed facts (server/live-capture-registry.ts), rebuilt through the kernel on
+   * every change -- never mutated by a client command. Absent/false for every other session.
+   */
+  liveCapture?: boolean;
 }
 
 /** Session-layer (never kernel) binding of a sealed Own Team selection to the human-chosen position it fills. */
@@ -165,6 +171,17 @@ export interface CreateProtocolSessionInput {
   simulatorSeed?: string;
   /** PD-026/PD-027 -- Own Team's human-controlled positions (AP Simulator only). See ProtocolSessionMetadata.controlledPositions. */
   controlledPositions?: DotaPosition[];
+  /** Live Dota capture session (see ProtocolSessionMetadata.liveCapture). Only meaningful with adapterKind "manual". */
+  liveCapture?: boolean;
+}
+
+/** Input to install a live capture session's state, rebuilt by the kernel from observed facts (live/live-capture.ts). */
+export interface LiveStateInstall {
+  state: DraftProtocolState;
+  localSide: TeamSide;
+  patch: string;
+  /** Own-side position bindings; kept only where `state` actually holds our own selection at that (round, slotIndex). */
+  ownBindings: readonly OwnPickPositionBinding[];
 }
 
 function oppositeSide(side: TeamSide): TeamSide {
@@ -205,6 +222,7 @@ export class ProtocolSessionStore {
         humanPosition: input.humanPosition ?? null,
         simulatorSeed: input.simulatorSeed ?? null,
         controlledPositions: input.controlledPositions ?? null,
+        ...(input.liveCapture === true && (input.adapterKind ?? "manual") === "manual" ? { liveCapture: true } : {}),
       },
       ownerAccountId: input.ownerAccountId ?? null,
       lastAccessedAt: now,
@@ -240,6 +258,41 @@ export class ProtocolSessionStore {
     const entry = this.sessions.get(sessionId);
     if (!entry) return null;
     return entry.ownerAccountId === accountId;
+  }
+
+  /**
+   * First authenticated claimer owns an unowned session (a live capture session may be created by the
+   * token-authenticated capturer before the Player's browser opens it). Returns whether `accountId`
+   * owns the session afterwards; `false` for an unknown session or one owned by someone else.
+   */
+  claimOwner(sessionId: string, accountId: number): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) return false;
+    if (entry.ownerAccountId === null) entry.ownerAccountId = accountId;
+    return entry.ownerAccountId === accountId;
+  }
+
+  /**
+   * Live capture -- replace the kernel state with one the observed facts produced FROM SCRATCH through
+   * the kernel (live/live-capture.ts replays every fact via applyProtocolCommand/legalActions). The
+   * store never edits a kernel state by hand: it only swaps in a state the kernel itself produced.
+   * Side/patch may change (the game reports the Player's side after the session exists).
+   */
+  installLiveState(sessionId: string, install: LiveStateInstall, now = Date.now()): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || install.state.sessionId !== sessionId) return false;
+    const { state, localSide } = install;
+    const ownSealed = (binding: OwnPickPositionBinding) => {
+      const rankedAp = state.rankedAp;
+      const sameSlot = (record: { side: TeamSide; slotIndex: number }) => record.side === localSide && record.slotIndex === binding.slotIndex;
+      if (rankedAp?.round?.round === binding.round && rankedAp.round.sealed.some(sameSlot)) return true;
+      return rankedAp?.confirmedPicks.some((pick) => pick.round === binding.round && sameSlot(pick)) ?? false;
+    };
+    entry.state = state;
+    entry.metadata = { ...entry.metadata, localSide, patch: install.patch, partyContext: state.rankedAp?.partyContext ?? entry.metadata.partyContext };
+    entry.ownPickPositions = install.ownBindings.filter(ownSealed);
+    entry.lastAccessedAt = now;
+    return true;
   }
 
   partyContext(sessionId: string): PartyContext | null {
@@ -436,7 +489,9 @@ export class ProtocolSessionStore {
    */
   humanActionability(sessionId: string): HumanActionability | null {
     const entry = this.sessions.get(sessionId);
-    if (!entry || !entry.metadata.controlledPositions || !isApSimulatorMetadata(entry.metadata)) return null;
+    if (!entry || !entry.metadata.controlledPositions) return null;
+    // AP Simulator sessions, and live capture sessions (whose positions come from the game's own roster).
+    if (!isApSimulatorMetadata(entry.metadata) && entry.metadata.liveCapture !== true) return null;
     const localSide = entry.metadata.localSide;
     const openOwnRoundSlots = entry.state.rankedAp?.round?.openSlots.filter((slot) => slot.side === localSide).length ?? 0;
     return deriveHumanActionability({

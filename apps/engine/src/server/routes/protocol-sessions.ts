@@ -281,6 +281,11 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     if (body.viewerSide !== undefined && body.viewerSide !== null && body.viewerSide !== metadata.localSide) {
       return Response.json({ error: "perspective_forbidden" }, { status: 403 });
     }
+    // A live capture session's state is rebuilt from observed facts on every change: a raw command would
+    // be silently lost on the next rebuild. Facts go through POST .../live-observation instead.
+    if (metadata.liveCapture === true) {
+      return Response.json({ error: "live_capture_uses_observations" }, { status: 409 });
+    }
     // R1 S3 (final trust-boundary repair). TRUSTED_SERVER_ONLY commands are refused here on the
     // basis of WHERE THEY ARRIVED, before any consideration of how well-formed they are -- a
     // perfectly valid, perfectly self-consistent OFFICIAL_DEPOT snapshot is refused exactly like a
@@ -767,6 +772,39 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     return Response.json(recommendationSet);
   }
 
+  /**
+   * Team Coach Board -- one projection of every human-controlled position, ranked against ONE
+   * perspective snapshot of this session (coach/team-coach-board.ts). Read-only: it never applies a
+   * command, so asking for the board cannot change the draft. Same perspective guard as every other
+   * read route of this family.
+   */
+  async function getTeamRecommendations(sessionId: string, url: URL): Promise<Response> {
+    const sideParam = url.searchParams.get("side");
+    if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
+    const metadata = deps.store.metadata(sessionId);
+    const view = deps.store.view(sessionId);
+    if (!metadata || !view) return notFound();
+    if (sideParam !== null && sideParam !== metadata.localSide) {
+      return Response.json({ error: "perspective_forbidden" }, { status: 403 });
+    }
+    if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+    const startedAt = Date.now();
+    const board = await coachRecommendations.recommendTeamBoard(sessionId, metadata.humanPosition);
+    if (board === undefined) return notFound();
+    if (board === null) return Response.json({ error: "team_board_requires_controlled_positions" }, { status: 422 });
+    // Same safe-telemetry rule as getRecommendations: no hero, no person -- only aggregated state.
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      event: "team_board_computed",
+      sessionId,
+      stateIdentity: board.stateIdentity,
+      protocolStatus: view.status,
+      rankedPositions: board.positions.filter((column) => column.state === "RANKED").length,
+      computedInMs: Date.now() - startedAt,
+    }));
+    return Response.json(board);
+  }
+
   async function postPositionAssignment(request: Request, sessionId: string, accountId: number | null = null): Promise<Response> {
     const metadata = deps.store.metadata(sessionId);
     if (!metadata) return notFound();
@@ -806,6 +844,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     postAutoDrive,
     postPositionAssignment,
     getRecommendations,
+    getTeamRecommendations,
     isOwnedBy: deps.store.isOwnedBy.bind(deps.store),
     parseSessionId,
     parseSessionSubpath,

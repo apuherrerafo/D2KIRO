@@ -46,6 +46,14 @@ describe("engine rewrites", () => {
     // Own-Flex assignment call was missing from the allowlist and 404ed through the proxy in the real product.
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/recommendations");
     expect(sources).toContain("/engine/api/session/protocol/:sessionId/position-assignment");
+    // Team Coach Board + live Dota capture (features/team-coach/client.ts): without these the board 404s through the proxy.
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/team-recommendations");
+    expect(sources).toContain("/engine/api/session/protocol/live");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/live-status");
+    expect(sources).toContain("/engine/api/session/protocol/:sessionId/live-observation");
+    // TSK-219: the browser may read/revoke its Dota GSI link, but NEVER reach the token-issuing route.
+    expect(sources).toContain("/engine/api/live/gsi-link");
+    expect(sources.some((source) => source.includes("gsi-link/issue") || source.includes("/api/live/gsi/"))).toBe(false);
     expect(sources).toContain("/engine/api/session/:sessionId/feedback");
     expect(sources).toContain("/engine/api/session/:sessionId/draft-paths");
     expect(sources).toContain("/engine/api/v1/draft/pro-recommendations");
