@@ -231,9 +231,10 @@ jobs:
         run: bun install --frozen-lockfile
 
       # R1 S7 completion wave: productE2E is now a real gate (bun run e2e), self-contained
-      # (e2e/bootstrap-db.ts) -- needs a real Chromium binary in this runner.
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      # (e2e/bootstrap-db.ts) -- needs a real Chromium binary in this runner. TSK-237: and WebKit,
+      # because playwright.config.ts also runs the `webkit-mobile` project (mobile-semantic.spec.ts).
+      - name: Install Playwright browsers (Chromium + WebKit)
+        run: npx playwright install --with-deps chromium webkit
 
       # --reuse-foundation: the `needs:` above already guarantees test/verify-simplicity/
       # intelligence-ci are green in this workflow run -- this flag reuses that result instead of
