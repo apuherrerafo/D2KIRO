@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, staging/private-beta-1]
   pull_request:
-    branches: [master]
+    branches: [master, staging/private-beta-1]
 
 # Monorepo sin bun workspaces (ver docs/agents/journal.md): apps/engine, apps/web y la raíz
 # (scripts/) son 3 árboles de instalación independientes, cada uno con su propio bun.lock -- por
@@ -81,6 +81,16 @@ jobs:
       # 'drizzle-orm'" (reproducido y confirmado en un contenedor Linux limpio, TSK-119).
       - name: Install apps/engine dependencies (needed by apps/web's cross-app type-check)
         if: matrix.target == 'web'
+        working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
+      # scripts/dev-mvp-db.test.ts ejecuta a propósito la migración REAL del motor
+      # (`bun run src/db/migrate.ts` con cwd apps/engine, vía ensureManualMvpDatabase), que importa
+      # drizzle-orm de apps/engine/node_modules. Sin este paso el job root falla con "Cannot find
+      # module 'drizzle-orm/bun-sqlite/migrator'" (TSK-236) -- no se mockea ni se duplica la
+      # dependencia en la raíz.
+      - name: Install apps/engine dependencies (needed by scripts/' real engine migration test)
+        if: matrix.target == 'root'
         working-directory: apps/engine
         run: bun install --frozen-lockfile
 
@@ -221,9 +231,10 @@ jobs:
         run: bun install --frozen-lockfile
 
       # R1 S7 completion wave: productE2E is now a real gate (bun run e2e), self-contained
-      # (e2e/bootstrap-db.ts) -- needs a real Chromium binary in this runner.
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      # (e2e/bootstrap-db.ts) -- needs a real Chromium binary in this runner. TSK-237: and WebKit,
+      # because playwright.config.ts also runs the `webkit-mobile` project (mobile-semantic.spec.ts).
+      - name: Install Playwright browsers (Chromium + WebKit)
+        run: npx playwright install --with-deps chromium webkit
 
       # --reuse-foundation: the `needs:` above already guarantees test/verify-simplicity/
       # intelligence-ci are green in this workflow run -- this flag reuses that result instead of
@@ -236,8 +247,32 @@ jobs:
       # engineering-correctness gates it CAN decide (machineCertification + productE2E) while the
       # report it writes still honestly records qualityGolden/overallR1 as HUMAN_GATE -- see
       # scripts/r1/certify.ts's header comment for the full exit-code policy.
+      #
+      # TSK-237: E2E_RUNTIME_DIR pins the product_e2e runtime (normally a random
+      # /tmp/d2kiro-playwright-*) to a known path so a failure's diagnostics survive the runner.
+      # e2e/runtime.ts already honours a preset E2E_RUNTIME_DIR and certify.ts -> run.ts ->
+      # playwright.config.ts inherit it; it is created first because run.ts opens runtime.log
+      # before prepareLocalRuntime(). On success run.ts deletes it, as before.
       - name: R1 certification -- verify:r1
-        run: bun run verify:r1 -- --reuse-foundation --machine-only
+        env:
+          E2E_RUNTIME_DIR: ${{ runner.temp }}/d2kiro-e2e-runtime
+        run: |
+          mkdir -p "$E2E_RUNTIME_DIR"
+          bun run verify:r1 -- --reuse-foundation --machine-only
+
+      # runtime.log holds the Playwright list-reporter output (project, spec, test, assertion);
+      # test-results/ holds traces/screenshots. Secrets there are random per run and the account is
+      # the 999000001 fixture -- no real identity. session.json (sealed fixture cookie) is excluded.
+      - name: Upload product E2E diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-e2e-diagnostics
+          path: |
+            ${{ runner.temp }}/d2kiro-e2e-runtime/
+            !${{ runner.temp }}/d2kiro-e2e-runtime/session.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload certification report
         if: always()
