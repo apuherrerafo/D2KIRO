@@ -112,6 +112,7 @@ export type LiveObservationInput =
   | { type: "draft_started" }
   | { type: "side"; side: TeamSide }
   | { type: "ban"; heroId: HeroId }
+  | { type: "unban"; heroId: HeroId }
   | { type: "bans_closed" }
   | { type: "pick"; side: TeamSide; heroId: HeroId; position: TeamPosition | null }
   | { type: "revert"; side: TeamSide; heroId: HeroId };

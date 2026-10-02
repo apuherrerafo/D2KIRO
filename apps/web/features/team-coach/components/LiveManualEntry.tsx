@@ -89,6 +89,69 @@ function PositionRow({ mode, position, onSelect }: { mode: EntryMode; position: 
   );
 }
 
+function heroLabel(heroCatalog: Map<number, HeroMeta>, heroId: number): string {
+  return heroCatalog.get(heroId)?.localizedName ?? `Héroe ${heroId}`;
+}
+
+interface CorrectionChipProps {
+  heroId: number;
+  label: string;
+  onRemove(heroId: number): void;
+}
+
+function CorrectionChip({ heroId, label, onRemove }: CorrectionChipProps) {
+  function handleClick() {
+    onRemove(heroId);
+  }
+  return (
+    <button type="button" onClick={handleClick} className={CHIP} aria-label={`Quitar ${label}`} data-testid={`live-correction-${heroId}`}>
+      ✕ {label}
+    </button>
+  );
+}
+
+interface CorrectionGroupProps {
+  title: string;
+  heroIds: readonly number[];
+  heroCatalog: Map<number, HeroMeta>;
+  onRemove(heroId: number): void;
+}
+
+function CorrectionGroup({ title, heroIds, heroCatalog, onRemove }: CorrectionGroupProps) {
+  if (heroIds.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-caption text-content-muted">{title}:</span>
+      {heroIds.map((heroId) => (
+        <CorrectionChip key={heroId} heroId={heroId} label={heroLabel(heroCatalog, heroId)} onRemove={onRemove} />
+      ))}
+    </div>
+  );
+}
+
+interface ManualCorrectionsProps {
+  heroCatalog: Map<number, HeroMeta>;
+  bans: readonly number[];
+  ownPicks: readonly number[];
+  enemyPicks: readonly number[];
+  onUnban(heroId: number): void;
+  onRevertOwn(heroId: number): void;
+  onRevertEnemy(heroId: number): void;
+}
+
+/** Undo a fact entered (or captured) by mistake: the engine rebuilds the draft without it. */
+function ManualCorrections({ heroCatalog, bans, ownPicks, enemyPicks, onUnban, onRevertOwn, onRevertEnemy }: ManualCorrectionsProps) {
+  if (bans.length + ownPicks.length + enemyPicks.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2" data-testid="live-manual-corrections">
+      <span className="text-caption font-semibold text-content-secondary">Corregir (quitar un dato cargado por error)</span>
+      <CorrectionGroup title="Bans" heroIds={bans} heroCatalog={heroCatalog} onRemove={onUnban} />
+      <CorrectionGroup title="Mi equipo" heroIds={ownPicks} heroCatalog={heroCatalog} onRemove={onRevertOwn} />
+      <CorrectionGroup title="Rival" heroIds={enemyPicks} heroCatalog={heroCatalog} onRemove={onRevertEnemy} />
+    </div>
+  );
+}
+
 function ManualError({ message }: { message: string | null }) {
   if (!message) return null;
   return <span className="text-caption text-signal-negative" role="alert">{message}</span>;
@@ -97,6 +160,10 @@ function ManualError({ message }: { message: string | null }) {
 export interface LiveManualEntryProps {
   heroCatalog: Map<number, HeroMeta>;
   unavailableHeroIds: ReadonlySet<number>;
+  /** What the draft holds now, so a mistake can be removed. */
+  bans?: readonly number[];
+  ownPicks?: readonly number[];
+  enemyPicks?: readonly number[];
   localSide: TeamSide | null;
   /** Shared with the board: clicking a column picks the position for the next own pick. */
   position: TeamPosition | null;
@@ -108,7 +175,7 @@ export interface LiveManualEntryProps {
   onReport(observation: LiveObservationInput): void;
 }
 
-export function LiveManualEntry({ heroCatalog, unavailableHeroIds, localSide, position, onSelectPosition, draftStarted, open, error, onReport }: LiveManualEntryProps) {
+export function LiveManualEntry({ heroCatalog, unavailableHeroIds, bans = [], ownPicks = [], enemyPicks = [], localSide, position, onSelectPosition, draftStarted, open, error, onReport }: LiveManualEntryProps) {
   const [mode, setMode] = useState<EntryMode>("own_pick");
   const side: TeamSide = localSide ?? "radiant";
 
@@ -127,6 +194,15 @@ export function LiveManualEntry({ heroCatalog, unavailableHeroIds, localSide, po
   }
   function handleCloseBans() {
     onReport({ type: "bans_closed" });
+  }
+  function handleUnban(heroId: number) {
+    onReport({ type: "unban", heroId });
+  }
+  function handleRevertOwn(heroId: number) {
+    onReport({ type: "revert", side, heroId });
+  }
+  function handleRevertEnemy(heroId: number) {
+    onReport({ type: "revert", side: otherSide(side), heroId });
   }
 
   return (
@@ -151,6 +227,15 @@ export function LiveManualEntry({ heroCatalog, unavailableHeroIds, localSide, po
         </div>
         <PositionRow mode={mode} position={position} onSelect={onSelectPosition} />
         <HeroPicker heroes={[...heroCatalog.values()]} onSelect={handleHero} unavailableHeroIds={unavailableHeroIds} />
+        <ManualCorrections
+          heroCatalog={heroCatalog}
+          bans={bans}
+          ownPicks={ownPicks}
+          enemyPicks={enemyPicks}
+          onUnban={handleUnban}
+          onRevertOwn={handleRevertOwn}
+          onRevertEnemy={handleRevertEnemy}
+        />
         <ManualError message={error} />
       </div>
     </details>

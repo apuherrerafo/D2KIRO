@@ -107,6 +107,37 @@ describe("public GSI relay", () => {
     expect(calls).toHaveLength(0);
   });
 
+  test("a slow-trickle body is cut at the read deadline (408) and never forwarded", async () => {
+    const calls: string[] = [];
+    const handler = createGsiRelayHandler({
+      engineUrl: () => "http://engine.internal:4000",
+      fetch: async (url) => {
+        calls.push(url);
+        return new Response(null, { status: 200 });
+      },
+      readDeadlineMs: 30,
+    });
+    const neverEnds = new ReadableStream<Uint8Array<ArrayBuffer>>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{"));
+      },
+    });
+    expect((await handler({ headers: fakeHeaders({}), body: neverEnds }, LIVE_ID)).status).toBe(408);
+    expect(calls).toHaveLength(0);
+  });
+
+  test("a client that aborts mid-body gets a bare 400, never an error", async () => {
+    const calls: string[] = [];
+    const handler = createGsiRelayHandler({ engineUrl: () => "http://engine.internal:4000", fetch: async (url) => { calls.push(url); return new Response(null, { status: 200 }); } });
+    const aborted = new ReadableStream<Uint8Array<ArrayBuffer>>({
+      start(controller) {
+        controller.error(new Error("client aborted"));
+      },
+    });
+    expect((await handler({ headers: fakeHeaders({}), body: aborted }, LIVE_ID)).status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
   test("engine down -> 503, and nothing is logged", async () => {
     const handler = createGsiRelayHandler({ engineUrl: () => "http://engine.internal:4000", fetch: () => Promise.reject(new Error(TOKEN)) });
     expect((await handler(post(JSON.stringify({ auth: { token: TOKEN } })), LIVE_ID)).status).toBe(503);

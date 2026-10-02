@@ -167,3 +167,23 @@ describe("LiveTeamCoachView -- fallback manual", () => {
     }
   });
 });
+
+describe("useLiveTeamCoach -- a failed board is retried (Greptile TSK-219)", () => {
+  test("board request fails once with the draft unchanged -> the next poll fetches it again", async () => {
+    const engine = new FakeLiveEngine();
+    const base = engine.fetch;
+    let failures = 1;
+    engine.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/team-recommendations") && failures > 0) {
+        failures -= 1;
+        engine.requests.push({ url: String(input), method: "GET", body: null });
+        return json({ error: "boom" }, 503);
+      }
+      return base(input, init);
+    };
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().boardStatus).toBe("ready"));
+    expect(engine.count("/team-recommendations")).toBe(2);
+    hook.unmount();
+  });
+});

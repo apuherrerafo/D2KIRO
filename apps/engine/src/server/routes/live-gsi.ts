@@ -145,7 +145,9 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
   function postIssue(accountId: number): Response {
     let issued: IssuedGsiLink;
     try {
+      const previous = deps.links.active(accountId, now());
       issued = deps.links.issue(accountId, now());
+      if (previous !== null) deps.registry.forget(previous.sessionId);
     } catch {
       return unavailable();
     }
@@ -167,7 +169,9 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
 
   function deleteLink(accountId: number): Response {
     try {
+      const previous = deps.links.active(accountId, now());
       deps.links.revoke(accountId);
+      if (previous !== null) deps.registry.forget(previous.sessionId);
     } catch {
       return unavailable();
     }

@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 /** Same cap as the engine (routes/live-gsi.ts): a full GSI update is a few KB. */
 export const GSI_RELAY_MAX_BYTES = 256 * 1024;
 const ENGINE_TIMEOUT_MS = 5_000;
+/** A GSI update is a few KB sent at once: a body still arriving after this is a slow-trickle client, not Dota. */
+export const GSI_RELAY_READ_DEADLINE_MS = 10_000;
 const FORWARDED_STATUSES = new Set([200, 400, 401, 409, 413, 429]);
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -20,28 +22,58 @@ export type RelayRequest = Pick<Request, "headers" | "body">;
 export interface GsiRelayDependencies {
   engineUrl: () => string;
   fetch: FetchLike;
+  readDeadlineMs?: number;
 }
 
 function empty(status: number): Response {
   return new Response(null, { status, headers: { "cache-control": "no-store" } });
 }
 
-async function readBounded(request: RelayRequest): Promise<Uint8Array<ArrayBuffer> | 400 | 413> {
+const DEADLINE = Symbol("deadline");
+
+function deadlineAfter(ms: number): { promise: Promise<typeof DEADLINE>; clear(): void } {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<typeof DEADLINE>(function waitDeadline(resolve) {
+    timer = setTimeout(resolve, ms, DEADLINE);
+  });
+  return {
+    promise,
+    clear() {
+      clearTimeout(timer);
+    },
+  };
+}
+
+async function readBounded(request: RelayRequest, deadlineMs: number): Promise<Uint8Array<ArrayBuffer> | 400 | 408 | 413> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > GSI_RELAY_MAX_BYTES) return 413;
   if (!request.body) return 400;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > GSI_RELAY_MAX_BYTES) {
-      await reader.cancel().catch(() => undefined);
-      return 413;
+  const deadline = deadlineAfter(deadlineMs);
+  try {
+    for (;;) {
+      const chunk = await Promise.race([reader.read(), deadline.promise]);
+      if (chunk === DEADLINE) {
+        // Fire and forget: a stalled socket must not hold the 408 back.
+        void reader.cancel().catch(() => undefined);
+        return 408;
+      }
+      const { done, value } = chunk;
+      if (done) break;
+      total += value.byteLength;
+      if (total > GSI_RELAY_MAX_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return 413;
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch {
+    // The client went away mid-body: nothing to forward, nothing to log.
+    return 400;
+  } finally {
+    deadline.clear();
   }
   const body = new Uint8Array(total);
   let offset = 0;
@@ -55,8 +87,8 @@ async function readBounded(request: RelayRequest): Promise<Uint8Array<ArrayBuffe
 export function createGsiRelayHandler(dependencies: GsiRelayDependencies) {
   return async (request: RelayRequest, liveId: string): Promise<Response> => {
     if (!GSI_LIVE_ID_PATTERN.test(liveId)) return empty(401);
-    const body = await readBounded(request);
-    if (body === 400 || body === 413) return empty(body);
+    const body = await readBounded(request, dependencies.readDeadlineMs ?? GSI_RELAY_READ_DEADLINE_MS);
+    if (body === 400 || body === 408 || body === 413) return empty(body);
     try {
       const engineResponse = await dependencies.fetch(`${dependencies.engineUrl()}/api/live/gsi/${liveId}`, {
         method: "POST",

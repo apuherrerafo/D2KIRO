@@ -123,11 +123,18 @@ export class LiveCaptureRegistry {
         controlledPositions: [...LIVE_CONTROLLED_POSITIONS],
       }, this.now());
       if (!created.ok) return false;
-      // A store eviction (TTL) forgot the old draft: the facts go with it.
+      // A store eviction (TTL) forgot the old draft: the facts go with it -- and so do those of every
+      // other session the store already evicted (bounded memory, swept only when a session is created).
+      for (const known of this.entries.keys()) if (!this.deps.store.metadata(known)) this.entries.delete(known);
       this.entries.set(sessionId, this.freshEntry());
     }
     if (!this.entries.has(sessionId)) this.entries.set(sessionId, this.freshEntry());
     return ownerAccountId === null ? true : this.deps.store.claimOwner(sessionId, ownerAccountId);
+  }
+
+  /** A rotated or revoked Dota link: its capture history is dropped at once (the session itself ages out). */
+  forget(sessionId: string): void {
+    this.entries.delete(sessionId);
   }
 
   isLive(sessionId: string): boolean {

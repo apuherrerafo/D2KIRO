@@ -67,6 +67,8 @@ export function useLiveTeamCoach(sessionId: string, options: UseLiveTeamCoachOpt
       if (force || key !== changeKeyRef.current) {
         changeKeyRef.current = key;
         await refreshDraft();
+        // A board that failed for this draft is retried on the next poll, not only when the draft changes.
+        if (useLiveTeamCoachStore.getState().boardStatus === "failed") changeKeyRef.current = null;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "";

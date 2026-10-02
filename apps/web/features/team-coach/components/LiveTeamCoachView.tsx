@@ -79,6 +79,9 @@ export function LiveTeamCoachView({ sessionId, children }: LiveTeamCoachViewProp
       <LiveManualEntry
         heroCatalog={heroCatalog}
         unavailableHeroIds={unavailable}
+        bans={draftState?.banned ?? []}
+        ownPicks={ownPicksOf(draftState)}
+        enemyPicks={enemyPicksOf(draftState)}
         localSide={captureStatus?.localSide ?? null}
         position={selectedPosition}
         onSelectPosition={selectPosition}
@@ -89,6 +92,18 @@ export function LiveTeamCoachView({ sessionId, children }: LiveTeamCoachViewProp
       />
     </main>
   );
+}
+
+type LiveDraftState = ReturnType<typeof protocolViewToDraftState>;
+
+function ownPicksOf(draftState: LiveDraftState | null): number[] {
+  if (draftState === null) return [];
+  return draftState.localSide === "dire" ? [...draftState.picks.dire] : [...draftState.picks.radiant];
+}
+
+function enemyPicksOf(draftState: LiveDraftState | null): number[] {
+  if (draftState === null) return [];
+  return draftState.localSide === "dire" ? [...draftState.picks.radiant] : [...draftState.picks.dire];
 }
 
 function LiveDraftBoard({ draftState, heroCatalog }: { draftState: ReturnType<typeof protocolViewToDraftState> | null; heroCatalog: ReturnType<typeof useHeroCatalog>["heroes"] }) {

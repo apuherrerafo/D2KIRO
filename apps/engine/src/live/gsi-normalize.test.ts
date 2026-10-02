@@ -48,7 +48,15 @@ describe("normalizeGsi -- draft capability detection", () => {
     expect(update.capabilities).toEqual({ draftBlock: false, side: true, ownHero: true, bans: false, allyPicks: false, enemyPicks: false });
   });
 
-  test("zero / malformed hero ids in the draft block are ignored", () => {
+  test("empty team blocks (or only home_team) are NOT draft data -- the capture stays honestly partial", () => {
+    for (const draft of [{ team2: {}, team3: {} }, { team2: { home_team: true }, team3: { home_team: false } }]) {
+      const update = normalizeGsi({ map: { game_state: "DOTA_GAMERULES_STATE_HERO_SELECTION" }, player: { team_name: "radiant" }, draft });
+      expect(update.draft).toBeNull();
+      expect(update.capabilities.draftBlock).toBe(false);
+    }
+  });
+
+  test("zero / malformed hero ids in the draft block are ignored (slots present = draft data, just none valid yet)", () => {
     const update = normalizeGsi({ map: { game_state: "DOTA_GAMERULES_STATE_HERO_SELECTION" }, draft: { team2: { pick0_id: 0, pick1_id: "x", ban0_id: -4, ban1_id: 5000 }, team3: {} } });
     expect(update.draft).toEqual({ bans: [], picks: [] });
   });
@@ -87,6 +95,7 @@ describe("observationsFromGsi", () => {
     const update = normalizeGsi(gsiPayload({ teamName: "radiant", heroId: 8, draft: { radiant: { bans: [1] }, dire: { picks: [21] } } }));
     expect(observationsFromGsi(update, "7.41e")).toEqual([
       { type: "draft_started", patch: "7.41e" },
+      { type: "bans_closed" },
       { type: "side", side: "radiant" },
       { type: "ban", heroId: 1 },
       { type: "pick", side: "dire", heroId: 21, position: null },
@@ -100,6 +109,6 @@ describe("observationsFromGsi", () => {
   });
 
   test("our own hero without a known side is not attributed to any side", () => {
-    expect(observationsFromGsi(normalizeGsi(gsiPayload({ heroId: 8 })), "7.41e")).toEqual([{ type: "draft_started", patch: "7.41e" }]);
+    expect(observationsFromGsi(normalizeGsi(gsiPayload({ heroId: 8 })), "7.41e")).toEqual([{ type: "draft_started", patch: "7.41e" }, { type: "bans_closed" }]);
   });
 });

@@ -41,11 +41,13 @@ export type LiveObservation =
   | { type: "draft_started"; patch: string }
   | { type: "side"; side: TeamSide }
   | { type: "ban"; heroId: HeroId }
+  /** Correction: the Player reported a ban by mistake. */
+  | { type: "unban"; heroId: HeroId }
   | { type: "bans_closed" }
   | { type: "pick"; side: TeamSide; heroId: HeroId; position: Position | null }
   | { type: "revert"; side: TeamSide; heroId: HeroId };
 
-export type LiveIgnoredReason = "invalid_hero" | "already_banned" | "already_picked" | "picked_by_other_side" | "banned_hero" | "unknown_pick" | "no_change" | "draft_full";
+export type LiveIgnoredReason = "invalid_hero" | "already_banned" | "already_picked" | "picked_by_other_side" | "banned_hero" | "unknown_pick" | "unknown_ban" | "no_change" | "draft_full";
 
 /**
  * Upper bounds of a legal Ranked All Pick draft: 10 players x up to 4 ban nominations, 5 heroes a side.
@@ -111,6 +113,10 @@ export function applyLiveObservation(facts: LiveFacts, observation: LiveObservat
       // so a pick that arrives before the game reports our side does not lose it.
       const pick: LivePickFact = { side: observation.side, heroId: observation.heroId, position: observation.position };
       return { facts: { ...facts, picks: [...facts.picks, pick] }, changed: true, detectedPick: pick };
+    }
+    case "unban": {
+      if (!facts.bans.includes(observation.heroId)) return unchanged(facts, "unknown_ban");
+      return { facts: { ...facts, bans: facts.bans.filter((heroId) => heroId !== observation.heroId) }, changed: true };
     }
     case "revert": {
       const existing = facts.picks.find((pick) => pick.heroId === observation.heroId && pick.side === observation.side);

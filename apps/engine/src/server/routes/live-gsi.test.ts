@@ -123,6 +123,18 @@ describe("authentication fails closed", () => {
     expect((await t.post(second.liveId, gsiPayload({ token: second.token }))).status).toBe(401);
   });
 
+  test("rotation and revocation drop the old link's capture history from memory", async () => {
+    const t = setup();
+    const first = await t.issue(ACCOUNT_A);
+    await t.post(first.liveId, gsiPayload({ token: first.token, teamName: "radiant", draft: "empty" }));
+    expect(t.registry.status(first.sessionId)).not.toBeNull();
+    const second = await t.issue(ACCOUNT_A);
+    expect(t.registry.status(first.sessionId)).toBeNull();
+    expect(t.registry.status(second.sessionId)).not.toBeNull();
+    t.routes.deleteLink(ACCOUNT_A);
+    expect(t.registry.status(second.sessionId)).toBeNull();
+  });
+
   test("one user cannot ingest into another user's session", async () => {
     const t = setup();
     const mine = await t.issue(ACCOUNT_A);
@@ -224,6 +236,30 @@ describe("draft capture through the kernel", () => {
     expect(status.captureDetail).toBe(GSI_DRAFT_PARTIAL);
     expect(status.gsi?.draft).toEqual({ draftBlock: false, side: true, ownHero: true, bans: false, allyPicks: false, enemyPicks: false });
     expect(status.lastDetectedPick).toMatchObject({ side: "dire", heroId: 30, position: null, source: "gsi" });
+  });
+
+  test("Hero Selection with only our side already makes the board actionable (no lock needed first)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", draft: "empty" }));
+    const board = await t.board(issued.sessionId);
+    expect(board.positions.some((column) => column.state === "RANKED")).toBe(true);
+    expect(board.currentDecision.recommendedPosition).not.toBeNull();
+    // A ban the Player reports afterwards still lands before ban resolution (rebuilt from the facts).
+    expect(t.registry.observe(issued.sessionId, { type: "ban", heroId: 10 })).toMatchObject({ accepted: true, changed: true });
+    const after = await t.board(issued.sessionId);
+    expect(after.positions.flatMap((column) => column.top.map((candidate) => candidate.heroId))).not.toContain(10);
+  });
+
+  test("manual corrections: a mistaken ban or pick can be undone on a GSI session", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", draft: "empty" }));
+    t.registry.observe(issued.sessionId, { type: "ban", heroId: 10 });
+    t.registry.observe(issued.sessionId, { type: "pick", side: "dire", heroId: 21, position: null });
+    expect(t.registry.observe(issued.sessionId, { type: "unban", heroId: 10 })).toMatchObject({ accepted: true, changed: true });
+    expect(t.registry.observe(issued.sessionId, { type: "revert", side: "dire", heroId: 21 })).toMatchObject({ accepted: true, changed: true });
+    expect(t.status(issued.sessionId)).toMatchObject({ bans: 0, picks: 0 });
   });
 
   test("manual fallback still works on a GSI session, and the next GSI update never wipes it", async () => {

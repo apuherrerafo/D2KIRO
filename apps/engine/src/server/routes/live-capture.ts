@@ -30,6 +30,8 @@ export function parseLiveObservationBody(value: unknown): LiveObservation | null
   switch (value.type) {
     case "ban":
       return isHeroId(value.heroId) ? { type: "ban", heroId: value.heroId } : null;
+    case "unban":
+      return isHeroId(value.heroId) ? { type: "unban", heroId: value.heroId } : null;
     case "bans_closed":
       return { type: "bans_closed" };
     case "side":

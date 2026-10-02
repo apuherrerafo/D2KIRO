@@ -3,6 +3,7 @@ import "@/test-support/happy-dom";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 import { LiveDotaView } from "./components/LiveDotaView";
+import { LiveManualEntry } from "./components/LiveManualEntry";
 import { useLiveTeamCoachStore } from "./live-store";
 import type { GsiLinkView, LiveCaptureStatus, LiveGsiStatus, TeamCoachBoardData } from "./types";
 import { parseGsiLink, parseLiveCaptureStatus } from "./validation";
@@ -222,5 +223,30 @@ describe("validation mirrors (engine -> web)", () => {
     expect(parseLiveCaptureStatus(withoutGsi)).not.toBeNull();
     expect(parseLiveCaptureStatus({ ...withGsi, gsi: { ...gsi(), phase: "lobby" } })).toBeNull();
     expect(parseLiveCaptureStatus({ ...withGsi, gsi: { ...gsi(), draft: { side: "yes" } } })).toBeNull();
+  });
+});
+
+describe("LiveManualEntry -- corrections (Greptile TSK-219)", () => {
+  test("a mistaken ban / own pick / enemy pick can be removed; each sends the matching correction", async () => {
+    const reports: unknown[] = [];
+    function handleReport(observation: unknown) {
+      reports.push(observation);
+    }
+    const heroes = new Map([[8, { id: 8, name: "npc_dota_hero_juggernaut", localizedName: "Juggernaut", imgUrl: "", primaryAttr: "agi", attackType: "Melee", roles: [] }]]);
+    const view = render(
+      <LiveManualEntry heroCatalog={heroes} unavailableHeroIds={new Set([8, 21, 30])} bans={[30]} ownPicks={[8]} enemyPicks={[21]} localSide="dire" position={null} onSelectPosition={() => undefined} draftStarted open error={null} onReport={handleReport} />,
+    );
+    expect(view.getByTestId("live-manual-corrections").textContent).toContain("Juggernaut");
+    await act(async () => {
+      fireEvent.click(view.getByTestId("live-correction-30"));
+      fireEvent.click(view.getByTestId("live-correction-8"));
+      fireEvent.click(view.getByTestId("live-correction-21"));
+    });
+    expect(reports).toEqual([
+      { type: "unban", heroId: 30 },
+      { type: "revert", side: "dire", heroId: 8 },
+      { type: "revert", side: "radiant", heroId: 21 },
+    ]);
+    view.unmount();
   });
 });

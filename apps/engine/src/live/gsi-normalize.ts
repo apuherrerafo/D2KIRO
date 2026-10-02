@@ -70,15 +70,16 @@ function phaseOf(gameState: string | null): GsiPhase {
 function readDraft(block: Json): GsiUpdate["draft"] {
   const bans: HeroId[] = [];
   const picks: { side: TeamSide; heroId: HeroId }[] = [];
+  // Only pick/ban slots count as draft data: an empty `team2: {}` (or one with only `home_team`) says nothing.
   let teamData = false;
   for (const [teamKey, team] of Object.entries(block)) {
     const side = DRAFT_TEAM_SIDE[teamKey];
     if (!side || !isObject(team)) continue;
-    teamData = true;
     const slots = Object.keys(team)
       .map((key) => ({ key, match: key.match(DRAFT_SLOT_KEY) }))
       .filter((entry): entry is { key: string; match: RegExpMatchArray } => entry.match !== null)
       .sort((a, b) => Number(a.match[2]) - Number(b.match[2]));
+    if (slots.length > 0) teamData = true;
     for (const { key, match } of slots) {
       const heroId = heroIdOf(team[key]);
       if (heroId === null) continue;
@@ -180,7 +181,10 @@ export function normalizeGsi(payload: unknown): GsiUpdate {
  */
 export function observationsFromGsi(update: GsiUpdate, patch: string): LiveObservation[] {
   if (update.phase !== "draft") return [];
-  const observations: LiveObservation[] = [{ type: "draft_started", patch }];
+  // Hero selection already shown by the game = the Player needs recommendations NOW, not after the first
+  // lock. A player's GSI may never say when bans end, so the pick phase opens immediately. Safe: every
+  // rebuild replays all bans before ban resolution closes, so a ban reported later still lands first.
+  const observations: LiveObservation[] = [{ type: "draft_started", patch }, { type: "bans_closed" }];
   if (update.side !== null) observations.push({ type: "side", side: update.side });
   for (const heroId of update.draft?.bans ?? []) observations.push({ type: "ban", heroId });
   for (const pick of update.draft?.picks ?? []) observations.push({ type: "pick", side: pick.side, heroId: pick.heroId, position: null });

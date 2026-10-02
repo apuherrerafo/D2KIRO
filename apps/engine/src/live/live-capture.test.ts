@@ -105,6 +105,17 @@ describe("applyLiveObservation -- facts are idempotent", () => {
   });
 });
 
+describe("applyLiveObservation -- corrections (Greptile TSK-219)", () => {
+  test("unban removes exactly that ban; an unknown ban is a no-op, never an error", () => {
+    let current = facts({ bans: [11, 12] });
+    current = applyLiveObservation(current, { type: "unban", heroId: 11 }).facts;
+    expect(current.bans).toEqual([12]);
+    expect(applyLiveObservation(current, { type: "unban", heroId: 11 })).toMatchObject({ changed: false, ignored: "unknown_ban" });
+    expect(parseLiveObservationBody({ type: "unban", heroId: 12 })).toEqual({ type: "unban", heroId: 12 });
+    expect(parseLiveObservationBody({ type: "unban", heroId: "12" })).toBeNull();
+  });
+});
+
 describe("applyLiveObservation -- a live draft never outgrows a legal draft (Sentinel TSK-219)", () => {
   test("bans stop at MAX_LIVE_BANS, picks at MAX_LIVE_PICKS_PER_SIDE per side, hero ids above 999 are invalid", () => {
     let current = facts({});
