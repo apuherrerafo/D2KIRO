@@ -40,6 +40,11 @@ export interface GsiUpdate {
   capabilities: GsiDraftCapabilities;
   /** Match telemetry capability labels PRESENT in this payload (values never kept). */
   telemetry: string[];
+  /**
+   * One-way hash of the inventory (slot -> item name), only to notice "the items changed" between two
+   * updates (diagnostics). Never the items themselves; null when the payload carries no item names.
+   */
+  itemsKey: string | null;
 }
 
 const DRAFT_STATES = new Set(["DOTA_GAMERULES_STATE_HERO_SELECTION", "DOTA_GAMERULES_STATE_STRATEGY_TIME"]);
@@ -143,6 +148,25 @@ function readTelemetry(body: Json): string[] {
   return labels;
 }
 
+const ITEM_SLOT = /^(slot|stash|teleport|neutral)\d{1,2}$/;
+const ITEM_NAME = /^[a-z0-9_]{1,64}$/;
+
+function hashItems(items: unknown): string | null {
+  if (!isObject(items)) return null;
+  const slots: string[] = [];
+  for (const [slot, item] of Object.entries(items)) {
+    if (!ITEM_SLOT.test(slot) || !isObject(item) || typeof item.name !== "string" || !ITEM_NAME.test(item.name)) continue;
+    slots.push(`${slot}=${item.name}`);
+  }
+  if (slots.length === 0) return null;
+  return createHash("sha256").update(`d2k-gsi-items/v1|${slots.sort().join(",")}`).digest("hex").slice(0, 16);
+}
+
+/** How many draft facts one update states (bans + picks + our own hero): growing between updates = the draft progressing. */
+export function draftFactCount(update: GsiUpdate): number {
+  return (update.draft?.bans.length ?? 0) + (update.draft?.picks.length ?? 0) + (update.ownHeroId === null ? 0 : 1);
+}
+
 /** External input -> the allowlisted facts of one GSI update. Never throws, never returns a raw value outside the allowlist. */
 export function normalizeGsi(payload: unknown): GsiUpdate {
   const body = isObject(payload) ? payload : {};
@@ -172,6 +196,7 @@ export function normalizeGsi(payload: unknown): GsiUpdate {
       enemyPicks,
     },
     telemetry: readTelemetry(body),
+    itemsKey: hashItems(body.items),
   };
 }
 
