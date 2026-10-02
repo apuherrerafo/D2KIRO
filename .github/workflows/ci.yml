@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, staging/private-beta-1]
   pull_request:
-    branches: [master]
+    branches: [master, staging/private-beta-1]
 
 # Monorepo sin bun workspaces (ver docs/agents/journal.md): apps/engine, apps/web y la raíz
 # (scripts/) son 3 árboles de instalación independientes, cada uno con su propio bun.lock -- por
