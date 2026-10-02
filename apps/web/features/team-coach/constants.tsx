@@ -30,6 +30,10 @@ export const GSI_DRAFT_PARTIAL = "GSI_DRAFT_PARTIAL";
 // TSK-219 -- conectar Dota (Game State Integration) desde el sitio, sin terminal. Texto para jugadores:
 // nada de herramientas de desarrollo, puertos ni procesos.
 export const GSI_CONFIG_DOWNLOAD_ACTION = "/api/live/gsi-config";
+/** Windows: the same personal file inside a double-click installer (app/api/live/gsi-installer). */
+export const GSI_INSTALLER_DOWNLOAD_ACTION = "/api/live/gsi-installer";
+/** Windows: removes only D2KIRO's file from Dota; no credential inside (app/api/live/gsi-uninstaller). */
+export const GSI_UNINSTALLER_URL = "/api/live/gsi-uninstaller";
 export const GSI_CFG_FOLDER = "game\\dota\\cfg\\gamestate_integration";
 export const GSI_CFG_EXAMPLE_PATHS = [
   "C:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta\\game\\dota\\cfg\\gamestate_integration\\",
@@ -37,6 +41,12 @@ export const GSI_CFG_EXAMPLE_PATHS = [
 ] as const;
 export const GSI_LAUNCH_OPTION = "-gamestateintegration";
 export const GSI_INSTALL_ONCE = "Instala este archivo una sola vez y reinicia Dota 2.";
+export const GSI_INSTALLER_ONCE = "Se hace una sola vez: descargá el instalador, abrilo y reiniciá Dota 2.";
+/** Unsigned file: Windows and the browser may ask for confirmation. Said plainly, before it happens. */
+export const GSI_INSTALLER_WARNING =
+  "El instalador todavía no tiene firma digital, así que tu navegador puede pedirte que confirmes la descarga («Conservar») y Windows puede mostrar «Windows protegió tu PC»: tocá «Más información» y después «Ejecutar de todas formas». Si tu PC lo bloquea del todo (Control inteligente de aplicaciones o una PC de trabajo), usá «Instalarlo a mano» más abajo. Se abre una ventana negra chica unos segundos: es normal.";
+export const GSI_INSTALLER_SCOPE =
+  "Busca Dota 2 en tus bibliotecas de Steam (C:, D: u otro disco) y copia un solo archivo de configuración. No toca nada más, no lee tu cuenta de Steam y no se conecta a internet. Al terminar se borra solo.";
 /** How often /live-draft re-reads the account's Dota link while waiting for a download to land. */
 export const GSI_LINK_POLL_MS = 2_000;
 /** ?setup=<code> after a failed download (app/api/live/gsi-config). */
