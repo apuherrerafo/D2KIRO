@@ -80,7 +80,13 @@ export interface LiveGsiStatus {
   gameState: string | null;
   phase: GsiPhase;
   draft: GsiDraftCapabilities;
+  /** This draft: Dota reported MORE draft facts in a later update than in an earlier one. */
+  draftProgression?: boolean;
   telemetry: string[];
+  /** Server clock: ms since the last GSI update. */
+  lastPacketAgeMs?: number;
+  /** A GSI update (only ever via the https link route) arrived within the engine's stale window. */
+  active?: boolean;
 }
 
 export interface LiveCaptureStatus {
