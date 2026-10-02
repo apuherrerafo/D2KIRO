@@ -82,6 +82,24 @@ interface LiveEntry {
   gsi: LiveGsiStatus | null;
   /** Hash of the match the current facts belong to (GSI `map.matchid`, one-way). */
   matchKey: string | null;
+  /**
+   * Facts the Player removed by hand in THIS draft (`ban:<hero>`, `pick:<side>:<hero>`). GSI repeats the
+   * whole state on every update, so without this a correction would be undone by the next update.
+   */
+  suppressed: Set<string>;
+}
+
+function factKey(observation: LiveObservation): string | null {
+  switch (observation.type) {
+    case "ban":
+    case "unban":
+      return `ban:${observation.heroId}`;
+    case "pick":
+    case "revert":
+      return `pick:${observation.side}:${observation.heroId}`;
+    default:
+      return null;
+  }
 }
 
 export interface LiveCaptureRegistryDeps {
@@ -169,7 +187,19 @@ export class LiveCaptureRegistry {
   /** The Player's manual fallback (validated at the route). Same facts, same rebuild as the capturer. */
   observe(sessionId: string, observation: LiveObservation): LiveIngestResult {
     if (!this.isLive(sessionId) || !this.ensureSession(sessionId)) return { accepted: false, reason: "not_live_capture", status: this.status(sessionId) };
-    return this.applyObservation(sessionId, observation, "manual");
+    const result = this.applyObservation(sessionId, observation, "manual");
+    // The Player's word wins over the capture for the rest of this draft: a removal sticks, and stating
+    // the fact again by hand lifts it.
+    const key = factKey(observation);
+    const entry = this.entries.get(sessionId);
+    if (result.accepted && key !== null && entry) {
+      if (observation.type === "unban" || observation.type === "revert") {
+        if (result.changed) entry.suppressed.add(key);
+      } else {
+        entry.suppressed.delete(key);
+      }
+    }
+    return result;
   }
 
   /**
@@ -205,6 +235,8 @@ export class LiveCaptureRegistry {
       // GSI repeats "hero selection" in every update. A new draft was already decided above (match key /
       // ended), so a repeat never restarts -- not even once the kernel state reached COMPLETE.
       if (observation.type === "draft_started" && current.facts.started) continue;
+      const key = factKey(observation);
+      if (key !== null && current.suppressed.has(key)) continue;
       changed = this.applyFact(sessionId, current, observation, "gsi").changed || changed;
     }
     if (changed) this.rebuild(sessionId, this.entries.get(sessionId)!);
@@ -306,6 +338,7 @@ export class LiveCaptureRegistry {
       rejectedFacts: 0,
       gsi: null,
       matchKey: null,
+      suppressed: new Set(),
     };
   }
 }

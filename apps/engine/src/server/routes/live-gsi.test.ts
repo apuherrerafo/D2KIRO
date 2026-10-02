@@ -262,6 +262,27 @@ describe("draft capture through the kernel", () => {
     expect(t.status(issued.sessionId)).toMatchObject({ bans: 0, picks: 0 });
   });
 
+  test("a correction sticks: GSI repeating a fact the Player removed does not bring it back (Greptile TSK-219)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const update = gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, draft: { radiant: { bans: [10], picks: [11] }, dire: { picks: [21] } } });
+    await t.post(issued.liveId, update);
+    expect(t.status(issued.sessionId)).toMatchObject({ bans: 1, picks: 2 });
+    t.registry.observe(issued.sessionId, { type: "unban", heroId: 10 });
+    t.registry.observe(issued.sessionId, { type: "revert", side: "dire", heroId: 21 });
+    t.registry.observe(issued.sessionId, { type: "revert", side: "radiant", heroId: 11 });
+    await t.post(issued.liveId, update);
+    expect(t.status(issued.sessionId)).toMatchObject({ bans: 0, picks: 0 });
+    // Stating the fact again by hand lifts the suppression; the next GSI update agrees and changes nothing.
+    t.registry.observe(issued.sessionId, { type: "ban", heroId: 10 });
+    await t.post(issued.liveId, update);
+    expect(t.status(issued.sessionId)).toMatchObject({ bans: 1, picks: 0 });
+    // A new match starts clean: nothing suppressed carries over.
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", heroId: 11, matchId: "1234567899", draft: { radiant: { picks: [11] } } }));
+    expect(t.status(issued.sessionId)).toMatchObject({ bans: 0, picks: 1 });
+  });
+
   test("manual fallback still works on a GSI session, and the next GSI update never wipes it", async () => {
     const t = setup();
     const issued = await t.issue(ACCOUNT_A);
