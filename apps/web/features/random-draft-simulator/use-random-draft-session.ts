@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
+import { fetchTeamBoard } from "@/features/team-coach/client";
 import { reportClientError } from "@/lib/telemetry-client";
 import { BLIND_ROUND_SPECS } from "./constants";
 import { assignOwnCoachPosition, fetchCurrentDecision, fetchRecommendationsWithCoach } from "./coach-client";
@@ -161,6 +162,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   const currentDecision = useRandomDraftStore((state) => state.currentDecision);
   const requestedTarget = useRandomDraftStore((state) => state.requestedTarget);
   const humanActionability = useRandomDraftStore((state) => state.humanActionability);
+  const teamBoard = useRandomDraftStore((state) => state.teamBoard);
+  const teamBoardStatus = useRandomDraftStore((state) => state.teamBoardStatus);
 
   const protocolRef = useRef<ProtocolSnapshot | null>(null);
   const timerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -171,6 +174,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   // WP3 (COHERENCE-014) -- only the LATEST recommendation request may write the store: a slower
   // response for a state the Player already moved past (a pick, a navigation) is dropped.
   const refreshSeqRef = useRef(0);
+  // Same latest-request-wins rule for the Team Coach Board.
+  const teamBoardSeqRef = useRef(0);
 
   // P1 (Greptile PR #9) -- clearing currentDecision makes every in-flight V4 request obsolete. Every
   // clear goes through here so a response started BEFORE the transition can never write the old
@@ -247,9 +252,33 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     }
   }, [fetchImpl]);
 
+  // Team Coach Board -- one read-only request; the engine ranks every human position against the same
+  // snapshot. SIMULATION only (Live Companion keeps its V3 Copilot). A failure never touches the V4 decision.
+  const refreshTeamBoard = useCallback(async function refreshTeamBoard(): Promise<void> {
+    const current = useRandomDraftStore.getState();
+    if (!current.sessionId || current.sessionMode !== "simulation") return;
+    const requestSessionId = current.sessionId;
+    const requestSeq = (teamBoardSeqRef.current += 1);
+    const isLatest = () => useRandomDraftStore.getState().sessionId === requestSessionId && teamBoardSeqRef.current === requestSeq;
+    useRandomDraftStore.getState().setTeamBoard(current.teamBoard, "loading");
+    try {
+      const board = await fetchTeamBoard(requestSessionId, fetchImpl);
+      if (isLatest()) useRandomDraftStore.getState().setTeamBoard(board, "ready");
+    } catch {
+      if (isLatest()) useRandomDraftStore.getState().setTeamBoard(useRandomDraftStore.getState().teamBoard, "failed");
+    }
+  }, [fetchImpl]);
+
+  /** The board the Player just acted on is gone: nothing from it stays clickable while it is recomputed. */
+  const invalidateTeamBoard = useCallback(function invalidateTeamBoard(): void {
+    teamBoardSeqRef.current += 1;
+    useRandomDraftStore.getState().setTeamBoard(null, "loading");
+  }, []);
+
   const retryPreview = useCallback(function retryPreview(): void {
     void refreshRecommendations();
-  }, [refreshRecommendations]);
+    void refreshTeamBoard();
+  }, [refreshRecommendations, refreshTeamBoard]);
 
   const assignOwnPosition = useCallback(async function assignOwnPosition(heroId: HeroId, position: 1 | 2 | 3 | 4 | 5 | null): Promise<void> {
     const current = useRandomDraftStore.getState();
@@ -333,8 +362,9 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       canYield,
     });
     void refreshRecommendations();
+    void refreshTeamBoard();
     startTicker(round);
-  }, [clearCurrentDecision, refreshRecommendations, startTicker]);
+  }, [clearCurrentDecision, refreshRecommendations, refreshTeamBoard, startTicker]);
 
   const completeDraft = useCallback(function completeDraft(snapshot: ProtocolSnapshot): void {
     stopTimer();
@@ -462,6 +492,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       // screen now, and the next decision is recomputed from the new binding (never the old target).
       useRandomDraftStore.getState().setRequestedTarget(null);
       clearCurrentDecision();
+      invalidateTeamBoard();
       // The number of open round seats is not the number of remaining human decisions: in a
       // Solo/Party session an open own seat may belong to the Ally Bot. Keep waiting only while
       // an actual human-controlled position remains unbound; otherwise resume auto-drive so the
@@ -474,6 +505,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       if (hasRemainingHumanPosition && roundStillOpen && openSlots.length > 1) {
         if (next.simulator) useRandomDraftStore.getState().syncRoundTimer(next.simulator);
         void refreshRecommendations();
+        void refreshTeamBoard();
         return;
       }
       await closeAttempt(round, previousPhase, previousBans, next);
@@ -483,7 +515,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     } finally {
       lockingRef.current = false;
     }
-  }, [clearCurrentDecision, closeAttempt, fetchImpl, refreshRecommendations, syncSnapshot]);
+  }, [clearCurrentDecision, closeAttempt, fetchImpl, invalidateTeamBoard, refreshRecommendations, refreshTeamBoard, syncSnapshot]);
 
   // PD-026 ALLY BOT SCHEDULING -- the human explicitly hands the round's remaining Own Team
   // capacity to the Ally Bot. The server is the final authority: a yield it cannot honor comes back
@@ -497,6 +529,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       // After a yield there is no human action for this round: nothing from the previous decision stays up.
       useRandomDraftStore.getState().setRequestedTarget(null);
       clearCurrentDecision();
+      invalidateTeamBoard();
       syncSnapshot(snapshot);
       await advance(null);
     } catch (error) {
@@ -515,7 +548,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     } finally {
       lockingRef.current = false;
     }
-  }, [advance, clearCurrentDecision, fetchImpl, syncSnapshot]);
+  }, [advance, clearCurrentDecision, fetchImpl, invalidateTeamBoard, syncSnapshot]);
 
   // Fail closed: if ban resolution fails the session stays in ban configuration (phase "ban_failed")
   // and the very same request can be retried. Round 1 is never started without a resolved ban set.
@@ -651,7 +684,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
   }, [fetchImpl, resolveBans, stopTimer, syncSnapshot]);
 
   return {
-    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, currentDecision, requestedTarget, humanActionability, previewStatus, staleWarning, lastSyncedAt, engineStatus, ownAssignedPositions },
+    state: { config, sessionMode, phase, sessionId, draftState, recommendations, coach, currentDecision, requestedTarget, humanActionability, previewStatus, staleWarning, lastSyncedAt, engineStatus, ownAssignedPositions, teamBoard, teamBoardStatus },
     actions: { confirmPick, lockPick, yieldRound, resetDraft, retryPreview, retryBans, assignOwnPosition, selectTarget, recordObservedBans, submitLiveSelection },
     startDraft,
   };

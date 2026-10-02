@@ -43,6 +43,15 @@ const ENGINE_REWRITE_SOURCES = [
   // position to an own Flex hero. It was missing from this allowlist, so the call 404ed through the proxy and the
   // Own-Flex assignment silently did nothing in the real product (found by the Wave 5 browser journey).
   "/engine/api/session/protocol/:sessionId/position-assignment",
+  // Team Coach Board (/simulator and /live-draft): every human position ranked against one snapshot.
+  "/engine/api/session/protocol/:sessionId/team-recommendations",
+  // Live Dota capture: open/claim a live session, read capture status, report a fact by hand (fallback).
+  "/engine/api/session/protocol/live",
+  "/engine/api/session/protocol/:sessionId/live-status",
+  "/engine/api/session/protocol/:sessionId/live-observation",
+  // TSK-219: the browser reads (GET) and revokes (DELETE) its Dota GSI link. Issuing one is NOT here on
+  // purpose: only the server-side cfg download (app/api/live/gsi-config) may receive a link token.
+  "/engine/api/live/gsi-link",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",

@@ -51,3 +51,8 @@ __pycache__/
 # STRATZ raw snapshots (unresolved commercial/redistribution permissions)
 data/raw/
 *.stratz-raw.json
+
+# Live Dota capture (bun run dev:live): per-run session id + capture token for the local Overwolf
+# capturer, and the runner's log. Never committed, never sent anywhere but 127.0.0.1.
+.local/
+scripts/live/overwolf-capture/local/

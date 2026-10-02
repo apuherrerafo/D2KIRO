@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { DraftState } from "@/features/draft/types";
+import type { TeamCoachBoardData } from "@/features/team-coach/types";
 import type { CoachOutput, CurrentDecisionOutput } from "./coach-client";
 import type { HumanActionability, OwnAssignedPositionBinding, RecommendationSetV2 } from "./protocol-client";
 import type { OrchestratorResult } from "./orchestrator";
@@ -43,6 +44,12 @@ export interface RandomDraftState {
   engineStatus: EngineStatus;
   /** PD-026/PD-027 -- Own Team's session-layer position binding, `[]` before the first own pick. */
   ownAssignedPositions: OwnAssignedPositionBinding[];
+  /**
+   * Team Coach Board -- every human position ranked against the same snapshot. Advisory next to the V4
+   * currentDecision (which stays the ONE canonical decision); cleared the instant an own pick lands.
+   */
+  teamBoard: TeamCoachBoardData | null;
+  teamBoardStatus: PreviewStatus;
 }
 
 export interface RandomDraftActions {
@@ -61,6 +68,7 @@ export interface RandomDraftActions {
   setPreviewStatus(status: PreviewStatus): void;
   setEngineStatus(status: EngineStatus): void;
   setOwnAssignedPositions(bindings: OwnAssignedPositionBinding[]): void;
+  setTeamBoard(board: TeamCoachBoardData | null, status: PreviewStatus): void;
   /** Sincroniza timer/penalización con la proyección del Simulator (fuente de verdad: el motor). */
   syncRoundTimer(timer: { remainingMs: number; pendingSeats: number[]; goldPenaltyBySlot: number[]; penaltyRatePerSecond: number }): void;
   setRoundNotice(notice: string | null): void;
@@ -85,6 +93,8 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
   previewStatus: "idle",
   engineStatus: "ok",
   ownAssignedPositions: [],
+  teamBoard: null,
+  teamBoardStatus: "idle",
 
   startSession(config, sessionId, orchestratorResult, mode = "simulation") {
     set({
@@ -103,6 +113,8 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       previewStatus: "idle",
       engineStatus: "ok",
       ownAssignedPositions: [],
+      teamBoard: null,
+      teamBoardStatus: "idle",
     });
   },
 
@@ -139,6 +151,8 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
       previewStatus: "idle",
       engineStatus: "ok",
       ownAssignedPositions: [],
+      teamBoard: null,
+      teamBoardStatus: "idle",
     });
   },
 
@@ -184,6 +198,10 @@ export const useRandomDraftStore = create<RandomDraftStore>((set, get) => ({
 
   setOwnAssignedPositions(bindings) {
     set({ ownAssignedPositions: bindings });
+  },
+
+  setTeamBoard(teamBoard, teamBoardStatus) {
+    set({ teamBoard, teamBoardStatus });
   },
 
   syncRoundTimer(timer) {

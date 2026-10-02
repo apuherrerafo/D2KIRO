@@ -143,3 +143,19 @@ export const recommendationFeedback = sqliteTable("recommendation_feedback", {
   createdAt: text("created_at").notNull(),
 });
 
+
+// TSK-219: enlace de Dota GSI -> Railway. Un `.cfg` instalado una vez POSTea a
+// `/api/live/gsi/<liveId>` con un token propio del enlace. Sólo se guarda el HASH del token (nunca el
+// token), el dueño es la cuenta autenticada que lo generó -- jamás una identidad del cuerpo GSI.
+// Tiempos en ms epoch: se comparan contra el reloj inyectado, no se muestran crudos. Una fila por cuenta
+// como máximo: rotar o revocar BORRA la fila anterior (el `.cfg` viejo deja de autenticar al instante).
+export const liveGsiLinks = sqliteTable("live_gsi_links", {
+  liveId: text("live_id").primaryKey(),
+  accountId: integer("account_id")
+    .notNull()
+    .references(() => accounts.steamAccountId),
+  tokenHash: text("token_hash").notNull(),
+  sessionId: text("session_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});

@@ -44,6 +44,18 @@ describe("proxy de sesión y token interno", () => {
     }
   });
 
+  test("TSK-219: sólo la ingesta GSI de Dota es pública; la descarga del cfg y la gestión del enlace exigen sesión", async () => {
+    configureAuth();
+    const ingest = await proxy(new NextRequest(`http://localhost:3000/api/live/gsi/${"A".repeat(43)}`, { method: "POST" }));
+    expect(ingest.status).toBe(200);
+    expect(ingest.headers.get("x-middleware-request-x-account-token")).toBeNull();
+    for (const path of ["/api/live/gsi-config", "/api/live/gsi", "/engine/api/live/gsi-link", "/live-draft"]) {
+      const response = await proxy(new NextRequest(`http://localhost:3000${path}`, { method: "POST" }));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+    }
+  });
+
   test("sin sesión rechaza antes de llegar al motor", async () => {
     configureAuth();
     const response = await proxy(new NextRequest("http://localhost:3000/engine/api/hero-pool"));

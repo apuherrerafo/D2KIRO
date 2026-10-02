@@ -3,8 +3,13 @@ import { mintAccountToken } from "./lib/account-token";
 import { getCanonicalOrigin } from "./lib/canonical-origin";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
 
+// TSK-219: Dota's Game State Integration has no session cookie -- its ingest path is public here and
+// authenticated by the link token in the engine (app/api/live/gsi/[liveId]/route.ts). Exactly this
+// prefix: `/api/live/gsi-config` (the cfg download) still needs a session.
+const GSI_INGEST_PREFIX = "/api/live/gsi/";
+
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/");
+  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

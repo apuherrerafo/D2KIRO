@@ -82,6 +82,11 @@ function partyIdentity(
   });
 }
 
+/** The `basedOn.stateIdentity` of any recommendation built from `view` -- for callers (the Team Coach Board) that must name the snapshot even when no ranking was computed. */
+export function stateIdentityOf(view: PerspectiveDraftView): string {
+  return perspectiveStateHash(view);
+}
+
 export function buildBasedOn(input: BasedOnInput): RecommendationBasedOn {
   const { view, eligibilitySnapshot, calibrationMode, seed, patch, partyContext, evidenceHash, apControl } = input;
   return {
@@ -89,7 +94,7 @@ export function buildBasedOn(input: BasedOnInput): RecommendationBasedOn {
     protocolVersion: view.ruleset.version,
     rulesHash: view.ruleset.rulesHash,
     heroEligibilityHash: eligibilitySnapshot ? eligibilitySnapshot.contentHash : null,
-    stateIdentity: perspectiveStateHash(view),
+    stateIdentity: stateIdentityOf(view),
     perspectiveIdentity: perspectiveIdentity(view),
     patch,
     partyIdentity: partyIdentity(partyContext, apControl),

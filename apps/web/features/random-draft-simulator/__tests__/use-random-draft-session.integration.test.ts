@@ -193,6 +193,28 @@ class FakeApProtocolEngine {
     };
   }
 
+  // Team Coach Board: what `GET .../team-recommendations` returns, derived from this fake's own state --
+  // bound positions are FILLED, every other human position RANKED against the same snapshot identity.
+  private teamBoardBody() {
+    const stateIdentity = `state-${this.own.length}-${this.enemy.length}`;
+    const bound = new Map(this.ownBindings.map((binding) => [binding.assignedPosition, binding.heroId]));
+    const roundOpen = this.openSlots.length > 0;
+    const positions = ([1, 2, 3, 4, 5] as Position[]).map((position) => {
+      const filledHeroId = bound.get(position) ?? null;
+      const top = filledHeroId !== null || !roundOpen ? [] : [0, 1, 2].map((offset) => ({ heroId: 100 + position * 10 + offset, rank: offset + 1, score: 10 - offset, reasons: ["fixture"], isPrimary: offset === 0 }));
+      return { position, eligibleNow: filledHeroId === null && roundOpen, alreadyFilled: filledHeroId !== null, filledHeroId, state: filledHeroId !== null ? "FILLED" : roundOpen ? "RANKED" : "WAITING", primaryHeroId: top[0]?.heroId ?? null, top, stateIdentity, note: null };
+    });
+    const actionable = positions.filter((column) => column.eligibleNow).map((column) => column.position);
+    return {
+      schema: "team-coach-board/v1",
+      sessionId: this.sessionId,
+      stateIdentity,
+      currentDecision: { recommendedPosition: actionable[0] ?? null, recommendedHeroId: actionable[0] === undefined ? null : 100 + actionable[0] * 10, targetBasis: actionable[0] === undefined ? null : "DETERMINISTIC_DEFAULT", reason: "fixture", actionablePositions: actionable, roundCapacity: Math.min(this.openSlots.length, actionable.length) },
+      positions,
+      unboundOwnHeroIds: [],
+    };
+  }
+
   private snapshot(extra: Record<string, unknown> = {}) {
     const pickRound = this.round >= 1 && this.round <= 3 ? (this.round as 1 | 2 | 3) : null;
     return {
@@ -245,6 +267,7 @@ class FakeApProtocolEngine {
       this.round = 1;
       return json({ resolvedBans: this.bans, ...this.snapshot() });
     }
+    if (url.includes("/team-recommendations")) return json(this.teamBoardBody());
     if (url.includes("/recommendations") && url.includes("format=v4")) {
       const body = this.currentDecisionBody(url);
       if (this.holdNextDecision) {
@@ -703,5 +726,26 @@ test("navegación del selector (PSR-002): pedir otra posición retira la decisi�
 
   await lock(result, 9, 4);
   expect(result.current.state.requestedTarget).toBeNull(); // a pick resets navigation: the next decision is recomputed
+  unmount();
+});
+
+test("Team Coach Board: aparece al abrir la ronda, un pick de una posición NO recomendada es legal y el board se recalcula", async () => {
+  const { engine, result, unmount } = await startDraft("radiant", 2);
+  await waitFor(() => expect(result.current.state.teamBoard?.stateIdentity).toBe("state-0-0"));
+  const before = result.current.state.teamBoard!;
+  expect(before.positions).toHaveLength(5);
+  expect(before.currentDecision.recommendedPosition).toBe(1);
+  const boardRequests = () => engine.requests.filter((entry) => entry.url.includes("/team-recommendations")).length;
+  const requestsBefore = boardRequests();
+
+  // Pos5 even though the board recommends Pos1: the SAME protocol selection, with Pos5 as assignedPosition.
+  await lock(result, 155, 5);
+  expect(commands(engine).at(-1)).toEqual({ type: "SUBMIT_SEALED_SELECTION", side: "radiant", slotIndex: 0, heroId: 155 });
+  expect(engine.requests.filter((entry) => entry.url.endsWith("/command")).at(-1)!.body.assignedPosition).toBe(5);
+  await waitFor(() => expect(result.current.state.teamBoard?.stateIdentity).toBe("state-1-0"));
+  expect(boardRequests()).toBeGreaterThan(requestsBefore);
+  const after = result.current.state.teamBoard!;
+  expect(after.positions.find((column) => column.position === 5)).toMatchObject({ state: "FILLED", filledHeroId: 155 });
+  expect(after.currentDecision.actionablePositions).toEqual([1, 2, 3, 4]);
   unmount();
 });

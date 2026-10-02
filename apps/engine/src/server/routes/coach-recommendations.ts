@@ -1,4 +1,4 @@
-import { CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation } from "../../coach";
+import { buildTeamCoachBoard, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
@@ -38,6 +38,12 @@ export interface CoachRecommendations {
    * `null` for a session without HumanActionability (non-AP-Simulator).
    */
   recommendCurrentDecision(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null, requestedTarget?: 1 | 2 | 3 | 4 | 5 | null): Promise<CurrentDecisionRecomputation | null | undefined>;
+  /**
+   * Team Coach Board -- every human-controlled position ranked against ONE perspective snapshot,
+   * with the SAME target ranking builder as V4 (team-level: no account, no personal pool). `undefined`
+   * for an unknown session, `null` for a session without HumanActionability/controlled positions.
+   */
+  recommendTeamBoard(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null): Promise<TeamCoachBoard | null | undefined>;
 }
 
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
@@ -107,7 +113,26 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
     }
     return coach;
   }
+  // Team-level by construction: the account is erased before every evaluation (same rule as computeForTeam above),
+  // so the board shows every observer of a visible draft the same columns.
+  function buildTeamTargetRanking(context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
+    return buildRecommendationSetFromPerspective({
+      context,
+      computeSuggestions: (draft, _ignored, options) => deps.computeSuggestions(draft, null, options),
+      heroPositions,
+      targetPosition,
+      candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),
+      teamOpening: false,
+      singleSlotEvaluation: true,
+      outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+    });
+  }
   return {
+    async recommendTeamBoard(sessionId, playerPersonalPosition) {
+      const context = deps.source.perspectiveRecommendationContext(sessionId);
+      if (!context) return undefined;
+      return buildTeamCoachBoard({ context, playerPersonalPosition, heroPositions, heroCounters, buildTargetRanking: buildTeamTargetRanking });
+    },
     async recommend(sessionId, playerPersonalPosition, accountId = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return null;

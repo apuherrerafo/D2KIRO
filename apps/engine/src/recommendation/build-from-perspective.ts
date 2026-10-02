@@ -60,8 +60,9 @@ function roundOf(phase: RankedApPhase | undefined): number | null {
  * a non-simulator context, which keeps its pre-WP1 slot derivation.
  */
 function actionabilityOf(context: PerspectiveRecommendationContext, ownOpenSlots: readonly RecommendationSlot[]): HumanActionability | null {
-  if (!context.isSimulator) return null;
+  // The store only derives one for AP Simulator and live capture sessions; any other context carries none.
   if (context.humanActionability) return context.humanActionability;
+  if (!context.isSimulator) return null;
   if (!context.humanOpenPositions) return null;
   return deriveHumanActionability({
     humanOpenPositions: context.humanOpenPositions,
