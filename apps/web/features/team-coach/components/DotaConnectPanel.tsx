@@ -1,13 +1,25 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { GSI_CFG_EXAMPLE_PATHS, GSI_CFG_FOLDER, GSI_CONFIG_DOWNLOAD_ACTION, GSI_INSTALL_ONCE, GSI_LAUNCH_OPTION } from "../constants";
+import {
+  GSI_CFG_EXAMPLE_PATHS,
+  GSI_CFG_FOLDER,
+  GSI_CONFIG_DOWNLOAD_ACTION,
+  GSI_INSTALL_ONCE,
+  GSI_INSTALLER_DOWNLOAD_ACTION,
+  GSI_INSTALLER_ONCE,
+  GSI_INSTALLER_SCOPE,
+  GSI_INSTALLER_WARNING,
+  GSI_LAUNCH_OPTION,
+  GSI_UNINSTALLER_URL,
+} from "../constants";
 import { CHIP, CODE_BOX, PANEL, PRIMARY_BUTTON, SECONDARY_BUTTON, STATUS_PILL_BAD, STATUS_PILL_MUTED, STEP_NUMBER } from "../styles";
 import type { GsiLinkView } from "../types";
 
-// TSK-219 -- conectar Dota desde el sitio, sin terminal: un archivo que se instala una vez. El navegador no
-// puede escribir en la carpeta de Dota, así que la página da la ruta exacta (copiable) y cómo llegar a
-// ella desde Steam. El archivo lo genera el servidor (POST same-origin); la página nunca ve su token.
+// TSK-219 -- conectar Dota desde el sitio, sin terminal. El navegador no puede escribir en la carpeta de
+// Dota, así que el camino normal es un instalador de doble clic para Windows (lib/gsi-windows-installer)
+// que encuentra Dota y deja el archivo; el camino a mano (ruta exacta, copiable) queda como respaldo.
+// Ambos los genera el servidor (POST same-origin); la página nunca ve el token.
 
 function CopyableText({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -47,37 +59,36 @@ function Step({ number, title, children }: { number: number; title: string; chil
 }
 
 interface DownloadFormProps {
+  action: string;
   label: string;
+  testId: string;
+  className: string;
   onDownload(): void;
 }
 
 /** A real form POST: the browser saves the attachment and stays on this page. */
-export function GsiDownloadForm({ label, onDownload }: DownloadFormProps) {
+export function GsiDownloadForm({ action, label, testId, className, onDownload }: DownloadFormProps) {
   function handleSubmit() {
     onDownload();
   }
   return (
-    <form method="post" action={GSI_CONFIG_DOWNLOAD_ACTION} onSubmit={handleSubmit}>
-      <button type="submit" className={PRIMARY_BUTTON} data-testid="gsi-download">
+    <form method="post" action={action} onSubmit={handleSubmit}>
+      <button type="submit" className={className} data-testid={testId}>
         {label}
       </button>
     </form>
   );
 }
 
-export interface DotaSetupStepsProps {
-  downloadLabel: string;
-  onDownload(): void;
-}
-
-export function DotaSetupSteps({ downloadLabel, onDownload }: DotaSetupStepsProps) {
+/** Fallback: the raw cfg, copied by hand (the installer could not find Dota, or no Windows). */
+function ManualInstall({ label, onDownload }: { label: string; onDownload(): void }) {
   return (
-    <div className="flex flex-col gap-3" data-testid="dota-setup-steps">
-      <span className="text-body font-semibold text-content-primary">{GSI_INSTALL_ONCE}</span>
-      <ol className="flex flex-col gap-4">
+    <details className="flex flex-col gap-3" data-testid="gsi-manual-install">
+      <summary className="cursor-pointer text-caption text-content-secondary">Instalarlo a mano (si el instalador no encuentra Dota o no usás Windows)</summary>
+      <ol className="mt-3 flex flex-col gap-4">
         <Step number={1} title="Descargá tu archivo de configuración">
-          <GsiDownloadForm label={downloadLabel} onDownload={onDownload} />
-          <span className="text-caption text-content-muted">Es personal: no lo compartas. Si lo perdés, descargá uno nuevo y el anterior deja de funcionar.</span>
+          <span className="text-caption text-content-muted">{GSI_INSTALL_ONCE}</span>
+          <GsiDownloadForm action={GSI_CONFIG_DOWNLOAD_ACTION} label={label} testId="gsi-download" className={SECONDARY_BUTTON} onDownload={onDownload} />
         </Step>
         <Step number={2} title="Copialo en la carpeta de integraciones de Dota">
           <span className="text-caption text-content-secondary">
@@ -88,6 +99,30 @@ export function DotaSetupSteps({ downloadLabel, onDownload }: DotaSetupStepsProp
           <CopyableText value={GSI_CFG_EXAMPLE_PATHS[0]} label="la ruta de ejemplo en C:" />
           <CopyableText value={GSI_CFG_EXAMPLE_PATHS[1]} label="la ruta de ejemplo en D:" />
         </Step>
+      </ol>
+    </details>
+  );
+}
+
+export interface DotaSetupStepsProps {
+  installerLabel: string;
+  manualLabel: string;
+  onDownload(): void;
+}
+
+export function DotaSetupSteps({ installerLabel, manualLabel, onDownload }: DotaSetupStepsProps) {
+  return (
+    <div className="flex flex-col gap-3" data-testid="dota-setup-steps">
+      <span className="text-body font-semibold text-content-primary">{GSI_INSTALLER_ONCE}</span>
+      <ol className="flex flex-col gap-4">
+        <Step number={1} title="Descargá el instalador para Windows">
+          <GsiDownloadForm action={GSI_INSTALLER_DOWNLOAD_ACTION} label={installerLabel} testId="gsi-installer-download" className={PRIMARY_BUTTON} onDownload={onDownload} />
+          <span className="text-caption text-content-muted">Es personal: no lo compartas. Si descargás uno nuevo, el anterior deja de funcionar.</span>
+        </Step>
+        <Step number={2} title="Abrilo con doble clic">
+          <span className="text-caption text-content-secondary">{GSI_INSTALLER_SCOPE}</span>
+          <span className="text-caption text-content-muted" data-testid="gsi-installer-warning">{GSI_INSTALLER_WARNING}</span>
+        </Step>
         <Step number={3} title="Activá la integración en Steam (una sola vez)">
           <span className="text-caption text-content-secondary">Steam → clic derecho en Dota 2 → Propiedades → General → Opciones de lanzamiento. Agregá:</span>
           <CopyableText value={GSI_LAUNCH_OPTION} label="la opción de lanzamiento" />
@@ -96,6 +131,13 @@ export function DotaSetupSteps({ downloadLabel, onDownload }: DotaSetupStepsProp
           <span className="text-caption text-content-secondary">Dota lee el archivo al abrirse. Esta página cambia sola a «Dota conectado».</span>
         </Step>
       </ol>
+      <ManualInstall label={manualLabel} onDownload={onDownload} />
+      <span className="text-caption text-content-muted">
+        ¿Querés quitar D2KIRO de Dota en esta PC?{" "}
+        <a href={GSI_UNINSTALLER_URL} download className="text-accent-primary underline" data-testid="gsi-uninstaller-download">
+          Descargar el desinstalador
+        </a>
+      </span>
     </div>
   );
 }
@@ -148,7 +190,7 @@ function ConnectBody({ open, awaitingDownload, onConnect, onDownload }: { open: 
   }
   return (
     <>
-      <DotaSetupSteps downloadLabel="Descargar configuración D2KIRO" onDownload={onDownload} />
+      <DotaSetupSteps installerLabel="Descargar instalador para Windows" manualLabel="Descargar configuración D2KIRO" onDownload={onDownload} />
       <AwaitingDownload awaiting={awaitingDownload} />
     </>
   );
@@ -181,7 +223,7 @@ export function DotaLinkControls({ link, waitingForDota, setupError, awaitingDow
       </summary>
       <WaitingHint waiting={waitingForDota} />
       <SetupError message={setupError} />
-      <DotaSetupSteps downloadLabel="Descargar configuración de nuevo" onDownload={onDownload} />
+      <DotaSetupSteps installerLabel="Descargar instalador de nuevo" manualLabel="Descargar configuración de nuevo" onDownload={onDownload} />
       <AwaitingDownload awaiting={awaitingDownload} />
       <button type="button" className={SECONDARY_BUTTON} onClick={handleDisconnect} data-testid="dota-disconnect">
         Desconectar Dota
@@ -192,5 +234,5 @@ export function DotaLinkControls({ link, waitingForDota, setupError, awaitingDow
 
 function WaitingHint({ waiting }: { waiting: boolean }) {
   if (!waiting) return null;
-  return <span className="text-caption text-content-secondary">Esperando Dota... ¿Ya instalaste el archivo? Reiniciá Dota 2 y esta página cambia sola.</span>;
+  return <span className="text-caption text-content-secondary">Esperando Dota... ¿Ya abriste el instalador? Reiniciá Dota 2 y esta página cambia sola.</span>;
 }

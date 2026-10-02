@@ -100,7 +100,7 @@ function stopRealSubmit(form: HTMLFormElement): void {
 }
 
 describe("LiveDotaView -- connect Dota", () => {
-  test("no link: 'Dota desconectado' + 'Conectar Dota' opens the one-time setup (download form + exact folder)", async () => {
+  test("no link: 'Dota desconectado' + 'Conectar Dota' opens the one-time setup (Windows installer first, manual fallback kept)", async () => {
     const site = new FakeSite();
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
@@ -110,6 +110,19 @@ describe("LiveDotaView -- connect Dota", () => {
         fireEvent.click(view.getByTestId("dota-connect-button"));
       });
       const steps = view.getByTestId("dota-setup-steps");
+      // Normal path: one double-click installer, honest about the unsigned-file warning before it happens.
+      const installer = view.getByTestId("gsi-installer-download");
+      expect(installer.textContent).toBe("Descargar instalador para Windows");
+      const installerForm = installer.closest("form")!;
+      expect(installerForm.getAttribute("method")).toBe("post");
+      expect(installerForm.getAttribute("action")).toBe("/api/live/gsi-installer");
+      expect(steps.textContent).toContain("Abrilo con doble clic");
+      expect(view.getByTestId("gsi-installer-warning").textContent).toContain("Ejecutar de todas formas");
+      // A PC that blocks unsigned scripts outright (Smart App Control, work machines) is sent to the manual way, up front.
+      expect(view.getByTestId("gsi-installer-warning").textContent).toContain("Control inteligente de aplicaciones");
+      expect(view.getByTestId("gsi-uninstaller-download").getAttribute("href")).toBe("/api/live/gsi-uninstaller");
+      // Fallback: the raw cfg and the exact folder, folded away.
+      expect((view.getByTestId("gsi-manual-install") as HTMLDetailsElement).open).toBe(false);
       expect(steps.textContent).toContain("Instala este archivo una sola vez y reinicia Dota 2.");
       expect(steps.textContent).toContain("game\\dota\\cfg\\gamestate_integration");
       expect(steps.textContent).toContain("D:\\SteamLibrary\\steamapps\\common\\dota 2 beta\\game\\dota\\cfg\\gamestate_integration\\");

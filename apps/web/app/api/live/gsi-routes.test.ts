@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test, type Mock } from "bun:test";
 import { buildGsiConfig, GSI_CFG_FILENAME, gsiIngestUri } from "@/lib/gsi-config";
-import { createGsiConfigHandler, type GsiConfigDependencies } from "./gsi-config/route";
+import { createGsiConfigHandler, type GsiConfigDependencies } from "@/lib/gsi-config-download";
+import { buildWindowsGsiInstaller, GSI_WINDOWS_INSTALLER_FILENAME, GSI_WINDOWS_UNINSTALLER_FILENAME } from "@/lib/gsi-windows-installer";
+import { WINDOWS_INSTALLER_ARTIFACT } from "./gsi-installer/route";
+import { GET as uninstallerGet } from "./gsi-uninstaller/route";
 import { createGsiRelayHandler, GSI_RELAY_MAX_BYTES, type FetchLike, type RelayRequest } from "./gsi/[liveId]/route";
 
 // TSK-219 -- apps/web's two GSI routes: the public relay (Dota -> engine) and the authenticated cfg
@@ -209,5 +212,65 @@ describe("cfg download (POST /api/live/gsi-config)", () => {
       expect(response.headers.get("location")).toBe(`${ORIGIN}/live-draft?setup=unavailable`);
     }
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("Windows installer download (POST /api/live/gsi-installer)", () => {
+  function deps(overrides: Partial<GsiConfigDependencies> = {}) {
+    const engineCalls: string[] = [];
+    const dependencies: GsiConfigDependencies = {
+      getSession: async () => ({ accountId: 101 }) as Awaited<ReturnType<GsiConfigDependencies["getSession"]>>,
+      renewSession: async () => true,
+      canonicalOrigin: () => ORIGIN,
+      secret: () => INTERNAL_KEY,
+      engineUrl: () => "http://engine.internal:4000",
+      mint: (accountId) => `minted-for-${accountId}`,
+      fetch: (async (url: string) => {
+        engineCalls.push(url);
+        return Response.json({ liveId: LIVE_ID, token: TOKEN, sessionId: "s-1", expiresAt: "2026-11-01T00:00:00.000Z" }, { status: 201 });
+      }) as unknown as GsiConfigDependencies["fetch"],
+      ...overrides,
+    };
+    return { handler: createGsiConfigHandler(dependencies, WINDOWS_INSTALLER_ARTIFACT), engineCalls };
+  }
+  const form = (origin: string | null = ORIGIN) => ({ headers: fakeHeaders(origin === null ? {} : { origin }) });
+
+  test("signed-in, same-origin: a fresh link wrapped in the double-click installer, never cached", async () => {
+    const { handler, engineCalls } = deps();
+    const response = await handler(form());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(`attachment; filename="${GSI_WINDOWS_INSTALLER_FILENAME}"`);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    const body = await response.text();
+    expect(body).toBe(buildWindowsGsiInstaller(buildGsiConfig(gsiIngestUri(ORIGIN, LIVE_ID)!, TOKEN)));
+    expect(body.split(TOKEN)).toHaveLength(2);
+    expect(engineCalls).toEqual(["http://engine.internal:4000/api/live/gsi-link/issue"]);
+    for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  test("same locks as the cfg: no session, cross-site, or engine trouble -> back to /live-draft, no file", async () => {
+    const noSession = deps({ renewSession: async () => false });
+    expect((await noSession.handler(form())).headers.get("location")).toBe(`${ORIGIN}/live-draft?setup=session`);
+    expect(noSession.engineCalls).toHaveLength(0);
+    const crossSite = deps();
+    expect((await crossSite.handler(form("https://evil.example"))).headers.get("location")).toBe(`${ORIGIN}/live-draft?setup=origin`);
+    expect(crossSite.engineCalls).toHaveLength(0);
+    const engineDown = deps({ fetch: (() => Promise.reject(new Error(TOKEN))) as unknown as GsiConfigDependencies["fetch"] });
+    expect((await engineDown.handler(form())).headers.get("location")).toBe(`${ORIGIN}/live-draft?setup=unavailable`);
+    for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("Windows uninstaller download (GET /api/live/gsi-uninstaller)", () => {
+  test("a credential-free file that only removes the D2KIRO cfg", async () => {
+    const response = uninstallerGet();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toBe(`attachment; filename="${GSI_WINDOWS_UNINSTALLER_FILENAME}"`);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = await response.text();
+    expect(body).not.toMatch(/[0-9a-f]{64}/);
+    expect(body).toContain('set "D2KIRO_MODE=uninstall"');
+    expect(body).toContain(GSI_CFG_FILENAME);
   });
 });
