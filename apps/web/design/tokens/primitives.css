@@ -1,0 +1,52 @@
+:root {
+  /* Primitive colors: Neutrals */
+  --primitive-color-neutral-950: #0f1115;
+  --primitive-color-neutral-900: #171a21;
+  --primitive-color-neutral-850: #1f232c;
+  --primitive-color-neutral-800: #2a2f3a;
+  --primitive-color-neutral-500: #6b7280;
+  --primitive-color-neutral-300: #a8adba;
+  --primitive-color-neutral-50: #f5f6f8;
+
+  /* Primitive colors: Accent (D2KIRO Gold) */
+  --primitive-color-gold-500: #d4af37;
+  --primitive-color-gold-400: #e6c250;
+
+  /* Primitive colors: Signals */
+  --primitive-color-green-500: #3fb950;
+  --primitive-color-red-500: #f85149;
+  --primitive-color-amber-500: #d29922;
+
+  /* Primitive spacing (4px scale) */
+  --primitive-space-focus-offset: 2px;
+  --primitive-space-1: 4px;
+  --primitive-space-2: 8px;
+  --primitive-space-3: 12px;
+  --primitive-space-4: 16px;
+  --primitive-space-5: 20px;
+  --primitive-space-6: 24px;
+  --primitive-space-8: 32px;
+  --primitive-space-10: 40px;
+  --primitive-space-12: 48px;
+
+  /* Primitive typography */
+  --primitive-font-size-caption: 0.75rem;
+  --primitive-line-height-caption: 1rem;
+  --primitive-font-size-body: 0.9375rem;
+  --primitive-line-height-body: 1.375rem;
+  --primitive-font-size-heading: 1.25rem;
+  --primitive-line-height-heading: 1.75rem;
+  --primitive-font-size-display: 1.75rem;
+  --primitive-line-height-display: 2.25rem;
+
+  /* Primitive radii */
+  --primitive-radius-sm: 4px;
+  --primitive-radius-md: 6px;
+  --primitive-radius-lg: 8px;
+  --primitive-radius-full: 9999px;
+
+  /* Primitive motion */
+  --primitive-duration-fast: 150ms;
+  --primitive-duration-normal: 200ms;
+  --primitive-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+}

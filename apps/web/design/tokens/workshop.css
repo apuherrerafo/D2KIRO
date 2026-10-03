@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "./primitives.css";
+@import "./semantic.css";
+
+:root {
+  color: var(--content-primary);
+  background: var(--surface-base);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--surface-base);
+  color: var(--content-primary);
+}
