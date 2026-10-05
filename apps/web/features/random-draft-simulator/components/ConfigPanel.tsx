@@ -9,6 +9,7 @@ import { addHeroToBanList, removeHeroFromBanList } from "../ban-list";
 import { SEED_PATTERN } from "../constants";
 import { generateDraftSeed } from "../seeded-rng";
 import { useConfigPersistence } from "../use-config-persistence";
+import { useGetTeamGroupsQuery } from "@/lib/engine-api";
 import type { HeroId, SessionMode, TeamSide } from "../types";
 import type { StartDraftConfig } from "../use-random-draft-session";
 
@@ -318,6 +319,47 @@ function PartyPositionsField({ partySize, selectedPositions, onTogglePosition }:
   );
 }
 
+interface TeamPresetFieldProps {
+  groups: { id: number; name: string; partySize: number; members: { slot: number; name: string; heroPool: number[] }[] }[];
+  selectedId: number | null;
+  onChange: (id: number | null) => void;
+}
+
+function TeamPresetField({ groups, selectedId, onChange }: TeamPresetFieldProps) {
+  function handleChange(event: ChangeEvent<HTMLSelectElement>) {
+    const val = event.target.value;
+    onChange(val === "" ? null : Number(val));
+  }
+
+  return (
+    <div className="flex flex-col gap-1" role="group" aria-label="Preset de equipo (Party 5)">
+      <div className="flex items-center justify-between">
+        <span className="text-caption text-content-secondary">Preset de equipo (/team-groups)</span>
+        {selectedId !== null && (
+          <span className="text-caption text-signal-positive">Pools de posiciones activos</span>
+        )}
+      </div>
+      <select
+        id="team-preset-select"
+        aria-label="Preset de equipo"
+        value={selectedId === null ? "" : String(selectedId)}
+        onChange={handleChange}
+        className="rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+      >
+        <option value="">Sin preset (héroes sin restricción de pool)</option>
+        {groups.map((group) => (
+          <option key={group.id} value={group.id}>
+            {group.name} ({group.members.length} posiciones configuradas)
+          </option>
+        ))}
+      </select>
+      <span className="text-caption text-content-muted">
+        Carga los pools de héroes configurados para cada jugador (Pos 1 a Pos 5).
+      </span>
+    </div>
+  );
+}
+
 interface SideFieldProps {
   side: TeamSide | null;
   onChange: (side: TeamSide) => void;
@@ -373,12 +415,15 @@ function PositionField({ position, allowedPositions, onChange }: PositionFieldPr
 export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const { config, setConfig } = useConfigPersistence();
   const { heroes: heroCatalog } = useHeroCatalog();
+  const { data: teamGroups = [] } = useGetTeamGroupsQuery();
+  const party5Groups = teamGroups.filter((g) => g.partySize === 5);
   const [draftSeed, setDraftSeed] = useState<string>(generateDraftSeed);
   const [banListError, setBanListError] = useState<string | null>(null);
   const [chosenSide, setChosenSide] = useState<TeamSide | null>(null);
   const [chosenPosition, setChosenPosition] = useState<PlayerPosition | null>(null);
   const [chosenPartySize, setChosenPartySize] = useState<PartySize | null>(null);
   const [chosenPartyPositions, setChosenPartyPositions] = useState<PlayerPosition[] | null>(null);
+  const [chosenTeamGroupId, setChosenTeamGroupId] = useState<number | null>(null);
   const [mode, setMode] = useState<SessionMode>("simulation");
 
   // Nominations live in local state first: they must work BEFORE side/position are chosen (persistence only
@@ -389,6 +434,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const position = chosenPosition ?? config?.playerPosition ?? null;
   const partySize = chosenPartySize ?? config?.partySize ?? 5;
   const rawPartyPositions = chosenPartyPositions ?? config?.partyPositions ?? null;
+  const teamGroupId = chosenTeamGroupId !== null ? chosenTeamGroupId : (config?.teamGroupId ?? null);
 
   const partyPositions: PlayerPosition[] =
     partySize === 5
@@ -416,11 +462,13 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
     personalBanList?: HeroId[];
     partySize?: PartySize;
     partyPositions?: PlayerPosition[];
+    teamGroupId?: number | null;
   }) {
     const nextSide = next.userSide === undefined ? side : next.userSide;
     const nextPosition = next.playerPosition === undefined ? position : next.playerPosition;
     const nextPartySize = next.partySize === undefined ? partySize : next.partySize;
     const nextPartyPositions = next.partyPositions === undefined ? partyPositions : next.partyPositions;
+    const nextTeamGroupId = next.teamGroupId === undefined ? teamGroupId : next.teamGroupId;
     if (nextSide === null || nextPosition === null) return;
     setConfig({
       userSide: nextSide,
@@ -428,6 +476,7 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       personalBanList: next.personalBanList ?? personalBanList,
       partySize: nextPartySize,
       partyPositions: nextPartyPositions,
+      teamGroupId: nextTeamGroupId,
     });
   }
 
@@ -505,6 +554,11 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
     persist({ personalBanList: remaining });
   }
 
+  function handleTeamGroupChange(nextId: number | null) {
+    setChosenTeamGroupId(nextId);
+    persist({ teamGroupId: nextId });
+  }
+
   function handleStart() {
     if (!canStart || side === null || position === null) return;
     const resolvedPositions: (1 | 2 | 3 | 4 | 5)[] =
@@ -514,6 +568,19 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
           ? [position]
           : partyPositions;
 
+    let playerPoolsByPosition: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId[]>> | undefined = undefined;
+    if (partySize === 5 && teamGroupId !== null) {
+      const group = party5Groups.find((g) => g.id === teamGroupId);
+      if (group && group.members) {
+        playerPoolsByPosition = {};
+        for (const member of group.members) {
+          if (member.slot >= 1 && member.slot <= 5) {
+            playerPoolsByPosition[member.slot as 1 | 2 | 3 | 4 | 5] = member.heroPool;
+          }
+        }
+      }
+    }
+
     onStart(
       {
         draftSeed,
@@ -522,6 +589,8 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
         personalBanList,
         partySize,
         partyPositions: resolvedPositions,
+        teamGroupId: partySize === 5 ? teamGroupId : null,
+        playerPoolsByPosition,
       },
       mode,
     );
@@ -535,6 +604,13 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       {mode === "simulation" && (
         <>
           <PartySizeField partySize={partySize} onChange={changePartySize} />
+          {partySize === 5 && (
+            <TeamPresetField
+              groups={party5Groups}
+              selectedId={teamGroupId}
+              onChange={handleTeamGroupChange}
+            />
+          )}
           {(partySize === 2 || partySize === 3) && (
             <PartyPositionsField
               partySize={partySize}

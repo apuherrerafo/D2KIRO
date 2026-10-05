@@ -15,8 +15,16 @@ import {
 import { EMPTY_TEAM_GROUP_MESSAGE, MAX_COMPANION_POOL_SIZE, PARTY_SIZE_OPTIONS, TEAM_GROUP_DELETED_MESSAGE, TEAM_GROUP_SAVED_MESSAGE } from "./constants";
 import type { DraftTeamGroup, PartySize, TeamGroupEntry, TeamGroupPutBody } from "./types";
 
+const POSITION_LABELS: Record<number, string> = {
+  1: "Pos 1 — Safe Lane (Carry)",
+  2: "Pos 2 — Mid Lane",
+  3: "Pos 3 — Offlane",
+  4: "Pos 4 — Soft Support",
+  5: "Pos 5 — Hard Support",
+};
+
 function memberCountForParty(partySize: PartySize): number {
-  return partySize - 1;
+  return partySize === 5 ? 5 : partySize - 1;
 }
 
 function createEmptyMembers(partySize: PartySize) {
@@ -80,7 +88,7 @@ function TeamGroupRow({ group, onEdit, onDelete, isDeleting }: TeamGroupRowProps
       <div className="flex flex-col">
         <span className="text-body text-content-primary">{group.name}</span>
         <span className="text-caption text-content-muted">
-          Party de {group.partySize}, {group.members.length} compañero(s)
+          Party de {group.partySize}, {group.members.length} {group.partySize === 5 ? "posiciones" : "compañero(s)"}
         </span>
       </div>
       <div className="flex gap-2">
@@ -97,14 +105,16 @@ function TeamGroupRow({ group, onEdit, onDelete, isDeleting }: TeamGroupRowProps
 
 interface MemberEditorProps {
   member: DraftTeamGroup["members"][number];
+  partySize: PartySize;
   heroes: HeroMeta[];
   onNameChange: (slot: number, name: string) => void;
   onAddHero: (slot: number, hero: number) => void;
   onRemoveHero: (slot: number, hero: number) => void;
 }
 
-function MemberEditor({ member, heroes, onNameChange, onAddHero, onRemoveHero }: MemberEditorProps) {
+function MemberEditor({ member, partySize, heroes, onNameChange, onAddHero, onRemoveHero }: MemberEditorProps) {
   const poolIsFull = member.heroPool.length >= MAX_COMPANION_POOL_SIZE;
+  const slotLabel = partySize === 5 ? (POSITION_LABELS[member.slot] ?? `Posición ${member.slot}`) : `Compañero ${member.slot}`;
 
   function handleNameChange(event: ChangeEvent<HTMLInputElement>) {
     onNameChange(member.slot, event.target.value);
@@ -116,11 +126,14 @@ function MemberEditor({ member, heroes, onNameChange, onAddHero, onRemoveHero }:
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-caption font-semibold text-content-primary">{slotLabel}</span>
+      </div>
       <input
         type="text"
         value={member.name}
         onChange={handleNameChange}
-        placeholder={`Compañero ${member.slot}`}
+        placeholder={`Nombre del jugador (${slotLabel})`}
         className="rounded-md border border-surface-border bg-surface-raised px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
       />
       <div className="flex flex-wrap gap-2">
@@ -270,7 +283,7 @@ export function TeamGroupsConfig() {
           </select>
         </label>
         {draft.members.map((member) => (
-          <MemberEditor key={member.slot} member={member} heroes={heroes} onNameChange={handleMemberNameChange} onAddHero={handleAddHero} onRemoveHero={handleRemoveHero} />
+          <MemberEditor key={member.slot} member={member} partySize={draft.partySize} heroes={heroes} onNameChange={handleMemberNameChange} onAddHero={handleAddHero} onRemoveHero={handleRemoveHero} />
         ))}
         {message && <span className="text-caption text-content-secondary">{message}</span>}
         <button type="button" onClick={handleSave} disabled={isSaving || draft.name.trim().length === 0} className={BUTTON_PRIMARY}>

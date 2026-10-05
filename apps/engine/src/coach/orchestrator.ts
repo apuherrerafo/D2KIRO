@@ -1,7 +1,7 @@
 import { deriveDecisionContextFromView } from "../drafter/decision-context";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import { poolForPosition, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
@@ -266,10 +266,12 @@ export class CoachOrchestrator {
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget);
       // COHERENCE-007: the Personal Hero Pool may shape the active candidates ONLY when the viewed position is the personal one...
-      const usePersonalPool = input.personalPoolAvailable === true && personal !== null && viewed === personal;
+      // Or in Party 5 / team preset, when the viewed position has a configured player pool in playerPoolsByPosition.
+      const hasPositionPool = Boolean(poolForPosition(input.context.playerPoolsByPosition, viewed)?.length);
+      const usePersonalPool = hasPositionPool || (input.personalPoolAvailable === true && personal !== null && viewed === personal);
       const targetRanking = await buildTargetRanking(input.context, viewed, usePersonalPool);
       // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
-      const personalPoolApplied = usePersonalPool && rankingAppliedPersonalPool(targetRanking);
+      const personalPoolApplied = (hasPositionPool || usePersonalPool) && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
       const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied });

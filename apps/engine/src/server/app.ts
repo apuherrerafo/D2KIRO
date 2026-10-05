@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { accounts } from "../db/schema";
 import { verifyAccountToken } from "./account-token";
-import { getSoleAccountId } from "../db/queries";
+import { getSoleAccountId, getTeamGroup, getTeamGroupById } from "../db/queries";
 import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
@@ -156,6 +156,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return { allHeroIds, metaOrder };
     },
     heroPositions: deps.heroPositions,
+    loadTeamGroup: async (id, accountId) => {
+      if (accountId !== null) {
+        return getTeamGroup(deps.db, id, accountId);
+      }
+      return getTeamGroupById(deps.db, id);
+    },
   });
   // Live Dota capture: facts from the capturer (/ingest/draft-event, source "overwolf") and the Player's
   // manual fallback rebuild ONE protocol session through the kernel (live/live-capture-registry.ts).
@@ -214,6 +220,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       archetypeIntent?: DraftPathArchetype;
       // R1 S5 (blocker 3): forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
       candidateHeroIds?: readonly number[];
+      overrideHeroPool?: readonly number[];
     } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
@@ -222,6 +229,19 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       meta = await getCachedMetaSnapshot<TSchema>(deps.db, accountId);
     } catch {
       throw new SnapshotUnavailableError();
+    }
+    if (options.overrideHeroPool && options.overrideHeroPool.length > 0) {
+      meta = {
+        ...meta,
+        heroPool: options.overrideHeroPool.map((hero) => ({
+          hero,
+          source: "manual" as const,
+          personalWinrate: null,
+          personalGames: 0,
+          updatedAt: new Date().toISOString(),
+        })),
+        personalBaselineWinrate: null,
+      };
     }
     const readiness = await getMetaReadiness(deps.db, { state, meta });
     return buildSuggestions(state, meta, {

@@ -51,6 +51,10 @@ export interface DraftConfig {
   partySize: 1 | 2 | 3 | 5;
   /** Posiciones asignadas a la party del jugador (deben ser exactamente partySize). */
   partyPositions?: (1 | 2 | 3 | 4 | 5)[];
+  /** Preset de equipo opcional para Party 5. */
+  teamGroupId?: number | null;
+  /** Hero pools por posición (1..5) del equipo / party. */
+  playerPoolsByPosition?: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId[]>>;
 }
 
 // ---------------------------------------------------------------------------

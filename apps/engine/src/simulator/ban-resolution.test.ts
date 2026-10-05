@@ -68,21 +68,101 @@ describe("BanResolutionPolicy", () => {
     expect(bans[0]).toBe(7);
   });
 
-  test("longitud variable: el numero de bans depende de los solapamientos", () => {
-    const lengths = new Set(
-      ["A1", "B2", "C3", "D4", "E5", "F6", "G7", "H8"].map((seed) => {
-        const result = resolveSimulatorBans({ playerPreferences: [], universe: UNIVERSE, seed });
-        return result.ok ? result.bans.length : -1;
-      }),
-    );
-    expect(lengths.has(-1)).toBe(false);
-    expect(lengths.size).toBeGreaterThan(1);
+  test("empty preference list => 16 unique bans", () => {
+    const result = resolveSimulatorBans({ playerPreferences: [], universe: UNIVERSE, seed: "SEED_EMPTY" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.bans).toHaveLength(16);
+      expect(new Set(result.bans).size).toBe(16);
+    }
+  });
+
+  test("1 preference => still 16 unique bans", () => {
+    const result = resolveSimulatorBans({ playerPreferences: [5], universe: UNIVERSE, seed: "SEED_ONE" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.bans).toHaveLength(16);
+      expect(new Set(result.bans).size).toBe(16);
+    }
+  });
+
+  test("4 preferences => still 16 unique bans", () => {
+    const result = resolveSimulatorBans({ playerPreferences: [1, 2, 3, 4], universe: UNIVERSE, seed: "SEED_FOUR" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.bans).toHaveLength(16);
+      expect(new Set(result.bans).size).toBe(16);
+    }
+  });
+
+  test("same seed => exact same bans (byte-identical across replays)", () => {
+    const first = resolveSimulatorBans({ playerPreferences: [10], universe: UNIVERSE, seed: "REPLAY_SEED" });
+    const second = resolveSimulatorBans({ playerPreferences: [10], universe: UNIVERSE, seed: "REPLAY_SEED" });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(first.bans).toEqual(second.bans);
+    }
+  });
+
+  test("different seeds => can produce a different result", () => {
+    const results = ["SEED_A", "SEED_B", "SEED_C", "SEED_D", "SEED_E"].map((seed) => {
+      const res = resolveSimulatorBans({ playerPreferences: [], universe: UNIVERSE, seed });
+      return res.ok ? JSON.stringify(res.bans) : "";
+    });
+    expect(new Set(results).size).toBeGreaterThan(1);
+  });
+
+  test("no duplicate heroes in 16 bans across multiple seeds", () => {
+    for (const seed of ["S1", "S2", "S3", "S4", "S5"]) {
+      const result = resolveSimulatorBans({ playerPreferences: [7, 8], universe: UNIVERSE, seed });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.bans).toHaveLength(16);
+        expect(new Set(result.bans).size).toBe(16);
+      }
+    }
+  });
+
+  test("universe con menos de 16 héroes banea todos los disponibles sin fallar", () => {
+    const smallUniverse: HeroUniverse = {
+      allHeroIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      metaOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    };
+    const result = resolveSimulatorBans({ playerPreferences: [], universe: smallUniverse, seed: "SMALL" });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.bans).toHaveLength(10);
+      expect(new Set(result.bans).size).toBe(10);
+    }
   });
 
   test("un set vacio solo es valido cuando nadie nomino a nadie", () => {
     expect(defaultBanResolutionPolicy.resolve([set("a"), set("b")], "seed")).toEqual([]);
     const nominated = defaultBanResolutionPolicy.resolve([set("a", 5), set("b")], "seed");
     expect(nominated).toEqual([5]);
+  });
+
+  test("metaOrder contiene menos de 16 héroes y allHeroIds >= 16 => resuelve exactamente 16 bans únicos", () => {
+    const partialMetaUniverse: HeroUniverse = {
+      allHeroIds: ALL,
+      metaOrder: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    };
+    const result1 = resolveSimulatorBans({ playerPreferences: [], universe: partialMetaUniverse, seed: "PARTIAL_META_SEED" });
+    expect(result1.ok).toBe(true);
+    if (result1.ok) {
+      expect(result1.bans).toHaveLength(16);
+      expect(new Set(result1.bans).size).toBe(16);
+      for (const hero of partialMetaUniverse.metaOrder) {
+        expect(result1.bans.includes(hero)).toBe(true);
+      }
+    }
+
+    const result2 = resolveSimulatorBans({ playerPreferences: [], universe: partialMetaUniverse, seed: "PARTIAL_META_SEED" });
+    expect(result2.ok).toBe(true);
+    if (result1.ok && result2.ok) {
+      expect(result2.bans).toEqual(result1.bans);
+    }
   });
 });
 
@@ -92,6 +172,23 @@ describe("BanResolutionPolicy -- FAIL CLOSED", () => {
   test("una policy que lanza => ok:false, jamas un set vacio o reducido fabricado", () => {
     const result = resolveSimulatorBans({ playerPreferences: [1], universe: UNIVERSE, seed: "X", policy: throwing });
     expect(result).toEqual({ ok: false, reason: "policy_failed", detail: "boom" });
+  });
+
+  test("policy personalizada que devuelve menos de min(16, N) héroes => fail closed con policy_invalid_output", () => {
+    const reducedPolicy: BanResolutionPolicy = {
+      resolve: () => [1, 2, 3, 4, 5],
+    };
+    const result = resolveSimulatorBans({
+      playerPreferences: [],
+      universe: UNIVERSE,
+      seed: "REDUCED_POLICY_SEED",
+      policy: reducedPolicy,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("policy_invalid_output");
+      expect(result.detail).toContain("expected exactly 16");
+    }
   });
 
   test("salida invalida (duplicados / heroe inexistente / no-array / vacia pese a nominaciones) => ok:false", () => {
