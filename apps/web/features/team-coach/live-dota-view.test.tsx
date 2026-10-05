@@ -13,8 +13,8 @@ import { parseGsiLink, parseLiveCaptureStatus } from "./validation";
 
 afterEach(cleanup);
 
-/** Normal-user UI must never mention developer tooling, ports or local processes. */
-const DEVELOPER_TERMS = /127\.0\.0\.1|localhost|:4000|:4001|\bport\b|\bbun\b|\bnpm\b|powershell|overwolf|capture token|dev:live|probe:gsi|engine process|motor local|terminal/i;
+/** Normal-user UI must never mention developer tooling, ports or local processes. ("Overwolf" is a product name now: the automatic capture panel names it on purpose.) */
+const DEVELOPER_TERMS = /127\.0\.0\.1|localhost|:4000|:4001|\bport\b|\bbun\b|\bnpm\b|powershell|capture token|dev:live|probe:gsi|engine process|motor local|terminal/i;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -65,6 +65,8 @@ class FakeSite {
       return json({ schema: "live-gsi-link/v1", link: null });
     }
     if (url === "/engine/api/live/gsi-link") return json({ schema: "live-gsi-link/v1", link: this.link });
+    // Overwolf automatic capture: nobody paired an adapter in these flows.
+    if (url === "/engine/api/live/capture-pairing") return json({ schema: "live-capture-pairing-state/v1", paired: false, expiresAt: null, overwolf: null });
     const sessionId = this.link?.sessionId ?? "none";
     if (url.endsWith("/api/session/protocol/live")) return json({ sessionId }, 201);
     if (url.endsWith("/live-status")) return json(this.status ?? liveStatus(sessionId));
@@ -235,7 +237,8 @@ describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
       expect(view.getByTestId("team-coach-board").textContent).toContain("RECOMMENDED PICK NOW");
       expect(view.getAllByTestId("team-coach-pick-now")).toHaveLength(1);
       expect(view.queryByTestId("team-coach-draft-ended")).toBeNull();
-      expect(view.getAllByRole("button", { name: /^Elegir / }).length).toBeGreaterThan(0);
+      // The board and the capture status are separate reads: the manual picks appear once the degraded status lands.
+      await waitFor(() => expect(view.getAllByRole("button", { name: /^Elegir / }).length).toBeGreaterThan(0));
       view.unmount();
     });
   });

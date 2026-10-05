@@ -7,9 +7,12 @@ import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib
 // authenticated by the link token in the engine (app/api/live/gsi/[liveId]/route.ts). Exactly this
 // prefix: `/api/live/gsi-config` (the cfg download) still needs a session.
 const GSI_INGEST_PREFIX = "/api/live/gsi/";
+// Overwolf automatic capture: the local adapter has no session cookie either. Pairing (code -> credential), batches
+// and the hero catalog authenticate inside the engine; the browser-side pairing calls go through /engine/* instead.
+const OVERWOLF_CAPTURE_PREFIX = "/api/live/overwolf/";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX);
+  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(OVERWOLF_CAPTURE_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

@@ -36,6 +36,32 @@ export interface LiveDetectedPick {
   at: string;
 }
 
+/** The automatic (Overwolf) capture went quiet while the draft was still running. */
+export const OVERWOLF_LOST = "OVERWOLF_LOST";
+
+/**
+ * Overwolf GEP info keys that carried data this draft. PRESENCE only -- never a hero, a player or a value.
+ * Reported by the adapter (it is the only one that sees the raw GEP update).
+ */
+export interface OverwolfPresence {
+  roster: boolean;
+  bans: boolean;
+  draft: boolean;
+  players: boolean;
+}
+
+export interface LiveOverwolfStatus extends OverwolfPresence {
+  /** An authenticated adapter batch arrived within LIVE_STALE_AFTER_MS (server clock). */
+  connected: boolean;
+  /** Server clock: ms since the last adapter batch. */
+  lastUpdateAgeMs: number;
+  /**
+   * Overwolf is the source of the FULL draft: connected, and it has stated draft heroes (`draft` or `players`).
+   * While true, GSI never adds or removes a hero fact -- it only keeps telling side / lifecycle / telemetry.
+   */
+  authoritative: boolean;
+}
+
 /** Match telemetry label (diagnostics): the inventory changed between two GSI updates. */
 export const GSI_ITEM_CHANGES = "item_changes";
 
@@ -86,6 +112,8 @@ export interface LiveCaptureStatus {
   gsi: LiveGsiStatus | null;
   /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
   teamContext: LiveTeamContextStatus;
+  /** Present once the paired Overwolf adapter has spoken to this session. */
+  overwolf: LiveOverwolfStatus | null;
 }
 
 export interface LiveTeamContextStatus {
@@ -120,6 +148,8 @@ interface LiveEntry {
    * whole state on every update, so without this a correction would be undone by the next update.
    */
   suppressed: Set<string>;
+  /** Last batch of the paired Overwolf adapter; null until it first speaks. Presence is per draft (a restart clears it). */
+  overwolf: { lastAt: number; presence: OverwolfPresence } | null;
 }
 
 function factKey(observation: LiveObservation): string | null {
@@ -227,6 +257,31 @@ export class LiveCaptureRegistry {
     return this.applyObservation(envelope.sessionId, observation, "overwolf");
   }
 
+  /**
+   * One batch from the PAIRED Overwolf adapter (credential already verified, events already validated at the
+   * route). The session is the credential's -- `ownerAccountId` must still own it, else nothing is applied.
+   * Every event goes through the same dedupe as `ingestEnvelope`, so a repeated snapshot never doubles a fact.
+   */
+  ingestOverwolf(sessionId: string, ownerAccountId: number, events: DraftEventEnvelope[], presence: OverwolfPresence): LiveIngestResult {
+    if (!this.ensureSession(sessionId, ownerAccountId)) return { accepted: false, reason: "not_live_capture", status: null };
+    let changed = false;
+    for (const event of events) {
+      const outcome = this.ingestEnvelope({ ...event, sessionId, source: "overwolf" });
+      if (outcome.accepted) changed = outcome.changed || changed;
+    }
+    const entry = this.entries.get(sessionId)!;
+    const at = this.now();
+    entry.lastEventAt = at;
+    // Keep the live session alive (protocol store TTL) while the adapter only sends heartbeats.
+    this.deps.store.get(sessionId, at);
+    const seen = entry.overwolf?.presence ?? { roster: false, bans: false, draft: false, players: false };
+    entry.overwolf = {
+      lastAt: at,
+      presence: { roster: seen.roster || presence.roster, bans: seen.bans || presence.bans, draft: seen.draft || presence.draft, players: seen.players || presence.players },
+    };
+    return { accepted: true, changed, status: this.status(sessionId)! };
+  }
+
   /** The Player's manual fallback (validated at the route). Same facts, same rebuild as the capturer. */
   observe(sessionId: string, observation: LiveObservation): LiveIngestResult {
     if (!this.isLive(sessionId) || !this.ensureSession(sessionId)) return { accepted: false, reason: "not_live_capture", status: this.status(sessionId) };
@@ -272,7 +327,7 @@ export class LiveCaptureRegistry {
     entry.gsi = gsi;
     if (update.phase === "draft") {
       // Honest capture state: without a draft block the game only told us our side and our hero.
-      const partial = !gsi.draft.draftBlock;
+      const partial = !gsi.draft.draftBlock && !this.overwolfAuthoritative(entry);
       entry.captureHealth = partial ? "degraded" : "ok";
       entry.captureDetail = partial ? GSI_DRAFT_PARTIAL : null;
     } else if (entry.captureDetail === GSI_DRAFT_PARTIAL || entry.captureHealth === "unknown") {
@@ -285,6 +340,9 @@ export class LiveCaptureRegistry {
       // GSI repeats "hero selection" in every update. A new draft was already decided above (match key /
       // ended), so a repeat never restarts -- not even once the kernel state reached COMPLETE.
       if (observation.type === "draft_started" && current.facts.started) continue;
+      // Overwolf states the full draft: GSI's own hero (or any pick/ban it might add) is only a repeat of it,
+      // and -- if the two ever disagree -- never allowed to override it.
+      if ((observation.type === "pick" || observation.type === "ban") && this.overwolfAuthoritative(current)) continue;
       const key = factKey(observation);
       if (key !== null && current.suppressed.has(key)) continue;
       changed = this.applyFact(sessionId, current, observation, "gsi").changed || changed;
@@ -298,13 +356,25 @@ export class LiveCaptureRegistry {
     if (!entry || !this.isLive(sessionId)) return null;
     const now = this.now();
     const connection = entry.lastEventAt === null ? "waiting" : now - entry.lastEventAt <= LIVE_STALE_AFTER_MS ? "connected" : "stale";
+    const overwolf = overwolfStatusOf(entry, now);
+    // Honest health: an automatic capture that went quiet mid-draft is reported, never papered over by GSI heartbeats.
+    const lostOverwolf = overwolf !== null && !overwolf.connected && overwolf.authoritativeEver && entry.facts.started && !entry.ended;
+    let captureHealth = entry.captureHealth;
+    let captureDetail = entry.captureDetail;
+    if (lostOverwolf) {
+      captureHealth = "degraded";
+      captureDetail = OVERWOLF_LOST;
+    } else if (overwolf?.authoritative === true && captureDetail === GSI_DRAFT_PARTIAL) {
+      captureHealth = "ok";
+      captureDetail = null;
+    }
     return {
       schema: "live-capture-status/v1",
       sessionId,
       connection,
       lastEventAt: entry.lastEventAt === null ? null : new Date(entry.lastEventAt).toISOString(),
-      captureHealth: entry.captureHealth,
-      captureDetail: entry.captureDetail,
+      captureHealth,
+      captureDetail,
       draftPhase: entry.ended ? "ended" : entry.facts.started ? "hero_selection" : "waiting",
       localSide: entry.facts.localSide,
       lastDetectedPick: entry.lastDetectedPick,
@@ -314,7 +384,13 @@ export class LiveCaptureRegistry {
       rejectedFacts: entry.rejectedFacts,
       gsi: gsiStatusOf(entry, now),
       teamContext: this.teamContextOf(sessionId),
+      overwolf: overwolf === null ? null : { connected: overwolf.connected, roster: overwolf.roster, bans: overwolf.bans, draft: overwolf.draft, players: overwolf.players, lastUpdateAgeMs: overwolf.lastUpdateAgeMs, authoritative: overwolf.authoritative },
     };
+  }
+
+  private overwolfAuthoritative(entry: LiveEntry): boolean {
+    const status = overwolfStatusOf(entry, this.now());
+    return status !== null && status.authoritative;
   }
 
   private teamContextOf(sessionId: string): LiveTeamContextStatus {
@@ -359,6 +435,8 @@ export class LiveCaptureRegistry {
     restarted.captureDetail = entry.captureDetail;
     restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
     restarted.lastGsiAt = entry.lastGsiAt;
+    // The adapter is still there; what it stated about the PREVIOUS draft is not (presence restarts with the draft).
+    restarted.overwolf = entry.overwolf === null ? null : { lastAt: entry.overwolf.lastAt, presence: { roster: false, bans: false, draft: false, players: false } };
     // A new match's first inventory is never compared with the previous match's (that is not an item change).
     restarted.gsiItemsKey = null;
     this.entries.set(sessionId, restarted);
@@ -406,8 +484,18 @@ export class LiveCaptureRegistry {
       gsiItemsKey: null,
       matchKey: null,
       suppressed: new Set(),
+      overwolf: null,
     };
   }
+}
+
+function overwolfStatusOf(entry: LiveEntry, now: number): (LiveOverwolfStatus & { authoritativeEver: boolean }) | null {
+  if (entry.overwolf === null) return null;
+  const lastUpdateAgeMs = Math.max(0, now - entry.overwolf.lastAt);
+  const connected = lastUpdateAgeMs <= LIVE_STALE_AFTER_MS;
+  const { presence } = entry.overwolf;
+  const authoritativeEver = presence.draft || presence.players;
+  return { ...presence, connected, lastUpdateAgeMs, authoritative: connected && authoritativeEver, authoritativeEver };
 }
 
 function noDraftCapabilities(): GsiDraftCapabilities {

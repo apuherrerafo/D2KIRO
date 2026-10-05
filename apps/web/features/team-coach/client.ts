@@ -1,6 +1,6 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
-import type { GsiLinkView, LiveCaptureStatus, LiveObservationInput, LivePartyPreset, LiveTeamGroupResult, TeamCoachBoardData } from "./types";
-import { parseGsiLink, parseLiveCaptureStatus, parseLivePartyPresets, parseLiveTeamGroupResult, parseTeamCoachBoard } from "./validation";
+import type { CapturePairingCode, CapturePairingState, GsiLinkView, LiveCaptureStatus, LiveObservationInput, LivePartyPreset, LiveTeamGroupResult, TeamCoachBoardData } from "./types";
+import { parseCapturePairingCode, parseCapturePairingState, parseGsiLink, parseLiveCaptureStatus, parseLivePartyPresets, parseLiveTeamGroupResult, parseTeamCoachBoard } from "./validation";
 
 // Únicos call sites del navegador para el Team Coach Board y el draft en vivo. Siempre por el proxy
 // `/engine` (allowlist en next.config.ts) -- nunca un loopback directo.
@@ -87,4 +87,34 @@ export async function putLiveTeamGroup(teamGroupId: number | null, fetchImpl: ty
   const result = parseLiveTeamGroupResult(await response.json());
   if (result === null) throw new Error("invalid live team group response");
   return result;
+}
+
+// Overwolf automatic capture -- the browser asks for a one-time pairing code, reads whether an adapter is paired
+// and unpairs. The credential the adapter receives never passes through here: it goes adapter <-> site only.
+const CAPTURE_PAIRING_PATH = `${ENGINE_HTTP_BASE_URL}/api/live/capture-pairing`;
+
+/** A fresh one-time code for this account's live session (the previous code, if any, stops working). */
+export async function issueCapturePairing(fetchImpl: typeof fetch = fetch): Promise<CapturePairingCode> {
+  const response = await fetchImpl(CAPTURE_PAIRING_PATH, { method: "POST", cache: "no-store" });
+  if (!response.ok) throw new Error(`capture pairing request failed (${response.status})`);
+  const code = parseCapturePairingCode(await response.json());
+  if (code === null) throw new Error("invalid capture pairing response");
+  return code;
+}
+
+export async function fetchCapturePairing(fetchImpl: typeof fetch = fetch): Promise<CapturePairingState> {
+  const response = await fetchImpl(CAPTURE_PAIRING_PATH, { cache: "no-store" });
+  if (!response.ok) throw new Error(`capture pairing state request failed (${response.status})`);
+  const state = parseCapturePairingState(await response.json());
+  if (state === null) throw new Error("invalid capture pairing state response");
+  return state;
+}
+
+/** "Desvincular captura": the adapter's credential and any pending code stop working at once. */
+export async function revokeCapturePairing(fetchImpl: typeof fetch = fetch): Promise<CapturePairingState> {
+  const response = await fetchImpl(CAPTURE_PAIRING_PATH, { method: "DELETE" });
+  if (!response.ok) throw new Error(`capture pairing revoke failed (${response.status})`);
+  const state = parseCapturePairingState(await response.json());
+  if (state === null) throw new Error("invalid capture pairing state response");
+  return state;
 }

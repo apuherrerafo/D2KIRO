@@ -55,6 +55,10 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/live/gsi-link");
     expect(sources).toContain("/engine/api/live/team-group");
     expect(sources.some((source) => source.includes("gsi-link/issue") || source.includes("/api/live/gsi/"))).toBe(false);
+    // Overwolf automatic capture: the browser may ask for a pairing code, read and revoke the pairing -- but the
+    // adapter's own doors (pair / batch / heroes, authenticated by the code or the credential) never go through /engine.
+    expect(sources).toContain("/engine/api/live/capture-pairing");
+    expect(sources.some((source) => source.includes("/api/live/overwolf"))).toBe(false);
     expect(sources).toContain("/engine/api/session/:sessionId/feedback");
     expect(sources).toContain("/engine/api/session/:sessionId/draft-paths");
     expect(sources).toContain("/engine/api/v1/draft/pro-recommendations");

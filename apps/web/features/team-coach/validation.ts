@@ -1,8 +1,11 @@
 import type {
+  CapturePairingCode,
+  CapturePairingState,
   GsiLinkView,
   LiveCaptureStatus,
   LiveDetectedPick,
   LiveGsiStatus,
+  LiveOverwolfStatus,
   LivePartyPreset,
   LiveTeamContext,
   LiveTeamGroupResult,
@@ -125,6 +128,37 @@ export function parseGsiLink(value: unknown): GsiLinkView | null | undefined {
   return { sessionId: link.sessionId, createdAt: link.createdAt, expiresAt: link.expiresAt };
 }
 
+function isOverwolfStatus(value: unknown): value is LiveOverwolfStatus {
+  return (
+    isRecord(value) &&
+    typeof value.connected === "boolean" &&
+    typeof value.roster === "boolean" &&
+    typeof value.bans === "boolean" &&
+    typeof value.draft === "boolean" &&
+    typeof value.players === "boolean" &&
+    typeof value.authoritative === "boolean" &&
+    typeof value.lastUpdateAgeMs === "number" &&
+    Number.isFinite(value.lastUpdateAgeMs) &&
+    value.lastUpdateAgeMs >= 0
+  );
+}
+
+const PAIRING_CODE = /^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}$/;
+
+/** POST /engine/api/live/capture-pairing. `null` when the response is not a valid code. */
+export function parseCapturePairingCode(value: unknown): CapturePairingCode | null {
+  if (!isRecord(value) || value.schema !== "live-capture-pairing/v1") return null;
+  if (typeof value.code !== "string" || !PAIRING_CODE.test(value.code) || !isString(value.expiresAt)) return null;
+  return { code: value.code, expiresAt: value.expiresAt };
+}
+
+/** GET/DELETE /engine/api/live/capture-pairing. `null` when the response is not a valid state. */
+export function parseCapturePairingState(value: unknown): CapturePairingState | null {
+  if (!isRecord(value) || value.schema !== "live-capture-pairing-state/v1" || typeof value.paired !== "boolean") return null;
+  if (!isNullable(value.expiresAt, isString) || !(value.overwolf === null || isOverwolfStatus(value.overwolf))) return null;
+  return { paired: value.paired, expiresAt: value.expiresAt, overwolf: value.overwolf };
+}
+
 const POSITION_KEYS = ["1", "2", "3", "4", "5"] as const;
 
 function isTeamContext(value: unknown): value is LiveTeamContext {
@@ -176,6 +210,7 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     isNullable(value.lastDetectedPick, isDetectedPick) &&
     [value.bans, value.picks, value.deferredPicks, value.rejectedFacts].every((count) => typeof count === "number") &&
     (value.gsi === undefined || isNullable(value.gsi, isGsiStatus)) &&
-    (value.teamContext === undefined || isTeamContext(value.teamContext));
+    (value.teamContext === undefined || isTeamContext(value.teamContext)) &&
+    (value.overwolf === undefined || value.overwolf === null || isOverwolfStatus(value.overwolf));
   return valid ? (value as unknown as LiveCaptureStatus) : null;
 }

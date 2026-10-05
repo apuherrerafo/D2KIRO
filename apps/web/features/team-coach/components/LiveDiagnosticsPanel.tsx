@@ -87,6 +87,23 @@ function Group({ title, rows, prefix }: { title: string; rows: DiagnosticRow[]; 
   );
 }
 
+function OverwolfGroup({ diagnostics }: { diagnostics: LiveDiagnostics }) {
+  const { overwolf } = diagnostics;
+  return (
+    <div className="flex min-w-0 flex-col gap-1" data-testid="diag-overwolf">
+      <span className="text-caption font-semibold text-content-muted">CAPTURA AUTOMÁTICA (OVERWOLF, sólo presencia)</span>
+      <ul className="flex flex-col gap-1">
+        <Row label="Adaptador conectado" presence={overwolf.connected} testId="diag-overwolf-connected" />
+        <Row label="Roster" presence={overwolf.roster} testId="diag-overwolf-roster" />
+        <Row label="Bans" presence={overwolf.bans} testId="diag-overwolf-bans" />
+        <Row label="Draft (picks)" presence={overwolf.draft} testId="diag-overwolf-draft" />
+        <Row label="Jugadores (héroe / equipo / rol)" presence={overwolf.players} testId="diag-overwolf-players" />
+        <ValueRow label="Última actualización hace" value={lastKnown(diagnostics, ageText(overwolf.lastUpdateAgeMs))} testId="diag-overwolf-age" />
+      </ul>
+    </div>
+  );
+}
+
 function StructureGroup({ diagnostics }: { diagnostics: LiveDiagnostics }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 sm:col-span-3" data-testid="diag-structure">
@@ -152,6 +169,7 @@ export function LiveDiagnosticsPanel(props: LiveDiagnosticsPanelProps) {
         </div>
         <Group title="DRAFT (lo que Dota informa)" rows={diagnostics.draft} prefix="diag-draft" />
         <Group title="PARTIDA (sólo presencia)" rows={diagnostics.telemetry} prefix="diag-telemetry" />
+        <OverwolfGroup diagnostics={diagnostics} />
         <StructureGroup diagnostics={diagnostics} />
       </div>
       <div className="flex flex-wrap items-center gap-2">

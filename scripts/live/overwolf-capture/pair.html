@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>D2KIRO · Conectar captura</title>
+    <style>
+      body { margin: 0; padding: 16px; font: 14px system-ui, sans-serif; background: #12161c; color: #e8ecf1; }
+      h1 { margin: 0 0 8px; font-size: 16px; }
+      p { margin: 0 0 12px; color: #aab4c0; }
+      label { display: block; margin: 8px 0 4px; font-size: 12px; color: #aab4c0; }
+      input { box-sizing: border-box; width: 100%; padding: 8px; border: 1px solid #36404d; border-radius: 4px; background: #0c0f14; color: #e8ecf1; font: inherit; }
+      input#code { font: 18px ui-monospace, monospace; letter-spacing: 2px; text-transform: uppercase; }
+      button { margin-top: 12px; padding: 8px 16px; border: 0; border-radius: 4px; background: #4f9cf9; color: #0c0f14; font: inherit; font-weight: 600; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      #result { margin-top: 12px; min-height: 20px; }
+      #result.ok { color: #5ad18f; }
+      #result.bad { color: #ff7a7a; }
+    </style>
+  </head>
+  <body>
+    <h1>Conectar captura automática</h1>
+    <p>En D2KIRO → Draft en vivo → «Conectar captura automática» te da un código de un solo uso.</p>
+    <label for="site">Sitio de D2KIRO</label>
+    <input id="site" type="url" autocomplete="off" spellcheck="false" placeholder="https://..." />
+    <label for="code">Código</label>
+    <input id="code" type="text" autocomplete="off" spellcheck="false" maxlength="9" placeholder="ABCD-2345" />
+    <button id="connect" type="button">Conectar</button>
+    <div id="result" role="status"></div>
+    <script src="pair.js"></script>
+  </body>
+</html>

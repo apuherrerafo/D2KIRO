@@ -55,6 +55,9 @@ const ENGINE_REWRITE_SOURCES = [
   // Live Dota + Party 5: select (PUT) or clear the account's own team preset for its live session. The body only
   // NAMES a preset (teamGroupId); the engine loads its pools server-side, scoped to the signed-in account.
   "/engine/api/live/team-group",
+  // Overwolf automatic capture: the browser asks for a one-time pairing code (POST), reads whether an adapter is paired
+  // (GET) and unpairs (DELETE). The adapter itself never uses /engine: it goes through app/api/live/overwolf/*.
+  "/engine/api/live/capture-pairing",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",

@@ -3,34 +3,56 @@
   "type": "WebApp",
   "meta": {
     "name": "D2KIRO Live Capture",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "minimum-overwolf-version": "0.200.0",
     "author": "D2KIRO",
     "name_in_taskbar": "D2KIRO Live Capture",
-    "description": "Captura local del draft de Dota 2 (Overwolf GEP) hacia el motor D2KIRO en 127.0.0.1. Sin lectura de memoria, sin OCR, sin modificar el cliente.",
+    "description": "Captura automática del draft de Dota 2 (Overwolf GEP) hacia D2KIRO. Se empareja una vez con un código de un solo uso. Sin lectura de memoria, sin OCR, sin modificar el cliente.",
     "icon": "icon.png",
     "icon_gray": "icon.png",
     "launcher_icon": "icon.png"
   },
-  "permissions": ["GameInfo"],
+  "permissions": [
+    "GameInfo"
+  ],
   "data": {
     "game_targeting": {
       "type": "dedicated",
-      "game_ids": [7314]
+      "game_ids": [
+        7314
+      ]
     },
-    "game_events": [7314],
+    "game_events": [
+      7314
+    ],
     "windows": {
       "background": {
         "file": "background.html",
         "is_background_page": true,
         "background_optimization": false
+      },
+      "pair": {
+        "file": "pair.html",
+        "desktop_only": true,
+        "native_window": true,
+        "resizable": false,
+        "transparent": false,
+        "show_in_taskbar": true,
+        "size": {
+          "width": 440,
+          "height": 420
+        }
       }
     },
     "start_window": "background",
     "launch_events": [
       {
         "event": "GameLaunch",
-        "event_data": { "game_ids": [7314] },
+        "event_data": {
+          "game_ids": [
+            7314
+          ]
+        },
         "start_minimized": true
       }
     ]

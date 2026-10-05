@@ -56,6 +56,21 @@ describe("proxy de sesión y token interno", () => {
     }
   });
 
+  test("Overwolf: las tres puertas del adaptador local son públicas (se autentican en el motor); el pairing del navegador exige sesión", async () => {
+    configureAuth();
+    for (const path of ["/api/live/overwolf/pair", `/api/live/overwolf/${"C".repeat(43)}`, `/api/live/overwolf/${"C".repeat(43)}/heroes`]) {
+      const response = await proxy(new NextRequest(`http://localhost:3000${path}`, { method: "POST" }));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-middleware-request-x-account-token")).toBeNull();
+    }
+    // Asking for a pairing code / reading or revoking the pairing is an ACCOUNT action: no session, no code.
+    for (const path of ["/engine/api/live/capture-pairing", "/api/live/overwolfX", "/api/live/overwolf"]) {
+      const response = await proxy(new NextRequest(`http://localhost:3000${path}`, { method: "POST" }));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+    }
+  });
+
   test("sin sesión rechaza antes de llegar al motor", async () => {
     configureAuth();
     const response = await proxy(new NextRequest("http://localhost:3000/engine/api/hero-pool"));

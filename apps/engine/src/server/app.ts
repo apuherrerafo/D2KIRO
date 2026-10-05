@@ -32,6 +32,8 @@ import { createLiveCaptureRoutes } from "./routes/live-capture";
 import { createLiveGsiRoutes } from "./routes/live-gsi";
 import { LiveCaptureRegistry } from "../live/live-capture-registry";
 import { createGsiLinkStore, type GsiLinkStore } from "../live/gsi-links";
+import { createCapturePairingStore, type CapturePairingStore } from "../live/capture-pairing";
+import { createLiveOverwolfRoutes } from "./routes/live-overwolf";
 import { createProDrafterRoutes, handleLowConfidenceReport } from "./routes/pro-drafter";
 import { loadTrustedEligibilityArtifact } from "../draft-protocol";
 import { createProtocolSessionRoutes } from "./routes/protocol-sessions";
@@ -91,6 +93,8 @@ export interface AppDeps<TSchema extends Record<string, unknown> = typeof schema
   allowTestClockControl?: boolean;
   // TSK-219: inyectable para pruebas; por defecto la tabla `live_gsi_links` de la misma SQLite.
   gsiLinks?: GsiLinkStore;
+  // Overwolf automatic capture: inyectable para pruebas; por defecto las tablas `live_capture_*` de la misma SQLite.
+  capturePairing?: CapturePairingStore;
 }
 
 interface WsData {
@@ -168,11 +172,19 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const liveCaptureRegistry = new LiveCaptureRegistry({ store: protocolSessionStore, defaultPatch: CURRENT_PATCH });
   const liveCaptureRoutes = createLiveCaptureRoutes({ registry: liveCaptureRegistry, defaultPatch: CURRENT_PATCH });
   // TSK-219: Dota GSI over the Internet -- the link store (hash-only credentials) and its routes.
+  const gsiLinks = deps.gsiLinks ?? createGsiLinkStore(deps.db);
   const liveGsiRoutes = createLiveGsiRoutes({
-    links: deps.gsiLinks ?? createGsiLinkStore(deps.db),
+    links: gsiLinks,
     registry: liveCaptureRegistry,
     // Account-scoped load (getTeamGroup filters by account_id): another account's preset resolves to null.
     loadTeamGroup: (teamGroupId, accountId) => getTeamGroup(deps.db, teamGroupId, accountId),
+  });
+  // Overwolf automatic capture: pairing code -> scoped credential -> draft facts into the SAME live session.
+  const liveOverwolfRoutes = createLiveOverwolfRoutes({
+    pairing: deps.capturePairing ?? createCapturePairingStore(deps.db),
+    links: gsiLinks,
+    registry: liveCaptureRegistry,
+    listHeroes: () => getAllHeroMeta(deps.db),
   });
   const rateLimiter = createSessionRateLimiter();
   // MVP P0.1 -- minimal client error reporting foundation. Own rate limiter instance (own key
@@ -441,6 +453,24 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     const gsiIngestMatch = url.pathname.match(/^\/api\/live\/gsi\/([^/]+)$/);
     if (gsiIngestMatch && request.method === "POST") {
       return liveGsiRoutes.postIngest(request, gsiIngestMatch[1] ?? "");
+    }
+    // Overwolf automatic capture. The adapter's three doors are public ONLY through apps/web's relay
+    // (app/api/live/overwolf/*) and authenticate with the one-time code / the scoped credential themselves.
+    if (request.method === "POST" && url.pathname === "/api/live/overwolf/pair") {
+      return liveOverwolfRoutes.postPair(request);
+    }
+    const overwolfBatchMatch = url.pathname.match(/^\/api\/live\/overwolf\/([^/]+)(\/heroes)?$/);
+    if (overwolfBatchMatch) {
+      const captureId = overwolfBatchMatch[1] ?? "";
+      if (request.method === "POST" && overwolfBatchMatch[2] === undefined) return liveOverwolfRoutes.postBatch(request, captureId);
+      if (request.method === "GET" && overwolfBatchMatch[2] === "/heroes") return liveOverwolfRoutes.getHeroes(request, captureId);
+    }
+    // The browser asks for a pairing code, reads whether an adapter is paired, and unpairs. Account session only.
+    if (url.pathname === "/api/live/capture-pairing" && (request.method === "POST" || request.method === "GET" || request.method === "DELETE")) {
+      const auth = requireHttpAccount(request);
+      if (!auth.ok) return auth.response;
+      if (request.method === "POST") return liveOverwolfRoutes.postPairingCode(auth.accountId);
+      return request.method === "GET" ? liveOverwolfRoutes.getPairing(auth.accountId) : liveOverwolfRoutes.deletePairing(auth.accountId);
     }
     // Issue (= rotate) is called only by apps/web's server-side cfg download: it is deliberately absent
     // from the browser proxy allowlist (next.config.ts), so no browser script ever receives a token.

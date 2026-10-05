@@ -159,3 +159,28 @@ export const liveGsiLinks = sqliteTable("live_gsi_links", {
   createdAt: integer("created_at").notNull(),
   expiresAt: integer("expires_at").notNull(),
 });
+
+// Overwolf live capture pairing. Two tables, one row per account at most (a new code / a new pairing REPLACES the
+// old one). `live_capture_pairings`: a short-lived ONE-TIME code (only its hash is stored) that an account-
+// authenticated browser asked for. `live_capture_credentials`: what the code was exchanged for -- a capture
+// credential that can ONLY submit facts to the one live session it was bound to. Hash-only, expiring, revocable.
+export const liveCapturePairings = sqliteTable("live_capture_pairings", {
+  codeHash: text("code_hash").primaryKey(),
+  accountId: integer("account_id")
+    .notNull()
+    .references(() => accounts.steamAccountId),
+  sessionId: text("session_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});
+
+export const liveCaptureCredentials = sqliteTable("live_capture_credentials", {
+  captureId: text("capture_id").primaryKey(),
+  accountId: integer("account_id")
+    .notNull()
+    .references(() => accounts.steamAccountId),
+  tokenHash: text("token_hash").notNull(),
+  sessionId: text("session_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});

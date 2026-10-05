@@ -71,6 +71,13 @@
       "when": 1788000000000,
       "tag": "0009_live_gsi_links",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788100000000,
+      "tag": "0010_live_capture_pairing",
+      "breakpoints": true
     }
   ]
 }

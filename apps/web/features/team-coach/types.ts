@@ -91,6 +91,22 @@ export interface LiveGsiStatus {
   active?: boolean;
 }
 
+/**
+ * What the paired Overwolf adapter reported for this draft (engine `LiveOverwolfStatus`). Presence of Overwolf
+ * GEP info keys only -- never a hero, a player or any identity.
+ */
+export interface LiveOverwolfStatus {
+  connected: boolean;
+  roster: boolean;
+  bans: boolean;
+  draft: boolean;
+  players: boolean;
+  /** Server clock: ms since the last adapter batch. */
+  lastUpdateAgeMs: number;
+  /** Overwolf is the source of the full draft right now (connected and it has stated draft heroes). */
+  authoritative: boolean;
+}
+
 /** Which Party 5 preset the engine applied to this live session (never hero ids or names). */
 export interface LiveTeamContext {
   teamGroupId: number | null;
@@ -131,6 +147,21 @@ export interface LiveCaptureStatus {
   gsi?: LiveGsiStatus | null;
   /** Party 5 preset applied to this live session (absent from older engines). */
   teamContext?: LiveTeamContext;
+  /** Present once the paired Overwolf adapter has spoken to this session (absent from older engines). */
+  overwolf?: LiveOverwolfStatus | null;
+}
+
+/** POST /engine/api/live/capture-pairing (schema "live-capture-pairing/v1"): a one-time code, shown once. */
+export interface CapturePairingCode {
+  code: string;
+  expiresAt: string;
+}
+
+/** GET/DELETE /engine/api/live/capture-pairing (schema "live-capture-pairing-state/v1"). Never the credential. */
+export interface CapturePairingState {
+  paired: boolean;
+  expiresAt: string | null;
+  overwolf: LiveOverwolfStatus | null;
 }
 
 /** The browser's view of its Dota link: which live session to watch, until when. Never the credential. */

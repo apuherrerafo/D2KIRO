@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { accounts, liveGsiLinks } from "../db/schema";
+import { accounts, liveCaptureCredentials, liveCapturePairings, liveGsiLinks } from "../db/schema";
 
 // Synthetic Dota GSI payloads for tests (TSK-219). Shapes follow Valve's Game State Integration
 // sections (provider/map/player/hero/draft/items/abilities/auth). Identity values are SENTINELS, never
@@ -80,13 +80,14 @@ export function gsiPayload(options: GsiFixtureOptions = {}): Record<string, unkn
 }
 
 const MIGRATION_SQL = readFileSync(join(import.meta.dir, "../db/migrations/0009_live_gsi_links.sql"), "utf-8");
+const CAPTURE_MIGRATION_SQL = readFileSync(join(import.meta.dir, "../db/migrations/0010_live_capture_pairing.sql"), "utf-8");
 
-/** In-memory SQLite with the REAL migration 0009 applied and two test accounts (101, 202). */
+/** In-memory SQLite with the REAL migrations 0009 + 0010 applied and two test accounts (101, 202). */
 export function createGsiLinkTestDb() {
   const sqlite = new Database(":memory:");
   sqlite.exec("CREATE TABLE accounts (steam_account_id INTEGER PRIMARY KEY, personal_baseline_winrate REAL, created_at TEXT NOT NULL);");
-  for (const statement of MIGRATION_SQL.split("--> statement-breakpoint")) if (statement.trim()) sqlite.exec(statement.trim());
-  const db = drizzle(sqlite, { schema: { accounts, liveGsiLinks } });
+  for (const sql of [MIGRATION_SQL, CAPTURE_MIGRATION_SQL]) for (const statement of sql.split("--> statement-breakpoint")) if (statement.trim()) sqlite.exec(statement.trim());
+  const db = drizzle(sqlite, { schema: { accounts, liveGsiLinks, liveCapturePairings, liveCaptureCredentials } });
   db.insert(accounts).values([{ steamAccountId: 101, personalBaselineWinrate: null, createdAt: "2026-10-01" }, { steamAccountId: 202, personalBaselineWinrate: null, createdAt: "2026-10-01" }]).run();
   return { db, sqlite };
 }

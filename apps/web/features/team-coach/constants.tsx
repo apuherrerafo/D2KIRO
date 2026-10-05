@@ -26,6 +26,14 @@ export const DOTA_NOT_RUNNING = "DOTA_NOT_RUNNING";
 export const LIVE_POLL_MS = 1_000;
 /** Engine capture detail (live-capture-registry.ts): Dota sends no draft block -- only our side and hero. */
 export const GSI_DRAFT_PARTIAL = "GSI_DRAFT_PARTIAL";
+/** Engine capture detail: the automatic (Overwolf) capture went quiet while the draft was running. */
+export const OVERWOLF_LOST = "OVERWOLF_LOST";
+/** Overwolf adapter heartbeat details (scripts/live/overwolf-capture/capture-core.js `healthPayload`). */
+export const OVERWOLF_WAITING_FOR_DRAFT = "WAITING_FOR_DRAFT";
+/** A full Ranked All Pick draft: five heroes a side. */
+export const DRAFT_HERO_COUNT = 10;
+/** How often the pairing panel re-reads whether an adapter paired (cheap; only while the panel is waiting for it). */
+export const CAPTURE_PAIRING_POLL_MS = 2_000;
 
 // TSK-219 -- conectar Dota (Game State Integration) desde el sitio, sin terminal. Texto para jugadores:
 // nada de herramientas de desarrollo, puertos ni procesos.

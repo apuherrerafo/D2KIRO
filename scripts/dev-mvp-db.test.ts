@@ -29,7 +29,7 @@ test("una SQLite fresca de dev:mvp recibe el esquema real y permite crear una cu
     const accountColumns = sqlite.query<{ name: string }, []>("PRAGMA table_info(accounts)").all().map((column) => column.name);
 
     expect(accounts?.name).toBe("accounts");
-    expect(migrationCount?.count).toBe(10); // TSK-219: 0009_live_gsi_links
+    expect(migrationCount?.count).toBe(11); // TSK-219: 0009_live_gsi_links; Overwolf pairing: 0010_live_capture_pairing
     expect(heroCount?.count).toBeGreaterThan(0);
     expect(accountColumns).toEqual(["steam_account_id", "personal_baseline_winrate", "created_at"]);
   } finally {

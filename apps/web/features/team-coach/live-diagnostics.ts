@@ -51,6 +51,18 @@ export interface LiveDiagnostics {
   structure: StructureRow[];
   /** Party 5 preset applied to the live session: how many of the five positions carry a pool (never ids or names). */
   partyPoolPositions: number;
+  /** The paired Overwolf adapter: presence of each GEP info key and the server-measured age of its last batch. Never a payload value. */
+  overwolf: OverwolfDiagnostics;
+}
+
+export interface OverwolfDiagnostics {
+  connected: Presence;
+  roster: Presence;
+  bans: Presence;
+  draft: Presence;
+  players: Presence;
+  /** Server-measured ms since the last adapter batch; null before the first one. */
+  lastUpdateAgeMs: number | null;
 }
 
 interface RowSpec {
@@ -185,6 +197,20 @@ export function buildLiveDiagnostics({ engine, dotaLink, status }: LiveDiagnosti
     telemetry: TELEMETRY_ROWS.map((row) => ({ key: row.key, label: row.label, presence: telemetryPresence(observed, row.labels) })),
     structure: STRUCTURE_ROWS.map((row) => ({ key: row.key, label: row.label, present: structureSeen.has(row.engineLabel) })),
     partyPoolPositions: Object.values(status?.teamContext?.positions ?? {}).filter(Boolean).length,
+    overwolf: overwolfDiagnostics(status),
+  };
+}
+
+function overwolfDiagnostics(status: LiveCaptureStatus | null): OverwolfDiagnostics {
+  const overwolf = status?.overwolf;
+  const age = overwolf?.lastUpdateAgeMs;
+  return {
+    connected: presenceOf(overwolf?.connected === true),
+    roster: presenceOf(overwolf?.roster === true),
+    bans: presenceOf(overwolf?.bans === true),
+    draft: presenceOf(overwolf?.draft === true),
+    players: presenceOf(overwolf?.players === true),
+    lastUpdateAgeMs: typeof age === "number" && Number.isFinite(age) ? Math.max(0, Math.round(age)) : null,
   };
 }
 
@@ -233,6 +259,14 @@ export function formatLiveDiagnosticReport(diagnostics: LiveDiagnostics): string
     `structure.rosterCandidate: ${structureText(rosterCandidate(diagnostics))} (unverified)`,
     "",
     `party.poolPositions: ${diagnostics.partyPoolPositions}/5`,
+    "",
+    // Overwolf automatic capture: presence only, never a payload.
+    `overwolf.connected: ${diagnostics.overwolf.connected}`,
+    `overwolf.roster: ${diagnostics.overwolf.roster}`,
+    `overwolf.bans: ${diagnostics.overwolf.bans}`,
+    `overwolf.draft: ${diagnostics.overwolf.draft}`,
+    `overwolf.players: ${diagnostics.overwolf.players}`,
+    `overwolf.lastUpdateAgeMs: ${diagnostics.overwolf.lastUpdateAgeMs ?? "n/a"}`,
   ];
   return `${lines.join("\n")}\n`;
 }

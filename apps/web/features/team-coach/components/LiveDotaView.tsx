@@ -5,6 +5,7 @@ import { GSI_SETUP_ERRORS } from "../constants";
 import { useLiveTeamCoachStore } from "../live-store";
 import type { GsiLinkView } from "../types";
 import { useGsiLink, type UseGsiLinkResult } from "../use-gsi-link";
+import { CaptureAutoPanel } from "./CaptureAutoPanel";
 import { DotaConnectPanel, DotaLinkControls } from "./DotaConnectPanel";
 import { LiveDiagnosticsPanel } from "./LiveDiagnosticsPanel";
 import { LivePartyPresetPanel } from "./LivePartyPresetPanel";
@@ -98,6 +99,7 @@ function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl }: Linked
         onDownload={onDownload}
         onDisconnect={handleDisconnect}
       />
+      <CaptureAutoPanel status={linkStatus} fetchImpl={fetchImpl} />
       <LivePartyPresetPanel sessionId={link.sessionId} teamContext={linkStatus?.teamContext} fetchImpl={fetchImpl} />
       <LiveDiagnosticsPanel engine={engineStatus} dotaLink status={linkStatus} />
     </LiveTeamCoachView>

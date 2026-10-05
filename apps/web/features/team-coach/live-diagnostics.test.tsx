@@ -86,8 +86,10 @@ describe("live diagnostics -- sanitized by construction", () => {
     const text = report(hostileStatus());
     for (const secret of SENTINELS) expect(text).not.toContain(secret);
     // The structure block names Dota SECTIONS (e.g. "allplayers"): fixed vocabulary, checked separately below.
-    const identityText = text.split("\n").filter((entry) => !entry.startsWith("structure.")).join("\n");
+    // The overwolf block uses fixed key names (e.g. `overwolf.players`) with YES/NO values only, checked right below.
+    const identityText = text.split("\n").filter((entry) => !entry.startsWith("structure.") && !entry.startsWith("overwolf.")).join("\n");
     expect(identityText).not.toMatch(/steam|account|player|token|session|liveId|heroId/i);
+    for (const entry of text.split("\n").filter((value) => value.startsWith("overwolf."))) expect(entry).toMatch(/^overwolf\.[a-zA-Z]+: (YES|NO|PARTIAL|\d+|n\/a)$/);
     for (const entry of text.split("\n").filter((value) => value.startsWith("structure."))) expect(entry).toMatch(/^structure\.[a-zA-Z0-9.]+: (present|absent)( \(unverified\))?$/);
     // No timestamp either (lastEventAt / detected pick time).
     expect(text).not.toContain("2026-10-02");
@@ -270,6 +272,13 @@ describe("Copiar diagnóstico", () => {
           "structure.rosterCandidate: absent (unverified)",
           "",
           "party.poolPositions: 0/5",
+          "",
+          "overwolf.connected: NO",
+          "overwolf.roster: NO",
+          "overwolf.bans: NO",
+          "overwolf.draft: NO",
+          "overwolf.players: NO",
+          "overwolf.lastUpdateAgeMs: n/a",
           "",
         ].join("\n"),
       );

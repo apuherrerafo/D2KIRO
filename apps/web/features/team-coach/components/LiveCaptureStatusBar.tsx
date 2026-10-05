@@ -1,7 +1,7 @@
 "use client";
 
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { CAPTURE_NOT_ENABLED, DOTA_NOT_RUNNING, GSI_DRAFT_PARTIAL, teamPositionName } from "../constants";
+import { CAPTURE_NOT_ENABLED, DOTA_NOT_RUNNING, DRAFT_HERO_COUNT, GSI_DRAFT_PARTIAL, OVERWOLF_LOST, teamPositionName } from "../constants";
 import { STATUS_PILL_BAD, STATUS_PILL_MUTED, STATUS_PILL_OK, STATUS_PILL_WARN } from "../styles";
 import type { LiveCaptureStatus } from "../types";
 
@@ -25,8 +25,23 @@ export function capturePill(status: LiveCaptureStatus | null): Pill {
   if (status !== null && status.captureDetail === CAPTURE_NOT_ENABLED) return { className: STATUS_PILL_BAD, text: "● Captura deshabilitada" };
   if (status === null || status.draftPhase === "waiting") return { className: STATUS_PILL_MUTED, text: "● Esperando selección de héroes..." };
   if (status.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
+  if (status.captureDetail === OVERWOLF_LOST) return { className: STATUS_PILL_WARN, text: "● Hero Selection · captura automática perdida" };
   if (status.captureDetail === GSI_DRAFT_PARTIAL) return { className: STATUS_PILL_WARN, text: "● Hero Selection · captura parcial" };
   return { className: STATUS_PILL_OK, text: "● Hero Selection" };
+}
+
+/**
+ * Which source is stating the draft, in one line: "Automática · Overwolf · 7/10 héroes visibles" once Overwolf
+ * is the authoritative source. null when no adapter is paired (GSI-only sessions are unchanged).
+ */
+export function captureSourceLine(status: LiveCaptureStatus | null): string | null {
+  const overwolf = status?.overwolf;
+  if (status === null || overwolf === null || overwolf === undefined) return null;
+  if (status.captureDetail === OVERWOLF_LOST) return "Captura automática · Overwolf desconectado";
+  if (!overwolf.connected) return "Captura automática · esperando a Overwolf...";
+  if (!overwolf.authoritative && overwolf.bans && status.bans > 0) return `Automática · Overwolf · ${status.bans} bans capturados · esperando los picks`;
+  if (!overwolf.authoritative) return "Captura automática · Overwolf conectado · esperando el draft";
+  return `Automática · Overwolf · ${status.picks}/${DRAFT_HERO_COUNT} héroes visibles`;
 }
 
 export function isCaptureDegraded(status: LiveCaptureStatus | null): boolean {
@@ -40,13 +55,19 @@ function sideText(status: LiveCaptureStatus | null): string {
   return "—";
 }
 
-function StatusItem({ label, pill }: { label: string; pill: Pill }) {
+function StatusItem({ label, pill, detail = null }: { label: string; pill: Pill; detail?: string | null }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-caption font-semibold text-content-muted">{label}</span>
       <span className={pill.className}>{pill.text}</span>
+      <SourceDetail detail={detail} />
     </div>
   );
+}
+
+function SourceDetail({ detail }: { detail: string | null }) {
+  if (detail === null) return null;
+  return <span className="text-caption text-content-secondary" data-testid="live-capture-source">{detail}</span>;
 }
 
 interface DetectedPickProps {
@@ -90,6 +111,16 @@ function PartialCaptureNotice({ status }: { status: LiveCaptureStatus }) {
 
 function DegradedNotice({ status }: { status: LiveCaptureStatus | null }) {
   if (!isCaptureDegraded(status)) return null;
+  if (status?.captureDetail === OVERWOLF_LOST) {
+    return (
+      <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-capture-overwolf-lost">
+        <span className="text-caption font-semibold text-signal-warning">Captura automática degradada · Overwolf dejó de informar</span>
+        <span className="text-caption text-content-secondary">
+          El draft que ya se capturó no se perdió y nada se inventa. Revisá que Overwolf y la app D2KIRO Live Capture sigan abiertos; mientras tanto podés cargar bans y picks a mano abajo.
+        </span>
+      </div>
+    );
+  }
   if (status?.captureDetail === GSI_DRAFT_PARTIAL) return <PartialCaptureNotice status={status} />;
   if (status?.captureDetail === CAPTURE_NOT_ENABLED) {
     return (
@@ -117,7 +148,7 @@ export function LiveCaptureStatusBar({ status, heroCatalog }: DetectedPickProps)
     <div className="flex flex-col gap-3" data-testid="live-capture-status">
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-3">
         <StatusItem label="CONNECTION" pill={connectionPill(status)} />
-        <StatusItem label="CAPTURE" pill={capturePill(status)} />
+        <StatusItem label="CAPTURE" pill={capturePill(status)} detail={captureSourceLine(status)} />
         <StatusItem label="SIDE" pill={{ className: "text-body text-content-primary", text: sideText(status) }} />
       </div>
       <DegradedNotice status={status} />
