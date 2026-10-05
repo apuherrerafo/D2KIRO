@@ -220,6 +220,61 @@ describe("LiveDotaView -- connect Dota", () => {
   });
 });
 
+describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
+  function degradedStatus(draftPhase: "hero_selection" | "ended"): LiveCaptureStatus {
+    return liveStatus(LINK.sessionId, { connection: "connected", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL", draftPhase, localSide: "radiant", picks: 1, gsi: gsi() });
+  }
+
+  test("control: during hero selection the board recommends a pick now and offers manual picks", async () => {
+    const site = new FakeSite();
+    site.link = LINK;
+    site.status = degradedStatus("hero_selection");
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("team-coach-decision")).toBeTruthy());
+      expect(view.getByTestId("team-coach-board").textContent).toContain("RECOMMENDED PICK NOW");
+      expect(view.getAllByTestId("team-coach-pick-now")).toHaveLength(1);
+      expect(view.queryByTestId("team-coach-draft-ended")).toBeNull();
+      expect(view.getAllByRole("button", { name: /^Elegir / }).length).toBeGreaterThan(0);
+      view.unmount();
+    });
+  });
+
+  test("draftPhase=ended: no PICK NOW anywhere, the draft-ended notice instead, nothing pickable; the last reading stays as reference", async () => {
+    const site = new FakeSite();
+    site.link = LINK;
+    site.status = degradedStatus("ended");
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("team-coach-draft-ended")).toBeTruthy());
+      const text = view.getByTestId("live-team-coach").textContent ?? "";
+      expect(text).not.toMatch(/PICK NOW/i);
+      expect(view.queryByTestId("team-coach-decision")).toBeNull();
+      expect(view.queryByTestId("team-coach-pick-now")).toBeNull();
+      expect(view.getByTestId("team-coach-draft-ended").textContent).toContain("DRAFT TERMINADO");
+      expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
+      // The board is kept as reference (five columns), and the session is NOT torn down.
+      expect(view.getAllByTestId(/^team-coach-column-/)).toHaveLength(5);
+      expect(view.getByTestId("live-capture-status").textContent).toContain("Draft terminado");
+      view.unmount();
+    });
+  });
+
+  test("the same session going from hero selection to ended flips the banner without a reload", async () => {
+    const site = new FakeSite();
+    site.link = LINK;
+    site.status = degradedStatus("hero_selection");
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("team-coach-decision")).toBeTruthy());
+      site.status = degradedStatus("ended");
+      await waitFor(() => expect(view.getByTestId("team-coach-draft-ended")).toBeTruthy(), { timeout: 5_000 });
+      expect(view.queryByTestId("team-coach-decision")).toBeNull();
+      view.unmount();
+    });
+  });
+});
+
 describe("validation mirrors (engine -> web)", () => {
   test("gsi link view: link, no link, garbage", () => {
     expect(parseGsiLink({ schema: "live-gsi-link/v1", link: LINK })).toEqual(LINK);

@@ -168,7 +168,12 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const liveCaptureRegistry = new LiveCaptureRegistry({ store: protocolSessionStore, defaultPatch: CURRENT_PATCH });
   const liveCaptureRoutes = createLiveCaptureRoutes({ registry: liveCaptureRegistry, defaultPatch: CURRENT_PATCH });
   // TSK-219: Dota GSI over the Internet -- the link store (hash-only credentials) and its routes.
-  const liveGsiRoutes = createLiveGsiRoutes({ links: deps.gsiLinks ?? createGsiLinkStore(deps.db), registry: liveCaptureRegistry });
+  const liveGsiRoutes = createLiveGsiRoutes({
+    links: deps.gsiLinks ?? createGsiLinkStore(deps.db),
+    registry: liveCaptureRegistry,
+    // Account-scoped load (getTeamGroup filters by account_id): another account's preset resolves to null.
+    loadTeamGroup: (teamGroupId, accountId) => getTeamGroup(deps.db, teamGroupId, accountId),
+  });
   const rateLimiter = createSessionRateLimiter();
   // MVP P0.1 -- minimal client error reporting foundation. Own rate limiter instance (own key
   // space: sessionId-or-IP, never the draft-event session ids above) so a telemetry burst can
@@ -447,6 +452,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       const auth = requireHttpAccount(request);
       if (!auth.ok) return auth.response;
       return request.method === "GET" ? liveGsiRoutes.getLink(auth.accountId) : liveGsiRoutes.deleteLink(auth.accountId);
+    }
+    // Live Dota + Party 5: select (or clear) the account's own team preset for its live session.
+    if (request.method === "PUT" && url.pathname === "/api/live/team-group") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.putTeamGroup(request, auth.accountId) : auth.response;
     }
     if (request.method === "POST" && url.pathname === "/api/telemetry/error") {
       return telemetryRoutes.postError(request);

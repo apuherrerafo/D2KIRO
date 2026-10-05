@@ -2,7 +2,7 @@
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { ADVISORY_NOTE, DETERMINISTIC_DEFAULT_NOTE, PICK_NOW_LABEL, teamPositionName, teamPositionTitle } from "../constants";
+import { ADVISORY_NOTE, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PICK_NOW_LABEL, teamPositionName, teamPositionTitle } from "../constants";
 import {
   BOARD_GRID,
   BOARD_SHELL,
@@ -204,6 +204,25 @@ export interface TeamCoachBoardProps {
   /** Absent -> the board is read-only (live mode while the game itself is the source of picks). */
   onPickHero?: (position: TeamPosition, heroId: number) => void;
   onRetry?: () => void;
+  /**
+   * Live Dota: the draft is over (the game left hero selection). The board keeps the last reading as
+   * REFERENCE only: no "PICK NOW", no recommended position, nothing pickable -- there is no pick to make.
+   */
+  draftEnded?: boolean;
+}
+
+function DraftEndedBanner() {
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-3" role="status" data-testid="team-coach-draft-ended">
+      <span className="text-caption font-semibold text-content-secondary">{LIVE_DRAFT_ENDED_TITLE}</span>
+      <span className="text-caption text-content-muted">{LIVE_DRAFT_ENDED_NOTE}</span>
+    </div>
+  );
+}
+
+function BoardBanner({ board, heroCatalog, draftEnded }: DecisionBannerProps & { draftEnded: boolean }) {
+  if (draftEnded) return <DraftEndedBanner />;
+  return <DecisionBanner board={board} heroCatalog={heroCatalog} />;
 }
 
 function BoardPlaceholder({ status, onRetry }: { status: RequestStatus; onRetry?: () => void }) {
@@ -230,28 +249,31 @@ function RetryButton({ onRetry }: { onRetry?: () => void }) {
   );
 }
 
-export function TeamCoachBoard({ board, status, heroCatalog, selectedPosition, onSelectPosition, onPickHero, onRetry }: TeamCoachBoardProps) {
+export function TeamCoachBoard({ board, status, heroCatalog, selectedPosition, onSelectPosition, onPickHero, onRetry, draftEnded = false }: TeamCoachBoardProps) {
   return (
     <div className={BOARD_SHELL} data-testid="team-coach-board" data-state-identity={board?.stateIdentity ?? ""} data-status={status}>
       <span className="text-heading text-content-primary">Team Coach</span>
-      <TeamCoachBoardContent board={board} status={status} heroCatalog={heroCatalog} selectedPosition={selectedPosition} onSelectPosition={onSelectPosition} onPickHero={onPickHero} onRetry={onRetry} />
+      <TeamCoachBoardContent board={board} status={status} heroCatalog={heroCatalog} selectedPosition={selectedPosition} onSelectPosition={onSelectPosition} onPickHero={onPickHero} onRetry={onRetry} draftEnded={draftEnded} />
     </div>
   );
 }
 
-function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, onSelectPosition, onPickHero, onRetry }: TeamCoachBoardProps) {
+function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, onSelectPosition, onPickHero, onRetry, draftEnded }: TeamCoachBoardProps) {
+  if (draftEnded && !board) return <DraftEndedBanner />;
   if (!board) return <BoardPlaceholder status={status} onRetry={onRetry} />;
-  const recommended = board.currentDecision.recommendedPosition;
+  // Draft over: the last reading stays as reference, with no recommended position and nothing to pick.
+  const recommended = draftEnded ? null : board.currentDecision.recommendedPosition;
+  const pickHero = draftEnded ? undefined : onPickHero;
   return (
     <>
-      <DecisionBanner board={board} heroCatalog={heroCatalog} />
+      <BoardBanner board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} />
       <div className={BOARD_GRID}>
         {board.positions.map((column) => (
           <Column
             key={column.position}
             column={column}
             heroCatalog={heroCatalog}
-            onPickHero={onPickHero}
+            onPickHero={pickHero}
             recommended={column.position === recommended}
             selected={column.position === selectedPosition}
             onSelectPosition={onSelectPosition}

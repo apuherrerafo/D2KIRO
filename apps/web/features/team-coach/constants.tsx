@@ -55,3 +55,15 @@ export const GSI_SETUP_ERRORS: Readonly<Record<string, string>> = Object.freeze(
   origin: "No se pudo generar la configuración desde esta página. Recargá y probá de nuevo.",
   unavailable: "No se pudo generar la configuración en este momento. Probá de nuevo en unos segundos.",
 });
+
+// Live Dota + Party 5 -- preset de equipo del draft en vivo.
+export const LIVE_PRESET_STORAGE_KEY = "d2k.live.partyPreset";
+export const LIVE_PRESET_REFUSALS: Readonly<Record<string, string>> = Object.freeze({
+  not_found: "Ese preset ya no existe o no es de tu cuenta. El Team Coach sigue sin pools de equipo.",
+  not_party5: "Sólo se pueden usar presets de Party 5 en el draft en vivo.",
+  no_pools: "Ese preset no tiene héroes cargados en ninguna posición. Completalo en Equipos y volvé a elegirlo.",
+  unsupported: "Este servidor todavía no admite presets en el draft en vivo.",
+});
+export const LIVE_PRESET_APPLY_FAILED = "No se pudo aplicar el preset ahora. Se reintentará al volver a conectar.";
+export const LIVE_DRAFT_ENDED_TITLE = "DRAFT TERMINADO";
+export const LIVE_DRAFT_ENDED_NOTE = "La selección de héroes ya cerró: no hay un pick para hacer ahora. Abajo queda la última lectura del Team Coach, sólo como referencia.";

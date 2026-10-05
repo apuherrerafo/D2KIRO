@@ -3,6 +3,9 @@ import type {
   LiveCaptureStatus,
   LiveDetectedPick,
   LiveGsiStatus,
+  LivePartyPreset,
+  LiveTeamContext,
+  LiveTeamGroupResult,
   TeamCoachBoardData,
   TeamCoachCandidate,
   TeamCoachColumn,
@@ -106,6 +109,7 @@ function isGsiStatus(value: unknown): value is LiveGsiStatus {
     GSI_DRAFT_KEYS.every((key) => typeof (value.draft as Record<string, unknown>)[key] === "boolean") &&
     Array.isArray(value.telemetry) &&
     value.telemetry.every(isString) &&
+    (value.structure === undefined || (Array.isArray(value.structure) && value.structure.every(isString))) &&
     (value.draftProgression === undefined || typeof value.draftProgression === "boolean") &&
     (value.lastPacketAgeMs === undefined || (typeof value.lastPacketAgeMs === "number" && Number.isFinite(value.lastPacketAgeMs) && value.lastPacketAgeMs >= 0)) &&
     (value.active === undefined || typeof value.active === "boolean")
@@ -121,6 +125,44 @@ export function parseGsiLink(value: unknown): GsiLinkView | null | undefined {
   return { sessionId: link.sessionId, createdAt: link.createdAt, expiresAt: link.expiresAt };
 }
 
+const POSITION_KEYS = ["1", "2", "3", "4", "5"] as const;
+
+function isTeamContext(value: unknown): value is LiveTeamContext {
+  return (
+    isRecord(value) &&
+    isNullable(value.teamGroupId, (id): id is number => typeof id === "number" && Number.isSafeInteger(id) && id > 0) &&
+    isRecord(value.positions) &&
+    POSITION_KEYS.every((key) => typeof (value.positions as Record<string, unknown>)[key] === "boolean")
+  );
+}
+
+/** GET /engine/api/team-groups reduced to what the live selector needs: only Party 5 presets, no hero ids. `null` if malformed. */
+export function parseLivePartyPresets(value: unknown): LivePartyPreset[] | null {
+  if (!Array.isArray(value)) return null;
+  const presets: LivePartyPreset[] = [];
+  for (const group of value) {
+    if (!isRecord(group) || typeof group.id !== "number" || !Number.isSafeInteger(group.id) || typeof group.name !== "string" || !Array.isArray(group.members)) return null;
+    if (group.partySize !== 5) continue;
+    const positions = { "1": false, "2": false, "3": false, "4": false, "5": false };
+    for (const member of group.members) {
+      if (!isRecord(member) || typeof member.slot !== "number" || !Array.isArray(member.heroPool)) return null;
+      if (member.slot >= 1 && member.slot <= 5 && member.heroPool.length > 0) positions[String(member.slot) as keyof typeof positions] = true;
+    }
+    presets.push({ id: group.id, name: group.name, positions });
+  }
+  return presets;
+}
+
+const TEAM_GROUP_REFUSALS = new Set<string>(["not_found", "not_party5", "no_pools", "unsupported"]);
+
+/** PUT /engine/api/live/team-group. `null` when the response is not a valid result. */
+export function parseLiveTeamGroupResult(value: unknown): LiveTeamGroupResult | null {
+  if (!isRecord(value) || value.schema !== "live-team-group/v1" || typeof value.applied !== "boolean") return null;
+  if (!(value.reason === null || (typeof value.reason === "string" && TEAM_GROUP_REFUSALS.has(value.reason)))) return null;
+  if (!(value.teamContext === null || isTeamContext(value.teamContext))) return null;
+  return { applied: value.applied, reason: value.reason as LiveTeamGroupResult["reason"], teamContext: value.teamContext as LiveTeamContext | null };
+}
+
 export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null {
   if (!isRecord(value) || value.schema !== "live-capture-status/v1") return null;
   const valid =
@@ -133,6 +175,7 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     isNullable(value.localSide, isSide) &&
     isNullable(value.lastDetectedPick, isDetectedPick) &&
     [value.bans, value.picks, value.deferredPicks, value.rejectedFacts].every((count) => typeof count === "number") &&
-    (value.gsi === undefined || isNullable(value.gsi, isGsiStatus));
+    (value.gsi === undefined || isNullable(value.gsi, isGsiStatus)) &&
+    (value.teamContext === undefined || isTeamContext(value.teamContext));
   return valid ? (value as unknown as LiveCaptureStatus) : null;
 }

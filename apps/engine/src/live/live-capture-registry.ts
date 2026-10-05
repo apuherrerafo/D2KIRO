@@ -49,6 +49,8 @@ interface LiveGsiObserved {
   draftProgression: boolean;
   /** Match telemetry capability labels observed so far (presence only). */
   telemetry: string[];
+  /** Structural labels (gsi-normalize `GSI_STRUCTURE_LABELS`) observed so far: which sections / roster shapes Dota ever sent. */
+  structure: string[];
 }
 
 export interface LiveGsiStatus extends LiveGsiObserved {
@@ -82,6 +84,15 @@ export interface LiveCaptureStatus {
   rejectedFacts: number;
   /** Present once Dota GSI has spoken to this session. */
   gsi: LiveGsiStatus | null;
+  /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
+  teamContext: LiveTeamContextStatus;
+}
+
+export interface LiveTeamContextStatus {
+  /** The account's own preset applied to this session, or null (no preset / missing / not applied). */
+  teamGroupId: number | null;
+  /** Which of the five positions carry a configured player pool. */
+  positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
 }
 
 interface LiveEntry {
@@ -170,6 +181,16 @@ export class LiveCaptureRegistry {
     }
     if (!this.entries.has(sessionId)) this.entries.set(sessionId, this.freshEntry());
     return ownerAccountId === null ? true : this.deps.store.claimOwner(sessionId, ownerAccountId);
+  }
+
+  /**
+   * Apply (or clear, with null) the account's Party 5 preset to its live session. The pools come from the
+   * caller's server-side load of the account's OWN team group -- never from a client body. false when the
+   * session is not a live session owned by `accountId`.
+   */
+  setTeamContext(sessionId: string, accountId: number, team: { teamGroupId: number; playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> } | null): boolean {
+    if (!this.isLive(sessionId)) return false;
+    return this.deps.store.setLiveTeamContext(sessionId, accountId, { teamGroupId: team?.teamGroupId ?? null, playerPoolsByPosition: team?.playerPoolsByPosition ?? null });
   }
 
   /** A rotated or revoked Dota link: its capture history is dropped at once (the session itself ages out). */
@@ -292,6 +313,17 @@ export class LiveCaptureRegistry {
       deferredPicks: entry.deferredPicks,
       rejectedFacts: entry.rejectedFacts,
       gsi: gsiStatusOf(entry, now),
+      teamContext: this.teamContextOf(sessionId),
+    };
+  }
+
+  private teamContextOf(sessionId: string): LiveTeamContextStatus {
+    const metadata = this.deps.store.metadata(sessionId);
+    const pools = metadata?.playerPoolsByPosition ?? null;
+    const has = (position: Position): boolean => (pools?.[position]?.length ?? 0) > 0;
+    return {
+      teamGroupId: pools === null ? null : (metadata?.teamGroupId ?? null),
+      positions: { "1": has(1), "2": has(2), "3": has(3), "4": has(4), "5": has(5) },
     };
   }
 
@@ -389,6 +421,7 @@ function gsiStatusOf(entry: LiveEntry, now: number): LiveGsiStatus | null {
     ...entry.gsi,
     draft: { ...entry.gsi.draft },
     telemetry: [...entry.gsi.telemetry],
+    structure: [...entry.gsi.structure],
     lastPacketAgeMs,
     active: lastPacketAgeMs <= LIVE_STALE_AFTER_MS,
   };
@@ -401,6 +434,8 @@ function mergeGsiStatus(previous: LiveGsiObserved | null, update: GsiUpdate, pro
   const telemetry = new Set(previous?.telemetry ?? []);
   for (const label of update.telemetry) telemetry.add(label);
   if (itemsChanged) telemetry.add(GSI_ITEM_CHANGES);
+  const structure = new Set(previous?.structure ?? []);
+  for (const label of update.structure) structure.add(label);
   return {
     gameState: update.gameState,
     phase: update.phase,
@@ -414,5 +449,6 @@ function mergeGsiStatus(previous: LiveGsiObserved | null, update: GsiUpdate, pro
     },
     draftProgression: (previous?.draftProgression ?? false) || progressed,
     telemetry: [...telemetry].sort(),
+    structure: [...structure].sort(),
   };
 }
