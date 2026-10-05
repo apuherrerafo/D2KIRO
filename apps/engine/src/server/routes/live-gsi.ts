@@ -1,6 +1,8 @@
 import { GSI_LIVE_ID, type GsiLink, type GsiLinkStore, type IssuedGsiLink } from "../../live/gsi-links";
 import { normalizeGsi } from "../../live/gsi-normalize";
 import type { LiveCaptureRegistry } from "../../live/live-capture-registry";
+import type { DraftEventEnvelope } from "../../draft/reducer";
+import { isValidDraftEventEnvelope } from "../edge";
 import type { HeroId } from "../../draft-protocol/types";
 import type { Position } from "../../draft-protocol/roles/role-belief";
 
@@ -14,6 +16,10 @@ import type { Position } from "../../draft-protocol/roles/role-belief";
 //    cfg download; the browser can read the link's state and revoke it, never obtain its token.
 
 export const GSI_MAX_BODY_BYTES = 256 * 1024;
+/** A visual capture fact is one small envelope (a few hundred bytes): anything bigger is not one. */
+export const VISUAL_MAX_BODY_BYTES = 4 * 1024;
+/** The only payloads the visual channel accepts; the draft lifecycle and our side stay GSI's. */
+const VISUAL_PAYLOAD_TYPES = new Set(["hero_picked", "pick_reverted", "hero_banned", "capture_health"]);
 const LINK_RATE_WINDOW_MS = 1_000;
 /** Dota throttles to one update per `throttle` (cfg: 0.1 s) plus heartbeats: 20/s leaves headroom. */
 const MAX_UPDATES_PER_LINK_WINDOW = 20;
@@ -168,6 +174,43 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     return outcome.accepted ? new Response(null, { status: 200 }) : noStore({ error: "live_session_unavailable" }, 409);
   }
 
+  /**
+   * POST /api/live/visual/<liveId> -- the local visual capturer (Dota window -> hero portraits, computed on the
+   * Player's PC). Same door and same credential as GSI: the link token authenticates, the link decides the
+   * session and its owner (the body can never name either), refusals are indistinguishable, and nothing from the
+   * body is logged or echoed. Body: { auth: { token }, envelope: draft-event/v1 with source "ocr" }.
+   * Only picks / reverts / bans / its own health are accepted -- never a frame, text, or a lifecycle event.
+   */
+  async function postVisual(request: Request, liveId: string): Promise<Response> {
+    const at = now();
+    if (!GSI_LIVE_ID.test(liveId)) return refuse(at);
+    const body = await readCappedBody(request, VISUAL_MAX_BODY_BYTES);
+    if (!body.ok) return new Response(null, { status: body.status });
+    let payload: unknown;
+    try {
+      payload = JSON.parse(body.text);
+    } catch {
+      return new Response(null, { status: 400 });
+    }
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return new Response(null, { status: 400 });
+    const token = tokenOf(payload);
+    let link: GsiLink | null;
+    try {
+      link = token === null ? null : deps.links.verify(liveId, token, at);
+    } catch {
+      return unavailable();
+    }
+    if (link === null) return refuse(at);
+    if (!allowLink(`visual:${liveId}`, at)) return noStore({ error: "rate_limited" }, 429);
+    const envelope = (payload as { envelope?: unknown }).envelope;
+    if (!isValidDraftEventEnvelope(envelope) || envelope.source !== "ocr" || !VISUAL_PAYLOAD_TYPES.has(envelope.payload.type)) return new Response(null, { status: 400 });
+    if (!deps.registry.ensureSession(link.sessionId, link.accountId)) return noStore({ error: "live_session_unavailable" }, 409);
+    // The session is the link's, whatever the envelope claims.
+    const owned: DraftEventEnvelope = { ...envelope, sessionId: link.sessionId };
+    const outcome = deps.registry.ingestEnvelope(owned);
+    return outcome.accepted ? new Response(null, { status: 200 }) : noStore({ error: "live_session_unavailable" }, 409);
+  }
+
   /** apps/web's cfg download ONLY (not in the browser proxy allowlist): the one response that carries a token. */
   function postIssue(accountId: number): Response {
     let issued: IssuedGsiLink;
@@ -246,5 +289,5 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     }
   }
 
-  return { postIngest, postIssue, getLink, deleteLink, putTeamGroup };
+  return { postIngest, postVisual, postIssue, getLink, deleteLink, putTeamGroup };
 }

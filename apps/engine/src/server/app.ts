@@ -374,9 +374,9 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return Response.json({ error: "rate_limit_exceeded", scope: "session" }, { status: 429 });
     }
 
-    // Live capture: ONLY the token-authenticated capturer path routes "overwolf" envelopes to the live
-    // protocol session. The legacy SessionStore never sees them; the tokenless manual path is unchanged.
-    if (opts.requireToken && body.source === "overwolf") {
+    // Live capture: ONLY the token-authenticated capturer path routes "overwolf" and "ocr" (local visual
+    // capture) envelopes to the live protocol session. The legacy SessionStore never sees them; the tokenless manual path is unchanged.
+    if (opts.requireToken && (body.source === "overwolf" || body.source === "ocr")) {
       const outcome = liveCaptureRegistry.ingestEnvelope(body);
       return Response.json(
         outcome.accepted
@@ -441,6 +441,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     const gsiIngestMatch = url.pathname.match(/^\/api\/live\/gsi\/([^/]+)$/);
     if (gsiIngestMatch && request.method === "POST") {
       return liveGsiRoutes.postIngest(request, gsiIngestMatch[1] ?? "");
+    }
+    // Local visual capture: same public door and same link credential as GSI (relayed by apps/web).
+    const visualIngestMatch = url.pathname.match(/^\/api\/live\/visual\/([^/]+)$/);
+    if (visualIngestMatch && request.method === "POST") {
+      return liveGsiRoutes.postVisual(request, visualIngestMatch[1] ?? "");
     }
     // Issue (= rotate) is called only by apps/web's server-side cfg download: it is deliberately absent
     // from the browser proxy allowlist (next.config.ts), so no browser script ever receives a token.

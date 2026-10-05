@@ -3,6 +3,7 @@ import type {
   LiveCaptureStatus,
   LiveDetectedPick,
   LiveGsiStatus,
+  LiveVisualStatus,
   LivePartyPreset,
   LiveTeamContext,
   LiveTeamGroupResult,
@@ -95,10 +96,22 @@ export function parseTeamCoachBoard(value: unknown): TeamCoachBoardData | null {
 }
 
 function isDetectedPick(value: unknown): value is LiveDetectedPick {
-  return isRecord(value) && isSide(value.side) && isHeroId(value.heroId) && isNullable(value.position, isPosition) && (value.source === "gsi" || value.source === "overwolf" || value.source === "manual") && isString(value.at);
+  return isRecord(value) && isSide(value.side) && isHeroId(value.heroId) && isNullable(value.position, isPosition) && (value.source === "gsi" || value.source === "overwolf" || value.source === "manual" || value.source === "ocr") && isString(value.at);
 }
 
 const GSI_DRAFT_KEYS = ["draftBlock", "side", "ownHero", "bans", "allyPicks", "enemyPicks"] as const;
+
+function isVisualStatus(value: unknown): value is LiveVisualStatus {
+  return (
+    isRecord(value) &&
+    typeof value.active === "boolean" &&
+    (value.health === "ok" || value.health === "degraded" || value.health === "lost") &&
+    isNullable(value.detail, isString) &&
+    typeof value.lastEventAgeMs === "number" &&
+    Number.isFinite(value.lastEventAgeMs) &&
+    value.lastEventAgeMs >= 0
+  );
+}
 
 function isGsiStatus(value: unknown): value is LiveGsiStatus {
   return (
@@ -176,6 +189,7 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     isNullable(value.lastDetectedPick, isDetectedPick) &&
     [value.bans, value.picks, value.deferredPicks, value.rejectedFacts].every((count) => typeof count === "number") &&
     (value.gsi === undefined || isNullable(value.gsi, isGsiStatus)) &&
+    (value.visual === undefined || isNullable(value.visual, isVisualStatus)) &&
     (value.teamContext === undefined || isTeamContext(value.teamContext));
   return valid ? (value as unknown as LiveCaptureStatus) : null;
 }

@@ -24,7 +24,7 @@ export const LIVE_STALE_AFTER_MS = 15_000;
 const MAX_REMEMBERED_EVENT_IDS = 4_096;
 
 export type LiveCaptureHealth = "unknown" | "ok" | "degraded" | "lost";
-export type LiveObservationSource = "gsi" | "overwolf" | "manual";
+export type LiveObservationSource = "gsi" | "overwolf" | "manual" | "ocr";
 /** Partial GSI draft capture: the client sends no draft block (only our side / our hero). */
 export const GSI_DRAFT_PARTIAL = "GSI_DRAFT_PARTIAL";
 
@@ -52,6 +52,20 @@ interface LiveGsiObserved {
   /** Structural labels (gsi-normalize `GSI_STRUCTURE_LABELS`) observed so far: which sections / roster shapes Dota ever sent. */
   structure: string[];
 }
+
+/** What the local visual capturer last reported (presence/health only, never a frame). */
+export interface LiveVisualStatus {
+  /** A visual capture event (facts or heartbeat) arrived within LIVE_STALE_AFTER_MS. */
+  active: boolean;
+  health: "ok" | "degraded" | "lost";
+  /** Machine-readable code from the capturer (VISUAL_OK, VISUAL_CAPTURE_LOST, ...), or null. */
+  detail: string | null;
+  /** Server clock: ms since the last visual event. */
+  lastEventAgeMs: number;
+}
+
+/** Only these payloads are facts a visual capturer may state; the lifecycle and our side belong to GSI. */
+const VISUAL_FACT_PAYLOADS = new Set(["hero_picked", "pick_reverted", "hero_banned", "capture_health"]);
 
 export interface LiveGsiStatus extends LiveGsiObserved {
   /** Server clock: ms since the last GSI update (the browser's clock is never trusted for this). */
@@ -84,6 +98,8 @@ export interface LiveCaptureStatus {
   rejectedFacts: number;
   /** Present once Dota GSI has spoken to this session. */
   gsi: LiveGsiStatus | null;
+  /** Present once the local visual capturer has spoken to this session. */
+  visual: LiveVisualStatus | null;
   /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
   teamContext: LiveTeamContextStatus;
 }
@@ -107,6 +123,7 @@ interface LiveEntry {
   deferredPicks: number;
   rejectedFacts: number;
   gsi: LiveGsiObserved | null;
+  visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
   /** Last GSI update (any phase, heartbeats included). Survives a draft restart: it is the connection. */
   lastGsiAt: number | null;
   /** Draft facts the last draft-phase GSI update stated; null before the first one of this draft. */
@@ -142,7 +159,7 @@ export interface LiveCaptureRegistryDeps {
 }
 
 export type LiveIngestResult =
-  | { accepted: true; changed: boolean; ignored?: LiveIgnoredReason | "duplicate_event"; status: LiveCaptureStatus }
+  | { accepted: true; changed: boolean; ignored?: LiveIgnoredReason | "duplicate_event" | "visual_not_allowed" | "draft_ended"; status: LiveCaptureStatus }
   | { accepted: false; reason: "session_unavailable" | "not_live_capture"; status: LiveCaptureStatus | null };
 
 export class LiveCaptureRegistry {
@@ -213,6 +230,7 @@ export class LiveCaptureRegistry {
     this.rememberEventId(entry, envelope.eventId);
 
     const payload = envelope.payload;
+    if (envelope.source === "ocr") return this.ingestVisual(envelope, entry);
     if (payload.type === "capture_health") {
       entry.captureHealth = payload.status;
       entry.captureDetail = payload.detail ?? null;
@@ -225,6 +243,30 @@ export class LiveCaptureRegistry {
     const observation = observationFromDraftEvent(payload);
     if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(envelope.sessionId)! };
     return this.applyObservation(envelope.sessionId, observation, "overwolf");
+  }
+
+  /**
+   * A fact from the local visual capturer (source "ocr"). It states picks / bans / its own health and
+   * nothing else: the draft lifecycle, our side and the match phase stay GSI's. Facts after the draft ended
+   * are dropped (the in-match top bar is not a draft). Same fact model as every other source, so a hero
+   * GSI already reported is simply "already_picked" -- never a second pick.
+   */
+  private ingestVisual(envelope: DraftEventEnvelope & { payload: { position?: unknown } }, entry: LiveEntry): LiveIngestResult {
+    const sessionId = envelope.sessionId;
+    const payload = envelope.payload;
+    if (!VISUAL_FACT_PAYLOADS.has(payload.type)) return { accepted: true, changed: false, ignored: "visual_not_allowed", status: this.status(sessionId)! };
+    if (payload.type === "capture_health") {
+      entry.visual = { health: payload.status, detail: payload.detail ?? null, lastAt: this.now() };
+      return { accepted: true, changed: false, status: this.status(sessionId)! };
+    }
+    entry.visual = { health: entry.visual?.health ?? "ok", detail: entry.visual?.detail ?? null, lastAt: this.now() };
+    if (entry.ended) return { accepted: true, changed: false, ignored: "draft_ended", status: this.status(sessionId)! };
+    const observation = observationFromDraftEvent({ ...payload, position: undefined });
+    if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
+    // A visual fact never carries a position: the screen slot is not a Dota position.
+    const key = factKey(observation);
+    if (key !== null && entry.suppressed.has(key)) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
+    return this.applyObservation(sessionId, observation, "ocr");
   }
 
   /** The Player's manual fallback (validated at the route). Same facts, same rebuild as the capturer. */
@@ -303,8 +345,7 @@ export class LiveCaptureRegistry {
       sessionId,
       connection,
       lastEventAt: entry.lastEventAt === null ? null : new Date(entry.lastEventAt).toISOString(),
-      captureHealth: entry.captureHealth,
-      captureDetail: entry.captureDetail,
+      ...captureOf(entry, now),
       draftPhase: entry.ended ? "ended" : entry.facts.started ? "hero_selection" : "waiting",
       localSide: entry.facts.localSide,
       lastDetectedPick: entry.lastDetectedPick,
@@ -313,6 +354,7 @@ export class LiveCaptureRegistry {
       deferredPicks: entry.deferredPicks,
       rejectedFacts: entry.rejectedFacts,
       gsi: gsiStatusOf(entry, now),
+      visual: visualStatusOf(entry, now),
       teamContext: this.teamContextOf(sessionId),
     };
   }
@@ -357,6 +399,7 @@ export class LiveCaptureRegistry {
     restarted.eventOrder = entry.eventOrder;
     restarted.captureHealth = entry.captureHealth;
     restarted.captureDetail = entry.captureDetail;
+    restarted.visual = entry.visual;
     restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
     restarted.lastGsiAt = entry.lastGsiAt;
     // A new match's first inventory is never compared with the previous match's (that is not an item change).
@@ -401,6 +444,7 @@ export class LiveCaptureRegistry {
       deferredPicks: 0,
       rejectedFacts: 0,
       gsi: null,
+      visual: null,
       lastGsiAt: null,
       gsiDraftFacts: null,
       gsiItemsKey: null,
@@ -412,6 +456,23 @@ export class LiveCaptureRegistry {
 
 function noDraftCapabilities(): GsiDraftCapabilities {
   return { draftBlock: false, side: false, ownHero: false, bans: false, allyPicks: false, enemyPicks: false };
+}
+
+/**
+ * GSI says "partial" because Dota's own client never states the other picks. While the visual capturer is
+ * alive and healthy it supplies exactly those, so the capture is no longer partial; the moment it stops,
+ * the honest GSI state comes back.
+ */
+function captureOf(entry: LiveEntry, now: number): { captureHealth: LiveCaptureHealth; captureDetail: string | null } {
+  const visualOk = entry.visual !== null && entry.visual.health === "ok" && now - entry.visual.lastAt <= LIVE_STALE_AFTER_MS;
+  if (visualOk && (entry.captureDetail === GSI_DRAFT_PARTIAL || entry.captureHealth === "unknown")) return { captureHealth: "ok", captureDetail: null };
+  return { captureHealth: entry.captureHealth, captureDetail: entry.captureDetail };
+}
+
+function visualStatusOf(entry: LiveEntry, now: number): LiveVisualStatus | null {
+  if (entry.visual === null) return null;
+  const lastEventAgeMs = Math.max(0, now - entry.visual.lastAt);
+  return { active: lastEventAgeMs <= LIVE_STALE_AFTER_MS, health: entry.visual.health, detail: entry.visual.detail, lastEventAgeMs };
 }
 
 function gsiStatusOf(entry: LiveEntry, now: number): LiveGsiStatus | null {
