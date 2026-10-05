@@ -56,3 +56,8 @@ data/raw/
 # capturer, and the runner's log. Never committed, never sent anywhere but 127.0.0.1.
 .local/
 scripts/live/overwolf-capture/local/
+
+# visual capture lab: downloaded portraits, real screenshots and calibration stay local
+scripts/live/visual-capture/local/
+scripts/live/visual-capture/__pycache__/
+scripts/live/visual-capture/**/__pycache__/

@@ -60,7 +60,7 @@ export interface LiveDetectedPick {
   side: TeamSide;
   heroId: HeroId;
   position: TeamPosition | null;
-  source: "gsi" | "overwolf" | "manual";
+  source: "gsi" | "overwolf" | "manual" | "ocr";
   at: string;
 }
 
@@ -113,6 +113,14 @@ export interface LiveTeamGroupResult {
   teamContext: LiveTeamContext | null;
 }
 
+/** What the local visual capturer last reported (health only; never a frame). Mirror of the engine's LiveVisualStatus. */
+export interface LiveVisualStatus {
+  active: boolean;
+  health: "ok" | "degraded" | "lost";
+  detail: string | null;
+  lastEventAgeMs: number;
+}
+
 export interface LiveCaptureStatus {
   schema: "live-capture-status/v1";
   sessionId: string;
@@ -129,6 +137,8 @@ export interface LiveCaptureStatus {
   rejectedFacts: number;
   /** Present once Dota GSI has spoken to this session (absent from older engines). */
   gsi?: LiveGsiStatus | null;
+  /** Present once the local visual capturer has spoken to this session (absent from older engines). */
+  visual?: LiveVisualStatus | null;
   /** Party 5 preset applied to this live session (absent from older engines). */
   teamContext?: LiveTeamContext;
 }

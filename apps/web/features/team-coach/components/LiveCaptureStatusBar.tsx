@@ -29,6 +29,16 @@ export function capturePill(status: LiveCaptureStatus | null): Pill {
   return { className: STATUS_PILL_OK, text: "● Hero Selection" };
 }
 
+/** El ayudante local que lee los retratos de la pantalla de Dota (nunca un frame: sólo hechos). En llano, sin jerga. */
+export function visualPill(status: LiveCaptureStatus | null): Pill {
+  const visual = status?.visual ?? null;
+  if (visual === null) return { className: STATUS_PILL_MUTED, text: "● Captura visual: esperando al ayudante local" };
+  if (!visual.active || visual.health !== "ok") return { className: STATUS_PILL_WARN, text: "● Captura visual degradada · reiniciá el ayudante" };
+  if (status?.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
+  if (status?.draftPhase !== "hero_selection") return { className: STATUS_PILL_OK, text: "● Ventana de Dota encontrada · esperando selección de héroes" };
+  return { className: STATUS_PILL_OK, text: `● ${Math.min(status.picks, 10)}/10 héroes reconocidos` };
+}
+
 export function isCaptureDegraded(status: LiveCaptureStatus | null): boolean {
   if (status === null) return false;
   return status.connection === "stale" || status.captureHealth === "degraded" || status.captureHealth === "lost";
@@ -115,9 +125,10 @@ function DeferredNotice({ status }: { status: LiveCaptureStatus | null }) {
 export function LiveCaptureStatusBar({ status, heroCatalog }: DetectedPickProps) {
   return (
     <div className="flex flex-col gap-3" data-testid="live-capture-status">
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-4">
         <StatusItem label="CONNECTION" pill={connectionPill(status)} />
         <StatusItem label="CAPTURE" pill={capturePill(status)} />
+        <StatusItem label="VISUAL" pill={visualPill(status)} />
         <StatusItem label="SIDE" pill={{ className: "text-body text-content-primary", text: sideText(status) }} />
       </div>
       <DegradedNotice status={status} />

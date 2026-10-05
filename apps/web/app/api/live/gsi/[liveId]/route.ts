@@ -21,6 +21,10 @@ export type RelayRequest = Pick<Request, "headers" | "body">;
 
 export interface GsiRelayDependencies {
   engineUrl: () => string;
+  /** Engine path prefix the liveId is appended to. Default: the GSI ingest. The visual relay reuses this handler. */
+  enginePath?: string;
+  /** Body cap in bytes. Default: GSI_RELAY_MAX_BYTES. */
+  maxBytes?: number;
   fetch: FetchLike;
   readDeadlineMs?: number;
 }
@@ -44,9 +48,9 @@ function deadlineAfter(ms: number): { promise: Promise<typeof DEADLINE>; clear()
   };
 }
 
-async function readBounded(request: RelayRequest, deadlineMs: number): Promise<Uint8Array<ArrayBuffer> | 400 | 408 | 413> {
+async function readBounded(request: RelayRequest, deadlineMs: number, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | 400 | 408 | 413> {
   const declared = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > GSI_RELAY_MAX_BYTES) return 413;
+  if (Number.isFinite(declared) && declared > maxBytes) return 413;
   if (!request.body) return 400;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -63,7 +67,7 @@ async function readBounded(request: RelayRequest, deadlineMs: number): Promise<U
       const { done, value } = chunk;
       if (done) break;
       total += value.byteLength;
-      if (total > GSI_RELAY_MAX_BYTES) {
+      if (total > maxBytes) {
         await reader.cancel().catch(() => undefined);
         return 413;
       }
@@ -87,10 +91,10 @@ async function readBounded(request: RelayRequest, deadlineMs: number): Promise<U
 export function createGsiRelayHandler(dependencies: GsiRelayDependencies) {
   return async (request: RelayRequest, liveId: string): Promise<Response> => {
     if (!GSI_LIVE_ID_PATTERN.test(liveId)) return empty(401);
-    const body = await readBounded(request, dependencies.readDeadlineMs ?? GSI_RELAY_READ_DEADLINE_MS);
+    const body = await readBounded(request, dependencies.readDeadlineMs ?? GSI_RELAY_READ_DEADLINE_MS, dependencies.maxBytes ?? GSI_RELAY_MAX_BYTES);
     if (body === 400 || body === 408 || body === 413) return empty(body);
     try {
-      const engineResponse = await dependencies.fetch(`${dependencies.engineUrl()}/api/live/gsi/${liveId}`, {
+      const engineResponse = await dependencies.fetch(`${dependencies.engineUrl()}${dependencies.enginePath ?? "/api/live/gsi/"}${liveId}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body,
