@@ -111,6 +111,12 @@ export interface ProtocolSessionRouteDeps {
    * path, unconditionally -- makes that route answer 404. Only index.e2e.ts ever sets it.
    */
   allowTestClockControl?: boolean;
+  /** Loads a team group by ID (optionally scoped to accountId). */
+  loadTeamGroup?: (id: number, accountId: number | null) => Promise<{
+    id: number;
+    partySize: number;
+    members: readonly { slot: number; heroPool: readonly number[] }[];
+  } | null>;
 }
 
 function badRequest(error: string): Response {
@@ -191,6 +197,39 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       }
     }
 
+    const teamGroupId = isRecord(rawBody) && typeof rawBody.teamGroupId === "number" ? rawBody.teamGroupId : null;
+    let playerPoolsByPosition: Partial<Record<DotaPosition, readonly number[]>> | undefined = undefined;
+
+    if (teamGroupId !== null && deps.loadTeamGroup) {
+      try {
+        const group = await deps.loadTeamGroup(teamGroupId, ownerAccountId);
+        if (group && group.members) {
+          playerPoolsByPosition = {};
+          for (const member of group.members) {
+            const pos = parseDotaPosition(member.slot);
+            if (pos !== null) {
+              playerPoolsByPosition[pos] = member.heroPool;
+            }
+          }
+        }
+      } catch {
+        // Fallback gracefully if load fails
+      }
+    }
+
+    if (!playerPoolsByPosition && isRecord(rawBody) && isRecord(rawBody.playerPoolsByPosition)) {
+      const parsedPools: Partial<Record<DotaPosition, readonly number[]>> = {};
+      for (const [key, val] of Object.entries(rawBody.playerPoolsByPosition)) {
+        const pos = parseDotaPosition(Number(key));
+        if (pos !== null && Array.isArray(val)) {
+          parsedPools[pos] = val.filter((h): h is number => typeof h === "number");
+        }
+      }
+      if (Object.keys(parsedPools).length > 0) {
+        playerPoolsByPosition = parsedPools;
+      }
+    }
+
     const sessionId = crypto.randomUUID();
     const created = deps.store.create({
       sessionId,
@@ -203,6 +242,8 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       humanPosition: body.humanPosition,
       simulatorSeed: body.simulatorSeed,
       controlledPositions: controlledPositions ?? undefined,
+      teamGroupId,
+      playerPoolsByPosition,
     });
     if (!created.ok) return Response.json({ error: created.reason, detail: "detail" in created ? created.detail : undefined }, { status: 422 });
 

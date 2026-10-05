@@ -9,14 +9,17 @@ import { MAX_PLAYER_BAN_PREFERENCES } from "./session-config";
 // heroes, the other nine participants are simulated, and a resolution policy turns the ten
 // preference sets into one resolved ban set. The kernel only ever receives that final set.
 //
-// This module does NOT claim to reproduce Valve's internal algorithm. It guarantees only what the
-// product decisions state as observable behaviour (design.md section 8):
-//   1. a hero nominated by several participants is banned once;
-//   2. a participant with all four preference slots filled has at least one of them banned;
-//   3. the number of bans is variable (never a fixed count);
-//   4. same preferences + same seed => byte-identical output; a different seed => different
-//      simulated preferences (the Player's own preferences are never altered).
+// This module does NOT claim to reproduce Valve's unpublished internal implementation. It enforces
+// Simulator product policy:
+//   1. Simulator resolves to 16 unique bans when the hero universe contains at least 16 heroes;
+//   2. Player nominations influence that set (a hero nominated by several participants is banned once;
+//      a participant with all four preference slots filled has at least one of them banned);
+//   3. Deterministic seeded fill completes the remainder up to 16;
+//   4. Same preferences + same seed => byte-identical output; a different seed => different
+//      simulated preferences and meta fill (the Player's own preferences are never altered).
 // Consensus bans (nominated by two or more participants) are ordered first.
+
+export const TARGET_SIMULATOR_BANS = 16;
 
 export interface BanPreferenceSet {
   playerId: string;
@@ -25,7 +28,7 @@ export interface BanPreferenceSet {
 }
 
 export interface BanResolutionPolicy {
-  resolve(preferences: BanPreferenceSet[], seed: string): HeroId[];
+  resolve(preferences: BanPreferenceSet[], seed: string, universe?: HeroUniverse): HeroId[];
 }
 
 /** Heroes known to the simulator. `metaOrder` lists heroes by how likely they are to be banned (most first). */
@@ -83,8 +86,69 @@ export function simulateBanPreferences(universe: HeroUniverse, seed: string): Ba
   return sets;
 }
 
+function fillBansFromMeta(
+  bans: HeroId[],
+  banned: Set<HeroId>,
+  universe: HeroUniverse,
+  seed: string,
+  targetCount: number,
+): void {
+  if (bans.length >= targetCount) return;
+
+  // 1. Preserve metaOrder as the preferred source
+  const metaCandidates = universe.metaOrder.filter((hero) => !banned.has(hero));
+  if (metaCandidates.length > 0) {
+    const windowSize = Math.min(metaCandidates.length, Math.max(targetCount * 3, 40));
+    const pool = metaCandidates.slice(0, windowSize);
+    const rng = seededRandom(`${seed}:meta-ban-fill`);
+
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+    }
+
+    for (const hero of pool) {
+      if (bans.length >= targetCount) break;
+      if (!banned.has(hero)) {
+        banned.add(hero);
+        bans.push(hero);
+      }
+    }
+
+    for (const hero of metaCandidates) {
+      if (bans.length >= targetCount) break;
+      if (!banned.has(hero)) {
+        banned.add(hero);
+        bans.push(hero);
+      }
+    }
+  }
+
+  // 2. After exhausting eligible metaOrder heroes, fall back to eligible universe.allHeroIds
+  if (bans.length < targetCount) {
+    const fallbackCandidates = universe.allHeroIds.filter((hero) => !banned.has(hero));
+    if (fallbackCandidates.length > 0) {
+      const pool = [...fallbackCandidates];
+      const fallbackRng = seededRandom(`${seed}:all-hero-ban-fill`);
+
+      for (let i = pool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(fallbackRng() * (i + 1));
+        [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+      }
+
+      for (const hero of pool) {
+        if (bans.length >= targetCount) break;
+        if (!banned.has(hero)) {
+          banned.add(hero);
+          bans.push(hero);
+        }
+      }
+    }
+  }
+}
+
 export const defaultBanResolutionPolicy: BanResolutionPolicy = Object.freeze({
-  resolve(preferences: BanPreferenceSet[]): HeroId[] {
+  resolve(preferences: BanPreferenceSet[], seed = "default", universe?: HeroUniverse): HeroId[] {
     const votes = new Map<HeroId, { count: number; bestRank: number }>();
     for (const set of preferences) {
       const seen = new Set<HeroId>();
@@ -96,6 +160,8 @@ export const defaultBanResolutionPolicy: BanResolutionPolicy = Object.freeze({
         else votes.set(hero, { count: current.count + 1, bestRank: Math.min(current.bestRank, rank) });
       });
     }
+
+    const targetCount = universe ? Math.min(TARGET_SIMULATOR_BANS, universe.allHeroIds.length) : TARGET_SIMULATOR_BANS;
 
     const bans: HeroId[] = [...votes.entries()]
       .filter(([, vote]) => vote.count >= 2)
@@ -113,8 +179,27 @@ export const defaultBanResolutionPolicy: BanResolutionPolicy = Object.freeze({
       banned.add(top);
       bans.push(top);
     }
-    // The set is empty only when nobody nominated anyone: with no consensus and no full set, the
-    // single strongest nomination is banned so a nominated draft never starts with zero bans.
+
+    // Nominated heroes with single votes: 50% chance (Dota 2 ranked all pick ban nomination rule)
+    const singles = [...votes.entries()]
+      .filter(([hero, vote]) => vote.count === 1 && !banned.has(hero))
+      .sort(([heroA, a], [heroB, b]) => a.bestRank - b.bestRank || heroA - heroB);
+
+    const singleRng = seededRandom(`${seed}:single-bans`);
+    for (const [hero] of singles) {
+      if (bans.length >= targetCount) break;
+      if (singleRng() < 0.5) {
+        banned.add(hero);
+        bans.push(hero);
+      }
+    }
+
+    // If universe is provided, fill up to targetCount from metaOrder with deterministic seed variation
+    if (universe && bans.length < targetCount) {
+      fillBansFromMeta(bans, banned, universe, seed, targetCount);
+    }
+
+    // Fallback when universe is not supplied: if someone nominated, ban at least the strongest
     if (bans.length === 0 && votes.size > 0) {
       const [strongest] = [...votes.entries()].sort(([heroA, a], [heroB, b]) => a.bestRank - b.bestRank || heroA - heroB);
       bans.push(strongest![0]);
@@ -170,11 +255,15 @@ export function resolveSimulatorBans(input: {
   const sets: BanPreferenceSet[] = [{ playerId: "player", preferences: validated.preferences }, ...simulateBanPreferences(universe, seed)];
   let bans: unknown;
   try {
-    bans = policy.resolve(sets, seed);
+    bans = policy.resolve(sets, seed, universe);
   } catch (error) {
     return { ok: false, reason: "policy_failed", detail: error instanceof Error ? error.message : "policy threw" };
   }
   if (!Array.isArray(bans)) return { ok: false, reason: "policy_invalid_output", detail: "policy did not return an array" };
+  const expectedCount = Math.min(TARGET_SIMULATOR_BANS, universe.allHeroIds.length);
+  if (bans.length !== expectedCount) {
+    return { ok: false, reason: "policy_invalid_output", detail: `policy returned ${bans.length} bans; expected exactly ${expectedCount}` };
+  }
   const known = new Set(universe.allHeroIds);
   const seen = new Set<number>();
   for (const hero of bans) {
@@ -182,7 +271,5 @@ export function resolveSimulatorBans(input: {
     if (seen.has(hero)) return { ok: false, reason: "policy_invalid_output", detail: "policy returned a duplicate hero id" };
     seen.add(hero);
   }
-  const anyNomination = sets.some((set) => set.preferences.some((hero) => hero !== null));
-  if (bans.length === 0 && anyNomination) return { ok: false, reason: "policy_invalid_output", detail: "policy returned no bans although heroes were nominated" };
   return { ok: true, bans: bans as HeroId[] };
 }

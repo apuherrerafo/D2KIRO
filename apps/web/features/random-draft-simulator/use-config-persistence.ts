@@ -21,6 +21,7 @@ export interface PersistedConfig {
   // reventaba una config vieja sin él): 5 reproduce el comportamiento exacto de antes de esta fase.
   partySize: 1 | 2 | 3 | 5;
   partyPositions?: (1 | 2 | 3 | 4 | 5)[];
+  teamGroupId?: number | null;
 }
 
 export interface UseConfigPersistenceResult {
@@ -87,12 +88,15 @@ export function validatePersistedConfig(raw: unknown): PersistedConfig | null {
     partyPositions = validPositions;
   }
 
+  const teamGroupId = typeof obj["teamGroupId"] === "number" ? obj["teamGroupId"] : null;
+
   return {
     userSide: obj["userSide"],
     playerPosition: obj["playerPosition"] as 1 | 2 | 3 | 4 | 5,
     personalBanList: obj["personalBanList"] as HeroId[],
     partySize,
     ...(partyPositions ? { partyPositions } : {}),
+    ...(teamGroupId !== null ? { teamGroupId } : {}),
   };
 }
 

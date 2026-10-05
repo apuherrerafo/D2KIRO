@@ -662,6 +662,8 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         partySize,
         partyPositions: nextConfig.partyPositions,
         humanPosition: nextConfig.playerPosition,
+        teamGroupId: nextConfig.teamGroupId,
+        playerPoolsByPosition: nextConfig.playerPoolsByPosition,
         // LIVE_COMPANION never sends a simulatorSeed: there is no seeded bot/ban-policy to drive,
         // and isApSimulatorMetadata (engine side) requires adapterKind "simulator" anyway.
         simulatorSeed: mode === "simulation" ? nextConfig.draftSeed : undefined,
