@@ -58,6 +58,15 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
 - The built-in layout is the **default** (`standard`); `live` never refuses to run for lack of calibration
   (`--allow-provisional-layout` is a legacy no-op). Safety is in the matcher, not the layout: a misplaced box
   can only lose recall, never produce a wrong hero.
+- **Occupancy gate first (`occupancy.py`).** The matcher cannot tell an empty slot from an occupied one (an empty
+  slot is not flat, and it will always name *some* hero). Every slot must first change materially from **its own
+  empty baseline** (high-passed 32x18 grayscale thumbnail, mean abs difference >= `max(6, 3 x its baseline noise)`,
+  so glow/pulse/brightness do not count). Baseline = >= 6 frames over >= 800 ms with its own noise <= 4; until
+  then NOTHING is eligible (fail closed). A helper started on an already-filled bar baselines those picks as
+  "unchanged" and never reports them. The baseline resets on `rearm()`, window loss, frame-size change, and when
+  >= 6 slots turn occupied within 500 ms (menu / loading screen / restarted draft, not ten picks).
+  Order: occupancy -> matcher -> score+margin -> 3-frame confirmation -> draft fact.
+  `lab`/`bench` stay matcher-only diagnostics (single frame, no baseline).
 - A hero is emitted only if `score >= 0.70` **and** `margin over runner-up >= 0.15`; a flat slot never matches.
 - A hero is **confirmed** only after 3 consecutive frames spanning >= 350 ms. Flicker creates nothing. A
   confirmed slot that stably changes yields `pick_reverted` + new `hero_picked`. Unreadable frames never revert.

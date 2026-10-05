@@ -35,6 +35,63 @@ def new_session():
     return VisualSession(MATCHER, LAYOUT, DEFAULT_THRESHOLDS, EnvelopeFactory("live-session-1", "run1", CLOCK))
 
 
+def jitter(frame, seed, amplitude=2):
+    """Sensor/compression noise: the same empty screen never repeats pixel for pixel."""
+    noise = np.random.default_rng(seed).integers(-amplitude, amplitude + 1, size=frame.shape)
+    return np.clip(frame.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+
+
+def arm(session, size=(1920, 1080), start_ms=0, frames=10, step_ms=125):
+    """The helper runs BEFORE the queue: feed an empty hero-selection bar until the baseline is trusted."""
+    base = screen([None] * 5, [None] * 5, size=size)
+    sent = []
+    for i in range(frames):
+        sent += session.process(jitter(base, i), start_ms + i * step_ms)
+    assert session.status.armed, "baseline was not established"
+    return start_ms + frames * step_ms, sent
+
+
+def feed(session, frame, start_ms, frames, step_ms=125, noise=True):
+    sent = []
+    for i in range(frames):
+        sent += session.process(jitter(frame, 100 + i) if noise else frame, start_ms + i * step_ms)
+    return start_ms + frames * step_ms, sent
+
+
+def slot_rect_px(side, index, size=(1920, 1080)):
+    vx, vy, vw, vh = viewport(size[0], size[1], LAYOUT.aspect)
+    rect = LAYOUT.slots[side][index]
+    return vx + int(rect.x * vw), vy + int(rect.y * vh), max(2, int(rect.w * vw)), max(2, int(rect.h * vh))
+
+
+def paste(frame, side, index, image, size=(1920, 1080)):
+    x0, y0, w, h = slot_rect_px(side, index, size)
+    out = frame.copy()
+    out[y0 : y0 + h, x0 : x0 + w] = image[:h, :w] if image.shape[:2] == (h, w) else __import__("cv2").resize(image, (w, h))
+    return out
+
+
+def ghost(hero, side="radiant", index=0, size=(1920, 1080)):
+    """Empty-slot ART that the matcher reads as `hero` (dim, portrait-like texture): the real false-positive."""
+    _, _, w, h = slot_rect_px(side, index, size)
+    art = degrade(CATALOG.portraits[hero], np.random.default_rng(hero), slot_size=(w, h), severity=0.2)
+    return np.clip(art.astype(np.float32) * 0.3 + 22, 0, 255).astype(np.uint8)
+
+
+def ghost_screen(ghost_heroes, size=(1920, 1080)):
+    """10 EMPTY slots, each drawn with art that resembles some hero."""
+    frame = screen([None] * 5, [None] * 5, size=size)
+    for i, hero in enumerate(ghost_heroes):
+        side, index = ("radiant", i) if i < 5 else ("dire", i - 5)
+        frame = paste(frame, side, index, ghost(hero, side, index, size), size)
+    return frame
+
+
+def hero_slot(hero, side, index, size=(1920, 1080), seed=3):
+    _, _, w, h = slot_rect_px(side, index, size)
+    return degrade(CATALOG.portraits[hero], np.random.default_rng(seed), slot_size=(w, h), severity=0.4)
+
+
 def picks(envelopes):
     return [(e["payload"]["type"], e["payload"].get("side"), e["payload"].get("hero")) for e in envelopes if e["payload"]["type"] != "capture_health"]
 
@@ -132,10 +189,11 @@ class StabilityTests(unittest.TestCase):
 class SessionAndPrivacyTests(unittest.TestCase):
     def test_session_emits_allowlisted_ocr_envelopes_for_both_sides(self):
         session = new_session()
+        t0, _ = arm(session)
         frame = screen([1, 2, None, None, None], [11, None, None, None, None])
         sent = []
         for t in range(10):
-            sent += session.process(frame, t * 125)
+            sent += session.process(frame, t0 + t * 125)
         self.assertEqual(sorted(picks(sent)), sorted([("hero_picked", "radiant", 1), ("hero_picked", "radiant", 2), ("hero_picked", "dire", 11)]))
         for envelope in sent:
             assert_allowlisted(envelope)
@@ -152,9 +210,11 @@ class SessionAndPrivacyTests(unittest.TestCase):
 
         session = new_session()
         outbox = Outbox(Capture())
+        t0, armed_out = arm(session, size=(2560, 1440))
+        outbox.submit(armed_out)
         frame = screen([1, 2, None, None, None], [11, None, None, None, None], size=(2560, 1440))
         for t in range(10):
-            outbox.submit(session.process(frame, t * 125))
+            outbox.submit(session.process(frame, t0 + t * 125))
         self.assertTrue(wire)
         self.assertLess(max(len(w) for w in wire), 400)  # a fact is a few hundred bytes, never an image
         allowed = {"schema", "eventId", "sessionId", "seq", "emittedAt", "source", "confidence", "payload"}
@@ -180,16 +240,17 @@ class SessionAndPrivacyTests(unittest.TestCase):
 
     def test_12_losing_the_window_reports_degraded_and_invents_nothing(self):
         session = new_session()
+        t0, _ = arm(session)
         frame = screen([1, None, None, None, None], [None] * 5)
         for t in range(8):
-            session.process(frame, t * 125)
-        self.assertEqual(session.tick_no_frame(1_500, True), [])  # a short gap is not a loss
-        lost = session.tick_no_frame(5_000, False)
+            session.process(frame, t0 + t * 125)
+        self.assertEqual(session.tick_no_frame(t0 + 1_500, True), [])  # a short gap is not a loss
+        lost = session.tick_no_frame(t0 + 5_000, False)
         self.assertEqual([(e["payload"]["type"], e["payload"]["status"], e["payload"]["detail"]) for e in lost], [("capture_health", "lost", "VISUAL_CAPTURE_LOST")])
         self.assertEqual(picks(lost), [])
-        self.assertEqual(session.tick_no_frame(6_000, False), [])  # reported once, not spammed
+        self.assertEqual(session.tick_no_frame(t0 + 6_000, False), [])  # reported once, not spammed
         self.assertFalse(session.status.window_found)
-        recovered = session.process(frame, 7_000)
+        recovered = session.process(frame, t0 + 7_000)
         self.assertEqual(recovered[0]["payload"]["status"], "ok")
 
     def test_never_seen_window_reports_degraded(self):
@@ -200,7 +261,8 @@ class SessionAndPrivacyTests(unittest.TestCase):
 
     def test_status_line_is_plain_language(self):
         session = new_session()
-        session.process(screen([1, None, None, None, None], [None] * 5), 0)
+        t0, _ = arm(session)
+        feed(session, screen([1, None, None, None, None], [None] * 5), t0, 6)
         line = session.status.line()
         self.assertIn("Visual capture", line)
         self.assertIn("Dota window found", line)
@@ -226,10 +288,12 @@ class DefaultLayoutLiveTests(unittest.TestCase):
         radiant, dire = [1, 2, 3, 4, 5], [6, 7, 8, 9, 10]
         for size in ((1600, 900), (1920, 1080), (1280, 720), (2560, 1440)):
             session = new_session()
-            frame = screen(radiant, dire, size=size)
+            t0, _ = arm(session, size=size)
             out: list[dict] = []
-            for step in range(5):
-                out += session.process(frame, step * 200)
+            for n in range(1, 11):  # picks land one at a time, as in a real draft
+                frame = screen(radiant[: min(n, 5)] + [None] * (5 - min(n, 5)), dire[: max(0, n - 5)] + [None] * (5 - max(0, n - 5)), size=size)
+                for step in range(4):
+                    out += session.process(frame, t0 + (n * 4 + step) * 150)
             hero_picks = [e for e in out if e["payload"]["type"] == "hero_picked"]
             self.assertEqual(len(hero_picks), 10, size)
             self.assertEqual([e for e in out if e["payload"]["type"] == "hero_banned"], [], size)
@@ -261,6 +325,152 @@ class DefaultLayoutLiveTests(unittest.TestCase):
         with mock.patch("d2vc.backend.WgcBackend", FakeBackend), mock.patch.object(cli, "_sender_from_env", return_value=(FakeSender(), "link")), mock.patch.object(cli, "load_catalog", return_value=CATALOG), mock.patch.object(cli.time, "sleep", side_effect=KeyboardInterrupt), mock.patch.object(cli, "DEFAULT_LAYOUT_PATH", cli.DEFAULT_LAYOUT_PATH.with_name("absent-layout.json")):
             self.assertEqual(cli.main(["live"]), 0)  # not 3: nothing refuses an uncalibrated run
         self.assertIsNotNone(sys)
+
+
+class OccupancyGateRegressionTests(unittest.TestCase):
+    """REAL bug: before anyone picked, 5/10 heroes were 'recognized' on empty slots. The matcher alone cannot
+    tell an empty slot from an occupied one; the occupancy gate (own empty baseline) must."""
+
+    GHOSTS = [4, 8, 12, 16, 20, 5, 9, 13, 17, 21]
+
+    def test_fixture_reproduces_the_bug_matcher_alone_names_heroes_on_empty_slots(self):
+        scan = scan_frame(ghost_screen(self.GHOSTS), LAYOUT, MATCHER, DEFAULT_THRESHOLDS)  # no gate
+        self.assertGreaterEqual(scan.recognized, 5)
+
+    def test_1_empty_baseline_emits_zero_picks_forever_even_when_the_matcher_would_fire(self):
+        session = new_session()
+        frame = ghost_screen(self.GHOSTS)
+        t, sent = feed(session, frame, 0, 12)  # arming on the empty bar
+        t, more = feed(session, frame, t, 60)  # ~7 s of an unchanged empty bar
+        self.assertEqual(picks(sent + more), [])
+        self.assertEqual(session.status.recognized, 0)
+        self.assertEqual(session.status.confirmed, 0)
+        self.assertTrue(session.status.armed)
+
+    def test_2_one_slot_changes_to_a_known_hero_exactly_one_pick(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        _, sent = feed(session, paste(base, "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        self.assertEqual(picks(sent), [("hero_picked", "radiant", 7)])
+        self.assertEqual(session.status.confirmed, 1)
+
+    def test_3_unchanged_empty_slots_stay_zero_while_a_neighbour_is_picked(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        _, sent = feed(session, paste(base, "dire", 4, hero_slot(3, "dire", 4)), t, 40)
+        self.assertEqual(picks(sent), [("hero_picked", "dire", 3)])
+        self.assertEqual(session.status.recognized, 1)
+
+    def test_4_noisy_glowing_empty_slot_is_not_occupied(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        x0, y0, w, h = slot_rect_px("radiant", 1)
+        ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+        radial = np.exp(-(((xs - w / 2) / (w / 2)) ** 2 + ((ys - h / 2) / (h / 2)) ** 2))
+        sent = []
+        for i in range(60):  # the "your turn" pulse: brightness breathes 0..45 gray levels over the slot
+            glow = (22.0 + 22.0 * np.sin(i / 4.0)) * radial
+            frame = base.copy()
+            region = frame[y0 : y0 + h, x0 : x0 + w].astype(np.float32) + glow[:, :, None]
+            frame[y0 : y0 + h, x0 : x0 + w] = np.clip(region, 0, 255).astype(np.uint8)
+            sent += session.process(jitter(frame, 500 + i, 3), t + i * 125)
+        self.assertEqual(picks(sent), [])
+        self.assertEqual(session.status.recognized, 0)
+
+    def test_5_stable_hero_is_one_fact(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        _, sent = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 80)
+        self.assertEqual(picks(sent), [("hero_picked", "radiant", 11)])
+
+    def test_6_hero_changes_before_lock_reverts_old_then_picks_new(self):
+        import cv2
+
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        t, first = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 10)
+        blend = cv2.addWeighted(hero_slot(11, "radiant", 0), 0.5, hero_slot(15, "radiant", 0), 0.5, 0)
+        t, transition = feed(session, paste(base, "radiant", 0, blend), t, 6)  # animation half-way: nothing new
+        t, second = feed(session, paste(base, "radiant", 0, hero_slot(15, "radiant", 0, seed=4)), t, 10)
+        self.assertEqual(picks(first), [("hero_picked", "radiant", 11)])
+        self.assertEqual(picks(transition), [])
+        self.assertEqual(picks(second), [("pick_reverted", "radiant", 11), ("hero_picked", "radiant", 15)])
+
+    def test_7_blank_or_unreadable_frames_invent_nothing_and_do_not_arm(self):
+        session = new_session()
+        black = np.zeros((1080, 1920, 3), np.uint8)
+        _, sent = feed(session, black, 0, 30, noise=False)
+        self.assertEqual(picks(sent), [])
+        self.assertFalse(session.status.armed)  # a black frame is no baseline
+        t, _ = feed(session, ghost_screen(self.GHOSTS), 4_000, 12)
+        self.assertTrue(session.status.armed)
+        _, after = feed(session, black, t, 20, noise=False)  # alt-tab / overlay mid-draft
+        self.assertEqual(picks(after), [])
+        self.assertTrue(session.status.armed)  # unreadable frames neither arm nor disarm
+
+    def test_8_draft_restart_resets_the_baseline(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        with_hero = paste(base, "radiant", 0, hero_slot(11, "radiant", 0))
+        t, _ = feed(session, base, 0, 12)
+        t, first = feed(session, with_hero, t, 12)
+        self.assertEqual(picks(first), [("hero_picked", "radiant", 11)])
+        session.rearm()  # explicit: new draft
+        self.assertFalse(session.status.armed)
+        self.assertEqual(session.status.confirmed, 0)
+        t, immediate = feed(session, base, t, 12)  # fresh empty bar -> fresh baseline
+        t, again = feed(session, with_hero, t, 12)
+        self.assertEqual(picks(immediate), [])
+        self.assertEqual(picks(again), [("hero_picked", "radiant", 11)])  # same hero, same slot: a NEW draft's fact
+
+    def test_8b_the_whole_bar_changing_at_once_is_a_new_scene_not_ten_picks(self):
+        session = new_session()
+        menu = screen([1, 2, 3, 4, 5], [6, 7, 8, 9, 10])  # a different screen entirely, full of portrait-like art
+        t, _ = arm(session)  # helper started on an EMPTY bar...
+        t, sent = feed(session, menu, t, 30)  # ...then the scene changed wholesale
+        self.assertEqual(picks(sent), [])
+        self.assertTrue(session.status.armed)  # re-baselined on the new scene, still nothing invented
+
+    def test_8c_late_start_on_an_already_filled_bar_fails_closed(self):
+        session = new_session()
+        filled = screen([1, 2, 3, 4, 5], [6, 7, 8, 9, 10])
+        t, sent = feed(session, filled, 0, 40)
+        self.assertEqual(picks(sent), [])  # picks already on screen when we started: never reported, never invented
+        self.assertEqual(session.status.confirmed, 0)
+
+    def test_9_the_helper_emits_one_claim_per_hero_however_many_frames_show_it(self):
+        # GSI/visual dedupe of the player's own hero lives engine-side (apps/engine/src/live/live-visual.test.ts).
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        _, sent = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 100)
+        self.assertEqual(len([e for e in sent if e["payload"]["type"] == "hero_picked"]), 1)
+
+    def test_10_no_position_is_inferred_from_the_screen_slot(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        t, _ = feed(session, base, 0, 12)
+        _, sent = feed(session, paste(base, "radiant", 4, hero_slot(11, "radiant", 4)), t, 12)
+        facts = [e for e in sent if e["payload"]["type"] == "hero_picked"]
+        self.assertEqual(len(facts), 1)
+        self.assertEqual(set(facts[0]["payload"]), {"type", "hero", "side"})
+        for key in facts[0]["payload"]:
+            self.assertNotIn("position", key.lower())
+            self.assertNotIn("slot", key.lower())
+
+    def test_noisy_baseline_is_not_trusted(self):
+        session = new_session()
+        base = ghost_screen(self.GHOSTS)
+        rng = np.random.default_rng(1)
+        for i in range(40):  # the bar keeps changing heavily: no trustworthy empty baseline
+            frame = np.clip(base.astype(np.int16) + rng.integers(-60, 61, size=base.shape), 0, 255).astype(np.uint8)
+            session.process(frame, i * 125)
+        self.assertFalse(session.status.armed)
 
 
 class GsiCfgTests(unittest.TestCase):
