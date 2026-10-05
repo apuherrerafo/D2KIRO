@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { teamPositionName } from "../constants";
 import { PANEL } from "../styles";
-import type { LiveTeamContext, TeamPosition } from "../types";
+import type { LivePartyPreset, LiveTeamContext, TeamPosition } from "../types";
 import { useLiveTeamGroup, type PresetListState } from "../use-live-team-group";
 
 // /live-draft -- "Preset de Party 5": el equipo guardado (Equipos) cuyos pools de cada posición usa el
@@ -14,6 +14,41 @@ const POSITIONS: readonly TeamPosition[] = [1, 2, 3, 4, 5];
 
 function isPositionActive(teamContext: LiveTeamContext | undefined, position: TeamPosition): boolean {
   return teamContext?.positions[String(position) as keyof LiveTeamContext["positions"]] === true;
+}
+
+function countActivePositions(teamContext: LiveTeamContext | undefined): number {
+  return POSITIONS.filter((position) => isPositionActive(teamContext, position)).length;
+}
+
+interface PartyStatusLineProps {
+  teamContext: LiveTeamContext | undefined;
+  presets: readonly LivePartyPreset[];
+  chosenId: number | null;
+}
+
+function UnconfirmedChoice({ preset }: { preset: LivePartyPreset | undefined }) {
+  if (preset === undefined) return null;
+  return <span className="text-caption text-content-muted" data-testid="live-party-unconfirmed">Elegiste «{preset.name}», pero el motor todavía no lo confirmó: no se está usando.</span>;
+}
+
+// The headline is SERVER truth only: the preset id and the pools come from the engine's live status. The
+// dropdown / localStorage choice never makes this line say "active" -- at most it adds an "aún no confirmado" hint.
+function PartyStatusLine({ teamContext, presets, chosenId }: PartyStatusLineProps) {
+  if (teamContext === undefined) {
+    return <span className="text-caption text-content-muted" role="status" data-testid="live-party-status" data-state="unknown">Party 5: verificando con el motor…</span>;
+  }
+  const active = countActivePositions(teamContext);
+  if (teamContext.teamGroupId === null || active === 0) {
+    const waiting = chosenId !== null ? presets.find((preset) => preset.id === chosenId) : undefined;
+    return (
+      <>
+        <span className="text-body font-semibold text-signal-warning" role="status" data-testid="live-party-status" data-state="none">Party 5: SIN PRESET</span>
+        <UnconfirmedChoice preset={waiting} />
+      </>
+    );
+  }
+  const name = presets.find((preset) => preset.id === teamContext.teamGroupId)?.name ?? "preset activo";
+  return <span className="text-body font-semibold text-signal-positive" role="status" data-testid="live-party-status" data-state="active">Party 5: {name} · pools {active}/5</span>;
 }
 
 function PoolItem({ teamContext, position }: { teamContext: LiveTeamContext | undefined; position: TeamPosition }) {
@@ -92,6 +127,7 @@ export function LivePartyPresetPanel({ sessionId, teamContext, fetchImpl }: Live
           <option key={preset.id} value={preset.id}>{preset.name}</option>
         ))}
       </select>
+      <PartyStatusLine teamContext={teamContext} presets={presets} chosenId={chosenId} />
       <PresetStatus listState={listState} teamContext={teamContext} />
       <PresetNotice notice={notice} />
     </div>
