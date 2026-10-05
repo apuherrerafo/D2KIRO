@@ -49,6 +49,7 @@ export function LiveTeamCoachView({ sessionId, children }: LiveTeamCoachViewProp
   const manualError = useLiveTeamCoachStore((state) => state.manualError);
 
   const degraded = isCaptureDegraded(captureStatus);
+  const draftEnded = captureStatus?.draftPhase === "ended";
   const draftState = snapshot ? protocolViewToDraftState(snapshot.view, "") : null;
   const unavailable = new Set<number>(draftState ? [...draftState.banned, ...draftState.picks.radiant, ...draftState.picks.dire] : []);
 
@@ -59,6 +60,8 @@ export function LiveTeamCoachView({ sessionId, children }: LiveTeamCoachViewProp
   function handleRetry() {
     void refresh();
   }
+  // A finished draft has no pick to make: not even by hand through the board.
+  const pickHandler = degraded && !draftEnded ? handleManualPick : undefined;
 
   return (
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-4 md:p-6" data-testid="live-team-coach">
@@ -73,8 +76,9 @@ export function LiveTeamCoachView({ sessionId, children }: LiveTeamCoachViewProp
         heroCatalog={heroCatalog}
         selectedPosition={selectedPosition}
         onSelectPosition={selectPosition}
-        onPickHero={degraded ? handleManualPick : undefined}
+        onPickHero={pickHandler}
         onRetry={handleRetry}
+        draftEnded={draftEnded}
       />
       <LiveManualEntry
         heroCatalog={heroCatalog}

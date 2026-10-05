@@ -302,6 +302,19 @@ export class ProtocolSessionStore {
     return true;
   }
 
+  /**
+   * Live Dota -- attach (or clear, with null pools) the selected Party 5 team preset to an OWNED live
+   * session. The pools are loaded server-side from the account's own team group by the caller; this only
+   * stores them where `perspectiveRecommendationContext` already reads them (same field a Simulator
+   * session carries). false = unknown session, not a live capture session, or owned by another account.
+   */
+  setLiveTeamContext(sessionId: string, accountId: number, team: { teamGroupId: number | null; playerPoolsByPosition: Partial<Record<DotaPosition, readonly HeroId[]>> | null }): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || entry.ownerAccountId !== accountId) return false;
+    entry.metadata = { ...entry.metadata, teamGroupId: team.teamGroupId, playerPoolsByPosition: team.playerPoolsByPosition };
+    return true;
+  }
+
   partyContext(sessionId: string): PartyContext | null {
     return this.sessions.get(sessionId)?.metadata.partyContext ?? null;
   }

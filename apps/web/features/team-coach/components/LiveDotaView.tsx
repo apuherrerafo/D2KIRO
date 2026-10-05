@@ -7,6 +7,7 @@ import type { GsiLinkView } from "../types";
 import { useGsiLink, type UseGsiLinkResult } from "../use-gsi-link";
 import { DotaConnectPanel, DotaLinkControls } from "./DotaConnectPanel";
 import { LiveDiagnosticsPanel } from "./LiveDiagnosticsPanel";
+import { LivePartyPresetPanel } from "./LivePartyPresetPanel";
 import { LiveTeamCoachView } from "./LiveTeamCoachView";
 
 // TSK-219 -- /live-draft on the deployed site. The Player's account has (or not) a Dota link:
@@ -66,7 +67,7 @@ export function LiveDotaView({ setupError = null, fetchImpl }: LiveDotaViewProps
       </Shell>
     );
   }
-  return <LinkedLiveView link={gsi.state.link} gsi={gsi} setupError={message} onDownload={handleDownload} />;
+  return <LinkedLiveView link={gsi.state.link} gsi={gsi} setupError={message} onDownload={handleDownload} fetchImpl={fetchImpl} />;
 }
 
 interface LinkedLiveViewProps {
@@ -74,9 +75,10 @@ interface LinkedLiveViewProps {
   gsi: UseGsiLinkResult;
   setupError: string | null;
   onDownload(): void;
+  fetchImpl?: typeof fetch;
 }
 
-function LinkedLiveView({ link, gsi, setupError, onDownload }: LinkedLiveViewProps) {
+function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl }: LinkedLiveViewProps) {
   const captureStatus = useLiveTeamCoachStore((state) => state.captureStatus);
   const engineStatus = useLiveTeamCoachStore((state) => state.engineStatus);
   // Only the status of THIS link's session counts (the store may still hold a previous one).
@@ -96,6 +98,7 @@ function LinkedLiveView({ link, gsi, setupError, onDownload }: LinkedLiveViewPro
         onDownload={onDownload}
         onDisconnect={handleDisconnect}
       />
+      <LivePartyPresetPanel sessionId={link.sessionId} teamContext={linkStatus?.teamContext} fetchImpl={fetchImpl} />
       <LiveDiagnosticsPanel engine={engineStatus} dotaLink status={linkStatus} />
     </LiveTeamCoachView>
   );

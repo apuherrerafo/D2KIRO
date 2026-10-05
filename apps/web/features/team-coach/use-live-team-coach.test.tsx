@@ -118,6 +118,36 @@ describe("useLiveTeamCoach", () => {
     expect(liveDraftChangeKey(status({ picks: 1 }))).not.toBe(liveDraftChangeKey(status()));
     expect(liveDraftChangeKey(status({ localSide: "dire" }))).not.toBe(liveDraftChangeKey(status()));
   });
+
+  test("Team Context entra en la clave: mismo draft, distinto contexto => clave distinta", () => {
+    const all = { "1": true, "2": true, "3": true, "4": true, "5": true };
+    const none = status();
+    const teamA = status({ teamContext: { teamGroupId: 1, positions: all } });
+    const teamB = status({ teamContext: { teamGroupId: 2, positions: { ...all } } });
+    const cleared = status({ teamContext: { teamGroupId: null, positions: { "1": false, "2": false, "3": false, "4": false, "5": false } } });
+    expect(liveDraftChangeKey(teamA)).not.toBe(liveDraftChangeKey(none));
+    expect(liveDraftChangeKey(teamA)).not.toBe(liveDraftChangeKey(teamB));
+    expect(liveDraftChangeKey(teamA)).not.toBe(liveDraftChangeKey(cleared));
+    expect(liveDraftChangeKey(teamA)).toBe(liveDraftChangeKey(status({ teamContext: { teamGroupId: 1, positions: { ...all } } })));
+  });
+
+  test("elegir un preset recalcula el board SIN ningún pick/ban nuevo", async () => {
+    const engine = new FakeLiveEngine();
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    const statusPolls = engine.count("/live-status");
+    await waitFor(() => expect(engine.count("/live-status")).toBeGreaterThan(statusPolls + 2));
+    expect(engine.count("/team-recommendations")).toBe(1);
+
+    engine.currentBoard = board("with-team");
+    engine.current = status({ teamContext: { teamGroupId: 7, positions: { "1": true, "2": true, "3": true, "4": true, "5": true } } });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("with-team"));
+    expect(engine.count("/team-recommendations")).toBe(2);
+
+    engine.current = status();
+    await waitFor(() => expect(engine.count("/team-recommendations")).toBe(3));
+    hook.unmount();
+  });
 });
 
 const HEROES = new Map<number, HeroMeta>([[129, { id: 129, name: "npc_dota_hero_mars", localizedName: "Mars", imgUrl: "https://cdn.cloudflare.steamstatic.com/mars.png", primaryAttr: "str", attackType: "Melee", roles: [] }]]);

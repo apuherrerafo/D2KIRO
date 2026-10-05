@@ -52,6 +52,9 @@ const ENGINE_REWRITE_SOURCES = [
   // TSK-219: the browser reads (GET) and revokes (DELETE) its Dota GSI link. Issuing one is NOT here on
   // purpose: only the server-side cfg download (app/api/live/gsi-config) may receive a link token.
   "/engine/api/live/gsi-link",
+  // Live Dota + Party 5: select (PUT) or clear the account's own team preset for its live session. The body only
+  // NAMES a preset (teamGroupId); the engine loads its pools server-side, scoped to the signed-in account.
+  "/engine/api/live/team-group",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",

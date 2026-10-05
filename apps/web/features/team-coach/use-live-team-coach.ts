@@ -13,9 +13,16 @@ import type { LiveCaptureStatus, LiveObservationInput, TeamPosition } from "./ty
 // ONLY when the draft actually changed (the board ranks five positions; it is not recomputed for nothing).
 // The manual fallback posts the same kind of fact the capturer does, then refreshes at once.
 
-/** What must change for the board to be recomputed: the draft facts, never a heartbeat. */
+/** Team Context is recommendation context (not draft state): preset id + which of positions 1..5 carry a pool, in fixed order. */
+function teamContextKey(context: LiveCaptureStatus["teamContext"]): string {
+  if (!context) return "ctx:none";
+  const { positions } = context;
+  return ["ctx", context.teamGroupId ?? "-", positions["1"] ? 1 : 0, positions["2"] ? 1 : 0, positions["3"] ? 1 : 0, positions["4"] ? 1 : 0, positions["5"] ? 1 : 0].join(":");
+}
+
+/** What must change for the board to be recomputed: the draft facts and the active Team Context, never a heartbeat. */
 export function liveDraftChangeKey(status: LiveCaptureStatus): string {
-  return [status.bans, status.picks, status.localSide ?? "-", status.draftPhase, status.lastDetectedPick?.at ?? "-", status.deferredPicks].join("|");
+  return [status.bans, status.picks, status.localSide ?? "-", status.draftPhase, status.lastDetectedPick?.at ?? "-", status.deferredPicks, teamContextKey(status.teamContext)].join("|");
 }
 
 export interface UseLiveTeamCoachOptions {

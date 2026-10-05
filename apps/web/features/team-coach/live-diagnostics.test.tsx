@@ -56,7 +56,8 @@ function hostileStatus(): LiveCaptureStatus {
       picks: 1,
     }),
     gsi: {
-      ...gsi({ gameState: SENTINEL_MATCH_ID, telemetry: ["kda", SENTINEL_PLAYER_NAME] }),
+      // A hostile structure list: unknown labels (identity-looking strings) are ignored, known ones survive.
+      ...gsi({ gameState: SENTINEL_MATCH_ID, telemetry: ["kda", SENTINEL_PLAYER_NAME], structure: ["section.draft", SENTINEL_PLAYER_NAME, SENTINEL_STEAM_ID] }),
       steamid: SENTINEL_STEAM_ID,
       accountid: SENTINEL_ACCOUNT_ID,
       name: SENTINEL_PLAYER_NAME,
@@ -84,7 +85,10 @@ describe("live diagnostics -- sanitized by construction", () => {
   test("no identity field, no token, no raw GSI reaches the copied text", () => {
     const text = report(hostileStatus());
     for (const secret of SENTINELS) expect(text).not.toContain(secret);
-    expect(text).not.toMatch(/steam|account|player|token|session|liveId|heroId/i);
+    // The structure block names Dota SECTIONS (e.g. "allplayers"): fixed vocabulary, checked separately below.
+    const identityText = text.split("\n").filter((entry) => !entry.startsWith("structure.")).join("\n");
+    expect(identityText).not.toMatch(/steam|account|player|token|session|liveId|heroId/i);
+    for (const entry of text.split("\n").filter((value) => value.startsWith("structure."))) expect(entry).toMatch(/^structure\.[a-zA-Z0-9.]+: (present|absent)( \(unverified\))?$/);
     // No timestamp either (lastEventAt / detected pick time).
     expect(text).not.toContain("2026-10-02");
     // A non-allowlisted value is reported as "other", never echoed.
@@ -92,7 +96,7 @@ describe("live diagnostics -- sanitized by construction", () => {
     expect(line(text, "captureDetail")).toBe("other");
     // Every line is a known key with a bounded value.
     for (const entry of text.trim().split("\n").filter((value) => value !== "" && value !== "D2KIRO LIVE DIAGNOSTIC")) {
-      expect(entry).toMatch(/^[a-zA-Z.]+: [a-zA-Z0-9_/]+$/);
+      expect(entry).toMatch(/^[a-zA-Z0-9.]+: [a-zA-Z0-9_/]+( \(unverified\))?$/);
     }
   });
 
@@ -246,6 +250,27 @@ describe("Copiar diagnóstico", () => {
           "telemetry.abilities: NO",
           "telemetry.cooldowns: NO",
           "",
+          "structure.provider: absent",
+          "structure.map: absent",
+          "structure.player: absent",
+          "structure.hero: absent",
+          "structure.abilities: absent",
+          "structure.items: absent",
+          "structure.draft: absent",
+          "structure.draft.team2: absent",
+          "structure.draft.team3: absent",
+          "structure.draft.slots: absent",
+          "structure.allplayers: absent",
+          "structure.roster.teamKeyed: absent",
+          "structure.roster.entries: absent",
+          "structure.roster.multi: absent",
+          "structure.roster.full: absent",
+          "structure.roster.heroFields: absent",
+          "structure.roster.teamFields: absent",
+          "structure.rosterCandidate: absent (unverified)",
+          "",
+          "party.poolPositions: 0/5",
+          "",
         ].join("\n"),
       );
       expect(view.getByTestId("live-diagnostics").textContent).toContain("Copiado");
@@ -332,5 +357,36 @@ describe("/live-draft -- the diagnostics follow the live status by themselves", 
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe("live diagnostics -- structural capability discovery", () => {
+  test("reports present / absent per section from the engine's labels; a roster candidate needs several entries WITH hero fields", () => {
+    const none = report(liveStatus("s", { connection: "connected", gsi: gsi({ structure: ["section.player", "section.hero"] }) }));
+    expect(line(none, "structure.player")).toBe("present");
+    expect(line(none, "structure.draft")).toBe("absent");
+    expect(line(none, "structure.allplayers")).toBe("absent");
+    expect(line(none, "structure.rosterCandidate")).toBe("absent (unverified)");
+
+    const roster = report(liveStatus("s", { connection: "connected", gsi: gsi({ structure: ["section.allplayers", "roster.player_entries", "roster.multi_entries", "roster.hero_fields", "roster.team_fields"] }) }));
+    expect(line(roster, "structure.allplayers")).toBe("present");
+    expect(line(roster, "structure.roster.heroFields")).toBe("present");
+    expect(line(roster, "structure.rosterCandidate")).toBe("present (unverified)");
+
+    const noHeroes = report(liveStatus("s", { connection: "connected", gsi: gsi({ structure: ["roster.player_entries", "roster.multi_entries"] }) }));
+    expect(line(noHeroes, "structure.rosterCandidate")).toBe("absent (unverified)");
+  });
+
+  test("no Dota update yet: every structural row is absent, nothing claimed", () => {
+    const text = report(null, false);
+    expect(text.split("\n").filter((entry) => entry.startsWith("structure.") && !entry.endsWith(": absent") && !entry.endsWith("absent (unverified)"))).toEqual([]);
+  });
+
+  test("the panel shows the structure block", () => {
+    const view = render(<LiveDiagnosticsPanel engine="ok" dotaLink status={liveStatus("s", { connection: "connected", gsi: gsi({ structure: ["section.draft"] }) })} />);
+    expect(view.getByTestId("diag-structure-draft").getAttribute("data-presence")).toBe("YES");
+    expect(view.getByTestId("diag-structure-allplayers").getAttribute("data-presence")).toBe("NO");
+    expect(view.getByTestId("diag-structure-roster-candidate").textContent).toContain("no");
+    view.unmount();
   });
 });
