@@ -134,7 +134,7 @@ export function HeroEcho({ item }: { item: EchoItem }) {
 }
 
 export function EvidenceLabelTag({ itemId, label, anchor, active }: { itemId: string; label: EvidenceLabel; anchor: { point: Pt; gap: number }; active: boolean }) {
-  const style: Vars = { ...at(anchor.point), "--gap": anchor.gap };
+  const style: Vars = { ...at(anchor.point), "--gap": anchor.gap, "--gap-x": label.extraGap ?? 0 };
   return (
     <p className="ms-label" data-for={itemId} data-side={label.side} data-active={active ? "true" : "false"} style={style}>
       {label.kicker && <span className="ms-label-kicker">{label.kicker}</span>}

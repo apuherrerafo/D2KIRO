@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 import {
   ContradictionMarker,
   EvidenceDefs,
@@ -79,7 +79,7 @@ export function MemoryStripScene({ sceneId }: { sceneId: MemorySceneId }) {
     <section className="ms" data-testid="memory-strip" data-scene={scene.id} aria-label="Memory Strip">
       <div className="ms-layout">
         <figure className="ms-object" aria-describedby={descId}>
-          <div className="ms-canvas" style={{ aspectRatio: `${MEMORY_VIEWBOX.w} / ${MEMORY_VIEWBOX.h}` }}>
+          <div className="ms-canvas" style={{ "--ms-ar": `${MEMORY_VIEWBOX.w} / ${MEMORY_VIEWBOX.h}` } as CSSProperties}>
             <svg className="ms-svg" viewBox={`0 0 ${MEMORY_VIEWBOX.w} ${MEMORY_VIEWBOX.h}`} aria-hidden="true" focusable="false">
               <EvidenceDefs patternId={patternId} />
               {sortForPaint(scene.items).map((item) => <SvgItem key={item.id} item={item} patternId={patternId} />)}

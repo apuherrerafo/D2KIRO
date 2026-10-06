@@ -18,6 +18,8 @@ export interface EvidenceLabel {
   readonly text: string;
   readonly kicker?: string;
   readonly side: "above" | "below" | "below-left" | "left" | "right";
+  /** Extra scene units of horizontal air for a below-left label, keeping it off a nearby line. */
+  readonly extraGap?: number;
 }
 
 interface ItemBase {

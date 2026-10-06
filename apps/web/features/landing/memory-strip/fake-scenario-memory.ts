@@ -112,7 +112,7 @@ const playerModel: MemoryScene = {
     { kind: "echo", id: "echo:viper", at: place([398, 214]), heroId: VIPER, tone: "neutral", meaning: "Matchup evidence belongs to Viper." },
     { kind: "echo", id: "echo:b", at: place([322, 344]), heroId: PUCK.id, tone: "lime", meaning: "Puck, qualified: kept, with a condition." },
     { kind: "contradiction", id: "marker:c1", at: MODEL_C1, angle: 24, meaning: "Contradiction: the matchup meets the contour here.",
-      label: { kicker: "Qualified", text: "Holds, with a condition", side: "below-left" } },
+      label: { kicker: "Qualified", text: "Holds, with a condition", side: "below-left", extraGap: 22 } },
     originItem(MODEL_ORIGIN, "Origin anchor: the first retained decision, Puck."),
     roleItem([MODEL_ORIGIN[0], MODEL_ORIGIN[1] + 56]),
   ],

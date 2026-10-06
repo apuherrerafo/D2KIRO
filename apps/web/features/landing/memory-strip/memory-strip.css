@@ -27,7 +27,7 @@
 
 /* ───────── the evidence object ───────── */
 .ms-object { margin: 0; width: min(480px, calc((100vh - 120px) * .96), calc(100cqw - 48px)); }
-.ms-canvas { container-type: inline-size; position: relative; width: 100%; }
+.ms-canvas { aspect-ratio: var(--ms-ar); container-type: inline-size; position: relative; width: 100%; }
 .ms-svg { display: block; height: 100%; inset: 0; overflow: visible; position: absolute; width: 100%; }
 .ms-dom { --u: calc(100cqw / 480); inset: 0; pointer-events: none; position: absolute; }
 
@@ -86,7 +86,7 @@
 .ms-label-text { font: 500 12px/1.2 var(--f-bric); }
 .ms-label[data-side="above"] { justify-items: center; text-align: center; transform: translate(-50%, calc(-100% - var(--u) * var(--gap))); }
 .ms-label[data-side="below"] { justify-items: center; text-align: center; transform: translate(-50%, calc(var(--u) * var(--gap))); }
-.ms-label[data-side="below-left"] { justify-items: end; text-align: right; transform: translate(0, calc(var(--u) * var(--gap))) translateX(-100%); }
+.ms-label[data-side="below-left"] { justify-items: end; text-align: right; transform: translate(0, calc(var(--u) * var(--gap))) translateX(calc(-100% - var(--u) * var(--gap-x))); }
 .ms-label[data-side="left"] { justify-items: end; text-align: right; transform: translate(calc(-100% - var(--u) * var(--gap)), -50%); }
 .ms-label[data-side="right"] { transform: translate(calc(var(--u) * var(--gap)), -50%); }
 
@@ -107,4 +107,13 @@
   .ms-stage { align-items: baseline; display: flex; gap: 12px; }
   .ms-stage-number { font-size: 56px; }
   .ms-copy { font-size: 20px; }
+
+  /* Match 01 / 24 only: their evidence sits in a band of the 480 by 500 box, so the canvas becomes a window onto
+     that band (same SVG + DOM layers, shifted up) instead of carrying empty rows above and below it. */
+  .ms[data-scene="match-01"] .ms-canvas { --ms-top: 60; --ms-h: 380; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-24"] .ms-canvas { --ms-top: 50; --ms-h: 330; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-01"] .ms-svg, .ms[data-scene="match-01"] .ms-dom,
+  .ms[data-scene="match-24"] .ms-svg, .ms[data-scene="match-24"] .ms-dom {
+    height: calc(100cqw * 500 / 480); inset: auto; left: 0; top: calc(-100cqw * var(--ms-top) / 480); width: 100%;
+  }
 }
