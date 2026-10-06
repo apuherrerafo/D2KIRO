@@ -2,6 +2,11 @@
 
 Pure orchestration over (scan -> temporal confirmation -> allowlisted envelopes). Frames, time and the
 network are all injected, so the whole thing is tested without a screen, a clock or a server.
+
+Draft lifecycle comes from GSI, never from the screen: the helper is started BEFORE the queue and stays
+closed (no baseline, no matching, no facts) through menu / lobby / matchmaking / loading. When the server's
+answer says a draft started (`on_lifecycle`, new `epoch`), it re-arms by itself and takes its empty-slot
+baseline on the real hero-selection screen; when the draft ends it closes again. Zero clicks in hero selection.
 """
 from __future__ import annotations
 
@@ -15,9 +20,12 @@ from .matcher import Matcher, Thresholds
 from .occupancy import OccupancyGate
 from .scan import ScanResult, scan_frame, slot_crops
 from .stability import StabilityFilter
+from .transport import DraftLifecycle
 
 LOST_AFTER_MS = 3_000.0
 HEARTBEAT_EVERY_MS = 5_000.0
+# Outside a draft every heartbeat is also the question "has hero selection started?": ask once a second.
+LIFECYCLE_PROBE_MS = 1_000.0
 
 
 @dataclass
@@ -29,12 +37,18 @@ class VisualStatus:
     latency_ms: float = 0.0
     layout: str = "standard"
     armed: bool = False  # an empty baseline was observed: only now may a slot be read as a hero
+    draft_open: bool = False  # GSI (via the server) says hero selection is on
+    server_seen: bool = False  # the server has answered at least one draft lifecycle
 
     def line(self) -> str:
         if not self.window_found:
             return "Visual capture: looking for the Dota window..."
-        if self.confirmed == 0 and not self.selection_detected:
+        if not self.server_seen:
+            return "Visual capture: Dota window found - connecting to D2KIRO..."
+        if not self.draft_open:
             return "Visual capture: Dota window found - waiting for hero selection"
+        if not self.armed:
+            return "Visual capture: hero selection started - reading the empty draft bar..."
         return f"Visual capture: Dota window found - {self.confirmed}/10 heroes recognized"
 
 
@@ -49,6 +63,26 @@ class VisualSession:
         self._lost = False
         self._last_heartbeat_ms: float | None = None
         self._first_seen_ms: dict[tuple[str, int, int], float] = {}
+        self._draft_epoch: int | None = None
+
+    def on_lifecycle(self, lifecycle: DraftLifecycle | None) -> bool:
+        """The server's draft lifecycle (GSI). True on a draft boundary: the caller drops queued facts.
+
+        Entering hero selection -- or a NEW draft (epoch changed) -- re-arms from scratch, so the baseline is
+        taken on THIS hero-selection screen. Leaving it closes the session. None (no answer yet / server
+        unreachable) changes nothing: an open draft is not closed by a dropped request."""
+        if lifecycle is None:
+            return False
+        self.status.server_seen = True
+        if lifecycle.drafting and (not self.status.draft_open or lifecycle.epoch != self._draft_epoch):
+            self.rearm()
+            self.status.draft_open, self._draft_epoch = True, lifecycle.epoch
+            return True
+        if not lifecycle.drafting and self.status.draft_open:
+            self.rearm()
+            self.status.draft_open = False
+            return True
+        return False
 
     def process(self, frame: np.ndarray, now_ms: float) -> list[dict]:
         """One captured frame -> the envelopes it confirms (usually none)."""
@@ -59,6 +93,13 @@ class VisualSession:
             self._lost = False
             out.append(self.factory.health("ok", "VISUAL_OK"))
             self._last_heartbeat_ms = now_ms
+        if not self.status.draft_open:
+            # Not a draft (menu, lobby, loading, the match itself): nothing is baselined, matched or emitted.
+            self.status.selection_detected = False
+            if self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= LIFECYCLE_PROBE_MS:
+                out.append(self.factory.health("ok", "VISUAL_OK"))
+                self._last_heartbeat_ms = now_ms
+            return out
         size = (frame.shape[1], frame.shape[0])
         if self._frame_size is not None and size != self._frame_size:
             self.rearm()  # a different capture geometry invalidates every baseline

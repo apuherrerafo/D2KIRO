@@ -5,7 +5,7 @@
   bench                         offline benchmark on synthetic degradations
   calibrate <screenshot>        one-time layout calibration from a REAL hero-selection screenshot
   synth <out.png>               write a synthetic hero-selection frame (pipeline demo, NOT real Dota)
-  live                          capture the Dota window, confirm over time, send allowlisted facts (no calibration needed)
+  live                          start BEFORE queueing; arms itself on each hero selection (GSI), sends allowlisted facts
 """
 from __future__ import annotations
 
@@ -184,6 +184,8 @@ def cmd_live(args: argparse.Namespace) -> int:
             frame = backend.latest()
             envelopes = session.process(frame, now_ms) if frame is not None else session.tick_no_frame(now_ms, backend.window_found)
             outbox.submit(envelopes)
+            if session.on_lifecycle(outbox.lifecycle):  # GSI started / ended a draft: re-arm by itself
+                outbox.discard_facts()
             if now_ms - last_print > 1000:
                 print("\r" + session.status.line(), end="", flush=True)
                 last_print = now_ms
