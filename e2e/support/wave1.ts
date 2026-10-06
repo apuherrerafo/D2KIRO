@@ -159,6 +159,7 @@ export async function roundCapacity(page: Page): Promise<number> {
 export async function awaitRoundHandlingCollision(page: Page, expected: RegExp, preferred: readonly string[], maxRepicks = 4): Promise<number> {
   const collision = page.getByText(/Baneados por colisión en esta ronda/);
   const settled = page.getByText(expected).first();
+  const collisionBanner = async (): Promise<string> => (await collision.first().textContent({ timeout: 1_000 }).catch(() => null)) ?? "";
   const seatIsReopened = async (): Promise<boolean> => (await collision.first().isVisible()) && (await roundCapacity(page)) > 0;
   let repicks = 0;
   for (;;) {
@@ -166,9 +167,14 @@ export async function awaitRoundHandlingCollision(page: Page, expected: RegExp, 
     if (await settled.isVisible()) return repicks;
     expect(repicks, "a round cannot need an unbounded number of re-picks").toBeLessThan(maxRepicks);
     const before = await roundCapacity(page);
+    const collisionBefore = await collisionBanner();
     await heroButton(page, await firstEnabled(page, preferred)).click();
     repicks++;
-    await expect.poll(async () => (await settled.isVisible()) || (await roundCapacity(page)) !== before, { timeout: 30_000 }).toBe(true);
+    // The re-pick is observed through ANY of: the round settled, the capacity changed, or the collision banner grew (a second
+    // consecutive collision leaves the capacity identical but adds the newly banned hero to the banner).
+    await expect
+      .poll(async () => (await settled.isVisible()) || (await roundCapacity(page)) !== before || (await collisionBanner()) !== collisionBefore, { timeout: 30_000 })
+      .toBe(true);
   }
 }
 
