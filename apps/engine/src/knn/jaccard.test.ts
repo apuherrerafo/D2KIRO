@@ -167,9 +167,17 @@ describe("defaultJaccardWeights -- reutiliza HeroPositions (S10)", () => {
 describe("performance", () => {
   test("nearestNeighbors sobre 5000 candidatos se mantiene rápido", () => {
     // Objetivo real del doc de investigación (pro-drafter-spec-v1.md §2.1): ~0.9-1.8ms para hasta
-    // 5000 candidatos. El assertion usa un margen generoso a propósito para no volverse flaky en
-    // CI compartido (documentado en el plan de Fase 5-8) -- lo que prueba es ausencia de una
-    // regresión de orden de magnitud, no el número exacto.
+    // 5000 candidatos. Medido en local (Bun 1.4): mediana ~3.3ms, p99 ~5-7ms; la PRIMERA llamada
+    // tras un warm-up de una sola pasada sigue en ~7ms (el JIT aún no calentó).
+    // Una sola muestra contra un umbral fijo es lo que lo volvía flaky: en CI compartido un solo
+    // pico de GC/preemption (visto: 21.6ms) lo rompía sin cambio de código. Por eso se mide la
+    // MEDIANA de varias corridas tras calentar -- un pico aislado no la mueve, una regresión real
+    // (que desplaza todas las corridas) sí. El umbral es ~8x la mediana local: una regresión de
+    // orden de magnitud (p. ej. O(n²), re-indexar por llamada) lo supera de sobra.
+    const WARMUP_RUNS = 5;
+    const MEASURED_RUNS = 15;
+    const MAX_MEDIAN_MS = 25;
+
     const bigCorpus: DraftCandidate[] = Array.from({ length: 5000 }, (_, i) => ({
       draftId: `perf-${i}`,
       patch: "7.35d",
@@ -178,12 +186,17 @@ describe("performance", () => {
       winningSide: i % 2 === 0 ? "radiant" : ("dire" as const),
     }));
     const engine = createJaccardEngine(buildDraftIndex(bigCorpus, "7.35d"));
-    engine.nearestNeighbors([1, 2, 3], 5, NEUTRAL_WEIGHTS); // warm-up -- evita medir JIT/alloc frío
+    for (let i = 0; i < WARMUP_RUNS; i++) engine.nearestNeighbors([1, 2, 3], 5, NEUTRAL_WEIGHTS);
 
-    const start = performance.now();
-    engine.nearestNeighbors([1, 2, 3], 5, NEUTRAL_WEIGHTS);
-    const elapsedMs = performance.now() - start;
+    const samples: number[] = [];
+    for (let i = 0; i < MEASURED_RUNS; i++) {
+      const start = performance.now();
+      engine.nearestNeighbors([1, 2, 3], 5, NEUTRAL_WEIGHTS);
+      samples.push(performance.now() - start);
+    }
+    samples.sort((a, b) => a - b);
+    const medianMs = samples[Math.floor(samples.length / 2)];
 
-    expect(elapsedMs).toBeLessThan(15);
+    expect(medianMs).toBeLessThan(MAX_MEDIAN_MS);
   });
 });
