@@ -6,7 +6,10 @@ export type Pt = readonly [number, number];
 
 export const MEMORY_VIEWBOX = { w: 480, h: 500 } as const;
 
-export type MemorySceneId = "match-01" | "match-24" | "player-model";
+export type MemorySceneId = "match-01" | "match-08" | "match-24" | "match-56" | "player-model";
+
+/** Canonical order of the evidence sequence. */
+export const MEMORY_SCENE_ORDER: readonly MemorySceneId[] = ["match-01", "match-08", "match-24", "match-56", "player-model"];
 
 /** cyan = retained / continuity · pink = contradiction · lime = qualified · neutral = unresolved. */
 export type EvidenceTone = "cyan" | "pink" | "lime" | "neutral";

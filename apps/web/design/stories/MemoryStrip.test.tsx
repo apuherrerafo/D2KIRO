@@ -4,15 +4,15 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { MemoryStripScene } from "@/features/landing/memory-strip";
+import { MEMORY_CONTINUITY, MEMORY_SCENE_ORDER, MEMORY_TRANSITIONS, MemoryStripScene } from "@/features/landing/memory-strip";
 import { MEMORY_SCENES } from "@/features/landing/memory-strip/fake-scenario-memory";
 import { smoothPath } from "@/features/landing/memory-strip/geometry";
-import type { MemorySceneId } from "@/features/landing/memory-strip/types";
+import type { EvidenceItem, MemorySceneId } from "@/features/landing/memory-strip/types";
 import * as stories from "./MemoryStrip.stories";
 
 afterEach(cleanup);
 
-const SCENE_IDS: MemorySceneId[] = ["match-01", "match-24", "player-model"];
+const SCENE_IDS: MemorySceneId[] = ["match-01", "match-08", "match-24", "match-56", "player-model"];
 const dir = join(import.meta.dir, "..", "..", "features", "landing", "memory-strip");
 const css = readFileSync(join(dir, "memory-strip.css"), "utf8");
 const ids = (id: MemorySceneId) => MEMORY_SCENES[id].items.map((item) => item.id);
@@ -130,23 +130,219 @@ describe("Memory Strip phase A: deterministic scenes", () => {
   });
 });
 
-describe("Memory Strip phase A: Storybook states", () => {
-  it("exports the three desktop, three mobile and one review story", () => {
-    expect(Object.keys(stories).filter((name) => name !== "default").sort()).toEqual(
-      ["Match01", "Match01Mobile", "Match24", "Match24Mobile", "PlayerModel", "PlayerModelMobile", "Review"],
-    );
+describe("Memory Strip phase A+B: Storybook states", () => {
+  it("exports five desktop, five mobile and one review story", () => {
+    expect(Object.keys(stories).filter((name) => name !== "default").sort()).toEqual([
+      "Match01", "Match01Mobile", "Match08", "Match08Mobile", "Match24", "Match24Mobile",
+      "Match56", "Match56Mobile", "PlayerModel", "PlayerModelMobile", "Review",
+    ]);
     expect(stories.default.title).toBe("DS V1 / Landing 01B / Memory Strip");
+    expect(stories.default.argTypes.sceneId.options).toEqual(SCENE_IDS);
   });
 
   it("each story renders its scene; mobile stories render the same scene in a 390px frame", () => {
     const cases = [
-      [stories.Match01, "match-01", ""], [stories.Match24, "match-24", ""], [stories.PlayerModel, "player-model", ""],
-      [stories.Match01Mobile, "match-01", "390px"], [stories.Match24Mobile, "match-24", "390px"], [stories.PlayerModelMobile, "player-model", "390px"],
+      [stories.Match01, "match-01", ""], [stories.Match08, "match-08", ""], [stories.Match24, "match-24", ""],
+      [stories.Match56, "match-56", ""], [stories.PlayerModel, "player-model", ""],
+      [stories.Match01Mobile, "match-01", "390px"], [stories.Match08Mobile, "match-08", "390px"], [stories.Match24Mobile, "match-24", "390px"],
+      [stories.Match56Mobile, "match-56", "390px"], [stories.PlayerModelMobile, "player-model", "390px"],
     ] as const;
     for (const [Story, scene, width] of cases) {
       const { container } = render(<Story />);
       expect(container.querySelector(`[data-scene="${scene}"]`)).not.toBeNull();
       expect((container.firstElementChild as HTMLElement).style.width).toBe(width);
+      cleanup();
+    }
+  });
+
+  it("the Review story renders every one of the five scenes", () => {
+    for (const scene of SCENE_IDS) {
+      const { container } = render(<stories.Review sceneId={scene} />);
+      expect(container.querySelector(`[data-scene="${scene}"]`)).not.toBeNull();
+      cleanup();
+    }
+  });
+});
+
+const items = (id: MemorySceneId) => MEMORY_SCENES[id].items;
+const byId = (scene: MemorySceneId, id: string) => items(scene).find((item) => item.id === id);
+const relations = (scene: MemorySceneId, relation: string) => items(scene).filter((item) => item.kind === "path" && item.relation === relation);
+const IDENTITY_ONLY = new Set(["meaning", "label", "active"]);
+const geometry = (scene: MemorySceneId, id: string) => Object.fromEntries(Object.entries(byId(scene, id) as unknown as Record<string, unknown>).filter(([key]) => !IDENTITY_ONLY.has(key)));
+const heroOf = (scene: MemorySceneId, id: string) => (byId(scene, id) as { heroId: number }).heroId;
+
+describe("Memory Strip phase B: Match 08", () => {
+  it("shows a start of recurrence: the Match 01 path reinforced, about three recurring nodes, up to two echoes", () => {
+    const root = shot("match-08");
+    expect(root.querySelectorAll(".ms-node")).toHaveLength(3);
+    expect(root.querySelectorAll(".ms-echo").length).toBeGreaterThanOrEqual(1);
+    expect(root.querySelectorAll(".ms-echo").length).toBeLessThanOrEqual(2);
+    expect(relations("match-08", "retained").map((p) => p.id)).toEqual(["path:main", "path:reuse"]);
+    expect(geometry("match-08", "path:main")).toEqual(geometry("match-01", "path:main"));
+    expect(byId("match-08", "node:m1")).toMatchObject({ at: (byId("match-01", "node:m1") as { at: unknown }).at });
+    expect(root.querySelectorAll(".ms-contradiction")).toHaveLength(0);
+  });
+
+  it("keeps one weaker recurrence and one unresolved possible pattern that visibly stops", () => {
+    const root = shot("match-08");
+    expect(root.querySelector('[data-evidence="path:weak"]')?.getAttribute("data-relation")).toBe("uncertain");
+    expect(root.querySelector('[data-evidence="path:weak"] .ms-terminal')).toBeNull();
+    expect(root.querySelectorAll('[data-relation="uncertain"] .ms-terminal')).toHaveLength(1);
+    expect(root.querySelectorAll(".ms-region")).toHaveLength(1);
+  });
+
+  it("claims nothing: no counts, progress, scores or completion wording", () => {
+    const root = shot("match-08");
+    expect(root.textContent).toContain("Something is starting to repeat.");
+    expect(root.textContent).not.toMatch(/analy[sz]ed|progress|complete|score|rating|%|\d+\s+matches/i);
+    expect(root.querySelector("progress, [role='progressbar']")).toBeNull();
+  });
+});
+
+describe("Memory Strip phase B: Match 56", () => {
+  it("carries the four evidence groups: affinity, role, matchup response, situational exception", () => {
+    const root = shot("match-56");
+    for (const id of ["path:affinity", "path:role", "matchup:m1", "path:exception"]) {
+      expect(root.querySelector(`[data-evidence="${id}"]`)).not.toBeNull();
+    }
+    expect(root.querySelectorAll(".ms-echo").length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("keeps the Match 24 contradiction history and the qualified route, unchanged", () => {
+    const root = shot("match-56");
+    for (const id of ["marker:c1", "matchup:m1", "path:undertrace", "path:qualified", "echo:viper", "echo:b"]) {
+      expect(root.querySelector(`[data-evidence="${id}"]`)).not.toBeNull();
+    }
+    expect(root.querySelectorAll('[data-relation="qualified"] .ms-path-halo')).toHaveLength(1);
+    for (const id of ["marker:c1", "matchup:m1", "path:undertrace", "path:qualified", "path:main", "origin"]) {
+      expect(geometry("match-56", id)).toEqual(geometry("match-24", id));
+    }
+  });
+
+  it("keeps unresolved evidence and negative space: an open region, a path that stops, few paths and few labels", () => {
+    const root = shot("match-56");
+    expect(root.querySelectorAll(".ms-region")).toHaveLength(1);
+    expect(root.querySelectorAll('[data-relation="uncertain"] .ms-terminal')).toHaveLength(1);
+    expect(root.querySelectorAll(".ms-path").length).toBeLessThanOrEqual(8);
+    expect(labels(root).length).toBeLessThanOrEqual(6);
+    expect(labels(root).filter((node) => node.getAttribute("data-active") === "true").length).toBeLessThanOrEqual(2);
+  });
+
+  it("is not a model, a network or a dashboard: no score, no mesh of links", () => {
+    const root = shot("match-56");
+    expect(root.textContent).not.toMatch(/score|%|rating/i);
+    expect(root.textContent).toContain("not enough to call it a model");
+    expect(relations("match-56", "retained").length).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("Memory Strip phase B: five-state data model and continuity", () => {
+  it("has exactly the five canonical scenes, in order", () => {
+    expect(MEMORY_SCENE_ORDER).toEqual(SCENE_IDS);
+    expect(Object.keys(MEMORY_SCENES).sort()).toEqual([...SCENE_IDS].sort());
+    for (const id of SCENE_IDS) expect(MEMORY_SCENES[id].id).toBe(id);
+  });
+
+  it("keeps persistent ids stable: one id names one concept across every scene it appears in", () => {
+    for (const id of ["origin", "path:main", "role:you", "region:open"]) {
+      for (const scene of SCENE_IDS) expect(ids(scene)).toContain(id);
+    }
+    for (const id of ["marker:c1", "matchup:m1", "path:qualified", "path:undertrace"]) {
+      for (const scene of ["match-24", "match-56", "player-model"] as const) expect(ids(scene)).toContain(id);
+    }
+    for (const id of ["echo:storm", "echo:void", "echo:qop"]) expect(heroOf("match-56", id)).toBe(heroOf("player-model", id));
+    expect(heroOf("match-08", "echo:a")).toBe(heroOf("match-24", "echo:a"));
+    expect(heroOf("match-08", "echo:storm")).toBe(heroOf("match-56", "echo:storm"));
+    expect(heroOf("match-24", "echo:b")).toBe(heroOf("player-model", "echo:b"));
+  });
+
+  it("never reuses one id for two different kinds of evidence", () => {
+    const kindOf = new Map<string, EvidenceItem["kind"]>();
+    for (const scene of SCENE_IDS) {
+      for (const item of items(scene)) {
+        const known = kindOf.get(item.id);
+        if (known) expect(item.kind).toBe(known);
+        kindOf.set(item.id, item.kind);
+      }
+    }
+  });
+
+  it("describes every transition: each id of either scene has exactly one continuity entry, consistent with where it exists", () => {
+    expect(MEMORY_TRANSITIONS.map((t) => t.id as string)).toEqual(Object.keys(MEMORY_CONTINUITY));
+    for (const { id, from, to } of MEMORY_TRANSITIONS) {
+      const entries = MEMORY_CONTINUITY[id];
+      const inFrom = new Set(ids(from)), inTo = new Set(ids(to));
+      expect(entries.map((e) => e.id).sort()).toEqual([...new Set([...inFrom, ...inTo])].sort());
+      for (const entry of entries) {
+        if (["stays", "strengthens", "weakens", "qualifies", "moves"].includes(entry.verb)) {
+          expect(inFrom.has(entry.id) && inTo.has(entry.id)).toBe(true);
+        }
+        if (entry.verb === "enters" || entry.verb === "attaches") expect(!inFrom.has(entry.id) && inTo.has(entry.id)).toBe(true);
+        if (entry.verb === "exits") expect(inFrom.has(entry.id) && !inTo.has(entry.id)).toBe(true);
+        if (entry.verb === "expands") {
+          expect(!inFrom.has(entry.id) && inTo.has(entry.id)).toBe(true);
+          expect(entry.from !== undefined && inFrom.has(entry.from) && inTo.has(entry.from)).toBe(true);
+        }
+        if (entry.verb === "compresses") {
+          expect(inFrom.has(entry.id)).toBe(true);
+          expect(entry.into === undefined ? inTo.has(entry.id) : inTo.has(entry.into)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("never lets evidence vanish and reappear: absent in N, present in N-1 and N+1 ⇒ folds into X, then expands from that same X", () => {
+    const sceneIds = MEMORY_SCENE_ORDER.map((s) => new Set(ids(s)));
+    let checked = 0;
+    for (let n = 1; n < MEMORY_SCENE_ORDER.length - 1; n++) {
+      const before = MEMORY_TRANSITIONS[n - 1].id, after = MEMORY_TRANSITIONS[n].id;
+      for (const id of sceneIds[n - 1]) {
+        if (sceneIds[n].has(id) || !sceneIds[n + 1].has(id)) continue;
+        const fold = MEMORY_CONTINUITY[before].find((e) => e.id === id);
+        const unfold = MEMORY_CONTINUITY[after].find((e) => e.id === id);
+        expect(fold?.verb).toBe("compresses");
+        expect(fold?.into).toBeDefined();
+        expect(unfold?.verb).toBe("expands");
+        expect(unfold?.from).toBe(fold?.into);
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("lets historical evidence leave only by being folded into something that remains", () => {
+    for (const { id } of MEMORY_TRANSITIONS) {
+      expect(MEMORY_CONTINUITY[id].filter((e) => e.verb === "exits")).toHaveLength(0);
+    }
+  });
+
+  it("carries the Match 24 contradiction into Match 56 and the Player Model", () => {
+    for (const scene of ["match-24", "match-56", "player-model"] as const) {
+      expect(byId(scene, "marker:c1")?.kind).toBe("contradiction");
+      expect(byId(scene, "matchup:m1")?.kind).toBe("matchup");
+      expect(byId(scene, "path:undertrace")).toBeDefined();
+    }
+    const verb = (t: (typeof MEMORY_TRANSITIONS)[number]["id"], id: string) => MEMORY_CONTINUITY[t].find((e) => e.id === id)?.verb;
+    expect(verb("match-24>match-56", "marker:c1")).toBe("stays");
+    expect(verb("match-56>player-model", "marker:c1")).toBe("moves");
+  });
+
+  it("carries unresolved evidence into every scene: the open region survives and never exits", () => {
+    for (const scene of SCENE_IDS) expect(byId(scene, "region:open")?.kind).toBe("region");
+    for (const { id } of MEMORY_TRANSITIONS) {
+      expect(MEMORY_CONTINUITY[id].find((e) => e.id === "region:open")?.verb).not.toBe("exits");
+    }
+    for (const scene of ["match-01", "match-08", "match-56", "player-model"] as const) {
+      expect(relations(scene, "uncertain").length).toBeGreaterThan(0);
+    }
+  });
+
+  it("limits mobile labels: only active evidence keeps one on a narrow object, in the new scenes too", () => {
+    for (const scene of ["match-08", "match-56"] as const) {
+      const root = shot(scene);
+      const active = labels(root).filter((node) => node.getAttribute("data-active") === "true");
+      expect(active.length).toBeGreaterThan(0);
+      expect(active.length).toBeLessThanOrEqual(2);
       cleanup();
     }
   });

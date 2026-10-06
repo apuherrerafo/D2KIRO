@@ -1,4 +1,4 @@
-/* LANDING-01B · Memory Strip, Phase A. Static grammar only: no animation here on purpose (Phase B).
+/* LANDING-01B · Memory Strip, Phases A and B. Static grammar only: no animation here on purpose (Phase B).
    Colour only from the `--r3-*` tokens, custom properties prefixed `ms-`. Meaning is carried by geometry first
    (solid / dashed / faint / ribbon / split) and by colour second:
    cyan = retained · pink = contradiction · lime = qualified · neutral = unresolved. */
@@ -88,7 +88,7 @@
 .ms-label[data-side="below"] { justify-items: center; text-align: center; transform: translate(-50%, calc(var(--u) * var(--gap))); }
 .ms-label[data-side="below-left"] { justify-items: end; text-align: right; transform: translate(0, calc(var(--u) * var(--gap))) translateX(calc(-100% - var(--u) * var(--gap-x))); }
 .ms-label[data-side="left"] { justify-items: end; text-align: right; transform: translate(calc(-100% - var(--u) * var(--gap)), -50%); }
-.ms-label[data-side="right"] { transform: translate(calc(var(--u) * var(--gap)), -50%); }
+.ms-label[data-side="right"] { transform: translate(calc(var(--u) * (var(--gap) + var(--gap-x))), -50%); }
 
 /* narrow object: the same evidence, only the active labels stay */
 @container (max-width: 400px) {
@@ -108,11 +108,15 @@
   .ms-stage-number { font-size: 56px; }
   .ms-copy { font-size: 20px; }
 
-  /* Match 01 / 24 only: their evidence sits in a band of the 480 by 500 box, so the canvas becomes a window onto
+  /* Match 01 / 08 / 24 / 56: their evidence sits in a band of the 480 by 500 box, so the canvas becomes a window onto
      that band (same SVG + DOM layers, shifted up) instead of carrying empty rows above and below it. */
   .ms[data-scene="match-01"] .ms-canvas { --ms-top: 60; --ms-h: 380; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-08"] .ms-canvas { --ms-top: 40; --ms-h: 370; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
+  .ms[data-scene="match-56"] .ms-canvas { --ms-top: 36; --ms-h: 420; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
   .ms[data-scene="match-24"] .ms-canvas { --ms-top: 50; --ms-h: 330; aspect-ratio: 480 / var(--ms-h); overflow: hidden; }
   .ms[data-scene="match-01"] .ms-svg, .ms[data-scene="match-01"] .ms-dom,
+  .ms[data-scene="match-08"] .ms-svg, .ms[data-scene="match-08"] .ms-dom,
+  .ms[data-scene="match-56"] .ms-svg, .ms[data-scene="match-56"] .ms-dom,
   .ms[data-scene="match-24"] .ms-svg, .ms[data-scene="match-24"] .ms-dom {
     height: calc(100cqw * 500 / 480); inset: auto; left: 0; top: calc(-100cqw * var(--ms-top) / 480); width: 100%;
   }
