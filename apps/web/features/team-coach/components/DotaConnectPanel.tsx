@@ -2,6 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import {
+  COMPANION_INSTALLER_DOWNLOAD_ACTION,
+  COMPANION_ONCE,
+  COMPANION_SCOPE,
   GSI_CFG_EXAMPLE_PATHS,
   GSI_CFG_FOLDER,
   GSI_CONFIG_DOWNLOAD_ACTION,
@@ -110,9 +113,23 @@ export interface DotaSetupStepsProps {
   onDownload(): void;
 }
 
+/** D2KIRO Companion: the recommended one-time install (Windows). The page never sees the link inside it. */
+function CompanionInstall({ onDownload }: { onDownload(): void }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-accent-primary bg-surface-overlay p-3" data-testid="companion-install">
+      <span className="text-body font-semibold text-content-primary">D2KIRO Companion para Windows</span>
+      <span className="text-caption text-content-secondary">{COMPANION_ONCE}</span>
+      <GsiDownloadForm action={COMPANION_INSTALLER_DOWNLOAD_ACTION} label="Instalar D2KIRO Companion" testId="companion-installer-download" className={PRIMARY_BUTTON} onDownload={onDownload} />
+      <span className="text-caption text-content-muted">{COMPANION_SCOPE}</span>
+      <span className="text-caption text-content-muted">Es personal: no lo compartas. Si descargás uno nuevo, el anterior deja de funcionar.</span>
+    </div>
+  );
+}
+
 export function DotaSetupSteps({ installerLabel, manualLabel, onDownload }: DotaSetupStepsProps) {
   return (
     <div className="flex flex-col gap-3" data-testid="dota-setup-steps">
+      <CompanionInstall onDownload={onDownload} />
       <span className="text-body font-semibold text-content-primary">{GSI_INSTALLER_ONCE}</span>
       <ol className="flex flex-col gap-4">
         <Step number={1} title="Descargá el instalador para Windows">

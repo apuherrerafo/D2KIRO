@@ -447,6 +447,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (visualIngestMatch && request.method === "POST") {
       return liveGsiRoutes.postVisual(request, visualIngestMatch[1] ?? "");
     }
+    // D2KIRO Companion heartbeat: same public door and same link credential (relayed by apps/web).
+    const companionMatch = url.pathname.match(/^\/api\/live\/companion\/([^/]+)$/);
+    if (companionMatch && request.method === "POST") {
+      return liveGsiRoutes.postCompanion(request, companionMatch[1] ?? "");
+    }
     // Issue (= rotate) is called only by apps/web's server-side cfg download: it is deliberately absent
     // from the browser proxy allowlist (next.config.ts), so no browser script ever receives a token.
     if (request.method === "POST" && url.pathname === "/api/live/gsi-link/issue") {

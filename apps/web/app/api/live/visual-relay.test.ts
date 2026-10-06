@@ -2,6 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { parseLiveCaptureStatus } from "@/features/team-coach/validation";
 import { createGsiRelayHandler, type FetchLike, type RelayRequest } from "./gsi/[liveId]/route";
 import { VISUAL_RELAY_MAX_BYTES, visualAckOf } from "./visual/[liveId]/route";
+import { COMPANION_RELAY_MAX_BYTES } from "./companion/[liveId]/route";
+import { COMPANION_INSTALLER_ARTIFACT } from "./companion-installer/route";
+import { buildGsiConfig } from "@/lib/gsi-config";
 
 // Local visual capture, web side: the relay shares the GSI relay handler with a different engine path and a
 // few-KB cap, and the status mirror accepts the new "ocr" source / visual health. The engine is a fake fetch.
@@ -82,5 +85,37 @@ describe("status mirror", () => {
     expect(parseLiveCaptureStatus({ ...base, lastDetectedPick: null })).not.toBeNull();
     expect(parseLiveCaptureStatus({ ...base, lastDetectedPick: null, visual: { active: "yes" } })).toBeNull();
     expect(parseLiveCaptureStatus({ ...base, lastDetectedPick: { side: "radiant", heroId: 11, position: null, source: "camera", at: "x" } })).toBeNull();
+  });
+});
+
+describe("D2KIRO Companion relay and installer download", () => {
+  test("the heartbeat goes to the engine's companion path, answers by status only, and is capped at 1 KB", async () => {
+    const calls: string[] = [];
+    let reached = 0;
+    const relay = createGsiRelayHandler({
+      engineUrl: () => "http://127.0.0.1:4000",
+      enginePath: "/api/live/companion/",
+      maxBytes: COMPANION_RELAY_MAX_BYTES,
+      fetch: async (input) => {
+        calls.push(input);
+        reached += 1;
+        return new Response('{"leak":"engine detail"}', { status: 200 });
+      },
+    });
+    const response = await relay(fakeRequest('{"auth":{"token":"t"},"companion":{}}'), LIVE_ID);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("");
+    expect(calls).toEqual([`http://127.0.0.1:4000/api/live/companion/${LIVE_ID}`]);
+    expect((await relay(fakeRequest("x".repeat(COMPANION_RELAY_MAX_BYTES + 1)), LIVE_ID)).status).toBe(413);
+    expect((await relay(fakeRequest("{}"), "not-a-live-id")).status).toBe(401);
+    expect(reached).toBe(1);
+  });
+
+  test("the download is the personal Companion installer: the link travels only inside its data block", () => {
+    const token = "ab".repeat(32);
+    const file = COMPANION_INSTALLER_ARTIFACT.render(buildGsiConfig(`https://d2kiro.example/api/live/gsi/${LIVE_ID}`, token));
+    expect(COMPANION_INSTALLER_ARTIFACT.filename).toBe("instalar-d2kiro-companion.cmd");
+    expect(file.startsWith("@echo off")).toBe(true);
+    expect(file.indexOf(token)).toBeGreaterThan(file.indexOf("#D2KIRO-CFG-BEGIN"));
   });
 });

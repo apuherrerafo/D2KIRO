@@ -491,6 +491,18 @@ class GsiCfgTests(unittest.TestCase):
         self.assertIsNone(parse_cfg(self.CFG.replace("https://", "http://")))
         self.assertIsNone(parse_cfg(self.CFG.replace("ab" * 32, "zz")))
 
+    def test_with_d2kiro_companion_it_posts_to_the_local_relay_with_the_local_token(self):
+        from d2vc.gsicfg import parse_cfg
+        from d2vc.transport import LinkSender
+
+        companion = self.CFG.replace("https://d2kiro-test.up.railway.app/api/live/gsi/" + "L" * 43, "http://127.0.0.1:53120/gsi")
+        link = parse_cfg(companion)
+        self.assertEqual((link.base_url, link.live_id, link.token), ("http://127.0.0.1:53120/relay", "companion", "ab" * 32))
+        self.assertEqual(LinkSender(link.base_url, link.live_id, link.token).url, "http://127.0.0.1:53120/relay/api/live/visual/companion")
+        # Only the Companion's exact loopback shape: any other http URI is still refused.
+        self.assertIsNone(parse_cfg(companion.replace("127.0.0.1", "evil.example")))
+        self.assertIsNone(parse_cfg(companion.replace("/gsi", "/other")))
+
     def test_link_sender_posts_to_the_visual_path_and_never_the_frame(self):
         from d2vc.transport import LinkSender
 

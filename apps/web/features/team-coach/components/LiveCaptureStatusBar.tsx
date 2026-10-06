@@ -1,7 +1,7 @@
 "use client";
 
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { CAPTURE_NOT_ENABLED, DOTA_NOT_RUNNING, GSI_DRAFT_PARTIAL, teamPositionName } from "../constants";
+import { CAPTURE_NOT_ENABLED, DOTA_NOT_RUNNING, GSI_DRAFT_PARTIAL, LIVE_PHASE_LABELS, teamPositionName } from "../constants";
 import { STATUS_PILL_BAD, STATUS_PILL_MUTED, STATUS_PILL_OK, STATUS_PILL_WARN } from "../styles";
 import type { LiveCaptureStatus } from "../types";
 
@@ -14,7 +14,25 @@ interface Pill {
   text: string;
 }
 
+/** The Companion when it is alive, else null: an old heartbeat is never presented as current. */
+function activeCompanion(status: LiveCaptureStatus | null) {
+  const companion = status?.companion ?? null;
+  if (companion === null || !companion.active) return null;
+  return companion;
+}
+
+/** What the Companion on the Player's PC knows when Dota is NOT talking to the session yet. */
+function companionDotaPill(status: LiveCaptureStatus | null): Pill | null {
+  const companion = activeCompanion(status);
+  if (companion === null || companion.dota === "connected") return null;
+  if (companion.restartNeeded) return { className: STATUS_PILL_WARN, text: "● Reiniciá Dota 2 (sólo esta vez)" };
+  if (companion.dota === "waiting") return { className: STATUS_PILL_WARN, text: "● Dota abierto · todavía sin datos" };
+  return { className: STATUS_PILL_MUTED, text: "● Dota 2 cerrado · abrilo y jugá normal" };
+}
+
 export function connectionPill(status: LiveCaptureStatus | null): Pill {
+  const fromCompanion = status?.connection === "connected" ? null : companionDotaPill(status);
+  if (fromCompanion !== null) return fromCompanion;
   if (status === null || status.connection === "waiting") return { className: STATUS_PILL_MUTED, text: "● Esperando Dota..." };
   if (status.connection === "stale") return { className: STATUS_PILL_WARN, text: "● Reconectando..." };
   if (status.captureDetail === DOTA_NOT_RUNNING) return { className: STATUS_PILL_WARN, text: "● Dota 2 no está abierto" };
@@ -37,6 +55,26 @@ export function visualPill(status: LiveCaptureStatus | null): Pill {
   if (status?.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
   if (status?.draftPhase !== "hero_selection") return { className: STATUS_PILL_OK, text: "● Ventana de Dota encontrada · esperando selección de héroes" };
   return { className: STATUS_PILL_OK, text: `● ${Math.min(status.picks, 10)}/10 héroes reconocidos` };
+}
+
+/** D2KIRO Companion: the local background app that keeps Dota connected (heartbeat every 15 s). */
+export function companionPill(status: LiveCaptureStatus | null): Pill {
+  const companion = activeCompanion(status);
+  if (companion !== null) return { className: STATUS_PILL_OK, text: "● Companion conectado" };
+  if (status?.companion) return { className: STATUS_PILL_WARN, text: "● Companion sin señal · ¿está prendida la PC?" };
+  return { className: STATUS_PILL_MUTED, text: "● Companion no detectado" };
+}
+
+const GSI_PHASE_KEYS: Readonly<Record<string, string>> = Object.freeze({ idle: "MENU", loading: "LOADING", draft: "HERO_SELECTION", match: "MATCH" });
+
+/** Dota lifecycle: the Companion's local reading when alive, else the GSI the session received. */
+export function phasePill(status: LiveCaptureStatus | null): Pill {
+  const companion = activeCompanion(status);
+  let key: string | null = null;
+  if (companion !== null && companion.dota === "connected") key = companion.phase;
+  else if (status?.gsi?.active) key = GSI_PHASE_KEYS[status.gsi.phase] ?? null;
+  if (key === null) return { className: STATUS_PILL_MUTED, text: "—" };
+  return { className: "text-body text-content-primary", text: LIVE_PHASE_LABELS[key] ?? "—" };
 }
 
 export function isCaptureDegraded(status: LiveCaptureStatus | null): boolean {
@@ -125,8 +163,10 @@ function DeferredNotice({ status }: { status: LiveCaptureStatus | null }) {
 export function LiveCaptureStatusBar({ status, heroCatalog }: DetectedPickProps) {
   return (
     <div className="flex flex-col gap-3" data-testid="live-capture-status">
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-3">
+        <StatusItem label="COMPANION" pill={companionPill(status)} />
         <StatusItem label="CONNECTION" pill={connectionPill(status)} />
+        <StatusItem label="PHASE" pill={phasePill(status)} />
         <StatusItem label="CAPTURE" pill={capturePill(status)} />
         <StatusItem label="VISUAL" pill={visualPill(status)} />
         <StatusItem label="SIDE" pill={{ className: "text-body text-content-primary", text: sideText(status) }} />
