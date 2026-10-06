@@ -180,6 +180,8 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
    * session and its owner (the body can never name either), refusals are indistinguishable, and nothing from the
    * body is logged or echoed. Body: { auth: { token }, envelope: draft-event/v1 with source "ocr" }.
    * Only picks / reverts / bans / its own health are accepted -- never a frame, text, or a lifecycle event.
+   * The 200 answer carries the draft lifecycle GSI decided (LiveVisualAck: phase + draft counter, nothing else),
+   * so the helper can re-arm on each new hero-selection screen without the Player touching it.
    */
   async function postVisual(request: Request, liveId: string): Promise<Response> {
     const at = now();
@@ -208,7 +210,8 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     // The session is the link's, whatever the envelope claims.
     const owned: DraftEventEnvelope = { ...envelope, sessionId: link.sessionId };
     const outcome = deps.registry.ingestEnvelope(owned);
-    return outcome.accepted ? new Response(null, { status: 200 }) : noStore({ error: "live_session_unavailable" }, 409);
+    const ack = outcome.accepted ? deps.registry.visualAck(link.sessionId) : null;
+    return ack !== null ? noStore(ack, 200) : noStore({ error: "live_session_unavailable" }, 409);
   }
 
   /** apps/web's cfg download ONLY (not in the browser proxy allowlist): the one response that carries a token. */

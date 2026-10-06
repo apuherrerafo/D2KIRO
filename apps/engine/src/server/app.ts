@@ -380,7 +380,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       const outcome = liveCaptureRegistry.ingestEnvelope(body);
       return Response.json(
         outcome.accepted
-          ? { accepted: true, changed: outcome.changed, ignored: outcome.ignored, live: outcome.status }
+          ? { accepted: true, changed: outcome.changed, ignored: outcome.ignored, live: outcome.status, ...(body.source === "ocr" ? { ack: liveCaptureRegistry.visualAck(body.sessionId) } : {}) }
           : { accepted: false, rejected: outcome.reason },
         { status: outcome.accepted ? 202 : 409 },
       );

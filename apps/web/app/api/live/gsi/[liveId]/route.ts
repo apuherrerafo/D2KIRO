@@ -27,6 +27,11 @@ export interface GsiRelayDependencies {
   maxBytes?: number;
   fetch: FetchLike;
   readDeadlineMs?: number;
+  /**
+   * Optional allowlist for a 200 answer's body. Default (GSI): status only. The visual relay passes one so the
+   * helper learns the draft lifecycle; whatever it does not rebuild field by field never leaves the container.
+   */
+  answerOf?: (engineBody: unknown) => object | null;
 }
 
 function empty(status: number): Response {
@@ -101,7 +106,11 @@ export function createGsiRelayHandler(dependencies: GsiRelayDependencies) {
         cache: "no-store",
         signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
       });
-      // Status only: whatever the engine answered stays inside the container.
+      // Status only: whatever the engine answered stays inside the container (unless `answerOf` rebuilds it).
+      if (engineResponse.status === 200 && dependencies.answerOf) {
+        const answer = dependencies.answerOf(await engineResponse.json().catch(() => null));
+        if (answer !== null) return Response.json(answer, { status: 200, headers: { "cache-control": "no-store" } });
+      }
       return empty(FORWARDED_STATUSES.has(engineResponse.status) ? engineResponse.status : 502);
     } catch {
       return empty(503);

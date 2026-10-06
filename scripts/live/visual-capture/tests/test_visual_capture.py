@@ -19,7 +19,7 @@ from d2vc.scan import scan_frame
 from d2vc.session import VisualSession
 from d2vc.stability import StabilityFilter
 from d2vc.synth import blank_slot, compose_screen, degrade
-from d2vc.transport import Outbox
+from d2vc.transport import DraftLifecycle, Outbox
 
 CATALOG = fake_catalog()
 MATCHER = Matcher(CATALOG)
@@ -31,8 +31,11 @@ def screen(radiant, dire, *, size=(1920, 1080), seed=1):
     return compose_screen(CATALOG, LAYOUT, size[0], size[1], radiant=radiant, dire=dire, seed=seed, with_grid=False)
 
 
-def new_session():
-    return VisualSession(MATCHER, LAYOUT, DEFAULT_THRESHOLDS, EnvelopeFactory("live-session-1", "run1", CLOCK))
+def new_session(lifecycle=DraftLifecycle("hero_selection", 1)):
+    """A helper INSIDE hero selection by default (GSI said so); pass a non-draft lifecycle or None for menu/lobby."""
+    session = VisualSession(MATCHER, LAYOUT, DEFAULT_THRESHOLDS, EnvelopeFactory("live-session-1", "run1", CLOCK))
+    session.on_lifecycle(lifecycle)
+    return session
 
 
 def jitter(frame, seed, amplitude=2):
@@ -271,7 +274,7 @@ class SessionAndPrivacyTests(unittest.TestCase):
             self.assertNotIn(jargon, line.lower())
 
     def test_status_line_waits_then_looks_for_window(self):
-        session = new_session()
+        session = new_session(DraftLifecycle("waiting", 0))
         self.assertIn("looking for the Dota window", session.status.line())
         session.process(screen([None] * 5, [None] * 5), 0)
         self.assertIn("waiting for hero selection", session.status.line())
@@ -495,6 +498,215 @@ class GsiCfgTests(unittest.TestCase):
         self.assertEqual(sender.url, "https://x.example/api/live/visual/" + "L" * 43)
         with self.assertRaises(PrivacyViolation):
             sender.post({"schema": "draft-event/v1", "frame": b"raw"})
+
+
+WAITING = DraftLifecycle("waiting", 0)
+DRAFT_1 = DraftLifecycle("hero_selection", 1)
+ENDED_1 = DraftLifecycle("ended", 1)
+DRAFT_2 = DraftLifecycle("hero_selection", 2)
+GHOSTS = OccupancyGateRegressionTests.GHOSTS
+
+
+def lobby_screen():
+    """Menu / lobby / matchmaking / in-match bar: a different screen, full of portrait-like art the matcher would name."""
+    return screen([1, 2, 3, 4, 5], [6, 7, 8, 9, 10])
+
+
+def heartbeats(envelopes):
+    return [e for e in envelopes if e["payload"]["type"] == "capture_health"]
+
+
+class AutoArmTests(unittest.TestCase):
+    """The helper is started BEFORE the queue and the Player never touches it again. GSI (through the server's
+    answer to each visual POST) is the only thing that opens a draft: the helper re-arms by itself on each new
+    hero-selection screen, takes its empty baseline THERE, and states nothing outside a draft."""
+
+    def enter_draft(self, session, t, lifecycle=DRAFT_1):
+        self.assertTrue(session.on_lifecycle(lifecycle))  # a draft boundary: the caller drops queued facts
+        self.assertFalse(session.status.armed)  # nothing carried over: a fresh baseline is required
+        t, sent = feed(session, ghost_screen(GHOSTS), t, 12)  # the real, empty hero-selection bar
+        self.assertTrue(session.status.armed)
+        return t, sent
+
+    def test_helper_running_in_lobby_before_queue_is_closed_and_keeps_asking(self):
+        session = new_session(WAITING)
+        t, sent = feed(session, lobby_screen(), 0, 80)  # 10 s in the menu / lobby / matchmaking
+        self.assertEqual(picks(sent), [])
+        self.assertFalse(session.status.draft_open)
+        self.assertFalse(session.status.armed)
+        self.assertFalse(session.gate.armed)  # NO lobby baseline exists to contaminate the draft
+        self.assertEqual(len(session.gate._buffer), 0)
+        self.assertGreaterEqual(len(heartbeats(sent)), 9)  # ~1/s: each one asks the server "draft yet?"
+        self.assertIn("waiting for hero selection", session.status.line())
+
+    def test_lobby_to_hero_selection_rearms_automatically_on_the_real_screen(self):
+        session = new_session(WAITING)
+        t, _ = feed(session, lobby_screen(), 0, 40)
+        self.assertFalse(session.on_lifecycle(WAITING))  # still the lobby: nothing to do
+        t, _ = self.enter_draft(session, t)
+        self.assertTrue(session.status.draft_open)
+        # The baseline is the hero-selection bar, not the lobby: the lobby screen now reads as a wholesale scene
+        # change (re-baseline), never as ten picks.
+        _, back = feed(session, lobby_screen(), t, 30)
+        self.assertEqual(picks(back), [])
+
+    def test_zero_of_ten_before_the_first_real_pick_then_exactly_one(self):
+        session = new_session(WAITING)
+        t, _ = feed(session, lobby_screen(), 0, 24)
+        t, _ = self.enter_draft(session, t)
+        t, idle = feed(session, ghost_screen(GHOSTS), t, 56)  # ~7 s of ban phase on an empty bar
+        self.assertEqual(picks(idle), [])
+        self.assertEqual(session.status.confirmed, 0)
+        self.assertIn("0/10 heroes recognized", session.status.line())
+        _, first = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        self.assertEqual(picks(first), [("hero_picked", "radiant", 7)])
+        self.assertEqual(session.status.confirmed, 1)
+        self.assertIn("1/10 heroes recognized", session.status.line())
+
+    def test_visual_facts_before_the_draft_starts_are_never_emitted(self):
+        for lifecycle in (WAITING, ENDED_1, None):  # lobby, after a match, server not answering (fail closed)
+            session = new_session(lifecycle)
+            base = ghost_screen(GHOSTS)
+            t, sent = feed(session, base, 0, 12)
+            _, more = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 40)
+            self.assertEqual(picks(sent + more), [], lifecycle)
+            self.assertEqual(session.status.confirmed, 0, lifecycle)
+            self.assertFalse(session.status.armed, lifecycle)
+        self.assertIn("connecting to D2KIRO", _windowed(new_session(None)).status.line())
+
+    def test_no_stale_candidate_survives_the_automatic_rearm(self):
+        session = new_session(WAITING)
+        t, _ = self.enter_draft(session, 0)
+        with_hero = paste(ghost_screen(GHOSTS), "radiant", 0, hero_slot(11, "radiant", 0))
+        t, half = feed(session, with_hero, t, 2)  # a candidate: seen, not yet confirmed
+        self.assertEqual(picks(half), [])
+        self.assertTrue(session.stability.tracks)
+        # The draft is abandoned and a new one starts (new epoch) -- the Player never touches the helper.
+        self.assertTrue(session.on_lifecycle(DRAFT_2))
+        self.assertEqual(session.stability.tracks, {})
+        self.assertEqual(session._first_seen_ms, {})
+        self.assertFalse(session.status.armed)
+        self.assertEqual(session.status.confirmed, 0)
+        t, _ = feed(session, ghost_screen(GHOSTS), t, 12)  # the new draft's empty bar
+        self.assertTrue(session.status.armed)
+        self.assertEqual([(k, tr.candidate, tr.confirmed) for k, tr in session.stability.tracks.items() if tr.candidate is not None or tr.confirmed is not None], [])
+        _, again = feed(session, with_hero, t, 2)  # the same 2 frames again: the old ones do not count
+        self.assertEqual(picks(again), [])
+        # Queued facts of the old draft are dropped at the boundary; health stays.
+        factory = EnvelopeFactory("s", "r", CLOCK)
+        outbox = Outbox(type("Down", (), {"post": lambda self, _: False})())
+        from d2vc.stability import VisualEvent
+
+        outbox.submit([factory.from_event(VisualEvent("pick", "radiant", 11, 0.9, 0)), factory.health("ok", "VISUAL_OK")])
+        outbox.discard_facts()
+        self.assertEqual([e["payload"]["type"] for e in outbox.pending], ["capture_health"])
+
+    def test_the_same_draft_answered_again_never_rearms_mid_draft(self):
+        session = new_session(WAITING)
+        t, _ = self.enter_draft(session, 0)
+        t, first = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        self.assertEqual(picks(first), [("hero_picked", "radiant", 7)])
+        for _ in range(20):  # every heartbeat's answer repeats the same draft
+            self.assertFalse(session.on_lifecycle(DRAFT_1))
+        self.assertFalse(session.on_lifecycle(None))  # a dropped request does not close the draft either
+        self.assertTrue(session.status.armed)
+        self.assertEqual(session.status.confirmed, 1)
+
+    def test_second_game_without_restarting_the_helper(self):
+        session = new_session(WAITING)
+        t, _ = feed(session, lobby_screen(), 0, 24)
+        t, _ = self.enter_draft(session, t, DRAFT_1)
+        t, game1 = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        self.assertEqual(picks(game1), [("hero_picked", "radiant", 7)])
+        self.assertTrue(session.on_lifecycle(ENDED_1))  # GSI: into the match
+        self.assertFalse(session.status.draft_open)
+        t, match = feed(session, lobby_screen(), t, 80)  # 10 s of the in-match top bar, then the menu
+        self.assertEqual(picks(match), [])
+        self.assertEqual(session.status.confirmed, 0)
+        self.assertFalse(session.on_lifecycle(ENDED_1))
+        t, _ = self.enter_draft(session, t, DRAFT_2)  # next queue, same helper process
+        t, idle = feed(session, ghost_screen(GHOSTS), t, 24)
+        self.assertEqual(picks(idle), [])
+        self.assertIn("0/10 heroes recognized", session.status.line())
+        _, game2 = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        self.assertEqual(picks(game2), [("hero_picked", "radiant", 7)])  # same hero, same slot: game 2's own fact
+        self.assertEqual(session.status.confirmed, 1)
+
+    def test_lifecycle_answer_is_validated(self):
+        from d2vc.transport import lifecycle_of
+
+        ack = {"schema": "live-visual-ack/v1", "draftPhase": "hero_selection", "draftEpoch": 3}
+        self.assertEqual(lifecycle_of(ack), DraftLifecycle("hero_selection", 3))
+        self.assertEqual(lifecycle_of({"accepted": True, "ack": ack}), DraftLifecycle("hero_selection", 3))  # local engine
+        for bad in (None, "", [], {}, {**ack, "schema": "x"}, {**ack, "draftPhase": "picking"}, {**ack, "draftEpoch": -1}, {**ack, "draftEpoch": True}, {**ack, "draftEpoch": "3"}):
+            self.assertIsNone(lifecycle_of(bad), bad)
+
+
+def _windowed(session):
+    session.process(ghost_screen(GHOSTS), 0)
+    return session
+
+
+class LiveLoopAutoArmTests(unittest.TestCase):
+    """`python -m d2vc live` end to end (fake window, fake clock, fake server): started in the lobby, two games,
+    zero Player actions. The server's lifecycle answers are the only input besides the frames."""
+
+    def test_two_games_from_one_helper_start(self):
+        from unittest import mock
+
+        from d2vc import cli
+
+        ghost = ghost_screen(GHOSTS)
+        pick7 = paste(ghost, "radiant", 2, hero_slot(7, "radiant", 2))
+        pick7_3 = paste(pick7, "dire", 4, hero_slot(3, "dire", 4))
+        segments = [  # (steps at 8 fps, frame, what the server (GSI) says)
+            (40, lobby_screen(), WAITING),  # helper started before the queue
+            (32, ghost, DRAFT_1),  # hero selection: bans, empty bar
+            (24, pick7, DRAFT_1),
+            (64, lobby_screen(), ENDED_1),  # the match
+            (24, lobby_screen(), ENDED_1),  # back in the menu, queue again
+            (32, ghost, DRAFT_2),
+            (24, pick7, DRAFT_2),
+            (24, pick7_3, DRAFT_2),
+        ]
+        script = [(jitter(frame, i), lifecycle) for steps, frame, lifecycle in segments for i in range(steps)]
+        state = {"step": 0}
+        wire: list[tuple[DraftLifecycle, dict]] = []
+
+        class FakeBackend:
+            window_found = True
+
+            def __init__(self, *_):
+                pass
+
+            def latest(self):
+                return script[state["step"]][0]
+
+            def stop(self):
+                pass
+
+        class FakeServer:
+            lifecycle = None
+
+            def post(self, envelope):
+                server_says = script[state["step"]][1]
+                wire.append((server_says, envelope))
+                self.lifecycle = server_says
+                return True
+
+        def sleep(_):
+            state["step"] += 1
+            if state["step"] >= len(script):
+                raise KeyboardInterrupt
+
+        with mock.patch("d2vc.backend.WgcBackend", FakeBackend), mock.patch.object(cli, "_sender_from_env", return_value=(FakeServer(), "link")), mock.patch.object(cli, "load_catalog", return_value=CATALOG), mock.patch.object(cli.time, "sleep", side_effect=sleep), mock.patch.object(cli.time, "monotonic", side_effect=lambda: state["step"] * 0.125), mock.patch.object(cli, "DEFAULT_LAYOUT_PATH", cli.DEFAULT_LAYOUT_PATH.with_name("absent-layout.json")), mock.patch("builtins.print"):
+            self.assertEqual(cli.main(["live"]), 0)
+
+        facts = [(said, e) for said, e in wire if e["payload"]["type"] != "capture_health"]
+        self.assertEqual(picks([e for _, e in facts]), [("hero_picked", "radiant", 7), ("hero_picked", "radiant", 7), ("hero_picked", "dire", 3)])
+        self.assertTrue(all(said.drafting for said, _ in facts))  # not one fact while GSI said lobby / match
+        self.assertEqual([said.epoch for said, _ in facts], [1, 2, 2])  # one pick in game 1, two in game 2
+        self.assertGreaterEqual(sum(1 for said, _ in wire if said == WAITING), 4)  # 5 s in the lobby: it kept asking
 
 
 if __name__ == "__main__":

@@ -122,9 +122,10 @@ describe("visual capture -- facts reach the live session", () => {
     expect(t.registry.status(link.sessionId)!.picks).toBe(1);
     await t.pick(link, "radiant", 30); // the screen shows the same hero GSI already reported
     expect(t.registry.status(link.sessionId)!.picks).toBe(1);
-    // and the other order: the screen first, then GSI repeats the whole state on every update
+    // and the other order, inside the draft: the screen first, then GSI repeats the whole state on every update
     const t2 = setup();
     const link2 = await t2.issue(A);
+    await t2.gsiPartial(link2); // hero selection started, our hero not locked yet
     await t2.pick(link2, "radiant", 30);
     await t2.gsiPartial(link2, 30);
     await t2.gsiPartial(link2, 30);
@@ -134,6 +135,7 @@ describe("visual capture -- facts reach the live session", () => {
   test("a repeated visual envelope (same eventId) is idempotent", async () => {
     const t = setup();
     const link = await t.issue(A);
+    await t.gsiPartial(link);
     const body = { auth: { token: link.token }, envelope: { schema: "draft-event/v1", eventId: "ocr-fixed-1", sessionId: "x", seq: 1, emittedAt: "2026-10-04T12:00:00.000Z", source: "ocr", confidence: 0.8, payload: { type: "hero_picked", hero: 11, side: "radiant" } } };
     expect((await t.visual(link, body)).status).toBe(200);
     expect((await t.visual(link, body)).status).toBe(200);
@@ -143,6 +145,7 @@ describe("visual capture -- facts reach the live session", () => {
   test("a changed pick is reverted by the capturer and replaced", async () => {
     const t = setup();
     const link = await t.issue(A);
+    await t.gsiPartial(link);
     await t.pick(link, "dire", 21);
     await t.send(link, { type: "pick_reverted", hero: 21, side: "dire" });
     await t.pick(link, "dire", 22);
@@ -152,6 +155,7 @@ describe("visual capture -- facts reach the live session", () => {
   test("bans seen on screen are bans (side unknown)", async () => {
     const t = setup();
     const link = await t.issue(A);
+    await t.gsiPartial(link);
     expect((await t.send(link, { type: "hero_banned", hero: 40, side: "unknown" })).status).toBe(200);
     expect(t.registry.status(link.sessionId)!.bans).toBe(1);
   });
@@ -239,6 +243,7 @@ describe("visual capture -- trust boundary", () => {
     const t = setup();
     const a = await t.issue(A);
     const b = await t.issue(B);
+    await t.gsiPartial(a);
     const response = await t.visual(a, { auth: { token: a.token }, envelope: { ...envelopeFor(11), sessionId: b.sessionId } });
     expect(response.status).toBe(200);
     expect(t.registry.status(a.sessionId)!.picks).toBe(1);
@@ -279,10 +284,85 @@ describe("visual capture -- trust boundary", () => {
   test("ocr is a distinct source: the legacy overwolf path keeps its own label", async () => {
     const t = setup();
     const link = await t.issue(A);
+    await t.gsiPartial(link);
     t.registry.ingestEnvelope({ ...envelopeFor(11), source: "overwolf", sessionId: link.sessionId });
     expect(t.registry.status(link.sessionId)!.lastDetectedPick).toMatchObject({ heroId: 11, source: "overwolf" });
     t.registry.ingestEnvelope({ ...envelopeFor(12), sessionId: link.sessionId });
     expect(t.registry.status(link.sessionId)!.lastDetectedPick).toMatchObject({ heroId: 12, source: "ocr" });
+  });
+});
+
+describe("visual capture -- GSI owns the draft lifecycle (helper left running from before the queue)", () => {
+  const MENU = { gameState: null, teamName: "radiant" } as const;
+  async function ack(response: Response) {
+    expect(response.status).toBe(200);
+    return (await response.json()) as { schema: string; draftPhase: string; draftEpoch: number };
+  }
+  const heartbeat = (t: ReturnType<typeof setup>, link: { liveId: string; token: string; sessionId: string }) => t.send(link, { type: "capture_health", status: "ok", detail: "VISUAL_OK" });
+
+  test("visual facts before GSI hero selection are refused, and never resurface when the draft starts", async () => {
+    const t = setup();
+    const link = await t.issue(A);
+    await t.gsi(link, MENU); // Dota in the menu / lobby / matchmaking
+    expect(await ack(await t.pick(link, "radiant", 11))).toEqual({ schema: "live-visual-ack/v1", draftPhase: "waiting", draftEpoch: 0 });
+    await t.send(link, { type: "hero_banned", hero: 40, side: "unknown" });
+    await t.pick(link, "dire", 21);
+    expect(t.registry.status(link.sessionId)).toMatchObject({ picks: 0, bans: 0, draftPhase: "waiting", lastDetectedPick: null });
+    // Also with no GSI at all yet (helper started before Dota said anything).
+    const fresh = setup();
+    const other = await fresh.issue(B);
+    const outcome = fresh.registry.ingestEnvelope({ ...envelopeFor(11), sessionId: other.sessionId });
+    expect(outcome).toMatchObject({ accepted: true, changed: false, ignored: "draft_not_started" });
+
+    await t.gsiPartial(link); // GSI: DOTA_GAMERULES_STATE_HERO_SELECTION
+    expect(t.registry.status(link.sessionId)).toMatchObject({ picks: 0, bans: 0, draftPhase: "hero_selection" }); // 0/10
+    await t.pick(link, "dire", 21); // the first real visible pick
+    expect(t.registry.status(link.sessionId)!.picks).toBe(1); // exactly 1/10
+  });
+
+  test("the visual heartbeat in the lobby still reports the capturer's health (only facts are gated)", async () => {
+    const t = setup();
+    const link = await t.issue(A);
+    await t.gsi(link, MENU);
+    await heartbeat(t, link);
+    expect(t.registry.status(link.sessionId)!.visual).toMatchObject({ active: true, health: "ok", detail: "VISUAL_OK" });
+  });
+
+  test("every answer carries the lifecycle: lobby -> draft 1 -> match -> menu -> draft 2, one helper", async () => {
+    const t = setup();
+    const link = await t.issue(A);
+    expect(await ack(await heartbeat(t, link))).toMatchObject({ draftPhase: "waiting", draftEpoch: 0 });
+    await t.gsi(link, MENU);
+    expect(await ack(await heartbeat(t, link))).toMatchObject({ draftPhase: "waiting", draftEpoch: 0 });
+    await t.gsi(link, { teamName: "radiant", matchId: "1001" });
+    expect(await ack(await heartbeat(t, link))).toMatchObject({ draftPhase: "hero_selection", draftEpoch: 1 });
+    await t.gsi(link, { teamName: "radiant", matchId: "1001" }); // GSI repeats hero selection: same draft
+    await t.pick(link, "radiant", 11);
+    expect(await ack(await heartbeat(t, link))).toMatchObject({ draftPhase: "hero_selection", draftEpoch: 1 });
+    await t.gsi(link, { gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", teamName: "radiant", heroId: 30, matchId: "1001" });
+    expect(await ack(await t.pick(link, "dire", 21))).toMatchObject({ draftPhase: "ended", draftEpoch: 1 }); // top bar: dropped
+    await t.gsi(link, MENU);
+    expect(await ack(await heartbeat(t, link))).toMatchObject({ draftPhase: "ended", draftEpoch: 1 });
+    expect(t.registry.status(link.sessionId)!.picks).toBe(1);
+
+    await t.gsi(link, { teamName: "radiant", matchId: "1002" }); // next queue
+    expect(await ack(await heartbeat(t, link))).toMatchObject({ draftPhase: "hero_selection", draftEpoch: 2 });
+    expect(t.registry.status(link.sessionId)!.picks).toBe(0); // game 1 is gone: 0/10
+    await t.pick(link, "radiant", 11); // same hero as game 1: game 2's own fact
+    expect(t.registry.status(link.sessionId)!.picks).toBe(1);
+  });
+
+  test("own hero still dedupes with GSI inside the gated draft (both orders)", async () => {
+    const t = setup();
+    const link = await t.issue(A);
+    await t.gsi(link, MENU);
+    await t.pick(link, "radiant", 30); // pre-draft: refused
+    await t.gsiPartial(link);
+    await t.pick(link, "radiant", 30); // screen first
+    await t.gsiPartial(link, 30); // then GSI locks the same hero
+    await t.gsiPartial(link, 30);
+    await t.pick(link, "radiant", 30);
+    expect(t.registry.status(link.sessionId)!.picks).toBe(1);
   });
 });
 
