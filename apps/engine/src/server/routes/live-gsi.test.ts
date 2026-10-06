@@ -3,10 +3,10 @@ import type { TeamCoachBoard } from "../../coach";
 import { fakeCompute } from "../../coach/session-harness.fixtures";
 import { createGsiLinkTestDb, gsiPayload, SENTINELS } from "../../live/gsi.fixtures";
 import { createGsiLinkStore, GSI_LINK_TTL_MS } from "../../live/gsi-links";
-import { GSI_DRAFT_PARTIAL, GSI_ITEM_CHANGES, LiveCaptureRegistry, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
+import { GSI_DRAFT_PARTIAL, GSI_ITEM_CHANGES, LiveCaptureRegistry, LIVE_COMPANION_STALE_AFTER_MS, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
-import { createLiveGsiRoutes, GSI_MAX_BODY_BYTES } from "./live-gsi";
+import { COMPANION_MAX_BODY_BYTES, createLiveGsiRoutes, GSI_MAX_BODY_BYTES, parseCompanionHeartbeat } from "./live-gsi";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
 
 // TSK-219 -- the public GSI boundary end to end on the engine side: link store (REAL migration 0009 on
@@ -50,7 +50,10 @@ function setup() {
     expect(response.status).toBe(200);
     return (await response.json()) as TeamCoachBoard;
   }
-  return { store, registry, links, routes, protocol, issue, post, status, board, advance: (ms: number) => (clock += ms) };
+  function beat(liveId: string, body: unknown, raw?: string) {
+    return routes.postCompanion(new Request(`http://127.0.0.1/api/live/companion/${liveId}`, { method: "POST", body: raw ?? JSON.stringify(body), headers: { "content-type": "application/json" } }), liveId);
+  }
+  return { store, registry, links, routes, protocol, issue, post, beat, status, board, advance: (ms: number) => (clock += ms) };
 }
 
 const ALL_CONSOLE = ["log", "info", "warn", "error", "debug"] as const;
@@ -427,6 +430,95 @@ describe("connection diagnostics (/live-draft \"Diagnóstico de conexión\")", (
     expect(t.status(issued.sessionId).gsi?.telemetry).not.toContain(GSI_ITEM_CHANGES);
     await t.post(issued.liveId, inMatch("1234567891", ["item_quelling_blade", "item_magic_wand"]));
     expect(t.status(issued.sessionId).gsi?.telemetry).toContain(GSI_ITEM_CHANGES);
+  });
+});
+
+describe("D2KIRO Companion heartbeat (/api/live/companion/<liveId>)", () => {
+  const heartbeat = (token: string | null, companion: Record<string, unknown> = {}) => ({
+    ...(token === null ? {} : { auth: { token } }),
+    companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, ...companion },
+  });
+
+  test("a valid heartbeat marks the Companion present on the link owner's session, Dota closed included", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const response = await t.beat(issued.liveId, heartbeat(issued.token));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("");
+    const status = t.status(issued.sessionId);
+    expect(status.companion).toEqual({ version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, active: true, lastSeenAgeMs: 0 });
+    // Presence only: GSI's own connection and the draft are untouched.
+    expect(status.connection).toBe("waiting");
+    expect(status.gsi).toBeNull();
+    expect(status.draftPhase).toBe("waiting");
+  });
+
+  test("phase and Dota state follow the latest beat; three missed beats = no longer active", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "HERO_SELECTION" }));
+    expect(t.status(issued.sessionId).companion).toMatchObject({ dota: "connected", phase: "HERO_SELECTION", active: true });
+    t.advance(LIVE_COMPANION_STALE_AFTER_MS + 1);
+    expect(t.status(issued.sessionId).companion).toMatchObject({ active: false, lastSeenAgeMs: LIVE_COMPANION_STALE_AFTER_MS + 1 });
+    await t.beat(issued.liveId, heartbeat(issued.token, { dota: "waiting", phase: null, restartNeeded: true }));
+    expect(t.status(issued.sessionId).companion).toMatchObject({ dota: "waiting", phase: null, restartNeeded: true, active: true });
+  });
+
+  test("the Companion survives a new match's draft restart (it is the connection, not the draft)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "MENU" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", gameState: "DOTA_GAMERULES_STATE_HERO_SELECTION", matchId: "1" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", matchId: "1" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", gameState: "DOTA_GAMERULES_STATE_HERO_SELECTION", matchId: "2" }));
+    expect(t.status(issued.sessionId).companion?.dota).toBe("connected");
+  });
+
+  test("fails closed like GSI: wrong/missing token, unknown or malformed live id, rotated link -> 401, nothing noted", async () => {
+    const t = setup();
+    const first = await t.issue(ACCOUNT_A);
+    expect((await t.beat(first.liveId, heartbeat("f".repeat(64)))).status).toBe(401);
+    expect((await t.beat(first.liveId, heartbeat(null))).status).toBe(401);
+    expect((await t.beat("B".repeat(43), heartbeat(first.token))).status).toBe(401);
+    expect((await t.beat("short", heartbeat(first.token))).status).toBe(401);
+    expect(t.status(first.sessionId).companion).toBeNull();
+    const second = await t.issue(ACCOUNT_A);
+    expect((await t.beat(first.liveId, heartbeat(first.token))).status).toBe(401);
+    expect((await t.beat(second.liveId, heartbeat(second.token))).status).toBe(200);
+  });
+
+  test("anything that is not exactly a heartbeat -> 400; oversized -> 413", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    for (const bad of [{ dota: "maybe" }, { phase: "DRAFT" }, { version: "1.0" }, { version: "0.1.0; rm -rf" }, { schema: "companion-heartbeat/v2" }, { restartNeeded: "no" }]) {
+      expect((await t.beat(issued.liveId, heartbeat(issued.token, bad))).status).toBe(400);
+    }
+    expect((await t.beat(issued.liveId, { auth: { token: issued.token } })).status).toBe(400);
+    expect((await t.beat(issued.liveId, null, "not json")).status).toBe(400);
+    expect((await t.beat(issued.liveId, null, JSON.stringify({ ...heartbeat(issued.token), pad: "x".repeat(COMPANION_MAX_BODY_BYTES) }))).status).toBe(413);
+    expect(t.status(issued.sessionId).companion).toBeNull();
+  });
+
+  test("parseCompanionHeartbeat keeps only the five known fields", () => {
+    expect(parseCompanionHeartbeat({ companion: { schema: "companion-heartbeat/v1", version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, steamid: "765" } })).toEqual({ version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false });
+    expect(parseCompanionHeartbeat({ companion: [] })).toBeNull();
+    expect(parseCompanionHeartbeat(null)).toBeNull();
+  });
+
+  test("rate limited per link like every other update", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    for (let i = 0; i < 20; i++) expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(429);
+  });
+
+  test("nothing from a heartbeat is logged or echoed; the status never carries the token or the live id", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const text = await (await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "MENU" }))).text();
+    for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+    const exposed = [text, JSON.stringify(t.status(issued.sessionId))].join("|");
+    for (const secret of [issued.token, issued.liveId, String(ACCOUNT_A)]) expect(exposed).not.toContain(secret);
   });
 });
 

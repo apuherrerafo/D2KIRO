@@ -4,6 +4,7 @@ import type {
   LiveDetectedPick,
   LiveGsiStatus,
   LiveVisualStatus,
+  LiveCompanionStatus,
   LivePartyPreset,
   LiveTeamContext,
   LiveTeamGroupResult,
@@ -113,6 +114,24 @@ function isVisualStatus(value: unknown): value is LiveVisualStatus {
   );
 }
 
+const COMPANION_DOTA = new Set(["connected", "waiting", "not_running"]);
+const COMPANION_PHASES = new Set(["MENU", "LOADING", "HERO_SELECTION", "STRATEGY_TIME", "MATCH", "POST_GAME", "OTHER"]);
+
+function isCompanionStatus(value: unknown): value is LiveCompanionStatus {
+  return (
+    isRecord(value) &&
+    isString(value.version) &&
+    typeof value.dota === "string" &&
+    COMPANION_DOTA.has(value.dota) &&
+    (value.phase === null || (typeof value.phase === "string" && COMPANION_PHASES.has(value.phase))) &&
+    typeof value.restartNeeded === "boolean" &&
+    typeof value.active === "boolean" &&
+    typeof value.lastSeenAgeMs === "number" &&
+    Number.isFinite(value.lastSeenAgeMs) &&
+    value.lastSeenAgeMs >= 0
+  );
+}
+
 function isGsiStatus(value: unknown): value is LiveGsiStatus {
   return (
     isRecord(value) &&
@@ -190,6 +209,7 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     [value.bans, value.picks, value.deferredPicks, value.rejectedFacts].every((count) => typeof count === "number") &&
     (value.gsi === undefined || isNullable(value.gsi, isGsiStatus)) &&
     (value.visual === undefined || isNullable(value.visual, isVisualStatus)) &&
+    (value.companion === undefined || isNullable(value.companion, isCompanionStatus)) &&
     (value.teamContext === undefined || isTeamContext(value.teamContext));
   return valid ? (value as unknown as LiveCaptureStatus) : null;
 }

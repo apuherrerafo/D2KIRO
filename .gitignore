@@ -61,3 +61,8 @@ scripts/live/overwolf-capture/local/
 scripts/live/visual-capture/local/
 scripts/live/visual-capture/__pycache__/
 scripts/live/visual-capture/**/__pycache__/
+
+# D2KIRO Companion: the generated installer, and raw GSI captures if ever copied into the repo
+# (raw payloads carry the local SteamID/name; they live in %LOCALAPPDATA%\D2KIRO\Companion\diagnostics).
+scripts/live/companion/out/
+gsi-raw-*.jsonl

@@ -1,6 +1,6 @@
 import { GSI_LIVE_ID, type GsiLink, type GsiLinkStore, type IssuedGsiLink } from "../../live/gsi-links";
 import { normalizeGsi } from "../../live/gsi-normalize";
-import type { LiveCaptureRegistry } from "../../live/live-capture-registry";
+import { LIVE_COMPANION_DOTA_STATES, LIVE_COMPANION_PHASES, type LiveCaptureRegistry, type LiveCompanionHeartbeat } from "../../live/live-capture-registry";
 import type { DraftEventEnvelope } from "../../draft/reducer";
 import { isValidDraftEventEnvelope } from "../edge";
 import type { HeroId } from "../../draft-protocol/types";
@@ -20,6 +20,9 @@ export const GSI_MAX_BODY_BYTES = 256 * 1024;
 export const VISUAL_MAX_BODY_BYTES = 4 * 1024;
 /** The only payloads the visual channel accepts; the draft lifecycle and our side stay GSI's. */
 const VISUAL_PAYLOAD_TYPES = new Set(["hero_picked", "pick_reverted", "hero_banned", "capture_health"]);
+/** A Companion heartbeat is ~250 bytes. */
+export const COMPANION_MAX_BODY_BYTES = 1024;
+const COMPANION_VERSION = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const LINK_RATE_WINDOW_MS = 1_000;
 /** Dota throttles to one update per `throttle` (cfg: 0.1 s) plus heartbeats: 20/s leaves headroom. */
 const MAX_UPDATES_PER_LINK_WINDOW = 20;
@@ -96,6 +99,20 @@ function tokenOf(payload: unknown): string | null {
   if (typeof auth !== "object" || auth === null) return null;
   const token = (auth as { token?: unknown }).token;
   return typeof token === "string" ? token : null;
+}
+
+/** `companion-heartbeat/v1`, field by field against closed vocabularies; anything else is not a heartbeat. */
+export function parseCompanionHeartbeat(payload: unknown): LiveCompanionHeartbeat | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const raw = (payload as { companion?: unknown }).companion;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const beat = raw as Record<string, unknown>;
+  if (beat.schema !== "companion-heartbeat/v1") return null;
+  if (typeof beat.version !== "string" || !COMPANION_VERSION.test(beat.version)) return null;
+  if (!(LIVE_COMPANION_DOTA_STATES as readonly unknown[]).includes(beat.dota)) return null;
+  if (!(beat.phase === null || (LIVE_COMPANION_PHASES as readonly unknown[]).includes(beat.phase))) return null;
+  if (typeof beat.restartNeeded !== "boolean") return null;
+  return { version: beat.version, dota: beat.dota as LiveCompanionHeartbeat["dota"], phase: beat.phase as LiveCompanionHeartbeat["phase"], restartNeeded: beat.restartNeeded };
 }
 
 function noStore(body: unknown, status: number): Response {
@@ -214,6 +231,40 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     return ack !== null ? noStore(ack, 200) : noStore({ error: "live_session_unavailable" }, 409);
   }
 
+  /**
+   * POST /api/live/companion/<liveId> -- D2KIRO Companion's heartbeat (the Player's local background app that
+   * relays Dota GSI). Same door and same credential as GSI: the link token authenticates, the link decides the
+   * session and its owner, refusals are indistinguishable, nothing from the body is logged or echoed. Body:
+   * { auth: { token }, companion: companion-heartbeat/v1 }. Presence only: it lets the page say "Companion
+   * conectado" even while Dota is closed; it never touches the draft. Status only in the answer.
+   */
+  async function postCompanion(request: Request, liveId: string): Promise<Response> {
+    const at = now();
+    if (!GSI_LIVE_ID.test(liveId)) return refuse(at);
+    const body = await readCappedBody(request, COMPANION_MAX_BODY_BYTES);
+    if (!body.ok) return new Response(null, { status: body.status });
+    let payload: unknown;
+    try {
+      payload = JSON.parse(body.text);
+    } catch {
+      return new Response(null, { status: 400 });
+    }
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return new Response(null, { status: 400 });
+    const token = tokenOf(payload);
+    let link: GsiLink | null;
+    try {
+      link = token === null ? null : deps.links.verify(liveId, token, at);
+    } catch {
+      return unavailable();
+    }
+    if (link === null) return refuse(at);
+    if (!allowLink(`companion:${liveId}`, at)) return noStore({ error: "rate_limited" }, 429);
+    const heartbeat = parseCompanionHeartbeat(payload);
+    if (heartbeat === null) return new Response(null, { status: 400 });
+    if (!deps.registry.ensureSession(link.sessionId, link.accountId)) return noStore({ error: "live_session_unavailable" }, 409);
+    return deps.registry.noteCompanion(link.sessionId, heartbeat) ? new Response(null, { status: 200, headers: { "cache-control": "no-store" } }) : noStore({ error: "live_session_unavailable" }, 409);
+  }
+
   /** apps/web's cfg download ONLY (not in the browser proxy allowlist): the one response that carries a token. */
   function postIssue(accountId: number): Response {
     let issued: IssuedGsiLink;
@@ -292,5 +343,5 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     }
   }
 
-  return { postIngest, postVisual, postIssue, getLink, deleteLink, putTeamGroup };
+  return { postIngest, postVisual, postCompanion, postIssue, getLink, deleteLink, putTeamGroup };
 }

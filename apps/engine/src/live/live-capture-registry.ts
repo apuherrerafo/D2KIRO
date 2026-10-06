@@ -64,6 +64,30 @@ export interface LiveVisualStatus {
   lastEventAgeMs: number;
 }
 
+/** What D2KIRO Companion (the Player's local background app) reports in its heartbeat. Never identity. */
+export const LIVE_COMPANION_DOTA_STATES = ["connected", "waiting", "not_running"] as const;
+export const LIVE_COMPANION_PHASES = ["MENU", "LOADING", "HERO_SELECTION", "STRATEGY_TIME", "MATCH", "POST_GAME", "OTHER"] as const;
+export type LiveCompanionDota = (typeof LIVE_COMPANION_DOTA_STATES)[number];
+export type LiveCompanionPhase = (typeof LIVE_COMPANION_PHASES)[number];
+/** The Companion beats every 15 s (plus on every change): three missed beats = gone. */
+export const LIVE_COMPANION_STALE_AFTER_MS = 45_000;
+
+export interface LiveCompanionHeartbeat {
+  version: string;
+  /** Dota as the Companion sees it on the Player's PC: GSI arriving / process open but silent / closed. */
+  dota: LiveCompanionDota;
+  /** Lifecycle phase from the local GSI; null while Dota is not connected. */
+  phase: LiveCompanionPhase | null;
+  /** The Companion (re)wrote Dota's cfg while Dota was open: one Dota restart needed. */
+  restartNeeded: boolean;
+}
+
+export interface LiveCompanionStatus extends LiveCompanionHeartbeat {
+  /** A heartbeat arrived within LIVE_COMPANION_STALE_AFTER_MS (server clock). */
+  active: boolean;
+  lastSeenAgeMs: number;
+}
+
 /** Only these payloads are facts a visual capturer may state; the lifecycle and our side belong to GSI. */
 const VISUAL_FACT_PAYLOADS = new Set(["hero_picked", "pick_reverted", "hero_banned", "capture_health"]);
 
@@ -100,6 +124,8 @@ export interface LiveCaptureStatus {
   gsi: LiveGsiStatus | null;
   /** Present once the local visual capturer has spoken to this session. */
   visual: LiveVisualStatus | null;
+  /** Present once D2KIRO Companion has sent a heartbeat to this session. */
+  companion: LiveCompanionStatus | null;
   /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
   teamContext: LiveTeamContextStatus;
 }
@@ -136,6 +162,7 @@ interface LiveEntry {
   rejectedFacts: number;
   gsi: LiveGsiObserved | null;
   visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
+  companion: (LiveCompanionHeartbeat & { lastAt: number }) | null;
   /** Last GSI update (any phase, heartbeats included). Survives a draft restart: it is the connection. */
   lastGsiAt: number | null;
   /** Draft facts the last draft-phase GSI update stated; null before the first one of this draft. */
@@ -359,6 +386,17 @@ export class LiveCaptureRegistry {
     return { schema: "live-visual-ack/v1", draftPhase: status.draftPhase, draftEpoch: entry.draftEpoch };
   }
 
+  /**
+   * A D2KIRO Companion heartbeat (link-authenticated by the route). Presence only: it never touches the draft
+   * facts nor the GSI connection -- "Dota conectado" stays GSI's own word. false when not a live session.
+   */
+  noteCompanion(sessionId: string, heartbeat: LiveCompanionHeartbeat): boolean {
+    const entry = this.entries.get(sessionId);
+    if (!entry || !this.isLive(sessionId)) return false;
+    entry.companion = { ...heartbeat, lastAt: this.now() };
+    return true;
+  }
+
   status(sessionId: string): LiveCaptureStatus | null {
     const entry = this.entries.get(sessionId);
     if (!entry || !this.isLive(sessionId)) return null;
@@ -379,6 +417,7 @@ export class LiveCaptureRegistry {
       rejectedFacts: entry.rejectedFacts,
       gsi: gsiStatusOf(entry, now),
       visual: visualStatusOf(entry, now),
+      companion: companionStatusOf(entry, now),
       teamContext: this.teamContextOf(sessionId),
     };
   }
@@ -428,6 +467,7 @@ export class LiveCaptureRegistry {
     restarted.captureHealth = entry.captureHealth;
     restarted.captureDetail = entry.captureDetail;
     restarted.visual = entry.visual;
+    restarted.companion = entry.companion;
     restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
     restarted.lastGsiAt = entry.lastGsiAt;
     restarted.draftEpoch = entry.draftEpoch;
@@ -474,6 +514,7 @@ export class LiveCaptureRegistry {
       rejectedFacts: 0,
       gsi: null,
       visual: null,
+      companion: null,
       lastGsiAt: null,
       gsiDraftFacts: null,
       gsiItemsKey: null,
@@ -503,6 +544,13 @@ function visualStatusOf(entry: LiveEntry, now: number): LiveVisualStatus | null 
   if (entry.visual === null) return null;
   const lastEventAgeMs = Math.max(0, now - entry.visual.lastAt);
   return { active: lastEventAgeMs <= LIVE_STALE_AFTER_MS, health: entry.visual.health, detail: entry.visual.detail, lastEventAgeMs };
+}
+
+function companionStatusOf(entry: LiveEntry, now: number): LiveCompanionStatus | null {
+  if (entry.companion === null) return null;
+  const { lastAt, ...heartbeat } = entry.companion;
+  const lastSeenAgeMs = Math.max(0, now - lastAt);
+  return { ...heartbeat, active: lastSeenAgeMs <= LIVE_COMPANION_STALE_AFTER_MS, lastSeenAgeMs };
 }
 
 function gsiStatusOf(entry: LiveEntry, now: number): LiveGsiStatus | null {

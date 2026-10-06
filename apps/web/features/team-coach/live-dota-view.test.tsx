@@ -110,6 +110,12 @@ describe("LiveDotaView -- connect Dota", () => {
         fireEvent.click(view.getByTestId("dota-connect-button"));
       });
       const steps = view.getByTestId("dota-setup-steps");
+      // Recommended first: the one-time D2KIRO Companion (same-origin form POST, never a script asking for the link).
+      const companion = view.getByTestId("companion-installer-download");
+      expect(companion.textContent).toBe("Instalar D2KIRO Companion");
+      expect(companion.closest("form")!.getAttribute("method")).toBe("post");
+      expect(companion.closest("form")!.getAttribute("action")).toBe("/api/live/companion-installer");
+      expect(view.getByTestId("companion-install").textContent).toContain("arranca solo con Windows");
       // Normal path: one double-click installer, honest about the unsigned-file warning before it happens.
       const installer = view.getByTestId("gsi-installer-download");
       expect(installer.textContent).toBe("Descargar instalador para Windows");

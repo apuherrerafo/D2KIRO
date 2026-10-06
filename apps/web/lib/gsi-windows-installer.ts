@@ -45,7 +45,7 @@ function escapeRegex(text: string): string {
  * a tampered file with an extra key, a second endpoint or a changed value is refused, and the template
  * cannot drift from the validator.
  */
-const CFG_SHAPE_PATTERN = `^${escapeRegex(buildGsiConfig(SHAPE_URI, SHAPE_TOKEN).replace(/\s+/g, " ").trim())}$`
+export const CFG_SHAPE_PATTERN = `^${escapeRegex(buildGsiConfig(SHAPE_URI, SHAPE_TOKEN).replace(/\s+/g, " ").trim())}$`
   .replace(escapeRegex(SHAPE_URI), "https://[A-Za-z0-9.-]+(?::[0-9]+)?/api/live/gsi/[A-Za-z0-9_-]{43}")
   .replace(SHAPE_TOKEN, "[0-9a-f]{64}");
 
@@ -57,38 +57,13 @@ const POWERSHELL = String.raw`"%SystemRoot%\System32\WindowsPowerShell\v1.0\powe
 // produces.
 const BOOTSTRAP = `${POWERSHELL} -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText($env:D2KIRO_SELF);$m='#D2KIRO-'+'SCRIPT-';$a=$t.IndexOf($m+'BEGIN',[StringComparison]::Ordinal);$b=$t.IndexOf($m+'END',[StringComparison]::Ordinal);if($a -lt 0 -or $b -le $a){exit 4};& ([ScriptBlock]::Create($t.Substring($a,$b-$a)))"`;
 
-// Windows PowerShell 5.1. Written without backticks and without "${" so it can live in a JS raw template.
-// `D2KIRO_TEST_STEAM_ROOT` / `D2KIRO_TEST_NO_DIALOG` exist only for the Windows integration test: the
-// first replaces Steam discovery with one folder (no registry, no drive scan), the second skips the dialog.
-const POWERSHELL_SCRIPT = String.raw`${SCRIPT_BEGIN}
-# D2KIRO -- conexion con Dota 2 (Game State Integration).
-# Que hace: busca Dota 2 en tus bibliotecas de Steam y copia UN archivo,
-#   gamestate_integration_d2kiro.cfg, en game\dota\cfg\gamestate_integration\ (o lo quita).
-# Que NO hace: no toca ningun otro archivo de Dota ni de Steam, no lee tu cuenta de Steam,
-#   no se conecta a internet y nunca muestra ni guarda en otro lado el contenido del archivo.
-$ErrorActionPreference = 'Stop'
-$CfgName = '${GSI_CFG_FILENAME}'
-$DotaCfgRelative = 'steamapps\common\dota 2 beta\game\dota\cfg'
-$LaunchOption = '-gamestateintegration'
-$Mode = $env:D2KIRO_MODE
-$NoDialog = $env:D2KIRO_TEST_NO_DIALOG -eq '1'
-$NL = [Environment]::NewLine
-
-function Show-Result([string]$Text, [bool]$Ok) {
-  Write-Host ''
-  Write-Host $Text
-  Write-Host ''
-  if ($NoDialog) { return }
-  try {
-    Add-Type -AssemblyName System.Windows.Forms
-    $icon = [System.Windows.Forms.MessageBoxIcon]::Information
-    if (-not $Ok) { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
-    [void][System.Windows.Forms.MessageBox]::Show($Text, 'D2KIRO', [System.Windows.Forms.MessageBoxButtons]::OK, $icon)
-  } catch {
-    [void](Read-Host 'Presioná Enter para cerrar')
-  }
-}
-
+/**
+ * Steam -> Dota cfg folder discovery (Windows PowerShell 5.1), shared by this installer and the D2KIRO Companion
+ * (server/companion). Reads only Steam's install-path registry values and the `"path"` lines of libraryfolders.vdf;
+ * local fixed drives only; the app manifest is checked for existence, never read. `D2KIRO_TEST_STEAM_ROOT` /
+ * `D2KIRO_TEST_FALLBACK_LIBRARIES` exist only for the Windows integration tests.
+ */
+export const DOTA_DISCOVERY_PS = String.raw`$DotaCfgRelative = 'steamapps\common\dota 2 beta\game\dota\cfg'
 function Add-UniquePath($List, [string]$Path) {
   if ([string]::IsNullOrWhiteSpace($Path)) { return }
   try { $full = [IO.Path]::GetFullPath($Path.Trim().Replace('/', '\')) } catch { return }
@@ -176,6 +151,47 @@ function Find-DotaCfgFolders($Libraries, [bool]$IncludeLeftovers) {
   return ,$registered
 }
 
+function Find-AllDotaCfgFolders([bool]$IncludeLeftovers) {
+  $folders = Find-DotaCfgFolders (Get-SteamLibraries (Get-SteamRoots)) $IncludeLeftovers
+  if ($folders.Count -eq 0 -or $IncludeLeftovers) {
+    foreach ($cfg in (Find-DotaCfgFolders (Get-FallbackLibraries) $IncludeLeftovers)) { Add-UniquePath $folders $cfg }
+  }
+  return ,$folders
+}
+`;
+
+// Windows PowerShell 5.1. Written without backticks and without "${" so it can live in a JS raw template.
+// `D2KIRO_TEST_STEAM_ROOT` / `D2KIRO_TEST_NO_DIALOG` exist only for the Windows integration test: the
+// first replaces Steam discovery with one folder (no registry, no drive scan), the second skips the dialog.
+const POWERSHELL_SCRIPT = String.raw`${SCRIPT_BEGIN}
+# D2KIRO -- conexion con Dota 2 (Game State Integration).
+# Que hace: busca Dota 2 en tus bibliotecas de Steam y copia UN archivo,
+#   gamestate_integration_d2kiro.cfg, en game\dota\cfg\gamestate_integration\ (o lo quita).
+# Que NO hace: no toca ningun otro archivo de Dota ni de Steam, no lee tu cuenta de Steam,
+#   no se conecta a internet y nunca muestra ni guarda en otro lado el contenido del archivo.
+$ErrorActionPreference = 'Stop'
+$CfgName = '${GSI_CFG_FILENAME}'
+$LaunchOption = '-gamestateintegration'
+$Mode = $env:D2KIRO_MODE
+$NoDialog = $env:D2KIRO_TEST_NO_DIALOG -eq '1'
+$NL = [Environment]::NewLine
+
+function Show-Result([string]$Text, [bool]$Ok) {
+  Write-Host ''
+  Write-Host $Text
+  Write-Host ''
+  if ($NoDialog) { return }
+  try {
+    Add-Type -AssemblyName System.Windows.Forms
+    $icon = [System.Windows.Forms.MessageBoxIcon]::Information
+    if (-not $Ok) { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
+    [void][System.Windows.Forms.MessageBox]::Show($Text, 'D2KIRO', [System.Windows.Forms.MessageBoxButtons]::OK, $icon)
+  } catch {
+    [void](Read-Host 'Presioná Enter para cerrar')
+  }
+}
+
+${DOTA_DISCOVERY_PS}
 # The cfg rides at the end of this file as data. Exact shape or nothing: the very file the site generates
 # (one https uri to the D2KIRO ingest path, one 64-hex token, fixed keys), printable ASCII only.
 function Read-Payload {
@@ -190,14 +206,6 @@ function Read-Payload {
   if ($cfg -cmatch '[^\x09\x0A\x0D\x20-\x7E]') { return $null }
   if ([regex]::Replace($cfg, '\s+', ' ') -cnotmatch '${CFG_SHAPE_PATTERN}') { return $null }
   return $cfg + $NL
-}
-
-function Find-AllDotaCfgFolders([bool]$IncludeLeftovers) {
-  $folders = Find-DotaCfgFolders (Get-SteamLibraries (Get-SteamRoots)) $IncludeLeftovers
-  if ($folders.Count -eq 0 -or $IncludeLeftovers) {
-    foreach ($cfg in (Find-DotaCfgFolders (Get-FallbackLibraries) $IncludeLeftovers)) { Add-UniquePath $folders $cfg }
-  }
-  return ,$folders
 }
 
 $NotFound = 'No encontramos Dota 2 en esta PC.' + $NL + $NL + 'Buscamos en todas tus bibliotecas de Steam (C:, D: y las demás). Si Dota 2 está instalado, volvé a la página de D2KIRO y usá «Instalarlo a mano».' + $NL + $NL + 'No se cambió nada.'
@@ -253,7 +261,8 @@ Show-Result ('Listo: D2KIRO quedó conectado con Dota 2.' + $NL + $NL + 'Carpeta
 exit 0
 ${SCRIPT_END}`;
 
-function header(mode: "install" | "uninstall", title: string, lines: readonly string[]): string[] {
+/** The shared batch preamble: cmd settings, a title, and the bootstrap that runs the #D2KIRO-SCRIPT block. */
+export function batchHeader(mode: "install" | "uninstall", title: string, lines: readonly string[]): string[] {
   return [
     "@echo off",
     ...lines.map((line) => `rem ${line}`),
@@ -268,7 +277,7 @@ function header(mode: "install" | "uninstall", title: string, lines: readonly st
   ];
 }
 
-function toCrlf(lines: readonly string[]): string {
+export function toCrlf(lines: readonly string[]): string {
   // cmd.exe mis-parses batch files with bare LF line endings; everything is normalized to CRLF.
   return lines.join("\n").replace(/\r\n/g, "\n").replace(/\n/g, "\r\n") + "\r\n";
 }
@@ -284,7 +293,7 @@ function assertEmbeddableCfg(cfg: string): void {
 export function buildWindowsGsiInstaller(cfg: string): string {
   assertEmbeddableCfg(cfg);
   return toCrlf([
-    ...header("install", "D2KIRO - Conectar Dota 2", [
+    ...batchHeader("install", "D2KIRO - Conectar Dota 2", [
       "D2KIRO - instalador de la conexion con Dota 2 (Game State Integration).",
       `Copia UN archivo (${GSI_CFG_FILENAME}) en la carpeta de integraciones de Dota 2.`,
       "No toca ningun otro archivo, no lee tu cuenta de Steam y no se conecta a internet.",
@@ -304,7 +313,7 @@ export function buildWindowsGsiInstaller(cfg: string): string {
 /** The uninstaller: removes only `gamestate_integration_d2kiro.cfg` from every Dota folder found. No credential inside. */
 export function buildWindowsGsiUninstaller(): string {
   return toCrlf([
-    ...header("uninstall", "D2KIRO - Quitar la conexion con Dota 2", [
+    ...batchHeader("uninstall", "D2KIRO - Quitar la conexion con Dota 2", [
       "D2KIRO - quita la conexion con Dota 2 (Game State Integration).",
       `Borra solo ${GSI_CFG_FILENAME} de la carpeta de integraciones de Dota 2.`,
       "No toca ningun otro archivo, no lee tu cuenta de Steam y no se conecta a internet.",

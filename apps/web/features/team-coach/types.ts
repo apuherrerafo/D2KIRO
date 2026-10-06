@@ -121,6 +121,21 @@ export interface LiveVisualStatus {
   lastEventAgeMs: number;
 }
 
+/** D2KIRO Companion's Dota state on the Player's PC. Mirror of the engine's LiveCompanionDota. */
+export type LiveCompanionDota = "connected" | "waiting" | "not_running";
+/** Dota lifecycle as the Companion reads it from local GSI. Mirror of the engine's LiveCompanionPhase. */
+export type LiveCompanionPhase = "MENU" | "LOADING" | "HERO_SELECTION" | "STRATEGY_TIME" | "MATCH" | "POST_GAME" | "OTHER";
+
+/** D2KIRO Companion's last heartbeat (presence only, never identity). Mirror of the engine's LiveCompanionStatus. */
+export interface LiveCompanionStatus {
+  version: string;
+  dota: LiveCompanionDota;
+  phase: LiveCompanionPhase | null;
+  restartNeeded: boolean;
+  active: boolean;
+  lastSeenAgeMs: number;
+}
+
 export interface LiveCaptureStatus {
   schema: "live-capture-status/v1";
   sessionId: string;
@@ -139,6 +154,8 @@ export interface LiveCaptureStatus {
   gsi?: LiveGsiStatus | null;
   /** Present once the local visual capturer has spoken to this session (absent from older engines). */
   visual?: LiveVisualStatus | null;
+  /** Present once D2KIRO Companion has sent a heartbeat to this session (absent from older engines). */
+  companion?: LiveCompanionStatus | null;
   /** Party 5 preset applied to this live session (absent from older engines). */
   teamContext?: LiveTeamContext;
 }
