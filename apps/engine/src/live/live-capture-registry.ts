@@ -104,6 +104,18 @@ export interface LiveCaptureStatus {
   teamContext: LiveTeamContextStatus;
 }
 
+/**
+ * What the visual capturer learns from each of its own POSTs: the draft lifecycle as GSI decided it. The helper
+ * never sees GSI (Dota sends it to the server), so this is how it knows when to (re-)arm on a fresh hero-selection
+ * screen. `draftEpoch` counts drafts started on this live session: a new value = a new draft = a new baseline.
+ * Phase and a counter only -- never a hero, side, match or account.
+ */
+export interface LiveVisualAck {
+  schema: "live-visual-ack/v1";
+  draftPhase: LiveCaptureStatus["draftPhase"];
+  draftEpoch: number;
+}
+
 export interface LiveTeamContextStatus {
   /** The account's own preset applied to this session, or null (no preset / missing / not applied). */
   teamGroupId: number | null;
@@ -132,6 +144,8 @@ interface LiveEntry {
   gsiItemsKey: string | null;
   /** Hash of the match the current facts belong to (GSI `map.matchid`, one-way). */
   matchKey: string | null;
+  /** Drafts started on this live session (survives a restart): the visual capturer re-arms when it changes. */
+  draftEpoch: number;
   /**
    * Facts the Player removed by hand in THIS draft (`ban:<hero>`, `pick:<side>:<hero>`). GSI repeats the
    * whole state on every update, so without this a correction would be undone by the next update.
@@ -159,7 +173,7 @@ export interface LiveCaptureRegistryDeps {
 }
 
 export type LiveIngestResult =
-  | { accepted: true; changed: boolean; ignored?: LiveIgnoredReason | "duplicate_event" | "visual_not_allowed" | "draft_ended"; status: LiveCaptureStatus }
+  | { accepted: true; changed: boolean; ignored?: LiveIgnoredReason | "duplicate_event" | "visual_not_allowed" | "draft_ended" | "draft_not_started"; status: LiveCaptureStatus }
   | { accepted: false; reason: "session_unavailable" | "not_live_capture"; status: LiveCaptureStatus | null };
 
 export class LiveCaptureRegistry {
@@ -247,9 +261,10 @@ export class LiveCaptureRegistry {
 
   /**
    * A fact from the local visual capturer (source "ocr"). It states picks / bans / its own health and
-   * nothing else: the draft lifecycle, our side and the match phase stay GSI's. Facts after the draft ended
-   * are dropped (the in-match top bar is not a draft). Same fact model as every other source, so a hero
-   * GSI already reported is simply "already_picked" -- never a second pick.
+   * nothing else: the draft lifecycle, our side and the match phase stay GSI's. Facts before the draft started
+   * (a helper left running in the lobby / menu / loading screen) and after it ended (the in-match top bar) are
+   * dropped: neither screen is a draft, and a fact accepted there would surface in the next draft. Same fact
+   * model as every other source, so a hero GSI already reported is simply "already_picked" -- never a second pick.
    */
   private ingestVisual(envelope: DraftEventEnvelope & { payload: { position?: unknown } }, entry: LiveEntry): LiveIngestResult {
     const sessionId = envelope.sessionId;
@@ -260,6 +275,7 @@ export class LiveCaptureRegistry {
       return { accepted: true, changed: false, status: this.status(sessionId)! };
     }
     entry.visual = { health: entry.visual?.health ?? "ok", detail: entry.visual?.detail ?? null, lastAt: this.now() };
+    if (!entry.facts.started) return { accepted: true, changed: false, ignored: "draft_not_started", status: this.status(sessionId)! };
     if (entry.ended) return { accepted: true, changed: false, ignored: "draft_ended", status: this.status(sessionId)! };
     const observation = observationFromDraftEvent({ ...payload, position: undefined });
     if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
@@ -335,6 +351,14 @@ export class LiveCaptureRegistry {
     return { accepted: true, changed, status: this.status(sessionId)! };
   }
 
+  /** The visual capturer's view of the draft lifecycle (see LiveVisualAck); null when not a live session. */
+  visualAck(sessionId: string): LiveVisualAck | null {
+    const status = this.status(sessionId);
+    const entry = this.entries.get(sessionId);
+    if (!status || !entry) return null;
+    return { schema: "live-visual-ack/v1", draftPhase: status.draftPhase, draftEpoch: entry.draftEpoch };
+  }
+
   status(sessionId: string): LiveCaptureStatus | null {
     const entry = this.entries.get(sessionId);
     if (!entry || !this.isLive(sessionId)) return null;
@@ -381,10 +405,14 @@ export class LiveCaptureRegistry {
     let entry = current;
     // A new match on the same live session: the previous draft finished (or the capturer said it ended), start over.
     if (observation.type === "draft_started" && (entry.ended || this.deps.store.get(sessionId)?.status === "COMPLETE")) entry = this.restart(sessionId, entry);
+    const wasStarted = entry.facts.started;
     const outcome = applyLiveObservation(entry.facts, observation);
     if (!outcome.changed) return { changed: false, ignored: outcome.ignored };
     entry.facts = outcome.facts;
-    if (observation.type === "draft_started") entry.ended = false;
+    if (observation.type === "draft_started") {
+      entry.ended = false;
+      if (!wasStarted) entry.draftEpoch += 1;
+    }
     // "TEAM PICK DETECTED" is about OUR team: an enemy reveal never replaces the last own pick notice.
     const ownPick = outcome.detectedPick && (entry.facts.localSide === null || outcome.detectedPick.side === entry.facts.localSide);
     if (outcome.detectedPick && ownPick) entry.lastDetectedPick = { ...outcome.detectedPick, source, at: new Date(this.now()).toISOString() };
@@ -402,6 +430,7 @@ export class LiveCaptureRegistry {
     restarted.visual = entry.visual;
     restarted.gsi = entry.gsi === null ? null : { ...entry.gsi, draft: noDraftCapabilities(), draftProgression: false };
     restarted.lastGsiAt = entry.lastGsiAt;
+    restarted.draftEpoch = entry.draftEpoch;
     // A new match's first inventory is never compared with the previous match's (that is not an item change).
     restarted.gsiItemsKey = null;
     this.entries.set(sessionId, restarted);
@@ -449,6 +478,7 @@ export class LiveCaptureRegistry {
       gsiDraftFacts: null,
       gsiItemsKey: null,
       matchKey: null,
+      draftEpoch: 0,
       suppressed: new Set(),
     };
   }

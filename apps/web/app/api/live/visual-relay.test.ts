@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseLiveCaptureStatus } from "@/features/team-coach/validation";
 import { createGsiRelayHandler, type FetchLike, type RelayRequest } from "./gsi/[liveId]/route";
-import { VISUAL_RELAY_MAX_BYTES } from "./visual/[liveId]/route";
+import { VISUAL_RELAY_MAX_BYTES, visualAckOf } from "./visual/[liveId]/route";
 
 // Local visual capture, web side: the relay shares the GSI relay handler with a different engine path and a
 // few-KB cap, and the status mirror accepts the new "ocr" source / visual health. The engine is a fake fetch.
@@ -32,6 +32,20 @@ describe("visual relay", () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("");
     expect(calls).toEqual([{ url: `http://127.0.0.1:4000/api/live/visual/${LIVE_ID}`, body: '{"auth":{"token":"t"},"envelope":{}}' }]);
+  });
+
+  test("the draft lifecycle ack is the ONE thing forwarded, rebuilt field by field", async () => {
+    const answer = (engineBody: string) => async () => new Response(engineBody, { status: 200 });
+    const ack = { schema: "live-visual-ack/v1", draftPhase: "hero_selection", draftEpoch: 2 };
+    const withAck = createGsiRelayHandler({ engineUrl: () => "http://127.0.0.1:4000", enginePath: "/api/live/visual/", maxBytes: VISUAL_RELAY_MAX_BYTES, answerOf: visualAckOf, fetch: answer(JSON.stringify({ ...ack, sessionId: "leak", heroes: [11] })) });
+    const forwarded = await withAck(fakeRequest("{}"), LIVE_ID);
+    expect(forwarded.status).toBe(200);
+    expect(await forwarded.json()).toEqual(ack);
+    for (const bad of [{ ...ack, draftPhase: "picking" }, { ...ack, draftEpoch: -1 }, { ...ack, draftEpoch: 1.5 }, { ...ack, schema: "x" }, null]) expect(visualAckOf(bad)).toBeNull();
+    const notAck = createGsiRelayHandler({ engineUrl: () => "http://127.0.0.1:4000", enginePath: "/api/live/visual/", maxBytes: VISUAL_RELAY_MAX_BYTES, answerOf: visualAckOf, fetch: answer("not json") });
+    const bare = await notAck(fakeRequest("{}"), LIVE_ID);
+    expect(bare.status).toBe(200);
+    expect(await bare.text()).toBe("");
   });
 
   test("a frame-sized body is refused (413) without reaching the engine", async () => {

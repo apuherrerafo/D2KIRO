@@ -10,9 +10,16 @@ Dota window ──WGC──► frame ──► slots (normalized layout) ──�
 
 ## Real use (Ranked All Pick, Party 5) -- no calibration, no screenshots, no flags
 
-1. D2KIRO open at `/live-draft`; the Dota GSI link already shows "Dota conectado".
-2. `cd scripts/live/visual-capture` then `python -m d2vc live`
-3. Queue the match. Picks appear by themselves as each hero is stable for 3 frames.
+1. Start the helper **before queueing** and leave it running: `cd scripts/live/visual-capture` then `python -m d2vc live`
+2. Open Dota / queue (D2KIRO at `/live-draft`, Dota GSI link installed).
+3. Play. Zero actions during hero selection, and none between games.
+
+The helper never decides when a draft starts: GSI does (server side), and every visual POST is answered with that
+lifecycle (`live-visual-ack/v1`: phase + a draft counter). In menu / lobby / matchmaking / loading / the match the
+helper is closed -- no baseline, no matching, no facts, one heartbeat a second asking "draft yet?". When GSI enters
+hero selection (a new draft counter) it re-arms by itself, takes its empty-slot baseline on THAT screen, and picks
+appear as each hero is stable for 3 frames. When the draft ends it closes again; the next game re-arms the same
+process. The engine independently drops visual facts before GSI's `draft_started` and after the draft ended.
 
 Bans are not required: with no verified ban region, bans stay unknown and the Team Coach works from picks.
 Calibration (below) is **optional** and only refines the built-in 16:9 layout.
