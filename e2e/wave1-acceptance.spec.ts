@@ -48,11 +48,26 @@ function assertSnapshotContract(rec: Recorder, repicks = 0): void {
   const snapshots = rec.snapshots();
   assertNoSimulatorTruthLeak(snapshots, rec.responses.map((entry) => entry.body));
   const revealedByPhase: Record<string, number> = { PICK_ROUND_1: 0, PICK_ROUND_2: 2, PICK_ROUND_3: 4, COMPLETE: 5 };
+  const roundCapacityByPhase: Record<string, number> = { PICK_ROUND_1: 2, PICK_ROUND_2: 2, PICK_ROUND_3: 1 };
+  // A legal collision bans the colliding hero and reopens ONLY the colliding seats; the kernel confirms (reveals) the
+  // other seats' picks of that round right away (kernel.ts resolveRound; protocol-sessions.ap-simulator "colision
+  // reabierta"). So while a round is reopened by a collision the enemy may already show its survivors -- at least one
+  // enemy seat is always reopened, hence at most capacity - 1. Without a collision in the round the count is exact.
+  const bansAtPhaseStart = new Map<string, number>();
   for (const snapshot of snapshots) {
     const phase = snapshot.view.rankedAp?.phase ?? "";
     if (!(phase in revealedByPhase)) continue;
+    const bans = snapshot.view.bannedHeroes.length;
+    if (!bansAtPhaseStart.has(phase)) bansAtPhaseStart.set(phase, bans);
     const revealed = snapshot.view.enemyPicks.filter((slot) => slot.visibility === "REVEALED").length;
-    expect(revealed, `revealed enemy heroes while ${phase}`).toBe(revealedByPhase[phase]);
+    const base = revealedByPhase[phase]!;
+    const collidedThisRound = bans > bansAtPhaseStart.get(phase)!;
+    if (!collidedThisRound) {
+      expect(revealed, `revealed enemy heroes while ${phase}`).toBe(base);
+      continue;
+    }
+    expect(revealed, `revealed enemy heroes while ${phase} (collision-reopened)`).toBeGreaterThanOrEqual(base);
+    expect(revealed, `revealed enemy heroes while ${phase} (collision-reopened)`).toBeLessThanOrEqual(base + roundCapacityByPhase[phase]! - 1);
   }
   const roundDurations = snapshots.filter((snapshot) => snapshot.stopReason === "human_input").map((snapshot) => snapshot.simulator?.durationMs);
   if (repicks === 0) {
