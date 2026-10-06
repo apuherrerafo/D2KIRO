@@ -1,0 +1,266 @@
+/* LANDING-01C · hero story. Colour only from tokens (no literal), custom properties prefixed `hs-`.
+   This is the one place on the landing that loops: the ambient sweep and the travelling signals are
+   `infinite` on purpose (a hero that rests is a hero that reads as a screenshot). Everything that is NOT
+   ambient is driven by the step flags on `.hs` (data-flow / data-revealed / data-step, and per-node data-lit / data-live), never by a second timer here.
+   Reduced motion keeps every state and drops the travel: no cells, no pulses, no spin, no FLIP. */
+
+@property --hs-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+.hs-host { min-width: 0; position: relative; }
+.hs-field.cm-skin-stage { padding: clamp(12px, 2vw, 20px); }
+.hs { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; position: relative; }
+.hs-panel.cx-glass { overflow: hidden; z-index: 1; }
+
+/* ───────── spectral atmosphere: slow bands of pink → cyan → lime sliding behind the glass, which refracts them.
+   Transform-only (compositor), one element, no blur filter. ───────── */
+.hs-spectrum { inset: -40px; overflow: hidden; pointer-events: none; position: absolute; z-index: 0; }
+.hs-spectrum::before {
+  animation: hs-drift 34s ease-in-out infinite alternate;
+  background: linear-gradient(112deg, transparent 0 22%, color-mix(in srgb, var(--r3-spec-pink) 70%, transparent) 34%, color-mix(in srgb, var(--r3-spec-cyan) 70%, transparent) 50%, color-mix(in srgb, var(--r3-spec-lime) 42%, transparent) 64%, transparent 78% 100%);
+  content: ""; inset: 0 -60%; opacity: .24; position: absolute; will-change: transform;
+}
+@keyframes hs-drift { from { transform: translate3d(-24%, 0, 0) skewX(-8deg); } to { transform: translate3d(24%, 0, 0) skewX(6deg); } }
+.hs .cx-delta { font-family: var(--f-bric); font-variant-numeric: tabular-nums; }
+.hs-inner { display: grid; gap: 12px; padding: 12px 16px 16px; position: relative; z-index: 1; }
+
+/* ───────── ambient: a fine data field with a slow band of light crossing it ───────── */
+.hs-ambient {
+  animation: hs-sweep 11s linear infinite; background-image: radial-gradient(circle at center, var(--r3-ink) 0 1px, transparent 1.4px); background-size: 14px 14px;
+  -webkit-mask-image: linear-gradient(112deg, transparent 0 38%, black 50%, transparent 62%); mask-image: linear-gradient(112deg, transparent 0 38%, black 50%, transparent 62%);
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: 260% 100%; mask-size: 260% 100%; inset: 0; opacity: .16; pointer-events: none; position: absolute; z-index: 0;
+}
+@keyframes hs-sweep { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; } to { -webkit-mask-position: 0% 0; mask-position: 0% 0; } }
+
+/* ───────── progress: which moment of the story this is ───────── */
+.hs-progress { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.hs-progress li { display: grid; flex: 1 1 0; gap: 4px; min-width: 0; }
+.hs-progress-bar { background: var(--r3-line-strong); border-radius: 1px; display: block; height: 2px; overflow: hidden; transition: background var(--m-slow) var(--m-ease-out); }
+.hs-progress-label { color: var(--r3-muted); font: 500 10px/1 var(--f-bric); transition: color var(--m-fast) var(--m-ease-out); white-space: nowrap; }
+.hs-progress li[data-state="done"] .hs-progress-bar { background: color-mix(in srgb, var(--r3-spec-cyan) 55%, var(--r3-line)); }
+.hs-progress li[data-state="now"] .hs-progress-bar { animation: hs-shimmer 1400ms linear infinite; background: var(--r3-spec-fill) 0 0 / 200% 100%; }
+.hs-progress li[data-state="now"] .hs-progress-label { color: var(--r3-ink); }
+@keyframes hs-shimmer { to { background-position: -200% 0; } }
+
+/* ───────── composition grid ───────── */
+.hs-grid {
+  column-gap: 8px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-areas: "draft draft draft draft you" "lanes lanes lanes lanes lanes" "nodes nodes nodes nodes nodes" "bus bus bus bus bus" "top top top top top" "why why why why why";
+}
+.hs-area-draft { grid-area: draft; min-width: 0; }
+.hs-area-you { grid-area: you; min-width: 0; }
+.hs-lanes { display: grid; gap: 8px; grid-area: lanes; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 28px; }
+.hs-nodes { display: grid; gap: 8px; grid-area: nodes; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.hs-feed { display: none; }
+.hs-area-bus { grid-area: bus; padding-top: 12px; }
+.hs-area-top { grid-area: top; }
+.hs-area-why { grid-area: why; padding-top: 12px; }
+
+/* ───────── blocks ───────── */
+.hs-block { border: 1px dashed var(--r3-line-strong); border-radius: 4px; display: grid; gap: 8px; height: 100%; padding: 8px 12px; transition: border-color var(--m-slow) var(--m-ease-out), background-color var(--m-slow) var(--m-ease-out); }
+.hs-block-head { align-items: baseline; display: flex; gap: 4px 12px; justify-content: space-between; }
+.hs-block-title { color: var(--r3-ink); font: 600 11px/1 var(--f-bric); }
+.hs-block-meta { animation: hs-fade var(--m-slow) var(--m-ease-out) both; color: var(--r3-muted); font: 500 11px/1 var(--f-bric); transition: color var(--m-slow) var(--m-ease-out); }
+.hs-block-meta[data-turn="true"] { color: var(--r3-id); }
+.hs-draft[data-on="true"] { border-color: var(--r3-line); border-style: solid; }
+.hs-bans { align-items: center; display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.hs-bans li { display: inline-flex; }
+.hs-row { align-items: center; display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.hs-row-label { color: var(--r3-muted); font: 500 10px/1 var(--f-bric); min-width: 40px; }
+.hs-seat { border-radius: 4px; display: inline-flex; position: relative; transition: box-shadow var(--m-slow) var(--m-ease-out); }
+.hs-seat[data-focus="true"] { box-shadow: 0 0 0 2px color-mix(in srgb, var(--r3-spec-cyan) 70%, transparent), 0 0 16px -2px color-mix(in srgb, var(--r3-spec-cyan) 55%, transparent); }
+/* round 1 is blind: a concealed slot until the reveal */
+.hs-seat-hidden { align-items: center; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--r3-line-strong) 70%, transparent) 4px 5px); border: 1px dashed var(--r3-line-strong); border-radius: 4px; color: var(--r3-muted); display: inline-flex; font: 600 13px/1 var(--f-bric); height: 36px; justify-content: center; width: 36px; }
+/* Pos 2: the lock's target, then the hero that landed */
+.hs-you-open { line-height: 1.1; padding: 2px; text-align: center; transition: opacity var(--m-slow) var(--m-ease-out), box-shadow var(--m-slow) var(--m-ease-out); white-space: normal; }
+.hs-you-art { border-radius: 4px; inset: 0; opacity: 0; position: absolute; transition: opacity var(--m-slow) var(--m-ease-out); }
+.hs-seat[data-target="true"] .hs-you-open { box-shadow: 0 0 0 2px color-mix(in srgb, var(--r3-spec-cyan) 60%, transparent); }
+.hs-seat[data-placed="true"] .hs-you-art { opacity: 1; }
+.hs-seat[data-placed="true"] .hs-you-open { opacity: 0; }
+.hs[data-motion="full"] .hs-you-art { transition: none; }
+.hs[data-motion="full"] .hs-seat[data-placed="true"] { animation: hs-land 800ms var(--m-ease-out) both; }
+@keyframes hs-land { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--r3-spec-cyan) 80%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+.hs-fly { display: block; filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--r3-spec-cyan) 45%, transparent)); left: 0; pointer-events: none; position: absolute; top: 0; transform-origin: 0 0; will-change: transform; z-index: 5; }
+.hs-seat-open { align-items: center; border: 1px dashed var(--r3-line-strong); border-radius: 4px; color: var(--r3-id); display: inline-flex; font: 600 10px/1 var(--f-bric); height: 36px; justify-content: center; width: 36px; }
+.hs-seat[data-you="true"] .hs-seat-open { border-color: var(--r3-spec-cyan); border-style: solid; }
+
+.hs-you { align-content: start; border-style: dashed; }
+.hs-you[data-on="true"] { background: color-mix(in srgb, var(--r3-spec-cyan) 7%, transparent); border-color: color-mix(in srgb, var(--r3-spec-cyan) 60%, var(--r3-line)); border-style: solid; }
+.hs-you .hs-block-title { color: var(--r3-muted); transition: color var(--m-slow) var(--m-ease-out); }
+.hs-you[data-on="true"] .hs-block-title { color: var(--r3-id); }
+.hs-chips { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.hs-chip { border-left: 2px solid var(--r3-spec-cyan); color: var(--r3-ink); font: 500 11px/1.2 var(--f-bric); opacity: 0; padding: 4px 0 4px 8px; transition: opacity var(--m-slow) var(--m-ease-out) calc(var(--hs-i, 0) * 220ms); }
+.hs-you[data-on="true"] .hs-chip { opacity: 1; }
+.hs[data-motion="full"] .hs-you[data-on="true"] .hs-chip { animation: hs-chip-in var(--m-slow) var(--m-ease-out) calc(var(--hs-i, 0) * 220ms) both; }
+@keyframes hs-chip-in { from { opacity: 0; translate: 16px 0; } to { opacity: 1; translate: 0 0; } }
+
+/* ───────── pixel acquisition: a grid of cells that dissolves in a scrambled order while the tile gathers in ───────── */
+.hs-px { display: inline-flex; position: relative; }
+.hs-px-art { display: inline-flex; opacity: 0; transition: opacity var(--m-slow) var(--m-ease-out) var(--hs-d, 0ms); }
+.hs-px[data-on="true"] .hs-px-art { opacity: 1; }
+.hs-px-cells { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); inset: 0; pointer-events: none; position: absolute; }
+.hs-px-cells i { background: color-mix(in srgb, var(--r3-spec-cyan) 46%, var(--r3-raise)); opacity: 0; }
+.hs-px-cells i:nth-child(5n + 2) { background: color-mix(in srgb, var(--r3-spec-pink) 38%, var(--r3-raise)); }
+.hs-px-cells i:nth-child(7n + 3) { background: color-mix(in srgb, var(--r3-ink) 26%, var(--r3-raise)); }
+.hs-row--enemy .hs-px { --hs-gx: 24px; }
+.hs-row--allies .hs-px { --hs-gx: -24px; }
+.hs[data-motion="full"] .hs-px[data-on="true"] .hs-px-art { animation: hs-gather var(--m-slow) var(--m-spring-snappy) var(--hs-d, 0ms) both; }
+.hs[data-motion="full"] .hs-px[data-on="true"] .hs-px-cells i { animation: hs-cell 560ms steps(4, end) calc(var(--hs-d, 0ms) + var(--hs-k, 0) * 24ms) both; }
+@keyframes hs-gather { from { filter: saturate(.3); opacity: 0; translate: var(--hs-gx, 0px) 8px; scale: .8; } to { filter: saturate(1); opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes hs-cell { 0% { opacity: 1; } 55% { opacity: .9; } 100% { opacity: 0; } }
+
+/* ───────── travelling signals: information moves ONLY when it has just arrived.
+   A node is lit (steady line) once its information is in; it is live (travelling pulse) only during the step
+   that brings it. Position and meta are the baseline already inside the starting scores: lit, never travelling. ───────── */
+.hs-lane { display: flex; justify-content: center; }
+.hs-lane[data-lane="position"], .hs-node[data-node="position"] { --hs-hue: var(--r3-spec-pink); }
+.hs-lane[data-lane="counter"], .hs-node[data-node="counter"], .hs-lane[data-lane="meta"], .hs-node[data-node="meta"] { --hs-hue: var(--r3-spec-cyan); }
+.hs-lane[data-lane="synergy"], .hs-node[data-node="synergy"] { --hs-hue: var(--r3-spec-lime); }
+.hs-lane[data-lane="history"], .hs-node[data-node="history"] { --hs-hue: var(--r3-spec-cyan); }
+.hs-beam { background: var(--r3-line-strong); border-radius: 1px; display: block; height: 100%; overflow: hidden; position: relative; transition: background var(--m-slow) var(--m-ease-out); width: 2px; }
+.hs-beam::after { background: linear-gradient(180deg, transparent, var(--hs-hue, var(--r3-spec-cyan)) 60%, transparent); content: ""; height: 56%; inset: 0 0 auto 0; opacity: 0; position: absolute; translate: 0 -100%; }
+.hs-lane[data-lit="true"] .hs-beam { background: color-mix(in srgb, var(--hs-hue, var(--r3-spec-cyan)) 34%, var(--r3-line)); }
+.hs-lane[data-live="true"] .hs-beam::after { animation: hs-lane 1600ms linear infinite; opacity: 1; }
+.hs-feed { --hs-hue: var(--r3-spec-cyan); }
+.hs-feed[data-lit="true"] .hs-beam { background: color-mix(in srgb, var(--r3-spec-cyan) 34%, var(--r3-line)); }
+.hs-feed[data-live="true"] .hs-beam::after { animation: hs-lane 1600ms linear infinite; opacity: 1; }
+@keyframes hs-lane { 0% { translate: 0 -100%; } 40%, 100% { translate: 0 190%; } }
+
+/* nodes: where the signals are read */
+.hs-node { background: color-mix(in srgb, var(--r3-panel) 62%, transparent); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); display: grid; gap: 4px; min-height: 56px; opacity: .5; padding: 8px; position: relative; transition: opacity var(--m-slow) var(--m-ease-out), box-shadow var(--m-slow) var(--m-ease-out); }
+.hs-node[data-lit="true"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hs-hue, var(--r3-spec-cyan)) 40%, var(--r3-line)); opacity: 1; }
+.hs-node-label { color: var(--r3-ink); font: 600 11px/1.1 var(--f-bric); }
+.hs-node-label .hs-short { display: none; }
+.hs-node-value { color: var(--r3-muted); font: 500 11px/1.2 var(--f-bric); min-height: 13px; opacity: 0; overflow: hidden; text-overflow: ellipsis; transition: opacity var(--m-slow) var(--m-ease-out); white-space: nowrap; }
+.hs-node[data-lit="true"] .hs-node-value { opacity: 1; }
+.hs-node-ring {
+  background: conic-gradient(from var(--hs-angle), transparent 0 58%, var(--hs-hue, var(--r3-spec-cyan)) 84%, var(--r3-spec-pink) 100%); border-radius: inherit; inset: 0; opacity: 0; padding: 1px; pointer-events: none; position: absolute;
+  -webkit-mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); transition: opacity var(--m-slow) var(--m-ease-out);
+}
+.hs-node[data-live="true"] .hs-node-ring { animation: hs-spin 2600ms linear infinite; opacity: 1; }
+@keyframes hs-spin { to { --hs-angle: 360deg; } }
+.hs-stub { bottom: -12px; display: flex; height: 12px; justify-content: center; left: 0; position: absolute; right: 0; }
+.hs-stub .hs-beam::after { animation: none; }
+.hs-node[data-lit="true"] .hs-stub .hs-beam { background: color-mix(in srgb, var(--hs-hue, var(--r3-spec-cyan)) 34%, var(--r3-line)); }
+.hs-node[data-live="true"] .hs-stub .hs-beam::after { animation: hs-stub 1600ms linear infinite; opacity: 1; }
+@keyframes hs-stub { 0%, 40% { translate: 0 -100%; } 52%, 100% { translate: 0 190%; } }
+
+/* bus: what the nodes read converges here, then drops into the Top 3 — it flows only while information is arriving */
+.hs-bus { display: grid; justify-items: center; position: relative; }
+.hs-area-bus { position: relative; }
+.hs-bus-line { background: var(--r3-line-strong); display: block; height: 2px; overflow: hidden; position: relative; transition: background var(--m-slow) var(--m-ease-out); width: 100%; }
+.hs-bus-line .hs-beam { background: none; height: 100%; inset: 0; position: absolute; width: 100%; }
+.hs-bus-line .hs-beam::before, .hs-bus-line .hs-beam::after { background: linear-gradient(90deg, transparent, var(--r3-spec-cyan) 60%, transparent); content: ""; height: 100%; inset: 0 auto 0 0; opacity: 0; position: absolute; translate: -100% 0; width: 30%; }
+.hs-bus-line .hs-beam::after { background: linear-gradient(270deg, transparent, var(--r3-spec-pink) 60%, transparent); inset: 0 0 0 auto; translate: 100% 0; }
+.hs-bus-note { animation: hs-fade var(--m-slow) var(--m-ease-out) both; background: var(--r3-panel); border-radius: 2px; color: var(--r3-id); font: 600 10px/1 var(--f-bric); left: 50%; padding: 4px 8px; position: absolute; top: 12px; translate: -50% -50%; white-space: nowrap; z-index: 1; }
+.hs-bus-drop { background: var(--r3-line-strong); display: block; height: 12px; margin-top: 0; transition: background var(--m-slow) var(--m-ease-out); width: 2px; }
+.hs[data-revealed="true"] .hs-bus-line, .hs[data-revealed="true"] .hs-bus-drop { background: color-mix(in srgb, var(--r3-spec-cyan) 34%, var(--r3-line)); }
+.hs[data-flow="true"] .hs-bus-line .hs-beam::before { animation: hs-bus-l 1600ms linear infinite; opacity: 1; }
+.hs[data-flow="true"] .hs-bus-line .hs-beam::after { animation: hs-bus-r 1600ms linear infinite; opacity: 1; }
+.hs[data-flow="true"] .hs-bus-drop .hs-beam::after { animation: hs-drop 1600ms linear infinite; opacity: 1; }
+.hs-bus-drop .hs-beam { height: 100%; }
+@keyframes hs-bus-l { 0%, 52% { translate: -100% 0; } 80%, 100% { translate: 117% 0; } }
+@keyframes hs-bus-r { 0%, 52% { translate: 100% 0; } 80%, 100% { translate: -117% 0; } }
+@keyframes hs-drop { 0%, 80% { translate: 0 -100%; } 100% { translate: 0 190%; } }
+
+/* ───────── the Top 3 ───────── */
+.hs-cards { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.hs-card {
+  align-items: center; background: color-mix(in srgb, var(--r3-panel) 70%, transparent); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); column-gap: 12px; display: grid; grid-template-columns: 24px 48px minmax(0, 1fr) auto 52px;
+  min-height: 64px; padding: 6px 12px; position: relative; transition: opacity var(--m-slow) var(--m-ease-out), box-shadow var(--m-slow) var(--m-ease-out);
+}
+.hs-card[data-ready="false"] { background: transparent; box-shadow: none; outline: 1px dashed var(--r3-line-strong); outline-offset: -1px; }
+.hs-card > :not(.hs-card-edge) { transition: opacity var(--m-slow) var(--m-ease-out) calc(var(--hs-i, 0) * 120ms); }
+.hs-card[data-ready="false"] > :not(.hs-card-edge) { opacity: 0; transition-delay: 0ms; }
+.hs-card-rank { color: var(--r3-muted); font: 600 12px/1 var(--f-bric); }
+.hs-card-icon { display: inline-flex; transition: opacity var(--m-slow) var(--m-ease-out); }
+.hs-card[data-launched="true"] .hs-card-icon { opacity: .18; }
+.hs-card-main { display: grid; gap: 2px; min-width: 0; }
+.hs-card-name { font: 600 15px/1.1 var(--f-bric); }
+.hs-card-reason { color: var(--r3-muted); font: 500 12px/1.3 var(--f-bric); }
+/* the reasons that have ARRIVED for this hero, each with its own signed amount: the score is their sum */
+.hs-card-reasons { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.hs-reason { border-radius: 2px; color: var(--r3-muted); font: 500 11px/1.3 var(--f-bric); padding: 0 4px; white-space: nowrap; }
+.hs-reason b { font-weight: 700; }
+.hs-reason[data-dir="up"] b { color: var(--r3-up); }
+.hs-reason[data-dir="down"] b { color: var(--r3-down); }
+.hs-reason[data-new="true"] { background: color-mix(in srgb, var(--r3-ink) 9%, transparent); color: var(--r3-ink); }
+.hs[data-motion="full"] .hs-reason { animation: hs-pop var(--m-slow) var(--m-spring-snappy) both; }
+.hs-card-delta { min-width: 0; }
+.hs-card-delta .cx-delta { animation: hs-pop var(--m-slow) var(--m-ease-out) both; }
+@keyframes hs-pop { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+.hs-card-score { font: 700 24px/1 var(--f-syne); font-variant-numeric: tabular-nums; justify-self: end; transform-origin: right center; transition: color var(--m-fast) var(--m-ease-out), scale var(--m-slow) var(--m-spring-snappy); }
+.hs-card-score[data-moving="true"] { color: var(--r3-spec-cyan); }
+
+/* the call: one card becomes the answer — moving border, restrained glow, a slow foil band */
+.hs-card-edge {
+  background: conic-gradient(from var(--hs-angle), transparent 0 52%, var(--r3-spec-cyan) 74%, var(--r3-spec-pink) 90%, var(--r3-spec-lime) 100%); border-radius: inherit; inset: 0; opacity: 0; padding: 1.5px; pointer-events: none; position: absolute;
+  -webkit-mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); transition: opacity var(--m-slow) var(--m-ease-out);
+}
+.hs-card[data-champion="true"] { box-shadow: inset 0 0 0 1px transparent, 0 0 28px -10px color-mix(in srgb, var(--r3-spec-cyan) 55%, transparent); overflow: hidden; }
+.hs-card[data-champion="true"] .hs-card-edge { animation: hs-spin 3200ms linear infinite; opacity: 1; }
+.hs-card[data-champion="true"]::after { animation: hs-foil 3600ms var(--m-ease-in-out) 500ms infinite; background: linear-gradient(105deg, transparent 38%, color-mix(in srgb, var(--r3-ink) 14%, transparent) 50%, transparent 62%); content: ""; inset: 0; pointer-events: none; position: absolute; translate: -110% 0; }
+.hs-card[data-champion="true"] .hs-card-rank { color: var(--r3-spec-cyan); }
+.hs-card[data-champion="true"] .hs-card-score { background: var(--r3-spec-fill) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; scale: 1.25; }
+.hs[data-decided="true"] .hs-card[data-champion="false"] { opacity: .7; }
+@keyframes hs-foil { 0% { translate: -110% 0; } 45%, 100% { translate: 110% 0; } }
+
+/* the reasons resolve under the winning card, one by one */
+.hs-call { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+.hs-why { color: var(--r3-ink); display: flex; flex-wrap: wrap; font: 600 12px/1.2 var(--f-bric); gap: 8px 20px; list-style: none; margin: 0; min-height: 24px; padding: 0; }
+.hs-why li { align-items: center; display: inline-flex; gap: 8px; opacity: 0; transition: opacity var(--m-slow) var(--m-ease-out) calc(var(--hs-i, 0) * 380ms + 200ms); }
+.hs-why[data-on="true"] li { opacity: 1; }
+.hs[data-motion="full"] .hs-why[data-on="true"] li { animation: hs-reason var(--m-slow) var(--m-ease-out) calc(var(--hs-i, 0) * 380ms + 200ms) both; }
+@keyframes hs-reason { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
+
+.hs-lock { border-radius: 4px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-spec-cyan) 60%, var(--r3-line)); color: var(--r3-ink); font: 700 12px/1 var(--f-bric); opacity: 0; padding: 8px 12px; transition: opacity var(--m-fast) var(--m-ease-out), background-color var(--m-fast) var(--m-ease-out), box-shadow var(--m-fast) var(--m-ease-out), color var(--m-fast) var(--m-ease-out), scale var(--m-fast) var(--m-spring-snappy); white-space: nowrap; }
+.hs-lock[data-on="true"] { opacity: 1; transition-delay: 500ms, 0ms, 0ms, 0ms, 0ms; }
+.hs-lock[data-pressed="true"] { background: color-mix(in srgb, var(--r3-spec-cyan) 22%, transparent); box-shadow: inset 0 0 0 1px var(--r3-spec-cyan); color: var(--r3-id); transition-delay: 0ms; }
+.hs[data-step="lock"] .hs-lock { scale: .94; }
+.hs-lock[data-done="true"] { color: var(--r3-up); }
+
+.hs-control { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+/* paused: everything that loops holds its frame */
+.hs-host[data-paused="true"] :is(*, *::before, *::after) { animation-play-state: paused !important; }
+
+/* ───────── narrow: the same story with fewer simultaneous effects ───────── */
+@media (max-width: 599px) {
+  .hs-inner { padding: 12px; }
+  .hs-grid { grid-template-areas: "draft draft draft draft draft" "lanes lanes lanes lanes lanes" "nodes nodes nodes nodes nodes" "feed feed feed feed feed" "you you you you you" "bus bus bus bus bus" "top top top top top" "why why why why why"; }
+  .hs-lane[data-lane="history"] { visibility: hidden; }
+  .hs-lanes { height: 20px; }
+  .hs-feed { display: flex; height: 16px; justify-content: flex-end; padding-right: calc((100% - 32px) / 10 - 1px); }
+  .hs-feed .hs-beam::after { animation-direction: reverse; }
+  .hs-node { gap: 2px; min-height: 40px; padding: 8px 4px; text-align: center; }
+  .hs-node-label .hs-long, .hs-node-value { display: none; }
+  .hs-node-label .hs-short { display: inline; font-size: 10px; }
+  .hs-node-ring { display: none; }
+  .hs-bans, .hs-block-meta { display: none; }
+  .hs-row { gap: 4px; }
+  .hs-row-label { min-width: 36px; }
+  .hs .hs-seat .chm-icon[data-size] { --chm-icon-size: 32px; }
+  .hs-seat-open { height: 32px; width: 32px; }
+  .hs-you-open { font-size: 8px; }
+  .hs-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hs-card { column-gap: 8px; grid-template-columns: 20px 40px minmax(0, 1fr) auto 40px; padding-inline: 8px; }
+  .hs .hs-card .chm-icon[data-size] { --chm-icon-size: 40px; }
+  .hs-card-name { font-size: 14px; }
+  .hs-card-score { font-size: 20px; }
+  .hs-why { flex-direction: column; min-height: 72px; }
+  .hs-ambient { display: none; }
+  .hs-spectrum::before { animation-duration: 52s; opacity: .22; }
+}
+
+/* ───────── reduced motion: every state stays, the travel goes. Visibility above is transition-driven, so a
+   crossfade is all that is left; nothing below needs to start an animation. ───────── */
+.hs[data-motion="reduced"] .hs-spectrum::before { animation: none; transform: none; }
+.hs[data-motion="reduced"] .hs-ambient, .hs[data-motion="reduced"] .hs-px-cells, .hs[data-motion="reduced"] .hs-card::after { display: none; }
+.hs[data-motion="reduced"] .hs-beam::after, .hs[data-motion="reduced"] .hs-bus-line .hs-beam::before, .hs[data-motion="reduced"] .hs-bus-line .hs-beam::after { animation: none; opacity: 0; }
+.hs[data-motion="reduced"] .hs-node-ring, .hs[data-motion="reduced"] .hs-card-edge, .hs[data-motion="reduced"] .hs-progress-bar, .hs[data-motion="reduced"] .hs-card-delta .cx-delta, .hs[data-motion="reduced"] .hs-bus-note { animation: none; }
+.hs[data-motion="reduced"] .hs-node-ring, .hs[data-motion="reduced"] .hs-card-edge { --hs-angle: 200deg; }
+.hs[data-motion="reduced"] .hs-card-score { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .hs-spectrum::before { animation: none; transform: none; }
+  .hs-ambient, .hs-px-cells, .hs-card::after { display: none; }
+}
+@keyframes hs-fade { from { opacity: 0; } to { opacity: 1; } }
