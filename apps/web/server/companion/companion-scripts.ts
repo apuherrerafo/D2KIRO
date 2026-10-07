@@ -347,7 +347,7 @@ function Invoke-Uninstall {
   # uninstaller .cmd that is running this (it deletes itself when this script returns).
   foreach ($path in @($RuntimePath, $ConfigPath, ($ConfigPath + '.tmp'), $LogPath, ($LogPath + '.1'))) { try { if ([IO.File]::Exists($path)) { [IO.File]::Delete($path) } } catch { } }
   $text = 'D2KIRO Companion se desinstalo: ya no arranca con Windows y se quito la configuracion de Dota 2.'
-  if ([IO.Directory]::Exists($DiagDir)) { $text = $text + $NL + $NL + 'Los diagnosticos locales quedaron en:' + $NL + $DiagDir + $NL + 'Podes borrar esa carpeta cuando quieras.' }
+  if ([IO.Directory]::Exists($DiagDir)) { $text = $text + $NL + $NL + 'Los diagnosticos locales quedaron en:' + $NL + $DiagDir + $NL + 'Puedes borrar esa carpeta cuando quieras.' }
   Show-Result ($text + $NL + $NL + 'Para cortar tambien la conexion desde el sitio, usa «Desconectar Dota» en la pagina de D2KIRO.') $true
 }
 
@@ -1015,7 +1015,7 @@ if (-not $NoAutostart) {
     Set-ItemProperty -Path $UninstallKey -Name 'NoModify' -Value 1 -Type DWord
     Set-ItemProperty -Path $UninstallKey -Name 'NoRepair' -Value 1 -Type DWord
   } catch {
-    Show-Result ('D2KIRO Companion quedó instalado, pero no pudimos hacer que arranque solo con Windows.' + $NL + $NL + 'Volvé a abrir este instalador.') $false
+    Show-Result ('D2KIRO Companion quedó instalado, pero no pudimos hacer que arranque solo con Windows.' + $NL + $NL + 'Vuelve a abrir este instalador.') $false
     exit 3
   }
 }
