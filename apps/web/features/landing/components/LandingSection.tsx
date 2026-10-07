@@ -11,17 +11,19 @@ export type LandingSectionProps = {
   children: ReactNode;
   id: string;
   kicker: string;
+  /** `split` puts the head and the content side by side from 840 px up (the closing block); stacked otherwise. */
+  layout?: "split" | "stack";
   lede?: string;
   title: string;
 };
 
-export function LandingSection({ children, id, kicker, lede, title }: LandingSectionProps) {
+export function LandingSection({ children, id, kicker, layout = "stack", lede, title }: LandingSectionProps) {
   const host = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
   const seen = useSeen(host, reduced);
   const headingId = `${id}-title`;
   return (
-    <section aria-labelledby={headingId} className="ld-section" data-section={id} data-seen={seen ? "true" : "false"} id={id} ref={host} tabIndex={-1}>
+    <section aria-labelledby={headingId} className="ld-section" data-section={id} data-layout={layout} data-seen={seen ? "true" : "false"} id={id} ref={host} tabIndex={-1}>
       <span aria-hidden="true" className="ld-rule" />
       <div className="ld-wrap">
         <header className="ld-section-head">

@@ -30,11 +30,6 @@ const OPENING: DraftFrame = {
   basis: "STRATEGIC",
   confidence: "medium",
   evidenceSamples: 12,
-  signals: [
-    { id: "role", label: "Role", value: "Pos 4 open", detail: "3 of 5 seats open", shifts: [{ hero: "Lion", delta: 2.1 }, { hero: "Shadow Shaman", delta: 2.1 }, { hero: "Snapfire", delta: 2.1 }] },
-    { id: "counter", label: "Counter pressure", value: "Storm Spirit revealed", detail: "enemy mid", shifts: [{ hero: "Lion", delta: 3.4 }, { hero: "Shadow Shaman", delta: 3.0 }, { hero: "Snapfire", delta: -0.6 }] },
-    { id: "synergy", label: "Synergy", value: "Pairs with your offlane", detail: "Mars locked", shifts: [{ hero: "Lion", delta: 1.8 }, { hero: "Shadow Shaman", delta: -0.4 }, { hero: "Snapfire", delta: 1.2 }] },
-  ],
   top3: [
     { rank: 1, hero: "Lion", fit: 74, position: 4, reasons: [{ kind: "counter", text: "Counters Storm Spirit" }, { kind: "synergy", text: "Chains with Mars" }, { kind: "position", text: "Fits Pos 4" }] },
     { rank: 2, hero: "Shadow Shaman", fit: 71, position: 4, reasons: [{ kind: "counter", text: "Counters Storm Spirit" }, { kind: "position", text: "Fits Pos 4" }] },
@@ -55,11 +50,6 @@ const ENEMY_REVEAL: DraftFrame = {
   basis: "STRATEGIC",
   confidence: "medium",
   evidenceSamples: 11,
-  signals: [
-    { id: "role", label: "Role", value: "Pos 4 open", detail: "3 of 5 seats open" },
-    { id: "counter", label: "Counter pressure", value: "Three enemies revealed", detail: "Crystal Maiden added" },
-    { id: "synergy", label: "Synergy", value: "Pairs with your offlane", detail: "Mars locked" },
-  ],
   top3: [
     { rank: 1, hero: "Shadow Shaman", fit: 76, position: 4, reasons: [{ kind: "counter", text: "Long disable into Axe and Storm" }, { kind: "position", text: "Fits Pos 4" }] },
     { rank: 2, hero: "Lion", fit: 72, position: 4, reasons: [{ kind: "counter", text: "Counters Storm Spirit" }, { kind: "synergy", text: "Chains with Mars" }, { kind: "position", text: "Fits Pos 4" }] },
@@ -80,11 +70,6 @@ const THIN_EVIDENCE: DraftFrame = {
   basis: "DETERMINISTIC_DEFAULT",
   confidence: "low",
   evidenceSamples: 3,
-  signals: [
-    { id: "role", label: "Role", value: "Pos 4 open", detail: "3 of 5 seats open" },
-    { id: "counter", label: "Counter pressure", value: "Not enough matches", detail: "3 matches vs Muerta" },
-    { id: "synergy", label: "Synergy", value: "Pairs with your offlane", detail: "Mars locked" },
-  ],
   top3: [
     { rank: 1, hero: "Shadow Shaman", fit: 60, position: 4, reasons: [{ kind: "position", text: "A neutral starting view, not an advantage" }] },
     { rank: 2, hero: "Lion", fit: 59, position: 4, reasons: [{ kind: "position", text: "Fits Pos 4" }] },
@@ -105,11 +90,6 @@ const YOU_LOCK: DraftFrame = {
   basis: "STRATEGIC",
   confidence: "medium",
   evidenceSamples: 9,
-  signals: [
-    { id: "role", label: "Role", value: "Pos 5 open", detail: "2 of 5 seats open" },
-    { id: "counter", label: "Counter pressure", value: "Burst pressure revealed", detail: "Storm, Axe, Muerta" },
-    { id: "synergy", label: "Synergy", value: "Pairs with Shadow Shaman", detail: "your lock" },
-  ],
   top3: [
     { rank: 1, hero: "Dazzle", fit: 69, position: 5, reasons: [{ kind: "counter", text: "Save against burst" }, { kind: "position", text: "Fits Pos 5" }] },
     { rank: 2, hero: "Oracle", fit: 66, position: 5, reasons: [{ kind: "counter", text: "Dispel and save" }, { kind: "position", text: "Fits Pos 5" }] },

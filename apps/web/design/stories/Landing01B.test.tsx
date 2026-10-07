@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { FORBIDDEN_CLAIMS } from "@/features/landing/copy";
+import { FORBIDDEN_CLAIMS, NAV_LINKS } from "@/features/landing/copy";
 import { coachCueFor, type CoachCharacterProps } from "@/features/landing/coach/coach-slot";
 import { isValidEmail } from "@/features/landing/components/WaitlistSection";
 import { LandingPage } from "@/features/landing";
@@ -27,11 +27,27 @@ function renderPage(props: Parameters<typeof LandingPage>[0] = {}) {
 }
 
 describe("Landing 01B structure", () => {
-  it("renders hero, memory, counterfactual, proposition, demo, signals, evidence and waitlist in order, one h1", () => {
+  it("ends the story in two blocks after the Counterfactual: the proposition, then the close; one h1", () => {
     const { page } = renderPage();
     const ids = [...page.querySelectorAll("[data-section]")].map((node) => node.getAttribute("data-section"));
-    expect(ids).toEqual(["hero", "memory", "counterfactual", "proposition", "demo", "signals", "evidence", "waitlist"]);
+    expect(ids).toEqual(["hero", "memory", "counterfactual", "proposition", "waitlist"]);
     expect(page.querySelectorAll("h1")).toHaveLength(1);
+  });
+
+  it("every nav link lands on a section that exists, and so do the Hero's own targets", () => {
+    const { page } = renderPage();
+    for (const link of NAV_LINKS) expect(page.querySelector(link.href)).not.toBeNull();
+    expect(page.querySelector("#waitlist")).not.toBeNull();
+    expect(page.querySelector("#proposition")).not.toBeNull();
+  });
+
+  it("keeps a real heading hierarchy: one h2 per story section and no skipped level", () => {
+    const { page } = renderPage();
+    const levels = [...page.querySelectorAll("h1, h2, h3, h4")].map((node) => Number(node.tagName.slice(1)));
+    levels.forEach((level, index) => {
+      if (index > 0) expect(level - levels[index - 1]).toBeLessThanOrEqual(1);
+    });
+    for (const id of ["counterfactual", "proposition", "waitlist"]) expect(page.querySelectorAll(`[data-section="${id}"] h2`)).toHaveLength(1);
   });
 
   it("makes no forbidden claim in the rendered text", () => {
@@ -83,14 +99,14 @@ describe("Landing 01B product-state seam", () => {
     const { page } = renderPage();
     fireEvent.click([...page.querySelectorAll("button")].find((b) => b.textContent?.includes("Thin evidence")) as HTMLElement);
     expect(page.textContent).toContain("No clear strategic priority");
-    expect(page.querySelector('[data-section="demo"] [data-state="recommended"]')).toBeNull();
+    expect(page.querySelector('[data-section="proposition"] [data-state="recommended"]')).toBeNull();
   });
 });
 
-describe("Landing 01B demo", () => {
+describe("Landing 01B proposition", () => {
   it("steps the draft by data: choosing a moment changes the narrative and the ranking", () => {
     const { page } = renderPage();
-    const demo = page.querySelector('[data-section="demo"]') as HTMLElement;
+    const demo = page.querySelector('[data-section="proposition"]') as HTMLElement;
     const first = demo.querySelector(".ld-cand[data-rank='1']")?.getAttribute("data-flip-key");
     fireEvent.click([...demo.querySelectorAll("button")].find((b) => b.textContent?.includes("Enemy reveals")) as HTMLElement);
     const second = demo.querySelector(".ld-cand[data-rank='1']")?.getAttribute("data-flip-key");
@@ -99,14 +115,13 @@ describe("Landing 01B demo", () => {
     expect(demo.querySelector(".ld-narrative")?.textContent).toContain("Crystal Maiden");
   });
 
-  it("evidence markers are 1:1 with the real match count, and thin evidence cannot gather", () => {
+  it("the three rules say what the stage shows, and the thin-evidence moment says it in words", () => {
     const { page } = renderPage();
-    const evidence = page.querySelector('[data-section="evidence"]') as HTMLElement;
-    const enough = FAKE_PRODUCT_STATE.frames.filter((f) => f.basis === "STRATEGIC").reduce((a, f) => Math.max(a, f.evidenceSamples), 0);
-    expect(evidence.querySelectorAll(".ld-sample")).toHaveLength(enough);
-    fireEvent.click([...evidence.querySelectorAll("button")].find((b) => b.textContent === "Too few matches") as HTMLElement);
-    expect(evidence.querySelectorAll(".ld-sample")).toHaveLength(3);
-    expect((evidence.querySelector("button[aria-pressed][disabled]") as HTMLButtonElement | null)?.disabled).toBe(true);
+    const proposition = page.querySelector('[data-section="proposition"]') as HTMLElement;
+    expect(proposition.querySelectorAll(".ld-point")).toHaveLength(3);
+    expect(proposition.textContent).toContain("Says when it is unsure");
+    fireEvent.click([...proposition.querySelectorAll("button")].find((b) => b.textContent?.includes("Thin evidence")) as HTMLElement);
+    expect(proposition.querySelector(".ld-stage-note")?.textContent).toBe("Default view");
   });
 });
 

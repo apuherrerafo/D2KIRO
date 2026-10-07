@@ -56,7 +56,7 @@ export function LandingHero({ departing = false }: { departing?: boolean }) {
     scrollToId("waitlist", reduced);
   }
   function handleDemo() {
-    scrollToId("demo", reduced);
+    scrollToId("proposition", reduced);
   }
 
   return (

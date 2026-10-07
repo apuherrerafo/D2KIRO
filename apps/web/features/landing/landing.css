@@ -50,9 +50,10 @@
 :is(.ld-hero-field, .ld-demo-field) .cm-ghost-num { font-size: clamp(120px, 14vw, 200px); left: 2%; right: auto; top: 22%; }
 @media (min-width: 960px) { .ld-hero-grid { gap: 48px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } }
 
-/* ───────── proposition ───────── */
-.ld-points { counter-reset: none; display: grid; gap: 0; list-style: none; margin: 0; padding: 0; }
-.ld-point { border-top: 1px solid var(--r3-line); display: grid; gap: 4px 24px; grid-template-columns: 48px minmax(0, 1fr); padding-block: 20px; }
+/* ───────── proposition ─────────
+   The three rules sit under the live stage as its caption: quieter than the stage, hairlines instead of boxes. */
+.ld-points { counter-reset: none; display: grid; gap: 0; list-style: none; margin: clamp(32px, 5vw, 56px) 0 0; padding: 0; }
+.ld-point { border-top: 1px solid var(--r3-line); display: grid; gap: 4px 16px; grid-template-columns: 32px minmax(0, 1fr); padding-block: 20px; }
 .ld-point-index { color: var(--r3-id); font: 700 12px/1.6 var(--f-pmono); grid-row: span 2; }
 .ld-point-title { font: 600 20px/1.2 var(--f-plex); margin: 0; }
 .ld-point-body { color: var(--r3-muted); font: 400 15px/1.5 var(--f-plex); margin: 0; max-width: 60ch; }
@@ -159,41 +160,15 @@
 .ld-coach-placeholder.r3-perimeter { background: transparent; height: 96px; width: 96px; }
 .ld-coach-placeholder-meta { bottom: 8px; color: var(--r3-muted); font: 500 11px/1 var(--f-pmono); left: 8px; position: absolute; }
 
-/* ───────── signals ───────── */
-.ld-signals { align-items: start; display: grid; gap: 32px; }
-.ld-signal-rail-host { position: relative; }
-.ld-signal-list { display: grid; gap: 8px; grid-auto-rows: 1fr; list-style: none; margin: 0; padding: 0 0 0 12px; }
-.ld-rail { background: var(--r3-spec-fill-v); border-radius: 2px; bottom: 0; left: 0; position: absolute; top: 0; transform: translateY(calc(var(--ld-focus, 0) * 100%)); transition: transform var(--m-spring-snappy-duration) var(--m-spring-snappy); width: 2px; height: calc((100% - (var(--ld-n, 1) - 1) * 8px) / var(--ld-n, 1)); }
-.ld-signal .cx-target { text-align: left; width: 100%; }
-.ld-signal .cx-target-value { font: 500 14px/1.3 var(--f-plex); letter-spacing: 0; }
-.ld-signal[data-selected="false"] .cx-target-title { color: var(--r3-muted); transition: color var(--m-fast) var(--m-ease-out); }
-.ld-shifts-title { font: 600 14px/1.2 var(--f-plex); margin: 0; }
-.ld-shifts-detail { color: var(--r3-muted); font: 500 13px/1.4 var(--f-plex); margin: 4px 0 16px; }
-.ld-shift-list { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
-.ld-shift { align-items: center; border-top: 1px solid var(--r3-line); display: grid; gap: 12px; grid-template-columns: 36px minmax(0, 1fr) auto; padding-block: 12px; }
-.ld-shift-name { font: 500 14px/1.2 var(--f-plex); }
-@media (min-width: 840px) { .ld-signals { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
-
-/* ───────── evidence ───────── */
-.ld-evidence { display: grid; gap: 16px; max-width: 640px; }
-.ld-level { display: flex; flex-wrap: wrap; gap: 8px 24px; }
-.ld-evidence-frame.r3-perimeter { background: transparent; border-radius: 6px; }
-.ld-evidence-card { display: grid; gap: 12px; padding: 24px; }
-.ld-evidence[data-level="thin"] .cx-metric-value { color: var(--r3-muted); }
-.ld-evidence-note { color: var(--r3-muted); font: 500 14px/1.4 var(--f-plex); margin: 0; }
-.ld-evidence-count { color: var(--r3-muted); font: 500 13px/1.3 var(--f-plex); margin: 0; }
-.ld-evidence-count b { color: var(--r3-ink); font: 700 13px/1 var(--f-plex); font-variant-numeric: tabular-nums; }
-.ld-samples { height: 64px; position: relative; }
-.ld-sample {
-  background: var(--r3-neutral); border-radius: 50%; height: 8px; left: var(--ld-sx); position: absolute; top: var(--ld-sy); width: 8px;
-  transition: background-color var(--m-fast) var(--m-ease-out), left var(--m-spring-snappy-duration) var(--m-spring-snappy), top var(--m-spring-snappy-duration) var(--m-spring-snappy);
+/* ───────── waitlist (the close) ─────────
+   Head left, form right on wide screens: the visitor reads the reason and the action in one glance, and the page
+   ends on the least decorated block after the Hero — no stage, no skin, just the one spectral action. */
+.ld-section[data-layout="split"] .ld-section-head { margin-bottom: 32px; }
+@media (min-width: 840px) {
+  .ld-section[data-layout="split"] > .ld-wrap { align-items: end; column-gap: clamp(40px, 6vw, 96px); display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); }
+  .ld-section[data-layout="split"] .ld-section-head { margin-bottom: 0; }
+  .ld-section[data-layout="split"] .ld-lede { max-width: 44ch; }
 }
-.ld-samples[data-gathered="true"] .ld-sample {
-  background: var(--r3-spec-cyan); left: calc(var(--ld-i) * 16px); top: 28px;
-  transition-delay: calc(var(--ld-i) * 14ms);
-}
-
-/* ───────── waitlist ───────── */
 .ld-waitlist { display: grid; gap: 8px; max-width: 480px; }
 .ld-field-label { color: var(--r3-muted); font: 600 12px/1.2 var(--f-plex); }
 .ld-field {
@@ -224,8 +199,8 @@
 
 /* ───────── reduced motion: substitute, never disable ───────── */
 [data-motion="reduced"] .ld-h1-accent, [data-motion="reduced"] .ld-roster-icon { animation: none; }
-[data-motion="reduced"] :is(.ld-rule::after, .ld-rail, .ld-sample, .ld-stage-turn, .ld-col-title, .ld-nav-link, .ld-field) { transition-duration: 0ms !important; transition-delay: 0ms !important; }
+[data-motion="reduced"] :is(.ld-rule::after, .ld-stage-turn, .ld-col-title, .ld-nav-link, .ld-field) { transition-duration: 0ms !important; transition-delay: 0ms !important; }
 @media (prefers-reduced-motion: reduce) {
   .ld-h1-accent, .ld-roster-icon { animation: none; }
-  :is(.ld-rule::after, .ld-rail, .ld-sample, .ld-stage-turn, .ld-col-title, .ld-nav-link, .ld-field) { transition-duration: 0ms !important; transition-delay: 0ms !important; }
+  :is(.ld-rule::after, .ld-stage-turn, .ld-col-title, .ld-nav-link, .ld-field) { transition-duration: 0ms !important; transition-delay: 0ms !important; }
 }

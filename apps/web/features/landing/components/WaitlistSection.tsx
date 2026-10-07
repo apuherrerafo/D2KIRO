@@ -73,7 +73,7 @@ export function WaitlistSection({ onJoin }: { onJoin?: JoinWaitlist }) {
   }
 
   return (
-    <LandingSection id="waitlist" kicker={WAITLIST.kicker} lede={WAITLIST.lede} title={WAITLIST.title}>
+    <LandingSection id="waitlist" kicker={WAITLIST.kicker} layout="split" lede={WAITLIST.lede} title={WAITLIST.title}>
       <form className="ld-waitlist" noValidate onSubmit={handleSubmit}>
         <label className="ld-field-label" htmlFor={fieldId}>{WAITLIST.emailLabel}</label>
         <input

@@ -15,9 +15,9 @@ export const HERO = {
 } as const;
 
 export const NAV_LINKS = [
-  { href: "#demo", label: "How it works" },
-  { href: "#signals", label: "Signals" },
-  { href: "#evidence", label: "Evidence" },
+  { href: "#memory", label: "Memory" },
+  { href: "#counterfactual", label: "For you" },
+  { href: "#proposition", label: "What you get" },
 ] as const;
 
 /** The bridge from the Hero's one call to the Memory Strip. The strip's own words stay in its scenes. */
@@ -42,49 +42,26 @@ export const COUNTERFACTUAL = {
   },
 } as const;
 
+/** The block after the Counterfactual: what the visitor gets while drafting. The live stage is the proof; the rules say it in words. */
 export const PROPOSITION = {
+  kicker: "What you get",
   title: "One call, with the reasons beside it.",
+  lede: "A draft played out in four moments. Step through it, or let it run once.",
+  replay: "Replay",
+  stepperLabel: "Draft moments",
+  pointsLabel: "What D2KIRO does",
+  illustrative: "Illustrative draft. The numbers show how the product reads a draft, not a promise about any game.",
   points: [
-    { id: "reads", title: "Reads the draft", body: "Bans, picks, who is revealed, and the position you are filling." },
+    { id: "reads", title: "Reads the draft and you", body: "Bans, picks, who is revealed, the position you are filling and how you have played." },
     { id: "ranks", title: "Shows three calls", body: "Each one with the signals that put it there: counter, synergy, position." },
     { id: "honest", title: "Says when it is unsure", body: "With thin evidence it shows a neutral starting view and marks it as one." },
   ],
 } as const;
 
-export const DEMO = {
-  kicker: "In a draft",
-  title: "Watch the call change as the draft does.",
-  lede: "A draft played out in four moments. Step through it, or let it run once.",
-  replay: "Replay",
-  stepperLabel: "Draft moments",
-  illustrative: "Illustrative draft. The numbers show how the product reads a draft, not a promise about any game.",
-} as const;
-
-export const SIGNALS = {
-  kicker: "Signals",
-  title: "Three signals decide the order.",
-  lede: "Pick one to see what it does to each candidate.",
-  listLabel: "Signals",
-  shiftsTitle: "Effect on fit",
-  shiftsUnit: "pts",
-} as const;
-
-export const EVIDENCE = {
-  kicker: "Evidence",
-  title: "Strong evidence is a call. Thin evidence is said plainly.",
-  lede: "The number of matches behind a call is real, and so is the label.",
-  toggleLabel: "Evidence level",
-  enough: "Enough matches",
-  thin: "Too few matches",
-  samplesLabel: "matches behind this call",
-  strategicNote: "A strategic call: there is a reason to prefer this hero.",
-  defaultNote: "A neutral starting view, not an advantage.",
-} as const;
-
 export const WAITLIST = {
   kicker: "Early access",
-  title: "Be in the first draft rooms.",
-  lede: "Simulator beta first. Leave your email and we write when it opens.",
+  title: "Take it into your next draft.",
+  lede: "D2KIRO sees the draft, remembers how you play and shows why a call moved. Simulator beta first: leave your email and we write when it opens.",
   emailLabel: "Email",
   emailPlaceholder: "you@example.com",
   emailError: "Enter an email address like name@example.com.",

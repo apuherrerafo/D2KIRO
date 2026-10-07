@@ -15,14 +15,11 @@ import { LabProvider, useReducedMotion, type MotionMode } from "@/design/round-3
 import { motionCssVars } from "@/design/round-3a/motion-tokens";
 import { CoachSlotProvider, coachCueFor, type CoachCharacter } from "./coach/coach-slot";
 import { CounterfactualSection } from "./components/CounterfactualSection";
-import { DemoSection } from "./components/DemoSection";
-import { EvidenceSection } from "./components/EvidenceSection";
 import { LandingFooter } from "./components/LandingFooter";
 import { LandingHero } from "./components/LandingHero";
 import { LandingNav } from "./components/LandingNav";
 import { MemorySection } from "./components/MemorySection";
 import { PropositionSection } from "./components/PropositionSection";
-import { SignalsSection } from "./components/SignalsSection";
 import { WaitlistSection, type JoinWaitlist } from "./components/WaitlistSection";
 import { FAKE_PRODUCT_STATE } from "./product-state/fake-scenario";
 import type { LandingProductState } from "./product-state/types";
@@ -56,10 +53,7 @@ function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder
           <LandingHero departing={departing} />
           <MemorySection onBridge={setDeparting} reducedMotion={reduced} />
           <CounterfactualSection reducedMotion={reduced} />
-          <PropositionSection />
-          <DemoSection character={character} productState={productState} reducedMotion={reduced} showCoachPlaceholder={showCoachPlaceholder} />
-          <SignalsSection productState={productState} />
-          <EvidenceSection productState={productState} />
+          <PropositionSection character={character} productState={productState} reducedMotion={reduced} showCoachPlaceholder={showCoachPlaceholder} />
           <WaitlistSection onJoin={onJoinWaitlist} />
         </main>
         <LandingFooter />

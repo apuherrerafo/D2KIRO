@@ -25,11 +25,6 @@ export type Candidate = {
   reasons: readonly Reason[];
 };
 
-/** How one signal moves each candidate on the ranking, in fit points. Illustrative until the engine reports it. */
-export type SignalShift = { delta: number; hero: string };
-
-export type SignalRow = { detail: string; id: string; label: string; shifts?: readonly SignalShift[]; value: string };
-
 export type DraftFrame = {
   allies: readonly Seat[];
   /** Strategic = the Coach has a reason. Default = a neutral starting view (never shown as advantage). */
@@ -47,7 +42,6 @@ export type DraftFrame = {
   narrative: string;
   /** The position the player is being asked to fill, or null when nothing is on the clock. */
   onTheClock: Position | null;
-  signals: readonly SignalRow[];
   top3: readonly Candidate[];
   youPosition: Position;
 };
