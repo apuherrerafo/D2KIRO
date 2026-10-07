@@ -253,16 +253,18 @@ export function MemoryStripMotion({ sceneId, replayKey = 0, scrub = null, reduce
   useEffect(() => () => { cancelAnimationFrame(live.current.raf); live.current.painter?.restore(); }, []);
 
   const shown: MemoryScene = plan ? plan.to : MEMORY_SCENES[settled];
-  const items = plan ? [...shown.items, ...ghosts] : shown.items;
-  return (
+  const annotationScene = plan && annotationFrom ? plan.from : shown;
+  /* A scroll-driven scrub re-renders the player every frame; the evidence tree only changes with the plan, so React
+     never re-walks it mid-transition (the painter owns those frames). */
+  return useMemo(() => (
     <EvidenceView
       scene={shown}
-      items={items}
+      items={plan ? [...shown.items, ...ghosts] : shown.items}
       ghostLabelItems={ghostLabelItems}
-      annotationScene={plan && annotationFrom ? plan.from : shown}
+      annotationScene={annotationScene}
       motion={plan !== null}
       canvasRef={canvasRef}
       annotationRef={annotationRef}
     />
-  );
+  ), [annotationScene, ghostLabelItems, ghosts, plan, shown]);
 }

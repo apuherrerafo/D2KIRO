@@ -130,6 +130,24 @@
 .ld-demo-foot { align-items: center; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
 .ld-narrative { color: var(--r3-ink); font: 500 15px/1.5 var(--f-plex); margin: 0; max-width: 64ch; }
 
+/* ───────── memory strip (TSK-241) ─────────
+   The track is one stage tall plus the pinned scroll (`--ld-memory-screens`, set from memory-scroll.ts, so the
+   beats and the length are one table). Phones get a little more room per beat: a thumb flick travels further.
+   The stage pins under the 56 px nav and sizes to the SMALL viewport, so browser chrome never resizes it. */
+.ld-memory { position: relative; }
+.ld-memory-head { padding-top: clamp(16px, 3vw, 40px); }
+.ld-memory-track { --ld-memory-scale: 1; height: calc((100svh - 56px) * (1 + var(--ld-memory-screens) * var(--ld-memory-scale))); position: relative; }
+.ld-memory-stage { height: calc(100svh - 56px); overflow: clip; position: sticky; top: 56px; }
+.ld-memory-stage .ms-host, .ld-memory-stage .ms { height: 100%; }
+.ld-memory-stage .ms { min-height: 0; }
+/* The evidence object fits the pinned stage, not the window (Storybook sizes it to a full viewport). */
+@container (min-width: 861px) { .ld-memory-stage .ms-object { width: min(480px, calc((100svh - 152px) * .96), calc(100cqw - 48px)); } }
+@container (max-width: 860px) { .ld-memory-stage .ms-object { width: min(342px, calc(100cqw - 48px), calc((100svh - 384px) * .92)); } }
+/* Handoff: the first retained decision (seal + role) is already there; the rest of Match 01 joins it with the scroll. */
+.ld-memory-stage[data-handoff="pending"] :is(.ms-svg > [data-evidence]:not([data-evidence="role:you"]), .ms-label:not([data-for="role:you"]), .ms-annotation) { opacity: var(--ld-handoff); }
+.ld-memory-stage .ld-coach-slot { bottom: 16px; position: absolute; right: 16px; }
+@media (max-width: 719px) { .ld-memory-track { --ld-memory-scale: 1.1; } }
+
 /* ───────── coach slot (reserved) ───────── */
 .ld-coach-slot { flex: none; min-height: 0; }
 .ld-coach-slot:empty { display: none; }

@@ -1,0 +1,982 @@
+[
+  {
+    "tag": "desktop-1440",
+    "pinned": 4473,
+    "vh": 900,
+    "beats": "handoff:336px hold:match-01:276px transition:match-01>match-08:540px hold:match-08:288px transition:match-08>match-24:660px hold:match-24:324px transition:match-24>match-56:576px hold:match-56:288px transition:match-56>player-model:660px hold:player-model:408px"
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "approach",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 551
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "handoff@0.5",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0.5",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "hold:match-01@0.5",
+    "beat": "hold:match-01",
+    "scene": "match-01",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-01>match-08@0.25",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-01>match-08@0.5",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-01>match-08@0.75",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "hold:match-08@0.5",
+    "beat": "hold:match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-08>match-24@0.25",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-08>match-24@0.5",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-08>match-24@0.75",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "hold:match-24@0.5",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-24>match-56@0.25",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-24>match-56@0.5",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-24>match-56@0.75",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "hold:match-56@0.5",
+    "beat": "hold:match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-56>player-model@0.25",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-56>player-model@0.5",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "transition:match-56>player-model@0.75",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "hold:player-model@0.5",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "release",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": -394
+  },
+  {
+    "tag": "desktop-1440",
+    "label": "reload, then one jump into hold:match-24",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "pinned": 3774,
+    "vh": 768,
+    "beats": "handoff:276px hold:match-01:240px transition:match-01>match-08:456px hold:match-08:228px transition:match-08>match-24:564px hold:match-24:276px transition:match-24>match-56:480px hold:match-56:240px transition:match-56>player-model:552px hold:player-model:348px"
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "approach",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 479
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "handoff@0.5",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0.49",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "hold:match-01@0.5",
+    "beat": "hold:match-01",
+    "scene": "match-01",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-01>match-08@0.25",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-01>match-08@0.5",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-01>match-08@0.75",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "hold:match-08@0.5",
+    "beat": "hold:match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-08>match-24@0.25",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-08>match-24@0.5",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-08>match-24@0.75",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "hold:match-24@0.5",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-24>match-56@0.25",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-24>match-56@0.5",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-24>match-56@0.75",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "hold:match-56@0.5",
+    "beat": "hold:match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-56>player-model@0.25",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-56>player-model@0.5",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "transition:match-56>player-model@0.75",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "hold:player-model@0.5",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "release",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": -329
+  },
+  {
+    "tag": "desktop-1366",
+    "label": "reload, then one jump into hold:match-24",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "pinned": 4594,
+    "vh": 844,
+    "beats": "handoff:336px hold:match-01:300px transition:match-01>match-08:552px hold:match-08:288px transition:match-08>match-24:684px hold:match-24:336px transition:match-24>match-56:588px hold:match-56:288px transition:match-56>player-model:684px hold:player-model:420px"
+  },
+  {
+    "tag": "mobile-390",
+    "label": "approach",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 520
+  },
+  {
+    "tag": "mobile-390",
+    "label": "handoff@0.5",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0.48",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "hold:match-01@0.5",
+    "beat": "hold:match-01",
+    "scene": "match-01",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-01>match-08@0.25",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-01>match-08@0.5",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-01>match-08@0.75",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "hold:match-08@0.5",
+    "beat": "hold:match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-08>match-24@0.25",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-08>match-24@0.5",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-08>match-24@0.75",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "hold:match-24@0.5",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-24>match-56@0.25",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-24>match-56@0.5",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-24>match-56@0.75",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "hold:match-56@0.5",
+    "beat": "hold:match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-56>player-model@0.25",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-56>player-model@0.5",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "transition:match-56>player-model@0.75",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "hold:player-model@0.5",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390",
+    "label": "release",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": -366
+  },
+  {
+    "tag": "mobile-390",
+    "label": "reload, then one jump into hold:match-24",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "pinned": 3545,
+    "vh": 664,
+    "beats": "handoff:264px hold:match-01:216px transition:match-01>match-08:432px hold:match-08:216px transition:match-08>match-24:528px hold:match-24:252px transition:match-24>match-56:456px hold:match-56:216px transition:match-56>player-model:528px hold:player-model:324px"
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "approach",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 421
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "handoff@0.5",
+    "beat": "handoff",
+    "scene": "match-01",
+    "handoff": "0.49",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "hold:match-01@0.5",
+    "beat": "hold:match-01",
+    "scene": "match-01",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-01>match-08@0.25",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-01>match-08@0.5",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-01>match-08@0.75",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "hold:match-08@0.5",
+    "beat": "hold:match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-08>match-24@0.25",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-08>match-24@0.5",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-08>match-24@0.75",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "hold:match-24@0.5",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-24>match-56@0.25",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-24>match-56@0.5",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-24>match-56@0.75",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "hold:match-56@0.5",
+    "beat": "hold:match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-56>player-model@0.25",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-56>player-model@0.5",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "transition:match-56>player-model@0.75",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "hold:player-model@0.5",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "release",
+    "beat": "hold:player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": -276
+  },
+  {
+    "tag": "mobile-390-short",
+    "label": "reload, then one jump into hold:match-24",
+    "beat": "hold:match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "resize-to-1366x768",
+    "beat": "hold:match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "resize-to-390x844",
+    "beat": "hold:match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "beats": "handoff hold:match-01 transition:match-01>match-08 hold:match-08 transition:match-08>match-24 hold:match-24 transition:match-24>match-56 hold:match-56 transition:match-56>player-model hold:player-model"
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-01>match-08@0.3",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-01",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-01>match-08@0.7",
+    "beat": "transition:match-01>match-08",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-08>match-24@0.3",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-08",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-08>match-24@0.7",
+    "beat": "transition:match-08>match-24",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-24>match-56@0.3",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-24",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-24>match-56@0.7",
+    "beat": "transition:match-24>match-56",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-56>player-model@0.3",
+    "beat": "transition:match-56>player-model",
+    "scene": "match-56",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "reduced",
+    "label": "transition:match-56>player-model@0.7",
+    "beat": "transition:match-56>player-model",
+    "scene": "player-model",
+    "handoff": "1",
+    "overflowY": 0,
+    "overflowX": 0,
+    "stageTop": 56
+  },
+  {
+    "tag": "scroll-desktop",
+    "frames": 493,
+    "p50": 17,
+    "p95": 33,
+    "max": 67
+  },
+  {
+    "tag": "scroll-mobile",
+    "frames": 595,
+    "p50": 17,
+    "p95": 17,
+    "max": 50
+  }
+]

@@ -12,7 +12,7 @@ import type { DraftFrame, FocusSection } from "../product-state/types";
 /** What the Coach is doing, bound to product state — never what it says. Mirrors the approved state set. */
 export type CoachCueState = "watching" | "analyzing" | "pointing" | "confirming" | "uncertain";
 
-export type CoachPlacement = "hero" | "demo";
+export type CoachPlacement = "hero" | "memory" | "demo";
 
 /** The full contract a character component receives. Pure data in, pixels out. */
 export type CoachCharacterProps = {

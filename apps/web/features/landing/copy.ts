@@ -20,6 +20,12 @@ export const NAV_LINKS = [
   { href: "#evidence", label: "Evidence" },
 ] as const;
 
+/** The bridge from the Hero's one call to the Memory Strip. The strip's own words stay in its scenes. */
+export const MEMORY = {
+  kicker: "After the draft",
+  title: "The call is made. D2KIRO keeps it.",
+} as const;
+
 export const PROPOSITION = {
   title: "One call, with the reasons beside it.",
   points: [

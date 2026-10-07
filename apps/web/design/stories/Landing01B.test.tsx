@@ -27,10 +27,10 @@ function renderPage(props: Parameters<typeof LandingPage>[0] = {}) {
 }
 
 describe("Landing 01B structure", () => {
-  it("renders hero, proposition, demo, signals, evidence and waitlist in order, one h1", () => {
+  it("renders hero, memory, proposition, demo, signals, evidence and waitlist in order, one h1", () => {
     const { page } = renderPage();
     const ids = [...page.querySelectorAll("[data-section]")].map((node) => node.getAttribute("data-section"));
-    expect(ids).toEqual(["hero", "proposition", "demo", "signals", "evidence", "waitlist"]);
+    expect(ids).toEqual(["hero", "memory", "proposition", "demo", "signals", "evidence", "waitlist"]);
     expect(page.querySelectorAll("h1")).toHaveLength(1);
   });
 
@@ -121,7 +121,7 @@ describe("Landing 01B Coach integration point", () => {
       return <i data-probe={props.placement} />;
     }
     const screen = render(<LandingPage coach={Probe} motionMode="reduced" />);
-    expect(screen.container.querySelectorAll("[data-probe]").length).toBe(2);
+    expect([...screen.container.querySelectorAll("[data-probe]")].map((node) => node.getAttribute("data-probe"))).toEqual(["hero", "memory", "demo"]);
     expect(seen.every((props) => props.reducedMotion)).toBe(true);
   });
 

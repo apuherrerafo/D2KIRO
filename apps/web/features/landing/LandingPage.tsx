@@ -19,6 +19,7 @@ import { EvidenceSection } from "./components/EvidenceSection";
 import { LandingFooter } from "./components/LandingFooter";
 import { LandingHero } from "./components/LandingHero";
 import { LandingNav } from "./components/LandingNav";
+import { MemorySection } from "./components/MemorySection";
 import { PropositionSection } from "./components/PropositionSection";
 import { SignalsSection } from "./components/SignalsSection";
 import { WaitlistSection, type JoinWaitlist } from "./components/WaitlistSection";
@@ -50,6 +51,7 @@ function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder
         <LandingNav reducedMotion={reduced} />
         <main>
           <LandingHero />
+          <MemorySection reducedMotion={reduced} />
           <PropositionSection />
           <DemoSection character={character} productState={productState} reducedMotion={reduced} showCoachPlaceholder={showCoachPlaceholder} />
           <SignalsSection productState={productState} />
