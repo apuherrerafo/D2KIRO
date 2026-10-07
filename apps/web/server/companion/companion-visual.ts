@@ -9,11 +9,11 @@
 // Written without backticks and without "${" in the generated PowerShell so it can live in a JS raw template.
 
 export const VISUAL_RUNTIME = {
-  version: "0.1.0",
+  version: "0.1.1",
   /** SHA-256 of the release zip (hex, lowercase). Updated together with `version`. */
-  sha256: "caaf2e027b9530643a908fe4799f5b7a528647df5e04790ffb7bd6727d188315",
+  sha256: "300759174824a7a284de43ed00a03e3e34d75c4322198c02426cf3f7978e72fd",
   /** Release assets of this public repository; the only host the Companion fetches the runtime from in production. */
-  url: "https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v0.1.0/d2kiro-visual-0.1.0.zip",
+  url: "https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v0.1.1/d2kiro-visual-0.1.1.zip",
   exeName: "d2kiro-visual.exe",
 } as const;
 
