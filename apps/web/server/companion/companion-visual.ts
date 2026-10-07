@@ -11,7 +11,7 @@
 export const VISUAL_RUNTIME = {
   version: "0.1.0",
   /** SHA-256 of the release zip (hex, lowercase). Updated together with `version`. */
-  sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+  sha256: "caaf2e027b9530643a908fe4799f5b7a528647df5e04790ffb7bd6727d188315",
   /** Release assets of this public repository; the only host the Companion fetches the runtime from in production. */
   url: "https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v0.1.0/d2kiro-visual-0.1.0.zip",
   exeName: "d2kiro-visual.exe",

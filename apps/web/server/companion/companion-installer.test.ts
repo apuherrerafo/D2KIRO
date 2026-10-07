@@ -608,3 +608,34 @@ describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell,
     }
   }, 150_000);
 });
+
+// Opt-in: the REAL production path (public GitHub release, real SHA-256 pin, the real packaged exe). Off by default
+// (network + 65 MB); run with D2KIRO_REAL_RELEASE=1 after changing VISUAL_RUNTIME.
+describe.skipIf(!onWindows || process.env.D2KIRO_REAL_RELEASE !== "1")("D2KIRO Visual runtime: REAL pinned release (opt-in)", () => {
+  test("downloads the production release, verifies the pin, starts the real helper and it waits for Dota", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const server = await fakeServer();
+    const visualHome = join(m.root, "visual-home");
+    try {
+      startRuntime(m, server.base, {
+        D2KIRO_TEST_NO_VISUAL: "0",
+        D2KIRO_TEST_VISUAL_VERSION: VISUAL_RUNTIME.version,
+        D2KIRO_TEST_VISUAL_URL: VISUAL_RUNTIME.url,
+        D2KIRO_TEST_VISUAL_SHA256: VISUAL_RUNTIME.sha256,
+        D2KIRO_VISUAL_HOME: visualHome,
+        D2KIRO_VISUAL_DIAGNOSTICS: "1",
+      });
+      await waitFor(async () => ((await health(m))?.visual === "running" ? true : null), 180_000);
+      expect(existsSync(join(m.home, "visual", VISUAL_RUNTIME.version, VISUAL_RUNTIME.exeName))).toBe(true);
+      // The real helper started: it logs locally and is waiting for Dota / credentials (no Dota window here).
+      const diagnostics = join(visualHome, "diagnostics");
+      await waitFor(() => (existsSync(diagnostics) && readdirSync(diagnostics).length > 0 ? true : null), 60_000);
+      const text = readdirSync(diagnostics).map((file) => readFileSync(join(diagnostics, file), "utf8")).join("");
+      expect(text).toContain('"kind":"start","frozen":true');
+      expect(text).not.toContain(TOKEN);
+    } finally {
+      server.stop();
+    }
+  }, 300_000);
+});
