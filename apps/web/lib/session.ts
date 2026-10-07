@@ -81,3 +81,12 @@ export function getSessionProfile(session: SessionData): SessionProfile {
     avatarUrl: session.avatarUrl ?? null,
   };
 }
+
+/** True when the request carries a valid session. Never throws: a missing secret reads as signed out. */
+export async function hasActiveSession(): Promise<boolean> {
+  try {
+    return await renewSessionIfNeeded(await getSession());
+  } catch {
+    return false;
+  }
+}

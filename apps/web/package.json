@@ -7,7 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "storybook": "storybook dev --config-dir .storybook --port 6006 --no-open",
+    "storybook:build": "storybook build --config-dir .storybook --output-dir storybook-static",
+    "catalog:generate": "bun run design/discovery/generate.ts",
+    "catalog:check": "bun test design/discovery/catalog.test.ts",
+    "test:design:a11y": "playwright test design/tests/accessibility.pw.ts --config design/playwright.config.ts",
+    "test:design:vrt": "playwright test design/tests/visual.pw.ts --config design/playwright.config.ts",
+    "test:design:vrt:update": "playwright test design/tests/visual.pw.ts --config design/playwright.config.ts --update-snapshots"
   },
   "// ALLOWED": "zustand: única excepción de datos para la vista de draft en vivo (WebSocket), TSK-012, docs/agents/journal.md evt-20260727-049. @types/bun: solo tipos (sin código en runtime), mismo paquete ya aprobado y en uso en apps/engine desde TSK-001. @reduxjs/toolkit + react-redux: régimen de datos por defecto del sitio (RTK Query), TSK-014, docs/agents/journal.md evt-20260727-062. iron-session: sesión web cifrada del login Steam OpenID, TSK-100, docs/specs/SPEC.md §12.5.",
   "dependencies": {
@@ -20,7 +27,10 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@happy-dom/global-registrator": "^20.11.6",
+    "@playwright/test": "1.62.1",
+    "@storybook/react-vite": "10.6.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@types/bun": "^1.3.14",
@@ -29,6 +39,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
+    "storybook": "10.6.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

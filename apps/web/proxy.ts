@@ -15,7 +15,7 @@ const VISUAL_INGEST_PREFIX = "/api/live/visual/";
 const COMPANION_INGEST_PREFIX = "/api/live/companion/";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
+  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

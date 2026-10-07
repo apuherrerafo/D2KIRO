@@ -1,0 +1,63 @@
+/* DS V1.1 · Canonical tokens. The ONLY canonical file allowed to declare custom properties or color
+   literals (contract: CanonicalMaster.test.tsx allow-lists every name declared here; adding one means
+   editing that list, `audit.ts` TOKEN_RULES and its status on the board).
+   Scoped like the lab tokens it extends (--r3-* / --r3b-* live on `.r3-page` and `[data-theme]`).
+   Provenance per block — see docs/design-system-v1/council-v1.1/SYNTHESIS.md. */
+
+.r3-page,
+.r3-page [data-theme="dark"] {
+  /* Glass level B — "one step stronger" (Council A §3, anchored on R2 smoke: round-2-labs.css).
+     Status D/NEW: Julio asked for "a little more glass"; the exact numbers are the council's, with the
+     highlight / edge / reflection lifted one notch after the first render (A ≈ B was too close to read). */
+  --cx-glass-tint: color-mix(in srgb, #1e1b19 52%, transparent);
+  --cx-glass-solid: #1e1b19;
+  --cx-glass-hi: #ffffff3d;
+  --cx-glass-line: #ffffff29;
+  --cx-glass-spec: linear-gradient(135deg, #ffffff4d, #ffffff0d 40%, transparent 60%);
+  --cx-glass-reflect: radial-gradient(ellipse at 15% 0, #ffffff29, transparent 55%);
+  --cx-glass-shade: inset 0 -12px 24px -12px #00000066;
+  --cx-glass-shadow: 0 18px 36px -18px #000000e6;
+  --cx-glass-blur: 14px;
+  --cx-glass-blur-overlay: 16px;
+  --cx-glass-sat: 1.6;
+  /* Glass level C — rejection boundary only (aria-hidden specimen). Values recovered from R2
+     "refractive" + "specular" (round-2-labs.css:179). Never used outside the boundary tile. */
+  --cx-glass-over-tint: color-mix(in srgb, #1e1b19 30%, transparent);
+  --cx-glass-over-fill: linear-gradient(125deg, #ffffff3d, #7c73ff33 55%, #62e8ff3d);
+  --cx-glass-over-hi: #ffffff66;
+  --cx-glass-over-blur: 24px;
+  --cx-glass-over-sat: 1.9;
+  /* Backdrop bound for glass: the ghost numeral never exceeds this ink amount (Council D contrast:
+     muted text on level B passes at 22 %, fails over a saturated backdrop). */
+  --cx-ghost: 22%;
+  /* Primary action geometry = Round 3A Spectral Action (round-3a-labs.css:156-160). LOCKED by Julio
+     (Canonical V1.1 human lock): Primary = Candidate A, 8 px radius preserved. --cx-action-cut is kept only
+     for the rejected B comparison row. */
+  --cx-action-radius: 8px;
+  --cx-action-height: 40px;
+  --cx-action-cut: 9px;
+  /* Hero portrait name plate: always light ink on a dark scrim, in both themes (the art is dark). */
+  --cx-plate-ink: #f4f0e9;
+  --cx-plate-scrim: #0f0e0dd9;
+  /* Dota attribute hues: game semantics, not brand (recovered from hero-media.css V1). */
+  --cx-attr-str: #d4553c;
+  --cx-attr-agi: #52b04f;
+  --cx-attr-int: #3f8ae6;
+}
+
+.r3-page [data-theme="light"] {
+  --cx-glass-tint: color-mix(in srgb, #ffffff 58%, transparent);
+  --cx-glass-solid: #fffdf9;
+  --cx-glass-hi: #ffffff;
+  --cx-glass-line: #1713112b;
+  --cx-glass-spec: linear-gradient(135deg, #ffffffcc, #ffffff33 40%, transparent 60%);
+  --cx-glass-reflect: radial-gradient(ellipse at 15% 0, #ffffff99, transparent 55%);
+  --cx-glass-shade: inset 0 -12px 24px -14px #3a2a1a1f;
+  --cx-glass-shadow: 0 14px 30px -18px #3a2a1a80;
+  --cx-glass-over-tint: color-mix(in srgb, #ffffff 34%, transparent);
+  --cx-glass-over-fill: linear-gradient(125deg, #ffffffb3, #7c73ff26 55%, #00809e2e);
+  --cx-glass-over-hi: #ffffff;
+  --cx-attr-str: #b8432c;
+  --cx-attr-agi: #3b8a39;
+  --cx-attr-int: #2f6fc0;
+}

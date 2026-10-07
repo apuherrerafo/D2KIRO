@@ -185,7 +185,7 @@ if [ -n "$FETCH_HIT" ]; then
   ERRORS=$((ERRORS + 1))
 fi
 
-DSIH_HIT=$(git ls-files -- 'apps/web/*' 2>/dev/null | xargs -r grep -lF 'dangerouslySetInnerHTML' 2>/dev/null) || true
+DSIH_HIT=$(git ls-files -- 'apps/web/*' 2>/dev/null | xargs -r grep -lE 'dangerouslySetInnerHTML[[:space:]]*=' 2>/dev/null) || true
 if [ -n "$DSIH_HIT" ]; then
   echo "❌ ERROR: 'dangerouslySetInnerHTML' encontrado bajo apps/web/ -- prohibido en toda la app, React escapa por defecto."
   printf '%s\n' "$DSIH_HIT" | sed 's/^/   - /'

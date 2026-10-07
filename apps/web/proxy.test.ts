@@ -38,8 +38,8 @@ afterEach(() => {
 });
 
 describe("proxy de sesión y token interno", () => {
-  test("deja públicas login, auth y healthz", async () => {
-    for (const path of ["/login", "/access-denied", "/api/auth/steam/login", "/healthz"]) {
+  test("deja públicas la landing (/), login, auth y healthz", async () => {
+    for (const path of ["/", "/login", "/access-denied", "/api/auth/steam/login", "/healthz"]) {
       expect((await proxy(new NextRequest(`http://localhost:3000${path}`))).status).toBe(200);
     }
   });

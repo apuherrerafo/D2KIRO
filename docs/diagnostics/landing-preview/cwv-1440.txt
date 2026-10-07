@@ -1,0 +1,98 @@
+{
+ "viewport": "1440x900",
+ "blockedValve": false,
+ "docH": 10660,
+ "entries": 15,
+ "inputExcluded": 0,
+ "rawSum": 0.0611,
+ "loadPhaseSum": 0.0029,
+ "scrollPhaseSum": 0.0582,
+ "cwvSessionMax": 0.0582,
+ "cwvLoadOnly": 0.0029,
+ "topSources": [
+  [
+   "DIV.ms-dom",
+   0.0488
+  ],
+  [
+   "DIV.ms-annotation",
+   0.0094
+  ],
+  [
+   "DIV.ld-hero-copy",
+   0.0015
+  ],
+  [
+   "UL.ld-nav-links",
+   0.0015
+  ],
+  [
+   "LI.cf-tag",
+   0
+  ]
+ ],
+ "sample": [
+  {
+   "t": 3098,
+   "v": 0.0106,
+   "src": [
+    {
+     "n": "DIV.ms-dom",
+     "prev": [
+      228,
+      500
+     ],
+     "cur": [
+      173,
+      500
+     ]
+    },
+    {
+     "n": "DIV.ms-annotation",
+     "prev": [
+      361,
+      233
+     ],
+     "cur": [
+      346,
+      263
+     ]
+    }
+   ]
+  },
+  {
+   "t": 3147,
+   "v": 0.0019,
+   "src": [
+    {
+     "n": "DIV.ms-dom",
+     "prev": [
+      173,
+      500
+     ],
+     "cur": [
+      187,
+      500
+     ]
+    }
+   ]
+  },
+  {
+   "t": 3196,
+   "v": 0.0057,
+   "src": [
+    {
+     "n": "DIV.ms-dom",
+     "prev": [
+      187,
+      500
+     ],
+     "cur": [
+      228,
+      500
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+# D2KIRO Design System — Component Catalog
+
+This file is a machine projection derived from COMPONENTS.generated.json.
+Do NOT edit directly. Derive mechanically from TypeScript component contracts.
+
+## Button
+Purpose: Triggers an explicit user action with strict visual and accessibility semantics.
+Import: import { Button } from "@/design/components";
+Canonical Usage: Use primary only for the single dominant decision on a surface; use secondary for alternatives.
+Props: aria-label?: string | undefined; autoFocus?: boolean | undefined; busy?: boolean | undefined; children: ReactNode; disabled?: boolean | undefined; onClick?: MouseEventHandler<HTMLButtonElement> | undefined; type?: "button" | "submit" | "reset" | undefined; variant?: "primary" | "secondary" | undefined
+Variants: primary, secondary
+States: Secondary, Disabled, Busy, FocusVisible, KeyboardActivation
+Accessibility: Preserves stable accessible name model, native disabled semantics, and visible focus indicator. Respects prefers-reduced-motion by removing transition animations.
+
+## StatusNotice
+Purpose: Communicates operational or draft state changes without unnecessary container decoration.
+Import: import { StatusNotice } from "@/design/components";
+Canonical Usage: Use only when state change directly affects the user's immediate decision.
+Props: children: ReactNode; title: string; tone?: "neutral" | "warning" | "error" | undefined
+States: Neutral, Warning, Error, LongContent
+Accessibility: Errors announce as assertive alerts; warnings and neutral notices announce as polite status regions. Explicit heading provides accessible landmark structure without relying solely on color.
+

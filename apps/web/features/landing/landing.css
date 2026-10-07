@@ -1,0 +1,231 @@
+/* LANDING-01B · page layout only. Every skin (glass, action, metric, target, portrait, perimeter) comes from
+   the canonical primitives; this file places them. Contract (Landing01B.test.tsx): no colour literal, no token
+   declaration, durations only through var(--m-*), nothing loops, spacing on the 4 px scale (hairlines excepted),
+   and every motion has a reduced-motion substitute at the bottom. */
+
+.ld-root { min-height: 100vh; padding: 0; }
+.ld-root * { box-sizing: border-box; }
+.ld-wrap { margin-inline: auto; max-width: 1200px; padding-inline: clamp(16px, 4vw, 48px); width: 100%; }
+.ld-sr { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+
+/* ───────── type ───────── */
+.ld-kicker { color: var(--r3-id); font: 700 12px/1.3 var(--f-pmono); letter-spacing: .04em; margin: 0 0 12px; }
+.ld-h1 { display: grid; font: 700 clamp(36px, 4.4vw, 56px)/1 var(--f-syne); letter-spacing: -.035em; margin: 0; text-wrap: balance; }
+.ld-h1-accent {
+  animation: ld-wipe var(--m-expressive) var(--m-ease-out) 180ms both;
+  background: var(--r3-spec-fill) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: 4px; width: fit-content;
+}
+.ld-h2 { font: 700 clamp(28px, 3.6vw, 44px)/1.04 var(--f-syne); letter-spacing: -.03em; margin: 0; max-width: 20ch; }
+.ld-lede, .ld-hero-sub { color: var(--r3-muted); font: 400 16px/1.5 var(--f-plex); margin: 16px 0 0; max-width: 52ch; }
+.ld-hero-sub { font-size: 18px; }
+.ld-reassurance, .ld-illustrative { color: var(--r3-muted); font: 500 12px/1.4 var(--f-plex); margin: 12px 0 0; }
+
+/* ───────── nav ───────── */
+.ld-nav { background: color-mix(in srgb, var(--r3-bg) 84%, transparent); -webkit-backdrop-filter: blur(var(--cx-glass-blur)); backdrop-filter: blur(var(--cx-glass-blur)); border-bottom: 1px solid var(--r3-line); position: sticky; top: 0; z-index: 10; }
+.ld-nav-row { align-items: center; display: flex; gap: 24px; min-height: 56px; }
+.ld-wordmark { font: 700 18px/1 var(--f-syne); letter-spacing: -.02em; }
+.ld-nav-links { display: none; gap: 24px; list-style: none; margin: 0 auto 0 24px; padding: 0; }
+.ld-nav-link { color: var(--r3-muted); font: 500 13px/1 var(--f-plex); padding: 8px 0; text-decoration: none; transition: color var(--m-fast) var(--m-ease-out); }
+.ld-nav-link:hover { color: var(--r3-ink); }
+.ld-nav-link:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 4px; }
+.ld-nav-row > .cx-quiet { margin-left: auto; }
+@media (min-width: 720px) { .ld-nav-links { display: flex; } }
+
+/* ───────── sections ───────── */
+.ld-section { padding-block: clamp(48px, 7vw, 88px); position: relative; scroll-margin-top: 56px; }
+.ld-section:focus { outline: none; }
+.ld-rule { background: var(--r3-line); height: 1px; inset: 0 0 auto; position: absolute; }
+.ld-rule::after { background: var(--r3-spec-fill); content: ""; height: 1px; inset: 0 auto auto 0; position: absolute; transform: scaleX(0); transform-origin: left; transition: transform var(--m-expressive) var(--m-ease-out); width: 38%; }
+.ld-section[data-seen="true"] .ld-rule::after { transform: scaleX(1); }
+.ld-section-head { margin-bottom: 32px; }
+
+/* ───────── hero ───────── */
+.ld-hero { padding-block: clamp(32px, 6vw, 72px) clamp(40px, 6vw, 80px); }
+.ld-hero-grid { align-items: center; display: grid; gap: 40px; grid-template-columns: minmax(0, 1fr); }
+.ld-hero-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 16px 24px; margin-top: 32px; }
+.ld-hero-product { min-width: 0; position: relative; }
+.ld-hero-field.cm-skin-stage { padding: clamp(12px, 2vw, 24px); }
+/* The lit environment fills the stage, and the ghost numeral sits BEHIND the glass (never under the bans). */
+:is(.ld-hero-field, .ld-demo-field) .cm-light { height: 70%; width: 60%; }
+:is(.ld-hero-field, .ld-demo-field) .cm-ghost-num { font-size: clamp(120px, 14vw, 200px); left: 2%; right: auto; top: 22%; }
+@media (min-width: 960px) { .ld-hero-grid { gap: 48px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } }
+
+/* ───────── proposition ─────────
+   The three rules sit under the live stage as its caption: quieter than the stage, hairlines instead of boxes. */
+.ld-points { counter-reset: none; display: grid; gap: 0; list-style: none; margin: clamp(32px, 5vw, 56px) 0 0; padding: 0; }
+.ld-point { border-top: 1px solid var(--r3-line); display: grid; gap: 4px 16px; grid-template-columns: 32px minmax(0, 1fr); padding-block: 20px; }
+.ld-point-index { color: var(--r3-id); font: 700 12px/1.6 var(--f-pmono); grid-row: span 2; }
+.ld-point-title { font: 600 20px/1.2 var(--f-plex); margin: 0; }
+.ld-point-body { color: var(--r3-muted); font: 400 15px/1.5 var(--f-plex); margin: 0; max-width: 60ch; }
+@media (min-width: 840px) {
+  .ld-points { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+  .ld-point { border-top: 1px solid var(--r3-line-strong); grid-template-columns: minmax(0, 1fr); padding-top: 16px; }
+  .ld-point-index { grid-row: auto; }
+}
+
+/* ───────── stage (the product) ───────── */
+.ld-stage { min-width: 0; }
+.ld-stage-frame.r3-perimeter { background: transparent; border-radius: 6px; }
+.ld-stage-top { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; padding: 12px 16px; }
+.ld-stage-turn { font: 600 13px/1.2 var(--f-plex); transition: color var(--m-fast) var(--m-ease-out); }
+.ld-stage-top:not([data-active="true"]) .ld-stage-turn { color: var(--r3-muted); }
+.ld-bans { align-items: center; display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.ld-bans li { display: inline-flex; }
+.ld-stage-body { display: grid; gap: 16px; padding: 4px 16px 12px; }
+.ld-stage-body[data-variant="hero"] { gap: 16px; }
+.ld-stage-foot { align-items: center; color: var(--r3-muted); display: flex; flex-wrap: wrap; font: 500 12px/1.2 var(--f-plex); gap: 8px 16px; justify-content: space-between; padding: 8px 16px 16px; transition: color var(--m-fast) var(--m-ease-out); }
+.ld-stage-foot[data-active="true"] { color: var(--r3-ink); }
+.ld-stage-note[data-basis="default"] { border-bottom: 1px dashed var(--r3-neutral); }
+
+.ld-col { min-width: 0; }
+.ld-col-title { color: var(--r3-muted); font: 600 12px/1 var(--f-plex); margin: 0 0 12px; transition: color var(--m-fast) var(--m-ease-out); }
+.ld-col[data-active="true"] .ld-col-title { color: var(--r3-ink); }
+.ld-seats, .ld-enemies { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.ld-seats { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.ld-enemy { align-items: center; display: flex; gap: 12px; min-height: 36px; }
+.ld-enemy-name { font: 500 13px/1.2 var(--f-plex); }
+.ld-enemy-empty { color: var(--r3-muted); font: 500 12px/1 var(--f-plex); }
+.ld-enemy[data-empty="true"] { border: 1px dashed var(--r3-line-strong); min-height: 36px; padding-inline: 12px; }
+
+/* hero roster strip */
+.ld-roster { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
+.ld-roster-side { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.ld-roster-icon { animation: ld-gather var(--m-slow) var(--m-spring-snappy) calc(var(--ld-i, 0) * 60ms + 120ms) both; display: inline-flex; }
+.ld-roster-icon[data-empty="true"] span { border: 1px dashed var(--r3-line-strong); border-radius: 4px; display: block; height: 36px; width: 36px; }
+.ld-roster-vs { color: var(--r3-muted); font: 700 11px/1 var(--f-pmono); }
+
+/* the call */
+.ld-call { display: grid; gap: 12px; min-width: 0; padding: 16px; }
+.ld-call-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+.ld-call-kicker { font: 700 12px/1.2 var(--f-plex); }
+.ld-call-kicker[data-basis="default"], .ld-call-confidence[data-level="low"] { color: var(--r3-muted); }
+.ld-call-confidence { color: var(--r3-muted); font: 500 12px/1.2 var(--f-plex); }
+.ld-call-metric { padding-block: 4px 8px; }
+.ld-call-metric[data-source="default"] .cx-metric-value { color: var(--r3-muted); }
+.ld-cands { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.ld-cand { min-width: 0; }
+.ld-cand .cx-target {
+  align-items: center; column-gap: 12px; grid-template-areas: "rank icon title value delta move" ". . reasons reasons reasons reasons" ". . note note note note";
+  grid-template-columns: 16px 48px minmax(0, 1fr) auto auto 24px; min-height: 72px; padding: 12px 12px 12px 16px; row-gap: 4px; width: 100%;
+}
+.ld-cand .cx-target-title { grid-area: title; }
+.ld-cand .cx-target-value { grid-area: value; }
+.ld-cand .cx-target-note { grid-area: note; }
+.ld-cand-rank { color: var(--r3-muted); font: 700 12px/1 var(--f-pmono); grid-area: rank; }
+.ld-cand-icon { grid-area: icon; }
+.ld-cand-delta { grid-area: delta; min-width: 0; }
+.ld-cand-move { grid-area: move; }
+.ld-reasons { color: var(--r3-muted); display: flex; flex-wrap: wrap; font: 500 12px/1.3 var(--f-plex); gap: 2px 12px; grid-area: reasons; list-style: none; margin: 0; padding: 0; }
+.ld-reasons li + li::before { background: var(--r3-line-strong); content: ""; display: inline-block; height: 4px; margin-right: 12px; vertical-align: middle; width: 4px; }
+
+@media (min-width: 960px) {
+  .ld-stage[data-variant="demo"] .ld-stage-body { align-items: start; grid-template-columns: minmax(136px, 1fr) minmax(0, 2.4fr) minmax(136px, 1fr); }
+  .ld-stage[data-variant="demo"] .ld-seats { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Narrow phone (< 414): name + fit stay on the primary row; delta and rank move reflow under the reasons. */
+@media (max-width: 413px) {
+  .ld-cand .cx-target { grid-template-areas: "rank icon title value" ". . reasons reasons" ". . delta move" ". . note note"; grid-template-columns: 16px 48px minmax(0, 1fr) auto; }
+  .ld-cand-delta:empty, .ld-cand-move:empty { display: none; }
+}
+
+/* Below 960 the stage reads stepper → compact draft context → call: both sides become one icon row each,
+   so the result sits next to the control that changed it instead of a tall team column below the fold. */
+@media (max-width: 959px) {
+  .ld-stage[data-variant="demo"] .ld-stage-body { gap: 12px; }
+  .ld-stage[data-variant="demo"] .ld-col--team { order: 1; }
+  .ld-stage[data-variant="demo"] .ld-col--enemy { order: 2; }
+  .ld-stage[data-variant="demo"] .ld-call { order: 3; }
+  .ld-stage[data-variant="demo"] .ld-col { align-items: center; display: flex; gap: 12px; }
+  .ld-stage[data-variant="demo"] .ld-col-title { flex: none; margin: 0; width: 72px; }
+  .ld-stage[data-variant="demo"] .ld-seats { flex: 1 1 auto; gap: 6px; grid-template-columns: repeat(5, minmax(0, 1fr)); min-width: 0; }
+  .ld-stage[data-variant="demo"] .ld-seat .chm-slot { gap: 0; width: 100%; }
+  .ld-stage[data-variant="demo"] .ld-seat .chm-slot-header, .ld-stage[data-variant="demo"] .ld-seat .chm-portrait-plate { display: none; }
+  .ld-stage[data-variant="demo"] .ld-seat .chm-portrait { width: 100%; }
+  .ld-stage[data-variant="demo"] .ld-enemies { display: flex; flex: 1 1 auto; gap: 6px; min-width: 0; }
+  .ld-stage[data-variant="demo"] .ld-enemy { min-height: 0; }
+  .ld-stage[data-variant="demo"] .ld-enemy-name, .ld-stage[data-variant="demo"] .ld-enemy-empty { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+  .ld-stage[data-variant="demo"] .ld-enemy[data-empty="true"] { height: 36px; padding: 0; position: relative; width: 36px; }
+}
+
+/* ───────── demo ───────── */
+.ld-demo { display: grid; gap: 16px; }
+.ld-stepper { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.ld-stepper-spacer { flex: 1 1 auto; }
+.ld-demo-field.cm-skin-stage { padding: clamp(8px, 2vw, 24px); }
+.ld-demo-foot { align-items: center; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+.ld-narrative { color: var(--r3-ink); font: 500 15px/1.5 var(--f-plex); margin: 0; max-width: 64ch; }
+
+/* ───────── memory strip (TSK-241) ─────────
+   The track is one stage tall plus the pinned scroll (`--ld-memory-screens`, set from memory-scroll.ts, so the
+   beats and the length are one table). Phones get a little more room per beat: a thumb flick travels further.
+   The stage pins under the 56 px nav and sizes to the SMALL viewport, so browser chrome never resizes it. */
+.ld-memory { position: relative; scroll-margin-top: 56px; }
+.ld-memory-head { padding-top: clamp(16px, 3vw, 40px); position: relative; z-index: 1; }
+/* The bridge and the first memory share the screen: on tall stages the object sits well below the stage top, so the
+   track is pulled up under the title until the object starts ~40 px below it (500 px = the object's height). The track
+   keeps its own length, so the pinned beats are untouched; phones already start the object right under the title. */
+.ld-memory-track { --ld-memory-scale: 1; height: calc((100svh - 56px) * (1 + var(--ld-memory-screens) * var(--ld-memory-scale))); position: relative; }
+@media (min-width: 720px) { .ld-memory-track { margin-top: calc(-1 * max(0px, (100svh - 56px - 500px) / 2 - 40px)); } }
+.ld-memory-stage { height: calc(100svh - 56px); overflow: clip; position: sticky; top: 56px; }
+.ld-memory-stage .ms-host, .ld-memory-stage .ms { height: 100%; }
+.ld-memory-stage .ms { min-height: 0; }
+/* The evidence object fits the pinned stage, not the window (Storybook sizes it to a full viewport). */
+@container (min-width: 861px) { .ld-memory-stage .ms-object { width: min(480px, calc((100svh - 152px) * .96), calc(100cqw - 48px)); } }
+@container (max-width: 860px) { .ld-memory-stage .ms-object { width: min(342px, calc(100cqw - 48px), calc((100svh - 384px) * .92)); } }
+/* Handoff: the first retained decision (seal + role) is already there; the rest of Match 01 joins it with the scroll. */
+.ld-memory-stage[data-handoff="pending"] :is(.ms-svg > [data-evidence]:not([data-evidence="role:you"]), .ms-label:not([data-for="role:you"]), .ms-annotation) { opacity: var(--ld-handoff); }
+.ld-memory-stage .ld-coach-slot { bottom: 16px; position: absolute; right: 16px; }
+@media (max-width: 719px) { .ld-memory-track { --ld-memory-scale: 1.1; } }
+
+/* ───────── coach slot (reserved) ───────── */
+.ld-coach-slot { flex: none; min-height: 0; }
+.ld-coach-slot:empty { display: none; }
+.ld-hero-product .ld-coach-slot { bottom: -12px; position: absolute; right: -8px; }
+.ld-coach-placeholder.r3-perimeter { background: transparent; height: 96px; width: 96px; }
+.ld-coach-placeholder-meta { bottom: 8px; color: var(--r3-muted); font: 500 11px/1 var(--f-pmono); left: 8px; position: absolute; }
+
+/* ───────── waitlist (the close) ─────────
+   Head left, form right on wide screens: the visitor reads the reason and the action in one glance, and the page
+   ends on the least decorated block after the Hero — no stage, no skin, just the one spectral action. */
+.ld-section[data-layout="split"] .ld-section-head { margin-bottom: 32px; }
+@media (min-width: 840px) {
+  .ld-section[data-layout="split"] > .ld-wrap { align-items: end; column-gap: clamp(40px, 6vw, 96px); display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); }
+  .ld-section[data-layout="split"] .ld-section-head { margin-bottom: 0; }
+  .ld-section[data-layout="split"] .ld-lede { max-width: 44ch; }
+}
+.ld-waitlist { display: grid; gap: 8px; max-width: 480px; }
+.ld-field-label { color: var(--r3-muted); font: 600 12px/1.2 var(--f-plex); }
+.ld-field {
+  background: transparent; border: 0; border-bottom: 1px solid var(--r3-line-strong); border-radius: 0; color: var(--r3-ink); font: 500 18px/1.2 var(--f-plex); min-height: 48px; padding: 8px 0;
+  transition: border-color var(--m-fast) var(--m-ease-out); width: 100%;
+}
+.ld-field::placeholder { color: var(--r3-muted); }
+.ld-field:hover:not(:disabled) { border-bottom-color: var(--r3-ink); }
+.ld-field:focus-visible { border-bottom: 2px solid var(--r3-focus); outline: none; }
+.ld-field[aria-invalid="true"] { border-bottom-color: var(--r3-down); }
+.ld-field-error { color: var(--r3-down); font: 500 13px/1.3 var(--f-plex); margin: 0; }
+.ld-waitlist-action { margin-top: 16px; }
+.ld-success { font: 500 14px/1.4 var(--f-plex); margin: 0; }
+
+/* ───────── footer ───────── */
+.ld-footer { border-top: 1px solid var(--r3-line); padding-block: 32px 48px; }
+.ld-footer-row { align-items: baseline; display: flex; flex-wrap: wrap; gap: 12px 32px; justify-content: space-between; }
+.ld-legal { color: var(--r3-muted); font: 400 12px/1.5 var(--f-plex); margin: 0; max-width: 56ch; }
+
+/* ───────── entrance keyframes (one-shot, finite) ───────── */
+@keyframes ld-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ld-gather { from { opacity: 0; translate: calc((2 - var(--ld-i, 0)) * 16px) 8px; } to { opacity: 1; translate: 0 0; } }
+.ld-roster-side .ld-roster-icon:nth-child(1) { --ld-i: 0; }
+.ld-roster-side .ld-roster-icon:nth-child(2) { --ld-i: 1; }
+.ld-roster-side .ld-roster-icon:nth-child(3) { --ld-i: 2; }
+.ld-roster-side .ld-roster-icon:nth-child(4) { --ld-i: 3; }
+.ld-roster-side .ld-roster-icon:nth-child(5) { --ld-i: 4; }
+
+/* ───────── reduced motion: substitute, never disable ───────── */
+[data-motion="reduced"] .ld-h1-accent, [data-motion="reduced"] .ld-roster-icon { animation: none; }
+[data-motion="reduced"] :is(.ld-rule::after, .ld-stage-turn, .ld-col-title, .ld-nav-link, .ld-field) { transition-duration: 0ms !important; transition-delay: 0ms !important; }
+@media (prefers-reduced-motion: reduce) {
+  .ld-h1-accent, .ld-roster-icon { animation: none; }
+  :is(.ld-rule::after, .ld-stage-turn, .ld-col-title, .ld-nav-link, .ld-field) { transition-duration: 0ms !important; transition-delay: 0ms !important; }
+}

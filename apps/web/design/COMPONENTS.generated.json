@@ -1,0 +1,126 @@
+{
+  "components": [
+    {
+      "accessibilityNotes": [
+        "Preserves stable accessible name model, native disabled semantics, and visible focus indicator.",
+        "Respects prefers-reduced-motion by removing transition animations."
+      ],
+      "canonicalUsage": "Use primary only for the single dominant decision on a surface; use secondary for alternatives.",
+      "importPath": "@/design/components",
+      "name": "Button",
+      "props": [
+        {
+          "description": "Accessible label when children is non-textual.",
+          "name": "aria-label",
+          "required": false,
+          "type": "string | undefined"
+        },
+        {
+          "description": "Automatically focuses the button on initial mount if true.",
+          "name": "autoFocus",
+          "required": false,
+          "type": "boolean | undefined"
+        },
+        {
+          "description": "Exposes progress while preventing duplicate activation.",
+          "name": "busy",
+          "required": false,
+          "type": "boolean | undefined"
+        },
+        {
+          "description": "Button contents or label text.",
+          "name": "children",
+          "required": true,
+          "type": "ReactNode"
+        },
+        {
+          "description": "Disables user interaction and keyboard activation.",
+          "name": "disabled",
+          "required": false,
+          "type": "boolean | undefined"
+        },
+        {
+          "description": "Click handler callback.",
+          "name": "onClick",
+          "required": false,
+          "type": "MouseEventHandler<HTMLButtonElement> | undefined"
+        },
+        {
+          "description": "HTML button type. Default is 'button' to avoid unintended form submission.",
+          "name": "type",
+          "required": false,
+          "type": "\"button\" | \"submit\" | \"reset\" | undefined"
+        },
+        {
+          "description": "Visual emphasis variant. Primary is reserved for dominant decision.",
+          "name": "variant",
+          "required": false,
+          "type": "\"primary\" | \"secondary\" | undefined"
+        }
+      ],
+      "purpose": "Triggers an explicit user action with strict visual and accessibility semantics.",
+      "requiredProps": [
+        "children"
+      ],
+      "states": [
+        "Secondary",
+        "Disabled",
+        "Busy",
+        "FocusVisible",
+        "KeyboardActivation"
+      ],
+      "variants": [
+        "primary",
+        "secondary"
+      ]
+    },
+    {
+      "accessibilityNotes": [
+        "Errors announce as assertive alerts; warnings and neutral notices announce as polite status regions.",
+        "Explicit heading provides accessible landmark structure without relying solely on color."
+      ],
+      "canonicalUsage": "Use only when state change directly affects the user's immediate decision.",
+      "importPath": "@/design/components",
+      "name": "StatusNotice",
+      "props": [
+        {
+          "description": "Notice body content explaining context, state, or remediation.",
+          "name": "children",
+          "required": true,
+          "type": "ReactNode"
+        },
+        {
+          "description": "Notice title concisely describing state change.",
+          "name": "title",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "description": "Semantic status tone indicating operational status.",
+          "name": "tone",
+          "required": false,
+          "type": "\"neutral\" | \"warning\" | \"error\" | undefined"
+        }
+      ],
+      "purpose": "Communicates operational or draft state changes without unnecessary container decoration.",
+      "requiredProps": [
+        "children",
+        "title"
+      ],
+      "states": [
+        "Neutral",
+        "Warning",
+        "Error",
+        "LongContent"
+      ],
+      "variants": []
+    }
+  ],
+  "generatedFrom": [
+    "components/Button.tsx",
+    "components/StatusNotice.tsx",
+    "stories/Button.stories.tsx",
+    "stories/StatusNotice.stories.tsx"
+  ],
+  "schemaVersion": 1
+}

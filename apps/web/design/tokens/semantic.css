@@ -1,0 +1,87 @@
+@import "./primitives.css";
+
+:root {
+  /* --- Superficie --- */
+  --surface-base: var(--primitive-color-neutral-950);
+  --surface-raised: var(--primitive-color-neutral-900);
+  --surface-overlay: var(--primitive-color-neutral-850);
+  --surface-border: var(--primitive-color-neutral-800);
+
+  /* --- Contenido --- */
+  --content-primary: var(--primitive-color-neutral-50);
+  --content-secondary: var(--primitive-color-neutral-300);
+  --content-muted: var(--primitive-color-neutral-500);
+
+  /* --- Acento --- */
+  --accent-primary: var(--primitive-color-gold-500);
+  --accent-primary-hover: var(--primitive-color-gold-400);
+
+  /* --- Señales --- */
+  --signal-positive: var(--primitive-color-green-500);
+  --signal-negative: var(--primitive-color-red-500);
+  --signal-warning: var(--primitive-color-amber-500);
+
+  /* --- Foco accesible --- */
+  --focus-ring: var(--primitive-color-gold-500);
+  --focus-offset: var(--primitive-space-focus-offset);
+
+  /* --- Radios semánticos --- */
+  --radius-control: var(--primitive-radius-md);
+  --radius-container: var(--primitive-radius-lg);
+  --radius-full: var(--primitive-radius-full);
+
+  /* --- Movimiento --- */
+  --motion-duration-fast: var(--primitive-duration-fast);
+  --motion-duration-normal: var(--primitive-duration-normal);
+  --motion-ease: var(--primitive-ease-default);
+
+  /* --- Espaciado, escala de 4px --- */
+  --space-1: var(--primitive-space-1);
+  --space-2: var(--primitive-space-2);
+  --space-3: var(--primitive-space-3);
+  --space-4: var(--primitive-space-4);
+  --space-5: var(--primitive-space-5);
+  --space-6: var(--primitive-space-6);
+  --space-8: var(--primitive-space-8);
+  --space-10: var(--primitive-space-10);
+  --space-12: var(--primitive-space-12);
+}
+
+@theme inline {
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-border: var(--surface-border);
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-muted: var(--content-muted);
+  --color-accent-primary: var(--accent-primary);
+  --color-accent-primary-hover: var(--accent-primary-hover);
+  --color-signal-positive: var(--signal-positive);
+  --color-signal-negative: var(--signal-negative);
+  --color-signal-warning: var(--signal-warning);
+  --color-focus-ring: var(--focus-ring);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+
+  --radius-control: var(--radius-control);
+  --radius-container: var(--radius-container);
+  --radius-full: var(--radius-full);
+
+  --text-caption: var(--primitive-font-size-caption);
+  --text-caption--line-height: var(--primitive-line-height-caption);
+  --text-body: var(--primitive-font-size-body);
+  --text-body--line-height: var(--primitive-line-height-body);
+  --text-heading: var(--primitive-font-size-heading);
+  --text-heading--line-height: var(--primitive-line-height-heading);
+  --text-display: var(--primitive-font-size-display);
+  --text-display--line-height: var(--primitive-line-height-display);
+}
