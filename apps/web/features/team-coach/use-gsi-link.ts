@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchGsiLink, revokeGsiLink } from "./client";
-import { GSI_LINK_POLL_MS } from "./constants";
+import { GSI_LINK_POLL_MS, GSI_LINK_REFRESH_MS } from "./constants";
 import type { GsiLinkView } from "./types";
 
 // TSK-219 -- the account's Dota link as /live-draft sees it. Read once on load; after "Descargar
@@ -25,6 +25,8 @@ function keepLastKnown(previous: GsiLinkState): GsiLinkState {
 export interface UseGsiLinkOptions {
   fetchImpl?: typeof fetch;
   pollMs?: number;
+  /** How often a linked tab re-reads the link (the engine slides its expiry). */
+  refreshMs?: number;
 }
 
 export interface UseGsiLinkResult {
@@ -40,6 +42,7 @@ export interface UseGsiLinkResult {
 export function useGsiLink(options: UseGsiLinkOptions = {}): UseGsiLinkResult {
   const fetchImpl = options.fetchImpl ?? fetch;
   const pollMs = options.pollMs ?? GSI_LINK_POLL_MS;
+  const refreshMs = options.refreshMs ?? GSI_LINK_REFRESH_MS;
   const [state, setState] = useState<GsiLinkState>({ status: "loading", link: null });
   // `undefined` = not waiting; otherwise the session id the download must replace (null = none yet).
   const [replacing, setReplacing] = useState<string | null | undefined>(undefined);
@@ -87,6 +90,18 @@ export function useGsiLink(options: UseGsiLinkOptions = {}): UseGsiLinkResult {
       clearInterval(timer);
     };
   }, [awaitingDownload, pollMs, reload]);
+
+  // Sliding expiration lives on the engine: keep the tab's copy of expiresAt current while a link exists.
+  const linked = state.link !== null;
+  useEffect(function refreshWhileLinked() {
+    if (!linked) return undefined;
+    const timer = setInterval(function refreshLink() {
+      void reload();
+    }, refreshMs);
+    return function stopRefreshing() {
+      clearInterval(timer);
+    };
+  }, [linked, refreshMs, reload]);
 
   const expectNewLink = useCallback(function expectNewLink(): void {
     pollsRef.current = 0;

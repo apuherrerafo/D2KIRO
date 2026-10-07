@@ -56,6 +56,8 @@ export const LIVE_PHASE_LABELS: Readonly<Record<string, string>> = Object.freeze
 });
 /** How often /live-draft re-reads the account's Dota link while waiting for a download to land. */
 export const GSI_LINK_POLL_MS = 2_000;
+/** A linked tab re-reads the link this often: the engine renews its expiry while the Companion beats, so a stale copy must not flip to "vencida". */
+export const GSI_LINK_REFRESH_MS = 10 * 60 * 1000;
 /** ?setup=<code> after a failed download (app/api/live/gsi-config). */
 export const GSI_SETUP_ERRORS: Readonly<Record<string, string>> = Object.freeze({
   session: "Tu sesión venció. Vuelve a iniciar sesión con Steam y descarga la configuración otra vez.",
