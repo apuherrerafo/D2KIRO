@@ -14,7 +14,7 @@ from fixtures import fake_catalog  # noqa: F401  (sets sys.path for d2vc)
 from d2vc.bench import DEFAULT_THRESHOLDS
 from d2vc.emit import EnvelopeFactory, PrivacyViolation, assert_allowlisted
 from d2vc.layout import default_layout, viewport
-from d2vc.matcher import Matcher, confident
+from d2vc.matcher import MatchResult, Matcher, confident
 from d2vc.scan import scan_frame
 from d2vc.session import VisualSession
 from d2vc.stability import StabilityFilter
@@ -100,6 +100,28 @@ def picks(envelopes):
 
 
 class MatcherTests(unittest.TestCase):
+    def test_real_1600x900_slot_geometry_matches_the_measured_rows(self):
+        layout = default_layout()
+        # These are the measured first card positions, not the old profile-chrome crops (72 / 1000).
+        self.assertEqual(round(layout.slots["radiant"][0].x * 1600), 177)
+        self.assertEqual(round(layout.slots["dire"][0].x * 1600), 914)
+        self.assertEqual(
+            [round(slot.x * 1600) for slot in layout.slots["radiant"]],
+            [177, 278, 379, 480, 581],
+        )
+        self.assertEqual(
+            [round(slot.x * 1600) for slot in layout.slots["dire"]],
+            [914, 1015, 1118, 1220, 1322],
+        )
+
+    def test_phantom_assassin_boundary_uses_068_without_weakening_margin(self):
+        self.assertEqual(DEFAULT_THRESHOLDS.min_score, 0.68)
+        self.assertEqual(DEFAULT_THRESHOLDS.min_margin, 0.15)
+        boundary = MatchResult(44, 0.68, 1, 0.53, 0.15, ((44, 0.68), (1, 0.53)))
+        self.assertTrue(confident(boundary, DEFAULT_THRESHOLDS))
+        self.assertFalse(confident(MatchResult(44, 0.6799, 1, 0.53, 0.15, ((44, 0.6799), (1, 0.53))), DEFAULT_THRESHOLDS))
+        self.assertFalse(confident(MatchResult(44, 0.681, 1, 0.532, 0.149, ((44, 0.681), (1, 0.532))), DEFAULT_THRESHOLDS))
+
     def test_1_known_portrait_is_recognized_under_degradation(self):
         rng = np.random.default_rng(5)
         for hero in (1, 7, 13, 21):
@@ -431,13 +453,22 @@ class OccupancyGateRegressionTests(unittest.TestCase):
         self.assertEqual(picks(immediate), [])
         self.assertEqual(picks(again), [("hero_picked", "radiant", 11)])  # same hero, same slot: a NEW draft's fact
 
-    def test_8b_the_whole_bar_changing_at_once_is_a_new_scene_not_ten_picks(self):
+    def test_8b_gsi_closes_before_a_wholesale_menu_change(self):
         session = new_session()
         menu = screen([1, 2, 3, 4, 5], [6, 7, 8, 9, 10])  # a different screen entirely, full of portrait-like art
         t, _ = arm(session)  # helper started on an EMPTY bar...
-        t, sent = feed(session, menu, t, 30)  # ...then the scene changed wholesale
+        self.assertTrue(session.on_lifecycle(DraftLifecycle("ended", 1)))
+        _, sent = feed(session, menu, t, 30)  # GSI, not portrait count, owns the lifecycle boundary
         self.assertEqual(picks(sent), [])
-        self.assertTrue(session.status.armed)  # re-baselined on the new scene, still nothing invented
+        self.assertFalse(session.status.armed)
+
+    def test_8b_bot_lobby_can_reveal_a_full_roster_in_one_frame(self):
+        session = new_session()
+        roster = screen([1, 2, 3, 4, 5], [6, 7, 8, 9, 10])
+        t, _ = arm(session)
+        _, sent = feed(session, roster, t, 12)
+        self.assertEqual(len(picks(sent)), 10)
+        self.assertEqual(session.status.confirmed, 10)
 
     def test_8c_late_start_on_an_already_filled_bar_fails_closed(self):
         session = new_session()
@@ -557,8 +588,8 @@ class AutoArmTests(unittest.TestCase):
         self.assertFalse(session.on_lifecycle(WAITING))  # still the lobby: nothing to do
         t, _ = self.enter_draft(session, t)
         self.assertTrue(session.status.draft_open)
-        # The baseline is the hero-selection bar, not the lobby: the lobby screen now reads as a wholesale scene
-        # change (re-baseline), never as ten picks.
+        # The lifecycle, not a burst of changing portraits, closes the draft before the menu is read.
+        self.assertTrue(session.on_lifecycle(ENDED_1))
         _, back = feed(session, lobby_screen(), t, 30)
         self.assertEqual(picks(back), [])
 
@@ -683,7 +714,8 @@ class LiveLoopAutoArmTests(unittest.TestCase):
         ]
         script = [(jitter(frame, i), lifecycle) for steps, frame, lifecycle in segments for i in range(steps)]
         state = {"step": 0}
-        wire: list[tuple[DraftLifecycle, dict]] = []
+        wire: list[tuple[DraftLifecycle, dict]] = []  # envelopes accepted by the GSI-authoritative server
+        rejected_facts: list[dict] = []
 
         class FakeBackend:
             window_found = True
@@ -702,7 +734,11 @@ class LiveLoopAutoArmTests(unittest.TestCase):
 
             def post(self, envelope):
                 server_says = script[state["step"]][1]
-                wire.append((server_says, envelope))
+                if envelope["payload"]["type"] == "capture_health" or server_says.drafting:
+                    wire.append((server_says, envelope))
+                else:
+                    # The real engine returns the lifecycle ACK but declines visual facts once GSI ended the draft.
+                    rejected_facts.append(envelope)
                 self.lifecycle = server_says
                 return True
 
@@ -719,6 +755,7 @@ class LiveLoopAutoArmTests(unittest.TestCase):
         self.assertTrue(all(said.drafting for said, _ in facts))  # not one fact while GSI said lobby / match
         self.assertEqual([said.epoch for said, _ in facts], [1, 2, 2])  # one pick in game 1, two in game 2
         self.assertGreaterEqual(sum(1 for said, _ in wire if said == WAITING), 4)  # 5 s in the lobby: it kept asking
+        self.assertTrue(all(envelope["payload"]["type"] != "capture_health" for envelope in rejected_facts))
 
 
 if __name__ == "__main__":

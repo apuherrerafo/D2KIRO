@@ -44,8 +44,11 @@ def _row(x0: float, y: float, w: float, h: float, gap: float) -> list[Rect]:
 
 
 def default_layout() -> Layout:
-    left = _row(0.045, 0.012, 0.062, 0.070, 0.004)
-    right = _row(0.625, 0.012, 0.062, 0.070, 0.004)
+    # Measured on the 1600x900 real-Dota capture: the first playable cards begin after the
+    # left profile chrome (not at x=0.045), and Dire's row begins before x=0.625. The rows
+    # deliberately have their measured dimensions: Valve renders them slightly asymmetrically.
+    left = _row(0.110625, 0.007222222222222224, 0.0575, 0.056666666666666664, 0.005625)
+    right = _row(0.5709375, 0.006666666666666668, 0.060625, 0.060, 0.003125)
     return Layout(status="standard", slots={"radiant": left, "dire": right})
 
 

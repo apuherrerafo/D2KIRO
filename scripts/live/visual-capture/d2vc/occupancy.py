@@ -18,9 +18,8 @@ baselines the picks already on screen as "unchanged" and never reports them -- m
 preferable to inventing one.
 
 A slot is OCCUPIED when its distance to the baseline exceeds `max(min_delta, noise_k * its own baseline noise)`.
-Re-arming (new baseline) happens on `rearm()`, on window loss, on a frame-size change, and when >=
-`scene_flips` slots turn occupied within `scene_window_ms` (the whole bar changed at once: a menu, a loading
-screen or a restarted draft -- not ten players picking in the same half second).
+Re-arming (new baseline) happens on `rearm()`, on window loss and on a frame-size change. Screen lifecycle
+comes from GSI, not from a count of changed portraits: bot lobbies can fill a whole roster in one rendered frame.
 """
 from __future__ import annotations
 
@@ -41,7 +40,7 @@ HP_SIGMA = 3.0
 class OccupancyFrame:
     armed: bool
     occupied: Mapping[SlotKey, bool]
-    rearmed: bool = False  # the bar changed wholesale on this frame: downstream temporal state must reset too
+    rearmed: bool = False  # the baseline changed on this frame: downstream temporal state must reset too
 
 
 def signature(crop: np.ndarray) -> np.ndarray:
@@ -75,12 +74,9 @@ class OccupancyGate:
     max_baseline_noise: float = 4.0
     min_delta: float = 6.0
     noise_k: float = 3.0
-    scene_flips: int = 6
-    scene_window_ms: float = 500.0
     _buffer: deque = field(default_factory=deque)  # (now_ms, {key: signature})
     _baseline: dict[SlotKey, np.ndarray] = field(default_factory=dict)
     _threshold: dict[SlotKey, float] = field(default_factory=dict)
-    _occupied_since: dict[SlotKey, float] = field(default_factory=dict)
     # Diagnostics only: what the last update() saw.
     last_state: str = "idle"  # idle | unreadable | collecting | armed | rearmed
     last_distance: dict[SlotKey, float] = field(default_factory=dict)
@@ -93,7 +89,6 @@ class OccupancyGate:
         self._buffer.clear()
         self._baseline.clear()
         self._threshold.clear()
-        self._occupied_since.clear()
 
     def update(self, crops: Mapping[SlotKey, np.ndarray], now_ms: float) -> OccupancyFrame:
         closed = {key: False for key in crops}
@@ -112,16 +107,6 @@ class OccupancyGate:
             return OccupancyFrame(False, closed, rearmed=True)
         self.last_distance = {key: distance(sig, self._baseline[key]) for key, sig in signatures.items()}
         occupied = {key: self.last_distance[key] >= self._threshold[key] for key in signatures}
-        for key, is_occupied in occupied.items():
-            if not is_occupied:
-                self._occupied_since.pop(key, None)
-            else:
-                self._occupied_since.setdefault(key, now_ms)
-        sudden = sum(1 for since in self._occupied_since.values() if now_ms - since <= self.scene_window_ms)
-        if sudden >= self.scene_flips:
-            self.rearm()
-            self.last_state = "rearmed"
-            return OccupancyFrame(False, closed, rearmed=True)
         self.last_state = "armed"
         return OccupancyFrame(True, occupied)
 

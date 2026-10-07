@@ -14,7 +14,9 @@ from .catalog import Catalog
 from .matcher import Matcher, Thresholds, confident, is_blank
 from .synth import blank_slot, degrade, transition_blend
 
-DEFAULT_THRESHOLDS = Thresholds(min_score=0.70, min_margin=0.15)
+# The real 1600x900 Dota capture scores Phantom Assassin at 0.681 with a 0.316 margin on
+# the measured top-bar crop. 0.68 admits that confirmed portrait while retaining the margin gate.
+DEFAULT_THRESHOLDS = Thresholds(min_score=0.68, min_margin=0.15)
 
 
 @dataclass
