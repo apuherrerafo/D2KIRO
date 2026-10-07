@@ -22,7 +22,7 @@ on:
         required: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -68,14 +68,26 @@ jobs:
           path: |
             ${{ runner.temp }}/visual-build/d2kiro-visual-*.zip
             ${{ runner.temp }}/visual-build/d2kiro-visual-*.sha256
+
+  # Only this job can write to the repository, and only for a tag push. Nothing from the build job runs here:
+  # it just attaches the artifact the build produced.
+  release:
+    if: ${{ github.ref_type == 'tag' }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: d2kiro-visual-runtime
+          path: release-assets
       - name: Publish release
-        if: ${{ github.ref_type == 'tag' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
         run: |
-          gh release create "${{ github.ref_name }}" --verify-tag \
-            "$RUNNER_TEMP"/visual-build/d2kiro-visual-*.zip "$RUNNER_TEMP"/visual-build/d2kiro-visual-*.sha256 \
-            --title "D2KIRO Visual runtime ${RUNTIME_VERSION#visual-runtime-v}" \
-            --notes "Built from ${{ github.sha }}. Pin the SHA-256 from the .sha256 asset in the Companion before shipping." \
-            --prerelease
+          gh release create "$TAG" --verify-tag --repo "$GITHUB_REPOSITORY"             release-assets/*.zip release-assets/*.sha256             --title "D2KIRO Visual runtime ${TAG#visual-runtime-v}"             --notes "Built from $SHA. Pin the SHA-256 from the .sha256 asset in the Companion before shipping."             --prerelease
