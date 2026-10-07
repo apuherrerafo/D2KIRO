@@ -364,13 +364,15 @@ export type HeroStoryProps = {
   onStep?: (step: StoryStep) => void;
   /** Freezes the canonical story at one moment for deterministic visual review. */
   reviewStep?: HeroStoryStep;
+  /** The visitor is leaving for the Memory Strip: settle on the locked canonical decision (Puck) and stop looping. */
+  settle?: boolean;
 };
 
-export function HeroStory({ onStep, reviewStep }: HeroStoryProps) {
+export function HeroStory({ onStep, reviewStep, settle }: HeroStoryProps) {
   const reduced = useReducedMotion();
   const host = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
-  const story = useHeroStory(host, reduced, reviewStep);
+  const story = useHeroStory(host, reduced, reviewStep, settle);
   const flags = flagsFor(story.step, story.armed);
   const scenario = HERO_STORY.scenarios[story.cycle % HERO_STORY.scenarios.length];
   const winner = rankAt(scenario, 4)[0].hero;

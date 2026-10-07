@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { LandingPage } from "@/features/landing";
 import {
-  MEMORY_BEATS_ON_SCROLL, MEMORY_SCROLL_SCREENS, beatAt, beatName, memoryCoachCue, memoryScrollView, sameView,
+  HANDOFF_ENTRY_SHARE, HANDOFF_SCREENS, MEMORY_BEATS_ON_SCROLL, MEMORY_SCROLL_SCREENS, beatAt, beatName, memoryCoachCue, memoryScrollView, sameView,
 } from "@/features/landing/memory-scroll";
 import { MEMORY_SCENE_ORDER, MEMORY_TRANSITIONS } from "@/features/landing/memory-strip";
 
@@ -32,7 +32,8 @@ describe("Memory Strip on scroll: the beats", () => {
   });
 
   it("gives every beat real room, transitions more than rests, and stays a section rather than a trap", () => {
-    for (const beat of MEMORY_BEATS_ON_SCROLL) expect(beat.screens).toBeGreaterThanOrEqual(0.3);
+    /* The handoff is only a short settle now: its work starts before the pin (see "the handoff starts before the pin"). */
+    for (const beat of MEMORY_BEATS_ON_SCROLL) expect(beat.screens).toBeGreaterThanOrEqual(beat.kind === "handoff" ? 0.1 : 0.3);
     MEMORY_BEATS_ON_SCROLL.forEach((beat, i) => {
       if (beat.kind === "transition") expect(beat.screens).toBeGreaterThan(MEMORY_BEATS_ON_SCROLL[i - 1].screens);
     });
@@ -100,6 +101,24 @@ describe("Memory Strip on scroll: full motion", () => {
     expect(during).toEqual([...during].sort((a, b) => a - b));
     expect(views.filter((view) => view.beat > 0).every((view) => view.handoff === 1)).toBe(true);
   });
+
+  it("the handoff starts before the pin: Match 01 is already forming on the approach, and the pinned beat only finishes it", () => {
+    const approach = Array.from({ length: 101 }, (_, i) => memoryScrollView(0, false, i / 100).handoff);
+    expect(approach[0]).toBe(0);
+    expect(approach).toEqual([...approach].sort((a, b) => a - b));
+    expect(approach.some((h) => h > 0 && h < HANDOFF_ENTRY_SHARE)).toBe(true);
+    expect(approach[100]).toBeCloseTo(HANDOFF_ENTRY_SHARE, 2);
+    /* Continuous at the pin (no jump), and the dedicated pinned window is short. */
+    const pinned = memoryScrollView(1e-6, false, 1).handoff;
+    expect(Math.abs(pinned - approach[100])).toBeLessThan(0.02);
+    expect(HANDOFF_SCREENS).toBeLessThanOrEqual(0.2);
+  });
+
+  it("the approach is ignored once pinned: the pin alone decides, so no scroll position can undo the handoff", () => {
+    for (const progress of [0.01, 0.02, 0.05]) {
+      expect(memoryScrollView(progress, false, 0)).toEqual(memoryScrollView(progress, false, 1));
+    }
+  });
 });
 
 describe("Memory Strip on scroll: reduced motion", () => {
@@ -120,6 +139,9 @@ describe("Memory Strip on scroll: reduced motion", () => {
   it("the handoff is a step, not a fade", () => {
     expect(views.every((view) => view.handoff === 0 || view.handoff === 1)).toBe(true);
     expect(views.some((view) => view.handoff === 0)).toBe(true);
+    const approach = Array.from({ length: 101 }, (_, i) => memoryScrollView(0, true, i / 100).handoff);
+    expect(approach.every((h) => h === 0 || h === 1)).toBe(true);
+    expect(approach[100]).toBe(1);
   });
 });
 

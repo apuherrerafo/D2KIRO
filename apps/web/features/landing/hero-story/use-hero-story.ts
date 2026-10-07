@@ -13,7 +13,17 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useInView } from "@/design/round-3a/lab-context";
-import { REASON_STAGES, type ReasonStage } from "../product-state/fake-scenario-hero";
+import { HERO_STORY, REASON_STAGES, type ReasonStage } from "../product-state/fake-scenario-hero";
+
+/** The scenario every departure settles on: Puck, the canonical decision the Memory Strip begins from. */
+const CANONICAL_SCENARIO = 0;
+
+/** Where a departure lands: the final step of the canonical scenario, at the nearest cycle at or after the current one
+    (a cycle's scenario is `cycle % scenarios`). Already there → the same position, so nothing re-renders. */
+export function settledPosition(position: { cycle: number; index: number }, lastIndex: number, scenarios = HERO_STORY.scenarios.length) {
+  const ahead = (CANONICAL_SCENARIO - (position.cycle % scenarios) + scenarios) % scenarios;
+  return { cycle: position.cycle + ahead, index: lastIndex };
+}
 
 export const STEPS = ["picks", "reveal", "counterA", "counterB", "synergy", "pool", "decide", "lock", "place", "hold"] as const;
 export type StoryStep = (typeof STEPS)[number];
@@ -79,7 +89,9 @@ export type HeroStory = {
   toggle: () => void;
 };
 
-export function useHeroStory(host: RefObject<Element | null>, reduced: boolean, reviewStep?: HeroStoryStep): HeroStory {
+/** `settle` is the departure contract: the visitor is leaving for the Memory Strip, so the story stops on the locked
+    canonical scenario (the final `hold` of Puck) and stays there. Standalone Hero never sets it. */
+export function useHeroStory(host: RefObject<Element | null>, reduced: boolean, reviewStep?: HeroStoryStep, settle = false): HeroStory {
   const inView = useInView(host);
   const [paused, setPaused] = useState(false);
   const [position, setPosition] = useState({ cycle: 0, index: 0, reduced });
@@ -89,6 +101,11 @@ export function useHeroStory(host: RefObject<Element | null>, reduced: boolean, 
 
   /* A change of motion preference starts the story over (derived during render, not in an effect). */
   if (position.reduced !== reduced) setPosition({ cycle: cycle + 1, index: 0, reduced });
+
+  /* Departure: jump (derived during render) to the final step of the canonical scenario — no second scene, the
+     same `hold` the loop already reaches. The next scenario's cycle is the nearest one at or after the current. */
+  const settled = settledPosition({ cycle, index }, (reduced ? REDUCED_BEATS : STEPS).length - 1);
+  if (settle && (settled.cycle !== cycle || settled.index !== index)) setPosition({ ...settled, reduced });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setArmed(true), 80);
@@ -107,7 +124,7 @@ export function useHeroStory(host: RefObject<Element | null>, reduced: boolean, 
   const autoplayStep = sequence[Math.min(index, sequence.length - 1)];
   const step = reviewStep ?? autoplayStep;
   const finished = !controlled && reduced && index >= sequence.length - 1;
-  const running = !controlled && !paused && inView && visible && !finished;
+  const running = !controlled && !paused && inView && visible && !finished && !settle;
 
   useEffect(() => {
     if (!running) return;

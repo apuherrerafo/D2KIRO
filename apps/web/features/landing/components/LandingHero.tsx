@@ -47,7 +47,8 @@ function HeroCopy({ onDemo, onJoin }: { onDemo: () => void; onJoin: () => void }
   );
 }
 
-export function LandingHero() {
+/** `departing`: the Memory handoff has begun, so the story settles on the canonical Puck lock instead of looping on. */
+export function LandingHero({ departing = false }: { departing?: boolean }) {
   const reduced = useReducedMotion();
   const [step, setStep] = useState<StoryStep>("picks");
 
@@ -63,7 +64,7 @@ export function LandingHero() {
       <div className="ld-wrap ld-hero-grid">
         <HeroCopy onDemo={handleDemo} onJoin={handleJoin} />
         <div className="ld-hero-product">
-          <HeroStory onStep={setStep} />
+          <HeroStory onStep={setStep} settle={departing} />
           <p className="ld-illustrative">{HERO.illustrative}</p>
           <CoachCueScope cue={COACH_BY_STEP[step]}>
             <CoachSlot placement="hero" />

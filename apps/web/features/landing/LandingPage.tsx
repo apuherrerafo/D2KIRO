@@ -3,7 +3,7 @@
    props with safe defaults, so neither arrival changes this file or any section. */
 "use client";
 
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import "@/design/round-3a-labs.css";
 import "@/design/round-3b-labs.css";
 import "@/design/canonical/tokens.css";
@@ -45,13 +45,15 @@ function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder
   const reduced = useReducedMotion();
   const character = coach ?? null;
   const heroFrame = productState.frames[0];
+  /* One-way latch, local to Hero ↔ Memory: once the bridge is on screen the Hero stays on the locked Puck. */
+  const [departing, setDeparting] = useState(false);
   return (
     <div className="ld-motion" data-motion={reduced ? "reduced" : "full"}>
       <CoachSlotProvider character={character} cue={coachCueFor(heroFrame, null)} reducedMotion={reduced} showPlaceholder={showCoachPlaceholder}>
         <LandingNav reducedMotion={reduced} />
         <main>
-          <LandingHero />
-          <MemorySection reducedMotion={reduced} />
+          <LandingHero departing={departing} />
+          <MemorySection onBridge={setDeparting} reducedMotion={reduced} />
           <PropositionSection />
           <DemoSection character={character} productState={productState} reducedMotion={reduced} showCoachPlaceholder={showCoachPlaceholder} />
           <SignalsSection productState={productState} />

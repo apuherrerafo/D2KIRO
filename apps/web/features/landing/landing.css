@@ -135,8 +135,12 @@
    beats and the length are one table). Phones get a little more room per beat: a thumb flick travels further.
    The stage pins under the 56 px nav and sizes to the SMALL viewport, so browser chrome never resizes it. */
 .ld-memory { position: relative; }
-.ld-memory-head { padding-top: clamp(16px, 3vw, 40px); }
+.ld-memory-head { padding-top: clamp(16px, 3vw, 40px); position: relative; z-index: 1; }
+/* The bridge and the first memory share the screen: on tall stages the object sits well below the stage top, so the
+   track is pulled up under the title until the object starts ~40 px below it (500 px = the object's height). The track
+   keeps its own length, so the pinned beats are untouched; phones already start the object right under the title. */
 .ld-memory-track { --ld-memory-scale: 1; height: calc((100svh - 56px) * (1 + var(--ld-memory-screens) * var(--ld-memory-scale))); position: relative; }
+@media (min-width: 720px) { .ld-memory-track { margin-top: calc(-1 * max(0px, (100svh - 56px - 500px) / 2 - 40px)); } }
 .ld-memory-stage { height: calc(100svh - 56px); overflow: clip; position: sticky; top: 56px; }
 .ld-memory-stage .ms-host, .ld-memory-stage .ms { height: 100%; }
 .ld-memory-stage .ms { min-height: 0; }

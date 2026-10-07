@@ -14,7 +14,12 @@ export type MemoryBeat =
 /* Scroll distance per beat, in stage heights ("screens"). Tuned by watching the pace, not to a vh target:
    a hold is long enough to read the annotation once; a transition is long enough that one flick does not skip
    its meaning. The longest transitions (contradiction, model) get the most room. */
-export const HANDOFF_SCREENS = 0.4;
+export const HANDOFF_SCREENS = 0.15;
+/* The handoff starts BEFORE the pin, while the bridge is still on screen: the stage's approach (`entry`, 0→1) carries
+   this share of it, and the short pinned beat only settles the rest. `ENTRY_VIEWPORT` is how far down the viewport the
+   stage's top is when the approach begins (the Puck seal is just peeking in), as a fraction of its height. */
+export const HANDOFF_ENTRY_SHARE = 0.7;
+export const ENTRY_VIEWPORT = 0.78;
 const HOLD_SCREENS: Readonly<Record<MemorySceneId, number>> = {
   "match-01": 0.35, "match-08": 0.35, "match-24": 0.4, "match-56": 0.35, "player-model": 0.5,
 };
@@ -64,11 +69,13 @@ export function beatAt(progress: number): { index: number; local: number } {
  * Reduced motion never scrubs: each transition window flips to the next scene at its midpoint, and the
  * player's own reduced step (a short fade) carries the change.
  */
-export function memoryScrollView(progress: number, reduced: boolean): MemoryScrollView {
+export function memoryScrollView(progress: number, reduced: boolean, entry = 0): MemoryScrollView {
   const { index, local } = beatAt(progress);
   const beat = MEMORY_BEATS_ON_SCROLL[index];
   if (beat.kind === "handoff") {
-    return { beat: index, sceneId: "match-01", scrub: null, handoff: reduced ? Number(local >= 0.5) : quantize(local, 100) };
+    /* Before the pin (`progress <= 0`) only the approach counts; once pinned, the beat finishes what the approach began. */
+    const formed = progress > 0 ? HANDOFF_ENTRY_SHARE + (1 - HANDOFF_ENTRY_SHARE) * local : HANDOFF_ENTRY_SHARE * clamp01(entry);
+    return { beat: index, sceneId: "match-01", scrub: null, handoff: reduced ? Number(formed >= 0.5) : quantize(formed, 100) };
   }
   if (beat.kind === "hold") return { beat: index, sceneId: beat.scene, scrub: null, handoff: 1 };
   if (reduced) return { beat: index, sceneId: local < 0.5 ? beat.from : beat.to, scrub: null, handoff: 1 };

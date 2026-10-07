@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import { useInView } from "@/design/round-3a/lab-context";
-import { memoryScrollView, sameView, type MemoryScrollView } from "./memory-scroll";
+import { ENTRY_VIEWPORT, memoryScrollView, sameView, type MemoryScrollView } from "./memory-scroll";
 import type { DraftFrame } from "./product-state/types";
 
 export const AUTOPLAY_STEP_MS = 4800;
@@ -78,15 +78,18 @@ export function useMemoryScroll(track: RefObject<HTMLElement | null>, stage: Ref
     if (!host || !pinned || typeof window === "undefined") return;
     let start = 0;
     let span = 1;
+    let lead = 1;
     let frame = 0;
     const measure = () => {
       const pinTop = Number.parseFloat(window.getComputedStyle(pinned).top) || 0;
       start = host.getBoundingClientRect().top + window.scrollY - pinTop;
       span = Math.max(1, host.offsetHeight - pinned.offsetHeight);
+      /* The approach to the pin: from the stage top entering at ENTRY_VIEWPORT of the screen down to the pin itself. */
+      lead = Math.max(1, window.innerHeight * ENTRY_VIEWPORT - pinTop);
     };
     const update = () => {
       frame = 0;
-      const next = memoryScrollView((window.scrollY - start) / span, reduced);
+      const next = memoryScrollView((window.scrollY - start) / span, reduced, (window.scrollY - (start - lead)) / lead);
       setView((current) => (sameView(current, next) ? current : next));
     };
     const schedule = () => {
