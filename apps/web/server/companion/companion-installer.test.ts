@@ -507,6 +507,12 @@ describe("D2KIRO Visual runtime: pinned release", () => {
     expect(VISUAL_RUNTIME.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  test("the production pin is the calibrated 0.1.1 release (exact published asset and SHA-256)", () => {
+    expect(VISUAL_RUNTIME.version).toBe("0.1.1");
+    expect(VISUAL_RUNTIME.url).toBe("https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v0.1.1/d2kiro-visual-0.1.1.zip");
+    expect(VISUAL_RUNTIME.sha256).toBe("300759174824a7a284de43ed00a03e3e34d75c4322198c02426cf3f7978e72fd");
+  });
+
   test("the generated PowerShell pins the production release and verifies the hash before extracting", () => {
     expect(COMPANION_RUNTIME_PS).toContain(VISUAL_RUNTIME.url);
     expect(COMPANION_RUNTIME_PS).toContain(VISUAL_RUNTIME.sha256);
