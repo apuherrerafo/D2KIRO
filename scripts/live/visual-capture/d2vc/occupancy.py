@@ -81,6 +81,9 @@ class OccupancyGate:
     _baseline: dict[SlotKey, np.ndarray] = field(default_factory=dict)
     _threshold: dict[SlotKey, float] = field(default_factory=dict)
     _occupied_since: dict[SlotKey, float] = field(default_factory=dict)
+    # Diagnostics only: what the last update() saw.
+    last_state: str = "idle"  # idle | unreadable | collecting | armed | rearmed
+    last_distance: dict[SlotKey, float] = field(default_factory=dict)
 
     @property
     def armed(self) -> bool:
@@ -94,16 +97,21 @@ class OccupancyGate:
 
     def update(self, crops: Mapping[SlotKey, np.ndarray], now_ms: float) -> OccupancyFrame:
         closed = {key: False for key in crops}
+        self.last_distance = {}
         if not readable(crops):
+            self.last_state = "unreadable"
             return OccupancyFrame(self.armed, closed)
         signatures = {key: signature(crop) for key, crop in crops.items()}
         if not self.armed:
             self._collect(signatures, now_ms)
+            self.last_state = "armed" if self.armed else "collecting"
             return OccupancyFrame(self.armed, closed)
         if set(signatures) != set(self._baseline):
             self.rearm()
+            self.last_state = "rearmed"
             return OccupancyFrame(False, closed, rearmed=True)
-        occupied = {key: distance(sig, self._baseline[key]) >= self._threshold[key] for key, sig in signatures.items()}
+        self.last_distance = {key: distance(sig, self._baseline[key]) for key, sig in signatures.items()}
+        occupied = {key: self.last_distance[key] >= self._threshold[key] for key in signatures}
         for key, is_occupied in occupied.items():
             if not is_occupied:
                 self._occupied_since.pop(key, None)
@@ -112,7 +120,9 @@ class OccupancyGate:
         sudden = sum(1 for since in self._occupied_since.values() if now_ms - since <= self.scene_window_ms)
         if sudden >= self.scene_flips:
             self.rearm()
+            self.last_state = "rearmed"
             return OccupancyFrame(False, closed, rearmed=True)
+        self.last_state = "armed"
         return OccupancyFrame(True, occupied)
 
     def _collect(self, signatures: dict[SlotKey, np.ndarray], now_ms: float) -> None:
@@ -132,3 +142,7 @@ class OccupancyGate:
         self._baseline = means
         self._threshold = {key: max(self.min_delta, self.noise_k * noise[key]) for key in keys}
         self._buffer.clear()
+
+    def threshold_of(self, key: SlotKey) -> float | None:
+        """Diagnostics only: the distance a slot must exceed to count as occupied."""
+        return self._threshold.get(key)

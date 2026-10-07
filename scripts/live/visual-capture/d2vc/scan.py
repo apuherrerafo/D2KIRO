@@ -19,6 +19,10 @@ class SlotReading:
     hero_id: int | None
     score: float
     margin: float
+    # Diagnostics only (never sent anywhere): the best candidate even when it was rejected, and why.
+    candidate_id: int | None = None
+    runner_up_score: float = 0.0
+    reason: str = ""  # "ok" | "unoccupied" | "blank" | "below_score" | "below_margin"
 
 
 @dataclass(frozen=True)
@@ -40,12 +44,15 @@ class ScanResult:
 
 def read_slot(side: str, index: int, crop_bgr: np.ndarray, matcher: Matcher, thresholds: Thresholds, occupied: bool | None = None) -> SlotReading:
     """`occupied=False` (the occupancy gate says the slot still looks empty) means the matcher never runs."""
-    if occupied is False or is_blank(crop_bgr):
-        return SlotReading(side, index, "empty", None, 0.0, 0.0)
+    if occupied is False:
+        return SlotReading(side, index, "empty", None, 0.0, 0.0, reason="unoccupied")
+    if is_blank(crop_bgr):
+        return SlotReading(side, index, "empty", None, 0.0, 0.0, reason="blank")
     result: MatchResult = matcher.match(crop_bgr)
     if confident(result, thresholds):
-        return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin)
-    return SlotReading(side, index, "uncertain", None, result.score, result.margin)
+        return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin, result.hero_id, result.runner_up_score, "ok")
+    reason = "below_score" if result.score < thresholds.min_score else "below_margin"
+    return SlotReading(side, index, "uncertain", None, result.score, result.margin, result.hero_id, result.runner_up_score, reason)
 
 
 def slot_crops(frame: np.ndarray, layout: Layout) -> dict[tuple[str, int], np.ndarray]:
