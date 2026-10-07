@@ -30,9 +30,9 @@ describe("companionPill", () => {
 
 describe("connectionPill with the Companion", () => {
   test("Dota closed / open but silent / needs one restart, as the Companion sees it", () => {
-    expect(connectionPill(status({ companion: COMPANION })).text).toContain("Dota 2 cerrado");
-    expect(connectionPill(status({ companion: { ...COMPANION, dota: "waiting" } })).text).toContain("sin datos");
-    expect(connectionPill(status({ companion: { ...COMPANION, dota: "waiting", restartNeeded: true } })).text).toContain("Reiniciá Dota 2");
+    expect(connectionPill(status({ companion: COMPANION })).text).toContain("abre Dota 2");
+    expect(connectionPill(status({ companion: { ...COMPANION, dota: "waiting" } })).text).toContain("esperando datos");
+    expect(connectionPill(status({ companion: { ...COMPANION, dota: "waiting", restartNeeded: true } })).text).toContain("Reinicia Dota 2 una vez");
   });
 
   test("GSI reaching the session wins; without a live Companion the old wording stays", () => {

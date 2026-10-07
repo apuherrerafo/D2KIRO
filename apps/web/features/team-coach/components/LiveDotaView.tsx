@@ -5,6 +5,7 @@ import { GSI_SETUP_ERRORS } from "../constants";
 import { useLiveTeamCoachStore } from "../live-store";
 import type { GsiLinkView } from "../types";
 import { useGsiLink, type UseGsiLinkResult } from "../use-gsi-link";
+import { activeCompanion, companionGuidance } from "./LiveCaptureStatusBar";
 import { DotaConnectPanel, DotaLinkControls } from "./DotaConnectPanel";
 import { LiveDiagnosticsPanel } from "./LiveDiagnosticsPanel";
 import { LivePartyPresetPanel } from "./LivePartyPresetPanel";
@@ -13,7 +14,8 @@ import { LiveTeamCoachView } from "./LiveTeamCoachView";
 // TSK-219 -- /live-draft on the deployed site. The Player's account has (or not) a Dota link:
 //   no link  -> "Dota desconectado" + "Conectar Dota" -> one-time cfg download + install steps
 //   link     -> the live Team Coach on that link's session; it updates by itself as Dota reports.
-// Manual entry stays available inside the live view (partial capture, reconnects, corrections).
+// Normal setup = one Companion install; once the Companion is detected the setup collapses to status.
+// Manual entry is not the Player fallback any more (see LiveTeamCoachView.debugManualEntry).
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -85,6 +87,7 @@ function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl }: Linked
   const linkStatus = captureStatus !== null && captureStatus.sessionId === link.sessionId ? captureStatus : null;
   // Dota has not reported on this link yet (status not loaded, or no GSI update ever): keep the setup open.
   const waitingForDota = linkStatus === null || linkStatus.gsi === null || linkStatus.gsi === undefined;
+  const companionActive = activeCompanion(linkStatus) !== null;
   function handleDisconnect() {
     void gsi.disconnect();
   }
@@ -93,6 +96,8 @@ function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl }: Linked
       <DotaLinkControls
         link={link}
         waitingForDota={waitingForDota}
+        companionActive={companionActive}
+        guidance={companionGuidance(linkStatus)}
         setupError={setupError}
         awaitingDownload={gsi.awaitingDownload}
         onDownload={onDownload}

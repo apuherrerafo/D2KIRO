@@ -164,16 +164,18 @@ describe("LiveCaptureStatusBar", () => {
     expect(view.getByTestId("live-pick-detected").textContent).toContain("Pos3 Offlane → Mars");
   });
 
-  test("sin -gamestateintegration: DOTA_CAPTURE_NOT_ENABLED con la acción exacta", () => {
+  test("DOTA_CAPTURE_NOT_ENABLED: apunta a las opciones avanzadas, sin pedir entrada manual", () => {
     const view = render(<LiveCaptureStatusBar status={status({ captureHealth: "degraded", captureDetail: "DOTA_CAPTURE_NOT_ENABLED", draftPhase: "waiting" })} heroCatalog={HEROES} />);
     const alert = view.getByTestId("live-capture-not-enabled").textContent ?? "";
     expect(alert).toContain("DOTA_CAPTURE_NOT_ENABLED");
-    expect(alert).toContain("Agrega -gamestateintegration a Launch Options");
+    expect(alert).toContain("Opciones avanzadas de conexión");
+    expect(alert).not.toContain("gamestateintegration");
+    expect(alert).not.toMatch(/a mano|manual/i);
   });
 });
 
-describe("LiveTeamCoachView -- fallback manual", () => {
-  test("captura degradada: se muestra, el board acepta clics y la entrada manual queda abierta; el estado no se pierde", async () => {
+describe("LiveTeamCoachView -- sin entrada manual para el Player", () => {
+  test("captura degradada: se muestra, el board NO acepta clics y no hay entrada manual; el estado no se pierde", async () => {
     const engine = new FakeLiveEngine();
     engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1 });
     engine.currentBoard = board("s1", 129);
@@ -183,14 +185,8 @@ describe("LiveTeamCoachView -- fallback manual", () => {
       const view = render(<LiveTeamCoachView sessionId="live-session-1" />);
       await waitFor(() => expect(view.getByTestId("live-capture-degraded")).toBeTruthy());
       await waitFor(() => expect(view.getByTestId("team-coach-column-3").getAttribute("data-state")).toBe("FILLED"));
-      expect((view.getByTestId("live-manual-entry") as HTMLDetailsElement).open).toBe(true);
-      const pickButtons = view.getAllByRole("button", { name: /^Elegir / });
-      expect(pickButtons.length).toBeGreaterThan(0);
-      await act(async () => {
-        fireEvent.click(view.getByRole("button", { name: "Elegir Héroe 51 como Pos5 Hard Support" }));
-      });
-      await waitFor(() => expect(engine.requests.some((entry) => entry.url.endsWith("/live-observation"))).toBe(true));
-      expect(engine.requests.find((entry) => entry.url.endsWith("/live-observation"))!.body).toEqual({ type: "pick", side: "radiant", heroId: 51, position: 5 });
+      expect(view.queryByTestId("live-manual-entry")).toBeNull();
+      expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
       view.unmount();
     } finally {
       globalThis.fetch = original;
@@ -215,5 +211,29 @@ describe("useLiveTeamCoach -- a failed board is retried (Greptile TSK-219)", () 
     await waitFor(() => expect(useLiveTeamCoachStore.getState().boardStatus).toBe("ready"));
     expect(engine.count("/team-recommendations")).toBe(2);
     hook.unmount();
+  });
+});
+
+describe("LiveTeamCoachView -- debugManualEntry (solo desarrollo)", () => {
+  test("con el flag de debug, el board acepta clics y la entrada manual queda abierta; sin él, nunca", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ connection: "stale", captureHealth: "lost", picks: 1 });
+    engine.currentBoard = board("s1", 129);
+    const original = globalThis.fetch;
+    globalThis.fetch = engine.fetch as typeof fetch;
+    try {
+      const view = render(<LiveTeamCoachView sessionId="live-session-1" debugManualEntry />);
+      await waitFor(() => expect(view.getByTestId("live-capture-degraded")).toBeTruthy());
+      await waitFor(() => expect(view.getByTestId("team-coach-column-3").getAttribute("data-state")).toBe("FILLED"));
+      expect((view.getByTestId("live-manual-entry") as HTMLDetailsElement).open).toBe(true);
+      await act(async () => {
+        fireEvent.click(view.getByRole("button", { name: "Elegir Héroe 51 como Pos5 Hard Support" }));
+      });
+      await waitFor(() => expect(engine.requests.some((entry) => entry.url.endsWith("/live-observation"))).toBe(true));
+      expect(engine.requests.find((entry) => entry.url.endsWith("/live-observation"))!.body).toEqual({ type: "pick", side: "radiant", heroId: 51, position: 5 });
+      view.unmount();
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });
