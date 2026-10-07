@@ -38,9 +38,11 @@ export interface LiveTeamCoachViewProps {
   children?: ReactNode;
   /** Developer/debug only: shows manual entry and manual picks. Never the Player's fallback. */
   debugManualEntry?: boolean;
+  /** The Dota link's credential has expired: the Companion pill says so instead of "sin señal". */
+  linkExpired?: boolean;
 }
 
-export function LiveTeamCoachView({ sessionId, children, debugManualEntry = false }: LiveTeamCoachViewProps) {
+export function LiveTeamCoachView({ sessionId, children, debugManualEntry = false, linkExpired = false }: LiveTeamCoachViewProps) {
   const { heroes: heroCatalog } = useHeroCatalog();
   const { selectPosition, report, refresh } = useLiveTeamCoach(sessionId);
   const engineStatus = useLiveTeamCoachStore((state) => state.engineStatus);
@@ -73,7 +75,7 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
       <span className="text-heading text-content-primary">D2KIRO · Draft en vivo</span>
       {children}
       <EngineNotice status={engineStatus} />
-      <LiveCaptureStatusBar status={captureStatus} heroCatalog={heroCatalog} />
+      <LiveCaptureStatusBar status={captureStatus} heroCatalog={heroCatalog} linkExpired={linkExpired} />
       <LiveDraftBoard draftState={draftState} heroCatalog={heroCatalog} />
       <BoardUnlessPartial hidden={hideBoard}>
         <TeamCoachBoard

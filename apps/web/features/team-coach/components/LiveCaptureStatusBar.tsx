@@ -66,7 +66,9 @@ export function visualPill(status: LiveCaptureStatus | null): Pill {
 }
 
 /** D2KIRO Companion: the local background app that keeps Dota connected (heartbeat every 15 s). */
-export function companionPill(status: LiveCaptureStatus | null): Pill {
+export function companionPill(status: LiveCaptureStatus | null, linkExpired = false): Pill {
+  // An expired link is its own state: never dressed up as "the PC is off".
+  if (linkExpired) return { className: STATUS_PILL_WARN, text: "● Conexión de D2KIRO vencida" };
   const companion = activeCompanion(status);
   if (companion !== null) return { className: STATUS_PILL_OK, text: "● Companion conectado" };
   if (status?.companion) return { className: STATUS_PILL_WARN, text: "● Companion sin señal · ¿está prendida la PC?" };
@@ -108,6 +110,8 @@ function StatusItem({ label, pill }: { label: string; pill: Pill }) {
 interface DetectedPickProps {
   status: LiveCaptureStatus | null;
   heroCatalog: Map<number, HeroMeta>;
+  /** The Dota link's credential has expired (known from link.expiresAt, not from the engine). */
+  linkExpired?: boolean;
 }
 
 function DetectedPick({ status, heroCatalog }: DetectedPickProps) {
@@ -173,11 +177,11 @@ function DeferredNotice({ status }: { status: LiveCaptureStatus | null }) {
   return <span className="text-caption text-signal-warning">{status.deferredPicks} pick(s) esperando que el rival revele su ronda.</span>;
 }
 
-export function LiveCaptureStatusBar({ status, heroCatalog }: DetectedPickProps) {
+export function LiveCaptureStatusBar({ status, heroCatalog, linkExpired = false }: DetectedPickProps) {
   return (
     <div className="flex flex-col gap-3" data-testid="live-capture-status">
       <div className="grid grid-cols-1 gap-3 rounded-lg border border-surface-border bg-surface-raised p-3 sm:grid-cols-3">
-        <StatusItem label="COMPANION" pill={companionPill(status)} />
+        <StatusItem label="COMPANION" pill={companionPill(status, linkExpired)} />
         <StatusItem label="CONNECTION" pill={connectionPill(status)} />
         <StatusItem label="PHASE" pill={phasePill(status)} />
         <StatusItem label="CAPTURE" pill={capturePill(status)} />

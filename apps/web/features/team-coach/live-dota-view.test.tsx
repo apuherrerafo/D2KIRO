@@ -49,7 +49,7 @@ function board(sessionId: string): TeamCoachBoardData {
   };
 }
 
-const LINK: GsiLinkView = { sessionId: "gsi-session-1", createdAt: "2026-10-02T00:00:00.000Z", expiresAt: "2026-11-01T00:00:00.000Z" };
+const LINK: GsiLinkView = { sessionId: "gsi-session-1", createdAt: "2026-10-02T00:00:00.000Z", expiresAt: "2099-01-01T00:00:00.000Z" };
 
 class FakeSite {
   readonly requests: { url: string; method: string }[] = [];
@@ -423,6 +423,64 @@ describe("LiveDotaView -- Companion-driven setup", () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("Captura automática no disponible"));
       expect(view.getByTestId("live-capture-status").textContent ?? "").not.toMatch(/ayudante|helper|proceso/i);
+      view.unmount();
+    });
+  });
+});
+
+describe("LiveDotaView -- link lifetime (frontend defense)", () => {
+  const NOW = Date.parse("2026-10-06T12:00:00.000Z");
+  const DAY = 24 * 60 * 60 * 1000;
+  const SILENT = { version: "0.1.0", active: false, dota: "not_running", restartNeeded: false, phase: "MENU", lastSeenAgeMs: 999_999 } as never;
+
+  async function renderWithExpiry(expiresAt: string, status: LiveCaptureStatus) {
+    const site = new FakeSite();
+    site.link = { ...LINK, expiresAt };
+    site.status = status;
+    return site;
+  }
+
+  test("expired link: explicit 'vencida' state with the way out, never the generic 'Companion sin señal'", async () => {
+    const site = await renderWithExpiry(new Date(NOW - 1000).toISOString(), liveStatus(LINK.sessionId, { companion: SILENT }));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-expired").textContent).toContain("Conexión de D2KIRO vencida"));
+      expect(view.getByTestId("dota-link-expired").textContent).toContain("Vuelve a vincular el Companion para continuar.");
+      expect(view.getByTestId("live-capture-status").textContent).toContain("Conexión de D2KIRO vencida");
+      expect(view.container.textContent).not.toContain("Companion sin señal");
+      // The existing pairing is offered (no second installer) and the setup is open.
+      expect(view.getAllByTestId("companion-installer-download")).toHaveLength(1);
+      expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(true);
+      view.unmount();
+    });
+  });
+
+  test("expiry boundary: expiresAt == now is expired", async () => {
+    const site = await renderWithExpiry(new Date(NOW).toISOString(), liveStatus(LINK.sessionId));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-expired")).toBeTruthy());
+      view.unmount();
+    });
+  });
+
+  test("<= 7 days left: a discreet 'vence pronto' line, no alert", async () => {
+    const site = await renderWithExpiry(new Date(NOW + 6 * DAY).toISOString(), liveStatus(LINK.sessionId));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-expiring").textContent).toBe("La conexión vence pronto"));
+      expect(view.queryByTestId("dota-link-expired")).toBeNull();
+      view.unmount();
+    });
+  });
+
+  test("healthy link: no lifetime warning at all", async () => {
+    const site = await renderWithExpiry(new Date(NOW + 20 * DAY).toISOString(), liveStatus(LINK.sessionId));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-section")).toBeTruthy());
+      expect(view.queryByTestId("dota-link-expired")).toBeNull();
+      expect(view.queryByTestId("dota-link-expiring")).toBeNull();
       view.unmount();
     });
   });

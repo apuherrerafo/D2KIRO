@@ -12,7 +12,8 @@ import {
   GSI_LAUNCH_OPTION,
   GSI_UNINSTALLER_URL,
 } from "../constants";
-import { CHIP, CODE_BOX, PANEL, PRIMARY_BUTTON, SECONDARY_BUTTON, STATUS_PILL_BAD, STATUS_PILL_MUTED, STEP_NUMBER } from "../styles";
+import { CHIP, CODE_BOX, PANEL, PRIMARY_BUTTON, SECONDARY_BUTTON, STATUS_PILL_BAD, STATUS_PILL_MUTED, STATUS_PILL_WARN, STEP_NUMBER } from "../styles";
+import type { LinkLifetime } from "../link-lifetime";
 import type { GsiLinkView } from "../types";
 
 // Conectar Dota desde el sitio, sin terminal. El camino normal es UN solo instalador: D2KIRO Companion.
@@ -229,6 +230,8 @@ function formatDate(iso: string): string {
 
 export interface DotaLinkControlsProps {
   link: GsiLinkView;
+  /** Remaining life of the link's credential; defaults to healthy. */
+  lifetime?: LinkLifetime;
   /** Dota has never reported on this link yet. */
   waitingForDota: boolean;
   /** The Companion on the Player's PC is beating: the installer is replaced by status. */
@@ -242,27 +245,46 @@ export interface DotaLinkControlsProps {
 }
 
 /** Setup stays open only while nothing is detected (no Companion, no Dota report). Afterwards it collapses to status. */
-export function DotaLinkControls({ link, waitingForDota, companionActive, guidance, setupError, awaitingDownload, onDownload, onDisconnect }: DotaLinkControlsProps) {
+export function DotaLinkControls({ link, lifetime = "healthy", waitingForDota, companionActive, guidance, setupError, awaitingDownload, onDownload, onDisconnect }: DotaLinkControlsProps) {
   function handleDisconnect() {
     onDisconnect();
   }
-  const open = (waitingForDota && !companionActive) || setupError !== null;
+  const expired = lifetime === "expired";
+  const open = (waitingForDota && !companionActive) || setupError !== null || expired;
   // Guidance lives OUTSIDE the <details>: it must be readable while the setup is collapsed.
   return (
     <div className="flex flex-col gap-2" data-testid="dota-link-section">
+      <LifetimeNotice lifetime={lifetime} />
       <Guidance text={guidance} />
       <details className={PANEL} open={open} data-testid="dota-link-controls">
         <summary className="cursor-pointer text-body text-content-primary">
           <span className="font-semibold">Conexión con Dota</span>
-          <span className={`ml-2 ${STATUS_PILL_MUTED}`}>vence el {formatDate(link.expiresAt)}</span>
+          <LinkExpiryPill lifetime={lifetime} expiresAt={link.expiresAt} />
         </summary>
         <SetupError message={setupError} />
-        <DotaSetupSteps manualLabel="Descargar configuración de nuevo" showInstaller={!companionActive} onDownload={onDownload} />
+        <DotaSetupSteps manualLabel="Descargar configuración de nuevo" showInstaller={!companionActive || expired} onDownload={onDownload} />
         <AwaitingDownload awaiting={awaitingDownload} />
         <button type="button" className={SECONDARY_BUTTON} onClick={handleDisconnect} data-testid="dota-disconnect">
           Desconectar Dota
         </button>
       </details>
+    </div>
+  );
+}
+
+function LinkExpiryPill({ lifetime, expiresAt }: { lifetime: LinkLifetime; expiresAt: string }) {
+  if (lifetime === "expired") return <span className={`ml-2 ${STATUS_PILL_WARN}`}>vencida</span>;
+  return <span className={`ml-2 ${STATUS_PILL_MUTED}`}>vence el {formatDate(expiresAt)}</span>;
+}
+
+/** Expired: explicit, with the way out (the same pairing). Expiring soon: a discreet heads-up. Healthy: nothing. */
+function LifetimeNotice({ lifetime }: { lifetime: LinkLifetime }) {
+  if (lifetime === "healthy") return null;
+  if (lifetime === "expiring") return <span className="text-caption text-content-muted" role="status" data-testid="dota-link-expiring">La conexión vence pronto</span>;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="dota-link-expired">
+      <span className="text-caption font-semibold text-signal-warning">Conexión de D2KIRO vencida</span>
+      <span className="text-caption text-content-secondary">Vuelve a vincular el Companion para continuar.</span>
     </div>
   );
 }

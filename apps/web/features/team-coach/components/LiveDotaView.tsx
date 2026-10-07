@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { GSI_SETUP_ERRORS } from "../constants";
 import { useLiveTeamCoachStore } from "../live-store";
 import type { GsiLinkView } from "../types";
+import { linkLifetime } from "../link-lifetime";
 import { useGsiLink, type UseGsiLinkResult } from "../use-gsi-link";
 import { activeCompanion, companionGuidance } from "./LiveCaptureStatusBar";
 import { DotaConnectPanel, DotaLinkControls } from "./DotaConnectPanel";
@@ -30,9 +31,11 @@ export interface LiveDotaViewProps {
   /** ?setup=<code> after a failed cfg download. */
   setupError?: string | null;
   fetchImpl?: typeof fetch;
+  /** Injectable clock for link expiry (tests). */
+  now?: () => number;
 }
 
-export function LiveDotaView({ setupError = null, fetchImpl }: LiveDotaViewProps) {
+export function LiveDotaView({ setupError = null, fetchImpl, now = Date.now }: LiveDotaViewProps) {
   const gsi = useGsiLink({ fetchImpl });
   const message = setupError === null ? null : GSI_SETUP_ERRORS[setupError] ?? GSI_SETUP_ERRORS.unavailable ?? null;
   function handleDownload() {
@@ -69,7 +72,7 @@ export function LiveDotaView({ setupError = null, fetchImpl }: LiveDotaViewProps
       </Shell>
     );
   }
-  return <LinkedLiveView link={gsi.state.link} gsi={gsi} setupError={message} onDownload={handleDownload} fetchImpl={fetchImpl} />;
+  return <LinkedLiveView link={gsi.state.link} gsi={gsi} setupError={message} onDownload={handleDownload} fetchImpl={fetchImpl} now={now} />;
 }
 
 interface LinkedLiveViewProps {
@@ -78,9 +81,10 @@ interface LinkedLiveViewProps {
   setupError: string | null;
   onDownload(): void;
   fetchImpl?: typeof fetch;
+  now: () => number;
 }
 
-function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl }: LinkedLiveViewProps) {
+function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl, now }: LinkedLiveViewProps) {
   const captureStatus = useLiveTeamCoachStore((state) => state.captureStatus);
   const engineStatus = useLiveTeamCoachStore((state) => state.engineStatus);
   // Only the status of THIS link's session counts (the store may still hold a previous one).
@@ -88,13 +92,15 @@ function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl }: Linked
   // Dota has not reported on this link yet (status not loaded, or no GSI update ever): keep the setup open.
   const waitingForDota = linkStatus === null || linkStatus.gsi === null || linkStatus.gsi === undefined;
   const companionActive = activeCompanion(linkStatus) !== null;
+  const lifetime = linkLifetime(link.expiresAt, now());
   function handleDisconnect() {
     void gsi.disconnect();
   }
   return (
-    <LiveTeamCoachView sessionId={link.sessionId}>
+    <LiveTeamCoachView sessionId={link.sessionId} linkExpired={lifetime === "expired"}>
       <DotaLinkControls
         link={link}
+        lifetime={lifetime}
         waitingForDota={waitingForDota}
         companionActive={companionActive}
         guidance={companionGuidance(linkStatus)}
