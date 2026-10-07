@@ -1,5 +1,6 @@
 import { GSI_CFG_FILENAME } from "@/lib/gsi-config";
 import { CFG_SHAPE_PATTERN, DOTA_DISCOVERY_PS } from "@/lib/gsi-windows-installer";
+import { VISUAL_SUPERVISOR_PS } from "./companion-visual";
 
 // D2KIRO Companion V0 -- the PowerShell that runs on the Player's PC. Pure strings, no I/O here.
 //
@@ -334,6 +335,10 @@ if ($env:D2KIRO_TEST_CFG_SYNC_SECONDS -match '^[0-9]{1,3}$') { $CfgSyncSeconds =
 
 function Invoke-Uninstall {
   Stop-OtherCompanions
+  # The visual helper goes with the Companion that supervised it.
+  $visualRoot = [IO.Path]::Combine($AppDir, 'visual')
+  foreach ($process in (Get-Process -Name 'd2kiro-visual' -ErrorAction SilentlyContinue)) { try { if (([string]$process.Path).StartsWith($visualRoot, [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id $process.Id -Force -ErrorAction Stop } } catch { } }
+  try { if ([IO.Directory]::Exists($visualRoot)) { [IO.Directory]::Delete($visualRoot, $true) } } catch { }
   if (-not $NoAutostart) {
     try { Remove-ItemProperty -Path $RunKey -Name $RunValue -ErrorAction Stop } catch { }
     try { Remove-Item -Path $UninstallKey -Recurse -ErrorAction Stop } catch { }
@@ -817,6 +822,7 @@ function Get-HealthJson {
   Set-Field $doc 'liveSession' (Get-LiveSessionState)
   Set-Field $doc 'cfgInstalled' ([bool]$S.cfgInstalled)
   Set-Field $doc 'heartbeat' ([bool]$Shared.HeartbeatSupported)
+  Set-Field $doc 'visual' ([string]$V.state)
   Set-Field $doc 'lastGsiAgeMs' ($null)
   if ($S.lastGsiAt -ne [DateTime]::MinValue) { Set-Field $doc 'lastGsiAgeMs' ([int64]([DateTime]::UtcNow - $S.lastGsiAt).TotalMilliseconds) }
   return $Json.Serialize($doc)
@@ -888,6 +894,7 @@ function Invoke-Client($Client) {
   }
 }
 
+${VISUAL_SUPERVISOR_PS}
 # ---------------------------------------------------------------- periodic -----------------------------------
 function Invoke-Periodic {
   $now = [DateTime]::UtcNow
@@ -895,6 +902,7 @@ function Invoke-Periodic {
   if (($S.cfgDirs.Count -eq 0 -and ($now - $S.lastDiscovery).TotalMinutes -ge 2) -or ($now - $S.lastDiscovery).TotalMinutes -ge 30) { Update-DotaFolders; Sync-DotaCfg }
   if (($now - $S.lastCfgSync).TotalSeconds -ge $CfgSyncSeconds) { Sync-DotaCfg }
   if ($D.dirty -and ($now - $D.savedAt).TotalSeconds -ge 60) { Save-Inventory }
+  if (($now - $V.lastCheck).TotalSeconds -ge 2) { Update-Visual }
   $dota = Get-DotaState
   $phase = $null
   if ($dota -eq 'connected') { $phase = $S.phase }
@@ -910,6 +918,7 @@ Update-DotaProcess
 Update-DotaFolders
 Sync-DotaCfg
 Start-Worker
+Stop-VisualProcesses
 while ($true) {
   try {
     if ($Listener.Pending()) { Invoke-Client ($Listener.AcceptTcpClient()); continue }
