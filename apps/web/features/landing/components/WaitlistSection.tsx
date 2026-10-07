@@ -16,6 +16,12 @@ export function isValidEmail(value: string) {
   return EMAIL_PATTERN.test(value.trim());
 }
 
+/** The words the form uses. With no endpoint it is a preview and must never read as a stored sign-up. */
+export function waitlistWords(preview: boolean) {
+  if (preview) return { busy: WAITLIST.previewBusy, success: WAITLIST.previewSuccess, successNote: WAITLIST.previewSuccessNote };
+  return { busy: WAITLIST.busy, success: WAITLIST.success, successNote: WAITLIST.successNote };
+}
+
 export type JoinWaitlist = (email: string) => Promise<void>;
 
 function previewJoin(): Promise<void> {
@@ -32,9 +38,9 @@ function PreviewNote({ show }: { show: boolean }) {
   return <p className="ld-illustrative">{WAITLIST.previewNote}</p>;
 }
 
-function SuccessNote({ show }: { show: boolean }) {
+function SuccessNote({ note, show }: { note: string; show: boolean }) {
   if (!show) return null;
-  return <p className="ld-success" role="status">{WAITLIST.successNote}</p>;
+  return <p className="ld-success" role="status">{note}</p>;
 }
 
 export function WaitlistSection({ onJoin }: { onJoin?: JoinWaitlist }) {
@@ -43,6 +49,9 @@ export function WaitlistSection({ onJoin }: { onJoin?: JoinWaitlist }) {
   const [email, setEmail] = useState("");
   const [invalid, setInvalid] = useState(false);
   const [status, setStatus] = useState<ActionStatus>("idle");
+  /* No endpoint wired: the form is a preview and must never read as a stored sign-up. */
+  const preview = onJoin === undefined;
+  const words = waitlistWords(preview);
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     setEmail(event.target.value);
@@ -92,10 +101,10 @@ export function WaitlistSection({ onJoin }: { onJoin?: JoinWaitlist }) {
         />
         <FieldError id={errorId} show={invalid} />
         <div className="ld-waitlist-action">
-          <ActionPrimary busyLabel={WAITLIST.busy} onPress={handlePress} status={status} successLabel={WAITLIST.success}>{CTA_LABEL}</ActionPrimary>
+          <ActionPrimary busyLabel={words.busy} onPress={handlePress} status={status} successLabel={words.success}>{CTA_LABEL}</ActionPrimary>
         </div>
-        <SuccessNote show={status === "success"} />
-        <PreviewNote show={onJoin === undefined} />
+        <SuccessNote note={words.successNote} show={status === "success"} />
+        <PreviewNote show={preview} />
       </form>
     </LandingSection>
   );

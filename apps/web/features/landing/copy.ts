@@ -69,6 +69,9 @@ export const WAITLIST = {
   success: "You are on the list",
   successNote: "We will write when the simulator beta opens.",
   previewNote: "Preview build: nothing you type here leaves this page.",
+  previewBusy: "Checking…",
+  previewSuccess: "Preview only, not sent",
+  previewSuccessNote: "This is a preview. Your email was not sent or stored, and nobody will write to you from it.",
 } as const;
 
 export const FOOTER = {

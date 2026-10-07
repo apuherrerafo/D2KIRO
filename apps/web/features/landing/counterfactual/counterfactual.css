@@ -154,7 +154,7 @@
 /* ───────── in the real page: a short pinned stage under the nav ─────────
    The track is one stage tall plus the pinned scroll (`--ld-cf-screens`, from counterfactual/scroll.ts, so the stages and
    the length are one table). The stage sizes to the SMALL viewport, so browser chrome never resizes it. */
-.ld-cf { position: relative; }
+.ld-cf { position: relative; scroll-margin-top: 56px; }
 .ld-cf-head { padding-top: clamp(16px, 3vw, 40px); position: relative; z-index: 1; }
 .ld-cf-head .ld-h2 { max-width: 26ch; text-wrap: balance; }
 .ld-cf-track { --ld-cf-scale: 1; height: calc((100svh - 56px) * (1 + var(--ld-cf-screens) * var(--ld-cf-scale))); position: relative; }

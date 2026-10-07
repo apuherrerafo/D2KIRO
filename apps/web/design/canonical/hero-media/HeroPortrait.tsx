@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import {
   getCanonicalHero,
+  hasImageFailed,
   isAllowedHeroImgHost,
   type CanonicalHero,
   type PrimaryAttribute,
@@ -91,6 +92,10 @@ export function HeroPortrait({
     onImageError?.();
   }
 
+  function checkImage(img: HTMLImageElement | null) {
+    if (hasImageFailed(img)) handleImageError();
+  }
+
   // alt="" = decorative (the parent, e.g. HeroDraftSlot, already names the hero): hide it instead of
   // exposing an unnamed role="img" (axe: role-img-alt).
   const decorative = alt === "";
@@ -114,6 +119,7 @@ export function HeroPortrait({
           alt=""
           className="chm-portrait-img"
           onError={handleImageError}
+          ref={checkImage}
         />
       ) : empty ? (
         /* Intentional emptiness: a dashed, quiet seat. Not an unfinished asset. */

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import {
   getCanonicalHero,
+  hasImageFailed,
   isAllowedHeroImgHost,
   type CanonicalHero,
   type PrimaryAttribute,
@@ -90,6 +91,10 @@ export function HeroIcon({
     onImageError?.();
   }
 
+  function checkImage(img: HTMLImageElement | null) {
+    if (hasImageFailed(img)) handleImageError();
+  }
+
   return (
     <span
       role="img"
@@ -109,6 +114,7 @@ export function HeroIcon({
           alt=""
           className="chm-icon-img"
           onError={handleImageError}
+          ref={checkImage}
         />
       ) : (
         /* Neutral missing-art state. NEVER invented skulls or fantasy glyphs. */

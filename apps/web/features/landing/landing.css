@@ -160,7 +160,7 @@
    The track is one stage tall plus the pinned scroll (`--ld-memory-screens`, set from memory-scroll.ts, so the
    beats and the length are one table). Phones get a little more room per beat: a thumb flick travels further.
    The stage pins under the 56 px nav and sizes to the SMALL viewport, so browser chrome never resizes it. */
-.ld-memory { position: relative; }
+.ld-memory { position: relative; scroll-margin-top: 56px; }
 .ld-memory-head { padding-top: clamp(16px, 3vw, 40px); position: relative; z-index: 1; }
 /* The bridge and the first memory share the screen: on tall stages the object sits well below the stage top, so the
    track is pulled up under the title until the object starts ~40 px below it (500 px = the object's height). The track

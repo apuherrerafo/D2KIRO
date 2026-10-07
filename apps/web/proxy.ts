@@ -9,7 +9,7 @@ import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib
 const GSI_INGEST_PREFIX = "/api/live/gsi/";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX);
+  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

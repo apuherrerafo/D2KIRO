@@ -131,9 +131,12 @@ describe("Landing 01B stage — empty seats and narrow layout", () => {
     const proposition = page.querySelector('[data-section="proposition"]') as HTMLElement;
     const empties = proposition.querySelectorAll('.ld-seat .chm-portrait[data-art="empty"]');
     expect(empties.length).toBeGreaterThan(0);
-    expect(proposition.querySelector(".ld-seat .chm-portrait-fallback")).toBeNull();
-    expect(proposition.querySelector(".ld-seat .chm-portrait-empty")?.textContent).toBe("Open");
-    expect(proposition.textContent).not.toContain("Art pending");
+    /* happy-dom never loads images, so picked heroes may show the art fallback here; an open seat never does. */
+    for (const seat of empties) {
+      expect(seat.querySelector(".chm-portrait-fallback")).toBeNull();
+      expect(seat.querySelector(".chm-portrait-empty")?.textContent).toBe("Open");
+      expect(seat.textContent).not.toContain("Art pending");
+    }
   });
 
   it("a hero whose art is missing keeps the art fallback, distinct from an open seat", () => {

@@ -111,3 +111,11 @@ export function getAttributeColor(attr: PrimaryAttribute | string | undefined): 
       return { accent: "#8b5cf6", accentSecondary: "#d4553c", name: "Universal" };
   }
 }
+
+/**
+ * True when the browser already gave up on an <img>. A server-rendered image can fail before React
+ * hydrates, so `onError` never fires; callers check this from a ref when the element attaches.
+ */
+export function hasImageFailed(img: HTMLImageElement | null): boolean {
+  return img !== null && img.complete && img.naturalWidth === 0;
+}
