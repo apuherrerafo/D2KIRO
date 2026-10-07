@@ -21,7 +21,7 @@ function EngineNotice({ status }: { status: LiveEngineStatus }) {
   if (status === "forbidden") {
     return (
       <div className="rounded-lg border border-signal-negative bg-surface-overlay p-3 text-caption text-signal-negative" role="alert" data-testid="live-forbidden">
-        Esta sesión en vivo pertenece a otra cuenta. Volvé a Draft en vivo desde el menú con tu propia cuenta.
+        Esta sesión en vivo pertenece a otra cuenta. Vuelve a Draft en vivo desde el menú con tu propia cuenta.
       </div>
     );
   }

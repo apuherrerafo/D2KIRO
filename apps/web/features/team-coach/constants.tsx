@@ -18,7 +18,7 @@ export function teamPositionName(position: TeamPosition): string {
 }
 
 export const PICK_NOW_LABEL = "★ PICK NOW";
-export const ADVISORY_NOTE = "Es una sugerencia: podés elegir cualquier posición abierta y cualquier héroe legal, en el orden que quieras.";
+export const ADVISORY_NOTE = "Es una sugerencia: puedes elegir cualquier posición abierta y cualquier héroe legal, en el orden que quieras.";
 export const DETERMINISTIC_DEFAULT_NOTE = "No hay una prioridad estratégica clara entre tus posiciones: este orden es una vista inicial, no una ventaja.";
 export const CAPTURE_NOT_ENABLED = "DOTA_CAPTURE_NOT_ENABLED";
 export const DOTA_NOT_RUNNING = "DOTA_NOT_RUNNING";
@@ -43,7 +43,7 @@ export const GSI_INSTALL_ONCE = "Instala este archivo una sola vez y reinicia Do
 export const COMPANION_INSTALLER_DOWNLOAD_ACTION = "/api/live/companion-installer";
 export const COMPANION_ONCE = "Instálalo una sola vez. Después solo abre D2KIRO, abre Dota 2 y juega.";
 export const COMPANION_SCOPE =
-  "Corre en segundo plano y arranca solo con Windows (solo tu usuario, sin permisos de administrador). Deja Dota 2 conectado a D2KIRO, se reconecta solo si reiniciás Dota, el navegador o internet, y guarda diagnósticos solo en tu PC. No pide tu cuenta de Steam. Se desinstala desde Configuración de Windows → Aplicaciones.";
+  "Corre en segundo plano y arranca solo con Windows (solo tu usuario, sin permisos de administrador). Deja Dota 2 conectado a D2KIRO, se reconecta solo si reinicias Dota, el navegador o internet, y guarda diagnósticos solo en tu PC. No pide tu cuenta de Steam. Se desinstala desde Configuración de Windows → Aplicaciones.";
 /** Lifecycle phase labels for the live status bar (Companion phase or GSI phase). */
 export const LIVE_PHASE_LABELS: Readonly<Record<string, string>> = Object.freeze({
   MENU: "Menú",
@@ -58,9 +58,9 @@ export const LIVE_PHASE_LABELS: Readonly<Record<string, string>> = Object.freeze
 export const GSI_LINK_POLL_MS = 2_000;
 /** ?setup=<code> after a failed download (app/api/live/gsi-config). */
 export const GSI_SETUP_ERRORS: Readonly<Record<string, string>> = Object.freeze({
-  session: "Tu sesión venció. Volvé a iniciar sesión con Steam y descargá la configuración otra vez.",
+  session: "Tu sesión venció. Vuelve a iniciar sesión con Steam y descarga la configuración otra vez.",
   origin: "No se pudo generar la configuración desde esta página. Recargá y probá de nuevo.",
-  unavailable: "No se pudo generar la configuración en este momento. Probá de nuevo en unos segundos.",
+  unavailable: "No se pudo generar la configuración en este momento. Prueba de nuevo en unos segundos.",
 });
 
 // Live Dota + Party 5 -- preset de equipo del draft en vivo.

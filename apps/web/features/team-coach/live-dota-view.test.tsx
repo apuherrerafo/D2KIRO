@@ -366,6 +366,8 @@ describe("LiveDotaView -- Companion-driven setup", () => {
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("dota-guidance").textContent).toBe("Companion conectado · abre Dota 2"));
+      // Visible with the setup collapsed: the guidance is never nested inside the closed <details>.
+      expect(view.getByTestId("dota-guidance").closest("details")).toBeNull();
       expect(view.queryByTestId("companion-installer-download")).toBeNull();
       expect(view.queryByTestId("gsi-installer-download")).toBeNull();
       expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(false);
@@ -378,6 +380,7 @@ describe("LiveDotaView -- Companion-driven setup", () => {
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("dota-guidance").textContent).toBe("Dota abierto · esperando datos"));
+      expect(view.getByTestId("dota-guidance").closest("details")).toBeNull();
       expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(false);
       view.unmount();
     });
@@ -388,6 +391,7 @@ describe("LiveDotaView -- Companion-driven setup", () => {
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("dota-guidance").textContent).toBe("Reinicia Dota 2 una vez"));
+      expect(view.getByTestId("dota-guidance").closest("details")).toBeNull();
       expect(view.getByTestId("live-capture-status").textContent).toContain("● Reinicia Dota 2 una vez");
       view.unmount();
     });

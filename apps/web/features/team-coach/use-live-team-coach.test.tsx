@@ -174,6 +174,35 @@ describe("LiveCaptureStatusBar", () => {
   });
 });
 
+describe("Companion vivo + Dota cerrado/esperando: una sola explicación", () => {
+  const companion = (overrides: Record<string, unknown>) =>
+    ({ version: "0.1.0", active: true, dota: "not_running", restartNeeded: false, phase: "MENU", lastSeenAgeMs: 1_000, ...overrides }) as never;
+
+  test("conexión vencida + Companion que dice 'abre Dota 2': ni 'Reconectando con Dota' ni 'Captura deshabilitada'", () => {
+    const stale = status({ connection: "stale", captureHealth: "lost", draftPhase: "waiting", companion: companion({ dota: "not_running" }) });
+    const view = render(<LiveCaptureStatusBar status={stale} heroCatalog={HEROES} />);
+    expect(view.queryByTestId("live-capture-degraded")).toBeNull();
+    expect(view.queryAllByRole("alert")).toHaveLength(0);
+    expect(view.getByTestId("live-capture-status").textContent).toContain("● Companion conectado · abre Dota 2");
+    expect(view.getByTestId("live-capture-status").textContent).not.toContain("Reconectando");
+    view.unmount();
+  });
+
+  test("captura no habilitada + Companion con Dota abierto: sin alerta roja de captura deshabilitada", () => {
+    const off = status({ connection: "waiting", captureHealth: "degraded", captureDetail: "DOTA_CAPTURE_NOT_ENABLED", draftPhase: "waiting", companion: companion({ dota: "waiting" }) });
+    const view = render(<LiveCaptureStatusBar status={off} heroCatalog={HEROES} />);
+    expect(view.queryByTestId("live-capture-not-enabled")).toBeNull();
+    expect(view.getByTestId("live-capture-status").textContent).not.toContain("Captura deshabilitada");
+    view.unmount();
+  });
+
+  test("sin Companion vivo la alerta de reconexión sigue apareciendo (no se esconde un fallo real)", () => {
+    const view = render(<LiveCaptureStatusBar status={status({ connection: "stale", captureHealth: "lost" })} heroCatalog={HEROES} />);
+    expect(view.getByTestId("live-capture-degraded")).toBeTruthy();
+    view.unmount();
+  });
+});
+
 describe("LiveTeamCoachView -- sin entrada manual para el Player", () => {
   test("captura degradada: se muestra, el board NO acepta clics y no hay entrada manual; el estado no se pierde", async () => {
     const engine = new FakeLiveEngine();

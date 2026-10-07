@@ -66,12 +66,10 @@ test.describe("Live Dota + Party 5", () => {
     await expect(page.getByTestId("live-capture-partial")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("live-preset-inactive")).toBeVisible();
 
-    // The generic board was already fetched; count Team Board requests so we can prove the preset triggers a refetch.
-    await expect(page.getByTestId("team-coach-board")).toBeVisible({ timeout: 30_000 });
-    let boardRequests = 0;
-    page.on("request", (req) => {
-      if (/\/team-recommendations(\?|$)/.test(req.url())) boardRequests += 1;
-    });
+    // F7: Dota reports only part of the draft -> the facts it did report are shown, but there is NO recommendation:
+    // no Team Coach board, no PICK NOW, no manual fallback.
+    await expect(page.getByTestId("live-pick-detected")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("team-coach-board")).toHaveCount(0);
 
     // 2. Select the preset: five positions become active, shown by NAME (no ids).
     await page.getByTestId("live-preset-select").selectOption({ label: "E2E Team Julio" });
@@ -80,9 +78,10 @@ test.describe("Live Dota + Party 5", () => {
       await expect(page.getByTestId(`live-preset-pos-${position}`)).toHaveAttribute("data-active", "true");
       await expect(page.getByTestId(`live-preset-pos-${position}`)).toContainText("✓");
     }
-    await expect(page.getByTestId("team-coach-board")).toBeVisible();
-    // No pick/ban happened (Dota still reports an empty draft): the board was recomputed because Team Context changed.
-    await expect.poll(() => boardRequests, { timeout: 30_000 }).toBeGreaterThan(0);
+    // Selecting a preset does not bring a recommendation back while the draft is incomplete.
+    await expect(page.getByTestId("team-coach-board")).toHaveCount(0);
+    await expect(page.getByTestId("live-team-coach")).not.toContainText(/PICK NOW/i);
+    await expect(page.getByTestId("live-manual-entry")).toHaveCount(0);
 
     // The remembered choice survives a reload (re-applied by the page if the engine forgot it).
     await page.reload();

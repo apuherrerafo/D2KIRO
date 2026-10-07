@@ -48,7 +48,8 @@ export function connectionPill(status: LiveCaptureStatus | null): Pill {
 }
 
 export function capturePill(status: LiveCaptureStatus | null): Pill {
-  if (status !== null && status.captureDetail === CAPTURE_NOT_ENABLED) return { className: STATUS_PILL_BAD, text: "● Captura deshabilitada" };
+  const companionExplains = status?.connection !== "connected" && companionDotaPill(status) !== null;
+  if (status !== null && status.captureDetail === CAPTURE_NOT_ENABLED && !companionExplains) return { className: STATUS_PILL_BAD, text: "● Captura deshabilitada" };
   if (status === null || status.draftPhase === "waiting") return { className: STATUS_PILL_MUTED, text: "● Esperando selección de héroes..." };
   if (status.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
   if (status.captureDetail === GSI_DRAFT_PARTIAL) return { className: STATUS_PILL_WARN, text: "● Hero Selection · captura parcial" };
@@ -148,6 +149,8 @@ function PartialCaptureNotice({ status }: { status: LiveCaptureStatus }) {
 
 function DegradedNotice({ status }: { status: LiveCaptureStatus | null }) {
   if (!isCaptureDegraded(status)) return null;
+  // A live Companion that says "abre Dota 2" / "esperando datos" already explains the silence: no second, red alert.
+  if (status?.connection !== "connected" && companionDotaPill(status) !== null) return null;
   if (status?.captureDetail === GSI_DRAFT_PARTIAL) return <PartialCaptureNotice status={status} />;
   if (status?.captureDetail === CAPTURE_NOT_ENABLED) {
     return (

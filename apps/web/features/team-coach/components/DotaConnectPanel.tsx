@@ -99,23 +99,23 @@ export function AdvancedConnectionOptions({ manualLabel, onDownload }: AdvancedC
         </span>
         <div className="flex flex-col gap-2" data-testid="gsi-launch-option-help">
           <span className="text-caption text-content-secondary">
-            Steam → clic derecho en Dota 2 → Propiedades → General → Opciones de lanzamiento. Agregá lo siguiente y reiniciá Dota 2:
+            Steam → clic derecho en Dota 2 → Propiedades → General → Opciones de lanzamiento. Agrega lo siguiente y reinicia Dota 2:
           </span>
           <CopyableText value={GSI_LAUNCH_OPTION} label="la opción de lanzamiento" />
         </div>
         <details className="flex flex-col gap-3" data-testid="gsi-manual-install">
           <summary className="cursor-pointer text-caption text-content-secondary">Copiar el archivo de configuración a mano</summary>
           <ol className="mt-3 flex flex-col gap-4">
-            <Step number={1} title="Descargá tu archivo de configuración">
+            <Step number={1} title="Descarga tu archivo de configuración">
               <span className="text-caption text-content-muted">{GSI_INSTALL_ONCE}</span>
               <span className="text-caption text-signal-warning" data-testid="gsi-manual-rotates">
                 Descargarlo genera una conexión nueva: la anterior deja de funcionar, incluida la del Companion ya instalado.
               </span>
               <GsiDownloadForm action={GSI_CONFIG_DOWNLOAD_ACTION} label={manualLabel} testId="gsi-download" className={SECONDARY_BUTTON} onDownload={onDownload} />
             </Step>
-            <Step number={2} title="Copialo en la carpeta de integraciones de Dota">
+            <Step number={2} title="Cópialo en la carpeta de integraciones de Dota">
               <span className="text-caption text-content-secondary">
-                En Steam: Biblioteca → clic derecho en Dota 2 → Administrar → Explorar archivos locales. Se abre la carpeta «dota 2 beta»; entrá a esta carpeta (si gamestate_integration no existe, creala):
+                En Steam: Biblioteca → clic derecho en Dota 2 → Administrar → Explorar archivos locales. Se abre la carpeta «dota 2 beta»; entra a esta carpeta (si gamestate_integration no existe, créala):
               </span>
               <CopyableText value={GSI_CFG_FOLDER} label="la carpeta de integraciones" />
               <span className="text-caption text-content-muted">Tu biblioteca de Steam puede estar en otro disco. Por ejemplo:</span>
@@ -125,7 +125,7 @@ export function AdvancedConnectionOptions({ manualLabel, onDownload }: AdvancedC
           </ol>
         </details>
         <span className="text-caption text-content-muted">
-          ¿Querés quitar D2KIRO de Dota en esta PC?{" "}
+          ¿Quieres quitar D2KIRO de Dota en esta PC?{" "}
           <a href={GSI_UNINSTALLER_URL} download className="text-accent-primary underline" data-testid="gsi-uninstaller-download">
             Descargar el desinstalador
           </a>
@@ -150,7 +150,7 @@ function CompanionInstall({ onDownload }: { onDownload(): void }) {
       <span className="text-caption text-content-secondary">{COMPANION_ONCE}</span>
       <GsiDownloadForm action={COMPANION_INSTALLER_DOWNLOAD_ACTION} label="Instalar D2KIRO Companion" testId="companion-installer-download" className={PRIMARY_BUTTON} onDownload={onDownload} />
       <span className="text-caption text-content-muted">{COMPANION_SCOPE}</span>
-      <span className="text-caption text-content-muted">Es personal: no lo compartas. Si descargás uno nuevo, el anterior deja de funcionar.</span>
+      <span className="text-caption text-content-muted">Es personal: no lo compartas. Si descargas uno nuevo, el anterior deja de funcionar.</span>
     </div>
   );
 }
@@ -247,24 +247,27 @@ export function DotaLinkControls({ link, waitingForDota, companionActive, guidan
     onDisconnect();
   }
   const open = (waitingForDota && !companionActive) || setupError !== null;
+  // Guidance lives OUTSIDE the <details>: it must be readable while the setup is collapsed.
   return (
-    <details className={PANEL} open={open} data-testid="dota-link-controls">
-      <summary className="cursor-pointer text-body text-content-primary">
-        <span className="font-semibold">Conexión con Dota</span>
-        <span className={`ml-2 ${STATUS_PILL_MUTED}`}>vence el {formatDate(link.expiresAt)}</span>
-      </summary>
+    <div className="flex flex-col gap-2" data-testid="dota-link-section">
       <Guidance text={guidance} />
-      <SetupError message={setupError} />
-      <DotaSetupSteps manualLabel="Descargar configuración de nuevo" showInstaller={!companionActive} onDownload={onDownload} />
-      <AwaitingDownload awaiting={awaitingDownload} />
-      <button type="button" className={SECONDARY_BUTTON} onClick={handleDisconnect} data-testid="dota-disconnect">
-        Desconectar Dota
-      </button>
-    </details>
+      <details className={PANEL} open={open} data-testid="dota-link-controls">
+        <summary className="cursor-pointer text-body text-content-primary">
+          <span className="font-semibold">Conexión con Dota</span>
+          <span className={`ml-2 ${STATUS_PILL_MUTED}`}>vence el {formatDate(link.expiresAt)}</span>
+        </summary>
+        <SetupError message={setupError} />
+        <DotaSetupSteps manualLabel="Descargar configuración de nuevo" showInstaller={!companionActive} onDownload={onDownload} />
+        <AwaitingDownload awaiting={awaitingDownload} />
+        <button type="button" className={SECONDARY_BUTTON} onClick={handleDisconnect} data-testid="dota-disconnect">
+          Desconectar Dota
+        </button>
+      </details>
+    </div>
   );
 }
 
 function Guidance({ text }: { text: string | null }) {
   if (text === null) return null;
-  return <span className="text-caption text-content-secondary" data-testid="dota-guidance">{text}</span>;
+  return <span className="text-body text-content-primary" role="status" data-testid="dota-guidance">{text}</span>;
 }
