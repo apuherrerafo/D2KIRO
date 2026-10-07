@@ -19,7 +19,7 @@ ALLOWED_PAYLOADS: dict[str, set[str]] = {
     "hero_banned": {"type", "hero", "side"},
     "capture_health": {"type", "status", "detail"},
 }
-HEALTH_DETAILS = {"VISUAL_OK", "VISUAL_NO_WINDOW", "VISUAL_NO_HERO_SELECTION", "VISUAL_CAPTURE_LOST", "VISUAL_LAYOUT_UNVERIFIED"}
+HEALTH_DETAILS = {"VISUAL_OK", "VISUAL_NO_WINDOW", "VISUAL_NO_HERO_SELECTION", "VISUAL_CAPTURE_LOST", "VISUAL_LAYOUT_UNVERIFIED", "VISUAL_SLOTS_UNREAD"}
 
 
 class PrivacyViolation(Exception):

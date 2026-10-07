@@ -25,6 +25,11 @@ from .transport import DraftLifecycle
 
 LOST_AFTER_MS = 3_000.0
 HEARTBEAT_EVERY_MS = 5_000.0
+# A slot that looks occupied (or a hero still being confirmed) may stay unsettled this long before the helper stops
+# vouching that the draft is fully read: temporal confirmation alone needs ~400 ms.
+UNREAD_GRACE_MS = 1_500.0
+# Only a layout calibrated against a real hero-selection screen may vouch for "nothing is picked yet" on its own.
+VERIFIED_LAYOUT_STATUSES = frozenset({"calibrated", "verified"})
 # Outside a draft every heartbeat is also the question "has hero selection started?": ask once a second.
 LIFECYCLE_PROBE_MS = 1_000.0
 
@@ -67,6 +72,9 @@ class VisualSession:
         self._draft_epoch: int | None = None
         self.diagnostics = diagnostics
         self._window_logged = False
+        self._unsettled_since: float | None = None
+        self._seen_hero = False  # a hero was confirmed on THIS draft screen: the boxes are demonstrably on the draft bar
+        self._last_health: tuple[str, str] | None = None
 
     def on_lifecycle(self, lifecycle: DraftLifecycle | None) -> bool:
         """The server's draft lifecycle (GSI). True on a draft boundary: the caller drops queued facts.
@@ -131,6 +139,8 @@ class VisualSession:
             self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status)
             self.diagnostics.maybe_save_frame(now_ms, frame, self.layout)
         events = self.stability.update(scan, now_ms)
+        confirmed_now = self.stability.confirmed()
+        self._seen_hero = self._seen_hero or len(confirmed_now) > 0
         self.status.recognized = scan.recognized
         self.status.selection_detected = scan.recognized > 0 or len(self.stability.confirmed()) > 0
         self.status.confirmed = sum(1 for key in self.stability.confirmed() if key[0] != "ban")
@@ -140,12 +150,43 @@ class VisualSession:
             if event.kind == "pick":
                 first = self._first_seen_ms.get((event.side, event.slot, event.hero_id), now_ms)
                 self.status.latency_ms = now_ms - first
-        if self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= HEARTBEAT_EVERY_MS:
-            out.append(self.factory.health("ok", "VISUAL_OK"))
+        health = self._coverage(scan, occupancy.occupied, confirmed_now, now_ms)
+        if health != self._last_health or self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= HEARTBEAT_EVERY_MS:
+            out.append(self.factory.health(*health))
+            self._last_health = health
             self._last_heartbeat_ms = now_ms
+            self._note("health", status=health[0], detail=health[1])
         return out
 
+    def _coverage(self, scan: ScanResult, occupied, confirmed, now_ms: float) -> tuple[str, str]:
+        """Does the helper VOUCH that the draft on screen is fully read? Only then may the server stop treating the
+        draft as partial (and the Team Coach recommend). It must prove it, never assume it:
+          - no trusted empty baseline yet                      -> cannot judge anything
+          - occupied slot(s) it cannot read / is still unsure  -> picks exist that we do not know
+          - a layout nobody verified and not a single hero read -> we cannot tell an empty bar from boxes on the wrong place"""
+        if not self.status.armed:
+            return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
+        unsettled = False
+        for reading in scan.radiant + scan.dire:
+            if not occupied.get((reading.side, reading.index), False):
+                continue
+            if reading.state != "hero" or confirmed.get((reading.side, reading.index)) != reading.hero_id:
+                unsettled = True
+        if unsettled:
+            if self._unsettled_since is None:
+                self._unsettled_since = now_ms
+            if now_ms - self._unsettled_since >= UNREAD_GRACE_MS:
+                return ("degraded", "VISUAL_SLOTS_UNREAD")
+            return self._last_health or ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
+        self._unsettled_since = None
+        if self.layout.status not in VERIFIED_LAYOUT_STATUSES and not self._seen_hero:
+            return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
+        return ("ok", "VISUAL_OK")
+
     def _reset_draft(self) -> None:
+        self._unsettled_since = None
+        self._seen_hero = False
+        self._last_health = None
         self.stability.tracks.clear()
         self._first_seen_ms.clear()
         self.status.confirmed = 0
