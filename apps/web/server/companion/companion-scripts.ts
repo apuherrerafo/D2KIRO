@@ -290,7 +290,9 @@ while (-not $Shared.Stop) {
     if ($Shared.HbPhase) { $phase = '"' + $Shared.HbPhase + '"' }
     $restart = 'false'
     if ($Shared.HbRestart) { $restart = 'true' }
-    $body = '{"auth":{"token":"' + $Shared.Token + '"},"companion":{"schema":"companion-heartbeat/v1","version":"' + $Shared.Version + '","dota":"' + $Shared.HbDota + '","phase":' + $phase + ',"restartNeeded":' + $restart + '}}'
+    $visual = ''
+    if ($Shared.HbVisual) { $visual = ',"visual":"' + $Shared.HbVisual + '"' }
+    $body = '{"auth":{"token":"' + $Shared.Token + '"},"companion":{"schema":"companion-heartbeat/v1","version":"' + $Shared.Version + '","dota":"' + $Shared.HbDota + '","phase":' + $phase + ',"restartNeeded":' + $restart + $visual + '}}'
     $code = (Send-Upstream ((Get-Base) + '/api/live/companion/' + $Shared.LiveId) $body 5000 $Shared.Version).code
     if ($code -eq 200) { $heartbeatNext = $now.AddSeconds(15); $Shared.HeartbeatSupported = $true; $Shared.Upstream = 'ok'; $Shared.LastOkAt = [DateTime]::UtcNow }
     elseif ($code -eq 404 -or ($code -ge 300 -and $code -lt 400)) { $heartbeatNext = $now.AddMinutes(5); $Shared.HeartbeatSupported = $false }
@@ -399,6 +401,7 @@ $Shared.TestUpstream = $env:D2KIRO_TEST_UPSTREAM
 $Shared.HbDota = 'not_running'
 $Shared.HbPhase = $null
 $Shared.HbRestart = $false
+$Shared.HbVisual = 'absent'
 $Shared.HeartbeatDirty = $true
 $Shared.HeartbeatSupported = $true
 
@@ -406,7 +409,7 @@ $S = @{
   phase = 'MENU'; gameState = $null; lastGsiAt = [DateTime]::MinValue
   dotaRunning = $false; dotaStart = $null; restartNeeded = $false; cfgWrittenAt = $null; cfgInstalled = $false
   cfgDirs = @(); lastDiscovery = [DateTime]::MinValue; lastCfgSync = [DateTime]::MinValue; lastProcCheck = [DateTime]::MinValue
-  lastDota = ''; lastPhase = ''
+  lastDota = ''; lastPhase = ''; lastVisual = ''
 }
 $D = @{
   writer = $null; part = 0; runId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'); seq = 0
@@ -910,6 +913,8 @@ function Invoke-Periodic {
   $Shared.HbDota = $dota
   $Shared.HbPhase = $phase
   $Shared.HbRestart = [bool]$S.restartNeeded
+  if ([string]$V.state -ne $S.lastVisual) { $S.lastVisual = [string]$V.state; $Shared.HeartbeatDirty = $true }
+  $Shared.HbVisual = [string]$V.state
   if ($null -ne $Worker -and $Worker.handle.IsCompleted) { Write-Log 'upstream worker stopped: restarting'; try { $Worker.shell.Dispose() } catch { }; Start-Worker }
 }
 

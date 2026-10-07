@@ -123,6 +123,8 @@ export interface LiveVisualStatus {
 
 /** D2KIRO Companion's Dota state on the Player's PC. Mirror of the engine's LiveCompanionDota. */
 export type LiveCompanionDota = "connected" | "waiting" | "not_running";
+/** The visual helper as the Companion supervises it on the Player's PC. Mirror of the engine's LiveCompanionVisual. */
+export type LiveCompanionVisual = "absent" | "downloading" | "failed" | "restarting" | "running";
 /** Dota lifecycle as the Companion reads it from local GSI. Mirror of the engine's LiveCompanionPhase. */
 export type LiveCompanionPhase = "MENU" | "LOADING" | "HERO_SELECTION" | "STRATEGY_TIME" | "MATCH" | "POST_GAME" | "OTHER";
 
@@ -132,6 +134,8 @@ export interface LiveCompanionStatus {
   dota: LiveCompanionDota;
   phase: LiveCompanionPhase | null;
   restartNeeded: boolean;
+  /** The visual helper's state on that PC (absent from older Companions/engines). */
+  visual?: LiveCompanionVisual | null;
   active: boolean;
   lastSeenAgeMs: number;
 }

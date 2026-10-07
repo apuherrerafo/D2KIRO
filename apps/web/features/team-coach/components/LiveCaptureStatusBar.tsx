@@ -56,13 +56,28 @@ export function capturePill(status: LiveCaptureStatus | null): Pill {
   return { className: STATUS_PILL_OK, text: "● Hero Selection" };
 }
 
-/** Captura automática del draft (retratos de la pantalla de Dota: nunca un frame, sólo hechos). El Player no gestiona ningún proceso interno. */
+const VISUAL_UNAVAILABLE: Pill = { className: STATUS_PILL_MUTED, text: "● Draft automático no disponible" };
+const VISUAL_PREPARING: Pill = { className: STATUS_PILL_MUTED, text: "● Draft automático preparando..." };
+
+/** Draft automático (retratos de la pantalla de Dota: nunca un frame, sólo hechos). El Player nunca gestiona un proceso interno. */
 export function visualPill(status: LiveCaptureStatus | null): Pill {
   const visual = status?.visual ?? null;
-  if (visual === null || !visual.active || visual.health !== "ok") return { className: STATUS_PILL_MUTED, text: "● Captura automática no disponible" };
+  const reporting = visual !== null && visual.active && visual.health !== "lost";
+  if (!reporting) {
+    // The Companion on the Player's PC says what is happening with the helper: getting ready is not a failure.
+    const helper = activeCompanion(status)?.visual ?? null;
+    if (helper === "downloading" || helper === "restarting" || helper === "running") return VISUAL_PREPARING;
+    return VISUAL_UNAVAILABLE;
+  }
   if (status?.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
-  if (status?.draftPhase !== "hero_selection") return { className: STATUS_PILL_OK, text: "● Ventana de Dota encontrada · esperando selección de héroes" };
-  return { className: STATUS_PILL_OK, text: `● ${Math.min(status.picks, 10)}/10 héroes reconocidos` };
+  if (status?.draftPhase !== "hero_selection") return { className: STATUS_PILL_OK, text: "● Draft automático activo · esperando selección de héroes" };
+  const detected = Math.min(status.picks, 10);
+  if (visual.health === "degraded") {
+    // The helper has not proven it read the whole draft: never presented as complete.
+    if (visual.detail === "VISUAL_LAYOUT_UNVERIFIED" && detected === 0) return VISUAL_PREPARING;
+    return { className: STATUS_PILL_WARN, text: `● Draft automático incompleto · ${detected}/10 héroes detectados` };
+  }
+  return { className: STATUS_PILL_OK, text: `● ${detected}/10 héroes detectados` };
 }
 
 /** D2KIRO Companion: the local background app that keeps Dota connected (heartbeat every 15 s). */

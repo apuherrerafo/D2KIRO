@@ -67,6 +67,9 @@ export interface LiveVisualStatus {
 /** What D2KIRO Companion (the Player's local background app) reports in its heartbeat. Never identity. */
 export const LIVE_COMPANION_DOTA_STATES = ["connected", "waiting", "not_running"] as const;
 export const LIVE_COMPANION_PHASES = ["MENU", "LOADING", "HERO_SELECTION", "STRATEGY_TIME", "MATCH", "POST_GAME", "OTHER"] as const;
+/** The visual helper as the Companion supervises it on the Player's PC. Closed vocabulary. */
+export const LIVE_COMPANION_VISUAL_STATES = ["absent", "downloading", "failed", "restarting", "running"] as const;
+export type LiveCompanionVisual = (typeof LIVE_COMPANION_VISUAL_STATES)[number];
 export type LiveCompanionDota = (typeof LIVE_COMPANION_DOTA_STATES)[number];
 export type LiveCompanionPhase = (typeof LIVE_COMPANION_PHASES)[number];
 /** The Companion beats every 15 s (plus on every change): three missed beats = gone. */
@@ -80,6 +83,8 @@ export interface LiveCompanionHeartbeat {
   phase: LiveCompanionPhase | null;
   /** The Companion (re)wrote Dota's cfg while Dota was open: one Dota restart needed. */
   restartNeeded: boolean;
+  /** The visual helper's state on that PC; null when the Companion is too old to say. */
+  visual: LiveCompanionVisual | null;
 }
 
 export interface LiveCompanionStatus extends LiveCompanionHeartbeat {

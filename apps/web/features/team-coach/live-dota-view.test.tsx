@@ -421,7 +421,7 @@ describe("LiveDotaView -- Companion-driven setup", () => {
     site.status = { ...withCompanion({ dota: "waiting" }), visual: { active: false, health: "lost", detail: "x", lastEventAgeMs: 1 } } as LiveCaptureStatus;
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
-      await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("Captura automática no disponible"));
+      await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("Draft automático no disponible"));
       expect(view.getByTestId("live-capture-status").textContent ?? "").not.toMatch(/ayudante|helper|proceso/i);
       view.unmount();
     });

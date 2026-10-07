@@ -1,6 +1,6 @@
 import { GSI_LIVE_ID, type GsiLink, type GsiLinkStore, type IssuedGsiLink } from "../../live/gsi-links";
 import { normalizeGsi } from "../../live/gsi-normalize";
-import { LIVE_COMPANION_DOTA_STATES, LIVE_COMPANION_PHASES, type LiveCaptureRegistry, type LiveCompanionHeartbeat } from "../../live/live-capture-registry";
+import { LIVE_COMPANION_DOTA_STATES, LIVE_COMPANION_PHASES, LIVE_COMPANION_VISUAL_STATES, type LiveCaptureRegistry, type LiveCompanionHeartbeat } from "../../live/live-capture-registry";
 import type { DraftEventEnvelope } from "../../draft/reducer";
 import { isValidDraftEventEnvelope } from "../edge";
 import type { HeroId } from "../../draft-protocol/types";
@@ -112,7 +112,15 @@ export function parseCompanionHeartbeat(payload: unknown): LiveCompanionHeartbea
   if (!(LIVE_COMPANION_DOTA_STATES as readonly unknown[]).includes(beat.dota)) return null;
   if (!(beat.phase === null || (LIVE_COMPANION_PHASES as readonly unknown[]).includes(beat.phase))) return null;
   if (typeof beat.restartNeeded !== "boolean") return null;
-  return { version: beat.version, dota: beat.dota as LiveCompanionHeartbeat["dota"], phase: beat.phase as LiveCompanionHeartbeat["phase"], restartNeeded: beat.restartNeeded };
+  // Optional (older Companions do not send it); when present it must be in the closed vocabulary.
+  if (!(beat.visual === undefined || (LIVE_COMPANION_VISUAL_STATES as readonly unknown[]).includes(beat.visual))) return null;
+  return {
+    version: beat.version,
+    dota: beat.dota as LiveCompanionHeartbeat["dota"],
+    phase: beat.phase as LiveCompanionHeartbeat["phase"],
+    restartNeeded: beat.restartNeeded,
+    visual: (beat.visual as LiveCompanionHeartbeat["visual"] | undefined) ?? null,
+  };
 }
 
 function noStore(body: unknown, status: number): Response {

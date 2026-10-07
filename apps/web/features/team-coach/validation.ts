@@ -115,6 +115,7 @@ function isVisualStatus(value: unknown): value is LiveVisualStatus {
 }
 
 const COMPANION_DOTA = new Set(["connected", "waiting", "not_running"]);
+const COMPANION_VISUAL = new Set(["absent", "downloading", "failed", "restarting", "running"]);
 const COMPANION_PHASES = new Set(["MENU", "LOADING", "HERO_SELECTION", "STRATEGY_TIME", "MATCH", "POST_GAME", "OTHER"]);
 
 function isCompanionStatus(value: unknown): value is LiveCompanionStatus {
@@ -125,6 +126,7 @@ function isCompanionStatus(value: unknown): value is LiveCompanionStatus {
     COMPANION_DOTA.has(value.dota) &&
     (value.phase === null || (typeof value.phase === "string" && COMPANION_PHASES.has(value.phase))) &&
     typeof value.restartNeeded === "boolean" &&
+    (value.visual === undefined || value.visual === null || (typeof value.visual === "string" && COMPANION_VISUAL.has(value.visual))) &&
     typeof value.active === "boolean" &&
     typeof value.lastSeenAgeMs === "number" &&
     Number.isFinite(value.lastSeenAgeMs) &&

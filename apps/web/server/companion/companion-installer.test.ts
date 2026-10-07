@@ -532,6 +532,9 @@ describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell,
         return status?.visual === "running" ? status : null;
       });
       expect(JSON.stringify(seen)).not.toContain(TOKEN);
+      // The same state travels in the heartbeat the site reads ("preparando..." vs "no disponible" is decided there).
+      const beat = await waitFor(() => server.received.find((r) => r.path === `/api/live/companion/${LIVE_ID}` && (r.body.companion as { visual?: string } | undefined)?.visual === "running") ?? null);
+      expect((beat.body.companion as { schema: string }).schema).toBe("companion-heartbeat/v1");
       expect(existsSync(join(m.home, "visual", "9.9.9", VISUAL_RUNTIME.exeName))).toBe(true);
       // No download or staging leftovers next to the installed version.
       expect(readdirSync(join(m.home, "visual"))).toEqual(["9.9.9"]);
