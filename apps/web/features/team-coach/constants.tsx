@@ -68,7 +68,7 @@ export const LIVE_PRESET_STORAGE_KEY = "d2k.live.partyPreset";
 export const LIVE_PRESET_REFUSALS: Readonly<Record<string, string>> = Object.freeze({
   not_found: "Ese preset ya no existe o no es de tu cuenta. El Team Coach sigue sin pools de equipo.",
   not_party5: "Sólo se pueden usar presets de Party 5 en el draft en vivo.",
-  no_pools: "Ese preset no tiene héroes cargados en ninguna posición. Completalo en Equipos y volvé a elegirlo.",
+  no_pools: "Ese preset no tiene héroes cargados en ninguna posición. Complétalo en Equipos y vuelve a elegirlo.",
   unsupported: "Este servidor todavía no admite presets en el draft en vivo.",
 });
 export const LIVE_PRESET_APPLY_FAILED = "No se pudo aplicar el preset ahora. Se reintentará al volver a conectar.";

@@ -108,7 +108,7 @@ function CopyFeedback({ state, report }: { state: CopyState; report: string }) {
   if (state === "failed") {
     return (
       <div className="flex flex-col gap-1" role="alert">
-        <span className="text-caption text-signal-warning">No se pudo copiar. Seleccioná el texto y copialo a mano:</span>
+        <span className="text-caption text-signal-warning">No se pudo copiar. Selecciona el texto y cópialo a mano:</span>
         <pre className={CODE_BOX} data-testid="live-diagnostics-report">{report}</pre>
       </div>
     );

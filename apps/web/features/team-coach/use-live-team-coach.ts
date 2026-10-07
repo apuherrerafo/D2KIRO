@@ -110,7 +110,7 @@ export function useLiveTeamCoach(sessionId: string, options: UseLiveTeamCoachOpt
       await postLiveObservation(sessionId, observation, fetchImpl);
       store.setManualError(null);
     } catch {
-      store.setManualError("El motor no aceptó ese dato. Revisá que el héroe no esté ya baneado o elegido.");
+      store.setManualError("El motor no aceptó ese dato. Revisa que el héroe no esté ya baneado o elegido.");
       void reportClientError("draft_session_failure", "live_manual_entry", "live observation rejected", sessionId, fetchImpl);
     }
     await tick(true);
