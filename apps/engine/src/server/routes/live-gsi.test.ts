@@ -213,7 +213,7 @@ describe("input limits", () => {
   test("a storage failure answers a bare 503 and is never thrown (its message would carry query parameters)", async () => {
     const t = setup();
     const broken = new Error(`SQLITE_ERROR params: ${ACCOUNT_A}`);
-    const failing = { issue: () => { throw broken; }, active: () => { throw broken; }, revoke: () => { throw broken; }, verify: () => { throw broken; } };
+    const failing = { issue: () => { throw broken; }, active: () => { throw broken; }, revoke: () => { throw broken; }, verify: () => { throw broken; }, renew: () => { throw broken; } };
     const routes = createLiveGsiRoutes({ links: failing, registry: t.registry, now: () => T0 });
     const ingest = await routes.postIngest(new Request(`http://127.0.0.1/api/live/gsi/${"A".repeat(43)}`, { method: "POST", body: JSON.stringify(gsiPayload({ token: "a".repeat(64) })) }), "A".repeat(43));
     const responses = [ingest, routes.postIssue(ACCOUNT_A), routes.getLink(ACCOUNT_A), routes.deleteLink(ACCOUNT_A)];
@@ -538,5 +538,111 @@ describe("privacy", () => {
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
     const exposed = [...responses, JSON.stringify(t.status(issued.sessionId)), await t.routes.getLink(ACCOUNT_A).text()].join("\n");
     for (const secret of [...SENTINELS, issued.token, issued.liveId, String(ACCOUNT_A)]) expect(exposed).not.toContain(secret);
+  });
+});
+
+describe("Companion link: sliding expiration (valid heartbeats keep the link alive)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const heartbeat = (token: string | null, companion: Record<string, unknown> = {}) => ({
+    ...(token === null ? {} : { auth: { token } }),
+    companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, ...companion },
+  });
+  const expiry = (t: ReturnType<typeof setup>, now: number) => t.links.active(ACCOUNT_A, now)?.expiresAt ?? null;
+
+  test("a valid heartbeat renews the link to now + 30 days once a day has passed", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+    expect(expiry(t, now)).toBe(now + GSI_LINK_TTL_MS);
+  });
+
+  test("throttled: heartbeats within the same day do not write; the next day they do", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const renew = spyOn(t.links, "renew");
+    t.advance(2 * DAY);
+    for (let i = 0; i < 20; i++) {
+      await t.beat(issued.liveId, heartbeat(issued.token));
+      t.advance(15_000);
+    }
+    expect(renew.mock.results.filter((result) => result.value === true)).toHaveLength(1);
+    t.advance(DAY);
+    await t.beat(issued.liveId, heartbeat(issued.token));
+    expect(renew.mock.results.filter((result) => result.value === true)).toHaveLength(2);
+  });
+
+  test("an active Companion survives far beyond the original 30-day window (simulated time)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const originalExpiry = Date.parse(issued.expiresAt);
+    let now = T0;
+    for (let day = 0; day < 75; day++) {
+      now = t.advance(DAY / 2);
+      expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+    }
+    expect(now).toBeGreaterThan(originalExpiry + 7 * DAY);
+    expect(expiry(t, now)).not.toBeNull();
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+  });
+
+  test("without heartbeats the link still expires at the original time", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const now = t.advance(GSI_LINK_TTL_MS + 1);
+    expect(expiry(t, now)).toBeNull();
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+  });
+
+  test("a wrong or missing token can never renew", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const before = expiry(t, T0);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(issued.liveId, heartbeat("f".repeat(64)))).status).toBe(401);
+    expect((await t.beat(issued.liveId, heartbeat(null))).status).toBe(401);
+    expect((await t.beat("short", heartbeat(issued.token))).status).toBe(401);
+    expect(expiry(t, now)).toBe(before);
+  });
+
+  test("a malformed heartbeat with the right token (400) never renews", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const before = expiry(t, T0);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token, { dota: "maybe" }))).status).toBe(400);
+    expect(expiry(t, now)).toBe(before);
+  });
+
+  test("an expired credential cannot resurrect itself", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const now = t.advance(GSI_LINK_TTL_MS + DAY);
+    expect(t.links.renew(issued.liveId, now)).toBe(false);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+    expect(expiry(t, now)).toBeNull();
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+  });
+
+  test("a revoked link (explicit Disconnect) cannot renew", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    t.advance(2 * DAY);
+    expect(t.routes.deleteLink(ACCOUNT_A).status).toBeLessThan(300);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+    expect(t.links.renew(issued.liveId, t.advance(0))).toBe(false);
+    expect(expiry(t, t.advance(0))).toBeNull();
+  });
+
+  test("a new pairing revokes the previous link: the old credential cannot renew, the new one can", async () => {
+    const t = setup();
+    const first = await t.issue(ACCOUNT_A);
+    t.advance(2 * DAY);
+    const second = await t.issue(ACCOUNT_A);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(first.liveId, heartbeat(first.token))).status).toBe(401);
+    expect(t.links.renew(first.liveId, now)).toBe(false);
+    expect((await t.beat(second.liveId, heartbeat(second.token))).status).toBe(200);
+    expect(expiry(t, now)).toBe(now + GSI_LINK_TTL_MS);
   });
 });

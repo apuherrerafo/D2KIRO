@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, lte } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { liveGsiLinks } from "../db/schema";
 
@@ -16,6 +16,8 @@ import { liveGsiLinks } from "../db/schema";
 
 /** Long enough to install once; short enough that a forgotten cfg stops working on its own. */
 export const GSI_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Sliding expiration: a valid Companion heartbeat re-extends the link, at most once per this interval (one write a day, not one per 15 s). */
+export const GSI_LINK_RENEW_AFTER_MS = 24 * 60 * 60 * 1000;
 export const GSI_LIVE_ID = /^[A-Za-z0-9_-]{43}$/;
 export const GSI_TOKEN = /^[0-9a-f]{64}$/;
 
@@ -39,6 +41,12 @@ export interface GsiLinkStore {
   active(accountId: number, now: number): GsiLink | null;
   /** Deletes the account's link; false when there was none. */
   revoke(accountId: number): boolean;
+  /**
+   * Sliding expiration, called ONLY after a heartbeat already passed verify(): pushes expiresAt to now + TTL when at
+   * least GSI_LINK_RENEW_AFTER_MS has elapsed since the last extension. An already-expired or revoked link is never
+   * resurrected (the UPDATE requires an unexpired row). Returns true only when a write happened.
+   */
+  renew(liveId: string, now: number): boolean;
   /** Fail closed: unknown (or revoked) id, wrong token, expired -> null. Constant-time token comparison. */
   verify(liveId: string, token: string, now: number): GsiLink | null;
 }
@@ -91,6 +99,16 @@ export function createGsiLinkStore<TSchema extends Record<string, unknown>>(db: 
     revoke(accountId) {
       const removed = db.delete(liveGsiLinks).where(eq(liveGsiLinks.accountId, accountId)).returning({ liveId: liveGsiLinks.liveId }).all();
       return removed.length > 0;
+    },
+    renew(liveId, now) {
+      if (!GSI_LIVE_ID.test(liveId)) return false;
+      const renewed = db
+        .update(liveGsiLinks)
+        .set({ expiresAt: now + GSI_LINK_TTL_MS })
+        .where(and(eq(liveGsiLinks.liveId, liveId), gt(liveGsiLinks.expiresAt, now), lte(liveGsiLinks.expiresAt, now + GSI_LINK_TTL_MS - GSI_LINK_RENEW_AFTER_MS)))
+        .returning({ liveId: liveGsiLinks.liveId })
+        .all();
+      return renewed.length > 0;
     },
     verify(liveId, token, now) {
       if (!GSI_LIVE_ID.test(liveId) || !GSI_TOKEN.test(token)) return null;
