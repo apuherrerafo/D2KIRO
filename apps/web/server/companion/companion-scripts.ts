@@ -1,5 +1,6 @@
 import { GSI_CFG_FILENAME } from "@/lib/gsi-config";
 import { CFG_SHAPE_PATTERN, DOTA_DISCOVERY_PS } from "@/lib/gsi-windows-installer";
+import { VISUAL_SUPERVISOR_PS } from "./companion-visual";
 
 // D2KIRO Companion V0 -- the PowerShell that runs on the Player's PC. Pure strings, no I/O here.
 //
@@ -289,7 +290,9 @@ while (-not $Shared.Stop) {
     if ($Shared.HbPhase) { $phase = '"' + $Shared.HbPhase + '"' }
     $restart = 'false'
     if ($Shared.HbRestart) { $restart = 'true' }
-    $body = '{"auth":{"token":"' + $Shared.Token + '"},"companion":{"schema":"companion-heartbeat/v1","version":"' + $Shared.Version + '","dota":"' + $Shared.HbDota + '","phase":' + $phase + ',"restartNeeded":' + $restart + '}}'
+    $visual = ''
+    if ($Shared.HbVisual) { $visual = ',"visual":"' + $Shared.HbVisual + '"' }
+    $body = '{"auth":{"token":"' + $Shared.Token + '"},"companion":{"schema":"companion-heartbeat/v1","version":"' + $Shared.Version + '","dota":"' + $Shared.HbDota + '","phase":' + $phase + ',"restartNeeded":' + $restart + $visual + '}}'
     $code = (Send-Upstream ((Get-Base) + '/api/live/companion/' + $Shared.LiveId) $body 5000 $Shared.Version).code
     if ($code -eq 200) { $heartbeatNext = $now.AddSeconds(15); $Shared.HeartbeatSupported = $true; $Shared.Upstream = 'ok'; $Shared.LastOkAt = [DateTime]::UtcNow }
     elseif ($code -eq 404 -or ($code -ge 300 -and $code -lt 400)) { $heartbeatNext = $now.AddMinutes(5); $Shared.HeartbeatSupported = $false }
@@ -334,6 +337,10 @@ if ($env:D2KIRO_TEST_CFG_SYNC_SECONDS -match '^[0-9]{1,3}$') { $CfgSyncSeconds =
 
 function Invoke-Uninstall {
   Stop-OtherCompanions
+  # The visual helper goes with the Companion that supervised it.
+  $visualRoot = [IO.Path]::Combine($AppDir, 'visual')
+  foreach ($process in (Get-Process -Name 'd2kiro-visual' -ErrorAction SilentlyContinue)) { try { if (([string]$process.Path).StartsWith($visualRoot, [StringComparison]::OrdinalIgnoreCase)) { Stop-Process -Id $process.Id -Force -ErrorAction Stop } } catch { } }
+  try { if ([IO.Directory]::Exists($visualRoot)) { [IO.Directory]::Delete($visualRoot, $true) } } catch { }
   if (-not $NoAutostart) {
     try { Remove-ItemProperty -Path $RunKey -Name $RunValue -ErrorAction Stop } catch { }
     try { Remove-Item -Path $UninstallKey -Recurse -ErrorAction Stop } catch { }
@@ -394,6 +401,7 @@ $Shared.TestUpstream = $env:D2KIRO_TEST_UPSTREAM
 $Shared.HbDota = 'not_running'
 $Shared.HbPhase = $null
 $Shared.HbRestart = $false
+$Shared.HbVisual = 'absent'
 $Shared.HeartbeatDirty = $true
 $Shared.HeartbeatSupported = $true
 
@@ -401,7 +409,7 @@ $S = @{
   phase = 'MENU'; gameState = $null; lastGsiAt = [DateTime]::MinValue
   dotaRunning = $false; dotaStart = $null; restartNeeded = $false; cfgWrittenAt = $null; cfgInstalled = $false
   cfgDirs = @(); lastDiscovery = [DateTime]::MinValue; lastCfgSync = [DateTime]::MinValue; lastProcCheck = [DateTime]::MinValue
-  lastDota = ''; lastPhase = ''
+  lastDota = ''; lastPhase = ''; lastVisual = ''
 }
 $D = @{
   writer = $null; part = 0; runId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'); seq = 0
@@ -817,6 +825,7 @@ function Get-HealthJson {
   Set-Field $doc 'liveSession' (Get-LiveSessionState)
   Set-Field $doc 'cfgInstalled' ([bool]$S.cfgInstalled)
   Set-Field $doc 'heartbeat' ([bool]$Shared.HeartbeatSupported)
+  Set-Field $doc 'visual' ([string]$V.state)
   Set-Field $doc 'lastGsiAgeMs' ($null)
   if ($S.lastGsiAt -ne [DateTime]::MinValue) { Set-Field $doc 'lastGsiAgeMs' ([int64]([DateTime]::UtcNow - $S.lastGsiAt).TotalMilliseconds) }
   return $Json.Serialize($doc)
@@ -888,6 +897,7 @@ function Invoke-Client($Client) {
   }
 }
 
+${VISUAL_SUPERVISOR_PS}
 # ---------------------------------------------------------------- periodic -----------------------------------
 function Invoke-Periodic {
   $now = [DateTime]::UtcNow
@@ -895,6 +905,7 @@ function Invoke-Periodic {
   if (($S.cfgDirs.Count -eq 0 -and ($now - $S.lastDiscovery).TotalMinutes -ge 2) -or ($now - $S.lastDiscovery).TotalMinutes -ge 30) { Update-DotaFolders; Sync-DotaCfg }
   if (($now - $S.lastCfgSync).TotalSeconds -ge $CfgSyncSeconds) { Sync-DotaCfg }
   if ($D.dirty -and ($now - $D.savedAt).TotalSeconds -ge 60) { Save-Inventory }
+  if (($now - $V.lastCheck).TotalSeconds -ge 2) { Update-Visual }
   $dota = Get-DotaState
   $phase = $null
   if ($dota -eq 'connected') { $phase = $S.phase }
@@ -902,6 +913,8 @@ function Invoke-Periodic {
   $Shared.HbDota = $dota
   $Shared.HbPhase = $phase
   $Shared.HbRestart = [bool]$S.restartNeeded
+  if ([string]$V.state -ne $S.lastVisual) { $S.lastVisual = [string]$V.state; $Shared.HeartbeatDirty = $true }
+  $Shared.HbVisual = [string]$V.state
   if ($null -ne $Worker -and $Worker.handle.IsCompleted) { Write-Log 'upstream worker stopped: restarting'; try { $Worker.shell.Dispose() } catch { }; Start-Worker }
 }
 
@@ -910,6 +923,7 @@ Update-DotaProcess
 Update-DotaFolders
 Sync-DotaCfg
 Start-Worker
+Stop-VisualProcesses
 while ($true) {
   try {
     if ($Listener.Pending()) { Invoke-Client ($Listener.AcceptTcpClient()); continue }

@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer, request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { VISUAL_RUNTIME } from "./companion-visual";
 import { buildGsiConfig, GSI_CFG_FILENAME } from "@/lib/gsi-config";
 import { CFG_SHAPE_PATTERN } from "@/lib/gsi-windows-installer";
 import { COMPANION_INSTALLER_FILENAME, buildWindowsCompanionInstaller } from "./companion-installer";
@@ -93,7 +95,12 @@ const roots: string[] = [];
 const children: ChildProcess[] = [];
 afterAll(() => {
   for (const child of children) child.kill();
-  for (const root of roots) rmSync(root, { recursive: true, force: true });
+  // Stub helpers a test left running hold their exe open: stop ONLY the ones living under this run's temp roots.
+  if (process.platform === "win32" && roots.length > 0) {
+    const under = roots.map((root) => `'${root.replace(/'/g, "''")}*'`).join(",");
+    spawnSync("powershell.exe", ["-NoLogo", "-NoProfile", "-Command", `Get-Process -Name d2kiro-visual -ErrorAction SilentlyContinue | Where-Object { $p = $_.Path; $p -and (@(${under}) | Where-Object { $p -like $_ }) } | Stop-Process -Force`], { encoding: "utf8" });
+  }
+  for (const root of roots) rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 interface Machine {
@@ -129,6 +136,7 @@ function testEnv(m: Machine, extra: Record<string, string> = {}): NodeJS.Process
     D2KIRO_TEST_NO_DIALOG: "1",
     D2KIRO_TEST_NO_AUTOSTART: "1",
     D2KIRO_TEST_NO_START: "1",
+    D2KIRO_TEST_NO_VISUAL: "1", // the visual supervisor has its own suite below; the others must never reach the network
     D2KIRO_COMPANION_HOME: m.home,
     D2KIRO_COMPANION_PORT: String(m.port),
     ...extra,
@@ -414,4 +422,220 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
       server.stop();
     }
   }, 60_000);
+});
+
+// ---- D2KIRO Visual runtime supervision -----------------------------------------------------------------
+// A tiny compiled stub plays d2kiro-visual.exe; a local HTTP server plays the GitHub release. Nothing real is fetched.
+
+const STUB_SOURCE = [
+  "using System; using System.Diagnostics; using System.IO; using System.Threading;",
+  "class P { static void Main() {",
+  '  string log = Environment.GetEnvironmentVariable("D2KIRO_STUB_LOG");',
+  '  File.AppendAllText(log, "start " + Process.GetCurrentProcess().Id + " " + Environment.GetEnvironmentVariable("D2KIRO_GSI_CFG") + "\\n");',
+  '  string ms = Environment.GetEnvironmentVariable("D2KIRO_STUB_EXIT_MS");',
+  "  if (ms != null) Thread.Sleep(int.Parse(ms)); else Thread.Sleep(Timeout.Infinite);",
+  "} }",
+].join("\n");
+
+interface FakeRelease {
+  zip: Buffer;
+  sha256: string;
+  url: string;
+  stop(): void;
+}
+
+async function fakeRelease(root: string, corrupt = false): Promise<FakeRelease> {
+  const work = mkdtempSync(join(root, "stub-"));
+  const source = join(work, "stub.cs");
+  const exe = join(work, VISUAL_RUNTIME.exeName);
+  writeFileSync(source, STUB_SOURCE);
+  const csc = join(process.env.SystemRoot ?? "C:\\Windows", "Microsoft.NET", "Framework64", "v4.0.30319", "csc.exe");
+  const compiled = spawnSync(csc, ["/nologo", "/target:exe", `/out:${exe}`, source], { encoding: "utf8" });
+  if (compiled.status !== 0) throw new Error(`could not compile the stub: ${compiled.stdout}${compiled.stderr}`);
+  const zipPath = join(work, "visual.zip");
+  const packed = spawnSync("powershell.exe", ["-NoLogo", "-NoProfile", "-Command", `Compress-Archive -Path '${exe}' -DestinationPath '${zipPath}'`], { encoding: "utf8" });
+  if (packed.status !== 0) throw new Error(`could not zip the stub: ${packed.stderr}`);
+  const zip = readFileSync(zipPath);
+  const sha256 = createHash("sha256").update(zip).digest("hex");
+  const served = corrupt ? Buffer.concat([zip, Buffer.from("tampered")]) : zip;
+  const server = createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "application/zip", "content-length": String(served.length) });
+    res.end(served);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  return { zip, sha256, url: `http://127.0.0.1:${port}/d2kiro-visual-9.9.9.zip`, stop: () => server.close() };
+}
+
+function visualEnv(release: FakeRelease, log: string, extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    D2KIRO_TEST_NO_VISUAL: "0",
+    D2KIRO_TEST_VISUAL_VERSION: "9.9.9",
+    D2KIRO_TEST_VISUAL_URL: release.url,
+    D2KIRO_TEST_VISUAL_SHA256: release.sha256,
+    D2KIRO_TEST_VISUAL_RESTART_SECONDS: "1",
+    D2KIRO_TEST_VISUAL_FETCH_RETRY_SECONDS: "600",
+    D2KIRO_STUB_LOG: log,
+    ...extra,
+  };
+}
+
+function stubStarts(log: string): { pid: number; cfg: string }[] {
+  if (!existsSync(log)) return [];
+  return readFileSync(log, "utf8")
+    .split("\n")
+    .filter((line) => line.startsWith("start "))
+    .map((line) => {
+      const [, pid, ...cfg] = line.trim().split(" ");
+      return { pid: Number(pid), cfg: cfg.join(" ") };
+    });
+}
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe("D2KIRO Visual runtime: pinned release", () => {
+  test("the production pin is a well-formed release of this repository (an https GitHub asset + a SHA-256)", () => {
+    expect(VISUAL_RUNTIME.url.startsWith("https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v")).toBe(true);
+    expect(VISUAL_RUNTIME.url.endsWith(`d2kiro-visual-${VISUAL_RUNTIME.version}.zip`)).toBe(true);
+    expect(VISUAL_RUNTIME.sha256).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test("the generated PowerShell pins the production release and verifies the hash before extracting", () => {
+    expect(COMPANION_RUNTIME_PS).toContain(VISUAL_RUNTIME.url);
+    expect(COMPANION_RUNTIME_PS).toContain(VISUAL_RUNTIME.sha256);
+    expect(COMPANION_RUNTIME_PS.indexOf("hash_mismatch")).toBeLessThan(COMPANION_RUNTIME_PS.indexOf("ExtractToFile"));
+    expect(COMPANION_RUNTIME_PS).toContain("bad_entry");
+  });
+});
+
+describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell, stub helper, fake release)", () => {
+  test("downloads once, verifies the SHA-256, starts the helper hidden against OUR Dota cfg, and reports it", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const release = await fakeRelease(m.root);
+    const server = await fakeServer();
+    const log = join(m.root, "stub.log");
+    try {
+      startRuntime(m, server.base, visualEnv(release, log));
+      await waitFor(() => (stubStarts(log).length > 0 ? true : null), 60_000);
+      const [start] = stubStarts(log);
+      expect(start!.cfg).toBe(m.installedCfg);
+      const seen = await waitFor(async () => {
+        const status = await health(m);
+        return status?.visual === "running" ? status : null;
+      });
+      expect(JSON.stringify(seen)).not.toContain(TOKEN);
+      // The same state travels in the heartbeat the site reads ("preparando..." vs "no disponible" is decided there).
+      const beat = await waitFor(() => server.received.find((r) => r.path === `/api/live/companion/${LIVE_ID}` && (r.body.companion as { visual?: string } | undefined)?.visual === "running") ?? null);
+      expect((beat.body.companion as { schema: string }).schema).toBe("companion-heartbeat/v1");
+      expect(existsSync(join(m.home, "visual", "9.9.9", VISUAL_RUNTIME.exeName))).toBe(true);
+      // No download or staging leftovers next to the installed version.
+      expect(readdirSync(join(m.home, "visual"))).toEqual(["9.9.9"]);
+    } finally {
+      server.stop();
+      release.stop();
+    }
+  }, 120_000);
+
+  test("a download whose SHA-256 does not match the pin is refused: never extracted, never started", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const release = await fakeRelease(m.root, true);
+    const server = await fakeServer();
+    const log = join(m.root, "stub.log");
+    try {
+      startRuntime(m, server.base, visualEnv(release, log));
+      await waitFor(async () => ((await health(m))?.visual === "failed" ? true : null), 60_000);
+      await Bun.sleep(1500);
+      expect(stubStarts(log)).toEqual([]);
+      expect(existsSync(join(m.home, "visual", "9.9.9"))).toBe(false);
+      expect(readdirSync(join(m.home, "visual"))).toEqual([]);
+    } finally {
+      server.stop();
+      release.stop();
+    }
+  }, 120_000);
+
+  test("a helper that dies is restarted by the Companion", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const release = await fakeRelease(m.root);
+    const server = await fakeServer();
+    const log = join(m.root, "stub.log");
+    try {
+      startRuntime(m, server.base, visualEnv(release, log, { D2KIRO_STUB_EXIT_MS: "600" }));
+      await waitFor(() => (stubStarts(log).length >= 3 ? true : null), 90_000);
+      expect(new Set(stubStarts(log).map((start) => start.pid)).size).toBeGreaterThanOrEqual(3);
+    } finally {
+      server.stop();
+      release.stop();
+    }
+  }, 120_000);
+
+  test("a new Companion start removes the helper an old one left behind, and uninstall removes helper and folder", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const release = await fakeRelease(m.root);
+    const server = await fakeServer();
+    const log = join(m.root, "stub.log");
+    try {
+      const first = startRuntime(m, server.base, visualEnv(release, log));
+      await waitFor(() => (stubStarts(log).length >= 1 ? true : null), 60_000);
+      const orphan = stubStarts(log)[0]!.pid;
+      first.kill(); // the Companion dies; the helper it started is left running
+      await waitFor(async () => ((await health(m)) === null ? true : null));
+      expect(alive(orphan)).toBe(true);
+      startRuntime(m, server.base, visualEnv(release, log));
+      await waitFor(() => (stubStarts(log).length >= 2 ? true : null), 60_000);
+      expect(alive(orphan)).toBe(false);
+      const current = stubStarts(log)[1]!.pid;
+      expect(alive(current)).toBe(true);
+
+      const uninstall = spawnSync("cmd.exe", ["/d", "/s", "/c", `""${join(m.home, "desinstalar-d2kiro-companion.cmd")}""`], { env: testEnv(m, visualEnv(release, log)), windowsVerbatimArguments: true, encoding: "utf8" });
+      expect(uninstall.status).toBe(0);
+      await waitFor(() => (alive(current) ? null : true));
+      expect(existsSync(join(m.home, "visual"))).toBe(false);
+    } finally {
+      server.stop();
+      release.stop();
+    }
+  }, 150_000);
+});
+
+// Opt-in: the REAL production path (public GitHub release, real SHA-256 pin, the real packaged exe). Off by default
+// (network + 65 MB); run with D2KIRO_REAL_RELEASE=1 after changing VISUAL_RUNTIME.
+describe.skipIf(!onWindows || process.env.D2KIRO_REAL_RELEASE !== "1")("D2KIRO Visual runtime: REAL pinned release (opt-in)", () => {
+  test("downloads the production release, verifies the pin, starts the real helper and it waits for Dota", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const server = await fakeServer();
+    const visualHome = join(m.root, "visual-home");
+    try {
+      startRuntime(m, server.base, {
+        D2KIRO_TEST_NO_VISUAL: "0",
+        D2KIRO_TEST_VISUAL_VERSION: VISUAL_RUNTIME.version,
+        D2KIRO_TEST_VISUAL_URL: VISUAL_RUNTIME.url,
+        D2KIRO_TEST_VISUAL_SHA256: VISUAL_RUNTIME.sha256,
+        D2KIRO_VISUAL_HOME: visualHome,
+        D2KIRO_VISUAL_DIAGNOSTICS: "1",
+      });
+      await waitFor(async () => ((await health(m))?.visual === "running" ? true : null), 180_000);
+      expect(existsSync(join(m.home, "visual", VISUAL_RUNTIME.version, VISUAL_RUNTIME.exeName))).toBe(true);
+      // The real helper started: it logs locally and is waiting for Dota / credentials (no Dota window here).
+      const diagnostics = join(visualHome, "diagnostics");
+      await waitFor(() => (existsSync(diagnostics) && readdirSync(diagnostics).length > 0 ? true : null), 60_000);
+      const text = readdirSync(diagnostics).map((file) => readFileSync(join(diagnostics, file), "utf8")).join("");
+      expect(text).toContain('"kind":"start","frozen":true');
+      expect(text).not.toContain(TOKEN);
+    } finally {
+      server.stop();
+    }
+  }, 300_000);
 });
