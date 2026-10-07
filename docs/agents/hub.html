@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-10-07T06:25:47.416Z</title>
+<title>HUB del ecosistema — 2026-10-07T18:08:10.107Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -182,7 +182,7 @@
         </div>
       </div>
       <div class="column ">
-        <h2>done <span class="count">220</span></h2>
+        <h2>done <span class="count">224</span></h2>
         
         <div class="card  ">
           <div class="card-id">TSK-001</div>
@@ -1722,6 +1722,38 @@
           </div>
         </div>
         <div class="card  ">
+          <div class="card-id">TSK-242</div>
+          <div class="card-title">Counterfactual personalization — la misma jugada leída dos veces (Landing 01B, tras el Player Model)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-243</div>
+          <div class="card-title">Terminar la landing — proposición, cierre y CTA tras el Counterfactual (Landing 01B)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-244</div>
+          <div class="card-title">Landing routing and production prep (Landing 01B)</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
+          <div class="card-id">TSK-245</div>
+          <div class="card-title">Landing preview deploy gate</div>
+          <div class="card-meta">
+            <span class="tag tag-must">must</span>
+            <span class="tag tag-tool">claude-code</span>
+          </div>
+        </div>
+        <div class="card  ">
           <div class="card-id">TSK-014</div>
           <div class="card-title">Páginas del sitio (estado del meta, héroes, configuración) con RTK Query</div>
           <div class="card-meta">
@@ -2018,8 +2050,8 @@
         </div>
         <div class="stat-row">
           <div class="stat-name">claude-code</div>
-          <div class="stat-bar-track"><div class="stat-bar" style="width:16%"></div></div>
-          <div class="stat-nums">33× · 76% ok · 4 bloqueado </div>
+          <div class="stat-bar-track"><div class="stat-bar" style="width:17%"></div></div>
+          <div class="stat-nums">35× · 77% ok · 4 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">codex</div>
@@ -2089,6 +2121,20 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">TSK-245</span> <span class="feed-ts">2026-10-07T23:59</span></div>
+            <div class="feed-note">Gate de preview de Landing 01B cerrado sin ninguna escritura externa. Preview = único entorno existente (Railway wonderful-embrace / D2KIRO-staging, auto-deploy de staging/private-beta-1; no hay PR environments). Veredicto: preview desplegable. CLS móvil real (scroll 0.27-0.35 crudo, 0.135 ventana CWV lenta; desktop 0.058; carga 0.003) = bloqueante del deploy PÚBLICO, no del preview; origen: cambio de etapa en escenas ancladas (.cf-layout/.cf-object, .ms-annotation/.ms-dom, .hs-area-why), independiente de imágenes y reduced-motion; sin fix en este ticket. merge-tree vs staging: conflicto mecánico en proxy.ts (unión de prefijos públicos) y journal.md. Evidencia: docs/diagnostics/landing-preview/. Sin cambios de código de producto.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
+            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">TSK-243</span> <span class="feed-ts">2026-10-07T23:55</span></div>
+            <div class="feed-note">Landing 01B terminada tras el Counterfactual: Proposición+Demo fundidos en `#proposition`, Signals y Evidence retirados (redundantes), cierre `#waitlist` en layout split, nav 3 links. Historia congelada (Hero/Memory/Counterfactual) sin tocar. tsc/eslint 0 errores, 651 tests web verdes, Storybook build ok, axe sin violaciones en proposición/cierre/nav/footer.</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">TSK-235</span> <span class="feed-ts">2026-10-02T23:05</span></div>
             <div class="feed-note">PR #19 (e7ec10c) → ci/staging-pr-trigger (86d870f); CI de PR #16 verde (run 37075011125, 6/6, product_e2e PASS, golden 28/28, sin skip oculto); PR #16 → staging/private-beta-1 (63bfd39); push CI verde (run 37075639918). Railway auto-deploy de 63bfd39: deployment GitHub 6820047697 success 23:03:09Z; /healthz 200 {ok:true,next:ok,engine:ok} 23:03:47Z. FINAL_STAGING_SHA=63bfd39d8999c796e2f51a8ea66baee724684006, SOAK_START=2026-10-02T23:03:47Z, EARLIEST_24H_F0_ELIGIBILITY=2026-10-03T23:03:47Z. TSK-235/236/237 → done; TSK-219 sigue blocked (prueba Ranked All Pick real durante el soak); Party Intelligence no iniciado; master y producción sin tocar.</div>
           </div>
@@ -2154,20 +2200,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-10-02T13:15</span></div>
             <div class="feed-note">gate de seguridad PASS, APPROVED. Los 10 puntos de la auditoria (token fuera de linea de comandos/salida/logs, frontera de descarga, inyeccion de rutas, vdf, limite de escritura, autoborrado, desinstalador, privacidad de Steam, cero red, fail-closed) cubiertos por prueba. Residual no bloqueante: SteamPath en HKCU o una junction pueden ser manipulados por un proceso del mismo usuario (sin frontera de privilegio); el instalador se autoborra tambien cuando no encuentra Dota. Gates: engine 1848 / web 455 / scripts 572, 0 fallos; tsc web+engine; lint 0 errores; verify-simplicity exit 0.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-10-02T13:10</span></div>
-            <div class="feed-note">instalador GSI de Windows, recuperado (trabajo sin commitear sobre 7307464) y endurecido antes de commit: (1) rutas UNC / unidades de red de libraryfolders.vdf rechazadas (antes un vdf alterado podia hacer escribir la credencial en un recurso de red); (2) payload validado contra la plantilla completa derivada de buildGsiConfig (clave extra, segundo endpoint o valor editado -> exit 4, nada escrito); (3) vdf limitado a 1 MB; (4) la UI avisa de Control inteligente de aplicaciones / PC de trabajo y manda a "Instalarlo a mano". Pruebas nuevas con ejecucion real de cmd.exe + PowerShell 5.1 estilo Explorer: carpetas con & ( ) [ ] quote % ! ^ ; , y Unicode, vdf hostil, UNC por loopback, autoborrado sin tocar hermanos, desinstalador sin tocar la carpeta. Candados UNC y de forma verificados en rojo. Sin deploy.</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-10-02T12:00</span></div>
-            <div class="feed-note">instalador GSI de Windows sin terminal (/live-draft): POST /api/live/gsi-installer genera un .cmd personal (cmd + Windows PowerShell 5.1, cero dependencias) que busca Dota via registro de Steam + libraryfolders.vdf (+ raices de disco como ultimo recurso), escribe solo gamestate_integration_d2kiro.cfg y se borra solo; token solo en el bloque de datos final (nunca en linea de comandos ni en el codigo del script). GET /api/live/gsi-uninstaller (sin credencial) lo quita. Descarga manual del .cfg queda como respaldo. Sin firma de codigo: Windows/navegador avisan (SmartScreen); documentado en la UI. Sin deploy.</div>
           </div>
         </div></div>
     </div>
