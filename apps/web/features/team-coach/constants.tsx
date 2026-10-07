@@ -59,7 +59,7 @@ export const GSI_LINK_POLL_MS = 2_000;
 /** ?setup=<code> after a failed download (app/api/live/gsi-config). */
 export const GSI_SETUP_ERRORS: Readonly<Record<string, string>> = Object.freeze({
   session: "Tu sesión venció. Vuelve a iniciar sesión con Steam y descarga la configuración otra vez.",
-  origin: "No se pudo generar la configuración desde esta página. Recargá y probá de nuevo.",
+  origin: "No se pudo generar la configuración desde esta página. Recarga la página e inténtalo de nuevo.",
   unavailable: "No se pudo generar la configuración en este momento. Prueba de nuevo en unos segundos.",
 });
 
