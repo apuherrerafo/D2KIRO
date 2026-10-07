@@ -96,6 +96,8 @@ export const VISUAL_SUPERVISOR_PS = String.raw`
 # checked), starts it hidden, restarts it if it dies, and removes it on uninstall. Frames never leave the PC.
 $VisualVersion = $env:D2KIRO_TEST_VISUAL_VERSION
 if (-not $VisualVersion) { $VisualVersion = '${VISUAL_RUNTIME.version}' }
+# Test-only, same convention as D2KIRO_TEST_UPSTREAM. URL and SHA256 overrides together would defeat the pin: they must
+# never be wired to anything persisted or remote.
 $VisualUrl = $env:D2KIRO_TEST_VISUAL_URL
 if (-not $VisualUrl) { $VisualUrl = '${VISUAL_RUNTIME.url}' }
 $VisualSha = $env:D2KIRO_TEST_VISUAL_SHA256

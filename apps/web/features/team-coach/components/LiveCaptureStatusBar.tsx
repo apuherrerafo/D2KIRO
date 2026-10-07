@@ -64,6 +64,8 @@ export function visualPill(status: LiveCaptureStatus | null): Pill {
   const visual = status?.visual ?? null;
   const reporting = visual !== null && visual.active && visual.health !== "lost";
   if (!reporting) {
+    // Reporting that it lost Dota's window is not "getting ready": say so, whatever the Companion says about the process.
+    if (visual !== null && visual.active && visual.health === "lost") return VISUAL_UNAVAILABLE;
     // The Companion on the Player's PC says what is happening with the helper: getting ready is not a failure.
     const helper = activeCompanion(status)?.visual ?? null;
     if (helper === "downloading" || helper === "restarting" || helper === "running") return VISUAL_PREPARING;

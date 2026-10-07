@@ -62,6 +62,11 @@ describe("visualPill (draft automático en lenguaje llano)", () => {
     }
   });
 
+  test("el helper sigue vivo pero reporta que perdió la ventana de Dota: no disponible, nunca 'preparando...'", () => {
+    const lost = { ...OK, health: "lost" as const };
+    expect(visualPill(status({ visual: lost, companion: companion("running"), draftPhase: "hero_selection", picks: 3 })).text).toBe("● Draft automático no disponible");
+  });
+
   test("draft terminado", () => {
     expect(visualPill(status({ visual: OK, draftPhase: "ended", picks: 10 })).text).toBe("● Draft terminado");
   });
