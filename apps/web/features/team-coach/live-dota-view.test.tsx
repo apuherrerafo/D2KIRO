@@ -49,7 +49,7 @@ function board(sessionId: string): TeamCoachBoardData {
   };
 }
 
-const LINK: GsiLinkView = { sessionId: "gsi-session-1", createdAt: "2026-10-02T00:00:00.000Z", expiresAt: "2026-11-01T00:00:00.000Z" };
+const LINK: GsiLinkView = { sessionId: "gsi-session-1", createdAt: "2026-10-02T00:00:00.000Z", expiresAt: "2099-01-01T00:00:00.000Z" };
 
 class FakeSite {
   readonly requests: { url: string; method: string }[] = [];
@@ -100,7 +100,7 @@ function stopRealSubmit(form: HTMLFormElement): void {
 }
 
 describe("LiveDotaView -- connect Dota", () => {
-  test("no link: 'Dota desconectado' + 'Conectar Dota' opens the one-time setup (Windows installer first, manual fallback kept)", async () => {
+  test("no link: 'Dota desconectado' + 'Conectar Dota' opens the setup: ONE installer (the Companion), advanced options folded", async () => {
     const site = new FakeSite();
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
@@ -110,35 +110,48 @@ describe("LiveDotaView -- connect Dota", () => {
         fireEvent.click(view.getByTestId("dota-connect-button"));
       });
       const steps = view.getByTestId("dota-setup-steps");
-      // Recommended first: the one-time D2KIRO Companion (same-origin form POST, never a script asking for the link).
+      // The only primary installer: the D2KIRO Companion (same-origin form POST, never a script asking for the link).
       const companion = view.getByTestId("companion-installer-download");
       expect(companion.textContent).toBe("Instalar D2KIRO Companion");
       expect(companion.closest("form")!.getAttribute("method")).toBe("post");
       expect(companion.closest("form")!.getAttribute("action")).toBe("/api/live/companion-installer");
+      expect(view.getByTestId("companion-install").textContent).toContain("Instálalo una sola vez. Después solo abre D2KIRO, abre Dota 2 y juega.");
       expect(view.getByTestId("companion-install").textContent).toContain("arranca solo con Windows");
-      // Normal path: one double-click installer, honest about the unsigned-file warning before it happens.
-      const installer = view.getByTestId("gsi-installer-download");
-      expect(installer.textContent).toBe("Descargar instalador para Windows");
-      const installerForm = installer.closest("form")!;
-      expect(installerForm.getAttribute("method")).toBe("post");
-      expect(installerForm.getAttribute("action")).toBe("/api/live/gsi-installer");
-      expect(steps.textContent).toContain("Abrilo con doble clic");
-      expect(view.getByTestId("gsi-installer-warning").textContent).toContain("Ejecutar de todas formas");
-      // A PC that blocks unsigned scripts outright (Smart App Control, work machines) is sent to the manual way, up front.
-      expect(view.getByTestId("gsi-installer-warning").textContent).toContain("Control inteligente de aplicaciones");
+      // The legacy GSI installer is gone from the normal flow: no button, no form, no wording.
+      expect(view.queryByTestId("gsi-installer-download")).toBeNull();
+      expect(steps.querySelectorAll("form[action='/api/live/gsi-installer']")).toHaveLength(0);
+      expect(steps.textContent).not.toContain("Descargar instalador");
+      expect(steps.textContent).not.toContain("Abrilo con doble clic");
+      expect(steps.querySelectorAll("form")).toHaveLength(2); // Companion + the raw cfg inside the advanced section
+      // Troubleshooting lives in a folded section that says it is NOT another installer.
+      const advanced = view.getByTestId("advanced-connection") as HTMLDetailsElement;
+      expect(advanced.open).toBe(false);
+      expect(advanced.textContent).toContain("Opciones avanzadas de conexión");
+      expect(view.getByTestId("advanced-connection-note").textContent).toContain("No es otro instalador");
+      expect(view.getByTestId("gsi-manual-rotates").textContent).toContain("la anterior deja de funcionar");
       expect(view.getByTestId("gsi-uninstaller-download").getAttribute("href")).toBe("/api/live/gsi-uninstaller");
-      // Fallback: the raw cfg and the exact folder, folded away.
-      expect((view.getByTestId("gsi-manual-install") as HTMLDetailsElement).open).toBe(false);
-      expect(steps.textContent).toContain("Instala este archivo una sola vez y reinicia Dota 2.");
       expect(steps.textContent).toContain("game\\dota\\cfg\\gamestate_integration");
-      expect(steps.textContent).toContain("D:\\SteamLibrary\\steamapps\\common\\dota 2 beta\\game\\dota\\cfg\\gamestate_integration\\");
-      expect(steps.textContent).toContain("-gamestateintegration");
       const download = view.getByTestId("gsi-download");
       expect(download.textContent).toBe("Descargar configuración D2KIRO");
-      const form = download.closest("form")!;
-      expect(form.getAttribute("method")).toBe("post");
-      expect(form.getAttribute("action")).toBe("/api/live/gsi-config");
+      expect(download.closest("form")!.getAttribute("action")).toBe("/api/live/gsi-config");
       expect(view.getByTestId("live-dota").textContent).not.toMatch(DEVELOPER_TERMS);
+      view.unmount();
+    });
+  });
+
+  test("-gamestateintegration appears only inside the advanced troubleshooting section, never in the main flow", async () => {
+    const site = new FakeSite();
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("dota-connect-button")).toBeTruthy());
+      await act(async () => {
+        fireEvent.click(view.getByTestId("dota-connect-button"));
+      });
+      const advanced = view.getByTestId("advanced-connection");
+      expect(advanced.textContent).toContain("-gamestateintegration");
+      expect(view.getByTestId("companion-install").textContent).not.toContain("gamestateintegration");
+      const outside = (view.getByTestId("dota-connect").textContent ?? "").replace(advanced.textContent ?? "", "");
+      expect(outside).not.toContain("gamestateintegration");
       view.unmount();
     });
   });
@@ -161,13 +174,14 @@ describe("LiveDotaView -- connect Dota", () => {
       await waitFor(() => expect(site.count((entry) => entry.url.endsWith(`/${LINK.sessionId}/live-status`))).toBeGreaterThan(0));
       await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("● Esperando Dota..."));
       expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(true);
-      expect(view.getByTestId("dota-link-controls").textContent).toContain("Esperando Dota...");
+      expect(view.getByTestId("companion-installer-download")).toBeTruthy();
+      expect(view.queryByTestId("gsi-installer-download")).toBeNull();
       expect(view.getByTestId("live-team-coach").textContent).not.toMatch(DEVELOPER_TERMS);
       view.unmount();
     });
   });
 
-  test("Dota reporting a partial draft: connected, Hero Selection, honest 'usar entrada manual' with what Dota sent", async () => {
+  test("Dota reporting a partial draft: honest 'Draft automático incompleto', no manual entry, no recommendation", async () => {
     const site = new FakeSite();
     site.link = LINK;
     site.status = liveStatus(LINK.sessionId, { connection: "connected", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL", draftPhase: "hero_selection", localSide: "dire", picks: 1, gsi: gsi() });
@@ -178,9 +192,14 @@ describe("LiveDotaView -- connect Dota", () => {
       expect(statusText).toContain("● Dota conectado");
       expect(statusText).toContain("● Hero Selection · captura parcial");
       expect(statusText).toContain("Dire");
-      expect(view.getByTestId("live-capture-partial").textContent).toContain("Captura no disponible — usar entrada manual");
+      const partial = view.getByTestId("live-capture-partial").textContent ?? "";
+      expect(partial).toContain("Draft automático incompleto");
+      expect(partial).toContain("D2KIRO todavía no está recibiendo todo el draft de esta partida.");
+      expect(view.getByTestId("live-capture-status").textContent ?? "").not.toMatch(/entrada manual|cargá|cargar|a mano|bans y picks/i);
       expect(view.getByTestId("live-capture-capabilities").textContent).toBe("Dota informa — bando: sí · tu héroe: sí · bans: no · picks aliados: no · picks rivales: no");
-      expect((view.getByTestId("live-manual-entry") as HTMLDetailsElement).open).toBe(true);
+      expect(view.queryByTestId("live-manual-entry")).toBeNull();
+      expect(view.queryByTestId("team-coach-board")).toBeNull();
+      expect(view.queryByTestId("team-coach-decision")).toBeNull();
       // Dota has spoken: the setup collapses.
       expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(false);
       expect(view.getByTestId("live-team-coach").textContent).not.toMatch(DEVELOPER_TERMS);
@@ -188,7 +207,7 @@ describe("LiveDotaView -- connect Dota", () => {
     });
   });
 
-  test("Dota quiet after connecting: 'Reconectando...', the draft and manual entry stay", async () => {
+  test("Dota quiet after connecting: 'Reconectando...', the draft stays, no manual entry", async () => {
     const site = new FakeSite();
     site.link = LINK;
     site.status = liveStatus(LINK.sessionId, { connection: "stale", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "ok", draftPhase: "hero_selection", localSide: "radiant", picks: 2, gsi: gsi({ draft: { draftBlock: true, side: true, ownHero: true, bans: true, allyPicks: true, enemyPicks: true } }) });
@@ -196,6 +215,8 @@ describe("LiveDotaView -- connect Dota", () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("● Reconectando..."));
       expect(view.getByTestId("live-capture-degraded").textContent).toContain("El draft no se perdió");
+      expect(view.getByTestId("live-capture-degraded").textContent).not.toMatch(/a mano|manual/i);
+      expect(view.queryByTestId("live-manual-entry")).toBeNull();
       view.unmount();
     });
   });
@@ -228,10 +249,11 @@ describe("LiveDotaView -- connect Dota", () => {
 
 describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
   function degradedStatus(draftPhase: "hero_selection" | "ended"): LiveCaptureStatus {
+    if (draftPhase === "hero_selection") return liveStatus(LINK.sessionId, { connection: "stale", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "ok", draftPhase, localSide: "radiant", picks: 1, gsi: gsi() });
     return liveStatus(LINK.sessionId, { connection: "connected", lastEventAt: "2026-10-02T00:00:01.000Z", captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL", draftPhase, localSide: "radiant", picks: 1, gsi: gsi() });
   }
 
-  test("control: during hero selection the board recommends a pick now and offers manual picks", async () => {
+  test("control: during hero selection the board recommends a pick now, with no manual picks", async () => {
     const site = new FakeSite();
     site.link = LINK;
     site.status = degradedStatus("hero_selection");
@@ -241,7 +263,7 @@ describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
       expect(view.getByTestId("team-coach-board").textContent).toContain("RECOMMENDED PICK NOW");
       expect(view.getAllByTestId("team-coach-pick-now")).toHaveLength(1);
       expect(view.queryByTestId("team-coach-draft-ended")).toBeNull();
-      expect(view.getAllByRole("button", { name: /^Elegir / }).length).toBeGreaterThan(0);
+      expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
       view.unmount();
     });
   });
@@ -322,5 +344,144 @@ describe("LiveManualEntry -- corrections (Greptile TSK-219)", () => {
       { type: "revert", side: "radiant", heroId: 21 },
     ]);
     view.unmount();
+  });
+});
+
+describe("LiveDotaView -- Companion-driven setup", () => {
+  const COMPANION = { version: "0.1.0", active: true, dota: "not_running", restartNeeded: false, phase: "MENU", lastSeenAgeMs: 1_000 } as never;
+
+  function withCompanion(overrides: Record<string, unknown>): LiveCaptureStatus {
+    return liveStatus(LINK.sessionId, { companion: { ...(COMPANION as object), ...overrides } as never });
+  }
+
+  async function renderLinked(status: LiveCaptureStatus) {
+    const site = new FakeSite();
+    site.link = LINK;
+    site.status = status;
+    return { site };
+  }
+
+  test("Companion active + Dota closed: the installer is replaced by status and the setup is collapsed", async () => {
+    const { site } = await renderLinked(withCompanion({ dota: "not_running" }));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("dota-guidance").textContent).toBe("Companion conectado · abre Dota 2"));
+      // Visible with the setup collapsed: the guidance is never nested inside the closed <details>.
+      expect(view.getByTestId("dota-guidance").closest("details")).toBeNull();
+      expect(view.queryByTestId("companion-installer-download")).toBeNull();
+      expect(view.queryByTestId("gsi-installer-download")).toBeNull();
+      expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(false);
+      view.unmount();
+    });
+  });
+
+  test("Companion active + Dota open but silent: 'Dota abierto · esperando datos'", async () => {
+    const { site } = await renderLinked(withCompanion({ dota: "waiting" }));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("dota-guidance").textContent).toBe("Dota abierto · esperando datos"));
+      expect(view.getByTestId("dota-guidance").closest("details")).toBeNull();
+      expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(false);
+      view.unmount();
+    });
+  });
+
+  test("restartNeeded: clearly asks to restart Dota once", async () => {
+    const { site } = await renderLinked(withCompanion({ dota: "waiting", restartNeeded: true }));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("dota-guidance").textContent).toBe("Reinicia Dota 2 una vez"));
+      expect(view.getByTestId("dota-guidance").closest("details")).toBeNull();
+      expect(view.getByTestId("live-capture-status").textContent).toContain("● Reinicia Dota 2 una vez");
+      view.unmount();
+    });
+  });
+
+  test("no Companion heartbeat: the installer is shown; Dota connected: no installer, no guidance", async () => {
+    const none = await renderLinked(liveStatus(LINK.sessionId));
+    await withSite(none.site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("companion-installer-download")).toBeTruthy());
+      view.unmount();
+    });
+    const connected = await renderLinked(withCompanion({ dota: "connected" }));
+    connected.site.status = liveStatus(LINK.sessionId, { connection: "connected", gsi: gsi(), companion: { version: "0.1.0", active: true, dota: "connected", restartNeeded: false, phase: "MENU", lastSeenAgeMs: 1_000 } as never });
+    await withSite(connected.site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("● Dota conectado"));
+      expect(view.queryByTestId("dota-guidance")).toBeNull();
+      expect(view.queryByTestId("companion-installer-download")).toBeNull();
+      expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(false);
+      view.unmount();
+    });
+  });
+
+  test("no Player-facing copy tells them to restart a helper or process", async () => {
+    const { site } = await renderLinked(withCompanion({ dota: "waiting" }));
+    site.status = { ...withCompanion({ dota: "waiting" }), visual: { active: false, health: "lost", detail: "x", lastEventAgeMs: 1 } } as LiveCaptureStatus;
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView />);
+      await waitFor(() => expect(view.getByTestId("live-capture-status").textContent).toContain("Captura automática no disponible"));
+      expect(view.getByTestId("live-capture-status").textContent ?? "").not.toMatch(/ayudante|helper|proceso/i);
+      view.unmount();
+    });
+  });
+});
+
+describe("LiveDotaView -- link lifetime (frontend defense)", () => {
+  const NOW = Date.parse("2026-10-06T12:00:00.000Z");
+  const DAY = 24 * 60 * 60 * 1000;
+  const SILENT = { version: "0.1.0", active: false, dota: "not_running", restartNeeded: false, phase: "MENU", lastSeenAgeMs: 999_999 } as never;
+
+  async function renderWithExpiry(expiresAt: string, status: LiveCaptureStatus) {
+    const site = new FakeSite();
+    site.link = { ...LINK, expiresAt };
+    site.status = status;
+    return site;
+  }
+
+  test("expired link: explicit 'vencida' state with the way out, never the generic 'Companion sin señal'", async () => {
+    const site = await renderWithExpiry(new Date(NOW - 1000).toISOString(), liveStatus(LINK.sessionId, { companion: SILENT }));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-expired").textContent).toContain("Conexión de D2KIRO vencida"));
+      expect(view.getByTestId("dota-link-expired").textContent).toContain("Vuelve a vincular el Companion para continuar.");
+      expect(view.getByTestId("live-capture-status").textContent).toContain("Conexión de D2KIRO vencida");
+      expect(view.container.textContent).not.toContain("Companion sin señal");
+      // The existing pairing is offered (no second installer) and the setup is open.
+      expect(view.getAllByTestId("companion-installer-download")).toHaveLength(1);
+      expect((view.getByTestId("dota-link-controls") as HTMLDetailsElement).open).toBe(true);
+      view.unmount();
+    });
+  });
+
+  test("expiry boundary: expiresAt == now is expired", async () => {
+    const site = await renderWithExpiry(new Date(NOW).toISOString(), liveStatus(LINK.sessionId));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-expired")).toBeTruthy());
+      view.unmount();
+    });
+  });
+
+  test("<= 7 days left: a discreet 'vence pronto' line, no alert", async () => {
+    const site = await renderWithExpiry(new Date(NOW + 6 * DAY).toISOString(), liveStatus(LINK.sessionId));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-expiring").textContent).toBe("La conexión vence pronto"));
+      expect(view.queryByTestId("dota-link-expired")).toBeNull();
+      view.unmount();
+    });
+  });
+
+  test("healthy link: no lifetime warning at all", async () => {
+    const site = await renderWithExpiry(new Date(NOW + 20 * DAY).toISOString(), liveStatus(LINK.sessionId));
+    await withSite(site, async () => {
+      const view = render(<LiveDotaView now={() => NOW} />);
+      await waitFor(() => expect(view.getByTestId("dota-link-section")).toBeTruthy());
+      expect(view.queryByTestId("dota-link-expired")).toBeNull();
+      expect(view.queryByTestId("dota-link-expiring")).toBeNull();
+      view.unmount();
+    });
   });
 });

@@ -9,9 +9,9 @@ function status(overrides: Partial<LiveCaptureStatus>): LiveCaptureStatus {
 const OK = { active: true, health: "ok" as const, detail: "VISUAL_OK", lastEventAgeMs: 100 };
 
 describe("visualPill (captura visual en lenguaje llano)", () => {
-  test("sin ayudante: esperando, nunca un error", () => {
-    expect(visualPill(null).text).toContain("esperando al ayudante local");
-    expect(visualPill(status({ visual: null })).text).toContain("esperando al ayudante local");
+  test("sin captura visual: neutral, nunca un error ni un proceso que reiniciar", () => {
+    expect(visualPill(null).text).toBe("● Captura automática no disponible");
+    expect(visualPill(status({ visual: null })).text).toBe("● Captura automática no disponible");
   });
 
   test("ventana encontrada, todavía sin selección de héroes", () => {
@@ -22,9 +22,12 @@ describe("visualPill (captura visual en lenguaje llano)", () => {
     expect(visualPill(status({ visual: OK, draftPhase: "hero_selection", picks: 6, bans: 0 })).text).toBe("● 6/10 héroes reconocidos");
   });
 
-  test("el ayudante desaparece o reporta pérdida -> degradada", () => {
-    expect(visualPill(status({ visual: { ...OK, active: false } })).text).toContain("degradada");
-    expect(visualPill(status({ visual: { ...OK, health: "lost" } })).text).toContain("degradada");
+  test("la captura desaparece o reporta pérdida -> no disponible, sin pedir reiniciar nada", () => {
+    for (const visual of [{ ...OK, active: false }, { ...OK, health: "lost" as const }]) {
+      const text = visualPill(status({ visual })).text;
+      expect(text).toContain("Captura automática no disponible");
+      expect(text.toLowerCase()).not.toMatch(/ayudante|reinici/);
+    }
   });
 
   test("draft terminado", () => {

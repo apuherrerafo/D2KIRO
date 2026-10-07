@@ -347,7 +347,7 @@ function Invoke-Uninstall {
   # uninstaller .cmd that is running this (it deletes itself when this script returns).
   foreach ($path in @($RuntimePath, $ConfigPath, ($ConfigPath + '.tmp'), $LogPath, ($LogPath + '.1'))) { try { if ([IO.File]::Exists($path)) { [IO.File]::Delete($path) } } catch { } }
   $text = 'D2KIRO Companion se desinstalo: ya no arranca con Windows y se quito la configuracion de Dota 2.'
-  if ([IO.Directory]::Exists($DiagDir)) { $text = $text + $NL + $NL + 'Los diagnosticos locales quedaron en:' + $NL + $DiagDir + $NL + 'Podes borrar esa carpeta cuando quieras.' }
+  if ([IO.Directory]::Exists($DiagDir)) { $text = $text + $NL + $NL + 'Los diagnosticos locales quedaron en:' + $NL + $DiagDir + $NL + 'Puedes borrar esa carpeta cuando quieras.' }
   Show-Result ($text + $NL + $NL + 'Para cortar tambien la conexion desde el sitio, usa «Desconectar Dota» en la pagina de D2KIRO.') $true
 }
 
@@ -947,7 +947,7 @@ if ($env:D2KIRO_MODE -ne 'install') { exit 4 }
 
 $Runtime = $null
 try { $Runtime = Read-Block 'RUNTIME' } catch { $Runtime = $null }
-if ($null -eq $Runtime -or $Runtime.Length -lt 1000) { Show-Result ('Este instalador está incompleto o fue modificado.' + $NL + $NL + 'Descargá uno nuevo desde la página de D2KIRO. No se cambió nada.') $false; exit 4 }
+if ($null -eq $Runtime -or $Runtime.Length -lt 1000) { Show-Result ('Este instalador está incompleto o fue modificado.' + $NL + $NL + 'Descarga uno nuevo desde la página de D2KIRO. No se cambió nada.') $false; exit 4 }
 
 # Pairing, freshest first: the link inside this download, then a D2KIRO cfg the site generated that is
 # installed in Dota (e.g. «Descargar instalador para Windows»), then the Companion's previous pairing.
@@ -956,7 +956,7 @@ $Embedded = $null
 try { $Embedded = Read-Block 'CFG' } catch { $Embedded = $null }
 if ($null -ne $Embedded) {
   $Link = Read-RemoteLink $Embedded
-  if ($null -eq $Link) { Show-Result ('Este instalador está incompleto o fue modificado.' + $NL + $NL + 'Descargá uno nuevo desde la página de D2KIRO. No se cambió nada.') $false; exit 4 }
+  if ($null -eq $Link) { Show-Result ('Este instalador está incompleto o fue modificado.' + $NL + $NL + 'Descarga uno nuevo desde la página de D2KIRO. No se cambió nada.') $false; exit 4 }
 }
 
 $Folders = Find-AllDotaCfgFolders $false
@@ -973,7 +973,7 @@ if ($null -eq $Link) {
 $Previous = Read-CompanionConfig
 if ($null -eq $Link -and $null -ne $Previous -and $Previous.token) { $Link = @{ origin = $Previous.origin; liveId = $Previous.liveId; token = $Previous.token } }
 if ($null -eq $Link) {
-  Show-Result ('No encontramos tu conexión con D2KIRO en esta PC.' + $NL + $NL + 'Abrí D2KIRO, entrá a «Draft en vivo» y descargá «Instalar D2KIRO Companion». Después abrí ese archivo. No se cambió nada.') $false
+  Show-Result ('No encontramos tu conexión con D2KIRO en esta PC.' + $NL + $NL + 'Abre D2KIRO, entra a «Draft en vivo» y descarga «Instalar D2KIRO Companion». Después abre ese archivo. No se cambió nada.') $false
   exit 5
 }
 
@@ -997,7 +997,7 @@ try {
     [IO.File]::WriteAllText([IO.Path]::Combine($dir, $CfgName), $LocalCfg, (New-Object System.Text.UTF8Encoding($false)))
   }
 } catch {
-  Show-Result ('No pudimos instalar D2KIRO Companion.' + $NL + $NL + 'Cerrá Dota 2 y probá de nuevo.') $false
+  Show-Result ('No pudimos instalar D2KIRO Companion.' + $NL + $NL + 'Cierra Dota 2 e inténtalo de nuevo.') $false
   exit 3
 }
 
@@ -1015,7 +1015,7 @@ if (-not $NoAutostart) {
     Set-ItemProperty -Path $UninstallKey -Name 'NoModify' -Value 1 -Type DWord
     Set-ItemProperty -Path $UninstallKey -Name 'NoRepair' -Value 1 -Type DWord
   } catch {
-    Show-Result ('D2KIRO Companion quedó instalado, pero no pudimos hacer que arranque solo con Windows.' + $NL + $NL + 'Volvé a abrir este instalador.') $false
+    Show-Result ('D2KIRO Companion quedó instalado, pero no pudimos hacer que arranque solo con Windows.' + $NL + $NL + 'Vuelve a abrir este instalador.') $false
     exit 3
   }
 }
@@ -1037,11 +1037,11 @@ if ($env:D2KIRO_TEST_NO_START -ne '1') {
 }
 
 $restart = ''
-if (Get-Process -Name 'dota2' -ErrorAction SilentlyContinue) { $restart = $NL + $NL + 'Dota 2 está abierto: cerralo y volvelo a abrir (solo esta vez).' }
-$launchHint = 'Si Dota nunca aparece como conectado: en Steam, clic derecho en Dota 2 > Propiedades > General > Opciones de lanzamiento, agregá -gamestateintegration.'
+if (Get-Process -Name 'dota2' -ErrorAction SilentlyContinue) { $restart = $NL + $NL + 'Dota 2 está abierto: ciérralo y vuelve a abrirlo (solo esta vez).' }
+$launchHint = 'Si Dota nunca aparece como conectado: en Steam, clic derecho en Dota 2 > Propiedades > General > Opciones de lanzamiento, agrega -gamestateintegration.'
 $state = 'D2KIRO Companion quedó instalado y corriendo en segundo plano.'
 if ($env:D2KIRO_TEST_NO_START -eq '1') { $state = 'D2KIRO Companion quedó instalado.' }
 elseif (-not $Running) { $state = 'D2KIRO Companion quedó instalado; arranca solo la próxima vez que inicies sesión en Windows.' }
-Show-Result ('Listo: ' + $state + $NL + $NL + 'Desde ahora arranca solo con Windows: no hace falta abrir nada más. Abrí D2KIRO en el navegador y jugá normal.' + $restart + $NL + $NL + $launchHint + $NL + $NL + 'Para desinstalarlo: Configuración de Windows > Aplicaciones > D2KIRO Companion.') $true
+Show-Result ('Listo: ' + $state + $NL + $NL + 'Desde ahora arranca solo con Windows: no hace falta abrir nada más. Abre D2KIRO en el navegador y juega normal.' + $restart + $NL + $NL + $launchHint + $NL + $NL + 'Para desinstalarlo: Configuración de Windows > Aplicaciones > D2KIRO Companion.') $true
 exit 0
 #D2KIRO-SCRIPT-END`;

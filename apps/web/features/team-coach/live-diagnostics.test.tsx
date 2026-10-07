@@ -299,7 +299,7 @@ describe("Copiar diagnóstico", () => {
   });
 });
 
-const LINK: GsiLinkView = { sessionId: "gsi-session-1", createdAt: "2026-10-02T00:00:00.000Z", expiresAt: "2026-11-01T00:00:00.000Z" };
+const LINK: GsiLinkView = { sessionId: "gsi-session-1", createdAt: "2026-10-02T00:00:00.000Z", expiresAt: "2099-01-01T00:00:00.000Z" };
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
