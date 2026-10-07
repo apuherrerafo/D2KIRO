@@ -39,6 +39,7 @@ COPY apps/engine/drizzle.config.ts apps/engine/tsconfig.json ./apps/engine/
 
 COPY apps/web/app ./apps/web/app
 COPY apps/web/components ./apps/web/components
+COPY apps/web/design ./apps/web/design
 COPY apps/web/features ./apps/web/features
 COPY apps/web/lib ./apps/web/lib
 COPY apps/web/server ./apps/web/server
