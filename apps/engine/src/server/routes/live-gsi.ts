@@ -262,6 +262,12 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     const heartbeat = parseCompanionHeartbeat(payload);
     if (heartbeat === null) return new Response(null, { status: 400 });
     if (!deps.registry.ensureSession(link.sessionId, link.accountId)) return noStore({ error: "live_session_unavailable" }, 409);
+    // Sliding expiration: only a heartbeat that passed token verification AND shape validation keeps the link alive.
+    try {
+      deps.links.renew(liveId, at);
+    } catch {
+      // A failed renewal must never drop a valid heartbeat; the next one retries.
+    }
     return deps.registry.noteCompanion(link.sessionId, heartbeat) ? new Response(null, { status: 200, headers: { "cache-control": "no-store" } }) : noStore({ error: "live_session_unavailable" }, 409);
   }
 
