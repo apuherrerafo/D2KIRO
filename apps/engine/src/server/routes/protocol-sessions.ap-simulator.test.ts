@@ -5,7 +5,7 @@ import type { HeroPositions } from "../../signals/hero-positions";
 import type { SuggestionSet } from "../../signals/mix";
 import { createEnemyBotConfig } from "../../simulator/enemy-bot";
 import { deriveAllyPositionOrder } from "../../simulator/ally-bot-roles";
-import type { BanResolutionPolicy, HeroUniverse } from "../../simulator/ban-resolution";
+import { defaultBanResolutionPolicy, type BanResolutionPolicy, type HeroUniverse } from "../../simulator/ban-resolution";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createProtocolSessionRoutes, type ComputeSuggestionsForDraftState } from "./protocol-sessions";
 
@@ -423,10 +423,10 @@ describe("PD-026/PD-027 -- fase de bans (fail closed)", () => {
   test("la policy lanza: no se entra a Round 1, no hay bans fabricados y el reintento funciona", async () => {
     let calls = 0;
     const flaky: BanResolutionPolicy = {
-      resolve(preferences) {
+      resolve(preferences, seed, universe) {
         calls += 1;
         if (calls === 1) throw new Error("boom");
-        return [...new Set(preferences.flatMap((set) => set.preferences).filter((hero): hero is number => hero !== null))].slice(0, 3);
+        return defaultBanResolutionPolicy.resolve(preferences, seed, universe);
       },
     };
     const { routes, store } = makeRoutes({ banResolutionPolicy: flaky });

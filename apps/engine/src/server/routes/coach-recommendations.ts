@@ -1,7 +1,7 @@
 import { buildTeamCoachBoard, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
-import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
+import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
 import { loadHeroCounters, type CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
@@ -98,16 +98,20 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
           singleSlotEvaluation: true,
           outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
         }),
-        buildTargetRanking: (context, targetPosition, usePersonalPool) => buildRecommendationSetFromPerspective({
-          context,
-          computeSuggestions: usePersonalPool ? computeForPersonal : computeForTeam,
-          heroPositions,
-          targetPosition,
-          candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),
-          teamOpening: false,
-          singleSlotEvaluation: true,
-          outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
-        }),
+        buildTargetRanking: (context, targetPosition, usePersonalPool) => {
+          const positionPool = poolForPosition(context.playerPoolsByPosition, targetPosition);
+          return buildRecommendationSetFromPerspective({
+            context,
+            computeSuggestions: positionPool ? computeForTeam : (usePersonalPool ? computeForPersonal : computeForTeam),
+            overrideHeroPool: positionPool ?? undefined,
+            heroPositions,
+            targetPosition,
+            candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),
+            teamOpening: false,
+            singleSlotEvaluation: true,
+            outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+          });
+        },
       });
       coaches.push({ accountId: key, coach });
     }
@@ -116,9 +120,11 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   // Team-level by construction: the account is erased before every evaluation (same rule as computeForTeam above),
   // so the board shows every observer of a visible draft the same columns.
   function buildTeamTargetRanking(context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
+    const positionPool = poolForPosition(context.playerPoolsByPosition, targetPosition);
     return buildRecommendationSetFromPerspective({
       context,
       computeSuggestions: (draft, _ignored, options) => deps.computeSuggestions(draft, null, options),
+      overrideHeroPool: positionPool ?? undefined,
       heroPositions,
       targetPosition,
       candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),

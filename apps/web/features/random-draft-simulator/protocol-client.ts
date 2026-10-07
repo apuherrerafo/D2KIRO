@@ -254,6 +254,8 @@ export interface CreateSimulatorSessionOptions {
    * sides' sealed selections and the observed bans by hand (see protocol-session.ts, engine side).
    */
   adapterKind?: "manual" | "simulator";
+  teamGroupId?: number | null;
+  playerPoolsByPosition?: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId[]>>;
 }
 
 /**
@@ -289,6 +291,8 @@ export async function createSimulatorProtocolSession(
       controlledPositions,
       humanPosition: options.humanPosition,
       simulatorSeed: options.simulatorSeed,
+      teamGroupId: options.teamGroupId,
+      playerPoolsByPosition: options.playerPoolsByPosition,
     }),
   });
   if (!response.ok) throw new Error(`protocol session creation failed (${response.status})`);

@@ -7,9 +7,15 @@ import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib
 // authenticated by the link token in the engine (app/api/live/gsi/[liveId]/route.ts). Exactly this
 // prefix: `/api/live/gsi-config` (the cfg download) still needs a session.
 const GSI_INGEST_PREFIX = "/api/live/gsi/";
+// Local visual capture (the Player's PC derives hero ids from the Dota window): same public door, same link
+// credential, checked by the engine. Facts only -- never a frame.
+const VISUAL_INGEST_PREFIX = "/api/live/visual/";
+// D2KIRO Companion heartbeat: same public door, same link credential, checked by the engine. Exactly this prefix:
+// `/api/live/companion-installer` (the personal download) still needs a session.
+const COMPANION_INGEST_PREFIX = "/api/live/companion/";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX);
+  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

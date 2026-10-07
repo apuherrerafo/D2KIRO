@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>HUB del ecosistema — 2026-10-07T18:08:10.107Z</title>
+<title>HUB del ecosistema — 2026-10-07T18:09:57.350Z</title>
 <style>
   body { font-family: -apple-system, sans-serif; background: #0f1115; color: #e6e6e6; margin: 0; padding: 24px; }
   h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -2051,7 +2051,7 @@
         <div class="stat-row">
           <div class="stat-name">claude-code</div>
           <div class="stat-bar-track"><div class="stat-bar" style="width:17%"></div></div>
-          <div class="stat-nums">35× · 77% ok · 4 bloqueado </div>
+          <div class="stat-nums">36× · 78% ok · 4 bloqueado </div>
         </div>
         <div class="stat-row">
           <div class="stat-name">codex</div>
@@ -2142,6 +2142,13 @@
         <div class="feed-card">
           <div class="feed-icon">✅</div>
           <div class="feed-body">
+            <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-10-06T03:10</span></div>
+            <div class="feed-note">Companion V0 (branch feat/companion-v0, sin merge): runtime PowerShell + instalador .cmd, heartbeat /api/live/companion, pills COMPANION/PHASE, diagnosticos GSI locales; engine 1914/web 528/scripts 575 verdes</div>
+          </div>
+        </div>
+        <div class="feed-card">
+          <div class="feed-icon">✅</div>
+          <div class="feed-body">
             <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">TSK-237</span> <span class="feed-ts">2026-10-02T22:20</span></div>
             <div class="feed-note">fase B/C: artefacto run 37067982551 (2 failed/41 passed). (1) webkit-mobile/mobile-semantic.spec.ts: WebKit no instalado en CI → install chromium webkit. (2) chromium/simulator.spec.ts:80 Party5: selector button[title] (l.107) clicaba la carta team-coach-candidate Pos1 (trace) → excluida por data-testid. Rojo reproducido local (Windows) con el mismo error, verde tras el fix. write_scope += e2e/simulator.spec.ts.</div>
           </div>
@@ -2193,13 +2200,6 @@
           <div class="feed-body">
             <div class="feed-top"><strong>claude-code</strong> <span class="feed-ticket">TSK-219</span> <span class="feed-ts">2026-10-02T13:45</span></div>
             <div class="feed-note">Fix de bug bloqueante #3 de Greptile en instalador GSI Windows: copias huerfanas/stale sin manifest (appmanifest_570.acf) en bibliotecas primarias ya no abortan la busqueda de fallback hacia bibliotecas activas; si solo existen copias stale, el instalador falla cerrado (exit 2, NotFound) sin escribir cfg en directorios muertos. Anadidas pruebas de regresion verificadas en rojo (stale + active fallback, stale-only fail closed) y prueba de ejecutable truncado en 5 cortes reales de cmd.exe/PowerShell (exit != 0, cero archivos ajenos modificados). Enmienda de write_scope narrow documentada en TSK-219.md. Gates: engine 1853 / web 443 / scripts 572 en verde; tsc x2; lint 0 errores; verify-simplicity superada. @redteam APPROVED y Sentinel PASS (10/10).</div>
-          </div>
-        </div>
-        <div class="feed-card">
-          <div class="feed-icon">✅</div>
-          <div class="feed-body">
-            <div class="feed-top"><strong>redteam</strong> <span class="feed-ticket">-</span> <span class="feed-ts">2026-10-02T13:15</span></div>
-            <div class="feed-note">gate de seguridad PASS, APPROVED. Los 10 puntos de la auditoria (token fuera de linea de comandos/salida/logs, frontera de descarga, inyeccion de rutas, vdf, limite de escritura, autoborrado, desinstalador, privacidad de Steam, cero red, fail-closed) cubiertos por prueba. Residual no bloqueante: SteamPath en HKCU o una junction pueden ser manipulados por un proceso del mismo usuario (sin frontera de privilegio); el instalador se autoborra tambien cuando no encuentra Dota. Gates: engine 1848 / web 455 / scripts 572, 0 fallos; tsc web+engine; lint 0 errores; verify-simplicity exit 0.</div>
           </div>
         </div></div>
     </div>

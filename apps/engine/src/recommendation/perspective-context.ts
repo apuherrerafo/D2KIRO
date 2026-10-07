@@ -57,6 +57,19 @@ export interface PerspectiveRecommendationContext {
    * existed.
    */
   ownAssignedPositions?: ReadonlyMap<HeroId, Position> | null;
+  /**
+   * Party 5 / Team preset hero pools mapped by position (1..5). When present, evaluating target position P
+   * scores candidates with position P's pool instead of the single personal account pool.
+   */
+  playerPoolsByPosition?: Partial<Record<Position, readonly HeroId[]>> | null;
+}
+
+export function poolForPosition(
+  playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> | null | undefined,
+  position: Position,
+): readonly HeroId[] | undefined {
+  if (!playerPoolsByPosition) return undefined;
+  return playerPoolsByPosition[position];
 }
 
 /** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --
@@ -70,6 +83,7 @@ export type ComputeSuggestionsForRecommendation = (
     usePersonalPool?: boolean;
     diversitySeed?: string;
     candidateHeroIds?: readonly HeroId[];
+    overrideHeroPool?: readonly HeroId[];
   },
 ) => Promise<SuggestionSet>;
 

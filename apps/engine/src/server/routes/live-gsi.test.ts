@@ -3,10 +3,10 @@ import type { TeamCoachBoard } from "../../coach";
 import { fakeCompute } from "../../coach/session-harness.fixtures";
 import { createGsiLinkTestDb, gsiPayload, SENTINELS } from "../../live/gsi.fixtures";
 import { createGsiLinkStore, GSI_LINK_TTL_MS } from "../../live/gsi-links";
-import { GSI_DRAFT_PARTIAL, GSI_ITEM_CHANGES, LiveCaptureRegistry, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
+import { GSI_DRAFT_PARTIAL, GSI_ITEM_CHANGES, LiveCaptureRegistry, LIVE_COMPANION_STALE_AFTER_MS, LIVE_STALE_AFTER_MS, type LiveCaptureStatus } from "../../live/live-capture-registry";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
-import { createLiveGsiRoutes, GSI_MAX_BODY_BYTES } from "./live-gsi";
+import { COMPANION_MAX_BODY_BYTES, createLiveGsiRoutes, GSI_MAX_BODY_BYTES, parseCompanionHeartbeat } from "./live-gsi";
 import { createProtocolSessionRoutes } from "./protocol-sessions";
 
 // TSK-219 -- the public GSI boundary end to end on the engine side: link store (REAL migration 0009 on
@@ -50,7 +50,10 @@ function setup() {
     expect(response.status).toBe(200);
     return (await response.json()) as TeamCoachBoard;
   }
-  return { store, registry, links, routes, protocol, issue, post, status, board, advance: (ms: number) => (clock += ms) };
+  function beat(liveId: string, body: unknown, raw?: string) {
+    return routes.postCompanion(new Request(`http://127.0.0.1/api/live/companion/${liveId}`, { method: "POST", body: raw ?? JSON.stringify(body), headers: { "content-type": "application/json" } }), liveId);
+  }
+  return { store, registry, links, routes, protocol, issue, post, beat, status, board, advance: (ms: number) => (clock += ms) };
 }
 
 const ALL_CONSOLE = ["log", "info", "warn", "error", "debug"] as const;
@@ -210,7 +213,7 @@ describe("input limits", () => {
   test("a storage failure answers a bare 503 and is never thrown (its message would carry query parameters)", async () => {
     const t = setup();
     const broken = new Error(`SQLITE_ERROR params: ${ACCOUNT_A}`);
-    const failing = { issue: () => { throw broken; }, active: () => { throw broken; }, revoke: () => { throw broken; }, verify: () => { throw broken; } };
+    const failing = { issue: () => { throw broken; }, active: () => { throw broken; }, revoke: () => { throw broken; }, verify: () => { throw broken; }, renew: () => { throw broken; } };
     const routes = createLiveGsiRoutes({ links: failing, registry: t.registry, now: () => T0 });
     const ingest = await routes.postIngest(new Request(`http://127.0.0.1/api/live/gsi/${"A".repeat(43)}`, { method: "POST", body: JSON.stringify(gsiPayload({ token: "a".repeat(64) })) }), "A".repeat(43));
     const responses = [ingest, routes.postIssue(ACCOUNT_A), routes.getLink(ACCOUNT_A), routes.deleteLink(ACCOUNT_A)];
@@ -430,6 +433,109 @@ describe("connection diagnostics (/live-draft \"Diagnóstico de conexión\")", (
   });
 });
 
+describe("D2KIRO Companion heartbeat (/api/live/companion/<liveId>)", () => {
+  const heartbeat = (token: string | null, companion: Record<string, unknown> = {}) => ({
+    ...(token === null ? {} : { auth: { token } }),
+    companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, ...companion },
+  });
+
+  test("a valid heartbeat marks the Companion present on the link owner's session, Dota closed included", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const response = await t.beat(issued.liveId, heartbeat(issued.token));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("");
+    const status = t.status(issued.sessionId);
+    expect(status.companion).toEqual({ version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, visual: null, active: true, lastSeenAgeMs: 0 });
+    // Presence only: GSI's own connection and the draft are untouched.
+    expect(status.connection).toBe("waiting");
+    expect(status.gsi).toBeNull();
+    expect(status.draftPhase).toBe("waiting");
+  });
+
+  test("phase and Dota state follow the latest beat; three missed beats = no longer active", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "HERO_SELECTION" }));
+    expect(t.status(issued.sessionId).companion).toMatchObject({ dota: "connected", phase: "HERO_SELECTION", active: true });
+    t.advance(LIVE_COMPANION_STALE_AFTER_MS + 1);
+    expect(t.status(issued.sessionId).companion).toMatchObject({ active: false, lastSeenAgeMs: LIVE_COMPANION_STALE_AFTER_MS + 1 });
+    await t.beat(issued.liveId, heartbeat(issued.token, { dota: "waiting", phase: null, restartNeeded: true }));
+    expect(t.status(issued.sessionId).companion).toMatchObject({ dota: "waiting", phase: null, restartNeeded: true, active: true });
+  });
+
+  test("the Companion survives a new match's draft restart (it is the connection, not the draft)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "MENU" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", gameState: "DOTA_GAMERULES_STATE_HERO_SELECTION", matchId: "1" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", matchId: "1" }));
+    await t.post(issued.liveId, gsiPayload({ token: issued.token, teamName: "radiant", gameState: "DOTA_GAMERULES_STATE_HERO_SELECTION", matchId: "2" }));
+    expect(t.status(issued.sessionId).companion?.dota).toBe("connected");
+  });
+
+  test("fails closed like GSI: wrong/missing token, unknown or malformed live id, rotated link -> 401, nothing noted", async () => {
+    const t = setup();
+    const first = await t.issue(ACCOUNT_A);
+    expect((await t.beat(first.liveId, heartbeat("f".repeat(64)))).status).toBe(401);
+    expect((await t.beat(first.liveId, heartbeat(null))).status).toBe(401);
+    expect((await t.beat("B".repeat(43), heartbeat(first.token))).status).toBe(401);
+    expect((await t.beat("short", heartbeat(first.token))).status).toBe(401);
+    expect(t.status(first.sessionId).companion).toBeNull();
+    const second = await t.issue(ACCOUNT_A);
+    expect((await t.beat(first.liveId, heartbeat(first.token))).status).toBe(401);
+    expect((await t.beat(second.liveId, heartbeat(second.token))).status).toBe(200);
+  });
+
+  test("the helper state is optional, must be in the closed vocabulary, and reaches the status", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token, { visual: "downloading" }))).status).toBe(200);
+    expect(t.status(issued.sessionId).companion?.visual).toBe("downloading");
+    expect((await t.beat(issued.liveId, heartbeat(issued.token, { visual: "running" }))).status).toBe(200);
+    expect(t.status(issued.sessionId).companion?.visual).toBe("running");
+    for (const bad of ["maybe", "", 1, null, ["running"]]) {
+      expect((await t.beat(issued.liveId, heartbeat(issued.token, { visual: bad }))).status).toBe(400);
+    }
+    expect(t.status(issued.sessionId).companion?.visual).toBe("running");
+    expect(parseCompanionHeartbeat({ companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "connected", phase: null, restartNeeded: false } })?.visual).toBeNull();
+  });
+
+  test("anything that is not exactly a heartbeat -> 400; oversized -> 413", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    for (const bad of [{ dota: "maybe" }, { phase: "DRAFT" }, { version: "1.0" }, { version: "0.1.0; rm -rf" }, { schema: "companion-heartbeat/v2" }, { restartNeeded: "no" }]) {
+      expect((await t.beat(issued.liveId, heartbeat(issued.token, bad))).status).toBe(400);
+    }
+    expect((await t.beat(issued.liveId, { auth: { token: issued.token } })).status).toBe(400);
+    expect((await t.beat(issued.liveId, null, "not json")).status).toBe(400);
+    expect((await t.beat(issued.liveId, null, JSON.stringify({ ...heartbeat(issued.token), pad: "x".repeat(COMPANION_MAX_BODY_BYTES) }))).status).toBe(413);
+    expect(t.status(issued.sessionId).companion).toBeNull();
+  });
+
+  test("parseCompanionHeartbeat keeps only the five known fields", () => {
+    expect(parseCompanionHeartbeat({ companion: { schema: "companion-heartbeat/v1", version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, steamid: "765" } })).toEqual({ version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, visual: null });
+    expect(parseCompanionHeartbeat({ companion: [] })).toBeNull();
+    expect(parseCompanionHeartbeat(null)).toBeNull();
+  });
+
+  test("rate limited per link like every other update", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    for (let i = 0; i < 20; i++) expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(429);
+  });
+
+  test("nothing from a heartbeat is logged or echoed; the status never carries the token or the live id", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const text = await (await t.beat(issued.liveId, heartbeat(issued.token, { dota: "connected", phase: "MENU" }))).text();
+    for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+    const exposed = [text, JSON.stringify(t.status(issued.sessionId))].join("|");
+    for (const secret of [issued.token, issued.liveId, String(ACCOUNT_A)]) expect(exposed).not.toContain(secret);
+  });
+});
+
 describe("privacy", () => {
   test("no raw payload, identity or token in any log line, response or status", async () => {
     const t = setup();
@@ -446,5 +552,111 @@ describe("privacy", () => {
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
     const exposed = [...responses, JSON.stringify(t.status(issued.sessionId)), await t.routes.getLink(ACCOUNT_A).text()].join("\n");
     for (const secret of [...SENTINELS, issued.token, issued.liveId, String(ACCOUNT_A)]) expect(exposed).not.toContain(secret);
+  });
+});
+
+describe("Companion link: sliding expiration (valid heartbeats keep the link alive)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const heartbeat = (token: string | null, companion: Record<string, unknown> = {}) => ({
+    ...(token === null ? {} : { auth: { token } }),
+    companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, ...companion },
+  });
+  const expiry = (t: ReturnType<typeof setup>, now: number) => t.links.active(ACCOUNT_A, now)?.expiresAt ?? null;
+
+  test("a valid heartbeat renews the link to now + 30 days once a day has passed", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+    expect(expiry(t, now)).toBe(now + GSI_LINK_TTL_MS);
+  });
+
+  test("throttled: heartbeats within the same day do not write; the next day they do", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const renew = spyOn(t.links, "renew");
+    t.advance(2 * DAY);
+    for (let i = 0; i < 20; i++) {
+      await t.beat(issued.liveId, heartbeat(issued.token));
+      t.advance(15_000);
+    }
+    expect(renew.mock.results.filter((result) => result.value === true)).toHaveLength(1);
+    t.advance(DAY);
+    await t.beat(issued.liveId, heartbeat(issued.token));
+    expect(renew.mock.results.filter((result) => result.value === true)).toHaveLength(2);
+  });
+
+  test("an active Companion survives far beyond the original 30-day window (simulated time)", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const originalExpiry = Date.parse(issued.expiresAt);
+    let now = T0;
+    for (let day = 0; day < 75; day++) {
+      now = t.advance(DAY / 2);
+      expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+    }
+    expect(now).toBeGreaterThan(originalExpiry + 7 * DAY);
+    expect(expiry(t, now)).not.toBeNull();
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(200);
+  });
+
+  test("without heartbeats the link still expires at the original time", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const now = t.advance(GSI_LINK_TTL_MS + 1);
+    expect(expiry(t, now)).toBeNull();
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+  });
+
+  test("a wrong or missing token can never renew", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const before = expiry(t, T0);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(issued.liveId, heartbeat("f".repeat(64)))).status).toBe(401);
+    expect((await t.beat(issued.liveId, heartbeat(null))).status).toBe(401);
+    expect((await t.beat("short", heartbeat(issued.token))).status).toBe(401);
+    expect(expiry(t, now)).toBe(before);
+  });
+
+  test("a malformed heartbeat with the right token (400) never renews", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const before = expiry(t, T0);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token, { dota: "maybe" }))).status).toBe(400);
+    expect(expiry(t, now)).toBe(before);
+  });
+
+  test("an expired credential cannot resurrect itself", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    const now = t.advance(GSI_LINK_TTL_MS + DAY);
+    expect(t.links.renew(issued.liveId, now)).toBe(false);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+    expect(expiry(t, now)).toBeNull();
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+  });
+
+  test("a revoked link (explicit Disconnect) cannot renew", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    t.advance(2 * DAY);
+    expect(t.routes.deleteLink(ACCOUNT_A).status).toBeLessThan(300);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token))).status).toBe(401);
+    expect(t.links.renew(issued.liveId, t.advance(0))).toBe(false);
+    expect(expiry(t, t.advance(0))).toBeNull();
+  });
+
+  test("a new pairing revokes the previous link: the old credential cannot renew, the new one can", async () => {
+    const t = setup();
+    const first = await t.issue(ACCOUNT_A);
+    t.advance(2 * DAY);
+    const second = await t.issue(ACCOUNT_A);
+    const now = t.advance(2 * DAY);
+    expect((await t.beat(first.liveId, heartbeat(first.token))).status).toBe(401);
+    expect(t.links.renew(first.liveId, now)).toBe(false);
+    expect((await t.beat(second.liveId, heartbeat(second.token))).status).toBe(200);
+    expect(expiry(t, now)).toBe(now + GSI_LINK_TTL_MS);
   });
 });

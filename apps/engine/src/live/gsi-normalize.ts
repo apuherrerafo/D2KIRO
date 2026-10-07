@@ -45,7 +45,27 @@ export interface GsiUpdate {
    * updates (diagnostics). Never the items themselves; null when the payload carries no item names.
    */
   itemsKey: string | null;
+  /**
+   * STRUCTURAL capability labels (fixed vocabulary, `GSI_STRUCTURE_LABELS`): which sections / roster-like
+   * shapes this payload carries. Presence only -- never a key name from the payload, a value, a hero id or a
+   * count of anything but the three fixed thresholds. Discovery only: no label means "usable for coaching".
+   */
+  structure: GsiStructureLabel[];
 }
+
+/**
+ * Closed vocabulary of structural findings. A payload can only ever switch these labels on; nothing it says
+ * (key names, ids, names, values) reaches the output, so the diagnostic cannot leak identity by construction.
+ */
+export const GSI_STRUCTURE_LABELS = [
+  "section.provider", "section.map", "section.player", "section.hero", "section.abilities", "section.items",
+  "section.draft", "section.allplayers", "section.buildings", "section.wearables", "section.minimap",
+  "section.roshan", "section.couriers", "section.neutralitems", "section.league",
+  "draft.team2", "draft.team3", "draft.pick_ban_slots", "draft.activeteam",
+  "roster.team_keyed", "roster.player_entries", "roster.multi_entries", "roster.full_entries",
+  "roster.hero_fields", "roster.team_fields",
+] as const;
+export type GsiStructureLabel = (typeof GSI_STRUCTURE_LABELS)[number];
 
 const DRAFT_STATES = new Set(["DOTA_GAMERULES_STATE_HERO_SELECTION", "DOTA_GAMERULES_STATE_STRATEGY_TIME"]);
 const LOADING_STATES = new Set(["DOTA_GAMERULES_STATE_INIT", "DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD", "DOTA_GAMERULES_STATE_CUSTOM_GAME_SETUP"]);
@@ -162,6 +182,59 @@ function hashItems(items: unknown): string | null {
   return createHash("sha256").update(`d2k-gsi-items/v1|${slots.sort().join(",")}`).digest("hex").slice(0, 16);
 }
 
+const SECTION_LABELS = new Set<string>(GSI_STRUCTURE_LABELS.filter((label) => label.startsWith("section.")).map((label) => label.slice("section.".length)));
+const PLAYER_ENTRY_KEY = /^player\d{1,2}$/;
+const ROSTER_SECTIONS = ["player", "hero", "allplayers"] as const;
+const FULL_ROSTER_ENTRIES = 10;
+
+/** Player-like children of a section: `playerN` directly, or under `team2` / `team3`. */
+function rosterEntries(section: Json): { entries: Json[]; teamKeyed: boolean } {
+  const entries: Json[] = [];
+  let teamKeyed = false;
+  for (const [key, child] of Object.entries(section)) {
+    if (!isObject(child)) continue;
+    if (PLAYER_ENTRY_KEY.test(key)) entries.push(child);
+    else if (key in DRAFT_TEAM_SIDE) {
+      teamKeyed = true;
+      for (const [innerKey, inner] of Object.entries(child)) if (PLAYER_ENTRY_KEY.test(innerKey) && isObject(inner)) entries.push(inner);
+    }
+  }
+  return { entries, teamKeyed };
+}
+
+function hasHeroField(entry: Json): boolean {
+  return heroIdOf(entry.id) !== null || heroIdOf(entry.hero_id) !== null;
+}
+
+function hasTeamField(entry: Json): boolean {
+  return entry.team_name === "radiant" || entry.team_name === "dire" || entry.team === 2 || entry.team === 3;
+}
+
+function readStructure(body: Json): GsiStructureLabel[] {
+  const found = new Set<GsiStructureLabel>();
+  for (const [key, value] of Object.entries(body)) {
+    if (SECTION_LABELS.has(key) && isObject(value)) found.add(`section.${key}` as GsiStructureLabel);
+  }
+  if (isObject(body.draft)) {
+    if (isObject(body.draft.team2)) found.add("draft.team2");
+    if (isObject(body.draft.team3)) found.add("draft.team3");
+    if (Object.values(body.draft).some((team) => isObject(team) && Object.keys(team).some((key) => DRAFT_SLOT_KEY.test(key)))) found.add("draft.pick_ban_slots");
+    if ("activeteam" in body.draft) found.add("draft.activeteam");
+  }
+  for (const name of ROSTER_SECTIONS) {
+    const section = body[name];
+    if (!isObject(section)) continue;
+    const { entries, teamKeyed } = rosterEntries(section);
+    if (teamKeyed) found.add("roster.team_keyed");
+    if (entries.length >= 1) found.add("roster.player_entries");
+    if (entries.length >= 2) found.add("roster.multi_entries");
+    if (entries.length >= FULL_ROSTER_ENTRIES) found.add("roster.full_entries");
+    if (entries.some(hasHeroField)) found.add("roster.hero_fields");
+    if (entries.some(hasTeamField)) found.add("roster.team_fields");
+  }
+  return GSI_STRUCTURE_LABELS.filter((label) => found.has(label));
+}
+
 /** How many draft facts one update states (bans + picks + our own hero): growing between updates = the draft progressing. */
 export function draftFactCount(update: GsiUpdate): number {
   return (update.draft?.bans.length ?? 0) + (update.draft?.picks.length ?? 0) + (update.ownHeroId === null ? 0 : 1);
@@ -197,6 +270,7 @@ export function normalizeGsi(payload: unknown): GsiUpdate {
     },
     telemetry: readTelemetry(body),
     itemsKey: hashItems(body.items),
+    structure: readStructure(body),
   };
 }
 

@@ -36,7 +36,7 @@ function isPartySize(value: unknown): value is PartySize {
 function isValidTeamMemberPutEntry(value: unknown): value is TeamMemberPutEntry {
   if (typeof value !== "object" || value === null) return false;
   const entry = value as Record<string, unknown>;
-  if (!Number.isInteger(entry.slot) || (entry.slot as number) < 1 || (entry.slot as number) > 4) return false;
+  if (!Number.isInteger(entry.slot) || (entry.slot as number) < 1 || (entry.slot as number) > 5) return false;
   if (typeof entry.name !== "string" || entry.name.trim().length === 0) return false;
   if (!Array.isArray(entry.heroPool) || entry.heroPool.length > 5) return false;
   if (!entry.heroPool.every((hero) => Number.isInteger(hero) && hero > 0)) return false;
@@ -52,10 +52,14 @@ function isValidTeamGroupPutBody(value: unknown): value is TeamGroupPutBody {
   // closures de abajo (.every()) cuando se sigue leyendo vía la propiedad `body.partySize`.
   const partySize = body.partySize;
   if (!Array.isArray(body.members) || !body.members.every(isValidTeamMemberPutEntry)) return false;
-  if (body.members.length !== partySize - 1) return false;
+  const isFullParty = body.members.length === partySize;
+  const isCompanionsOnly = body.members.length === partySize - 1;
+  if (!isFullParty && !isCompanionsOnly) return false;
   const slots = body.members.map((member) => member.slot);
   if (new Set(slots).size !== slots.length) return false;
-  return slots.every((slot) => slot >= 1 && slot < partySize);
+  return isFullParty
+    ? slots.every((slot) => slot >= 1 && slot <= partySize)
+    : slots.every((slot) => slot >= 1 && slot < partySize);
 }
 
 function teamBodyToWriteRow(body: TeamGroupPutBody, accountId: number): TeamGroupWriteRow {

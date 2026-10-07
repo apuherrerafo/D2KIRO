@@ -21,8 +21,17 @@ export type RelayRequest = Pick<Request, "headers" | "body">;
 
 export interface GsiRelayDependencies {
   engineUrl: () => string;
+  /** Engine path prefix the liveId is appended to. Default: the GSI ingest. The visual relay reuses this handler. */
+  enginePath?: string;
+  /** Body cap in bytes. Default: GSI_RELAY_MAX_BYTES. */
+  maxBytes?: number;
   fetch: FetchLike;
   readDeadlineMs?: number;
+  /**
+   * Optional allowlist for a 200 answer's body. Default (GSI): status only. The visual relay passes one so the
+   * helper learns the draft lifecycle; whatever it does not rebuild field by field never leaves the container.
+   */
+  answerOf?: (engineBody: unknown) => object | null;
 }
 
 function empty(status: number): Response {
@@ -44,9 +53,9 @@ function deadlineAfter(ms: number): { promise: Promise<typeof DEADLINE>; clear()
   };
 }
 
-async function readBounded(request: RelayRequest, deadlineMs: number): Promise<Uint8Array<ArrayBuffer> | 400 | 408 | 413> {
+async function readBounded(request: RelayRequest, deadlineMs: number, maxBytes: number): Promise<Uint8Array<ArrayBuffer> | 400 | 408 | 413> {
   const declared = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > GSI_RELAY_MAX_BYTES) return 413;
+  if (Number.isFinite(declared) && declared > maxBytes) return 413;
   if (!request.body) return 400;
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -63,7 +72,7 @@ async function readBounded(request: RelayRequest, deadlineMs: number): Promise<U
       const { done, value } = chunk;
       if (done) break;
       total += value.byteLength;
-      if (total > GSI_RELAY_MAX_BYTES) {
+      if (total > maxBytes) {
         await reader.cancel().catch(() => undefined);
         return 413;
       }
@@ -87,17 +96,21 @@ async function readBounded(request: RelayRequest, deadlineMs: number): Promise<U
 export function createGsiRelayHandler(dependencies: GsiRelayDependencies) {
   return async (request: RelayRequest, liveId: string): Promise<Response> => {
     if (!GSI_LIVE_ID_PATTERN.test(liveId)) return empty(401);
-    const body = await readBounded(request, dependencies.readDeadlineMs ?? GSI_RELAY_READ_DEADLINE_MS);
+    const body = await readBounded(request, dependencies.readDeadlineMs ?? GSI_RELAY_READ_DEADLINE_MS, dependencies.maxBytes ?? GSI_RELAY_MAX_BYTES);
     if (body === 400 || body === 408 || body === 413) return empty(body);
     try {
-      const engineResponse = await dependencies.fetch(`${dependencies.engineUrl()}/api/live/gsi/${liveId}`, {
+      const engineResponse = await dependencies.fetch(`${dependencies.engineUrl()}${dependencies.enginePath ?? "/api/live/gsi/"}${liveId}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body,
         cache: "no-store",
         signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
       });
-      // Status only: whatever the engine answered stays inside the container.
+      // Status only: whatever the engine answered stays inside the container (unless `answerOf` rebuilds it).
+      if (engineResponse.status === 200 && dependencies.answerOf) {
+        const answer = dependencies.answerOf(await engineResponse.json().catch(() => null));
+        if (answer !== null) return Response.json(answer, { status: 200, headers: { "cache-control": "no-store" } });
+      }
       return empty(FORWARDED_STATUSES.has(engineResponse.status) ? engineResponse.status : 502);
     } catch {
       return empty(503);

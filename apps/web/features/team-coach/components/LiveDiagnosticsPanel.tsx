@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buildLiveDiagnostics, formatLiveDiagnosticReport, type DiagnosticRow, type LiveDiagnostics, type LiveDiagnosticsInput, type Presence } from "../live-diagnostics";
+import { buildLiveDiagnostics, formatLiveDiagnosticReport, rosterCandidate, type DiagnosticRow, type LiveDiagnostics, type LiveDiagnosticsInput, type Presence } from "../live-diagnostics";
 import { CHIP, CODE_BOX, PANEL, STATUS_PILL_MUTED, STATUS_PILL_OK, STATUS_PILL_WARN } from "../styles";
 
 // /live-draft "Diagnóstico de conexión": qué informa Dota de verdad, en vivo (se actualiza con cada
@@ -87,12 +87,28 @@ function Group({ title, rows, prefix }: { title: string; rows: DiagnosticRow[]; 
   );
 }
 
+function StructureGroup({ diagnostics }: { diagnostics: LiveDiagnostics }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 sm:col-span-3" data-testid="diag-structure">
+      <span className="text-caption font-semibold text-content-muted">ESTRUCTURA QUE ENVÍA DOTA (sólo presencia, sin verificar para el coach)</span>
+      <ul className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+        {diagnostics.structure.map((row) => (
+          <Row key={row.key} label={row.label} presence={presenceOfFlag(row.present)} testId={`diag-structure-${row.key}`} />
+        ))}
+      </ul>
+      <span className="text-caption text-content-muted" data-testid="diag-structure-roster-candidate">
+        Candidato a lista de jugadores: {PRESENCE_TEXT[presenceOfFlag(rosterCandidate(diagnostics))]} (sin verificar)
+      </span>
+    </div>
+  );
+}
+
 function CopyFeedback({ state, report }: { state: CopyState; report: string }) {
   if (state === "copied") return <span className="text-caption text-signal-positive" role="status">Copiado</span>;
   if (state === "failed") {
     return (
       <div className="flex flex-col gap-1" role="alert">
-        <span className="text-caption text-signal-warning">No se pudo copiar. Seleccioná el texto y copialo a mano:</span>
+        <span className="text-caption text-signal-warning">No se pudo copiar. Selecciona el texto y cópialo a mano:</span>
         <pre className={CODE_BOX} data-testid="live-diagnostics-report">{report}</pre>
       </div>
     );
@@ -136,6 +152,7 @@ export function LiveDiagnosticsPanel(props: LiveDiagnosticsPanelProps) {
         </div>
         <Group title="DRAFT (lo que Dota informa)" rows={diagnostics.draft} prefix="diag-draft" />
         <Group title="PARTIDA (sólo presencia)" rows={diagnostics.telemetry} prefix="diag-telemetry" />
+        <StructureGroup diagnostics={diagnostics} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={CHIP} onClick={handleCopy} data-testid="live-diagnostics-copy">

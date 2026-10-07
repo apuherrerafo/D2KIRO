@@ -77,6 +77,9 @@ export interface ProtocolSessionMetadata {
    * every change -- never mutated by a client command. Absent/false for every other session.
    */
   liveCapture?: boolean;
+  teamGroupId?: number | null;
+  /** Party 5 / Team preset hero pools mapped by position (1..5). */
+  playerPoolsByPosition?: Partial<Record<DotaPosition, readonly HeroId[]>> | null;
 }
 
 /** Session-layer (never kernel) binding of a sealed Own Team selection to the human-chosen position it fills. */
@@ -173,6 +176,8 @@ export interface CreateProtocolSessionInput {
   controlledPositions?: DotaPosition[];
   /** Live Dota capture session (see ProtocolSessionMetadata.liveCapture). Only meaningful with adapterKind "manual". */
   liveCapture?: boolean;
+  teamGroupId?: number | null;
+  playerPoolsByPosition?: Partial<Record<DotaPosition, readonly HeroId[]>> | null;
 }
 
 /** Input to install a live capture session's state, rebuilt by the kernel from observed facts (live/live-capture.ts). */
@@ -222,6 +227,8 @@ export class ProtocolSessionStore {
         humanPosition: input.humanPosition ?? null,
         simulatorSeed: input.simulatorSeed ?? null,
         controlledPositions: input.controlledPositions ?? null,
+        teamGroupId: input.teamGroupId ?? null,
+        playerPoolsByPosition: input.playerPoolsByPosition ?? null,
         ...(input.liveCapture === true && (input.adapterKind ?? "manual") === "manual" ? { liveCapture: true } : {}),
       },
       ownerAccountId: input.ownerAccountId ?? null,
@@ -292,6 +299,19 @@ export class ProtocolSessionStore {
     entry.metadata = { ...entry.metadata, localSide, patch: install.patch, partyContext: state.rankedAp?.partyContext ?? entry.metadata.partyContext };
     entry.ownPickPositions = install.ownBindings.filter(ownSealed);
     entry.lastAccessedAt = now;
+    return true;
+  }
+
+  /**
+   * Live Dota -- attach (or clear, with null pools) the selected Party 5 team preset to an OWNED live
+   * session. The pools are loaded server-side from the account's own team group by the caller; this only
+   * stores them where `perspectiveRecommendationContext` already reads them (same field a Simulator
+   * session carries). false = unknown session, not a live capture session, or owned by another account.
+   */
+  setLiveTeamContext(sessionId: string, accountId: number, team: { teamGroupId: number | null; playerPoolsByPosition: Partial<Record<DotaPosition, readonly HeroId[]>> | null }): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || entry.ownerAccountId !== accountId) return false;
+    entry.metadata = { ...entry.metadata, teamGroupId: team.teamGroupId, playerPoolsByPosition: team.playerPoolsByPosition };
     return true;
   }
 
@@ -763,6 +783,7 @@ export class ProtocolSessionStore {
       humanOpenPositions: this.humanOpenPositions(sessionId),
       humanActionability: this.humanActionability(sessionId),
       ownAssignedPositions,
+      playerPoolsByPosition: metadata.playerPoolsByPosition ?? null,
     };
   }
 

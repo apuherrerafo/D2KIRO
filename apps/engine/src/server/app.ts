@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { accounts } from "../db/schema";
 import { verifyAccountToken } from "./account-token";
-import { getSoleAccountId } from "../db/queries";
+import { getSoleAccountId, getTeamGroup, getTeamGroupById } from "../db/queries";
 import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types";
 import { loadDraftFormatTurnData, type CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import type { DraftState } from "../draft/reducer";
@@ -156,13 +156,24 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return { allHeroIds, metaOrder };
     },
     heroPositions: deps.heroPositions,
+    loadTeamGroup: async (id, accountId) => {
+      if (accountId !== null) {
+        return getTeamGroup(deps.db, id, accountId);
+      }
+      return getTeamGroupById(deps.db, id);
+    },
   });
   // Live Dota capture: facts from the capturer (/ingest/draft-event, source "overwolf") and the Player's
   // manual fallback rebuild ONE protocol session through the kernel (live/live-capture-registry.ts).
   const liveCaptureRegistry = new LiveCaptureRegistry({ store: protocolSessionStore, defaultPatch: CURRENT_PATCH });
   const liveCaptureRoutes = createLiveCaptureRoutes({ registry: liveCaptureRegistry, defaultPatch: CURRENT_PATCH });
   // TSK-219: Dota GSI over the Internet -- the link store (hash-only credentials) and its routes.
-  const liveGsiRoutes = createLiveGsiRoutes({ links: deps.gsiLinks ?? createGsiLinkStore(deps.db), registry: liveCaptureRegistry });
+  const liveGsiRoutes = createLiveGsiRoutes({
+    links: deps.gsiLinks ?? createGsiLinkStore(deps.db),
+    registry: liveCaptureRegistry,
+    // Account-scoped load (getTeamGroup filters by account_id): another account's preset resolves to null.
+    loadTeamGroup: (teamGroupId, accountId) => getTeamGroup(deps.db, teamGroupId, accountId),
+  });
   const rateLimiter = createSessionRateLimiter();
   // MVP P0.1 -- minimal client error reporting foundation. Own rate limiter instance (own key
   // space: sessionId-or-IP, never the draft-event session ids above) so a telemetry burst can
@@ -214,6 +225,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       archetypeIntent?: DraftPathArchetype;
       // R1 S5 (blocker 3): forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
       candidateHeroIds?: readonly number[];
+      overrideHeroPool?: readonly number[];
     } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
@@ -222,6 +234,19 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       meta = await getCachedMetaSnapshot<TSchema>(deps.db, accountId);
     } catch {
       throw new SnapshotUnavailableError();
+    }
+    if (options.overrideHeroPool && options.overrideHeroPool.length > 0) {
+      meta = {
+        ...meta,
+        heroPool: options.overrideHeroPool.map((hero) => ({
+          hero,
+          source: "manual" as const,
+          personalWinrate: null,
+          personalGames: 0,
+          updatedAt: new Date().toISOString(),
+        })),
+        personalBaselineWinrate: null,
+      };
     }
     const readiness = await getMetaReadiness(deps.db, { state, meta });
     return buildSuggestions(state, meta, {
@@ -349,13 +374,13 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       return Response.json({ error: "rate_limit_exceeded", scope: "session" }, { status: 429 });
     }
 
-    // Live capture: ONLY the token-authenticated capturer path routes "overwolf" envelopes to the live
-    // protocol session. The legacy SessionStore never sees them; the tokenless manual path is unchanged.
-    if (opts.requireToken && body.source === "overwolf") {
+    // Live capture: ONLY the token-authenticated capturer path routes "overwolf" and "ocr" (local visual
+    // capture) envelopes to the live protocol session. The legacy SessionStore never sees them; the tokenless manual path is unchanged.
+    if (opts.requireToken && (body.source === "overwolf" || body.source === "ocr")) {
       const outcome = liveCaptureRegistry.ingestEnvelope(body);
       return Response.json(
         outcome.accepted
-          ? { accepted: true, changed: outcome.changed, ignored: outcome.ignored, live: outcome.status }
+          ? { accepted: true, changed: outcome.changed, ignored: outcome.ignored, live: outcome.status, ...(body.source === "ocr" ? { ack: liveCaptureRegistry.visualAck(body.sessionId) } : {}) }
           : { accepted: false, rejected: outcome.reason },
         { status: outcome.accepted ? 202 : 409 },
       );
@@ -417,6 +442,16 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (gsiIngestMatch && request.method === "POST") {
       return liveGsiRoutes.postIngest(request, gsiIngestMatch[1] ?? "");
     }
+    // Local visual capture: same public door and same link credential as GSI (relayed by apps/web).
+    const visualIngestMatch = url.pathname.match(/^\/api\/live\/visual\/([^/]+)$/);
+    if (visualIngestMatch && request.method === "POST") {
+      return liveGsiRoutes.postVisual(request, visualIngestMatch[1] ?? "");
+    }
+    // D2KIRO Companion heartbeat: same public door and same link credential (relayed by apps/web).
+    const companionMatch = url.pathname.match(/^\/api\/live\/companion\/([^/]+)$/);
+    if (companionMatch && request.method === "POST") {
+      return liveGsiRoutes.postCompanion(request, companionMatch[1] ?? "");
+    }
     // Issue (= rotate) is called only by apps/web's server-side cfg download: it is deliberately absent
     // from the browser proxy allowlist (next.config.ts), so no browser script ever receives a token.
     if (request.method === "POST" && url.pathname === "/api/live/gsi-link/issue") {
@@ -427,6 +462,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       const auth = requireHttpAccount(request);
       if (!auth.ok) return auth.response;
       return request.method === "GET" ? liveGsiRoutes.getLink(auth.accountId) : liveGsiRoutes.deleteLink(auth.accountId);
+    }
+    // Live Dota + Party 5: select (or clear) the account's own team preset for its live session.
+    if (request.method === "PUT" && url.pathname === "/api/live/team-group") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.putTeamGroup(request, auth.accountId) : auth.response;
     }
     if (request.method === "POST" && url.pathname === "/api/telemetry/error") {
       return telemetryRoutes.postError(request);

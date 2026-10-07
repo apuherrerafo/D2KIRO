@@ -3,7 +3,7 @@
 //   apps/engine/src/live/live-capture-registry.ts    -> LiveCaptureStatus (schema "live-capture-status/v1")
 //   apps/engine/src/server/routes/live-capture.ts    -> cuerpo de POST .../live-observation
 //   apps/engine/src/live/gsi-normalize.ts            -> GsiDraftCapabilities / phase (TSK-219)
-//   apps/engine/src/server/routes/live-gsi.ts        -> GsiLinkView (schema "live-gsi-link/v1")
+//   apps/engine/src/server/routes/live-gsi.ts        -> GsiLinkView (schema "live-gsi-link/v1"), LiveTeamGroupResult ("live-team-group/v1")
 // Se mueven en el mismo cambio que el motor o la validación (validation.ts) rechaza la respuesta.
 
 import type { HeroId, TeamSide } from "@/features/draft/types";
@@ -60,7 +60,7 @@ export interface LiveDetectedPick {
   side: TeamSide;
   heroId: HeroId;
   position: TeamPosition | null;
-  source: "gsi" | "overwolf" | "manual";
+  source: "gsi" | "overwolf" | "manual" | "ocr";
   at: string;
 }
 
@@ -83,10 +83,61 @@ export interface LiveGsiStatus {
   /** This draft: Dota reported MORE draft facts in a later update than in an earlier one. */
   draftProgression?: boolean;
   telemetry: string[];
+  /** Structural capability labels (engine `GSI_STRUCTURE_LABELS`): which sections / roster shapes Dota ever sent. Presence only. */
+  structure?: string[];
   /** Server clock: ms since the last GSI update. */
   lastPacketAgeMs?: number;
   /** A GSI update (only ever via the https link route) arrived within the engine's stale window. */
   active?: boolean;
+}
+
+/** Which Party 5 preset the engine applied to this live session (never hero ids or names). */
+export interface LiveTeamContext {
+  teamGroupId: number | null;
+  positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
+}
+
+/** A Party 5 preset as the live selector shows it: a name and which positions carry a pool. */
+export interface LivePartyPreset {
+  id: number;
+  name: string;
+  positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
+}
+
+export type LiveTeamGroupRefusal = "not_found" | "not_party5" | "no_pools" | "unsupported";
+
+/** PUT /engine/api/live/team-group (schema "live-team-group/v1"). */
+export interface LiveTeamGroupResult {
+  applied: boolean;
+  reason: LiveTeamGroupRefusal | null;
+  teamContext: LiveTeamContext | null;
+}
+
+/** What the local visual capturer last reported (health only; never a frame). Mirror of the engine's LiveVisualStatus. */
+export interface LiveVisualStatus {
+  active: boolean;
+  health: "ok" | "degraded" | "lost";
+  detail: string | null;
+  lastEventAgeMs: number;
+}
+
+/** D2KIRO Companion's Dota state on the Player's PC. Mirror of the engine's LiveCompanionDota. */
+export type LiveCompanionDota = "connected" | "waiting" | "not_running";
+/** The visual helper as the Companion supervises it on the Player's PC. Mirror of the engine's LiveCompanionVisual. */
+export type LiveCompanionVisual = "absent" | "downloading" | "failed" | "restarting" | "running";
+/** Dota lifecycle as the Companion reads it from local GSI. Mirror of the engine's LiveCompanionPhase. */
+export type LiveCompanionPhase = "MENU" | "LOADING" | "HERO_SELECTION" | "STRATEGY_TIME" | "MATCH" | "POST_GAME" | "OTHER";
+
+/** D2KIRO Companion's last heartbeat (presence only, never identity). Mirror of the engine's LiveCompanionStatus. */
+export interface LiveCompanionStatus {
+  version: string;
+  dota: LiveCompanionDota;
+  phase: LiveCompanionPhase | null;
+  restartNeeded: boolean;
+  /** The visual helper's state on that PC (absent from older Companions/engines). */
+  visual?: LiveCompanionVisual | null;
+  active: boolean;
+  lastSeenAgeMs: number;
 }
 
 export interface LiveCaptureStatus {
@@ -105,6 +156,12 @@ export interface LiveCaptureStatus {
   rejectedFacts: number;
   /** Present once Dota GSI has spoken to this session (absent from older engines). */
   gsi?: LiveGsiStatus | null;
+  /** Present once the local visual capturer has spoken to this session (absent from older engines). */
+  visual?: LiveVisualStatus | null;
+  /** Present once D2KIRO Companion has sent a heartbeat to this session (absent from older engines). */
+  companion?: LiveCompanionStatus | null;
+  /** Party 5 preset applied to this live session (absent from older engines). */
+  teamContext?: LiveTeamContext;
 }
 
 /** The browser's view of its Dota link: which live session to watch, until when. Never the credential. */

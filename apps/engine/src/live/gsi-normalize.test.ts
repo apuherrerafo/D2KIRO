@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { gsiPayload, SENTINELS } from "./gsi.fixtures";
-import { draftFactCount, normalizeGsi, observationsFromGsi } from "./gsi-normalize";
+import { draftFactCount, GSI_STRUCTURE_LABELS, normalizeGsi, observationsFromGsi } from "./gsi-normalize";
 
 // TSK-219 -- the GSI allowlist. Pure: payload in, facts out. Fixtures are synthetic (gsi.fixtures.ts).
 
@@ -126,5 +126,63 @@ describe("observationsFromGsi", () => {
 
   test("our own hero without a known side is not attributed to any side", () => {
     expect(observationsFromGsi(normalizeGsi(gsiPayload({ heroId: 8 })), "7.41e")).toEqual([{ type: "draft_started", patch: "7.41e" }, { type: "bans_closed" }]);
+  });
+});
+
+describe("normalizeGsi -- structural capability discovery (presence only)", () => {
+  // Spectator-shaped roster: player0..player9 under team2/team3, each carrying identity + hero + team fields.
+  function rosterPayload(): Record<string, unknown> {
+    const entry = (i: number, team: "radiant" | "dire") => ({ steamid: SENTINELS[0], accountid: SENTINELS[1], name: `${SENTINELS[2]}-${i}`, id: 10 + i, hero_id: 10 + i, team_name: team });
+    const team = (side: "radiant" | "dire") => Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`player${i}`, entry(i, side)]));
+    return { ...gsiPayload({ teamName: "radiant", heroId: 30, draft: "empty" }), allplayers: { team2: team("radiant"), team3: team("dire") } };
+  }
+
+  test("a client that only reports its own side and hero: draft block absent, no roster candidate", () => {
+    const { structure } = normalizeGsi(gsiPayload({ teamName: "radiant", heroId: 30 }));
+    expect(structure).toContain("section.player");
+    expect(structure).toContain("section.hero");
+    expect(structure).not.toContain("section.draft");
+    expect(structure).not.toContain("section.allplayers");
+    expect(structure.filter((label) => label.startsWith("roster."))).toEqual([]);
+  });
+
+  test("an empty draft block is a present section without team data or slots", () => {
+    const { structure } = normalizeGsi(gsiPayload({ teamName: "radiant", draft: "empty" }));
+    expect(structure).toContain("section.draft");
+    expect(structure).not.toContain("draft.team2");
+    expect(structure).not.toContain("draft.pick_ban_slots");
+  });
+
+  test("a populated draft block reports its team and slot structure", () => {
+    const { structure } = normalizeGsi(gsiPayload({ draft: { radiant: { picks: [1] }, dire: { bans: [2] } } }));
+    expect(structure).toEqual(expect.arrayContaining(["section.draft", "draft.team2", "draft.team3", "draft.pick_ban_slots", "draft.activeteam"]));
+  });
+
+  test("a roster-like section is reported as a CANDIDATE shape: sections, team keys, entries, hero/team fields", () => {
+    const { structure } = normalizeGsi(rosterPayload());
+    expect(structure).toEqual(expect.arrayContaining(["section.allplayers", "roster.team_keyed", "roster.player_entries", "roster.multi_entries", "roster.full_entries", "roster.hero_fields", "roster.team_fields"]));
+  });
+
+  test("entries without hero fields do not claim hero fields; one entry is not a roster", () => {
+    const { structure } = normalizeGsi({ player: { player0: { team_name: "radiant", kills: 1 } } });
+    expect(structure).toEqual(expect.arrayContaining(["roster.player_entries", "roster.team_fields"]));
+    expect(structure).not.toContain("roster.hero_fields");
+    expect(structure).not.toContain("roster.multi_entries");
+    expect(structure).not.toContain("roster.full_entries");
+  });
+
+  test("the output is a closed vocabulary: no key name, id, name, Steam id, token or match id from the payload can appear", () => {
+    const hostile = { ...rosterPayload(), "<script>alert(1)</script>": { player0: { id: 5 } }, auth: { token: "f".repeat(64) } };
+    const update = normalizeGsi(hostile);
+    for (const label of update.structure) expect((GSI_STRUCTURE_LABELS as readonly string[]).includes(label)).toBe(true);
+    const text = JSON.stringify(update);
+    for (const sentinel of SENTINELS) expect(text).not.toContain(sentinel);
+    expect(text).not.toContain("f".repeat(64));
+    expect(text).not.toContain("script");
+  });
+
+  test("structure presence never creates facts: a roster candidate adds NO observation", () => {
+    const update = normalizeGsi(rosterPayload());
+    expect(observationsFromGsi(update, "7.41e").filter((o) => o.type === "pick")).toEqual([{ type: "pick", side: "radiant", heroId: 30, position: null }]);
   });
 });

@@ -18,7 +18,7 @@ export function teamPositionName(position: TeamPosition): string {
 }
 
 export const PICK_NOW_LABEL = "★ PICK NOW";
-export const ADVISORY_NOTE = "Es una sugerencia: podés elegir cualquier posición abierta y cualquier héroe legal, en el orden que quieras.";
+export const ADVISORY_NOTE = "Es una sugerencia: puedes elegir cualquier posición abierta y cualquier héroe legal, en el orden que quieras.";
 export const DETERMINISTIC_DEFAULT_NOTE = "No hay una prioridad estratégica clara entre tus posiciones: este orden es una vista inicial, no una ventaja.";
 export const CAPTURE_NOT_ENABLED = "DOTA_CAPTURE_NOT_ENABLED";
 export const DOTA_NOT_RUNNING = "DOTA_NOT_RUNNING";
@@ -30,8 +30,6 @@ export const GSI_DRAFT_PARTIAL = "GSI_DRAFT_PARTIAL";
 // TSK-219 -- conectar Dota (Game State Integration) desde el sitio, sin terminal. Texto para jugadores:
 // nada de herramientas de desarrollo, puertos ni procesos.
 export const GSI_CONFIG_DOWNLOAD_ACTION = "/api/live/gsi-config";
-/** Windows: the same personal file inside a double-click installer (app/api/live/gsi-installer). */
-export const GSI_INSTALLER_DOWNLOAD_ACTION = "/api/live/gsi-installer";
 /** Windows: removes only D2KIRO's file from Dota; no credential inside (app/api/live/gsi-uninstaller). */
 export const GSI_UNINSTALLER_URL = "/api/live/gsi-uninstaller";
 export const GSI_CFG_FOLDER = "game\\dota\\cfg\\gamestate_integration";
@@ -41,17 +39,40 @@ export const GSI_CFG_EXAMPLE_PATHS = [
 ] as const;
 export const GSI_LAUNCH_OPTION = "-gamestateintegration";
 export const GSI_INSTALL_ONCE = "Instala este archivo una sola vez y reinicia Dota 2.";
-export const GSI_INSTALLER_ONCE = "Se hace una sola vez: descargá el instalador, abrilo y reiniciá Dota 2.";
-/** Unsigned file: Windows and the browser may ask for confirmation. Said plainly, before it happens. */
-export const GSI_INSTALLER_WARNING =
-  "El instalador todavía no tiene firma digital, así que tu navegador puede pedirte que confirmes la descarga («Conservar») y Windows puede mostrar «Windows protegió tu PC»: tocá «Más información» y después «Ejecutar de todas formas». Si tu PC lo bloquea del todo (Control inteligente de aplicaciones o una PC de trabajo), usá «Instalarlo a mano» más abajo. Se abre una ventana negra chica unos segundos: es normal.";
-export const GSI_INSTALLER_SCOPE =
-  "Busca Dota 2 en tus bibliotecas de Steam (C:, D: u otro disco) y copia un solo archivo de configuración. No toca nada más, no lee tu cuenta de Steam y no se conecta a internet. Al terminar se borra solo.";
+/** D2KIRO Companion (Windows): the one-time installer that keeps Dota connected forever (app/api/live/companion-installer). */
+export const COMPANION_INSTALLER_DOWNLOAD_ACTION = "/api/live/companion-installer";
+export const COMPANION_ONCE = "Instálalo una sola vez. Después solo abre D2KIRO, abre Dota 2 y juega.";
+export const COMPANION_SCOPE =
+  "Corre en segundo plano y arranca solo con Windows (solo tu usuario, sin permisos de administrador). Deja Dota 2 conectado a D2KIRO, se reconecta solo si reinicias Dota, el navegador o internet, y guarda diagnósticos solo en tu PC. No pide tu cuenta de Steam. Se desinstala desde Configuración de Windows → Aplicaciones.";
+/** Lifecycle phase labels for the live status bar (Companion phase or GSI phase). */
+export const LIVE_PHASE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  MENU: "Menú",
+  LOADING: "Cargando partida",
+  HERO_SELECTION: "Hero Selection",
+  STRATEGY_TIME: "Strategy Time",
+  MATCH: "Partida en curso",
+  POST_GAME: "Fin de partida",
+  OTHER: "—",
+});
 /** How often /live-draft re-reads the account's Dota link while waiting for a download to land. */
 export const GSI_LINK_POLL_MS = 2_000;
+/** A linked tab re-reads the link this often: the engine renews its expiry while the Companion beats, so a stale copy must not flip to "vencida". */
+export const GSI_LINK_REFRESH_MS = 10 * 60 * 1000;
 /** ?setup=<code> after a failed download (app/api/live/gsi-config). */
 export const GSI_SETUP_ERRORS: Readonly<Record<string, string>> = Object.freeze({
-  session: "Tu sesión venció. Volvé a iniciar sesión con Steam y descargá la configuración otra vez.",
-  origin: "No se pudo generar la configuración desde esta página. Recargá y probá de nuevo.",
-  unavailable: "No se pudo generar la configuración en este momento. Probá de nuevo en unos segundos.",
+  session: "Tu sesión venció. Vuelve a iniciar sesión con Steam y descarga la configuración otra vez.",
+  origin: "No se pudo generar la configuración desde esta página. Recarga la página e inténtalo de nuevo.",
+  unavailable: "No se pudo generar la configuración en este momento. Prueba de nuevo en unos segundos.",
 });
+
+// Live Dota + Party 5 -- preset de equipo del draft en vivo.
+export const LIVE_PRESET_STORAGE_KEY = "d2k.live.partyPreset";
+export const LIVE_PRESET_REFUSALS: Readonly<Record<string, string>> = Object.freeze({
+  not_found: "Ese preset ya no existe o no es de tu cuenta. El Team Coach sigue sin pools de equipo.",
+  not_party5: "Sólo se pueden usar presets de Party 5 en el draft en vivo.",
+  no_pools: "Ese preset no tiene héroes cargados en ninguna posición. Complétalo en Equipos y vuelve a elegirlo.",
+  unsupported: "Este servidor todavía no admite presets en el draft en vivo.",
+});
+export const LIVE_PRESET_APPLY_FAILED = "No se pudo aplicar el preset ahora. Se reintentará al volver a conectar.";
+export const LIVE_DRAFT_ENDED_TITLE = "DRAFT TERMINADO";
+export const LIVE_DRAFT_ENDED_NOTE = "La selección de héroes ya cerró: no hay un pick para hacer ahora. Abajo queda la última lectura del Team Coach, sólo como referencia.";

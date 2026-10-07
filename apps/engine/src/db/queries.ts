@@ -112,6 +112,16 @@ export function getTeamGroup<TSchema extends Record<string, unknown>>(
   return attachMembers([group], members)[0] ?? null;
 }
 
+export function getTeamGroupById<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  id: number,
+): TeamGroupReadRow | null {
+  const [group] = db.select().from(teamGroups).where(eq(teamGroups.id, id)).all();
+  if (!group) return null;
+  const members = db.select().from(teamMembers).where(eq(teamMembers.teamGroupId, id)).all();
+  return attachMembers([group], members)[0] ?? null;
+}
+
 function insertTeamMembers<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
   teamGroupId: number,

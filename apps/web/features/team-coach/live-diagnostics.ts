@@ -23,6 +23,13 @@ export interface DiagnosticRow {
   presence: Presence;
 }
 
+/** A structural finding: the section / roster shape was seen (present) or never seen (absent). Never a value. */
+export interface StructureRow {
+  key: string;
+  label: string;
+  present: boolean;
+}
+
 export interface LiveDiagnostics {
   engine: LiveEngineStatus;
   dotaLink: boolean;
@@ -40,6 +47,10 @@ export interface LiveDiagnostics {
   counts: { bans: number; picks: number; deferredPicks: number; rejectedFacts: number };
   draft: DiagnosticRow[];
   telemetry: DiagnosticRow[];
+  /** What Dota ever sent, by STRUCTURE (sections, roster-like shapes). Capability discovery: none of it is verified as usable for coaching. */
+  structure: StructureRow[];
+  /** Party 5 preset applied to the live session: how many of the five positions carry a pool (never ids or names). */
+  partyPoolPositions: number;
 }
 
 interface RowSpec {
@@ -71,6 +82,27 @@ const TELEMETRY_ROWS: readonly (RowSpec & { labels: readonly string[] })[] = [
   { key: "itemChanges", label: "Cambios de ítems", labels: ["item_changes"] },
   { key: "abilities", label: "Habilidades", labels: ["abilities", "ability_levels"] },
   { key: "cooldowns", label: "Cooldowns", labels: ["ability_cooldowns", "item_cooldowns"] },
+];
+
+/** Engine structural labels (gsi-normalize.ts GSI_STRUCTURE_LABELS) -> report key. Anything else the engine sends is ignored. */
+const STRUCTURE_ROWS: readonly (RowSpec & { engineLabel: string })[] = [
+  { key: "provider", label: "Sección provider", engineLabel: "section.provider" },
+  { key: "map", label: "Sección map", engineLabel: "section.map" },
+  { key: "player", label: "Sección player", engineLabel: "section.player" },
+  { key: "hero", label: "Sección hero", engineLabel: "section.hero" },
+  { key: "abilities", label: "Sección abilities", engineLabel: "section.abilities" },
+  { key: "items", label: "Sección items", engineLabel: "section.items" },
+  { key: "draft", label: "Sección draft", engineLabel: "section.draft" },
+  { key: "draft.team2", label: "draft → team2", engineLabel: "draft.team2" },
+  { key: "draft.team3", label: "draft → team3", engineLabel: "draft.team3" },
+  { key: "draft.slots", label: "draft → slots de pick/ban", engineLabel: "draft.pick_ban_slots" },
+  { key: "allplayers", label: "Sección allplayers", engineLabel: "section.allplayers" },
+  { key: "roster.teamKeyed", label: "Estructura por equipos (team2/team3)", engineLabel: "roster.team_keyed" },
+  { key: "roster.entries", label: "Entradas tipo jugador", engineLabel: "roster.player_entries" },
+  { key: "roster.multi", label: "Varias entradas tipo jugador (2 o más)", engineLabel: "roster.multi_entries" },
+  { key: "roster.full", label: "Diez entradas tipo jugador", engineLabel: "roster.full_entries" },
+  { key: "roster.heroFields", label: "Entradas con campo de héroe", engineLabel: "roster.hero_fields" },
+  { key: "roster.teamFields", label: "Entradas con campo de equipo", engineLabel: "roster.team_fields" },
 ];
 
 const GAME_STATE = /^DOTA_GAMERULES_STATE_[A-Z_]{1,48}$/;
@@ -120,6 +152,7 @@ export interface LiveDiagnosticsInput {
 export function buildLiveDiagnostics({ engine, dotaLink, status }: LiveDiagnosticsInput): LiveDiagnostics {
   const gsi = status?.gsi ?? null;
   const observed = new Set(gsi?.telemetry ?? []);
+  const structureSeen = new Set(gsi?.structure ?? []);
   const age = gsi?.lastPacketAgeMs;
   const draftSeen = {
     side: gsi?.draft.side === true,
@@ -150,11 +183,24 @@ export function buildLiveDiagnostics({ engine, dotaLink, status }: LiveDiagnosti
     },
     draft: DRAFT_ROWS.map((row) => ({ key: row.key, label: row.label, presence: presenceOf(draftSeen[row.field]) })),
     telemetry: TELEMETRY_ROWS.map((row) => ({ key: row.key, label: row.label, presence: telemetryPresence(observed, row.labels) })),
+    structure: STRUCTURE_ROWS.map((row) => ({ key: row.key, label: row.label, present: structureSeen.has(row.engineLabel) })),
+    partyPoolPositions: Object.values(status?.teamContext?.positions ?? {}).filter(Boolean).length,
   };
 }
 
 function yesNo(value: boolean): Presence {
   return presenceOf(value);
+}
+
+function structureText(present: boolean): string {
+  if (present) return "present";
+  return "absent";
+}
+
+/** A roster-like shape (several player-like entries carrying hero fields) exists in the payloads: a lead to verify, not a usable source. */
+export function rosterCandidate(diagnostics: Pick<LiveDiagnostics, "structure">): boolean {
+  const seen = (key: string) => diagnostics.structure.some((row) => row.key === key && row.present);
+  return seen("roster.multi") && seen("roster.heroFields");
 }
 
 /** The text "Copiar diagnóstico" puts on the clipboard: stable keys, no identifiers. */
@@ -181,6 +227,12 @@ export function formatLiveDiagnosticReport(diagnostics: LiveDiagnostics): string
     ...diagnostics.draft.map((row) => `draft.${row.key}: ${row.presence}`),
     "",
     ...diagnostics.telemetry.map((row) => `telemetry.${row.key}: ${row.presence}`),
+    "",
+    // Structure = which sections / shapes Dota sent. "present" is NOT "usable for coaching" until verified.
+    ...diagnostics.structure.map((row) => `structure.${row.key}: ${structureText(row.present)}`),
+    `structure.rosterCandidate: ${structureText(rosterCandidate(diagnostics))} (unverified)`,
+    "",
+    `party.poolPositions: ${diagnostics.partyPoolPositions}/5`,
   ];
   return `${lines.join("\n")}\n`;
 }
