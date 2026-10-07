@@ -53,11 +53,16 @@ function assertSnapshotContract(rec: Recorder, repicks = 0): void {
   // other seats' picks of that round right away (kernel.ts resolveRound; protocol-sessions.ap-simulator "colision
   // reabierta"). So while a round is reopened by a collision the enemy may already show its survivors -- at least one
   // enemy seat is always reopened, hence at most capacity - 1. Without a collision in the round the count is exact.
+  // The THIRD attempt of a round is resolved by the Simulator (PD-022: whoever registered first wins) with no new ban: if the enemy
+  // wins, ALL its picks of the round are revealed while the human seat reopens, so the bound is the full capacity, not capacity - 1.
+  // Who registers first is timing-dependent, so this must be tolerated, not asserted away.
+  const attemptsInPhase = new Map<string, number>();
   const bansAtPhaseStart = new Map<string, number>();
   for (const snapshot of snapshots) {
     const phase = snapshot.view.rankedAp?.phase ?? "";
     if (!(phase in revealedByPhase)) continue;
     const bans = snapshot.view.bannedHeroes.length;
+    if (snapshot.stopReason === "human_input") attemptsInPhase.set(phase, (attemptsInPhase.get(phase) ?? 0) + 1);
     if (!bansAtPhaseStart.has(phase)) bansAtPhaseStart.set(phase, bans);
     const revealed = snapshot.view.enemyPicks.filter((slot) => slot.visibility === "REVEALED").length;
     const base = revealedByPhase[phase]!;
@@ -67,7 +72,7 @@ function assertSnapshotContract(rec: Recorder, repicks = 0): void {
       continue;
     }
     expect(revealed, `revealed enemy heroes while ${phase} (collision-reopened)`).toBeGreaterThanOrEqual(base);
-    expect(revealed, `revealed enemy heroes while ${phase} (collision-reopened)`).toBeLessThanOrEqual(base + roundCapacityByPhase[phase]! - 1);
+    expect(revealed, `revealed enemy heroes while ${phase} (collision-reopened)`).toBeLessThanOrEqual(base + roundCapacityByPhase[phase]! - ((attemptsInPhase.get(phase) ?? 0) >= 3 ? 0 : 1));
   }
   const roundDurations = snapshots.filter((snapshot) => snapshot.stopReason === "human_input").map((snapshot) => snapshot.simulator?.durationMs);
   if (repicks === 0) {
