@@ -26,6 +26,22 @@ export const MEMORY = {
   title: "The call is made. D2KIRO keeps it.",
 } as const;
 
+/** The payoff of the Memory Strip: the same draft, read by an aggregate and then through the player's model. Fixture copy. */
+export const COUNTERFACTUAL = {
+  kicker: "With your model",
+  title: "The same draft, read for you.",
+  illustrative: "Illustrative draft. The readings show how the product explains a change, not a promise about any game.",
+  modes: { generic: "Generic meta", mixed: "Generic meta + your model", personal: "For you" },
+  model: { kicker: "Your player model", idle: "Not read by generic meta.", active: "Read for this draft." },
+  stages: {
+    generic: { kicker: "Generic meta", line: "Good for this draft.", note: "What a strong aggregate would tell anyone in this spot." },
+    context: { kicker: "Your model joins", line: "Now it knows who is drafting.", note: "What D2KIRO kept about how you play, applied to this draft." },
+    reinterpret: { kicker: "Same evidence, read again", line: "The lane that looked like a risk has your games behind it.", note: "Viper is the same Viper. What it means for you is not." },
+    reorder: { kicker: "The order moves", line: "One call gains evidence that holds.", note: "The others have none of yours behind them." },
+    personal: { kicker: "For you", line: "Good for this draft. Better for how you play.", note: "Puck, with its condition in view." },
+  },
+} as const;
+
 export const PROPOSITION = {
   title: "One call, with the reasons beside it.",
   points: [

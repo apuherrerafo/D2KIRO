@@ -14,6 +14,7 @@ import "./landing.css";
 import { LabProvider, useReducedMotion, type MotionMode } from "@/design/round-3a/lab-context";
 import { motionCssVars } from "@/design/round-3a/motion-tokens";
 import { CoachSlotProvider, coachCueFor, type CoachCharacter } from "./coach/coach-slot";
+import { CounterfactualSection } from "./components/CounterfactualSection";
 import { DemoSection } from "./components/DemoSection";
 import { EvidenceSection } from "./components/EvidenceSection";
 import { LandingFooter } from "./components/LandingFooter";
@@ -54,6 +55,7 @@ function LandingBody({ coach, onJoinWaitlist, productState, showCoachPlaceholder
         <main>
           <LandingHero departing={departing} />
           <MemorySection onBridge={setDeparting} reducedMotion={reduced} />
+          <CounterfactualSection reducedMotion={reduced} />
           <PropositionSection />
           <DemoSection character={character} productState={productState} reducedMotion={reduced} showCoachPlaceholder={showCoachPlaceholder} />
           <SignalsSection productState={productState} />

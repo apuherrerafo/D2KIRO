@@ -1,0 +1,2626 @@
+[
+ {
+  "viewport": "desktop-1440",
+  "label": "00-entry-85",
+  "scrollY": 5303,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 776,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "01-entry-55",
+  "scrollY": 5573,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 506,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "02-entry-20",
+  "scrollY": 5888,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 191,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "03-pin-start",
+  "scrollY": 6022,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 57,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "10-generic",
+  "scrollY": 6201,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "11-context-25",
+  "scrollY": 6372,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.158",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "12-context-60",
+  "scrollY": 6504,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.646",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "13-context-end",
+  "scrollY": 6656,
+  "stage": "context",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "20-reinterpret-50",
+  "scrollY": 6846,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.499",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "21-reinterpret-end",
+  "scrollY": 7036,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.999",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "30-reorder-00",
+  "scrollY": 7037,
+  "stage": "reorder",
+  "p": "0",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "31-reorder-25",
+  "scrollY": 7163,
+  "stage": "reorder",
+  "p": "0.157",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 338,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 267,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 458,
+    "h": 97,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "32-reorder-50",
+  "scrollY": 7289,
+  "stage": "reorder",
+  "p": "0.499",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 302,
+    "h": 98,
+    "tagsBottom": 72
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 302,
+    "h": 98,
+    "tagsBottom": 72
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 458,
+    "h": 98,
+    "tagsBottom": 72
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "33-reorder-75",
+  "scrollY": 7416,
+  "stage": "reorder",
+  "p": "0.844",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 267,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 338,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 458,
+    "h": 97,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "34-reorder-100",
+  "scrollY": 7543,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "40-personal",
+  "scrollY": 7745,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "50-release",
+  "scrollY": 8330,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -394,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440",
+  "label": "51-next-section",
+  "scrollY": 8735,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -799,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "00-entry-85",
+  "scrollY": 4683,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 730,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "01-entry-55",
+  "scrollY": 4913,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 500,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "02-entry-20",
+  "scrollY": 5182,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 231,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "03-pin-start",
+  "scrollY": 5356,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 57,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "10-generic",
+  "scrollY": 5506,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "11-context-25",
+  "scrollY": 5650,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.155",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "12-context-60",
+  "scrollY": 5762,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.646",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "13-context-end",
+  "scrollY": 5891,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.001",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "20-reinterpret-50",
+  "scrollY": 6051,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.501",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "21-reinterpret-end",
+  "scrollY": 6211,
+  "stage": "reorder",
+  "p": "0",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "30-reorder-00",
+  "scrollY": 6211,
+  "stage": "reorder",
+  "p": "0",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "31-reorder-25",
+  "scrollY": 6318,
+  "stage": "reorder",
+  "p": "0.157",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 272,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 201,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 392,
+    "h": 97,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "32-reorder-50",
+  "scrollY": 6424,
+  "stage": "reorder",
+  "p": "0.498",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 236,
+    "h": 98,
+    "tagsBottom": 72
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 236,
+    "h": 98,
+    "tagsBottom": 72
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 392,
+    "h": 98,
+    "tagsBottom": 72
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "33-reorder-75",
+  "scrollY": 6531,
+  "stage": "reorder",
+  "p": "0.843",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 201,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 272,
+    "h": 97,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 392,
+    "h": 97,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "34-reorder-100",
+  "scrollY": 6638,
+  "stage": "reorder",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "40-personal",
+  "scrollY": 6809,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "50-release",
+  "scrollY": 7307,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -328,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1366",
+  "label": "51-next-section",
+  "scrollY": 7652,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -673,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 185,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 289,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 393,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "00-entry-85",
+  "scrollY": 5726,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 819,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 303,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Puck",
+    "top": 395,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 487,
+    "h": 84,
+    "tagsBottom": 65
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "01-entry-55",
+  "scrollY": 5980,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 634,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 303,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Puck",
+    "top": 395,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 487,
+    "h": 84,
+    "tagsBottom": 65
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "02-entry-20",
+  "scrollY": 6275,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 339,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 303,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Puck",
+    "top": 395,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 487,
+    "h": 84,
+    "tagsBottom": 65
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "03-pin-start",
+  "scrollY": 6489,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 125,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 303,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Puck",
+    "top": 395,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 487,
+    "h": 84,
+    "tagsBottom": 65
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "10-generic",
+  "scrollY": 6672,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 303,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Puck",
+    "top": 395,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 487,
+    "h": 84,
+    "tagsBottom": 65
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "11-context-25",
+  "scrollY": 6847,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.015",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "12-context-60",
+  "scrollY": 6984,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.388",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "13-context-end",
+  "scrollY": 7140,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.918",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "20-reinterpret-50",
+  "scrollY": 7335,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.324",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "21-reinterpret-end",
+  "scrollY": 7530,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.824",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "30-reorder-00",
+  "scrollY": 7530,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.824",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "31-reorder-25",
+  "scrollY": 7660,
+  "stage": "reorder",
+  "p": "0.039",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 399,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 314,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "32-reorder-50",
+  "scrollY": 7790,
+  "stage": "reorder",
+  "p": "0.307",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 373,
+    "h": 85,
+    "tagsBottom": 78
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 338,
+    "h": 85,
+    "tagsBottom": 78
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 85,
+    "tagsBottom": 78
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "33-reorder-75",
+  "scrollY": 7920,
+  "stage": "reorder",
+  "p": "0.674",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 340,
+    "h": 85,
+    "tagsBottom": 78
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 372,
+    "h": 85,
+    "tagsBottom": 78
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 85,
+    "tagsBottom": 78
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "34-reorder-100",
+  "scrollY": 8050,
+  "stage": "reorder",
+  "p": "0.952",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 315,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 398,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "40-personal",
+  "scrollY": 8258,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "50-release",
+  "scrollY": 8819,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -298,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390",
+  "label": "51-next-section",
+  "scrollY": 9198,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -677,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "00-entry-85",
+  "scrollY": 4699,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 666,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 180,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Puck",
+    "top": 264,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 348,
+    "h": 76,
+    "tagsBottom": 61
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "01-entry-55",
+  "scrollY": 4899,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 535,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 180,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Puck",
+    "top": 264,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 348,
+    "h": 76,
+    "tagsBottom": 61
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "02-entry-20",
+  "scrollY": 5131,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 303,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 180,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Puck",
+    "top": 264,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 348,
+    "h": 76,
+    "tagsBottom": 61
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "03-pin-start",
+  "scrollY": 5309,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 125,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 180,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Puck",
+    "top": 264,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 348,
+    "h": 76,
+    "tagsBottom": 61
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "10-generic",
+  "scrollY": 5450,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 180,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Puck",
+    "top": 264,
+    "h": 76,
+    "tagsBottom": 61
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 348,
+    "h": 76,
+    "tagsBottom": 61
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "11-context-25",
+  "scrollY": 5585,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.001",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 188,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Puck",
+    "top": 272,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 356,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "12-context-60",
+  "scrollY": 5691,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.312",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 188,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Puck",
+    "top": 272,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 356,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "13-context-end",
+  "scrollY": 5811,
+  "stage": "context",
+  "p": "0",
+  "ctx": "0.867",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 188,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Puck",
+    "top": 272,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 356,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "20-reinterpret-50",
+  "scrollY": 5962,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.273",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Puck",
+    "top": 273,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 357,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "21-reinterpret-end",
+  "scrollY": 6112,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.771",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Puck",
+    "top": 273,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 357,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "30-reorder-00",
+  "scrollY": 6112,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0.771",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Puck",
+    "top": 273,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 357,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "31-reorder-25",
+  "scrollY": 6212,
+  "stage": "reorder",
+  "p": "0.017",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 270,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 356,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "32-reorder-50",
+  "scrollY": 6313,
+  "stage": "reorder",
+  "p": "0.254",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 250,
+    "h": 77,
+    "tagsBottom": 74
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 208,
+    "h": 77,
+    "tagsBottom": 74
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 355,
+    "h": 77,
+    "tagsBottom": 74
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "33-reorder-75",
+  "scrollY": 6413,
+  "stage": "reorder",
+  "p": "0.617",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 219,
+    "h": 77,
+    "tagsBottom": 74
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 239,
+    "h": 77,
+    "tagsBottom": 74
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 355,
+    "h": 77,
+    "tagsBottom": 74
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "34-reorder-100",
+  "scrollY": 6513,
+  "stage": "reorder",
+  "p": "0.921",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 194,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 265,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 355,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "40-personal",
+  "scrollY": 6674,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 273,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 357,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "50-release",
+  "scrollY": 7113,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -207,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 273,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 357,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-short",
+  "label": "51-next-section",
+  "scrollY": 7411,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": -505,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 189,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 273,
+    "h": 76,
+    "tagsBottom": 73
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 357,
+    "h": 76,
+    "tagsBottom": 73
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440-reduced",
+  "label": "generic",
+  "scrollY": 6150,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440-reduced",
+  "label": "context",
+  "scrollY": 6466,
+  "stage": "context",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440-reduced",
+  "label": "reinterpret",
+  "scrollY": 6846,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Puck",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440-reduced",
+  "label": "reorder",
+  "scrollY": 7289,
+  "stage": "reorder",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "desktop-1440-reduced",
+  "label": "personal",
+  "scrollY": 7712,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 251,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 355,
+    "h": 96,
+    "tagsBottom": 71
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 459,
+    "h": 96,
+    "tagsBottom": 71
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-reduced",
+  "label": "generic",
+  "scrollY": 6620,
+  "stage": "generic",
+  "p": "0",
+  "ctx": "0",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 303,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Puck",
+    "top": 395,
+    "h": 84,
+    "tagsBottom": 65
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 487,
+    "h": 84,
+    "tagsBottom": 65
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-reduced",
+  "label": "context",
+  "scrollY": 6945,
+  "stage": "context",
+  "p": "0",
+  "ctx": "1",
+  "rein": "0",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-reduced",
+  "label": "reinterpret",
+  "scrollY": 7335,
+  "stage": "reinterpret",
+  "p": "0",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Outworld Destroyer",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Puck",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-reduced",
+  "label": "reorder",
+  "scrollY": 7790,
+  "stage": "reorder",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ },
+ {
+  "viewport": "mobile-390-reduced",
+  "label": "personal",
+  "scrollY": 8223,
+  "stage": "personal",
+  "p": "1",
+  "ctx": "1",
+  "rein": "1",
+  "overflowY": 0,
+  "overflowX": 0,
+  "stageTop": 56,
+  "rows": [
+   {
+    "hero": "Puck",
+    "top": 310,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Outworld Destroyer",
+    "top": 402,
+    "h": 84,
+    "tagsBottom": 77
+   },
+   {
+    "hero": "Ember Spirit",
+    "top": 494,
+    "h": 84,
+    "tagsBottom": 77
+   }
+  ]
+ }
+]
