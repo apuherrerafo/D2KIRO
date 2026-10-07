@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .diagnostics import Diagnostics
 from .emit import EnvelopeFactory
 from .layout import Layout
 from .matcher import Matcher, Thresholds
@@ -53,7 +54,7 @@ class VisualStatus:
 
 
 class VisualSession:
-    def __init__(self, matcher: Matcher, layout: Layout, thresholds: Thresholds, factory: EnvelopeFactory, stability: StabilityFilter | None = None, gate: OccupancyGate | None = None) -> None:
+    def __init__(self, matcher: Matcher, layout: Layout, thresholds: Thresholds, factory: EnvelopeFactory, stability: StabilityFilter | None = None, gate: OccupancyGate | None = None, diagnostics: Diagnostics | None = None) -> None:
         self.matcher, self.layout, self.thresholds, self.factory = matcher, layout, thresholds, factory
         self.stability = stability or StabilityFilter()
         self.gate = gate or OccupancyGate()
@@ -64,6 +65,8 @@ class VisualSession:
         self._last_heartbeat_ms: float | None = None
         self._first_seen_ms: dict[tuple[str, int, int], float] = {}
         self._draft_epoch: int | None = None
+        self.diagnostics = diagnostics
+        self._window_logged = False
 
     def on_lifecycle(self, lifecycle: DraftLifecycle | None) -> bool:
         """The server's draft lifecycle (GSI). True on a draft boundary: the caller drops queued facts.
@@ -73,29 +76,43 @@ class VisualSession:
         unreachable) changes nothing: an open draft is not closed by a dropped request."""
         if lifecycle is None:
             return False
+        if not self.status.server_seen:
+            self._note("server_seen", phase=lifecycle.phase)
         self.status.server_seen = True
         if lifecycle.drafting and (not self.status.draft_open or lifecycle.epoch != self._draft_epoch):
             self.rearm()
             self.status.draft_open, self._draft_epoch = True, lifecycle.epoch
+            self._note("draft_open", epoch=lifecycle.epoch)
             return True
         if not lifecycle.drafting and self.status.draft_open:
             self.rearm()
             self.status.draft_open = False
+            self._note("draft_closed", phase=lifecycle.phase)
             return True
         return False
+
+    def _note(self, kind: str, **fields: object) -> None:
+        if self.diagnostics is not None:
+            self.diagnostics.event(kind, **fields)
 
     def process(self, frame: np.ndarray, now_ms: float) -> list[dict]:
         """One captured frame -> the envelopes it confirms (usually none)."""
         out: list[dict] = []
         self._last_frame_ms = now_ms
         self.status.window_found = True
+        if not self._window_logged:
+            self._window_logged = True
+            self._note("window_found", frame=[frame.shape[1], frame.shape[0]])
         if self._lost:
             self._lost = False
+            self._note("capture_resumed")
             out.append(self.factory.health("ok", "VISUAL_OK"))
             self._last_heartbeat_ms = now_ms
         if not self.status.draft_open:
             # Not a draft (menu, lobby, loading, the match itself): nothing is baselined, matched or emitted.
             self.status.selection_detected = False
+            if self.diagnostics is not None:
+                self.diagnostics.frame(now_ms, frame, self.layout, None, self.gate, self.status)
             if self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= LIFECYCLE_PROBE_MS:
                 out.append(self.factory.health("ok", "VISUAL_OK"))
                 self._last_heartbeat_ms = now_ms
@@ -110,6 +127,9 @@ class VisualSession:
         self.status.armed = occupancy.armed
         scan: ScanResult = scan_frame(frame, self.layout, self.matcher, self.thresholds, occupancy.occupied)
         self._note_first_seen(scan, now_ms)
+        if self.diagnostics is not None:
+            self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status)
+            self.diagnostics.maybe_save_frame(now_ms, frame, self.layout)
         events = self.stability.update(scan, now_ms)
         self.status.recognized = scan.recognized
         self.status.selection_detected = scan.recognized > 0 or len(self.stability.confirmed()) > 0
@@ -152,6 +172,8 @@ class VisualSession:
         if self._lost or (last is not None and now_ms - last < LOST_AFTER_MS) or (last is None and window_found):
             return []
         self._lost = True
+        self._window_logged = False
+        self._note("capture_lost" if last is not None else "no_window")
         self.rearm()  # whatever comes back may be a different screen: do not trust the old baseline
         detail = "VISUAL_CAPTURE_LOST" if last is not None else "VISUAL_NO_WINDOW"
         return [self.factory.health("lost" if last is not None else "degraded", detail)]

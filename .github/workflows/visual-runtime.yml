@@ -1,0 +1,81 @@
+name: visual-runtime
+
+# Builds the D2KIRO Visual runtime (d2kiro-visual.exe, no Python on the Player's PC) on a Windows runner.
+#   * pull_request touching the helper: unit tests + build + smoke test of the packaged exe (never publishes).
+#   * push of a tag `visual-runtime-v<version>`: same, then publishes a GitHub Release with the zip and its SHA-256.
+# D2KIRO Companion downloads exactly that version and refuses anything whose SHA-256 differs from the one pinned
+# in apps/web/server/companion. A release is a deliberate act (a tag), never a side effect of a merge.
+# The hero portrait catalog (Valve art) is NOT in the release: the runtime downloads it once on the Player's PC.
+
+on:
+  pull_request:
+    paths:
+      - "scripts/live/visual-capture/**"
+      - ".github/workflows/visual-runtime.yml"
+  push:
+    tags:
+      - "visual-runtime-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Runtime version for a build-only run (no release is created from a dispatch)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      RUNTIME_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || format('0.0.0-pr{0}', github.run_number) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build dependencies (pinned)
+        shell: bash
+        run: pip install numpy==2.5.3 opencv-python==5.0.0.93 windows-capture==2.0.1 pyinstaller==6.22.3
+      - name: Unit tests
+        shell: bash
+        run: python -m unittest discover -s scripts/live/visual-capture/tests
+      - name: Build runtime
+        shell: bash
+        working-directory: scripts/live/visual-capture
+        run: |
+          VERSION="${RUNTIME_VERSION#visual-runtime-v}"
+          python build_runtime.py --version "$VERSION" --out "$RUNNER_TEMP/visual-build"
+      - name: Smoke test the packaged exe (no Python involved)
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem "$env:RUNNER_TEMP/visual-build" -Filter "d2kiro-visual-*.zip" | Select-Object -First 1
+          $dest = Join-Path $env:RUNNER_TEMP "smoke"
+          Expand-Archive $zip.FullName -DestinationPath $dest
+          $env:D2KIRO_VISUAL_HOME = Join-Path $env:RUNNER_TEMP "smoke-home"
+          $env:D2KIRO_GSI_CFG = "C:\does-not-exist.cfg"
+          $process = Start-Process (Join-Path $dest "d2kiro-visual.exe") -PassThru
+          Start-Sleep -Seconds 8
+          if ($process.HasExited) { throw "d2kiro-visual.exe exited by itself (code $($process.ExitCode))" }
+          Stop-Process -Id $process.Id -Force
+          $log = Get-Content (Join-Path $env:D2KIRO_VISUAL_HOME "diagnostics\*.jsonl") -Raw
+          if ($log -notmatch '"kind":"start","frozen":true') { throw "packaged runtime did not start: $log" }
+          if ($log -notmatch '"kind":"(fetching_catalog|catalog)"') { throw "helper did not reach the hero catalog step: $log" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d2kiro-visual-runtime
+          path: |
+            ${{ runner.temp }}/visual-build/d2kiro-visual-*.zip
+            ${{ runner.temp }}/visual-build/d2kiro-visual-*.sha256
+      - name: Publish release
+        if: ${{ github.ref_type == 'tag' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" --verify-tag \
+            "$RUNNER_TEMP"/visual-build/d2kiro-visual-*.zip "$RUNNER_TEMP"/visual-build/d2kiro-visual-*.sha256 \
+            --title "D2KIRO Visual runtime ${RUNTIME_VERSION#visual-runtime-v}" \
+            --notes "Built from ${{ github.sha }}. Pin the SHA-256 from the .sha256 asset in the Companion before shipping." \
+            --prerelease

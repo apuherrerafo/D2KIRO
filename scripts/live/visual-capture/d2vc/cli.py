@@ -21,7 +21,7 @@ from pathlib import Path
 import cv2
 
 from .bench import DEFAULT_THRESHOLDS, run_bench
-from .catalog import LOCAL, Catalog, fetch_catalog, load_catalog
+from .catalog import LOCAL, Catalog, catalog_ready, fetch_catalog, load_catalog, resolve_catalog_dir
 from .layout import default_layout, load_layout, save_layout
 from .matcher import Matcher
 from .scan import ScanResult, scan_frame
@@ -155,37 +155,92 @@ def _sender_from_env():
     return LinkSender(link.base_url, link.live_id, link.token), "link"
 
 
+RETRY_CATALOG_S = 30.0
+RETRY_CREDENTIALS_S = 5.0
+RETRY_BACKEND_S = 3.0
+ERROR_LOG_EVERY_S = 10.0
+
+
 def cmd_live(args: argparse.Namespace) -> int:
+    """The supervised live loop. It NEVER exits on its own for a missing credential, a missing Dota window, a closed
+    Dota or a one-frame bug: it waits / recreates / skips and keeps going, so the Companion only has to keep it alive."""
     from .backend import WgcBackend
+    from .diagnostics import Diagnostics, default_directory
     from .emit import EnvelopeFactory
     from .session import VisualSession
     from .transport import Outbox
 
+    run_id = uuid.uuid4().hex[:8]
+    clock = lambda: dt.datetime.now(dt.timezone.utc)  # noqa: E731
+    diagnostics = Diagnostics(default_directory(), run_id, clock, enabled=os.environ.get("D2KIRO_VISUAL_DIAGNOSTICS", "1") != "0")
+    diagnostics.event("start", frozen=getattr(sys, "frozen", False))
     layout = _layout(args.layout)  # a calibrated local/layout.json if present, else the built-in 16:9 default
-    try:
-        sender, session_id = _sender_from_env()
-    except KeyError as missing:
-        print(f"missing environment variable {missing} (see README)", file=sys.stderr)
-        return 3
-    catalog = load_catalog()
-    session = VisualSession(
-        Matcher(catalog),
-        layout,
-        DEFAULT_THRESHOLDS,
-        EnvelopeFactory(session_id=session_id or "link", run_id=uuid.uuid4().hex[:8], clock=lambda: dt.datetime.now(dt.timezone.utc)),
-    )
+    catalog = None
+    while catalog is None:
+        directory = resolve_catalog_dir()
+        try:
+            if not catalog_ready(directory):
+                diagnostics.event("fetching_catalog")
+                fetch_catalog(directory)  # one-time: public hero portraits from Valve's CDN into the Player's local folder
+            catalog = load_catalog(directory)
+            if not catalog.portraits:
+                raise ValueError("empty catalog")
+        except Exception as error:  # noqa: BLE001 - offline / CDN hiccup: wait and retry, never exit
+            catalog = None
+            diagnostics.event("error", where="catalog", type=type(error).__name__)
+            try:
+                time.sleep(RETRY_CATALOG_S)
+            except KeyboardInterrupt:
+                return 0
+    diagnostics.event("catalog", heroes=len(catalog.heroes))
+    matcher = Matcher(catalog)
+
+    sender, session_id = None, ""
+    while sender is None:
+        try:
+            sender, session_id = _sender_from_env()
+        except KeyError:
+            diagnostics.event("waiting_credentials")
+            try:
+                time.sleep(RETRY_CREDENTIALS_S)
+            except KeyboardInterrupt:
+                return 0
+    diagnostics.event("credentials", target="local_relay" if getattr(sender, "url", "").startswith("http://127.0.0.1") else "remote")
+
+    session = VisualSession(matcher, layout, DEFAULT_THRESHOLDS, EnvelopeFactory(session_id=session_id or "link", run_id=run_id, clock=clock), diagnostics=diagnostics)
     outbox = Outbox(sender)
-    backend = WgcBackend(args.window)
+    backend = None
+    next_backend_try = 0.0
+    last_error_log: dict[str, float] = {}
     interval = 1.0 / args.fps
     last_print = 0.0
     try:
         while True:
             now_ms = time.monotonic() * 1000
-            frame = backend.latest()
-            envelopes = session.process(frame, now_ms) if frame is not None else session.tick_no_frame(now_ms, backend.window_found)
-            outbox.submit(envelopes)
-            if session.on_lifecycle(outbox.lifecycle):  # GSI started / ended a draft: re-arm by itself
-                outbox.discard_facts()
+            try:
+                if backend is not None and not backend.window_found:
+                    backend.stop()
+                    backend = None  # Dota closed: the next window is a different capture
+                if backend is None and now_ms >= next_backend_try:
+                    try:
+                        backend = WgcBackend(args.window)
+                        diagnostics.event("backend_started", window=args.window)
+                    except Exception as error:  # noqa: BLE001 - no Dota window yet is normal, not a failure
+                        backend = None
+                        next_backend_try = now_ms + RETRY_BACKEND_S * 1000
+                        if now_ms - last_error_log.get("backend", -1e9) > ERROR_LOG_EVERY_S * 1000:
+                            last_error_log["backend"] = now_ms
+                            diagnostics.event("waiting_window", type=type(error).__name__)
+                frame = backend.latest() if backend is not None else None
+                window_found = backend is not None and backend.window_found
+                envelopes = session.process(frame, now_ms) if frame is not None else session.tick_no_frame(now_ms, window_found)
+                outbox.submit(envelopes)
+                if session.on_lifecycle(outbox.lifecycle):  # GSI started / ended a draft: re-arm by itself
+                    outbox.discard_facts()
+            except Exception as error:  # noqa: BLE001 - one bad frame must never kill the helper
+                if now_ms - last_error_log.get("loop", -1e9) > ERROR_LOG_EVERY_S * 1000:
+                    last_error_log["loop"] = now_ms
+                    diagnostics.event("error", where="loop", type=type(error).__name__)
             if now_ms - last_print > 1000:
                 print("\r" + session.status.line(), end="", flush=True)
                 last_print = now_ms
@@ -194,10 +249,13 @@ def cmd_live(args: argparse.Namespace) -> int:
         print()
         return 0
     finally:
-        backend.stop()
+        if backend is not None:
+            backend.stop()
 
 
 def main(argv: list[str] | None = None) -> int:
+    if argv is None and len(sys.argv) == 1:
+        argv = ["live"]  # the packaged runtime (d2kiro-visual.exe) has one job
     # The status line uses "●"; a default Windows console (cp1252) would crash the live loop on it.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):

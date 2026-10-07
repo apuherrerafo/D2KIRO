@@ -13,7 +13,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent.parent
+from .paths import resource_root
+
+ROOT = resource_root()
 LOCAL = ROOT / "local"
 OPENDOTA_HERO_STATS = "https://api.opendota.com/api/heroStats"
 CDN_HOSTS = ("https://cdn.cloudflare.steamstatic.com", "https://cdn.akamai.steamstatic.com")
@@ -37,6 +39,20 @@ class Catalog:
             if hero.id == hero_id:
                 return hero.localized_name
         return f"#{hero_id}"
+
+
+MIN_HEROES = 100  # a catalog missing more than a handful of heroes is a failed download, not a catalog
+
+
+def catalog_ready(dest: Path) -> bool:
+    return (dest / "catalog.json").is_file() and sum(1 for _ in (dest / "portraits").glob("*.png")) >= MIN_HEROES
+
+
+def resolve_catalog_dir() -> Path:
+    """A catalog shipped next to the code (dev checkout), else the Player's local copy (downloaded once, first run)."""
+    from .paths import user_data_dir
+
+    return LOCAL if catalog_ready(LOCAL) else user_data_dir() / "catalog"
 
 
 def _get(url: str) -> bytes:
