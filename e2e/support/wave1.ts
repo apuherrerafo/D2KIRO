@@ -159,7 +159,10 @@ export async function roundCapacity(page: Page): Promise<number> {
 export async function awaitRoundHandlingCollision(page: Page, expected: RegExp, preferred: readonly string[], maxRepicks = 4): Promise<number> {
   const collision = page.getByText(/Baneados por colisión en esta ronda/);
   const settled = page.getByText(expected).first();
-  const collisionBanner = async (): Promise<string> => (await collision.first().textContent({ timeout: 1_000 }).catch(() => null)) ?? "";
+  // The WHOLE collision status block, not just the banned list: the third collision of a round is resolved by the Simulator without
+  // a new ban, so capacity and the banned list stay identical and only the notice sentence ("Tercera colisión...") changes.
+  const collisionStatus = page.getByRole("status").filter({ hasText: /Baneados por colisión en esta ronda/ });
+  const collisionBanner = async (): Promise<string> => (await collisionStatus.first().textContent({ timeout: 1_000 }).catch(() => null)) ?? "";
   const seatIsReopened = async (): Promise<boolean> => (await collision.first().isVisible()) && (await roundCapacity(page)) > 0;
   let repicks = 0;
   for (;;) {
