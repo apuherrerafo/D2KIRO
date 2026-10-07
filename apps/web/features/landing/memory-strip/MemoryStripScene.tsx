@@ -1,4 +1,4 @@
-import { useId, type CSSProperties } from "react";
+import { useId, type CSSProperties, type Ref } from "react";
 import {
   ContradictionMarker,
   EvidenceDefs,
@@ -22,7 +22,7 @@ import "./memory-strip.css";
 const SVG_KINDS: readonly EvidenceItem["kind"][] = ["region", "path", "matchup", "node", "contradiction", "role"];
 const PATH_ORDER = { undertrace: 0, uncertain: 1, retained: 2, qualified: 3 } as const;
 
-function SvgItem({ item, patternId }: { item: EvidenceItem; patternId: string }) {
+export function SvgItem({ item, patternId }: { item: EvidenceItem; patternId: string }) {
   switch (item.kind) {
     case "region": return <UnresolvedRegion item={item} />;
     case "path": return <EvidencePath item={item} />;
@@ -34,20 +34,20 @@ function SvgItem({ item, patternId }: { item: EvidenceItem; patternId: string })
   }
 }
 
-function DomItem({ item }: { item: EvidenceItem }) {
+export function DomItem({ item }: { item: EvidenceItem }) {
   if (item.kind === "origin") return <OriginSeal item={item} />;
   if (item.kind === "echo") return <HeroEcho item={item} />;
   return null;
 }
 
-function sortForPaint(items: readonly EvidenceItem[]): EvidenceItem[] {
+export function sortForPaint(items: readonly EvidenceItem[]): EvidenceItem[] {
   const rank = (item: EvidenceItem) => SVG_KINDS.indexOf(item.kind) * 10 + (item.kind === "path" ? PATH_ORDER[item.relation] : 0);
   return items.filter((item) => SVG_KINDS.includes(item.kind)).sort((a, b) => rank(a) - rank(b));
 }
 
-export function ActiveAnnotation({ scene }: { scene: MemoryScene }) {
+export function ActiveAnnotation({ scene, innerRef }: { scene: MemoryScene; innerRef?: Ref<HTMLDivElement> }) {
   return (
-    <div className="ms-annotation">
+    <div className="ms-annotation" ref={innerRef}>
       <p className="ms-stage" data-numbered={scene.stage.number ? "true" : "false"}>
         <span className="ms-stage-kicker">{scene.stage.kicker}</span>
         {scene.stage.number && <span className="ms-stage-number">{scene.stage.number}</span>}
@@ -69,35 +69,56 @@ function EvidenceDescription({ scene, id }: { scene: MemoryScene; id: string }) 
   );
 }
 
-export function MemoryStripScene({ sceneId }: { sceneId: MemorySceneId }) {
-  const scene = MEMORY_SCENES[sceneId];
+export interface EvidenceViewProps {
+  /** The scene this view is about (target scene during a transition): description, data-scene, default items and labels. */
+  scene: MemoryScene;
+  /** Evidence to draw. Defaults to the scene's own; the motion player adds the earlier scene's folding evidence as ghosts. */
+  items?: readonly EvidenceItem[];
+  /** Earlier-scene evidence whose label is still leaving. Rendered under `ghost:<id>` so it never collides with a live label. */
+  ghostLabelItems?: readonly EvidenceItem[];
+  annotationScene?: MemoryScene;
+  motion?: boolean;
+  canvasRef?: Ref<HTMLDivElement>;
+  annotationRef?: Ref<HTMLDivElement>;
+}
+
+export function EvidenceView({ scene, items = scene.items, ghostLabelItems = [], annotationScene = scene, motion = false, canvasRef, annotationRef }: EvidenceViewProps) {
   const uid = useId().replace(/:/g, "");
   const patternId = `ms-hatch-${uid}`;
   const descId = `ms-desc-${uid}`;
   return (
     <div className="ms-host">
-    <section className="ms" data-testid="memory-strip" data-scene={scene.id} aria-label="Memory Strip">
+    <section className="ms" data-testid="memory-strip" data-scene={scene.id} data-motion={motion ? "on" : undefined} aria-label="Memory Strip">
       <div className="ms-layout">
         <figure className="ms-object" aria-describedby={descId}>
-          <div className="ms-canvas" style={{ "--ms-ar": `${MEMORY_VIEWBOX.w} / ${MEMORY_VIEWBOX.h}` } as CSSProperties}>
+          <div className="ms-canvas" ref={canvasRef} style={{ "--ms-ar": `${MEMORY_VIEWBOX.w} / ${MEMORY_VIEWBOX.h}` } as CSSProperties}>
             <svg className="ms-svg" viewBox={`0 0 ${MEMORY_VIEWBOX.w} ${MEMORY_VIEWBOX.h}`} aria-hidden="true" focusable="false">
               <EvidenceDefs patternId={patternId} />
-              {sortForPaint(scene.items).map((item) => <SvgItem key={item.id} item={item} patternId={patternId} />)}
+              {sortForPaint(items).map((item) => <SvgItem key={item.id} item={item} patternId={patternId} />)}
             </svg>
             <div className="ms-dom" aria-hidden="true">
-              {scene.items.map((item) => <DomItem key={item.id} item={item} />)}
+              {items.map((item) => <DomItem key={item.id} item={item} />)}
               {scene.items.map((item) => {
                 const anchor = labelAnchor(item);
                 if (!item.label || !anchor) return null;
                 return <EvidenceLabelTag key={item.id} itemId={item.id} label={item.label} anchor={anchor} active={Boolean(item.active)} />;
               })}
+              {ghostLabelItems.map((item) => {
+                const anchor = labelAnchor(item);
+                if (!item.label || !anchor) return null;
+                return <EvidenceLabelTag key={`ghost:${item.id}`} itemId={`ghost:${item.id}`} label={item.label} anchor={anchor} active={Boolean(item.active)} />;
+              })}
             </div>
           </div>
           <EvidenceDescription scene={scene} id={descId} />
         </figure>
-        <ActiveAnnotation scene={scene} />
+        <ActiveAnnotation scene={annotationScene} innerRef={annotationRef} />
       </div>
     </section>
     </div>
   );
+}
+
+export function MemoryStripScene({ sceneId }: { sceneId: MemorySceneId }) {
+  return <EvidenceView scene={MEMORY_SCENES[sceneId]} />;
 }
