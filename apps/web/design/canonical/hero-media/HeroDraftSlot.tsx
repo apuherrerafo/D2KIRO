@@ -146,6 +146,7 @@ export function HeroDraftSlot({
 
       <div className="chm-slot-media">
         <HeroPortrait
+          empty={isUnknown}
           hero={isUnknown ? null : resolved}
           name={isUnknown ? "Open Slot" : displayName}
           attribute={isUnknown ? ("uni" as PrimaryAttribute) : resolved?.primaryAttr}

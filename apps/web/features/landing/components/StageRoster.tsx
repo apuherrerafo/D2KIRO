@@ -27,7 +27,7 @@ function SeatSlot({ frame, seat }: { frame: DraftFrame; seat: Seat }) {
   const hero = seat.hero ?? (previewsCall ? callHero : null);
   return (
     <li className="ld-seat" data-clock={onTheClock ? "true" : "false"} data-position={seat.position}>
-      <HeroDraftSlot hero={hero} position={seat.position} showRole showStateBadge size="sm" state={seatState(seat, previewsCall)} />
+      <HeroDraftSlot hero={hero} position={seat.position} showRole showStateBadge={hero !== null} size="sm" state={seatState(seat, previewsCall)} />
     </li>
   );
 }

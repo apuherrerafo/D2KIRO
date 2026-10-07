@@ -123,6 +123,31 @@
   .ld-stage[data-variant="demo"] .ld-seats { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* Narrow phone (< 414): name + fit stay on the primary row; delta and rank move reflow under the reasons. */
+@media (max-width: 413px) {
+  .ld-cand .cx-target { grid-template-areas: "rank icon title value" ". . reasons reasons" ". . delta move" ". . note note"; grid-template-columns: 16px 48px minmax(0, 1fr) auto; }
+  .ld-cand-delta:empty, .ld-cand-move:empty { display: none; }
+}
+
+/* Below 960 the stage reads stepper → compact draft context → call: both sides become one icon row each,
+   so the result sits next to the control that changed it instead of a tall team column below the fold. */
+@media (max-width: 959px) {
+  .ld-stage[data-variant="demo"] .ld-stage-body { gap: 12px; }
+  .ld-stage[data-variant="demo"] .ld-col--team { order: 1; }
+  .ld-stage[data-variant="demo"] .ld-col--enemy { order: 2; }
+  .ld-stage[data-variant="demo"] .ld-call { order: 3; }
+  .ld-stage[data-variant="demo"] .ld-col { align-items: center; display: flex; gap: 12px; }
+  .ld-stage[data-variant="demo"] .ld-col-title { flex: none; margin: 0; width: 72px; }
+  .ld-stage[data-variant="demo"] .ld-seats { flex: 1 1 auto; gap: 6px; grid-template-columns: repeat(5, minmax(0, 1fr)); min-width: 0; }
+  .ld-stage[data-variant="demo"] .ld-seat .chm-slot { gap: 0; width: 100%; }
+  .ld-stage[data-variant="demo"] .ld-seat .chm-slot-header, .ld-stage[data-variant="demo"] .ld-seat .chm-portrait-plate { display: none; }
+  .ld-stage[data-variant="demo"] .ld-seat .chm-portrait { width: 100%; }
+  .ld-stage[data-variant="demo"] .ld-enemies { display: flex; flex: 1 1 auto; gap: 6px; min-width: 0; }
+  .ld-stage[data-variant="demo"] .ld-enemy { min-height: 0; }
+  .ld-stage[data-variant="demo"] .ld-enemy-name, .ld-stage[data-variant="demo"] .ld-enemy-empty { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+  .ld-stage[data-variant="demo"] .ld-enemy[data-empty="true"] { height: 36px; padding: 0; position: relative; width: 36px; }
+}
+
 /* ───────── demo ───────── */
 .ld-demo { display: grid; gap: 16px; }
 .ld-stepper { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 24px; }

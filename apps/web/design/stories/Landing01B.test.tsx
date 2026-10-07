@@ -125,6 +125,30 @@ describe("Landing 01B proposition", () => {
   });
 });
 
+describe("Landing 01B stage — empty seats and narrow layout", () => {
+  it("an intentionally empty seat is an open seat, never the missing-art fallback", () => {
+    const { page } = renderPage();
+    const proposition = page.querySelector('[data-section="proposition"]') as HTMLElement;
+    const empties = proposition.querySelectorAll('.ld-seat .chm-portrait[data-art="empty"]');
+    expect(empties.length).toBeGreaterThan(0);
+    expect(proposition.querySelector(".ld-seat .chm-portrait-fallback")).toBeNull();
+    expect(proposition.querySelector(".ld-seat .chm-portrait-empty")?.textContent).toBe("Open");
+    expect(proposition.textContent).not.toContain("Art pending");
+  });
+
+  it("a hero whose art is missing keeps the art fallback, distinct from an open seat", () => {
+    const { page } = renderPage();
+    const picked = page.querySelector('[data-section="proposition"] .ld-seat .chm-portrait[data-art="image"], [data-section="proposition"] .ld-seat .chm-portrait[data-art="fallback"]');
+    expect(picked).not.toBeNull();
+    expect(picked?.querySelector(".chm-portrait-empty")).toBeNull();
+  });
+
+  it("narrow phones reflow delta and rank move under the reasons; the stage compacts below 960 px", () => {
+    expect(css).toMatch(/@media \(max-width: 413px\)[^}]*grid-template-areas: "rank icon title value" "\. \. reasons reasons" "\. \. delta move"/);
+    expect(css).toMatch(/@media \(max-width: 959px\)[\s\S]*\.ld-col--team \{ order: 1; \}[\s\S]*\.ld-call \{ order: 3; \}/);
+  });
+});
+
 describe("Landing 01B Coach integration point", () => {
   it("reserves an empty slot, then hands product-derived cue and anchor to an injected character", () => {
     const { page } = renderPage();

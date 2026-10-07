@@ -123,6 +123,24 @@
   font: 500 11px/1.4 var(--f-plex);
 }
 
+/* Intentional empty seat: dashed, quiet, neutral. Reads as "not picked yet", never as a missing asset. */
+.chm-portrait-empty {
+  align-items: center;
+  background: var(--r3-panel);
+  box-sizing: border-box;
+  color: var(--r3-muted);
+  display: flex;
+  font: 500 11px/1.4 var(--f-plex);
+  height: 100%;
+  inset: 0;
+  justify-content: center;
+  outline: 1px dashed var(--r3-neutral);
+  outline-offset: -1px;
+  position: absolute;
+  width: 100%;
+  z-index: 1;
+}
+
 /* Lit = strategic attention: a spectral outline outside the art, nothing on it. */
 .chm-portrait[data-lit="true"] { outline: 1.5px solid var(--r3-spec-cyan); outline-offset: 2px; }
 

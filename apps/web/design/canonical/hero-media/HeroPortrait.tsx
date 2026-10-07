@@ -40,6 +40,10 @@ export interface HeroPortraitProps {
   className?: string;
   /** Callback fired when the image fails to load and switches to neutral fallback */
   onImageError?: () => void;
+  /** Intentional absence (no hero picked yet). Never the missing-art fallback: that one means a hero exists but its art does not. */
+  empty?: boolean;
+  /** Short word shown in an empty portrait (default "Open") */
+  emptyLabel?: string;
 }
 
 const DEFAULT_PLATE_SIZES: ReadonlySet<PortraitSize> = new Set(["md", "lg", "xl", "fill"]);
@@ -65,6 +69,8 @@ export function HeroPortrait({
   alt,
   className = "",
   onImageError,
+  empty = false,
+  emptyLabel = "Open",
 }: HeroPortraitProps) {
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -74,10 +80,11 @@ export function HeroPortrait({
   const resolvedAttr = attribute ?? resolved?.primaryAttr ?? "all";
   const sourceUrl = imgUrl ?? resolved?.imgUrl ?? null;
   const isUrlAllowed = isAllowedHeroImgHost(sourceUrl);
-  const showImage = isUrlAllowed && !loadFailed && sourceUrl;
+  const showImage = !empty && isUrlAllowed && !loadFailed && sourceUrl;
 
-  const renderPlate = showPlate ?? DEFAULT_PLATE_SIZES.has(size);
-  const accessibleLabel = alt ?? (showImage ? `${displayName} portrait` : `${displayName} (Art pending)`);
+  const renderPlate = !empty && (showPlate ?? DEFAULT_PLATE_SIZES.has(size));
+  const missingArtLabel = `${displayName} (Art pending)`;
+  const accessibleLabel = alt ?? (empty ? "Open seat" : showImage ? `${displayName} portrait` : missingArtLabel);
 
   function handleImageError() {
     setLoadFailed(true);
@@ -98,7 +105,7 @@ export function HeroPortrait({
       data-attr={resolvedAttr}
       data-lit={lit ? "true" : "false"}
       data-banned={banned ? "true" : "false"}
-      data-art={showImage ? "image" : "fallback"}
+      data-art={showImage ? "image" : empty ? "empty" : "fallback"}
     >
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- host validated against Valve CDN allowlist
@@ -108,6 +115,9 @@ export function HeroPortrait({
           className="chm-portrait-img"
           onError={handleImageError}
         />
+      ) : empty ? (
+        /* Intentional emptiness: a dashed, quiet seat. Not an unfinished asset. */
+        <span className="chm-portrait-empty" aria-hidden="true">{emptyLabel}</span>
       ) : (
         /* Honest, neutral missing-art state. NEVER invented skulls or fantasy glyphs. */
         <span className="chm-portrait-fallback" aria-hidden="true">
