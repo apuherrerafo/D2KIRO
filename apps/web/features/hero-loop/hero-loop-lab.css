@@ -1,0 +1,40 @@
+/* HERO-LOOP LAB · review shell only (not product styling). */
+.hl-lab-page { min-height: 100dvh; padding: 0; }
+.hl-lab-theme { background: var(--r3-bg); min-height: 100dvh; padding: 24px 16px 48px; }
+/* DARK atmosphere: the same three semantic fields as the stage, a notch quieter (evidence cyan · pressure pink · resolution lime) */
+.hl-lab-theme[data-theme="dark"] {
+  background:
+    radial-gradient(55% 40% at 12% 0%, color-mix(in srgb, var(--r3-spec-cyan) 6%, transparent), transparent 70%),
+    radial-gradient(45% 36% at 96% 30%, color-mix(in srgb, var(--r3-spec-pink) 5%, transparent), transparent 70%),
+    radial-gradient(60% 38% at 50% 104%, color-mix(in srgb, var(--r3-spec-lime) 5%, transparent), transparent 72%),
+    var(--r3-bg);
+}
+/* LIGHT is authored, not inverted: cool pale stone, paper / frosted-milk surfaces, ink and pigment instead of glow. The Coach and
+   the hero art keep their own palette; the visor stays dark in every theme. */
+.hl-lab-theme[data-theme="light"] {
+  --r3-bg: #e7eae6; --r3-panel: #f4f6f2; --r3-raise: #fafbf8; --r3-ink: #15191a; --r3-muted: #4f5a5a;
+  --r3-line: #cdd3cd; --r3-line-strong: #98a49f; --r3-focus: #15191a;
+  --r3-spec-pink: #b0206f; --r3-spec-cyan: #00718b; --r3-spec-lime: #476f00;
+  --r3-up: #2f6b00; --r3-down: #b3301d; --r3-neutral: #78837f; --r3-id: #00647c;
+  --r3-spec-fill: linear-gradient(110deg, #b0206f 0%, #00718b 54%, #476f00 100%);
+  --cx-glass-tint: color-mix(in srgb, #fbfcf9 70%, transparent);
+  --cx-glass-solid: #fbfcf9;
+  --cx-glass-line: #15191a24;
+  --cx-glass-shadow: 0 16px 34px -20px #1c2a2873;
+  --hl-field-a: 7%;
+  background:
+    radial-gradient(60% 42% at 10% 0%, color-mix(in srgb, var(--r3-spec-cyan) 7%, transparent), transparent 72%),
+    radial-gradient(46% 36% at 98% 32%, color-mix(in srgb, var(--r3-spec-pink) 5%, transparent), transparent 72%),
+    radial-gradient(60% 38% at 50% 104%, color-mix(in srgb, var(--r3-spec-lime) 6%, transparent), transparent 74%),
+    var(--r3-bg);
+}
+.hl-lab { margin-inline: auto; max-width: 1120px; }
+.hl-lab-head { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; margin-bottom: 16px; }
+.hl-lab-title { font: 700 18px/1.1 var(--f-syne); margin: 0 0 4px; }
+.hl-lab-sub { color: var(--r3-muted); font: 500 12px/1.2 var(--f-bric); margin: 0; }
+.hl-lab-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.hl-lab-btn { background: transparent; border: 0; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line-strong); color: var(--r3-muted); cursor: pointer; font: 600 12px/1 var(--f-bric); min-height: 44px; min-width: 44px; padding: 0 14px; touch-action: manipulation; }
+.hl-lab-btn[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--r3-spec-cyan); color: var(--r3-ink); }
+.hl-lab-btn:focus-visible { outline: 2px solid var(--r3-spec-cyan); outline-offset: 2px; }
+.hl-lab-note { color: var(--r3-muted); font: 500 11px/1.4 var(--f-bric); margin: 12px 0 0; }
+@media (max-width: 599px) { .hl-lab-theme { padding: 12px 8px 32px; } }

@@ -66,3 +66,7 @@ scripts/live/visual-capture/**/__pycache__/
 # (raw payloads carry the local SteamID/name; they live in %LOCALAPPDATA%\D2KIRO\Companion\diagnostics).
 scripts/live/companion/out/
 gsi-raw-*.jsonl
+
+# Hero Loop lab: ephemeral session and dev build output
+e2e-hero-loop/.tmp/
+apps/web/.next-hero-loop/

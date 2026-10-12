@@ -1,0 +1,15 @@
+01-A-lock @ A:lock draft 1 calls 0 loading 0
+02-A-carry @ A:carry draft 1 calls 1 loading 0
+03-A-to-B-draft-complete @ B:draft draft 2 calls 1 loading 0
+04-B-start-next-draft @ B:reveal draft 2 calls 1 loading 0
+05-B-to-C-draft-complete @ B:relax draft 2 calls 2 loading 0
+06-C-start-next-draft @ C:draft draft 3 calls 2 loading 0
+07-C-contradiction @ C:evidence-3 draft 3 calls 2 loading 0
+08-C-carry @ C:carry draft 3 calls 3 loading 0
+09-C-to-A-draft-complete @ A:draft draft 4 calls 3 loading 0
+10-A2-start-next-draft @ A:reveal draft 4 calls 3 loading 0
+placeholder-samples: 0
+flier-outside-panel-samples: 0
+calls-before-first-carry-samples: 0
+02-A-carry: flier {"l":109,"t":465.578125,"r":141,"b":497.578125} target {"l":310.421875,"t":225.1875,"r":338.421875,"b":253.1875}
+08-C-carry: flier {"l":149.01095581054688,"t":459.353271484375,"r":180.91383361816406,"b":491.256103515625} target {"l":310.203125,"t":225.1875,"r":338.203125,"b":253.1875}

@@ -31,6 +31,8 @@ const eslintConfig = defineConfig([
     // eslint lo lintaba entero (780 errores / 10831 warnings sobre código generado, no escrito a
     // mano). Hallazgo real: bloqueó un push tras la primera corrida local del E2E.
     ".next-e2e/**",
+    // Hero loop lab: playwright.hero-loop.config.ts builds into .next-hero-loop, same reason as above.
+    ".next-hero-loop/**",
     "storybook-static/**",
     "design/enforcement/fixtures/**",
   ]),

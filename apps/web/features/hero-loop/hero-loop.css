@@ -1,0 +1,245 @@
+/* HERO-LOOP LAB · colour only from tokens (no literals), custom properties prefixed `hl-`.
+   Motion verbs (the shared language) and where they live here:
+     GATHER   .hl-px           a tile is acquired: pixel grid dissolves while the art gathers in
+     ATTRACT  .hl-marker       the evidence arrives from the side and its effect lands on the cards it moves
+     TETHER   .hl-card-tether  while a cause is live it stays tied to the card it moves; the personal one stays held
+     SETTLE   (FLIP in JS) + .hl-seat[data-placed]   the order springs into place; the seat takes the landing
+     TRANSFER .hl-fly          the call travels card → seat, then seat → Recent calls (.hl-trace)
+     SCATTER  .hl-evidence[data-scatter]   the evidence disperses once it has done its job
+     REPEL    .hl-card[data-repelled]      ONLY for a contradiction: the contradicted leader recoils
+   Everything animates transform/opacity. Reduced motion keeps every state and drops the travel. */
+
+@property --hl-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+.hl { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; position: relative; }
+.hl-panel.cx-glass { overflow: hidden; position: relative; z-index: 1; }
+
+/* ───────── atmosphere: three very quiet semantic fields behind the stage (opacity only; no aurora) ───────── */
+.hl-field { inset: 0; pointer-events: none; position: absolute; z-index: 0; }
+.hl-field i { inset: 0; opacity: 0; position: absolute; transition: opacity 1100ms var(--m-ease-out); }
+.hl-field i[data-field="evidence"] { background: radial-gradient(60% 55% at 22% 18%, color-mix(in srgb, var(--r3-spec-cyan) var(--hl-field-a, 9%), transparent), transparent 72%); }
+.hl-field i[data-field="pressure"] { background: radial-gradient(48% 50% at 86% 34%, color-mix(in srgb, var(--r3-spec-pink) var(--hl-field-a, 9%), transparent), transparent 72%); }
+.hl-field i[data-field="resolved"] { background: radial-gradient(60% 50% at 56% 100%, color-mix(in srgb, var(--r3-spec-lime) var(--hl-field-a, 9%), transparent), transparent 74%); }
+.hl-field i[data-field="evidence"] { opacity: .45; }
+.hl[data-phase="reveal"] .hl-field i[data-field="evidence"], .hl[data-phase="evidence"] .hl-field i[data-field="evidence"], .hl[data-phase="recommendation"] .hl-field i[data-field="evidence"] { opacity: 1; }
+.hl[data-pressure="true"] .hl-field i[data-field="pressure"] { opacity: 1; }
+.hl[data-resolved="true"] .hl-field i[data-field="resolved"] { opacity: 1; }
+.hl-inner { display: grid; gap: 12px; padding: 12px 16px 16px; position: relative; z-index: 1; }
+.hl-sr { clip: rect(0 0 0 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+
+/* ───────── progress ───────── */
+.hl-progress { display: grid; gap: 8px; grid-template-columns: repeat(8, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.hl-progress li { display: grid; gap: 4px; min-width: 0; }
+.hl-progress-bar { background: var(--r3-line-strong); border-radius: 1px; display: block; height: 2px; overflow: hidden; transition: background var(--m-slow) var(--m-ease-out); }
+.hl-progress-label { color: var(--r3-muted); font: 500 10px/1 var(--f-bric); overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; transition: color var(--m-fast) var(--m-ease-out); white-space: nowrap; }
+.hl-progress li[data-state="done"] .hl-progress-bar { background: color-mix(in srgb, var(--r3-spec-cyan) 55%, var(--r3-line)); }
+.hl-progress li[data-state="now"] .hl-progress-bar { animation: hl-shimmer 1400ms linear infinite; background: var(--r3-spec-fill) 0 0 / 200% 100%; }
+.hl-progress li[data-state="now"] .hl-progress-label { color: var(--r3-ink); }
+@keyframes hl-shimmer { to { background-position: -200% 0; } }
+
+/* ───────── layout: coach | board (Recent calls is an overlay on the stage edge, never a column) ───────── */
+.hl-layout { align-items: start; column-gap: 20px; display: grid; grid-template-areas: "coach board"; grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); position: relative; }
+.hl-coach-col { align-self: center; grid-area: coach; min-width: 0; }
+.hl-board { display: grid; gap: 12px; grid-area: board; min-width: 0; }
+
+/* ───────── the Coach slot: presence is scale + position, never palette ───────── */
+.hl-coach { aspect-ratio: 1; margin-inline: auto; max-width: 300px; position: relative; transform: scale(var(--hl-coach-scale, 1)); transform-origin: 50% 90%; transition: transform 700ms var(--m-ease-out); width: 100%; }
+.hl-coach-body, .hl-coach-flourish { height: 100%; position: relative; width: 100%; }
+.hl-live, .hl-sprite { height: 100%; inset: 0; position: absolute; width: 100%; }
+.hl-live { display: block; transition: opacity 240ms linear; }
+.hl-coach[data-renderer="sprite-loading"] .hl-live { opacity: 0; }
+.hl-sprite-layer { height: 100%; inset: 0; object-fit: contain; pointer-events: none; position: absolute; user-select: none; width: 100%; }
+.hl-coach[data-renderer="static"] .hl-coach, .hl-coach[data-mode="static"] { transition: none; }
+
+/* ───────── blocks ───────── */
+.hl-block { border: 1px dashed var(--r3-line-strong); border-radius: 4px; display: grid; gap: 8px; padding: 8px 12px; transition: border-color var(--m-slow) var(--m-ease-out); }
+.hl-block-head { align-items: baseline; display: flex; gap: 4px 12px; justify-content: space-between; }
+.hl-block-title { animation: hl-fade var(--m-slow) var(--m-ease-out) both; color: var(--r3-ink); font: 600 11px/1 var(--f-bric); }
+.hl-block-meta { animation: hl-fade var(--m-slow) var(--m-ease-out) both; color: var(--r3-muted); font: 500 11px/1 var(--f-bric); transition: color var(--m-slow) var(--m-ease-out); }
+.hl-block-meta[data-turn="true"], .hl-block-meta[data-next="true"] { color: var(--r3-id); }
+/* NEXT DRAFT: the same shell, a new match. The draft frame re-draws itself once; nothing else interrupts. */
+.hl-draft[data-next="true"] { border-color: color-mix(in srgb, var(--r3-spec-cyan) 50%, var(--r3-line)); }
+.hl-draft[data-on="true"] { border-color: var(--r3-line); border-style: solid; }
+.hl-bans { align-items: center; display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.hl-bans li { display: inline-flex; }
+.hl-row { align-items: center; display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.hl-row-label { color: var(--r3-muted); font: 500 10px/1 var(--f-bric); min-width: 40px; }
+.hl-seat { border-radius: 4px; display: inline-flex; position: relative; transition: box-shadow var(--m-slow) var(--m-ease-out); }
+.hl-seat[data-focus="true"] { box-shadow: 0 0 0 2px color-mix(in srgb, var(--r3-spec-cyan) 70%, transparent), 0 0 16px -2px color-mix(in srgb, var(--r3-spec-cyan) 55%, transparent); }
+.hl-seat-hidden { align-items: center; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--r3-line-strong) 70%, transparent) 4px 5px); border: 1px dashed var(--r3-line-strong); border-radius: 4px; color: var(--r3-muted); display: inline-flex; font: 600 13px/1 var(--f-bric); height: 36px; justify-content: center; width: 36px; }
+.hl-seat-open { align-items: center; border: 1px dashed var(--r3-line-strong); border-radius: 4px; color: var(--r3-id); display: inline-flex; font: 600 10px/1 var(--f-bric); height: 36px; justify-content: center; width: 36px; }
+.hl-seat[data-you="true"] .hl-seat-open { border-color: var(--r3-spec-cyan); border-style: solid; }
+.hl-you-open { transition: opacity var(--m-slow) var(--m-ease-out), box-shadow var(--m-slow) var(--m-ease-out); }
+.hl-you-art { border-radius: 4px; inset: 0; opacity: 0; position: absolute; }
+.hl-seat[data-target="true"] .hl-you-open { box-shadow: 0 0 0 2px color-mix(in srgb, var(--r3-spec-cyan) 60%, transparent); }
+.hl-seat[data-placed="true"] .hl-you-art { opacity: 1; }
+.hl-seat[data-placed="true"] .hl-you-open { opacity: 0; }
+.hl[data-motion="full"] .hl-seat[data-placed="true"] { animation: hl-land 800ms var(--m-ease-out) both; }
+@keyframes hl-land { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--r3-spec-cyan) 80%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+.hl-fly { opacity: 0; display: flex; line-height: 0; left: 0; pointer-events: none; position: absolute; top: 0; transform-origin: 0 0; z-index: 5; }
+.hl .hl-fly .chm-icon[data-size] { --chm-icon-size: var(--hl-fly-size, 48px); box-shadow: 0 0 0 1px var(--r3-spec-cyan), 0 4px 10px -2px color-mix(in srgb, var(--r3-spec-cyan) 40%, transparent); }
+
+/* ───────── GATHER: acquisition ───────── */
+.hl-px { display: inline-flex; position: relative; }
+.hl-px-art { display: inline-flex; opacity: 0; transition: opacity var(--m-slow) var(--m-ease-out) var(--hl-d, 0ms); }
+.hl-px[data-on="true"] .hl-px-art { opacity: 1; }
+.hl-px-cells { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); inset: 0; pointer-events: none; position: absolute; }
+.hl-px-cells i { background: color-mix(in srgb, var(--r3-spec-cyan) 46%, var(--r3-raise)); opacity: 0; }
+.hl-px-cells i:nth-child(5n + 2) { background: color-mix(in srgb, var(--r3-spec-pink) 38%, var(--r3-raise)); }
+.hl-px-cells i:nth-child(7n + 3) { background: color-mix(in srgb, var(--r3-ink) 26%, var(--r3-raise)); }
+.hl-row--enemy .hl-px { --hl-gx: 24px; }
+.hl-row--allies .hl-px { --hl-gx: -24px; }
+.hl[data-motion="full"] .hl-px[data-on="true"] .hl-px-art { animation: hl-gather var(--m-slow) var(--m-spring-snappy) var(--hl-d, 0ms) both; }
+.hl[data-motion="full"] .hl-px[data-on="true"] .hl-px-cells i { animation: hl-cell 560ms steps(4, end) calc(var(--hl-d, 0ms) + var(--hl-k, 0) * 24ms) both; }
+@keyframes hl-gather { from { opacity: 0; translate: var(--hl-gx, 0px) 8px; scale: .8; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes hl-cell { 0% { opacity: .5; } 55% { opacity: .4; } 100% { opacity: 0; } }
+
+/* ───────── evidence: one slot per piece the pass will bring ───────── */
+.hl-evidence { align-content: flex-start; align-items: stretch; display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; min-height: 74px; padding: 0; }
+.hl-slot { align-items: center; display: inline-flex; height: 34px; justify-content: center; width: 20px; }
+.hl-slot i { background: var(--r3-line-strong); border-radius: 50%; display: block; height: 4px; width: 4px; }
+.hl-marker { --hl-hue: var(--r3-spec-cyan); align-items: center; background: color-mix(in srgb, var(--hl-hue) 9%, transparent); border-radius: 4px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hl-hue) 38%, var(--r3-line)); display: inline-flex; gap: 6px; min-height: 34px; padding: 0 10px; position: relative; }
+.hl-marker[data-kind="synergy"] { --hl-hue: var(--r3-spec-lime); }
+.hl-marker[data-kind="personal"] { --hl-hue: var(--r3-spec-pink); }
+.hl-marker[data-absent="true"] { background: transparent; box-shadow: none; outline: 1px dashed var(--r3-line-strong); outline-offset: -1px; }
+.hl-marker-kind { color: color-mix(in srgb, var(--hl-hue) 80%, var(--r3-ink)); font: 700 10px/1 var(--f-bric); text-transform: uppercase; }
+.hl-marker-label { color: var(--r3-ink); font: 500 11px/1.1 var(--f-bric); white-space: nowrap; }
+.hl-marker[data-absent="true"] .hl-marker-label, .hl-marker[data-absent="true"] .hl-marker-kind { color: var(--r3-muted); }
+/* ATTRACT: the cause arrives from the side it belongs to (what you know → left, who you are → right) */
+.hl[data-motion="full"] .hl-marker[data-state="live"] { animation: hl-attract 700ms var(--m-spring-snappy) both; }
+.hl[data-motion="full"] .hl-marker[data-state="live"][data-kind="personal"] { animation-name: hl-attract-r; }
+.hl-marker[data-state="live"] { box-shadow: inset 0 0 0 1px var(--hl-hue), 0 0 14px -4px var(--hl-hue); }
+.hl-marker[data-absent="true"][data-state="live"] { box-shadow: none; }
+@keyframes hl-attract { from { opacity: 0; translate: -22px 0; scale: .9; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes hl-attract-r { from { opacity: 0; translate: 22px 0; scale: .9; } to { opacity: 1; translate: 0 0; scale: 1; } }
+/* SCATTER: once the call is carried, the evidence disperses and does not come back */
+.hl[data-motion="full"] .hl-evidence[data-scatter="true"] .hl-marker { animation: hl-scatter 900ms cubic-bezier(.5, 0, .9, .4) both; }
+.hl[data-motion="reduced"] .hl-evidence[data-scatter="true"] .hl-marker { opacity: 0; transition: opacity 400ms linear; }
+@keyframes hl-scatter { from { opacity: 1; translate: 0 0; rotate: 0deg; scale: 1; } to { opacity: 0; translate: var(--hl-sx) var(--hl-sy); rotate: var(--hl-sr); scale: .6; } }
+
+/* ───────── the Top 3 ───────── */
+.hl-cards { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.hl-card {
+  --hl-hue: var(--r3-spec-cyan); align-items: center; background: color-mix(in srgb, var(--r3-panel) 70%, transparent); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); column-gap: 12px; display: grid; grid-template-columns: 24px 48px minmax(0, 1fr) 56px;
+  min-height: 64px; padding: 6px 12px; position: relative; transition: opacity var(--m-slow) var(--m-ease-out), box-shadow var(--m-slow) var(--m-ease-out);
+}
+.hl-card[data-ready="false"] { background: transparent; box-shadow: none; outline: 1px dashed var(--r3-line-strong); outline-offset: -1px; }
+.hl-card > :not(.hl-card-edge, .hl-card-tether) { transition: opacity var(--m-slow) var(--m-ease-out) calc(var(--hl-i, 0) * 120ms); }
+.hl-card[data-ready="false"] > :not(.hl-card-edge, .hl-card-tether) { opacity: 0; transition-delay: 0ms; }
+.hl-card-rank { color: var(--r3-muted); font: 600 12px/1 var(--f-bric); }
+.hl-card-icon { display: inline-flex; transition: opacity var(--m-slow) var(--m-ease-out); }
+.hl-card[data-launched="true"] .hl-card-icon { opacity: .18; }
+.hl-card-main { display: grid; gap: 2px; min-width: 0; }
+.hl-card-name { font: 600 15px/1.1 var(--f-bric); }
+.hl-card-reason { color: var(--r3-muted); font: 500 12px/1.3 var(--f-bric); }
+.hl-card-reason--cause { animation: hl-pop var(--m-slow) var(--m-spring-snappy) both; }
+.hl-card-reason b { font-weight: 700; margin-left: 6px; }
+.hl-card-reason[data-dir="up"] b { color: var(--r3-up); }
+.hl-card-reason[data-dir="down"] b { color: var(--r3-down); }
+@keyframes hl-pop { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
+.hl-card-score { display: grid; gap: 3px; justify-items: end; justify-self: end; transition: color var(--m-fast) var(--m-ease-out); }
+.hl-card-fit { color: var(--r3-muted); font: 700 9px/1 var(--f-bric); font-style: normal; text-transform: uppercase; }
+.hl-card-score b { font: 700 24px/1 var(--f-syne); font-variant-numeric: tabular-nums; transform-origin: right center; transition: color var(--m-fast) var(--m-ease-out), scale var(--m-slow) var(--m-spring-snappy); }
+.hl-card-score[data-moving="true"] b { color: var(--r3-spec-cyan); }
+
+/* TETHER: the live cause stays tied to the card it moves */
+.hl-card-tether { background: var(--hl-hue); border-radius: 2px; bottom: 8px; left: 0; opacity: 0; position: absolute; top: 8px; transition: opacity var(--m-slow) var(--m-ease-out); width: 3px; }
+.hl-card[data-tether="synergy"] { --hl-hue: var(--r3-spec-lime); }
+.hl-card[data-tether="personal"], .hl-card[data-tether="held"] { --hl-hue: var(--r3-spec-pink); }
+.hl-card[data-tether="enemy"] .hl-card-tether, .hl-card[data-tether="synergy"] .hl-card-tether, .hl-card[data-tether="personal"] .hl-card-tether { opacity: 1; }
+.hl-card[data-tether="held"] .hl-card-tether { opacity: .55; }
+.hl-card[data-hit="up"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-up) 45%, var(--r3-line)); }
+.hl-card[data-hit="down"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-down) 40%, var(--r3-line)); }
+
+/* REPEL: a contradiction. The leader recoils and settles back; nothing else in the loop does this. */
+.hl[data-motion="full"] .hl-card[data-repelled="true"] { animation: hl-repel 720ms cubic-bezier(.22, .8, .24, 1) both; }
+.hl-card[data-repelled="true"] { box-shadow: inset 0 0 0 1px var(--r3-down); }
+@keyframes hl-repel { 0% { translate: 0 0; } 22% { translate: -10px 0; } 52% { translate: 4px 0; } 100% { translate: 0 0; } }
+
+/* the call: one card becomes the answer */
+.hl-card-edge {
+  background: conic-gradient(from var(--hl-angle), transparent 0 52%, var(--r3-spec-cyan) 74%, var(--r3-spec-pink) 90%, var(--r3-spec-lime) 100%); border-radius: inherit; inset: 0; opacity: 0; padding: 1.5px; pointer-events: none; position: absolute;
+  -webkit-mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0); transition: opacity var(--m-slow) var(--m-ease-out);
+}
+.hl-card[data-champion="true"] { box-shadow: inset 0 0 0 1px transparent, 0 0 28px -10px color-mix(in srgb, var(--r3-spec-cyan) 55%, transparent); overflow: hidden; }
+.hl-card[data-champion="true"] .hl-card-edge { animation: hl-spin 3200ms linear infinite; opacity: 1; }
+.hl-card[data-champion="true"] .hl-card-rank { color: var(--r3-spec-cyan); }
+.hl-card[data-champion="true"] .hl-card-score b { background: var(--r3-spec-fill) 0 0 / 100% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; scale: 1.2; }
+.hl-card[data-champion="true"] .hl-card-fit { color: var(--r3-ink); }
+.hl[data-phase="recommendation"] .hl-card[data-champion="false"], .hl[data-phase="lock"] .hl-card[data-champion="false"], .hl[data-phase="settle"] .hl-card[data-champion="false"] { opacity: .7; }
+.hl[data-phase="carry"] .hl-card, .hl[data-phase="relax"] .hl-card { opacity: .45; }
+@keyframes hl-spin { to { --hl-angle: 360deg; } }
+
+/* ───────── the call ───────── */
+.hl-call { display: grid; gap: 8px; }
+.hl-call-top { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 14px; min-height: 22px; }
+.hl-conf { align-items: center; display: inline-flex; gap: 8px; }
+.hl-conf-pips { display: inline-flex; gap: 3px; }
+.hl-conf-pips i { background: var(--r3-line-strong); border-radius: 1px; display: block; height: 4px; transition: background var(--m-slow) var(--m-ease-out); width: 14px; }
+.hl-conf-pips i[data-on="true"] { background: var(--r3-spec-cyan); }
+.hl-conf-label { color: var(--r3-muted); font: 500 11px/1 var(--f-bric); }
+.hl-tag { border-radius: 2px; box-shadow: inset 0 0 0 1px var(--r3-line-strong); color: var(--r3-muted); font: 600 10px/1 var(--f-bric); padding: 4px 8px; text-transform: uppercase; }
+.hl-tag--you { box-shadow: inset 0 0 0 1px var(--r3-spec-pink); color: var(--r3-ink); }
+.hl[data-motion="full"] .hl-tag { animation: hl-pop var(--m-slow) var(--m-ease-out) both; }
+.hl-why { color: var(--r3-ink); display: flex; flex-wrap: wrap; font: 600 12px/1.2 var(--f-bric); gap: 8px 20px; list-style: none; margin: 0; min-height: 24px; padding: 0; }
+.hl-why li { align-items: center; display: inline-flex; gap: 8px; opacity: 0; transition: opacity var(--m-slow) var(--m-ease-out) calc(var(--hl-i, 0) * 280ms + 150ms); }
+.hl-why[data-on="true"] li { opacity: 1; }
+.hl-tick { border-bottom: 2px solid var(--r3-up); border-right: 2px solid var(--r3-up); display: block; height: 9px; rotate: 40deg; translate: 0 -2px; width: 5px; }
+.hl-lock { border-radius: 4px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-spec-cyan) 60%, var(--r3-line)); color: var(--r3-ink); font: 700 12px/1 var(--f-bric); justify-self: end; opacity: 0; padding: 8px 12px; transition: opacity var(--m-fast) var(--m-ease-out), background-color var(--m-fast) var(--m-ease-out), box-shadow var(--m-fast) var(--m-ease-out), color var(--m-fast) var(--m-ease-out), scale var(--m-fast) var(--m-spring-snappy); white-space: nowrap; }
+.hl-lock[data-on="true"] { opacity: 1; transition-delay: 500ms, 0ms, 0ms, 0ms, 0ms; }
+.hl-lock[data-pressed="true"] { background: color-mix(in srgb, var(--r3-spec-cyan) 22%, transparent); box-shadow: inset 0 0 0 1px var(--r3-spec-cyan); color: var(--r3-id); transition-delay: 0ms; }
+.hl[data-phase="lock"] .hl-lock { scale: .94; }
+.hl-lock[data-done="true"] { color: var(--r3-up); }
+
+/* ───────── Recent calls: a compact memory trace on the stage edge (absent until the first call is carried) ───────── */
+.hl-trace { animation: hl-fade var(--m-slow) var(--m-ease-out) both; bottom: 0; display: grid; gap: 6px; left: 0; max-width: 168px; position: absolute; z-index: 2; }
+.hl-trace-title { color: var(--r3-muted); font: 600 9px/1 var(--f-bric); text-transform: uppercase; }
+.hl-trace-list { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.hl-trace-item { align-items: center; display: flex; gap: 8px; transition: opacity var(--m-slow) var(--m-ease-out); }
+.hl-trace-item:nth-child(2) { opacity: .7; }
+.hl-trace-item:nth-child(3) { opacity: .45; }
+.hl-trace-art { display: inline-flex; }
+.hl-trace-text { display: grid; gap: 1px; min-width: 0; }
+.hl-trace-text b { font: 600 11px/1.1 var(--f-bric); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hl-trace-text i { color: var(--r3-muted); font: 500 9px/1.1 var(--f-bric); font-style: normal; }
+/* TRANSFER handoff: driven by data-landing (HeroLoop.tsx useCarryHandoff), never by a CSS delay. The icon is up as the flier
+   arrives, the label resolves on landing; once "full" nothing changes when the carry ends. */
+.hl-trace-art, .hl-trace-text { transition: opacity var(--m-fast) var(--m-ease-out); }
+.hl-trace-item[data-landing="pending"] .hl-trace-art, .hl-trace-item[data-landing="pending"] .hl-trace-text, .hl-trace-item[data-landing="icon"] .hl-trace-text { opacity: 0; }
+
+/* ───────── narrow: the Coach becomes a compact header, the rail a strip under the board ───────── */
+@media (max-width: 899px) {
+  .hl-inner { padding: 12px; }
+  .hl-layout { grid-template-areas: "coach" "board"; grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  .hl-coach-col { justify-self: center; width: min(46vw, 190px); }
+  .hl-coach { max-width: 190px; }
+  /* the trace sits beside the Coach header, inside the composition: it never pushes the draft and never falls below the fold */
+  .hl-trace { bottom: auto; left: auto; max-width: 92px; right: 0; top: 0; }
+  .hl-trace-text b { display: none; }
+  .hl-trace-text i { font-size: 10px; }
+  .hl-progress-label { font-size: 8px; }
+}
+@media (max-width: 599px) {
+  .hl-bans { display: none; }
+  .hl-row { gap: 4px; }
+  .hl-row-label { min-width: 36px; }
+  .hl .hl-seat .chm-icon[data-size] { --chm-icon-size: 32px; }
+  .hl-seat-open, .hl-seat-hidden { height: 32px; width: 32px; }
+  .hl-card { column-gap: 8px; grid-template-columns: 20px 40px minmax(0, 1fr) 44px; padding-inline: 8px; }
+  .hl .hl-card .chm-icon[data-size] { --chm-icon-size: 40px; }
+  .hl-card-name { font-size: 14px; }
+  .hl-card-score b { font-size: 20px; }
+  .hl-marker { padding: 0 8px; }
+  .hl-marker-kind { display: none; }
+  .hl-why { gap: 6px 14px; min-height: 36px; }
+  .hl-evidence { min-height: 74px; }
+}
+
+/* ───────── reduced motion: every state stays, the travel goes ───────── */
+.hl[data-motion="reduced"] .hl-px-cells, .hl[data-motion="reduced"] .hl-card-edge { display: none; }
+.hl[data-motion="reduced"] .hl-progress-bar, .hl[data-motion="reduced"] .hl-card-reason--cause, .hl[data-motion="reduced"] .hl-block-meta, .hl[data-motion="reduced"] .hl-block-title, .hl[data-motion="reduced"] .hl-trace { animation: none; }
+.hl[data-motion="reduced"] .hl-card-score b, .hl[data-motion="reduced"] .hl-coach, .hl[data-motion="reduced"] .hl-field i { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .hl-px-cells, .hl-card-edge { display: none; }
+}
+@keyframes hl-fade { from { opacity: 0; } to { opacity: 1; } }

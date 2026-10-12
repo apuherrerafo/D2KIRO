@@ -1,0 +1,10 @@
+{
+  "video": "v11f-desktop-dark-A-B-C-A.webm",
+  "seconds": 42.9,
+  "distinctFrames": 1243,
+  "averageFps": 29,
+  "medianGapMs": 32.7,
+  "p95GapMs": 48.1,
+  "framesWithGapOver100ms": 0,
+  "worstGapMs": 80.9
+}

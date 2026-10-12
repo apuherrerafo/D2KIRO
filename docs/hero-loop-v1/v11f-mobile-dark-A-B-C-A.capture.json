@@ -1,0 +1,10 @@
+{
+  "video": "v11f-mobile-dark-A-B-C-A.webm",
+  "seconds": 43.2,
+  "distinctFrames": 2590,
+  "averageFps": 59.9,
+  "medianGapMs": 16.6,
+  "p95GapMs": 20.9,
+  "framesWithGapOver100ms": 0,
+  "worstGapMs": 35.9
+}
