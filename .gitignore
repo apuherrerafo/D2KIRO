@@ -70,3 +70,5 @@ gsi-raw-*.jsonl
 # Hero Loop lab: ephemeral session and dev build output
 e2e-hero-loop/.tmp/
 apps/web/.next-hero-loop/
+e2e-counterfactual/.tmp/
+apps/web/.next-counterfactual/
