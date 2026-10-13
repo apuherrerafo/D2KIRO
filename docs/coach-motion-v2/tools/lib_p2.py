@@ -3,7 +3,7 @@ import glob, json, os
 import numpy as np, cv2
 from PIL import Image
 
-S = "C:/Users/APU/AppData/Local/Temp/claude/d--JULIO-apuherrerafoprojects-valegift/6746d27d-9e9f-4f05-a69b-7b737f0facef/scratchpad/p2"
+S = os.environ.get("CM_P2_DIR", "p2")   # scratch dir with the captured study frames (not committed; set CM_P2_DIR)
 WT = "D:/JULIO/apuherrerafoprojects/dota2coach-wt/landing-v2-integration"
 OUT = WT + "/docs/coach-motion-v2/production-format"
 BG = {"dark": (32.0, 29.0, 27.0), "light": (250.0, 251.0, 248.0)}   # lab stage backgrounds (computed style of .cm-stage)
