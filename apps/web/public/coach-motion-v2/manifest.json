@@ -1,0 +1,46 @@
+{
+ "version": 1,
+ "source": "live Gold Master (HeroCoachStage, lite) fixed-step capture",
+ "srcPx": 384,
+ "framePx": 384,
+ "crop": {
+  "x": 15,
+  "y": 20,
+  "w": 346,
+  "h": 354
+ },
+ "cell": {
+  "w": 346,
+  "h": 354
+ },
+ "format": "webp",
+ "quality": 80,
+ "clips": {
+  "WATCHING_IDLE": {
+   "file": "watching-idle.webp",
+   "frames": 60,
+   "fps": 30,
+   "cols": 8,
+   "rows": 8,
+   "loop": "pingpong",
+   "atlas": {
+    "w": 2768,
+    "h": 2832
+   },
+   "bytes": 987888
+  },
+  "WATCHING_TO_ANALYZING": {
+   "file": "watching-to-analyzing.webp",
+   "frames": 39,
+   "fps": 30,
+   "cols": 7,
+   "rows": 6,
+   "loop": "once",
+   "atlas": {
+    "w": 2422,
+    "h": 2124
+   },
+   "bytes": 608702
+  }
+ }
+}

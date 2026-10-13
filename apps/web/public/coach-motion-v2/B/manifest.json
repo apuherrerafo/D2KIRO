@@ -1,0 +1,48 @@
+{
+ "version": 2,
+ "source": "live Gold Master (HeroCoachStage, lite) fixed-step capture",
+ "srcPx": 384,
+ "framePx": 384,
+ "format": "avif",
+ "quality": 30,
+ "subsampling": "4:2:0",
+ "bleed": true,
+ "crop": {
+  "x": 15.0,
+  "y": 20.0,
+  "w": 346.0,
+  "h": 354.0
+ },
+ "cell": {
+  "w": 346,
+  "h": 354
+ },
+ "clips": {
+  "WATCHING_IDLE": {
+   "file": "watching-idle.avif",
+   "frames": 48,
+   "fps": 24,
+   "cols": 8,
+   "rows": 6,
+   "loop": "pingpong",
+   "atlas": {
+    "w": 2768,
+    "h": 2124
+   },
+   "bytes": 290003
+  },
+  "WATCHING_TO_ANALYZING": {
+   "file": "watching-to-analyzing.avif",
+   "frames": 31,
+   "fps": 24,
+   "cols": 6,
+   "rows": 6,
+   "loop": "once",
+   "atlas": {
+    "w": 2076,
+    "h": 2124
+   },
+   "bytes": 165687
+  }
+ }
+}

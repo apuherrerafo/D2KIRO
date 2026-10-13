@@ -1,0 +1,85 @@
+{
+ "base": "http://localhost:3162",
+ "checks": {
+  "network: no Three.js / coach-modular.bin on the candidate panels": {
+   "ok": true,
+   "detail": "208 requests"
+  },
+  "network: Motion V2 packs requested": {
+   "ok": true,
+   "detail": "162 requests"
+  },
+  "held WATCHING 384: no >= 500 ms freeze, no skipped/duplicated frame": {
+   "ok": true,
+   "detail": "paints 317, max gap 44 ms, skipped 0, dupes 0"
+  },
+  "loop seam 384: WATCHING wraps 251 -> 0 without a stall": {
+   "ok": true,
+   "detail": "wraps 1"
+  },
+  "held WATCHING 512: no >= 500 ms freeze, no skipped/duplicated frame": {
+   "ok": true,
+   "detail": "paints 316, max gap 51 ms, skipped 0, dupes 0"
+  },
+  "loop seam 512: WATCHING wraps 251 -> 0 without a stall": {
+   "ok": true,
+   "detail": "wraps 1"
+  },
+  "transition 384 #0: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 35 ms"
+  },
+  "transition 512 #0: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 35 ms"
+  },
+  "transition 384 #1: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 35 ms"
+  },
+  "transition 512 #1: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 35 ms"
+  },
+  "transition 384 #2: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 35 ms"
+  },
+  "transition 512 #2: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 34 ms"
+  },
+  "held ANALYZING 384: no freeze, no skipped frame, seam crossed": {
+   "ok": true,
+   "detail": "paints 240, max gap 38 ms, wraps 1"
+  },
+  "held ANALYZING 512: no freeze, no skipped frame, seam crossed": {
+   "ok": true,
+   "detail": "paints 240, max gap 35 ms, wraps 1"
+  },
+  "reduced motion: NO Motion V2 request (manifest or atlas)": {
+   "ok": true,
+   "detail": "46 requests, 0 motion: "
+  },
+  "reduced motion: static Coach visible": {
+   "ok": true,
+   "detail": "{\"statuses\":[\"static\",\"static\",\"static\",\"static\"],\"sprite\":[\"visible\",\"visible\"]}"
+  },
+  "failure (manifest 404): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: manifest 384: 404) · 0.0 MB decoded\"}"
+  },
+  "failure (atlas fetch aborted): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: 384/WATCHING_LOOP#0: Failed to fetch) · 0.0 MB decoded\"}"
+  },
+  "failure (AVIF decode error): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: 384/WATCHING_LOOP#0: The source image could not be decoded.) · 0.0 MB decoded\"}"
+  },
+  "failure (timeout): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: timeout waiting for the first Motion V2 frame) · 0.0 MB decoded\"}"
+  }
+ }
+}

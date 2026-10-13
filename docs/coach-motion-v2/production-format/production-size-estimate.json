@@ -1,0 +1,801 @@
+{
+ "assumptions": [
+  "Measured: the idle (60 / 48 frames) and WATCHING_TO_ANALYZING (39 / 31 frames) atlases of each format, bytes on disk and decoded size (w x h x 4 from the browser's naturalWidth/Height).",
+  "Projected: per-frame bytes of the measured idle clip are applied to loop/hold frames and per-frame bytes of the measured transition to every other frame. Content of the other beats is assumed to cost the same per frame.",
+  "7-clip pack = WATCHING_IDLE 60, W->A 39, ANALYZING_LOOP 72, A->P 45, P->C 51, C->P 45, P->W 39 frames at 30 fps (24 fps: x0.8). The real loop order is WATCHING -> ANALYZING -> POINTING -> CONFIRMING -> POINTING -> WATCHING.",
+  "Decoded memory is an upper-bound model (w x h x 4 per decoded atlas); the browser may hold extra copies. Not measured on a phone.",
+  "Download size = bytes, no HTTP compression gain expected (AVIF/WebP are already compressed)."
+ ],
+ "formats": {
+  "A": {
+   "fps": 30,
+   "measured": {
+    "idle_bytes": 557941,
+    "transition_bytes": 327369,
+    "idle_plus_transition_bytes": 885310,
+    "idle_decoded_MB": 29.9,
+    "transition_decoded_MB": 19.62,
+    "current_plus_next_decoded_MB_idle_to_transition": 49.53,
+    "bytes_per_frame": {
+     "idle": 9299,
+     "transition": 8394
+    },
+    "cold_decode_ms_median_desktop_gpu": {
+     "idle": 119.6,
+     "transition": 84.4
+    }
+   },
+   "projected_full_pack": {
+    "A1_seven_clips_canonical_entries": {
+     "clips": {
+      "WATCHING_IDLE": {
+       "frames": 60,
+       "bytes": 557941,
+       "decoded_MB": 29.9
+      },
+      "WATCHING_TO_ANALYZING": {
+       "frames": 39,
+       "bytes": 327369,
+       "decoded_MB": 19.62
+      },
+      "ANALYZING_LOOP": {
+       "frames": 72,
+       "bytes": 669529,
+       "decoded_MB": 35.88
+      },
+      "ANALYZING_TO_POINTING": {
+       "frames": 45,
+       "bytes": 377733,
+       "decoded_MB": 22.64
+      },
+      "POINTING_TO_CONFIRMING": {
+       "frames": 51,
+       "bytes": 428098,
+       "decoded_MB": 25.66
+      },
+      "CONFIRMING_TO_POINTING": {
+       "frames": 45,
+       "bytes": 377733,
+       "decoded_MB": 22.64
+      },
+      "POINTING_TO_WATCHING": {
+       "frames": 39,
+       "bytes": 327369,
+       "decoded_MB": 19.62
+      }
+     },
+     "total_bytes": 3065772,
+     "total_frames": 351,
+     "all_decoded_at_once_MB": 176.0,
+     "peak_current_plus_next_MB": 58.52,
+     "worst_pair": "ANALYZING_LOOP + ANALYZING_TO_POINTING",
+     "assets": 7
+    },
+    "A2_seven_clips_plus_entry_heads": {
+     "stride12": {
+      "heads_per_boundary": 6,
+      "assets": 19,
+      "extra_frames": 50,
+      "total_bytes": 3485476,
+      "peak_current_plus_next_MB": 60.5
+     },
+     "stride6": {
+      "heads_per_boundary": 11,
+      "assets": 29,
+      "extra_frames": 100,
+      "total_bytes": 3905180,
+      "peak_current_plus_next_MB": 60.5
+     }
+    },
+    "A3_continuous_beat_segments": {
+     "segments": {
+      "relax": {
+       "frames": 39,
+       "bytes": 327369,
+       "decoded_MB": 19.62
+      },
+      "draft_hold": {
+       "frames": 54,
+       "bytes": 502147,
+       "decoded_MB": 26.91
+      },
+      "reveal": {
+       "frames": 39,
+       "bytes": 327369,
+       "decoded_MB": 19.62
+      },
+      "E1_ATTRACT": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E2_ATTRACT": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E3_ATTRACT(s0,s1)": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E3_REPEL(s2)": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E4_TETHER(s0)": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E4_absent(s1)": {
+       "frames": 24,
+       "bytes": 201458,
+       "decoded_MB": 12.08
+      },
+      "E4_ATTRACT(s2)": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E5_ATTRACT(s2)": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "E6_TETHER(s2)": {
+       "frames": 30,
+       "bytes": 251822,
+       "decoded_MB": 15.1
+      },
+      "recommendation..carry high (s0,s2)": {
+       "frames": 141,
+       "bytes": 1183565,
+       "decoded_MB": 70.95
+      },
+      "recommendation..carry medium (s1)": {
+       "frames": 141,
+       "bytes": 1183565,
+       "decoded_MB": 70.95
+      }
+     },
+     "total_frames": 678,
+     "total_bytes": 5740049,
+     "assets_unsliced": 14,
+     "peak_current_plus_next_MB_if_sliced_in_1s_chunks": 30.2,
+     "peak_current_plus_next_MB_largest_unsliced_pair": 141.9
+    }
+   }
+  },
+  "B": {
+   "fps": 24,
+   "measured": {
+    "idle_bytes": 290003,
+    "transition_bytes": 165687,
+    "idle_plus_transition_bytes": 455690,
+    "idle_decoded_MB": 22.43,
+    "transition_decoded_MB": 16.82,
+    "current_plus_next_decoded_MB_idle_to_transition": 39.25,
+    "bytes_per_frame": {
+     "idle": 6042,
+     "transition": 5345
+    },
+    "cold_decode_ms_median_desktop_gpu": {
+     "idle": 91.3,
+     "transition": 67.4
+    }
+   },
+   "projected_full_pack": {
+    "A1_seven_clips_canonical_entries": {
+     "clips": {
+      "WATCHING_IDLE": {
+       "frames": 48,
+       "bytes": 290003,
+       "decoded_MB": 22.43
+      },
+      "WATCHING_TO_ANALYZING": {
+       "frames": 31,
+       "bytes": 165687,
+       "decoded_MB": 16.82
+      },
+      "ANALYZING_LOOP": {
+       "frames": 58,
+       "bytes": 350420,
+       "decoded_MB": 27.1
+      },
+      "ANALYZING_TO_POINTING": {
+       "frames": 36,
+       "bytes": 192411,
+       "decoded_MB": 19.53
+      },
+      "POINTING_TO_CONFIRMING": {
+       "frames": 41,
+       "bytes": 219134,
+       "decoded_MB": 22.25
+      },
+      "CONFIRMING_TO_POINTING": {
+       "frames": 36,
+       "bytes": 192411,
+       "decoded_MB": 19.53
+      },
+      "POINTING_TO_WATCHING": {
+       "frames": 31,
+       "bytes": 165687,
+       "decoded_MB": 16.82
+      }
+     },
+     "total_bytes": 1575753,
+     "total_frames": 281,
+     "all_decoded_at_once_MB": 144.5,
+     "peak_current_plus_next_MB": 46.63,
+     "worst_pair": "ANALYZING_LOOP + ANALYZING_TO_POINTING",
+     "assets": 7
+    },
+    "A2_seven_clips_plus_entry_heads": {
+     "stride12": {
+      "heads_per_boundary": 6,
+      "assets": 19,
+      "extra_frames": 50,
+      "total_bytes": 1842990,
+      "peak_current_plus_next_MB": 48.4
+     },
+     "stride6": {
+      "heads_per_boundary": 11,
+      "assets": 29,
+      "extra_frames": 100,
+      "total_bytes": 2110227,
+      "peak_current_plus_next_MB": 48.4
+     }
+    },
+    "A3_continuous_beat_segments": {
+     "segments": {
+      "relax": {
+       "frames": 31,
+       "bytes": 165687,
+       "decoded_MB": 16.82
+      },
+      "draft_hold": {
+       "frames": 43,
+       "bytes": 259794,
+       "decoded_MB": 20.09
+      },
+      "reveal": {
+       "frames": 31,
+       "bytes": 165687,
+       "decoded_MB": 16.82
+      },
+      "E1_ATTRACT": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E2_ATTRACT": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E3_ATTRACT(s0,s1)": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E3_REPEL(s2)": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E4_TETHER(s0)": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E4_absent(s1)": {
+       "frames": 19,
+       "bytes": 101550,
+       "decoded_MB": 10.31
+      },
+      "E4_ATTRACT(s2)": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E5_ATTRACT(s2)": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "E6_TETHER(s2)": {
+       "frames": 24,
+       "bytes": 128274,
+       "decoded_MB": 13.02
+      },
+      "recommendation..carry high (s0,s2)": {
+       "frames": 113,
+       "bytes": 603956,
+       "decoded_MB": 61.31
+      },
+      "recommendation..carry medium (s1)": {
+       "frames": 113,
+       "bytes": 603956,
+       "decoded_MB": 61.31
+      }
+     },
+     "total_frames": 542,
+     "total_bytes": 2926822,
+     "assets_unsliced": 14,
+     "peak_current_plus_next_MB_if_sliced_in_1s_chunks": 26.0,
+     "peak_current_plus_next_MB_largest_unsliced_pair": 122.6
+    }
+   }
+  },
+  "C": {
+   "fps": 30,
+   "measured": {
+    "idle_bytes": 320698,
+    "transition_bytes": 196724,
+    "idle_plus_transition_bytes": 517422,
+    "idle_decoded_MB": 13.37,
+    "transition_decoded_MB": 8.77,
+    "current_plus_next_decoded_MB_idle_to_transition": 22.14,
+    "bytes_per_frame": {
+     "idle": 5345,
+     "transition": 5044
+    },
+    "cold_decode_ms_median_desktop_gpu": {
+     "idle": 75.7,
+     "transition": 48.8
+    }
+   },
+   "projected_full_pack": {
+    "A1_seven_clips_canonical_entries": {
+     "clips": {
+      "WATCHING_IDLE": {
+       "frames": 60,
+       "bytes": 320698,
+       "decoded_MB": 13.37
+      },
+      "WATCHING_TO_ANALYZING": {
+       "frames": 39,
+       "bytes": 196724,
+       "decoded_MB": 8.77
+      },
+      "ANALYZING_LOOP": {
+       "frames": 72,
+       "bytes": 384838,
+       "decoded_MB": 16.04
+      },
+      "ANALYZING_TO_POINTING": {
+       "frames": 45,
+       "bytes": 226989,
+       "decoded_MB": 10.12
+      },
+      "POINTING_TO_CONFIRMING": {
+       "frames": 51,
+       "bytes": 257254,
+       "decoded_MB": 11.47
+      },
+      "CONFIRMING_TO_POINTING": {
+       "frames": 45,
+       "bytes": 226989,
+       "decoded_MB": 10.12
+      },
+      "POINTING_TO_WATCHING": {
+       "frames": 39,
+       "bytes": 196724,
+       "decoded_MB": 8.77
+      }
+     },
+     "total_bytes": 1810216,
+     "total_frames": 351,
+     "all_decoded_at_once_MB": 78.7,
+     "peak_current_plus_next_MB": 26.16,
+     "worst_pair": "ANALYZING_LOOP + ANALYZING_TO_POINTING",
+     "assets": 7
+    },
+    "A2_seven_clips_plus_entry_heads": {
+     "stride12": {
+      "heads_per_boundary": 6,
+      "assets": 19,
+      "extra_frames": 50,
+      "total_bytes": 2062426,
+      "peak_current_plus_next_MB": 27.1
+     },
+     "stride6": {
+      "heads_per_boundary": 11,
+      "assets": 29,
+      "extra_frames": 100,
+      "total_bytes": 2314637,
+      "peak_current_plus_next_MB": 27.1
+     }
+    },
+    "A3_continuous_beat_segments": {
+     "segments": {
+      "relax": {
+       "frames": 39,
+       "bytes": 196724,
+       "decoded_MB": 8.77
+      },
+      "draft_hold": {
+       "frames": 54,
+       "bytes": 288628,
+       "decoded_MB": 12.03
+      },
+      "reveal": {
+       "frames": 39,
+       "bytes": 196724,
+       "decoded_MB": 8.77
+      },
+      "E1_ATTRACT": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E2_ATTRACT": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E3_ATTRACT(s0,s1)": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E3_REPEL(s2)": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E4_TETHER(s0)": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E4_absent(s1)": {
+       "frames": 24,
+       "bytes": 121061,
+       "decoded_MB": 5.4
+      },
+      "E4_ATTRACT(s2)": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E5_ATTRACT(s2)": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "E6_TETHER(s2)": {
+       "frames": 30,
+       "bytes": 151326,
+       "decoded_MB": 6.75
+      },
+      "recommendation..carry high (s0,s2)": {
+       "frames": 141,
+       "bytes": 711233,
+       "decoded_MB": 31.71
+      },
+      "recommendation..carry medium (s1)": {
+       "frames": 141,
+       "bytes": 711233,
+       "decoded_MB": 31.71
+      }
+     },
+     "total_frames": 678,
+     "total_bytes": 3436211,
+     "assets_unsliced": 14,
+     "peak_current_plus_next_MB_if_sliced_in_1s_chunks": 13.5,
+     "peak_current_plus_next_MB_largest_unsliced_pair": 63.4
+    }
+   }
+  },
+  "webp prototype (q80, 384 px, 30 fps)": {
+   "fps": 30,
+   "measured": {
+    "idle_bytes": 987888,
+    "transition_bytes": 608702,
+    "idle_plus_transition_bytes": 1596590,
+    "idle_decoded_MB": 29.9,
+    "transition_decoded_MB": 19.62,
+    "current_plus_next_decoded_MB_idle_to_transition": 49.53,
+    "bytes_per_frame": {
+     "idle": 16465,
+     "transition": 15608
+    },
+    "cold_decode_ms_median_desktop_gpu": {
+     "idle": 122.8,
+     "transition": 86
+    }
+   },
+   "projected_full_pack": {
+    "A1_seven_clips_canonical_entries": {
+     "clips": {
+      "WATCHING_IDLE": {
+       "frames": 60,
+       "bytes": 987888,
+       "decoded_MB": 29.9
+      },
+      "WATCHING_TO_ANALYZING": {
+       "frames": 39,
+       "bytes": 608702,
+       "decoded_MB": 19.62
+      },
+      "ANALYZING_LOOP": {
+       "frames": 72,
+       "bytes": 1185466,
+       "decoded_MB": 35.88
+      },
+      "ANALYZING_TO_POINTING": {
+       "frames": 45,
+       "bytes": 702348,
+       "decoded_MB": 22.64
+      },
+      "POINTING_TO_CONFIRMING": {
+       "frames": 51,
+       "bytes": 795995,
+       "decoded_MB": 25.66
+      },
+      "CONFIRMING_TO_POINTING": {
+       "frames": 45,
+       "bytes": 702348,
+       "decoded_MB": 22.64
+      },
+      "POINTING_TO_WATCHING": {
+       "frames": 39,
+       "bytes": 608702,
+       "decoded_MB": 19.62
+      }
+     },
+     "total_bytes": 5591449,
+     "total_frames": 351,
+     "all_decoded_at_once_MB": 176.0,
+     "peak_current_plus_next_MB": 58.52,
+     "worst_pair": "ANALYZING_LOOP + ANALYZING_TO_POINTING",
+     "assets": 7
+    },
+    "A2_seven_clips_plus_entry_heads": {
+     "stride12": {
+      "heads_per_boundary": 6,
+      "assets": 19,
+      "extra_frames": 50,
+      "total_bytes": 6371836,
+      "peak_current_plus_next_MB": 60.5
+     },
+     "stride6": {
+      "heads_per_boundary": 11,
+      "assets": 29,
+      "extra_frames": 100,
+      "total_bytes": 7152223,
+      "peak_current_plus_next_MB": 60.5
+     }
+    },
+    "A3_continuous_beat_segments": {
+     "segments": {
+      "relax": {
+       "frames": 39,
+       "bytes": 608702,
+       "decoded_MB": 19.62
+      },
+      "draft_hold": {
+       "frames": 54,
+       "bytes": 889099,
+       "decoded_MB": 26.91
+      },
+      "reveal": {
+       "frames": 39,
+       "bytes": 608702,
+       "decoded_MB": 19.62
+      },
+      "E1_ATTRACT": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E2_ATTRACT": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E3_ATTRACT(s0,s1)": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E3_REPEL(s2)": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E4_TETHER(s0)": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E4_absent(s1)": {
+       "frames": 24,
+       "bytes": 374586,
+       "decoded_MB": 12.08
+      },
+      "E4_ATTRACT(s2)": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E5_ATTRACT(s2)": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "E6_TETHER(s2)": {
+       "frames": 30,
+       "bytes": 468232,
+       "decoded_MB": 15.1
+      },
+      "recommendation..carry high (s0,s2)": {
+       "frames": 141,
+       "bytes": 2200692,
+       "decoded_MB": 70.95
+      },
+      "recommendation..carry medium (s1)": {
+       "frames": 141,
+       "bytes": 2200692,
+       "decoded_MB": 70.95
+      }
+     },
+     "total_frames": 678,
+     "total_bytes": 10628329,
+     "assets_unsliced": 14,
+     "peak_current_plus_next_MB_if_sliced_in_1s_chunks": 30.2,
+     "peak_current_plus_next_MB_largest_unsliced_pair": 141.9
+    }
+   }
+  }
+ },
+ "measured_in_lab_loader_model": {
+  "canonical": {
+   "peak_decoded_MB": 49.5,
+   "held_at_end": [
+    "A/watching-to-analyzing.avif"
+   ],
+   "decoded_MB_at_end": 19.6
+  },
+  "nearest": {
+   "peak_decoded_MB": 60.7,
+   "held_at_end": [
+    "A/watching-to-analyzing-tail.avif",
+    "A/entry-head-24.avif",
+    "A/entry-head-30.avif",
+    "A/entry-head-36.avif"
+   ],
+   "decoded_MB_at_end": 25.2
+  },
+  "wait": {
+   "peak_decoded_MB": 60.7,
+   "held_at_end": [
+    "A/watching-to-analyzing-tail.avif",
+    "A/entry-head-30.avif",
+    "A/entry-head-36.avif"
+   ],
+   "decoded_MB_at_end": 22.4
+  }
+ },
+ "measured_in_lab_loader_model_note": "pack A, cue at idle frame 30, one strategy owns the loader: CURRENT idle decoded + NEXT prefetched, idle released after the hand-over (decoded_MB_at_end shows only NEXT left). nearest/wait peak includes the heads run() pre-warms (phases 0,6,12) on top of the sliding window; the model figure in A2 (stride 12) is the tighter number.",
+ "boundary_quality_summary_pack_A": {
+  "canonical": {
+   "mad": {
+    "mean": 4.433,
+    "p95": 6.96,
+    "max": 7.122
+   },
+   "centroid_px": {
+    "mean": 0.708,
+    "p95": 1.228,
+    "max": 1.307
+   },
+   "ring_px": {
+    "mean": 6.383,
+    "p95": 11.991,
+    "max": 12.545
+   },
+   "visor_px": {
+    "mean": 0.422,
+    "p95": 1.12,
+    "max": 1.55
+   },
+   "waits_ms_max": 0.0
+  },
+  "nearest_stride6": {
+   "mad": {
+    "mean": 0.454,
+    "p95": 1.007,
+    "max": 1.028
+   },
+   "centroid_px": {
+    "mean": 0.055,
+    "p95": 0.143,
+    "max": 0.216
+   },
+   "ring_px": {
+    "mean": 0.358,
+    "p95": 0.829,
+    "max": 0.892
+   },
+   "visor_px": {
+    "mean": 0.075,
+    "p95": 0.21,
+    "max": 0.434
+   },
+   "waits_ms_max": 0.0
+  },
+  "nearest_stride12": {
+   "mad": {
+    "mean": 0.789,
+    "p95": 1.455,
+    "max": 1.657
+   },
+   "centroid_px": {
+    "mean": 0.087,
+    "p95": 0.218,
+    "max": 0.257
+   },
+   "ring_px": {
+    "mean": 0.66,
+    "p95": 1.309,
+    "max": 1.5
+   },
+   "visor_px": {
+    "mean": 0.124,
+    "p95": 0.43,
+    "max": 0.573
+   },
+   "waits_ms_max": 0.0
+  },
+  "wait_stride6": {
+   "mad": {
+    "mean": 0.295,
+    "p95": 0.3,
+    "max": 0.305
+   },
+   "centroid_px": {
+    "mean": 0.052,
+    "p95": 0.123,
+    "max": 0.136
+   },
+   "ring_px": {
+    "mean": 0.218,
+    "p95": 0.253,
+    "max": 0.261
+   },
+   "visor_px": {
+    "mean": 0.066,
+    "p95": 0.148,
+    "max": 0.207
+   },
+   "waits_ms_max": 166.7
+  },
+  "wait_stride12": {
+   "mad": {
+    "mean": 0.293,
+    "p95": 0.3,
+    "max": 0.3
+   },
+   "centroid_px": {
+    "mean": 0.054,
+    "p95": 0.136,
+    "max": 0.136
+   },
+   "ring_px": {
+    "mean": 0.214,
+    "p95": 0.253,
+    "max": 0.253
+   },
+   "visor_px": {
+    "mean": 0.081,
+    "p95": 0.207,
+    "max": 0.207
+   },
+   "waits_ms_max": 366.7
+  }
+ }
+}

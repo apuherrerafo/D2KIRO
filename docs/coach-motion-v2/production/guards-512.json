@@ -1,0 +1,78 @@
+{
+ "watching": {
+  "frames": 252,
+  "step": {
+   "median": 1.400299072265625,
+   "p95": 1.7289604544639587,
+   "max": 4.033397674560547
+  },
+  "frozenFramesMax": 0,
+  "frozenMsMax": 0,
+  "seam": {
+   "mad": 1.367393136024475,
+   "changedPx": 6913
+  },
+  "seamOverMaxStep": 0.33901768344066335,
+  "blink": {
+   "count": 2,
+   "minEyeOpen": 0.2697218931191221,
+   "atFrames": [
+    29,
+    30,
+    155,
+    156
+   ]
+  }
+ },
+ "analyzing": {
+  "frames": 210,
+  "step": {
+   "median": 11.69792366027832,
+   "p95": 13.409917259216309,
+   "max": 13.66401481628418
+  },
+  "frozenFramesMax": 0,
+  "frozenMsMax": 0,
+  "seam": {
+   "mad": 13.567002296447754,
+   "changedPx": 42104
+  },
+  "seamOverMaxStep": 0.9929001452983781
+ },
+ "transition": {
+  "heads": 42,
+  "headFrame0VsWatching": {
+   "maxMad": 0.0
+  },
+  "headToTailSeam": {
+   "maxMad": 13.387006759643555,
+   "medianMad": 13.354026794433594,
+   "ordinaryMaxTailStep": 13.456936836242676
+  },
+  "tailToAnalyzingSeam": {
+   "mad": 13.488306999206543,
+   "ordinaryMaxAnalyzingStep": 13.66401481628418
+  },
+  "tailFrozenFramesMax": 0,
+  "entrySeamNearest": {
+   "note": "a cue shown at loop frame s starts the head of the nearest phase to s+1: the visible step is the pose distance of <= 3 watching frames",
+   "maxWatchingStep3": 4.741133213043213
+  }
+ },
+ "decoded": {
+  "WATCHING_LOOP": {
+   "frames": 252,
+   "psnrMean": 31.332848258903617,
+   "psnrMin": 31.209714586281212,
+   "codecFlicker": 5.183935165405273,
+   "bytes": 2548981
+  },
+  "ANALYZING_LOOP": {
+   "frames": 210,
+   "psnrMean": 31.13229150738022,
+   "psnrMin": 30.706740504824506,
+   "codecFlicker": 6.186203956604004,
+   "bytes": 1923922
+  }
+ }
+}

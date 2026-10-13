@@ -1,0 +1,204 @@
+{
+ "version": 2,
+ "source": "live Gold Master (HeroCoachStage, lite) fixed-step capture",
+ "srcPx": 384,
+ "framePx": 384,
+ "format": "avif",
+ "quality": 45,
+ "subsampling": "4:2:0",
+ "bleed": true,
+ "crop": {
+  "x": 15.0,
+  "y": 20.0,
+  "w": 346.0,
+  "h": 354.0
+ },
+ "cell": {
+  "w": 346,
+  "h": 354
+ },
+ "clips": {
+  "WATCHING_IDLE": {
+   "file": "watching-idle.avif",
+   "frames": 60,
+   "fps": 30,
+   "cols": 8,
+   "rows": 8,
+   "loop": "pingpong",
+   "atlas": {
+    "w": 2768,
+    "h": 2832
+   },
+   "bytes": 557941
+  },
+  "WATCHING_TO_ANALYZING": {
+   "file": "watching-to-analyzing.avif",
+   "frames": 39,
+   "fps": 30,
+   "cols": 7,
+   "rows": 6,
+   "loop": "once",
+   "atlas": {
+    "w": 2422,
+    "h": 2124
+   },
+   "bytes": 327369
+  },
+  "ENTRY_HEAD_00": {
+   "file": "entry-head-00.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46686
+  },
+  "ENTRY_HEAD_06": {
+   "file": "entry-head-06.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46637
+  },
+  "ENTRY_HEAD_12": {
+   "file": "entry-head-12.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46714
+  },
+  "ENTRY_HEAD_18": {
+   "file": "entry-head-18.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46851
+  },
+  "ENTRY_HEAD_24": {
+   "file": "entry-head-24.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46846
+  },
+  "ENTRY_HEAD_30": {
+   "file": "entry-head-30.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46880
+  },
+  "ENTRY_HEAD_36": {
+   "file": "entry-head-36.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 47091
+  },
+  "ENTRY_HEAD_42": {
+   "file": "entry-head-42.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46855
+  },
+  "ENTRY_HEAD_48": {
+   "file": "entry-head-48.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46801
+  },
+  "ENTRY_HEAD_54": {
+   "file": "entry-head-54.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 46919
+  },
+  "ENTRY_HEAD_60": {
+   "file": "entry-head-60.avif",
+   "frames": 5,
+   "fps": 30,
+   "cols": 3,
+   "rows": 2,
+   "loop": "once",
+   "atlas": {
+    "w": 1038,
+    "h": 708
+   },
+   "bytes": 47189
+  },
+  "WATCHING_TO_ANALYZING_TAIL": {
+   "file": "watching-to-analyzing-tail.avif",
+   "frames": 34,
+   "fps": 30,
+   "cols": 6,
+   "rows": 6,
+   "loop": "once",
+   "atlas": {
+    "w": 2076,
+    "h": 2124
+   },
+   "bytes": 277565
+  }
+ }
+}

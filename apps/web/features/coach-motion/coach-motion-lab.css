@@ -1,0 +1,25 @@
+/* COACH MOTION V2 Â· comparison lab (review shell only, not product styling). Panel sizing reuses the product's .hl-coach box. */
+.cm-grid { --cm-zoom: 1; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.cm-panel { border-radius: 6px; box-shadow: inset 0 0 0 1px var(--r3-line); padding: 12px 12px 14px; }
+.cm-panel h2 { font: 700 12px/1 var(--f-syne); letter-spacing: .08em; margin: 0 0 2px; }
+.cm-panel p { color: var(--r3-muted); font: 500 11px/1.3 var(--f-bric); margin: 0 0 6px; min-height: 28px; }
+/* a fixed 276px box = the Hero's Coach slot; the product .hl-coach scale/transition applies inside it */
+.cm-stage { height: calc(350px * var(--cm-zoom)); margin-top: 20px; margin-inline: auto; position: relative; width: calc(276px * var(--cm-zoom)); }
+.cm-zoom { height: 350px; left: 0; position: absolute; top: 0; transform: scale(var(--cm-zoom)); transform-origin: 0 0; width: 276px; }
+.cm-zoom .hl-coach { margin-top: 20px; }
+.cm-panel .cm-readout { font-variant-numeric: tabular-nums; margin: 0 0 4px; min-height: 14px; }
+.cm-atlas { display: block; height: 100%; inset: 0; position: absolute; width: 100%; }
+/* 2x inspection = the displayed pixels magnified, never re-rendered: nearest-neighbour on every canvas */
+.cm-grid[data-inspect="1"] { --cm-zoom: 2; grid-template-columns: repeat(auto-fit, minmax(580px, 1fr)); }
+.cm-grid[data-inspect="1"] canvas { image-rendering: pixelated; }
+/* the coach lab shows up to four 276 px stages side by side: lift the hero-loop lab's 1120 px column */
+[data-testid="coach-motion-lab"] { max-width: 1400px; }
+[data-testid="coach-motion-lab"]:has([data-inspect="1"]) { max-width: none; }
+
+/* production slice lab: Motion V2 shows the static Coach until it is ready (and again if it fails); the canvas takes over in one commit */
+.cm-prod { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+[data-motion-status="motion"] .hl-sprite { visibility: hidden; }
+.cm-panel[data-motion-status="failed"] h2::after { color: var(--r3-muted); content: " · static fallback"; font-weight: 500; }
+.cm-look { color: var(--r3-muted); font: 500 12px/1.4 var(--f-bric); margin-top: 18px; }
+.cm-look summary { cursor: pointer; min-height: 44px; padding-top: 12px; }
+.cm-look ol { margin: 0; padding-left: 20px; }
