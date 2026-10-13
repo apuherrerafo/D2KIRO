@@ -1,0 +1,11 @@
+{
+  "_comment": "Versions the committed approved masters were encoded and verified with. encode.py refuses to run on anything else (override: --allow-toolchain-drift) and verify-assets.mjs checks every manifest's encoder block against it. requirements.txt is the pip form of the Python entries.",
+  "python": "3.12.10",
+  "pillow": "12.3.0",
+  "libavif": "1.4.2",
+  "numpy": "2.5.3",
+  "opencv-python": "5.0.0.93",
+  "node": "24.19.0",
+  "playwright": "1.62.1",
+  "bun": "1.4.2"
+}

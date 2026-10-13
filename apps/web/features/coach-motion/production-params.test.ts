@@ -3,7 +3,7 @@ import { parseProductionParams } from "./production-params";
 
 describe("production lab params", () => {
   test("defaults: all three panels, dark, DPR cap 2", () => {
-    expect(parseProductionParams({})).toEqual({ panels: ["live", "384", "512"], theme: "dark", timeoutMs: undefined, maxDpr: 2 });
+    expect(parseProductionParams({})).toEqual({ panels: ["live", "384", "512"], theme: "dark", timeoutMs: undefined, stallMs: undefined, maxDpr: 2 });
   });
   test("panel lists keep canonical order and drop unknown values", () => {
     expect(parseProductionParams({ panels: "512,live,evil" }).panels).toEqual(["live", "512"]);
@@ -13,5 +13,10 @@ describe("production lab params", () => {
     const p = parseProductionParams({ theme: "light", timeout: "900", maxdpr: "3" });
     expect(p).toMatchObject({ theme: "light", timeoutMs: 900, maxDpr: 3 });
     expect(parseProductionParams({ timeout: "5", maxdpr: "9" })).toMatchObject({ timeoutMs: undefined, maxDpr: 2 });
+  });
+  test("stall budget is clamped to 200 ms .. 60 s", () => {
+    expect(parseProductionParams({ stall: "1500" }).stallMs).toBe(1500);
+    expect(parseProductionParams({ stall: "50" }).stallMs).toBeUndefined();
+    expect(parseProductionParams({ stall: "999999" }).stallMs).toBeUndefined();
   });
 });

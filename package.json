@@ -25,6 +25,7 @@
     "wave5:judge-packet": "bun run scripts/wave5-dota-judge-packet.ts",
     "test": "bun test apps/engine && bun test apps/web && bun test scripts",
     "verify:r1": "bun run scripts/r1/certify.ts",
+    "verify:coach-motion-assets": "node scripts/coach-motion-v2/verify-assets.mjs",
     "dev:mvp": "bun run scripts/dev-mvp.ts",
     "dev:live": "bun run scripts/dev-live.ts",
     "probe:gsi": "bun run scripts/live/gsi-probe/probe.ts",

@@ -2,6 +2,8 @@
 
 Everything here regenerates from the repository. Nothing depends on a Claude scratchpad, a session folder or an absolute path.
 
+Foundation hardening (manifest v4: data-driven graph, content-addressed chunks, cue-armed prefetch, watchdog, budgets, fallback identity, update contract): see `FOUNDATION_HARDENING.md`. This file keeps the capture / encode specifics.
+
 ## Pinned inputs
 
 | Item | Value |
@@ -14,8 +16,11 @@ Everything here regenerates from the repository. Nothing depends on a Claude scr
 | Self-check | every capture run first proves loop-pose.ts's smoothing equals `HeroCoachStage.update` on the Live clock (max abs pose diff 2.2e-16) and aborts above 1e-9 |
 | Resolutions | 384 and 512 px, rendered NATIVELY (no resampling) |
 | Alpha | straight alpha PNG from the WebGL read-back; encoder pre-pass bleeds RGB under alpha 0 from the nearest visible colour (visible pixels and alpha untouched) |
+| Toolchain | pinned in `scripts/coach-motion-v2/toolchain.json` + `requirements.txt` (Python 3.12.10, Pillow 12.3.0, libavif 1.4.2, numpy 2.5.3, opencv-python 5.0.0.93, Node 24.19.0, Playwright 1.62.1, Bun 1.4.2); `encode.py` refuses any other |
 | Encoder | Pillow 12.3.0 + bundled libavif 1.4.2 (`scripts/coach-motion-v2/encode.py`), AVIF, quality 35, speed 4, 4:2:0, full range, codec `auto`; the exact values are also written into each pack's `manifest.json` |
-| Atlas / chunk rules | one atlas = one chunk = ≤ 14 consecutive frames (0.47 s) of ONE clip, 4 columns, cell = union alpha bbox of every frame of the pack (+2 px, even). 252 = 18×14, 210 = 15×14, tail 35 = 14+14+7, entry head 10 (one chunk). Decoded chunk ≤ 1736×1912 at 512 (≤ 2048) |
+| Clips / graph | `scripts/coach-motion-v2/graph.json` (loops, edges, entry stride per edge); copied into the manifest as `graph` |
+| Chunk files | content-addressed `<stem>.<sha256[:12]>.avif`; manifest v4 carries per-chunk SHA-256, `packHash`, `provenance` (Gold Master + static fallback ids), `limits.maxAtlasPx` |
+| Atlas / chunk rules | one atlas = one chunk = ≤ 14 consecutive frames (0.47 s) of ONE clip, 4 columns (per clip `--cols-for CLIP=N`), cell = union alpha bbox of every frame of the pack (+2 px, even). 252 = 18×14, 210 = 15×14, tail 35 = 14+14+7, entry head 10 (one chunk). **Decoded chunk ≤ 2048 on both sides, enforced** (encode aborts, manifest rejected): 1304×1440 at 384, 1736×1912 at 512 |
 
 ## Clips (30 fps, forward only, no ping-pong)
 
@@ -32,18 +37,27 @@ cd apps/web && NEXT_DIST_DIR=.next-coach-motion-v2-production SESSION_SECRET=<32
 node scripts/coach-motion-v2/serve.mjs --port 3162 --state <state.json outside the repo>
 # 2 render the source frames (needs a GPU; path outside the repo)
 SESSION_SECRET=<that server's> CM_BASE=http://localhost:3162 node scripts/coach-motion-v2/capture.mjs --px 384,512 --out <frames dir>
-# 3 encode
-python -I scripts/coach-motion-v2/encode.py --frames <frames dir>/384 --px 384 --out apps/web/public/coach-motion-v2/prod/384 --quality 35
-python -I scripts/coach-motion-v2/encode.py --frames <frames dir>/512 --px 512 --out apps/web/public/coach-motion-v2/prod/512 --quality 35
+# 3 encode (python -I with the pinned toolchain: pip install -r scripts/coach-motion-v2/requirements.txt)
+python -I scripts/coach-motion-v2/encode.py --frames <frames dir>/384 --px 384 --out apps/web/public/coach-motion-v2/prod/384
+python -I scripts/coach-motion-v2/encode.py --frames <frames dir>/512 --px 512 --out apps/web/public/coach-motion-v2/prod/512
 # 4 guards
 python -I scripts/coach-motion-v2/guards.py --frames <frames dir>/384 --pack apps/web/public/coach-motion-v2/prod/384 --out docs/coach-motion-v2/production/guards-384.json
-SESSION_SECRET=… node scripts/coach-motion-v2/verify.mjs      # network / reduced motion / failure / continuity
+node scripts/coach-motion-v2/verify-assets.mjs                 # SHA-256 of every asset vs the manifests, toolchain, fallback identity (no server needed)
+SESSION_SECRET=… node scripts/coach-motion-v2/verify.mjs      # network / cue-armed prefetch / cache / reduced motion / hidden / failure + stall / continuity
+SESSION_SECRET=… node scripts/coach-motion-v2/net-metrics.mjs # idle requests, cache hits and bytes over the network
 SESSION_SECRET=… node scripts/coach-motion-v2/shots.mjs       # DPR 1 and 2 screenshots
+bun scripts/coach-motion-v2/stride-probe.ts <report.json>     # entry-stride probe of the pose tracks (before capturing heads for a new edge)
 ```
+
+A visual-only Gold Master change adds, between 2 and 3, regenerating the static stills and `verify-assets.mjs --seal-fallback` (FOUNDATION_HARDENING §10–11).
 
 ## Reproducibility
 
-Source frames: capturing the same jobs twice on the same machine (NVIDIA RTX 3060, ANGLE/D3D11, Chromium of the pinned Playwright 1.62.1) produced **byte-identical PNGs (507/507 per resolution)**. The sha256 of all 917 frames per resolution is committed in `docs/coach-motion-v2/production/source-hashes-{384,512}.json` and `capture-report.json`. GPU rasterisation is hardware/driver dependent, so another GPU may differ by sub-LSB amounts: the approved masters are the committed AVIF packs under `apps/web/public/coach-motion-v2/prod/` (each chunk's sha256 is in its manifest). Not yet verified: byte-exact AVIF re-encode on a second machine.
+Source frames: capturing the same jobs twice on the same machine (NVIDIA RTX 3060, ANGLE/D3D11, Chromium of the pinned Playwright 1.62.1) produced **byte-identical PNGs (507/507 per resolution at the first run; 917/917 at 384 in the hardening re-run)**. The sha256 of all 917 frames per resolution is committed in `docs/coach-motion-v2/production/source-hashes-{384,512}.json` and `capture-report.json`. GPU rasterisation is hardware/driver dependent, so another GPU may differ by sub-LSB amounts: the approved masters are the committed AVIF packs under `apps/web/public/coach-motion-v2/prod/` (each chunk's sha256 is in its manifest and in its file name; `verify-assets.mjs` recalculates them).
+
+Second run (hardening pass, `hardening/determinism-second-run.json`): two fresh captures + two fresh encodes of the 384 slice reproduce the committed masters byte-for-byte on the pinned toolchain (917/917 PNGs, 78/78 AVIF chunks). Still not verified: a different machine / GPU, and the 512 pack.
+
+The packs moved from manifest v3 to v4 without re-encoding (`migrate_v3_to_v4.py`: chunk hashes checked, files renamed to their content address).
 
 ## Deviations from the Live (deliberate, flagged for review)
 

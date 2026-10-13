@@ -1,5 +1,5 @@
 {
- "version": 3,
+ "version": 4,
  "pack": "512",
  "source": "live Gold Master (HeroCoachStage, lite) \u00b7 authored loop poses (features/coach-motion/loop-pose.ts) \u00b7 120 Hz fixed-step sim sampled at 30 fps",
  "srcPx": 512,
@@ -16,7 +16,35 @@
  },
  "chunkFrames": 14,
  "cols": 4,
- "headStride": 6,
+ "limits": {
+  "maxAtlasPx": 2048
+ },
+ "provenance": {
+  "goldMaster": {
+   "id": "809d420b086d",
+   "files": {
+    "coach-modular.json": "8ab1b55d2b9a190cde6b34141051e7694854e8ae643a6636c94de522f4ecbd66",
+    "coach-modular.bin": "e2045d2b4030f716554b9c529fa8a3edcee3f3ca45abdc51bb263f5d6c43dc58"
+   }
+  },
+  "staticFallback": {
+   "id": "e07aface56f3",
+   "files": {
+    "analyzing-c.webp": "2ac2622c0bdb731c22dc0999e3c36ca899d6418d43b160b1391c7b51573de399",
+    "analyzing-l.webp": "64de7fc21b29e54127c28bf0de6682bb6015586d851c258c1512083b50c5ddb2",
+    "analyzing-r.webp": "64fcb60492f98f9052a5ad7db5aa65e911a0cc21ceb3af630879844dee095849",
+    "confirming-c.webp": "7c6cdedb1fd25fc3d7652c517d7e73f85220040358219569b9895b303ab1f803",
+    "confirming-l.webp": "8be030e6e0f57ef390fb4d4b5569c4b25a8ee1a87ca3e39b952a02d77b090d45",
+    "confirming-r.webp": "e0d42f53d9ea5de36aa08f82a7dd13ef3057938c685f1d592454e6a16bb16def",
+    "pointing-c.webp": "0a2517827e14f8e19bcdc82a954fa0f5d2409c291c36a96f634275adc02f5773",
+    "pointing-l.webp": "f7a777813babbe578c016e082d44efa2d2382ba8c862a9c48bc4e280061f53b1",
+    "pointing-r.webp": "e3e4ac068914ff2a56f2b716a20b092ec6dc6a65c6c12df147466227bfb6458e",
+    "watching-c.webp": "0b521f2e3fc70b019c85572ee270e569f6d71492ce99c0b7fd7311ee538d4333",
+    "watching-l.webp": "1ac6a4e9761ff76652dcb49d1ebc2a92f4c92430a2a2997b958f42e24187918a",
+    "watching-r.webp": "2f3a8834a63359815958a0990b52f110a0ed854a83a7348df00c68c623a0dae4"
+   }
+  }
+ },
  "encoder": {
   "format": "avif",
   "library": "Pillow 12.3.0",
@@ -29,13 +57,45 @@
   "alphaBleed": true
  },
  "totalBytes": 9009809,
+ "packHash": "65dbb9fd78cf97bd75ad2cffa0672ad1e817c855c2cc2e8bf2aadfd9345d3d74",
+ "graph": {
+  "loops": {
+   "watching": {
+    "clip": "WATCHING_LOOP"
+   },
+   "analyzing": {
+    "clip": "ANALYZING_LOOP"
+   }
+  },
+  "edges": [
+   {
+    "id": "watching>analyzing",
+    "from": "watching",
+    "to": "analyzing",
+    "fps": 30,
+    "entry": {
+     "strategy": "nearest-head",
+     "stride": 6,
+     "headClipPrefix": "ENTRY_HEAD_",
+     "headFrames": 10,
+     "maxStepFrames": 3,
+     "armHeads": 2
+    },
+    "tail": {
+     "clip": "TRANSITION_TAIL",
+     "enterFrame": 0
+    },
+    "lookaheadFrames": 28
+   }
+  ]
+ },
  "clips": {
   "WATCHING_LOOP": {
    "frames": 252,
    "loop": true,
    "chunks": [
     {
-     "file": "watching-00.avif",
+     "file": "watching-00.afe07dbcaaf8.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -44,7 +104,7 @@
      "sha256": "afe07dbcaaf87294cf040a7e70aad043829d676f712312791e6751dd52516761"
     },
     {
-     "file": "watching-01.avif",
+     "file": "watching-01.1760d9aee208.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -53,7 +113,7 @@
      "sha256": "1760d9aee20838a45b0f1182bcbae02edec17baeaec5ebdbf87414a902a0fd0e"
     },
     {
-     "file": "watching-02.avif",
+     "file": "watching-02.a71c101bf83e.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -62,7 +122,7 @@
      "sha256": "a71c101bf83ec8a82235276d8dea54a4dddf95fe6ffe1f5b184323ed6326247a"
     },
     {
-     "file": "watching-03.avif",
+     "file": "watching-03.e3add5f39ad5.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -71,7 +131,7 @@
      "sha256": "e3add5f39ad5d7d6932e9436e30dae250f921f13ab196bb56aa78d7af34c2ee2"
     },
     {
-     "file": "watching-04.avif",
+     "file": "watching-04.09bc0b04d2e7.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -80,7 +140,7 @@
      "sha256": "09bc0b04d2e7da1f0a64301c030397367d7678380a12edfd075a1f43cf5eea82"
     },
     {
-     "file": "watching-05.avif",
+     "file": "watching-05.b0d0d1224133.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -89,7 +149,7 @@
      "sha256": "b0d0d1224133603b8c8fee4bdbfbae25ec70178624c4fabee904df1d3344d469"
     },
     {
-     "file": "watching-06.avif",
+     "file": "watching-06.10eda44ede4b.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -98,7 +158,7 @@
      "sha256": "10eda44ede4b4665570e5196528bfd70d975b606e2c327b97b731a3cd55569ff"
     },
     {
-     "file": "watching-07.avif",
+     "file": "watching-07.cf1c3d8def65.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -107,7 +167,7 @@
      "sha256": "cf1c3d8def654087d94eff1ba34abe569baf4e752e3f6a2075bb7ab63d8c82c2"
     },
     {
-     "file": "watching-08.avif",
+     "file": "watching-08.b4cf3ba044f5.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -116,7 +176,7 @@
      "sha256": "b4cf3ba044f5f2796f30c26e5b8414d372841bc03461ea182dd5bb04a9724202"
     },
     {
-     "file": "watching-09.avif",
+     "file": "watching-09.983a44123b28.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -125,7 +185,7 @@
      "sha256": "983a44123b28b9850e0516cea7d37c6a7d5cff064c8e791c63f831a1e7508938"
     },
     {
-     "file": "watching-10.avif",
+     "file": "watching-10.5933d6b2856f.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -134,7 +194,7 @@
      "sha256": "5933d6b2856fad6c8416de8753098dda00ef19941185683ec5900864e98dd367"
     },
     {
-     "file": "watching-11.avif",
+     "file": "watching-11.064ec8693e83.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -143,7 +203,7 @@
      "sha256": "064ec8693e839adc9a674fd00b07daa3465aed4f07094ab8487c8c7de6aa8fe4"
     },
     {
-     "file": "watching-12.avif",
+     "file": "watching-12.811e280132f5.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -152,7 +212,7 @@
      "sha256": "811e280132f53e45ec623956539c9b8428254f9f781f14059090cbf100d8637c"
     },
     {
-     "file": "watching-13.avif",
+     "file": "watching-13.04add62983d1.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -161,7 +221,7 @@
      "sha256": "04add62983d182780a232bd420caf63afb729497231585a58c3ba0ae92a9c0cd"
     },
     {
-     "file": "watching-14.avif",
+     "file": "watching-14.c17f9e030d0d.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -170,7 +230,7 @@
      "sha256": "c17f9e030d0d3c913af3e39cee1f69fe6789b808c2460555c45f2a45918c3235"
     },
     {
-     "file": "watching-15.avif",
+     "file": "watching-15.996835d96e71.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -179,7 +239,7 @@
      "sha256": "996835d96e7107588dbad9052baad46e30c269724111ba268783977b00ee94fc"
     },
     {
-     "file": "watching-16.avif",
+     "file": "watching-16.8b42a83ad379.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -188,7 +248,7 @@
      "sha256": "8b42a83ad3797240c9c40891d099a9ff5600f94e3414b0c4476e0ee63a29ce11"
     },
     {
-     "file": "watching-17.avif",
+     "file": "watching-17.56f8f85f181f.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -203,7 +263,7 @@
    "loop": true,
    "chunks": [
     {
-     "file": "analyzing-00.avif",
+     "file": "analyzing-00.4ef3a467e6c4.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -212,7 +272,7 @@
      "sha256": "4ef3a467e6c4b4b3e7ff6ad78182bb5f8bf20961096e441ce2e5ed9a742ee3a8"
     },
     {
-     "file": "analyzing-01.avif",
+     "file": "analyzing-01.6df5a1883b31.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -221,7 +281,7 @@
      "sha256": "6df5a1883b31f36bb4b5ea15f13a171c127a0fe8ee87fabd89465ca17f7c5b12"
     },
     {
-     "file": "analyzing-02.avif",
+     "file": "analyzing-02.23ef61dcb368.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -230,7 +290,7 @@
      "sha256": "23ef61dcb368d9158f61a7c90e7773429e2c99eceb17862f0fcf96621663332a"
     },
     {
-     "file": "analyzing-03.avif",
+     "file": "analyzing-03.117cd08a862d.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -239,7 +299,7 @@
      "sha256": "117cd08a862d698aeac2bf7de07cc3b513cecb987c0b0926c58130c2390ce6af"
     },
     {
-     "file": "analyzing-04.avif",
+     "file": "analyzing-04.132cace35562.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -248,7 +308,7 @@
      "sha256": "132cace35562e5c70df6db15c8cde87e34f14a16eca7f68dc2495127bbc49900"
     },
     {
-     "file": "analyzing-05.avif",
+     "file": "analyzing-05.0be915edb6ac.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -257,7 +317,7 @@
      "sha256": "0be915edb6ac0c34957b46618337165cf137c76c2d24cf0232ba08936656fc10"
     },
     {
-     "file": "analyzing-06.avif",
+     "file": "analyzing-06.de427ac357ed.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -266,7 +326,7 @@
      "sha256": "de427ac357ed8ffdb1bac5d6794d7dc2cf69148b7a62111077f60bde9bcd99c9"
     },
     {
-     "file": "analyzing-07.avif",
+     "file": "analyzing-07.37a36258fa76.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -275,7 +335,7 @@
      "sha256": "37a36258fa769f9936a9dc6c69dc10c3bb79ee75c692fed1f4a4b1bfacba5587"
     },
     {
-     "file": "analyzing-08.avif",
+     "file": "analyzing-08.981aea61daaf.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -284,7 +344,7 @@
      "sha256": "981aea61daafefa6812d1d38881e6a6cd3497a5c072a690e405a95f9c6cd6b80"
     },
     {
-     "file": "analyzing-09.avif",
+     "file": "analyzing-09.9315de5069ef.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -293,7 +353,7 @@
      "sha256": "9315de5069efcaf1865beb4bcc458e1c5d04b2a7f0a37b80ddfb95fd1677f6d1"
     },
     {
-     "file": "analyzing-10.avif",
+     "file": "analyzing-10.2663a0f978b8.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -302,7 +362,7 @@
      "sha256": "2663a0f978b82920bd4fafbacdf84167707cf8dcd8275953b23af401a2731f2c"
     },
     {
-     "file": "analyzing-11.avif",
+     "file": "analyzing-11.cbb72fa05218.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -311,7 +371,7 @@
      "sha256": "cbb72fa052181275927d9a2ede0d267d4f124fa53c902f25e30fac13b0634646"
     },
     {
-     "file": "analyzing-12.avif",
+     "file": "analyzing-12.f29a419fa44b.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -320,7 +380,7 @@
      "sha256": "f29a419fa44b48efa8ab2b93236935ccc6611ef517c45afff0a40eb3b0a52004"
     },
     {
-     "file": "analyzing-13.avif",
+     "file": "analyzing-13.93dbb0bcc4ed.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -329,7 +389,7 @@
      "sha256": "93dbb0bcc4edef002913f09c09b22dafab11b25d35baeba0ef004baa6661a0f1"
     },
     {
-     "file": "analyzing-14.avif",
+     "file": "analyzing-14.ffc11157d670.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -344,7 +404,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "tail-00.avif",
+     "file": "tail-00.365fa8b03524.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -353,7 +413,7 @@
      "sha256": "365fa8b03524ebe64fd59dbcb4accef85a80f3d180a67eaf8656eaee8f3017fe"
     },
     {
-     "file": "tail-01.avif",
+     "file": "tail-01.672cec2d20e2.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -362,7 +422,7 @@
      "sha256": "672cec2d20e27553c2b052831bdce4ebcdcf3eb039d82eb1afaf1703e542bd5b"
     },
     {
-     "file": "tail-02.avif",
+     "file": "tail-02.53cab6a9ab52.avif",
      "frames": 7,
      "rows": 2,
      "w": 1736,
@@ -377,7 +437,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-000.avif",
+     "file": "head-000.f8fc4f9959bb.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -392,7 +452,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-006.avif",
+     "file": "head-006.a1a4b5c3d148.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -407,7 +467,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-012.avif",
+     "file": "head-012.a8e8c51a706a.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -422,7 +482,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-018.avif",
+     "file": "head-018.0ae698488a86.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -437,7 +497,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-024.avif",
+     "file": "head-024.1e17fd8fd98d.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -452,7 +512,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-030.avif",
+     "file": "head-030.958c0f57dc74.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -467,7 +527,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-036.avif",
+     "file": "head-036.bc62cc89bb23.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -482,7 +542,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-042.avif",
+     "file": "head-042.70a2974e1125.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -497,7 +557,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-048.avif",
+     "file": "head-048.c61e2c57d5ed.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -512,7 +572,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-054.avif",
+     "file": "head-054.a56eefc1dd63.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -527,7 +587,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-060.avif",
+     "file": "head-060.f1e1f16e50be.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -542,7 +602,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-066.avif",
+     "file": "head-066.6ecd82c67cd8.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -557,7 +617,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-072.avif",
+     "file": "head-072.4d0bd87c026f.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -572,7 +632,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-078.avif",
+     "file": "head-078.9e2b37aed558.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -587,7 +647,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-084.avif",
+     "file": "head-084.fd0ff7a84fb2.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -602,7 +662,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-090.avif",
+     "file": "head-090.3743566eda37.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -617,7 +677,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-096.avif",
+     "file": "head-096.241a43f1ca00.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -632,7 +692,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-102.avif",
+     "file": "head-102.0db176f7d020.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -647,7 +707,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-108.avif",
+     "file": "head-108.3b15288bd86e.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -662,7 +722,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-114.avif",
+     "file": "head-114.f92132a637de.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -677,7 +737,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-120.avif",
+     "file": "head-120.b61293a83f16.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -692,7 +752,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-126.avif",
+     "file": "head-126.5e686fe5a532.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -707,7 +767,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-132.avif",
+     "file": "head-132.8e5a52f37cf2.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -722,7 +782,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-138.avif",
+     "file": "head-138.57800fffac30.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -737,7 +797,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-144.avif",
+     "file": "head-144.b04e08a6ed7b.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -752,7 +812,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-150.avif",
+     "file": "head-150.02d2d2b9798f.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -767,7 +827,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-156.avif",
+     "file": "head-156.ea8815247c6c.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -782,7 +842,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-162.avif",
+     "file": "head-162.dc3e54f2c3a7.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -797,7 +857,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-168.avif",
+     "file": "head-168.1cec2ec08304.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -812,7 +872,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-174.avif",
+     "file": "head-174.aaa492dddde3.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -827,7 +887,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-180.avif",
+     "file": "head-180.dcea9cfb2e9e.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -842,7 +902,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-186.avif",
+     "file": "head-186.8aaf03614fa7.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -857,7 +917,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-192.avif",
+     "file": "head-192.dc8180abbbeb.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -872,7 +932,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-198.avif",
+     "file": "head-198.e7cbbb7dd48a.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -887,7 +947,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-204.avif",
+     "file": "head-204.a2b7a6665d0e.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -902,7 +962,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-210.avif",
+     "file": "head-210.e514281858ea.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -917,7 +977,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-216.avif",
+     "file": "head-216.038985fe08b8.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -932,7 +992,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-222.avif",
+     "file": "head-222.d875db2f7816.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -947,7 +1007,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-228.avif",
+     "file": "head-228.52beb71451ef.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -962,7 +1022,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-234.avif",
+     "file": "head-234.7c58f3358aa3.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -977,7 +1037,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-240.avif",
+     "file": "head-240.d9bfa815301d.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -992,7 +1052,7 @@
    "loop": false,
    "chunks": [
     {
-     "file": "head-246.avif",
+     "file": "head-246.d881a56d58ad.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,

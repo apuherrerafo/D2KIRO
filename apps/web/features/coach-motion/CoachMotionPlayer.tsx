@@ -7,9 +7,10 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { CoachSprite } from "../hero-loop/coach/CoachSprite";
-import type { CoachRenderInput, CoachRenderState } from "../hero-loop/coach/coach-renderer";
+import { HERO_STATES, type CoachRenderInput, type CoachRenderState } from "../hero-loop/coach/coach-renderer";
+import { browserChunkLoader } from "./chunk-loader";
 import { MotionController } from "./motion-controller";
-import { chunkUrl, manifestUrl, parseManifest, type ProdManifest, type ProdPackId } from "./production-manifest";
+import { colsOf, manifestUrl, parseManifest, type ProdManifest, type ProdPackId } from "./production-manifest";
 
 /** Device pixels never exceed 2x, same cap as the live canvas (`maxDpr` lifts it for the DPR3 phone check). */
 const DEFAULT_MAX_DPR = 2;
@@ -22,11 +23,15 @@ declare global {
 
 export type MotionStatus = "static" | "loading" | "motion" | "failed";
 
+/** Graph loop ids are CoachRenderState names ("watching", "analyzing", ...): the static Coach and the picture share one vocabulary. */
+export type MotionState = CoachRenderState;
+
 export interface CoachMotionPlayerHandle {
-  goTo: (scenario: "watching" | "analyzing") => void;
-  cue: () => void;
+  goTo: (loop: MotionState) => void;
+  /** ask for the transition from the loop being played to `target`; false when the graph has no such edge from here */
+  cue: (target: MotionState) => boolean;
   /** read-out for the lab and the tests */
-  snapshot: () => { status: MotionStatus; clip: string | null; frame: number | null; mode: string | null; residentBytes: number; residentKeys: string[]; entry: { phase: number; step: number } | null; failure: string | null };
+  snapshot: () => { status: MotionStatus; clip: string | null; frame: number | null; mode: string | null; state: string | null; pendingEdge: string | null; residentBytes: number; residentKeys: string[]; entry: { edge: string; phase: number; step: number } | null; failure: string | null; loads: number; speculativeFailures: number };
   canvas: () => HTMLCanvasElement | null;
 }
 
@@ -34,49 +39,39 @@ type Props = {
   pack: ProdPackId;
   playing: boolean;
   reducedMotion: boolean;
-  /** scenario the pack starts in */
-  initial?: "watching" | "analyzing";
+  /** loop the pack starts in */
+  initial?: MotionState;
   /** semantic state of the static Coach while Motion V2 is not showing (reduced motion, loading, failed) */
-  phase?: "watching" | "analyzing";
+  phase?: MotionState;
   maxDpr?: number;
   timeoutMs?: number;
+  /** visible time without progress before Motion V2 falls back to the static Coach (default 2500 ms) */
+  stallMs?: number;
   className?: string;
   onStatus?: (status: MotionStatus, detail?: string) => void;
   /** fired when the semantic state of the picture changes (the static layer follows it, so a failure shows the right state) */
-  onState?: (state: "watching" | "analyzing") => void;
+  onState?: (state: MotionState) => void;
 };
 
-const STATIC_STATE: Record<"watching" | "analyzing", CoachRenderInput> = {
-  watching: { state: "watching", aim: "center", motion: "reduced" },
-  analyzing: { state: "analyzing", aim: "right", motion: "reduced" },
-};
+const isMotionState = (s: string): s is MotionState => (HERO_STATES as readonly string[]).includes(s);
 
-/** Decodes with createImageBitmap (explicit close() by the store). Rejects on a bad status or an undecodable file. */
-function browserLoad(m: ProdManifest) {
-  return async (key: string): Promise<ImageBitmap> => {
-    const clip = key.slice(key.indexOf("/") + 1, key.lastIndexOf("#"));
-    const chunk = Number(key.slice(key.lastIndexOf("#") + 1));
-    const meta = m.clips[clip]?.chunks[chunk];
-    if (!meta) throw new Error(`unknown chunk ${key}`);
-    const response = await fetch(chunkUrl(m.pack, meta.file));
-    if (!response.ok) throw new Error(`${meta.file}: ${response.status}`);
-    return createImageBitmap(await response.blob());
-  };
-}
+/** The static Coach for a semantic state (same stills as the mobile / reduced-motion Hero). */
+const staticFor = (state: string): CoachRenderInput => ({ state: isMotionState(state) ? state : "watching", aim: state === "analyzing" ? "right" : "center", motion: "reduced" });
 
-/** Paints atlas cell `cell` into a square `side` canvas, scaled from the pack's native frame like the live canvas would be. */
-export function paintCell(ctx: CanvasRenderingContext2D, side: number, m: ProdManifest, bitmap: ImageBitmap, cell: number): void {
+/** Paints atlas cell `cell` of `clip` into a square `side` canvas, scaled from the pack's native frame like the live canvas would be. */
+export function paintCell(ctx: CanvasRenderingContext2D, side: number, m: ProdManifest, clip: string, bitmap: ImageBitmap, cell: number): void {
   const s = side / m.srcPx;
+  const cols = colsOf(m, clip);
   ctx.clearRect(0, 0, side, side);
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, (cell % m.cols) * m.cell.w, Math.floor(cell / m.cols) * m.cell.h, m.cell.w, m.cell.h, m.crop.x * s, m.crop.y * s, m.crop.w * s, m.crop.h * s);
+  ctx.drawImage(bitmap, (cell % cols) * m.cell.w, Math.floor(cell / cols) * m.cell.h, m.cell.w, m.cell.h, m.crop.x * s, m.crop.y * s, m.crop.w * s, m.crop.h * s);
 }
 
-export const CoachMotionPlayer = forwardRef<CoachMotionPlayerHandle, Props>(function CoachMotionPlayer({ pack, playing, reducedMotion, initial = "watching", phase = "watching", maxDpr = DEFAULT_MAX_DPR, timeoutMs, className, onStatus, onState }, ref) {
+export const CoachMotionPlayer = forwardRef<CoachMotionPlayerHandle, Props>(function CoachMotionPlayer({ pack, playing, reducedMotion, initial = "watching", phase = "watching", maxDpr = DEFAULT_MAX_DPR, timeoutMs, stallMs, className, onStatus, onState }, ref) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const [status, setStatusState] = useState<MotionStatus>("static");
-  const [state, setState] = useState<"watching" | "analyzing">(initial);
+  const [state, setState] = useState<MotionState>(initial);
   const controller = useRef<MotionController<ImageBitmap> | null>(null);
   const playingRef = useRef(playing);
   const handlers = useRef({ onStatus, onState });
@@ -99,19 +94,21 @@ export const CoachMotionPlayer = forwardRef<CoachMotionPlayerHandle, Props>(func
   useImperativeHandle(
     ref,
     () => ({
-      goTo: (scenario) => {
-        controller.current?.goTo(scenario);
+      goTo: (loop) => {
+        controller.current?.goTo(loop);
         wake.current();
       },
-      cue: () => {
-        controller.current?.cue();
+      cue: (target) => {
+        const taken = controller.current?.cue(target) ?? false;
         wake.current();
+        return taken;
       },
       snapshot: () => {
         const c = controller.current;
         const shown = c?.shown ?? null;
         const res = c?.residency() ?? { keys: [], bytes: 0 };
-        return { status: statusRef.current, clip: shown?.clip ?? null, frame: shown?.frame ?? null, mode: shown?.mode ?? null, residentBytes: res.bytes, residentKeys: res.keys, entry: c?.lastEntry ?? null, failure: c?.failure ?? null };
+        const stats = c?.stats ?? { loads: 0, speculativeFailures: 0 };
+        return { status: statusRef.current, clip: shown?.clip ?? null, frame: shown?.frame ?? null, mode: shown?.mode ?? null, state: shown?.state ?? null, pendingEdge: c?.pendingEdge ?? null, residentBytes: res.bytes, residentKeys: res.keys, entry: c?.lastEntry ?? null, failure: c?.failure ?? null, loads: stats.loads, speculativeFailures: stats.speculativeFailures };
       },
       canvas: () => canvas.current,
     }),
@@ -138,7 +135,7 @@ export const CoachMotionPlayer = forwardRef<CoachMotionPlayerHandle, Props>(func
     let visible = document.visibilityState !== "hidden";
     let onScreen = true;
     let side = 0;
-    let lastMode = initial;
+    let lastState: string = initial;
 
     const fit = () => {
       const px = Math.max(64, Math.round(el.clientWidth * Math.min(window.devicePixelRatio || 1, maxDpr)));
@@ -152,21 +149,21 @@ export const CoachMotionPlayer = forwardRef<CoachMotionPlayerHandle, Props>(func
     const ctl = new MotionController<ImageBitmap>({
       pack,
       timeoutMs,
+      stallMs,
       fetchManifest: async () => {
-        const response = await fetch(manifestUrl(pack));
+        const response = await fetch(manifestUrl(pack), { cache: "no-cache" }); // the manifest is the one mutable URL: always revalidated, so it can never name stale chunks
         if (!response.ok) throw new Error(`manifest ${pack}: ${response.status}`);
         return parseManifest(await response.json());
       },
-      makeLoad: browserLoad,
+      makeLoad: browserChunkLoader,
       paint: (bitmap, m, cell, shown) => {
         fit();
-        paintCell(ctx, side, m, bitmap, cell);
+        paintCell(ctx, side, m, shown.clip, bitmap, cell);
         window.__cmTrace?.push([pack, shown.clip, shown.frame, performance.now()]); // test hook: only exists when a test installs the array
-        const next = shown.mode === "watching" ? "watching" : "analyzing";
-        if (next !== lastMode) {
-          lastMode = next;
-          setState(next);
-          handlers.current.onState?.(next);
+        if (shown.state !== lastState && isMotionState(shown.state)) {
+          lastState = shown.state;
+          setState(shown.state);
+          handlers.current.onState?.(shown.state);
         }
       },
       onReady: () => {
@@ -225,14 +222,15 @@ export const CoachMotionPlayer = forwardRef<CoachMotionPlayerHandle, Props>(func
     };
     // one controller per (pack, reducedMotion); scenario changes go through the handle
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pack, reducedMotion, maxDpr, timeoutMs]);
+  }, [pack, reducedMotion, maxDpr, timeoutMs, stallMs]);
 
   // the loop starts when the controller turns ready (status flips to "motion")
   useEffect(() => {
     wake.current();
   }, [status]);
 
-  const staticInput = STATIC_STATE[reducedMotion || status === "static" ? phase : state];
+  // while Motion V2 is on screen the static layer shadows the picture; in every other status (reduced motion, loading, FAILED) it shows the semantic phase the host asked for
+  const staticInput = staticFor(status === "motion" ? state : phase);
   const staticState: CoachRenderState = staticInput.state;
   return (
     <div className={className} data-motion-status={status} data-static-state={staticState} data-testid={`motion-player-${pack}`} ref={root} style={{ height: "100%", position: "relative", width: "100%" }}>

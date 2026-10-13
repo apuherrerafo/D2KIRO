@@ -1,0 +1,168 @@
+{
+ "what": "Entry mismatch of a request taken at loop frame f: the nearest entry head starts with the exact pose of its phase, so the picture jumps from pose(f) to pose(nearest phase). Distances are loop-pose.poseDistance (the metric of guards.py).",
+ "rule": "recommended stride = largest probed stride whose p95 entry jump is <= 1.5 x the loop's own p95 frame-to-frame step (it reproduces the approved WATCHING stride 6)",
+ "watching": {
+  "loop": "watching",
+  "frames": 252,
+  "step": {
+   "median": 0.2348180824634588,
+   "p95": 0.6362703375166436,
+   "max": 14.378699414380849
+  },
+  "strides": [
+   {
+    "stride": 1,
+    "heads": 252,
+    "maxJump": 0,
+    "meanJump": 0,
+    "p95Jump": 0,
+    "maxFramesOff": 0,
+    "jumpOverMaxStep": 0,
+    "jumpOverMedianStep": 0
+   },
+   {
+    "stride": 2,
+    "heads": 126,
+    "maxJump": 13.426564546889438,
+    "meanJump": 0.3149824748873646,
+    "p95Jump": 0.2969961564406943,
+    "maxFramesOff": 1,
+    "jumpOverMaxStep": 0.9337815723069408,
+    "jumpOverMedianStep": 57.178580141837294
+   },
+   {
+    "stride": 3,
+    "heads": 84,
+    "maxJump": 13.75797428477144,
+    "meanJump": 0.3843201360620461,
+    "p95Jump": 0.2972944458044161,
+    "maxFramesOff": 1,
+    "jumpOverMaxStep": 0.9568302311828988,
+    "jumpOverMedianStep": 58.589926893353216
+   },
+   {
+    "stride": 4,
+    "heads": 63,
+    "maxJump": 25.64804303626599,
+    "meanJump": 0.658764600381477,
+    "p95Jump": 0.593969485061234,
+    "maxFramesOff": 2,
+    "jumpOverMaxStep": 1.7837526397286052,
+    "jumpOverMedianStep": 109.22516173879926
+   },
+   {
+    "stride": 5,
+    "heads": 51,
+    "maxJump": 27.80526272977911,
+    "meanJump": 0.7008038897957971,
+    "p95Jump": 0.5942864418884986,
+    "maxFramesOff": 2,
+    "jumpOverMaxStep": 1.9337814866600307,
+    "jumpOverMedianStep": 118.41193164545163
+   },
+   {
+    "stride": 6,
+    "heads": 42,
+    "maxJump": 29.211613058595816,
+    "meanJump": 0.9816880022440192,
+    "p95Jump": 0.8893975183739092,
+    "maxFramesOff": 3,
+    "jumpOverMaxStep": 2.031589382095284,
+    "jumpOverMedianStep": 124.40103739941569
+   },
+   {
+    "stride": 8,
+    "heads": 32,
+    "maxJump": 29.022829356107042,
+    "meanJump": 1.0666571773809637,
+    "p95Jump": 1.185731713180866,
+    "maxFramesOff": 4,
+    "jumpOverMaxStep": 2.018459981650348,
+    "jumpOverMedianStep": 123.59708013808275
+   }
+  ],
+  "recommended": 6
+ },
+ "analyzing": {
+  "loop": "analyzing",
+  "frames": 210,
+  "step": {
+   "median": 3.3543772458556815,
+   "p95": 3.4516794219442213,
+   "max": 3.453493257509803
+  },
+  "strides": [
+   {
+    "stride": 1,
+    "heads": 210,
+    "maxJump": 0,
+    "meanJump": 0,
+    "p95Jump": 0,
+    "maxFramesOff": 0,
+    "jumpOverMaxStep": 0,
+    "jumpOverMedianStep": 0
+   },
+   {
+    "stride": 2,
+    "heads": 105,
+    "maxJump": 3.453493257509803,
+    "meanJump": 1.6838968540360877,
+    "p95Jump": 3.4496168676890875,
+    "maxFramesOff": 1,
+    "jumpOverMaxStep": 1,
+    "jumpOverMedianStep": 1.0295482601954145
+   },
+   {
+    "stride": 3,
+    "heads": 70,
+    "maxJump": 3.453493257509803,
+    "meanJump": 2.2451463727701952,
+    "p95Jump": 3.4504226412301993,
+    "maxFramesOff": 1,
+    "jumpOverMaxStep": 1,
+    "jumpOverMedianStep": 1.0295482601954145
+   },
+   {
+    "stride": 4,
+    "heads": 53,
+    "maxJump": 6.903872391076774,
+    "meanJump": 3.351228497649217,
+    "p95Jump": 6.870893115823459,
+    "maxFramesOff": 2,
+    "jumpOverMaxStep": 1.9990982684167515,
+    "jumpOverMedianStep": 2.0581681442081323
+   },
+   {
+    "stride": 5,
+    "heads": 42,
+    "maxJump": 6.906326088507116,
+    "meanJump": 4.041068703987831,
+    "p95Jump": 6.890572115555961,
+    "maxFramesOff": 2,
+    "jumpOverMaxStep": 1.9998087656574821,
+    "jumpOverMedianStep": 2.0588996354062
+   },
+   {
+    "stride": 6,
+    "heads": 35,
+    "maxJump": 10.355528809202871,
+    "meanJump": 5.051123735013916,
+    "p95Jump": 10.246846753763252,
+    "maxFramesOff": 3,
+    "jumpOverMaxStep": 2.99856638975166,
+    "jumpOverMedianStep": 3.0871688096492673
+   },
+   {
+    "stride": 8,
+    "heads": 27,
+    "maxJump": 13.805256423602538,
+    "meanJump": 6.684544355477999,
+    "p95Jump": 13.540889042402371,
+    "maxFramesOff": 4,
+    "jumpOverMaxStep": 3.997476003053511,
+    "jumpOverMedianStep": 4.115594464116662
+   }
+  ],
+  "recommended": 3
+ }
+}

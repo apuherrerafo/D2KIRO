@@ -69,6 +69,14 @@ const nextConfig: NextConfig = {
   // desarrollador tenga abierto — y peor, le pisaría su `.next`. Con un `distDir` propio, ambos
   // conviven. Sin la variable, el valor es exactamente el de siempre.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  // Coach Motion V2 (public/coach-motion-v2/prod): chunk files are content-addressed (`name.<sha256[:12]>.avif`, enforced by scripts/coach-motion-v2/verify-assets.mjs), so a URL
+  // never changes meaning and is cached for ever; the manifest is the one mutable URL and is revalidated on every load, so a new pack can never point at stale cached bytes.
+  async headers() {
+    return [
+      { source: "/coach-motion-v2/prod/:pack/:file(.+\\.avif)", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      { source: "/coach-motion-v2/prod/:pack/manifest.json", headers: [{ key: "Cache-Control", value: "public, no-cache" }] },
+    ];
+  },
   async rewrites() {
     return ENGINE_REWRITE_SOURCES.map((source) => ({
       source,

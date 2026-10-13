@@ -1,0 +1,5 @@
+# Python toolchain of the Coach Motion V2 pipeline (encode.py, guards.py). Python 3.12.10; run as `python -I scripts/coach-motion-v2/encode.py ...`.
+# Pillow bundles libavif 1.4.2: the AVIF bytes depend on BOTH versions, which is why they are pinned exactly. Other pins live in toolchain.json.
+pillow==12.3.0
+numpy==2.5.3
+opencv-python==5.0.0.93

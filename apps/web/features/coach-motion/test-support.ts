@@ -1,37 +1,47 @@
-// Test doubles for the Coach Motion V2 production runtime (no DOM): a synthetic manifest with the real slice geometry and a chunk loader whose decodes the test releases by hand.
+// Test doubles for the Coach Motion V2 production runtime (no DOM). The manifests are the REAL committed packs (real chunk geometry, real graph), never invented
+// dimensions, and the chunk loader finishes decodes only when the test says so.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { Decoded } from "./bitmap-store";
-import { ANALYZING_LOOP, TRANSITION_TAIL, WATCHING_LOOP, headClipId, type ChunkMeta, type ProdClipMeta, type ProdManifest } from "./production-manifest";
+import { MotionController } from "./motion-controller";
+import { headClipId, headPhases, parseManifest, type GraphEdge, type ProdClipMeta, type ProdManifest } from "./production-manifest";
 
-function chunks(frames: number, chunkFrames: number, cols: number, cell: { w: number; h: number }): ChunkMeta[] {
-  const out: ChunkMeta[] = [];
-  for (let at = 0; at < frames; at += chunkFrames) {
-    const n = Math.min(chunkFrames, frames - at);
-    const rows = Math.ceil(n / cols);
-    out.push({ file: `c${out.length}.avif`, frames: n, rows, w: cols * cell.w, h: rows * cell.h, bytes: 1000 });
-  }
-  return out;
+export const WATCHING_LOOP = "WATCHING_LOOP";
+export const ANALYZING_LOOP = "ANALYZING_LOOP";
+export const TRANSITION_TAIL = "TRANSITION_TAIL";
+export const HEAD_PREFIX = "ENTRY_HEAD_";
+
+export const MIB = 1048576;
+export const FRAME_MS = 1000 / 30;
+
+/** A fresh, parsed copy of the committed manifest of a pack (384 is the production baseline). */
+export function realManifest(pack: "384" | "512" = "384"): ProdManifest {
+  const path = fileURLToPath(new URL(`../../public/coach-motion-v2/prod/${pack}/manifest.json`, import.meta.url));
+  return parseManifest(JSON.parse(readFileSync(path, "utf8")));
 }
 
-export function fakeManifest(pack = "384", cell = { w: 346, h: 354 }): ProdManifest {
-  const chunkFrames = 14;
-  const cols = 4;
-  const clip = (frames: number, loop: boolean): ProdClipMeta => ({ frames, loop, chunks: chunks(frames, chunkFrames, cols, cell) });
-  const clips: Record<string, ProdClipMeta> = { [WATCHING_LOOP]: clip(252, true), [ANALYZING_LOOP]: clip(210, true), [TRANSITION_TAIL]: clip(35, false) };
-  for (let p = 0; p < 252; p += 6) clips[headClipId(p)] = clip(10, false);
-  return {
-    version: 3,
-    pack,
-    srcPx: 384,
-    fps: 30,
-    crop: { x: 15, y: 20, w: cell.w, h: cell.h },
-    cell,
-    chunkFrames,
-    cols,
-    headStride: 6,
-    totalBytes: 0,
-    encoder: { format: "avif", quality: 33, speed: 4, subsampling: "4:2:0", library: "test", libavif: "test" },
-    clips,
+const cloneClip = (c: ProdClipMeta): ProdClipMeta => JSON.parse(JSON.stringify(c)) as ProdClipMeta;
+
+/** The real pack plus a third loop POINTING (geometry cloned from ANALYZING) and three more edges, so one state (WATCHING) has TWO outgoing edges with different strides:
+      watching>analyzing (stride 6, real)   watching>pointing (stride 3)   analyzing>pointing (stride 3)   pointing>watching (stride 6)
+    Chunk files are not read by the fake loader, only their real w x h x frames. The result goes through parseManifest, so the graph rules apply to it too. */
+export function graphManifest(pack: "384" | "512" = "384"): ProdManifest {
+  const m = realManifest(pack);
+  const watching = m.clips[WATCHING_LOOP].frames;
+  const analyzing = m.clips[ANALYZING_LOOP].frames;
+  m.clips.POINTING_LOOP = cloneClip(m.clips[ANALYZING_LOOP]);
+  const edge = (id: string, from: string, to: string, fromFrames: number, stride: number, prefix: string, tailClip: string): GraphEdge => {
+    m.clips[tailClip] = cloneClip(m.clips[TRANSITION_TAIL]);
+    for (const p of headPhases(fromFrames, stride)) m.clips[headClipId(prefix, p)] = cloneClip(m.clips[headClipId(HEAD_PREFIX, 0)]);
+    return { id, from, to, fps: m.fps, entry: { strategy: "nearest-head", stride, headClipPrefix: prefix, headFrames: 10, maxStepFrames: Math.floor(stride / 2), armHeads: 2 }, tail: { clip: tailClip, enterFrame: 0 }, lookaheadFrames: 2 * m.chunkFrames };
   };
+  m.graph.loops.pointing = { clip: "POINTING_LOOP" };
+  m.graph.edges.push(
+    edge("watching>pointing", "watching", "pointing", watching, 3, "POINT_HEAD_", "POINT_TAIL"),
+    edge("analyzing>pointing", "analyzing", "pointing", analyzing, 3, "APOINT_HEAD_", "APOINT_TAIL"),
+    edge("pointing>watching", "pointing", "watching", analyzing, 6, "BACK_HEAD_", "BACK_TAIL"),
+  );
+  return parseManifest(JSON.parse(JSON.stringify(m)));
 }
 
 export class FakeBitmap implements Decoded {
@@ -51,19 +61,25 @@ export class FakeLoader {
   auto = true;
   /** keys whose decode is held until release(key) */
   readonly holds = new Set<string>();
+  /** every load() call, in order, with the attempt number the store passed */
   readonly requested: string[] = [];
+  readonly attempts: Array<[string, number]> = [];
   readonly made: FakeBitmap[] = [];
+  /** keys that always fail */
   failing = new Set<string>();
+  /** keys whose FIRST attempt fails */
+  failOnce = new Set<string>();
   private readonly waiting = new Map<string, Array<() => void>>();
 
   constructor(readonly m: ProdManifest) {}
 
-  load = (key: string): Promise<FakeBitmap> => {
+  load = (key: string, attempt = 1): Promise<FakeBitmap> => {
     this.requested.push(key);
+    this.attempts.push([key, attempt]);
     const [clip, chunk] = [key.slice(key.indexOf("/") + 1, key.lastIndexOf("#")), Number(key.slice(key.lastIndexOf("#") + 1))];
     const meta = this.m.clips[clip].chunks[chunk];
     const make = () => {
-      if (this.failing.has(key)) throw new Error(`decode failed: ${key}`);
+      if (this.failing.has(key) || (attempt === 1 && this.failOnce.has(key))) throw new Error(`decode failed: ${key}`);
       const b = new FakeBitmap(key, meta.w, meta.h);
       this.made.push(b);
       return b;
@@ -87,6 +103,10 @@ export class FakeLoader {
     this.waiting.delete(key);
   }
 
+  count(match: string | RegExp): number {
+    return this.requested.filter((k) => (typeof match === "string" ? k.includes(match) : match.test(k))).length;
+  }
+
   get open(): FakeBitmap[] {
     return this.made.filter((b) => b.closed === 0);
   }
@@ -95,3 +115,60 @@ export class FakeLoader {
 export const flush = async () => {
   for (let i = 0; i < 8; i += 1) await Promise.resolve();
 };
+
+export type Paint = { clip: string; frame: number; mode: string; state: string };
+
+/** A controller on a real-geometry pack with a hand-driven loader and hand-fired timers. `paints` records every painted frame in order. */
+export function rig(opts: { loop?: string; m?: ProdManifest; manifest?: unknown; fetchError?: Error; timeoutMs?: number; stallMs?: number; retryDelayMs?: number; hold?: Iterable<string> } = {}) {
+  const m = opts.m ?? realManifest();
+  const io = new FakeLoader(m);
+  for (const k of opts.hold ?? []) io.holds.add(k);
+  const timers = manualTimers();
+  const paints: Paint[] = [];
+  const events = { ready: 0, fail: [] as string[] };
+  const ctl = new MotionController<FakeBitmap>({
+    pack: m.pack,
+    fetchManifest: () => (opts.fetchError ? Promise.reject(opts.fetchError) : Promise.resolve(opts.manifest ?? m)),
+    makeLoad: () => io.load,
+    paint: (_b, _m, _cell, shown) => void paints.push({ clip: shown.clip, frame: shown.frame, mode: shown.mode, state: shown.state }),
+    onReady: () => void (events.ready += 1),
+    onFail: (r) => void events.fail.push(r),
+    timeoutMs: opts.timeoutMs,
+    stallMs: opts.stallMs,
+    retryDelayMs: opts.retryDelayMs,
+    schedule: timers.schedule,
+  });
+  ctl.start(opts.loop ?? "watching");
+  return { m, io, ctl, paints, events, timers };
+}
+
+export const tickN = (ctl: { tick: (ms: number) => void }, n: number, ms = FRAME_MS) => {
+  for (let i = 0; i < n; i += 1) ctl.tick(ms);
+};
+/** Like tickN, but lets pending decodes land after every tick (what real time does between two rAF callbacks). */
+export const playN = async (ctl: { tick: (ms: number) => void }, n: number, ms = FRAME_MS) => {
+  for (let i = 0; i < n; i += 1) {
+    ctl.tick(ms);
+    await flush();
+  }
+};
+
+/** A scheduler the test fires by hand: `schedule` for the controller / store, `fire(ms)` runs every live timer of that delay. */
+export function manualTimers() {
+  const timers: Array<{ fn: () => void; ms: number; live: boolean }> = [];
+  return {
+    timers,
+    schedule: (fn: () => void, ms: number) => {
+      const t = { fn, ms, live: true };
+      timers.push(t);
+      return () => void (t.live = false);
+    },
+    live: () => timers.filter((t) => t.live),
+    fire(ms: number) {
+      for (const t of timers.filter((x) => x.live && x.ms === ms)) {
+        t.live = false;
+        t.fn();
+      }
+    },
+  };
+}

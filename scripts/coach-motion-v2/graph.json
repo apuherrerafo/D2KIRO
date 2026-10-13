@@ -1,0 +1,18 @@
+{
+  "_comment": "Authoring input of encode.py: the semantic graph of the production pack. It is copied into every pack manifest (minus the `dir` keys); the player reads it from there. A new loop or edge is added here, next to its capture jobs and frames, not in player code.",
+  "loops": {
+    "watching": { "clip": "WATCHING_LOOP", "dir": "watching" },
+    "analyzing": { "clip": "ANALYZING_LOOP", "dir": "analyzing" }
+  },
+  "edges": [
+    {
+      "id": "watching>analyzing",
+      "from": "watching",
+      "to": "analyzing",
+      "fps": 30,
+      "entry": { "strategy": "nearest-head", "stride": 6, "headClipPrefix": "ENTRY_HEAD_", "headDirPrefix": "head-", "headFrames": 10, "maxStepFrames": 3, "armHeads": 2 },
+      "tail": { "clip": "TRANSITION_TAIL", "dir": "tail", "enterFrame": 0 },
+      "lookaheadFrames": 28
+    }
+  ]
+}

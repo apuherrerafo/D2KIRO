@@ -1,0 +1,22 @@
+{
+  "_comment": "Identity of the static Coach fallback (public/coach-web-pack/hero) and the Gold Master it was built from. Written by `verify-assets.mjs --seal-fallback` AFTER the stills were regenerated; checked by verify-assets.mjs.",
+  "goldMasterId": "809d420b086d",
+  "staticFallback": {
+    "id": "e07aface56f3",
+    "builtFromGoldMaster": "809d420b086d",
+    "files": {
+      "analyzing-c.webp": "2ac2622c0bdb731c22dc0999e3c36ca899d6418d43b160b1391c7b51573de399",
+      "analyzing-l.webp": "64de7fc21b29e54127c28bf0de6682bb6015586d851c258c1512083b50c5ddb2",
+      "analyzing-r.webp": "64fcb60492f98f9052a5ad7db5aa65e911a0cc21ceb3af630879844dee095849",
+      "confirming-c.webp": "7c6cdedb1fd25fc3d7652c517d7e73f85220040358219569b9895b303ab1f803",
+      "confirming-l.webp": "8be030e6e0f57ef390fb4d4b5569c4b25a8ee1a87ca3e39b952a02d77b090d45",
+      "confirming-r.webp": "e0d42f53d9ea5de36aa08f82a7dd13ef3057938c685f1d592454e6a16bb16def",
+      "pointing-c.webp": "0a2517827e14f8e19bcdc82a954fa0f5d2409c291c36a96f634275adc02f5773",
+      "pointing-l.webp": "f7a777813babbe578c016e082d44efa2d2382ba8c862a9c48bc4e280061f53b1",
+      "pointing-r.webp": "e3e4ac068914ff2a56f2b716a20b092ec6dc6a65c6c12df147466227bfb6458e",
+      "watching-c.webp": "0b521f2e3fc70b019c85572ee270e569f6d71492ce99c0b7fd7311ee538d4333",
+      "watching-l.webp": "1ac6a4e9761ff76652dcb49d1ebc2a92f4c92430a2a2997b958f42e24187918a",
+      "watching-r.webp": "2f3a8834a63359815958a0990b52f110a0ed854a83a7348df00c68c623a0dae4"
+    }
+  }
+}

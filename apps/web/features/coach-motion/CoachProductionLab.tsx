@@ -45,7 +45,7 @@ function useReducedMotion(): boolean {
 
 const MB = (bytes: number) => (bytes / 1048576).toFixed(1);
 
-function MotionPanel({ pack, title, facts, playing, reduced, phase, timeoutMs, maxDpr, register }: { pack: ProdPackId; title: string; facts: string; playing: boolean; reduced: boolean; phase: Phase; timeoutMs: number | undefined; maxDpr: number; register: (id: string, h: CoachMotionPlayerHandle | null) => void }) {
+function MotionPanel({ pack, title, facts, playing, reduced, phase, timeoutMs, stallMs, maxDpr, register }: { pack: ProdPackId; title: string; facts: string; playing: boolean; reduced: boolean; phase: Phase; timeoutMs: number | undefined; stallMs: number | undefined; maxDpr: number; register: (id: string, h: CoachMotionPlayerHandle | null) => void }) {
   const [readout, setReadout] = useState("starting…");
   const [status, setStatus] = useState<MotionStatus>("static");
   const handle = useRef<CoachMotionPlayerHandle | null>(null);
@@ -62,7 +62,8 @@ function MotionPanel({ pack, title, facts, playing, reduced, phase, timeoutMs, m
       if (!s) return;
       const where = s.clip ? `${s.clip} · ${s.frame}` : s.status;
       const entry = s.entry ? ` · entry head ${s.entry.phase} (±${s.entry.step} f)` : "";
-      setReadout(`${s.status === "motion" ? where : s.status === "failed" ? `STATIC (Motion V2 failed: ${s.failure ?? "?"})` : s.status === "static" ? "STATIC (reduced motion)" : "loading…"}${entry} · ${MB(s.residentBytes)} MB decoded`);
+      const armed = s.pendingEdge ? ` · armed ${s.pendingEdge}` : "";
+      setReadout(`${s.status === "motion" ? where : s.status === "failed" ? `STATIC (Motion V2 failed: ${s.failure ?? "?"})` : s.status === "static" ? "STATIC (reduced motion)" : "loading…"}${entry}${armed} · ${MB(s.residentBytes)} MB decoded · ${s.loads} loads`);
     }, 120);
     return () => clearInterval(id);
   }, []);
@@ -77,7 +78,7 @@ function MotionPanel({ pack, title, facts, playing, reduced, phase, timeoutMs, m
           <div className="hl-coach" data-renderer="motion-v2" data-state={cue.state} data-testid={`coach-${pack}`} style={{ "--hl-coach-scale": String(cue.scale) } as CSSProperties}>
             <div className="hl-coach-body">
               <div className="hl-coach-flourish">
-                <CoachMotionPlayer maxDpr={maxDpr} onStatus={setStatus} pack={pack} phase={phase} playing={playing} reducedMotion={reduced} ref={setHandle} timeoutMs={timeoutMs} />
+                <CoachMotionPlayer maxDpr={maxDpr} onStatus={setStatus} pack={pack} phase={phase} playing={playing} reducedMotion={reduced} ref={setHandle} stallMs={stallMs} timeoutMs={timeoutMs} />
               </div>
             </div>
           </div>
@@ -87,7 +88,7 @@ function MotionPanel({ pack, title, facts, playing, reduced, phase, timeoutMs, m
   );
 }
 
-export function CoachProductionLab({ panels, theme: themeInitial, timeoutMs, maxDpr }: ProductionLabProps) {
+export function CoachProductionLab({ panels, theme: themeInitial, timeoutMs, stallMs, maxDpr }: ProductionLabProps) {
   const reduced = useReducedMotion();
   const [theme, setTheme] = useState(themeInitial);
   const [phase, setPhase] = useState<Phase>("watching");
@@ -132,7 +133,7 @@ export function CoachProductionLab({ panels, theme: themeInitial, timeoutMs, max
 
   const sendCue = useCallback(() => {
     setSemantic("analyzing");
-    each((h) => h.cue());
+    each((h) => h.cue("analyzing"));
     setScene("WATCHING → ANALYZING");
   }, [setSemantic]);
 
@@ -194,6 +195,7 @@ export function CoachProductionLab({ panels, theme: themeInitial, timeoutMs, max
                 playing={playing}
                 reduced={reduced}
                 register={register}
+                stallMs={stallMs}
                 timeoutMs={timeoutMs}
                 title={`${pack} MOTION V2`}
               />

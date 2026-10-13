@@ -1,32 +1,44 @@
-"""Coach Motion V2 production pack encoder: Gold Master source frames (capture.mjs) -> chunked AVIF atlases + manifest.
-usage: python -I scripts/coach-motion-v2/encode.py --frames <dir>/<px> --px 384 --out apps/web/public/coach-motion-v2/prod/384 [--quality 33] [--speed 4] [--codec auto]
+"""Coach Motion V2 production pack encoder: Gold Master source frames (capture.mjs) -> chunked, content-addressed AVIF atlases + manifest (v4).
+usage: python -I scripts/coach-motion-v2/encode.py --frames <dir>/<px> --px 384 --out apps/web/public/coach-motion-v2/prod/384 [--quality 35] [--speed 4] [--codec auto]
+       [--graph scripts/coach-motion-v2/graph.json] [--cols-for CLIP=N ...] [--allow-toolchain-drift]
 
-Pinned (see docs/coach-motion-v2/PRODUCTION_PIPELINE.md): Pillow 12.3.0 + libavif 1.4.2 (bundled), 4:2:0, full range, alpha kept, quality / speed / codec as the CLI defaults below.
-Atlas rules: one atlas = one chunk = at most CHUNK_FRAMES (14 = 0.47 s @ 30 fps; 252 = 18 x 14 and 210 = 15 x 14, so both loops split into equal chunks) consecutive frames of one clip, COLS columns, cell = the shared crop box
-(union alpha bbox over EVERY frame of the pack, pad 2, even size), so a decoded chunk is <= 2048 px on both sides at 512 and ~1.4k at 384.
+Pinned (scripts/coach-motion-v2/toolchain.json, requirements.txt): Pillow 12.3.0 + libavif 1.4.2 (bundled), numpy, opencv; 4:2:0, full range, alpha kept; quality / speed / codec as the CLI defaults below.
+The clips, loops and edges to pack come from graph.json (copied into the manifest); the frames folders it names must exist under --frames.
+Atlas rules: one atlas = one chunk = at most CHUNK_FRAMES (14 = 0.47 s @ 30 fps; 252 = 18 x 14 and 210 = 15 x 14, so both loops split into equal chunks) consecutive frames of one clip, COLS columns
+(per clip with --cols-for), cell = the shared crop box (union alpha bbox over EVERY frame of the pack, pad 2, even size). A chunk wider or taller than MAX_ATLAS_PX (2048) aborts the run.
+Chunk files are named `<stem>.<sha256[:12]>.avif` (immutable URLs) and stale *.avif files of the pack folder are removed at the end.
 Encoder pre-pass: RGB under alpha 0 is bled from the nearest visible colour (visible pixels and alpha untouched) so chroma subsampling does not drag the
 black the WebGL read-back leaves under alpha 0 into the silhouette edge."""
-import argparse, glob, hashlib, json, math, os, time
+import argparse, glob, json, math, os, sys, time
+from importlib.metadata import version
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python -I drops the script directory from sys.path
+import pack_manifest as pm
 import numpy as np, cv2, PIL
 from PIL import Image, features
 
-CHUNK_FRAMES, COLS, PAD, HEAD_STRIDE = 14, 4, 2, 6
+CHUNK_FRAMES, COLS, PAD = 14, 4, 2
 ap = argparse.ArgumentParser()
 ap.add_argument("--frames", required=True)
 ap.add_argument("--px", type=int, required=True)
 ap.add_argument("--out", required=True)
-ap.add_argument("--quality", type=int, default=33)
+ap.add_argument("--quality", type=int, default=35)
 ap.add_argument("--speed", type=int, default=4)
 ap.add_argument("--codec", default="auto")
 ap.add_argument("--subsampling", default="4:2:0")
+ap.add_argument("--graph", default=pm.GRAPH_FILE)
+ap.add_argument("--cols-for", action="append", default=[], metavar="CLIP=N", help="atlas columns for one clip (a wide pose may need fewer to stay under 2048 px)")
+ap.add_argument("--allow-toolchain-drift", action="store_true")
 args = ap.parse_args()
+COLS_FOR = {k: int(v) for k, v in (kv.split("=", 1) for kv in args.cols_for)}
 
 
-def clip_dirs():
-    out = {"WATCHING_LOOP": "watching", "ANALYZING_LOOP": "analyzing", "TRANSITION_TAIL": "tail"}
-    for d in sorted(glob.glob(f"{args.frames}/head-*")):
-        out["ENTRY_HEAD_" + os.path.basename(d)[5:]] = os.path.basename(d)
-    return out
+def check_toolchain():
+    pins = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "toolchain.json")))
+    have = {"python": ".".join(map(str, sys.version_info[:3])), "pillow": version("pillow"), "libavif": features.version("avif"), "numpy": version("numpy"), "opencv-python": version("opencv-python")}
+    drift = {k: (have[k], pins[k]) for k in have if have[k] != pins[k]}
+    if drift and not args.allow_toolchain_drift:
+        raise SystemExit("toolchain differs from scripts/coach-motion-v2/toolchain.json (installed, pinned): " + json.dumps(drift) + "\nInstall requirements.txt on the pinned Python, or pass --allow-toolchain-drift for an exploratory run (its bytes are not the approved masters).")
 
 
 def files(d):
@@ -66,47 +78,54 @@ def even(v):
     return v + (v & 1)
 
 
-dirs = clip_dirs()
-x0, y0, x1, y1 = (int(v) for v in union_box(dirs.values()))
+check_toolchain()
+graph = pm.load_graph(args.graph)
+plan = pm.clip_plan(graph, args.frames)
+x0, y0, x1, y1 = (int(v) for v in union_box([d for _, d, _ in plan]))
 cw, ch = int(even(x1 - x0)), int(even(y1 - y0))
 x1, y1 = x0 + cw, y0 + ch
 os.makedirs(args.out, exist_ok=True)
-clips, total = {}, 0
+clips = {}
 t_all = time.time()
-for cid, d in dirs.items():
+for cid, d, loop in plan:
     fs = files(d)
-    loop = cid.endswith("_LOOP")
+    cols = COLS_FOR.get(cid, COLS)
     chunks = []
     for ci in range(0, len(fs), CHUNK_FRAMES):
         part = fs[ci:ci + CHUNK_FRAMES]
-        rows = math.ceil(len(part) / COLS)
-        atlas = np.zeros((rows * ch, COLS * cw, 4), np.uint8)
+        rows = math.ceil(len(part) / cols)
+        pm.check_atlas(cid, ci // CHUNK_FRAMES, cols * cw, rows * ch)  # before any pixel is packed
+        atlas = np.zeros((rows * ch, cols * cw, 4), np.uint8)
         for i, f in enumerate(part):
             cell = np.array(Image.open(f).convert("RGBA"))[y0:y1, x0:x1]
-            atlas[(i // COLS) * ch:(i // COLS + 1) * ch, (i % COLS) * cw:(i % COLS + 1) * cw] = bleed(cell)
-        name = f"{d}-{ci // CHUNK_FRAMES:02d}.avif" if len(fs) > CHUNK_FRAMES else f"{d}.avif"
-        path = f"{args.out}/{name}"
-        Image.fromarray(atlas, "RGBA").save(path, "AVIF", quality=args.quality, speed=args.speed, subsampling=args.subsampling, codec=args.codec)
-        size = os.path.getsize(path)
-        total += size
-        chunks.append(dict(file=name, frames=len(part), rows=rows, w=COLS * cw, h=rows * ch, bytes=size, sha256=hashlib.sha256(open(path, "rb").read()).hexdigest()))
+            atlas[(i // cols) * ch:(i // cols + 1) * ch, (i % cols) * cw:(i % cols + 1) * cw] = bleed(cell)
+        stem = f"{d}-{ci // CHUNK_FRAMES:02d}" if len(fs) > CHUNK_FRAMES else d
+        tmp = f"{args.out}/{stem}.avif"
+        Image.fromarray(atlas, "RGBA").save(tmp, "AVIF", quality=args.quality, speed=args.speed, subsampling=args.subsampling, codec=args.codec)
+        sha = pm.sha256_file(tmp)
+        name = pm.fingerprint_name(stem, sha)
+        os.replace(tmp, f"{args.out}/{name}")
+        chunks.append(dict(file=name, frames=len(part), rows=rows, w=cols * cw, h=rows * ch, bytes=os.path.getsize(f"{args.out}/{name}"), sha256=sha))
     clips[cid] = dict(frames=len(fs), loop=loop, chunks=chunks)
+    if cols != COLS:
+        clips[cid]["cols"] = cols
     print(cid, len(fs), "frames", len(chunks), "chunks", sum(c["bytes"] for c in chunks), "bytes", flush=True)
 
-manifest = dict(
-    version=3,
-    pack=str(args.px),
+manifest = pm.assemble(
+    pack=args.px,
+    px=args.px,
     source="live Gold Master (HeroCoachStage, lite) · authored loop poses (features/coach-motion/loop-pose.ts) · 120 Hz fixed-step sim sampled at 30 fps",
-    srcPx=args.px,
-    fps=30,
     crop=dict(x=int(x0), y=int(y0), w=int(cw), h=int(ch)),
     cell=dict(w=int(cw), h=int(ch)),
-    chunkFrames=CHUNK_FRAMES,
+    chunk_frames=CHUNK_FRAMES,
     cols=COLS,
-    headStride=HEAD_STRIDE,
     encoder=dict(format="avif", library=f"Pillow {PIL.__version__}", libavif=features.version("avif"), quality=args.quality, speed=args.speed, codec=args.codec, subsampling=args.subsampling, range="full", alphaBleed=True),
-    totalBytes=total,
     clips=clips,
+    graph=graph,
 )
-json.dump(manifest, open(f"{args.out}/manifest.json", "w"), indent=1)
-print(f"pack {args.px}: {total} bytes, cell {cw}x{ch}, {time.time() - t_all:.0f}s")
+keep = {c["file"] for clip in clips.values() for c in clip["chunks"]}
+for stale in glob.glob(f"{args.out}/*.avif"):
+    if os.path.basename(stale) not in keep:
+        os.remove(stale)
+json.dump(manifest, open(f"{args.out}/manifest.json", "w", newline="\n"), indent=1)
+print(f"pack {args.px}: {manifest['totalBytes']} bytes, cell {cw}x{ch}, packHash {manifest['packHash'][:12]}, {time.time() - t_all:.0f}s")

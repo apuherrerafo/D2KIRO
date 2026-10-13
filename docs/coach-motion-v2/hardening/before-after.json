@@ -1,0 +1,42 @@
+{
+  "what": "Idle churn, decode work, residency and transition lead time of the Motion V2 player, before (c0aa957) and after the foundation hardening. Same method for both: the real committed 384 / 512 manifests, the real controller + store, an instrumented loader (unit harness); and headless Chromium against a production build (browser). Idle = WATCHING held, no cue.",
+  "unitHarness": {
+    "384": {
+      "before": {
+        "idleOnePass": { "requests": 65, "headRequests": 44, "distinctHeads": 42, "decodes": 65, "decodedMiB": 386.8 },
+        "idleThreePasses": { "requests": 185, "headRequests": 128, "decodes": 185, "decodedMiB": 1096.0 },
+        "steadyResidencyMiB": 32.2,
+        "leadMsRequestToFirstUse": { "tailChunk1": 467, "tailChunk2": 467, "analyzingChunk0": 467, "tailChunk0": "resident since idle" }
+      },
+      "after": {
+        "idleOnePass": { "requests": 20, "headRequests": 0, "distinctHeads": 0, "decodes": 20, "decodedMiB": 143.3 },
+        "idleThreePasses": { "requests": 56, "headRequests": 0, "decodes": 56, "decodedMiB": 401.1 },
+        "steadyResidencyMiB": 14.3,
+        "armedPeakMiB": 32.2,
+        "transitionPeakMiB": 25.1,
+        "requestsAtCue": 3,
+        "leadMsRequestToFirstUse": { "tailChunk0": 367, "tailChunk1": 800, "tailChunk2": 933, "analyzingChunk0": 933 }
+      }
+    },
+    "512": {
+      "before": { "steadyResidencyMiB": 57.0, "idleThreePasses": { "requests": 185, "headRequests": 128, "decodedMiB": 1937.3 } },
+      "after": { "steadyResidencyMiB": 25.3, "armedPeakMiB": 57.0, "transitionPeakMiB": 44.3, "idleThreePasses": { "requests": 56, "headRequests": 0, "decodedMiB": 709.1 } }
+    }
+  },
+  "browser384TwoIdlePasses_17s": {
+    "before": {
+      "head": { "requests": 89, "distinctUrls": 42, "servedFromCache": 0, "networkTransfers": 89, "encodedBytesOverNetwork": 2721899 },
+      "loop": { "requests": 38, "distinctUrls": 18, "servedFromCache": 0, "networkTransfers": 38, "encodedBytesOverNetwork": 1583664 },
+      "totalNetworkTransfers": 127,
+      "totalEncodedBytesOverNetwork": 4305563
+    },
+    "after": {
+      "head": { "requests": 0 },
+      "tail": { "requests": 0 },
+      "loop": { "requests": 38, "distinctUrls": 18, "servedFromCache": 22, "networkTransfers": 16, "encodedBytesOverNetwork": 1578584, "note": "all 16 transfers are pass 1; pass 2 is 100% HTTP cache (verify.mjs)" },
+      "totalNetworkTransfers": 16,
+      "totalEncodedBytesOverNetwork": 1578584
+    }
+  },
+  "cueToFirstTransitionFrameMs_headlessChromium_loopback_384": { "samples": [43, 56, 52, 35, 57, 38, 31, 48], "min": 31, "max": 57 }
+}

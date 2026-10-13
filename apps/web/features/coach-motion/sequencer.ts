@@ -1,16 +1,20 @@
-// Coach Motion V2 production slice · deterministic frame sequencer (pure: no DOM, no rAF, no fetch).
-// One timeline: WATCHING loop (forward) -> [cue] -> entry head -> transition tail -> ANALYZING loop (forward).
-// The clock only advances by whole frames and only onto a frame whose chunk is decoded; while it is not, the current frame stays and the
-// clock is held (no frames are skipped, no sub-frame time banks up). The cue is taken at a frame boundary, never mid-frame, and only when
-// its entry head is decoded; until then WATCHING keeps playing, so a late decode can never drop transition opening frames.
+// Coach Motion V2 production slice · deterministic frame sequencer (pure: no DOM, no rAF, no fetch). It interprets the manifest's GRAPH; it knows no clip names.
+// One timeline: LOOP (forward) -> [request] -> entry head -> edge tail -> TARGET LOOP (forward).
+// The clock only advances by whole frames and only onto a frame whose chunk is decoded; while it is not, the current frame stays and the clock is held (no frames
+// are skipped, no sub-frame time banks up). A request is taken at a frame boundary, never mid-frame, and only when the nearest entry head AND the first chunk of the
+// edge's tail are decoded, so a transition never starts unless its opening is guaranteed; until then the loop keeps playing.
+// CUE-ARMED PREFETCH: while no request is pending `wanted()` names only the chunks the default path touches (current + next). The entry heads and the tail opening are
+// named only once a request is pending, and only for that edge.
 
-import { ANALYZING_LOOP, TRANSITION_TAIL, WATCHING_LOOP, cellOf, chunkKey, chunkOf, headClipId, type ProdManifest } from "./production-manifest";
+import { cellOf, chunkKey, chunkOf, edgeBetween, headClipId, loopClip, type GraphEdge, type ProdManifest } from "./production-manifest";
 
-export type Mode = "watching" | "transition" | "analyzing";
 export interface Cursor {
   clip: string;
   frame: number;
 }
+
+/** Where the cursor is in the graph: playing a loop, or inside an edge (its entry head, then its tail). */
+export type Where = { kind: "loop"; loop: string } | { kind: "edge"; edge: GraphEdge; stage: "head" | "tail" };
 
 export interface SeqHost {
   /** is this chunk decoded right now */
@@ -22,6 +26,14 @@ export interface TickResult {
   changed: boolean;
   /** the clock is held on the current frame because the next chunk is not decoded */
   stalled: boolean;
+  /** key of the chunk the held clock is waiting for */
+  waitingOn: string | null;
+}
+
+/** A chunk the player wants, most urgent first. Required = on the path of frames about to be shown; speculative = armed for a pending request. */
+export interface WantedChunk {
+  key: string;
+  required: boolean;
 }
 
 /** Entry phase (a multiple of the stride, circular over the loop) nearest to loop frame `frame`; a tie goes to the later phase. */
@@ -42,118 +54,144 @@ export function nearestHeadPhase(frame: number, loopFrames: number, stride: numb
 }
 
 export class MotionSequencer {
-  mode: Mode = "watching";
-  cursor: Cursor = { clip: WATCHING_LOOP, frame: 0 };
+  where: Where;
+  cursor: Cursor;
   /** ms accumulated towards the next frame */
   acc = 0;
-  cuePending = false;
+  /** the edge a request asked for; the loop keeps playing until its entry is decoded */
+  pending: GraphEdge | null = null;
   /** entry phase the current/last transition started from, and how far the first head frame is from the frame it replaced (in frames) */
-  lastEntry: { phase: number; step: number } | null = null;
+  lastEntry: { edge: string; phase: number; step: number } | null = null;
   private readonly frameMs: number;
 
   constructor(
     private readonly m: ProdManifest,
     private readonly host: SeqHost,
+    initialLoop: string,
   ) {
     this.frameMs = 1000 / m.fps;
+    this.where = { kind: "loop", loop: initialLoop };
+    this.cursor = { clip: loopClip(m, initialLoop), frame: 0 };
+  }
+
+  /** "transition" while inside an edge, otherwise the id of the loop being played. */
+  get mode(): string {
+    return this.where.kind === "loop" ? this.where.loop : "transition";
+  }
+
+  /** The semantic state the picture shows: the loop being played, or the target of the edge being played. */
+  get state(): string {
+    return this.where.kind === "loop" ? this.where.loop : this.where.edge.to;
   }
 
   /** Jump to frame 0 of a loop. The caller makes sure that chunk is decoded. */
-  start(mode: "watching" | "analyzing"): void {
-    this.mode = mode;
-    this.cursor = { clip: mode === "watching" ? WATCHING_LOOP : ANALYZING_LOOP, frame: 0 };
+  start(loop: string): void {
+    this.where = { kind: "loop", loop };
+    this.cursor = { clip: loopClip(this.m, loop), frame: 0 };
     this.acc = 0;
-    this.cuePending = false;
+    this.pending = null;
     this.lastEntry = null;
   }
 
-  /** The reveal cue. Only meaningful while WATCHING; it is taken at the next frame boundary at which the nearest entry head is decoded. */
-  cue(): void {
-    if (this.mode === "watching") this.cuePending = true;
-  }
-
-  private count(clip: string): number {
-    return this.m.clips[clip].frames;
+  /** Ask for the edge from the loop being played to `target`. Returns false (and changes nothing) when no such edge leaves this loop or a transition is playing. */
+  request(target: string): boolean {
+    if (this.where.kind !== "loop") return false;
+    const edge = edgeBetween(this.m, this.where.loop, target);
+    if (!edge) return false;
+    this.pending = edge;
+    return true;
   }
 
   private ok(c: Cursor): boolean {
     return this.host.ready(c.clip, chunkOf(this.m, c.frame));
   }
 
-  /** The cursor the default path (no cue) shows after `at`. */
-  private step(at: Cursor, mode: Mode): { cursor: Cursor; mode: Mode } {
-    const { clip, frame } = at;
-    if (clip === WATCHING_LOOP || clip === ANALYZING_LOOP) return { cursor: { clip, frame: (frame + 1) % this.count(clip) }, mode };
-    if (clip === TRANSITION_TAIL) {
-      if (frame + 1 < this.count(clip)) return { cursor: { clip, frame: frame + 1 }, mode };
-      return { cursor: { clip: ANALYZING_LOOP, frame: 0 }, mode: "analyzing" };
-    }
-    if (frame + 1 < this.count(clip)) return { cursor: { clip, frame: frame + 1 }, mode };
-    return { cursor: { clip: TRANSITION_TAIL, frame: 0 }, mode };
+  /** The cursor the default path (no request) shows after `at`. */
+  private step(at: Cursor, where: Where): { cursor: Cursor; where: Where } {
+    const clip = this.m.clips[at.clip];
+    if (at.frame + 1 < clip.frames) return { cursor: { clip: at.clip, frame: at.frame + 1 }, where };
+    if (where.kind === "loop") return { cursor: { clip: at.clip, frame: 0 }, where };
+    if (where.stage === "head") return { cursor: { clip: where.edge.tail.clip, frame: 0 }, where: { kind: "edge", edge: where.edge, stage: "tail" } };
+    return { cursor: { clip: loopClip(this.m, where.edge.to), frame: where.edge.tail.enterFrame }, where: { kind: "loop", loop: where.edge.to } };
   }
 
-  private nextFrame(): { cursor: Cursor; mode: Mode; entry?: { phase: number; step: number } } {
-    if (this.mode === "watching" && this.cuePending) {
-      const n = this.count(WATCHING_LOOP);
+  private nextFrame(): { cursor: Cursor; where: Where; entry?: { edge: string; phase: number; step: number } } {
+    if (this.where.kind === "loop" && this.pending) {
+      const edge = this.pending;
+      const n = this.m.clips[this.cursor.clip].frames;
       const upcoming = (this.cursor.frame + 1) % n;
-      const phase = nearestHeadPhase(upcoming, n, this.m.headStride);
-      const head: Cursor = { clip: headClipId(phase), frame: 0 };
-      if (this.ok(head)) {
+      const phase = nearestHeadPhase(upcoming, n, edge.entry.stride);
+      const head: Cursor = { clip: headClipId(edge.entry.headClipPrefix, phase), frame: 0 };
+      if (this.ok(head) && this.ok({ clip: edge.tail.clip, frame: 0 })) {
         const forward = (((phase - upcoming) % n) + n) % n;
-        return { cursor: head, mode: "transition", entry: { phase, step: Math.min(forward, n - forward) } };
+        return { cursor: head, where: { kind: "edge", edge, stage: "head" }, entry: { edge: edge.id, phase, step: Math.min(forward, n - forward) } };
       }
     }
-    return this.step(this.cursor, this.mode);
+    return this.step(this.cursor, this.where);
   }
 
   tick(dtMs: number): TickResult {
     this.acc += dtMs;
     let changed = false;
     let stalled = false;
+    let waitingOn: string | null = null;
     while (this.acc + 1e-9 >= this.frameMs) {
       const n = this.nextFrame();
       if (!this.ok(n.cursor)) {
         this.acc = this.frameMs - 1e-3; // hold the clock: the frame is due the moment its chunk lands, but the stall banks no extra frames
         stalled = true;
+        waitingOn = chunkKey(this.m.pack, n.cursor.clip, chunkOf(this.m, n.cursor.frame));
         break;
       }
       this.acc -= this.frameMs;
       this.cursor = n.cursor;
-      this.mode = n.mode;
+      this.where = n.where;
       if (n.entry) {
-        this.cuePending = false;
+        this.pending = null;
         this.lastEntry = n.entry;
       }
       changed = true;
     }
-    return { changed, stalled };
+    return { changed, stalled, waitingOn };
   }
 
-  /** Chunks the default path touches in the next `lookahead` frames (CURRENT + NEXT), plus, while WATCHING, what a cue would need
-      (the entry heads for the next two entry phases, the first tail chunk). Ordered by urgency. */
-  wanted(lookaheadFrames = this.m.chunkFrames): string[] {
-    const keys: string[] = [];
-    const add = (clip: string, chunk: number) => {
-      const k = chunkKey(this.m.pack, clip, chunk);
-      if (!keys.includes(k)) keys.push(k);
+  /** Chunks to hold resident, most urgent first.
+      Required: the ones the default path touches in the next `lookahead` frames (the loop's current + next chunk; inside an edge, its `lookaheadFrames`).
+      Only while a request is pending: the nearest entry head (speculative: a neighbouring head can stand in for it), the tail's first chunk (required: the edge cannot
+      start without it), then the next entry head(s) as a latency hedge (speculative). */
+  wanted(): WantedChunk[] {
+    const out: WantedChunk[] = [];
+    const seen = new Set<string>();
+    const add = (clip: string, chunk: number, required: boolean) => {
+      const key = chunkKey(this.m.pack, clip, chunk);
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ key, required });
     };
+    const lookahead = this.where.kind === "edge" ? this.where.edge.lookaheadFrames : this.m.chunkFrames;
     let at = this.cursor;
-    let mode = this.mode;
-    add(at.clip, chunkOf(this.m, at.frame));
-    for (let i = 0; i < lookaheadFrames; i += 1) {
-      const s = this.step(at, mode);
+    let where = this.where;
+    add(at.clip, chunkOf(this.m, at.frame), true);
+    for (let i = 0; i < lookahead; i += 1) {
+      const s = this.step(at, where);
       at = s.cursor;
-      mode = s.mode;
-      add(at.clip, chunkOf(this.m, at.frame));
+      where = s.where;
+      add(at.clip, chunkOf(this.m, at.frame), true);
     }
-    if (this.mode === "watching") {
-      const n = this.count(WATCHING_LOOP);
+    if (this.where.kind === "loop" && this.pending) {
+      const edge = this.pending;
+      const n = this.m.clips[this.cursor.clip].frames;
       const upcoming = (this.cursor.frame + 1) % n;
-      add(headClipId(nearestHeadPhase(upcoming, n, this.m.headStride)), 0);
-      add(headClipId(nearestHeadPhase((upcoming + this.m.headStride) % n, n, this.m.headStride)), 0);
-      add(TRANSITION_TAIL, 0);
+      const phases: number[] = [];
+      for (let i = 0; i < edge.entry.armHeads; i += 1) {
+        const p = nearestHeadPhase((upcoming + i * edge.entry.stride) % n, n, edge.entry.stride);
+        if (!phases.includes(p)) phases.push(p);
+      }
+      add(headClipId(edge.entry.headClipPrefix, phases[0]), 0, false);
+      add(edge.tail.clip, 0, true); // the edge cannot start without its tail opening, and no other head can stand in for it
+      for (const p of phases.slice(1)) add(headClipId(edge.entry.headClipPrefix, p), 0, false);
     }
-    return keys;
+    return out;
   }
 
   /** (clip, frame) -> atlas coordinates of the frame on screen. */

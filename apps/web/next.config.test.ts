@@ -90,3 +90,13 @@ describe("engine rewrites", () => {
     );
   });
 });
+
+describe("Coach Motion V2 asset caching", () => {
+  test("content-addressed chunks are immutable; the manifest is revalidated; nothing else gets either header", async () => {
+    const headers = await nextConfig.headers!();
+    const byCache = (value: string) => headers.filter((h) => h.headers.some((x) => x.key === "Cache-Control" && x.value === value)).map((h) => h.source);
+    expect(byCache("public, max-age=31536000, immutable")).toEqual(["/coach-motion-v2/prod/:pack/:file(.+\\.avif)"]);
+    expect(byCache("public, no-cache")).toEqual(["/coach-motion-v2/prod/:pack/manifest.json"]);
+    expect(headers).toHaveLength(2);
+  });
+});

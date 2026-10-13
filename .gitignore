@@ -75,3 +75,5 @@ apps/web/.next-counterfactual/
 e2e-landing-v2/.tmp/
 apps/web/.next-landing-v2/
 apps/web/.next-landing-view/
+# Coach motion labs: dedicated dist dirs of the NEXT_DIST_DIR builds (.next-coach-audit, .next-coach-motion-audit, .next-coach-motion-v2-*, ...)
+apps/web/.next-coach-*/

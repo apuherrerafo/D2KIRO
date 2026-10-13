@@ -1,10 +1,12 @@
 // Runtime guards for the Coach Motion V2 production slice, against a running lab server (headless Chromium, never headed).
 // usage: SESSION_SECRET=... [CM_BASE=http://localhost:3162] node scripts/coach-motion-v2/verify.mjs [report.json]
-// Checks: network (no Three.js / coach-modular.bin on the candidate panels), reduced motion (no Motion V2 request), failure -> static stays visible
-// (manifest 404 / chunk abort / undecodable bytes / timeout), held-state continuity, loop seam, transition frame continuity (no skipped opening frames).
-import { mkdirSync, writeFileSync } from "node:fs";
+// Checks: network (no Three.js / coach-modular.bin on the candidate panels), cue-armed prefetch (an idle WATCHING requests no entry head / tail), immutable chunk
+// caching (the second loop pass is answered by the HTTP cache), reduced motion (no Motion V2 request), hidden / off-screen (the clock stops, no work), failure ->
+// static stays visible (manifest 404 / chunk abort / undecodable bytes / timeout, and MID-SESSION: a required chunk that fails or hangs), a failed entry head is
+// not fatal, held-state continuity, loop seam, transition frame continuity (no skipped opening frames).
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { launch, BASE, ROOT } from "./lib.mjs";
+import { launch, BASE, PUBLIC_PACKS, ROOT } from "./lib.mjs";
 
 const OUT = process.argv[2] ?? `${ROOT}/docs/coach-motion-v2/production/verify-report.json`;
 const LAB = `${BASE}/lab/coach-motion-v2/production`;
@@ -26,14 +28,47 @@ const ready = (page, pack) => page.waitForSelector(`[data-testid="panel-${pack}"
   const page = await ctx.newPage();
   const urls = [];
   page.on("request", (r) => urls.push(r.url()));
+  // per-request network accounting through CDP (Playwright does not say whether the HTTP cache answered)
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send("Network.enable");
+  const net = new Map();
+  const kindOf = (url) => {
+    const f = new URL(url).pathname.split("/").pop();
+    return /^head-/.test(f) ? "head" : /^tail-/.test(f) ? "tail" : /^(watching|analyzing)-/.test(f) ? "loop" : null;
+  };
+  cdp.on("Network.requestWillBeSent", (e) => {
+    const kind = kindOf(e.request.url);
+    if (kind) net.set(e.requestId, { kind, url: e.request.url, at: Date.now(), cached: false });
+  });
+  cdp.on("Network.requestServedFromCache", (e) => void (net.get(e.requestId) && (net.get(e.requestId).cached = true)));
+  cdp.on("Network.responseReceived", (e) => {
+    const r = net.get(e.requestId);
+    if (r && (e.response.fromDiskCache || e.response.fromPrefetchCache)) r.cached = true;
+  });
   await page.addInitScript(() => (window.__cmTrace = []));
   await page.goto(`${LAB}?panels=384,512`);
   await Promise.all([ready(page, "384"), ready(page, "512")]);
-  await page.waitForTimeout(10500); // > one full 8.4 s WATCHING loop
+  const readyAt = Date.now();
+  for (const r of net.values()) r.before = true; // everything requested up to here is startup
+  await page.waitForTimeout(17600); // two full 8.4 s WATCHING loop passes
   const bad = urls.filter((u) => /three|coach-modular|coach-gold-master/.test(u));
   check("network: no Three.js / coach-modular.bin on the candidate panels", bad.length === 0, bad.join(", ") || `${urls.length} requests`);
   const motionReq = urls.filter((u) => u.includes("/coach-motion-v2/prod/"));
   check("network: Motion V2 packs requested", motionReq.some((u) => u.includes("/384/")) && motionReq.some((u) => u.includes("/512/")), `${motionReq.length} requests`);
+  const idle = [...net.values()].filter((r) => !r.before);
+  const idleHeadsTails = idle.filter((r) => r.kind !== "loop");
+  check("cue-armed prefetch: an idle WATCHING (two loop passes) requests no entry head and no tail chunk", idleHeadsTails.length === 0, `${idleHeadsTails.length} head/tail requests: ${idleHeadsTails.slice(0, 3).map((r) => r.url.split("/").pop()).join(", ")}`);
+  const pass2 = idle.filter((r) => r.kind === "loop" && r.at - readyAt > 9000);
+  const pass2Network = pass2.filter((r) => !r.cached);
+  check("immutable chunk URLs: the second loop pass is answered by the HTTP cache, no encoded byte crosses the network again", pass2.length > 0 && pass2Network.length === 0, `${pass2.length} loop requests in pass 2, ${pass2Network.length} over the network`);
+  const hdr = await page.evaluate(async () => {
+    const m = await fetch("/coach-motion-v2/prod/384/manifest.json", { cache: "no-store" });
+    const manifest = await m.json();
+    const file = manifest.clips.WATCHING_LOOP.chunks[0].file;
+    const c = await fetch(`/coach-motion-v2/prod/384/${file}`);
+    return { manifest: m.headers.get("cache-control"), chunk: c.headers.get("cache-control"), file };
+  });
+  check("cache headers: fingerprinted chunk = immutable for a year, manifest = revalidated on every load", /max-age=31536000/.test(hdr.chunk ?? "") && /immutable/.test(hdr.chunk ?? "") && /no-cache/.test(hdr.manifest ?? ""), JSON.stringify(hdr));
 
   const trace = await page.evaluate(() => window.__cmTrace);
   for (const pack of ["384", "512"]) {
@@ -133,8 +168,67 @@ const failCase = async (name, setup, query = "") => {
 };
 await failCase("manifest 404", (p) => p.route("**/coach-motion-v2/prod/384/manifest.json", (r) => r.fulfill({ status: 404, body: "no" })));
 await failCase("atlas fetch aborted", (p) => p.route("**/coach-motion-v2/prod/384/*.avif", (r) => r.abort()));
-await failCase("AVIF decode error", (p) => p.route("**/coach-motion-v2/prod/384/*.avif", (r) => r.fulfill({ status: 200, contentType: "image/avif", body: Buffer.from("not an avif") })));
+await failCase("AVIF size mismatch", (p) => p.route("**/coach-motion-v2/prod/384/*.avif", (r) => r.fulfill({ status: 200, contentType: "image/avif", body: Buffer.from("not an avif") })));
+const firstChunkBytes = JSON.parse(readFileSync(`${PUBLIC_PACKS}/384/manifest.json`, "utf8")).clips.WATCHING_LOOP.chunks[0].bytes;
+await failCase("AVIF decode error (right size, junk bytes)", (p) => p.route("**/coach-motion-v2/prod/384/watching-00.*.avif", (r) => r.fulfill({ status: 200, contentType: "image/avif", body: Buffer.alloc(firstChunkBytes) })));
 await failCase("timeout", (p) => p.route("**/coach-motion-v2/prod/384/*.avif", async (r) => { await new Promise((x) => setTimeout(x, 6000)); await r.abort().catch(() => {}); }), "&timeout=1500");
+// MID-SESSION: the first frames play, then a chunk the loop needs fails (after its one retry) or hangs (stall watchdog) -> static, never a frozen frame
+await failCase("mid-session: a required loop chunk fails after its retry", (p) => p.route("**/coach-motion-v2/prod/384/watching-03.*.avif", (r) => r.abort()));
+await failCase("mid-session: a required loop chunk hangs (stall watchdog)", (p) => p.route("**/coach-motion-v2/prod/384/watching-02.*.avif", async (r) => { await new Promise((x) => setTimeout(x, 15000)); await r.abort().catch(() => {}); }), "&stall=1500");
+
+// ---------------------------------------------------------------- a failed entry head is NOT fatal
+{
+  const ctx = await mk();
+  const page = await ctx.newPage();
+  await page.route("**/coach-motion-v2/prod/384/head-*.avif", (r) => r.abort());
+  await page.addInitScript(() => (window.__cmTrace = []));
+  await page.goto(`${LAB}?panels=384&stall=4000`);
+  await ready(page, "384");
+  await page.waitForTimeout(1500);
+  await page.click('[data-testid="btn-transition"]'); // arms the heads: every one of them fails
+  await page.waitForTimeout(2200);
+  const status = await page.getAttribute('[data-testid="panel-384"]', "data-motion-status");
+  const trace = await page.evaluate(() => window.__cmTrace);
+  const sinceCue = trace.filter((x) => x[1].startsWith("ENTRY_HEAD_") || x[1] === "TRANSITION_TAIL");
+  check("entry head fetch aborted: Motion V2 stays alive (speculative failure is non-fatal), WATCHING keeps playing", status === "motion" && sinceCue.length === 0, `status ${status}, transition frames ${sinceCue.length}`);
+  await page.waitForSelector('[data-testid="panel-384"][data-motion-status="failed"]', { timeout: 10000 }).catch(() => {});
+  const after = await page.evaluate(() => {
+    const root = document.querySelector('[data-testid="motion-player-384"]');
+    return { status: root.getAttribute("data-motion-status"), staticState: root.querySelector('[data-testid="coach-sprite"]').getAttribute("data-state"), canvas: getComputedStyle(root.querySelector("canvas")).visibility };
+  });
+  check("a request that can never start falls back after the watchdog, and the STATIC Coach shows the requested state", after.status === "failed" && after.staticState === "analyzing" && after.canvas === "hidden", JSON.stringify(after));
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- hidden tab / off-screen: the clock stops, nothing is painted, playback resumes where it was
+{
+  const ctx = await mk();
+  const page = await ctx.newPage();
+  await page.addInitScript(() => (window.__cmTrace = []));
+  await page.goto(`${LAB}?panels=384`);
+  await ready(page, "384");
+  await page.waitForTimeout(1500);
+  const count = () => page.evaluate(() => window.__cmTrace.length);
+  const lastFrame = () => page.evaluate(() => window.__cmTrace[window.__cmTrace.length - 1][2]);
+  for (const [name, hide, show] of [
+    ["hidden tab", () => { Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" }); document.dispatchEvent(new Event("visibilitychange")); }, () => { delete document.visibilityState; document.dispatchEvent(new Event("visibilitychange")); }],
+    ["off-screen", () => { const el = document.querySelector('[data-testid="motion-player-384"]'); el.style.position = "fixed"; el.style.top = "-9999px"; }, () => { const el = document.querySelector('[data-testid="motion-player-384"]'); el.style.position = ""; el.style.top = ""; }],
+  ]) {
+    await page.evaluate(hide);
+    await page.waitForTimeout(400);
+    const a = await count();
+    const fa = await lastFrame();
+    await page.waitForTimeout(1500);
+    const b = await count();
+    check(`${name}: no frame is painted and the clock does not run`, b === a, `${b - a} paints while hidden`);
+    await page.evaluate(show);
+    await page.waitForTimeout(800);
+    const c = await count();
+    const next = await page.evaluate((n) => window.__cmTrace[n][2], b);
+    check(`${name} -> visible: playback resumes on the very next frame (no jump, no skipped frame)`, c > b && next === (fa + 1) % 252, `paints after ${c - b}, resumed at ${next}, held at ${fa}`);
+  }
+  await ctx.close();
+}
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(report, null, 1));

@@ -33,6 +33,8 @@ const eslintConfig = defineConfig([
     ".next-e2e/**",
     // Hero loop lab: playwright.hero-loop.config.ts builds into .next-hero-loop, same reason as above.
     ".next-hero-loop/**",
+    // Coach motion labs: scripts/coach-motion-v2 builds into .next-coach-motion-v2-* (NEXT_DIST_DIR), same reason.
+    ".next-coach-*/**",
     "storybook-static/**",
     "design/enforcement/fixtures/**",
   ]),

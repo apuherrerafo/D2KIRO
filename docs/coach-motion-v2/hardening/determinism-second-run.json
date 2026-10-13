@@ -1,0 +1,40 @@
+{
+ "what": "Second-run determinism of the approved Coach Motion V2 slice (384 px pack): fresh capture x2 -> fresh encode x2, compared with each other and with the committed masters.",
+ "date": "2026-10-13",
+ "base": "c0aa957",
+ "machine": {
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002504) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "selfCheckMaxAbsPoseDiff": 2.220446049250313e-16,
+  "playwright": "1.62.1",
+  "node": "v24.19.0",
+  "python": "3.12.10",
+  "pillow": "Pillow 12.3.0",
+  "libavif": "1.4.2"
+ },
+ "capture": {
+  "frames": 917,
+  "runAEqualsRunB": 917,
+  "runAEqualsCommittedSourceHashes": 917,
+  "runBEqualsCommittedSourceHashes": 917
+ },
+ "encode": {
+  "command": "python -I scripts/coach-motion-v2/encode.py --frames <run>/384 --px 384 --out <dir> --quality 35 (encoder of c0aa957, before the v4 fingerprinting; chunk sha256 are unchanged by it)",
+  "chunks": 78,
+  "runAEqualsRunB": 78,
+  "runAEqualsCommitted": 78,
+  "runBEqualsCommitted": 78,
+  "totalBytes": {
+   "runA": 6255628,
+   "runB": 6255628,
+   "committed": 6255628
+  }
+ },
+ "verdict": "IDENTICAL: render and encode reproduce the committed approved masters byte-for-byte on this machine",
+ "notAsserted": "Cross-GPU / cross-machine identity of the WebGL render (not required: the committed AVIF masters are canonical). 512 px pack not re-run in this pass.",
+ "v4Encoder": {
+  "what": "scripts/coach-motion-v2/encode.py (v4, graph.json, fingerprinted names, toolchain guard) run on the second-run frames",
+  "manifestIdenticalToCommittedV4": true,
+  "avifFilesIdenticalNamesAndBytes": true,
+  "packHash": "5f8fed66409b35ae4f79460c09560d2d907afcd43a555c2b87b13429a60d7b59"
+ }
+}
