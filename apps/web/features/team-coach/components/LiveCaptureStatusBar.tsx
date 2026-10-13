@@ -62,6 +62,8 @@ const VISUAL_PREPARING: Pill = { className: STATUS_PILL_MUTED, text: "● Draft 
 /** Draft automático (retratos de la pantalla de Dota: nunca un frame, sólo hechos). El Player nunca gestiona un proceso interno. */
 export function visualPill(status: LiveCaptureStatus | null): Pill {
   const visual = status?.visual ?? null;
+  // The helper says VISUAL_OK again as soon as the draft is over: a draft it read badly must not turn into "all good".
+  if (status?.draftPhase === "ended" && visual?.draft && visual.draft.health !== "ok") return { className: STATUS_PILL_WARN, text: "● Draft terminado · lectura incompleta" };
   const reporting = visual !== null && visual.active && visual.health !== "lost";
   if (!reporting) {
     // Reporting that it lost Dota's window is not "getting ready": say so, whatever the Companion says about the process.

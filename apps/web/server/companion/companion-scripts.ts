@@ -292,6 +292,7 @@ while (-not $Shared.Stop) {
     if ($Shared.HbRestart) { $restart = 'true' }
     $visual = ''
     if ($Shared.HbVisual) { $visual = ',"visual":"' + $Shared.HbVisual + '"' }
+    if ($Shared.HbVisualVersion) { $visual = $visual + ',"visualVersion":"' + $Shared.HbVisualVersion + '"' }
     $body = '{"auth":{"token":"' + $Shared.Token + '"},"companion":{"schema":"companion-heartbeat/v1","version":"' + $Shared.Version + '","dota":"' + $Shared.HbDota + '","phase":' + $phase + ',"restartNeeded":' + $restart + $visual + '}}'
     $code = (Send-Upstream ((Get-Base) + '/api/live/companion/' + $Shared.LiveId) $body 5000 $Shared.Version).code
     if ($code -eq 200) { $heartbeatNext = $now.AddSeconds(15); $Shared.HeartbeatSupported = $true; $Shared.Upstream = 'ok'; $Shared.LastOkAt = [DateTime]::UtcNow }
@@ -402,6 +403,7 @@ $Shared.HbDota = 'not_running'
 $Shared.HbPhase = $null
 $Shared.HbRestart = $false
 $Shared.HbVisual = 'absent'
+$Shared.HbVisualVersion = $null
 $Shared.HeartbeatDirty = $true
 $Shared.HeartbeatSupported = $true
 
@@ -826,6 +828,7 @@ function Get-HealthJson {
   Set-Field $doc 'cfgInstalled' ([bool]$S.cfgInstalled)
   Set-Field $doc 'heartbeat' ([bool]$Shared.HeartbeatSupported)
   Set-Field $doc 'visual' ([string]$V.state)
+  Set-Field $doc 'visualVersion' ([string]$VisualVersion)
   Set-Field $doc 'lastGsiAgeMs' ($null)
   if ($S.lastGsiAt -ne [DateTime]::MinValue) { Set-Field $doc 'lastGsiAgeMs' ([int64]([DateTime]::UtcNow - $S.lastGsiAt).TotalMilliseconds) }
   return $Json.Serialize($doc)
@@ -915,6 +918,7 @@ function Invoke-Periodic {
   $Shared.HbRestart = [bool]$S.restartNeeded
   if ([string]$V.state -ne $S.lastVisual) { $S.lastVisual = [string]$V.state; $Shared.HeartbeatDirty = $true }
   $Shared.HbVisual = [string]$V.state
+  $Shared.HbVisualVersion = $VisualVersion
   if ($null -ne $Worker -and $Worker.handle.IsCompleted) { Write-Log 'upstream worker stopped: restarting'; try { $Worker.shell.Dispose() } catch { }; Start-Worker }
 }
 

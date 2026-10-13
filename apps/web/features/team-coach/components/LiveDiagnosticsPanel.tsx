@@ -150,6 +150,15 @@ export function LiveDiagnosticsPanel(props: LiveDiagnosticsPanelProps) {
             <Row label="Dota → D2KIRO por HTTPS activo" presence={presenceOfFlag(diagnostics.remoteGsiHttps)} testId="diag-connection-remote-https" />
           </ul>
         </div>
+        <div className="flex min-w-0 flex-col gap-1" data-testid="diag-visual">
+          <span className="text-caption font-semibold text-content-muted">DRAFT AUTOMÁTICO</span>
+          <ul className="flex flex-col gap-1">
+            <ValueRow label="Companion" value={diagnostics.visual.companionVersion} testId="diag-visual-companion-version" />
+            <ValueRow label="Lector de pantalla (versión)" value={diagnostics.visual.runtimeVersion} testId="diag-visual-runtime-version" />
+            <ValueRow label="Lector de pantalla (estado)" value={`${diagnostics.visual.helperState} · ${diagnostics.visual.health}`} testId="diag-visual-state" />
+            <ValueRow label="Último draft leído" value={`${diagnostics.visual.draftHealth} · ${diagnostics.visual.draftDetail}`} testId="diag-visual-draft" />
+          </ul>
+        </div>
         <Group title="DRAFT (lo que Dota informa)" rows={diagnostics.draft} prefix="diag-draft" />
         <Group title="PARTIDA (sólo presencia)" rows={diagnostics.telemetry} prefix="diag-telemetry" />
         <StructureGroup diagnostics={diagnostics} />

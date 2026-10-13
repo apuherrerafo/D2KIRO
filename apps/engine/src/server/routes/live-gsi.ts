@@ -114,12 +114,15 @@ export function parseCompanionHeartbeat(payload: unknown): LiveCompanionHeartbea
   if (typeof beat.restartNeeded !== "boolean") return null;
   // Optional (older Companions do not send it); when present it must be in the closed vocabulary.
   if (!(beat.visual === undefined || (LIVE_COMPANION_VISUAL_STATES as readonly unknown[]).includes(beat.visual))) return null;
+  // Optional too: the pinned visual runtime build, same x.y.z shape as the Companion's own version.
+  if (!(beat.visualVersion === undefined || (typeof beat.visualVersion === "string" && COMPANION_VERSION.test(beat.visualVersion)))) return null;
   return {
     version: beat.version,
     dota: beat.dota as LiveCompanionHeartbeat["dota"],
     phase: beat.phase as LiveCompanionHeartbeat["phase"],
     restartNeeded: beat.restartNeeded,
     visual: (beat.visual as LiveCompanionHeartbeat["visual"] | undefined) ?? null,
+    visualVersion: (beat.visualVersion as string | undefined) ?? null,
   };
 }
 

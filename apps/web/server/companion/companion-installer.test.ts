@@ -513,6 +513,12 @@ describe("D2KIRO Visual runtime: pinned release", () => {
     expect(VISUAL_RUNTIME.sha256).toBe("300759174824a7a284de43ed00a03e3e34d75c4322198c02426cf3f7978e72fd");
   });
 
+  test("the heartbeat carries the pinned runtime version (production default is the pin itself)", () => {
+    expect(COMPANION_RUNTIME_PS).toContain("'" + VISUAL_RUNTIME.version + "'");
+    expect(COMPANION_RUNTIME_PS).toContain("$Shared.HbVisualVersion = $VisualVersion");
+    expect(COMPANION_RUNTIME_PS).toContain(`',"visualVersion":"'`);
+  });
+
   test("the generated PowerShell pins the production release and verifies the hash before extracting", () => {
     expect(COMPANION_RUNTIME_PS).toContain(VISUAL_RUNTIME.url);
     expect(COMPANION_RUNTIME_PS).toContain(VISUAL_RUNTIME.sha256);
@@ -541,6 +547,9 @@ describe.skipIf(!onWindows)("D2KIRO Visual runtime supervision (real PowerShell,
       // The same state travels in the heartbeat the site reads ("preparando..." vs "no disponible" is decided there).
       const beat = await waitFor(() => server.received.find((r) => r.path === `/api/live/companion/${LIVE_ID}` && (r.body.companion as { visual?: string } | undefined)?.visual === "running") ?? null);
       expect((beat.body.companion as { schema: string }).schema).toBe("companion-heartbeat/v1");
+      // Which runtime build is supervised travels with it (local health and heartbeat): version drift is never invisible.
+      expect((seen as { visualVersion?: string }).visualVersion).toBe("9.9.9");
+      expect((beat.body.companion as { visualVersion?: string }).visualVersion).toBe("9.9.9");
       expect(existsSync(join(m.home, "visual", "9.9.9", VISUAL_RUNTIME.exeName))).toBe(true);
       // No download or staging leftovers next to the installed version.
       expect(readdirSync(join(m.home, "visual"))).toEqual(["9.9.9"]);

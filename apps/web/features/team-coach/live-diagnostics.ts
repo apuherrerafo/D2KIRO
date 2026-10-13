@@ -44,6 +44,19 @@ export interface LiveDiagnostics {
   draftPhase: string;
   captureHealth: string;
   captureDetail: string;
+  /**
+   * Which Companion / visual runtime build is on the Player's PC, what the helper is doing now, and how it read the
+   * LAST draft. `captureHealth` above goes green once the draft is over: this is what keeps a failed draft visible.
+   */
+  visual: {
+    companionVersion: string;
+    runtimeVersion: string;
+    helperState: string;
+    health: string;
+    detail: string;
+    draftHealth: string;
+    draftDetail: string;
+  };
   counts: { bans: number; picks: number; deferredPicks: number; rejectedFacts: number };
   draft: DiagnosticRow[];
   telemetry: DiagnosticRow[];
@@ -110,6 +123,8 @@ const MACHINE_CODE = /^[A-Z][A-Z_]{0,47}$/;
 const GSI_PHASES = new Set(["idle", "loading", "draft", "match"]);
 const DRAFT_PHASES = new Set(["waiting", "hero_selection", "ended"]);
 const CAPTURE_HEALTH = new Set(["unknown", "ok", "degraded", "lost"]);
+const SEMVER = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+const HELPER_STATES = new Set(["absent", "downloading", "failed", "restarting", "running"]);
 
 function presenceOf(seen: boolean): Presence {
   if (seen) return "YES";
@@ -175,6 +190,15 @@ export function buildLiveDiagnostics({ engine, dotaLink, status }: LiveDiagnosti
     draftPhase: allowed(status?.draftPhase, (value) => DRAFT_PHASES.has(value)),
     captureHealth: allowed(status?.captureHealth, (value) => CAPTURE_HEALTH.has(value)),
     captureDetail: allowed(status?.captureDetail, (value) => MACHINE_CODE.test(value)),
+    visual: {
+      companionVersion: allowed(status?.companion?.version, (value) => SEMVER.test(value)),
+      runtimeVersion: allowed(status?.companion?.visualVersion, (value) => SEMVER.test(value)),
+      helperState: allowed(status?.companion?.visual, (value) => HELPER_STATES.has(value)),
+      health: allowed(status?.visual?.health, (value) => CAPTURE_HEALTH.has(value)),
+      detail: allowed(status?.visual?.detail, (value) => MACHINE_CODE.test(value)),
+      draftHealth: allowed(status?.visual?.draft?.health, (value) => CAPTURE_HEALTH.has(value)),
+      draftDetail: allowed(status?.visual?.draft?.detail, (value) => MACHINE_CODE.test(value)),
+    },
     counts: {
       bans: count(status?.bans ?? 0),
       picks: count(status?.picks ?? 0),
@@ -219,6 +243,13 @@ export function formatLiveDiagnosticReport(diagnostics: LiveDiagnostics): string
     `draftPhase: ${diagnostics.draftPhase}`,
     `captureHealth: ${diagnostics.captureHealth}`,
     `captureDetail: ${diagnostics.captureDetail}`,
+    `companion.version: ${diagnostics.visual.companionVersion}`,
+    `visual.runtimeVersion: ${diagnostics.visual.runtimeVersion}`,
+    `visual.helperState: ${diagnostics.visual.helperState}`,
+    `visual.health: ${diagnostics.visual.health}`,
+    `visual.detail: ${diagnostics.visual.detail}`,
+    `visual.draft.health: ${diagnostics.visual.draftHealth}`,
+    `visual.draft.detail: ${diagnostics.visual.draftDetail}`,
     `counts.bans: ${diagnostics.counts.bans}`,
     `counts.picks: ${diagnostics.counts.picks}`,
     `counts.deferredPicks: ${diagnostics.counts.deferredPicks}`,

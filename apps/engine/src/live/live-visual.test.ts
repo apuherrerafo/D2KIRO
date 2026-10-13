@@ -227,6 +227,38 @@ describe("visual capture -- honest capture state", () => {
   });
 });
 
+describe("visual capture -- how the last draft was read outlives the draft", () => {
+  const health = (t: ReturnType<typeof setup>, link: { liveId: string; token: string; sessionId: string }, status: "ok" | "degraded", detail: "VISUAL_OK" | "VISUAL_SLOTS_UNREAD") => t.send(link, { type: "capture_health", status, detail });
+
+  test("a draft read badly stays visible after the helper goes back to VISUAL_OK, and the next draft starts clean", async () => {
+    const t = setup();
+    const link = await t.issue(A);
+    await t.gsi(link, { teamName: "radiant", matchId: "1001" });
+    await health(t, link, "degraded", "VISUAL_SLOTS_UNREAD");
+    expect(t.registry.status(link.sessionId)!.visual).toMatchObject({ health: "degraded", draft: { health: "degraded", detail: "VISUAL_SLOTS_UNREAD" } });
+
+    await t.gsi(link, { gameState: "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", teamName: "radiant", heroId: 30, matchId: "1001" });
+    await health(t, link, "ok", "VISUAL_OK"); // the lobby / match heartbeat, every second
+    const after = t.registry.status(link.sessionId)!;
+    expect(after.draftPhase).toBe("ended");
+    expect(after.visual).toMatchObject({ health: "ok", detail: "VISUAL_OK", draft: { health: "degraded", detail: "VISUAL_SLOTS_UNREAD" } });
+
+    await t.gsi(link, { teamName: "radiant", matchId: "1002" });
+    expect(t.registry.status(link.sessionId)!.visual).toMatchObject({ health: "ok", draft: null });
+  });
+
+  test("health stated outside a draft (lobby heartbeat, before GSI starts one) is not 'how the draft was read'", async () => {
+    const t = setup();
+    const link = await t.issue(A);
+    await t.gsi(link, { gameState: null, teamName: "radiant" });
+    await health(t, link, "ok", "VISUAL_OK");
+    expect(t.registry.status(link.sessionId)!.visual).toMatchObject({ health: "ok", draft: null });
+    await t.gsi(link, { teamName: "radiant", matchId: "1001" });
+    await health(t, link, "ok", "VISUAL_OK");
+    expect(t.registry.status(link.sessionId)!.visual).toMatchObject({ draft: { health: "ok", detail: "VISUAL_OK" } });
+  });
+});
+
 describe("visual capture -- trust boundary", () => {
   test("no / wrong / another link's token is refused identically (401), nothing is applied", async () => {
     const t = setup();
