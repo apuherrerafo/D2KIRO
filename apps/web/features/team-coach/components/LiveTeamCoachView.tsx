@@ -7,7 +7,7 @@ import { protocolViewToDraftState } from "@/features/random-draft-simulator/prot
 import { useLiveTeamCoachStore, type LiveEngineStatus } from "../live-store";
 import type { TeamPosition } from "../types";
 import { useLiveTeamCoach } from "../use-live-team-coach";
-import { isCaptureDegraded, isDraftPartial, LiveCaptureStatusBar } from "./LiveCaptureStatusBar";
+import { isCaptureDegraded, isRecommendationBlocked, LiveCaptureStatusBar } from "./LiveCaptureStatusBar";
 import { LiveManualEntry } from "./LiveManualEntry";
 import { TeamCoachBoard } from "./TeamCoachBoard";
 
@@ -67,8 +67,9 @@ export function LiveTeamCoachView({ sessionId, children, debugManualEntry = fals
   }
   // A finished draft has no pick to make: not even by hand through the board.
   const pickHandler = debugManualEntry && degraded && !draftEnded ? handleManualPick : undefined;
-  // No recommendation is built from an incomplete automatic draft (debug keeps the board for diagnosis).
-  const hideBoard = isDraftPartial(captureStatus) && !draftEnded && !debugManualEntry;
+  // No recommendation is built from an incomplete automatic draft. The engine refuses it on its own routes too, debug
+  // or not: the board would never load, so it is hidden. (Only an older engine that gives no verdict keeps the debug board.)
+  const hideBoard = isRecommendationBlocked(captureStatus) && !draftEnded && (!debugManualEntry || captureStatus?.recommendation !== undefined);
 
   return (
     <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-4 md:p-6" data-testid="live-team-coach">

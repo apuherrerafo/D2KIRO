@@ -11,6 +11,7 @@ import {
   type PartyContext,
   type PartyContextInput,
   type PerspectiveDraftView,
+  type PerspectiveHeroSlot,
   parseTrustedEligibilityArtifact,
   isTrustedServerOnlyCommand,
   type CmHeroEligibilitySnapshot,
@@ -19,6 +20,7 @@ import {
   type RulesetId,
   type TeamSide,
 } from "../draft-protocol";
+import { deepFreeze } from "../draft-protocol/immutable";
 import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import { deriveHumanActionability, type HumanActionability } from "../recommendation/human-actionability";
 import { rosterSlotForRoundSlot, type DotaPosition } from "../simulator/ap-simulator-policy";
@@ -149,6 +151,13 @@ interface ProtocolSessionEntry {
   ownPickPositions: OwnPickPositionBinding[];
   /** Rounds (by number) in which the human explicitly yielded remaining Own Team capacity to the Ally Bot. */
   roundYielded: Set<number>;
+  /** Live capture only: every pick the game showed, in observed order. See LiveStateInstall.visiblePicks. */
+  liveVisiblePicks?: readonly LiveVisiblePick[];
+}
+
+export interface LiveVisiblePick {
+  side: TeamSide;
+  heroId: HeroId;
 }
 
 export type CreateProtocolSessionResult =
@@ -187,10 +196,27 @@ export interface LiveStateInstall {
   patch: string;
   /** Own-side position bindings; kept only where `state` actually holds our own selection at that (round, slotIndex). */
   ownBindings: readonly OwnPickPositionBinding[];
+  /**
+   * Every pick the game SHOWED (GSI, screen capture or the Player), in observed order. Anything a live source
+   * observed is by definition visible to the Player: the kernel's sealed-until-round-close projection is a
+   * protocol simulation and must not hide a hero the screen already displays. Live sessions only.
+   */
+  visiblePicks: readonly LiveVisiblePick[];
 }
 
 function oppositeSide(side: TeamSide): TeamSide {
   return side === "radiant" ? "dire" : "radiant";
+}
+
+/**
+ * Live capture: the pick lists of the view ARE the observed picks. Same view shape, same bans and phase; only the
+ * round-sealing of a pick the screen already shows is lifted (own -> KNOWN, rival -> REVEALED). Never used for a
+ * simulator or a Captain's Mode session, whose hidden information is real.
+ */
+function withLiveVisiblePicks(view: PerspectiveDraftView, visible: readonly LiveVisiblePick[], localSide: TeamSide): PerspectiveDraftView {
+  const own = visible.filter((pick) => pick.side === localSide).map((pick): PerspectiveHeroSlot => ({ visibility: "KNOWN", heroId: pick.heroId }));
+  const enemy = visible.filter((pick) => pick.side !== localSide).map((pick): PerspectiveHeroSlot => ({ visibility: "REVEALED", heroId: pick.heroId }));
+  return deepFreeze({ ...view, ownPicks: own, enemyPicks: enemy });
 }
 
 export class ProtocolSessionStore {
@@ -296,6 +322,7 @@ export class ProtocolSessionStore {
       return rankedAp?.confirmedPicks.some((pick) => pick.round === binding.round && sameSlot(pick)) ?? false;
     };
     entry.state = state;
+    entry.liveVisiblePicks = install.visiblePicks;
     entry.metadata = { ...entry.metadata, localSide, patch: install.patch, partyContext: state.rankedAp?.partyContext ?? entry.metadata.partyContext };
     entry.ownPickPositions = install.ownBindings.filter(ownSealed);
     entry.lastAccessedAt = now;
@@ -739,7 +766,10 @@ export class ProtocolSessionStore {
   view(sessionId: string): PerspectiveDraftView | null {
     const state = this.get(sessionId);
     const metadata = this.metadata(sessionId);
-    return state && metadata ? project(state, metadata.localSide) : null;
+    if (!state || !metadata) return null;
+    const projected = project(state, metadata.localSide);
+    const visible = this.sessions.get(sessionId)?.liveVisiblePicks;
+    return metadata.liveCapture === true && visible ? withLiveVisiblePicks(projected, visible, metadata.localSide) : projected;
   }
 
   /**

@@ -204,6 +204,10 @@ export function parseLiveTeamGroupResult(value: unknown): LiveTeamGroupResult | 
   return { applied: value.applied, reason: value.reason as LiveTeamGroupResult["reason"], teamContext: value.teamContext as LiveTeamContext | null };
 }
 
+function isRecommendationReadiness(value: unknown): boolean {
+  return isRecord(value) && typeof value.available === "boolean" && isNullable(value.reason, isString);
+}
+
 export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null {
   if (!isRecord(value) || value.schema !== "live-capture-status/v1") return null;
   const valid =
@@ -219,6 +223,9 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     (value.gsi === undefined || isNullable(value.gsi, isGsiStatus)) &&
     (value.visual === undefined || isNullable(value.visual, isVisualStatus)) &&
     (value.companion === undefined || isNullable(value.companion, isCompanionStatus)) &&
-    (value.teamContext === undefined || isTeamContext(value.teamContext));
+    (value.teamContext === undefined || isTeamContext(value.teamContext)) &&
+    (value.factsRevision === undefined || typeof value.factsRevision === "number") &&
+    (value.completeness === undefined || value.completeness === "NONE" || value.completeness === "PARTIAL" || value.completeness === "PICKS_COMPLETE") &&
+    (value.recommendation === undefined || isRecommendationReadiness(value.recommendation));
   return valid ? (value as unknown as LiveCaptureStatus) : null;
 }

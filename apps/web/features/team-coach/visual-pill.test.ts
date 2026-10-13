@@ -104,3 +104,15 @@ describe("visualPill (draft automático en lenguaje llano)", () => {
     }
   });
 });
+
+describe("visualPill: status and board count the same, and never claim a complete read the engine refuses", () => {
+  test("helper healthy but the picks do not add up: warning with the same N the board renders, not a green N/10", () => {
+    const pill = visualPill(status({ draftPhase: "hero_selection", picks: 9, visual: OK, recommendation: { available: false, reason: "FACTS_UNRESOLVED" } }));
+    expect(pill.text).toBe("● Draft automático incompleto · 9/10 héroes detectados");
+    expect(pill.text).not.toMatch(/sealed|sellad|revele/i);
+  });
+
+  test("a consistent draft keeps the plain count", () => {
+    expect(visualPill(status({ draftPhase: "hero_selection", picks: 9, visual: OK, recommendation: { available: true, reason: null } })).text).toBe("● 9/10 héroes detectados");
+  });
+});

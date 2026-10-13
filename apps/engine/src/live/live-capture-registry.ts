@@ -3,7 +3,8 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ProtocolSessionStore } from "../server/protocol-session";
 import { draftFactCount, observationsFromGsi, type GsiDraftCapabilities, type GsiPhase, type GsiUpdate } from "./gsi-normalize";
-import { applyLiveObservation, emptyLiveFacts, observationFromDraftEvent, replayLiveFacts, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
+import { draftObservationFromEvent, liveObservationFromDraft } from "./draft-observation";
+import { applyLiveObservation, emptyLiveFacts, MAX_LIVE_PICKS_PER_SIDE, observationFromDraftEvent, replayLiveFacts, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
 
 // Live Dota capture sessions: the bridge between observed facts (Dota GSI through the link-authenticated
 // `/api/live/gsi/<liveId>` (TSK-219), the local Overwolf capturer through the token-authenticated
@@ -115,6 +116,26 @@ export interface LiveGsiStatus extends LiveGsiObserved {
   active: boolean;
 }
 
+/**
+ * How much of the draft's PICKS the system knows. Not capture health: a healthy pipeline can know none yet.
+ * NONE: no pick observed. PARTIAL: some, not all ten. PICKS_COMPLETE: five on each side.
+ */
+export type LiveDraftCompleteness = "NONE" | "PARTIAL" | "PICKS_COMPLETE";
+
+/**
+ * Why the draft cannot be recommended on right now. CAPTURE_PARTIAL: the game reports only part of the draft and
+ * nothing else fills the gap. SLOTS_UNREAD: the screen shows heroes the capturer could not read. FACTS_UNRESOLVED:
+ * observed picks do not add up (a rival pick is on screen but a pick of its round is unknown, or the kernel
+ * refused a fact). Unknown beats wrong.
+ */
+export type LiveRecommendationBlock = "CAPTURE_PARTIAL" | "SLOTS_UNREAD" | "FACTS_UNRESOLVED";
+
+export interface LiveRecommendationReadiness {
+  available: boolean;
+  /** null when available. */
+  reason: LiveRecommendationBlock | null;
+}
+
 export interface LiveCaptureStatus {
   schema: "live-capture-status/v1";
   sessionId: string;
@@ -129,8 +150,15 @@ export interface LiveCaptureStatus {
   /** Last OWN-team pick (captured or manual) -- the "TEAM PICK DETECTED" notice. */
   lastDetectedPick: LiveDetectedPick | null;
   bans: number;
+  /** Picks observed -- exactly the heroes the draft board renders for both teams. */
   picks: number;
-  /** Picks the kernel has no open slot for yet. */
+  /** Moves on every change to the observed facts (a swap at equal counts included): the cue to re-read the board. */
+  factsRevision: number;
+  /** Draft completeness (picks known), independent of capture health. */
+  completeness: LiveDraftCompleteness;
+  /** Whether the Team Coach may recommend on this draft right now; the engine enforces it at its routes. */
+  recommendation: LiveRecommendationReadiness;
+  /** Picks the kernel has no open slot for yet (diagnostics only: the board shows them anyway). */
   deferredPicks: number;
   rejectedFacts: number;
   /** Present once Dota GSI has spoken to this session. */
@@ -172,6 +200,10 @@ interface LiveEntry {
   ended: boolean;
   lastDetectedPick: LiveDetectedPick | null;
   deferredPicks: number;
+  /** Bumped whenever the observed facts change. */
+  factsRevision: number;
+  /** Rival picks the kernel still holds sealed: the screen shows them, so a pick of their round is unknown. */
+  sealedRivalPicks: number;
   rejectedFacts: number;
   gsi: LiveGsiObserved | null;
   visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
@@ -252,7 +284,12 @@ export class LiveCaptureRegistry {
       for (const known of this.entries.keys()) if (!this.deps.store.metadata(known)) this.entries.delete(known);
       this.entries.set(sessionId, this.freshEntry());
     }
-    if (!this.entries.has(sessionId)) this.entries.set(sessionId, this.freshEntry());
+    if (!this.entries.has(sessionId)) {
+      // The store kept a live session whose capture history was forgotten: its old picks must not outlive their facts.
+      const fresh = this.freshEntry();
+      this.entries.set(sessionId, fresh);
+      this.rebuild(sessionId, fresh);
+    }
     return ownerAccountId === null ? true : this.deps.store.claimOwner(sessionId, ownerAccountId);
   }
 
@@ -320,9 +357,10 @@ export class LiveCaptureRegistry {
     entry.visual = { health: entry.visual?.health ?? "ok", detail: entry.visual?.detail ?? null, lastAt: this.now() };
     if (!entry.facts.started) return { accepted: true, changed: false, ignored: "draft_not_started", status: this.status(sessionId)! };
     if (entry.ended) return { accepted: true, changed: false, ignored: "draft_ended", status: this.status(sessionId)! };
-    const observation = observationFromDraftEvent({ ...payload, position: undefined });
-    if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
+    const stated = draftObservationFromEvent("ocr", payload, envelope.confidence, envelope.emittedAt);
     // A visual fact never carries a position: the screen slot is not a Dota position.
+    const observation = stated === null ? null : liveObservationFromDraft(stated);
+    if (!observation) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
     const key = factKey(observation);
     if (key !== null && entry.suppressed.has(key)) return { accepted: true, changed: false, ignored: "no_change", status: this.status(sessionId)! };
     return this.applyObservation(sessionId, observation, "ocr");
@@ -394,6 +432,18 @@ export class LiveCaptureRegistry {
     return { accepted: true, changed, status: this.status(sessionId)! };
   }
 
+  /**
+   * The recommendation gate of a live session (see readinessOf); null for a session that is not a live capture.
+   * A live session whose capture history was forgotten (link rotated or revoked) still holds its old kernel state:
+   * it is NOT recommendable until a fresh capture starts rebuilding it.
+   */
+  recommendationGate(sessionId: string): (LiveRecommendationReadiness & { completeness: LiveDraftCompleteness }) | null {
+    if (!this.isLive(sessionId)) return null;
+    const entry = this.entries.get(sessionId);
+    if (!entry) return { available: false, reason: "FACTS_UNRESOLVED", completeness: "NONE" };
+    return { ...readinessOf(entry, this.now()), completeness: completenessOf(entry.facts) };
+  }
+
   /** The visual capturer's view of the draft lifecycle (see LiveVisualAck); null when not a live session. */
   visualAck(sessionId: string): LiveVisualAck | null {
     const status = this.status(sessionId);
@@ -429,6 +479,9 @@ export class LiveCaptureRegistry {
       lastDetectedPick: entry.lastDetectedPick,
       bans: entry.facts.bans.length,
       picks: entry.facts.picks.length,
+      factsRevision: entry.factsRevision,
+      completeness: completenessOf(entry.facts),
+      recommendation: readinessOf(entry, now),
       deferredPicks: entry.deferredPicks,
       rejectedFacts: entry.rejectedFacts,
       gsi: gsiStatusOf(entry, now),
@@ -464,6 +517,7 @@ export class LiveCaptureRegistry {
     const outcome = applyLiveObservation(entry.facts, observation);
     if (!outcome.changed) return { changed: false, ignored: outcome.ignored };
     entry.facts = outcome.facts;
+    entry.factsRevision += 1;
     if (observation.type === "draft_started") {
       entry.ended = false;
       if (!wasStarted) entry.draftEpoch += 1;
@@ -505,8 +559,15 @@ export class LiveCaptureRegistry {
       defaultSide: metadata.localSide,
     });
     if (!replay) return;
-    this.deps.store.installLiveState(sessionId, { state: replay.state, localSide: replay.localSide, patch: entry.facts.patch, ownBindings: replay.ownBindings }, this.now());
+    this.deps.store.installLiveState(sessionId, {
+      state: replay.state,
+      localSide: replay.localSide,
+      patch: entry.facts.patch,
+      ownBindings: replay.ownBindings,
+      visiblePicks: entry.facts.picks.map((pick) => ({ side: pick.side, heroId: pick.heroId })),
+    }, this.now());
     entry.deferredPicks = replay.deferred.length;
+    entry.sealedRivalPicks = replay.state.rankedAp?.round?.sealed.filter((sealed) => sealed.side !== replay.localSide).length ?? 0;
     entry.rejectedFacts = replay.rejected.length;
   }
 
@@ -527,6 +588,8 @@ export class LiveCaptureRegistry {
       ended: false,
       lastDetectedPick: null,
       deferredPicks: 0,
+      factsRevision: 0,
+      sealedRivalPicks: 0,
       rejectedFacts: 0,
       gsi: null,
       visual: null,
@@ -555,6 +618,29 @@ function captureOf(entry: LiveEntry, now: number): { captureHealth: LiveCaptureH
   const visualOk = entry.visual !== null && entry.visual.health === "ok" && now - entry.visual.lastAt <= LIVE_STALE_AFTER_MS;
   if (visualOk && (entry.captureDetail === GSI_DRAFT_PARTIAL || entry.captureHealth === "unknown")) return { captureHealth: "ok", captureDetail: null };
   return { captureHealth: entry.captureHealth, captureDetail: entry.captureDetail };
+}
+
+function completenessOf(facts: LiveFacts): LiveDraftCompleteness {
+  if (facts.picks.length === 0) return "NONE";
+  const perSide = (side: TeamSide) => facts.picks.filter((pick) => pick.side === side).length;
+  return perSide("radiant") >= MAX_LIVE_PICKS_PER_SIDE && perSide("dire") >= MAX_LIVE_PICKS_PER_SIDE ? "PICKS_COMPLETE" : "PARTIAL";
+}
+
+/**
+ * Is the draft known well enough to recommend on? The ONE rule behind the status line, the Team Coach panel and
+ * the engine's recommendation routes. It says nothing about how many picks exist (an early draft is fine): only
+ * that what the game shows is what we know. A rival pick the screen displays means its round closed in the game,
+ * so a rival pick still sealed in the kernel -- or a pick the kernel could not place or refused -- proves an
+ * observation is missing.
+ */
+function readinessOf(entry: LiveEntry, now: number): LiveRecommendationReadiness {
+  const capture = captureOf(entry, now);
+  if (capture.captureHealth === "degraded" && capture.captureDetail === GSI_DRAFT_PARTIAL) {
+    const unread = entry.visual?.health === "degraded" && entry.visual.detail === "VISUAL_SLOTS_UNREAD";
+    return { available: false, reason: unread ? "SLOTS_UNREAD" : "CAPTURE_PARTIAL" };
+  }
+  if (entry.deferredPicks > 0 || entry.sealedRivalPicks > 0 || entry.rejectedFacts > 0) return { available: false, reason: "FACTS_UNRESOLVED" };
+  return { available: true, reason: null };
 }
 
 function visualStatusOf(entry: LiveEntry, now: number): LiveVisualStatus | null {
