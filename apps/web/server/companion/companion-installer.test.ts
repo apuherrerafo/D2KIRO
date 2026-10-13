@@ -507,10 +507,10 @@ describe("D2KIRO Visual runtime: pinned release", () => {
     expect(VISUAL_RUNTIME.sha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  test("the production pin is the calibrated 0.1.1 release (exact published asset and SHA-256)", () => {
-    expect(VISUAL_RUNTIME.version).toBe("0.1.1");
-    expect(VISUAL_RUNTIME.url).toBe("https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v0.1.1/d2kiro-visual-0.1.1.zip");
-    expect(VISUAL_RUNTIME.sha256).toBe("300759174824a7a284de43ed00a03e3e34d75c4322198c02426cf3f7978e72fd");
+  test("the production pin is the layout-recalibrated 0.1.2 release (exact published asset and SHA-256)", () => {
+    expect(VISUAL_RUNTIME.version).toBe("0.1.2");
+    expect(VISUAL_RUNTIME.url).toBe("https://github.com/apuherrerafo/D2KIRO/releases/download/visual-runtime-v0.1.2/d2kiro-visual-0.1.2.zip");
+    expect(VISUAL_RUNTIME.sha256).toBe("e614cee6f7e6b37d2553233d367acdbf91170322e37279e57639c54500590d04");
   });
 
   test("the heartbeat carries the pinned runtime version (production default is the pin itself)", () => {
