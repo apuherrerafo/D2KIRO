@@ -144,6 +144,16 @@ export interface LiveCompanionStatus {
   lastSeenAgeMs: number;
 }
 
+/** Picks known (NONE / PARTIAL / PICKS_COMPLETE), independent of capture health. Mirrors the engine's LiveDraftCompleteness. */
+export type LiveDraftCompleteness = "NONE" | "PARTIAL" | "PICKS_COMPLETE";
+export type LiveRecommendationBlock = "CAPTURE_PARTIAL" | "SLOTS_UNREAD" | "FACTS_UNRESOLVED";
+
+/** The engine's verdict on whether the Team Coach may recommend on this draft right now (it enforces it at its own routes too). */
+export interface LiveRecommendationReadiness {
+  available: boolean;
+  reason: LiveRecommendationBlock | null;
+}
+
 export interface LiveCaptureStatus {
   schema: "live-capture-status/v1";
   sessionId: string;
@@ -158,6 +168,12 @@ export interface LiveCaptureStatus {
   picks: number;
   deferredPicks: number;
   rejectedFacts: number;
+  /** Absent from older engines. */
+  factsRevision?: number;
+  /** Absent from older engines. */
+  completeness?: LiveDraftCompleteness;
+  /** Absent from older engines. */
+  recommendation?: LiveRecommendationReadiness;
   /** Present once Dota GSI has spoken to this session (absent from older engines). */
   gsi?: LiveGsiStatus | null;
   /** Present once the local visual capturer has spoken to this session (absent from older engines). */

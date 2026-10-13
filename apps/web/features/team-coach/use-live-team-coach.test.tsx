@@ -62,13 +62,15 @@ class FakeLiveEngine {
   readonly requests: { url: string; method: string; body: unknown }[] = [];
   current = status();
   currentBoard = board("s0");
+  /** 409 = the engine refuses to rank this draft (live_draft_incomplete). */
+  boardHttp = 200;
 
   fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input);
     this.requests.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null });
     if (url.endsWith("/api/session/protocol/live")) return json({ sessionId: "live-session-1", status: this.current }, 201);
     if (url.endsWith("/live-status")) return json(this.current);
-    if (url.endsWith("/team-recommendations")) return json(this.currentBoard);
+    if (url.endsWith("/team-recommendations")) return this.boardHttp === 409 ? json({ error: "live_draft_incomplete", reason: "FACTS_UNRESOLVED", completeness: "PARTIAL" }, 409) : json(this.currentBoard);
     if (url.endsWith("/live-observation")) return json({ accepted: true, changed: true, status: this.current }, 202);
     if (url.endsWith("/api/session/protocol/live-session-1")) {
       return json({ view: { schema: "draft-protocol-perspective/v1", sessionId: "live-session-1", status: "ACTIVE", viewerSide: "radiant", bannedHeroes: [], ownPicks: [], enemyPicks: [], rankedAp: { phase: "PICK_ROUND_1", banResolutionComplete: true }, captainsMode: null }, legalActions: [], simulator: null, ownAssignedPositions: [], canYield: false });
@@ -147,6 +149,74 @@ describe("useLiveTeamCoach", () => {
     engine.current = status();
     await waitFor(() => expect(engine.count("/team-recommendations")).toBe(3));
     hook.unmount();
+  });
+});
+
+describe("recomendación bloqueada por el motor (draft incompleto o inconsistente)", () => {
+  const blocked = (reason: "FACTS_UNRESOLVED" | "CAPTURE_PARTIAL" | "SLOTS_UNREAD") => ({ completeness: "PARTIAL" as const, recommendation: { available: false, reason } });
+
+  test("no pide el board mientras el motor lo bloquea, y lo pide en cuanto el draft vuelve a ser consistente", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ picks: 3, ...blocked("FACTS_UNRESOLVED") });
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(engine.count("/live-status")).toBeGreaterThan(3));
+    expect(engine.count("/team-recommendations")).toBe(0);
+    expect(useLiveTeamCoachStore.getState().board).toBeNull();
+
+    engine.current = status({ picks: 4, completeness: "PARTIAL", recommendation: { available: true, reason: null } });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    expect(engine.count("/team-recommendations")).toBe(1);
+    hook.unmount();
+  });
+
+  test("un 409 del motor (el draft se volvió incompleto entre el poll y el pedido) no se muestra como error: sin board, sin alerta, y se reintenta", async () => {
+    const engine = new FakeLiveEngine();
+    engine.boardHttp = 409;
+    const hook = renderHook(() => useLiveTeamCoach("live-session-1", { fetchImpl: engine.fetch as typeof fetch, pollMs: 15 }));
+    await waitFor(() => expect(engine.count("/team-recommendations")).toBeGreaterThan(1));
+    expect(useLiveTeamCoachStore.getState().boardStatus).toBe("idle");
+    expect(useLiveTeamCoachStore.getState().board).toBeNull();
+    engine.boardHttp = 200;
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().board?.stateIdentity).toBe("s0"));
+    hook.unmount();
+  });
+
+  test("un cambio de héroes con el MISMO conteo (revertir X, confirmar Y) cambia la clave: el board no queda con el héroe viejo", () => {
+    expect(liveDraftChangeKey(status({ picks: 3, factsRevision: 7 }))).not.toBe(liveDraftChangeKey(status({ picks: 3, factsRevision: 9 })));
+    expect(liveDraftChangeKey(status({ picks: 3, factsRevision: 7, lastEventAt: "a" }))).toBe(liveDraftChangeKey(status({ picks: 3, factsRevision: 7, lastEventAt: "b" })));
+  });
+
+  test("con el veredicto del motor, el modo debug tampoco muestra un board que nunca va a cargar", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ picks: 3, ...blocked("CAPTURE_PARTIAL"), captureHealth: "degraded", captureDetail: "GSI_DRAFT_PARTIAL" });
+    const view = render(<LiveTeamCoachView sessionId="live-session-1" debugManualEntry />);
+    act(() => {
+      useLiveTeamCoachStore.getState().setCaptureStatus(engine.current);
+    });
+    await waitFor(() => expect(useLiveTeamCoachStore.getState().captureStatus?.recommendation?.available).toBe(false));
+    expect(view.queryByTestId("team-coach-board")).toBeNull();
+    view.unmount();
+  });
+
+  test("bloqueo y desbloqueo cambian la clave aunque el conteo de picks no cambie", () => {
+    expect(liveDraftChangeKey(status({ picks: 3, ...blocked("FACTS_UNRESOLVED") }))).not.toBe(liveDraftChangeKey(status({ picks: 3 })));
+  });
+
+  test("la vista oculta el Team Coach, dice 'incompleto' en llano y no usa jerga interna", async () => {
+    const engine = new FakeLiveEngine();
+    engine.current = status({ picks: 3, deferredPicks: 1, ...blocked("FACTS_UNRESOLVED") });
+    const view = render(<LiveTeamCoachView sessionId="live-session-1" />);
+    // A ranked board is already in the store (an earlier, consistent moment): the engine's verdict still hides it.
+    act(() => {
+      useLiveTeamCoachStore.getState().setBoard(board("stale"), "ready");
+      useLiveTeamCoachStore.getState().setCaptureStatus(engine.current);
+    });
+    await waitFor(() => expect(view.getByTestId("live-draft-unresolved")).toBeTruthy());
+    expect(view.queryByTestId("team-coach-board")).toBeNull();
+    expect(view.getByTestId("live-draft-unresolved").textContent).toContain("Draft automático incompleto");
+    const text = view.container.textContent ?? "";
+    expect(text).not.toMatch(/sealed|sellad|revele su ronda/i);
+    view.unmount();
   });
 });
 

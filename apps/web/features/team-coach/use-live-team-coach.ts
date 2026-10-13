@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { getProtocolSession } from "@/features/random-draft-simulator/protocol-client";
 import { reportClientError } from "@/lib/telemetry-client";
-import { fetchLiveStatus, fetchTeamBoard, openLiveSession, postLiveObservation } from "./client";
+import { fetchLiveStatus, fetchTeamBoard, LiveDraftIncompleteError, openLiveSession, postLiveObservation } from "./client";
 import { LIVE_POLL_MS } from "./constants";
 import { useLiveTeamCoachStore } from "./live-store";
 import type { LiveCaptureStatus, LiveObservationInput, TeamPosition } from "./types";
@@ -20,9 +20,14 @@ function teamContextKey(context: LiveCaptureStatus["teamContext"]): string {
   return ["ctx", context.teamGroupId ?? "-", positions["1"] ? 1 : 0, positions["2"] ? 1 : 0, positions["3"] ? 1 : 0, positions["4"] ? 1 : 0, positions["5"] ? 1 : 0].join(":");
 }
 
-/** What must change for the board to be recomputed: the draft facts and the active Team Context, never a heartbeat. */
+/** The engine says this draft is not known well enough to recommend on (older engines say nothing: the board is requested). */
+export function recommendationBlocked(status: LiveCaptureStatus): boolean {
+  return status.recommendation?.available === false;
+}
+
+/** What must change for the board to be recomputed: the draft facts, whether recommending is allowed, and the active Team Context, never a heartbeat. */
 export function liveDraftChangeKey(status: LiveCaptureStatus): string {
-  return [status.bans, status.picks, status.localSide ?? "-", status.draftPhase, status.lastDetectedPick?.at ?? "-", status.deferredPicks, teamContextKey(status.teamContext)].join("|");
+  return [status.bans, status.picks, status.localSide ?? "-", status.draftPhase, status.lastDetectedPick?.at ?? "-", status.factsRevision ?? "-", status.deferredPicks, recommendationBlocked(status) ? "blocked" : "open", teamContextKey(status.teamContext)].join("|");
 }
 
 export interface UseLiveTeamCoachOptions {
@@ -43,17 +48,28 @@ export function useLiveTeamCoach(sessionId: string, options: UseLiveTeamCoachOpt
   const tickingRef = useRef(false);
   const openedRef = useRef(false);
 
-  const refreshDraft = useCallback(async function refreshDraft(): Promise<void> {
+  const refreshDraft = useCallback(async function refreshDraft(blocked: boolean): Promise<void> {
     const store = useLiveTeamCoachStore.getState();
     try {
       store.setSnapshot(await getProtocolSession(sessionId, fetchImpl));
     } catch {
       // The board below still shows what the engine can compute; the next change retries.
     }
+    // The engine refuses to recommend on a half-read draft: no request, and no stale ranking left on screen.
+    if (blocked) {
+      store.setBoard(null, "idle");
+      return;
+    }
     if (useLiveTeamCoachStore.getState().board === null) store.setBoard(null, "loading");
     try {
       store.setBoard(await fetchTeamBoard(sessionId, fetchImpl), "ready");
-    } catch {
+    } catch (error) {
+      // The draft became incomplete between the status poll and this request: say nothing, ask again next poll.
+      if (error instanceof LiveDraftIncompleteError) {
+        store.setBoard(null, "idle");
+        changeKeyRef.current = null;
+        return;
+      }
       store.setBoard(useLiveTeamCoachStore.getState().board, "failed");
     }
   }, [fetchImpl, sessionId]);
@@ -73,7 +89,7 @@ export function useLiveTeamCoach(sessionId: string, options: UseLiveTeamCoachOpt
       const key = liveDraftChangeKey(status);
       if (force || key !== changeKeyRef.current) {
         changeKeyRef.current = key;
-        await refreshDraft();
+        await refreshDraft(recommendationBlocked(status));
         // A board that failed for this draft is retried on the next poll, not only when the draft changes.
         if (useLiveTeamCoachStore.getState().boardStatus === "failed") changeKeyRef.current = null;
       }

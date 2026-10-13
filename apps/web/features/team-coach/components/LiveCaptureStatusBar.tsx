@@ -76,6 +76,8 @@ export function visualPill(status: LiveCaptureStatus | null): Pill {
   if (status?.draftPhase === "ended") return { className: STATUS_PILL_MUTED, text: "● Draft terminado" };
   if (status?.draftPhase !== "hero_selection") return { className: STATUS_PILL_OK, text: "● Draft automático activo · esperando selección de héroes" };
   const detected = Math.min(status.picks, 10);
+  // The helper is healthy but the picks it gave do not add up (a pick of a round is missing): never presented as complete.
+  if (status.recommendation?.reason === "FACTS_UNRESOLVED") return { className: STATUS_PILL_WARN, text: `● Draft automático incompleto · ${detected}/10 héroes detectados` };
   if (visual.health === "degraded") {
     // The helper has not proven it read the whole draft: never presented as complete.
     if (visual.detail === "VISUAL_LAYOUT_UNVERIFIED" && detected === 0) return VISUAL_PREPARING;
@@ -156,6 +158,12 @@ export function isDraftPartial(status: LiveCaptureStatus | null): boolean {
   return isCaptureDegraded(status) && status?.captureDetail === GSI_DRAFT_PARTIAL;
 }
 
+/** The engine's own verdict (it also enforces it); an older engine that says nothing falls back to the partial-capture rule. */
+export function isRecommendationBlocked(status: LiveCaptureStatus | null): boolean {
+  if (status?.recommendation !== undefined) return !status.recommendation.available;
+  return isDraftPartial(status);
+}
+
 /** Exactly what this player's Dota reported -- nothing is presented as captured when it was not. Never asks for manual entry. */
 function PartialCaptureNotice({ status }: { status: LiveCaptureStatus }) {
   const seen = status.gsi?.draft;
@@ -191,9 +199,15 @@ function DegradedNotice({ status }: { status: LiveCaptureStatus | null }) {
   );
 }
 
-function DeferredNotice({ status }: { status: LiveCaptureStatus | null }) {
-  if (!status || status.deferredPicks === 0) return null;
-  return <span className="text-caption text-signal-warning">{status.deferredPicks} pick(s) esperando que el rival revele su ronda.</span>;
+/** The helper is up but the heroes it read do not add up yet: say so in plain words, with no recommendation meanwhile. */
+function UnresolvedNotice({ status }: { status: LiveCaptureStatus | null }) {
+  if (!status || status.draftPhase !== "hero_selection" || status.recommendation?.reason !== "FACTS_UNRESOLVED") return null;
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-signal-warning bg-surface-overlay p-3" role="alert" data-testid="live-draft-unresolved">
+      <span className="text-caption font-semibold text-signal-warning">Draft automático incompleto</span>
+      <span className="text-caption text-content-secondary">D2KIRO todavía está leyendo algunos héroes del draft. No hay recomendación hasta que la lectura sea consistente.</span>
+    </div>
+  );
 }
 
 export function LiveCaptureStatusBar({ status, heroCatalog, linkExpired = false }: DetectedPickProps) {
@@ -209,7 +223,7 @@ export function LiveCaptureStatusBar({ status, heroCatalog, linkExpired = false 
       </div>
       <DegradedNotice status={status} />
       <DetectedPick status={status} heroCatalog={heroCatalog} />
-      <DeferredNotice status={status} />
+      <UnresolvedNotice status={status} />
     </div>
   );
 }

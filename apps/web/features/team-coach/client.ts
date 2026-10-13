@@ -9,9 +9,17 @@ function sessionPath(sessionId: string, suffix: string): string {
   return `${ENGINE_HTTP_BASE_URL}/api/session/protocol/${encodeURIComponent(sessionId)}/${suffix}`;
 }
 
+/** The engine refused to rank: the draft it knows is incomplete or inconsistent. Not a failure to retry loudly. */
+export class LiveDraftIncompleteError extends Error {
+  constructor() {
+    super("live draft incomplete");
+  }
+}
+
 /** One board for every human-controlled position, ranked against one snapshot. Read-only: it never changes the draft. */
 export async function fetchTeamBoard(sessionId: string, fetchImpl: typeof fetch = fetch): Promise<TeamCoachBoardData> {
   const response = await fetchImpl(sessionPath(sessionId, "team-recommendations"));
+  if (response.status === 409) throw new LiveDraftIncompleteError();
   if (!response.ok) throw new Error(`team board request failed (${response.status})`);
   const board = parseTeamCoachBoard(await response.json());
   if (!board) throw new Error("invalid team board response");

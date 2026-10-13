@@ -138,6 +138,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   const protocolSessionRoutes = createProtocolSessionRoutes({
     store: protocolSessionStore,
     computeSuggestions: (state, accountId, options) => computeSuggestionsForState(state, accountId, options),
+    // Live Dota sessions never recommend on a draft the system knows it only half-read (the registry is built below).
+    liveRecommendationGate: (sessionId) => liveCaptureRegistry.recommendationGate(sessionId),
     // Default (cmEligibilityArtifactPath undefined) is IDENTICAL to before this field existed:
     // createProtocolSessionRoutes's own default (loadTrustedEligibilityArtifact() with no path
     // argument) reads DEFAULT_TRUSTED_ELIGIBILITY_ARTIFACT_PATH.

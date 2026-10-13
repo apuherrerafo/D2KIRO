@@ -69,9 +69,22 @@ export type ComputeSuggestionsForDraftState = (
   },
 ) => Promise<SuggestionSet>;
 
+/** A live capture session whose draft is not known well enough to recommend on (null/absent for every other session). */
+export interface LiveRecommendationGate {
+  available: boolean;
+  reason: string | null;
+  completeness: string;
+}
+
 export interface ProtocolSessionRouteDeps {
   store: ProtocolSessionStore;
   computeSuggestions: ComputeSuggestionsForDraftState;
+  /**
+   * FAIL-CLOSED boundary for live Dota sessions: asked before ANY recommendation is computed. A live draft the
+   * system knows it only half-read gets an explicit "incomplete" answer, never a ranking. The web hiding the Team
+   * Coach is a courtesy; this is the guarantee. Absent (tests, simulator-only deployments) -> no live gate.
+   */
+  liveRecommendationGate?: (sessionId: string) => LiveRecommendationGate | null;
   /**
    * SERVER-SIDE source of the approved CM eligibility artifact -- the deployment-bootstrap hook.
    * Called once per Captain's Mode session creation; `null`/absent leaves the session with no
@@ -733,6 +746,13 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
    * (translate-v1.ts) for a caller that only understands `suggestions/v1` -- it is still V2
    * underneath; nothing is rescored for that query param.
    */
+  /** 409 when a live session's draft is incomplete or inconsistent; null when recommending is safe (or not a live session). */
+  function liveDraftIncomplete(sessionId: string): Response | null {
+    const gate = deps.liveRecommendationGate?.(sessionId) ?? null;
+    if (gate === null || gate.available) return null;
+    return Response.json({ error: "live_draft_incomplete", reason: gate.reason, completeness: gate.completeness }, { status: 409 });
+  }
+
   async function getRecommendations(sessionId: string, url: URL, accountId: number | null = null): Promise<Response> {
     const sideParam = url.searchParams.get("side");
     if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
@@ -744,6 +764,8 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     }
     const view = deps.store.view(sessionId);
     if (!view) return notFound();
+    const incomplete = liveDraftIncomplete(sessionId);
+    if (incomplete) return incomplete;
 
     const startedAt = Date.now();
     // Product Semantics Recovery WP2 -- `?format=v4`: the ONE authoritative CurrentHumanDecision
@@ -829,6 +851,8 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
       return Response.json({ error: "perspective_forbidden" }, { status: 403 });
     }
     if (!view.rankedAp) return Response.json({ error: "coach_requires_ranked_all_pick" }, { status: 422 });
+    const incomplete = liveDraftIncomplete(sessionId);
+    if (incomplete) return incomplete;
     const startedAt = Date.now();
     const board = await coachRecommendations.recommendTeamBoard(sessionId, metadata.humanPosition);
     if (board === undefined) return notFound();
@@ -868,6 +892,9 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
         return Response.json({ error: "position_bound_by_queue", queuePosition }, { status: 409 });
       }
     }
+    // Checked after every await above: a rebuild while the body was read must not slip a stale verdict through.
+    const incomplete = liveDraftIncomplete(sessionId);
+    if (incomplete) return incomplete;
     const recomputation = await coachRecommendations.assignPosition(sessionId, metadata.humanPosition, accountId, heroId, position);
     if (!recomputation) return notFound();
     return Response.json({ output: recomputation.output, recommendationSet: recomputation.recommendationSet }, { status: 202 });
