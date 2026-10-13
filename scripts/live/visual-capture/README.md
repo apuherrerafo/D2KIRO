@@ -74,7 +74,14 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
   >= 6 slots turn occupied within 500 ms (menu / loading screen / restarted draft, not ten picks).
   Order: occupancy -> matcher -> score+margin -> 3-frame confirmation -> draft fact.
   `lab`/`bench` stay matcher-only diagnostics (single frame, no baseline).
-- A hero is emitted only if `score >= 0.70` **and** `margin over runner-up >= 0.15`; a flat slot never matches.
+- A hero is emitted only if `score >= 0.68` **and** `margin over runner-up >= 0.15`; a flat slot never matches.
+- **Overlay path (0.1.2, secondary and narrow).** Human lobbies draw a rank medal + player-name strip over the lower
+  half of every card, which depresses the full-crop score of a correct portrait (real case: Rubick 0.48, margin 0.25).
+  A slot that misses only the 0.68 score may still read as a hero when ALL hold: full-crop `score >= 0.45` and
+  `margin >= 0.20`; the clean UPPER half (thumbnail rows `< UPPER_ROWS`) independently names the SAME hero with
+  `score >= 0.55` and `margin >= 0.20`; and the upper half has real contrast (`std >= 35`: dimmed hover previews and
+  hidden-enemy silhouettes sit at ~13-22). Such a reading is tier `overlay` (diagnostics reason `ok_overlay`) and needs
+  **6 consecutive frames spanning >= 3 s** instead of 3 frames / 350 ms. The global 0.68 / 0.15 gate is unchanged.
 - A hero is **confirmed** only after 3 consecutive frames spanning >= 350 ms. Flicker creates nothing. A
   confirmed slot that stably changes yields `pick_reverted` + new `hero_picked`. Unreadable frames never revert.
 - Screen slot order is **not** Pos 1-5. Nothing here sends a position.

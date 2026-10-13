@@ -8,7 +8,7 @@ from typing import Mapping
 import numpy as np
 
 from .layout import SIDES, Layout, crop, viewport
-from .matcher import Matcher, MatchResult, Thresholds, confident, is_blank
+from .matcher import Matcher, MatchResult, Thresholds, confident, is_blank, overlay_confident
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,9 @@ class SlotReading:
     # Diagnostics only (never sent anywhere): the best candidate even when it was rejected, and why.
     candidate_id: int | None = None
     runner_up_score: float = 0.0
-    reason: str = ""  # "ok" | "unoccupied" | "blank" | "below_score" | "below_margin"
+    reason: str = ""  # "ok" | "ok_overlay" | "unoccupied" | "blank" | "below_score" | "below_margin"
+    # "strong": passed the global gate. "overlay": passed only the narrow overlay path -> needs a longer confirmation.
+    tier: str = "strong"
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,8 @@ def read_slot(side: str, index: int, crop_bgr: np.ndarray, matcher: Matcher, thr
     result: MatchResult = matcher.match(crop_bgr)
     if confident(result, thresholds):
         return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin, result.hero_id, result.runner_up_score, "ok")
+    if overlay_confident(result, crop_bgr, matcher, thresholds):
+        return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin, result.hero_id, result.runner_up_score, "ok_overlay", "overlay")
     reason = "below_score" if result.score < thresholds.min_score else "below_margin"
     return SlotReading(side, index, "uncertain", None, result.score, result.margin, result.hero_id, result.runner_up_score, reason)
 

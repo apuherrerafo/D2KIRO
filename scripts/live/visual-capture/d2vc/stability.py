@@ -25,6 +25,7 @@ class VisualEvent:
 class _Track:
     candidate: int | None = None
     frames: int = 0
+    strong_frames: int = 0  # frames of this streak that passed the global gate (not only the overlay path)
     since_ms: float = 0.0
     score_sum: float = 0.0
     confirmed: int | None = None
@@ -34,6 +35,10 @@ class _Track:
 class StabilityFilter:
     min_frames: int = 3
     min_ms: float = 350.0
+    # A hero seen ONLY through the narrow overlay path (human-lobby cards under a rank medal / name strip) must stay
+    # the same candidate much longer: a transient (menu, tooltip, hover) does not last this long.
+    overlay_min_frames: int = 6
+    overlay_min_ms: float = 3000.0
     tracks: dict[tuple[str, int], _Track] = field(default_factory=dict)
 
     def confirmed(self) -> dict[tuple[str, int], int]:
@@ -55,13 +60,17 @@ class StabilityFilter:
         track = self.tracks.setdefault((reading.side, reading.index), _Track())
         hero = reading.hero_id if reading.state == "hero" else None
         if hero is None:
-            track.candidate, track.frames, track.score_sum = None, 0, 0.0
+            track.candidate, track.frames, track.strong_frames, track.score_sum = None, 0, 0, 0.0
             return []
         if hero != track.candidate:
-            track.candidate, track.frames, track.since_ms, track.score_sum = hero, 0, now_ms, 0.0
+            track.candidate, track.frames, track.strong_frames, track.since_ms, track.score_sum = hero, 0, 0, now_ms, 0.0
         track.frames += 1
+        track.strong_frames += reading.tier == "strong"
         track.score_sum += reading.score
-        if hero == track.confirmed or track.frames < self.min_frames or now_ms - track.since_ms < self.min_ms:
+        elapsed = now_ms - track.since_ms
+        strong_ok = track.strong_frames >= self.min_frames and elapsed >= self.min_ms
+        overlay_ok = track.frames >= self.overlay_min_frames and elapsed >= self.overlay_min_ms
+        if hero == track.confirmed or not (strong_ok or overlay_ok):
             return []
         if self._held_elsewhere(hero, reading.side, reading.index):
             return []

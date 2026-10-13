@@ -17,7 +17,7 @@ from d2vc.session import VisualSession
 from d2vc.transport import DraftLifecycle
 from test_visual_capture import CATALOG, CLOCK, LAYOUT, MATCHER, arm, feed, hero_slot, paste, screen
 
-ALLOWED_REASONS = {"ok", "unoccupied", "blank", "below_score", "below_margin"}
+ALLOWED_REASONS = {"ok", "ok_overlay", "unoccupied", "blank", "below_score", "below_margin"}
 
 
 def read_records(directory: Path) -> list[dict]:

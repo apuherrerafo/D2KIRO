@@ -14,8 +14,8 @@ from fixtures import fake_catalog  # noqa: F401  (sets sys.path for d2vc)
 from d2vc.bench import DEFAULT_THRESHOLDS
 from d2vc.emit import EnvelopeFactory, PrivacyViolation, assert_allowlisted
 from d2vc.layout import default_layout, viewport
-from d2vc.matcher import MatchResult, Matcher, confident
-from d2vc.scan import scan_frame
+from d2vc.matcher import MatchResult, Matcher, Thresholds, confident, overlay_confident, upper_contrast
+from d2vc.scan import read_slot, scan_frame
 from d2vc.session import VisualSession
 from d2vc.stability import StabilityFilter
 from d2vc.synth import blank_slot, compose_screen, degrade
@@ -97,6 +97,111 @@ def hero_slot(hero, side, index, size=(1920, 1080), seed=3):
 
 def picks(envelopes):
     return [(e["payload"]["type"], e["payload"].get("side"), e["payload"].get("hero")) for e in envelopes if e["payload"]["type"] != "capture_health"]
+
+
+def covered_slot(hero, side="radiant", index=0, size=(1920, 1080), strength=1.5):
+    """A hero card the way a HUMAN lobby draws it: rank-name strip across the lower half + a rank medal.
+    The art itself is contrast-stretched (real Dota art is far more contrasty than the generated catalog)."""
+    import cv2
+
+    crop = hero_slot(hero, side, index, size).astype(np.float32)
+    h, w = crop.shape[:2]
+    crop = np.clip((crop - crop.mean()) * 2.2 + crop.mean(), 0, 255)
+    y0, y1 = int(h * 0.58), int(h * 0.88)
+    crop[y0:y1] = (1 - 0.7 * strength) * crop[y0:y1] + 0.7 * strength * np.array([70, 45, 95], np.float32)
+    crop = np.clip(crop, 0, 255).astype(np.uint8)
+    cv2.putText(crop, "Arconte II", (int(w * 0.12), int(h * 0.80)), cv2.FONT_HERSHEY_SIMPLEX, h / 120.0, (150, 170, 200), 1)
+    cv2.fillPoly(crop, [np.array([[int(w * 0.72), int(h * 0.50)], [int(w * 0.97), int(h * 0.50)], [int(w * 0.85), int(h * 0.74)]], np.int32)], (40, 90, 200))
+    return crop
+
+
+def dimmed(crop):
+    """The same art as a greyed-out hover preview / hidden-enemy silhouette."""
+    return np.clip(crop.astype(np.float32) * 0.3 + 22, 0, 255).astype(np.uint8)
+
+
+class OverlayPathTests(unittest.TestCase):
+    """0.1.2: human-lobby cards under a rank medal / name strip. A NARROW secondary path, never a lower global gate."""
+
+    def test_global_gate_is_untouched_and_the_overlay_path_is_pinned(self):
+        self.assertEqual((DEFAULT_THRESHOLDS.min_score, DEFAULT_THRESHOLDS.min_margin), (0.68, 0.15))
+        self.assertEqual(
+            (DEFAULT_THRESHOLDS.overlay_score, DEFAULT_THRESHOLDS.overlay_margin, DEFAULT_THRESHOLDS.upper_score, DEFAULT_THRESHOLDS.upper_margin, DEFAULT_THRESHOLDS.upper_min_std),
+            (0.45, 0.20, 0.55, 0.20, 35.0),
+        )
+
+    def test_a_covered_card_the_global_gate_rejects_is_read_through_the_overlay_path(self):
+        for hero in (13, 21):
+            crop = covered_slot(hero)
+            result = MATCHER.match(crop)
+            self.assertEqual(result.hero_id, hero)
+            self.assertFalse(confident(result, DEFAULT_THRESHOLDS), "scenario must be one the global gate rejects")
+            reading = read_slot("radiant", 0, crop, MATCHER, DEFAULT_THRESHOLDS)
+            self.assertEqual((reading.state, reading.hero_id, reading.tier, reading.reason), ("hero", hero, "overlay", "ok_overlay"))
+
+    def test_a_clean_card_stays_on_the_strong_tier(self):
+        reading = read_slot("radiant", 0, hero_slot(13, "radiant", 0), MATCHER, DEFAULT_THRESHOLDS)
+        self.assertEqual((reading.state, reading.tier), ("hero", "strong"))
+
+    def test_the_overlay_path_can_be_switched_off(self):
+        off = Thresholds(0.68, 0.15, overlay_score=None)
+        reading = read_slot("radiant", 0, covered_slot(13), MATCHER, off)
+        self.assertEqual((reading.state, reading.hero_id), ("uncertain", None))
+
+    def test_a_dimmed_hover_or_hidden_enemy_silhouette_is_never_read_through_it(self):
+        crop = dimmed(covered_slot(13))
+        self.assertLess(upper_contrast(crop), DEFAULT_THRESHOLDS.upper_min_std)
+        self.assertFalse(overlay_confident(MATCHER.match(crop), crop, MATCHER, DEFAULT_THRESHOLDS))
+
+    def test_weak_margin_or_a_disagreeing_upper_half_is_not_enough(self):
+        crop = covered_slot(13)
+        result = MATCHER.match(crop)
+        self.assertTrue(overlay_confident(result, crop, MATCHER, DEFAULT_THRESHOLDS))
+        thin = MatchResult(result.hero_id, result.score, result.runner_up_id, result.score - 0.19, 0.19, result.top3)
+        self.assertFalse(overlay_confident(thin, crop, MATCHER, DEFAULT_THRESHOLDS))
+        low = MatchResult(result.hero_id, 0.44, result.runner_up_id, 0.1, 0.34, result.top3)
+        self.assertFalse(overlay_confident(low, crop, MATCHER, DEFAULT_THRESHOLDS))
+        other = MatchResult(7, result.score, result.runner_up_id, result.score - 0.3, 0.3, result.top3)  # full view says another hero
+        self.assertFalse(overlay_confident(other, crop, MATCHER, DEFAULT_THRESHOLDS))
+
+    def test_blank_and_empty_cards_under_an_overlay_name_nothing(self):
+        rng = np.random.default_rng(4)
+        for index in range(20):
+            crop = blank_slot(rng, index % 4)
+            self.assertNotEqual(read_slot("radiant", 0, crop, MATCHER, DEFAULT_THRESHOLDS).state, "hero")
+
+    def covered_frames(self, hero, step_ms=125, count=40):
+        frame = paste(screen([None] * 5, [None] * 5), "radiant", 0, covered_slot(hero))
+        return [(i * step_ms, jitter(frame, 300 + i)) for i in range(count)]
+
+    def test_overlay_tier_needs_a_much_longer_stable_confirmation_than_a_clean_pick(self):
+        stability = StabilityFilter()
+        first = None
+        for now_ms, frame in self.covered_frames(13):
+            scan = scan_frame(frame, LAYOUT, MATCHER, DEFAULT_THRESHOLDS)
+            if stability.update(scan, now_ms) and first is None:
+                first = now_ms
+        self.assertIsNotNone(first)
+        self.assertGreaterEqual(first, stability.overlay_min_ms)  # 3 s, not the ~0.4 s of a clean pick
+        self.assertEqual(stability.confirmed(), {("radiant", 0): 13})
+
+    def test_a_transient_overlay_reading_never_confirms(self):
+        # 2.5 s of covered card, then a different screen: nothing was confirmed on the way.
+        stability = StabilityFilter()
+        events = []
+        for now_ms, frame in self.covered_frames(13, count=20):
+            events += stability.update(scan_frame(frame, LAYOUT, MATCHER, DEFAULT_THRESHOLDS), now_ms)
+        events += stability.update(scan_frame(screen([None] * 5, [None] * 5), LAYOUT, MATCHER, DEFAULT_THRESHOLDS), 2600)
+        self.assertEqual(events, [])
+
+    def test_session_confirms_a_covered_pick_once_and_only_after_the_long_window(self):
+        session = new_session()
+        now, _ = arm(session)
+        frame = paste(screen([None] * 5, [None] * 5), "radiant", 0, covered_slot(21))
+        _, early = feed(session, frame, now, 20)  # 2.5 s
+        self.assertEqual(picks(early), [])
+        _, late = feed(session, frame, now + 20 * 125, 40)
+        self.assertEqual(picks(late), [("hero_picked", "radiant", 21)])
 
 
 class MatcherTests(unittest.TestCase):
