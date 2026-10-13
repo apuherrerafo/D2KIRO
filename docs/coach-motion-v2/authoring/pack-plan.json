@@ -1,0 +1,121 @@
+{
+ "loops": [
+  {
+   "id": "watching",
+   "frames": 252,
+   "seconds": 8.4,
+   "bytesPerFrame": 6996,
+   "bytes": 1762992,
+   "measured": true
+  },
+  {
+   "id": "analyzing",
+   "frames": 210,
+   "seconds": 7,
+   "bytesPerFrame": 6407,
+   "bytes": 1345470,
+   "measured": true
+  },
+  {
+   "id": "pointing",
+   "frames": 112,
+   "seconds": 3.7333333333333334,
+   "bytesPerFrame": 7700,
+   "bytes": 862400,
+   "measured": false
+  },
+  {
+   "id": "confirming",
+   "frames": 112,
+   "seconds": 3.7333333333333334,
+   "bytesPerFrame": 7700,
+   "bytes": 862400,
+   "measured": false
+  }
+ ],
+ "edges": [
+  {
+   "id": "watching>analyzing",
+   "sourceLoopFrames": 252,
+   "stride": 6,
+   "strategy": "nearest-head",
+   "heads": 42,
+   "headFrames": 10,
+   "headBytes": 2938320,
+   "tailFrames": 35,
+   "tailBytes": 234552.5,
+   "armHeads": 2,
+   "armedBytes": 139920
+  },
+  {
+   "id": "analyzing>pointing",
+   "sourceLoopFrames": 210,
+   "stride": 3,
+   "strategy": "nearest-head",
+   "heads": 70,
+   "headFrames": 10,
+   "headBytes": 4484900,
+   "tailFrames": 35,
+   "tailBytes": 246872.5,
+   "armHeads": 4,
+   "armedBytes": 256280
+  },
+  {
+   "id": "pointing>confirming",
+   "sourceLoopFrames": 112,
+   "stride": 3,
+   "strategy": "nearest-head",
+   "heads": 38,
+   "headFrames": 10,
+   "headBytes": 2926000,
+   "tailFrames": 35,
+   "tailBytes": 269500,
+   "armHeads": 4,
+   "armedBytes": 308000
+  },
+  {
+   "id": "confirming>pointing",
+   "sourceLoopFrames": 112,
+   "stride": 6,
+   "strategy": "nearest-head",
+   "heads": 19,
+   "headFrames": 10,
+   "headBytes": 1463000,
+   "tailFrames": 35,
+   "tailBytes": 269500,
+   "armHeads": 2,
+   "armedBytes": 154000
+  },
+  {
+   "id": "pointing>watching",
+   "sourceLoopFrames": 112,
+   "stride": 3,
+   "strategy": "nearest-head",
+   "heads": 38,
+   "headFrames": 10,
+   "headBytes": 2926000,
+   "tailFrames": 35,
+   "tailBytes": 257180,
+   "armHeads": 4,
+   "armedBytes": 308000
+  }
+ ],
+ "totals": {
+  "loops": 4833262,
+  "heads": 14738220,
+  "tails": 1277605,
+  "frames": 2931,
+  "total": 20849087
+ },
+ "firstLoad": {
+  "path": [
+   "watching",
+   "analyzing"
+  ],
+  "bytes": 3482934.5,
+  "limit": 8000000
+ },
+ "ceiling": 24000000,
+ "status": "OK",
+ "reasons": []
+}

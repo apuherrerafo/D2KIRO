@@ -17,7 +17,7 @@ describe("manifest v4 · the graph is data", () => {
       const m = realManifest(pack);
       expect(Object.keys(m.graph.loops)).toEqual(["watching", "analyzing"]);
       const [e] = m.graph.edges;
-      expect(e).toMatchObject({ id: "watching>analyzing", from: "watching", to: "analyzing", fps: 30, tail: { clip: "TRANSITION_TAIL", enterFrame: 0 } });
+      expect(e).toMatchObject({ id: "watching>analyzing", from: "watching", to: "analyzing", fps: 30, tail: { clip: "TAIL_WA", enterFrame: 0 } });
       expect(e.entry).toMatchObject({ strategy: "nearest-head", stride: 6, headClipPrefix: HEAD_PREFIX, headFrames: 10, armHeads: 2 });
       expect(headPhases(m.clips.WATCHING_LOOP.frames, e.entry.stride)).toHaveLength(42);
       expect(m.packHash).toMatch(/^[0-9a-f]{64}$/);
@@ -46,7 +46,7 @@ describe("manifest v4 · the graph is data", () => {
   test("a head grid that does not exist in the pack is rejected (stride 3 on a pack that only has stride-6 heads)", () => {
     rejects((m) => {
       m.graph.edges[0].entry.stride = 3;
-    }, /missing ENTRY_HEAD_003/);
+    }, /missing ENTRY_HEAD_WA_003/);
   });
 
   test("unusable graphs are rejected with a reason", () => {
@@ -58,9 +58,9 @@ describe("manifest v4 · the graph is data", () => {
     rejects((m) => void (m.graph.edges[0].tail.clip = "NOPE"), /missing tail clip/);
     rejects((m) => void (m.graph.edges[0].tail.enterFrame = 999), /bad tail.enterFrame/);
     rejects((m) => void (m.graph.edges[0].lookaheadFrames = 3), /lookaheadFrames/);
-    rejects((m) => void (m.graph.loops.watching.clip = "TRANSITION_TAIL"), /not a loop/);
-    rejects((m) => void (m.clips.ENTRY_HEAD_006.frames = 9), /chunks hold|must be a 10-frame/);
-    rejects((m) => void delete m.clips.ENTRY_HEAD_246, /missing ENTRY_HEAD_246/);
+    rejects((m) => void (m.graph.loops.watching.clip = "TAIL_WA"), /not a loop/);
+    rejects((m) => void (m.clips.ENTRY_HEAD_WA_006.frames = 9), /chunks hold|must be a 10-frame/);
+    rejects((m) => void delete m.clips.ENTRY_HEAD_WA_246, /missing ENTRY_HEAD_WA_246/);
   });
 
   test("a v3 manifest, a missing hash, and a file name that is not content-addressed are rejected", () => {
@@ -81,15 +81,15 @@ describe("manifest v4 · the graph is data", () => {
 
   test("a clip may use fewer columns than the pack: its atlas geometry is checked against its own cols", () => {
     const m = fresh(realManifest());
-    const clip = m.clips.ENTRY_HEAD_000;
+    const clip = m.clips.ENTRY_HEAD_WA_000;
     clip.cols = 2;
     const c = clip.chunks[0];
     c.rows = 5;
     c.w = 2 * m.cell.w;
     c.h = 5 * m.cell.h;
     const parsed = parseManifest(m);
-    expect(colsOf(parsed, "ENTRY_HEAD_000")).toBe(2);
-    expect(colsOf(parsed, "ENTRY_HEAD_006")).toBe(4);
+    expect(colsOf(parsed, "ENTRY_HEAD_WA_000")).toBe(2);
+    expect(colsOf(parsed, "ENTRY_HEAD_WA_006")).toBe(4);
     clip.cols = 3; // geometry no longer matches
     expect(() => parseManifest(m)).toThrow(/does not match 3 cols/);
   });
@@ -119,7 +119,7 @@ describe("graph traversal · the sequencer interprets the manifest, it knows no 
     const a = await until(r, () => r.ctl.shown!.mode === "analyzing");
     expect(a.filter((c) => c.startsWith(HEAD_PREFIX))).toHaveLength(1);
     expect(phases(a, HEAD_PREFIX)[0] % 6).toBe(0);
-    expect(a.slice(-2)).toEqual(["TRANSITION_TAIL", "ANALYZING_LOOP"]);
+    expect(a.slice(-2)).toEqual(["TAIL_WA", "ANALYZING_LOOP"]);
     await playN(r.ctl, 23);
 
     expect(r.ctl.cue("pointing")).toBe(true);

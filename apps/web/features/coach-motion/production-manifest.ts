@@ -159,6 +159,12 @@ export function parseManifest(raw: unknown): ProdManifest {
     if (!isInt(e.tail.enterFrame) || e.tail.enterFrame >= p.clips[to.clip].frames) bad(`edge ${e.id}: bad tail.enterFrame`);
     if (!isInt(e.lookaheadFrames, p.chunkFrames)) bad(`edge ${e.id}: lookaheadFrames must be at least one chunk (${p.chunkFrames})`);
   }
+  // every edge owns its head namespace: no head prefix may equal or begin with another edge's (a bare `HEAD_` would address the heads of every edge)
+  for (const a of p.graph.edges) {
+    for (const b of p.graph.edges) {
+      if (a !== b && b.entry.headClipPrefix.startsWith(a.entry.headClipPrefix)) bad(`edges ${a.id} and ${b.id}: head prefix ${a.entry.headClipPrefix} also matches ${b.entry.headClipPrefix}`);
+    }
+  }
   return p;
 }
 

@@ -8,8 +8,8 @@ import { headClipId, headPhases, parseManifest, type GraphEdge, type ProdClipMet
 
 export const WATCHING_LOOP = "WATCHING_LOOP";
 export const ANALYZING_LOOP = "ANALYZING_LOOP";
-export const TRANSITION_TAIL = "TRANSITION_TAIL";
-export const HEAD_PREFIX = "ENTRY_HEAD_";
+export const TRANSITION_TAIL = "TAIL_WA";
+export const HEAD_PREFIX = "ENTRY_HEAD_WA_";
 
 export const MIB = 1048576;
 export const FRAME_MS = 1000 / 30;
@@ -41,6 +41,63 @@ export function graphManifest(pack: "384" | "512" = "384"): ProdManifest {
     edge("analyzing>pointing", "analyzing", "pointing", analyzing, 3, "APOINT_HEAD_", "APOINT_TAIL"),
     edge("pointing>watching", "pointing", "watching", analyzing, 6, "BACK_HEAD_", "BACK_TAIL"),
   );
+  return parseManifest(JSON.parse(JSON.stringify(m)));
+}
+
+/** The authoring graph (scripts/coach-motion-v2/graph.json): the single source of the pack's loops, edges, strides and names. */
+export interface AuthoringGraph {
+  loops: Record<string, { clip: string; dir: string; frames: number; strideLimit: number; blinks?: number }>;
+  edges: Array<{
+    id: string;
+    ns: string;
+    from: string;
+    to: string;
+    fps: number;
+    entry: { strategy: string; stride: number; headClipPrefix: string; headDirPrefix: string; headFrames: number; maxStepFrames: number; armHeads: number };
+    tail: { clip: string; dir: string; frames: number; enterFrame: number };
+    lookaheadFrames: number;
+  }>;
+  budget: { firstLoadBytes: number; firstLoadPath: string[]; packCeilingBytes: number; calibration: { bytesPerFrame: Record<string, number>; unmeasured?: string[] } };
+}
+
+export function authoringGraph(): AuthoringGraph {
+  return JSON.parse(readFileSync(fileURLToPath(new URL("../../../../scripts/coach-motion-v2/graph.json", import.meta.url)), "utf8")) as AuthoringGraph;
+}
+
+/** A placeholder clip of `frames` frames with the real pack's atlas geometry (cell size, columns, chunking) and a valid content-addressed name. */
+function synthClip(m: ProdManifest, name: string, frames: number, loop: boolean): ProdClipMeta {
+  const chunks = [];
+  for (let at = 0, i = 0; at < frames; at += m.chunkFrames, i += 1) {
+    const n = Math.min(m.chunkFrames, frames - at);
+    const rows = Math.ceil(n / m.cols);
+    const sha256 = `${(i + 1).toString(16).padStart(2, "0")}${name.split("").map((c) => c.charCodeAt(0).toString(16)).join("")}`.padEnd(64, "0").slice(0, 64);
+    chunks.push({ file: `${name.toLowerCase()}-${i}.${sha256.slice(0, 12)}.avif`, frames: n, rows, w: m.cols * m.cell.w, h: rows * m.cell.h, bytes: 1000, sha256 });
+  }
+  return { frames, loop, chunks };
+}
+
+/**
+ * The pack the committed graph.json describes, with placeholder geometry where the frames are not generated yet (every loop, tail and head of every edge, at the real atlas geometry).
+ * The manifest block is derived from the graph exactly as pack_manifest.manifest_graph does, so this exercises graph.json + the generic runtime together: the runtime must traverse
+ * whatever the graph says without knowing a state. `edit` lets a test extend / alter the authoring graph first (a hypothetical future state).
+ */
+export function fullGraphManifest(edit?: (g: AuthoringGraph) => void): ProdManifest {
+  const g = authoringGraph();
+  edit?.(g);
+  const m = realManifest("384");
+  m.clips = {};
+  for (const l of Object.values(g.loops)) m.clips[l.clip] = synthClip(m, l.clip, l.frames, true);
+  for (const e of g.edges) {
+    m.clips[e.tail.clip] = synthClip(m, e.tail.clip, e.tail.frames, false);
+    for (const p of headPhases(g.loops[e.from].frames, e.entry.stride)) m.clips[headClipId(e.entry.headClipPrefix, p)] = synthClip(m, headClipId(e.entry.headClipPrefix, p), e.entry.headFrames, false);
+  }
+  m.graph = {
+    loops: Object.fromEntries(Object.entries(g.loops).map(([k, l]) => [k, { clip: l.clip }])),
+    edges: g.edges.map((e) => {
+      const entry = Object.fromEntries(Object.entries(e.entry).filter(([k]) => k !== "headDirPrefix"));
+      return { id: e.id, from: e.from, to: e.to, fps: e.fps, entry: entry as GraphEdge["entry"], tail: { clip: e.tail.clip, enterFrame: e.tail.enterFrame }, lookaheadFrames: e.lookaheadFrames };
+    }),
+  };
   return parseManifest(JSON.parse(JSON.stringify(m)));
 }
 

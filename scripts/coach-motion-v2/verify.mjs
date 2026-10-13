@@ -95,13 +95,13 @@ const ready = (page, pack) => page.waitForSelector(`[data-testid="panel-${pack}"
     const tr = await page.evaluate(() => window.__cmTrace);
     for (const pack of ["384", "512"]) {
       const t = tr.filter((x) => x[0] === pack);
-      const h0 = t.findIndex((x) => x[1].startsWith("ENTRY_HEAD_"));
+      const h0 = t.findIndex((x) => x[1].startsWith("ENTRY_HEAD_WA_"));
       const seq = t.slice(h0);
       let ok = h0 >= 0;
       let why = "";
       const want = [];
       for (let i = 0; i < 10; i++) want.push([seq[0]?.[1], i]);
-      for (let i = 0; i < 35; i++) want.push(["TRANSITION_TAIL", i]);
+      for (let i = 0; i < 35; i++) want.push(["TAIL_WA", i]);
       for (let i = 0; i < 20; i++) want.push(["ANALYZING_LOOP", i]);
       for (let i = 0; i < want.length && ok; i++) {
         if (!seq[i] || seq[i][1] !== want[i][0] || seq[i][2] !== want[i][1]) {
@@ -180,7 +180,7 @@ await failCase("mid-session: a required loop chunk hangs (stall watchdog)", (p) 
 {
   const ctx = await mk();
   const page = await ctx.newPage();
-  await page.route("**/coach-motion-v2/prod/384/head-*.avif", (r) => r.abort());
+  await page.route("**/coach-motion-v2/prod/384/head-wa-*.avif", (r) => r.abort());
   await page.addInitScript(() => (window.__cmTrace = []));
   await page.goto(`${LAB}?panels=384&stall=4000`);
   await ready(page, "384");
@@ -189,7 +189,7 @@ await failCase("mid-session: a required loop chunk hangs (stall watchdog)", (p) 
   await page.waitForTimeout(2200);
   const status = await page.getAttribute('[data-testid="panel-384"]', "data-motion-status");
   const trace = await page.evaluate(() => window.__cmTrace);
-  const sinceCue = trace.filter((x) => x[1].startsWith("ENTRY_HEAD_") || x[1] === "TRANSITION_TAIL");
+  const sinceCue = trace.filter((x) => x[1].startsWith("ENTRY_HEAD_WA_") || x[1] === "TAIL_WA");
   check("entry head fetch aborted: Motion V2 stays alive (speculative failure is non-fatal), WATCHING keeps playing", status === "motion" && sinceCue.length === 0, `status ${status}, transition frames ${sinceCue.length}`);
   await page.waitForSelector('[data-testid="panel-384"][data-motion-status="failed"]', { timeout: 10000 }).catch(() => {});
   const after = await page.evaluate(() => {

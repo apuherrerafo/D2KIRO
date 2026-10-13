@@ -3,7 +3,7 @@ usage: python -I scripts/coach-motion-v2/encode.py --frames <dir>/<px> --px 384 
        [--graph scripts/coach-motion-v2/graph.json] [--cols-for CLIP=N ...] [--allow-toolchain-drift]
 
 Pinned (scripts/coach-motion-v2/toolchain.json, requirements.txt): Pillow 12.3.0 + libavif 1.4.2 (bundled), numpy, opencv; 4:2:0, full range, alpha kept; quality / speed / codec as the CLI defaults below.
-The clips, loops and edges to pack come from graph.json (copied into the manifest); the frames folders it names must exist under --frames.
+The clips, loops and edges to pack come from graph.json (copied into the manifest); every frames folder it names must exist under --frames with the frame count the graph says, and nothing else under --frames is read.
 Atlas rules: one atlas = one chunk = at most CHUNK_FRAMES (14 = 0.47 s @ 30 fps; 252 = 18 x 14 and 210 = 15 x 14, so both loops split into equal chunks) consecutive frames of one clip, COLS columns
 (per clip with --cols-for), cell = the shared crop box (union alpha bbox over EVERY frame of the pack, pad 2, even size). A chunk wider or taller than MAX_ATLAS_PX (2048) aborts the run.
 Chunk files are named `<stem>.<sha256[:12]>.avif` (immutable URLs) and stale *.avif files of the pack folder are removed at the end.
@@ -80,7 +80,8 @@ def even(v):
 
 check_toolchain()
 graph = pm.load_graph(args.graph)
-plan = pm.clip_plan(graph, args.frames)
+plan = pm.clip_plan(graph)
+pm.check_frames(graph, args.frames)
 x0, y0, x1, y1 = (int(v) for v in union_box([d for _, d, _ in plan]))
 cw, ch = int(even(x1 - x0)), int(even(y1 - y0))
 x1, y1 = x0 + cw, y0 + ch

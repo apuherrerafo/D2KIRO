@@ -1,18 +1,73 @@
 {
-  "_comment": "Authoring input of encode.py: the semantic graph of the production pack. It is copied into every pack manifest (minus the `dir` keys); the player reads it from there. A new loop or edge is added here, next to its capture jobs and frames, not in player code.",
+  "_comment": "Authoring input of the whole Coach Motion V2 pipeline: capture.mjs (jobs), guards.py (checks), encode.py (clips + manifest), plan.mjs (job list, pack-size estimate) all derive from THIS file; nothing hardcodes a state or an edge. It is copied into every pack manifest (minus the authoring-only keys); the player reads it from there. A new loop or edge is added here, next to its pose definition (apps/web/features/coach-motion/loop-pose.ts) and its generated frames, not in player code.",
   "loops": {
-    "watching": { "clip": "WATCHING_LOOP", "dir": "watching" },
-    "analyzing": { "clip": "ANALYZING_LOOP", "dir": "analyzing" }
+    "watching": { "clip": "WATCHING_LOOP", "dir": "watching", "frames": 252, "strideLimit": 6, "blinks": 2 },
+    "analyzing": { "clip": "ANALYZING_LOOP", "dir": "analyzing", "frames": 210, "strideLimit": 3 },
+    "pointing": { "clip": "POINTING_LOOP", "dir": "pointing", "frames": 112, "strideLimit": 3, "blinks": 0 },
+    "confirming": { "clip": "CONFIRMING_LOOP", "dir": "confirming", "frames": 112, "strideLimit": 6, "blinks": 1 }
   },
+  "_edges": "`ns` is the edge's unique namespace: its head clips / frame folders are `<headClipPrefix><phase:3>` / `<headDirPrefix><phase:3>` and no head prefix may be a prefix of another. `entry.stride` <= the source loop's `strideLimit` (the stride probe's recommendation: apps/web/features/coach-motion/stride-probe.ts) and `maxStepFrames` = floor(stride / 2).",
   "edges": [
     {
       "id": "watching>analyzing",
+      "ns": "wa",
       "from": "watching",
       "to": "analyzing",
       "fps": 30,
-      "entry": { "strategy": "nearest-head", "stride": 6, "headClipPrefix": "ENTRY_HEAD_", "headDirPrefix": "head-", "headFrames": 10, "maxStepFrames": 3, "armHeads": 2 },
-      "tail": { "clip": "TRANSITION_TAIL", "dir": "tail", "enterFrame": 0 },
+      "entry": { "strategy": "nearest-head", "stride": 6, "headClipPrefix": "ENTRY_HEAD_WA_", "headDirPrefix": "head-wa-", "headFrames": 10, "maxStepFrames": 3, "armHeads": 2 },
+      "tail": { "clip": "TAIL_WA", "dir": "tail-wa", "frames": 35, "enterFrame": 0 },
+      "lookaheadFrames": 28
+    },
+    {
+      "id": "analyzing>pointing",
+      "ns": "ap",
+      "from": "analyzing",
+      "to": "pointing",
+      "fps": 30,
+      "entry": { "strategy": "nearest-head", "stride": 3, "headClipPrefix": "ENTRY_HEAD_AP_", "headDirPrefix": "head-ap-", "headFrames": 10, "maxStepFrames": 1, "armHeads": 4 },
+      "tail": { "clip": "TAIL_AP", "dir": "tail-ap", "frames": 35, "enterFrame": 0 },
+      "lookaheadFrames": 28
+    },
+    {
+      "id": "pointing>confirming",
+      "ns": "pc",
+      "from": "pointing",
+      "to": "confirming",
+      "fps": 30,
+      "entry": { "strategy": "nearest-head", "stride": 3, "headClipPrefix": "ENTRY_HEAD_PC_", "headDirPrefix": "head-pc-", "headFrames": 10, "maxStepFrames": 1, "armHeads": 4 },
+      "tail": { "clip": "TAIL_PC", "dir": "tail-pc", "frames": 35, "enterFrame": 0 },
+      "lookaheadFrames": 28
+    },
+    {
+      "id": "confirming>pointing",
+      "ns": "cp",
+      "from": "confirming",
+      "to": "pointing",
+      "fps": 30,
+      "entry": { "strategy": "nearest-head", "stride": 6, "headClipPrefix": "ENTRY_HEAD_CP_", "headDirPrefix": "head-cp-", "headFrames": 10, "maxStepFrames": 3, "armHeads": 2 },
+      "tail": { "clip": "TAIL_CP", "dir": "tail-cp", "frames": 35, "enterFrame": 0 },
+      "lookaheadFrames": 28
+    },
+    {
+      "id": "pointing>watching",
+      "ns": "pw",
+      "from": "pointing",
+      "to": "watching",
+      "fps": 30,
+      "entry": { "strategy": "nearest-head", "stride": 3, "headClipPrefix": "ENTRY_HEAD_PW_", "headDirPrefix": "head-pw-", "headFrames": 10, "maxStepFrames": 1, "armHeads": 4 },
+      "tail": { "clip": "TAIL_PW", "dir": "tail-pw", "frames": 35, "enterFrame": 0 },
       "lookaheadFrames": 28
     }
-  ]
+  ],
+  "budget": {
+    "_comment": "Generation gates, in bytes (decimal MB, the strict reading). firstLoad = the effective initial Hero motion path (the first loop, then per hop: the armed heads, the tail, the target loop); packCeiling = STOP / REASSESS ceiling for the whole 384 / 30 fps semantic pack, not a target. A projection above the ceiling stops capture and encode.",
+    "firstLoadBytes": 8000000,
+    "firstLoadPath": ["watching", "analyzing"],
+    "packCeilingBytes": 24000000,
+    "calibration": {
+      "_comment": "Encoded AVIF bytes per frame at 384 px / q35 / speed 4. watching and analyzing are measured from the committed pack (a test keeps them honest); pointing and confirming start as the larger of the two measured rates plus a 10 % margin and are replaced by a measured rate after a calibration render.",
+      "bytesPerFrame": { "watching": 6996, "analyzing": 6407, "pointing": 7700, "confirming": 7700 },
+      "unmeasured": ["pointing", "confirming"]
+    }
+  }
 }

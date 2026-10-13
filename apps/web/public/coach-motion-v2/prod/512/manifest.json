@@ -57,7 +57,7 @@
   "alphaBleed": true
  },
  "totalBytes": 9009809,
- "packHash": "65dbb9fd78cf97bd75ad2cffa0672ad1e817c855c2cc2e8bf2aadfd9345d3d74",
+ "packHash": "85d7b4e3c48d8f11a494e238a2aeeeb2ad354dbdcab25dcff993907845e92c8c",
  "graph": {
   "loops": {
    "watching": {
@@ -76,13 +76,13 @@
     "entry": {
      "strategy": "nearest-head",
      "stride": 6,
-     "headClipPrefix": "ENTRY_HEAD_",
+     "headClipPrefix": "ENTRY_HEAD_WA_",
      "headFrames": 10,
      "maxStepFrames": 3,
      "armHeads": 2
     },
     "tail": {
-     "clip": "TRANSITION_TAIL",
+     "clip": "TAIL_WA",
      "enterFrame": 0
     },
     "lookaheadFrames": 28
@@ -399,12 +399,12 @@
     }
    ]
   },
-  "TRANSITION_TAIL": {
+  "TAIL_WA": {
    "frames": 35,
    "loop": false,
    "chunks": [
     {
-     "file": "tail-00.365fa8b03524.avif",
+     "file": "tail-wa-00.365fa8b03524.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -413,7 +413,7 @@
      "sha256": "365fa8b03524ebe64fd59dbcb4accef85a80f3d180a67eaf8656eaee8f3017fe"
     },
     {
-     "file": "tail-01.672cec2d20e2.avif",
+     "file": "tail-wa-01.672cec2d20e2.avif",
      "frames": 14,
      "rows": 4,
      "w": 1736,
@@ -422,7 +422,7 @@
      "sha256": "672cec2d20e27553c2b052831bdce4ebcdcf3eb039d82eb1afaf1703e542bd5b"
     },
     {
-     "file": "tail-02.53cab6a9ab52.avif",
+     "file": "tail-wa-02.53cab6a9ab52.avif",
      "frames": 7,
      "rows": 2,
      "w": 1736,
@@ -432,12 +432,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_000": {
+  "ENTRY_HEAD_WA_000": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-000.f8fc4f9959bb.avif",
+     "file": "head-wa-000.f8fc4f9959bb.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -447,12 +447,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_006": {
+  "ENTRY_HEAD_WA_006": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-006.a1a4b5c3d148.avif",
+     "file": "head-wa-006.a1a4b5c3d148.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -462,12 +462,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_012": {
+  "ENTRY_HEAD_WA_012": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-012.a8e8c51a706a.avif",
+     "file": "head-wa-012.a8e8c51a706a.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -477,12 +477,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_018": {
+  "ENTRY_HEAD_WA_018": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-018.0ae698488a86.avif",
+     "file": "head-wa-018.0ae698488a86.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -492,12 +492,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_024": {
+  "ENTRY_HEAD_WA_024": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-024.1e17fd8fd98d.avif",
+     "file": "head-wa-024.1e17fd8fd98d.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -507,12 +507,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_030": {
+  "ENTRY_HEAD_WA_030": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-030.958c0f57dc74.avif",
+     "file": "head-wa-030.958c0f57dc74.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -522,12 +522,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_036": {
+  "ENTRY_HEAD_WA_036": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-036.bc62cc89bb23.avif",
+     "file": "head-wa-036.bc62cc89bb23.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -537,12 +537,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_042": {
+  "ENTRY_HEAD_WA_042": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-042.70a2974e1125.avif",
+     "file": "head-wa-042.70a2974e1125.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -552,12 +552,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_048": {
+  "ENTRY_HEAD_WA_048": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-048.c61e2c57d5ed.avif",
+     "file": "head-wa-048.c61e2c57d5ed.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -567,12 +567,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_054": {
+  "ENTRY_HEAD_WA_054": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-054.a56eefc1dd63.avif",
+     "file": "head-wa-054.a56eefc1dd63.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -582,12 +582,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_060": {
+  "ENTRY_HEAD_WA_060": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-060.f1e1f16e50be.avif",
+     "file": "head-wa-060.f1e1f16e50be.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -597,12 +597,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_066": {
+  "ENTRY_HEAD_WA_066": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-066.6ecd82c67cd8.avif",
+     "file": "head-wa-066.6ecd82c67cd8.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -612,12 +612,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_072": {
+  "ENTRY_HEAD_WA_072": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-072.4d0bd87c026f.avif",
+     "file": "head-wa-072.4d0bd87c026f.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -627,12 +627,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_078": {
+  "ENTRY_HEAD_WA_078": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-078.9e2b37aed558.avif",
+     "file": "head-wa-078.9e2b37aed558.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -642,12 +642,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_084": {
+  "ENTRY_HEAD_WA_084": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-084.fd0ff7a84fb2.avif",
+     "file": "head-wa-084.fd0ff7a84fb2.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -657,12 +657,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_090": {
+  "ENTRY_HEAD_WA_090": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-090.3743566eda37.avif",
+     "file": "head-wa-090.3743566eda37.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -672,12 +672,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_096": {
+  "ENTRY_HEAD_WA_096": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-096.241a43f1ca00.avif",
+     "file": "head-wa-096.241a43f1ca00.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -687,12 +687,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_102": {
+  "ENTRY_HEAD_WA_102": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-102.0db176f7d020.avif",
+     "file": "head-wa-102.0db176f7d020.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -702,12 +702,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_108": {
+  "ENTRY_HEAD_WA_108": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-108.3b15288bd86e.avif",
+     "file": "head-wa-108.3b15288bd86e.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -717,12 +717,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_114": {
+  "ENTRY_HEAD_WA_114": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-114.f92132a637de.avif",
+     "file": "head-wa-114.f92132a637de.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -732,12 +732,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_120": {
+  "ENTRY_HEAD_WA_120": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-120.b61293a83f16.avif",
+     "file": "head-wa-120.b61293a83f16.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -747,12 +747,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_126": {
+  "ENTRY_HEAD_WA_126": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-126.5e686fe5a532.avif",
+     "file": "head-wa-126.5e686fe5a532.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -762,12 +762,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_132": {
+  "ENTRY_HEAD_WA_132": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-132.8e5a52f37cf2.avif",
+     "file": "head-wa-132.8e5a52f37cf2.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -777,12 +777,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_138": {
+  "ENTRY_HEAD_WA_138": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-138.57800fffac30.avif",
+     "file": "head-wa-138.57800fffac30.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -792,12 +792,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_144": {
+  "ENTRY_HEAD_WA_144": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-144.b04e08a6ed7b.avif",
+     "file": "head-wa-144.b04e08a6ed7b.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -807,12 +807,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_150": {
+  "ENTRY_HEAD_WA_150": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-150.02d2d2b9798f.avif",
+     "file": "head-wa-150.02d2d2b9798f.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -822,12 +822,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_156": {
+  "ENTRY_HEAD_WA_156": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-156.ea8815247c6c.avif",
+     "file": "head-wa-156.ea8815247c6c.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -837,12 +837,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_162": {
+  "ENTRY_HEAD_WA_162": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-162.dc3e54f2c3a7.avif",
+     "file": "head-wa-162.dc3e54f2c3a7.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -852,12 +852,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_168": {
+  "ENTRY_HEAD_WA_168": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-168.1cec2ec08304.avif",
+     "file": "head-wa-168.1cec2ec08304.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -867,12 +867,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_174": {
+  "ENTRY_HEAD_WA_174": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-174.aaa492dddde3.avif",
+     "file": "head-wa-174.aaa492dddde3.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -882,12 +882,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_180": {
+  "ENTRY_HEAD_WA_180": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-180.dcea9cfb2e9e.avif",
+     "file": "head-wa-180.dcea9cfb2e9e.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -897,12 +897,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_186": {
+  "ENTRY_HEAD_WA_186": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-186.8aaf03614fa7.avif",
+     "file": "head-wa-186.8aaf03614fa7.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -912,12 +912,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_192": {
+  "ENTRY_HEAD_WA_192": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-192.dc8180abbbeb.avif",
+     "file": "head-wa-192.dc8180abbbeb.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -927,12 +927,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_198": {
+  "ENTRY_HEAD_WA_198": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-198.e7cbbb7dd48a.avif",
+     "file": "head-wa-198.e7cbbb7dd48a.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -942,12 +942,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_204": {
+  "ENTRY_HEAD_WA_204": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-204.a2b7a6665d0e.avif",
+     "file": "head-wa-204.a2b7a6665d0e.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -957,12 +957,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_210": {
+  "ENTRY_HEAD_WA_210": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-210.e514281858ea.avif",
+     "file": "head-wa-210.e514281858ea.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -972,12 +972,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_216": {
+  "ENTRY_HEAD_WA_216": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-216.038985fe08b8.avif",
+     "file": "head-wa-216.038985fe08b8.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -987,12 +987,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_222": {
+  "ENTRY_HEAD_WA_222": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-222.d875db2f7816.avif",
+     "file": "head-wa-222.d875db2f7816.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -1002,12 +1002,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_228": {
+  "ENTRY_HEAD_WA_228": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-228.52beb71451ef.avif",
+     "file": "head-wa-228.52beb71451ef.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -1017,12 +1017,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_234": {
+  "ENTRY_HEAD_WA_234": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-234.7c58f3358aa3.avif",
+     "file": "head-wa-234.7c58f3358aa3.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -1032,12 +1032,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_240": {
+  "ENTRY_HEAD_WA_240": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-240.d9bfa815301d.avif",
+     "file": "head-wa-240.d9bfa815301d.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,
@@ -1047,12 +1047,12 @@
     }
    ]
   },
-  "ENTRY_HEAD_246": {
+  "ENTRY_HEAD_WA_246": {
    "frames": 10,
    "loop": false,
    "chunks": [
     {
-     "file": "head-246.d881a56d58ad.avif",
+     "file": "head-wa-246.d881a56d58ad.avif",
      "frames": 10,
      "rows": 3,
      "w": 1736,

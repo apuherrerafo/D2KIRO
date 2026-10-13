@@ -1,11 +1,14 @@
 // Renders the Coach Motion V2 production source frames with the REAL Gold Master stage (HeroCoachStage, "lite", WebGL, headless Chromium).
-// usage: node scripts/coach-motion-v2/capture.mjs --px 384,512 --out <frames dir> [--only watching,analyzing,tail,head-006]
+// usage: node scripts/coach-motion-v2/capture.mjs --px 384,512 --out <frames dir> [--graph graph.json] [--only <frames folder | loop id | edge id>,...] [--plan-only]
+// The job list is DERIVED from graph.json (plan.mjs planJobs): every loop, and per edge its tail and one head per phase of its stride grid. Nothing here names a state or an edge.
+// The pack-size gate runs first: a projection above the STOP ceiling aborts before any frame is rendered (pass --over-budget to override knowingly).
 //        env: SESSION_SECRET (the lab server's), CM_BASE (default http://localhost:3162)
 // Output: <out>/<px>/<job>/f0000.png ... , <out>/<px>/hashes.json (sha256 of every PNG), <out>/capture-report.json
 // The poses of every frame come from apps/web/features/coach-motion/loop-pose.ts (pure, tested) on a 120 Hz fixed-step simulation sampled at 30 fps.
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { launch, BASE } from "./lib.mjs";
+import { GRAPH_FILE, estimatePack, loadGraph, planJobs, renderPlan, selectJobs } from "./plan.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -14,7 +17,14 @@ const arg = (name, fallback) => {
 const OUT = arg("out");
 if (!OUT) throw new Error("--out <frames dir> is required (outside the repo, or in a gitignored folder)");
 const PX = arg("px", "384,512").split(",").map(Number);
-const ONLY = arg("only", "")?.split(",").filter(Boolean);
+const ONLY = arg("only", "").split(",").filter(Boolean);
+const graph = loadGraph(arg("graph", GRAPH_FILE));
+const plan = estimatePack(graph);
+console.log(renderPlan(plan));
+if (plan.status !== "OK" && !process.argv.includes("--over-budget")) throw new Error(`STOP: ${plan.reasons.join("; ")}`);
+const jobs = selectJobs(planJobs(graph), ONLY);
+console.log(`${jobs.length} capture jobs, ${jobs.reduce((n, j) => n + j.frames, 0)} frames`);
+if (process.argv.includes("--plan-only")) process.exit(0);
 const SLICE = 30; // poses per round trip: keeps every CDP message a few MB
 
 const { browser, ctx } = await launch();
@@ -28,16 +38,14 @@ const selfCheck = await page.evaluate(() => window.__coachCapture.production.sel
 console.log("renderer:", renderer, "| loop-pose vs HeroCoachStage.update max abs pose diff:", selfCheck);
 if (!(selfCheck < 1e-9)) throw new Error(`loop-pose smoothing no longer matches the Live stage (${selfCheck})`);
 
-const phases = Array.from({ length: 42 }, (_, i) => i * 6);
-const jobs = [{ name: "watching", job: { kind: "watching" } }, { name: "analyzing", job: { kind: "analyzing" } }, { name: "tail", job: { kind: "tail" } }, ...phases.map((p) => ({ name: `head-${String(p).padStart(3, "0")}`, job: { kind: "head", phase: p } }))].filter((j) => !ONLY.length || ONLY.includes(j.name));
-
 const report = { renderer, selfCheckMaxAbsPoseDiff: selfCheck, base: BASE, px: {}, errors };
 for (const px of PX) {
   const hashes = {};
   const t0 = Date.now();
   await page.evaluate((n) => (window.__stage = window.__coachCapture.production.open(n)), px);
-  for (const { name, job } of jobs) {
+  for (const { name, job, frames } of jobs) {
     const poses = await page.evaluate((j) => window.__coachCapture.production.poses(j), job);
+    if (poses.length !== frames) throw new Error(`${name}: ${poses.length} poses, graph.json says ${frames}`);
     const dir = `${OUT}/${px}/${name}`;
     mkdirSync(dir, { recursive: true });
     writeFileSync(`${dir}/poses.json`, JSON.stringify(poses));
