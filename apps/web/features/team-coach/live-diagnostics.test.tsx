@@ -119,6 +119,24 @@ describe("live diagnostics -- states", () => {
     expect(text).not.toContain(": YES");
   });
 
+  test("answers which Companion / visual runtime is on the PC and how the LAST draft was read, even after captureHealth went green", () => {
+    const afterFailedDraft = report(
+      liveStatus("s", {
+        connection: "connected",
+        draftPhase: "ended",
+        captureHealth: "ok",
+        visual: { active: true, health: "ok", detail: "VISUAL_OK", lastEventAgeMs: 300, draft: { health: "degraded", detail: "VISUAL_SLOTS_UNREAD" } },
+        companion: { version: "0.1.0", dota: "connected", phase: "MATCH", restartNeeded: false, visual: "running", visualVersion: "0.1.1", active: true, lastSeenAgeMs: 2000 },
+      }),
+    );
+    expect(line(afterFailedDraft, "captureHealth")).toBe("ok");
+    expect(["companion.version", "visual.runtimeVersion", "visual.helperState", "visual.health", "visual.detail", "visual.draft.health", "visual.draft.detail"].map((key) => line(afterFailedDraft, key))).toEqual(["0.1.0", "0.1.1", "running", "ok", "VISUAL_OK", "degraded", "VISUAL_SLOTS_UNREAD"]);
+
+    // An old Companion / engine says nothing: "none", never a guess.
+    const oldStack = report(liveStatus("s", { connection: "connected", companion: { version: "0.1.0", dota: "connected", phase: null, restartNeeded: false, active: true, lastSeenAgeMs: 1 } }));
+    expect([line(oldStack, "companion.version"), line(oldStack, "visual.runtimeVersion"), line(oldStack, "visual.draft.health")]).toEqual(["0.1.0", "none", "none"]);
+  });
+
   test("capability transitions: menu heartbeat -> partial draft -> full draft with progression -> match telemetry", () => {
     const linked = liveStatus("s", { connection: "waiting" });
     expect(line(report(linked), "firstGsiPacket")).toBe("NO");
@@ -224,6 +242,13 @@ describe("Copiar diagnóstico", () => {
           "draftPhase: hero_selection",
           "captureHealth: degraded",
           "captureDetail: GSI_DRAFT_PARTIAL",
+          "companion.version: none",
+          "visual.runtimeVersion: none",
+          "visual.helperState: none",
+          "visual.health: none",
+          "visual.detail: none",
+          "visual.draft.health: none",
+          "visual.draft.detail: none",
           "counts.bans: 0",
           "counts.picks: 1",
           "counts.deferredPicks: 0",

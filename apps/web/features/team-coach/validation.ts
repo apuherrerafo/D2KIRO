@@ -110,12 +110,18 @@ function isVisualStatus(value: unknown): value is LiveVisualStatus {
     isNullable(value.detail, isString) &&
     typeof value.lastEventAgeMs === "number" &&
     Number.isFinite(value.lastEventAgeMs) &&
-    value.lastEventAgeMs >= 0
+    value.lastEventAgeMs >= 0 &&
+    (value.draft === undefined || isNullable(value.draft, isVisualDraftHealth))
   );
+}
+
+function isVisualDraftHealth(value: unknown): value is { health: "ok" | "degraded" | "lost"; detail: string | null } {
+  return isRecord(value) && (value.health === "ok" || value.health === "degraded" || value.health === "lost") && isNullable(value.detail, isString);
 }
 
 const COMPANION_DOTA = new Set(["connected", "waiting", "not_running"]);
 const COMPANION_VISUAL = new Set(["absent", "downloading", "failed", "restarting", "running"]);
+const SEMVER = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const COMPANION_PHASES = new Set(["MENU", "LOADING", "HERO_SELECTION", "STRATEGY_TIME", "MATCH", "POST_GAME", "OTHER"]);
 
 function isCompanionStatus(value: unknown): value is LiveCompanionStatus {
@@ -127,6 +133,7 @@ function isCompanionStatus(value: unknown): value is LiveCompanionStatus {
     (value.phase === null || (typeof value.phase === "string" && COMPANION_PHASES.has(value.phase))) &&
     typeof value.restartNeeded === "boolean" &&
     (value.visual === undefined || value.visual === null || (typeof value.visual === "string" && COMPANION_VISUAL.has(value.visual))) &&
+    (value.visualVersion === undefined || value.visualVersion === null || (typeof value.visualVersion === "string" && SEMVER.test(value.visualVersion))) &&
     typeof value.active === "boolean" &&
     typeof value.lastSeenAgeMs === "number" &&
     Number.isFinite(value.lastSeenAgeMs) &&

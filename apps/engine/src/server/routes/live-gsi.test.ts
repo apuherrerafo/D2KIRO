@@ -446,7 +446,7 @@ describe("D2KIRO Companion heartbeat (/api/live/companion/<liveId>)", () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("");
     const status = t.status(issued.sessionId);
-    expect(status.companion).toEqual({ version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, visual: null, active: true, lastSeenAgeMs: 0 });
+    expect(status.companion).toEqual({ version: "0.1.0", dota: "not_running", phase: null, restartNeeded: false, visual: null, visualVersion: null, active: true, lastSeenAgeMs: 0 });
     // Presence only: GSI's own connection and the draft are untouched.
     expect(status.connection).toBe("waiting");
     expect(status.gsi).toBeNull();
@@ -501,6 +501,19 @@ describe("D2KIRO Companion heartbeat (/api/live/companion/<liveId>)", () => {
     expect(parseCompanionHeartbeat({ companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "connected", phase: null, restartNeeded: false } })?.visual).toBeNull();
   });
 
+  test("the visual runtime build the Companion pins is reported (x.y.z only); older Companions simply omit it", async () => {
+    const t = setup();
+    const issued = await t.issue(ACCOUNT_A);
+    expect((await t.beat(issued.liveId, heartbeat(issued.token, { visual: "running", visualVersion: "0.1.1" }))).status).toBe(200);
+    expect(t.status(issued.sessionId).companion).toMatchObject({ version: "0.1.0", visual: "running", visualVersion: "0.1.1" });
+    for (const bad of ["", "0.1", "latest", "0.1.1; rm -rf", 11, null, ["0.1.1"]]) {
+      expect((await t.beat(issued.liveId, heartbeat(issued.token, { visualVersion: bad }))).status).toBe(400);
+    }
+    expect(t.status(issued.sessionId).companion?.visualVersion).toBe("0.1.1");
+    expect((await t.beat(issued.liveId, heartbeat(issued.token, { visual: "running" }))).status).toBe(200);
+    expect(t.status(issued.sessionId).companion?.visualVersion).toBeNull();
+  });
+
   test("anything that is not exactly a heartbeat -> 400; oversized -> 413", async () => {
     const t = setup();
     const issued = await t.issue(ACCOUNT_A);
@@ -514,7 +527,7 @@ describe("D2KIRO Companion heartbeat (/api/live/companion/<liveId>)", () => {
   });
 
   test("parseCompanionHeartbeat keeps only the five known fields", () => {
-    expect(parseCompanionHeartbeat({ companion: { schema: "companion-heartbeat/v1", version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, steamid: "765" } })).toEqual({ version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, visual: null });
+    expect(parseCompanionHeartbeat({ companion: { schema: "companion-heartbeat/v1", version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, steamid: "765" } })).toEqual({ version: "1.2.3", dota: "connected", phase: "MATCH", restartNeeded: false, visual: null, visualVersion: null });
     expect(parseCompanionHeartbeat({ companion: [] })).toBeNull();
     expect(parseCompanionHeartbeat(null)).toBeNull();
   });

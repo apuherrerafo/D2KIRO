@@ -10,9 +10,28 @@ const OK = { active: true, health: "ok" as const, detail: "VISUAL_OK", lastEvent
 const UNREAD = { active: true, health: "degraded" as const, detail: "VISUAL_SLOTS_UNREAD", lastEventAgeMs: 100 };
 const UNVERIFIED = { active: true, health: "degraded" as const, detail: "VISUAL_LAYOUT_UNVERIFIED", lastEventAgeMs: 100 };
 
+const DRAFT_READ_BADLY = { ...OK, draft: { health: "degraded" as const, detail: "VISUAL_SLOTS_UNREAD" } };
+
 function companion(visual: LiveCompanionVisual | null, active = true) {
   return { version: "0.1.0", dota: "not_running" as const, phase: null, restartNeeded: false, visual, active, lastSeenAgeMs: 1000 };
 }
+
+describe("visualPill after the draft", () => {
+  test("a draft the helper read badly is not turned into a healthy-looking state once the helper says VISUAL_OK again", () => {
+    expect(visualPill(status({ draftPhase: "ended", visual: DRAFT_READ_BADLY })).text).toBe("● Draft terminado · lectura incompleta");
+    // Even when the helper has stopped reporting altogether.
+    expect(visualPill(status({ draftPhase: "ended", visual: { ...DRAFT_READ_BADLY, active: false } })).text).toBe("● Draft terminado · lectura incompleta");
+  });
+
+  test("a draft that was read fine, or no draft health at all (older engine), is just 'Draft terminado'", () => {
+    expect(visualPill(status({ draftPhase: "ended", visual: { ...OK, draft: { health: "ok", detail: "VISUAL_OK" } } })).text).toBe("● Draft terminado");
+    expect(visualPill(status({ draftPhase: "ended", visual: OK })).text).toBe("● Draft terminado");
+  });
+
+  test("the warning belongs to the finished draft: before the next one it is gone", () => {
+    expect(visualPill(status({ draftPhase: "waiting", visual: { ...OK, draft: null } })).text).toContain("Draft automático activo");
+  });
+});
 
 describe("visualPill (draft automático en lenguaje llano)", () => {
   test("sin captura visual y sin Companion que diga nada: no disponible, nunca un proceso que reiniciar", () => {

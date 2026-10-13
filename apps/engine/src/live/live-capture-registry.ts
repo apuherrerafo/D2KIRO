@@ -62,6 +62,12 @@ export interface LiveVisualStatus {
   detail: string | null;
   /** Server clock: ms since the last visual event. */
   lastEventAgeMs: number;
+  /**
+   * The helper's last word WHILE a draft was open. `health`/`detail` above are its current word, and outside a
+   * draft the helper says VISUAL_OK every second -- which would otherwise erase that a draft was read badly.
+   * Stays until the next draft starts; null before any draft was observed.
+   */
+  draft: { health: "ok" | "degraded" | "lost"; detail: string | null } | null;
 }
 
 /** What D2KIRO Companion (the Player's local background app) reports in its heartbeat. Never identity. */
@@ -85,6 +91,8 @@ export interface LiveCompanionHeartbeat {
   restartNeeded: boolean;
   /** The visual helper's state on that PC; null when the Companion is too old to say. */
   visual: LiveCompanionVisual | null;
+  /** Which visual runtime build the Companion supervises (its pinned version, e.g. "0.1.1"); null when too old to say. */
+  visualVersion: string | null;
 }
 
 export interface LiveCompanionStatus extends LiveCompanionHeartbeat {
@@ -167,6 +175,8 @@ interface LiveEntry {
   rejectedFacts: number;
   gsi: LiveGsiObserved | null;
   visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
+  /** The visual helper's last health while this draft was open (see LiveVisualStatus.draft). A new draft starts without it. */
+  visualDraft: { health: "ok" | "degraded" | "lost"; detail: string | null } | null;
   companion: (LiveCompanionHeartbeat & { lastAt: number }) | null;
   /** Last GSI update (any phase, heartbeats included). Survives a draft restart: it is the connection. */
   lastGsiAt: number | null;
@@ -304,6 +314,7 @@ export class LiveCaptureRegistry {
     if (!VISUAL_FACT_PAYLOADS.has(payload.type)) return { accepted: true, changed: false, ignored: "visual_not_allowed", status: this.status(sessionId)! };
     if (payload.type === "capture_health") {
       entry.visual = { health: payload.status, detail: payload.detail ?? null, lastAt: this.now() };
+      if (entry.facts.started && !entry.ended) entry.visualDraft = { health: payload.status, detail: payload.detail ?? null };
       return { accepted: true, changed: false, status: this.status(sessionId)! };
     }
     entry.visual = { health: entry.visual?.health ?? "ok", detail: entry.visual?.detail ?? null, lastAt: this.now() };
@@ -519,6 +530,7 @@ export class LiveCaptureRegistry {
       rejectedFacts: 0,
       gsi: null,
       visual: null,
+      visualDraft: null,
       companion: null,
       lastGsiAt: null,
       gsiDraftFacts: null,
@@ -548,7 +560,7 @@ function captureOf(entry: LiveEntry, now: number): { captureHealth: LiveCaptureH
 function visualStatusOf(entry: LiveEntry, now: number): LiveVisualStatus | null {
   if (entry.visual === null) return null;
   const lastEventAgeMs = Math.max(0, now - entry.visual.lastAt);
-  return { active: lastEventAgeMs <= LIVE_STALE_AFTER_MS, health: entry.visual.health, detail: entry.visual.detail, lastEventAgeMs };
+  return { active: lastEventAgeMs <= LIVE_STALE_AFTER_MS, health: entry.visual.health, detail: entry.visual.detail, lastEventAgeMs, draft: entry.visualDraft };
 }
 
 function companionStatusOf(entry: LiveEntry, now: number): LiveCompanionStatus | null {

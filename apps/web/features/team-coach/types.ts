@@ -119,6 +119,8 @@ export interface LiveVisualStatus {
   health: "ok" | "degraded" | "lost";
   detail: string | null;
   lastEventAgeMs: number;
+  /** The helper's last word while a draft was open: it survives the draft, `health` does not (absent from older engines). */
+  draft?: { health: "ok" | "degraded" | "lost"; detail: string | null } | null;
 }
 
 /** D2KIRO Companion's Dota state on the Player's PC. Mirror of the engine's LiveCompanionDota. */
@@ -136,6 +138,8 @@ export interface LiveCompanionStatus {
   restartNeeded: boolean;
   /** The visual helper's state on that PC (absent from older Companions/engines). */
   visual?: LiveCompanionVisual | null;
+  /** The visual runtime build the Companion supervises, e.g. "0.1.1" (absent from older Companions/engines). */
+  visualVersion?: string | null;
   active: boolean;
   lastSeenAgeMs: number;
 }
