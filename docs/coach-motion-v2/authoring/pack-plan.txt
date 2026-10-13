@@ -1,16 +1,16 @@
 EDGE                    SRC FRAMES  STRIDE  ENTRY          HEADS  HEAD MB  TAIL FRAMES  TAIL MB
-watching>analyzing      252         6       nearest-head   42     2.94     35           0.23
-analyzing>pointing      210         3       nearest-head   70     4.48     35           0.25
-pointing>confirming     112         3       nearest-head   38     2.93     35           0.27
-confirming>pointing     112         6       nearest-head   19     1.46     35           0.27
-pointing>watching       112         3       nearest-head   38     2.93     35           0.26
+watching>analyzing      252         6       nearest-head   42     2.95     35           0.24
+analyzing>pointing      210         3       nearest-head   70     4.49     35           0.22
+pointing>confirming     112         3       nearest-head   38     2.33     35           0.23
+confirming>pointing     112         6       nearest-head   19     1.29     35           0.23
+pointing>watching       112         3       nearest-head   38     2.33     35           0.23
 
 LOOP          FRAMES  SECONDS  KB/FRAME  MB     RATE
-watching      252     8.40     7.00      1.76   measured
+watching      252     8.40     7.03      1.77   measured
 analyzing     210     7.00     6.41      1.35   measured
-pointing      112     3.73     7.70      0.86   ESTIMATE
-confirming    112     3.73     7.70      0.86   ESTIMATE
+pointing      112     3.73     6.12      0.69   measured
+confirming    112     3.73     6.80      0.76   measured
 
-loops 4.83 MB + heads 14.74 MB + tails 1.28 MB = 20.85 MB over 2931 frames (STOP ceiling 24.00 MB)
-first load (watching > analyzing): 3.48 MB (limit 8.00 MB)
+loops 4.56 MB + heads 13.38 MB + tails 1.14 MB = 19.09 MB over 2931 frames (STOP ceiling 24.00 MB)
+first load (watching > analyzing): 3.49 MB (limit 8.00 MB)
 STATUS: OK

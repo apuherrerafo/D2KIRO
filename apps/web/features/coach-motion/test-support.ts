@@ -27,6 +27,10 @@ const cloneClip = (c: ProdClipMeta): ProdClipMeta => JSON.parse(JSON.stringify(c
     Chunk files are not read by the fake loader, only their real w x h x frames. The result goes through parseManifest, so the graph rules apply to it too. */
 export function graphManifest(pack: "384" | "512" = "384"): ProdManifest {
   const m = realManifest(pack);
+  // the hypothetical graph grows from the WATCHING / ANALYZING part of the real pack (its real chunk geometry): whatever else the committed pack holds is dropped first
+  m.graph.loops = { watching: m.graph.loops.watching, analyzing: m.graph.loops.analyzing };
+  m.graph.edges = m.graph.edges.filter((e) => e.id === "watching>analyzing");
+  m.clips = Object.fromEntries(Object.entries(m.clips).filter(([id]) => id === WATCHING_LOOP || id === ANALYZING_LOOP || id === TRANSITION_TAIL || id.startsWith(HEAD_PREFIX)));
   const watching = m.clips[WATCHING_LOOP].frames;
   const analyzing = m.clips[ANALYZING_LOOP].frames;
   m.clips.POINTING_LOOP = cloneClip(m.clips[ANALYZING_LOOP]);

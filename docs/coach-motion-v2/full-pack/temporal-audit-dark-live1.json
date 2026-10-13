@@ -1,0 +1,335 @@
+{
+ "base": "http://127.0.0.1:3181",
+ "lab": "http://127.0.0.1:3181/lab/coach-motion-v2/full-pack?theme=dark&live=1",
+ "runs": [
+  {
+   "run": 0,
+   "paints": 703,
+   "firstPaintAfterCycleStartMs": 31.5,
+   "playback": {
+    "n": 702,
+    "median": 33.3,
+    "p95": 41.4,
+    "p99": 45.6,
+    "max": 50.8,
+    "over50": 1,
+    "over100": 0,
+    "over150": 0
+   },
+   "frozenOver500": 0,
+   "seams": {
+    "loopWrap": {
+     "n": 0,
+     "max": null,
+     "median": null
+    },
+    "loopToHead": {
+     "n": 5,
+     "max": 38.1,
+     "median": 34.3
+    },
+    "headToTail": {
+     "n": 5,
+     "max": 37.8,
+     "median": 33.5
+    },
+    "tailToLoop": {
+     "n": 5,
+     "max": 39.3,
+     "median": 33.1
+    }
+   },
+   "successorViolations": [],
+   "successorViolationCount": 0,
+   "duplicates": 0,
+   "skips": 0,
+   "cues": [
+    {
+     "edge": "watching>analyzing",
+     "taken": true,
+     "cueToHeadMs": 57.9,
+     "loopFramesWhileArming": 1,
+     "head": "ENTRY_HEAD_WA_078",
+     "reachedTarget": true,
+     "cueToTargetLoopMs": 1562.3
+    },
+    {
+     "edge": "analyzing>pointing",
+     "taken": true,
+     "cueToHeadMs": 61.1,
+     "loopFramesWhileArming": 1,
+     "head": "ENTRY_HEAD_AP_081",
+     "reachedTarget": true,
+     "cueToTargetLoopMs": 1561.8
+    },
+    {
+     "edge": "pointing>confirming",
+     "taken": true,
+     "cueToHeadMs": 57.7,
+     "loopFramesWhileArming": 1,
+     "head": "ENTRY_HEAD_PC_081",
+     "reachedTarget": true,
+     "cueToTargetLoopMs": 1567.7
+    },
+    {
+     "edge": "confirming>pointing",
+     "taken": true,
+     "cueToHeadMs": 55.7,
+     "loopFramesWhileArming": 1,
+     "head": "ENTRY_HEAD_CP_078",
+     "reachedTarget": true,
+     "cueToTargetLoopMs": 1572.4
+    },
+    {
+     "edge": "pointing>watching",
+     "taken": true,
+     "cueToHeadMs": 43.8,
+     "loopFramesWhileArming": 1,
+     "head": "ENTRY_HEAD_PW_081",
+     "reachedTarget": true,
+     "cueToTargetLoopMs": 1548.6
+    }
+   ],
+   "ownership": {
+    "loop": {
+     "maxChunks": 2,
+     "maxBytes": 15638528
+    },
+    "armed": {
+     "maxChunks": 3,
+     "maxBytes": 21502976
+    },
+    "transition": {
+     "maxChunks": 4,
+     "maxBytes": 27367424
+    }
+   },
+   "idleHeadTailRequests": [],
+   "headTailRequests": {
+    "total": 31,
+    "insideCueWindows": 31
+   },
+   "network": {
+    "requests": 71,
+    "overNetwork": 57,
+    "bytesOverNetwork": 4532963,
+    "byKind": {
+     "manifest": 0,
+     "loop": 40,
+     "head": 16,
+     "tail": 15
+    }
+   },
+   "events": [
+    {
+     "t": 0,
+     "kind": "start",
+     "to": "watching"
+    },
+    {
+     "t": 2603.7,
+     "kind": "cue",
+     "from": "watching",
+     "to": "analyzing",
+     "taken": true
+    },
+    {
+     "t": 4166,
+     "kind": "arrive",
+     "from": "watching",
+     "to": "analyzing"
+    },
+    {
+     "t": 6770.2,
+     "kind": "cue",
+     "from": "analyzing",
+     "to": "pointing",
+     "taken": true
+    },
+    {
+     "t": 8332,
+     "kind": "arrive",
+     "from": "analyzing",
+     "to": "pointing"
+    },
+    {
+     "t": 10936.5,
+     "kind": "cue",
+     "from": "pointing",
+     "to": "confirming",
+     "taken": true
+    },
+    {
+     "t": 12504.2,
+     "kind": "arrive",
+     "from": "pointing",
+     "to": "confirming"
+    },
+    {
+     "t": 15105.4,
+     "kind": "cue",
+     "from": "confirming",
+     "to": "pointing",
+     "taken": true
+    },
+    {
+     "t": 16677.8,
+     "kind": "arrive",
+     "from": "confirming",
+     "to": "pointing"
+    },
+    {
+     "t": 19286,
+     "kind": "cue",
+     "from": "pointing",
+     "to": "watching",
+     "taken": true
+    },
+    {
+     "t": 20834.6,
+     "kind": "arrive",
+     "from": "pointing",
+     "to": "watching"
+    },
+    {
+     "t": 23437,
+     "kind": "done"
+    }
+   ]
+  }
+ ],
+ "checks": {
+  "every run cued every hop of the cycle and reached every target loop (no frozen state, no refused cue)": {
+   "ok": true,
+   "detail": "[[\"watching>analyzing:true\",\"analyzing>pointing:true\",\"pointing>confirming:true\",\"confirming>pointing:true\",\"pointing>watching:true\"]]"
+  },
+  "CURRENT / NEXT ownership bounded: resident chunks <= {\"loop\":2,\"armed\":7,\"transition\":5} per mode": {
+   "ok": true,
+   "detail": "[{\"loop\":{\"maxChunks\":2,\"maxBytes\":15638528},\"armed\":{\"maxChunks\":3,\"maxBytes\":21502976},\"transition\":{\"maxChunks\":4,\"maxBytes\":27367424}}]"
+  },
+  "cue-armed loading only: no entry head / tail chunk requested while no cue was pending, and every one of them inside a cue -> arrival window": {
+   "ok": true,
+   "detail": "[[[],{\"total\":31,\"insideCueWindows\":31}]]"
+  },
+  "every painted step is a graph successor: no duplicated or skipped authored frame, no skipped transition opening": {
+   "ok": true,
+   "detail": "[[]]"
+  },
+  "no frozen interval >= 500 ms during playback": {
+   "ok": true,
+   "detail": "[50.8]"
+  },
+  "no paint interval > 100 ms during playback (initial loading excluded)": {
+   "ok": true,
+   "detail": "[{\"n\":702,\"median\":33.3,\"p95\":41.4,\"p99\":45.6,\"max\":50.8,\"over50\":1,\"over100\":0,\"over150\":0}]"
+  },
+  "each hop played exactly the cued edge's head (entry within maxStepFrames, checked above) and the cue armed within 1 s": {
+   "ok": true,
+   "detail": "[[57.9,61.1,57.7,55.7,43.8]]"
+  },
+  "held loops: two laps with nothing cued request NO entry head / tail chunk (cue-armed only, no idle head churn)": {
+   "ok": true,
+   "detail": "[[\"watching\",0],[\"analyzing\",0],[\"pointing\",0],[\"confirming\",0]]"
+  },
+  "held loops: the second lap is served by the HTTP cache (immutable chunks)": {
+   "ok": true,
+   "detail": "[[\"watching\",37,9],[\"analyzing\",31,8],[\"pointing\",17,1],[\"confirming\",17,1]]"
+  },
+  "held loops: no other clip painted, the loop wraps, no interval >= 500 ms": {
+   "ok": true,
+   "detail": "[[\"watching\",2,50.3,[]],[\"analyzing\",2,37.7,[]],[\"pointing\",2,37.8,[]],[\"confirming\",2,49.9,[]]]"
+  },
+  "no page errors": {
+   "ok": true,
+   "detail": ""
+  }
+ },
+ "firstMotionMs": 7977,
+ "clockSkew": 23203745.809,
+ "decode": [
+  {
+   "file": "tail-pw-01.34c26f290fbc.avif",
+   "w": 1328,
+   "h": 1472,
+   "decodedMB": 7.46,
+   "bytes": 98737,
+   "decodeMs": [
+    24.3,
+    27.3,
+    26.6
+   ]
+  },
+  {
+   "file": "tail-pw-02.83a73b2a2dfc.avif",
+   "w": 1328,
+   "h": 736,
+   "decodedMB": 3.73,
+   "bytes": 49445,
+   "decodeMs": [
+    13.6,
+    19.1,
+    13.2
+   ]
+  },
+  {
+   "file": "head-pw-111.c0f7960cc5bd.avif",
+   "w": 1328,
+   "h": 1104,
+   "decodedMB": 5.59,
+   "bytes": 66186,
+   "decodeMs": [
+    22.5,
+    22.7,
+    18.8
+   ]
+  }
+ ],
+ "holds": [
+  {
+   "loop": "watching",
+   "laps": 2,
+   "paints": 513,
+   "headOrTailRequests": 0,
+   "loopRequests": 37,
+   "loopRequestsOverNetwork": 9,
+   "maxIntervalMs": 50.3,
+   "wraps": 2,
+   "otherClips": []
+  },
+  {
+   "loop": "analyzing",
+   "laps": 2,
+   "paints": 429,
+   "headOrTailRequests": 0,
+   "loopRequests": 31,
+   "loopRequestsOverNetwork": 8,
+   "maxIntervalMs": 37.7,
+   "wraps": 2,
+   "otherClips": []
+  },
+  {
+   "loop": "pointing",
+   "laps": 2,
+   "paints": 233,
+   "headOrTailRequests": 0,
+   "loopRequests": 17,
+   "loopRequestsOverNetwork": 1,
+   "maxIntervalMs": 37.8,
+   "wraps": 2,
+   "otherClips": []
+  },
+  {
+   "loop": "confirming",
+   "laps": 2,
+   "paints": 233,
+   "headOrTailRequests": 0,
+   "loopRequests": 17,
+   "loopRequestsOverNetwork": 1,
+   "maxIntervalMs": 49.9,
+   "wraps": 2,
+   "otherClips": []
+  }
+ ],
+ "errors": [],
+ "failures": []
+}

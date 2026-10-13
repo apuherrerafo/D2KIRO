@@ -1,0 +1,25 @@
+LOOP          FRAMES  BYTES       MB      B/FRAME
+watching      252     1770612     1.771   7026
+analyzing     210     1345947     1.346   6409
+pointing      112     685937      0.686   6124
+confirming    112     762108      0.762   6805
+
+EDGE                  HEADS  HEAD BYTES   HEAD MB  B/FRAME  TAIL BYTES  TAIL MB
+watching>analyzing    42     2905853      2.906    6919     241758      0.242
+analyzing>pointing    70     4625749      4.626    6608     218337      0.218
+pointing>confirming   38     2609388      2.609    6867     245532      0.246
+confirming>pointing   19     1288424      1.288    6781     218318      0.218
+pointing>watching     38     2505773      2.506    6594     249304      0.249
+
+TOTAL loops 4.565 MB + heads 13.935 MB + tails 1.173 MB = 19.673 MB (19673040 bytes, 271 chunk files)
+first animated frame: 0.181 MB (manifest 84466 B + first chunk); with the next chunk the player asks for at the same time: 0.275 MB
+common path · watching lap: 1.855 MB
+common path · watching>analyzing ready (worst 2 armed heads + tail opening): 2.092 MB
+common path · through analyzing (tail + one lap): 3.582 MB
+common path · analyzing>pointing ready (worst 4 armed heads + tail opening): 3.948 MB
+common path · through pointing (tail + one lap): 4.765 MB
+common path · pointing>confirming ready (worst 4 armed heads + tail opening): 5.140 MB
+common path · through confirming (tail + one lap): 6.048 MB
+PASS total 19673040 <= packCeilingBytes 24000000
+PASS totalBytes == sum of chunk bytes
+PASS first load (watching > analyzing) 3582202 <= firstLoadBytes 8000000

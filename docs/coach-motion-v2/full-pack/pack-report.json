@@ -1,0 +1,256 @@
+{
+ "budgetPath": {
+  "pack": "apps/web/public/coach-motion-v2/prod/384",
+  "manifestBytes": 84466,
+  "totalBytes": 19673040,
+  "chunkFiles": 271,
+  "chunkBytes": 19673040,
+  "loops": {
+   "watching": {
+    "clip": "WATCHING_LOOP",
+    "frames": 252,
+    "bytes": 1770612,
+    "bytesPerFrame": 7026.238095238095
+   },
+   "analyzing": {
+    "clip": "ANALYZING_LOOP",
+    "frames": 210,
+    "bytes": 1345947,
+    "bytesPerFrame": 6409.271428571428
+   },
+   "pointing": {
+    "clip": "POINTING_LOOP",
+    "frames": 112,
+    "bytes": 685937,
+    "bytesPerFrame": 6124.4375
+   },
+   "confirming": {
+    "clip": "CONFIRMING_LOOP",
+    "frames": 112,
+    "bytes": 762108,
+    "bytesPerFrame": 6804.535714285715
+   }
+  },
+  "edges": [
+   {
+    "id": "watching>analyzing",
+    "heads": 42,
+    "headBytes": 2905853,
+    "headBytesPerFrame": 6918.697619047619,
+    "tail": "TAIL_WA",
+    "tailBytes": 241758,
+    "armHeads": 2,
+    "maxHeadBytes": 69744
+   },
+   {
+    "id": "analyzing>pointing",
+    "heads": 70,
+    "headBytes": 4625749,
+    "headBytesPerFrame": 6608.2128571428575,
+    "tail": "TAIL_AP",
+    "tailBytes": 218337,
+    "armHeads": 4,
+    "maxHeadBytes": 69734
+   },
+   {
+    "id": "pointing>confirming",
+    "heads": 38,
+    "headBytes": 2609388,
+    "headBytesPerFrame": 6866.8105263157895,
+    "tail": "TAIL_PC",
+    "tailBytes": 245532,
+    "armHeads": 4,
+    "maxHeadBytes": 68948
+   },
+   {
+    "id": "confirming>pointing",
+    "heads": 19,
+    "headBytes": 1288424,
+    "headBytesPerFrame": 6781.178947368421,
+    "tail": "TAIL_CP",
+    "tailBytes": 218318,
+    "armHeads": 2,
+    "maxHeadBytes": 68257
+   },
+   {
+    "id": "pointing>watching",
+    "heads": 38,
+    "headBytes": 2505773,
+    "headBytesPerFrame": 6594.13947368421,
+    "tail": "TAIL_PW",
+    "tailBytes": 249304,
+    "armHeads": 4,
+    "maxHeadBytes": 66282
+   }
+  ],
+  "totals": {
+   "loops": 4564604,
+   "heads": 13935187,
+   "tails": 1173249,
+   "total": 19673040
+  },
+  "firstFrame": 180824,
+  "firstFrameWithNext": 274790,
+  "path": [
+   "watching",
+   "analyzing"
+  ],
+  "milestones": [
+   {
+    "at": "watching lap",
+    "bytes": 1855078
+   },
+   {
+    "at": "watching>analyzing ready (worst 2 armed heads + tail opening)",
+    "bytes": 2091587
+   },
+   {
+    "at": "through analyzing (tail + one lap)",
+    "bytes": 3582202
+   }
+  ]
+ },
+ "commonPath": {
+  "pack": "apps/web/public/coach-motion-v2/prod/384",
+  "manifestBytes": 84466,
+  "totalBytes": 19673040,
+  "chunkFiles": 271,
+  "chunkBytes": 19673040,
+  "loops": {
+   "watching": {
+    "clip": "WATCHING_LOOP",
+    "frames": 252,
+    "bytes": 1770612,
+    "bytesPerFrame": 7026.238095238095
+   },
+   "analyzing": {
+    "clip": "ANALYZING_LOOP",
+    "frames": 210,
+    "bytes": 1345947,
+    "bytesPerFrame": 6409.271428571428
+   },
+   "pointing": {
+    "clip": "POINTING_LOOP",
+    "frames": 112,
+    "bytes": 685937,
+    "bytesPerFrame": 6124.4375
+   },
+   "confirming": {
+    "clip": "CONFIRMING_LOOP",
+    "frames": 112,
+    "bytes": 762108,
+    "bytesPerFrame": 6804.535714285715
+   }
+  },
+  "edges": [
+   {
+    "id": "watching>analyzing",
+    "heads": 42,
+    "headBytes": 2905853,
+    "headBytesPerFrame": 6918.697619047619,
+    "tail": "TAIL_WA",
+    "tailBytes": 241758,
+    "armHeads": 2,
+    "maxHeadBytes": 69744
+   },
+   {
+    "id": "analyzing>pointing",
+    "heads": 70,
+    "headBytes": 4625749,
+    "headBytesPerFrame": 6608.2128571428575,
+    "tail": "TAIL_AP",
+    "tailBytes": 218337,
+    "armHeads": 4,
+    "maxHeadBytes": 69734
+   },
+   {
+    "id": "pointing>confirming",
+    "heads": 38,
+    "headBytes": 2609388,
+    "headBytesPerFrame": 6866.8105263157895,
+    "tail": "TAIL_PC",
+    "tailBytes": 245532,
+    "armHeads": 4,
+    "maxHeadBytes": 68948
+   },
+   {
+    "id": "confirming>pointing",
+    "heads": 19,
+    "headBytes": 1288424,
+    "headBytesPerFrame": 6781.178947368421,
+    "tail": "TAIL_CP",
+    "tailBytes": 218318,
+    "armHeads": 2,
+    "maxHeadBytes": 68257
+   },
+   {
+    "id": "pointing>watching",
+    "heads": 38,
+    "headBytes": 2505773,
+    "headBytesPerFrame": 6594.13947368421,
+    "tail": "TAIL_PW",
+    "tailBytes": 249304,
+    "armHeads": 4,
+    "maxHeadBytes": 66282
+   }
+  ],
+  "totals": {
+   "loops": 4564604,
+   "heads": 13935187,
+   "tails": 1173249,
+   "total": 19673040
+  },
+  "firstFrame": 180824,
+  "firstFrameWithNext": 274790,
+  "path": [
+   "watching",
+   "analyzing",
+   "pointing",
+   "confirming"
+  ],
+  "milestones": [
+   {
+    "at": "watching lap",
+    "bytes": 1855078
+   },
+   {
+    "at": "watching>analyzing ready (worst 2 armed heads + tail opening)",
+    "bytes": 2091587
+   },
+   {
+    "at": "through analyzing (tail + one lap)",
+    "bytes": 3582202
+   },
+   {
+    "at": "analyzing>pointing ready (worst 4 armed heads + tail opening)",
+    "bytes": 3948255
+   },
+   {
+    "at": "through pointing (tail + one lap)",
+    "bytes": 4764575
+   },
+   {
+    "at": "pointing>confirming ready (worst 4 armed heads + tail opening)",
+    "bytes": 5140260
+   },
+   {
+    "at": "through confirming (tail + one lap)",
+    "bytes": 6047700
+   }
+  ]
+ },
+ "gates": [
+  {
+   "gate": "total 19673040 <= packCeilingBytes 24000000",
+   "ok": true
+  },
+  {
+   "gate": "totalBytes == sum of chunk bytes",
+   "ok": true
+  },
+  {
+   "gate": "first load (watching > analyzing) 3582202 <= firstLoadBytes 8000000",
+   "ok": true
+  }
+ ]
+}

@@ -1,0 +1,133 @@
+{
+ "base": "http://127.0.0.1:3181",
+ "checks": {
+  "network: no Three.js / coach-modular.bin on the candidate panels": {
+   "ok": true,
+   "detail": "126 requests"
+  },
+  "network: Motion V2 packs requested": {
+   "ok": true,
+   "detail": "80 requests"
+  },
+  "cue-armed prefetch: an idle WATCHING (two loop passes) requests no entry head and no tail chunk": {
+   "ok": true,
+   "detail": "0 head/tail requests: "
+  },
+  "immutable chunk URLs: the second loop pass is answered by the HTTP cache, no encoded byte crosses the network again": {
+   "ok": true,
+   "detail": "36 loop requests in pass 2, 0 over the network"
+  },
+  "cache headers: fingerprinted chunk = immutable for a year, manifest = revalidated on every load": {
+   "ok": true,
+   "detail": "{\"manifest\":\"public, no-cache\",\"chunk\":\"public, max-age=31536000, immutable\",\"file\":\"watching-00.4a4d6676504a.avif\"}"
+  },
+  "held WATCHING 384: no >= 500 ms freeze, no skipped/duplicated frame": {
+   "ok": true,
+   "detail": "paints 533, max gap 50 ms, skipped 0, dupes 0"
+  },
+  "loop seam 384: WATCHING wraps 251 -> 0 without a stall": {
+   "ok": true,
+   "detail": "wraps 2"
+  },
+  "held WATCHING 512: no >= 500 ms freeze, no skipped/duplicated frame": {
+   "ok": true,
+   "detail": "paints 532, max gap 54 ms, skipped 0, dupes 0"
+  },
+  "loop seam 512: WATCHING wraps 251 -> 0 without a stall": {
+   "ok": true,
+   "detail": "wraps 2"
+  },
+  "transition 384 #0: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 38 ms"
+  },
+  "transition 512 #0: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 34 ms"
+  },
+  "transition 384 #1: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 37 ms"
+  },
+  "transition 512 #1: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 34 ms"
+  },
+  "transition 384 #2: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 37 ms"
+  },
+  "transition 512 #2: head 0..9 -> tail 0..34 -> ANALYZING 0.., nothing skipped": {
+   "ok": true,
+   "detail": "max paint gap 37 ms"
+  },
+  "held ANALYZING 384: no freeze, no skipped frame, seam crossed": {
+   "ok": true,
+   "detail": "paints 240, max gap 50 ms, wraps 1"
+  },
+  "held ANALYZING 512: no freeze, no skipped frame, seam crossed": {
+   "ok": true,
+   "detail": "paints 240, max gap 48 ms, wraps 1"
+  },
+  "reduced motion: NO Motion V2 request (manifest or atlas)": {
+   "ok": true,
+   "detail": "46 requests, 0 motion: "
+  },
+  "reduced motion: static Coach visible": {
+   "ok": true,
+   "detail": "{\"statuses\":[\"static\",\"static\",\"static\",\"static\"],\"sprite\":[\"visible\",\"visible\"]}"
+  },
+  "failure (manifest 404): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: manifest 384: 404) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "failure (atlas fetch aborted): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: 384/WATCHING_LOOP#0: Failed to fetch) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "failure (AVIF size mismatch): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: 384/WATCHING_LOOP#0: watching-00.4a4d6676504a.avif: 11 bytes, manifest says 96358) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "failure (AVIF decode error (right size, junk bytes)): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: 384/WATCHING_LOOP#0: The source image could not be decoded.) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "failure (timeout): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: timeout waiting for the first Motion V2 frame) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "failure (mid-session: a required loop chunk fails after its retry): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: 384/WATCHING_LOOP#3: Failed to fetch) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "failure (mid-session: a required loop chunk hangs (stall watchdog)): static Coach stays visible, canvas hidden": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"spriteVisible\":true,\"canvasVisible\":false,\"litLayers\":1,\"loaded\":true,\"readout\":\"STATIC (Motion V2 failed: stalled 1504 ms waiting for 384/WATCHING_LOOP#2) · 0.0 MB decoded · 0 loads\"}"
+  },
+  "entry head fetch aborted: Motion V2 stays alive (speculative failure is non-fatal), WATCHING keeps playing": {
+   "ok": true,
+   "detail": "status motion, transition frames 0"
+  },
+  "a request that can never start falls back after the watchdog, and the STATIC Coach shows the requested state": {
+   "ok": true,
+   "detail": "{\"status\":\"failed\",\"staticState\":\"analyzing\",\"canvas\":\"hidden\"}"
+  },
+  "hidden tab: no frame is painted and the clock does not run": {
+   "ok": true,
+   "detail": "0 paints while hidden"
+  },
+  "hidden tab -> visible: playback resumes on the very next frame (no jump, no skipped frame)": {
+   "ok": true,
+   "detail": "paints after 23, resumed at 49, held at 48"
+  },
+  "off-screen: no frame is painted and the clock does not run": {
+   "ok": true,
+   "detail": "0 paints while hidden"
+  },
+  "off-screen -> visible: playback resumes on the very next frame (no jump, no skipped frame)": {
+   "ok": true,
+   "detail": "paints after 24, resumed at 73, held at 72"
+  }
+ }
+}

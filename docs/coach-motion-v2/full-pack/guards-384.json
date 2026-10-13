@@ -1,0 +1,537 @@
+{
+ "loops": {
+  "watching": {
+   "frames": 252,
+   "step": {
+    "median": 1.3961313962936401,
+    "p95": 1.7266859412193298,
+    "max": 4.0527215003967285
+   },
+   "frozenFramesMax": 0,
+   "frozenMsMax": 0,
+   "seam": {
+    "mad": 1.4070628881454468,
+    "changedPx": 4010
+   },
+   "seamOverMaxStep": 0.3471896324501219,
+   "pingPongScore": 0.796068905231848,
+   "blink": {
+    "count": 2,
+    "declared": 2,
+    "minEyeOpen": 0.2697218931191221,
+    "atFrames": [
+     29,
+     30,
+     155,
+     156
+    ]
+   }
+  },
+  "analyzing": {
+   "frames": 210,
+   "step": {
+    "median": 11.570538520812988,
+    "p95": 13.232355308532714,
+    "max": 13.519569396972656
+   },
+   "frozenFramesMax": 0,
+   "frozenMsMax": 0,
+   "seam": {
+    "mad": 13.450567245483398,
+    "changedPx": 23956
+   },
+   "seamOverMaxStep": 0.9948961280153856,
+   "pingPongScore": 0.9753043201611798
+  },
+  "pointing": {
+   "frames": 112,
+   "step": {
+    "median": 1.776525616645813,
+    "p95": 2.4248733520507812,
+    "max": 2.4427595138549805
+   },
+   "frozenFramesMax": 0,
+   "frozenMsMax": 0,
+   "seam": {
+    "mad": 2.2856485843658447,
+    "changedPx": 7409
+   },
+   "seamOverMaxStep": 0.9356830139856072,
+   "pingPongScore": 0.850723560964717,
+   "blink": {
+    "count": 0,
+    "declared": 0,
+    "minEyeOpen": 1,
+    "atFrames": []
+   }
+  },
+  "confirming": {
+   "frames": 112,
+   "step": {
+    "median": 1.9529975652694702,
+    "p95": 2.43338143825531,
+    "max": 4.436755180358887
+   },
+   "frozenFramesMax": 0,
+   "frozenMsMax": 0,
+   "seam": {
+    "mad": 2.1501712799072266,
+    "changedPx": 7019
+   },
+   "seamOverMaxStep": 0.48462698357255324,
+   "pingPongScore": 0.8165634255220354,
+   "blink": {
+    "count": 1,
+    "declared": 1,
+    "minEyeOpen": 0.26972189311912337,
+    "atFrames": [
+     59,
+     60
+    ]
+   }
+  }
+ },
+ "edges": {
+  "watching>analyzing": {
+   "heads": 42,
+   "stride": 6,
+   "headFrames": 10,
+   "tailFrames": 35,
+   "strategy": "nearest-head",
+   "maxStepFrames": 3,
+   "headFrame0VsSource": {
+    "maxMad": 0.0
+   },
+   "headToTailSeam": {
+    "maxMad": 13.245600700378418,
+    "medianMad": 13.203556060791016,
+    "limit": 13.247440338134766,
+    "standardLimit": 16.559300422668457,
+    "modes": {
+     "STANDARD": 42,
+     "DECAY": 0,
+     "FAIL": 0
+    },
+    "failingPhases": [],
+    "decay": null
+   },
+   "tailToDestinationSeam": {
+    "mad": 13.391807556152344,
+    "limit": 13.519569396972656
+   },
+   "tailFrozenFramesMax": 0,
+   "entrySeamNearest": {
+    "note": "a request shown at source frame f starts the head of the nearest phase to f+1: the visible step is the pose distance of <= maxStepFrames source frames",
+    "maxSourceStepAtBudget": 8.61357307434082
+   }
+  },
+  "analyzing>pointing": {
+   "heads": 70,
+   "stride": 3,
+   "headFrames": 10,
+   "tailFrames": 35,
+   "strategy": "nearest-head",
+   "maxStepFrames": 1,
+   "headFrame0VsSource": {
+    "maxMad": 0.0
+   },
+   "headToTailSeam": {
+    "maxMad": 26.521574020385742,
+    "medianMad": 26.40712547302246,
+    "limit": 18.369476318359375,
+    "standardLimit": 22.96184539794922,
+    "modes": {
+     "STANDARD": 0,
+     "DECAY": 70,
+     "FAIL": 0
+    },
+    "failingPhases": [],
+    "decay": {
+     "phases": [
+      0,
+      3,
+      6,
+      9,
+      12,
+      15,
+      18,
+      21,
+      24,
+      27,
+      30,
+      33,
+      36,
+      39,
+      42,
+      45,
+      48,
+      51,
+      54,
+      57,
+      60,
+      63,
+      66,
+      69,
+      72,
+      75,
+      78,
+      81,
+      84,
+      87,
+      90,
+      93,
+      96,
+      99,
+      102,
+      105,
+      108,
+      111,
+      114,
+      117,
+      120,
+      123,
+      126,
+      129,
+      132,
+      135,
+      138,
+      141,
+      144,
+      147,
+      150,
+      153,
+      156,
+      159,
+      162,
+      165,
+      168,
+      171,
+      174,
+      177,
+      180,
+      183,
+      186,
+      189,
+      192,
+      195,
+      198,
+      201,
+      204,
+      207
+     ],
+     "minBoundaryOverBefore": 0.8317441610052887,
+     "minAfterOverBoundary": 0.6926239107920111,
+     "minFlowCos": 0.998975932598114,
+     "maxPoseSeamOverInternal": {
+      "visor": 0.6641763547295604,
+      "eyes": 0.4990058124494098,
+      "ring": 0.049632206849016695
+     },
+     "maxDetourOverNeighbours": 0.974994089374327,
+     "brokenRules": [],
+     "canonical": {
+      "phase": 105,
+      "boundary": 26.389793395996094,
+      "standardLimit": 22.96184539794922,
+      "mode": "DECAY",
+      "decay": {
+       "steps": {
+        "before": 31.670644760131836,
+        "boundary": 26.389793395996094,
+        "after": 18.369476318359375,
+        "after2": 11.136505126953125
+       },
+       "ratios": {
+        "boundaryOverBefore": 0.8332572196072411,
+        "afterOverBoundary": 0.6960826120429736
+       },
+       "flowCos": [
+        0.9995752573013306,
+        0.9989771842956543
+       ],
+       "visorVelocity": {
+        "yaw": [
+         0.04179480858442214,
+         0.03242782580800213,
+         0.01983252872392921
+        ],
+        "pitch": [
+         -0.008687841220332431,
+         -0.006656217152750776,
+         -0.00394297609230216
+        ]
+       },
+       "visorSignFlips": [],
+       "pose": {
+        "visor": {
+         "seam": 0.03242782580800213,
+         "internalMax": 0.04918443561831792
+        },
+        "eyes": {
+         "seam": 0.013926677327341652,
+         "internalMax": 0.027908847912976098
+        },
+        "ring": {
+         "seam": 0.0013634882208481969,
+         "internalMax": 0.5608038983512662
+        }
+       },
+       "detour": {
+        "seam": 1.265004110794984,
+        "neighbours": 1.4853856114456652
+       },
+       "rules": {
+        "decelerating": true,
+        "keepsDecaying": true,
+        "noAbruptStop": true,
+        "direction": true,
+        "visorSign": true,
+        "visor": true,
+        "eyes": true,
+        "ring": true,
+        "noPop": true
+       },
+       "broken": []
+      }
+     }
+    }
+   },
+   "tailToDestinationSeam": {
+    "mad": 2.2070508003234863,
+    "limit": 18.369476318359375
+   },
+   "tailFrozenFramesMax": 0,
+   "entrySeamNearest": {
+    "note": "a request shown at source frame f starts the head of the nearest phase to f+1: the visible step is the pose distance of <= maxStepFrames source frames",
+    "maxSourceStepAtBudget": 13.519569396972656
+   }
+  },
+  "pointing>confirming": {
+   "heads": 38,
+   "stride": 3,
+   "headFrames": 10,
+   "tailFrames": 35,
+   "strategy": "nearest-head",
+   "maxStepFrames": 1,
+   "headFrame0VsSource": {
+    "maxMad": 0.0
+   },
+   "headToTailSeam": {
+    "maxMad": 7.613343238830566,
+    "medianMad": 7.591299772262573,
+    "limit": 6.27023983001709,
+    "standardLimit": 7.837799787521362,
+    "modes": {
+     "STANDARD": 38,
+     "DECAY": 0,
+     "FAIL": 0
+    },
+    "failingPhases": [],
+    "decay": null
+   },
+   "tailToDestinationSeam": {
+    "mad": 2.279681444168091,
+    "limit": 6.27023983001709
+   },
+   "tailFrozenFramesMax": 0,
+   "entrySeamNearest": {
+    "note": "a request shown at source frame f starts the head of the nearest phase to f+1: the visible step is the pose distance of <= maxStepFrames source frames",
+    "maxSourceStepAtBudget": 2.4398140907287598
+   }
+  },
+  "confirming>pointing": {
+   "heads": 19,
+   "stride": 6,
+   "headFrames": 10,
+   "tailFrames": 35,
+   "strategy": "nearest-head",
+   "maxStepFrames": 3,
+   "headFrame0VsSource": {
+    "maxMad": 0.0
+   },
+   "headToTailSeam": {
+    "maxMad": 27.754596710205078,
+    "medianMad": 27.72539520263672,
+    "limit": 19.761690139770508,
+    "standardLimit": 24.702112674713135,
+    "modes": {
+     "STANDARD": 0,
+     "DECAY": 19,
+     "FAIL": 0
+    },
+    "failingPhases": [],
+    "decay": {
+     "phases": [
+      0,
+      6,
+      12,
+      18,
+      24,
+      30,
+      36,
+      42,
+      48,
+      54,
+      60,
+      66,
+      72,
+      78,
+      84,
+      90,
+      96,
+      102,
+      108
+     ],
+     "minBoundaryOverBefore": 0.8498637069349783,
+     "minAfterOverBoundary": 0.712015034702498,
+     "minFlowCos": 0.9992898106575012,
+     "maxPoseSeamOverInternal": {
+      "visor": 0.661645053529479,
+      "eyes": 0.09314671394406977,
+      "ring": 0.06899445164538799
+     },
+     "maxDetourOverNeighbours": 0.9821269834897628,
+     "brokenRules": [],
+     "canonical": {
+      "phase": 54,
+      "boundary": 27.70798683166504,
+      "standardLimit": 24.702112674713135,
+      "mode": "DECAY",
+      "decay": {
+       "steps": {
+        "before": 32.596954345703125,
+        "boundary": 27.70798683166504,
+        "after": 19.761690139770508,
+        "after2": 12.053410530090332
+       },
+       "ratios": {
+        "boundaryOverBefore": 0.8500176592515754,
+        "afterOverBoundary": 0.713212773624773
+       },
+       "flowCos": [
+        0.999448299407959,
+        0.9997904896736145
+       ],
+       "visorVelocity": {
+        "yaw": [
+         0.047680548265653544,
+         0.037036946648089764,
+         0.022661540645163125
+        ],
+        "pitch": [
+         -0.005044265822731722,
+         -0.003786958870224885,
+         -0.00220696224984384
+        ]
+       },
+       "visorSignFlips": [],
+       "pose": {
+        "visor": {
+         "seam": 0.037036946648089764,
+         "internalMax": 0.056089804297607904
+        },
+        "eyes": {
+         "seam": 0.0013783478684605832,
+         "internalMax": 0.014991392676050208
+        },
+        "ring": {
+         "seam": 0.0013634882208481969,
+         "internalMax": 0.035452078435821655
+        }
+       },
+       "detour": {
+        "seam": 1.2937530822490118,
+        "neighbours": 1.3233785479450921
+       },
+       "rules": {
+        "decelerating": true,
+        "keepsDecaying": true,
+        "noAbruptStop": true,
+        "direction": true,
+        "visorSign": true,
+        "visor": true,
+        "eyes": true,
+        "ring": true,
+        "noPop": true
+       },
+       "broken": []
+      }
+     }
+    }
+   },
+   "tailToDestinationSeam": {
+    "mad": 2.2070508003234863,
+    "limit": 19.761690139770508
+   },
+   "tailFrozenFramesMax": 0,
+   "entrySeamNearest": {
+    "note": "a request shown at source frame f starts the head of the nearest phase to f+1: the visible step is the pose distance of <= maxStepFrames source frames",
+    "maxSourceStepAtBudget": 9.275310516357422
+   }
+  },
+  "pointing>watching": {
+   "heads": 38,
+   "stride": 3,
+   "headFrames": 10,
+   "tailFrames": 35,
+   "strategy": "nearest-head",
+   "maxStepFrames": 1,
+   "headFrame0VsSource": {
+    "maxMad": 0.0
+   },
+   "headToTailSeam": {
+    "maxMad": 37.05492401123047,
+    "medianMad": 37.027645111083984,
+    "limit": 31.568052291870117,
+    "standardLimit": 39.46006536483765,
+    "modes": {
+     "STANDARD": 38,
+     "DECAY": 0,
+     "FAIL": 0
+    },
+    "failingPhases": [],
+    "decay": null
+   },
+   "tailToDestinationSeam": {
+    "mad": 1.4070628881454468,
+    "limit": 31.568052291870117
+   },
+   "tailFrozenFramesMax": 0,
+   "entrySeamNearest": {
+    "note": "a request shown at source frame f starts the head of the nearest phase to f+1: the visible step is the pose distance of <= maxStepFrames source frames",
+    "maxSourceStepAtBudget": 2.4398140907287598
+   }
+  }
+ },
+ "decoded": {
+  "WATCHING_LOOP": {
+   "frames": 252,
+   "psnrMean": 30.137399513110044,
+   "psnrMin": 29.84986806096043,
+   "codecFlicker": 5.948118209838867,
+   "bytes": 1770612
+  },
+  "ANALYZING_LOOP": {
+   "frames": 210,
+   "psnrMean": 29.87288814521071,
+   "psnrMin": 29.47789492603541,
+   "codecFlicker": 7.072869300842285,
+   "bytes": 1345947
+  },
+  "POINTING_LOOP": {
+   "frames": 112,
+   "psnrMean": 29.835249923275576,
+   "psnrMin": 29.637106462872183,
+   "codecFlicker": 7.10476541519165,
+   "bytes": 685937
+  },
+  "CONFIRMING_LOOP": {
+   "frames": 112,
+   "psnrMean": 30.0004378368461,
+   "psnrMin": 29.84916666925683,
+   "codecFlicker": 6.4122090339660645,
+   "bytes": 762108
+  }
+ },
+ "failures": []
+}

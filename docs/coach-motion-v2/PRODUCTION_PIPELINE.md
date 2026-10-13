@@ -2,6 +2,8 @@
 
 Everything here regenerates from the repository. Nothing depends on a Claude scratchpad, a session folder or an absolute path.
 
+**The 384 pack is now the FULL semantic pack** (4 loops, 5 edges, 207 entry heads, 19.67 MB). See `full-pack/FULL_PACK.md` for its generation, the decay-aware head → tail guard, the size gates and the playback audit. The capture and encode specifics below still apply; the clip list below describes the original WATCHING / ANALYZING slice, which the 512 pack still is.
+
 Foundation hardening (manifest v4: data-driven graph, content-addressed chunks, cue-armed prefetch, watchdog, budgets, fallback identity, update contract): see `FOUNDATION_HARDENING.md`. This file keeps the capture / encode specifics.
 
 ## Pinned inputs

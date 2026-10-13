@@ -1,0 +1,12 @@
+{
+ "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002504) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+ "selfCheckMaxAbsPoseDiff": 2.220446049250313e-16,
+ "base": "http://127.0.0.1:3181",
+ "px": {
+  "384": {
+   "frames": 2931,
+   "seconds": 37.19
+  }
+ },
+ "errors": []
+}

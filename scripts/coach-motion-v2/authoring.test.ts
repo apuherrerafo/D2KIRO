@@ -8,6 +8,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 // @ts-expect-error plain ESM module without types
 import { CHUNK_FRAMES, estimatePack, headClipIds, headDirNames, headPhases, loadGraph, planJobs, renderPlan, selectJobs, validateGraph } from "./plan.mjs";
+// @ts-expect-error plain ESM module without types
+import { gates, packReport } from "./pack-report.mjs";
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(DIR, "../..");
@@ -185,9 +187,10 @@ describe("clip_plan and check_graph with 5 edges (Python)", () => {
 describe("pack budget estimate and the 24 MB STOP gate", () => {
   const g = loadGraph();
 
-  test("the committed pack calibrates the estimate: watching / analyzing bytes per frame match the measured pack within 1 %", () => {
+  test("the committed pack calibrates the estimate: every loop's bytes per frame match the measured pack within 1 %, none is left unmeasured", () => {
     const m = JSON.parse(readFileSync(join(REPO, "apps/web/public/coach-motion-v2/prod/384/manifest.json"), "utf8"));
-    for (const [loop, clip] of [["watching", "WATCHING_LOOP"], ["analyzing", "ANALYZING_LOOP"]] as const) {
+    expect(g.budget.calibration.unmeasured ?? []).toEqual([]);
+    for (const [loop, { clip }] of Object.entries(m.graph.loops) as [string, { clip: string }][]) {
       const c = m.clips[clip];
       const perFrame = c.chunks.reduce((n: number, k: G) => n + k.bytes, 0) / c.frames;
       expect(Math.abs(g.budget.calibration.bytesPerFrame[loop] / perFrame - 1), loop).toBeLessThan(0.01);
@@ -223,7 +226,7 @@ describe("pack budget estimate and the 24 MB STOP gate", () => {
     expect(r.status).toBe("STOP");
     expect(r.reasons.join(" ")).toMatch(/exceeds the 24000000 byte STOP ceiling/);
     const big = fresh();
-    big.budget.packCeilingBytes = 20_000_000; // the committed graph projects ~20.9 MB
+    big.budget.packCeilingBytes = 18_000_000; // the committed graph projects ~19.1 MB
     expect(estimatePack(big).status).toBe("STOP");
     const first = fresh();
     first.budget.firstLoadBytes = 3_000_000;
@@ -247,6 +250,17 @@ describe("pack budget estimate and the 24 MB STOP gate", () => {
     const ok = spawnSync("node", [join(DIR, "capture.mjs"), "--out", join(dir, "frames"), "--plan-only"], { encoding: "utf8" });
     expect(ok.status).toBe(0);
     expect(ok.stdout).toContain("216 capture jobs, 2931 frames");
+  });
+
+  test("the MEASURED committed pack passes its gates and the planner's projection is within 5 % of it", () => {
+    const rep = packReport(join(REPO, "apps/web/public/coach-motion-v2/prod/384"), g);
+    expect(gates(rep, g).filter((x: G) => !x.ok)).toEqual([]);
+    expect(rep.totals.total).toBe(rep.totalBytes);
+    expect(Math.abs(estimatePack(g).totals.total / rep.totals.total - 1)).toBeLessThan(0.05);
+    // a tighter ceiling turns the same measured pack into a failed gate
+    const tight = fresh();
+    tight.budget.packCeilingBytes = rep.totals.total - 1;
+    expect(gates(rep, tight).find((x: G) => /packCeilingBytes/.test(x.gate)).ok).toBe(false);
   });
 
   test("encode refuses a finished pack above the ceiling (check_budget)", () => {

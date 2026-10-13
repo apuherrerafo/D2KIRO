@@ -65,9 +65,9 @@
     "firstLoadPath": ["watching", "analyzing"],
     "packCeilingBytes": 24000000,
     "calibration": {
-      "_comment": "Encoded AVIF bytes per frame at 384 px / q35 / speed 4. watching and analyzing are measured from the committed pack (a test keeps them honest); pointing and confirming start as the larger of the two measured rates plus a 10 % margin and are replaced by a measured rate after a calibration render.",
-      "bytesPerFrame": { "watching": 6996, "analyzing": 6407, "pointing": 7700, "confirming": 7700 },
-      "unmeasured": ["pointing", "confirming"]
+      "_comment": "Encoded AVIF bytes per frame at 384 px / q35 / speed 4, MEASURED on the committed full semantic pack (prod/384, a test keeps them honest within 1 %). A new loop starts as the largest measured rate plus a 10 % margin, listed in `unmeasured`, until a real render replaces it.",
+      "bytesPerFrame": { "watching": 7026, "analyzing": 6409, "pointing": 6124, "confirming": 6805 },
+      "unmeasured": []
     }
   }
 }

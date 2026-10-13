@@ -48,7 +48,7 @@ describe("verify-assets · the shipped tree", () => {
     const r = spawnSync("node", [SCRIPT], { encoding: "utf8" });
     expect(r.stdout).toContain("ALL PASS");
     expect(r.status).toBe(0);
-    expect(r.stdout).toMatch(/384: 78 chunk files match/);
+    expect(r.stdout).toMatch(/384: 271 chunk files match/);
     expect(r.stdout).toMatch(/512: 78 chunk files match/);
   });
 });
@@ -66,7 +66,7 @@ describe("verify-assets · it fails on a mismatch", () => {
     writeFileSync(f, buf);
     const r = run(root);
     expect(r.code).toBe(1);
-    expect(r.out).toMatch(/FAIL 384: 78 chunk files.*sha256/);
+    expect(r.out).toMatch(/FAIL 384: 271 chunk files.*sha256/);
   });
 
   test("a missing chunk, an unreferenced AVIF and a wrong packHash each fail", () => {

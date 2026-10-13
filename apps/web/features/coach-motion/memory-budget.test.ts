@@ -26,14 +26,14 @@ describe("memory budgets · real 384 geometry", () => {
   const m = realManifest("384");
   const e = edgeById(m, "watching>analyzing");
 
-  test("the budget formulas, in numbers (384 px: 1304 x 1440 loop chunk, 1304 x 1080 head)", () => {
-    expect(biggest(m, WATCHING_LOOP) / MIB).toBeCloseTo(7.16, 2);
-    expect(biggest(m, `${HEAD_PREFIX}000`) / MIB).toBeCloseTo(5.37, 2);
-    expect(idleBudget(m, WATCHING_LOOP) / MIB).toBeCloseTo(14.33, 2);
-    expect(armedBudget(m, WATCHING_LOOP, e) / MIB).toBeCloseTo(32.23, 2);
+  test("the budget formulas, in numbers (384 px full pack: 1328 x 1472 loop chunk, 1328 x 1104 head)", () => {
+    expect(biggest(m, WATCHING_LOOP) / MIB).toBeCloseTo(7.46, 2);
+    expect(biggest(m, `${HEAD_PREFIX}000`) / MIB).toBeCloseTo(5.59, 2);
+    expect(idleBudget(m, WATCHING_LOOP) / MIB).toBeCloseTo(14.91, 2);
+    expect(armedBudget(m, WATCHING_LOOP, e) / MIB).toBeCloseTo(33.56, 2);
   });
 
-  test("IDLE LOOP: two full WATCHING passes never hold more than CURRENT + NEXT (14.3 MiB), against 32.2 MiB steady before", async () => {
+  test("IDLE LOOP: two full WATCHING passes never hold more than CURRENT + NEXT (14.9 MiB), against 33.6 MiB steady before", async () => {
     const r = rig();
     await flush();
     const peak = await peakOver(r, 252 * 2);
@@ -48,7 +48,7 @@ describe("memory budgets · real 384 geometry", () => {
     expect(peak).toBeLessThanOrEqual(idleBudget(m, ANALYZING_LOOP));
   });
 
-  test("ARMED SINGLE EDGE: from the request until the transition starts, residency stays inside loop + 2 heads + tail opening (32.2 MiB)", async () => {
+  test("ARMED SINGLE EDGE: from the request until the transition starts, residency stays inside loop + 2 heads + tail opening (33.6 MiB)", async () => {
     const r = rig();
     await flush();
     await playN(r.ctl, 50);
@@ -103,7 +103,7 @@ describe("memory budgets · real 384 geometry", () => {
   test("what arming BOTH outgoing edges would have cost (the unbounded alternative this design avoids)", () => {
     const g = graphManifest("384");
     const both = idleBudget(g, WATCHING_LOOP) + g.graph.edges.filter((x) => x.from === "watching").reduce((n, x) => n + x.entry.armHeads * biggest(g, `${x.entry.headClipPrefix}000`) + decodedBytes(g.clips[x.tail.clip].chunks[0]), 0);
-    expect(both / MIB).toBeCloseTo(14.33 + 2 * (2 * 5.37 + 7.16), 1);
+    expect(both / MIB).toBeCloseTo(14.91 + 2 * (2 * 5.59 + 7.46), 1);
     expect(both).toBeGreaterThan(armedBudget(g, WATCHING_LOOP, edgeById(g, "watching>analyzing")));
   });
 });

@@ -1,0 +1,10 @@
+{
+  "_comment": "The real-render CALIBRATION set of new semantic states: capture.mjs --only (calibration-set.mjs prints the list), calibrate.py (encode a subset with the production encoder settings), calibration-guards.py (measure it) and the /lab/coach-motion-v2/calibration page all read THIS file. Per scenario: a few representative entry-head phases of the source loop (on the edge's stride grid) instead of the whole grid, and the canonical one the lab plays. Not a production pack: nothing here is shipped.",
+  "px": 384,
+  "scenarios": [
+    { "edge": "analyzing>pointing", "label": "ANALYZING → POINTING", "headPhases": [51, 102, 153], "canonicalHead": 102 },
+    { "edge": "pointing>confirming", "label": "POINTING → CONFIRMING", "headPhases": [27, 54, 84], "canonicalHead": 54 },
+    { "edge": "confirming>pointing", "label": "CONFIRMING → POINTING", "headPhases": [30, 54, 84], "canonicalHead": 54 },
+    { "edge": "pointing>watching", "label": "POINTING → WATCHING", "headPhases": [27, 54, 84], "canonicalHead": 54 }
+  ]
+}

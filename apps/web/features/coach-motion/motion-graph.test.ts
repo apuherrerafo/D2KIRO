@@ -12,10 +12,10 @@ const rejects = (mutate: (m: ProdManifest) => void, message: RegExp | string) =>
 };
 
 describe("manifest v4 · the graph is data", () => {
-  test("both committed packs parse, with the production edge's stride, head count and tail declared in the manifest", () => {
+  test("both committed packs parse, with the production edge's stride, head count and tail declared in the manifest (384 = the full semantic pack, 512 = the WATCHING / ANALYZING slice)", () => {
     for (const pack of ["384", "512"] as const) {
       const m = realManifest(pack);
-      expect(Object.keys(m.graph.loops)).toEqual(["watching", "analyzing"]);
+      expect(Object.keys(m.graph.loops)).toEqual(pack === "384" ? ["watching", "analyzing", "pointing", "confirming"] : ["watching", "analyzing"]);
       const [e] = m.graph.edges;
       expect(e).toMatchObject({ id: "watching>analyzing", from: "watching", to: "analyzing", fps: 30, tail: { clip: "TAIL_WA", enterFrame: 0 } });
       expect(e.entry).toMatchObject({ strategy: "nearest-head", stride: 6, headClipPrefix: HEAD_PREFIX, headFrames: 10, armHeads: 2 });
@@ -51,7 +51,7 @@ describe("manifest v4 · the graph is data", () => {
 
   test("unusable graphs are rejected with a reason", () => {
     rejects((m) => void (m.graph.edges[0].entry.strategy = "canonical" as never), /unknown entry strategy canonical/);
-    rejects((m) => void (m.graph.edges[0].to = "pointing"), /unknown loop pointing/);
+    rejects((m) => void (m.graph.edges[0].to = "nowhere"), /unknown loop nowhere/);
     rejects((m) => void (m.graph.edges[0].to = "watching"), /same loop/);
     rejects((m) => void (m.graph.edges[0].fps = 24), /mixed-fps edges are not supported/);
     rejects((m) => void m.graph.edges.push({ ...m.graph.edges[0] }), /duplicate edge/);

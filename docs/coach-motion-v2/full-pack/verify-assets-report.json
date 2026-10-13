@@ -1,0 +1,98 @@
+{
+ "goldMasterId": "809d420b086d",
+ "staticFallbackId": "e07aface56f3",
+ "packs": {
+  "384": {
+   "packHash": "593156872812bd352cb2cb1e38596fe1b8884088d022faf27b397d84cc0f3b2a",
+   "chunks": 271,
+   "bytes": 19673040
+  },
+  "512": {
+   "packHash": "85d7b4e3c48d8f11a494e238a2aeeeb2ad354dbdcab25dcff993907845e92c8c",
+   "chunks": 78,
+   "bytes": 9009809
+  }
+ },
+ "checks": {
+  "a pack exists": {
+   "ok": true,
+   "detail": "no pack under D:\\JULIO\\apuherrerafoprojects\\dota2coach-wt\\landing-v2-integration\\apps\\web\\public\\coach-motion-v2\\prod"
+  },
+  "384: manifest version 4": {
+   "ok": true,
+   "detail": "version 4"
+  },
+  "384: 271 chunk files match their SHA-256, size and name": {
+   "ok": true,
+   "detail": ""
+  },
+  "384: no unreferenced AVIF in the pack folder": {
+   "ok": true,
+   "detail": ""
+  },
+  "384: totalBytes recomputes": {
+   "ok": true,
+   "detail": "19673040 != 19673040"
+  },
+  "384: packHash recomputes": {
+   "ok": true,
+   "detail": "593156872812 != 593156872812"
+  },
+  "384: encoder equals toolchain.json": {
+   "ok": true,
+   "detail": "Pillow 12.3.0 / libavif 1.4.2 vs Pillow 12.3.0 / libavif 1.4.2"
+  },
+  "384: Gold Master id matches the repo (motion not stale)": {
+   "ok": true,
+   "detail": "pack 809d420b086d vs repo 809d420b086d: regenerate the pack (encode.py) from the current Gold Master"
+  },
+  "384: static fallback id matches the repo (fallback not stale vs this pack)": {
+   "ok": true,
+   "detail": "pack e07aface56f3 vs repo e07aface56f3: the stills changed after this pack was sealed"
+  },
+  "512: manifest version 4": {
+   "ok": true,
+   "detail": "version 4"
+  },
+  "512: 78 chunk files match their SHA-256, size and name": {
+   "ok": true,
+   "detail": ""
+  },
+  "512: no unreferenced AVIF in the pack folder": {
+   "ok": true,
+   "detail": ""
+  },
+  "512: totalBytes recomputes": {
+   "ok": true,
+   "detail": "9009809 != 9009809"
+  },
+  "512: packHash recomputes": {
+   "ok": true,
+   "detail": "85d7b4e3c48d != 85d7b4e3c48d"
+  },
+  "512: encoder equals toolchain.json": {
+   "ok": true,
+   "detail": "Pillow 12.3.0 / libavif 1.4.2 vs Pillow 12.3.0 / libavif 1.4.2"
+  },
+  "512: Gold Master id matches the repo (motion not stale)": {
+   "ok": true,
+   "detail": "pack 809d420b086d vs repo 809d420b086d: regenerate the pack (encode.py) from the current Gold Master"
+  },
+  "512: static fallback id matches the repo (fallback not stale vs this pack)": {
+   "ok": true,
+   "detail": "pack e07aface56f3 vs repo e07aface56f3: the stills changed after this pack was sealed"
+  },
+  "identity.lock.json exists": {
+   "ok": true,
+   "detail": "run `verify-assets.mjs --seal-fallback` once the static stills are known good"
+  },
+  "static fallback stills match identity.lock.json": {
+   "ok": true,
+   "detail": "lock e07aface56f3 vs repo e07aface56f3: the stills changed without --seal-fallback"
+  },
+  "static fallback was built from the CURRENT Gold Master (no new motion over an old fallback)": {
+   "ok": true,
+   "detail": "stills sealed against Gold Master 809d420b086d, repo has 809d420b086d: regenerate the static fallback, then --seal-fallback"
+  }
+ }
+}

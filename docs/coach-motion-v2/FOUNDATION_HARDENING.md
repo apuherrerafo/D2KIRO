@@ -101,21 +101,21 @@ ANALYZING turns its ring at a constant ≈ 3.35 pose-units per frame (WATCHING's
 
 ## 6. Memory budgets (real manifest geometry; decoded = w × h × 4)
 
-Chunk 384: loop 1304×1440 = 7.16 MiB · head 1304×1080 = 5.37 MiB · tail chunks 7.16 / 7.16 / 3.58 MiB.
+Chunk 384 (full semantic pack, crop 332×368): loop 1328×1472 = 7.46 MiB · head 1328×1104 = 5.59 MiB · tail chunks 7.46 / 7.46 / 3.73 MiB. (The WATCHING / ANALYZING slice before it: 1304×1440 = 7.16 MiB, 1304×1080 = 5.37 MiB.)
 
 | Budget | Definition | 384 | 512 |
 |---|---|---|---|
-| **IDLE LOOP** | 2 loop chunks (current + next) | **14.3 MiB** | 25.3 MiB |
-| **ARMED SINGLE EDGE** | idle + `armHeads` heads + tail opening | **32.2 MiB** | 57.0 MiB |
+| **IDLE LOOP** | 2 loop chunks (current + next) | **14.9 MiB** | 25.3 MiB |
+| **ARMED SINGLE EDGE** | idle + `armHeads` heads + tail opening | **33.6 MiB** with 2 armed heads (W→A, C→P); 44.7 MiB with 4 (A→P, P→C, P→W) | 57.0 MiB |
 | In-transition peak (measured) | head + tail + target chunks, `lookaheadFrames` 28 | 25.1 MiB | 44.3 MiB |
-| **STATE WITH TWO OUTGOING EDGES** | idle is independent of the number of edges; only the requested edge arms | idle 14.3 · armed ≤ 32.2 (either edge) | 25.3 · ≤ 57.0 |
-| (avoided) both edges armed | idle + 2 × (heads + tail) | 14.3 + 2 × 18.9 = 52.1 | |
+| **STATE WITH TWO OUTGOING EDGES** | idle is independent of the number of edges; only the requested edge arms | idle 14.9 · armed ≤ 33.6 (either edge) | 25.3 · ≤ 57.0 |
+| (avoided) both edges armed | idle + 2 × (heads + tail) | 14.9 + 2 × 18.6 = 52.2 | |
 
 The old design held the *armed* figure permanently (32.2 / 57.0 MiB); now it is reached only between a request and the transition start (a fraction of a second). `memory-budget.test.ts` asserts all of these through the real controller and store on the committed manifests, plus a synthetic watching-with-two-edges state, and that the other edge's heads are never requested.
 
 ## 7. Chunk size cap
 
-`MAX_ATLAS_PX = 2048` in three places that must agree: `encode.py`/`pack_manifest.check_atlas` (aborts **before packing** with the clip, chunk, size and the remedy), `parseManifest` (rejects a manifest whose `limits.maxAtlasPx` exceeds 2048 or any chunk exceeds its limit), `verify-assets.mjs`. A wide pose can use fewer columns: `encode.py --cols-for CLIP=N`, recorded as `clips[CLIP].cols` and honoured by the painter (`colsOf`). Largest shipped atlas: 1304×1440 (384), 1736×1912 (512).
+`MAX_ATLAS_PX = 2048` in three places that must agree: `encode.py`/`pack_manifest.check_atlas` (aborts **before packing** with the clip, chunk, size and the remedy), `parseManifest` (rejects a manifest whose `limits.maxAtlasPx` exceeds 2048 or any chunk exceeds its limit), `verify-assets.mjs`. A wide pose can use fewer columns: `encode.py --cols-for CLIP=N`, recorded as `clips[CLIP].cols` and honoured by the painter (`colsOf`). Largest shipped atlas: 1328×1472 (384, full semantic pack), 1736×1912 (512).
 
 ## 8. Transition lead time
 

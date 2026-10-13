@@ -1,0 +1,583 @@
+{
+ "fixtures": {
+  "clean": {
+   "mode": "DECAY",
+   "note": null,
+   "broken": [],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "ringWrapClean": {
+   "mode": "DECAY",
+   "note": null,
+   "broken": [],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "standardSmallSeam": {
+   "mode": "STANDARD",
+   "note": null,
+   "broken": null,
+   "steps": null,
+   "flowCos": null,
+   "boundary": 3.3992037773132324,
+   "standardLimit": 12.5
+  },
+  "acceleration": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "decelerating"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 3.3992037773132324,
+    "after": 2.1209278106689453,
+    "after2": 1.3576560020446777
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 3.3992037773132324,
+   "standardLimit": 0.0625
+  },
+  "afterAccelerates": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "keepsDecaying"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 2.5513386726379395,
+    "after2": 1.699601650238037
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "lateAcceleration": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "keepsDecaying"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 2.204775810241699
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "abruptStop": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "noAbruptStop"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 1.00588059425354,
+    "after": 0.6955081224441528,
+    "after2": 0.4195388853549957
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 1.00588059425354,
+   "standardLimit": 0.0625
+  },
+  "abruptStopAfterSeam": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "noAbruptStop"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 0.7672929763793945,
+    "after2": 0.5096422433853149
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "directionReversal": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "direction",
+    "noPop"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.303070545196533,
+    "after": 1.6138174533843994,
+    "after2": 1.0212205648422241
+   },
+   "flowCos": [
+    -1,
+    1
+   ],
+   "boundary": 2.303070545196533,
+   "standardLimit": 0.0625
+  },
+  "directionKink": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "direction"
+   ],
+   "steps": {
+    "before": 2.7240986824035645,
+    "boundary": 2.301283359527588,
+    "after": 1.6130728721618652,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    0.9088976979255676,
+    0.9998682141304016
+   ],
+   "boundary": 2.301283359527588,
+   "standardLimit": 0.0625
+  },
+  "noDirection": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "direction",
+    "noPop"
+   ],
+   "steps": {
+    "before": 1.0204753875732422,
+    "boundary": 0.8286529779434204,
+    "after": 0.6415951251983643,
+    "after2": 0.3770933747291565
+   },
+   "flowCos": [
+    null,
+    null
+   ],
+   "boundary": 0.8286529779434204,
+   "standardLimit": 0.0625
+  },
+  "visorFlip": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "visorSign"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "visorJump": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "visor"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "eyeJump": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "eyes"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "ringJump": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "ring"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.2883265018463135,
+    "after": 1.618434190750122,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.2883265018463135,
+   "standardLimit": 0.0625
+  },
+  "hiddenPopSwell": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "noPop"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.4631717205047607,
+    "after": 1.8492774963378906,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.4631717205047607,
+   "standardLimit": 0.0625
+  },
+  "hiddenPopFlash": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "noPop"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 2.6475276947021484,
+    "after": 2.0734429359436035,
+    "after2": 1.0216673612594604
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 2.6475276947021484,
+   "standardLimit": 0.0625
+  },
+  "seamInStandardBand": {
+   "mode": "FAIL",
+   "note": null,
+   "broken": [
+    "decelerating"
+   ],
+   "steps": {
+    "before": 2.723949909210205,
+    "boundary": 3.3992037773132324,
+    "after": 2.1209278106689453,
+    "after2": 1.3576560020446777
+   },
+   "flowCos": [
+    1,
+    1
+   ],
+   "boundary": 3.3992037773132324,
+   "standardLimit": 3.035714285714286
+  },
+  "headTooShort": {
+   "mode": "FAIL",
+   "note": "not applicable (needs 4 head frames, 4 tail frames and the authored poses)",
+   "broken": null,
+   "steps": null,
+   "flowCos": null,
+   "boundary": 3.061278820037842,
+   "standardLimit": 0.0625
+  }
+ },
+ "expected": {
+  "clean": {
+   "mode": "DECAY",
+   "broken": []
+  },
+  "ringWrapClean": {
+   "mode": "DECAY",
+   "broken": []
+  },
+  "standardSmallSeam": {
+   "mode": "STANDARD"
+  },
+  "acceleration": {
+   "mode": "FAIL",
+   "broken": [
+    "decelerating"
+   ]
+  },
+  "afterAccelerates": {
+   "mode": "FAIL",
+   "broken": [
+    "keepsDecaying"
+   ]
+  },
+  "lateAcceleration": {
+   "mode": "FAIL",
+   "broken": [
+    "keepsDecaying"
+   ]
+  },
+  "abruptStop": {
+   "mode": "FAIL",
+   "broken": [
+    "noAbruptStop"
+   ]
+  },
+  "abruptStopAfterSeam": {
+   "mode": "FAIL",
+   "broken": [
+    "noAbruptStop"
+   ]
+  },
+  "directionReversal": {
+   "mode": "FAIL",
+   "broken": [
+    "direction",
+    "noPop"
+   ]
+  },
+  "directionKink": {
+   "mode": "FAIL",
+   "broken": [
+    "direction"
+   ]
+  },
+  "noDirection": {
+   "mode": "FAIL",
+   "broken": [
+    "direction",
+    "noPop"
+   ]
+  },
+  "visorFlip": {
+   "mode": "FAIL",
+   "broken": [
+    "visorSign"
+   ]
+  },
+  "visorJump": {
+   "mode": "FAIL",
+   "broken": [
+    "visor"
+   ]
+  },
+  "eyeJump": {
+   "mode": "FAIL",
+   "broken": [
+    "eyes"
+   ]
+  },
+  "ringJump": {
+   "mode": "FAIL",
+   "broken": [
+    "ring"
+   ]
+  },
+  "hiddenPopSwell": {
+   "mode": "FAIL",
+   "broken": [
+    "noPop"
+   ]
+  },
+  "hiddenPopFlash": {
+   "mode": "FAIL",
+   "broken": [
+    "noPop"
+   ]
+  },
+  "seamInStandardBand": {
+   "mode": "FAIL",
+   "broken": [
+    "decelerating"
+   ]
+  },
+  "headTooShort": {
+   "mode": "FAIL"
+  }
+ },
+ "mutants": [
+  {
+   "name": "drop rule decelerating",
+   "killedBy": [
+    "acceleration",
+    "seamInStandardBand"
+   ]
+  },
+  {
+   "name": "drop rule keepsDecaying",
+   "killedBy": [
+    "afterAccelerates",
+    "lateAcceleration"
+   ]
+  },
+  {
+   "name": "keepsDecaying ignores after2",
+   "killedBy": [
+    "lateAcceleration"
+   ]
+  },
+  {
+   "name": "drop rule noAbruptStop",
+   "killedBy": [
+    "abruptStop",
+    "abruptStopAfterSeam"
+   ]
+  },
+  {
+   "name": "noAbruptStop ignores after / boundary",
+   "killedBy": [
+    "abruptStopAfterSeam"
+   ]
+  },
+  {
+   "name": "drop rule direction",
+   "killedBy": [
+    "directionKink"
+   ]
+  },
+  {
+   "name": "drop rule visorSign",
+   "killedBy": [
+    "visorFlip"
+   ]
+  },
+  {
+   "name": "drop rule visor",
+   "killedBy": [
+    "visorJump"
+   ]
+  },
+  {
+   "name": "drop rule eyes",
+   "killedBy": [
+    "eyeJump"
+   ]
+  },
+  {
+   "name": "drop rule ring",
+   "killedBy": [
+    "ringJump"
+   ]
+  },
+  {
+   "name": "drop rule noPop",
+   "killedBy": [
+    "hiddenPopSwell",
+    "hiddenPopFlash"
+   ]
+  },
+  {
+   "name": "DECAY accepts on any rule",
+   "killedBy": [
+    "acceleration",
+    "afterAccelerates",
+    "lateAcceleration",
+    "abruptStop",
+    "abruptStopAfterSeam",
+    "directionReversal",
+    "directionKink",
+    "noDirection",
+    "visorFlip",
+    "visorJump",
+    "eyeJump",
+    "ringJump",
+    "hiddenPopSwell",
+    "hiddenPopFlash",
+    "seamInStandardBand"
+   ]
+  },
+  {
+   "name": "pose internal max includes the seam itself",
+   "killedBy": [
+    "visorJump",
+    "eyeJump",
+    "ringJump"
+   ]
+  },
+  {
+   "name": "ring spin not angle-wrapped",
+   "killedBy": [
+    "ringWrapClean"
+   ]
+  },
+  {
+   "name": "ratio threshold 0.5 -> 0.3",
+   "killedBy": [
+    "abruptStop",
+    "abruptStopAfterSeam"
+   ]
+  },
+  {
+   "name": "flow cosine threshold 0.95 -> 0.9",
+   "killedBy": [
+    "directionKink"
+   ]
+  },
+  {
+   "name": "visor velocity dead band 1e-3 -> 0.1",
+   "killedBy": [
+    "visorFlip"
+   ]
+  },
+  {
+   "name": "STANDARD factor relaxed 1.25 -> 1.5",
+   "killedBy": [
+    "seamInStandardBand"
+   ]
+  }
+ ],
+ "survivors": []
+}

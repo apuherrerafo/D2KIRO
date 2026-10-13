@@ -4,33 +4,33 @@
    "id": "watching",
    "frames": 252,
    "seconds": 8.4,
-   "bytesPerFrame": 6996,
-   "bytes": 1762992,
+   "bytesPerFrame": 7026,
+   "bytes": 1770552,
    "measured": true
   },
   {
    "id": "analyzing",
    "frames": 210,
    "seconds": 7,
-   "bytesPerFrame": 6407,
-   "bytes": 1345470,
+   "bytesPerFrame": 6409,
+   "bytes": 1345890,
    "measured": true
   },
   {
    "id": "pointing",
    "frames": 112,
    "seconds": 3.7333333333333334,
-   "bytesPerFrame": 7700,
-   "bytes": 862400,
-   "measured": false
+   "bytesPerFrame": 6124,
+   "bytes": 685888,
+   "measured": true
   },
   {
    "id": "confirming",
    "frames": 112,
    "seconds": 3.7333333333333334,
-   "bytesPerFrame": 7700,
-   "bytes": 862400,
-   "measured": false
+   "bytesPerFrame": 6805,
+   "bytes": 762160,
+   "measured": true
   }
  ],
  "edges": [
@@ -41,11 +41,11 @@
    "strategy": "nearest-head",
    "heads": 42,
    "headFrames": 10,
-   "headBytes": 2938320,
+   "headBytes": 2950920,
    "tailFrames": 35,
-   "tailBytes": 234552.5,
+   "tailBytes": 235112.5,
    "armHeads": 2,
-   "armedBytes": 139920
+   "armedBytes": 140520
   },
   {
    "id": "analyzing>pointing",
@@ -54,11 +54,11 @@
    "strategy": "nearest-head",
    "heads": 70,
    "headFrames": 10,
-   "headBytes": 4484900,
+   "headBytes": 4486300,
    "tailFrames": 35,
-   "tailBytes": 246872.5,
+   "tailBytes": 219327.5,
    "armHeads": 4,
-   "armedBytes": 256280
+   "armedBytes": 256360
   },
   {
    "id": "pointing>confirming",
@@ -67,11 +67,11 @@
    "strategy": "nearest-head",
    "heads": 38,
    "headFrames": 10,
-   "headBytes": 2926000,
+   "headBytes": 2327120,
    "tailFrames": 35,
-   "tailBytes": 269500,
+   "tailBytes": 226257.5,
    "armHeads": 4,
-   "armedBytes": 308000
+   "armedBytes": 244960
   },
   {
    "id": "confirming>pointing",
@@ -80,11 +80,11 @@
    "strategy": "nearest-head",
    "heads": 19,
    "headFrames": 10,
-   "headBytes": 1463000,
+   "headBytes": 1292950,
    "tailFrames": 35,
-   "tailBytes": 269500,
+   "tailBytes": 226257.5,
    "armHeads": 2,
-   "armedBytes": 154000
+   "armedBytes": 136100
   },
   {
    "id": "pointing>watching",
@@ -93,26 +93,26 @@
    "strategy": "nearest-head",
    "heads": 38,
    "headFrames": 10,
-   "headBytes": 2926000,
+   "headBytes": 2327120,
    "tailFrames": 35,
-   "tailBytes": 257180,
+   "tailBytes": 230125,
    "armHeads": 4,
-   "armedBytes": 308000
+   "armedBytes": 244960
   }
  ],
  "totals": {
-  "loops": 4833262,
-  "heads": 14738220,
-  "tails": 1277605,
+  "loops": 4564490,
+  "heads": 13384410,
+  "tails": 1137080,
   "frames": 2931,
-  "total": 20849087
+  "total": 19085980
  },
  "firstLoad": {
   "path": [
    "watching",
    "analyzing"
   ],
-  "bytes": 3482934.5,
+  "bytes": 3492074.5,
   "limit": 8000000
  },
  "ceiling": 24000000,
