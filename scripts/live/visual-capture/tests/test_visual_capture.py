@@ -105,13 +105,16 @@ class MatcherTests(unittest.TestCase):
         # These are the measured first card positions, not the old profile-chrome crops (72 / 1000).
         self.assertEqual(round(layout.slots["radiant"][0].x * 1600), 177)
         self.assertEqual(round(layout.slots["dire"][0].x * 1600), 914)
+        # Row model x(i) = x0 + i * 103 on both sides: the colored top bars of the cards sit 103 px apart in every real
+        # session (BOT_A, BOT_B, HUMAN; Radiant bars start at 176, 279, 382, 485, 588). The old 101 / 102 px steps walked
+        # the crop ~2 px off the card per slot (+8 px at r4), dropping Lich / Rubick below the 0.68 gate.
         self.assertEqual(
             [round(slot.x * 1600) for slot in layout.slots["radiant"]],
-            [177, 278, 379, 480, 581],
+            [177, 280, 383, 486, 589],
         )
         self.assertEqual(
-            [round(slot.x * 1600) for slot in layout.slots["dire"]],
-            [914, 1015, 1118, 1220, 1322],
+            [round(slot.x * 1600, 1) for slot in layout.slots["dire"]],
+            [913.5, 1016.5, 1119.5, 1222.5, 1325.5],
         )
 
     def test_phantom_assassin_boundary_uses_068_without_weakening_margin(self):
