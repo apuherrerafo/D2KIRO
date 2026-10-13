@@ -28,6 +28,9 @@ HEARTBEAT_EVERY_MS = 5_000.0
 # A slot that looks occupied (or a hero still being confirmed) may stay unsettled this long before the helper stops
 # vouching that the draft is fully read: temporal confirmation alone needs ~400 ms.
 UNREAD_GRACE_MS = 1_500.0
+# A hero read only through the overlay path needs StabilityFilter.overlay_min_ms (3 s) to confirm: do not report the
+# draft as unread (and flap degraded -> ok on every human pick) while that is all that is pending.
+OVERLAY_GRACE_MS = 4_500.0
 # Only a layout calibrated against a real hero-selection screen may vouch for "nothing is picked yet" on its own.
 VERIFIED_LAYOUT_STATUSES = frozenset({"calibrated", "verified"})
 # Outside a draft every heartbeat is also the question "has hero selection started?": ask once a second.
@@ -167,15 +170,17 @@ class VisualSession:
         if not self.status.armed:
             return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
         unsettled = False
+        only_overlay_pending = True  # every unsettled slot is a hero read through the (slower) overlay path
         for reading in scan.radiant + scan.dire:
             if not occupied.get((reading.side, reading.index), False):
                 continue
             if reading.state != "hero" or confirmed.get((reading.side, reading.index)) != reading.hero_id:
                 unsettled = True
+                only_overlay_pending = only_overlay_pending and reading.state == "hero" and reading.tier == "overlay"
         if unsettled:
             if self._unsettled_since is None:
                 self._unsettled_since = now_ms
-            if now_ms - self._unsettled_since >= UNREAD_GRACE_MS:
+            if now_ms - self._unsettled_since >= (OVERLAY_GRACE_MS if only_overlay_pending else UNREAD_GRACE_MS):
                 return ("degraded", "VISUAL_SLOTS_UNREAD")
             return self._last_health or ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
         self._unsettled_since = None

@@ -66,7 +66,9 @@ class StabilityFilter:
             track.candidate, track.frames, track.strong_frames, track.since_ms, track.score_sum = hero, 0, 0, now_ms, 0.0
         track.frames += 1
         track.strong_frames += reading.tier == "strong"
-        track.score_sum += reading.score
+        # An overlay read's full-crop score is depressed by the overlay itself; the engine treats confidence < 0.6 as
+        # "unconfirmed", so report the better of the two views (both measured, neither invented).
+        track.score_sum += max(reading.score, reading.upper_score)
         elapsed = now_ms - track.since_ms
         strong_ok = track.strong_frames >= self.min_frames and elapsed >= self.min_ms
         overlay_ok = track.frames >= self.overlay_min_frames and elapsed >= self.overlay_min_ms

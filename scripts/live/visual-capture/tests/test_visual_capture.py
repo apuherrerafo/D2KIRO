@@ -14,7 +14,7 @@ from fixtures import fake_catalog  # noqa: F401  (sets sys.path for d2vc)
 from d2vc.bench import DEFAULT_THRESHOLDS
 from d2vc.emit import EnvelopeFactory, PrivacyViolation, assert_allowlisted
 from d2vc.layout import default_layout, viewport
-from d2vc.matcher import MatchResult, Matcher, Thresholds, confident, overlay_confident, upper_contrast
+from d2vc.matcher import MatchResult, Matcher, Thresholds, confident, overlay_read, upper_contrast
 from d2vc.scan import read_slot, scan_frame
 from d2vc.session import VisualSession
 from d2vc.stability import StabilityFilter
@@ -151,18 +151,47 @@ class OverlayPathTests(unittest.TestCase):
     def test_a_dimmed_hover_or_hidden_enemy_silhouette_is_never_read_through_it(self):
         crop = dimmed(covered_slot(13))
         self.assertLess(upper_contrast(crop), DEFAULT_THRESHOLDS.upper_min_std)
-        self.assertFalse(overlay_confident(MATCHER.match(crop), crop, MATCHER, DEFAULT_THRESHOLDS))
+        self.assertIsNone(overlay_read(MATCHER.match(crop), crop, MATCHER, DEFAULT_THRESHOLDS))
 
     def test_weak_margin_or_a_disagreeing_upper_half_is_not_enough(self):
         crop = covered_slot(13)
         result = MATCHER.match(crop)
-        self.assertTrue(overlay_confident(result, crop, MATCHER, DEFAULT_THRESHOLDS))
+        self.assertIsNotNone(overlay_read(result, crop, MATCHER, DEFAULT_THRESHOLDS))
         thin = MatchResult(result.hero_id, result.score, result.runner_up_id, result.score - 0.19, 0.19, result.top3)
-        self.assertFalse(overlay_confident(thin, crop, MATCHER, DEFAULT_THRESHOLDS))
+        self.assertIsNone(overlay_read(thin, crop, MATCHER, DEFAULT_THRESHOLDS))
         low = MatchResult(result.hero_id, 0.44, result.runner_up_id, 0.1, 0.34, result.top3)
-        self.assertFalse(overlay_confident(low, crop, MATCHER, DEFAULT_THRESHOLDS))
+        self.assertIsNone(overlay_read(low, crop, MATCHER, DEFAULT_THRESHOLDS))
         other = MatchResult(7, result.score, result.runner_up_id, result.score - 0.3, 0.3, result.top3)  # full view says another hero
-        self.assertFalse(overlay_confident(other, crop, MATCHER, DEFAULT_THRESHOLDS))
+        self.assertIsNone(overlay_read(other, crop, MATCHER, DEFAULT_THRESHOLDS))
+
+    def test_the_upper_half_must_independently_clear_its_own_score_and_margin(self):
+        crop = covered_slot(13)
+        result = MATCHER.match(crop)
+        upper = MATCHER.match_upper(crop)
+        self.assertEqual(upper.hero_id, 13)
+        self.assertIsNotNone(overlay_read(result, crop, MATCHER, DEFAULT_THRESHOLDS))
+        strict_margin = Thresholds(0.68, 0.15, upper_margin=min(0.99, upper.margin + 0.01))
+        strict_score = Thresholds(0.68, 0.15, upper_score=min(0.999, upper.score + 0.001))
+        self.assertIsNone(overlay_read(result, crop, MATCHER, strict_margin))
+        self.assertIsNone(overlay_read(result, crop, MATCHER, strict_score))
+
+    def test_bans_never_take_the_overlay_path(self):
+        crop = covered_slot(13)
+        self.assertEqual(read_slot("radiant", 0, crop, MATCHER, DEFAULT_THRESHOLDS).tier, "overlay")
+        self.assertNotEqual(read_slot("ban", 0, crop, MATCHER, DEFAULT_THRESHOLDS).state, "hero")
+
+    def test_overlay_pick_reports_the_clean_view_score_so_the_engine_does_not_flag_it_unconfirmed(self):
+        crop = covered_slot(13)
+        reading = read_slot("radiant", 0, crop, MATCHER, DEFAULT_THRESHOLDS)
+        self.assertLess(reading.score, 0.6)  # the scenario: the full-crop score alone would read as low confidence
+        self.assertGreaterEqual(reading.upper_score, 0.6)
+        session = new_session()
+        now, _ = arm(session)
+        frame = paste(screen([None] * 5, [None] * 5), "radiant", 0, covered_slot(13))
+        _, sent = feed(session, frame, now, 60)
+        confidences = [e["confidence"] for e in sent if e["payload"]["type"] == "hero_picked"]
+        self.assertEqual(len(confidences), 1)
+        self.assertGreaterEqual(confidences[0], 0.6)  # apps/engine/src/draft/reducer.ts LOW_CONFIDENCE_THRESHOLD
 
     def test_blank_and_empty_cards_under_an_overlay_name_nothing(self):
         rng = np.random.default_rng(4)
@@ -185,6 +214,26 @@ class OverlayPathTests(unittest.TestCase):
         self.assertGreaterEqual(first, stability.overlay_min_ms)  # 3 s, not the ~0.4 s of a clean pick
         self.assertEqual(stability.confirmed(), {("radiant", 0): 13})
 
+    def test_overlay_tier_also_needs_six_frames_when_the_frame_rate_is_low(self):
+        stability = StabilityFilter()
+        first = None
+        for i, (_, frame) in enumerate(self.covered_frames(13, step_ms=1000, count=10)):
+            if stability.update(scan_frame(frame, LAYOUT, MATCHER, DEFAULT_THRESHOLDS), i * 1000.0) and first is None:
+                first = i
+        self.assertEqual(first, 5)  # 4 frames already span 3 s at 1 fps: the 6-frame minimum is what holds it back
+
+    def test_a_streak_mixing_strong_and_overlay_frames_still_needs_the_long_window(self):
+        stability = StabilityFilter()
+        clean = paste(screen([None] * 5, [None] * 5), "radiant", 0, hero_slot(13, "radiant", 0))
+        covered = paste(screen([None] * 5, [None] * 5), "radiant", 0, covered_slot(13))
+        scans = [scan_frame(clean, LAYOUT, MATCHER, DEFAULT_THRESHOLDS)] * 2 + [scan_frame(covered, LAYOUT, MATCHER, DEFAULT_THRESHOLDS)] * 30
+        self.assertEqual([r.tier for r in scans[0].radiant[:1]], ["strong"])
+        first = None
+        for i, scan in enumerate(scans):
+            if stability.update(scan, i * 125.0) and first is None:
+                first = i * 125.0
+        self.assertGreaterEqual(first, stability.overlay_min_ms)  # only 2 strong frames: the strong rule (3) is not met
+
     def test_a_transient_overlay_reading_never_confirms(self):
         # 2.5 s of covered card, then a different screen: nothing was confirmed on the way.
         stability = StabilityFilter()
@@ -202,6 +251,9 @@ class OverlayPathTests(unittest.TestCase):
         self.assertEqual(picks(early), [])
         _, late = feed(session, frame, now + 20 * 125, 40)
         self.assertEqual(picks(late), [("hero_picked", "radiant", 21)])
+        # Waiting out the long window is not "the draft is unread": no degraded flap on every human pick.
+        details = [e["payload"].get("detail") for e in early + late if e["payload"]["type"] == "capture_health"]
+        self.assertNotIn("VISUAL_SLOTS_UNREAD", details)
 
 
 class MatcherTests(unittest.TestCase):

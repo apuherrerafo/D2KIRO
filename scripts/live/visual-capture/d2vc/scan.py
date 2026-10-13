@@ -8,7 +8,7 @@ from typing import Mapping
 import numpy as np
 
 from .layout import SIDES, Layout, crop, viewport
-from .matcher import Matcher, MatchResult, Thresholds, confident, is_blank, overlay_confident
+from .matcher import Matcher, MatchResult, Thresholds, confident, is_blank, overlay_read
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,8 @@ class SlotReading:
     reason: str = ""  # "ok" | "ok_overlay" | "unoccupied" | "blank" | "below_score" | "below_margin"
     # "strong": passed the global gate. "overlay": passed only the narrow overlay path -> needs a longer confirmation.
     tier: str = "strong"
+    # Overlay tier only: score of the clean upper-half view that vouched for the hero (0.0 for strong readings).
+    upper_score: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -53,8 +55,10 @@ def read_slot(side: str, index: int, crop_bgr: np.ndarray, matcher: Matcher, thr
     result: MatchResult = matcher.match(crop_bgr)
     if confident(result, thresholds):
         return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin, result.hero_id, result.runner_up_score, "ok")
-    if overlay_confident(result, crop_bgr, matcher, thresholds):
-        return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin, result.hero_id, result.runner_up_score, "ok_overlay", "overlay")
+    # Bans have no verified layout / corpus and never take the overlay path.
+    upper = overlay_read(result, crop_bgr, matcher, thresholds) if side != "ban" else None
+    if upper is not None:
+        return SlotReading(side, index, "hero", result.hero_id, result.score, result.margin, result.hero_id, result.runner_up_score, "ok_overlay", "overlay", upper.score)
     reason = "below_score" if result.score < thresholds.min_score else "below_margin"
     return SlotReading(side, index, "uncertain", None, result.score, result.margin, result.hero_id, result.runner_up_score, reason)
 

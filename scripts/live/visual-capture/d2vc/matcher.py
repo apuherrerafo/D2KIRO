@@ -160,21 +160,24 @@ def upper_contrast(crop: np.ndarray) -> float:
     return float(np.std(gray.astype(np.float32)))
 
 
-def overlay_confident(result: MatchResult, crop: np.ndarray, matcher: Matcher, thresholds: Thresholds) -> bool:
+def overlay_read(result: MatchResult, crop: np.ndarray, matcher: Matcher, thresholds: Thresholds) -> MatchResult | None:
     """Secondary, narrow path for cards a human lobby partly covers (rank medal, name strip, dimming): the full-crop
     score is depressed although the portrait is right. NOT a lower global threshold -- it needs ALL of:
       - a strong margin over the runner-up on the full crop (placeholders / menus have almost none),
       - the SAME hero from an independent view of the clean upper half, also with a strong margin,
       - a revealed, full-contrast upper half (not a dimmed hover preview / hidden-enemy silhouette),
-    and callers additionally require a longer temporal confirmation (`StabilityFilter.overlay_min_*`)."""
+    and callers additionally require a longer temporal confirmation (`StabilityFilter.overlay_min_*`).
+    Returns the upper-half match that vouched for the hero (its score is the honest confidence of an overlay read), else None."""
     if thresholds.overlay_score is None or result.hero_id is None:
-        return False
+        return None
     if result.score < thresholds.overlay_score or result.margin < thresholds.overlay_margin:
-        return False
+        return None
     if upper_contrast(crop) < thresholds.upper_min_std:
-        return False
+        return None
     upper = matcher.match_upper(crop)
-    return upper.hero_id == result.hero_id and upper.score >= thresholds.upper_score and upper.margin >= thresholds.upper_margin
+    if upper.hero_id == result.hero_id and upper.score >= thresholds.upper_score and upper.margin >= thresholds.upper_margin:
+        return upper
+    return None
 
 
 def is_blank(crop: np.ndarray, min_std: float = 6.0) -> bool:
