@@ -20,6 +20,7 @@ import numpy as np
 
 SIDES = ("radiant", "dire")
 SLOTS_PER_SIDE = 5
+STEP = 0.064375  # card pitch of the built-in layout (103 px at 1600 wide), same on both sides
 
 
 @dataclass(frozen=True)
@@ -47,8 +48,11 @@ def default_layout() -> Layout:
     # Measured on the 1600x900 real-Dota capture: the first playable cards begin after the
     # left profile chrome (not at x=0.045), and Dire's row begins before x=0.625. The rows
     # deliberately have their measured dimensions: Valve renders them slightly asymmetrically.
-    left = _row(0.110625, 0.007222222222222224, 0.0575, 0.056666666666666664, 0.005625)
-    right = _row(0.5709375, 0.006666666666666668, 0.060625, 0.060, 0.003125)
+    # Row model x(i) = x0 + i * step, with step = 103 px (0.064375) on BOTH sides: the colored top bars of the cards sit
+    # 103 px apart in every real session (BOT_A, BOT_B, HUMAN) and a fit of x0/y/w/h/step against known heroes agrees.
+    # The previous steps (101 px Radiant, 102 px Dire) walked the crop off the card ~2 px per slot (+8 px at r4).
+    left = _row(0.110625, 0.007222222222222224, 0.0575, 0.056666666666666664, STEP - 0.0575)
+    right = _row(0.5709375, 0.006666666666666668, 0.060625, 0.060, STEP - 0.060625)
     return Layout(status="standard", slots={"radiant": left, "dire": right})
 
 
