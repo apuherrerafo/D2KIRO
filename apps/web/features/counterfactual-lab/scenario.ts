@@ -8,7 +8,7 @@
    win percentage or MMR exists anywhere in this fixture.
 
    ILLUSTRATIVE · DOTA SIGN-OFF REQUIRED: see CF_SIGNOFF. The UI never says so. */
-import { LOOP_SCENARIOS, type EvidenceStep } from "../hero-loop/scenarios";
+import { LOOP_SCENARIOS, type EvidenceStep } from "../landing-v2/story/scenarios";
 
 const base = LOOP_SCENARIOS.find((s) => s.id === "A");
 if (!base) throw new Error("counterfactual-lab: Hero Loop scenario A is missing");

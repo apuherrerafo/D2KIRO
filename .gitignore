@@ -72,3 +72,6 @@ e2e-hero-loop/.tmp/
 apps/web/.next-hero-loop/
 e2e-counterfactual/.tmp/
 apps/web/.next-counterfactual/
+e2e-landing-v2/.tmp/
+apps/web/.next-landing-v2/
+apps/web/.next-landing-view/

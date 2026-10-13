@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { LOOP_SCENARIOS } from "../hero-loop/scenarios";
+import { LOOP_SCENARIOS } from "../landing-v2/story/scenarios";
 import { BEATS, leaderAt, rowsAt, signed, transition } from "./model";
 import { CANDIDATES, COPY, DRAFT } from "./scenario";
 

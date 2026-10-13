@@ -1,0 +1,225 @@
+/* LANDING V2 · page frame. The Hero, Memory and Counterfactual keep their own locked styles; this file gives them ONE theme,
+   ONE atmosphere and one rhythm, and styles what the integration adds (seams, the pinned Memory chapter, the Proposition).
+   Palette rule across the page: cyan = evidence / memory · pink = new pressure / contradiction · lime = personal resolution.
+   Transform/opacity only for anything that moves. */
+
+.lv2-page { min-height: 100vh; padding: 0; }
+
+/* ───────── theme: one set of tokens for every chapter ─────────
+   DARK: cool charcoal / blue-black (the Memory Lab's #0b0d11 family), not the app's warm black. Large restrained spectral fields, never aurora.
+   LIGHT: authored, not inverted. Cool ivory / pale stone, frosted-milk surfaces, spectral colours as pigment and ink. The Coach's visor stays dark. */
+.r3-page .lv2[data-theme="dark"] {
+  --r3-bg: #0b0e13; --r3-panel: #11151b; --r3-raise: #171c24; --r3-ink: #eef1f5; --r3-muted: #a1aab7;
+  --r3-line: #262d37; --r3-line-strong: #3a4552; --r3-focus: #eef1f5; --r3-neutral: #7f8997;
+  --cx-glass-tint: color-mix(in srgb, #141920 56%, transparent);
+  --cx-glass-solid: #141920;
+  --lv2-field-a: 6%;
+  --lv2-grain: .05;
+}
+.r3-page .lv2[data-theme="light"] {
+  --r3-bg: #e7eae6; --r3-panel: #f4f6f2; --r3-raise: #fafbf8; --r3-ink: #15191a; --r3-muted: #4f5a5a;
+  --r3-line: #cdd3cd; --r3-line-strong: #98a49f; --r3-focus: #15191a;
+  --r3-spec-pink: #b0206f; --r3-spec-cyan: #00718b; --r3-spec-lime: #476f00;
+  --r3-up: #2f6b00; --r3-down: #b3301d; --r3-neutral: #78837f; --r3-id: #00647c;
+  --r3-spec-fill: linear-gradient(110deg, #b0206f 0%, #00718b 54%, #476f00 100%);
+  --cx-glass-tint: color-mix(in srgb, #fbfcf9 70%, transparent);
+  --cx-glass-solid: #fbfcf9;
+  --cx-glass-line: #15191a24;
+  --cx-glass-shadow: 0 16px 34px -20px #1c2a2873;
+  --hl-field-a: 7%;
+  --lv2-field-a: 7%;
+  --lv2-grain: .06;
+}
+.lv2 { background: var(--r3-bg); color: var(--r3-ink); isolation: isolate; min-height: 100vh; position: relative; }
+.lv2-atmos {
+  background:
+    radial-gradient(55% 40% at 12% 0%, color-mix(in srgb, var(--r3-spec-cyan) var(--lv2-field-a), transparent), transparent 70%),
+    radial-gradient(45% 36% at 96% 34%, color-mix(in srgb, var(--r3-spec-pink) calc(var(--lv2-field-a) * .85), transparent), transparent 70%),
+    radial-gradient(60% 38% at 50% 104%, color-mix(in srgb, var(--r3-spec-lime) calc(var(--lv2-field-a) * .9), transparent), transparent 72%),
+    var(--r3-bg);
+  inset: 0; pointer-events: none; position: fixed; z-index: -1;
+}
+/* very subtle grain over everything: plain alpha noise (no blend mode, so scrolling never re-blends the page) */
+.lv2::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 1 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  content: ""; inset: 0; opacity: var(--lv2-grain); pointer-events: none; position: fixed; z-index: 60;
+}
+.lv2-main { display: block; position: relative; }
+/* Landing V2 brings its own bar. The app shell's NavBar (7 Spanish links, ~670px wide) overflows a phone and is not part of this
+   page's design: contained here, for this route only, instead of touching the shell. REPORTED, not fixed. */
+body:has(.lv2-page) > nav:not(.lv2-nav) { display: none; }
+.lv2 .hl-lab-btn { display: none; }
+
+/* ───────── type shared by the new chapters ───────── */
+.lv2-h1 { font: 700 clamp(34px, 4.8vw, 62px)/1.02 var(--f-syne); letter-spacing: -.035em; margin: 0; max-width: 17ch; text-wrap: balance; }
+.lv2 .ld-h2 { max-width: 22ch; text-wrap: balance; }
+.lv2-h2 { font: 700 clamp(28px, 3.6vw, 44px)/1.04 var(--f-syne); letter-spacing: -.03em; margin: 0; max-width: 20ch; text-wrap: balance; }
+.lv2 .ld-nav { z-index: 20; }
+.lv2 .ld-nav-row { gap: 12px 24px; }
+.lv2-theme {
+  align-items: center; background: transparent; border: 0; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--r3-line-strong); color: var(--r3-ink); cursor: pointer;
+  display: inline-flex; font: 600 12px/1 var(--f-plex); gap: 8px; min-height: 44px; min-width: 44px; padding: 0 12px; touch-action: manipulation;
+}
+.lv2-theme:hover { box-shadow: inset 0 0 0 1px var(--r3-ink); }
+.lv2-theme:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+.lv2-theme-icon { border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; height: 14px; position: relative; width: 14px; }
+.lv2-theme-icon::after { background: currentColor; border-radius: 50%; content: ""; inset: 3px auto 3px 3px; position: absolute; width: 4px; }
+.lv2-theme-icon[data-theme-icon="light"]::after { inset: 3px 3px 3px auto; }
+@media (max-width: 479px) { .lv2-theme span:last-child { display: none; } .lv2 .ld-nav-row { gap: 8px 12px; } }
+
+/* ───────── 1 · hero ───────── */
+.lv2-hero { padding-block: clamp(28px, 5vw, 56px) clamp(24px, 4vw, 40px); }
+.lv2-hero-head { margin-bottom: clamp(20px, 3vw, 32px); }
+.lv2-hero-head .ld-hero-sub { max-width: 54ch; }
+.lv2-hero-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 16px 24px; margin-top: 24px; }
+.lv2-hero-stage { min-width: 0; }
+.lv2-hero-foot { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin-top: 8px; }
+.lv2-hero-foot .ld-illustrative { margin: 0; }
+.lv2-pause {
+  background: transparent; border: 0; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line-strong); color: var(--r3-muted); cursor: pointer;
+  font: 600 12px/1 var(--f-bric); min-height: 44px; min-width: 44px; padding: 0 16px; touch-action: manipulation;
+}
+.lv2-pause:hover { color: var(--r3-ink); }
+.lv2-pause:focus-visible { outline: 2px solid var(--r3-spec-cyan); outline-offset: 2px; }
+
+/* ───────── seams: one hairline carrying the idea from one chapter into the next ───────── */
+.lv2-seam { --seam: var(--r3-spec-cyan); display: grid; justify-items: center; padding: 0 16px; }
+.lv2-seam[data-tone="lime"] { --seam: var(--r3-spec-lime); }
+.lv2-seam-line { background: linear-gradient(to bottom, transparent, var(--seam)); height: clamp(48px, 9vw, 88px); transform: scaleY(0); transform-origin: top; transition: transform var(--m-expressive) var(--m-ease-out); width: 1px; }
+.lv2-seam-node { background: var(--seam); border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb, var(--seam) 18%, transparent); height: 7px; opacity: 0; transition: opacity var(--m-slow) var(--m-ease-out) 360ms; width: 7px; }
+.lv2-seam-text { color: var(--r3-muted); font: 600 13px/1.3 var(--f-plex); letter-spacing: .01em; margin: 12px 0 0; opacity: 0; text-align: center; transition: opacity var(--m-slow) var(--m-ease-out) 480ms; }
+.lv2-seam[data-seen="true"] .lv2-seam-line { transform: none; }
+.lv2-seam[data-seen="true"] .lv2-seam-node, .lv2-seam[data-seen="true"] .lv2-seam-text { opacity: 1; }
+.lv2-seam[data-tone="cyan"] { margin-bottom: clamp(8px, 2vw, 16px); }
+.lv2-seam[data-tone="lime"] { margin-top: clamp(8px, 2vw, 16px); }
+
+/* ───────── 2 · memory: a pinned chapter, the scroll picks the scene ───────── */
+.lv2-memory {
+  --lv2m-ink: var(--r3-ink); --lv2m-ink-dim: var(--r3-muted); --lv2m-ink-faint: color-mix(in srgb, var(--r3-ink) 40%, transparent);
+  --lv2m-halo: var(--r3-bg); --lv2m-bg: var(--r3-bg); --lv2m-paper: var(--r3-panel); --lv2m-line: var(--r3-line);
+  --lv2m-cyan: var(--r3-spec-cyan); --lv2m-pink: var(--r3-spec-pink); --lv2m-lime: var(--r3-spec-lime); --lv2m-neutral: var(--r3-neutral);
+  --lv2m-node-glow: 1; --lv2m-field-a: .2; --lv2m-grain: 0;
+  --lv2-nav: 56px;
+  height: calc(100vh - var(--lv2-nav) + 340vh); height: calc(100dvh - var(--lv2-nav) + 340dvh);
+  position: relative; scroll-margin-top: var(--lv2-nav);
+}
+.lv2-memory:focus { outline: none; }
+[data-theme="light"] .lv2-memory { --lv2m-node-glow: 0; }
+.lv2-memory-pin {
+  display: flex; flex-direction: column; height: calc(100vh - var(--lv2-nav)); height: calc(100dvh - var(--lv2-nav)); overflow: hidden;
+  position: sticky; top: var(--lv2-nav);
+}
+.lv2m-atmos { inset: 0; overflow: hidden; pointer-events: none; position: absolute; z-index: 0; }
+.lv2-memory-head, .lv2-memory-body { position: relative; z-index: 1; }
+.lv2-memory-head { padding-top: clamp(12px, 2.4vw, 24px); }
+.lv2-memory-head .ld-kicker { margin-bottom: 8px; }
+.lv2-memory-head .lv2-h2 { font-size: clamp(26px, 3vw, 38px); max-width: none; }
+.lv2-memory-body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding-bottom: 8px; }
+.lv2-memory-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; position: relative; }
+.lv2m-svg { display: block; flex: 1; min-height: 0; position: relative; touch-action: pan-y; width: 100%; }
+.lv2m-label, .lv2m-caption { user-select: none; -webkit-user-select: none; }
+
+.lv2-memory-copy { pointer-events: none; }
+.lv2-memory[data-layout="wide"] .lv2-memory-copy { left: 0; max-width: 360px; position: absolute; top: 20px; }
+.lv2-memory[data-layout="narrow"] .lv2-memory-copy { padding: 2px 0 4px; }
+.lv2-memory-copy-inner { animation: lv2-copy-in .5s ease both; }
+.lv2-memory-eyebrow { color: var(--r3-spec-cyan); font: 600 11px/1.2 var(--f-pmono); letter-spacing: .18em; margin: 0 0 8px; }
+.lv2-memory-copy[data-scene="2"] .lv2-memory-eyebrow { color: var(--r3-spec-pink); }
+.lv2-memory-copy[data-scene="3"] .lv2-memory-eyebrow, .lv2-memory-copy[data-scene="4"] .lv2-memory-eyebrow { color: var(--r3-spec-lime); }
+[data-theme="light"] .lv2-memory-copy[data-scene="3"] .lv2-memory-eyebrow { color: var(--r3-spec-cyan); }
+.lv2-memory-headline { font: 700 26px/1.12 var(--f-syne); letter-spacing: -.02em; margin: 0; }
+.lv2-memory-copy[data-scene="4"] .lv2-memory-headline { font-size: 30px; }
+.lv2-memory-line { color: var(--r3-muted); font: 400 14px/1.45 var(--f-plex); margin: 8px 0 0; }
+@keyframes lv2-copy-in { from { opacity: 0; } to { opacity: 1; } }
+
+.lv2-memory-beats { display: grid; gap: 6px; grid-template-columns: repeat(5, minmax(0, 1fr)); list-style: none; margin: 4px 0 0; padding: 0; }
+.lv2-memory-beats li { display: grid; gap: 6px; }
+.lv2-memory-beat-bar { background: var(--r3-line-strong); height: 2px; transition: background-color var(--m-slow) var(--m-ease-out); }
+.lv2-memory-beats li[data-state="done"] .lv2-memory-beat-bar { background: color-mix(in srgb, var(--r3-spec-cyan) 60%, var(--r3-line-strong)); }
+.lv2-memory-beats li[data-state="now"] .lv2-memory-beat-bar { background: var(--r3-spec-cyan); }
+.lv2-memory-beat-label { color: var(--r3-muted); font: 500 10px/1.2 var(--f-pmono); letter-spacing: .06em; text-transform: uppercase; }
+.lv2-memory-beats li[data-state="now"] .lv2-memory-beat-label { color: var(--r3-ink); }
+.lv2-memory-cue { color: var(--r3-muted); font: 600 11px/1 var(--f-pmono); letter-spacing: .14em; margin: 10px 0 0; opacity: 0; text-align: center; text-transform: uppercase; transition: opacity var(--m-slow) var(--m-ease-out); }
+.lv2-memory-cue[data-visible="true"] { opacity: .9; }
+.lv2-memory-note { margin: 6px 0 0; text-align: center; }
+@media (max-width: 719px) {
+  .lv2-memory-headline { font-size: 22px; }
+  .lv2-memory-copy[data-scene="4"] .lv2-memory-headline { font-size: 24px; }
+  .lv2-memory-line { font-size: 13px; margin-top: 4px; }
+  .lv2-memory-eyebrow { margin-bottom: 4px; }
+  .lv2-memory-cue { margin-top: 6px; }
+  .lv2-memory-note { display: none; }
+}
+@media (max-height: 760px) and (max-width: 719px) { .lv2-memory-cue { display: none; } }
+
+/* ───────── 3 · counterfactual ───────── */
+.lv2 [data-section="counterfactual"] > .ld-wrap { align-items: center; }
+.lv2-cf { margin-inline: auto; max-width: 560px; min-width: 0; width: 100%; }
+.lv2-cf .cfl-head { display: none; }
+
+/* ───────── 4 · proposition: the page breathes ───────── */
+.lv2-promises { display: grid; gap: 40px 32px; list-style: none; margin: 0; padding: 0; }
+.lv2-promise { border-top: 1px solid var(--r3-line-strong); display: grid; gap: 6px 16px; grid-template-columns: 32px minmax(0, 1fr); padding-top: 16px; }
+.lv2-promise > .ld-point-index { grid-row: span 2; }
+.lv2-promise > .lv2-frag { grid-column: 1 / -1; margin-top: 12px; }
+.lv2-promise .ld-point-title { font: 600 20px/1.2 var(--f-plex); }
+@media (min-width: 900px) {
+  .lv2-promises { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lv2-promise { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; }
+  .lv2-promise > .ld-point-index { grid-row: auto; }
+}
+.lv2-prop > .ld-illustrative { margin-top: clamp(24px, 4vw, 40px); }
+
+.lv2-frag {
+  background: color-mix(in srgb, var(--r3-raise) 62%, transparent); border-radius: 6px; box-shadow: inset 0 0 0 1px var(--r3-line); display: grid; gap: 10px; min-width: 0;
+  align-content: start; padding: 14px; position: relative;
+}
+.lv2-frag-label { color: var(--r3-muted); font: 700 10px/1 var(--f-bric); letter-spacing: .1em; margin: 0; text-transform: uppercase; }
+.lv2-frag-name { font: 600 14px/1.15 var(--f-bric); min-width: 0; }
+.lv2-frag-fit { align-items: baseline; display: inline-flex; gap: 6px; justify-self: end; }
+.lv2-frag-fit i { color: var(--r3-muted); font: 700 9px/1 var(--f-bric); font-style: normal; letter-spacing: .1em; }
+.lv2-frag-fit b { font: 700 20px/1 var(--f-syne); font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+.lv2-frag-tag { border-radius: 3px; box-shadow: inset 0 0 0 1px var(--r3-line-strong); color: var(--r3-muted); font: 700 9px/1 var(--f-bric); font-style: normal; letter-spacing: .08em; padding: 3px 6px; text-transform: uppercase; white-space: nowrap; }
+
+.lv2-frag-picks { gap: 8px; list-style: none; margin: 0; }
+.lv2-frag-picks li { align-items: center; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--r3-line); column-gap: 10px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; padding: 8px 10px; }
+.lv2-frag-picks li[data-call="true"] { background: color-mix(in srgb, var(--r3-spec-lime) 8%, var(--r3-panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-spec-lime) 62%, var(--r3-line)); }
+.lv2-frag-picks li[data-call="true"] .lv2-frag-tag { background: color-mix(in srgb, var(--r3-spec-lime) 18%, transparent); box-shadow: inset 0 0 0 1px var(--r3-spec-lime); color: var(--r3-ink); }
+.lv2-frag-picks li[data-call="false"] { opacity: .82; }
+
+.lv2-frag-block { display: grid; gap: 8px; }
+.lv2-frag-icons { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.lv2-frag-vs { color: var(--r3-muted); font: 600 11px/1 var(--f-bric); padding-inline: 2px; }
+.lv2-frag-seat { color: var(--r3-ink); font: 600 12px/1.2 var(--f-bric); margin: 0; }
+.lv2-frag-chips { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.lv2-frag-chips li { align-items: center; display: flex; flex-wrap: wrap; font: 500 13px/1.2 var(--f-bric); gap: 4px 10px; justify-content: space-between; }
+
+.lv2-frag-row { align-items: center; display: grid; gap: 10px; grid-template-columns: auto minmax(0, 1fr) auto; }
+.lv2-frag-marks { align-items: flex-start; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.lv2-frag-guess { padding-right: 72px; }
+.lv2-frag-coach { bottom: 6px; height: 64px; opacity: .95; pointer-events: none; position: absolute; right: 6px; width: 64px; }
+
+.lv2-chip { border-radius: 3px; box-shadow: inset 0 0 0 1px var(--r3-line-strong); color: var(--r3-ink); font: 600 11px/1 var(--f-bric); font-style: normal; padding: 5px 8px; white-space: nowrap; }
+.lv2-chip[data-tone="often"] { background: color-mix(in srgb, var(--r3-spec-cyan) 18%, transparent); box-shadow: inset 0 0 0 1px var(--r3-spec-cyan); }
+.lv2-chip[data-tone="some"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--r3-spec-cyan) 55%, var(--r3-line)); }
+.lv2-chip[data-tone="none"] { box-shadow: none; color: var(--r3-muted); outline: 1px dashed var(--r3-line-strong); outline-offset: -1px; }
+.lv2-chip[data-tone="draft"] { box-shadow: inset 0 0 0 1px var(--r3-neutral); }
+
+/* the one reveal peak of the chapter: the three promises settle in together, once */
+.lv2-prop[data-seen="false"] .lv2-promise { opacity: 0; transform: translateY(10px); }
+.lv2-prop[data-seen="true"] .lv2-promise { opacity: 1; transform: none; transition: opacity var(--m-slow) var(--m-ease-out) calc(var(--lv2-i, 0) * 90ms), transform 600ms var(--m-ease-out) calc(var(--lv2-i, 0) * 90ms); }
+
+/* ───────── reduced motion: the same states, the travel removed ───────── */
+.lv2[data-motion="reduced"] .lv2-seam-line, .lv2[data-motion="reduced"] .lv2-seam-node, .lv2[data-motion="reduced"] .lv2-seam-text,
+.lv2[data-motion="reduced"] .lv2-promise, .lv2[data-motion="reduced"] .lv2-memory-cue, .lv2[data-motion="reduced"] .lv2-memory-beat-bar { transition: none; }
+.lv2[data-motion="reduced"] .lv2-memory-copy-inner { animation: none; }
+.lv2[data-motion="reduced"] .lv2-seam-line { transform: none; }
+.lv2[data-motion="reduced"] .lv2-seam-node, .lv2[data-motion="reduced"] .lv2-seam-text { opacity: 1; }
+.lv2[data-motion="reduced"] .lv2-prop .lv2-promise { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .lv2-seam-line, .lv2-seam-node, .lv2-seam-text, .lv2-promise, .lv2-memory-cue, .lv2-memory-beat-bar { transition: none; }
+  .lv2-memory-copy-inner { animation: none; }
+  .lv2-seam-line { transform: none; }
+  .lv2-seam-node, .lv2-seam-text { opacity: 1; }
+  .lv2-prop .lv2-promise { opacity: 1; transform: none; }
+}

@@ -1,0 +1,8 @@
+../engine/src/db/schema.ts(1,62): error TS2307: Cannot find module 'drizzle-orm/sqlite-core' or its corresponding type declarations.
+../engine/src/db/schema.ts(26,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../engine/src/db/schema.ts(42,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../engine/src/db/schema.ts(89,4): error TS7006: Parameter 'table' implicitly has an 'any' type.
+../engine/src/meta/provider.ts(1,26): error TS2307: Cannot find module 'drizzle-orm' or its corresponding type declarations.
+../engine/src/meta/provider.ts(2,40): error TS2307: Cannot find module 'drizzle-orm/bun-sqlite' or its corresponding type declarations.
+../engine/src/meta/provider.ts(120,33): error TS7006: Parameter 'row' implicitly has an 'any' type.
+../engine/src/meta/provider.ts(252,11): error TS7006: Parameter 'row' implicitly has an 'any' type.
