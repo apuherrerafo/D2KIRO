@@ -77,3 +77,5 @@ apps/web/.next-landing-v2/
 apps/web/.next-landing-view/
 # Coach motion labs: dedicated dist dirs of the NEXT_DIST_DIR builds (.next-coach-audit, .next-coach-motion-audit, .next-coach-motion-v2-*, ...)
 apps/web/.next-coach-*/
+# Landing V3 review/dev builds (NEXT_DIST_DIR=.next-landing-v3 / .next-landing-v3-dev): generated output; also keeps Tailwind's source scan out of it
+apps/web/.next-landing-v3*/

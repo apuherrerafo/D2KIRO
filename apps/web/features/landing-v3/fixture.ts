@@ -1,0 +1,66 @@
+/* LANDING V3 · Draft A, the ONE persistent illustrative draft every chapter reads.
+   You: Position 2 / Mid · Enemies: Axe, Slark · Supports: Earth Spirit, Crystal Maiden.
+   FOR ANYONE  #1 Queen of Pain 84 · #2 Puck 82 · #3 Void Spirit 77
+   YOUR GAMES  Puck +6 (often played) · Queen of Pain −1 (some history) · Void Spirit (no history yet)
+   FOR YOU     #1 Puck 88 · #2 Queen of Pain 83 · #3 Void Spirit 77
+   Illustrative: none of these numbers is a statistic. The hero tiles are monograms, never game art. */
+
+export type HeroKey = "AX" | "SL" | "ES" | "CM" | "QP" | "PK" | "VS";
+
+export interface Hero {
+  key: HeroKey;
+  name: string;
+  /** CSS custom property that holds the tile colour (defined in landing-v3.css, also used by the SVG builders). */
+  tile: string;
+}
+
+export const HEROES: Record<HeroKey, Hero> = {
+  AX: { key: "AX", name: "Axe", tile: "var(--tile-ax)" },
+  SL: { key: "SL", name: "Slark", tile: "var(--tile-sl)" },
+  ES: { key: "ES", name: "Earth Spirit", tile: "var(--tile-es)" },
+  CM: { key: "CM", name: "Crystal Maiden", tile: "var(--tile-cm)" },
+  QP: { key: "QP", name: "Queen of Pain", tile: "var(--tile-qp)" },
+  PK: { key: "PK", name: "Puck", tile: "var(--tile-pk)" },
+  VS: { key: "VS", name: "Void Spirit", tile: "var(--tile-vs)" },
+};
+
+export const SEAT = { position: 2, lane: "Mid" } as const;
+export const ENEMIES: readonly HeroKey[] = ["AX", "SL"];
+export const SUPPORTS: readonly HeroKey[] = ["ES", "CM"];
+
+export type CandidateId = "qop" | "puck" | "vs";
+
+export interface Candidate {
+  id: CandidateId;
+  hero: HeroKey;
+  /** FOR ANYONE score and 0-based slot. */
+  anyone: { fit: number; slot: number };
+  /** FOR YOU score and 0-based slot, once the player's games have entered. */
+  you: { fit: number; slot: number };
+  /** The effect of the player's games on this hero; null = no history yet. */
+  games: { delta: number; label: "Often played" | "Some history" } | null;
+}
+
+export const CANDIDATES: readonly Candidate[] = [
+  { id: "qop", hero: "QP", anyone: { fit: 84, slot: 0 }, you: { fit: 83, slot: 1 }, games: { delta: -1, label: "Some history" } },
+  { id: "puck", hero: "PK", anyone: { fit: 82, slot: 1 }, you: { fit: 88, slot: 0 }, games: { delta: 6, label: "Often played" } },
+  { id: "vs", hero: "VS", anyone: { fit: 77, slot: 2 }, you: { fit: 77, slot: 2 }, games: null },
+];
+
+export function candidate(id: CandidateId): Candidate {
+  const found = CANDIDATES.find((c) => c.id === id);
+  if (!found) throw new Error(`unknown candidate ${id}`);
+  return found;
+}
+
+/** "+6" / "−1" with a true minus sign, as printed on the page. */
+export function signed(delta: number): string {
+  if (delta > 0) return `+${delta}`;
+  if (delta < 0) return `−${Math.abs(delta)}`;
+  return "0";
+}
+
+/** The two rankings, best first. */
+export function ranking(kind: "anyone" | "you"): Candidate[] {
+  return [...CANDIDATES].sort((a, b) => a[kind].slot - b[kind].slot);
+}

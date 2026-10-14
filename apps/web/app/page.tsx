@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LandingPage } from "@/features/landing";
 import { LANDING_METADATA } from "@/features/landing/metadata";
+import { LANDING_V3_METADATA } from "@/features/landing-v3/seo";
 import { hasActiveSession } from "@/lib/session";
 import { AccountHome } from "./account-home";
 
@@ -12,14 +13,21 @@ import { AccountHome } from "./account-home";
 // Landing V2 is switched on per environment, not per build: LANDING_VARIANT=v2 serves it at `/` (staging review); unset or anything else keeps Landing 01B.
 // Reverting is removing the variable. Landing V2 is imported only inside its branch so its stylesheets never load for the legacy page.
 const landingV2Enabled = () => process.env.LANDING_VARIANT === "v2";
+// Landing V3 (the approved "A draft that adapts to you" page) is switched on the same way: LANDING_VARIANT=v3 serves it at `/`.
+const landingV3Enabled = () => process.env.LANDING_VARIANT === "v3";
 
 export async function generateMetadata(): Promise<Metadata> {
   if (await hasActiveSession()) return {};
+  if (landingV3Enabled()) return LANDING_V3_METADATA;
   return LANDING_METADATA;
 }
 
 export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (await hasActiveSession()) return <AccountHome />;
+  if (landingV3Enabled()) {
+    const { LandingV3 } = await import("@/features/landing-v3/LandingV3");
+    return <LandingV3 />;
+  }
   if (landingV2Enabled()) {
     const [{ LandingV2 }, { parseLandingV2Params }] = await Promise.all([import("@/features/landing-v2/LandingV2"), import("@/features/landing-v2/lab-params")]);
     return <LandingV2 {...parseLandingV2Params(await searchParams)} />;
