@@ -1,11 +1,22 @@
 """Test fixtures: a procedurally generated hero catalog. No network, no real Dota art, no local/ files."""
 from __future__ import annotations
 
+import atexit
+import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+# The tests must NEVER touch the Player's real %LOCALAPPDATA%/D2KIRO/Visual (diagnostics + evidence frames, which the
+# runtime prunes to 64 MB): every test process gets its own scratch home.
+_HOME = tempfile.mkdtemp(prefix="d2vc-tests-")
+os.environ["D2KIRO_VISUAL_HOME"] = _HOME
+os.environ["D2KIRO_VISUAL_DIAG_DIR"] = str(Path(_HOME) / "diagnostics")
+atexit.register(shutil.rmtree, _HOME, ignore_errors=True)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

@@ -291,7 +291,16 @@ class SessionAndPrivacyTests(unittest.TestCase):
         self.assertEqual(session.tick_no_frame(t0 + 6_000, False), [])  # reported once, not spammed
         self.assertFalse(session.status.window_found)
         recovered = session.process(frame, t0 + 7_000)
-        self.assertEqual(recovered[0]["payload"]["status"], "ok")
+        # Inside a draft the loss re-armed the helper: the first word after it is the honest one, never a blind OK.
+        self.assertEqual([(e["payload"]["status"], e["payload"]["detail"]) for e in recovered if e["payload"]["type"] == "capture_health"], [("degraded", "VISUAL_LAYOUT_UNVERIFIED")])
+
+    def test_12b_outside_a_draft_the_resume_is_ok_again(self):
+        session = new_session(DraftLifecycle("waiting", 0))
+        frame = screen([None] * 5, [None] * 5)
+        session.process(frame, 0)
+        session.tick_no_frame(5_000, False)
+        recovered = session.process(frame, 7_000)
+        self.assertEqual([e["payload"]["status"] for e in recovered], ["ok"])
 
     def test_never_seen_window_reports_degraded(self):
         session = new_session()

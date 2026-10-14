@@ -125,8 +125,9 @@ class VisualSession:
         if self._lost:
             self._lost = False
             self._note("capture_resumed")
-            out.append(self.factory.health("ok", "VISUAL_OK"))
-            self._last_heartbeat_ms = now_ms
+            if not self.status.draft_open:  # inside a draft the helper was re-armed on loss: only _health may speak, never a blind OK
+                out.append(self.factory.health("ok", "VISUAL_OK"))
+                self._last_heartbeat_ms = now_ms
         if not self.status.draft_open:
             # Not a draft (menu, lobby, loading, the match itself): nothing is baselined, matched or emitted.
             self.status.selection_detected = False

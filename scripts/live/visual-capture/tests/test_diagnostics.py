@@ -188,7 +188,8 @@ class DiagnosticsTests(unittest.TestCase):
                 session = flagged(Path(tmp))
                 now = play_draft(session, locks=4)
                 first = pngs(Path(tmp), "run1-e001-strip-*.png")
-                self.assertLessEqual(len([p for p in first if not p.stem.endswith("tail")]), 3 + 1)  # the old process-wide budget was spent here
+                events = [p for p in first if not p.stem.endswith(("tail", "keepalive"))]
+                self.assertEqual(len(events), 3)  # the cap binds: this draft produced many more events than the budget
                 session.on_lifecycle(DraftLifecycle("ended", 1))
                 self.assertTrue(session.on_lifecycle(EPOCH_2))
                 now = play_draft(session, start_ms=now + 5_000, locks=2)

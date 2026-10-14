@@ -55,8 +55,7 @@ class LockStateTests(unittest.TestCase):
 
     def test_nine_of_ten_bars_verify_the_frame_eight_do_not(self):
         frame = screen([None] * 5, [None] * 5)
-        for i in range(1):
-            set_card_bar(frame, LAYOUT, "radiant", i, None)
+        set_card_bar(frame, LAYOUT, "radiant", 0, None)
         self.assertTrue(bars_verified(card_chrome(frame, LAYOUT)))
         set_card_bar(frame, LAYOUT, "radiant", 1, None)
         self.assertFalse(bars_verified(card_chrome(frame, LAYOUT)))

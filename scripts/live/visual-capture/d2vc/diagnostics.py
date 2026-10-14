@@ -111,6 +111,12 @@ class Diagnostics:
         if self._last_frame_ms is not None and now_ms - self._last_frame_ms < every:
             return
         self._last_frame_ms = now_ms
+        try:
+            self._frame_record(frame, layout, scan, gate, status, chrome, states)
+        except Exception as error:  # noqa: BLE001 - diagnostics must never break the live loop (or drop its envelopes)
+            self.event("error", where="frame_record", type=type(error).__name__)
+
+    def _frame_record(self, frame: np.ndarray, layout: Layout, scan, gate, status, chrome: Mapping | None, states: Mapping | None) -> None:
         height, width = frame.shape[:2]
         vp = viewport(width, height, layout.aspect)
         slots = []

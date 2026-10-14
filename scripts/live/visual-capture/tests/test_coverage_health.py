@@ -243,6 +243,16 @@ class CoverageHealthTests(unittest.TestCase):
         _, events = timeline(s, np.zeros((1080, 1920, 3), np.uint8), now, int((HEARTBEAT_EVERY_MS * 3) / STEP), noise=False)
         self.assertEqual(health_times(events, OK), [])
 
+    def test_resuming_after_a_capture_loss_inside_a_draft_never_sends_a_blind_ok(self):
+        s, now, good = settled_ok_session()
+        self.assertEqual(s.tick_no_frame(now + 5_000, False)[0]["payload"]["detail"], "VISUAL_CAPTURE_LOST")
+        for frame in (good, np.zeros((1080, 1920, 3), np.uint8)):  # the screen came back readable, or still black
+            s2, now2, good2 = settled_ok_session()
+            s2.tick_no_frame(now2 + 5_000, False)
+            _, events = timeline(s2, frame, now2 + 6_000, 4, noise=False)
+            self.assertEqual(health_times(events, OK), [])
+            self.assertEqual(health_of(envelopes(events))[0], UNVERIFIED)  # the very first word is the honest one
+
     def test_outside_a_draft_the_lifecycle_probe_stays_ok(self):
         s = VisualSession(MATCHER, LAYOUT, DEFAULT_THRESHOLDS, EnvelopeFactory("live-session-1", "run1", CLOCK))
         sent = s.process(empty(), 0)
