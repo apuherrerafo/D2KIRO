@@ -7,6 +7,10 @@ variants (so a few pixels of misalignment do not matter) and the best variant pe
 Score = mean-centred normalized cross-correlation of the thumbnail (colour + brightness tolerant) blended
 with an HSV histogram correlation. Which blend is used was chosen by the offline benchmark (`bench.py`).
 
+Two reference banks per hero: the clean portrait, and the portrait as a HUMAN-lobby card shows it (a dark rank
+banner + medal covers the lower part of the art; bot-lobby cards have none). A hero's score is the better of the
+two, over the same whole-card crop -- no region-only matching, no lower thresholds.
+
 A hero is only EMITTED when `confident(result)` is true: absolute score AND margin over the runner-up.
 Anything else is "uncertain" and produces no draft fact.
 """
@@ -23,6 +27,10 @@ from .catalog import Catalog
 THUMB_W, THUMB_H = 40, 22
 HIST_BINS = (12, 4)
 INNER_MARGIN = 0.05
+# Human-lobby banner as a synthesized reference: BANNER_ALPHA * portrait + BANNER_BGR over these rows of the trimmed art.
+BANNER_ALPHA = 0.15
+BANNER_BGR = (52.0, 52.0, 78.0)
+BANNER_ROWS = (0.62, 0.95)
 # (zoom, dx, dy) of the reference variants, as a fraction of the reference size.
 VARIANTS: tuple[tuple[float, float, float], ...] = tuple(
     (zoom, dx, dy) for zoom in (1.0, 0.9) for dx in (-0.04, 0.0, 0.04) for dy in (-0.04, 0.0, 0.04)
@@ -58,6 +66,16 @@ def crop_region(image: np.ndarray, zoom: float = 1.0, dx: float = 0.0, dy: float
     return image[y0:y1, x0:x1]
 
 
+def banner_portrait(portrait: np.ndarray) -> np.ndarray:
+    """The reference portrait as a human-lobby card shows it: a dark rank banner over its lower part."""
+    out = portrait.astype(np.float32).copy()
+    height = out.shape[0]
+    span = 1 - 2 * INNER_MARGIN
+    top, bottom = int(height * (INNER_MARGIN + span * BANNER_ROWS[0])), int(height * (INNER_MARGIN + span * BANNER_ROWS[1]))
+    out[top:bottom] = BANNER_ALPHA * out[top:bottom] + np.array(BANNER_BGR, np.float32)
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def _thumb(crop: np.ndarray) -> np.ndarray:
     return cv2.resize(crop, (THUMB_W, THUMB_H), interpolation=cv2.INTER_AREA)
 
@@ -80,7 +98,7 @@ def _hist_vector(thumb: np.ndarray) -> np.ndarray:
 
 
 class Matcher:
-    def __init__(self, catalog: Catalog, hist_weight: float = 0.0) -> None:
+    def __init__(self, catalog: Catalog, hist_weight: float = 0.0, banner_bank: bool = True) -> None:
         self.hist_weight = hist_weight
         self.ids: list[int] = []
         ncc_rows: list[np.ndarray] = []
@@ -88,11 +106,13 @@ class Matcher:
         owners: list[int] = []
         for index, (hero_id, portrait) in enumerate(catalog.portraits.items()):
             self.ids.append(hero_id)
-            for zoom, dx, dy in VARIANTS:
-                thumb = _thumb(crop_region(portrait, zoom, dx, dy))
-                ncc_rows.append(_ncc_vector(thumb))
-                hist_rows.append(_hist_vector(thumb))
-                owners.append(index)
+            references = [portrait, banner_portrait(portrait)] if banner_bank else [portrait]
+            for reference in references:  # every hero's score is the best of its banks: owners point at the hero
+                for zoom, dx, dy in VARIANTS:
+                    thumb = _thumb(crop_region(reference, zoom, dx, dy))
+                    ncc_rows.append(_ncc_vector(thumb))
+                    hist_rows.append(_hist_vector(thumb))
+                    owners.append(index)
         self._ncc = np.stack(ncc_rows)
         self._hist = np.stack(hist_rows)
         self._owners = np.array(owners)

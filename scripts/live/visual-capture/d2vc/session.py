@@ -1,7 +1,10 @@
 """The visual capture session: frames in, `draft-event/v1` envelopes + a one-line status out.
 
-Pure orchestration over (scan -> temporal confirmation -> allowlisted envelopes). Frames, time and the
-network are all injected, so the whole thing is tested without a screen, a clock or a server.
+Pure orchestration over (card chrome -> lock state -> scan -> temporal confirmation -> allowlisted envelopes).
+Frames, time and the network are all injected, so the whole thing is tested without a screen, a clock or a server.
+
+Order per frame: occupancy gate -> LOCK state of every card (its player-colour bar, lockstate.py) -> only locked
+cards reach the matcher -> score+margin -> 3-frame confirmation -> draft fact. A hover never becomes a pick.
 
 Draft lifecycle comes from GSI, never from the screen: the helper is started BEFORE the queue and stays
 closed (no baseline, no matching, no facts) through menu / lobby / matchmaking / loading. When the server's
@@ -17,6 +20,7 @@ import numpy as np
 from .diagnostics import Diagnostics
 from .emit import EnvelopeFactory
 from .layout import Layout
+from .lockstate import CardChrome, bars_verified, card_chrome, classify
 from .matcher import Matcher, Thresholds
 from .occupancy import OccupancyGate
 from .scan import ScanResult, scan_frame, slot_crops
@@ -25,11 +29,10 @@ from .transport import DraftLifecycle
 
 LOST_AFTER_MS = 3_000.0
 HEARTBEAT_EVERY_MS = 5_000.0
-# A slot that looks occupied (or a hero still being confirmed) may stay unsettled this long before the helper stops
-# vouching that the draft is fully read: temporal confirmation alone needs ~400 ms.
+# A locked card (or an ambiguous one) may stay unsettled this long before the helper stops vouching that the draft is
+# fully read: temporal confirmation alone needs ~400 ms. The same grace is how long the previous health is retained
+# when a frame cannot be read at all (black / alt-tab / partial): after it the helper degrades, it never vouches.
 UNREAD_GRACE_MS = 1_500.0
-# Only a layout calibrated against a real hero-selection screen may vouch for "nothing is picked yet" on its own.
-VERIFIED_LAYOUT_STATUSES = frozenset({"calibrated", "verified"})
 # Outside a draft every heartbeat is also the question "has hero selection started?": ask once a second.
 LIFECYCLE_PROBE_MS = 1_000.0
 
@@ -73,8 +76,10 @@ class VisualSession:
         self.diagnostics = diagnostics
         self._window_logged = False
         self._unsettled_since: float | None = None
-        self._seen_hero = False  # a hero was confirmed on THIS draft screen: the boxes are demonstrably on the draft bar
+        self._unverified_since: float | None = None
         self._last_health: tuple[str, str] | None = None
+        self._lock_signature: tuple = ()
+        self.lock_states: dict[tuple[str, int], str] = {}  # the last frame's verdict per card (tests / diagnostics)
 
     def on_lifecycle(self, lifecycle: DraftLifecycle | None) -> bool:
         """The server's draft lifecycle (GSI). True on a draft boundary: the caller drops queued facts.
@@ -88,14 +93,20 @@ class VisualSession:
             self._note("server_seen", phase=lifecycle.phase)
         self.status.server_seen = True
         if lifecycle.drafting and (not self.status.draft_open or lifecycle.epoch != self._draft_epoch):
+            if self.diagnostics is not None and self.status.draft_open:
+                self.diagnostics.end_epoch()  # a new draft replaced an open one: keep the old one's evidence
             self.rearm()
             self.status.draft_open, self._draft_epoch = True, lifecycle.epoch
+            if self.diagnostics is not None:
+                self.diagnostics.begin_epoch(lifecycle.epoch)
             self._note("draft_open", epoch=lifecycle.epoch)
             return True
         if not lifecycle.drafting and self.status.draft_open:
             self.rearm()
             self.status.draft_open = False
             self._note("draft_closed", phase=lifecycle.phase)
+            if self.diagnostics is not None:
+                self.diagnostics.end_epoch()
             return True
         return False
 
@@ -121,6 +132,7 @@ class VisualSession:
             self.status.selection_detected = False
             if self.diagnostics is not None:
                 self.diagnostics.frame(now_ms, frame, self.layout, None, self.gate, self.status)
+                self.diagnostics.closed_frame(frame)
             if self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= LIFECYCLE_PROBE_MS:
                 out.append(self.factory.health("ok", "VISUAL_OK"))
                 self._last_heartbeat_ms = now_ms
@@ -129,18 +141,19 @@ class VisualSession:
         if self._frame_size is not None and size != self._frame_size:
             self.rearm()  # a different capture geometry invalidates every baseline
         self._frame_size = size
-        occupancy = self.gate.update(slot_crops(frame, self.layout), now_ms)
+        crops = slot_crops(frame, self.layout)
+        occupancy = self.gate.update(crops, now_ms)
         if occupancy.rearmed:
             self._reset_draft()
         self.status.armed = occupancy.armed
-        scan: ScanResult = scan_frame(frame, self.layout, self.matcher, self.thresholds, occupancy.occupied)
+        readable = self.gate.last_state != "unreadable"
+        chrome = card_chrome(frame, self.layout) if readable else {}
+        verified = readable and occupancy.armed and bars_verified(chrome)  # armed + readable + a bar on >= 9/10 cards
+        self.lock_states = self._lock_states(crops, chrome, occupancy.occupied, readable)
+        scan: ScanResult = scan_frame(frame, self.layout, self.matcher, self.thresholds, occupancy.occupied, self.lock_states)
         self._note_first_seen(scan, now_ms)
-        if self.diagnostics is not None:
-            self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status)
-            self.diagnostics.maybe_save_frame(now_ms, frame, self.layout)
         events = self.stability.update(scan, now_ms)
         confirmed_now = self.stability.confirmed()
-        self._seen_hero = self._seen_hero or len(confirmed_now) > 0
         self.status.recognized = scan.recognized
         self.status.selection_detected = scan.recognized > 0 or len(self.stability.confirmed()) > 0
         self.status.confirmed = sum(1 for key in self.stability.confirmed() if key[0] != "ban")
@@ -150,42 +163,82 @@ class VisualSession:
             if event.kind == "pick":
                 first = self._first_seen_ms.get((event.side, event.slot, event.hero_id), now_ms)
                 self.status.latency_ms = now_ms - first
-        health = self._coverage(scan, occupancy.occupied, confirmed_now, now_ms)
-        if health != self._last_health or self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= HEARTBEAT_EVERY_MS:
+        health = self._health(scan, confirmed_now, verified, now_ms)
+        health_changed = health is not None and health != self._last_health
+        if health is not None and (health_changed or self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= HEARTBEAT_EVERY_MS):
             out.append(self.factory.health(*health))
             self._last_health = health
             self._last_heartbeat_ms = now_ms
             self._note("health", status=health[0], detail=health[1])
+        if self.diagnostics is not None:
+            self._record(now_ms, frame, scan, chrome, readable, health_changed, any(e.kind == "pick" for e in events))
         return out
 
-    def _coverage(self, scan: ScanResult, occupied, confirmed, now_ms: float) -> tuple[str, str]:
+    def _lock_states(self, crops, chrome: dict[tuple[str, int], CardChrome], occupied, readable: bool) -> dict[tuple[str, int], str]:
+        """Per card: locked | ambiguous | hover | empty (| unreadable). Occupancy and distance only ever downgrade a lock."""
+        states: dict[tuple[str, int], str] = {}
+        for key in crops:
+            is_occupied = bool(occupied.get(key, False))
+            if key[0] == "ban":  # ban boxes (calibrated layouts only) have no card chrome: occupancy alone, as before
+                states[key] = "locked" if is_occupied else "empty"
+            elif not readable:
+                states[key] = "unreadable"
+            else:
+                states[key] = classify(chrome[key].top if key in chrome else 0.0, is_occupied, self.gate.last_distance.get(key))
+        return states
+
+    def _record(self, now_ms: float, frame: np.ndarray, scan: ScanResult, chrome: dict[tuple[str, int], CardChrome], readable: bool, health_changed: bool, confirmed_pick: bool) -> None:
+        signature = tuple(sorted(item for item in self.lock_states.items() if item[1] in ("locked", "ambiguous")))
+        triggers = []
+        if readable and signature != self._lock_signature:
+            triggers.append("lock")
+        if any(state == "ambiguous" for state in self.lock_states.values()):
+            triggers.append("ambiguous")
+        if health_changed:
+            triggers.append("health")
+        if confirmed_pick:
+            triggers.append("confirm")
+        if readable:
+            self._lock_signature = signature
+        self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status, chrome=chrome, states=self.lock_states)
+        self.diagnostics.evidence(now_ms, frame, self.layout, triggers, readable=readable, armed=self.status.armed, any_locked=any(state == "locked" for state in self.lock_states.values()))
+
+    def _health(self, scan: ScanResult, confirmed, verified: bool, now_ms: float) -> tuple[str, str] | None:
         """Does the helper VOUCH that the draft on screen is fully read? Only then may the server stop treating the
-        draft as partial (and the Team Coach recommend). It must prove it, never assume it:
-          - no trusted empty baseline yet                      -> cannot judge anything
-          - occupied slot(s) it cannot read / is still unsure  -> picks exist that we do not know
-          - a layout nobody verified and not a single hero read -> we cannot tell an empty bar from boxes on the wrong place"""
-        if not self.status.armed:
-            return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
+        draft as partial (and the Team Coach recommend). It must prove it, never assume it. None = no new word this frame.
+          - frame/layout not verified (no baseline yet, an unreadable / black / partial frame, no card bar on >= 9/10
+            cards)  -> never a fresh OK: the previous word is retained (silently) for at most UNREAD_GRACE_MS, then
+            LAYOUT_UNVERIFIED -- so the engine can never be left holding a 15 s old OK
+          - a locked card not (yet) read, or an ambiguous card that persists -> after UNREAD_GRACE_MS: SLOTS_UNREAD
+          - otherwise (empty bar, hovers, every locked card read) -> OK. Zero picks is a perfectly readable draft."""
+        if not verified:
+            if self._unverified_since is None:
+                self._unverified_since = now_ms
+            if self._last_health is None or now_ms - self._unverified_since >= UNREAD_GRACE_MS:
+                return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
+            return None
+        self._unverified_since = None
         unsettled = False
         for reading in scan.radiant + scan.dire:
-            if not occupied.get((reading.side, reading.index), False):
-                continue
-            if reading.state != "hero" or confirmed.get((reading.side, reading.index)) != reading.hero_id:
+            key = (reading.side, reading.index)
+            state = self.lock_states.get(key)
+            if state == "ambiguous":
                 unsettled = True
-        if unsettled:
-            if self._unsettled_since is None:
-                self._unsettled_since = now_ms
-            if now_ms - self._unsettled_since >= UNREAD_GRACE_MS:
-                return ("degraded", "VISUAL_SLOTS_UNREAD")
-            return self._last_health or ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
-        self._unsettled_since = None
-        if self.layout.status not in VERIFIED_LAYOUT_STATUSES and not self._seen_hero:
-            return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
-        return ("ok", "VISUAL_OK")
+            elif state == "locked" and (reading.state != "hero" or confirmed.get(key) != reading.hero_id):
+                unsettled = True
+        if not unsettled:
+            self._unsettled_since = None
+            return ("ok", "VISUAL_OK")
+        if self._unsettled_since is None:
+            self._unsettled_since = now_ms
+        if now_ms - self._unsettled_since >= UNREAD_GRACE_MS:
+            return ("degraded", "VISUAL_SLOTS_UNREAD")
+        return ("degraded", "VISUAL_LAYOUT_UNVERIFIED") if self._last_health is None else None
 
     def _reset_draft(self) -> None:
         self._unsettled_since = None
-        self._seen_hero = False
+        self._unverified_since = None
+        self._lock_signature = ()
         self._last_health = None
         self.stability.tracks.clear()
         self._first_seen_ms.clear()

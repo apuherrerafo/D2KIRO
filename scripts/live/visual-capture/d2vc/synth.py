@@ -2,6 +2,9 @@
 
 Simulates what a hero-selection slot looks like on screen: a different size, slightly misaligned, blurred,
 re-lit, tinted, with a name-plate shadow, and compressed. Seeded: same seed -> same pixels.
+
+Card chrome (lockstate.py) is synthesized too: a LOCKED card carries its player-colour bar at the TOP, an empty / ghost
+(hover) card carries it at the BOTTOM -- `set_card_bar` moves it, exactly what Dota does on a lock.
 """
 from __future__ import annotations
 
@@ -38,6 +41,29 @@ def degrade(portrait: np.ndarray, rng: np.random.Generator, *, slot_w: int | Non
     quality = int(95 - float(rng.uniform(0, 55)) * severity)
     ok, encoded = cv2.imencode(".jpg", out, [cv2.IMWRITE_JPEG_QUALITY, quality])
     return cv2.imdecode(encoded, cv2.IMREAD_COLOR) if ok else out
+
+
+# Saturated player colours (BGR): chroma ~200, far above the lock threshold even when half a bar is covered by art.
+PLAYER_COLORS = ((40, 60, 240), (240, 140, 20), (30, 200, 230), (200, 40, 160), (60, 230, 60), (230, 230, 30), (20, 120, 250), (150, 20, 240), (240, 90, 120), (30, 170, 110))
+
+
+def set_card_bar(frame: np.ndarray, layout, side: str, index: int, where: str | None, *, width: int | None = None, height: int | None = None) -> None:
+    """Draw (`top` | `bottom`) or remove (`None` = neither) the player-colour bar of one pick card, in place. The bar not asked
+    for is erased by repeating the background row just beyond it."""
+    from .layout import viewport  # local import: layout does not depend on synth
+
+    frame_h, frame_w = frame.shape[:2]
+    vx, vy, vw, vh = viewport(frame_w, frame_h, layout.aspect)
+    rect = layout.slots[side][index]
+    bar = max(2, int(round(5 * vh / 900.0)))
+    x0, w = vx + int(rect.x * vw), max(2, int(rect.w * vw))
+    top_y, bottom_y = vy, vy + int(round(55 * vh / 900.0))
+    colour = np.array(PLAYER_COLORS[(0 if side == "radiant" else 5) + index], np.uint8)
+    for name, y in (("top", top_y), ("bottom", bottom_y)):
+        if where == name:
+            frame[y : y + bar, x0 : x0 + w] = colour
+        else:
+            frame[y : y + bar, x0 : x0 + w] = frame[y + bar : y + bar + 1, x0 : x0 + w]
 
 
 def blank_slot(rng: np.random.Generator, kind: int) -> np.ndarray:
@@ -95,6 +121,7 @@ def compose_screen(catalog, layout, width: int, height: int, *, radiant: list[in
                 cv2.rectangle(frame, (x0, y0), (x0 + w - 1, y0 + h - 1), (60, 60, 60), 1)
             else:
                 frame[y0 : y0 + h, x0 : x0 + w] = degrade(catalog.portraits[hero], rng, slot_size=(w, h), severity=severity)
+            set_card_bar(frame, layout, side, index, "bottom" if hero is None else "top")
     for index, rect in enumerate(layout.bans):
         x0, y0 = vx + int(rect.x * vw), vy + int(rect.y * vh)
         w, h = max(2, int(rect.w * vw)), max(2, int(rect.h * vh))

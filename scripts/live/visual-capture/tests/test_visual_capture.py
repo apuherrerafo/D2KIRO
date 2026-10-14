@@ -18,7 +18,7 @@ from d2vc.matcher import MatchResult, Matcher, confident
 from d2vc.scan import scan_frame
 from d2vc.session import VisualSession
 from d2vc.stability import StabilityFilter
-from d2vc.synth import blank_slot, compose_screen, degrade
+from d2vc.synth import blank_slot, compose_screen, degrade, set_card_bar
 from d2vc.transport import DraftLifecycle, Outbox
 
 CATALOG = fake_catalog()
@@ -72,6 +72,18 @@ def paste(frame, side, index, image, size=(1920, 1080)):
     out = frame.copy()
     out[y0 : y0 + h, x0 : x0 + w] = image[:h, :w] if image.shape[:2] == (h, w) else __import__("cv2").resize(image, (w, h))
     return out
+
+
+def lock(frame, side, index, image, size=(1920, 1080)):
+    """The pick LOCKS: the card shows the hero and its player-colour bar moves from the bottom to the top."""
+    out = paste(frame, side, index, image, size)
+    set_card_bar(out, LAYOUT, side, index, "top")
+    return out
+
+
+def hover(frame, side, index, image, size=(1920, 1080)):
+    """Somebody is only HOVERING the hero: the art changes, the bar stays at the bottom. Never a pick."""
+    return paste(frame, side, index, image, size)
 
 
 def ghost(hero, side="radiant", index=0, size=(1920, 1080)):
@@ -379,7 +391,7 @@ class OccupancyGateRegressionTests(unittest.TestCase):
         session = new_session()
         base = ghost_screen(self.GHOSTS)
         t, _ = feed(session, base, 0, 12)
-        _, sent = feed(session, paste(base, "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        _, sent = feed(session, lock(base, "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
         self.assertEqual(picks(sent), [("hero_picked", "radiant", 7)])
         self.assertEqual(session.status.confirmed, 1)
 
@@ -387,7 +399,7 @@ class OccupancyGateRegressionTests(unittest.TestCase):
         session = new_session()
         base = ghost_screen(self.GHOSTS)
         t, _ = feed(session, base, 0, 12)
-        _, sent = feed(session, paste(base, "dire", 4, hero_slot(3, "dire", 4)), t, 40)
+        _, sent = feed(session, lock(base, "dire", 4, hero_slot(3, "dire", 4)), t, 40)
         self.assertEqual(picks(sent), [("hero_picked", "dire", 3)])
         self.assertEqual(session.status.recognized, 1)
 
@@ -412,19 +424,19 @@ class OccupancyGateRegressionTests(unittest.TestCase):
         session = new_session()
         base = ghost_screen(self.GHOSTS)
         t, _ = feed(session, base, 0, 12)
-        _, sent = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 80)
+        _, sent = feed(session, lock(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 80)
         self.assertEqual(picks(sent), [("hero_picked", "radiant", 11)])
 
-    def test_6_hero_changes_before_lock_reverts_old_then_picks_new(self):
+    def test_6_hero_changes_reverts_old_then_picks_new(self):
         import cv2
 
         session = new_session()
         base = ghost_screen(self.GHOSTS)
         t, _ = feed(session, base, 0, 12)
-        t, first = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 10)
+        t, first = feed(session, lock(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 10)
         blend = cv2.addWeighted(hero_slot(11, "radiant", 0), 0.5, hero_slot(15, "radiant", 0), 0.5, 0)
-        t, transition = feed(session, paste(base, "radiant", 0, blend), t, 6)  # animation half-way: nothing new
-        t, second = feed(session, paste(base, "radiant", 0, hero_slot(15, "radiant", 0, seed=4)), t, 10)
+        t, transition = feed(session, lock(base, "radiant", 0, blend), t, 6)  # animation half-way: nothing new
+        t, second = feed(session, lock(base, "radiant", 0, hero_slot(15, "radiant", 0, seed=4)), t, 10)
         self.assertEqual(picks(first), [("hero_picked", "radiant", 11)])
         self.assertEqual(picks(transition), [])
         self.assertEqual(picks(second), [("pick_reverted", "radiant", 11), ("hero_picked", "radiant", 15)])
@@ -444,7 +456,7 @@ class OccupancyGateRegressionTests(unittest.TestCase):
     def test_8_draft_restart_resets_the_baseline(self):
         session = new_session()
         base = ghost_screen(self.GHOSTS)
-        with_hero = paste(base, "radiant", 0, hero_slot(11, "radiant", 0))
+        with_hero = lock(base, "radiant", 0, hero_slot(11, "radiant", 0))
         t, _ = feed(session, base, 0, 12)
         t, first = feed(session, with_hero, t, 12)
         self.assertEqual(picks(first), [("hero_picked", "radiant", 11)])
@@ -485,14 +497,14 @@ class OccupancyGateRegressionTests(unittest.TestCase):
         session = new_session()
         base = ghost_screen(self.GHOSTS)
         t, _ = feed(session, base, 0, 12)
-        _, sent = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 100)
+        _, sent = feed(session, lock(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 100)
         self.assertEqual(len([e for e in sent if e["payload"]["type"] == "hero_picked"]), 1)
 
     def test_10_no_position_is_inferred_from_the_screen_slot(self):
         session = new_session()
         base = ghost_screen(self.GHOSTS)
         t, _ = feed(session, base, 0, 12)
-        _, sent = feed(session, paste(base, "radiant", 4, hero_slot(11, "radiant", 4)), t, 12)
+        _, sent = feed(session, lock(base, "radiant", 4, hero_slot(11, "radiant", 4)), t, 12)
         facts = [e for e in sent if e["payload"]["type"] == "hero_picked"]
         self.assertEqual(len(facts), 1)
         self.assertEqual(set(facts[0]["payload"]), {"type", "hero", "side"})
@@ -604,7 +616,7 @@ class AutoArmTests(unittest.TestCase):
         self.assertEqual(picks(idle), [])
         self.assertEqual(session.status.confirmed, 0)
         self.assertIn("0/10 heroes recognized", session.status.line())
-        _, first = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        _, first = feed(session, lock(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
         self.assertEqual(picks(first), [("hero_picked", "radiant", 7)])
         self.assertEqual(session.status.confirmed, 1)
         self.assertIn("1/10 heroes recognized", session.status.line())
@@ -614,7 +626,7 @@ class AutoArmTests(unittest.TestCase):
             session = new_session(lifecycle)
             base = ghost_screen(GHOSTS)
             t, sent = feed(session, base, 0, 12)
-            _, more = feed(session, paste(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 40)
+            _, more = feed(session, lock(base, "radiant", 0, hero_slot(11, "radiant", 0)), t, 40)
             self.assertEqual(picks(sent + more), [], lifecycle)
             self.assertEqual(session.status.confirmed, 0, lifecycle)
             self.assertFalse(session.status.armed, lifecycle)
@@ -623,7 +635,7 @@ class AutoArmTests(unittest.TestCase):
     def test_no_stale_candidate_survives_the_automatic_rearm(self):
         session = new_session(WAITING)
         t, _ = self.enter_draft(session, 0)
-        with_hero = paste(ghost_screen(GHOSTS), "radiant", 0, hero_slot(11, "radiant", 0))
+        with_hero = lock(ghost_screen(GHOSTS), "radiant", 0, hero_slot(11, "radiant", 0))
         t, half = feed(session, with_hero, t, 2)  # a candidate: seen, not yet confirmed
         self.assertEqual(picks(half), [])
         self.assertTrue(session.stability.tracks)
@@ -650,7 +662,7 @@ class AutoArmTests(unittest.TestCase):
     def test_the_same_draft_answered_again_never_rearms_mid_draft(self):
         session = new_session(WAITING)
         t, _ = self.enter_draft(session, 0)
-        t, first = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        t, first = feed(session, lock(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
         self.assertEqual(picks(first), [("hero_picked", "radiant", 7)])
         for _ in range(20):  # every heartbeat's answer repeats the same draft
             self.assertFalse(session.on_lifecycle(DRAFT_1))
@@ -662,7 +674,7 @@ class AutoArmTests(unittest.TestCase):
         session = new_session(WAITING)
         t, _ = feed(session, lobby_screen(), 0, 24)
         t, _ = self.enter_draft(session, t, DRAFT_1)
-        t, game1 = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        t, game1 = feed(session, lock(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
         self.assertEqual(picks(game1), [("hero_picked", "radiant", 7)])
         self.assertTrue(session.on_lifecycle(ENDED_1))  # GSI: into the match
         self.assertFalse(session.status.draft_open)
@@ -674,7 +686,7 @@ class AutoArmTests(unittest.TestCase):
         t, idle = feed(session, ghost_screen(GHOSTS), t, 24)
         self.assertEqual(picks(idle), [])
         self.assertIn("0/10 heroes recognized", session.status.line())
-        _, game2 = feed(session, paste(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
+        _, game2 = feed(session, lock(ghost_screen(GHOSTS), "radiant", 2, hero_slot(7, "radiant", 2)), t, 12)
         self.assertEqual(picks(game2), [("hero_picked", "radiant", 7)])  # same hero, same slot: game 2's own fact
         self.assertEqual(session.status.confirmed, 1)
 
@@ -703,8 +715,8 @@ class LiveLoopAutoArmTests(unittest.TestCase):
         from d2vc import cli
 
         ghost = ghost_screen(GHOSTS)
-        pick7 = paste(ghost, "radiant", 2, hero_slot(7, "radiant", 2))
-        pick7_3 = paste(pick7, "dire", 4, hero_slot(3, "dire", 4))
+        pick7 = lock(ghost, "radiant", 2, hero_slot(7, "radiant", 2))
+        pick7_3 = lock(pick7, "dire", 4, hero_slot(3, "dire", 4))
         segments = [  # (steps at 8 fps, frame, what the server (GSI) says)
             (40, lobby_screen(), WAITING),  # helper started before the queue
             (32, ghost, DRAFT_1),  # hero selection: bans, empty bar

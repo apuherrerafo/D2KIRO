@@ -72,15 +72,47 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
   then NOTHING is eligible (fail closed). A helper started on an already-filled bar baselines those picks as
   "unchanged" and never reports them. The baseline resets on `rearm()`, window loss, frame-size change, and when
   >= 6 slots turn occupied within 500 ms (menu / loading screen / restarted draft, not ten picks).
-  Order: occupancy -> matcher -> score+margin -> 3-frame confirmation -> draft fact.
+  Order: occupancy -> lock state -> matcher -> score+margin -> 3-frame confirmation -> draft fact.
   `lab`/`bench` stay matcher-only diagnostics (single frame, no baseline).
-- A hero is emitted only if `score >= 0.70` **and** `margin over runner-up >= 0.15`; a flat slot never matches.
+- **Lock state from the card chrome (`lockstate.py`) -- a hover is never a pick.** The player-colour bar of a card sits at
+  the BOTTOM while the card is empty / hovered and moves to the TOP when the pick locks. The chroma of the top strip
+  (`max(2, round(5 * viewport_height / 900))` rows, middle 60% of the card) is >= 103 on every locked card and <= 45 on
+  everything else in the saved real corpus: `>= 80` = locked. A slot enters hero matching only when it is **locked AND
+  occupied**; occupancy / distance only ever downgrade (a locked-looking bar on a slot that did not change is
+  `ambiguous`, never a hero). Per slot: `locked | ambiguous | hover | empty`. Hover = no hero, no health problem.
+- A hero is emitted only if `score >= 0.68` **and** `margin over runner-up >= 0.15`; a flat slot never matches. Each hero
+  has two references, the clean portrait and the portrait under a synthesized human-lobby rank banner (0.15 x portrait +
+  BGR 52,52,78 over rows 0.62-0.95); its score is the better of the two, over the whole card (no region-only matching).
+- **Health (`session._health`).** Frame/layout verified = armed baseline + readable frame + a card bar on >= 9 of the 10
+  cards. Verified and no locked card unread -> `VISUAL_OK`, **including an empty or hover-only draft** (zero picks is a
+  readable draft; the Team Coach may recommend from the start). A locked card still unread (or an ambiguous card) after
+  1.5 s -> `VISUAL_SLOTS_UNREAD`. A frame that is black / partial / not the hero-selection bar never yields a fresh OK: the
+  previous word is retained (silently) for at most 1.5 s, then `VISUAL_LAYOUT_UNVERIFIED` -- the engine can never hold
+  a stale OK. Unknown beats wrong.
 - A hero is **confirmed** only after 3 consecutive frames spanning >= 350 ms. Flicker creates nothing. A
   confirmed slot that stably changes yields `pick_reverted` + new `hero_picked`. Unreadable frames never revert.
 - Screen slot order is **not** Pos 1-5. Nothing here sends a position.
 - Allowlist (`emit.assert_allowlisted`) runs on every envelope: hero id, side, pick/ban, confidence, health code.
 - The engine accepts only `hero_picked | pick_reverted | hero_banned | capture_health` on this channel, bound to
   the link's session; GSI keeps lifecycle, our side and our own hero. Same hero from both = one pick.
+
+## Local evidence (`save-frames.flag`)
+
+With the flag file `%LOCALAPPDATA%/D2KIRO/Visual/save-frames.flag` present, and only then, the helper keeps -- locally,
+never uploaded -- per draft epoch: strip PNGs of the top bar (rows 0-70, x 160-1440 of the 1600x900 reference, scaled) on a
+lock-state change / ambiguity / health change / hero confirmation / every 10 s, the last 6 strips flushed when the draft
+closes, and at most four full frames (after arming, first lock, last readable, first after close). `frames/` is pruned to
+64 MB, oldest draft epoch first -- **keep any corpus you care about outside `Visual/frames`**. The JSONL diagnostics carry
+`top`, `bot`, `chroma`, `dist`, `lockstate`, `bar_present` per slot.
+
+## Offline acceptance on the saved real corpus
+
+```powershell
+python -I acceptance/corpus_acceptance.py --corpus "$env:LOCALAPPDATA\D2KIRO\VisualCorpus"
+```
+Not CI (the frames are the Player's own screenshots): lock gate, matcher, negatives, session replay, health and shift gates
+on the real 1600x900 Spanish-UI corpus. Evidence is primarily 1600x900 / Spanish; native 1280x720, 1920x1080 human
+captures and other languages are NOT validated.
 
 ## Tests
 

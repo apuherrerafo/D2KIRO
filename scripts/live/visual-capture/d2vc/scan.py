@@ -22,7 +22,7 @@ class SlotReading:
     # Diagnostics only (never sent anywhere): the best candidate even when it was rejected, and why.
     candidate_id: int | None = None
     runner_up_score: float = 0.0
-    reason: str = ""  # "ok" | "unoccupied" | "blank" | "below_score" | "below_margin"
+    reason: str = ""  # "ok" | "unoccupied" | "hover" | "ambiguous" | "unreadable" | "blank" | "below_score" | "below_margin"
 
 
 @dataclass(frozen=True)
@@ -42,8 +42,16 @@ class ScanResult:
         return sum(1 for r in self.radiant + self.dire if r.state == "hero")
 
 
-def read_slot(side: str, index: int, crop_bgr: np.ndarray, matcher: Matcher, thresholds: Thresholds, occupied: bool | None = None) -> SlotReading:
-    """`occupied=False` (the occupancy gate says the slot still looks empty) means the matcher never runs."""
+# Lock states (lockstate.py) that never reach the matcher, and the reason each one is reported with.
+NOT_LOCKED_REASONS = {"empty": "unoccupied", "hover": "hover", "ambiguous": "ambiguous", "unreadable": "unreadable"}
+
+
+def read_slot(side: str, index: int, crop_bgr: np.ndarray, matcher: Matcher, thresholds: Thresholds, occupied: bool | None = None, lock_state: str | None = None) -> SlotReading:
+    """Only a LOCKED card (`lock_state="locked"`: card chrome + occupancy) is matched against heroes. A hover, an ambiguous
+    or an empty card never produces a hero. `lock_state=None` is the matcher-only path of lab/bench; there, `occupied=False`
+    (the occupancy gate says the slot still looks empty) also means the matcher never runs."""
+    if lock_state is not None and lock_state != "locked":
+        return SlotReading(side, index, "empty", None, 0.0, 0.0, reason=NOT_LOCKED_REASONS.get(lock_state, "unoccupied"))
     if occupied is False:
         return SlotReading(side, index, "empty", None, 0.0, 0.0, reason="unoccupied")
     if is_blank(crop_bgr):
@@ -63,16 +71,17 @@ def slot_crops(frame: np.ndarray, layout: Layout) -> dict[tuple[str, int], np.nd
     return crops
 
 
-def scan_frame(frame: np.ndarray, layout: Layout, matcher: Matcher, thresholds: Thresholds, occupancy: Mapping[tuple[str, int], bool] | None = None) -> ScanResult:
-    """`occupancy=None` is matcher-only (lab/bench diagnostics). The live loop ALWAYS passes the gate's verdict;
-    a slot missing from a given `occupancy` is treated as empty (fail closed)."""
+def scan_frame(frame: np.ndarray, layout: Layout, matcher: Matcher, thresholds: Thresholds, occupancy: Mapping[tuple[str, int], bool] | None = None, lock_states: Mapping[tuple[str, int], str] | None = None) -> ScanResult:
+    """`occupancy=None, lock_states=None` is matcher-only (lab/bench diagnostics). The live loop ALWAYS passes `lock_states`
+    (lockstate.classify: card chrome + the occupancy gate); a slot missing from it is treated as empty (fail closed)."""
     start = time.perf_counter()
     height, width = frame.shape[:2]
     crops = slot_crops(frame, layout)
 
     def read(side: str, index: int) -> SlotReading:
         occupied = None if occupancy is None else bool(occupancy.get((side, index), False))
-        return read_slot(side, index, crops[(side, index)], matcher, thresholds, occupied)
+        lock_state = None if lock_states is None else lock_states.get((side, index), "empty")
+        return read_slot(side, index, crops[(side, index)], matcher, thresholds, occupied, lock_state)
 
     rows = {side: tuple(read(side, i) for i in range(len(layout.slots[side]))) for side in SIDES}
     bans = tuple(read("ban", i) for i in range(len(layout.bans)))
