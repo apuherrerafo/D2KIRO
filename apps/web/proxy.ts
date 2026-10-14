@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { mintAccountToken } from "./lib/account-token";
 import { getCanonicalOrigin } from "./lib/canonical-origin";
+import { isPublicCoachAsset } from "./lib/public-coach-assets";
 import { getSession, renewSessionIfNeeded, type SessionCookieStore } from "./lib/session";
 
 // TSK-219: Dota's Game State Integration has no session cookie -- its ingest path is public here and
@@ -15,7 +16,7 @@ const VISUAL_INGEST_PREFIX = "/api/live/visual/";
 const COMPANION_INGEST_PREFIX = "/api/live/companion/";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
+  return isPublicCoachAsset(pathname) || pathname === "/" || pathname === "/login" || pathname === "/access-denied" || pathname === "/healthz" || pathname.startsWith("/api/auth/") || pathname.startsWith(GSI_INGEST_PREFIX) || pathname.startsWith(VISUAL_INGEST_PREFIX) || pathname.startsWith(COMPANION_INGEST_PREFIX);
 }
 
 function isEngineRewrite(pathname: string): boolean {

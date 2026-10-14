@@ -1,8 +1,8 @@
 /* LANDING V2 · 1 · HERO. The LOCKED Hero Loop V1.1, unchanged, inside the page's own frame: headline, one action and a real
    Pause (the loop runs past five seconds, so WCAG 2.2.2 asks for one). No Lab controls. The first cycle (draft A) already says
    all three things: this is a draft tool, it recommends your pick, it weighs your games. Coach = the approved pre-rendered
-   Hero pack on desktop AND mobile (same semantic controller, only the renderer is chosen here); reduced motion = static state
-   stills. The live Gold Master (Three.js) stays a Lab/product-surface renderer and is never requested by this page. */
+   Hero pack on phones; on supported desktop it is the approved Coach Motion V2 pack (pre-rendered frames following the same
+   semantic cue); reduced motion = static state stills. The live Gold Master (Three.js) stays a Lab/product-surface renderer and is never requested by this page. */
 "use client";
 
 import { useRef, useState } from "react";
@@ -10,7 +10,7 @@ import { ActionPrimary } from "@/design/canonical/primitives";
 import { useReducedMotion } from "@/design/round-3a/lab-context";
 import { scrollToId } from "@/features/landing/scroll";
 import { CTA_LABEL } from "@/features/landing/copy";
-import { useCoachMode } from "../hero-loop/coach/HeroCoach";
+import { useLandingCoachMode } from "../hero-loop/coach/HeroCoach";
 import { HeroLoop } from "../hero-loop/HeroLoop";
 import { usePortraitsReady } from "../hero-loop/preload";
 import { LOOP_SCENARIOS } from "./story/scenarios";
@@ -26,7 +26,7 @@ export function HeroSection() {
   const [paused, setPaused] = useState(false);
   const portraitsReady = usePortraitsReady(LOOP_SCENARIOS);
   const clock = useHeroLoop(host, reduced, paused, START, portraitsReady);
-  const coachMode = useCoachMode(reduced, "sprite");
+  const coachMode = useLandingCoachMode(reduced);
   useIdlePrefetch(portraitsReady);
 
   function handleJoin() {
@@ -48,7 +48,7 @@ export function HeroSection() {
           </div>
         </div>
         <div className="lv2-hero-stage" ref={host}>
-          <HeroLoop calls clock={clock} coachMode={coachMode} quality="lite" reduced={reduced} />
+          <HeroLoop calls clock={clock} coachMode={coachMode} paused={paused} quality="lite" reduced={reduced} />
         </div>
         <div className="lv2-hero-foot">
           <p className="ld-illustrative">{HERO.illustrative}</p>

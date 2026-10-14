@@ -1,0 +1,239 @@
+{
+ "sequence": [
+  {
+   "state": "watching",
+   "at": 1279
+  },
+  {
+   "state": "watching>analyzing",
+   "at": 2295
+  },
+  {
+   "state": "analyzing",
+   "at": 3799
+  },
+  {
+   "state": "analyzing>pointing",
+   "at": 7750
+  },
+  {
+   "state": "pointing",
+   "at": 9255
+  },
+  {
+   "state": "pointing>confirming",
+   "at": 9356
+  },
+  {
+   "state": "confirming",
+   "at": 10833
+  },
+  {
+   "state": "confirming>pointing",
+   "at": 11013
+  },
+  {
+   "state": "pointing",
+   "at": 12470
+  },
+  {
+   "state": "pointing>watching",
+   "at": 12595
+  },
+  {
+   "state": "watching",
+   "at": 14087
+  },
+  {
+   "state": "watching>analyzing",
+   "at": 15657
+  },
+  {
+   "state": "analyzing",
+   "at": 17135
+  },
+  {
+   "state": "analyzing>pointing",
+   "at": 20852
+  },
+  {
+   "state": "pointing",
+   "at": 22344
+  },
+  {
+   "state": "pointing>confirming",
+   "at": 22447
+  },
+  {
+   "state": "confirming",
+   "at": 23953
+  },
+  {
+   "state": "confirming>pointing",
+   "at": 24079
+  },
+  {
+   "state": "pointing",
+   "at": 25578
+  },
+  {
+   "state": "pointing>watching",
+   "at": 25759
+  },
+  {
+   "state": "watching",
+   "at": 27235
+  },
+  {
+   "state": "watching>analyzing",
+   "at": 28752
+  },
+  {
+   "state": "analyzing",
+   "at": 30246
+  },
+  {
+   "state": "analyzing>pointing",
+   "at": 36173
+  },
+  {
+   "state": "pointing",
+   "at": 37683
+  },
+  {
+   "state": "pointing>confirming",
+   "at": 37775
+  },
+  {
+   "state": "confirming",
+   "at": 39276
+  },
+  {
+   "state": "confirming>pointing",
+   "at": 39400
+  },
+  {
+   "state": "pointing",
+   "at": 40892
+  },
+  {
+   "state": "pointing>watching",
+   "at": 41022
+  }
+ ],
+ "heroPhases": [
+  [
+   62,
+   "draft"
+  ],
+  [
+   2257,
+   "reveal"
+  ],
+  [
+   3585,
+   "evidence"
+  ],
+  [
+   7696,
+   "recommendation"
+  ],
+  [
+   9217,
+   "lock"
+  ],
+  [
+   10015,
+   "settle"
+  ],
+  [
+   10934,
+   "carry"
+  ],
+  [
+   12466,
+   "relax"
+  ],
+  [
+   13773,
+   "draft"
+  ],
+  [
+   15607,
+   "reveal"
+  ],
+  [
+   16914,
+   "evidence"
+  ],
+  [
+   20786,
+   "recommendation"
+  ],
+  [
+   22312,
+   "lock"
+  ],
+  [
+   23110,
+   "settle"
+  ],
+  [
+   24039,
+   "carry"
+  ],
+  [
+   25557,
+   "relax"
+  ],
+  [
+   26886,
+   "draft"
+  ],
+  [
+   28710,
+   "reveal"
+  ],
+  [
+   30010,
+   "evidence"
+  ],
+  [
+   36112,
+   "recommendation"
+  ],
+  [
+   37632,
+   "lock"
+  ],
+  [
+   38431,
+   "settle"
+  ],
+  [
+   39357,
+   "carry"
+  ],
+  [
+   40886,
+   "relax"
+  ]
+ ],
+ "cueLagMs": [
+  38,
+  50,
+  42,
+  54,
+  67,
+  61,
+  139,
+  135,
+  143,
+  79,
+  40,
+  43,
+  129,
+  202,
+  136
+ ]
+}

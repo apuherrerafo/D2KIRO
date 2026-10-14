@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { sealData } from "iron-session";
 import { NextRequest } from "next/server";
 import { verifyAccountToken } from "../engine/src/server/account-token";
 import { GET as healthz } from "./app/healthz/route";
 import { mintAccountToken } from "./lib/account-token";
 import { sessionOptions } from "./lib/session";
+import { isPublicCoachAsset } from "./lib/public-coach-assets";
 import { proxy } from "./proxy";
 
 const SESSION_SECRET_ENV = "SESSION" + "_SECRET";
@@ -59,6 +62,43 @@ describe("proxy de sesión y token interno", () => {
     expect(companion.headers.get("x-middleware-request-x-account-token")).toBeNull();
     for (const path of ["/api/live/gsi-config", "/api/live/gsi-installer", "/api/live/gsi-uninstaller", "/api/live/companion-installer", "/api/live/companion", "/api/live/gsi", "/api/live/visual", "/engine/api/live/gsi-link", "/live-draft"]) {
       const response = await proxy(new NextRequest(`http://localhost:3000${path}`, { method: "POST" }));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+    }
+  });
+
+  test("Landing V2: los assets del Coach que la página pide son públicos (exactos); el resto de /coach-* exige sesión", async () => {
+    configureAuth();
+    const publicDir = join(import.meta.dir, "public");
+    const shipped = [
+      ...readdirSync(join(publicDir, "coach-motion-v2/prod/384")).map((f) => `/coach-motion-v2/prod/384/${f}`),
+      ...readdirSync(join(publicDir, "coach-web-pack/hero")).map((f) => `/coach-web-pack/hero/${f}`),
+      ...readdirSync(join(publicDir, "coach-web-pack/memory")).map((f) => `/coach-web-pack/memory/${f}`),
+      "/coach-web-pack/reconstruct-memory.webp",
+    ];
+    expect(shipped.length).toBeGreaterThan(300);
+    for (const path of shipped) expect(isPublicCoachAsset(path)).toBe(true);
+    expect((await proxy(new NextRequest("http://localhost:3000/coach-motion-v2/prod/384/manifest.json"))).status).toBe(200);
+
+    const closed = [
+      "/coach-motion-v2/manifest.json",
+      "/coach-motion-v2/prod/512/manifest.json",
+      "/coach-motion-v2/prod/384/",
+      "/coach-motion-v2/prod/384/../512/manifest.json",
+      "/coach-motion-v2/prod/384/watching-00.avif",
+      "/coach-motion-v2/prod/384/notes.json",
+      "/coach-motion-v2/calibration/manifest.json",
+      "/coach-motion-v2/A/manifest.json",
+      "/coach-motion-v2/watching-idle.webp",
+      "/coach-gold-master/coach-modular.bin",
+      "/coach-web-pack/hero/",
+      "/coach-web-pack/hero/watching-c.png",
+      "/lab/coach-motion-v2/full-pack",
+      "/lab/landing-v2",
+    ];
+    for (const path of closed) {
+      expect(isPublicCoachAsset(path)).toBe(false);
+      const response = await proxy(new NextRequest(`http://localhost:3000${path}`));
       expect(response.status).toBe(307);
       expect(response.headers.get("location")).toBe("http://localhost:3000/login");
     }

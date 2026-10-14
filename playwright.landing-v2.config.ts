@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 // Landing V2 review harness (lab only; NOT part of `bun run e2e`). proxy.ts is untouched: a valid session cookie is
 // sealed with this run's ephemeral SESSION_SECRET, so /lab/landing-v2 is reached through the real gate.
 //   npx playwright test -c playwright.landing-v2.config.ts
-const WEB_PORT = 3141;
+const WEB_PORT = Number(process.env.LAB_PORT ?? 3141);
 const SESSION_SECRET = process.env.LAB_SESSION_SECRET ?? randomBytes(32).toString("hex");
 const INTERNAL_AUTH_SECRET = process.env.LAB_INTERNAL_AUTH_SECRET ?? randomBytes(32).toString("hex");
 mkdirSync(resolve("e2e-landing-v2/.tmp"), { recursive: true });
@@ -36,6 +36,6 @@ export default defineConfig({
     port: WEB_PORT,
     reuseExistingServer: process.env.LAB_REUSE === "1",
     timeout: 600_000,
-    env: { SESSION_SECRET, INTERNAL_AUTH_SECRET, NEXT_DIST_DIR: ".next-landing-v2" },
+    env: { SESSION_SECRET, INTERNAL_AUTH_SECRET, NEXT_DIST_DIR: ".next-landing-v2", LANDING_VARIANT: "v2", PUBLIC_BASE_URL: `http://localhost:${WEB_PORT}` },
   },
 });

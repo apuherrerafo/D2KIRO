@@ -50,6 +50,9 @@
 .hl-coach[data-renderer="sprite-loading"] .hl-live { opacity: 0; }
 .hl-sprite-layer { height: 100%; inset: 0; object-fit: contain; pointer-events: none; position: absolute; user-select: none; width: 100%; }
 .hl-coach[data-renderer="static"] .hl-coach, .hl-coach[data-mode="static"] { transition: none; }
+/* Motion V2 (Landing Hero, desktop): the static Coach is the floor; the canvas takes over in one commit once a frame is painted, and the floor is hidden behind it */
+.cm-atlas { display: block; height: 100%; inset: 0; position: absolute; width: 100%; }
+[data-motion-status="motion"] .hl-sprite { visibility: hidden; }
 
 /* ───────── blocks ───────── */
 .hl-block { border: 1px dashed var(--r3-line-strong); border-radius: 4px; display: grid; gap: 8px; padding: 8px 12px; transition: border-color var(--m-slow) var(--m-ease-out); }

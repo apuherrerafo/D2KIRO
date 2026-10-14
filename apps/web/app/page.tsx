@@ -9,12 +9,20 @@ import { AccountHome } from "./account-home";
 // component Storybook renders -- no fork. The waitlist has no endpoint yet, so `onJoinWaitlist` is
 // deliberately omitted: that is the seam for the backend, and the form stays a labelled preview.
 // Only the public landing carries its own metadata; the account home keeps the app default.
+// Landing V2 is switched on per environment, not per build: LANDING_VARIANT=v2 serves it at `/` (staging review); unset or anything else keeps Landing 01B.
+// Reverting is removing the variable. Landing V2 is imported only inside its branch so its stylesheets never load for the legacy page.
+const landingV2Enabled = () => process.env.LANDING_VARIANT === "v2";
+
 export async function generateMetadata(): Promise<Metadata> {
   if (await hasActiveSession()) return {};
   return LANDING_METADATA;
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (await hasActiveSession()) return <AccountHome />;
+  if (landingV2Enabled()) {
+    const [{ LandingV2 }, { parseLandingV2Params }] = await Promise.all([import("@/features/landing-v2/LandingV2"), import("@/features/landing-v2/lab-params")]);
+    return <LandingV2 {...parseLandingV2Params(await searchParams)} />;
+  }
   return <LandingPage />;
 }

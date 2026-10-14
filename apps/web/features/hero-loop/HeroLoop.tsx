@@ -363,9 +363,11 @@ export type HeroLoopProps = {
   /** Show the Recent calls trace (lab toggle). */
   calls: boolean;
   reduced: boolean;
+  /** The Hero's Pause: holds the Motion V2 Coach too (the stills have nothing to hold). */
+  paused?: boolean;
 };
 
-export function HeroLoop({ calls, clock, coachMode, quality, reduced }: HeroLoopProps) {
+export function HeroLoop({ calls, clock, coachMode, paused = false, quality, reduced }: HeroLoopProps) {
   const { frame, armed, beat, position } = clock;
   const inner = useRef<HTMLDivElement>(null);
   const winner = winnerOf(frame.scenario);
@@ -400,7 +402,7 @@ export function HeroLoop({ calls, clock, coachMode, quality, reduced }: HeroLoop
           </ol>
           <div className="hl-layout">
             <div className="hl-coach-col">
-              <HeroCoach beatKey={beatKey} cue={frame.coach} mode={coachMode} quality={quality} />
+              <HeroCoach beatKey={beatKey} cue={frame.coach} mode={coachMode} playing={!paused} quality={quality} />
             </div>
             <div className="hl-board">
               <DraftBlock armed={armed} cycle={position.cycle} draft={draft} frame={frame} winner={winner} />
