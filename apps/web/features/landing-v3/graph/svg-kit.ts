@@ -1,6 +1,8 @@
 /* LANDING V3 · tiny SVG helpers shared by the two imperative figures (the Differentiation figure and the living decision graph).
-   Both figures are built client-side, only when they are about to be reached, so their Coach stills are not fetched at page entry. */
+   Both figures are built client-side, only when they are about to be reached, so their Coach stills are not fetched at page entry.
+   Hero art is the canonical media: the portrait URL comes from the same `getCanonicalHero` the DOM's HeroIcon uses. */
 
+import { getCanonicalHero } from "@/design/canonical/hero-media/hero-adapter";
 import { HEROES, type HeroKey } from "../fixture";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -35,13 +37,30 @@ export interface NodeSpec {
   cls?: string;
 }
 
+let portraitSeq = 0;
+
+/** A real hero portrait (canonical art, Valve CDN allow-list) cropped to a rounded square, with its attribute rail underneath as a hairline.
+    `class` lets the stylesheet light it (`.g-portrait[data-lit]`). Missing art falls back to a neutral plate, never an invented glyph. */
+export function portrait(parent: Element, hero: HeroKey, x: number, y: number, size: number, rx = 4): SVGGElement {
+  const g = el("g", { class: "g-portrait", "data-hero": hero }, parent);
+  const canonical = getCanonicalHero(HEROES[hero].name);
+  el("rect", { x, y, width: size, height: size, rx, class: "g-portrait-plate" }, g);
+  if (canonical) {
+    const id = `lv3-pt-${(portraitSeq += 1)}`;
+    const clip = el("clipPath", { id }, g);
+    el("rect", { x, y, width: size, height: size, rx }, clip);
+    el("image", { href: canonical.imgUrl, x, y, width: size, height: size, preserveAspectRatio: "xMidYMid slice", "clip-path": `url(#${id})` }, g);
+    el("rect", { x, y, width: size, height: size, rx, class: "g-portrait-edge", "data-attr": canonical.primaryAttr }, g);
+  }
+  return g;
+}
+
 /** The decorative marks inside an input box, laid out left to right. */
 export function drawMarks(g: Element, marks: ReadonlyArray<{ hero?: HeroKey; icon?: "you" | "games" }>, x0: number, y0: number, size: number, gap: number, small: boolean): void {
   marks.forEach((mark, i) => {
     const x = x0 + i * (size + gap);
     if (mark.hero) {
-      el("rect", { x, y: y0, width: size, height: size, rx: 4, fill: HEROES[mark.hero].tile, class: "g-tile" }, g);
-      text(g, x + size / 2, y0 + size * 0.66, mark.hero, "g-tile-t", small ? { style: "font-size:9px" } : undefined);
+      portrait(g, mark.hero, x, y0, size, 4);
       return;
     }
     if (mark.icon === "you") {
@@ -61,11 +80,8 @@ export function curve(a: Point, b: Point, c?: readonly [Point, Point]): string {
   return `M${a[0]},${a[1]} C${controls[0][0]},${controls[0][1]} ${controls[1][0]},${controls[1][1]} ${b[0]},${b[1]}`;
 }
 
-/** Brand colours as literals, for the places SVG paint servers cannot read a custom property (gradient stops). */
-export const PAINT = { cyan: "#00718b" } as const;
-
-/** Spectral colours the scatter fragments and Coach particles borrow. */
-export const SPECTRUM = ["var(--cyan)", "var(--blue)", "var(--violet)", "var(--pink)", "var(--lime)", "var(--cyan-2)"] as const;
+/** The canonical spectrum (cyan · pink · lime) the scatter fragments and Coach particles borrow. */
+export const SPECTRUM = ["var(--cyan)", "var(--pink)", "var(--lime)", "var(--cyan)", "var(--pink)", "var(--lime)"] as const;
 
 /** Park–Miller: the same fragments every time, so the figure never reshuffles between renders. */
 export function seeded(seed: number): () => number {

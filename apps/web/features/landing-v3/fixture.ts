@@ -3,25 +3,24 @@
    FOR ANYONE  #1 Queen of Pain 84 · #2 Puck 82 · #3 Void Spirit 77
    YOUR GAMES  Puck +6 (often played) · Queen of Pain −1 (some history) · Void Spirit (no history yet)
    FOR YOU     #1 Puck 88 · #2 Queen of Pain 83 · #3 Void Spirit 77
-   Illustrative: none of these numbers is a statistic. The hero tiles are monograms, never game art. */
+   Illustrative: none of these numbers is a statistic. Hero art is the canonical HeroIcon / HeroPortrait media (real Dota portraits). */
 
 export type HeroKey = "AX" | "SL" | "ES" | "CM" | "QP" | "PK" | "VS";
 
 export interface Hero {
   key: HeroKey;
+  /** Canonical hero name: resolves through `getCanonicalHero`, so the DOM (HeroIcon) and the SVG figures read the same portrait. */
   name: string;
-  /** CSS custom property that holds the tile colour (defined in landing-v3.css, also used by the SVG builders). */
-  tile: string;
 }
 
 export const HEROES: Record<HeroKey, Hero> = {
-  AX: { key: "AX", name: "Axe", tile: "var(--tile-ax)" },
-  SL: { key: "SL", name: "Slark", tile: "var(--tile-sl)" },
-  ES: { key: "ES", name: "Earth Spirit", tile: "var(--tile-es)" },
-  CM: { key: "CM", name: "Crystal Maiden", tile: "var(--tile-cm)" },
-  QP: { key: "QP", name: "Queen of Pain", tile: "var(--tile-qp)" },
-  PK: { key: "PK", name: "Puck", tile: "var(--tile-pk)" },
-  VS: { key: "VS", name: "Void Spirit", tile: "var(--tile-vs)" },
+  AX: { key: "AX", name: "Axe" },
+  SL: { key: "SL", name: "Slark" },
+  ES: { key: "ES", name: "Earth Spirit" },
+  CM: { key: "CM", name: "Crystal Maiden" },
+  QP: { key: "QP", name: "Queen of Pain" },
+  PK: { key: "PK", name: "Puck" },
+  VS: { key: "VS", name: "Void Spirit" },
 };
 
 export const SEAT = { position: 2, lane: "Mid" } as const;

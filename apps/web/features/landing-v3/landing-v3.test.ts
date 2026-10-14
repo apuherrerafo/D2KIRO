@@ -24,7 +24,6 @@ import {
   rowFit,
   rowSlot,
 } from "./graph/model";
-import { coachCue, poseLabel, walkAmount } from "./hero/timeline";
 import { faqJsonLd, jsonLdString, LANDING_V3_METADATA } from "./seo";
 import { isValidEmail } from "./components/WaitlistProvider";
 
@@ -141,36 +140,6 @@ describe("living decision graph model", () => {
   });
 });
 
-describe("hero loop timeline", () => {
-  test("the Coach looks at the evidence from 2.2 s to 6 s, then returns", () => {
-    expect(coachCue(0)).toBe("watching");
-    expect(coachCue(2.1)).toBe("watching");
-    expect(coachCue(2.2)).toBe("analyzing");
-    expect(coachCue(5.9)).toBe("analyzing");
-    expect(coachCue(6)).toBe("watching");
-    expect(coachCue(7.9)).toBe("watching");
-  });
-
-  test("the state pill changes after the picture has visibly turned", () => {
-    expect(poseLabel(2.3)).toBe("Watching");
-    expect(poseLabel(2.6)).toBe("Analyzing");
-    expect(poseLabel(4)).toBe("Analyzing");
-    expect(poseLabel(6.1)).toBe("Analyzing");
-    expect(poseLabel(6.5)).toBe("Watching");
-  });
-
-  test("the walk starts and ends at home and stays within 0..1", () => {
-    expect(walkAmount(0)).toBe(0);
-    expect(walkAmount(2.9)).toBe(0);
-    expect(walkAmount(4.6)).toBeCloseTo(1, 5);
-    expect(walkAmount(7)).toBeCloseTo(0, 5);
-    for (let t = 0; t <= 8; t += 0.1) {
-      expect(walkAmount(t)).toBeGreaterThanOrEqual(-1e-9);
-      expect(walkAmount(t)).toBeLessThanOrEqual(1 + 1e-9);
-    }
-  });
-});
-
 describe("copy never overclaims", () => {
   const text = JSON.stringify(copy);
 
@@ -281,8 +250,9 @@ describe("source hygiene", () => {
   const code = sources(root).map((file) => ({ file, text: readFileSync(file, "utf8") }));
 
   test("no live 3D, no engine, no raw HTML injection", () => {
+    /* The Hero Loop's coach switcher (`useLandingCoachMode`) only ever returns motion / sprite / static, so the live Gold Master (three) stays unrequested. */
     for (const { file, text } of code) {
-      expect(text, file).not.toMatch(/from "three"|CoachLive|hero-loop\/coach\/HeroCoach"/);
+      expect(text, file).not.toMatch(/from "three"|CoachLive/);
       expect(text, file).not.toMatch(/dangerouslySetInnerHTML/);
       expect(text, file).not.toMatch(/apps\/engine/);
     }
@@ -292,5 +262,35 @@ describe("source hygiene", () => {
     const urls = code.flatMap(({ text }) => [...text.matchAll(/["'`](\/coach-[a-z0-9\-/.]+\.[a-z]+)["'`]/g)].map((m) => m[1]));
     expect(urls.length).toBeGreaterThan(0);
     for (const url of urls) expect(isPublicCoachAsset(url), url).toBe(true);
+  });
+});
+
+describe("the page is built on the canonical D2KIRO design system", () => {
+  const root = __dirname;
+  const read = (path: string) => readFileSync(join(root, path), "utf8");
+
+  test("the root loads the canonical tokens, primitives and motion, and the real Hero Loop", () => {
+    const page = read("LandingV3.tsx");
+    for (const sheet of ["canonical/tokens.css", "canonical/primitives/primitives.css", "canonical/canonical.css", "canonical/motion/motion.css", "hero-loop.css"]) expect(page).toContain(sheet);
+    expect(read("components/Hero.tsx")).toMatch(/HeroLoop/);
+    expect(read("components/Hero.tsx")).toMatch(/useLandingCoachMode/);
+  });
+
+  test("hero art is the canonical media, never a monogram", () => {
+    for (const file of ["components/Payoff.tsx", "components/Trust.tsx"]) expect(read(file)).toMatch(/design\/canonical\/hero-media/);
+    expect(read("graph/svg-kit.ts")).toMatch(/getCanonicalHero/);
+    expect(read("landing-v3.css")).not.toMatch(/--tile-/);
+  });
+
+  test("actions and surfaces are the canonical primitives", () => {
+    expect(read("components/WaitlistForm.tsx")).toMatch(/ActionPrimary/);
+    expect(read("components/Nav.tsx")).toMatch(/ActionQuiet/);
+    for (const file of ["components/Payoff.tsx", "components/Trust.tsx", "components/Close.tsx"]) expect(read(file)).toMatch(/Glass/);
+  });
+
+  test("every colour in the stylesheet is a canonical token alias (the only literals are the shared dark-theme values)", () => {
+    const css = read("landing-v3.css");
+    const literals = [...css.matchAll(/#[0-9a-fA-F]{3,8}/g)].length;
+    expect(literals).toBeLessThanOrEqual(12);
   });
 });

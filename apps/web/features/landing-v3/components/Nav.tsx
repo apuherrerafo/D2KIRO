@@ -1,7 +1,16 @@
-/* LANDING V3 · top bar: wordmark, four in-page links and the one action. No theme toggle: V3 ships the approved light design. */
+/* LANDING V3 · top bar: wordmark, four in-page links and the one action (the canonical quiet action, as on Landing V2). Dark, as the whole D2KIRO product. */
+"use client";
+
+import { ActionQuiet } from "@/design/canonical/primitives";
+import { useReducedMotion } from "@/design/round-3a/lab-context";
+import { scrollToId } from "@/features/landing/scroll";
 import { NAV } from "../copy";
 
 export function Nav() {
+  const reduced = useReducedMotion();
+  function handleJoin() {
+    scrollToId("waitlist", reduced);
+  }
   return (
     <header className="nav">
       <div className="wrap nav-row">
@@ -13,7 +22,7 @@ export function Nav() {
         <nav aria-label={NAV.sectionsLabel} className="nav-links">
           {NAV.links.map((link) => <a href={link.href} key={link.href}>{link.label}</a>)}
         </nav>
-        <a className="btn" href="#waitlist">{NAV.join} <span aria-hidden="true" className="arr">→</span></a>
+        <ActionQuiet onPress={handleJoin}>{NAV.join}</ActionQuiet>
       </div>
     </header>
   );

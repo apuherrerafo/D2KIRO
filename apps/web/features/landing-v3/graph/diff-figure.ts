@@ -7,7 +7,7 @@ import { DIFF } from "../copy";
 import { HEROES, ranking, type HeroKey } from "../fixture";
 import { coachUrl } from "./model";
 import type { StageKind } from "./model";
-import { PAINT, curve, drawMarks, el, text, type NodeSpec, type Point } from "./svg-kit";
+import { curve, drawMarks, el, portrait, text, type NodeSpec, type Point } from "./svg-kit";
 
 const anchorRight = (n: NodeSpec): Point => [n.x + n.w / 2, n.y];
 
@@ -77,9 +77,8 @@ export function buildDiffFigure(host: HTMLElement, kind: StageKind): void {
     const h = T ? 52 : 48;
     const hero: HeroKey = c.hero;
     el("rect", { x: 10, y, width: card.w - 20, height: h, rx: 5, fill: "var(--panel)", stroke: "var(--line)" }, cg);
-    el("rect", { x: 20, y: y + (h - 28) / 2, width: 28, height: 28, rx: 4, fill: HEROES[hero].tile }, cg);
-    text(cg, 34, y + h / 2 + 4, hero, "g-tile-t");
-    text(cg, 60, y + h / 2 + 5, HEROES[hero].name, "g-lbl");
+    portrait(cg, hero, 20, y + (h - 32) / 2, 32, 4);
+    text(cg, 64, y + h / 2 + 5, HEROES[hero].name, "g-lbl");
     text(cg, card.w - 22, y + h / 2 + 8, String(c.anyone.fit), "g-lbl", { "text-anchor": "end", style: "font: 700 22px var(--f-display)" });
   });
 
@@ -99,9 +98,9 @@ export function buildDiffFigure(host: HTMLElement, kind: StageKind): void {
     T ? { id: gradId, x1: 0, y1: games.y - games.h / 2, x2: 0, y2: card.y + card.h, gradientUnits: "userSpaceOnUse" } : { id: gradId, x1: 160, y1: 0, x2: 560, y2: 0, gradientUnits: "userSpaceOnUse" },
     defs,
   );
-  el("stop", { offset: "0", "stop-color": PAINT.cyan }, grad);
-  el("stop", { offset: ".55", "stop-color": PAINT.cyan, "stop-opacity": ".8" }, grad);
-  el("stop", { offset: "1", "stop-color": PAINT.cyan, "stop-opacity": ".06" }, grad);
+  el("stop", { offset: "0", style: "stop-color: var(--cyan)" }, grad);
+  el("stop", { offset: ".55", style: "stop-color: var(--cyan)", "stop-opacity": ".8" }, grad);
+  el("stop", { offset: "1", style: "stop-color: var(--cyan)", "stop-opacity": ".06" }, grad);
   const pathD = T
     ? `M${games.x},${games.y - games.h / 2} L${games.x},${card.y + card.h + 6}`
     : curve(anchorRight(games), [card.x + 110, card.y + card.h + 8], [[330, 372], [card.x + 110, 372]]);

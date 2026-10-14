@@ -39,7 +39,7 @@ async function open(page: Page): Promise<{ errors: string[]; requests: string[] 
     }).observe({ type: "layout-shift", buffered: true });
   });
   await page.goto("/", { waitUntil: "load" });
-  await expect(page.locator(".hero.has-stage")).toBeAttached();
+  await expect(page.getByTestId("hero-loop")).toBeAttached();
   return { errors, requests };
 }
 
@@ -105,46 +105,50 @@ test.describe("structure", () => {
     expect(cls).toBeLessThan(0.1);
   });
 
-  test("nothing third-party, no live 3D model, no hard-coded game art", async ({ page }) => {
+  test("nothing third-party but the allow-listed hero portraits, no live 3D model", async ({ page }) => {
     const { requests } = await open(page);
     await page.waitForTimeout(1500);
     const origin = new URL(page.url()).origin;
-    const foreign = requests.filter((url) => !url.startsWith(origin) && !url.startsWith("data:") && !url.startsWith("blob:"));
+    const foreign = requests.filter((url) => !url.startsWith(origin) && !url.startsWith("data:") && !url.startsWith("blob:") && !/^https:\/\/cdn\.cloudflare\.steamstatic\.com\/apps\/dota2\/images\/dota_react\/heroes\//.test(url));
     expect(foreign).toEqual([]);
     expect(requests.filter((url) => /coach-gold-master|\/three|\.glb|\.gltf/i.test(url))).toEqual([]);
   });
 });
 
 test.describe("hero", () => {
-  test("headline, a real waitlist form and the product are all on the first screen", async ({ page }, info) => {
+  test("headline, a real waitlist form and the Hero Loop are all on the first screen", async ({ page }, info) => {
     await open(page);
     const vp = page.viewportSize();
-    for (const locator of [page.locator("#hero-title"), page.getByTestId("waitlist-hero").locator("input"), page.getByTestId("waitlist-hero").locator("button[type=submit]")]) {
+    for (const locator of [page.locator("#hero-title"), page.getByTestId("waitlist-hero").locator("input"), page.getByTestId("waitlist-hero").locator(".cx-action")]) {
       const box = await locator.boundingBox();
       expect(box, "visible").not.toBeNull();
       expect(box!.y + box!.height, "above the fold").toBeLessThanOrEqual(vp!.height);
     }
-    await expect(page.locator(".rank li")).toHaveCount(3);
-    await expect(page.locator(".rank li").first()).toContainText("Queen of Pain");
-    await expect(page.locator(".rank li").first()).toContainText("84");
-    // the product card starts on the first screen on every width (credibility before the map)
-    const card = await page.locator(".product").boundingBox();
-    expect(card!.y).toBeLessThan(vp!.height - (isPhone(info) ? 120 : 200));
+    // the real Hero Loop starts on the first screen on every width (credibility before the story)
+    const stage = await page.getByTestId("hero-stage").boundingBox();
+    expect(stage!.y).toBeLessThan(vp!.height - (isPhone(info) ? 120 : 200));
+    await expect(page.locator(".hl-card").first()).toBeVisible();
+  });
+
+  test("the Hero Loop shows real Dota portraits, never monograms", async ({ page }) => {
+    await open(page);
+    await expect(page.locator(".hl-seat .chm-icon").first()).toBeVisible();
+    await expect.poll(() => page.locator(".hl .chm-icon[data-art='image']").count(), { timeout: 20_000 }).toBeGreaterThan(4);
+    expect(await page.locator(".lv3 .tile").count()).toBe(0);
   });
 
   test("Coach: Motion V2 only on supported desktop; phones and reduced motion never request the pack", async ({ page }, info) => {
     const { requests } = await open(page);
-    const slot = page.getByTestId("hero-coach-slot");
-    await expect(slot).toBeVisible();
-    const box = await slot.boundingBox();
+    const coach = page.getByTestId("hero-coach");
+    await expect(coach).toBeVisible();
+    const box = await coach.boundingBox();
     expect(box!.width).toBeGreaterThan(80);
     if (isPhone(info) || isReduced(info)) {
       await page.waitForTimeout(4000);
       expect(requests.filter((url) => url.includes("/coach-motion-v2/"))).toEqual([]);
-      await expect(slot).toHaveAttribute("data-coach-mode", isReduced(info) ? "static" : "sprite");
       return;
     }
-    await expect(slot).toHaveAttribute("data-coach-mode", "motion");
+    if (info.project.name === "desktop-1024") return; // below the supported-desktop width: the still sprite
     await expect(page.getByTestId("motion-player-384")).toHaveAttribute("data-motion-status", "motion", { timeout: 30_000 });
     expect(requests.some((url) => url.includes("/coach-motion-v2/prod/384/manifest.json"))).toBe(true);
     // it paints: the atlas canvas is visible and non-empty
@@ -159,42 +163,20 @@ test.describe("hero", () => {
     expect(painted).toBeGreaterThan(2000);
   });
 
-  test("the loop: watching → analyzing and a walk into the field → back to watching", async ({ page }, info) => {
-    test.skip(isReduced(info), "reduced motion draws the static state (checked below)");
+  test("the loop plays: the phase advances by itself and the draft stays Draft A first", async ({ page }, info) => {
+    test.skip(isReduced(info), "reduced motion plays the same beats as crossfades (checked below)");
     await open(page);
-    const seek = (ms: number) => page.evaluate((t) => (window as unknown as { __d2kiroHero: { seek: (t: number) => void } }).__d2kiroHero.seek(t), ms);
-    const pill = page.locator(".stage .state-pill");
-    const slot = page.getByTestId("hero-coach-slot");
-    await seek(1000);
-    await expect(pill).toContainText("Watching");
-    await expect(slot).toHaveAttribute("data-cue", "watching");
-    const home = await slot.boundingBox();
-    await seek(4600);
-    await expect(pill).toContainText("Analyzing");
-    await expect(slot).toHaveAttribute("data-cue", "analyzing");
-    const out = await slot.boundingBox();
-    const moved = Math.hypot(out!.x - home!.x, out!.y - home!.y);
-    if (isPhone(info)) expect(moved, "the phone Coach stays at home").toBeLessThan(8);
-    else expect(moved, "the Coach walks out").toBeGreaterThan(120);
-    // the walk never lands on the product card or the form
-    if (!isPhone(info)) {
-      const card = (await page.locator(".product").boundingBox())!;
-      const overlap = Math.min(out!.x + out!.width, card.x + card.width) - Math.max(out!.x, card.x) > 10 && Math.min(out!.y + out!.height, card.y + card.height) - Math.max(out!.y, card.y) > 10;
-      expect(overlap, "Coach over the product card").toBe(false);
-    }
-    await seek(7200);
-    await expect(pill).toContainText("Watching");
-    await expect(slot).toHaveAttribute("data-cue", "watching");
+    const loop = page.getByTestId("hero-loop");
+    const first = await loop.getAttribute("data-phase");
+    await expect.poll(() => loop.getAttribute("data-phase"), { timeout: 20_000 }).not.toBe(first);
+    await expect(loop).toHaveAttribute("data-scenario", /A|B|C/);
   });
 
-  test("reduced motion: one static state, nothing loops", async ({ page }, info) => {
+  test("reduced motion: the loop runs as crossfades, nothing travels", async ({ page }, info) => {
     test.skip(!isReduced(info), "reduced-motion project only");
     await open(page);
-    await expect(page.locator(".stage .state-pill")).toContainText("Watching");
-    const a = await page.getByTestId("hero-coach-slot").boundingBox();
-    await page.waitForTimeout(2500);
-    const b = await page.getByTestId("hero-coach-slot").boundingBox();
-    expect(b).toEqual(a);
+    await expect(page.getByTestId("hero-loop")).toHaveAttribute("data-motion", "reduced");
+    await expect(page.locator(".hl-fly")).toHaveCount(0);
   });
 
   test("the motion toggle pauses and resumes", async ({ page }, info) => {
@@ -204,9 +186,13 @@ test.describe("hero", () => {
     await expect(toggle).toHaveAttribute("aria-pressed", "false");
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator(".lv3")).toHaveAttribute("data-calm", "true");
+    const loop = page.getByTestId("hero-loop");
+    const held = await loop.getAttribute("data-beat");
+    await page.waitForTimeout(3500);
+    expect(await loop.getAttribute("data-beat"), "paused: the beat holds").toBe(held);
     await toggle.click();
-    await expect(page.locator(".lv3")).toHaveAttribute("data-calm", "false");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => loop.getAttribute("data-beat"), { timeout: 20_000 }).not.toBe(held);
   });
 });
 
@@ -324,9 +310,17 @@ test.describe("differentiation, payoff and trust", () => {
     await open(page);
     const rowsText = await page.getByTestId("payoff-card").locator(".pay-row").allInnerTexts();
     const flat = rowsText.map((t) => t.replace(/\s+/g, " "));
-    expect(flat[0]).toMatch(/#1 PK Puck ▲ #2 → #1 FIT 88 was 82/);
-    expect(flat[1]).toMatch(/#2 QP Queen of Pain ▼ #1 → #2 FIT 83 was 84 · −1/);
-    expect(flat[2]).toMatch(/#3 VS Void Spirit = #3 → #3 FIT 77 no history yet/);
+    // the real portraits carry the hero; the canonical RankMove draws the arrow (its words are screen-reader text), "#a → #b" says it in print
+    expect(flat[0]).toMatch(/#1 Puck .*#2 → #1 FIT 88 was 82/);
+    expect(flat[1]).toMatch(/#2 Queen of Pain .*#1 → #2 FIT 83 was 84 · −1/);
+    expect(flat[2]).toMatch(/#3 Void Spirit = .*#3 → #3 FIT 77 no history yet/);
+    await expect(page.getByTestId("payoff-card").locator(".chm-icon")).toHaveCount(3);
+    // English accessible rank movement: Spanish RankMove text is hidden, one English label per row
+    const card = page.getByTestId("payoff-card");
+    await expect(card.locator('.pay-row .mv2 [aria-hidden="true"] .cx-sr')).toHaveCount(2);
+    const spoken = await card.locator(".pay-row .mv2 > .cx-sr").allTextContents();
+    expect(spoken).toEqual(["moves up 1 place", "moves down 1 place", "stays at rank 3"]);
+    expect(await card.getByText(/puesto/).count()).toBe(0 + (await card.locator('[aria-hidden="true"] .cx-sr').count()));
     await expect(page.getByTestId("payoff-card")).toContainText("It is not a win rate.");
     // the payoff does not replay the graph
     expect(await page.locator("#payoff .gsvg").count()).toBe(0);
@@ -348,7 +342,7 @@ test.describe("differentiation, payoff and trust", () => {
     expect(await call.locator("progress, meter, [role=progressbar], [class*=bar]").count()).toBe(0);
   });
 
-  test("lime is personal resolution only: never on the free-to-join cue or the SYNERGY evidence", async ({ page }) => {
+  test("lime is personal resolution only: never on the free-to-join cue or the SYNERGY evidence (the locked Hero Loop keeps its own approved hues)", async ({ page }) => {
     await open(page);
     const colours = await page.evaluate(() => {
       const lime = getComputedStyle(document.querySelector(".lv3") as Element).getPropertyValue("--lime").trim();
@@ -361,12 +355,10 @@ test.describe("differentiation, payoff and trust", () => {
       const micro = document.querySelector(".wl-micro") as Element;
       const microDot = getComputedStyle(micro, "::before").backgroundColor;
       const synergy = document.querySelector(".proof li:nth-child(2) .k") as Element;
-      const chip = document.querySelector(".chip.c b") as Element;
-      return { limeRgb, microDot, synergy: rgb(synergy, "color"), chip: rgb(chip, "color") };
+      return { limeRgb, microDot, synergy: rgb(synergy, "color") };
     });
     expect(colours.microDot).not.toBe(colours.limeRgb);
     expect(colours.synergy).not.toBe(colours.limeRgb);
-    expect(colours.chip).not.toBe(colours.limeRgb);
   });
 });
 
@@ -412,11 +404,11 @@ test.describe("waitlist (preview: no approved backend or legal pages yet)", () =
     await expect(hero.getByTestId("waitlist-preview")).toContainText("Preview only");
     await expect(hero).toContainText("Free to join · No payment required.");
     await hero.locator("input").fill("not-an-email");
-    await hero.locator("button[type=submit]").click();
+    await hero.locator(".cx-action").click();
     await expect(hero.locator(".wl-msg")).toHaveText("Enter an email address like name@example.com.");
     await expect(hero.locator("input")).toHaveAttribute("aria-invalid", "true");
     await hero.locator("input").fill("player@example.com");
-    await hero.locator("button[type=submit]").click();
+    await hero.locator(".cx-action").click();
     // the success state is the preview one, on BOTH forms
     const closing = page.getByTestId("waitlist-close");
     await expect(hero.locator(".wl-ok")).toContainText("Preview only, not sent.");

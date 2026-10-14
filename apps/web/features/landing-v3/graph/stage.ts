@@ -29,7 +29,7 @@ import {
   type StageKind,
   type TagTone,
 } from "./model";
-import { SPECTRUM, curve, drawMarks, el, seeded, text, type Point } from "./svg-kit";
+import { SPECTRUM, curve, drawMarks, el, portrait, seeded, text, type Point } from "./svg-kit";
 
 export interface Stage {
   svg: SVGSVGElement;
@@ -95,6 +95,7 @@ export function makeStage(host: HTMLElement, kind: StageKind, still: boolean, re
   const gN = el("g", {}, svg);
   const gR = el("g", {}, svg);
   const gT = el("g", {}, svg);
+  const gA = el("g", {}, svg); // the agent's trail: the stroke it leaves as it crosses from one cluster to the next
   const gC = el("g", {}, svg);
 
   const INPUTS: Record<InputId, InputBox> = T
@@ -174,8 +175,7 @@ export function makeStage(host: HTMLElement, kind: StageKind, still: boolean, re
     const ts = T ? 28 : 40;
     const tx = T ? 26 : 44;
     const rk = text(g, T ? 8 : 18, T ? RH / 2 + 3 : RH / 2 + 4, "#1", "rk");
-    el("rect", { x: tx, y: T ? 12 : (RH - ts) / 2, width: ts, height: ts, rx: 5, fill: HEROES[c.hero].tile, class: "g-tile" }, g);
-    text(g, tx + ts / 2, (T ? 12 : (RH - ts) / 2) + ts * 0.62, c.hero, "g-tile-t", { style: T ? "font-size:10px" : "font-size:13px" });
+    portrait(g, c.hero, tx, T ? 12 : (RH - ts) / 2, ts, 5);
     const nx = T ? 62 : 98;
     text(g, nx, T ? 27 : RH / 2 - 4, HEROES[c.hero].name, "nm");
     const sb = text(g, nx, T ? 47 : RH / 2 + 16, "", "sb");
@@ -276,7 +276,7 @@ export function makeStage(host: HTMLElement, kind: StageKind, still: boolean, re
   pill.style.opacity = T ? "0" : "1"; // the narrow rail is too thin for a label; the caption carries the state
 
   // —— state
-  const S = { k: 0, raf: 0, pk: 0, timers: [] as number[] };
+  const S = { k: 0, raf: 0, pk: 0, timers: [] as number[], at: null as Point | null };
 
   const finishRows = (k: number) => {
     for (const c of CANDIDATES) {
@@ -335,7 +335,14 @@ export function makeStage(host: HTMLElement, kind: StageKind, still: boolean, re
 
   const setCoach = (k: number, prev: number) => {
     const [x, y, pose] = COACH[kind][k - 1];
+    const from = S.at;
+    S.at = [x, y];
     coach.style.transform = `translate(${x}px,${y}px)`;
+    /* the agent travels: it leaves a luminous stroke from the cluster it was reading to the one it is about to read */
+    if (mv && prev !== 0 && from && (from[0] !== x || from[1] !== y)) {
+      const trail = el("path", { class: "trail", d: curve(from, [x, y]), pathLength: 1, "data-tone": k === 6 ? "lime" : "cyan" }, gA);
+      trail.addEventListener("animationend", () => trail.remove(), { once: true });
+    }
     for (const p of COACH_POSES) poseImg[p].style.opacity = p === pose ? "1" : "0";
     const beat = BEATS[k - 1];
     pillText.textContent = beat.pose.toUpperCase();
@@ -365,6 +372,12 @@ export function makeStage(host: HTMLElement, kind: StageKind, still: boolean, re
       const was = n.g.getAttribute("data-v");
       n.g.style.transitionDelay = was === "x" && v !== "x" ? ".3s" : "0s";
       n.g.setAttribute("data-v", v);
+      if (mv && v === "o" && was !== "o") {
+        // WAKE: a node that joins the reading lights up once
+        n.g.classList.remove("wake");
+        void n.g.getBoundingClientRect();
+        n.g.classList.add("wake");
+      }
       if (id === "slark") n.g.toggleAttribute("data-on", k === 2 || k === 3);
     }
     echoes.forEach((r) => r.classList.toggle("on", k === 2 && mv));

@@ -3,6 +3,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { ActionPrimary } from "@/design/canonical/primitives";
 import { HERO, WAITLIST } from "../copy";
 import { helpActions } from "../config";
 import { useWaitlist } from "./WaitlistProvider";
@@ -49,8 +50,14 @@ export function WaitlistForm({ variant, inputId }: { variant: Variant; inputId: 
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: Tone; text: string }>({ tone: "", text: "" });
+  const form = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const ok = useRef<HTMLDivElement>(null);
+
+  /* the canonical primary action is a plain button: pressing it submits the form through the same validated path as Enter */
+  function handlePress() {
+    form.current?.requestSubmit();
+  }
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     setEmail(event.target.value);
@@ -73,7 +80,7 @@ export function WaitlistForm({ variant, inputId }: { variant: Variant; inputId: 
 
   const label = variant === "hero" ? <label className="kicker" htmlFor={inputId}>{HERO.formLabel}</label> : <label className="sr-only" htmlFor={inputId}>{WAITLIST.emailLabel}</label>;
   return (
-    <form className="wl" data-state={done ? "done" : "idle"} data-testid={`waitlist-${variant}`} data-wl noValidate onSubmit={handleSubmit}>
+    <form className="wl" data-state={done ? "done" : "idle"} data-testid={`waitlist-${variant}`} data-wl noValidate onSubmit={handleSubmit} ref={form}>
       <div className="wl-fields">
         {label}
         <div className="wl-row">
@@ -92,9 +99,7 @@ export function WaitlistForm({ variant, inputId }: { variant: Variant; inputId: 
             type="email"
             value={email}
           />
-          <button className="btn" disabled={busy} type="submit">
-            {busy ? WAITLIST.busy : WAITLIST.button} <span aria-hidden="true" className="arr">→</span>
-          </button>
+          <ActionPrimary busyLabel={WAITLIST.busy} onPress={handlePress} status={busy ? "busy" : "idle"}>{WAITLIST.button}</ActionPrimary>
         </div>
         <p className="wl-micro">{WAITLIST.micro}</p>
         {preview && <p className="wl-preview" data-testid="waitlist-preview"><b>{WAITLIST.previewTag}</b>{WAITLIST.previewNote}</p>}

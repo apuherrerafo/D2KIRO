@@ -1,9 +1,10 @@
 /* LANDING V3 · 6 · TRUST. "One pick. Every reason on screen." Controlled, no motion: the final call (Puck, FIT 88), the four reasons it
    stands on, and the Coach CONFIRMING. No lock button, no strength bars, no fake confidence. */
 import type { CSSProperties } from "react";
+import { HeroIcon, HeroPortrait } from "@/design/canonical/hero-media";
+import { Glass } from "@/design/canonical/primitives/Glass";
 import { TRUST } from "../copy";
 import { candidate, HEROES } from "../fixture";
-import { Tile } from "./Tile";
 
 const EVIDENCE: Record<string, { heroes?: Array<"AX" | "SL" | "ES" | "CM">; text?: string }> = {
   COUNTER: { heroes: ["AX", "SL"] },
@@ -29,31 +30,33 @@ export function Trust() {
             <span className="state-pill"><i />Confirming</span>
           </div>
         </div>
-        <article aria-label={TRUST.callLabel} className="card call" data-testid="trust-call">
-          <div className="call-top">
-            <Tile hero={puck.hero} />
-            <div><p className="kicker">{TRUST.callKicker}</p><h3>{HEROES[puck.hero].name}</h3><p className="meta">{TRUST.meta}</p></div>
-            <span className="fit"><i>FIT</i><b>{puck.you.fit}</b></span>
-          </div>
-          <ul className="proof">
-            {TRUST.proof.map((row) => {
-              const evidence = EVIDENCE[row.key];
-              return (
-                <li key={row.key} style={{ "--c": TONE_VAR[row.tone] } as CSSProperties}>
-                  <span className="k">{row.key}</span>
-                  <div><p>{row.line}</p><small>{row.detail}</small></div>
-                  <span className="ev">
-                    {evidence.heroes?.map((hero) => <Tile hero={hero} key={hero} size="sm" />)}
-                    {evidence.text}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="call-foot">
-            <p>{TRUST.backups}</p>
-            <p className="note">{TRUST.note}</p>
-          </div>
+        <article aria-label={TRUST.callLabel} data-testid="trust-call">
+          <Glass className="call" edge surfaceLevel="4">
+            <div className="call-top">
+              <HeroPortrait hero={HEROES[puck.hero].name} lit showPlate={false} size="sm" />
+              <div><p className="kicker">{TRUST.callKicker}</p><h3>{HEROES[puck.hero].name}</h3><p className="meta">{TRUST.meta}</p></div>
+              <span className="fit"><i>FIT</i><b>{puck.you.fit}</b></span>
+            </div>
+            <ul className="proof">
+              {TRUST.proof.map((row) => {
+                const evidence = EVIDENCE[row.key];
+                return (
+                  <li key={row.key} style={{ "--c": TONE_VAR[row.tone] } as CSSProperties}>
+                    <span className="k">{row.key}</span>
+                    <div><p>{row.line}</p><small>{row.detail}</small></div>
+                    <span className="ev">
+                      {evidence.heroes?.map((hero) => <HeroIcon hero={HEROES[hero].name} key={hero} size="sm" />)}
+                      {evidence.text}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="call-foot">
+              <p>{TRUST.backups}</p>
+              <p className="note">{TRUST.note}</p>
+            </div>
+          </Glass>
         </article>
       </div>
     </section>
