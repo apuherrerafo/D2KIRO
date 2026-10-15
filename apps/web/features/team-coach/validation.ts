@@ -78,7 +78,7 @@ function isDecision(value: unknown): value is TeamCoachDecision {
     isRecord(value) &&
     isNullable(value.recommendedPosition, isPosition) &&
     isNullable(value.recommendedHeroId, isHeroId) &&
-    (value.targetBasis === null || value.targetBasis === "STRATEGIC" || value.targetBasis === "DETERMINISTIC_DEFAULT") &&
+    (value.targetBasis === null || value.targetBasis === "STRATEGIC" || value.targetBasis === "DETERMINISTIC_DEFAULT" || value.targetBasis === "PHASE_FALLBACK") &&
     isString(value.reason) &&
     Array.isArray(value.actionablePositions) &&
     value.actionablePositions.every(isPosition) &&
