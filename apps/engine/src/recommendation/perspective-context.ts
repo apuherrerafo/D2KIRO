@@ -62,6 +62,20 @@ export interface PerspectiveRecommendationContext {
    * scores candidates with position P's pool instead of the single personal account pool.
    */
   playerPoolsByPosition?: Partial<Record<Position, readonly HeroId[]>> | null;
+  /** A live Dota capture session (the game is the source of truth; no Simulator, no Enemy Bot). */
+  liveCapture?: boolean;
+  /** Live capture only: what our own picks say about positions no single binding covers (live-position-resolver.ts). */
+  ownPositionOccupancy?: OwnPositionOccupancy | null;
+}
+
+/**
+ * Own side only. `necessarilyOccupied` includes every bound position plus those our picks fill whichever hero is
+ * which; `possiblyOccupied` are positions an own hero of unconfirmed role may be in (never closed, never certain).
+ */
+export interface OwnPositionOccupancy {
+  necessarilyOccupied: readonly Position[];
+  possiblyOccupied: readonly Position[];
+  unresolvedHeroes: readonly { heroId: HeroId; possiblePositions: readonly Position[] }[];
 }
 
 export function poolForPosition(

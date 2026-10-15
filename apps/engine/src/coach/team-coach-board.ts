@@ -1,11 +1,13 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { stateIdentityOf } from "../recommendation/identity";
-import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import { unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, selectDecisionTarget } from "./current-human-decision";
+import { revealedEnemyHeroes } from "./hero-card";
+import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
 
@@ -16,7 +18,8 @@ import { positionPhrase } from "./reveal-strategy";
 //     -> per open controlled position: the SAME target ranking V4 uses (buildTargetRanking)
 //     -> deriveCandidateResult (the SAME candidate provenance as V4)
 //     -> a deterministic primary plan (no two positions share their #1 when an alternative exists)
-//     -> currentDecision: the SAME target V4 recommends (selectDecisionTarget) + that position's primary
+//     -> currentDecision: the SAME target V4 recommends (selectDecisionTarget) + that position's primary --
+//        EXCEPT a live capture session, whose target comes from LivePositionPriorityV1 (live-position-priority.ts)
 //
 // Nothing here scores, re-ranks or decides legality: V6 is the only scorer, the kernel the only
 // rule-keeper. The board never mutates the session -- it only reads the context it is handed.
@@ -58,11 +61,17 @@ export interface TeamCoachPosition {
   note: string | null;
 }
 
+/**
+ * V4's basis, plus the live-only PHASE_FALLBACK: a position chosen by draft-phase commitment order because no
+ * tactical evidence distinguishes the open positions (never presented as STRATEGIC).
+ */
+export type TeamTargetBasis = TargetBasis | "PHASE_FALLBACK";
+
 export interface TeamCoachDecision {
-  /** The V4 target (selectDecisionTarget) -- exactly the canonical currentDecision's recommendation. */
+  /** Simulator: the V4 target (selectDecisionTarget). Live capture: LivePositionPriorityV1. Never a FILLED position. */
   recommendedPosition: Position | null;
   recommendedHeroId: HeroId | null;
-  targetBasis: TargetBasis | null;
+  targetBasis: TeamTargetBasis | null;
   reason: string;
   /** Every position a human may legally pick for now -- never narrowed by the recommendation. */
   actionablePositions: Position[];
@@ -162,6 +171,8 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
   const heroByPosition = new Map<Position, HeroId>();
   for (const [heroId, position] of context.ownAssignedPositions ?? []) heroByPosition.set(position, heroId);
   const boundHeroes = new Set(heroByPosition.values());
+  // Live: positions our picks fill whichever hero is which (two flex heroes covering Pos 3 / Pos 4) are filled too.
+  const occupiedUnbound = new Set((context.ownPositionOccupancy?.necessarilyOccupied ?? []).filter((position) => !heroByPosition.has(position)));
   const unboundOwnHeroIds = view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" && !boundHeroes.has(slot.heroId) ? [slot.heroId] : []));
 
   const positions = [...new Set(controlled)].sort((a, b) => a - b);
@@ -169,6 +180,9 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
     const filledHeroId = heroByPosition.get(position) ?? null;
     if (filledHeroId !== null) return { position, state: "FILLED", candidates: [], filledHeroId, note: null };
+    if (occupiedUnbound.has(position)) {
+      return { position, state: "FILLED", candidates: [], filledHeroId: null, note: "Ocupada por uno de tus héroes cuyo rol exacto todavía no se confirmó." };
+    }
     if (!actionability.hasHumanAction) {
       return { position, state: "WAITING", candidates: [], filledHeroId: null, note: "Sin acción humana en este momento: se recalcula cuando se abra la próxima ronda." };
     }
@@ -203,14 +217,30 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: result.reason };
   }));
 
-  const plan = assignTeamPrimaries(drafts.filter((draft) => draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) })));
-  const eligible = new Set(actionability.hasHumanAction ? actionability.eligiblePositions : []);
+  const ranked = drafts.filter((draft) => draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
+  // A FILLED column is never actionable, whatever the actionability said.
+  const actionable = (actionability.hasHumanAction ? actionability.eligiblePositions : []).filter((position) => drafts.find((draft) => draft.position === position)?.state !== "FILLED");
+  const priority = context.liveCapture === true && actionable.length > 0
+    ? selectLivePositionPriority({
+        actionablePositions: actionable,
+        phase: view.rankedAp?.phase ?? null,
+        columns: ranked,
+        revealedEnemies: revealedEnemyHeroes(view),
+        heroCounters: input.heroCounters,
+        playerPoolsByPosition: context.playerPoolsByPosition,
+        unavailable: unavailableHeroesFrom(view),
+        occupancy: context.ownPositionOccupancy,
+      })
+    : null;
+  const plan = planWithPriority(ranked, priority);
+  const eligible = new Set(actionable);
   const columns: TeamCoachPosition[] = drafts.map((draft) => {
     const primaryHeroId = plan.get(draft.position) ?? null;
     return {
       position: draft.position,
       eligibleNow: eligible.has(draft.position),
-      alreadyFilled: draft.filledHeroId !== null,
+      // A position our picks necessarily occupy is filled even when no single hero is bound to it.
+      alreadyFilled: draft.state === "FILLED",
       filledHeroId: draft.filledHeroId,
       state: draft.state,
       primaryHeroId,
@@ -224,14 +254,34 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     schema: TEAM_COACH_BOARD_SCHEMA,
     sessionId: view.sessionId,
     stateIdentity,
-    currentDecision: deriveTeamDecision(actionability, columns, input.playerPersonalPosition),
+    currentDecision: deriveTeamDecision(actionability, actionable, columns, input.playerPersonalPosition, priority),
     positions: columns,
     unboundOwnHeroIds,
   };
 }
 
-function deriveTeamDecision(actionability: NonNullable<PerspectiveRecommendationContext["humanActionability"]>, columns: readonly TeamCoachPosition[], personal: Position | null): TeamCoachDecision {
-  if (!actionability.hasHumanAction) {
+/**
+ * The team plan. When the live priority chose a position BECAUSE of one hero (its counter, its last pool hero), that
+ * hero is that position's primary -- so the recommended hero is the one the reason talks about -- and the other
+ * positions are planned around it.
+ */
+function planWithPriority(columns: readonly { position: Position; heroIds: readonly HeroId[] }[], priority: LivePositionPriority | null): Map<Position, HeroId | null> {
+  const pinned = priority?.signalHeroId ?? null;
+  const target = priority?.targetPosition;
+  if (pinned === null || target === undefined || !columns.some((column) => column.position === target && column.heroIds.includes(pinned))) return assignTeamPrimaries(columns);
+  const plan = assignTeamPrimaries(columns.filter((column) => column.position !== target).map((column) => ({ position: column.position, heroIds: column.heroIds.filter((heroId) => heroId !== pinned) })));
+  plan.set(target, pinned);
+  return plan;
+}
+
+function deriveTeamDecision(
+  actionability: NonNullable<PerspectiveRecommendationContext["humanActionability"]>,
+  actionable: readonly Position[],
+  columns: readonly TeamCoachPosition[],
+  personal: Position | null,
+  priority: LivePositionPriority | null,
+): TeamCoachDecision {
+  if (!actionability.hasHumanAction || actionable.length === 0) {
     return {
       recommendedPosition: null,
       recommendedHeroId: null,
@@ -241,8 +291,8 @@ function deriveTeamDecision(actionability: NonNullable<PerspectiveRecommendation
       roundCapacity: 0,
     };
   }
-  // The SAME target function V4's CurrentHumanDecision uses: one canonical recommendation, not a second one.
-  const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
+  // Simulator: the SAME target function V4's CurrentHumanDecision uses. Live: LivePositionPriorityV1.
+  const target = priority ?? selectDecisionTarget({ eligiblePositions: actionable, playerPersonalPosition: personal });
   const column = columns.find((candidate) => candidate.position === target.targetPosition);
   const primary = column?.top.find((candidate) => candidate.isPrimary) ?? null;
   const heroReason = primary?.reasons[0] ?? column?.note ?? "";
@@ -251,7 +301,7 @@ function deriveTeamDecision(actionability: NonNullable<PerspectiveRecommendation
     recommendedHeroId: primary?.heroId ?? null,
     targetBasis: target.targetBasis,
     reason: [target.targetRationale, heroReason].filter((part) => part.length > 0).join(" "),
-    actionablePositions: [...actionability.eligiblePositions],
+    actionablePositions: [...actionable],
     roundCapacity: actionability.roundCapacity,
   };
 }

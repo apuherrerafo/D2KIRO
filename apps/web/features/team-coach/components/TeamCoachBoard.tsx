@@ -2,7 +2,7 @@
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { ADVISORY_NOTE, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PICK_NOW_LABEL, teamPositionName, teamPositionTitle } from "../constants";
+import { ADVISORY_NOTE, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PHASE_FALLBACK_NOTE, PICK_NOW_LABEL, teamPositionName, teamPositionTitle } from "../constants";
 import {
   BOARD_GRID,
   BOARD_SHELL,
@@ -57,7 +57,9 @@ function DecisionBannerHero({ board, heroCatalog }: DecisionBannerProps) {
 }
 
 function DefaultBasisNote({ board }: { board: TeamCoachBoardData }) {
-  if (board.currentDecision.targetBasis !== "DETERMINISTIC_DEFAULT" || board.currentDecision.actionablePositions.length < 2) return null;
+  if (board.currentDecision.actionablePositions.length < 2) return null;
+  if (board.currentDecision.targetBasis === "PHASE_FALLBACK") return <span className="text-caption text-content-muted" data-testid="team-coach-phase-fallback">{PHASE_FALLBACK_NOTE}</span>;
+  if (board.currentDecision.targetBasis !== "DETERMINISTIC_DEFAULT") return null;
   return <span className="text-caption text-content-muted">{DETERMINISTIC_DEFAULT_NOTE}</span>;
 }
 

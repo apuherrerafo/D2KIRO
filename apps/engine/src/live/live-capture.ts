@@ -3,6 +3,8 @@ import type { DraftProtocolState, HeroId, RejectionReasonV2, RulesetId, TeamSide
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEvent } from "../draft/reducer";
 import type { OwnPickPositionBinding } from "../server/protocol-session";
+import type { HeroPositions } from "../signals/hero-positions";
+import { EMPTY_LIVE_POSITION_RESOLUTION, resolveLiveOwnPositions, type LiveOwnPositionResolution } from "./live-position-resolver";
 
 // Live Dota capture -- the observed FACTS of a real draft, and the one function that turns them into a
 // kernel state.
@@ -159,12 +161,22 @@ export interface LiveReplayBase {
   partyContext: PartyContextInput | null;
   /** Side used until the game reports one. */
   defaultSide: TeamSide;
+  /**
+   * Evidence for own picks the source reported without a position (live-position-resolver.ts). Absent: no pool
+   * and no role data -- only explicit positions, and what they alone force, bind.
+   */
+  positionEvidence?: {
+    playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> | null | undefined;
+    heroPositions: HeroPositions;
+  };
 }
 
 export interface LiveReplay {
   state: DraftProtocolState;
   localSide: TeamSide;
   ownBindings: OwnPickPositionBinding[];
+  /** How every own SEALED pick resolved to a position (provenance included); see live-position-resolver.ts. */
+  ownPositions: LiveOwnPositionResolution;
   /** Picks the kernel had no open slot for yet (e.g. the other side's round picks are not revealed). Kept as facts, replayed next time. */
   deferred: LivePickFact[];
   /** Facts the kernel refused; never forced. */
@@ -194,11 +206,10 @@ export function replayLiveFacts(facts: LiveFacts, base: LiveReplayBase): LiveRep
     else state = result.state;
   }
   const picking = facts.started && (facts.bansClosed || facts.bans.length > 0 || facts.picks.length > 0);
-  if (!picking) return { state, localSide, ownBindings: [], deferred: [...facts.picks], rejected };
+  if (!picking) return { state, localSide, ownBindings: [], ownPositions: EMPTY_LIVE_POSITION_RESOLUTION, deferred: [...facts.picks], rejected };
   state = applyProtocolCommand(state, { type: "BAN_RESOLUTION_COMPLETE" }).state;
 
-  const ownBindings: OwnPickPositionBinding[] = [];
-  const boundPositions = new Set<Position>();
+  const ownSeals: { heroId: HeroId; round: 1 | 2 | 3; slotIndex: number; position: Position | null }[] = [];
   let pending = [...facts.picks];
   let progressed = true;
   while (progressed && pending.length > 0) {
@@ -217,12 +228,20 @@ export function replayLiveFacts(facts: LiveFacts, base: LiveReplayBase): LiveRep
         break;
       }
       state = result.state;
-      if (pick.side === localSide && pick.position !== null && round !== undefined && !boundPositions.has(pick.position)) {
-        boundPositions.add(pick.position);
-        ownBindings.push({ round, slotIndex: slot, assignedPosition: pick.position });
-      }
+      if (pick.side === localSide && round !== undefined) ownSeals.push({ heroId: pick.heroId, round, slotIndex: slot, position: pick.position });
       break;
     }
   }
-  return { state, localSide, ownBindings, deferred: pending, rejected };
+  // POSITION != SLOT: the (round, slotIndex) only says WHERE the kernel sealed the hero; the position comes from the
+  // fact itself (EXPLICIT) or from the resolver's evidence, never from the slot.
+  const ownPositions = resolveLiveOwnPositions({
+    ownPicks: ownSeals.map((seal) => ({ heroId: seal.heroId, explicitPosition: seal.position })),
+    ...(base.positionEvidence ?? { playerPoolsByPosition: null, heroPositions: {} }),
+  });
+  const ownBindings: OwnPickPositionBinding[] = ownSeals.flatMap((seal, index) => {
+    const resolved = ownPositions.heroes[index];
+    if (!resolved || resolved.position === null) return [];
+    return [{ round: seal.round, slotIndex: seal.slotIndex, assignedPosition: resolved.position, provenance: resolved.provenance }];
+  });
+  return { state, localSide, ownBindings, ownPositions, deferred: pending, rejected };
 }
