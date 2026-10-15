@@ -173,6 +173,8 @@ export interface LiveCaptureStatus {
   companion: LiveCompanionStatus | null;
   /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
   teamContext: LiveTeamContextStatus;
+  /** The Player's own seat: what they declared and whether GSI's local hero is bound to it. */
+  localPlayer: LiveLocalPlayerStatus;
 }
 
 /**
@@ -185,6 +187,19 @@ export interface LiveVisualAck {
   schema: "live-visual-ack/v1";
   draftPhase: LiveCaptureStatus["draftPhase"];
   draftEpoch: number;
+}
+
+/**
+ * The Player's own seat in this draft. `bound` is true only when the declared position AND the hero GSI says is the
+ * Player's are both known and that hero is one of our sealed picks -- the one case of an exact LOCAL_PLAYER binding.
+ * `heroId` is a public draft fact (the Player's own pick), never an account identifier.
+ */
+export interface LiveLocalPlayerStatus {
+  /** What the Player declared, or null. */
+  position: Position | null;
+  /** GSI's local hero right now, or null. */
+  heroId: HeroId | null;
+  bound: boolean;
 }
 
 export interface LiveTeamContextStatus {
@@ -258,8 +273,8 @@ export interface LiveCaptureRegistryDeps {
   defaultPatch: string;
   now?: () => number;
   /**
-   * Curated role credibility for the live position resolver (live-position-resolver.ts). Absent: only saved Party5
-   * pools and explicit positions place our picks -- role data is never invented.
+   * Curated role data. It no longer feeds identity: the resolver binds a hero to a position only from a stated
+   * position or the Player's own seat (live-position-resolver.ts). Kept so existing wiring keeps compiling.
    */
   heroPositions?: HeroPositions;
 }
@@ -320,6 +335,20 @@ export class LiveCaptureRegistry {
     if (!this.isLive(sessionId)) return false;
     const applied = this.deps.store.setLiveTeamContext(sessionId, accountId, { teamGroupId: team?.teamGroupId ?? null, playerPoolsByPosition: team?.playerPoolsByPosition ?? null });
     // The pools are position evidence for our own picks: a new preset re-resolves who plays what.
+    const entry = this.entries.get(sessionId);
+    if (applied && entry) this.rebuild(sessionId, entry);
+    return applied;
+  }
+
+  /**
+   * The Player's declared seat ("I am Pos N"; null clears it) for their live session. Paired with GSI's local hero it
+   * is the only non-stated source of an exact hero -> position binding, so it re-resolves who plays what at once:
+   * changing or clearing it invalidates the binding it made. false when the session is not a live session owned by
+   * `accountId`.
+   */
+  setHumanPosition(sessionId: string, accountId: number, position: Position | null): boolean {
+    if (!this.isLive(sessionId)) return false;
+    const applied = this.deps.store.setLiveHumanPosition(sessionId, accountId, position);
     const entry = this.entries.get(sessionId);
     if (applied && entry) this.rebuild(sessionId, entry);
     return applied;
@@ -510,7 +539,15 @@ export class LiveCaptureRegistry {
       visual: visualStatusOf(entry, now),
       companion: companionStatusOf(entry, now),
       teamContext: this.teamContextOf(sessionId),
+      localPlayer: this.localPlayerOf(sessionId, entry),
     };
+  }
+
+  private localPlayerOf(sessionId: string, entry: LiveEntry): LiveLocalPlayerStatus {
+    const position = this.deps.store.metadata(sessionId)?.humanPosition ?? null;
+    const heroId = entry.facts.localHeroId;
+    const bound = this.deps.store.liveLocalPlayerBound(sessionId);
+    return { position, heroId, bound };
   }
 
   private teamContextOf(sessionId: string): LiveTeamContextStatus {
@@ -565,6 +602,9 @@ export class LiveCaptureRegistry {
     restarted.draftEpoch = entry.draftEpoch;
     // A new match's first inventory is never compared with the previous match's (that is not an item change).
     restarted.gsiItemsKey = null;
+    // The Player's declared seat belonged to the previous match: the new one starts undeclared (no LOCAL_PLAYER binding
+    // until they say again). The rebuild that follows the new draft's first fact re-resolves with no seat.
+    this.deps.store.resetLiveHumanPosition(sessionId);
     this.entries.set(sessionId, restarted);
     return restarted;
   }
@@ -579,7 +619,7 @@ export class LiveCaptureRegistry {
       rulesetId: state.ruleset.id,
       partyContext: party ? { partySize: party.partySize, side: party.side, controlledSlots: party.controlledSlots } : null,
       defaultSide: metadata.localSide,
-      positionEvidence: { playerPoolsByPosition: metadata.playerPoolsByPosition ?? null, heroPositions: this.deps.heroPositions ?? {} },
+      humanPosition: metadata.humanPosition,
     });
     if (!replay) return;
     this.deps.store.installLiveState(sessionId, {

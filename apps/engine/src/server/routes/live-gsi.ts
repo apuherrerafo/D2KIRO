@@ -55,6 +55,14 @@ function parseTeamGroupId(raw: unknown): number | null | undefined {
   return typeof id === "number" && Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }
 
+/** `{ humanPosition: 1..5 | null }` -> the position (null clears it); undefined = malformed. Nothing else in the body is read. */
+function parseHumanPosition(raw: unknown): Position | null | undefined {
+  if (typeof raw !== "object" || raw === null || !("humanPosition" in raw)) return undefined;
+  const position = (raw as { humanPosition: unknown }).humanPosition;
+  if (position === null) return null;
+  return position === 1 || position === 2 || position === 3 || position === 4 || position === 5 ? position : undefined;
+}
+
 /** slot N -> Pos N, only for slots that actually hold a pool. Pools are a soft signal downstream, never a whitelist. */
 function poolsBySlot(members: { slot: number; heroPool: readonly number[] }[]): Partial<Record<Position, readonly HeroId[]>> {
   const pools: Partial<Record<Position, readonly HeroId[]>> = {};
@@ -360,5 +368,32 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
     }
   }
 
-  return { postIngest, postVisual, postCompanion, postIssue, getLink, deleteLink, putTeamGroup };
+  /**
+   * `PUT /api/live/human-position` (account-authenticated). The Player's declared seat ("I am Pos N", null clears it)
+   * for the account's own live session. Like the team preset, the session is the one the account's Dota link names --
+   * the body can never name a session, so another account's seat can never be set. Answers with the engine's own
+   * `localPlayer` status, which is what the screen shows (never the request echoed back).
+   */
+  async function putHumanPosition(request: Request, accountId: number): Promise<Response> {
+    const body = await readCappedBody(request, MAX_TEAM_GROUP_BODY_BYTES);
+    if (!body.ok) return new Response(null, { status: body.status });
+    let position: Position | null | undefined;
+    try {
+      position = parseHumanPosition(JSON.parse(body.text));
+    } catch {
+      return new Response(null, { status: 400 });
+    }
+    if (position === undefined) return noStore({ error: "invalid_body" }, 400);
+    try {
+      const link = deps.links.active(accountId, now());
+      if (link === null) return noStore({ error: "live_not_linked" }, 409);
+      if (!deps.registry.ensureSession(link.sessionId, accountId)) return noStore({ error: "live_session_unavailable" }, 409);
+      if (!deps.registry.setHumanPosition(link.sessionId, accountId, position)) return noStore({ error: "live_session_unavailable" }, 409);
+      return noStore({ schema: "live-human-position/v1", localPlayer: deps.registry.status(link.sessionId)?.localPlayer ?? null }, 200);
+    } catch {
+      return unavailable();
+    }
+  }
+
+  return { postIngest, postVisual, postCompanion, postIssue, getLink, deleteLink, putTeamGroup, putHumanPosition };
 }

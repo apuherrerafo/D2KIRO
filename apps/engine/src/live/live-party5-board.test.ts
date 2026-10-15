@@ -8,11 +8,14 @@ import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import { gsiPayload } from "./gsi.fixtures";
+import { normalizeGsi } from "./gsi-normalize";
 import { LiveCaptureRegistry } from "./live-capture-registry";
 
 // Party5 live engine P0 -- REAL registry -> REAL kernel -> REAL store -> REAL Team Coach Board route.
 // Only V6's scorer is a deterministic fixture; positions, counters and pools are inline (S9/S10).
-// Picks arrive the way the visual capturer sends them: source "ocr", never a position.
+// Picks arrive the way the visual capturer sends them: source "ocr", never a position. The only thing that places one of
+// OUR heroes in a position is the Player's own seat: a declared position plus the hero GSI says is theirs (LOCAL_PLAYER).
 
 const share = (position: Position, matches: number) => ({ position, matches });
 const POSITIONS: HeroPositions = {
@@ -87,15 +90,30 @@ function setup(sessionId: string, pools: Partial<Record<Position, readonly numbe
     expect(response.status).toBe(200);
     return (await response.json()) as TeamCoachBoard;
   }
-  return { store, registry, ally, enemy, board, boardResponse, poolsByTarget, setPools: (next: Partial<Record<Position, readonly number[]>>) => registry.setTeamContext(sessionId, ACCOUNT, { teamGroupId: 7, playerPoolsByPosition: next }) };
+  /** "I am Pos N" (null clears it). */
+  const declare = (position: Position | null) => registry.setHumanPosition(sessionId, ACCOUNT, position);
+  /** GSI's word on the Player's own hero (null: it names none). The same normalized path a real Dota update takes. */
+  const localHero = (heroId: number | null) => registry.ingestGsi(sessionId, normalizeGsi(gsiPayload({ teamName: "radiant", ...(heroId === null ? {} : { heroId }) })));
+  return { store, registry, ally, enemy, declare, localHero, board, boardResponse, poolsByTarget, setPools: (next: Partial<Record<Position, readonly number[]>>) => registry.setTeamContext(sessionId, ACCOUNT, { teamGroupId: 7, playerPoolsByPosition: next }) };
 }
 
 const column = (board: TeamCoachBoard, position: Position) => board.positions.find((candidate) => candidate.position === position)!;
 
 describe("LIVE_POSITION_RESOLUTION -- own live picks fill their positions without a manual step", () => {
-  test("a hero only the Pos 5 pool lists fills Pos 5: FILLED, correct hero, out of the actionable positions", async () => {
+  test("a hero only the Pos 5 pool lists is NOT Pos 5: nobody said so, so it stays unbound and Pos 5 stays open", async () => {
     const t = setup("p5-resolve-0001");
     t.ally(50);
+    const body = await t.board();
+    expect(column(body, 5)).toMatchObject({ alreadyFilled: false, filledHeroId: null });
+    expect(column(body, 5).state).not.toBe("FILLED");
+    expect(body.unboundOwnHeroIds).toEqual([50]);
+  });
+
+  test("the Player's declared seat + GSI's local hero fills that position: FILLED, correct hero, out of the actionable positions", async () => {
+    const t = setup("p5-resolve-0001b");
+    t.declare(5);
+    t.ally(50);
+    t.localHero(50);
     const body = await t.board();
     expect(column(body, 5)).toMatchObject({ state: "FILLED", alreadyFilled: true, filledHeroId: 50, eligibleNow: false, top: [] });
     expect(body.currentDecision.actionablePositions).not.toContain(5);
@@ -114,33 +132,43 @@ describe("LIVE_POSITION_RESOLUTION -- own live picks fill their positions withou
     expect(body.currentDecision.targetBasis).not.toBe("STRATEGIC");
   });
 
-  test("the next own pick disambiguates: the flex hero and the new one both bind", async () => {
+  test("the next own pick does NOT disambiguate the flex hero through the pools: both stay unbound", async () => {
     const t = setup("p5-resolve-0003");
     t.ally(34);
     t.enemy(92);
-    t.ally(30); // only in the Pos 3 pool -> 34 is the Pos 4
+    t.ally(30); // only in the Pos 3 pool -- that does not make 34 "the Pos 4"
     const body = await t.board();
-    expect(column(body, 3)).toMatchObject({ state: "FILLED", filledHeroId: 30 });
-    expect(column(body, 4)).toMatchObject({ state: "FILLED", filledHeroId: 34 });
-    expect(body.unboundOwnHeroIds).toEqual([]);
+    for (const position of [3, 4] as Position[]) expect(column(body, position)).toMatchObject({ alreadyFilled: false, filledHeroId: null });
+    expect([...body.unboundOwnHeroIds].sort((a, b) => a - b)).toEqual([30, 34]);
   });
 
-  test("two flex heroes covering Pos 3 / Pos 4 between them close BOTH columns, without pretending which is which", async () => {
+  test("two flex heroes with no identity close NO column: the pools do not say they cover Pos 3 / Pos 4 between them", async () => {
     const t = setup("p5-resolve-0004");
     t.ally(34);
     t.ally(134);
     const body = await t.board();
-    for (const position of [3, 4] as Position[]) expect(column(body, position)).toMatchObject({ state: "FILLED", alreadyFilled: true, filledHeroId: null, eligibleNow: false });
+    for (const position of [3, 4] as Position[]) expect(column(body, position)).toMatchObject({ alreadyFilled: false, filledHeroId: null });
     expect([...body.unboundOwnHeroIds].sort((a, b) => a - b)).toEqual([34, 134]);
   });
 
-  test("the preset applied AFTER the picks re-resolves them (no manual user action)", async () => {
+  test("the preset applied AFTER the picks binds nobody: a pool is not identity", async () => {
     const t = setup("p5-resolve-0005", null);
     t.ally(45); // credible at Pos 4 and Pos 5, no pool yet
     expect((await t.board()).unboundOwnHeroIds).toEqual([45]);
     t.setPools(POOLS); // 45 is only in the Pos 5 pool
     const body = await t.board();
-    expect(column(body, 5)).toMatchObject({ state: "FILLED", filledHeroId: 45 });
+    expect(column(body, 5).filledHeroId).toBeNull();
+    expect(body.unboundOwnHeroIds).toEqual([45]);
+  });
+
+  test("declaring the seat AFTER GSI named the hero re-resolves it at once (no manual step on the draft)", async () => {
+    const t = setup("p5-resolve-0006");
+    t.ally(45);
+    t.localHero(45);
+    expect((await t.board()).unboundOwnHeroIds).toEqual([45]); // GSI alone is not a position
+    t.declare(4);
+    const body = await t.board();
+    expect(column(body, 4)).toMatchObject({ state: "FILLED", filledHeroId: 45 });
     expect(body.unboundOwnHeroIds).toEqual([]);
   });
 });
@@ -189,10 +217,11 @@ describe("PARTY5_POOLS -- playerPoolsByPosition[P] -> overrideHeroPool -> that p
 describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every state", () => {
   test("0 picks -> enemy lock -> ally lock -> enemy lock -> ally lock -> round 2 rapid locks -> round 3 -> 10/10", async () => {
     const t = setup("p5-sequence-0001");
+    t.declare(4); // the Player is the Pos 4 and plays the counter pick; their four allies' positions are nobody's word yet
     const steps: [string, () => unknown][] = [
       ["0 picks", () => undefined],
       ["enemy lock", () => t.enemy(ENEMY_COUNTERED)],
-      ["ally lock (the counter)", () => t.ally(41)],
+      ["ally lock (the counter)", () => { t.ally(41); t.localHero(41); }],
       ["enemy lock", () => t.enemy(11)], // eats the Pos 1 pool down to one hero
       ["ally lock", () => t.ally(50)], // round 1 closes 2/2
       ["round 2: ally lock", () => t.ally(30)],
@@ -202,7 +231,7 @@ describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every 
       ["round 3: enemy lock", () => t.enemy(93)],
       ["round 3: ally lock", () => t.ally(20)],
     ];
-    const ownBound = new Map<number, Position>([[41, 4], [50, 5], [30, 3], [10, 1], [20, 2]]);
+    const ownBound = new Map<number, Position>([[41, 4]]);
     for (const [label, step] of steps) {
       step();
       const status = t.registry.status("p5-sequence-0001")!;
@@ -214,10 +243,10 @@ describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every 
 
       // No picked / banned hero suggested anywhere.
       for (const candidate of body.positions.flatMap((entry) => entry.top)) expect({ label, hero: candidate.heroId, gone: gone.has(candidate.heroId) }).toEqual({ label, hero: candidate.heroId, gone: false });
-      // Every own pick is bound to its position; nothing is left unbound.
+      // Only the Player's own hero is bound to a position; every other own pick stays unbound (nobody said whose it is).
       const ownHeroes = view.ownPicks.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
-      for (const heroId of ownHeroes) expect({ label, heroId, column: column(body, ownBound.get(heroId)!).filledHeroId }).toEqual({ label, heroId, column: heroId });
-      expect(body.unboundOwnHeroIds).toEqual([]);
+      for (const heroId of ownHeroes.filter((hero) => ownBound.has(hero))) expect({ label, heroId, column: column(body, ownBound.get(heroId)!).filledHeroId }).toEqual({ label, heroId, column: heroId });
+      expect({ label, unbound: [...body.unboundOwnHeroIds].sort((a, b) => a - b) }).toEqual({ label, unbound: ownHeroes.filter((hero) => !ownBound.has(hero)).sort((a, b) => a - b) });
       // Each ranked position was ranked with ITS pool.
       for (const [position, pool] of t.poolsByTarget) expect({ label, position, pool }).toEqual({ label, position, pool: POOLS[position] });
 
@@ -249,10 +278,12 @@ describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every 
 
   test("the sequence's tactical moments are the ones expected", async () => {
     const t = setup("p5-sequence-0002");
+    t.declare(4);
     expect((await t.board()).currentDecision).toMatchObject({ recommendedPosition: 5, targetBasis: "PHASE_FALLBACK" });
     t.enemy(ENEMY_COUNTERED);
     expect((await t.board()).currentDecision).toMatchObject({ recommendedPosition: 4, targetBasis: "STRATEGIC", recommendedHeroId: 41 });
     t.ally(41);
+    t.localHero(41);
     t.enemy(11); // Pos 1 pool: only 10 left
     expect((await t.board()).currentDecision).toMatchObject({ recommendedPosition: 1, targetBasis: "STRATEGIC", recommendedHeroId: 10 });
   });

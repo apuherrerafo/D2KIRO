@@ -356,6 +356,35 @@ export class ProtocolSessionStore {
     return true;
   }
 
+  /**
+   * Live Dota -- the Player's declared seat ("I am Pos N"; null clears it) on an OWNED live session. It reuses the
+   * session's `humanPosition` field and is only a declaration: the hero -> position binding it enables is made by the
+   * live registry's rebuild (live/live-capture.ts), which this does not trigger. false = unknown session, not a live
+   * capture session, or owned by another account.
+   */
+  setLiveHumanPosition(sessionId: string, accountId: number, position: DotaPosition | null): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || entry.ownerAccountId !== accountId) return false;
+    entry.metadata = { ...entry.metadata, humanPosition: position };
+    return true;
+  }
+
+  /**
+   * Live Dota -- a NEW match on this live session forgets the declared seat: it was "I am Pos N" for the previous
+   * draft, and nobody said it holds for the next one. Registry-internal (no account argument): the registry only calls
+   * it when its own capture history restarts. Nothing binds the Player's hero again until they declare anew.
+   */
+  resetLiveHumanPosition(sessionId: string): void {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || entry.metadata.humanPosition === null) return;
+    entry.metadata = { ...entry.metadata, humanPosition: null };
+  }
+
+  /** Live Dota -- is one of our sealed picks bound to the Player's own seat (LOCAL_PLAYER) right now? */
+  liveLocalPlayerBound(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.liveOwnPositions?.heroes.some((hero) => hero.provenance === "LOCAL_PLAYER") ?? false;
+  }
+
   partyContext(sessionId: string): PartyContext | null {
     return this.sessions.get(sessionId)?.metadata.partyContext ?? null;
   }

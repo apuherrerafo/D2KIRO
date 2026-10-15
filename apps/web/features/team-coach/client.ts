@@ -1,6 +1,6 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
-import type { GsiLinkView, LiveCaptureStatus, LiveObservationInput, LivePartyPreset, LiveTeamGroupResult, TeamCoachBoardData } from "./types";
-import { parseGsiLink, parseLiveCaptureStatus, parseLivePartyPresets, parseLiveTeamGroupResult, parseTeamCoachBoard } from "./validation";
+import type { GsiLinkView, LiveCaptureStatus, LiveHumanPositionResult, LiveObservationInput, LivePartyPreset, LiveTeamGroupResult, TeamCoachBoardData, TeamPosition } from "./types";
+import { parseGsiLink, parseLiveCaptureStatus, parseLiveHumanPositionResult, parseLivePartyPresets, parseLiveTeamGroupResult, parseTeamCoachBoard } from "./validation";
 
 // Únicos call sites del navegador para el Team Coach Board y el draft en vivo. Siempre por el proxy
 // `/engine` (allowlist en next.config.ts) -- nunca un loopback directo.
@@ -94,5 +94,28 @@ export async function putLiveTeamGroup(teamGroupId: number | null, fetchImpl: ty
   if (!response.ok) throw new Error(`live team group request failed (${response.status})`);
   const result = parseLiveTeamGroupResult(await response.json());
   if (result === null) throw new Error("invalid live team group response");
+  return result;
+}
+
+// Live Dota -- the Player's own seat. The body is one position: the engine resolves the session from the account's own
+// Dota link, so a client can never name another account's session.
+
+/** The engine refused the declaration; 409 = the account has no live Dota session to put it on. */
+export class LiveHumanPositionError extends Error {
+  constructor(readonly status: number) {
+    super(`live human position request failed (${status})`);
+  }
+}
+
+/** Declares ("Soy Pos N") or clears (null) the Player's own position. The answer is the engine's view of the seat. */
+export async function putLiveHumanPosition(humanPosition: TeamPosition | null, fetchImpl: typeof fetch = fetch): Promise<LiveHumanPositionResult> {
+  const response = await fetchImpl(`${ENGINE_HTTP_BASE_URL}/api/live/human-position`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ humanPosition }),
+  });
+  if (!response.ok) throw new LiveHumanPositionError(response.status);
+  const result = parseLiveHumanPositionResult(await response.json());
+  if (result === null) throw new Error("invalid live human position response");
   return result;
 }

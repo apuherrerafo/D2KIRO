@@ -288,6 +288,10 @@ export function observationsFromGsi(update: GsiUpdate, patch: string): LiveObser
   for (const heroId of update.draft?.bans ?? []) observations.push({ type: "ban", heroId });
   for (const pick of update.draft?.picks ?? []) observations.push({ type: "pick", side: pick.side, heroId: pick.heroId, position: null });
   // Our own hero: the game only creates it once the pick is locked. No position -- GSI does not say it.
-  if (update.ownHeroId !== null && update.side !== null) observations.push({ type: "pick", side: update.side, heroId: update.ownHeroId, position: null });
+  if (update.ownHeroId !== null && update.side !== null) observations.push({ type: "pick", side: update.side, heroId: update.ownHeroId, position: null, viaLocalHero: true });
+  // ...and it stays IDENTITY evidence, not just one more allied pick: GSI is the only source that says which hero is the
+  // local Player's. It is the current state of every update (a change replaces it, none clears it), and only counts
+  // once our side is known -- without a side the hero cannot be placed on our team.
+  observations.push({ type: "local_hero", heroId: update.side !== null ? update.ownHeroId : null });
   return observations;
 }
