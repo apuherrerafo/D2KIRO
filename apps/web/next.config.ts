@@ -55,6 +55,9 @@ const ENGINE_REWRITE_SOURCES = [
   // Live Dota + Party 5: select (PUT) or clear the account's own team preset for its live session. The body only
   // NAMES a preset (teamGroupId); the engine loads its pools server-side, scoped to the signed-in account.
   "/engine/api/live/team-group",
+  // Live Dota: the Player declares their own seat ("I am Pos N", null clears it). The body is one position; the
+  // engine resolves the session from the account's own Dota link, so a client can never name another account's.
+  "/engine/api/live/human-position",
   "/engine/api/session/:sessionId/feedback",
   "/engine/api/session/:sessionId/draft-paths",
   "/engine/api/v1/draft/pro-recommendations",

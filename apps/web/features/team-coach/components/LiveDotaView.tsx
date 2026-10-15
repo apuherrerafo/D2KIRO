@@ -9,6 +9,7 @@ import { useGsiLink, type UseGsiLinkResult } from "../use-gsi-link";
 import { activeCompanion, companionGuidance } from "./LiveCaptureStatusBar";
 import { DotaConnectPanel, DotaLinkControls } from "./DotaConnectPanel";
 import { LiveDiagnosticsPanel } from "./LiveDiagnosticsPanel";
+import { LiveLocalPositionPanel } from "./LiveLocalPositionPanel";
 import { LivePartyPresetPanel } from "./LivePartyPresetPanel";
 import { LiveTeamCoachView } from "./LiveTeamCoachView";
 
@@ -109,6 +110,7 @@ function LinkedLiveView({ link, gsi, setupError, onDownload, fetchImpl, now }: L
         onDownload={onDownload}
         onDisconnect={handleDisconnect}
       />
+      <LiveLocalPositionPanel sessionId={link.sessionId} localPlayer={linkStatus?.localPlayer} fetchImpl={fetchImpl} />
       <LivePartyPresetPanel sessionId={link.sessionId} teamContext={linkStatus?.teamContext} fetchImpl={fetchImpl} />
       <LiveDiagnosticsPanel engine={engineStatus} dotaLink status={linkStatus} />
     </LiveTeamCoachView>

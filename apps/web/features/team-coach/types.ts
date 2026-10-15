@@ -98,6 +98,22 @@ export interface LiveTeamContext {
   positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
 }
 
+/**
+ * The Player's own seat in the live draft (mirror of the engine's LiveLocalPlayerStatus). `position` is what they
+ * declared ("Soy Pos N"); `heroId` is the hero Dota says is theirs; `bound` is true only when the engine bound that
+ * hero to that position. The screen shows what the ENGINE reports, never what was clicked.
+ */
+export interface LiveLocalPlayer {
+  position: TeamPosition | null;
+  heroId: HeroId | null;
+  bound: boolean;
+}
+
+/** PUT /engine/api/live/human-position (schema "live-human-position/v1"). */
+export interface LiveHumanPositionResult {
+  localPlayer: LiveLocalPlayer;
+}
+
 /** A Party 5 preset as the live selector shows it: a name and which positions carry a pool. */
 export interface LivePartyPreset {
   id: number;
@@ -183,6 +199,8 @@ export interface LiveCaptureStatus {
   companion?: LiveCompanionStatus | null;
   /** Party 5 preset applied to this live session (absent from older engines). */
   teamContext?: LiveTeamContext;
+  /** The Player's declared seat and whether their GSI hero is bound to it (absent from older engines). */
+  localPlayer?: LiveLocalPlayer;
 }
 
 /** The browser's view of its Dota link: which live session to watch, until when. Never the credential. */

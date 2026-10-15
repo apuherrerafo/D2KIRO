@@ -108,8 +108,8 @@ function resolve(ownPicks: LiveOwnPickEvidence[], pools: Partial<Record<Position
 }
 
 describe("VERDAD 1 -- el pool controla candidatos, no identidad", () => {
-  // Viola hoy: UNIQUE_POOL en live-position-resolver.ts. Se arregla en el Paso 1.
-  test.failing("un héroe que solo lista el pool de Pos 5 NO se vuelve Pos 5: queda sin vincular", async () => {
+  // Cumplida desde el Paso 1a: el pool ya no es fuente de identidad (UNIQUE_POOL eliminado).
+  test("un héroe que solo lista el pool de Pos 5 NO se vuelve Pos 5: queda sin vincular", async () => {
     const t = setup("contract-1a");
     t.ally(50);
     const body = await t.board();
@@ -140,30 +140,47 @@ describe("VERDAD 2 -- un vínculo exacto héroe→posición exige evidencia de i
     expect(resolve(picks([51, 3])).heroes[0]).toEqual({ heroId: 51, position: 3, provenance: "EXPLICIT", possiblePositions: [3] });
   });
 
-  // Viola hoy: JOINT_INFERENCE por credibilidad. Se arregla en el Paso 1.
-  test.failing("un héroe fuera de todo pool, creíble en una sola posición libre, NO se vincula", () => {
+  // Cumplida desde el Paso 1a: JOINT_INFERENCE por credibilidad eliminado.
+  test("un héroe fuera de todo pool, creíble en una sola posición libre, NO se vincula", () => {
     const result = resolve(picks(31), { 1: [11], 2: [21], 4: [41], 5: [51] });
     expect(result.heroes[0]!.provenance).toBe("UNRESOLVED");
     expect(result.heroes[0]!.position).toBeNull();
   });
 
-  // Viola hoy: la deducción "queda una sola posición" produce identidad exacta (JOINT_INFERENCE).
-  test.failing("cuatro posiciones explícitas: la quinta queda ocupada, pero el quinto héroe NO recibe identidad por deducción", () => {
+  // Cumplida desde el Paso 1a: "queda una sola posición" es una restricción de conjunto, no una identidad.
+  test("cuatro posiciones explícitas: la quinta queda ocupada, pero el quinto héroe NO recibe identidad por deducción", () => {
     const result = resolveLiveOwnPositions({ ownPicks: picks([11, 1], [21, 2], [31, 3], [41, 4], 77), playerPoolsByPosition: null, heroPositions: {} });
     expect(result.necessarilyOccupied).toContain(5);
     expect(result.heroes[4]).toMatchObject({ heroId: 77, position: null, provenance: "UNRESOLVED" });
   });
 });
 
+describe("VERDAD 2 (b) -- LOCAL_PLAYER: héroe local de GSI + posición declarada por el jugador", () => {
+  test("posición declarada + héroe local de GSI => ese héroe, y sólo ese, queda LOCAL_PLAYER", () => {
+    const result = resolveLiveOwnPositions({ ownPicks: picks(50, 21), localPlayer: { position: 2, heroId: 21 }, playerPoolsByPosition: POOLS, heroPositions: POSITIONS });
+    expect(result.heroes).toEqual([
+      { heroId: 50, position: null, provenance: "UNRESOLVED", possiblePositions: [1, 3, 4, 5] },
+      { heroId: 21, position: 2, provenance: "LOCAL_PLAYER", possiblePositions: [2] },
+    ]);
+  });
+
+  test("sin posición declarada, o sin héroe local, no hay vínculo", () => {
+    for (const localPlayer of [{ position: null, heroId: 21 }, { position: 2, heroId: null }, null] as const) {
+      const result = resolveLiveOwnPositions({ ownPicks: picks(21), localPlayer, playerPoolsByPosition: POOLS, heroPositions: POSITIONS });
+      expect(result.heroes[0]).toMatchObject({ position: null, provenance: "UNRESOLVED" });
+    }
+  });
+});
+
 describe("VERDAD 3 -- desconocido gana a identidad inferida", () => {
-  // Viola hoy: UNIQUE_POOL + JOINT_INFERENCE encadenadas ("31 sólo está en el pool de Pos 3, así que 34 es el Pos 4").
-  test.failing("un segundo pick no 'desambigua' al primero a través de los pools: ambos quedan sin identidad", () => {
+  // Cumplida desde el Paso 1a: ya no hay vínculos encadenados vía pools ("31 sólo está en el pool de Pos 3, así que 34 es el Pos 4").
+  test("un segundo pick no 'desambigua' al primero a través de los pools: ambos quedan sin identidad", () => {
     const result = resolve(picks(34, 31));
     expect(result.heroes.map((hero) => hero.provenance)).toEqual(["UNRESOLVED", "UNRESOLVED"]);
   });
 
-  // Viola hoy: el pool restringe el dominio de cada héroe. La restricción de CONJUNTO sí es legítima (abajo).
-  test.failing("con 1/2/5 explícitas, dos héroes de pool único 3 y 4 ocupan {3,4} sin que se afirme cuál es cuál", () => {
+  // Cumplida desde el Paso 1a: el pool ya no restringe el dominio de cada héroe. La restricción de CONJUNTO sí es legítima (abajo).
+  test("con 1/2/5 explícitas, dos héroes de pool único 3 y 4 ocupan {3,4} sin que se afirme cuál es cuál", () => {
     const result = resolve(picks([11, 1], [21, 2], [51, 5], 31, 41));
     expect(result.necessarilyOccupied).toEqual([1, 2, 3, 4, 5]);
     expect(result.heroes.slice(3).map((hero) => hero.provenance)).toEqual(["UNRESOLVED", "UNRESOLVED"]);

@@ -75,5 +75,9 @@ export const LIVE_PRESET_REFUSALS: Readonly<Record<string, string>> = Object.fre
   unsupported: "Este servidor todavía no admite presets en el draft en vivo.",
 });
 export const LIVE_PRESET_APPLY_FAILED = "No se pudo aplicar el preset ahora. Se reintentará al volver a conectar.";
+// Live Dota -- "Soy Pos N": la posición propia del jugador. Con el héroe que Dota informa como suyo, es lo único (además de una
+// posición dicha por una fuente) que liga un héroe a una posición. Un compañero nunca se liga por estar en un pool.
+export const LIVE_SEAT_APPLY_FAILED = "No se pudo guardar tu posición ahora. Inténtalo de nuevo.";
+export const LIVE_SEAT_NOT_LINKED = "Conecta Dota primero: tu posición se guarda en tu draft en vivo.";
 export const LIVE_DRAFT_ENDED_TITLE = "DRAFT TERMINADO";
 export const LIVE_DRAFT_ENDED_NOTE = "La selección de héroes ya cerró: no hay un pick para hacer ahora. Abajo queda la última lectura del Team Coach, sólo como referencia.";

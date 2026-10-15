@@ -115,8 +115,19 @@ describe("observationsFromGsi", () => {
       { type: "side", side: "radiant" },
       { type: "ban", heroId: 1 },
       { type: "pick", side: "dire", heroId: 21, position: null },
-      { type: "pick", side: "radiant", heroId: 8, position: null },
+      { type: "pick", side: "radiant", heroId: 8, position: null, viaLocalHero: true },
+      { type: "local_hero", heroId: 8 },
     ]);
+  });
+
+  test("our own hero is ALSO stated as identity evidence (LOCAL_PLAYER), not only as one more allied pick", () => {
+    const observations = observationsFromGsi(normalizeGsi(gsiPayload({ teamName: "radiant", heroId: 8 })), "7.41e");
+    expect(observations).toContainEqual({ type: "pick", side: "radiant", heroId: 8, position: null, viaLocalHero: true });
+    expect(observations).toContainEqual({ type: "local_hero", heroId: 8 });
+  });
+
+  test("no own hero in the update: the local hero is stated as NONE (current state, not history)", () => {
+    expect(observationsFromGsi(normalizeGsi(gsiPayload({ teamName: "radiant" })), "7.41e")).toContainEqual({ type: "local_hero", heroId: null });
   });
 
   test("outside the draft, the hero is the match hero -- never a pick", () => {
@@ -125,7 +136,8 @@ describe("observationsFromGsi", () => {
   });
 
   test("our own hero without a known side is not attributed to any side", () => {
-    expect(observationsFromGsi(normalizeGsi(gsiPayload({ heroId: 8 })), "7.41e")).toEqual([{ type: "draft_started", patch: "7.41e" }, { type: "bans_closed" }]);
+    // Not placed on any team, so it is not a pick -- and not the local Player's hero either (it cannot be bound without a side).
+    expect(observationsFromGsi(normalizeGsi(gsiPayload({ heroId: 8 })), "7.41e")).toEqual([{ type: "draft_started", patch: "7.41e" }, { type: "bans_closed" }, { type: "local_hero", heroId: null }]);
   });
 });
 
@@ -183,6 +195,6 @@ describe("normalizeGsi -- structural capability discovery (presence only)", () =
 
   test("structure presence never creates facts: a roster candidate adds NO observation", () => {
     const update = normalizeGsi(rosterPayload());
-    expect(observationsFromGsi(update, "7.41e").filter((o) => o.type === "pick")).toEqual([{ type: "pick", side: "radiant", heroId: 30, position: null }]);
+    expect(observationsFromGsi(update, "7.41e").filter((o) => o.type === "pick")).toEqual([{ type: "pick", side: "radiant", heroId: 30, position: null, viaLocalHero: true }]);
   });
 });

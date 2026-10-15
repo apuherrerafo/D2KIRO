@@ -471,6 +471,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       const auth = requireHttpAccount(request);
       return auth.ok ? liveGsiRoutes.putTeamGroup(request, auth.accountId) : auth.response;
     }
+    // Live Dota: the Player's own seat ("I am Pos N"). With GSI's local hero it binds the Player's hero to a position.
+    if (request.method === "PUT" && url.pathname === "/api/live/human-position") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.putHumanPosition(request, auth.accountId) : auth.response;
+    }
     if (request.method === "POST" && url.pathname === "/api/telemetry/error") {
       return telemetryRoutes.postError(request);
     }

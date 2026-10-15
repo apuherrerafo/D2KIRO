@@ -3,6 +3,8 @@ import type {
   LiveCaptureStatus,
   LiveDetectedPick,
   LiveGsiStatus,
+  LiveHumanPositionResult,
+  LiveLocalPlayer,
   LiveVisualStatus,
   LiveCompanionStatus,
   LivePartyPreset,
@@ -177,6 +179,16 @@ function isTeamContext(value: unknown): value is LiveTeamContext {
   );
 }
 
+function isLocalPlayer(value: unknown): value is LiveLocalPlayer {
+  return isRecord(value) && isNullable(value.position, isPosition) && isNullable(value.heroId, isHeroId) && typeof value.bound === "boolean";
+}
+
+/** PUT /engine/api/live/human-position. `null` when the response is not a valid result. */
+export function parseLiveHumanPositionResult(value: unknown): LiveHumanPositionResult | null {
+  if (!isRecord(value) || value.schema !== "live-human-position/v1" || !isLocalPlayer(value.localPlayer)) return null;
+  return { localPlayer: { position: value.localPlayer.position, heroId: value.localPlayer.heroId, bound: value.localPlayer.bound } };
+}
+
 /** GET /engine/api/team-groups reduced to what the live selector needs: only Party 5 presets, no hero ids. `null` if malformed. */
 export function parseLivePartyPresets(value: unknown): LivePartyPreset[] | null {
   if (!Array.isArray(value)) return null;
@@ -224,6 +236,7 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     (value.visual === undefined || isNullable(value.visual, isVisualStatus)) &&
     (value.companion === undefined || isNullable(value.companion, isCompanionStatus)) &&
     (value.teamContext === undefined || isTeamContext(value.teamContext)) &&
+    (value.localPlayer === undefined || isLocalPlayer(value.localPlayer)) &&
     (value.factsRevision === undefined || typeof value.factsRevision === "number") &&
     (value.completeness === undefined || value.completeness === "NONE" || value.completeness === "PARTIAL" || value.completeness === "PICKS_COMPLETE") &&
     (value.recommendation === undefined || isRecommendationReadiness(value.recommendation));

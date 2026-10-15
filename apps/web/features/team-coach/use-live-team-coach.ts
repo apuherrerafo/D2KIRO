@@ -20,14 +20,20 @@ function teamContextKey(context: LiveCaptureStatus["teamContext"]): string {
   return ["ctx", context.teamGroupId ?? "-", positions["1"] ? 1 : 0, positions["2"] ? 1 : 0, positions["3"] ? 1 : 0, positions["4"] ? 1 : 0, positions["5"] ? 1 : 0].join(":");
 }
 
+/** The Player's own seat is recommendation context too (it re-binds their hero to a position): declared position, GSI's hero, bound. */
+function localPlayerKey(localPlayer: LiveCaptureStatus["localPlayer"]): string {
+  if (!localPlayer) return "me:none";
+  return ["me", localPlayer.position ?? "-", localPlayer.heroId ?? "-", localPlayer.bound ? 1 : 0].join(":");
+}
+
 /** The engine says this draft is not known well enough to recommend on (older engines say nothing: the board is requested). */
 export function recommendationBlocked(status: LiveCaptureStatus): boolean {
   return status.recommendation?.available === false;
 }
 
-/** What must change for the board to be recomputed: the draft facts, whether recommending is allowed, and the active Team Context, never a heartbeat. */
+/** What must change for the board to be recomputed: the draft facts, whether recommending is allowed, the active Team Context and the Player's own seat, never a heartbeat. */
 export function liveDraftChangeKey(status: LiveCaptureStatus): string {
-  return [status.bans, status.picks, status.localSide ?? "-", status.draftPhase, status.lastDetectedPick?.at ?? "-", status.factsRevision ?? "-", status.deferredPicks, recommendationBlocked(status) ? "blocked" : "open", teamContextKey(status.teamContext)].join("|");
+  return [status.bans, status.picks, status.localSide ?? "-", status.draftPhase, status.lastDetectedPick?.at ?? "-", status.factsRevision ?? "-", status.deferredPicks, recommendationBlocked(status) ? "blocked" : "open", teamContextKey(status.teamContext), localPlayerKey(status.localPlayer)].join("|");
 }
 
 export interface UseLiveTeamCoachOptions {
