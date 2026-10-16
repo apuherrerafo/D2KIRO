@@ -151,15 +151,14 @@ describe("Live Party 5 preset -- data flow", () => {
     for (const p of [1, 3, 4, 5]) expect(t.top(second, p)).toEqual(t.top(first, p));
   });
 
-  test("the pool is a soft signal: out-of-pool heroes stay eligible and listed", async () => {
+  test("the pool is a hard admission (Step 1B-B): only pool heroes are listed, nothing outside it", async () => {
     const t = setup();
     const link = await t.issue(A);
     await t.startDraft(link);
     await t.select(A, { teamGroupId: t.group(A, POOLS) });
     const board = await t.board(link.sessionId);
     const column2 = t.top(board, 2);
-    expect(column2.slice(0, 2).sort()).toEqual([22, 23]);
-    expect(column2.some((hero) => !POOLS[1]!.includes(hero))).toBe(true);
+    expect([...column2].sort((a, b) => a - b)).toEqual([22, 23]);
   });
 
   test("a preset survives later GSI updates and a fresh draft on the same link", async () => {

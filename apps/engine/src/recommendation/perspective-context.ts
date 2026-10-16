@@ -86,6 +86,20 @@ export function poolForPosition(
   return playerPoolsByPosition[position];
 }
 
+/**
+ * Step 1B-B -- the HARD pool of a Party5 position: the configured, NON-EMPTY pool, de-duplicated. `undefined` for an
+ * unconfigured or empty pool (that position keeps the credible-universe behaviour). A pool controls ADMISSION only:
+ * nothing derived from it is ever a hero -> position identity.
+ */
+export function configuredPoolForPosition(
+  playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> | null | undefined,
+  position: Position,
+): readonly HeroId[] | undefined {
+  const pool = poolForPosition(playerPoolsByPosition, position);
+  if (!pool || pool.length === 0) return undefined;
+  return [...new Set(pool)];
+}
+
 /** Structurally compatible with routes/protocol-sessions.ts's `ComputeSuggestionsForDraftState` --
  * intentionally not imported from there, to avoid a route -> recommendation -> route cycle. */
 export type ComputeSuggestionsForRecommendation = (
@@ -98,8 +112,26 @@ export type ComputeSuggestionsForRecommendation = (
     diversitySeed?: string;
     candidateHeroIds?: readonly HeroId[];
     overrideHeroPool?: readonly HeroId[];
+    /** Step 1B-B: `candidateHeroIds` is a configured Party5 pool -- the final admission, no positional-credibility filter after it. */
+    candidateUniverseIsAdmission?: boolean;
   },
 ) => Promise<SuggestionSet>;
+
+/**
+ * Step 1B-B -- the positions that still have something to offer: no configured pool (credible-universe behaviour), or a
+ * configured pool with at least one hero not yet banned / picked. A position whose configured pool is exhausted is NOT a
+ * viable target. Empty result = every position is exhausted; the caller then reports that truthfully, never falls back.
+ */
+export function positionsWithPoolOption(
+  positions: readonly Position[],
+  playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> | null | undefined,
+  unavailable: ReadonlySet<HeroId>,
+): Position[] {
+  return positions.filter((position) => {
+    const pool = configuredPoolForPosition(playerPoolsByPosition, position);
+    return pool === undefined || pool.some((heroId) => !unavailable.has(heroId));
+  });
+}
 
 /** Heroes already gone from THIS side's perspective: banned, our own picks (sealed or confirmed), revealed enemy picks. */
 export function unavailableHeroesFrom(view: PerspectiveDraftView): Set<HeroId> {

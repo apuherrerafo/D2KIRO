@@ -1,7 +1,7 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { stateIdentityOf } from "../recommendation/identity";
-import { unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import { configuredPoolForPosition, positionsWithPoolOption, unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
@@ -195,7 +195,7 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     if (ranking.basedOn.stateIdentity !== stateIdentity) {
       return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: "El ranking no corresponde al estado actual del draft." };
     }
-    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, personalPoolApplied: false, shortlistSize: topSize });
+    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, personalPoolApplied: false, shortlistSize: topSize, admittedPool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
     if (result.state === "RANKED") {
       return {
         position,
@@ -220,15 +220,20 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
   const ranked = drafts.filter((draft) => draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
   // A FILLED column is never actionable, whatever the actionability said.
   const actionable = (actionability.hasHumanAction ? actionability.eligiblePositions : []).filter((position) => drafts.find((draft) => draft.position === position)?.state !== "FILLED");
+  // Step 1B-B: a position whose configured pool is exhausted has no option to offer -- prefer another viable position as
+  // the target. Only the TARGET choice narrows; `actionablePositions` keeps every legal position.
+  const unavailable = unavailableHeroesFrom(view);
+  const withPoolOption = positionsWithPoolOption(actionable, context.playerPoolsByPosition, unavailable);
+  const targetField = withPoolOption.length > 0 ? withPoolOption : actionable;
   const priority = context.liveCapture === true && actionable.length > 0
     ? selectLivePositionPriority({
-        actionablePositions: actionable,
+        actionablePositions: targetField,
         phase: view.rankedAp?.phase ?? null,
         columns: ranked,
         revealedEnemies: revealedEnemyHeroes(view),
         heroCounters: input.heroCounters,
         playerPoolsByPosition: context.playerPoolsByPosition,
-        unavailable: unavailableHeroesFrom(view),
+        unavailable,
         occupancy: context.ownPositionOccupancy,
       })
     : null;
@@ -254,7 +259,7 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     schema: TEAM_COACH_BOARD_SCHEMA,
     sessionId: view.sessionId,
     stateIdentity,
-    currentDecision: deriveTeamDecision(actionability, actionable, columns, input.playerPersonalPosition, priority),
+    currentDecision: deriveTeamDecision(actionability, actionable, targetField, columns, input.playerPersonalPosition, priority),
     positions: columns,
     unboundOwnHeroIds,
   };
@@ -277,6 +282,7 @@ function planWithPriority(columns: readonly { position: Position; heroIds: reado
 function deriveTeamDecision(
   actionability: NonNullable<PerspectiveRecommendationContext["humanActionability"]>,
   actionable: readonly Position[],
+  targetField: readonly Position[],
   columns: readonly TeamCoachPosition[],
   personal: Position | null,
   priority: LivePositionPriority | null,
@@ -292,7 +298,7 @@ function deriveTeamDecision(
     };
   }
   // Simulator: the SAME target function V4's CurrentHumanDecision uses. Live: LivePositionPriorityV1.
-  const target = priority ?? selectDecisionTarget({ eligiblePositions: actionable, playerPersonalPosition: personal });
+  const target = priority ?? selectDecisionTarget({ eligiblePositions: actionable, playerPersonalPosition: personal, viablePositions: targetField });
   const column = columns.find((candidate) => candidate.position === target.targetPosition);
   const primary = column?.top.find((candidate) => candidate.isPrimary) ?? null;
   const heroReason = primary?.reasons[0] ?? column?.note ?? "";

@@ -229,6 +229,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       // R1 S5 (blocker 3): forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
       candidateHeroIds?: readonly number[];
       overrideHeroPool?: readonly number[];
+      // Step 1B-B: forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
+      candidateUniverseIsAdmission?: boolean;
     } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;

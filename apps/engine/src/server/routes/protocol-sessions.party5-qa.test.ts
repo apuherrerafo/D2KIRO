@@ -288,11 +288,11 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     expect(cards.some((c: HeroCard) => c.heroId === 11)).toBe(false);
   });
 
-  test("6. An out-of-pool hero can still rank if credible, with isFromPool=false and personalPoolApplied=true", async () => {
+  test("6. An out-of-pool hero never ranks, even if credible (Step 1B-B hard pool); the pool is applied", async () => {
     const { routes, sessionId } = await createParty5Harness();
     await routes.postResolveBans(jsonRequest({ playerBanPreferences: [] }), sessionId);
 
-    // Hero 60 is credible at Pos 1, but NOT in POS1_POOL [1, 2, 3, 4, 5]
+    // Hero 60 is credible at Pos 1 (and scores highest), but is NOT in POS1_POOL [1, 2, 3, 4, 5]
     const urlPos1 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=1`);
     const resp = await routes.getRecommendations(sessionId, urlPos1);
     const body = (await resp.json()) as CurrentDecisionRecomputation;
@@ -301,9 +301,8 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     if (body.output.decision.candidates?.state !== "RANKED") throw new Error("Expected RANKED candidates");
     const cards: HeroCard[] = body.output.decision.candidates.cards;
 
-    const card60 = cards.find((c: HeroCard) => c.heroId === 60);
-    expect(card60).toBeDefined();
-    expect(card60?.isFromPool).toBe(false);
+    expect(cards.some((c: HeroCard) => c.heroId === 60)).toBe(false);
+    expect(cards.every((c: HeroCard) => POS1_POOL.includes(c.heroId))).toBe(true);
     expect(body.output.decision.personalPoolApplied).toBe(true);
   });
 });

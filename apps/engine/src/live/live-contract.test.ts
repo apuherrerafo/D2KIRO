@@ -117,8 +117,8 @@ describe("VERDAD 1 -- el pool controla candidatos, no identidad", () => {
     expect(column(body, 5).filledHeroId).not.toBe(50);
   });
 
-  // Viola hoy: el pool es sólo un bonus (hero_pool_fit); el universo de la columna es credibleHeroesForPosition.
-  test.failing("con pool configurado, los candidatos de esa posición salen SOLO del pool", async () => {
+  // Cumplida desde el Paso 1B-B: un pool configurado y no vacío ES el universo de candidatos de la columna.
+  test("con pool configurado, los candidatos de esa posición salen SOLO del pool", async () => {
     const t = setup("contract-1b", { pools: { ...POOLS, 4: [42, 43] } });
     const body = await t.board();
     const pos4 = ranking(body, 4);
@@ -126,8 +126,8 @@ describe("VERDAD 1 -- el pool controla candidatos, no identidad", () => {
     expect(pos4.every((heroId) => heroId === 42 || heroId === 43)).toBe(true);
   });
 
-  // Viola hoy: credibleHeroesForPosition / candidateServesPosition expulsan al héroe del pool antes de rankear.
-  test.failing("un héroe del pool que la estadística no ve en esa posición sigue siendo candidato (Rubick carry)", async () => {
+  // Cumplida desde el Paso 1B-B: la credibilidad estadística ya no expulsa a un héroe del pool configurado.
+  test("un héroe del pool que la estadística no ve en esa posición sigue siendo candidato (Rubick carry)", async () => {
     // 42 sólo se juega de Pos 4 en los datos, pero el jugador lo declaró en su pool de Pos 1.
     const t = setup("contract-1c", { pools: { ...POOLS, 1: [10, 42] } });
     const body = await t.board();
