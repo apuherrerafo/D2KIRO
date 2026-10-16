@@ -120,6 +120,15 @@ is ambiguous or the health leaves OK; `tail` (the last frames before the close).
 `chroma` (`top`/`bot`), `dist`/`thr`, `cand`, `score`, `runnerUp`, `margin`, `stab` (candidate, frames, ms) and `confirmed`,
 once a second AND on every transition (`triggers`), plus a `pick` / `revert` event per confirmed fact.
 
+**Incident recorder (`incidents.py`).** On top of the per-draft schedule above, a ring of the last 5 FULL frames is kept in
+memory only (one every 0.5 s) and written to disk around an incident: the 5 frames before, the frame that tripped it and the
+next 6. Triggers: a locked card whose best candidate sits under `min_score` for >= 1 s (`subthreshold`), a locked card nobody
+can name (`uncertain`), `VISUAL_SLOTS_UNREAD`, a `recovered` hero, a `reverted` pick, and a draft that closes with < 10
+confirmed picks (`short_end`; `draft_end` logs `picks` and `short`). One incident per episode (the condition must clear to fire
+again); a second trigger inside the post window joins the open incident. Bounded: <= 10 incidents and 256 MB per draft (+ one
+`short_end`), inside the same 768 MB `frames/` cap. Files are `<run>-e<epoch>-inc-<n>-<kind>-{pre,at,post}<k>.png`; each is logged as `frame_saved`.
+The helper's `start` record carries `version` (from the `manifest.json` next to the exe) so a QA can prove which build recorded it.
+
 ## Offline acceptance on the saved real corpus
 
 ```powershell

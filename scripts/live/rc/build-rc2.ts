@@ -1,10 +1,10 @@
-// Writes the Companion runtime of the LOCAL release candidate "visual 0.1.3-rc1" to scripts/live/rc/out/companion.ps1
+// Writes the Companion runtime of the LOCAL release candidate "visual 0.1.3-rc2" to scripts/live/rc/out/companion.ps1
 // (gitignored). Not a release: no tag, no staging pin, nothing deployed.
 //
-//   bun scripts/live/rc/build-rc1.ts
+//   bun scripts/live/rc/build-rc2.ts
 //
 // The runtime is this branch's COMPANION_RUNTIME_PS (draft-window raw store, on-disk redaction) with ONE difference:
-// the supervised visual build is 0.1.3-rc1, which install-rc1.ps1 places in Companion\visual\0.1.3-rc1 beforehand.
+// the supervised visual build is 0.1.3-rc2, which install-rc2.ps1 places in Companion\visual\0.1.3-rc2 beforehand.
 // The pin in apps/web/server/companion/companion-visual.ts is NOT edited: its default lines are swapped in the
 // generated text only. The download URL is swapped for an unreachable one and the SHA-256 for zeros, so if the local
 // RC build were ever missing the Companion would report the helper as failed -- it can never silently fetch and run
@@ -16,9 +16,9 @@ import { toCrlf } from "../../../apps/web/lib/gsi-windows-installer";
 import { COMPANION_RUNTIME_PS } from "../../../apps/web/server/companion/companion-scripts";
 import { VISUAL_RUNTIME } from "../../../apps/web/server/companion/companion-visual";
 
-export const RC_VISUAL_VERSION = "0.1.3-rc1";
+export const RC_VISUAL_VERSION = "0.1.3-rc2";
 export const RC_MARKER = `# LOCAL RELEASE CANDIDATE -- visual ${RC_VISUAL_VERSION}. Not a release, not pinned anywhere, not deployed.`;
-const NEVER_DOWNLOADED = "https://127.0.0.1:9/d2kiro-visual-rc1-is-installed-locally.zip";
+const NEVER_DOWNLOADED = "https://127.0.0.1:9/d2kiro-visual-rc2-is-installed-locally.zip";
 
 export function buildRcRuntime(): string {
   let text = COMPANION_RUNTIME_PS;

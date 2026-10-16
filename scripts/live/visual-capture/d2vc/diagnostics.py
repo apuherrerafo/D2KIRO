@@ -37,6 +37,7 @@ from typing import Callable, Mapping
 
 import numpy as np
 
+from .incidents import SHORT_DRAFT_PICKS, IncidentRecorder
 from .layout import Layout, Rect, viewport
 
 MAX_FILE_BYTES = 8 * 1024 * 1024
@@ -119,6 +120,7 @@ class Diagnostics:
         self._closed_pending = False
         self._flag_at_ms: float | None = None
         self._flag_on = False
+        self._incidents = IncidentRecorder(self._write_png, self.event)
         if enabled:
             try:
                 self.directory.mkdir(parents=True, exist_ok=True)
@@ -228,11 +230,13 @@ class Diagnostics:
         self._last_readable = None
         self._closed_pending = False
         self._flag_at_ms = None
+        self._incidents.begin(self._stem)
         if self._evidence_enabled():
             self._prune_frames()
 
-    def evidence(self, now_ms: float, frame: np.ndarray, layout: Layout, triggers: list[str], *, readable: bool, armed: bool, any_locked: bool) -> None:
-        """Called for every frame of an open draft. `triggers` come from the session: lock | ambiguous | health | confirm | unread."""
+    def evidence(self, now_ms: float, frame: np.ndarray, layout: Layout, triggers: list[str], *, readable: bool, armed: bool, any_locked: bool, conditions: Mapping[str, float] | None = None) -> None:
+        """Called for every frame of an open draft. `triggers` come from the session: lock | ambiguous | health | confirm | unread.
+        `conditions` are the incident conditions that hold on this frame (see incidents.py)."""
         if self._epoch is None or not self._evidence_enabled(now_ms):
             return
         try:
@@ -245,6 +249,7 @@ class Diagnostics:
                 if any_locked:
                     self._save_full("firstlock", frame)
             self._full_schedule(now_ms, frame, triggers)
+            self._incidents.observe(now_ms, frame, conditions or {})
             strip = strip_of(frame, layout)
             if self._last_ring_ms is None or now_ms - self._last_ring_ms >= RING_EVERY_MS:
                 self._last_ring_ms = now_ms
@@ -319,6 +324,22 @@ class Diagnostics:
             self.event("frame_saved", label=kind, file=name)
             self._prune_frames()
 
+    def _write_png(self, name: str, frame: np.ndarray) -> int:
+        """The incident recorder's writer: one PNG into frames/, its size back (0 = not written)."""
+        import cv2
+
+        folder = self._frames_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / name
+        if not cv2.imwrite(str(target), frame):
+            return 0
+        try:
+            size = target.stat().st_size
+        except OSError:
+            size = 1
+        self._prune_frames()
+        return size
+
     def _save_full(self, label: str, frame: np.ndarray) -> None:
         if label in self._full_done or label not in FIXED_FULL_LABELS:
             return
@@ -332,12 +353,15 @@ class Diagnostics:
             self.event("frame_saved", label=label, file=name)
             self._prune_frames()
 
-    def end_epoch(self) -> None:
-        """The draft closed: flush the in-memory tail and the last readable frame; the first frame after is saved by closed_frame()."""
+    def end_epoch(self, picks: int | None = None) -> None:
+        """The draft closed: flush the in-memory tail and the last readable frame; the first frame after is saved by closed_frame().
+        `picks` = confirmed pick slots at the close: a draft that ends short of 10 also keeps its incident frames."""
         if self._epoch is None:
             return
+        self.event("draft_end", picks=picks, short=picks is not None and picks < SHORT_DRAFT_PICKS)
         try:
             if self._evidence_enabled():
+                self._incidents.close(picks)
                 for _, strip in list(self._ring):
                     self._save_strip(strip, "tail", None)
                 for frame in list(self._tail_full):

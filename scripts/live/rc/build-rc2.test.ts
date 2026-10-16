@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { VISUAL_RUNTIME } from "../../../apps/web/server/companion/companion-visual";
-import { buildRcRuntime, RC_MARKER, RC_VISUAL_VERSION } from "./build-rc1";
+import { buildRcRuntime, RC_MARKER, RC_VISUAL_VERSION } from "./build-rc2";
 
-describe("local RC runtime (visual 0.1.3-rc1)", () => {
+describe("local RC runtime (visual 0.1.3-rc2)", () => {
   const text = buildRcRuntime();
 
   test("supervises the locally installed RC build and can never fetch 0.1.2 under its name", () => {

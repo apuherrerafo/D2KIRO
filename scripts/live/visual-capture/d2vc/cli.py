@@ -24,6 +24,7 @@ from .bench import DEFAULT_THRESHOLDS, run_bench
 from .catalog import LOCAL, Catalog, catalog_ready, fetch_catalog, load_catalog, resolve_catalog_dir
 from .layout import default_layout, load_layout, save_layout
 from .matcher import Matcher
+from .paths import runtime_version
 from .scan import ScanResult, scan_frame
 
 DEFAULT_LAYOUT_PATH = LOCAL / "layout.json"
@@ -173,7 +174,7 @@ def cmd_live(args: argparse.Namespace) -> int:
     run_id = uuid.uuid4().hex[:8]
     clock = lambda: dt.datetime.now(dt.timezone.utc)  # noqa: E731
     diagnostics = Diagnostics(default_directory(), run_id, clock, enabled=os.environ.get("D2KIRO_VISUAL_DIAGNOSTICS", "1") != "0")
-    diagnostics.event("start", frozen=getattr(sys, "frozen", False))
+    diagnostics.event("start", frozen=getattr(sys, "frozen", False), version=runtime_version())
     layout = _layout(args.layout)  # a calibrated local/layout.json if present, else the built-in 16:9 default
     catalog = None
     while catalog is None:

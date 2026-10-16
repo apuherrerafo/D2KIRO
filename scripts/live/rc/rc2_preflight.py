@@ -1,6 +1,6 @@
-"""Before asking for the next human Ranked match: is visual 0.1.3-rc1 really installed and alive on THIS PC?
+"""Before asking for the next human Ranked match: is visual 0.1.3-rc2 really installed and alive on THIS PC?
 
-    python -I scripts/live/rc/rc1_preflight.py
+    python -I scripts/live/rc/rc2_preflight.py
 
 Read-only. Prints one line per check and READY / NOT_READY. Never prints a token, a live id or an account id.
 """
@@ -15,7 +15,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-RC_VERSION = "0.1.3-rc1"
+RC_VERSION = "0.1.3-rc2"
 LOCAL = Path(os.environ.get("LOCALAPPDATA", "."))
 APP = LOCAL / "D2KIRO" / "Companion"
 VISUAL = LOCAL / "D2KIRO" / "Visual"
@@ -66,7 +66,7 @@ def main() -> int:
     runtime = APP / "companion.ps1"
     text = runtime.read_text(encoding="utf-8-sig", errors="replace") if runtime.exists() else ""
     results.append(check("Companion runtime is the RC", f"VisualVersion = '{RC_VERSION}'" in text and "Write-DraftRawLine" in text and "Protect-RawLine" in text, str(runtime)))
-    results.append(check("rollback copy kept", (APP / "companion.ps1.pre-rc1").exists(), "companion.ps1.pre-rc1"))
+    results.append(check("rollback copy kept", (APP / "companion.ps1.pre-rc2").exists(), "companion.ps1.pre-rc2"))
     manifest = APP / "visual" / RC_VERSION / "manifest.json"
     version = json.loads(manifest.read_text(encoding="utf-8")).get("version") if manifest.exists() else None
     results.append(check("RC visual build installed", version == RC_VERSION, f"visual/{RC_VERSION} manifest={version}"))
@@ -86,6 +86,9 @@ def main() -> int:
     except Exception:  # noqa: BLE001
         health = None
     results.append(check("Companion /health", bool(health) and health.get("paired") is True and health.get("cfgInstalled") is True and health.get("visual") == "running", "paired={} cfgInstalled={} visual={} liveSession={} heartbeat={}".format(*(None if not health else health.get(k) for k in ("paired", "cfgInstalled", "visual", "liveSession", "heartbeat")))))
+    # The runtime, said three independent ways: the Companion's health, the helper's own manifest (its `start` record), and the
+    # folder the running exe lives in (checked above). All three must say the RC, or the QA proves nothing.
+    results.append(check("Companion /health visualVersion", bool(health) and health.get("visualVersion") == RC_VERSION, f"visualVersion={None if not health else health.get('visualVersion')}"))
 
     cfgs = dota_cfgs()
     minimap = bool(cfgs) and all(re.search(r'"minimap"\s+"1"', cfg.read_text(encoding="utf-8", errors="replace")) for cfg in cfgs)
@@ -110,10 +113,12 @@ def main() -> int:
                 pass
     kinds = {r.get("kind") for r in records}
     results.append(check("RC helper: frozen build, catalog, relay", {"start", "catalog", "credentials"} <= kinds and any(r.get("kind") == "start" and r.get("frozen") for r in records) and any(r.get("target") == "local_relay" for r in records), ", ".join(sorted(k for k in kinds if k in ("start", "catalog", "credentials", "server_seen", "window_found")))))
+    started = [r.get("version") for r in records if r.get("kind") == "start"]
+    results.append(check("Helper says it is the RC (its own start)", RC_VERSION in started and all(v == RC_VERSION for v in started), f"start.version={started[-1] if started else None}"))
     results.append(check("RC helper reached D2KIRO (lifecycle ack)", "server_seen" in kinds, "server_seen" if "server_seen" in kinds else "no ack yet (needs the Dota window -- open Dota to finish this check)"))
     print(f"\nDota 2 open: {dota_open}")
     ready = all(results)
-    print(f"RC1 LOCAL INSTALL: {'READY' if ready else 'NOT_READY'}")
+    print(f"RC2 LOCAL INSTALL: {'READY' if ready else 'NOT_READY'}")
     return 0 if ready else 1
 
 

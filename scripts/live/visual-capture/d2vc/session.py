@@ -19,12 +19,13 @@ import numpy as np
 
 from .diagnostics import Diagnostics
 from .emit import EnvelopeFactory
+from .incidents import PERSIST_MS as INCIDENT_PERSIST_MS
 from .layout import Layout
 from .lockstate import CardChrome, bars_verified, card_chrome, classify
 from .matcher import Matcher, Thresholds
 from .occupancy import OccupancyGate
 from .scan import ScanResult, scan_frame, slot_crops
-from .stability import StabilityFilter
+from .stability import StabilityFilter, VisualEvent
 from .transport import DraftLifecycle
 
 LOST_AFTER_MS = 3_000.0
@@ -99,7 +100,7 @@ class VisualSession:
         self.status.server_seen = True
         if lifecycle.drafting and (not self.status.draft_open or lifecycle.epoch != self._draft_epoch):
             if self.diagnostics is not None and self.status.draft_open:
-                self.diagnostics.end_epoch()  # a new draft replaced an open one: keep the old one's evidence
+                self.diagnostics.end_epoch(picks=self._confirmed_picks())  # a new draft replaced an open one: keep the old one's evidence
             self.rearm()
             self._opening = True
             self.status.draft_open, self._draft_epoch = True, lifecycle.epoch
@@ -108,13 +109,17 @@ class VisualSession:
             self._note("draft_open", epoch=lifecycle.epoch)
             return True
         if not lifecycle.drafting and self.status.draft_open:
+            picks = self._confirmed_picks()  # before the re-arm forgets them
             self.rearm()
             self.status.draft_open = False
             self._note("draft_closed", phase=lifecycle.phase)
             if self.diagnostics is not None:
-                self.diagnostics.end_epoch()
+                self.diagnostics.end_epoch(picks=picks)
             return True
         return False
+
+    def _confirmed_picks(self) -> int:
+        return sum(1 for key in self.stability.confirmed() if key[0] != "ban")
 
     def _note(self, kind: str, **fields: object) -> None:
         if self.diagnostics is not None:
@@ -180,7 +185,7 @@ class VisualSession:
             self._last_heartbeat_ms = now_ms
             self._note("health", status=health[0], detail=health[1])
         if self.diagnostics is not None:
-            self._record(now_ms, frame, scan, chrome, readable, health_changed, any(e.kind in ("pick", "revert") for e in events))
+            self._record(now_ms, frame, scan, chrome, readable, health_changed, events)
         return out
 
     def _lock_states(self, crops, chrome: dict[tuple[str, int], CardChrome], occupied, readable: bool) -> dict[tuple[str, int], str]:
@@ -196,7 +201,8 @@ class VisualSession:
                 states[key] = classify(chrome[key].top if key in chrome else 0.0, is_occupied, self.gate.last_distance.get(key))
         return states
 
-    def _record(self, now_ms: float, frame: np.ndarray, scan: ScanResult, chrome: dict[tuple[str, int], CardChrome], readable: bool, health_changed: bool, confirmed_pick: bool) -> None:
+    def _record(self, now_ms: float, frame: np.ndarray, scan: ScanResult, chrome: dict[tuple[str, int], CardChrome], readable: bool, health_changed: bool, events: list[VisualEvent]) -> None:
+        confirmed_pick = any(e.kind in ("pick", "revert") for e in events)
         signature = tuple(sorted(item for item in self.lock_states.items() if item[1] in ("locked", "ambiguous")))
         triggers = []
         if readable and signature != self._lock_signature:
@@ -214,7 +220,25 @@ class VisualSession:
         # Every transition gets its own per-slot record (not only the 1 Hz one): a lock that settles between two ticks
         # is still reconstructable, with each slot's stability track and confirmed hero.
         self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status, chrome=chrome, states=self.lock_states, stability=self.stability.tracks, force=bool(triggers) and triggers != ["ambiguous"], triggers=triggers)
-        self.diagnostics.evidence(now_ms, frame, self.layout, triggers, readable=readable, armed=self.status.armed, any_locked=any(state == "locked" for state in self.lock_states.values()))
+        self.diagnostics.evidence(now_ms, frame, self.layout, triggers, readable=readable, armed=self.status.armed, any_locked=any(state == "locked" for state in self.lock_states.values()), conditions=self._incident_conditions(scan, events))
+
+    def _incident_conditions(self, scan: ScanResult, events: list[VisualEvent]) -> dict[str, float]:
+        """What deserves the frames around it (incidents.py): a locked card that stays unnamed, the helper no longer vouching,
+        a hero recovered, a pick reverted. A hover is never one: `uncertain` is only ever reported for a LOCKED card."""
+        found: dict[str, float] = {}
+        for reading in scan.readings:
+            if reading.side == "ban" or reading.state != "uncertain":
+                continue
+            kind = "subthreshold" if reading.reason == "below_score" and reading.candidate_id is not None else "uncertain"
+            found[f"{kind}:{reading.side}{reading.index}"] = INCIDENT_PERSIST_MS
+        if self._last_health is not None and self._last_health[1] == "VISUAL_SLOTS_UNREAD":
+            found["unread"] = 0.0
+        for event in events:
+            if event.recovered:
+                found[f"recovered:{event.side}{event.slot}"] = 0.0
+            elif event.kind == "revert":
+                found[f"reverted:{event.side}{event.slot}"] = 0.0
+        return found
 
     def _health(self, scan: ScanResult, confirmed, verified: bool, now_ms: float) -> tuple[str, str] | None:
         """Does the helper VOUCH that the draft on screen is fully read? Only then may the server stop treating the

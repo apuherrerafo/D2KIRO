@@ -1,26 +1,26 @@
-# Installs the LOCAL release candidate "visual 0.1.3-rc1" on THIS PC only. No tag, no staging pin, nothing deployed.
+# Installs the LOCAL release candidate "visual 0.1.3-rc2" on THIS PC only. No tag, no staging pin, nothing deployed.
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\live\rc\install-rc1.ps1
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\live\rc\install-rc2.ps1
 #
-# Needs (built beforehand, gitignored):  out\companion.ps1  (bun scripts/live/rc/build-rc1.ts)
-#                                        out\visual\dist\d2kiro-visual\  (python build_runtime.py --version 0.1.3-rc1 --out ../rc/out/visual)
+# Needs (built beforehand, gitignored):  out\companion.ps1  (bun scripts/live/rc/build-rc2.ts)
+#                                        out\visual\dist\d2kiro-visual\  (python build_runtime.py --version 0.1.3-rc2 --out ../rc/out/visual)
 # Keeps the Companion's pairing (config.json, DPAPI) and its autostart entry as they are. Backs the current runtime up
-# once as companion.ps1.pre-rc1 (rollback-rc1.ps1 restores it). Refuses to run while Dota 2 is open.
+# once as companion.ps1.pre-rc2 (rollback-rc2.ps1 restores it). Refuses to run while Dota 2 is open.
 $ErrorActionPreference = 'Stop'
-$RcVersion = '0.1.3-rc1'
+$RcVersion = '0.1.3-rc2'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $App = Join-Path $env:LOCALAPPDATA 'D2KIRO\Companion'
 $Runtime = Join-Path $App 'companion.ps1'
-$Backup = Join-Path $App 'companion.ps1.pre-rc1'
+$Backup = Join-Path $App 'companion.ps1.pre-rc2'
 $RcRuntime = Join-Path $Here 'out\companion.ps1'
 $RcVisual = Join-Path $Here 'out\visual\dist\d2kiro-visual'
 $VisualTarget = Join-Path $App ('visual\' + $RcVersion)
 
-function Fail([string]$Message) { Write-Host ('RC1 INSTALL: NOT DONE -- ' + $Message); exit 2 }
+function Fail([string]$Message) { Write-Host ('RC2 INSTALL: NOT DONE -- ' + $Message); exit 2 }
 
 if (-not (Test-Path (Join-Path $App 'config.json'))) { Fail 'no paired Companion on this PC (install it from the site first)' }
-if (-not (Test-Path $RcRuntime)) { Fail 'out\companion.ps1 missing: run bun scripts/live/rc/build-rc1.ts' }
-if (-not (Test-Path (Join-Path $RcVisual 'd2kiro-visual.exe'))) { Fail 'RC visual build missing: run build_runtime.py --version 0.1.3-rc1 --out ../rc/out/visual' }
+if (-not (Test-Path $RcRuntime)) { Fail 'out\companion.ps1 missing: run bun scripts/live/rc/build-rc2.ts' }
+if (-not (Test-Path (Join-Path $RcVisual 'd2kiro-visual.exe'))) { Fail 'RC visual build missing: run build_runtime.py --version 0.1.3-rc2 --out ../rc/out/visual' }
 $manifest = Get-Content -Raw (Join-Path $RcVisual 'manifest.json') | ConvertFrom-Json
 if ($manifest.version -ne $RcVersion) { Fail ('RC visual build is ' + $manifest.version + ', expected ' + $RcVersion) }
 if (-not ((Get-Content -Raw $RcRuntime).Contains("VisualVersion = '" + $RcVersion + "'"))) { Fail 'out\companion.ps1 is not the RC runtime' }
@@ -50,8 +50,8 @@ for ($i = 0; $i -lt 40; $i++) {
   Start-Sleep -Milliseconds 750
   try {
     $health = Invoke-RestMethod -Uri ('http://127.0.0.1:' + $port + '/health') -TimeoutSec 3
-    if ($health.visual -eq 'running') { Write-Host ('RC1 INSTALL: DONE -- Companion ' + $health.version + ' paired=' + $health.paired + ' visual=' + $health.visual + ' (' + $RcVersion + ')'); exit 0 }
+    if ($health.visual -eq 'running') { Write-Host ('RC2 INSTALL: DONE -- Companion ' + $health.version + ' paired=' + $health.paired + ' visual=' + $health.visual + ' (' + $RcVersion + ')'); exit 0 }
   } catch { }
 }
-Write-Host 'RC1 INSTALL: Companion restarted but the RC helper is not running yet -- run rc1_preflight.py'
+Write-Host 'RC2 INSTALL: Companion restarted but the RC helper is not running yet -- run rc2_preflight.py'
 exit 1
