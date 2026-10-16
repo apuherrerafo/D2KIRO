@@ -7,12 +7,23 @@ the matcher's best candidate with score and margin, and WHY a candidate was reje
 
 Privacy: no secret (token, live id), no account id, no player name ever enters a record. Pixels are NOT saved
 by default; only while a flag file (`save-frames.flag`, next to the diagnostics folder) exists. Then, per DRAFT
-EPOCH (the budget restarts with every draft, so a late failure still has evidence), still local:
+EPOCH (the budget restarts with every draft, so a late failure still has evidence -- 0.1.2 kept 30 frames per PROCESS
+and lost every lock after the first ones), still local:
   * strip PNGs of the top bar (rows 0-70, x 160-1440 of the 1600x900 reference, scaled to the viewport) on a
     lock-state change, ambiguity, a health change, a hero confirmation, and every 10 s as a keepalive; the last
     few strips are also kept in memory and flushed when the draft closes;
-  * at most four full frames: after arming, at the first lock, the last readable one, and the first after close.
-`frames/` is pruned to MAX_FRAMES_BYTES, oldest draft epoch first. Files rotate and are capped.
+  * FULL frames over the whole epoch (hero selection AND strategy time -- the server's draft spans both):
+      - `armed`, `firstlock`, `lastreadable`, `closed` (one each);
+      - `periodic`: every 2 s for the first 90 s (the ban phase: where resolved bans are shown is still unknown, so the
+        whole screen is kept), then every 6 s until the draft closes;
+      - `lock`: every lock-state change / hero confirmation / revert (>= 300 ms apart) -- each meaningful transition;
+      - `unread`: an ambiguous card, or the health leaving OK (>= 3 s apart);
+      - `tail`: the last frames before the close (strategy time's end), flushed when the draft closes.
+    Each saved frame is logged (`frame_saved`, label + file) with its wall-clock time, so the post-match tooling can
+    place it against the GSI phase timeline.
+`frames/` is pruned to MAX_FRAMES_BYTES, oldest draft epoch first (never the running one). JSONL files rotate and are
+capped. Per slot, every transition also gets its own record (not only the 1 Hz one): lock state, chroma, occupancy
+distance, candidate / score / runner-up / margin, its stability track and the hero it confirmed.
 """
 from __future__ import annotations
 
@@ -30,14 +41,24 @@ from .layout import Layout, Rect, viewport
 
 MAX_FILE_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_BYTES = 64 * 1024 * 1024
-MAX_FRAMES_BYTES = 64 * 1024 * 1024  # frames/ folder budget (strips + full frames), oldest draft epoch first
+MAX_FRAMES_BYTES = 768 * 1024 * 1024  # frames/ folder budget (strips + full frames), oldest draft epoch first: ~5 drafts
 DRAFT_FRAME_EVERY_MS = 1_000.0
 IDLE_FRAME_EVERY_MS = 30_000.0
 SAVE_FRAMES_FLAG = "save-frames.flag"
 FLAG_CHECK_EVERY_MS = 1_000.0
 
 # Per draft epoch.
-MAX_FULL_FRAMES = 4
+FIXED_FULL_LABELS = ("armed", "firstlock", "lastreadable", "closed")
+FULL_EARLY_WINDOW_MS = 90_000.0  # ban phase + first picks: the whole screen, densely
+FULL_EARLY_EVERY_MS = 2_000.0
+FULL_LATE_EVERY_MS = 6_000.0
+MAX_PERIODIC_FULL = 80
+LOCK_FULL_MIN_SPACING_MS = 300.0
+MAX_LOCK_FULL = 40
+UNREAD_FULL_EVERY_MS = 3_000.0
+MAX_UNREAD_FULL = 12
+TAIL_FULL = 4
+TAIL_FULL_EVERY_MS = 2_000.0
 MAX_EVENT_STRIPS = 80
 MAX_KEEPALIVE_STRIPS = 40
 STRIP_MIN_SPACING_MS = 1_500.0  # between event strips (a health change or a hero confirmation is always saved)
@@ -81,6 +102,12 @@ class Diagnostics:
         self._epoch: int | None = None
         self._stem = ""
         self._full_done: set[str] = set()
+        self._opened_ms: float | None = None
+        self._full_counts: dict[str, int] = {}
+        self._full_last_ms: dict[str, float] = {}
+        self._full_seq = 0
+        self._tail_full: deque[np.ndarray] = deque(maxlen=TAIL_FULL)
+        self._last_tail_full_ms: float | None = None
         self._strips = 0
         self._event_strips = 0
         self._keepalive_strips = 0
@@ -103,20 +130,22 @@ class Diagnostics:
     def event(self, kind: str, **fields: object) -> None:
         self._write({"kind": kind, **fields})
 
-    def frame(self, now_ms: float, frame: np.ndarray, layout: Layout, scan, gate, status, chrome: Mapping | None = None, states: Mapping | None = None) -> None:
-        """One per second while a draft is open (so a whole Hero Selection is reconstructable), one per 30 s otherwise.
+    def frame(self, now_ms: float, frame: np.ndarray, layout: Layout, scan, gate, status, chrome: Mapping | None = None, states: Mapping | None = None, stability: Mapping | None = None, force: bool = False, triggers: list[str] | None = None) -> None:
+        """One per second while a draft is open (so a whole Hero Selection is reconstructable), one per 30 s otherwise,
+        plus one on every transition (`force`: lock change, confirmation / revert, health change).
         Per slot: `top`/`bot` = chroma of the top/bottom card-bar strip, `chroma` = the value the lock decision used (the
-        top strip), `lockstate`, `bar_present`, plus the occupancy `dist`/`thr` and the matcher's candidate."""
+        top strip), `lockstate`/`locked`, `bar_present`, the occupancy `dist`/`thr`, the matcher's candidate / score /
+        runner-up / margin, the stability track (`stab`: candidate, frames, ms) and the `confirmed` hero."""
         every = DRAFT_FRAME_EVERY_MS if status.draft_open else IDLE_FRAME_EVERY_MS
-        if self._last_frame_ms is not None and now_ms - self._last_frame_ms < every:
+        if not force and self._last_frame_ms is not None and now_ms - self._last_frame_ms < every:
             return
         self._last_frame_ms = now_ms
         try:
-            self._frame_record(frame, layout, scan, gate, status, chrome, states)
+            self._frame_record(now_ms, frame, layout, scan, gate, status, chrome, states, stability, triggers)
         except Exception as error:  # noqa: BLE001 - diagnostics must never break the live loop (or drop its envelopes)
             self.event("error", where="frame_record", type=type(error).__name__)
 
-    def _frame_record(self, frame: np.ndarray, layout: Layout, scan, gate, status, chrome: Mapping | None, states: Mapping | None) -> None:
+    def _frame_record(self, now_ms: float, frame: np.ndarray, layout: Layout, scan, gate, status, chrome: Mapping | None, states: Mapping | None, stability: Mapping | None = None, triggers: list[str] | None = None) -> None:
         height, width = frame.shape[:2]
         vp = viewport(width, height, layout.aspect)
         slots = []
@@ -126,6 +155,8 @@ class Diagnostics:
                 rects = layout.bans if reading.side == "ban" else layout.slots[reading.side]
                 distance = gate.last_distance.get(key)
                 card = None if chrome is None else chrome.get(key)
+                track = None if stability is None else stability.get(key)
+                lockstate = None if states is None else states.get(key)
                 slots.append(
                     {
                         "side": reading.side,
@@ -137,18 +168,22 @@ class Diagnostics:
                         "bot": None if card is None else round(card.bottom, 1),
                         "chroma": None if card is None else round(card.top, 1),
                         "bar_present": None if card is None else card.bar_present,
-                        "lockstate": None if states is None else states.get(key),
+                        "lockstate": lockstate,
+                        "locked": None if states is None else lockstate == "locked",
                         "state": reading.state,
                         "reason": reading.reason,
                         "cand": reading.candidate_id,
                         "score": round(reading.score, 3),
                         "runnerUp": round(reading.runner_up_score, 3),
                         "margin": round(reading.margin, 3),
+                        "stab": None if track is None else {"cand": track.candidate, "frames": track.frames, "ms": 0 if track.candidate is None else round(now_ms - track.since_ms)},
+                        "confirmed": None if track is None else track.confirmed,
                     }
                 )
         self._write(
             {
                 "kind": "frame",
+                "triggers": triggers or [],
                 "frame": [width, height],
                 "viewport": list(vp),
                 "layout": layout.status,
@@ -183,6 +218,10 @@ class Diagnostics:
         self._epoch = epoch
         self._stem = f"{self.run_id}-e{epoch:03d}"
         self._full_done = set()
+        self._opened_ms = None
+        self._full_counts, self._full_last_ms, self._full_seq = {}, {}, 0
+        self._tail_full.clear()
+        self._last_tail_full_ms = None
         self._strips = self._event_strips = self._keepalive_strips = 0
         self._last_strip_ms = self._last_ambiguous_strip_ms = self._last_ring_ms = None
         self._ring.clear()
@@ -193,16 +232,19 @@ class Diagnostics:
             self._prune_frames()
 
     def evidence(self, now_ms: float, frame: np.ndarray, layout: Layout, triggers: list[str], *, readable: bool, armed: bool, any_locked: bool) -> None:
-        """Called for every frame of an open draft. `triggers` come from the session: lock | ambiguous | health | confirm."""
+        """Called for every frame of an open draft. `triggers` come from the session: lock | ambiguous | health | confirm | unread."""
         if self._epoch is None or not self._evidence_enabled(now_ms):
             return
         try:
+            if self._opened_ms is None:
+                self._opened_ms = now_ms
             if readable:
                 self._last_readable = frame
                 if armed:
                     self._save_full("armed", frame)
                 if any_locked:
                     self._save_full("firstlock", frame)
+            self._full_schedule(now_ms, frame, triggers)
             strip = strip_of(frame, layout)
             if self._last_ring_ms is None or now_ms - self._last_ring_ms >= RING_EVERY_MS:
                 self._last_ring_ms = now_ms
@@ -246,16 +288,48 @@ class Diagnostics:
         self.event("strip_saved", n=self._strips, reason=reason)
         self._prune_frames()
 
+    def _full_schedule(self, now_ms: float, frame: np.ndarray, triggers: list[str]) -> None:
+        """Numbered full frames: periodic (dense during the ban phase), each lock transition, each unread episode, and a
+        rolling tail of the last frames (flushed at close). Every kind has its own cap per epoch."""
+        early = now_ms - (self._opened_ms if self._opened_ms is not None else now_ms) < FULL_EARLY_WINDOW_MS
+        self._save_numbered("periodic", frame, now_ms, FULL_EARLY_EVERY_MS if early else FULL_LATE_EVERY_MS, MAX_PERIODIC_FULL)
+        if "lock" in triggers or "confirm" in triggers:
+            self._save_numbered("lock", frame, now_ms, LOCK_FULL_MIN_SPACING_MS, MAX_LOCK_FULL)
+        if "unread" in triggers or "ambiguous" in triggers:
+            self._save_numbered("unread", frame, now_ms, UNREAD_FULL_EVERY_MS, MAX_UNREAD_FULL)
+        if self._last_tail_full_ms is None or now_ms - self._last_tail_full_ms >= TAIL_FULL_EVERY_MS:
+            self._last_tail_full_ms = now_ms
+            self._tail_full.append(frame)
+
+    def _save_numbered(self, kind: str, frame: np.ndarray, now_ms: float | None, spacing_ms: float, cap: int) -> None:
+        count = self._full_counts.get(kind, 0)
+        last = self._full_last_ms.get(kind)
+        if count >= cap or (now_ms is not None and last is not None and now_ms - last < spacing_ms):
+            return
+        import cv2
+
+        self._full_counts[kind] = count + 1  # one attempt counts, even if the write fails
+        if now_ms is not None:
+            self._full_last_ms[kind] = now_ms
+        self._full_seq += 1
+        name = f"{self._stem}-full-{self._full_seq:03d}-{kind}.png"
+        folder = self._frames_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        if cv2.imwrite(str(folder / name), frame):
+            self.event("frame_saved", label=kind, file=name)
+            self._prune_frames()
+
     def _save_full(self, label: str, frame: np.ndarray) -> None:
-        if label in self._full_done or len(self._full_done) >= MAX_FULL_FRAMES:
+        if label in self._full_done or label not in FIXED_FULL_LABELS:
             return
         import cv2
 
         self._full_done.add(label)  # one attempt per label per epoch, even if the write fails
         folder = self._frames_dir()
         folder.mkdir(parents=True, exist_ok=True)
-        if cv2.imwrite(str(folder / f"{self._stem}-full-{label}.png"), frame):
-            self.event("frame_saved", label=label)
+        name = f"{self._stem}-full-{label}.png"
+        if cv2.imwrite(str(folder / name), frame):
+            self.event("frame_saved", label=label, file=name)
             self._prune_frames()
 
     def end_epoch(self) -> None:
@@ -266,12 +340,15 @@ class Diagnostics:
             if self._evidence_enabled():
                 for _, strip in list(self._ring):
                     self._save_strip(strip, "tail", None)
+                for frame in list(self._tail_full):
+                    self._save_numbered("tail", frame, None, 0.0, TAIL_FULL)
                 if self._last_readable is not None:
                     self._save_full("lastreadable", self._last_readable)
                 self._closed_pending = "closed" not in self._full_done
         except Exception as error:  # noqa: BLE001
             self.event("error", where="end_epoch", type=type(error).__name__)
         self._ring.clear()
+        self._tail_full.clear()
         self._last_readable = None
         self._epoch = None  # no more evidence until the next draft opens (the stem stays for closed_frame)
 

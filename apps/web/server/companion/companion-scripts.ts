@@ -331,6 +331,14 @@ $GsiMaxBytes = 2097152
 $RelayMaxBytes = 4096
 $RawMaxFileBytes = 16777216
 $RawMaxTotalBytes = 167772160
+if ($env:D2KIRO_TEST_RAW_MAX_FILE_BYTES -match '^[0-9]{1,9}$') { $RawMaxFileBytes = [int]$env:D2KIRO_TEST_RAW_MAX_FILE_BYTES }
+if ($env:D2KIRO_TEST_RAW_MAX_TOTAL_BYTES -match '^[0-9]{1,9}$') { $RawMaxTotalBytes = [int]$env:D2KIRO_TEST_RAW_MAX_TOTAL_BYTES }
+# The draft window (loading -> hero selection -> strategy time -> pre-game) is kept apart, EVERY payload, so the match's
+# rolling raw can never rotate it away before the evidence is collected: one file per window, newest 8 kept.
+$DraftRawStates = @{}
+foreach ($draftState in @('DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD', 'DOTA_GAMERULES_STATE_HERO_SELECTION', 'DOTA_GAMERULES_STATE_PLAYER_DRAFT', 'DOTA_GAMERULES_STATE_STRATEGY_TIME', 'DOTA_GAMERULES_STATE_TEAM_SHOWCASE', 'DOTA_GAMERULES_STATE_WAIT_FOR_MAP_TO_LOAD', 'DOTA_GAMERULES_STATE_PRE_GAME')) { $DraftRawStates[$draftState] = $true }
+$DraftRawMaxFileBytes = 67108864
+$DraftRawKeep = 8
 $MatchSampleMs = 2000
 $InventoryKeep = 30
 $CfgSyncSeconds = 30
@@ -415,6 +423,7 @@ $S = @{
 }
 $D = @{
   writer = $null; part = 0; runId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'); seq = 0
+  draftWriter = $null; draftFile = $null; draftWindow = 0; draftFull = $false
   lastRecordAt = [DateTime]::MinValue; lastKeys = ''; lastGameState = ''
   phases = @{}; dirty = $false; savedAt = [DateTime]::MinValue
 }
@@ -534,6 +543,9 @@ function Update-DotaProcess {
 # ---------------------------------------------------------------- diagnostics --------------------------------
 # Raw: every payload outside MATCH, one per 2 s inside MATCH (plus every key-set / state change); 16 MB files,
 # 160 MB in total, oldest deleted first. The local token is removed before anything is written.
+# Draft raw: EVERY payload from loading to pre-game, one file per draft window (64 MB cap), newest 8 windows kept --
+# never rotated by the match's raw. Both raw stores are redacted on disk (Protect-RawLine): no SteamID / account id /
+# player name, no coordinate (xpos/ypos/yaw become has* flags). Forwarding upstream is untouched.
 # Inventory: per phase, JSON paths (digits -> #) with counts and types -- never a value.
 function Remove-OldDiagnostics {
   try {
@@ -558,6 +570,73 @@ function Write-RawLine([string]$Line) {
     Remove-OldDiagnostics
   }
   $D.writer.WriteLine($Line)
+}
+
+function Remove-OldDraftRaw {
+  try {
+    $files = @([IO.Directory]::GetFiles($DiagDir, 'gsi-draft-*.jsonl') | ForEach-Object { New-Object IO.FileInfo($_) } | Sort-Object LastWriteTimeUtc -Descending)
+    for ($i = $DraftRawKeep; $i -lt $files.Count; $i++) { if ($files[$i].FullName -ne $D.draftFile) { try { $files[$i].Delete() } catch { } } }
+  } catch { }
+}
+
+function Close-DraftRaw {
+  if ($null -eq $D.draftWriter) { return }
+  try { $D.draftWriter.Dispose() } catch { }
+  $D.draftWriter = $null
+  $D.draftFile = $null
+}
+
+function Write-DraftRawLine([string]$Line) {
+  if ($null -eq $D.draftWriter) {
+    [void][IO.Directory]::CreateDirectory($DiagDir)
+    $D.draftWindow = $D.draftWindow + 1
+    $D.draftFull = $false
+    $D.draftFile = [IO.Path]::Combine($DiagDir, ('gsi-draft-' + $D.runId + '-' + $D.draftWindow.ToString('000') + '.jsonl'))
+    $D.draftWriter = New-Object IO.StreamWriter($D.draftFile, $true, (New-Object System.Text.UTF8Encoding($false)))
+    $D.draftWriter.AutoFlush = $true
+    Remove-OldDraftRaw
+  }
+  if ($D.draftFull) { return }
+  if ($D.draftWriter.BaseStream.Length -gt $DraftRawMaxFileBytes) { $D.draftFull = $true; Write-Log 'draft raw window full'; return }
+  $D.draftWriter.WriteLine($Line)
+}
+
+# A shallow copy of a player block with its name replaced (ids are handled on the serialized text below).
+function Copy-Player($Player) {
+  if ($Player -isnot [Collections.IDictionary]) { return $Player }
+  $copy = New-Doc
+  foreach ($key in @($Player.Keys)) { Set-Field $copy ([string]$key) ($Player[$key]) }
+  if ($copy.ContainsKey('name')) { $copy['name'] = 'redacted' }
+  return ,$copy
+}
+
+# What may be written to disk: the payload with the player's name, SteamID and account id, and every coordinate,
+# removed -- in the payload and in its added/previously deltas. Never mutates the payload (it is also forwarded).
+function Protect-RawLine($Line) {
+  $payload = $Line['payload']
+  if ($payload -is [Collections.IDictionary]) {
+    $safe = New-Doc
+    foreach ($key in @($payload.Keys)) { Set-Field $safe ([string]$key) ($payload[$key]) }
+    if ($safe.ContainsKey('player')) { Set-Field $safe 'player' (Copy-Player $safe['player']) }
+    foreach ($delta in @('added', 'previously')) {
+      $block = $safe[$delta]
+      if ($block -is [Collections.IDictionary] -and $block.ContainsKey('player')) {
+        $copy = New-Doc
+        foreach ($key in @($block.Keys)) { Set-Field $copy ([string]$key) ($block[$key]) }
+        Set-Field $copy 'player' (Copy-Player $block['player'])
+        Set-Field $safe $delta ($copy)
+      }
+    }
+    Set-Field $Line 'payload' ($safe)
+  }
+  $text = $Json.Serialize($Line)
+  $text = [regex]::Replace($text, '"(steamid|accountid)":(?:"(?:[^"\\]|\\.)*"|true|false|-?[0-9]+)', '"$1":"redacted"')
+  $text = [regex]::Replace($text, '"xpos":-?0(?:\.0+)?(?=[,}])', '"hasXpos":false')
+  $text = [regex]::Replace($text, '"xpos":-?[0-9][0-9.eE+\-]*', '"hasXpos":true')
+  $text = [regex]::Replace($text, '"ypos":-?0(?:\.0+)?(?=[,}])', '"hasYpos":false')
+  $text = [regex]::Replace($text, '"ypos":-?[0-9][0-9.eE+\-]*', '"hasYpos":true')
+  $text = [regex]::Replace($text, '"yaw":-?[0-9][0-9.eE+\-]*', '"hasYaw":true')
+  return $text
 }
 
 function Get-ShapeKey([string]$Key) {
@@ -653,10 +732,11 @@ function Add-Diagnostics($Payload, $GameState, [string]$Phase, [DateTime]$Now, [
     $keySet = [string]::Join(',', $keys)
     $state = [string]$GameState
     $sample = $Phase -ne 'MATCH' -or $PhaseChanged -or $keySet -ne $D.lastKeys -or $state -ne $D.lastGameState -or ($Now - $D.lastRecordAt).TotalMilliseconds -ge $MatchSampleMs
+    $inDraftWindow = $DraftRawStates.ContainsKey($state)
     $D.lastKeys = $keySet
     $D.lastGameState = $state
-    if (-not $sample) { return }
-    $D.lastRecordAt = $Now
+    if (-not $inDraftWindow) { Close-DraftRaw }
+    if (-not $sample -and -not $inDraftWindow) { return }
     $D.seq = $D.seq + 1
     $line = New-Doc
     Set-Field $line 'seq' ($D.seq)
@@ -664,7 +744,11 @@ function Add-Diagnostics($Payload, $GameState, [string]$Phase, [DateTime]$Now, [
     Set-Field $line 'gameState' ($GameState)
     Set-Field $line 'phase' ($Phase)
     Set-Field $line 'payload' ($Payload)
-    Write-RawLine ($Json.Serialize($line))
+    $text = Protect-RawLine $line
+    if ($inDraftWindow) { Write-DraftRawLine $text }
+    if (-not $sample) { return }
+    $D.lastRecordAt = $Now
+    Write-RawLine $text
     Add-Inventory $Payload $Phase $GameState $Now
   } catch { Write-Log ('diagnostics failed: ' + $_.Exception.GetType().Name) }
 }
@@ -918,7 +1002,9 @@ function Invoke-Periodic {
   $Shared.HbRestart = [bool]$S.restartNeeded
   if ([string]$V.state -ne $S.lastVisual) { $S.lastVisual = [string]$V.state; $Shared.HeartbeatDirty = $true }
   $Shared.HbVisual = [string]$V.state
-  $Shared.HbVisualVersion = $VisualVersion
+  # The server accepts only an x.y.z build (a local candidate such as 0.1.3-rc1 is reported as unknown, never rejected).
+  $Shared.HbVisualVersion = $null
+  if ($VisualVersion -match '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$') { $Shared.HbVisualVersion = $VisualVersion }
   if ($null -ne $Worker -and $Worker.handle.IsCompleted) { Write-Log 'upstream worker stopped: restarting'; try { $Worker.shell.Dispose() } catch { }; Start-Worker }
 }
 

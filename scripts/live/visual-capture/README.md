@@ -85,8 +85,10 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
   BGR 52,52,78 over rows 0.62-0.95); its score is the better of the two, over the whole card (no region-only matching).
 - **Health (`session._health`).** Frame/layout verified = armed baseline + readable frame + a card bar on >= 9 of the 10
   cards. Verified and no locked card unread -> `VISUAL_OK`, **including an empty or hover-only draft** (zero picks is a
-  readable draft; the Team Coach may recommend from the start). A locked card still unread (or an ambiguous card) after
-  1.5 s -> `VISUAL_SLOTS_UNREAD`. A frame that is black / partial / not the hero-selection bar never yields a fresh OK: the
+  readable draft; the Team Coach may recommend from the start). When GSI opens a draft the helper stays SILENT while its
+  first baseline arms (~0.9 s at 8 fps, at most 1.5 s) instead of saying `VISUAL_LAYOUT_UNVERIFIED`, so an empty hero
+  selection never flickers to "incomplete"; it never says OK before the baseline is verified. A locked card still unread
+  (or an ambiguous card) after 1.5 s -> `VISUAL_SLOTS_UNREAD` (the engine then refuses to recommend). A frame that is black / partial / not the hero-selection bar never yields a fresh OK: the
   previous word is retained (silently) for at most 1.5 s, then `VISUAL_LAYOUT_UNVERIFIED` -- the engine can never hold
   a stale OK. Unknown beats wrong.
 - A hero is **confirmed** only after 3 consecutive frames spanning >= 350 ms. Flicker creates nothing. A
@@ -99,11 +101,15 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
 ## Local evidence (`save-frames.flag`)
 
 With the flag file `%LOCALAPPDATA%/D2KIRO/Visual/save-frames.flag` present, and only then, the helper keeps -- locally,
-never uploaded -- per draft epoch: strip PNGs of the top bar (rows 0-70, x 160-1440 of the 1600x900 reference, scaled) on a
-lock-state change / ambiguity / health change / hero confirmation / every 10 s, the last 6 strips flushed when the draft
-closes, and at most four full frames (after arming, first lock, last readable, first after close). `frames/` is pruned to
-64 MB, oldest draft epoch first -- **keep any corpus you care about outside `Visual/frames`**. The JSONL diagnostics carry
-`top`, `bot`, `chroma`, `dist`, `lockstate`, `bar_present` per slot.
+never uploaded -- per draft epoch (the budget restarts every draft; 0.1.2 kept 30 frames per PROCESS): strip PNGs of the
+top bar on a lock-state change / ambiguity / health change / hero confirmation / every 10 s (last 6 flushed at close), and
+FULL frames across hero selection AND strategy time: `armed`, `firstlock`, `lastreadable`, `closed`; `periodic` every 2 s
+for the first 90 s (the ban phase) then every 6 s; `lock` at every lock change / confirmation / revert; `unread` when a card
+is ambiguous or the health leaves OK; `tail` (the last frames before the close). Each saved frame is logged
+(`frame_saved`, label + file + time). `frames/` is pruned to 768 MB, oldest draft epoch first -- run
+`scripts/live/evidence/collect.py` after a match to freeze it. Per slot, the JSONL carries `side`, `i`, `locked`/`lockstate`,
+`chroma` (`top`/`bot`), `dist`/`thr`, `cand`, `score`, `runnerUp`, `margin`, `stab` (candidate, frames, ms) and `confirmed`,
+once a second AND on every transition (`triggers`), plus a `pick` / `revert` event per confirmed fact.
 
 ## Offline acceptance on the saved real corpus
 

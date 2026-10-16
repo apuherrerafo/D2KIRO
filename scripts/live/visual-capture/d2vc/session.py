@@ -78,6 +78,11 @@ class VisualSession:
         self._unsettled_since: float | None = None
         self._unverified_since: float | None = None
         self._last_health: tuple[str, str] | None = None
+        # A draft just opened and the helper has not spoken in it yet: while its first empty-bar baseline arms (~1 s) it
+        # stays SILENT (the server keeps its previous word) for at most UNREAD_GRACE_MS instead of shouting
+        # LAYOUT_UNVERIFIED -- a fresh hero selection is empty, so the Team Coach may recommend at once. It never says OK
+        # before the baseline is verified; after the grace an unarmed helper still degrades.
+        self._opening = False
         self._lock_signature: tuple = ()
         self.lock_states: dict[tuple[str, int], str] = {}  # the last frame's verdict per card (tests / diagnostics)
 
@@ -96,6 +101,7 @@ class VisualSession:
             if self.diagnostics is not None and self.status.draft_open:
                 self.diagnostics.end_epoch()  # a new draft replaced an open one: keep the old one's evidence
             self.rearm()
+            self._opening = True
             self.status.draft_open, self._draft_epoch = True, lifecycle.epoch
             if self.diagnostics is not None:
                 self.diagnostics.begin_epoch(lifecycle.epoch)
@@ -161,6 +167,7 @@ class VisualSession:
         for event in events:
             envelope = self.factory.from_event(event)
             out.append(envelope)
+            self._note(event.kind, side=event.side, slot=event.slot, heroId=event.hero_id, confidence=event.confidence)
             if event.kind == "pick":
                 first = self._first_seen_ms.get((event.side, event.slot, event.hero_id), now_ms)
                 self.status.latency_ms = now_ms - first
@@ -168,11 +175,12 @@ class VisualSession:
         health_changed = health is not None and health != self._last_health
         if health is not None and (health_changed or self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= HEARTBEAT_EVERY_MS):
             out.append(self.factory.health(*health))
+            self._opening = False
             self._last_health = health
             self._last_heartbeat_ms = now_ms
             self._note("health", status=health[0], detail=health[1])
         if self.diagnostics is not None:
-            self._record(now_ms, frame, scan, chrome, readable, health_changed, any(e.kind == "pick" for e in events))
+            self._record(now_ms, frame, scan, chrome, readable, health_changed, any(e.kind in ("pick", "revert") for e in events))
         return out
 
     def _lock_states(self, crops, chrome: dict[tuple[str, int], CardChrome], occupied, readable: bool) -> dict[tuple[str, int], str]:
@@ -197,11 +205,15 @@ class VisualSession:
             triggers.append("ambiguous")
         if health_changed:
             triggers.append("health")
+            if self._last_health is not None and self._last_health[1] != "VISUAL_OK":
+                triggers.append("unread")  # the helper stopped vouching: keep the screen that made it stop
         if confirmed_pick:
             triggers.append("confirm")
         if readable:
             self._lock_signature = signature
-        self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status, chrome=chrome, states=self.lock_states)
+        # Every transition gets its own per-slot record (not only the 1 Hz one): a lock that settles between two ticks
+        # is still reconstructable, with each slot's stability track and confirmed hero.
+        self.diagnostics.frame(now_ms, frame, self.layout, scan, self.gate, self.status, chrome=chrome, states=self.lock_states, stability=self.stability.tracks, force=bool(triggers) and triggers != ["ambiguous"], triggers=triggers)
         self.diagnostics.evidence(now_ms, frame, self.layout, triggers, readable=readable, armed=self.status.armed, any_locked=any(state == "locked" for state in self.lock_states.values()))
 
     def _health(self, scan: ScanResult, confirmed, verified: bool, now_ms: float) -> tuple[str, str] | None:
@@ -215,7 +227,7 @@ class VisualSession:
         if not verified:
             if self._unverified_since is None:
                 self._unverified_since = now_ms
-            if self._last_health is None or now_ms - self._unverified_since >= UNREAD_GRACE_MS:
+            if now_ms - self._unverified_since >= UNREAD_GRACE_MS or (self._last_health is None and not self._opening):
                 return ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
             return None
         self._unverified_since = None
@@ -237,6 +249,7 @@ class VisualSession:
         return ("degraded", "VISUAL_LAYOUT_UNVERIFIED") if self._last_health is None else None
 
     def _reset_draft(self) -> None:
+        self._opening = False  # a re-arm inside a draft (geometry change, wholesale change) is not a fresh empty bar
         self._unsettled_since = None
         self._unverified_since = None
         self._lock_signature = ()

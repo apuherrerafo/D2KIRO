@@ -401,6 +401,67 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
     }
   }, 120_000);
 
+  test("keeps the whole draft window apart from the match's rolling raw, every payload, redacted on disk", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const server = await fakeServer();
+    try {
+      // A tiny rolling budget: a few match payloads rotate everything older away (the evidence loss of 2026-10-14).
+      startRuntime(m, server.base, { D2KIRO_TEST_RAW_MAX_FILE_BYTES: "3000", D2KIRO_TEST_RAW_MAX_TOTAL_BYTES: "9000" });
+      await waitFor(() => health(m));
+      const token = localToken(m);
+      const payload = (gameState: string, n: number) => ({
+        ...gsiPayload(token, gameState),
+        hero: { id: 14, name: "npc_dota_hero_pudge", xpos: -6700, ypos: 5900 },
+        minimap: { o0: { unitname: "npc_dota_hero_axe", team: 2, xpos: 1234.5, ypos: -678, yaw: 90, image: "minimap_herocircle" }, o1: { unitname: "npc_dota_hero_lina", team: 3, xpos: 0, ypos: 0, image: "minimap_herocircle" } },
+        previously: { player: { name: SENTINEL_NAME, steamid: SENTINEL_STEAMID }, minimap: { o0: { xpos: 1200 } } },
+        wearables: { pad: "w".repeat(600), n },
+        // A new key set every payload: the match sampler (one per 2 s) records each one, so the rolling raw really rotates.
+        ...(gameState === "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS" ? { [`events${n}`]: [] } : {}),
+      });
+      const states = [
+        ...Array.from({ length: 3 }, () => "DOTA_GAMERULES_STATE_HERO_SELECTION"),
+        ...Array.from({ length: 2 }, () => "DOTA_GAMERULES_STATE_STRATEGY_TIME"),
+        ...Array.from({ length: 5 }, () => "DOTA_GAMERULES_STATE_PRE_GAME"), // inside MATCH phase: the rolling raw samples these
+        ...Array.from({ length: 30 }, () => "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"),
+      ];
+      for (const [n, state] of states.entries()) expect(await postGsi(m, payload(state, n))).toBe(200);
+      const diag = join(m.home, "diagnostics");
+      const draftFiles = () => readdirSync(diag).filter((name) => name.startsWith("gsi-draft-"));
+      await waitFor(() => (existsSync(diag) && draftFiles().length === 1 ? true : null));
+      const draft = readFileSync(join(diag, draftFiles()[0]!), "utf8").trim().split("\n").map((line) => JSON.parse(line) as { gameState: string; payload: Record<string, unknown> });
+      expect(draft.map((line) => line.gameState)).toEqual(states.filter((state) => state !== "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"));
+
+      // The rolling raw really did rotate the draft away; the draft file did not care.
+      const rolling = readdirSync(diag).filter((name) => name.startsWith("gsi-raw-")).map((name) => readFileSync(join(diag, name), "utf8")).join("");
+      expect(rolling).not.toContain("DOTA_GAMERULES_STATE_HERO_SELECTION");
+      expect(rolling).toContain("DOTA_GAMERULES_STATE_GAME_IN_PROGRESS");
+
+      // On disk: no SteamID / account id / player name, no coordinate -- only has* flags. What the timeline needs stays.
+      for (const text of [JSON.stringify(draft), rolling]) {
+        for (const secret of [SENTINEL_STEAMID, SENTINEL_NAME, "1038734271", token, TOKEN, "1234.5", "-678", "-6700", "5900"]) expect(text).not.toContain(secret);
+        expect(text).not.toMatch(/"(xpos|ypos|yaw)":/);
+      }
+      const hs = draft[0]!.payload as { player: Record<string, unknown>; minimap: Record<string, Record<string, unknown>>; hero: Record<string, unknown>; previously: { player: Record<string, unknown>; minimap: Record<string, Record<string, unknown>> } };
+      expect(hs.player).toMatchObject({ steamid: "redacted", accountid: "redacted", name: "redacted", team_name: "radiant" });
+      expect(hs.previously.player).toEqual({ name: "redacted", steamid: "redacted" });
+      expect(hs.minimap.o0).toEqual({ unitname: "npc_dota_hero_axe", team: 2, hasXpos: true, hasYpos: true, hasYaw: true, image: "minimap_herocircle" });
+      expect(hs.minimap.o1).toMatchObject({ unitname: "npc_dota_hero_lina", team: 3, hasXpos: false, hasYpos: false }); // 0,0 = no position
+      expect(hs.previously.minimap.o0).toEqual({ hasXpos: true });
+      expect(hs.hero).toEqual({ id: 14, name: "npc_dota_hero_pudge", hasXpos: true, hasYpos: true });
+
+      // Redaction is for the disk only: the live session still receives the payload as Dota sent it.
+      const forwarded = await waitFor(() => server.received.find((r) => r.path === `/api/live/gsi/${LIVE_ID}` && (r.body.map as { game_state?: string } | undefined)?.game_state === "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS") ?? null);
+      expect((forwarded.body.player as { steamid?: string }).steamid).toBe(SENTINEL_STEAMID);
+
+      // The next game opens a second window; the first one is untouched.
+      expect(await postGsi(m, payload("DOTA_GAMERULES_STATE_HERO_SELECTION", 99))).toBe(200);
+      await waitFor(() => (draftFiles().length === 2 ? true : null));
+    } finally {
+      server.stop();
+    }
+  }, 120_000);
+
   test("a site without the heartbeat route (redirect to /login) is never mistaken for an accepted heartbeat", async () => {
     const m = machine();
     expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);

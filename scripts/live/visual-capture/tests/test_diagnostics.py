@@ -150,8 +150,10 @@ class DiagnosticsTests(unittest.TestCase):
             fulls = pngs(Path(tmp), "*-full-*.png")
             reasons = {path.stem.rsplit("-", 1)[1] for path in strips}
             self.assertTrue({"health", "lock", "confirm"} <= reasons, reasons)  # saved at the events, not only at the start
-            self.assertEqual({path.stem.split("-full-")[1] for path in fulls}, {"armed", "firstlock"})  # budget left for the rest
-            self.assertLessEqual(len(fulls), diag_module.MAX_FULL_FRAMES)
+            kinds = {path.stem.split("-full-")[1].split("-")[-1] for path in fulls}
+            self.assertTrue({"armed", "firstlock", "periodic", "lock"} <= kinds, kinds)
+            caps = len(diag_module.FIXED_FULL_LABELS) + diag_module.MAX_PERIODIC_FULL + diag_module.MAX_LOCK_FULL + diag_module.MAX_UNREAD_FULL + diag_module.TAIL_FULL
+            self.assertLessEqual(len(fulls), caps)
             self.assertLessEqual(len(strips), diag_module.MAX_EVENT_STRIPS + diag_module.MAX_KEEPALIVE_STRIPS + diag_module.RING_STRIPS)
             self.assertTrue(all(path.stem.startswith("run1-e001-") for path in strips + fulls))
             one = np.asarray(__import__("cv2").imread(str(strips[0])))
@@ -180,7 +182,8 @@ class DiagnosticsTests(unittest.TestCase):
             session.process(screen([None] * 5, [None] * 5), now + 125)  # the first frame after the close
             session.process(screen([None] * 5, [None] * 5), now + 250)
             self.assertEqual(len(pngs(Path(tmp), "*-full-closed.png")), 1)  # exactly one
-            self.assertEqual(len(pngs(Path(tmp), "*-full-*.png")), 4)  # armed, firstlock, lastreadable, closed: the maximum
+            tail = pngs(Path(tmp), "*-full-*-tail.png")
+            self.assertTrue(1 <= len(tail) <= diag_module.TAIL_FULL)  # the last frames before the close (strategy time's end)
 
     def test_the_budget_restarts_with_every_draft_epoch(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -196,7 +199,64 @@ class DiagnosticsTests(unittest.TestCase):
                 second = pngs(Path(tmp), "run1-e002-strip-*.png")
                 self.assertTrue(second)  # a late draft still has evidence
                 self.assertTrue({p.stem.split("-full-")[1] for p in pngs(Path(tmp), "run1-e002-full-*.png")} >= {"armed", "firstlock"})
-                self.assertEqual(len(pngs(Path(tmp), "run1-e001-full-*.png")), 3)  # armed, firstlock, lastreadable
+                first_fixed = {p.stem.split("-full-")[1] for p in pngs(Path(tmp), "run1-e001-full-*.png") if "-full-0" not in p.name}
+                self.assertEqual(first_fixed, {"armed", "firstlock", "lastreadable"})
+                self.assertTrue(pngs(Path(tmp), "run1-e002-full-*-periodic.png"))  # its own periodic budget
+
+    def test_full_frames_cover_the_ban_phase_densely_then_the_rest_of_the_draft(self):
+        """BAN_FRAME_CAPTURE: where resolved bans are shown is not known yet, so the whole screen is kept every 2 s for the
+        first 90 s, then every 6 s until the draft (hero selection + strategy time) closes. Bounded by its cap."""
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / diag_module.SAVE_FRAMES_FLAG).write_text("", encoding="utf-8")
+            diagnostics = Diagnostics(Path(tmp) / "diagnostics", "run1", CLOCK)
+            diagnostics.begin_epoch(1)
+            small = np.full((90, 160, 3), 40, np.uint8)
+            for i in range(0, 180_000, 250):  # a 3-minute draft at 4 fps
+                diagnostics.evidence(float(i), small, LAYOUT, [], readable=True, armed=True, any_locked=False)
+            periodic = pngs(Path(tmp), "run1-e001-full-*-periodic.png")
+            saved = [r for r in read_records(Path(tmp) / "diagnostics") if r["kind"] == "frame_saved" and r["label"] == "periodic"]
+            self.assertEqual(len(saved), len(periodic))
+            self.assertEqual({r["file"] for r in saved}, {p.name for p in periodic})  # every frame is logged with its time
+            self.assertEqual(len(periodic), 45 + 15)  # 90 s / 2 s, then 90 s / 6 s
+            with mock.patch.object(diag_module, "MAX_PERIODIC_FULL", 10):
+                diagnostics.begin_epoch(2)
+                for i in range(0, 180_000, 250):
+                    diagnostics.evidence(float(i), small, LAYOUT, [], readable=True, armed=True, any_locked=False)
+                self.assertEqual(len(pngs(Path(tmp), "run1-e002-full-*-periodic.png")), 10)  # the cap binds
+
+    def test_each_lock_transition_has_a_full_frame_and_its_own_slot_record(self):
+        """FULL_DRAFT_VISUAL_EVIDENCE: three locks -> a full frame at each transition, a forced per-slot record at each
+        (lock state, chroma, distance, candidate, score, runner-up, margin, stability, confirmed), and a pick event."""
+        with tempfile.TemporaryDirectory() as tmp:
+            session = flagged(Path(tmp))
+            play_draft(session, locks=3)
+            self.assertGreaterEqual(len(pngs(Path(tmp), "run1-e001-full-*-lock.png")), 3)
+            records = read_records(Path(tmp) / "diagnostics")
+            picked = [(r["side"], r["slot"], r["heroId"]) for r in records if r["kind"] == "pick"]
+            self.assertEqual(picked, [("radiant", 0, 3), ("radiant", 1, 4), ("radiant", 2, 5)])
+            confirms = [r for r in records if r["kind"] == "frame" and "confirm" in r["triggers"]]
+            self.assertEqual(len(confirms), 3)  # one record AT each confirmation, not only the 1 Hz ones
+            slot = next(x for x in confirms[0]["slots"] if x["side"] == "radiant" and x["i"] == 0)
+            for field in ("side", "i", "locked", "lockstate", "chroma", "dist", "thr", "cand", "score", "runnerUp", "margin", "stab", "confirmed"):
+                self.assertIn(field, slot)
+            self.assertEqual((slot["locked"], slot["cand"], slot["confirmed"]), (True, 3, 3))
+            self.assertGreaterEqual(slot["stab"]["frames"], 3)
+            self.assertGreaterEqual(slot["stab"]["ms"], 350)
+            self.assertGreaterEqual(slot["chroma"], 80)
+            locks = [r for r in records if r["kind"] == "frame" and "lock" in r["triggers"]]
+            self.assertGreaterEqual(len(locks), 3)
+
+    def test_an_unread_card_keeps_a_full_frame(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            session = flagged(Path(tmp))
+            now, _ = arm(session)
+            noise = np.random.default_rng(99)
+            frame = screen([None] * 5, [None] * 5)
+            from test_visual_capture import slot_rect_px
+
+            _, _, w, h = slot_rect_px("dire", 0)
+            feed(session, lock(frame, "dire", 0, noise.integers(0, 255, size=(h, w, 3), dtype=np.uint8)), now, 24)
+            self.assertTrue(pngs(Path(tmp), "run1-e001-full-*-unread.png"))
 
     def test_a_new_epoch_without_a_close_still_keeps_the_old_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:

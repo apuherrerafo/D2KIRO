@@ -42,8 +42,13 @@ Dota 2 ──GSI──▶ http://127.0.0.1:53120/gsi ──▶ Companion ──H
 
 - `diagnostics\gsi-raw-<run>-NNN.jsonl`: every payload outside a match, one per 2 s during a match (plus every
   state or key-set change). The local token is stripped. Files rotate at 16 MB and are capped at 160 MB in total,
-  oldest deleted first. Raw payloads include your own SteamID and name, so they never leave the PC and are gitignored
-  if ever copied into the repo.
+  oldest deleted first.
+- `diagnostics\gsi-draft-<run>-NNN.jsonl`: EVERY payload from loading through hero selection, strategy time and
+  pre-game, one file per draft window (64 MB cap), the newest 8 windows kept. The match's rolling raw never rotates it
+  away (that is how the 2026-10-14 drafts were lost).
+- Both raw stores are redacted on disk: SteamID, account id and the player's name become `"redacted"`; every `xpos` /
+  `ypos` / `yaw` becomes `hasXpos` / `hasYpos` / `hasYaw` (false when 0). What is forwarded upstream is untouched.
+  They still never leave the PC.
 - `diagnostics\inventory-latest.json`: per phase, every JSON path with counts and types only. No value is stored,
   and digits in keys are normalized to `#`.
 - After a real match, a developer runs `bun scripts/live/companion/inventory-report.ts`, which prints the

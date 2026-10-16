@@ -70,9 +70,58 @@ class CoverageHealthTests(unittest.TestCase):
         self.assertIn("VISUAL_SLOTS_UNREAD", HEALTH_DETAILS)
 
     def test_before_the_baseline_exists_it_does_not_vouch(self):
+        """At the opening of a draft the helper says nothing while its baseline arms (the server keeps its previous word)
+        -- never OK. A re-arm that is NOT a fresh draft (geometry change) still degrades at once."""
         s = new_session()
-        sent = s.process(empty(), 0)
-        self.assertEqual(health_of(sent), [UNVERIFIED])
+        self.assertEqual(health_of(s.process(empty(), 0)), [])
+        s.rearm()  # e.g. a frame-size change inside the draft: not a fresh empty bar
+        self.assertEqual(health_of(s.process(empty(), 125)), [UNVERIFIED])
+
+    def test_hero_selection_opens_ok_with_no_unverified_blip(self):
+        """EMPTY_DRAFT_COACH_TEST: GSI opens hero selection -> the helper's first word in this draft is VISUAL_OK, within the
+        grace, so the server never flips the Team Coach to "incomplete" on an empty draft."""
+        s = new_session()
+        _, events = timeline(s, empty(), 0, int(4_000 / STEP))
+        words = health_of(envelopes(events))
+        self.assertEqual(words[0], OK)
+        self.assertNotIn(UNVERIFIED, words)
+        self.assertNotIn(UNREAD, words)
+        self.assertLess(health_times(events, OK)[0], UNREAD_GRACE_MS)  # armed (~0.9 s) before the grace ran out
+
+    def test_hover_from_the_opening_never_blocks(self):
+        """HOVER_DOES_NOT_BLOCK: own + teammate + enemy hovers from the first frame of the draft: OK, zero picks."""
+        s = new_session()
+        frame = hover(empty(), "radiant", 2, hero_slot(7, "radiant", 2))
+        frame = paste(frame, "dire", 1, ghost(9, "dire", 1))
+        now, events = timeline(s, empty(), 0, 10)
+        _, more = timeline(s, frame, now, int(8_000 / STEP))
+        words = health_of(envelopes(events + more))
+        self.assertEqual(words[0], OK)
+        self.assertEqual(set(words), {OK})
+        self.assertEqual(picks(envelopes(events + more)), [])
+
+    def test_an_unreadable_opening_stays_silent_then_degrades_never_ok(self):
+        s = new_session()
+        black = np.zeros((1080, 1920, 3), np.uint8)
+        _, events = timeline(s, black, 0, int(4_000 / STEP), noise=False)
+        self.assertEqual(health_times(events, OK), [])
+        degraded = health_times(events, UNVERIFIED)
+        self.assertTrue(degraded)
+        self.assertGreaterEqual(degraded[0], UNREAD_GRACE_MS)
+        self.assertLessEqual(degraded[0], UNREAD_GRACE_MS + STEP)
+
+    def test_a_lock_the_helper_cannot_name_from_the_opening_blocks(self):
+        """LOCKED_UNREAD_BLOCKS: the bar armed empty, then a locked card the matcher cannot name -> SLOTS_UNREAD after the
+        grace, and no pick. (The engine turns SLOTS_UNREAD into a hard recommendation block.)"""
+        s = new_session()
+        now, _ = timeline(s, empty(), 0, 12)
+        began = now
+        now, events = timeline(s, lock(empty(), "dire", 0, noise_art("dire", 0)), now, int(3_000 / STEP))
+        unread = health_times(events, UNREAD)
+        self.assertTrue(unread)
+        self.assertLessEqual(unread[0] - began, UNREAD_GRACE_MS + STEP)
+        self.assertEqual(health_of(envelopes(events))[-1], UNREAD)
+        self.assertEqual(picks(envelopes(events)), [])
 
     def test_stable_empty_draft_is_ok(self):
         """Zero picks is a readable draft: the Team Coach may recommend from the first moment of hero selection."""
