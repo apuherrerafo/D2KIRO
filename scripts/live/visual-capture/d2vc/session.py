@@ -167,7 +167,7 @@ class VisualSession:
         for event in events:
             envelope = self.factory.from_event(event)
             out.append(envelope)
-            self._note(event.kind, side=event.side, slot=event.slot, heroId=event.hero_id, confidence=event.confidence)
+            self._note(event.kind, side=event.side, slot=event.slot, heroId=event.hero_id, confidence=event.confidence, **({"recovered": True} if event.recovered else {}))
             if event.kind == "pick":
                 first = self._first_seen_ms.get((event.side, event.slot, event.hero_id), now_ms)
                 self.status.latency_ms = now_ms - first
@@ -237,8 +237,11 @@ class VisualSession:
             state = self.lock_states.get(key)
             if state == "ambiguous":
                 unsettled = True
-            elif state == "locked" and (reading.state != "hero" or confirmed.get(key) != reading.hero_id):
-                unsettled = True
+            elif state == "locked":
+                # read = a confident hero that is the confirmed one, or a RECOVERED lock (stable sub-threshold candidate) still reading as it
+                read_hero = reading.hero_id if reading.state == "hero" else self.stability.recovered_hero(reading)
+                if read_hero is None or confirmed.get(key) != read_hero:
+                    unsettled = True
         if not unsettled:
             self._unsettled_since = None
             return ("ok", "VISUAL_OK")

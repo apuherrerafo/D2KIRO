@@ -83,6 +83,15 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
 - A hero is emitted only if `score >= 0.68` **and** `margin over runner-up >= 0.15`; a flat slot never matches. Each hero
   has two references, the clean portrait and the portrait under a synthesized human-lobby rank banner (0.15 x portrait +
   BGR 52,52,78 over rows 0.62-0.95); its score is the better of the two, over the whole card (no region-only matching).
+- **Recovery of a stable sub-threshold lock (`stability.py`, `RecoveryPolicy`).** The normal threshold is untouched. A
+  **locked** card whose best candidate is just under 0.68 but clearly ahead of the runner-up is confirmed by a second,
+  slower proof: the SAME candidate, **every frame** `score >= 0.60` and `margin >= 0.15`, for **>= 1.0 s and >= 6
+  frames** (> 2x the normal 350 ms / 3 frames, < the 1.5 s unread grace, so a recovered card never flashes
+  `VISUAL_SLOTS_UNREAD`). It only fills an unconfirmed pick slot; a hero already confirmed -- or being read as a candidate --
+  in another slot is never taken; any dip, other hero or empty/unreadable frame restarts the run. Never reached by a
+  hover/ambiguous/empty card (they are not matched at all). Origin: draft 0374e6d9, Phantom Assassin 0.634 / 0.269 and
+  Mars 0.675 / 0.203, both correct and static for 30-90 s, left the whole draft `VISUAL_SLOTS_UNREAD`. Recovered picks log
+  `recovered: true`. `StabilityFilter(recovery=None)` is the old behaviour. The calibration rationale is in `stability.py`.
 - **Health (`session._health`).** Frame/layout verified = armed baseline + readable frame + a card bar on >= 9 of the 10
   cards. Verified and no locked card unread -> `VISUAL_OK`, **including an empty or hover-only draft** (zero picks is a
   readable draft; the Team Coach may recommend from the start). When GSI opens a draft the helper stays SILENT while its
