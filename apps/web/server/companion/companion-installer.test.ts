@@ -10,7 +10,7 @@ import { VISUAL_RUNTIME } from "./companion-visual";
 import { buildGsiConfig, GSI_CFG_FILENAME } from "@/lib/gsi-config";
 import { CFG_SHAPE_PATTERN } from "@/lib/gsi-windows-installer";
 import { COMPANION_INSTALLER_FILENAME, buildWindowsCompanionInstaller } from "./companion-installer";
-import { COMPANION_FORWARD_SECTIONS, COMPANION_INSTALL_PS, COMPANION_RUNTIME_PS } from "./companion-scripts";
+import { COMPANION_FORWARD_SECTIONS, COMPANION_INSTALL_PS, COMPANION_LOCAL_SECTIONS, COMPANION_RUNTIME_PS, COMPANION_VERSION } from "./companion-scripts";
 
 // D2KIRO Companion V0. Pure checks lock the file's shape and where the credential may appear; on Windows the
 // installer is RUN (cmd.exe + Windows PowerShell 5.1) against a fake Steam layout under the temp folder, and the
@@ -79,6 +79,13 @@ describe("Companion installer (generated file)", () => {
   test("forwards exactly the sections D2KIRO's own cfg always sent", () => {
     const sent = [...CFG.matchAll(/^\s+"(\w+)"\s+"1"$/gm)].map((match) => match[1]);
     expect([...COMPANION_FORWARD_SECTIONS].sort() as string[]).toEqual(sent.sort());
+  });
+
+  test("Dota is asked for `events` locally, but `events` is not a forwarded section: only ban hero ids leave the PC", () => {
+    expect(COMPANION_LOCAL_SECTIONS as readonly string[]).toContain("events");
+    expect(COMPANION_FORWARD_SECTIONS as readonly string[]).not.toContain("events");
+    expect(COMPANION_RUNTIME_PS).toContain("function Update-BanIds");
+    expect(COMPANION_RUNTIME_PS).toContain("CHAT_MESSAGE_HERO_BANNED");
   });
 
   test("refuses to embed anything that is not a D2KIRO cfg", () => {
@@ -274,6 +281,7 @@ describe.skipIf(!onWindows)("Companion installer (real cmd.exe + PowerShell run)
     const cfg = readFileSync(m.installedCfg, "utf8");
     expect(cfg).toContain(`"uri"           "http://127.0.0.1:${m.port}/gsi"`);
     expect(cfg).toContain(localToken(m));
+    expect(cfg).toMatch(/"events"\s+"1"/); // Ranked drafts report their bans only here
     expect(cfg).not.toContain(TOKEN);
     // The Companion's own cfg never looks like a site cfg (it is never "adopted" as a link).
     expect(new RegExp(CFG_SHAPE_PATTERN).test(cfg.replace(/\s+/g, " ").trim())).toBe(false);
@@ -317,7 +325,7 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
     try {
       startRuntime(m, server.base, { D2KIRO_TEST_CFG_SYNC_SECONDS: "1" });
       const first = await waitFor(() => health(m));
-      expect(first).toMatchObject({ schema: "d2kiro-companion-health/v1", version: "0.1.0", paired: true, cfgInstalled: true });
+      expect(first).toMatchObject({ schema: "d2kiro-companion-health/v1", version: COMPANION_VERSION, paired: true, cfgInstalled: true });
       expect(["not_running", "waiting"]).toContain(first.dota as string);
       expect(JSON.stringify(first)).not.toContain(TOKEN);
 
@@ -343,7 +351,7 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
       });
       expect(drafting.dota).toBe("connected");
       const heartbeat = await waitFor(() => server.received.find((r) => r.path === `/api/live/companion/${LIVE_ID}` && (r.body.companion as { phase?: string })?.phase === "HERO_SELECTION") ?? null);
-      expect(heartbeat.body).toMatchObject({ auth: { token: TOKEN }, companion: { schema: "companion-heartbeat/v1", version: "0.1.0", dota: "connected", restartNeeded: false } });
+      expect(heartbeat.body).toMatchObject({ auth: { token: TOKEN }, companion: { schema: "companion-heartbeat/v1", version: COMPANION_VERSION, dota: "connected", restartNeeded: false } });
 
       // CORS only for the paired site; Private Network Access preflight answered.
       const preflight = await local(m, "OPTIONS", "/health", { headers: { origin: ORIGIN } });
@@ -396,6 +404,75 @@ describe.skipIf(!onWindows)("Companion runtime (real PowerShell, fake D2KIRO ser
       expect(existsSync(m.installedCfg)).toBe(false);
       expect(readdirSync(m.home)).toEqual(["diagnostics"]);
       await waitFor(async () => ((await health(m)) === null ? true : null));
+    } finally {
+      server.stop();
+    }
+  }, 120_000);
+
+  test("ban events: only hero ids leave the PC, kept for the whole draft, never invented, never carried into the next draft", async () => {
+    const m = machine();
+    expect(install(m, buildWindowsCompanionInstaller(CFG)).exitCode).toBe(0);
+    const server = await fakeServer();
+    try {
+      startRuntime(m, server.base);
+      await waitFor(() => health(m));
+      const token = localToken(m);
+      const gsiPath = `/api/live/gsi/${LIVE_ID}`;
+      /** Each update gets its own game_time so the test can tell which one the (coalescing) worker delivered. */
+      let marker = 100;
+      async function update(gameState: string, events?: unknown): Promise<Record<string, unknown>> {
+        marker += 1;
+        const body = gsiPayload(token, gameState);
+        (body.map as { game_time: number }).game_time = marker;
+        if (events !== undefined) body.events = events;
+        expect(await postGsi(m, body)).toBe(200);
+        const sent = await waitFor(() => server.received.find((r) => r.path === gsiPath && (r.body.map as { game_time?: number } | undefined)?.game_time === marker) ?? null);
+        return sent.body;
+      }
+      const chat = (type: string, value: unknown) => ({ game_time: 45, event_type: "generic_event", data: JSON.stringify({ type, value, playerid1: 3, playerid2: -1, time: -14.97 }) });
+      const bannedIds = (body: Record<string, unknown>) => ((body.events as { data: string }[] | undefined) ?? []).map((event) => (JSON.parse(event.data) as { value: number }).value);
+
+      const HERO_SELECTION = "DOTA_GAMERULES_STATE_HERO_SELECTION";
+      // 1. Nothing reported yet: nothing is sent -- no `events` key, never an empty ban list.
+      const quiet = await update(HERO_SELECTION, []);
+      expect("events" in quiet).toBe(false);
+
+      // 2. The burst: bans mixed with noise (a purchase, junk, bad ids, a repeat). Only the three valid hero ids survive.
+      const burst = await update(HERO_SELECTION, [
+        chat("CHAT_MESSAGE_HERO_BANNED", 73),
+        chat("CHAT_MESSAGE_ITEM_PURCHASE", 41),
+        chat("CHAT_MESSAGE_HERO_BANNED", "74"),
+        chat("CHAT_MESSAGE_HERO_BANNED", 0),
+        chat("CHAT_MESSAGE_HERO_BANNED", 5000),
+        chat("CHAT_MESSAGE_HERO_BANNED", 128),
+        chat("CHAT_MESSAGE_HERO_BANNED", 73),
+        { game_time: 46, event_type: "generic_event", data: "{not json" },
+        { game_time: 47, event_type: "roshan_killed", killed_by_team: "radiant" },
+        chat("CHAT_MESSAGE_HERO_BANNED", 66),
+      ]);
+      expect(burst.events).toEqual([
+        { event_type: "generic_event", data: '{"type":"CHAT_MESSAGE_HERO_BANNED","value":73}' },
+        { event_type: "generic_event", data: '{"type":"CHAT_MESSAGE_HERO_BANNED","value":128}' },
+        { event_type: "generic_event", data: '{"type":"CHAT_MESSAGE_HERO_BANNED","value":66}' },
+      ]);
+      const wire = JSON.stringify(burst);
+      for (const leaked of ["playerid", "ITEM_PURCHASE", "roshan", "killed_by_team", "-14.97"]) expect(wire).not.toContain(leaked);
+      expect(Object.keys(burst).sort()).toEqual(["auth", "draft", "events", "hero", "map", "player", "provider"]);
+
+      // 3. Dota's later updates carry no events, yet the draft keeps its known bans (the worker only sends the latest state).
+      const later = await update("DOTA_GAMERULES_STATE_STRATEGY_TIME", []);
+      expect(bannedIds(later)).toEqual([73, 128, 66]);
+      // ...and a second burst adds, never replaces.
+      const more = await update("DOTA_GAMERULES_STATE_STRATEGY_TIME", [chat("CHAT_MESSAGE_HERO_BANNED", 85)]);
+      expect(bannedIds(more)).toEqual([73, 128, 66, 85]);
+
+      // 4. The match starts: bans are not forwarded outside the draft, and are forgotten.
+      const match = await update("DOTA_GAMERULES_STATE_GAME_IN_PROGRESS", [chat("CHAT_MESSAGE_HERO_BANNED", 99)]);
+      expect("events" in match).toBe(false);
+
+      // 5. The NEXT draft starts from unknown: no bans carried over, none invented.
+      const next = await update(HERO_SELECTION);
+      expect("events" in next).toBe(false);
     } finally {
       server.stop();
     }

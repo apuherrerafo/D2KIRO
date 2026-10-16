@@ -163,6 +163,7 @@ export interface LiveCompanionStatus {
 
 /** Picks known (NONE / PARTIAL / PICKS_COMPLETE), independent of capture health. Mirrors the engine's LiveDraftCompleteness. */
 export type LiveDraftCompleteness = "NONE" | "PARTIAL" | "PICKS_COMPLETE";
+export type LiveBanKnowledge = "UNKNOWN" | "PARTIAL";
 export type LiveRecommendationBlock = "CAPTURE_PARTIAL" | "SLOTS_UNREAD" | "FACTS_UNRESOLVED";
 
 /** The engine's verdict on whether the Team Coach may recommend on this draft right now (it enforces it at its own routes too). */
@@ -182,6 +183,8 @@ export interface LiveCaptureStatus {
   localSide: TeamSide | null;
   lastDetectedPick: LiveDetectedPick | null;
   bans: number;
+  /** Positive ban evidence known (absent from older engines). */
+  banKnowledge?: LiveBanKnowledge;
   picks: number;
   deferredPicks: number;
   rejectedFacts: number;

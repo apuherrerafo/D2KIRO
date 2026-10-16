@@ -5,7 +5,8 @@ import type { ProtocolSessionStore } from "../server/protocol-session";
 import type { HeroPositions } from "../signals/hero-positions";
 import { draftFactCount, observationsFromGsi, type GsiDraftCapabilities, type GsiPhase, type GsiUpdate } from "./gsi-normalize";
 import { draftObservationFromEvent, liveObservationFromDraft } from "./draft-observation";
-import { applyLiveObservation, emptyLiveFacts, MAX_LIVE_PICKS_PER_SIDE, observationFromDraftEvent, replayLiveFacts, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
+import { applyLiveObservation, emptyLiveFacts, MAX_LIVE_PICKS_PER_SIDE, observationFromDraftEvent, replayLiveFacts, type LiveBanKnowledge, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
+export type { LiveBanKnowledge } from "./live-capture";
 
 // Live Dota capture sessions: the bridge between observed facts (Dota GSI through the link-authenticated
 // `/api/live/gsi/<liveId>` (TSK-219), the local Overwolf capturer through the token-authenticated
@@ -154,6 +155,11 @@ export interface LiveCaptureStatus {
   /** Last OWN-team pick (captured or manual) -- the "TEAM PICK DETECTED" notice. */
   lastDetectedPick: LiveDetectedPick | null;
   bans: number;
+  /**
+   * Positive ban evidence known: UNKNOWN when no ban event was observed this draft (even if picks are underway);
+   * PARTIAL when one or more heroes are proven banned. Step 2B never certifies completeness.
+   */
+  banKnowledge: LiveBanKnowledge;
   /** Picks observed -- exactly the heroes the draft board renders for both teams. */
   picks: number;
   /** Moves on every change to the observed facts (a swap at equal counts included): the cue to re-read the board. */
@@ -529,6 +535,7 @@ export class LiveCaptureRegistry {
       localSide: entry.facts.localSide,
       lastDetectedPick: entry.lastDetectedPick,
       bans: entry.facts.bans.length,
+      banKnowledge: entry.facts.banKnowledge,
       picks: entry.facts.picks.length,
       factsRevision: entry.factsRevision,
       completeness: completenessOf(entry.facts),

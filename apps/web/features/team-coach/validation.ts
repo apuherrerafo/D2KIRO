@@ -238,6 +238,7 @@ export function parseLiveCaptureStatus(value: unknown): LiveCaptureStatus | null
     (value.teamContext === undefined || isTeamContext(value.teamContext)) &&
     (value.localPlayer === undefined || isLocalPlayer(value.localPlayer)) &&
     (value.factsRevision === undefined || typeof value.factsRevision === "number") &&
+    (value.banKnowledge === undefined || value.banKnowledge === "UNKNOWN" || value.banKnowledge === "PARTIAL") &&
     (value.completeness === undefined || value.completeness === "NONE" || value.completeness === "PARTIAL" || value.completeness === "PICKS_COMPLETE") &&
     (value.recommendation === undefined || isRecommendationReadiness(value.recommendation));
   return valid ? (value as unknown as LiveCaptureStatus) : null;

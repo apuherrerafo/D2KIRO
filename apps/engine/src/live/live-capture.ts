@@ -26,12 +26,16 @@ export interface LivePickFact {
   position: Position | null;
 }
 
+export type LiveBanKnowledge = "UNKNOWN" | "PARTIAL";
+
 export interface LiveFacts {
   /** Hero selection began (the game entered DOTA_GAMERULES_STATE_HERO_SELECTION, or the Player said so). */
   started: boolean;
   patch: string;
   localSide: TeamSide | null;
   bans: HeroId[];
+  /** Positive ban evidence: UNKNOWN when no ban event was observed; PARTIAL when >=1 heroes are proven banned. */
+  banKnowledge: LiveBanKnowledge;
   /** Explicit "the ban phase is over" (manual fallback). A first pick closes it implicitly. */
   bansClosed: boolean;
   /** In observed order. A hero appears at most once across both sides. */
@@ -82,7 +86,7 @@ export interface LiveFactOutcome {
 }
 
 export function emptyLiveFacts(patch: string): LiveFacts {
-  return { started: false, patch, localSide: null, bans: [], bansClosed: false, picks: [], localHeroId: null, localOnlyPick: null };
+  return { started: false, patch, localSide: null, bans: [], banKnowledge: "UNKNOWN", bansClosed: false, picks: [], localHeroId: null, localOnlyPick: null };
 }
 
 function isHeroId(value: number): boolean {
@@ -143,7 +147,7 @@ export function applyLiveObservation(facts: LiveFacts, observation: LiveObservat
       if (facts.bans.includes(observation.heroId)) return unchanged(facts, "already_banned");
       if (facts.picks.some((pick) => pick.heroId === observation.heroId)) return unchanged(facts, "already_picked");
       if (facts.bans.length >= MAX_LIVE_BANS) return unchanged(facts, "draft_full");
-      return { facts: { ...facts, bans: [...facts.bans, observation.heroId] }, changed: true };
+      return { facts: { ...facts, bans: [...facts.bans, observation.heroId], banKnowledge: "PARTIAL" }, changed: true };
     }
     case "pick": {
       // A local-hero report that names a DIFFERENT hero than the one it named before replaces that earlier local-only pick.
@@ -154,7 +158,8 @@ export function applyLiveObservation(facts: LiveFacts, observation: LiveObservat
     }
     case "unban": {
       if (!facts.bans.includes(observation.heroId)) return unchanged(facts, "unknown_ban");
-      return { facts: { ...facts, bans: facts.bans.filter((heroId) => heroId !== observation.heroId) }, changed: true };
+      const remaining = facts.bans.filter((heroId) => heroId !== observation.heroId);
+      return { facts: { ...facts, bans: remaining, banKnowledge: remaining.length > 0 ? "PARTIAL" : "UNKNOWN" }, changed: true };
     }
     case "revert": {
       const existing = facts.picks.find((pick) => pick.heroId === observation.heroId && pick.side === observation.side);

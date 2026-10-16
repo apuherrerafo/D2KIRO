@@ -197,9 +197,8 @@ describe("VERDAD 3 -- desconocido gana a identidad inferida", () => {
 });
 
 describe("VERDAD 4 -- un ban no leído queda desconocido, nunca 'no baneado'", () => {
-  // Viola hoy: el estado sólo expone `bans: number`; "0 bans leídos" y "bans no leídos" son indistinguibles.
-  // Se arregla en el Paso 2 (el nombre del campo lo fija ese paso; si cambia, cambia acá en el mismo PR).
-  test.failing("con picks pero sin ningún ban leído, el estado declara el conocimiento de bans como DESCONOCIDO", () => {
+  // Cumplida en el Paso 2B: banKnowledge distingue positivamente UNKNOWN de PARTIAL.
+  test("con picks pero sin ningún ban leído, el estado declara el conocimiento de bans como DESCONOCIDO", () => {
     const t = setup("contract-4", { readBans: false });
     t.ally(50);
     const status = t.registry.status("contract-4")!;
