@@ -128,6 +128,10 @@ export interface BuildSuggestionsOptions {
   // decision.ts's `eligibleHeroIds`, derivado de legalGameplayActions), este campo sólo le dice a
   // V6 sobre qué universo rankear.
   candidateHeroIds?: readonly HeroId[];
+  // Step 1B-B (Party5 hard pools): `candidateHeroIds` es un pool configurado por el jugador y ES la
+  // admisión final -- se salta el filtro de credibilidad posicional de `targetPosition`. El pool
+  // controla la admisión; nunca provee identidad ni cambia ningún peso o señal. Ausente -> idéntico.
+  candidateUniverseIsAdmission?: boolean;
 }
 
 // TSK-045 (Fase 3): role_gap y role_safety se fusionan en position_fit. TSK-069: team_synergy
@@ -775,6 +779,7 @@ function candidatePool(state: DraftState, meta: MetaSnapshot, options: BuildSugg
     candidates = candidates.filter((hero) => allowed.has(hero));
   }
   if (options.teamOpening || options.targetPosition === undefined) return candidates;
+  if (options.candidateUniverseIsAdmission === true && options.candidateHeroIds) return candidates;
 
   const positions = options.heroPositions ?? MODULE_HERO_POSITIONS;
   candidates = candidates.filter((hero) => isCandidateAdmittedForPosition(hero, options.targetPosition!, positions));

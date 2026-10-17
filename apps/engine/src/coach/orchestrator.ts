@@ -1,7 +1,7 @@
 import { deriveDecisionContextFromView } from "../drafter/decision-context";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import { poolForPosition, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import { configuredPoolForPosition, poolForPosition, positionsWithPoolOption, unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
@@ -262,7 +262,9 @@ export class CoachOrchestrator {
     if (!actionability.hasHumanAction) {
       sourceSet = await buildTeamEvaluation(input.context);
     } else {
-      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
+      // Step 1B-B: a position whose configured pool is exhausted is not a viable target -- the same rule the Team Coach board applies.
+      const viablePositions = positionsWithPoolOption(actionability.eligiblePositions, input.context.playerPoolsByPosition, unavailableHeroesFrom(view));
+      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal, viablePositions });
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget);
       // COHERENCE-007: the Personal Hero Pool may shape the active candidates ONLY when the viewed position is the personal one...
@@ -273,7 +275,7 @@ export class CoachOrchestrator {
       // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
       const personalPoolApplied = (hasPositionPool || usePersonalPool) && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
-      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied });
+      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied, admittedPool: configuredPoolForPosition(input.context.playerPoolsByPosition, viewed) });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied });
       opportunity = await this.deriveSafeCoreOpportunity(input.context);
     }

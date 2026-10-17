@@ -21,7 +21,8 @@ import {
   type TeamSide,
 } from "../draft-protocol";
 import { deepFreeze } from "../draft-protocol/immutable";
-import type { PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import type { OwnPositionOccupancy, PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import type { LiveOwnPositionResolution, LivePositionProvenance } from "../live/live-position-resolver";
 import { deriveHumanActionability, type HumanActionability } from "../recommendation/human-actionability";
 import { rosterSlotForRoundSlot, type DotaPosition } from "../simulator/ap-simulator-policy";
 import type { CollisionRegistrationEvidence, RegistrationRecord } from "../draft-protocol/adapters/simulator-authority";
@@ -90,6 +91,11 @@ export interface OwnPickPositionBinding {
   /** The round-scoped kernel slotIndex this binding was sealed against (ROUND-SCOPED SLOT semantics unchanged). */
   slotIndex: number;
   assignedPosition: DotaPosition;
+  /**
+   * Live capture only: how the position was established (live/live-position-resolver.ts). Internal -- never part of
+   * the public projection. Absent for a position a human submitted (Simulator), which is explicit by construction.
+   */
+  provenance?: LivePositionProvenance;
 }
 
 /**
@@ -153,6 +159,8 @@ interface ProtocolSessionEntry {
   roundYielded: Set<number>;
   /** Live capture only: every pick the game showed, in observed order. See LiveStateInstall.visiblePicks. */
   liveVisiblePicks?: readonly LiveVisiblePick[];
+  /** Live capture only: how our sealed picks resolve to positions (bound, necessarily / possibly occupied). */
+  liveOwnPositions?: LiveOwnPositionResolution;
 }
 
 export interface LiveVisiblePick {
@@ -202,6 +210,11 @@ export interface LiveStateInstall {
    * protocol simulation and must not hide a hero the screen already displays. Live sessions only.
    */
   visiblePicks: readonly LiveVisiblePick[];
+  /**
+   * The resolver's view of our sealed picks (live-position-resolver.ts). Its `necessarilyOccupied` positions are
+   * never human-open, even when no single hero is bound to them. Absent: only `ownBindings` close positions.
+   */
+  ownPositions?: LiveOwnPositionResolution;
 }
 
 function oppositeSide(side: TeamSide): TeamSide {
@@ -325,6 +338,7 @@ export class ProtocolSessionStore {
     entry.liveVisiblePicks = install.visiblePicks;
     entry.metadata = { ...entry.metadata, localSide, patch: install.patch, partyContext: state.rankedAp?.partyContext ?? entry.metadata.partyContext };
     entry.ownPickPositions = install.ownBindings.filter(ownSealed);
+    entry.liveOwnPositions = install.ownPositions;
     entry.lastAccessedAt = now;
     return true;
   }
@@ -340,6 +354,35 @@ export class ProtocolSessionStore {
     if (!entry || entry.metadata.liveCapture !== true || entry.ownerAccountId !== accountId) return false;
     entry.metadata = { ...entry.metadata, teamGroupId: team.teamGroupId, playerPoolsByPosition: team.playerPoolsByPosition };
     return true;
+  }
+
+  /**
+   * Live Dota -- the Player's declared seat ("I am Pos N"; null clears it) on an OWNED live session. It reuses the
+   * session's `humanPosition` field and is only a declaration: the hero -> position binding it enables is made by the
+   * live registry's rebuild (live/live-capture.ts), which this does not trigger. false = unknown session, not a live
+   * capture session, or owned by another account.
+   */
+  setLiveHumanPosition(sessionId: string, accountId: number, position: DotaPosition | null): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || entry.ownerAccountId !== accountId) return false;
+    entry.metadata = { ...entry.metadata, humanPosition: position };
+    return true;
+  }
+
+  /**
+   * Live Dota -- a NEW match on this live session forgets the declared seat: it was "I am Pos N" for the previous
+   * draft, and nobody said it holds for the next one. Registry-internal (no account argument): the registry only calls
+   * it when its own capture history restarts. Nothing binds the Player's hero again until they declare anew.
+   */
+  resetLiveHumanPosition(sessionId: string): void {
+    const entry = this.sessions.get(sessionId);
+    if (!entry || entry.metadata.liveCapture !== true || entry.metadata.humanPosition === null) return;
+    entry.metadata = { ...entry.metadata, humanPosition: null };
+  }
+
+  /** Live Dota -- is one of our sealed picks bound to the Player's own seat (LOCAL_PLAYER) right now? */
+  liveLocalPlayerBound(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.liveOwnPositions?.heroes.some((hero) => hero.provenance === "LOCAL_PLAYER") ?? false;
   }
 
   partyContext(sessionId: string): PartyContext | null {
@@ -481,7 +524,8 @@ export class ProtocolSessionStore {
       const sameSlot = (record: { side: TeamSide; slotIndex: number }) => record.side === localSide && record.slotIndex === binding.slotIndex;
       const sealed = rankedAp?.round?.round === binding.round ? rankedAp.round.sealed.find(sameSlot) : undefined;
       const heroId = sealed?.heroId ?? rankedAp?.confirmedPicks.find((pick) => pick.round === binding.round && sameSlot(pick))?.heroId;
-      return heroId === undefined ? [] : [{ ...binding, heroId }];
+      // Provenance stays internal: the public projection carries exactly the four roster fields.
+      return heroId === undefined ? [] : [{ round: binding.round, slotIndex: binding.slotIndex, assignedPosition: binding.assignedPosition, heroId }];
     });
   }
 
@@ -512,11 +556,15 @@ export class ProtocolSessionStore {
     return binding?.assignedPosition ?? null;
   }
 
-  /** `controlledPositions` minus positions already bound. `null` for a non-AP-Simulator or unknown session. */
+  /**
+   * `controlledPositions` minus positions already bound. A live session also closes every position its own picks
+   * NECESSARILY occupy (two heroes that can only be Pos 3 / Pos 4 between them fill both, whichever is which).
+   * `null` for a non-AP-Simulator or unknown session.
+   */
   humanOpenPositions(sessionId: string): DotaPosition[] | null {
     const entry = this.sessions.get(sessionId);
     if (!entry || !entry.metadata.controlledPositions) return null;
-    const filled = new Set(entry.ownPickPositions.map((binding) => binding.assignedPosition));
+    const filled = new Set([...entry.ownPickPositions.map((binding) => binding.assignedPosition), ...(entry.liveOwnPositions?.necessarilyOccupied ?? [])]);
     return entry.metadata.controlledPositions.filter((position) => !filled.has(position));
   }
 
@@ -814,6 +862,22 @@ export class ProtocolSessionStore {
       humanActionability: this.humanActionability(sessionId),
       ownAssignedPositions,
       playerPoolsByPosition: metadata.playerPoolsByPosition ?? null,
+      ...(metadata.liveCapture === true ? { liveCapture: true, ownPositionOccupancy: this.liveOwnPositionOccupancy(sessionId) } : {}),
+    };
+  }
+
+  /**
+   * Live capture: what our own picks say about our positions, own side only (never a rival fact). Bound heroes are
+   * already in `ownAssignedPositions`; this adds what no single binding can say -- positions necessarily occupied
+   * without a known hero, and positions an own hero of unconfirmed role might be sitting in.
+   */
+  private liveOwnPositionOccupancy(sessionId: string): OwnPositionOccupancy {
+    const resolution = this.sessions.get(sessionId)?.liveOwnPositions;
+    if (!resolution) return { necessarilyOccupied: [], possiblyOccupied: [], unresolvedHeroes: [] };
+    return {
+      necessarilyOccupied: [...resolution.necessarilyOccupied],
+      possiblyOccupied: [...resolution.possiblyOccupied],
+      unresolvedHeroes: resolution.heroes.flatMap((hero) => (hero.provenance === "UNRESOLVED" ? [{ heroId: hero.heroId, possiblePositions: [...hero.possiblePositions] }] : [])),
     };
   }
 

@@ -3,6 +3,7 @@ import type { DraftProtocolState, HeroId, RejectionReasonV2, RulesetId, TeamSide
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEvent } from "../draft/reducer";
 import type { OwnPickPositionBinding } from "../server/protocol-session";
+import { EMPTY_LIVE_POSITION_RESOLUTION, resolveLiveOwnPositions, type LiveOwnPositionResolution } from "./live-position-resolver";
 
 // Live Dota capture -- the observed FACTS of a real draft, and the one function that turns them into a
 // kernel state.
@@ -25,16 +26,32 @@ export interface LivePickFact {
   position: Position | null;
 }
 
+export type LiveBanKnowledge = "UNKNOWN" | "PARTIAL";
+
 export interface LiveFacts {
   /** Hero selection began (the game entered DOTA_GAMERULES_STATE_HERO_SELECTION, or the Player said so). */
   started: boolean;
   patch: string;
   localSide: TeamSide | null;
   bans: HeroId[];
+  /** Positive ban evidence: UNKNOWN when no ban event was observed; PARTIAL when >=1 heroes are proven banned. */
+  banKnowledge: LiveBanKnowledge;
   /** Explicit "the ban phase is over" (manual fallback). A first pick closes it implicitly. */
   bansClosed: boolean;
   /** In observed order. A hero appears at most once across both sides. */
   picks: LivePickFact[];
+  /**
+   * The hero the game says is the LOCAL PLAYER's right now (GSI `hero.id`), or null while it says none. Current state,
+   * not history: a new value REPLACES the old one, so a binding is never left on two heroes. It is evidence of
+   * identity -- it never adds a pick by itself (the pick fact does that).
+   */
+  localHeroId: HeroId | null;
+  /**
+   * The hero whose pick fact exists ONLY because GSI named it as the local Player's hero -- no draft block, visual
+   * capture or manual report ever stated it. A different local hero replaces it (X -> Y never leaves both as own picks
+   * from that one source); any other source stating the same pick corroborates it and clears this.
+   */
+  localOnlyPick: HeroId | null;
 }
 
 export type LiveObservation =
@@ -44,8 +61,10 @@ export type LiveObservation =
   /** Correction: the Player reported a ban by mistake. */
   | { type: "unban"; heroId: HeroId }
   | { type: "bans_closed" }
-  | { type: "pick"; side: TeamSide; heroId: HeroId; position: Position | null }
-  | { type: "revert"; side: TeamSide; heroId: HeroId };
+  | { type: "pick"; side: TeamSide; heroId: HeroId; position: Position | null; /** The pick is GSI's local-hero report (`hero.id`), not a draft-block or visual fact. */ viaLocalHero?: true }
+  | { type: "revert"; side: TeamSide; heroId: HeroId }
+  /** GSI's word on which hero is the local Player's (null: it names none). Only GSI states it; never a client body. */
+  | { type: "local_hero"; heroId: HeroId | null };
 
 export type LiveIgnoredReason = "invalid_hero" | "already_banned" | "already_picked" | "picked_by_other_side" | "banned_hero" | "unknown_pick" | "unknown_ban" | "no_change" | "draft_full";
 
@@ -67,7 +86,7 @@ export interface LiveFactOutcome {
 }
 
 export function emptyLiveFacts(patch: string): LiveFacts {
-  return { started: false, patch, localSide: null, bans: [], bansClosed: false, picks: [] };
+  return { started: false, patch, localSide: null, bans: [], banKnowledge: "UNKNOWN", bansClosed: false, picks: [], localHeroId: null, localOnlyPick: null };
 }
 
 function isHeroId(value: number): boolean {
@@ -76,6 +95,35 @@ function isHeroId(value: number): boolean {
 
 function unchanged(facts: LiveFacts, ignored: LiveIgnoredReason): LiveFactOutcome {
   return { facts, changed: false, ignored };
+}
+
+/** The earlier local-only pick, removed when a local-hero report names a different hero (same facts object when there is none). */
+function withoutStaleLocalPick(facts: LiveFacts, observation: Extract<LiveObservation, { type: "pick" }>): LiveFacts {
+  const stale = facts.localOnlyPick;
+  if (stale === null || stale === observation.heroId) return facts;
+  return { ...facts, picks: facts.picks.filter((pick) => pick.heroId !== stale), localOnlyPick: null };
+}
+
+function applyPick(facts: LiveFacts, observation: Extract<LiveObservation, { type: "pick" }>): LiveFactOutcome {
+  if (!isHeroId(observation.heroId)) return unchanged(facts, "invalid_hero");
+  if (facts.bans.includes(observation.heroId)) return unchanged(facts, "banned_hero");
+  const existing = facts.picks.find((pick) => pick.heroId === observation.heroId);
+  if (existing && existing.side !== observation.side) return unchanged(facts, "picked_by_other_side");
+  if (existing) {
+    // Another source stating a pick that only the local-hero report had named corroborates it: it is a real pick now.
+    const corroborated = observation.viaLocalHero !== true && facts.localOnlyPick === observation.heroId;
+    const base = corroborated ? { ...facts, localOnlyPick: null } : facts;
+    // Same hero, same side: only a newly known position completes the fact; anything else is a repeat.
+    if (existing.position !== null || observation.position === null) return corroborated ? { facts: base, changed: true } : unchanged(facts, "already_picked");
+    const completed = { ...existing, position: observation.position };
+    return { facts: { ...base, picks: base.picks.map((pick) => (pick === existing ? completed : pick)) }, changed: true, detectedPick: completed };
+  }
+  if (facts.picks.filter((pick) => pick.side === observation.side).length >= MAX_LIVE_PICKS_PER_SIDE) return unchanged(facts, "draft_full");
+  // The position is kept as observed; only own-side picks ever turn it into a binding (replayLiveFacts),
+  // so a pick that arrives before the game reports our side does not lose it.
+  const pick: LivePickFact = { side: observation.side, heroId: observation.heroId, position: observation.position };
+  const localOnlyPick = observation.viaLocalHero === true ? observation.heroId : facts.localOnlyPick;
+  return { facts: { ...facts, picks: [...facts.picks, pick], localOnlyPick }, changed: true, detectedPick: pick };
 }
 
 /** Pure. Duplicate observations are no-ops (`changed: false`), so a repeated capture update never doubles a pick. */
@@ -90,38 +138,34 @@ export function applyLiveObservation(facts: LiveFacts, observation: LiveObservat
     case "bans_closed":
       if (facts.bansClosed) return unchanged(facts, "no_change");
       return { facts: { ...facts, bansClosed: true }, changed: true };
+    case "local_hero":
+      if (observation.heroId !== null && !isHeroId(observation.heroId)) return unchanged(facts, "invalid_hero");
+      if (facts.localHeroId === observation.heroId) return unchanged(facts, "no_change");
+      return { facts: { ...facts, localHeroId: observation.heroId }, changed: true };
     case "ban": {
       if (!isHeroId(observation.heroId)) return unchanged(facts, "invalid_hero");
       if (facts.bans.includes(observation.heroId)) return unchanged(facts, "already_banned");
       if (facts.picks.some((pick) => pick.heroId === observation.heroId)) return unchanged(facts, "already_picked");
       if (facts.bans.length >= MAX_LIVE_BANS) return unchanged(facts, "draft_full");
-      return { facts: { ...facts, bans: [...facts.bans, observation.heroId] }, changed: true };
+      return { facts: { ...facts, bans: [...facts.bans, observation.heroId], banKnowledge: "PARTIAL" }, changed: true };
     }
     case "pick": {
-      if (!isHeroId(observation.heroId)) return unchanged(facts, "invalid_hero");
-      if (facts.bans.includes(observation.heroId)) return unchanged(facts, "banned_hero");
-      const existing = facts.picks.find((pick) => pick.heroId === observation.heroId);
-      if (existing && existing.side !== observation.side) return unchanged(facts, "picked_by_other_side");
-      if (existing) {
-        // Same hero, same side: only a newly known position completes the fact; anything else is a repeat.
-        if (existing.position !== null || observation.position === null) return unchanged(facts, "already_picked");
-        const completed = { ...existing, position: observation.position };
-        return { facts: { ...facts, picks: facts.picks.map((pick) => (pick === existing ? completed : pick)) }, changed: true, detectedPick: completed };
-      }
-      if (facts.picks.filter((pick) => pick.side === observation.side).length >= MAX_LIVE_PICKS_PER_SIDE) return unchanged(facts, "draft_full");
-      // The position is kept as observed; only own-side picks ever turn it into a binding (replayLiveFacts),
-      // so a pick that arrives before the game reports our side does not lose it.
-      const pick: LivePickFact = { side: observation.side, heroId: observation.heroId, position: observation.position };
-      return { facts: { ...facts, picks: [...facts.picks, pick] }, changed: true, detectedPick: pick };
+      // A local-hero report that names a DIFFERENT hero than the one it named before replaces that earlier local-only pick.
+      const current = observation.viaLocalHero === true ? withoutStaleLocalPick(facts, observation) : facts;
+      const outcome = applyPick(current, observation);
+      if (current !== facts && !outcome.changed) return { facts: current, changed: true };
+      return outcome;
     }
     case "unban": {
       if (!facts.bans.includes(observation.heroId)) return unchanged(facts, "unknown_ban");
-      return { facts: { ...facts, bans: facts.bans.filter((heroId) => heroId !== observation.heroId) }, changed: true };
+      const remaining = facts.bans.filter((heroId) => heroId !== observation.heroId);
+      return { facts: { ...facts, bans: remaining, banKnowledge: remaining.length > 0 ? "PARTIAL" : "UNKNOWN" }, changed: true };
     }
     case "revert": {
       const existing = facts.picks.find((pick) => pick.heroId === observation.heroId && pick.side === observation.side);
       if (!existing) return unchanged(facts, "unknown_pick");
-      return { facts: { ...facts, picks: facts.picks.filter((pick) => pick !== existing) }, changed: true };
+      const localOnlyPick = facts.localOnlyPick === observation.heroId ? null : facts.localOnlyPick;
+      return { facts: { ...facts, picks: facts.picks.filter((pick) => pick !== existing), localOnlyPick }, changed: true };
     }
   }
 }
@@ -159,12 +203,19 @@ export interface LiveReplayBase {
   partyContext: PartyContextInput | null;
   /** Side used until the game reports one. */
   defaultSide: TeamSide;
+  /**
+   * The position the Player declared for themselves ("I am Pos N"), or null. With GSI's local hero
+   * (`facts.localHeroId`) it is the only thing, besides a stated position, that binds a hero to a position.
+   */
+  humanPosition?: Position | null;
 }
 
 export interface LiveReplay {
   state: DraftProtocolState;
   localSide: TeamSide;
   ownBindings: OwnPickPositionBinding[];
+  /** How every own SEALED pick resolved to a position (provenance included); see live-position-resolver.ts. */
+  ownPositions: LiveOwnPositionResolution;
   /** Picks the kernel had no open slot for yet (e.g. the other side's round picks are not revealed). Kept as facts, replayed next time. */
   deferred: LivePickFact[];
   /** Facts the kernel refused; never forced. */
@@ -194,11 +245,10 @@ export function replayLiveFacts(facts: LiveFacts, base: LiveReplayBase): LiveRep
     else state = result.state;
   }
   const picking = facts.started && (facts.bansClosed || facts.bans.length > 0 || facts.picks.length > 0);
-  if (!picking) return { state, localSide, ownBindings: [], deferred: [...facts.picks], rejected };
+  if (!picking) return { state, localSide, ownBindings: [], ownPositions: EMPTY_LIVE_POSITION_RESOLUTION, deferred: [...facts.picks], rejected };
   state = applyProtocolCommand(state, { type: "BAN_RESOLUTION_COMPLETE" }).state;
 
-  const ownBindings: OwnPickPositionBinding[] = [];
-  const boundPositions = new Set<Position>();
+  const ownSeals: { heroId: HeroId; round: 1 | 2 | 3; slotIndex: number; position: Position | null }[] = [];
   let pending = [...facts.picks];
   let progressed = true;
   while (progressed && pending.length > 0) {
@@ -217,12 +267,20 @@ export function replayLiveFacts(facts: LiveFacts, base: LiveReplayBase): LiveRep
         break;
       }
       state = result.state;
-      if (pick.side === localSide && pick.position !== null && round !== undefined && !boundPositions.has(pick.position)) {
-        boundPositions.add(pick.position);
-        ownBindings.push({ round, slotIndex: slot, assignedPosition: pick.position });
-      }
+      if (pick.side === localSide && round !== undefined) ownSeals.push({ heroId: pick.heroId, round, slotIndex: slot, position: pick.position });
       break;
     }
   }
-  return { state, localSide, ownBindings, deferred: pending, rejected };
+  // POSITION != SLOT: the (round, slotIndex) only says WHERE the kernel sealed the hero; the position comes from the
+  // fact itself (EXPLICIT) or from the Player's own seat (LOCAL_PLAYER), never from the slot.
+  const ownPositions = resolveLiveOwnPositions({
+    ownPicks: ownSeals.map((seal) => ({ heroId: seal.heroId, explicitPosition: seal.position })),
+    localPlayer: { position: base.humanPosition ?? null, heroId: facts.localHeroId },
+  });
+  const ownBindings: OwnPickPositionBinding[] = ownSeals.flatMap((seal, index) => {
+    const resolved = ownPositions.heroes[index];
+    if (!resolved || resolved.position === null) return [];
+    return [{ round: seal.round, slotIndex: seal.slotIndex, assignedPosition: resolved.position, provenance: resolved.provenance }];
+  });
+  return { state, localSide, ownBindings, ownPositions, deferred: pending, rejected };
 }

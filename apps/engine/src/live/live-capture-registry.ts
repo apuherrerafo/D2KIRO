@@ -2,9 +2,11 @@ import type { HeroId, TeamSide } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import type { ProtocolSessionStore } from "../server/protocol-session";
+import type { HeroPositions } from "../signals/hero-positions";
 import { draftFactCount, observationsFromGsi, type GsiDraftCapabilities, type GsiPhase, type GsiUpdate } from "./gsi-normalize";
 import { draftObservationFromEvent, liveObservationFromDraft } from "./draft-observation";
-import { applyLiveObservation, emptyLiveFacts, MAX_LIVE_PICKS_PER_SIDE, observationFromDraftEvent, replayLiveFacts, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
+import { applyLiveObservation, emptyLiveFacts, MAX_LIVE_PICKS_PER_SIDE, observationFromDraftEvent, replayLiveFacts, type LiveBanKnowledge, type LiveFacts, type LiveIgnoredReason, type LiveObservation } from "./live-capture";
+export type { LiveBanKnowledge } from "./live-capture";
 
 // Live Dota capture sessions: the bridge between observed facts (Dota GSI through the link-authenticated
 // `/api/live/gsi/<liveId>` (TSK-219), the local Overwolf capturer through the token-authenticated
@@ -28,6 +30,8 @@ export type LiveCaptureHealth = "unknown" | "ok" | "degraded" | "lost";
 export type LiveObservationSource = "gsi" | "overwolf" | "manual" | "ocr";
 /** Partial GSI draft capture: the client sends no draft block (only our side / our hero). */
 export const GSI_DRAFT_PARTIAL = "GSI_DRAFT_PARTIAL";
+/** The visual capturer's word for "the screen shows locked heroes I could not read". */
+export const VISUAL_SLOTS_UNREAD = "VISUAL_SLOTS_UNREAD";
 
 export interface LiveDetectedPick {
   side: TeamSide;
@@ -125,8 +129,9 @@ export type LiveDraftCompleteness = "NONE" | "PARTIAL" | "PICKS_COMPLETE";
 /**
  * Why the draft cannot be recommended on right now. CAPTURE_PARTIAL: the game reports only part of the draft and
  * nothing else fills the gap. SLOTS_UNREAD: the screen shows heroes the capturer could not read. FACTS_UNRESOLVED:
- * observed picks do not add up (a rival pick is on screen but a pick of its round is unknown, or the kernel
- * refused a fact). Unknown beats wrong.
+ * observed picks do not add up -- a pick lies beyond the round structure (so a pick of an earlier round was never
+ * read) or the kernel refused a fact. A KNOWN rival lock inside the open round is never one of them: in Ranked All
+ * Pick a visible enemy may lock before our side finishes the round. Unknown beats wrong.
  */
 export type LiveRecommendationBlock = "CAPTURE_PARTIAL" | "SLOTS_UNREAD" | "FACTS_UNRESOLVED";
 
@@ -150,6 +155,11 @@ export interface LiveCaptureStatus {
   /** Last OWN-team pick (captured or manual) -- the "TEAM PICK DETECTED" notice. */
   lastDetectedPick: LiveDetectedPick | null;
   bans: number;
+  /**
+   * Positive ban evidence known: UNKNOWN when no ban event was observed this draft (even if picks are underway);
+   * PARTIAL when one or more heroes are proven banned. Step 2B never certifies completeness.
+   */
+  banKnowledge: LiveBanKnowledge;
   /** Picks observed -- exactly the heroes the draft board renders for both teams. */
   picks: number;
   /** Moves on every change to the observed facts (a swap at equal counts included): the cue to re-read the board. */
@@ -169,6 +179,8 @@ export interface LiveCaptureStatus {
   companion: LiveCompanionStatus | null;
   /** The Party 5 team preset applied to this live session (which positions have a pool). Never hero ids or names. */
   teamContext: LiveTeamContextStatus;
+  /** The Player's own seat: what they declared and whether GSI's local hero is bound to it. */
+  localPlayer: LiveLocalPlayerStatus;
 }
 
 /**
@@ -183,11 +195,35 @@ export interface LiveVisualAck {
   draftEpoch: number;
 }
 
+/**
+ * The Player's own seat in this draft. `bound` is true only when the declared position AND the hero GSI says is the
+ * Player's are both known and that hero is one of our sealed picks -- the one case of an exact LOCAL_PLAYER binding.
+ * `heroId` is a public draft fact (the Player's own pick), never an account identifier.
+ */
+export interface LiveLocalPlayerStatus {
+  /** What the Player declared, or null. */
+  position: Position | null;
+  /** GSI's local hero right now, or null. */
+  heroId: HeroId | null;
+  bound: boolean;
+}
+
 export interface LiveTeamContextStatus {
   /** The account's own preset applied to this session, or null (no preset / missing / not applied). */
   teamGroupId: number | null;
   /** Which of the five positions carry a configured player pool. */
   positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
+}
+
+/** The part of a live session's capture record the recommendation gate reads (pure input of liveRecommendationReadiness). */
+export interface LiveReadinessFacts {
+  captureHealth: LiveCaptureHealth;
+  captureDetail: string | null;
+  visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
+  /** Picks the kernel has no slot for (a side is past the round boundary). */
+  deferredPicks: number;
+  /** Facts the kernel refused. */
+  rejectedFacts: number;
 }
 
 interface LiveEntry {
@@ -202,8 +238,6 @@ interface LiveEntry {
   deferredPicks: number;
   /** Bumped whenever the observed facts change. */
   factsRevision: number;
-  /** Rival picks the kernel still holds sealed: the screen shows them, so a pick of their round is unknown. */
-  sealedRivalPicks: number;
   rejectedFacts: number;
   gsi: LiveGsiObserved | null;
   visual: { health: "ok" | "degraded" | "lost"; detail: string | null; lastAt: number } | null;
@@ -244,6 +278,11 @@ export interface LiveCaptureRegistryDeps {
   store: ProtocolSessionStore;
   defaultPatch: string;
   now?: () => number;
+  /**
+   * Curated role data. It no longer feeds identity: the resolver binds a hero to a position only from a stated
+   * position or the Player's own seat (live-position-resolver.ts). Kept so existing wiring keeps compiling.
+   */
+  heroPositions?: HeroPositions;
 }
 
 export type LiveIngestResult =
@@ -300,7 +339,25 @@ export class LiveCaptureRegistry {
    */
   setTeamContext(sessionId: string, accountId: number, team: { teamGroupId: number; playerPoolsByPosition: Partial<Record<Position, readonly HeroId[]>> } | null): boolean {
     if (!this.isLive(sessionId)) return false;
-    return this.deps.store.setLiveTeamContext(sessionId, accountId, { teamGroupId: team?.teamGroupId ?? null, playerPoolsByPosition: team?.playerPoolsByPosition ?? null });
+    const applied = this.deps.store.setLiveTeamContext(sessionId, accountId, { teamGroupId: team?.teamGroupId ?? null, playerPoolsByPosition: team?.playerPoolsByPosition ?? null });
+    // The pools are position evidence for our own picks: a new preset re-resolves who plays what.
+    const entry = this.entries.get(sessionId);
+    if (applied && entry) this.rebuild(sessionId, entry);
+    return applied;
+  }
+
+  /**
+   * The Player's declared seat ("I am Pos N"; null clears it) for their live session. Paired with GSI's local hero it
+   * is the only non-stated source of an exact hero -> position binding, so it re-resolves who plays what at once:
+   * changing or clearing it invalidates the binding it made. false when the session is not a live session owned by
+   * `accountId`.
+   */
+  setHumanPosition(sessionId: string, accountId: number, position: Position | null): boolean {
+    if (!this.isLive(sessionId)) return false;
+    const applied = this.deps.store.setLiveHumanPosition(sessionId, accountId, position);
+    const entry = this.entries.get(sessionId);
+    if (applied && entry) this.rebuild(sessionId, entry);
+    return applied;
   }
 
   /** A rotated or revoked Dota link: its capture history is dropped at once (the session itself ages out). */
@@ -433,7 +490,7 @@ export class LiveCaptureRegistry {
   }
 
   /**
-   * The recommendation gate of a live session (see readinessOf); null for a session that is not a live capture.
+   * The recommendation gate of a live session (see liveRecommendationReadiness); null for a session that is not a live capture.
    * A live session whose capture history was forgotten (link rotated or revoked) still holds its old kernel state:
    * it is NOT recommendable until a fresh capture starts rebuilding it.
    */
@@ -441,7 +498,7 @@ export class LiveCaptureRegistry {
     if (!this.isLive(sessionId)) return null;
     const entry = this.entries.get(sessionId);
     if (!entry) return { available: false, reason: "FACTS_UNRESOLVED", completeness: "NONE" };
-    return { ...readinessOf(entry, this.now()), completeness: completenessOf(entry.facts) };
+    return { ...liveRecommendationReadiness(entry, this.now()), completeness: completenessOf(entry.facts) };
   }
 
   /** The visual capturer's view of the draft lifecycle (see LiveVisualAck); null when not a live session. */
@@ -478,17 +535,26 @@ export class LiveCaptureRegistry {
       localSide: entry.facts.localSide,
       lastDetectedPick: entry.lastDetectedPick,
       bans: entry.facts.bans.length,
+      banKnowledge: entry.facts.banKnowledge,
       picks: entry.facts.picks.length,
       factsRevision: entry.factsRevision,
       completeness: completenessOf(entry.facts),
-      recommendation: readinessOf(entry, now),
+      recommendation: liveRecommendationReadiness(entry, now),
       deferredPicks: entry.deferredPicks,
       rejectedFacts: entry.rejectedFacts,
       gsi: gsiStatusOf(entry, now),
       visual: visualStatusOf(entry, now),
       companion: companionStatusOf(entry, now),
       teamContext: this.teamContextOf(sessionId),
+      localPlayer: this.localPlayerOf(sessionId, entry),
     };
+  }
+
+  private localPlayerOf(sessionId: string, entry: LiveEntry): LiveLocalPlayerStatus {
+    const position = this.deps.store.metadata(sessionId)?.humanPosition ?? null;
+    const heroId = entry.facts.localHeroId;
+    const bound = this.deps.store.liveLocalPlayerBound(sessionId);
+    return { position, heroId, bound };
   }
 
   private teamContextOf(sessionId: string): LiveTeamContextStatus {
@@ -543,6 +609,9 @@ export class LiveCaptureRegistry {
     restarted.draftEpoch = entry.draftEpoch;
     // A new match's first inventory is never compared with the previous match's (that is not an item change).
     restarted.gsiItemsKey = null;
+    // The Player's declared seat belonged to the previous match: the new one starts undeclared (no LOCAL_PLAYER binding
+    // until they say again). The rebuild that follows the new draft's first fact re-resolves with no seat.
+    this.deps.store.resetLiveHumanPosition(sessionId);
     this.entries.set(sessionId, restarted);
     return restarted;
   }
@@ -557,6 +626,7 @@ export class LiveCaptureRegistry {
       rulesetId: state.ruleset.id,
       partyContext: party ? { partySize: party.partySize, side: party.side, controlledSlots: party.controlledSlots } : null,
       defaultSide: metadata.localSide,
+      humanPosition: metadata.humanPosition,
     });
     if (!replay) return;
     this.deps.store.installLiveState(sessionId, {
@@ -564,10 +634,10 @@ export class LiveCaptureRegistry {
       localSide: replay.localSide,
       patch: entry.facts.patch,
       ownBindings: replay.ownBindings,
+      ownPositions: replay.ownPositions,
       visiblePicks: entry.facts.picks.map((pick) => ({ side: pick.side, heroId: pick.heroId })),
     }, this.now());
     entry.deferredPicks = replay.deferred.length;
-    entry.sealedRivalPicks = replay.state.rankedAp?.round?.sealed.filter((sealed) => sealed.side !== replay.localSide).length ?? 0;
     entry.rejectedFacts = replay.rejected.length;
   }
 
@@ -589,7 +659,6 @@ export class LiveCaptureRegistry {
       lastDetectedPick: null,
       deferredPicks: 0,
       factsRevision: 0,
-      sealedRivalPicks: 0,
       rejectedFacts: 0,
       gsi: null,
       visual: null,
@@ -614,7 +683,7 @@ function noDraftCapabilities(): GsiDraftCapabilities {
  * alive and healthy it supplies exactly those, so the capture is no longer partial; the moment it stops,
  * the honest GSI state comes back.
  */
-function captureOf(entry: LiveEntry, now: number): { captureHealth: LiveCaptureHealth; captureDetail: string | null } {
+function captureOf(entry: LiveReadinessFacts, now: number): { captureHealth: LiveCaptureHealth; captureDetail: string | null } {
   const visualOk = entry.visual !== null && entry.visual.health === "ok" && now - entry.visual.lastAt <= LIVE_STALE_AFTER_MS;
   if (visualOk && (entry.captureDetail === GSI_DRAFT_PARTIAL || entry.captureHealth === "unknown")) return { captureHealth: "ok", captureDetail: null };
   return { captureHealth: entry.captureHealth, captureDetail: entry.captureDetail };
@@ -629,17 +698,21 @@ function completenessOf(facts: LiveFacts): LiveDraftCompleteness {
 /**
  * Is the draft known well enough to recommend on? The ONE rule behind the status line, the Team Coach panel and
  * the engine's recommendation routes. It says nothing about how many picks exist (an early draft is fine): only
- * that what the game shows is what we know. A rival pick the screen displays means its round closed in the game,
- * so a rival pick still sealed in the kernel -- or a pick the kernel could not place or refused -- proves an
- * observation is missing.
+ * that what the game shows is what we know.
+ *
+ * KNOWN facts are draft information, whatever order they arrived in: an enemy that locks before our side completes
+ * the round is ordinary Ranked All Pick, so a rival pick the kernel still holds sealed proves NOTHING is missing.
+ * What does prove it: the screen holding heroes the capturer could not read (VISUAL_SLOTS_UNREAD), a pick the
+ * kernel has no slot for (`deferredPicks`: one side is past the round boundary, so a lock of the round it closed was
+ * never read -- the rounds are 2/2/1 a side and neither side can enter the next one early), and a fact the kernel
+ * refused (`rejectedFacts`).
  */
-function readinessOf(entry: LiveEntry, now: number): LiveRecommendationReadiness {
+export function liveRecommendationReadiness(entry: LiveReadinessFacts, now: number): LiveRecommendationReadiness {
+  // A visible lock the capturer could not read is a capture failure on its own, whatever else reports the draft.
+  if (entry.visual?.health === "degraded" && entry.visual.detail === VISUAL_SLOTS_UNREAD) return { available: false, reason: "SLOTS_UNREAD" };
   const capture = captureOf(entry, now);
-  if (capture.captureHealth === "degraded" && capture.captureDetail === GSI_DRAFT_PARTIAL) {
-    const unread = entry.visual?.health === "degraded" && entry.visual.detail === "VISUAL_SLOTS_UNREAD";
-    return { available: false, reason: unread ? "SLOTS_UNREAD" : "CAPTURE_PARTIAL" };
-  }
-  if (entry.deferredPicks > 0 || entry.sealedRivalPicks > 0 || entry.rejectedFacts > 0) return { available: false, reason: "FACTS_UNRESOLVED" };
+  if (capture.captureHealth === "degraded" && capture.captureDetail === GSI_DRAFT_PARTIAL) return { available: false, reason: "CAPTURE_PARTIAL" };
+  if (entry.deferredPicks > 0 || entry.rejectedFacts > 0) return { available: false, reason: "FACTS_UNRESOLVED" };
   return { available: true, reason: null };
 }
 

@@ -17,7 +17,9 @@ import { VISUAL_SUPERVISOR_PS } from "./companion-visual";
 //   * Dota's cfg points at THIS PC with a LOCAL token (never the link token): the link token stays with the
 //     Companion, encrypted at rest with DPAPI (CurrentUser).
 //   * Only the sections D2KIRO's own cfg always sent are forwarded (FORWARD_SECTIONS): the extra research
-//     sections Dota now reports stay on this PC, in diagnostics\.
+//     sections Dota now reports stay on this PC, in diagnostics\. The one derived exception is `events`: Dota
+//     is asked for it (COMPANION_LOCAL_SECTIONS) and ONLY the hero id of each CHAT_MESSAGE_HERO_BANNED event
+//     is forwarded, rebuilt as a minimal event (see Update-BanIds). Every other event stays local.
 //   * The server side is unchanged: the same link-authenticated ingest the downloaded cfg used.
 //
 // Local surface (127.0.0.1 only, Host header checked against DNS rebinding):
@@ -35,7 +37,7 @@ import { VISUAL_SUPERVISOR_PS } from "./companion-visual";
 //   D2KIRO_TEST_NO_START      the installer does not launch the runtime
 //   D2KIRO_TEST_CFG_SYNC_SECONDS  Dota cfg check period instead of 30 s
 
-export const COMPANION_VERSION = "0.1.0";
+export const COMPANION_VERSION = "0.1.1";
 export const COMPANION_DEFAULT_PORT = 53120;
 /** What leaves the PC: exactly the sections of the cfg D2KIRO already handed out (lib/gsi-config). */
 export const COMPANION_FORWARD_SECTIONS = ["provider", "map", "player", "hero", "draft", "abilities", "items"] as const;
@@ -309,7 +311,8 @@ export const COMPANION_RUNTIME_PS = String.raw`# D2KIRO Companion ${COMPANION_VE
 # Que hace:
 #   - mantiene ${GSI_CFG_FILENAME} en Dota 2 apuntando a ESTA PC (127.0.0.1);
 #   - recibe lo que Dota informa (Game State Integration) y lo reenvia a tu sesion en vivo de D2KIRO,
-#     solo las secciones que D2KIRO ya usaba (${COMPANION_FORWARD_SECTIONS.join(", ")});
+#     solo las secciones que D2KIRO ya usaba (${COMPANION_FORWARD_SECTIONS.join(", ")}) y, de los eventos,
+#     unicamente el numero de cada heroe baneado (nada mas de ningun evento);
 #   - guarda diagnosticos SOLO en esta PC (diagnostics\), acotados y rotados, sin el token de conexion.
 # Que NO hace: no pide tu cuenta de Steam, no lee la memoria de Dota, no sube los diagnosticos a ningun lado.
 $ErrorActionPreference = 'Stop'
@@ -339,6 +342,9 @@ $DraftRawStates = @{}
 foreach ($draftState in @('DOTA_GAMERULES_STATE_WAIT_FOR_PLAYERS_TO_LOAD', 'DOTA_GAMERULES_STATE_HERO_SELECTION', 'DOTA_GAMERULES_STATE_PLAYER_DRAFT', 'DOTA_GAMERULES_STATE_STRATEGY_TIME', 'DOTA_GAMERULES_STATE_TEAM_SHOWCASE', 'DOTA_GAMERULES_STATE_WAIT_FOR_MAP_TO_LOAD', 'DOTA_GAMERULES_STATE_PRE_GAME')) { $DraftRawStates[$draftState] = $true }
 $DraftRawMaxFileBytes = 67108864
 $DraftRawKeep = 8
+$BanEventsMaxScanned = 256
+$BanEventDataMaxChars = 512
+$BanIdsMax = 40
 $MatchSampleMs = 2000
 $InventoryKeep = 30
 $CfgSyncSeconds = 30
@@ -420,6 +426,7 @@ $S = @{
   dotaRunning = $false; dotaStart = $null; restartNeeded = $false; cfgWrittenAt = $null; cfgInstalled = $false
   cfgDirs = @(); lastDiscovery = [DateTime]::MinValue; lastCfgSync = [DateTime]::MinValue; lastProcCheck = [DateTime]::MinValue
   lastDota = ''; lastPhase = ''; lastVisual = ''
+  banIds = (New-Object 'System.Collections.Generic.List[int]')
 }
 $D = @{
   writer = $null; part = 0; runId = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'); seq = 0
@@ -873,6 +880,50 @@ function Get-AuthToken($Payload) {
   return $null
 }
 
+# ---------------------------------------------------------------- Ban events -----------------------------------
+# Ranked clients with an empty draft block still report every ban as a chat event inside "events":
+#   { "event_type": "generic_event", "data": "{\"type\":\"CHAT_MESSAGE_HERO_BANNED\",\"value\":<hero id>, ...}" }
+# All of them arrive ONCE, in a single payload at the start of hero selection, and the upstream worker only ever
+# sends the latest state -- so the ids are kept here for the rest of the draft and re-sent with every update (the
+# server dedupes by hero). ONLY the hero id of a ban event leaves this PC: not the other fields of the event, not any
+# other event (purchases, kills, player ids, times). No event received = nothing is sent = bans stay UNKNOWN.
+function Update-BanIds($Payload, [string]$Phase) {
+  if ($Phase -ne 'HERO_SELECTION' -and $Phase -ne 'STRATEGY_TIME') { $S.banIds.Clear(); return }
+  try {
+    $events = $Payload['events']
+    if ($events -is [string] -or $events -is [Collections.IDictionary] -or $events -isnot [Collections.IEnumerable]) { return }
+    $scanned = 0
+    foreach ($event in $events) {
+      $scanned++
+      if ($scanned -gt $BanEventsMaxScanned) { break }
+      if ($event -isnot [Collections.IDictionary]) { continue }
+      $data = $event['data']
+      if ($data -isnot [string] -or $data.Length -gt $BanEventDataMaxChars) { continue }
+      $parsed = $null
+      try { $parsed = $Json.DeserializeObject($data) } catch { continue }
+      if ($parsed -isnot [Collections.IDictionary]) { continue }
+      if ($parsed['type'] -cne 'CHAT_MESSAGE_HERO_BANNED') { continue }
+      $value = $parsed['value']
+      if ($value -isnot [int] -and $value -isnot [long]) { continue }
+      if ($value -lt 1 -or $value -gt 999) { continue }
+      $heroId = [int]$value
+      if (-not $S.banIds.Contains($heroId) -and $S.banIds.Count -lt $BanIdsMax) { $S.banIds.Add($heroId) }
+    }
+  } catch { }
+}
+
+# The known bans as minimal events in Dota's own shape, so the server has ONE parser for both doors.
+function Get-BanEventsForward {
+  $list = New-Object 'System.Collections.Generic.List[object]'
+  foreach ($heroId in $S.banIds) {
+    $entry = New-Doc
+    Set-Field $entry 'event_type' 'generic_event'
+    Set-Field $entry 'data' ('{"type":"CHAT_MESSAGE_HERO_BANNED","value":' + [int]$heroId + '}')
+    $list.Add($entry)
+  }
+  return ,$list
+}
+
 function Invoke-Gsi($Client, $Request) {
   $payload = Read-JsonBody $Request
   if ($null -eq $payload) { Send-Response $Client 400 $null '' $null; return }
@@ -892,6 +943,8 @@ function Invoke-Gsi($Client, $Request) {
   $S.restartNeeded = $false
   $forward = New-Doc
   foreach ($section in $ForwardSections) { if ($payload.ContainsKey($section)) { Set-Field $forward $section ($payload[$section]) } }
+  Update-BanIds $payload $phase
+  if ($S.banIds.Count -gt 0) { Set-Field $forward 'events' (Get-BanEventsForward) }
   $Shared.Payload = $Json.Serialize($forward)
   $Shared.Seq = $Shared.Seq + 1
   Add-Diagnostics $payload $gameState $phase $now $phaseChanged

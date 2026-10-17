@@ -156,3 +156,30 @@ describe("19. un único TeamCoachBoard para /simulator y /live-draft", () => {
     expect(definitions.map((file) => file.replaceAll("\\", "/"))).toEqual(["features/team-coach/components/TeamCoachBoard.tsx"]);
   });
 });
+
+describe("TeamCoachBoard -- live Party5 P0 (engine mirror)", () => {
+  test("the validator accepts the engine's PHASE_FALLBACK basis and still refuses an unknown one", () => {
+    const phase = board();
+    phase.currentDecision.targetBasis = "PHASE_FALLBACK";
+    expect(parseTeamCoachBoard(JSON.parse(JSON.stringify(phase)))).not.toBeNull();
+    const unknown = JSON.parse(JSON.stringify(phase));
+    unknown.currentDecision.targetBasis = "MADE_UP";
+    expect(parseTeamCoachBoard(unknown)).toBeNull();
+  });
+
+  test("PHASE_FALLBACK says it is a phase order, never a strategic advantage", () => {
+    const data = board();
+    data.currentDecision.targetBasis = "PHASE_FALLBACK";
+    const view = renderBoard(data);
+    expect(view.getByTestId("team-coach-phase-fallback").textContent).toContain("Orden por fase del draft");
+  });
+
+  test("a position our picks fill without a confirmed hero renders as filled, with the engine's note and no candidates", () => {
+    const note = "Ocupada por uno de tus héroes cuyo rol exacto todavía no se confirmó.";
+    const data = board([1, 2, 3, 4, 5], 2, { 3: { state: "FILLED", alreadyFilled: true, filledHeroId: null, eligibleNow: false, primaryHeroId: null, top: [], note } });
+    expect(parseTeamCoachBoard(JSON.parse(JSON.stringify(data)))).not.toBeNull();
+    const view = renderBoard(data);
+    expect(view.getByTestId("team-coach-column-3").textContent).toContain(note);
+    expect(view.getByTestId("team-coach-column-3").querySelectorAll("[data-testid='team-coach-candidate']")).toHaveLength(0);
+  });
+});

@@ -30,7 +30,11 @@ Dota 2 ──GSI──▶ http://127.0.0.1:53120/gsi ──▶ Companion ──H
   pairing. At runtime a freshly downloaded site cfg (`Descargar instalador para Windows`) is adopted within 30 s,
   so re-pairing is just downloading again.
 - **What leaves the PC:** exactly the sections D2KIRO's own cfg always sent (provider, map, player, hero, draft,
-  abilities, items). Every other section Dota now reports (wearables, minimap, events, …) stays local.
+  abilities, items) plus, from `events`, **only the hero id of each `CHAT_MESSAGE_HERO_BANNED` event** (rebuilt as a
+  minimal event; ranked clients report their bans only there, the `draft` block is empty). Every other section
+  (wearables, minimap, …) and every other event stays local. The Companion keeps the ids for the rest of the draft
+  and re-sends them with each update (the server dedupes by hero); no event received means nothing is sent: ban
+  knowledge stays **unknown**, never "no bans" and never "the ban set is complete". Cleared when the draft ends.
 - **Server change:** only the heartbeat (`/api/live/companion/<liveId>`, link-authenticated, 1 KB, closed
   vocabulary), so the page can show "Companion conectado" while Dota is closed. The GSI ingest is unchanged, so the
   generic installer works against the currently deployed staging.

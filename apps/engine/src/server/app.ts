@@ -15,7 +15,7 @@ import type { OpenDotaClient } from "../meta/opendota-client";
 import { getAllHeroMeta, getCachedMetaSnapshot, getMetaFreshness, getMetaReadiness } from "../meta/provider";
 import { requireAccount } from "./require-account";
 import { createAccountRoutes } from "./routes/account";
-import type { HeroPositions } from "../signals/hero-positions";
+import { loadHeroPositions, type HeroPositions } from "../signals/hero-positions";
 import { buildSuggestions, type SuggestionSet } from "../signals/mix";
 import {
   checkCaptureToken,
@@ -167,7 +167,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
   });
   // Live Dota capture: facts from the capturer (/ingest/draft-event, source "overwolf") and the Player's
   // manual fallback rebuild ONE protocol session through the kernel (live/live-capture-registry.ts).
-  const liveCaptureRegistry = new LiveCaptureRegistry({ store: protocolSessionStore, defaultPatch: CURRENT_PATCH });
+  // Role credibility for live own-pick position resolution: the SAME curated data the Coach ranks with.
+  const liveCaptureRegistry = new LiveCaptureRegistry({ store: protocolSessionStore, defaultPatch: CURRENT_PATCH, heroPositions: deps.heroPositions ?? loadHeroPositions() });
   const liveCaptureRoutes = createLiveCaptureRoutes({ registry: liveCaptureRegistry, defaultPatch: CURRENT_PATCH });
   // TSK-219: Dota GSI over the Internet -- the link store (hash-only credentials) and its routes.
   const liveGsiRoutes = createLiveGsiRoutes({
@@ -228,6 +229,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       // R1 S5 (blocker 3): forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
       candidateHeroIds?: readonly number[];
       overrideHeroPool?: readonly number[];
+      // Step 1B-B: forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
+      candidateUniverseIsAdmission?: boolean;
     } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;
@@ -469,6 +472,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     if (request.method === "PUT" && url.pathname === "/api/live/team-group") {
       const auth = requireHttpAccount(request);
       return auth.ok ? liveGsiRoutes.putTeamGroup(request, auth.accountId) : auth.response;
+    }
+    // Live Dota: the Player's own seat ("I am Pos N"). With GSI's local hero it binds the Player's hero to a position.
+    if (request.method === "PUT" && url.pathname === "/api/live/human-position") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? liveGsiRoutes.putHumanPosition(request, auth.accountId) : auth.response;
     }
     if (request.method === "POST" && url.pathname === "/api/telemetry/error") {
       return telemetryRoutes.postError(request);

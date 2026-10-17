@@ -1,7 +1,7 @@
 import { buildTeamCoachBoard, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
-import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
+import { configuredPoolForPosition, poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
 import { loadHeroCounters, type CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
@@ -52,6 +52,13 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   // Assignments are per observer/account. A pool overlay must not accidentally share state with
   // another account that happens to inspect the same simulator session.
   const coaches: { accountId: string; coach: CoachOrchestrator }[] = [];
+  // Step 1B-B: a configured, non-empty Party5 pool for the target position IS the candidate universe (hard admission --
+  // it never provides identity). Unconfigured/empty keeps the credible-universe behaviour.
+  function targetUniverse(context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
+    const pool = configuredPoolForPosition(context.playerPoolsByPosition, targetPosition);
+    if (pool) return { candidateHeroIds: pool, candidateUniverseIsAdmission: true };
+    return { candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions) };
+  }
   function coachFor(accountId: number | null): CoachOrchestrator {
     const key = accountId === null ? "anonymous" : String(accountId);
     let coach = coaches.find((entry) => entry.accountId === key)?.coach;
@@ -106,7 +113,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
             overrideHeroPool: positionPool ?? undefined,
             heroPositions,
             targetPosition,
-            candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),
+            ...targetUniverse(context, targetPosition),
             teamOpening: false,
             singleSlotEvaluation: true,
             outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
@@ -127,7 +134,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       overrideHeroPool: positionPool ?? undefined,
       heroPositions,
       targetPosition,
-      candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions),
+      ...targetUniverse(context, targetPosition),
       teamOpening: false,
       singleSlotEvaluation: true,
       outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,

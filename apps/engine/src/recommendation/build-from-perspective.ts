@@ -44,6 +44,11 @@ export interface BuildRecommendationSetFromPerspectiveInput {
    * one -- a universe derived from the target position alone, never from the team shortlist. Team callers omit it.
    */
   candidateHeroIds?: readonly HeroId[];
+  /**
+   * Step 1B-B: `candidateHeroIds` is a configured Party5 pool, so it is the final admission. V6 then skips its own
+   * positional-credibility filter for `targetPosition` (the pool controls admission; it never provides identity).
+   */
+  candidateUniverseIsAdmission?: boolean;
   overrideHeroPool?: readonly HeroId[];
   outputLimit?: number;
 }
@@ -170,6 +175,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
       usePersonalPool: false,
       diversitySeed: undefined,
       candidateHeroIds: input.candidateHeroIds,
+      ...(input.candidateUniverseIsAdmission ? { candidateUniverseIsAdmission: true } : {}),
       overrideHeroPool: input.overrideHeroPool,
     });
   } catch {

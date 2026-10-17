@@ -43,6 +43,12 @@ export interface DecisionTarget {
 export interface SelectDecisionTargetInput {
   eligiblePositions: readonly Position[];
   playerPersonalPosition: Position | null;
+  /**
+   * Step 1B-B -- the eligible positions whose configured Party5 pool still has an available hero (or have no pool). When
+   * it narrows the field the target is chosen among them only; when it is empty or absent the full eligible set stands
+   * (every position exhausted -> the candidate step reports it truthfully, nothing is invented).
+   */
+  viablePositions?: readonly Position[];
 }
 
 /** The stable default: the Player's own position when it is still eligible, else the lowest eligible one. */
@@ -61,6 +67,16 @@ function defaultTarget(eligible: readonly Position[], personal: Position | null)
 export function selectDecisionTarget(input: SelectDecisionTargetInput): DecisionTarget {
   const eligible = [...input.eligiblePositions].sort((a, b) => a - b);
   if (eligible.length === 0) throw new Error("selectDecisionTarget requires at least one eligible position");
+  const viable = eligible.filter((position) => input.viablePositions?.includes(position));
+  if (viable.length > 0 && viable.length < eligible.length) {
+    const target = defaultTarget(viable, input.playerPersonalPosition);
+    const exhausted = eligible.filter((position) => !viable.includes(position)).map(positionPhrase).join(", ");
+    return {
+      targetPosition: target,
+      targetBasis: "DETERMINISTIC_DEFAULT",
+      targetRationale: `Tu pool de ${exhausted} ya no tiene héroes disponibles: la recomendación pasa a ${positionPhrase(target)}.`,
+    };
+  }
   const fallback = defaultTarget(eligible, input.playerPersonalPosition);
   if (eligible.length === 1) {
     return { targetPosition: fallback, targetBasis: "DETERMINISTIC_DEFAULT", targetRationale: `${positionPhrase(fallback)} es tu única posición humana pendiente: no hay prioridad que elegir.` };
@@ -89,6 +105,12 @@ export interface DeriveCandidateResultInput {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   personalPoolApplied: boolean;
   shortlistSize?: number;
+  /**
+   * Step 1B-B -- the target position's configured, non-empty Party5 pool. When present it is the HARD admission: only
+   * pool heroes can appear, none is expelled by credibility, and no fallback ever reaches outside it. It controls
+   * admission only -- a pool hero's role evidence and `roleStatus` stay exactly what V6 / the curated data say.
+   */
+  admittedPool?: readonly HeroId[];
 }
 
 function isFromPersonalPool(candidate: HeroCandidate): boolean {
@@ -106,9 +128,9 @@ export function rankingAppliedPersonalPool(ranking: RecommendationSetV2): boolea
 }
 
 /** Legal heroes curated as credible for the target, in id order (explicitly NOT a ranking). */
-function positionalAlternatives(target: Position, view: PerspectiveDraftView, heroPositions: HeroPositions, size: number): PositionalAlternative[] {
+function positionalAlternatives(target: Position, view: PerspectiveDraftView, heroPositions: HeroPositions, size: number, admittedPool?: readonly HeroId[]): PositionalAlternative[] {
   const unavailable = unavailableHeroesFrom(view);
-  return credibleHeroesForPosition(target, heroPositions)
+  return (admittedPool ? [...admittedPool].sort((a, b) => a - b) : credibleHeroesForPosition(target, heroPositions))
     .filter((heroId) => !unavailable.has(heroId))
     .slice(0, size)
     .map((heroId) => ({ heroId, position: target }));
@@ -119,12 +141,13 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
   const size = input.shortlistSize ?? CURRENT_DECISION_SHORTLIST_SIZE;
   const degradations = [...targetRanking.degradations];
   const unavailable = unavailableHeroesFrom(view);
+  const admitted = input.admittedPool ? new Set(input.admittedPool) : null;
 
   if (!invalidatesRanking(degradations)) {
     const candidates = demoteRevealedHardCountered(extractHeroCandidates(targetRanking, heroPositions), revealedEnemyHeroes(view), input.heroCounters)
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
-      .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
+      .filter((candidate) => !unavailable.has(candidate.heroId) && (admitted ? admitted.has(candidate.heroId) : candidateServesPosition(candidate, targetPosition, heroPositions)));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
       const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
@@ -146,7 +169,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
     }
   }
 
-  const alternatives = positionalAlternatives(targetPosition, view, heroPositions, size);
+  const alternatives = positionalAlternatives(targetPosition, view, heroPositions, size, input.admittedPool);
   if (alternatives.length > 0) {
     return {
       state: "UNRANKED_POSITIONAL",
@@ -156,7 +179,10 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       degradations,
     };
   }
-  return { state: "UNAVAILABLE", targetPosition, reason: `No hay héroes legales creíbles para ${positionPhrase(targetPosition)} en este momento.`, degradations };
+  const reason = admitted
+    ? `No queda ningún héroe disponible de tu pool para ${positionPhrase(targetPosition)}: ya fueron elegidos o baneados. No se recomienda fuera del pool.`
+    : `No hay héroes legales creíbles para ${positionPhrase(targetPosition)} en este momento.`;
+  return { state: "UNAVAILABLE", targetPosition, reason, degradations };
 }
 
 export interface BuildCurrentHumanDecisionInput {

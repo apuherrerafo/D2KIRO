@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { DraftEventEnvelope } from "../draft/reducer";
 import { ProtocolSessionStore } from "../server/protocol-session";
 import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions";
-import { GSI_DRAFT_PARTIAL, LiveCaptureRegistry } from "./live-capture-registry";
+import { emptyLiveFacts, replayLiveFacts } from "./live-capture";
+import { GSI_DRAFT_PARTIAL, LiveCaptureRegistry, liveRecommendationReadiness } from "./live-capture-registry";
 
 // Live integrity: what the screen shows is what the board shows, and a recommendation is never computed on a
 // draft the system knows it only half-read. Real kernel, real store, real registry; no HTTP.
@@ -35,7 +36,7 @@ function setup() {
 }
 
 /** Routes with the live gate wired exactly like app.ts, and a recommender that counts how often it is reached. */
-function routesOf(t: ReturnType<typeof setup>) {
+function routesOf(t: ReturnType<typeof setup>, gate: (id: string) => ReturnType<LiveCaptureRegistry["recommendationGate"]> = (id) => t.registry.recommendationGate(id)) {
   let evaluated = 0;
   const routes = createProtocolSessionRoutes({
     store: t.store,
@@ -43,7 +44,7 @@ function routesOf(t: ReturnType<typeof setup>) {
       evaluated += 1;
       throw new Error("recommender reached");
     },
-    liveRecommendationGate: (id) => t.registry.recommendationGate(id),
+    liveRecommendationGate: gate,
   });
   const url = (suffix: string) => new URL(`http://127.0.0.1/api/session/protocol/${SESSION}/${suffix}`);
   return {
@@ -144,8 +145,10 @@ describe("COMPLETENESS -- picks known is not capture health", () => {
     t.visualHealth("ok", "VISUAL_OK");
     t.pick("radiant", 11);
     t.pick("dire", 21);
-    t.pick("dire", 22); // the screen shows both rival picks, so an ally pick of that round is unknown
+    t.pick("dire", 22);
+    t.pick("dire", 23); // a THIRD rival lock: round 1 closed in the game, so our second round-1 lock was never read
     expect(t.registry.status(SESSION)!.captureHealth).toBe("ok");
+    expect(t.registry.status(SESSION)!.deferredPicks).toBe(1);
     expect(t.registry.status(SESSION)!.recommendation).toEqual({ available: false, reason: "FACTS_UNRESOLVED" });
     t.pick("radiant", 12);
     expect(t.registry.status(SESSION)!.recommendation).toEqual({ available: true, reason: null });
@@ -162,6 +165,81 @@ describe("COMPLETENESS -- picks known is not capture health", () => {
   });
 });
 
+describe("ASYNC_ROUND -- known locks are draft information, whichever side locked first", () => {
+  async function reachesRecommender(t: ReturnType<typeof setup>): Promise<boolean> {
+    const r = routesOf(t);
+    const response = await r.team().catch(() => null);
+    return response?.status !== 409 && r.evaluations() > 0;
+  }
+  const open = { available: true, reason: null };
+
+  test("enemy locks first -> board available", async () => {
+    const t = setup();
+    t.visualHealth("ok", "VISUAL_OK");
+    t.pick("dire", 21);
+    expect(t.registry.status(SESSION)!.recommendation).toEqual(open);
+    expect(await reachesRecommender(t)).toBe(true);
+  });
+
+  test("enemy locks BOTH round-1 picks before ours -> board available (both are known)", async () => {
+    const t = setup();
+    t.visualHealth("ok", "VISUAL_OK");
+    t.pick("dire", 21);
+    t.pick("dire", 22);
+    expect(t.registry.status(SESSION)!.recommendation).toEqual(open);
+    expect(t.registry.status(SESSION)!.deferredPicks).toBe(0);
+    expect(await reachesRecommender(t)).toBe(true);
+  });
+
+  test("our pick first -> board available", async () => {
+    const t = setup();
+    t.visualHealth("ok", "VISUAL_OK");
+    t.pick("radiant", 11);
+    expect(t.registry.status(SESSION)!.recommendation).toEqual(open);
+    expect(await reachesRecommender(t)).toBe(true);
+  });
+
+  test("a partial real round (one lock each side, then two enemy, ours pending) -> board available at every step", async () => {
+    const t = setup();
+    t.visualHealth("ok", "VISUAL_OK");
+    for (const [side, hero] of [["radiant", 11], ["dire", 21], ["dire", 22], ["radiant", 12], ["radiant", 13], ["dire", 23]] as const) {
+      t.pick(side, hero);
+      expect({ side, hero, recommendation: t.registry.status(SESSION)!.recommendation }).toEqual({ side, hero, recommendation: open });
+    }
+    expect(await reachesRecommender(t)).toBe(true);
+  });
+
+  test("a visible lock the capturer could not read -> 409 SLOTS_UNREAD, whatever else reports the draft", async () => {
+    const t = setup();
+    t.visualHealth("ok", "VISUAL_OK");
+    t.pick("dire", 21);
+    t.visualHealth("degraded", "VISUAL_SLOTS_UNREAD");
+    const r = routesOf(t);
+    const response = await r.team();
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "live_draft_incomplete", reason: "SLOTS_UNREAD", completeness: "PARTIAL" });
+    expect(r.evaluations()).toBe(0);
+  });
+
+  test("a contradiction the kernel refuses -> FACTS_UNRESOLVED -> 409", async () => {
+    // The fact layer already drops a pick of a banned hero, so this can only come from facts that bypassed it:
+    // the kernel itself refuses the selection, and the gate stays closed.
+    const replay = replayLiveFacts({ ...emptyLiveFacts("7.41e"), started: true, localSide: "radiant", bans: [5], picks: [{ side: "dire", heroId: 5, position: null }] }, {
+      sessionId: "contradiction",
+      rulesetId: "dota2/ranked-all-pick",
+      partyContext: null,
+      defaultSide: "radiant",
+    })!;
+    expect(replay.rejected).toHaveLength(1);
+    const readiness = liveRecommendationReadiness({ captureHealth: "ok", captureDetail: null, visual: null, deferredPicks: 0, rejectedFacts: replay.rejected.length }, 0);
+    expect(readiness).toEqual({ available: false, reason: "FACTS_UNRESOLVED" });
+    const t = setup();
+    const r = routesOf(t, () => ({ ...readiness, completeness: "PARTIAL" }));
+    expect((await r.team()).status).toBe(409);
+    expect(r.evaluations()).toBe(0);
+  });
+});
+
 describe("ENGINE_FAIL_CLOSED -- the engine itself refuses to recommend on a half-read draft", () => {
   test("every recommendation route answers 409 live_draft_incomplete and never reaches the recommender", async () => {
     const t = setup();
@@ -169,6 +247,7 @@ describe("ENGINE_FAIL_CLOSED -- the engine itself refuses to recommend on a half
     t.pick("radiant", 11);
     t.pick("dire", 21);
     t.pick("dire", 22);
+    t.pick("dire", 23); // past the round boundary: a lock of the closed round is missing
     const r = routesOf(t);
     for (const call of [r.team, r.v3, r.v4, r.assign]) {
       const response = await call();
@@ -184,6 +263,7 @@ describe("ENGINE_FAIL_CLOSED -- the engine itself refuses to recommend on a half
     t.pick("radiant", 11);
     t.pick("dire", 21);
     t.pick("dire", 22);
+    t.pick("dire", 23);
     t.pick("radiant", 12);
     const r = routesOf(t);
     await r.team().catch(() => undefined);

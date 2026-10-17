@@ -23,6 +23,10 @@ interface GsiFixtureOptions {
   matchId?: string;
   /** Spectator-style draft block: team2 = Radiant, team3 = Dire. */
   draft?: { radiant?: { picks?: number[]; bans?: number[] }; dire?: { picks?: number[]; bans?: number[] } } | "empty";
+  /** Hero ids as Dota reports bans in `events[]` (one `CHAT_MESSAGE_HERO_BANNED` generic event each, with the noise fields real clients add). */
+  banEvents?: number[];
+  /** Raw `events` value, sent as given (after `banEvents`): for malformed / unrelated events. */
+  events?: unknown;
   telemetry?: boolean;
   /** Inventory item names (slot0..) when `telemetry` is on; default tango + blink. */
   items?: string[];
@@ -39,6 +43,11 @@ function draftTeam(team: { picks?: number[]; bans?: number[] } | undefined, home
     block[`ban${index}_class`] = `hero_${heroId}`;
   });
   return block;
+}
+
+/** One `events[]` entry exactly as a real Ranked client sends a ban: the chat event is JSON text inside `data`. */
+export function banEvent(value: unknown, type = "CHAT_MESSAGE_HERO_BANNED"): Record<string, unknown> {
+  return { game_time: 45, event_type: "generic_event", data: JSON.stringify({ type, value, playerid1: -1, playerid2: -1, time: -14.9666672 }) };
 }
 
 export function gsiPayload(options: GsiFixtureOptions = {}): Record<string, unknown> {
@@ -69,6 +78,8 @@ export function gsiPayload(options: GsiFixtureOptions = {}): Record<string, unkn
   else if (options.draft) {
     payload.draft = { activeteam: 2, pick: true, activeteam_time_remaining: 25, team2: draftTeam(options.draft.radiant, true), team3: draftTeam(options.draft.dire, false) };
   }
+  if (options.banEvents !== undefined) payload.events = options.banEvents.map((heroId) => banEvent(heroId));
+  if (options.events !== undefined) payload.events = options.events;
   if (options.telemetry) {
     payload.items = options.items
       ? Object.fromEntries(options.items.map((name, index) => [`slot${index}`, { name }]))
