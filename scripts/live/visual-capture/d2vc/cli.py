@@ -22,6 +22,7 @@ import cv2
 
 from .bench import DEFAULT_THRESHOLDS, run_bench
 from .catalog import LOCAL, Catalog, catalog_ready, fetch_catalog, load_catalog, resolve_catalog_dir
+from .geometry import resolve_content
 from .layout import default_layout, load_layout, save_layout
 from .matcher import Matcher
 from .paths import runtime_version
@@ -232,9 +233,14 @@ def cmd_live(args: argparse.Namespace) -> int:
                         if now_ms - last_error_log.get("backend", -1e9) > ERROR_LOG_EVERY_S * 1000:
                             last_error_log["backend"] = now_ms
                             diagnostics.event("waiting_window", type=type(error).__name__)
-                frame = backend.latest() if backend is not None else None
+                capture = backend.latest_capture() if backend is not None else None
                 window_found = backend is not None and backend.window_found
-                envelopes = session.process(frame, now_ms) if frame is not None else session.tick_no_frame(now_ms, window_found)
+                if capture is None:
+                    envelopes = session.tick_no_frame(now_ms, window_found)
+                else:
+                    frame, metrics = capture
+                    # LIVE always has a window: where Dota renders comes from ITS metrics, or the frame is not read at all.
+                    envelopes = session.process(frame, now_ms, resolve_content((frame.shape[1], frame.shape[0]), metrics))
                 outbox.submit(envelopes)
                 if session.on_lifecycle(outbox.lifecycle):  # GSI started / ended a draft: re-arm by itself
                     outbox.discard_facts()

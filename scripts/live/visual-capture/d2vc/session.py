@@ -19,6 +19,7 @@ import numpy as np
 
 from .diagnostics import Diagnostics
 from .emit import EnvelopeFactory
+from .geometry import Geometry, crop_to_content
 from .incidents import PERSIST_MS as INCIDENT_PERSIST_MS
 from .layout import Layout
 from .lockstate import CardChrome, bars_verified, card_chrome, classify
@@ -67,7 +68,9 @@ class VisualSession:
         self.matcher, self.layout, self.thresholds, self.factory = matcher, layout, thresholds, factory
         self.stability = stability or StabilityFilter()
         self.gate = gate or OccupancyGate()
-        self._frame_size: tuple[int, int] | None = None
+        self._geometry_id: tuple | None = None  # (outer frame, content rect, hwnd): what the current baseline is valid for
+        self._geometry_note: tuple | None = None
+        self._unresolved_since: float | None = None
         self.status = VisualStatus(layout=layout.status)
         self._last_frame_ms: float | None = None
         self._lost = False
@@ -125,8 +128,13 @@ class VisualSession:
         if self.diagnostics is not None:
             self.diagnostics.event(kind, **fields)
 
-    def process(self, frame: np.ndarray, now_ms: float) -> list[dict]:
-        """One captured frame -> the envelopes it confirms (usually none)."""
+    def process(self, frame: np.ndarray, now_ms: float, geometry: Geometry | None = None) -> list[dict]:
+        """One captured frame -> the envelopes it confirms (usually none).
+
+        `geometry` says where Dota renders inside `frame` (geometry.py). The live loop ALWAYS passes one: resolved
+        (`window_metrics`: the frame is cropped to the content rect right here, once, so everything below sees only
+        the content) or unresolved (nothing is read). `None` is the offline contract -- saved PNGs, lab, acceptance,
+        fixtures have no window -- and keeps the legacy centred 16:9 viewport of the frame."""
         out: list[dict] = []
         self._last_frame_ms = now_ms
         self.status.window_found = True
@@ -139,6 +147,16 @@ class VisualSession:
             if not self.status.draft_open:  # inside a draft the helper was re-armed on loss: only _health may speak, never a blind OK
                 out.append(self.factory.health("ok", "VISUAL_OK"))
                 self._last_heartbeat_ms = now_ms
+        geometry = Geometry.legacy() if geometry is None else geometry
+        outer = (frame.shape[1], frame.shape[0])
+        if not geometry.usable:
+            return out + self._unresolved(geometry, outer, now_ms)
+        self._unresolved_since = None
+        frame = crop_to_content(frame, geometry)  # the ONE crop: from here on `frame` is the Dota content
+        self._note_geometry(geometry, outer)
+        identity = geometry.identity(outer)
+        geometry_changed = self._geometry_id is not None and identity != self._geometry_id
+        self._geometry_id = identity
         if not self.status.draft_open:
             # Not a draft (menu, lobby, loading, the match itself): nothing is baselined, matched or emitted.
             self.status.selection_detected = False
@@ -149,10 +167,8 @@ class VisualSession:
                 out.append(self.factory.health("ok", "VISUAL_OK"))
                 self._last_heartbeat_ms = now_ms
             return out
-        size = (frame.shape[1], frame.shape[0])
-        if self._frame_size is not None and size != self._frame_size:
-            self.rearm()  # a different capture geometry invalidates every baseline
-        self._frame_size = size
+        if geometry_changed:
+            self.rearm()  # a different outer frame, content rect or window invalidates every baseline
         crops = slot_crops(frame, self.layout)
         occupancy = self.gate.update(crops, now_ms)
         if occupancy.rearmed:
@@ -186,6 +202,41 @@ class VisualSession:
             self._note("health", status=health[0], detail=health[1])
         if self.diagnostics is not None:
             self._record(now_ms, frame, scan, chrome, readable, health_changed, events)
+        return out
+
+    def _note_geometry(self, geometry: Geometry, outer: tuple[int, int]) -> None:
+        """Log the geometry whenever it (or why it is unresolved) changes: enough to debug a live QA from the file alone."""
+        key = (geometry.source, geometry.reason, geometry.identity(outer))
+        if key != self._geometry_note:
+            self._geometry_note = key
+            self._note("geometry", **geometry.describe(outer))
+
+    def _unresolved(self, geometry: Geometry, outer: tuple[int, int], now_ms: float) -> list[dict]:
+        """LIVE frame whose geometry cannot be trusted: read NOTHING from it (no occupancy, no matching, no facts).
+        A transient blip leaves the known-good baseline untouched; persistent (>= UNREAD_GRACE_MS) inside a draft the
+        helper stops vouching through the existing health path, same as an unreadable frame. Never a legacy-viewport guess."""
+        self._note_geometry(geometry, outer)
+        if self._unresolved_since is None:
+            self._unresolved_since = now_ms
+        out: list[dict] = []
+        if not self.status.draft_open:
+            self.status.selection_detected = False
+            if self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= LIFECYCLE_PROBE_MS:
+                out.append(self.factory.health("ok", "VISUAL_OK"))  # the lifecycle question only; nothing to vouch for outside a draft
+                self._last_heartbeat_ms = now_ms
+            return out
+        if now_ms - self._unresolved_since < UNREAD_GRACE_MS:
+            return out
+        health = ("degraded", "VISUAL_LAYOUT_UNVERIFIED")
+        health_changed = health != self._last_health
+        if health_changed or self._last_heartbeat_ms is None or now_ms - self._last_heartbeat_ms >= HEARTBEAT_EVERY_MS:
+            out.append(self.factory.health(*health))
+            self._opening = False
+            self._last_health = health
+            self._last_heartbeat_ms = now_ms
+            self._note("health", status=health[0], detail=health[1])
+            if health_changed:
+                self._note("geometry_unresolved", reason=geometry.reason, sinceMs=round(now_ms - self._unresolved_since))
         return out
 
     def _lock_states(self, crops, chrome: dict[tuple[str, int], CardChrome], occupied, readable: bool) -> dict[tuple[str, int], str]:
@@ -291,6 +342,7 @@ class VisualSession:
         fresh stable baseline exists."""
         self.gate.rearm()
         self._reset_draft()
+        self._unresolved_since = None
         self.status.armed = False
 
     def _note_first_seen(self, scan: ScanResult, now_ms: float) -> None:

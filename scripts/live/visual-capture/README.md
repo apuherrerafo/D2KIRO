@@ -62,6 +62,19 @@ Status line: `Visual capture: Dota window found - 6/10 heroes recognized` (also 
 ## Rules the code enforces
 
 - **Layout is normalized to a 16:9 viewport** (letter/pillar-boxed frames handled). No pixel constants.
+- **One geometry for windowed / borderless / fullscreen (`geometry.py`).** A WGC frame is the whole window surface; Dota
+  renders into a rectangle INSIDE it. The live backend captures one HWND (`find_window`: exact title, then
+  `window_hwnd=` -- the measured window IS the captured window) and measures it as each frame arrives
+  (`GetClientRect` + `ClientToScreen` + DWM `EXTENDED_FRAME_BOUNDS`). `resolve_content` turns that into the content
+  rect in frame pixels; the session crops ONCE and everything downstream is unchanged. There is no per-mode branch and no
+  hardcoded size: fullscreen resolves to the whole frame only because the metrics say so.
+  **Live fails closed**: metrics missing, minimized, client empty, DWM bounds != captured surface (resize / mode-switch
+  race), content outside the frame or below 640x360 => the frame is not read at all (no baseline, no match, no fact);
+  after `UNREAD_GRACE_MS` inside a draft the helper reports `VISUAL_LAYOUT_UNVERIFIED` (existing health path, no new
+  server code). It never falls back to the centred viewport on a live window. **Offline** (lab, acceptance, fixtures,
+  `process(frame, t)` without a geometry) keeps the legacy centred viewport. The session rearms when the outer frame,
+  the content rect or the HWND changes. Every change of geometry (and every unresolved reason) is one `geometry` line in
+  the diagnostics file: frame size, hwnd, client origin/size, DWM bounds, resolved rect, source, reason.
 - The built-in layout is the **default** (`standard`); `live` never refuses to run for lack of calibration
   (`--allow-provisional-layout` is a legacy no-op). Safety is in the matcher, not the layout: a misplaced box
   can only lose recall, never produce a wrong hero.

@@ -12,6 +12,7 @@ import numpy as np
 
 from fixtures import fake_catalog  # noqa: F401  (sets sys.path for d2vc)
 from d2vc.bench import DEFAULT_THRESHOLDS
+from d2vc.geometry import WindowMetrics
 from d2vc.emit import EnvelopeFactory, PrivacyViolation, assert_allowlisted
 from d2vc.layout import default_layout, viewport
 from d2vc.matcher import MatchResult, Matcher, confident
@@ -105,6 +106,12 @@ def ghost_screen(ghost_heroes, size=(1920, 1080)):
 def hero_slot(hero, side, index, size=(1920, 1080), seed=3):
     _, _, w, h = slot_rect_px(side, index, size)
     return degrade(CATALOG.portraits[hero], np.random.default_rng(seed), slot_size=(w, h), severity=0.4)
+
+
+def full_frame_metrics(frame, hwnd=7):
+    """What a live window reports when Dota fills its whole captured surface (fullscreen-like): frame == client == DWM bounds."""
+    h, w = frame.shape[:2]
+    return WindowMetrics(hwnd, (0, 0), (w, h), (0, 0, w, h))
 
 
 def picks(envelopes):
@@ -361,7 +368,7 @@ class DefaultLayoutLiveTests(unittest.TestCase):
             def __init__(self, *_):
                 pass
 
-            def latest(self):
+            def latest_capture(self):
                 return None
 
             def stop(self):
@@ -747,8 +754,9 @@ class LiveLoopAutoArmTests(unittest.TestCase):
             def __init__(self, *_):
                 pass
 
-            def latest(self):
-                return script[state["step"]][0]
+            def latest_capture(self):
+                frame = script[state["step"]][0]
+                return frame, full_frame_metrics(frame)
 
             def stop(self):
                 pass
