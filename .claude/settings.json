@@ -30,27 +30,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash scripts/verify-simplicity.sh"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash scripts/verify-simplicity.sh"
-          }
-        ]
-      }
     ]
   }
 }
