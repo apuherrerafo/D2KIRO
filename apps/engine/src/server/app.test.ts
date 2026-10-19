@@ -75,7 +75,7 @@ function createTestDb() {
     );
     CREATE TABLE team_members (
       id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL,
-      slot INTEGER NOT NULL, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL
+      slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE TABLE draft_feedback (
       id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, comment TEXT NOT NULL,

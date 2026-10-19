@@ -206,7 +206,7 @@ export function parseLivePartyPresets(value: unknown): LivePartyPreset[] | null 
   return presets;
 }
 
-const TEAM_GROUP_REFUSALS = new Set<string>(["not_found", "not_party5", "no_pools", "unsupported"]);
+const TEAM_GROUP_REFUSALS = new Set<string>(["not_found", "not_party5", "no_pools", "positions_unconfirmed", "unsupported"]);
 
 /** PUT /engine/api/live/team-group. `null` when the response is not a valid result. */
 export function parseLiveTeamGroupResult(value: unknown): LiveTeamGroupResult | null {

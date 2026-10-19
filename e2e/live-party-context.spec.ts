@@ -45,11 +45,11 @@ test.describe("Live Dota + Party 5", () => {
           name: "E2E Team Julio",
           partySize: 5,
           members: [
-            { slot: 1, name: "Pos 1", heroPool: [1, 8, 10] },
-            { slot: 2, name: "Pos 2", heroPool: [11, 13, 22] },
-            { slot: 3, name: "Pos 3", heroPool: [2, 7, 28] },
-            { slot: 4, name: "Pos 4", heroPool: [3, 20, 26] },
-            { slot: 5, name: "Pos 5", heroPool: [5, 30, 83] },
+            { slot: 1, position: 1, name: "Pos 1", heroPool: [1, 8, 10] },
+            { slot: 2, position: 2, name: "Pos 2", heroPool: [11, 13, 22] },
+            { slot: 3, position: 3, name: "Pos 3", heroPool: [2, 7, 28] },
+            { slot: 4, position: 4, name: "Pos 4", heroPool: [3, 20, 26] },
+            { slot: 5, position: 5, name: "Pos 5", heroPool: [5, 30, 83] },
           ],
         }),
       });

@@ -248,7 +248,8 @@ describe("REALISTIC_AP_SEQUENCE -- one Ranked All Pick draft, asserted at every 
       for (const heroId of ownHeroes.filter((hero) => ownBound.has(hero))) expect({ label, heroId, column: column(body, ownBound.get(heroId)!).filledHeroId }).toEqual({ label, heroId, column: heroId });
       expect({ label, unbound: [...body.unboundOwnHeroIds].sort((a, b) => a - b) }).toEqual({ label, unbound: ownHeroes.filter((hero) => !ownBound.has(hero)).sort((a, b) => a - b) });
       // Each ranked position was ranked with ITS pool.
-      for (const [position, pool] of t.poolsByTarget) expect({ label, position, pool }).toEqual({ label, position, pool: POOLS[position] });
+      // The Player (declared Pos 4) always plays from their personal pool: their own seat never carries a team pool.
+      for (const [position, pool] of t.poolsByTarget) expect({ label, position, pool }).toEqual({ label, position, pool: position === 4 ? undefined : POOLS[position] });
 
       const decision = body.currentDecision;
       if (decision.recommendedPosition === null) {

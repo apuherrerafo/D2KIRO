@@ -255,7 +255,8 @@ export interface CreateSimulatorSessionOptions {
    */
   adapterKind?: "manual" | "simulator";
   teamGroupId?: number | null;
-  playerPoolsByPosition?: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId[]>>;
+  /** Quién juega dónde en esta partida (ver DraftConfig.teamAssignment); el motor resuelve los pools desde el equipo guardado. */
+  teamAssignment?: Record<string, 1 | 2 | 3 | 4 | 5>;
 }
 
 /**
@@ -292,7 +293,7 @@ export async function createSimulatorProtocolSession(
       humanPosition: options.humanPosition,
       simulatorSeed: options.simulatorSeed,
       teamGroupId: options.teamGroupId,
-      playerPoolsByPosition: options.playerPoolsByPosition,
+      teamAssignment: options.teamAssignment,
     }),
   });
   if (!response.ok) throw new Error(`protocol session creation failed (${response.status})`);

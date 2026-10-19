@@ -58,7 +58,7 @@ function setup() {
   const { db, sqlite } = createGsiLinkTestDb();
   sqlite.exec(`
     CREATE TABLE team_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL, party_size INTEGER NOT NULL, updated_at TEXT NOT NULL);
-    CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
   `);
   const store = new ProtocolSessionStore();
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now: () => clock });
@@ -90,7 +90,7 @@ function setup() {
   const pick = (link: Link, side: "radiant" | "dire", hero: number) => send(link, { type: "hero_picked", hero, side });
 
   function group(accountId: number, pools: number[][]): number {
-    return createTeamGroup(db, { accountId, name: "Team", partySize: 5, updatedAt: "2026-10-04", members: pools.map((heroPool, index) => ({ slot: index + 1, name: `P${index + 1}`, heroPool, updatedAt: "2026-10-04" })) }).id;
+    return createTeamGroup(db, { accountId, name: "Team", partySize: 5, updatedAt: "2026-10-04", members: pools.map((heroPool, index) => ({ slot: index + 1, position: (index + 1) as 1 | 2 | 3 | 4 | 5, name: `P${index + 1}`, heroPool, updatedAt: "2026-10-04" })) }).id;
   }
   async function board(sessionId: string): Promise<TeamCoachBoard> {
     const response = await protocol.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`));

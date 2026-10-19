@@ -61,7 +61,14 @@ export function getSoleAccountId<TSchema extends Record<string, unknown>>(
 export type PartySize = 1 | 2 | 3 | 5;
 
 export interface TeamMemberWriteRow {
+  /**
+   * Who this is. Present = an existing member of the team being replaced (same person: nickname, slot, position and
+   * pool may change, the identity does not). Absent = a new person, who gets a fresh id and no inherited pool.
+   */
+  id?: number;
   slot: number;
+  /** Usual position, explicit. `null` = unconfirmed -- never derived from `slot`. */
+  position: 1 | 2 | 3 | 4 | 5 | null;
   name: string;
   heroPool: number[];
   updatedAt: string;
@@ -127,9 +134,39 @@ function insertTeamMembers<TSchema extends Record<string, unknown>>(
   teamGroupId: number,
   members: TeamMemberWriteRow[],
 ) {
-  for (const member of members) {
+  for (const { id: _ignored, ...member } of members) {
     db.insert(teamMembers).values({ ...member, teamGroupId }).run();
   }
+}
+
+/**
+ * Brings a team's members to `members` WITHOUT recycling identities: an entry with an `id` updates that very row (so a
+ * rename, a reorder or a position swap never moves a pool to another person); an entry without one is a new person;
+ * a member nobody names any more is deleted. An id that isn't a member of this team (or is named twice) throws, which
+ * rolls the whole save back -- it is never reinterpreted as somebody else.
+ */
+function syncTeamMembers<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  teamGroupId: number,
+  members: TeamMemberWriteRow[],
+) {
+  const existingIds = new Set(db.select({ id: teamMembers.id }).from(teamMembers).where(eq(teamMembers.teamGroupId, teamGroupId)).all().map((row) => row.id));
+  const kept = new Set<number>();
+  const added: TeamMemberWriteRow[] = [];
+  for (const member of members) {
+    if (member.id === undefined) {
+      added.push(member);
+      continue;
+    }
+    if (!existingIds.has(member.id) || kept.has(member.id)) throw new Error("unknown_team_member");
+    kept.add(member.id);
+    const { id: memberId, ...fields } = member;
+    db.update(teamMembers).set(fields).where(and(eq(teamMembers.id, memberId), eq(teamMembers.teamGroupId, teamGroupId))).run();
+  }
+  for (const existingId of existingIds) {
+    if (!kept.has(existingId)) db.delete(teamMembers).where(eq(teamMembers.id, existingId)).run();
+  }
+  insertTeamMembers(db, teamGroupId, added);
 }
 
 export function createTeamGroup<TSchema extends Record<string, unknown>>(
@@ -153,8 +190,7 @@ export function replaceTeamGroup<TSchema extends Record<string, unknown>>(
   if (!getTeamGroup(db, id, accountId)) return null;
   db.transaction((tx) => {
     tx.update(teamGroups).set({ name: input.name, partySize: input.partySize, updatedAt: input.updatedAt }).where(eq(teamGroups.id, id)).run();
-    tx.delete(teamMembers).where(eq(teamMembers.teamGroupId, id)).run();
-    insertTeamMembers(tx, id, input.members);
+    syncTeamMembers(tx, id, input.members);
   });
   return getTeamGroup(db, id, accountId);
 }

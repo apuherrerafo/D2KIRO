@@ -53,8 +53,11 @@ export interface DraftConfig {
   partyPositions?: (1 | 2 | 3 | 4 | 5)[];
   /** Preset de equipo opcional para Party 5. */
   teamGroupId?: number | null;
-  /** Hero pools por posición (1..5) del equipo / party. */
-  playerPoolsByPosition?: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId[]>>;
+  /**
+   * Quién juega dónde en ESTA partida: `{ "<id del miembro>": 1..5 }`. Es el panorama completo (quien no figura no tiene
+   * posición, y por tanto no se le aplica ningún pool). Nunca se persiste ni modifica el equipo guardado.
+   */
+  teamAssignment?: Record<string, 1 | 2 | 3 | 4 | 5>;
 }
 
 // ---------------------------------------------------------------------------

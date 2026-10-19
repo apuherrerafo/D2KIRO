@@ -24,6 +24,7 @@ import { deepFreeze } from "../draft-protocol/immutable";
 import type { OwnPositionOccupancy, PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { LiveOwnPositionResolution, LivePositionProvenance } from "../live/live-position-resolver";
 import { deriveHumanActionability, type HumanActionability } from "../recommendation/human-actionability";
+import { withoutOwnerSeat } from "../recommendation/team-positions";
 import { rosterSlotForRoundSlot, type DotaPosition } from "../simulator/ap-simulator-policy";
 import type { CollisionRegistrationEvidence, RegistrationRecord } from "../draft-protocol/adapters/simulator-authority";
 import { isApSimulatorMetadata } from "../simulator/session-config";
@@ -861,7 +862,8 @@ export class ProtocolSessionStore {
       humanOpenPositions: this.humanOpenPositions(sessionId),
       humanActionability: this.humanActionability(sessionId),
       ownAssignedPositions,
-      playerPoolsByPosition: metadata.playerPoolsByPosition ?? null,
+      // The owner always plays from their personal hero pool, so the seat they declared never carries a team pool.
+      playerPoolsByPosition: withoutOwnerSeat(metadata.playerPoolsByPosition, metadata.humanPosition),
       ...(metadata.liveCapture === true ? { liveCapture: true, ownPositionOccupancy: this.liveOwnPositionOccupancy(sessionId) } : {}),
     };
   }

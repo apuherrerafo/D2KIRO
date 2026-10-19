@@ -40,10 +40,11 @@ export interface CoachRecommendations {
   recommendCurrentDecision(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null, requestedTarget?: 1 | 2 | 3 | 4 | 5 | null): Promise<CurrentDecisionRecomputation | null | undefined>;
   /**
    * Team Coach Board -- every human-controlled position ranked against ONE perspective snapshot,
-   * with the SAME target ranking builder as V4 (team-level: no account, no personal pool). `undefined`
-   * for an unknown session, `null` for a session without HumanActionability/controlled positions.
+   * with the SAME target ranking builder as V4. Team-level (no account) EXCEPT the owner's own position, which is
+   * ranked with the owner's personal hero pool when `accountId` is given. `undefined` for an unknown session,
+   * `null` for a session without HumanActionability/controlled positions.
    */
-  recommendTeamBoard(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null): Promise<TeamCoachBoard | null | undefined>;
+  recommendTeamBoard(sessionId: string, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId?: number | null): Promise<TeamCoachBoard | null | undefined>;
 }
 
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
@@ -124,13 +125,14 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
     }
     return coach;
   }
-  // Team-level by construction: the account is erased before every evaluation (same rule as computeForTeam above),
-  // so the board shows every observer of a visible draft the same columns.
-  function buildTeamTargetRanking(context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
+  // Team-level by construction: a teammate's column is computed with the account erased, so it has the same inputs for
+  // every observer of a visible draft. The ONE exception is the owner's own position: the owner always plays from their
+  // personal hero pool (a saved team never carries that seat -- withoutOwnerSeat), so that column is ranked with it.
+  function buildTeamTargetRanking(context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5, ownerAccountId: number | null) {
     const positionPool = poolForPosition(context.playerPoolsByPosition, targetPosition);
     return buildRecommendationSetFromPerspective({
       context,
-      computeSuggestions: (draft, _ignored, options) => deps.computeSuggestions(draft, null, options),
+      computeSuggestions: (draft, _ignored, options) => deps.computeSuggestions(draft, ownerAccountId, options),
       overrideHeroPool: positionPool ?? undefined,
       heroPositions,
       targetPosition,
@@ -141,10 +143,12 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
     });
   }
   return {
-    async recommendTeamBoard(sessionId, playerPersonalPosition) {
+    async recommendTeamBoard(sessionId, playerPersonalPosition, accountId = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return undefined;
-      return buildTeamCoachBoard({ context, playerPersonalPosition, heroPositions, heroCounters, buildTargetRanking: buildTeamTargetRanking });
+      const buildTargetRanking = (boardContext: PerspectiveRecommendationContext, position: 1 | 2 | 3 | 4 | 5) =>
+        buildTeamTargetRanking(boardContext, position, position === playerPersonalPosition ? accountId : null);
+      return buildTeamCoachBoard({ context, playerPersonalPosition, heroPositions, heroCounters, buildTargetRanking });
     },
     async recommend(sessionId, playerPersonalPosition, accountId = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);

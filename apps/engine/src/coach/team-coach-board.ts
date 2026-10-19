@@ -5,7 +5,7 @@ import { configuredPoolForPosition, positionsWithPoolOption, unavailableHeroesFr
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
-import { deriveCandidateResult, selectDecisionTarget } from "./current-human-decision";
+import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
 import { revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
@@ -195,7 +195,7 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     if (ranking.basedOn.stateIdentity !== stateIdentity) {
       return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: "El ranking no corresponde al estado actual del draft." };
     }
-    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, personalPoolApplied: false, shortlistSize: topSize, admittedPool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
+    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, personalPoolApplied: position === input.playerPersonalPosition && rankingAppliedPersonalPool(ranking), shortlistSize: topSize, admittedPool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
     if (result.state === "RANKED") {
       return {
         position,

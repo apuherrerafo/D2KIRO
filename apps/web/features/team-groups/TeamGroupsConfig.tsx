@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent } from "react";
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { HeroPicker } from "@/components/hero-picker/HeroPicker";
+import { PositionBoard, type PositionBoardPlayer } from "@/components/position-board/PositionBoard";
 import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import {
@@ -12,16 +13,34 @@ import {
   useGetTeamGroupsQuery,
   useUpdateTeamGroupMutation,
 } from "@/lib/engine-api";
-import { EMPTY_TEAM_GROUP_MESSAGE, MAX_COMPANION_POOL_SIZE, PARTY_SIZE_OPTIONS, TEAM_GROUP_DELETED_MESSAGE, TEAM_GROUP_SAVED_MESSAGE } from "./constants";
-import type { DraftTeamGroup, PartySize, TeamGroupEntry, TeamGroupPutBody } from "./types";
+import { EMPTY_TEAM_GROUP_MESSAGE, MAX_COMPANION_POOL_SIZE, PARTY_SIZE_OPTIONS, REPLACE_MEMBER_HINT, SEAT_LABELS, TEAM_GROUP_DELETED_MESSAGE, TEAM_GROUP_SAVED_MESSAGE } from "./constants";
+import { confirmInListOrder, placePlayer } from "./position-assignment";
+import type { DraftTeamGroup, PartySize, Seat, TeamGroupEntry, TeamGroupPutBody } from "./types";
 
-const POSITION_LABELS: Record<number, string> = {
-  1: "Pos 1 — Safe Lane (Carry)",
-  2: "Pos 2 — Mid Lane",
-  3: "Pos 3 — Offlane",
-  4: "Pos 4 — Soft Support",
-  5: "Pos 5 — Hard Support",
-};
+const LEGACY_POSITIONS_MESSAGE =
+  "Este equipo se guardó antes de registrar posiciones, así que no sabemos quién juega dónde. Colócalos en el tablero y pulsa Guardar: hasta entonces no se aplica ningún pool de este equipo.";
+const CONFIRM_LIST_ORDER_LABEL = "Confirmar tal como están (Jugador 1 = Pos 1 … Jugador 5 = Pos 5)";
+const CONFIRMED_ON_SCREEN_MESSAGE = "Posiciones confirmadas en pantalla. Pulsa Guardar para conservarlas.";
+const USUAL_POSITIONS_HINT = "Posiciones habituales de este equipo. Se guardan al pulsar Guardar; para cambiar solo una partida, hazlo al empezar el draft, sin guardar.";
+
+type DraftMember = DraftTeamGroup["members"][number];
+
+// Un equipo NUEVO de Party 5 arranca con una posición visible por jugador (editable en el tablero, se guarda al pulsar
+// Guardar). Nunca se aplica a un equipo ya guardado: ahí la posición es la que el usuario confirmó, o ninguna.
+function defaultPositionFor(partySize: PartySize, index: number): Seat | null {
+  if (partySize !== 5) return null;
+  return (index + 1) as Seat;
+}
+
+function memberTitle(member: DraftMember, partySize: PartySize): string {
+  const who = partySize === 5 ? `Jugador ${member.slot}` : `Compañero ${member.slot}`;
+  if (member.position === null) return `${who} — sin posición confirmada`;
+  return `${who} — ${SEAT_LABELS[member.position]}`;
+}
+
+function toBoardPlayers(members: DraftMember[]): PositionBoardPlayer[] {
+  return members.map((member) => ({ key: member.slot, name: member.name, position: member.position }));
+}
 
 function memberCountForParty(partySize: PartySize): number {
   return partySize === 5 ? 5 : partySize - 1;
@@ -30,6 +49,7 @@ function memberCountForParty(partySize: PartySize): number {
 function createEmptyMembers(partySize: PartySize) {
   return Array.from({ length: memberCountForParty(partySize) }, (_item, index) => ({
     slot: index + 1,
+    position: defaultPositionFor(partySize, index),
     name: "",
     heroPool: [],
   }));
@@ -44,7 +64,7 @@ function toDraftGroup(group: TeamGroupEntry): DraftTeamGroup {
     id: group.id,
     name: group.name,
     partySize: group.partySize,
-    members: group.members.map((member) => ({ slot: member.slot, name: member.name, heroPool: member.heroPool })),
+    members: group.members.map((member) => ({ id: member.id, slot: member.slot, position: member.position ?? null, name: member.name, heroPool: member.heroPool })),
   };
 }
 
@@ -63,7 +83,7 @@ function toPutBody(draft: DraftTeamGroup): TeamGroupPutBody {
   return {
     name: draft.name,
     partySize: draft.partySize,
-    members: draft.members.map((member) => ({ slot: member.slot, name: member.name, heroPool: member.heroPool })),
+    members: draft.members.map((member) => ({ id: member.id, slot: member.slot, position: member.position, name: member.name, heroPool: member.heroPool })),
   };
 }
 
@@ -104,17 +124,18 @@ function TeamGroupRow({ group, onEdit, onDelete, isDeleting }: TeamGroupRowProps
 }
 
 interface MemberEditorProps {
-  member: DraftTeamGroup["members"][number];
+  member: DraftMember;
   partySize: PartySize;
   heroes: HeroMeta[];
   onNameChange: (slot: number, name: string) => void;
   onAddHero: (slot: number, hero: number) => void;
   onRemoveHero: (slot: number, hero: number) => void;
+  onReplace: (slot: number) => void;
 }
 
-function MemberEditor({ member, partySize, heroes, onNameChange, onAddHero, onRemoveHero }: MemberEditorProps) {
+function MemberEditor({ member, partySize, heroes, onNameChange, onAddHero, onRemoveHero, onReplace }: MemberEditorProps) {
   const poolIsFull = member.heroPool.length >= MAX_COMPANION_POOL_SIZE;
-  const slotLabel = partySize === 5 ? (POSITION_LABELS[member.slot] ?? `Posición ${member.slot}`) : `Compañero ${member.slot}`;
+  const slotLabel = memberTitle(member, partySize);
 
   function handleNameChange(event: ChangeEvent<HTMLInputElement>) {
     onNameChange(member.slot, event.target.value);
@@ -124,10 +145,19 @@ function MemberEditor({ member, partySize, heroes, onNameChange, onAddHero, onRe
     onAddHero(member.slot, hero);
   }
 
+  function handleReplace() {
+    onReplace(member.slot);
+  }
+
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3">
       <div className="flex items-center justify-between">
         <span className="text-caption font-semibold text-content-primary">{slotLabel}</span>
+        {member.id !== undefined && (
+          <button type="button" onClick={handleReplace} className={BUTTON_GHOST} title={REPLACE_MEMBER_HINT} data-testid={`team-replace-member-${member.slot}`}>
+            Es otra persona
+          </button>
+        )}
       </div>
       <input
         type="text"
@@ -220,6 +250,26 @@ export function TeamGroupsConfig() {
     setMessage(null);
   }
 
+  function handlePlace(key: number, seat: Seat | null) {
+    const moved = placePlayer(toBoardPlayers(draft.members), key, seat);
+    setDraft({ ...draft, members: draft.members.map((member) => ({ ...member, position: moved.find((player) => player.key === member.slot)?.position ?? null })) });
+    setMessage(null);
+  }
+
+  // The user says "yes, they play where they are listed": explicit, visible on the board, and only saved on Guardar.
+  function handleConfirmListOrder() {
+    const confirmed = confirmInListOrder(toBoardPlayers(draft.members));
+    setDraft({ ...draft, members: draft.members.map((member) => ({ ...member, position: confirmed.find((player) => player.key === member.slot)?.position ?? null })) });
+    setMessage(CONFIRMED_ON_SCREEN_MESSAGE);
+  }
+
+  // Editing the nickname renames the SAME person (their pool stays). This is the explicit "somebody else sits here now":
+  // the saved identity is dropped, so the newcomer starts with no pool and a fresh id on Guardar.
+  function handleReplaceMember(slot: number) {
+    setDraft({ ...draft, members: draft.members.map((member) => (member.slot === slot ? { slot, position: member.position, name: "", heroPool: [] } : member)) });
+    setMessage(null);
+  }
+
   function handleRemoveHero(slot: number, hero: number) {
     setDraft({ ...draft, members: draft.members.map((member) => (member.slot === slot ? { ...member, heroPool: member.heroPool.filter((id) => id !== hero) } : member)) });
     setMessage(null);
@@ -282,8 +332,20 @@ export function TeamGroupsConfig() {
             ))}
           </select>
         </label>
+        {draft.id !== null && draft.partySize === 5 && draft.members.some((member) => member.position === null) && (
+          <span className="text-caption text-signal-warning" role="status" data-testid="team-legacy-positions">
+            {LEGACY_POSITIONS_MESSAGE}
+          </span>
+        )}
+        {draft.id !== null && draft.partySize === 5 && draft.members.every((member) => member.position === null) && (
+          <button type="button" onClick={handleConfirmListOrder} className={BUTTON_SECONDARY} data-testid="team-confirm-list-order">
+            {CONFIRM_LIST_ORDER_LABEL}
+          </button>
+        )}
+        <span className="text-caption text-content-muted">{USUAL_POSITIONS_HINT}</span>
+        <PositionBoard players={toBoardPlayers(draft.members)} onPlace={handlePlace} />
         {draft.members.map((member) => (
-          <MemberEditor key={member.slot} member={member} partySize={draft.partySize} heroes={heroes} onNameChange={handleMemberNameChange} onAddHero={handleAddHero} onRemoveHero={handleRemoveHero} />
+          <MemberEditor key={member.slot} member={member} partySize={draft.partySize} heroes={heroes} onNameChange={handleMemberNameChange} onAddHero={handleAddHero} onRemoveHero={handleRemoveHero} onReplace={handleReplaceMember} />
         ))}
         {message && <span className="text-caption text-content-secondary">{message}</span>}
         <button type="button" onClick={handleSave} disabled={isSaving || draft.name.trim().length === 0} className={BUTTON_PRIMARY}>

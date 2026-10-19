@@ -121,7 +121,7 @@ export interface LivePartyPreset {
   positions: Record<"1" | "2" | "3" | "4" | "5", boolean>;
 }
 
-export type LiveTeamGroupRefusal = "not_found" | "not_party5" | "no_pools" | "unsupported";
+export type LiveTeamGroupRefusal = "not_found" | "not_party5" | "no_pools" | "positions_unconfirmed" | "unsupported";
 
 /** PUT /engine/api/live/team-group (schema "live-team-group/v1"). */
 export interface LiveTeamGroupResult {

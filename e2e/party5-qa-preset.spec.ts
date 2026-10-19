@@ -15,11 +15,11 @@ test.describe("Party 5 QA Readiness Browser Journey", () => {
           name: "QA 5-Stack Preset",
           partySize: 5,
           members: [
-            { slot: 1, name: "Pos 1 Carry", heroPool: [1, 8, 10, 18, 44] }, // AM, Jugg, Morph, Sven, PA
-            { slot: 2, name: "Pos 2 Mid", heroPool: [11, 13, 22, 46, 74] },   // SF, Puck, Zeus, TA, Invoker
-            { slot: 3, name: "Pos 3 Offlane", heroPool: [2, 7, 28, 96, 99] }, // Axe, Earthshaker, Slardar, Centaur, Bristle
-            { slot: 4, name: "Pos 4 Support", heroPool: [3, 20, 26, 27, 86] }, // Bane, VS, Lion, Shadow Shaman, Rubick
-            { slot: 5, name: "Pos 5 Hard Sup", heroPool: [5, 30, 83, 87, 111] }, // CM, WD, Treant, Disruptor, Oracle
+            { slot: 1, position: 1, name: "Pos 1 Carry", heroPool: [1, 8, 10, 18, 44] }, // AM, Jugg, Morph, Sven, PA
+            { slot: 2, position: 2, name: "Pos 2 Mid", heroPool: [11, 13, 22, 46, 74] },   // SF, Puck, Zeus, TA, Invoker
+            { slot: 3, position: 3, name: "Pos 3 Offlane", heroPool: [2, 7, 28, 96, 99] }, // Axe, Earthshaker, Slardar, Centaur, Bristle
+            { slot: 4, position: 4, name: "Pos 4 Support", heroPool: [3, 20, 26, 27, 86] }, // Bane, VS, Lion, Shadow Shaman, Rubick
+            { slot: 5, position: 5, name: "Pos 5 Hard Sup", heroPool: [5, 30, 83, 87, 111] }, // CM, WD, Treant, Disruptor, Oracle
           ],
         }),
       });

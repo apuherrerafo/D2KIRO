@@ -34,6 +34,7 @@ import { chooseAllyBotHero } from "../../simulator/ally-bot";
 import { deriveAllyPositionOrder } from "../../simulator/ally-bot-roles";
 import { chooseEnemyBotHero, createEnemyBotConfig } from "../../simulator/enemy-bot";
 import { isApSimulatorMetadata } from "../../simulator/session-config";
+import { assignmentBelongsToTeam, parseTeamAssignment, poolsByConfirmedPosition } from "../../recommendation/team-positions";
 import { ProtocolSessionStore } from "../protocol-session";
 import { createCoachRecommendations } from "./coach-recommendations";
 
@@ -128,7 +129,7 @@ export interface ProtocolSessionRouteDeps {
   loadTeamGroup?: (id: number, accountId: number | null) => Promise<{
     id: number;
     partySize: number;
-    members: readonly { slot: number; heroPool: readonly number[] }[];
+    members: readonly { id?: number; slot: number; position?: number | null; heroPool: readonly number[] }[];
   } | null>;
 }
 
@@ -213,24 +214,30 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const teamGroupId = isRecord(rawBody) && typeof rawBody.teamGroupId === "number" ? rawBody.teamGroupId : null;
     let playerPoolsByPosition: Partial<Record<DotaPosition, readonly number[]>> | undefined = undefined;
 
+    // This match's player -> position assignment (a swap the user made before starting). Malformed = refused, never
+    // half-applied; it only ever names members of the account's OWN saved team and is never written back to it.
+    const teamAssignment = parseTeamAssignment(isRecord(rawBody) ? rawBody.teamAssignment : undefined);
+    if (teamAssignment === null) return badRequest("invalid_team_assignment");
+
+    let savedTeamLoaded = false;
     if (teamGroupId !== null && deps.loadTeamGroup) {
       try {
         const group = await deps.loadTeamGroup(teamGroupId, ownerAccountId);
         if (group && group.members) {
-          playerPoolsByPosition = {};
-          for (const member of group.members) {
-            const pos = parseDotaPosition(member.slot);
-            if (pos !== null) {
-              playerPoolsByPosition[pos] = member.heroPool;
-            }
-          }
+          savedTeamLoaded = true;
+          if (teamAssignment && !assignmentBelongsToTeam(teamAssignment, group.members)) return badRequest("invalid_team_assignment");
+          // Pools follow the CONFIRMED position of each person (or this match's assignment), never their `slot`.
+          playerPoolsByPosition = poolsByConfirmedPosition(group.members, teamAssignment);
+          if (Object.keys(playerPoolsByPosition).length === 0) playerPoolsByPosition = undefined;
         }
       } catch {
         // Fallback gracefully if load fails
       }
     }
 
-    if (!playerPoolsByPosition && isRecord(rawBody) && isRecord(rawBody.playerPoolsByPosition)) {
+    // A saved team that loaded is the only source of pools: a client-built map (older clients derived it from `slot`)
+    // never fills in for positions the team left unconfirmed.
+    if (!savedTeamLoaded && !playerPoolsByPosition && isRecord(rawBody) && isRecord(rawBody.playerPoolsByPosition)) {
       const parsedPools: Partial<Record<DotaPosition, readonly number[]>> = {};
       for (const [key, val] of Object.entries(rawBody.playerPoolsByPosition)) {
         const pos = parseDotaPosition(Number(key));
@@ -841,7 +848,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
    * command, so asking for the board cannot change the draft. Same perspective guard as every other
    * read route of this family.
    */
-  async function getTeamRecommendations(sessionId: string, url: URL): Promise<Response> {
+  async function getTeamRecommendations(sessionId: string, url: URL, accountId: number | null = null): Promise<Response> {
     const sideParam = url.searchParams.get("side");
     if (sideParam !== null && !isTeamSide(sideParam)) return badRequest("invalid_side");
     const metadata = deps.store.metadata(sessionId);
@@ -854,7 +861,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     const incomplete = liveDraftIncomplete(sessionId);
     if (incomplete) return incomplete;
     const startedAt = Date.now();
-    const board = await coachRecommendations.recommendTeamBoard(sessionId, metadata.humanPosition);
+    const board = await coachRecommendations.recommendTeamBoard(sessionId, metadata.humanPosition, accountId);
     if (board === undefined) return notFound();
     if (board === null) return Response.json({ error: "team_board_requires_controlled_positions" }, { status: 422 });
     // Same safe-telemetry rule as getRecommendations: no hero, no person -- only aggregated state.

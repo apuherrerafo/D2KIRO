@@ -102,7 +102,11 @@ export const teamMembers = sqliteTable("team_members", {
   teamGroupId: integer("team_group_id")
     .notNull()
     .references(() => teamGroups.id),
+  // Display order in the editor ONLY. It is never a position: see `position`.
   slot: integer("slot").notNull(),
+  // The player's usual position (1..5), an explicit fact the user confirmed. NULL = never confirmed (legacy rows,
+  // or a companion nobody placed): such a member is never given a position, so their pool is never applied.
+  position: integer("position").$type<1 | 2 | 3 | 4 | 5>(),
   name: text("name").notNull(),
   heroPool: text("hero_pool", { mode: "json" }).$type<number[]>().notNull(),
   updatedAt: text("updated_at").notNull(),

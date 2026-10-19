@@ -135,11 +135,11 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     id: 42,
     partySize: 5,
     members: [
-      { slot: 1, heroPool: POS1_POOL },
-      { slot: 2, heroPool: POS2_POOL },
-      { slot: 3, heroPool: POS3_POOL },
-      { slot: 4, heroPool: POS4_POOL },
-      { slot: 5, heroPool: POS5_POOL },
+      { slot: 1, position: 1, heroPool: POS1_POOL },
+      { slot: 2, position: 2, heroPool: POS2_POOL },
+      { slot: 3, position: 3, heroPool: POS3_POOL },
+      { slot: 4, position: 4, heroPool: POS4_POOL },
+      { slot: 5, position: 5, heroPool: POS5_POOL },
     ],
   };
 
@@ -198,11 +198,12 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     expect(new Set(body.resolvedBans).size).toBe(16);
   });
 
-  test("2. Party preset is loaded into playerPoolsByPosition for all 5 positions", async () => {
+  test("2. Party preset is loaded into playerPoolsByPosition for every position except the owner's own seat", async () => {
     const { store, sessionId } = await createParty5Harness();
     const ctx = store.perspectiveRecommendationContext(sessionId);
     expect(ctx?.playerPoolsByPosition).toBeDefined();
-    expect(ctx?.playerPoolsByPosition?.[1]).toEqual(POS1_POOL);
+    // The owner declared Pos 1: that seat always plays from their PERSONAL pool, so no team pool is attached to it.
+    expect(ctx?.playerPoolsByPosition?.[1]).toBeUndefined();
     expect(ctx?.playerPoolsByPosition?.[2]).toEqual(POS2_POOL);
     expect(ctx?.playerPoolsByPosition?.[3]).toEqual(POS3_POOL);
     expect(ctx?.playerPoolsByPosition?.[4]).toEqual(POS4_POOL);
@@ -292,17 +293,31 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     const { routes, sessionId } = await createParty5Harness();
     await routes.postResolveBans(jsonRequest({ playerBanPreferences: [] }), sessionId);
 
-    // Hero 60 is credible at Pos 1 (and scores highest), but is NOT in POS1_POOL [1, 2, 3, 4, 5]
-    const urlPos1 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=1`);
-    const resp = await routes.getRecommendations(sessionId, urlPos1);
+    // Pos 3 is not the owner's seat, so its pool is a hard admission: only POS3_POOL heroes can rank.
+    const urlPos3 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=3`);
+    const resp = await routes.getRecommendations(sessionId, urlPos3);
     const body = (await resp.json()) as CurrentDecisionRecomputation;
     expect(body.output.decision.kind).toBe("ACTIONABLE");
     if (body.output.decision.kind !== "ACTIONABLE") throw new Error("Expected ACTIONABLE");
     if (body.output.decision.candidates?.state !== "RANKED") throw new Error("Expected RANKED candidates");
     const cards: HeroCard[] = body.output.decision.candidates.cards;
 
-    expect(cards.some((c: HeroCard) => c.heroId === 60)).toBe(false);
-    expect(cards.every((c: HeroCard) => POS1_POOL.includes(c.heroId))).toBe(true);
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.every((c: HeroCard) => POS3_POOL.includes(c.heroId))).toBe(true);
     expect(body.output.decision.personalPoolApplied).toBe(true);
+  });
+
+  test("7. The owner's own seat (Pos 1) is NOT bound to the team's Pos-1 pool: a credible hero outside it still ranks", async () => {
+    const { routes, sessionId } = await createParty5Harness();
+    await routes.postResolveBans(jsonRequest({ playerBanPreferences: [] }), sessionId);
+
+    const urlPos1 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=1`);
+    const resp = await routes.getRecommendations(sessionId, urlPos1);
+    const body = (await resp.json()) as CurrentDecisionRecomputation;
+    if (body.output.decision.kind !== "ACTIONABLE") throw new Error("Expected ACTIONABLE");
+    if (body.output.decision.candidates?.state !== "RANKED") throw new Error("Expected RANKED candidates");
+    const cards: HeroCard[] = body.output.decision.candidates.cards;
+    // Hero 60 is credible at Pos 1 and NOT in POS1_POOL: with the team pool attached it could never appear.
+    expect(cards.some((c: HeroCard) => c.heroId === 60)).toBe(true);
   });
 });

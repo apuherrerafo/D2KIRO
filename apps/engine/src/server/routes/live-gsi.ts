@@ -5,6 +5,7 @@ import type { DraftEventEnvelope } from "../../draft/reducer";
 import { isValidDraftEventEnvelope } from "../edge";
 import type { HeroId } from "../../draft-protocol/types";
 import type { Position } from "../../draft-protocol/roles/role-belief";
+import { poolsByConfirmedPosition } from "../../recommendation/team-positions";
 
 // TSK-219 -- Dota GSI over the Internet. Two halves:
 //
@@ -36,7 +37,7 @@ const MAX_AUTH_FAILURES_PER_WINDOW = 120;
 const MAX_TRACKED_LINKS = 1_000;
 
 /** The account's OWN team preset, as the route needs it. `accountId` scoping is the loader's job (never trust the id alone). */
-export type LoadOwnTeamGroup = (teamGroupId: number, accountId: number) => { partySize: number; members: { slot: number; heroPool: readonly number[] }[] } | null;
+export type LoadOwnTeamGroup = (teamGroupId: number, accountId: number) => { partySize: number; members: { id?: number; slot: number; position?: number | null; heroPool: readonly number[] }[] } | null;
 
 export interface LiveGsiRouteDeps {
   links: GsiLinkStore;
@@ -46,7 +47,7 @@ export interface LiveGsiRouteDeps {
 }
 
 const MAX_TEAM_GROUP_BODY_BYTES = 1024;
-export type LiveTeamGroupRefusal = "not_found" | "not_party5" | "no_pools" | "unsupported";
+export type LiveTeamGroupRefusal = "not_found" | "not_party5" | "no_pools" | "positions_unconfirmed" | "unsupported";
 
 function parseTeamGroupId(raw: unknown): number | null | undefined {
   if (typeof raw !== "object" || raw === null || !("teamGroupId" in raw)) return undefined;
@@ -61,17 +62,6 @@ function parseHumanPosition(raw: unknown): Position | null | undefined {
   const position = (raw as { humanPosition: unknown }).humanPosition;
   if (position === null) return null;
   return position === 1 || position === 2 || position === 3 || position === 4 || position === 5 ? position : undefined;
-}
-
-/** slot N -> Pos N, only for slots that actually hold a pool. Pools are a soft signal downstream, never a whitelist. */
-function poolsBySlot(members: { slot: number; heroPool: readonly number[] }[]): Partial<Record<Position, readonly HeroId[]>> {
-  const pools: Partial<Record<Position, readonly HeroId[]>> = {};
-  for (const member of members) {
-    if (!Number.isInteger(member.slot) || member.slot < 1 || member.slot > 5) continue;
-    const heroes = member.heroPool.filter((id) => Number.isInteger(id) && id > 0);
-    if (heroes.length > 0) pools[member.slot as Position] = heroes;
-  }
-  return pools;
 }
 
 export type CappedBody = { ok: true; text: string } | { ok: false; status: 400 | 413 };
@@ -355,8 +345,9 @@ export function createLiveGsiRoutes(deps: LiveGsiRouteDeps) {
         else if (group === null) refusal = "not_found";
         else if (group.partySize !== 5) refusal = "not_party5";
         else {
-          const pools = poolsBySlot(group.members);
-          if (Object.keys(pools).length === 0) refusal = "no_pools";
+          // Only members with a CONFIRMED position carry a pool; `slot` is display order and never a position.
+          const pools = poolsByConfirmedPosition(group.members);
+          if (Object.keys(pools).length === 0) refusal = group.members.some((member) => member.position != null) ? "no_pools" : "positions_unconfirmed";
           else applied = { teamGroupId, playerPoolsByPosition: pools };
         }
       }

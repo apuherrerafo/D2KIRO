@@ -11,7 +11,9 @@ import { generateDraftSeed } from "../seeded-rng";
 import { useConfigPersistence } from "../use-config-persistence";
 import { useGetTeamGroupsQuery } from "@/lib/engine-api";
 import type { HeroId, SessionMode, TeamSide } from "../types";
+import { countActivePools, useMatchPositions } from "../use-match-positions";
 import type { StartDraftConfig } from "../use-random-draft-session";
+import { MatchPositionsField } from "./MatchPositionsField";
 
 const MAX_BAN_LIST = 4;
 
@@ -320,12 +322,14 @@ function PartyPositionsField({ partySize, selectedPositions, onTogglePosition }:
 }
 
 interface TeamPresetFieldProps {
-  groups: { id: number; name: string; partySize: number; members: { slot: number; name: string; heroPool: number[] }[] }[];
+  groups: { id: number; name: string; partySize: number; members: { slot: number; position?: number | null; name: string; heroPool: number[] }[] }[];
   selectedId: number | null;
+  /** Positions that will really get a team pool in this match (see countActivePools). */
+  activePoolCount: number;
   onChange: (id: number | null) => void;
 }
 
-function TeamPresetField({ groups, selectedId, onChange }: TeamPresetFieldProps) {
+function TeamPresetField({ groups, selectedId, activePoolCount, onChange }: TeamPresetFieldProps) {
   function handleChange(event: ChangeEvent<HTMLSelectElement>) {
     const val = event.target.value;
     onChange(val === "" ? null : Number(val));
@@ -335,8 +339,11 @@ function TeamPresetField({ groups, selectedId, onChange }: TeamPresetFieldProps)
     <div className="flex flex-col gap-1" role="group" aria-label="Preset de equipo (Party 5)">
       <div className="flex items-center justify-between">
         <span className="text-caption text-content-secondary">Preset de equipo (/team-groups)</span>
-        {selectedId !== null && (
+        {selectedId !== null && activePoolCount > 0 && (
           <span className="text-caption text-signal-positive">Pools de posiciones activos</span>
+        )}
+        {selectedId !== null && activePoolCount === 0 && (
+          <span className="text-caption text-signal-warning" data-testid="team-preset-no-pools">Sin posiciones confirmadas: no se aplica ningún pool</span>
         )}
       </div>
       <select
@@ -349,12 +356,12 @@ function TeamPresetField({ groups, selectedId, onChange }: TeamPresetFieldProps)
         <option value="">Sin preset (héroes sin restricción de pool)</option>
         {groups.map((group) => (
           <option key={group.id} value={group.id}>
-            {group.name} ({group.members.length} posiciones configuradas)
+            {group.name} ({group.members.filter((member) => member.position != null).length} de {group.members.length} posiciones confirmadas)
           </option>
         ))}
       </select>
       <span className="text-caption text-content-muted">
-        Carga los pools de héroes configurados para cada jugador (Pos 1 a Pos 5).
+        Carga el pool de héroes de cada jugador según la posición que juega. Puedes cambiar quién juega dónde antes de empezar.
       </span>
     </div>
   );
@@ -435,6 +442,8 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
   const partySize = chosenPartySize ?? config?.partySize ?? 5;
   const rawPartyPositions = chosenPartyPositions ?? config?.partyPositions ?? null;
   const teamGroupId = chosenTeamGroupId !== null ? chosenTeamGroupId : (config?.teamGroupId ?? null);
+  const selectedGroup = partySize === 5 && teamGroupId !== null ? party5Groups.find((group) => group.id === teamGroupId) : undefined;
+  const matchPositions = useMatchPositions(selectedGroup);
 
   const partyPositions: PlayerPosition[] =
     partySize === 5
@@ -568,19 +577,6 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
           ? [position]
           : partyPositions;
 
-    let playerPoolsByPosition: Partial<Record<1 | 2 | 3 | 4 | 5, HeroId[]>> | undefined = undefined;
-    if (partySize === 5 && teamGroupId !== null) {
-      const group = party5Groups.find((g) => g.id === teamGroupId);
-      if (group && group.members) {
-        playerPoolsByPosition = {};
-        for (const member of group.members) {
-          if (member.slot >= 1 && member.slot <= 5) {
-            playerPoolsByPosition[member.slot as 1 | 2 | 3 | 4 | 5] = member.heroPool;
-          }
-        }
-      }
-    }
-
     onStart(
       {
         draftSeed,
@@ -590,7 +586,9 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
         partySize,
         partyPositions: resolvedPositions,
         teamGroupId: partySize === 5 ? teamGroupId : null,
-        playerPoolsByPosition,
+        // Pools never travel from here: the engine loads the saved team and applies THIS assignment (or the usual
+        // positions). `slot` is display order and is never read as a position.
+        teamAssignment: matchPositions.assignment,
       },
       mode,
     );
@@ -608,8 +606,12 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
             <TeamPresetField
               groups={party5Groups}
               selectedId={teamGroupId}
+              activePoolCount={countActivePools(selectedGroup, matchPositions.players, position)}
               onChange={handleTeamGroupChange}
             />
+          )}
+          {partySize === 5 && selectedGroup && (
+            <MatchPositionsField teamName={selectedGroup.name} match={matchPositions} ownerSeat={position} />
           )}
           {(partySize === 2 || partySize === 3) && (
             <PartyPositionsField

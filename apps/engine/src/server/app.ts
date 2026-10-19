@@ -606,7 +606,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     const protocolTeamRecommendationsSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "team-recommendations");
     if (protocolTeamRecommendationsSessionId !== null && request.method === "GET") {
       const auth = requireProtocolAccount(request, protocolTeamRecommendationsSessionId);
-      return auth.ok ? protocolSessionRoutes.getTeamRecommendations(protocolTeamRecommendationsSessionId, url) : auth.response;
+      return auth.ok ? protocolSessionRoutes.getTeamRecommendations(protocolTeamRecommendationsSessionId, url, auth.accountId) : auth.response;
     }
     const protocolPositionAssignmentSessionId = protocolSessionRoutes.parseSessionSubpath(url.pathname, "position-assignment");
     if (protocolPositionAssignmentSessionId !== null && request.method === "POST") {

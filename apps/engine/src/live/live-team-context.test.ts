@@ -61,7 +61,7 @@ function setup() {
   const { db, sqlite } = createGsiLinkTestDb();
   sqlite.exec(`
     CREATE TABLE team_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL, party_size INTEGER NOT NULL, updated_at TEXT NOT NULL);
-    CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
   `);
   const store = new ProtocolSessionStore();
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now: () => T0 });
@@ -81,7 +81,7 @@ function setup() {
       name: "Team",
       partySize,
       updatedAt: "2026-10-04",
-      members: pools.map((heroPool, index) => ({ slot: index + 1, name: `P${index + 1}`, heroPool, updatedAt: "2026-10-04" })),
+      members: pools.map((heroPool, index) => ({ slot: index + 1, position: (index + 1) as 1 | 2 | 3 | 4 | 5, name: `P${index + 1}`, heroPool, updatedAt: "2026-10-04" })),
     });
     return created.id;
   }
