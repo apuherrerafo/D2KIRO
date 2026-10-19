@@ -59,6 +59,9 @@ scripts/live/overwolf-capture/local/
 
 # visual capture lab: downloaded portraits, real screenshots and calibration stay local
 scripts/live/visual-capture/local/
+# live recordings (JSONL + screenshots) and replay reports: the Player's own frames, tens of MB, never committed
+scripts/live/visual-capture/artifacts/
+scripts/live/visual-capture/replay-*.json
 scripts/live/visual-capture/__pycache__/
 scripts/live/visual-capture/**/__pycache__/
 
