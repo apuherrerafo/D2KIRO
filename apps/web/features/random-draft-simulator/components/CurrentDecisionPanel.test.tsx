@@ -15,8 +15,8 @@ const RANKED: CandidateResult = {
   state: "RANKED",
   targetPosition: 3,
   cards: [
-    { heroId: 11, position: 3, rank: 1, score: 30, confidence: "alta", roleStatus: "CONFIRMED_FORCED", badges: [], rationale: "fixture 11", isFromPool: false },
-    { heroId: 12, position: 3, rank: 2, score: 20, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture 12", isFromPool: false },
+    { heroId: 11, position: 3, rank: 1, score: 30, confidence: "alta", roleStatus: "CONFIRMED_FORCED", badges: [], rationale: "fixture 11", isFromPool: false, poolMembership: "NO_POOL" },
+    { heroId: 12, position: 3, rank: 2, score: 20, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture 12", isFromPool: false, poolMembership: "NO_POOL" },
   ],
   degradations: [],
 };
@@ -25,7 +25,7 @@ function output(candidates: CandidateResult, targetBasis: TargetBasis = "STRATEG
   return {
     schema: "recommendation-output/v4",
     sessionId: "s",
-    decision: { kind: "ACTIONABLE", actionablePositions, roundCapacity: 2, targetPosition: recommended, targetBasis, targetRationale: "rationale fixture", viewedPosition: candidates.targetPosition, candidates, personalPoolApplied: false },
+    decision: { kind: "ACTIONABLE", actionablePositions, roundCapacity: 2, targetPosition: recommended, targetBasis, targetRationale: "rationale fixture", viewedPosition: candidates.targetPosition, candidates, personalPoolApplied: false, poolState: "NONE", poolOwner: null },
     roleBeliefs: { own: [], enemy: [] },
     meta: { round: 1, phase: "PICK_ROUND_1", decisionContext: "team_opening", trigger: "DRAFT_PICKS_STARTED", revision: 1, basedOn: { stateIdentity: "id", evidenceVersion: "v" } },
   };
@@ -37,6 +37,45 @@ test("STRATEGIC: 'Objetivo recomendado' + 'Ranking para Pos3' con cartas numerad
   expect(view.getByTestId("current-decision-candidates").textContent).toContain("Ranking para Pos3 Offlane");
   expect(view.getAllByTestId("current-decision-card").map((card) => card.getAttribute("data-rank"))).toEqual(["1", "2"]);
   expect(view.getAllByTestId("feedback-thumb-up")).toHaveLength(2); // feedback attaches to the displayed ranked result only
+});
+
+function withPool(owner: "PLAYER" | "TEAMMATE", memberships: ("IN_POOL" | "OUTSIDE_POOL")[], poolState: "ACTIVE" | "EXHAUSTED" = "ACTIVE"): CurrentDecisionOutput {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const cards = base.decision.candidates.cards.map((card, index) => ({ ...card, poolMembership: memberships[index]!, isFromPool: memberships[index] === "IN_POOL" }));
+  return { ...base, decision: { ...base.decision, poolState, poolOwner: owner, candidates: { ...base.decision.candidates, cards } } };
+}
+
+test("Hero Pools V2: el pool de un compañero NUNCA se rotula 'Tu pool'; se rotula como del compañero, y lo de fuera, fuera", () => {
+  const view = render(<CurrentDecisionPanel output={withPool("TEAMMATE", ["IN_POOL", "OUTSIDE_POOL"])} heroCatalog={new Map()} />);
+  expect(view.getByTestId("current-decision-pool-badge").textContent).toBe("Pool del compañero");
+  expect(view.getByTestId("current-decision-outside-pool-badge").textContent).toBe("Fuera del pool del compañero");
+  expect(view.container.textContent).not.toContain("Tu pool");
+});
+
+test("Hero Pools V2: el pool del propio jugador sí es 'Tu pool'; sin pool no hay ni 'dentro' ni 'fuera'", () => {
+  const own = render(<CurrentDecisionPanel output={withPool("PLAYER", ["IN_POOL", "OUTSIDE_POOL"])} heroCatalog={new Map()} />);
+  expect(own.getByTestId("current-decision-pool-badge").textContent).toBe("Tu pool");
+  expect(own.getByTestId("current-decision-outside-pool-badge").textContent).toBe("Fuera de tu pool");
+  cleanup();
+  const none = render(<CurrentDecisionPanel output={output(RANKED)} heroCatalog={new Map()} />);
+  expect(none.queryByTestId("current-decision-pool-badge")).toBeNull();
+  expect(none.queryByTestId("current-decision-outside-pool-badge")).toBeNull();
+});
+
+test("Hero Pools V2: un pool agotado deja las alternativas creíbles, todas rotuladas fuera del pool", () => {
+  const view = render(<CurrentDecisionPanel output={withPool("TEAMMATE", ["OUTSIDE_POOL", "OUTSIDE_POOL"], "EXHAUSTED")} heroCatalog={new Map()} />);
+  expect(view.getAllByTestId("current-decision-outside-pool-badge")).toHaveLength(2);
+  expect(view.queryByTestId("current-decision-pool-badge")).toBeNull();
+});
+
+test("Hero Pools V2: la validación rechaza etiquetas deshonestas (NO_POOL con un pool activo, o un dueño sin estado)", () => {
+  const lying = withPool("TEAMMATE", ["IN_POOL", "OUTSIDE_POOL"]);
+  if (lying.decision.kind !== "ACTIONABLE" || lying.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const noPoolCards = lying.decision.candidates.cards.map((card) => ({ ...card, poolMembership: "NO_POOL", isFromPool: false }));
+  expect(parseCurrentDecisionOutput({ ...lying, decision: { ...lying.decision, candidates: { ...lying.decision.candidates, cards: noPoolCards } } })).toBeNull();
+  expect(parseCurrentDecisionOutput({ ...lying, decision: { ...lying.decision, poolOwner: null } })).toBeNull();
+  expect(parseCurrentDecisionOutput(lying)).not.toBeNull();
 });
 
 test("COHERENCE-005: DETERMINISTIC_DEFAULT nunca usa el texto de objetivo recomendado", () => {
@@ -119,8 +158,11 @@ test("borde: una salida V4 con cartas rankeadas junto a un estado UNRANKED es re
   expect(parseCurrentDecisionOutput(bad)).toBeNull();
   const offTarget = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { ...RANKED, cards: [{ ...RANKED.cards[0], position: 5 }] } } };
   expect(parseCurrentDecisionOutput(offTarget)).toBeNull();
-  const poolWithoutPersonal = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { ...RANKED, cards: [{ ...RANKED.cards[0], isFromPool: true }] } } };
-  expect(parseCurrentDecisionOutput(poolWithoutPersonal)).toBeNull();
+  // A card claiming a pool when the decision says no pool voted is a contract violation (labels must be honest).
+  const poolWithoutPool = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { ...RANKED, cards: [{ ...RANKED.cards[0], isFromPool: true, poolMembership: "IN_POOL" }] } } };
+  expect(parseCurrentDecisionOutput(poolWithoutPool)).toBeNull();
+  const inconsistentFlag = { ...output(RANKED), decision: { ...output(RANKED).decision, candidates: { ...RANKED, cards: [{ ...RANKED.cards[0], isFromPool: true }] } } };
+  expect(parseCurrentDecisionOutput(inconsistentFlag)).toBeNull();
   expect(parseCurrentDecisionOutput(output(RANKED))).not.toBeNull();
 });
 

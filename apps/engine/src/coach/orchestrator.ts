@@ -1,7 +1,7 @@
 import { deriveDecisionContextFromView } from "../drafter/decision-context";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
-import { configuredPoolForPosition, poolForPosition, positionsWithPoolOption, unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import { configuredPoolForPosition, poolForPosition, unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
@@ -12,7 +12,7 @@ import { isCompatiblePosition } from "./observable-state";
 import { buildPersonalPositionRecommendation, type PersonalHeroView } from "./personal-hero-view";
 import { deriveOpportunity, translateToRecommendationOutputV3, type CoachOpportunity, type CoachOutputConfig, type CoachTrigger, type RecommendationOutputV3 } from "./recommendation-output-v3";
 import { deriveRevealStrategy } from "./reveal-strategy";
-import { buildCurrentHumanDecision, deriveCandidateResult, rankingAppliedPersonalPool, resolveViewedPosition, selectDecisionTarget } from "./current-human-decision";
+import { buildCurrentHumanDecision, deriveCandidateResult, derivePoolInfo, rankingAppliedPersonalPool, resolveViewedPosition, selectDecisionTarget } from "./current-human-decision";
 import { buildRecommendationOutputV4, type RecommendationOutputV4 } from "./recommendation-output-v4";
 
 // AP Ranked Roles V1 / Wave 2 (task 19) -- Coach orchestration: one continuous pipeline
@@ -262,21 +262,23 @@ export class CoachOrchestrator {
     if (!actionability.hasHumanAction) {
       sourceSet = await buildTeamEvaluation(input.context);
     } else {
-      // Step 1B-B: a position whose configured pool is exhausted is not a viable target -- the same rule the Team Coach board applies.
-      const viablePositions = positionsWithPoolOption(actionability.eligiblePositions, input.context.playerPoolsByPosition, unavailableHeroesFrom(view));
-      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal, viablePositions });
+      // Hero Pools V2: a pool is a preference, so an exhausted pool never closes a position as a target.
+      const target = selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
       const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget);
       // COHERENCE-007: the Personal Hero Pool may shape the active candidates ONLY when the viewed position is the personal one...
       // Or in Party 5 / team preset, when the viewed position has a configured player pool in playerPoolsByPosition.
       const hasPositionPool = Boolean(poolForPosition(input.context.playerPoolsByPosition, viewed)?.length);
+      const activePool = configuredPoolForPosition(input.context.playerPoolsByPosition, viewed);
       const usePersonalPool = hasPositionPool || (input.personalPoolAvailable === true && personal !== null && viewed === personal);
+      // The Player's OWN pool: never a teammate's saved pool for the viewed seat (that is `activePool`, below).
+      const ownPoolInEffect = !hasPositionPool && usePersonalPool;
       const targetRanking = await buildTargetRanking(input.context, viewed, usePersonalPool);
       // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
-      const personalPoolApplied = (hasPositionPool || usePersonalPool) && rankingAppliedPersonalPool(targetRanking);
+      const personalPoolApplied = ownPoolInEffect && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
-      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied, admittedPool: configuredPoolForPosition(input.context.playerPoolsByPosition, viewed) });
-      decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied });
+      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied, activePool });
+      decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied, ...derivePoolInfo({ activePool, personalPoolApplied, unavailable: unavailableHeroesFrom(view) }) });
       opportunity = await this.deriveSafeCoreOpportunity(input.context);
     }
     const output = buildRecommendationOutputV4({

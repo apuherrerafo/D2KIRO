@@ -4,7 +4,7 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PositionalAlternative, RankedCandidateCard } from "../coach-client";
+import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
 import { BADGE_LABELS, CoachRoleBeliefs, RoleCollisionBanner, SafeCoreOpportunity } from "./CoachPanel";
@@ -99,15 +99,35 @@ function CandidateDegradations({ degradations }: CandidateDegradationsProps) {
   );
 }
 
+const POOL_BADGE_LABELS: Record<PoolOwner, { inside: string; outside: string }> = {
+  PLAYER: { inside: "Tu pool", outside: "Fuera de tu pool" },
+  TEAMMATE: { inside: "Pool del compañero", outside: "Fuera del pool del compañero" },
+};
+
+interface PoolBadgeProps {
+  membership: PoolMembership;
+  owner: PoolOwner | null;
+}
+
+// A pool mark says whose pool it is; "outside" appears only when a pool really voted (NO_POOL shows nothing).
+function PoolBadge({ membership, owner }: PoolBadgeProps) {
+  if (membership === "NO_POOL" || owner === null) return null;
+  if (membership === "IN_POOL") {
+    return <span className="rounded-md border border-accent-primary px-2 py-1 text-caption text-accent-primary" data-testid="current-decision-pool-badge">{POOL_BADGE_LABELS[owner].inside}</span>;
+  }
+  return <span className="rounded-md border border-surface-border px-2 py-1 text-caption text-content-muted" data-testid="current-decision-outside-pool-badge">{POOL_BADGE_LABELS[owner].outside}</span>;
+}
+
 interface RankedCardViewProps {
   card: RankedCandidateCard;
+  poolOwner: PoolOwner | null;
   heroCatalog: Map<number, HeroMeta>;
   sessionId: string;
   stateIdentity: string;
   rulesetVersion: string | null;
 }
 
-function RankedCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVersion }: RankedCardViewProps) {
+function RankedCardView({ card, poolOwner, heroCatalog, sessionId, stateIdentity, rulesetVersion }: RankedCardViewProps) {
   const meta = heroCatalog.get(card.heroId);
   return (
     <li className="flex flex-col gap-1 rounded-lg border border-surface-border bg-surface-overlay p-2" data-testid="current-decision-card" data-hero-id={card.heroId} data-rank={card.rank}>
@@ -123,7 +143,7 @@ function RankedCardView({ card, heroCatalog, sessionId, stateIdentity, rulesetVe
         {card.badges.map((badge) => (
           <span key={badge} className="rounded-md border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-secondary">{BADGE_LABELS[badge]}</span>
         ))}
-        {card.isFromPool && <span className="rounded-md border border-accent-primary px-2 py-1 text-caption text-accent-primary" data-testid="current-decision-pool-badge">Tu pool</span>}
+        <PoolBadge membership={card.poolMembership} owner={poolOwner} />
       </div>
       <span className="text-caption text-content-secondary">{card.rationale}</span>
       <RecommendationFeedback sessionId={sessionId} heroId={card.heroId} targetPosition={card.position} stateIdentity={stateIdentity} rulesetVersion={rulesetVersion} />
@@ -149,11 +169,12 @@ function AlternativeView({ alternative, heroCatalog }: AlternativeViewProps) {
 
 interface CandidateSectionProps {
   candidates: CandidateResult;
+  poolOwner: PoolOwner | null;
   output: CurrentDecisionOutput;
   heroCatalog: Map<number, HeroMeta>;
 }
 
-function CandidateSection({ candidates, output, heroCatalog }: CandidateSectionProps) {
+function CandidateSection({ candidates, poolOwner, output, heroCatalog }: CandidateSectionProps) {
   const target = positionName(candidates.targetPosition);
   const common = { "data-testid": "current-decision-candidates", "data-candidate-state": candidates.state };
   if (candidates.state === "RANKED") {
@@ -164,7 +185,7 @@ function CandidateSection({ candidates, output, heroCatalog }: CandidateSectionP
         <CandidateDegradations degradations={candidates.degradations} />
         <ol className="grid grid-cols-1 gap-2">
           {candidates.cards.map((card) => (
-            <RankedCardView key={card.heroId} card={card} heroCatalog={heroCatalog} sessionId={output.sessionId} stateIdentity={output.meta.basedOn.stateIdentity} rulesetVersion={rulesetVersion} />
+            <RankedCardView key={card.heroId} card={card} poolOwner={poolOwner} heroCatalog={heroCatalog} sessionId={output.sessionId} stateIdentity={output.meta.basedOn.stateIdentity} rulesetVersion={rulesetVersion} />
           ))}
         </ol>
       </div>
@@ -221,7 +242,7 @@ function DecisionBody({ output, heroCatalog }: DecisionBodyProps) {
     <>
       <TargetHeader decision={decision} />
       <ViewedPositionNotice decision={decision} />
-      <CandidateSection candidates={decision.candidates} output={output} heroCatalog={heroCatalog} />
+      <CandidateSection candidates={decision.candidates} poolOwner={decision.poolOwner} output={output} heroCatalog={heroCatalog} />
     </>
   );
 }

@@ -39,6 +39,7 @@ import { createSimulatorSessionRoutes } from "./routes/simulator-sessions";
 import { createTelemetryRoutes } from "./routes/telemetry";
 import { createTeamGroupRoutes } from "./routes/team-groups";
 import { ProtocolSessionStore } from "./protocol-session";
+import { withHeroPoolOverride } from "./hero-pool-override";
 import { SessionStore, buildServerMessage, type ClientMessage } from "./session";
 
 type Db<TSchema extends Record<string, unknown> = Record<string, never>> = BunSQLiteDatabase<TSchema>;
@@ -240,19 +241,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     } catch {
       throw new SnapshotUnavailableError();
     }
-    if (options.overrideHeroPool && options.overrideHeroPool.length > 0) {
-      meta = {
-        ...meta,
-        heroPool: options.overrideHeroPool.map((hero) => ({
-          hero,
-          source: "manual" as const,
-          personalWinrate: null,
-          personalGames: 0,
-          updatedAt: new Date().toISOString(),
-        })),
-        personalBaselineWinrate: null,
-      };
-    }
+    meta = withHeroPoolOverride(meta, options.overrideHeroPool);
     const readiness = await getMetaReadiness(deps.db, { state, meta });
     return buildSuggestions(state, meta, {
       metaIsStale: readiness.syncFreshness.isStale,

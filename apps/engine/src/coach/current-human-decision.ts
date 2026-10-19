@@ -6,7 +6,7 @@ import type { RecommendationDegradation, RecommendationSetV2 } from "../recommen
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
-import type { CandidateResult, CurrentHumanDecision, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
 
 // Product Semantics Recovery WP2 -- the CurrentHumanDecision builder (pure).
@@ -106,11 +106,26 @@ export interface DeriveCandidateResultInput {
   personalPoolApplied: boolean;
   shortlistSize?: number;
   /**
-   * Step 1B-B -- the target position's configured, non-empty Party5 pool. When present it is the HARD admission: only
-   * pool heroes can appear, none is expelled by credibility, and no fallback ever reaches outside it. It controls
-   * admission only -- a pool hero's role evidence and `roleStatus` stay exactly what V6 / the curated data say.
+   * Hero Pools V2 -- the target position's configured teammate pool. It is a LABEL, never an admission: every card
+   * still has to serve the target position, and a pool that ran dry leaves the credible heroes (labelled outside).
    */
-  admittedPool?: readonly HeroId[];
+  activePool?: readonly HeroId[];
+}
+
+/** Which pool shaped the ranking and whether anything is left in it. Pure; `unavailable` = banned / picked heroes. */
+export function derivePoolInfo(input: { activePool?: readonly HeroId[]; personalPoolApplied: boolean; unavailable: ReadonlySet<HeroId> }): { poolState: PoolState; poolOwner: PoolOwner | null } {
+  if (input.activePool && input.activePool.length > 0) {
+    const left = input.activePool.some((heroId) => !input.unavailable.has(heroId));
+    return { poolState: left ? "ACTIVE" : "EXHAUSTED", poolOwner: "TEAMMATE" };
+  }
+  if (input.personalPoolApplied) return { poolState: "ACTIVE", poolOwner: "PLAYER" };
+  return { poolState: "NONE", poolOwner: null };
+}
+
+function membershipOf(candidate: HeroCandidate, input: DeriveCandidateResultInput): PoolMembership {
+  if (input.activePool && input.activePool.length > 0) return input.activePool.includes(candidate.heroId) ? "IN_POOL" : "OUTSIDE_POOL";
+  if (!input.personalPoolApplied) return "NO_POOL";
+  return isFromPersonalPool(candidate) ? "IN_POOL" : "OUTSIDE_POOL";
 }
 
 function isFromPersonalPool(candidate: HeroCandidate): boolean {
@@ -128,9 +143,9 @@ export function rankingAppliedPersonalPool(ranking: RecommendationSetV2): boolea
 }
 
 /** Legal heroes curated as credible for the target, in id order (explicitly NOT a ranking). */
-function positionalAlternatives(target: Position, view: PerspectiveDraftView, heroPositions: HeroPositions, size: number, admittedPool?: readonly HeroId[]): PositionalAlternative[] {
+function positionalAlternatives(target: Position, view: PerspectiveDraftView, heroPositions: HeroPositions, size: number): PositionalAlternative[] {
   const unavailable = unavailableHeroesFrom(view);
-  return (admittedPool ? [...admittedPool].sort((a, b) => a - b) : credibleHeroesForPosition(target, heroPositions))
+  return credibleHeroesForPosition(target, heroPositions)
     .filter((heroId) => !unavailable.has(heroId))
     .slice(0, size)
     .map((heroId) => ({ heroId, position: target }));
@@ -141,13 +156,12 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
   const size = input.shortlistSize ?? CURRENT_DECISION_SHORTLIST_SIZE;
   const degradations = [...targetRanking.degradations];
   const unavailable = unavailableHeroesFrom(view);
-  const admitted = input.admittedPool ? new Set(input.admittedPool) : null;
 
   if (!invalidatesRanking(degradations)) {
     const candidates = demoteRevealedHardCountered(extractHeroCandidates(targetRanking, heroPositions), revealedEnemyHeroes(view), input.heroCounters)
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
-      .filter((candidate) => !unavailable.has(candidate.heroId) && (admitted ? admitted.has(candidate.heroId) : candidateServesPosition(candidate, targetPosition, heroPositions)));
+      .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
       const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
@@ -161,15 +175,16 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           roleStatus: card.roleStatus,
           badges: card.badges.filter((badge) => badge !== "YOUR_POOL" && badge !== "OUTSIDE_YOUR_POOL"),
           rationale: card.rationale,
-          // COHERENCE-007: a pool mark exists only when the pool actually shaped this ranking.
-          isFromPool: input.personalPoolApplied && isFromPersonalPool(candidate),
+          // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
+          isFromPool: membershipOf(candidate, input) === "IN_POOL",
+          poolMembership: membershipOf(candidate, input),
         };
       });
       return { state: "RANKED", targetPosition, cards, degradations };
     }
   }
 
-  const alternatives = positionalAlternatives(targetPosition, view, heroPositions, size, input.admittedPool);
+  const alternatives = positionalAlternatives(targetPosition, view, heroPositions, size);
   if (alternatives.length > 0) {
     return {
       state: "UNRANKED_POSITIONAL",
@@ -179,9 +194,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       degradations,
     };
   }
-  const reason = admitted
-    ? `No queda ningún héroe disponible de tu pool para ${positionPhrase(targetPosition)}: ya fueron elegidos o baneados. No se recomienda fuera del pool.`
-    : `No hay héroes legales creíbles para ${positionPhrase(targetPosition)} en este momento.`;
+  const reason = `No hay héroes legales creíbles para ${positionPhrase(targetPosition)} en este momento.`;
   return { state: "UNAVAILABLE", targetPosition, reason, degradations };
 }
 
@@ -190,6 +203,8 @@ export interface BuildCurrentHumanDecisionInput {
   target: DecisionTarget | null;
   candidates: CandidateResult | null;
   personalPoolApplied: boolean;
+  poolState?: PoolState;
+  poolOwner?: PoolOwner | null;
 }
 
 /** Assembles the decision. With no human action nothing else is carried -- no target, no candidates. */
@@ -210,5 +225,7 @@ export function buildCurrentHumanDecision(input: BuildCurrentHumanDecisionInput)
     viewedPosition: input.candidates.targetPosition,
     candidates: input.candidates,
     personalPoolApplied: input.personalPoolApplied,
+    poolState: input.poolState ?? "NONE",
+    poolOwner: input.poolOwner ?? null,
   };
 }

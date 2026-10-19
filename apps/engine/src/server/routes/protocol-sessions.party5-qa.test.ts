@@ -237,7 +237,9 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     if (bodyPos2.output.decision.kind !== "ACTIONABLE") throw new Error("Expected ACTIONABLE");
     if (bodyPos2.output.decision.candidates?.state !== "RANKED") throw new Error("Expected RANKED candidates");
     expect(bodyPos2.output.decision.candidates.targetPosition).toBe(2);
-    expect(bodyPos2.output.decision.personalPoolApplied).toBe(true);
+    // Hero Pools V2: the Mid player's pool is the TEAMMATE's, never the Player's own ("Tu pool").
+    expect(bodyPos2.output.decision.personalPoolApplied).toBe(false);
+    expect(bodyPos2.output.decision.poolOwner).toBe("TEAMMATE");
 
     const cardsPos2: HeroCard[] = bodyPos2.output.decision.candidates.cards;
     for (const card of cardsPos2) {
@@ -257,7 +259,8 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     if (bodyPos5.output.decision.kind !== "ACTIONABLE") throw new Error("Expected ACTIONABLE");
     if (bodyPos5.output.decision.candidates?.state !== "RANKED") throw new Error("Expected RANKED candidates");
     expect(bodyPos5.output.decision.candidates.targetPosition).toBe(5);
-    expect(bodyPos5.output.decision.personalPoolApplied).toBe(true);
+    expect(bodyPos5.output.decision.personalPoolApplied).toBe(false);
+    expect(bodyPos5.output.decision.poolOwner).toBe("TEAMMATE");
 
     const cardsPos5: HeroCard[] = bodyPos5.output.decision.candidates.cards;
     for (const card of cardsPos5) {
@@ -289,11 +292,11 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     expect(cards.some((c: HeroCard) => c.heroId === 11)).toBe(false);
   });
 
-  test("6. An out-of-pool hero never ranks, even if credible (Step 1B-B hard pool); the pool is applied", async () => {
+  test("6. Hero Pools V2: the pool is a preference -- Pos 3's pool heroes are marked, credible heroes outside it still rank", async () => {
     const { routes, sessionId } = await createParty5Harness();
     await routes.postResolveBans(jsonRequest({ playerBanPreferences: [] }), sessionId);
 
-    // Pos 3 is not the owner's seat, so its pool is a hard admission: only POS3_POOL heroes can rank.
+    // Pos 3 is not the owner's seat: its saved pool shapes the ranking but admits nothing and expels nothing.
     const urlPos3 = new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/recommendations?format=v4&target=3`);
     const resp = await routes.getRecommendations(sessionId, urlPos3);
     const body = (await resp.json()) as CurrentDecisionRecomputation;
@@ -303,8 +306,11 @@ describe("Party 5 QA Readiness Integration Tests", () => {
     const cards: HeroCard[] = body.output.decision.candidates.cards;
 
     expect(cards.length).toBeGreaterThan(0);
-    expect(cards.every((c: HeroCard) => POS3_POOL.includes(c.heroId))).toBe(true);
-    expect(body.output.decision.personalPoolApplied).toBe(true);
+    expect(cards.some((c: HeroCard) => POS3_POOL.includes(c.heroId))).toBe(true);
+    for (const card of body.output.decision.candidates.cards) expect(card.poolMembership).toBe(POS3_POOL.includes(card.heroId) ? "IN_POOL" : "OUTSIDE_POOL");
+    expect(body.output.decision.poolState).toBe("ACTIVE");
+    expect(body.output.decision.poolOwner).toBe("TEAMMATE");
+    expect(body.output.decision.personalPoolApplied).toBe(false);
   });
 
   test("7. The owner's own seat (Pos 1) is NOT bound to the team's Pos-1 pool: a credible hero outside it still ranks", async () => {

@@ -209,8 +209,8 @@ describe("PARTY5_POOLS -- playerPoolsByPosition[P] -> overrideHeroPool -> that p
     const ranking = (body: TeamCoachBoard) => [...column(body, 4).top].sort((a, b) => a.rank - b.rank).map((card) => card.heroId);
     expect(ranking(after)).not.toEqual(ranking(before));
     expect(ranking(after).slice(0, 2).sort()).toEqual([42, 43]);
-    // Step 1B-B: a HARD admission, not a preference -- nothing outside the new pool ranks at Pos 4.
-    expect([...ranking(after)].sort((a, b) => a - b)).toEqual([42, 43]);
+    // Hero Pools V2 (F1): a preference, not an admission -- the credible heroes outside the new pool still rank at Pos 4.
+    expect(ranking(after).length).toBeGreaterThan(2);
   });
 });
 

@@ -107,7 +107,7 @@ function resolve(ownPicks: LiveOwnPickEvidence[], pools: Partial<Record<Position
   return resolveLiveOwnPositions({ ownPicks, playerPoolsByPosition: pools, heroPositions: POSITIONS });
 }
 
-describe("VERDAD 1 -- el pool controla candidatos, no identidad", () => {
+describe("VERDAD 1 -- el pool es preferencia, no identidad ni elegibilidad", () => {
   // Cumplida desde el Paso 1a: el pool ya no es fuente de identidad (UNIQUE_POOL eliminado).
   test("un héroe que solo lista el pool de Pos 5 NO se vuelve Pos 5: queda sin vincular", async () => {
     const t = setup("contract-1a");
@@ -117,21 +117,21 @@ describe("VERDAD 1 -- el pool controla candidatos, no identidad", () => {
     expect(column(body, 5).filledHeroId).not.toBe(50);
   });
 
-  // Cumplida desde el Paso 1B-B: un pool configurado y no vacío ES el universo de candidatos de la columna.
-  test("con pool configurado, los candidatos de esa posición salen SOLO del pool", async () => {
+  // Hero Pools V2 (F1): el pool ya no es el universo -- es una preferencia. Los candidatos de la columna son los creíbles de la posición.
+  test("con pool configurado, los candidatos de esa posición siguen siendo los creíbles de la posición", async () => {
     const t = setup("contract-1b", { pools: { ...POOLS, 4: [42, 43] } });
     const body = await t.board();
     const pos4 = ranking(body, 4);
     expect(pos4.length).toBeGreaterThan(0);
-    expect(pos4.every((heroId) => heroId === 42 || heroId === 43)).toBe(true);
+    expect(pos4.every((heroId) => POSITIONS[heroId]!.some((entry) => entry.position === 4))).toBe(true);
   });
 
-  // Cumplida desde el Paso 1B-B: la credibilidad estadística ya no expulsa a un héroe del pool configurado.
-  test("un héroe del pool que la estadística no ve en esa posición sigue siendo candidato (Rubick carry)", async () => {
+  // Hero Pools V2 (F1): estar en un pool no da elegibilidad posicional (Rubick carry no se vuelve candidato de Pos 1).
+  test("un héroe que la estadística no ve en esa posición NO se vuelve candidato por estar en el pool (Rubick carry)", async () => {
     // 42 sólo se juega de Pos 4 en los datos, pero el jugador lo declaró en su pool de Pos 1.
     const t = setup("contract-1c", { pools: { ...POOLS, 1: [10, 42] } });
     const body = await t.board();
-    expect(ranking(body, 1)).toContain(42);
+    expect(ranking(body, 1)).not.toContain(42);
   });
 });
 

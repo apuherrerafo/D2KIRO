@@ -52,9 +52,20 @@ export interface RankedCandidateCard {
   roleStatus: RoleImpactStatus;
   badges: HeroBadge[];
   rationale: string;
-  /** Only ever true when the decision's personalPoolApplied is true. */
+  /** True exactly when `poolMembership` is IN_POOL (kept for existing consumers). */
   isFromPool: boolean;
+  /**
+   * Hero Pools V2: is this hero in the pool that shaped THIS ranking (the Player's own, or the teammate's for this
+   * position)? `NO_POOL` when no pool voted at all -- never reported as "outside" a pool nobody configured.
+   */
+  poolMembership: PoolMembership;
 }
+
+export type PoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
+/** ACTIVE: a pool shaped the ranking. EXHAUSTED: a pool exists for the position but none of its heroes is left. NONE: no pool. */
+export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
+/** Whose pool it is: the Player's own, or a teammate's saved pool for the position. */
+export type PoolOwner = "PLAYER" | "TEAMMATE";
 
 /** A legal hero curated as credible for the target position -- no rank, score or confidence exists. */
 export interface PositionalAlternative {
@@ -79,7 +90,10 @@ export type CurrentHumanDecision =
       /** The position the Player is INSPECTING; `candidates` belong to it. Equals targetPosition unless the Player navigated. */
       viewedPosition: Position;
       candidates: CandidateResult;
+      /** The Player's OWN personal pool voted in this ranking (a teammate's pool is `poolOwner: "TEAMMATE"`, never this). */
       personalPoolApplied: boolean;
+      poolState: PoolState;
+      poolOwner: PoolOwner | null;
     }
   | {
       kind: "NO_HUMAN_ACTION";

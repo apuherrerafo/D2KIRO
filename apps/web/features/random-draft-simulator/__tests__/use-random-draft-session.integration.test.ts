@@ -170,10 +170,12 @@ class FakeApProtocolEngine {
           candidates: {
             state: "RANKED",
             targetPosition: viewedPosition,
-            cards: [{ heroId: 10 + this.own.length, position: viewedPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false }],
+            cards: [{ heroId: 10 + this.own.length, position: viewedPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false, poolMembership: "NO_POOL" }],
             degradations: [],
           },
           personalPoolApplied: false,
+          poolState: "NONE",
+          poolOwner: null,
         };
     return {
       output: {

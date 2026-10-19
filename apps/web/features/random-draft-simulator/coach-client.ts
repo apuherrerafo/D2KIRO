@@ -283,8 +283,16 @@ export interface RankedCandidateCard {
   roleStatus: CoachRoleStatus;
   badges: CoachBadge[];
   rationale: string;
+  /** True exactly when `poolMembership` is IN_POOL. */
   isFromPool: boolean;
+  /** Is this hero in the pool that shaped the ranking? NO_POOL = no pool voted (never shown as "outside"). */
+  poolMembership: PoolMembership;
 }
+
+export type PoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
+export type PoolState = "ACTIVE" | "EXHAUSTED" | "NONE";
+/** Whose pool: the Player's own, or a teammate's saved pool for the position. Mirror of the engine contract. */
+export type PoolOwner = "PLAYER" | "TEAMMATE";
 
 export interface PositionalAlternative {
   heroId: HeroId;
@@ -313,6 +321,8 @@ export type ActionableDecision = {
   viewedPosition: CoachPosition;
   candidates: CandidateResult;
   personalPoolApplied: boolean;
+  poolState: PoolState;
+  poolOwner: PoolOwner | null;
 };
 
 export type CurrentHumanDecision =
@@ -344,7 +354,21 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
   return isHeroId(value.heroId) && value.position === target && typeof value.rank === "number" && Number.isInteger(value.rank) && value.rank >= 1
     && typeof value.score === "number" && Number.isFinite(value.score) && isConfidence(value.confidence) && roleOk
     && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
-    && typeof value.rationale === "string" && typeof value.isFromPool === "boolean";
+    && typeof value.rationale === "string" && typeof value.isFromPool === "boolean"
+    && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL");
+}
+
+function isPoolMembership(value: unknown): value is PoolMembership {
+  return value === "IN_POOL" || value === "OUTSIDE_POOL" || value === "NO_POOL";
+}
+
+function isPoolState(value: unknown): value is PoolState {
+  return value === "ACTIVE" || value === "EXHAUSTED" || value === "NONE";
+}
+
+/** NONE <=> no card claims a pool; any other state <=> every card says IN or OUTSIDE. Keeps the labels honest. */
+function cardsAgreeWithPoolState(cards: unknown[], poolState: PoolState): boolean {
+  return cards.every((card) => isRecord(card) && ((card.poolMembership === "NO_POOL") === (poolState === "NONE")));
 }
 
 /** An unranked alternative carries exactly {heroId, position}: any ranking field is a contract violation. */
@@ -357,11 +381,11 @@ function isDegradationList(value: unknown): value is CandidateDegradation[] {
   return Array.isArray(value) && value.every(isCoachDegradation);
 }
 
-function isCandidateResult(value: unknown, target: CoachPosition, personalPoolApplied: boolean): value is CandidateResult {
+function isCandidateResult(value: unknown, target: CoachPosition, poolState: PoolState): value is CandidateResult {
   if (!isRecord(value) || value.targetPosition !== target || !isDegradationList(value.degradations)) return false;
   if (value.state === "RANKED") {
     return Array.isArray(value.cards) && value.cards.length > 0 && value.cards.every((card) => isRankedCard(card, target))
-      && (personalPoolApplied || value.cards.every((card) => isRecord(card) && card.isFromPool === false));
+      && cardsAgreeWithPoolState(value.cards, poolState);
   }
   if (value.state === "UNRANKED_POSITIONAL") {
     return typeof value.reason === "string" && Array.isArray(value.alternatives) && value.alternatives.length > 0
@@ -382,8 +406,11 @@ function isCurrentHumanDecision(value: unknown): value is CurrentHumanDecision {
   if (!isPosition(value.targetPosition) || !value.actionablePositions.includes(value.targetPosition)) return false;
   if (value.targetBasis !== "STRATEGIC" && value.targetBasis !== "DETERMINISTIC_DEFAULT") return false;
   if (typeof value.targetRationale !== "string" || typeof value.personalPoolApplied !== "boolean") return false;
+  if (!isPoolState(value.poolState)) return false;
+  if (value.poolOwner !== null && value.poolOwner !== "PLAYER" && value.poolOwner !== "TEAMMATE") return false;
+  if ((value.poolState === "NONE") !== (value.poolOwner === null)) return false;
   if (!isPosition(value.viewedPosition) || !value.actionablePositions.includes(value.viewedPosition)) return false;
-  return isCandidateResult(value.candidates, value.viewedPosition, value.personalPoolApplied);
+  return isCandidateResult(value.candidates, value.viewedPosition, value.poolState);
 }
 
 export function parseCurrentDecisionOutput(value: unknown): CurrentDecisionOutput | null {

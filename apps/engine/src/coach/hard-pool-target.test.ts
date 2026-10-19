@@ -35,58 +35,60 @@ async function decide(pools: Pools | null, options: { bans?: number[]; personal?
   return decision;
 }
 
-describe("recomputeCurrentDecision (V4) con un pool configurado agotado", () => {
+describe("recomputeCurrentDecision (V4) con un pool configurado agotado (Hero Pools V2: el pool es preferencia)", () => {
   test("control: con el pool de Pos 4 vivo, Pos 4 (la del jugador) sigue siendo el objetivo", async () => {
     const decision = await decide({ 4: [3] });
     expect(decision.targetPosition).toBe(4);
+    expect(decision.poolState).toBe("ACTIVE");
   });
 
-  test("Pos 4 agotada (su único héroe baneado) no puede ser el objetivo, aunque sea la posición del jugador", async () => {
+  test("Pos 4 agotada (su único héroe baneado) sigue siendo el objetivo: un pool agotado no cierra la posición", async () => {
     const decision = await decide({ 4: [3] }, { bans: [3] });
-    expect(decision.targetPosition).not.toBe(4);
-    expect(decision.viewedPosition).not.toBe(4);
-    expect(decision.actionablePositions).toContain(4); // sigue siendo legalmente elegible: sólo se estrecha el objetivo
+    expect(decision.targetPosition).toBe(4);
+    expect(decision.viewedPosition).toBe(4);
+    expect(decision.actionablePositions).toContain(4);
+    expect(decision.poolState).toBe("EXHAUSTED");
   });
 
-  test("se elige otra posición viable, de forma determinista, y la razón lo dice", async () => {
+  test("la razón no habla de un 'pool' que bloquee: si no hay héroe creíble lo dice por la posición", async () => {
     const decision = await decide({ 4: [3] }, { bans: [3] });
-    expect(decision.targetPosition).toBe(1); // la más baja elegible con opción
-    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetRationale).toContain("pool");
-    expect(decision.candidates.state).not.toBe("UNAVAILABLE");
+    expect(decision.targetRationale).not.toContain("pool");
+    if (decision.candidates.state === "UNAVAILABLE") expect(decision.candidates.reason).not.toContain("pool");
   });
 
-  test("la posición personal sigue ganando entre las viables", async () => {
+  test("la posición personal sigue ganando", async () => {
     const decision = await decide({ 4: [3] }, { bans: [3], personal: 2 });
     expect(decision.targetPosition).toBe(2);
   });
 
-  test("ningún héroe fuera del pool se introduce en la posición con pool configurado", async () => {
+  test("el pool no restringe ni expande: sólo héroes creíbles de la posición, y los del pool quedan marcados", async () => {
     const decision = await decide({ 2: [4, 7] }, { personal: 2 });
     expect(decision.targetPosition).toBe(2);
-    if (decision.candidates.state === "RANKED") expect(decision.candidates.cards.every((card) => [4, 7].includes(card.heroId))).toBe(true);
-    if (decision.candidates.state === "UNRANKED_POSITIONAL") expect(decision.candidates.alternatives.every((alt) => [4, 7].includes(alt.heroId))).toBe(true);
+    if (decision.candidates.state !== "RANKED") throw new Error("expected RANKED");
+    const cards = decision.candidates.cards;
+    expect(cards.map((card) => card.heroId)).toContain(4);
+    expect(cards.map((card) => card.heroId)).not.toContain(7); // hero 7 is not credible at Pos 2 in the fixture
+    expect(cards.find((card) => card.heroId === 4)!.poolMembership).toBe("IN_POOL");
+    expect(decision.poolOwner).toBe("TEAMMATE");
   });
 
-  test("ver explícitamente la posición agotada se respeta (navegación) y se informa con verdad, sin héroe fuera del pool", async () => {
+  test("ver explícitamente la posición agotada se respeta (navegación)", async () => {
     const decision = await decide({ 4: [3] }, { bans: [3], requestedTarget: 4 });
-    expect(decision.targetPosition).not.toBe(4);
     expect(decision.viewedPosition).toBe(4);
-    expect(decision.candidates.state).toBe("UNAVAILABLE");
-    if (decision.candidates.state === "UNAVAILABLE") expect(decision.candidates.reason).toContain("pool");
+    expect(decision.targetPosition).toBe(4);
   });
 
-  test("las cinco agotadas: no hay objetivo viable, se informa con verdad y no se recomienda ningún héroe", async () => {
+  test("las cinco agotadas: todas siguen siendo objetivo posible y se informa por la posición, no por un pool", async () => {
     const decision = await decide({ 1: [1], 2: [4], 3: [5], 4: [3], 5: [2] }, { bans: [1, 2, 3, 4, 5] });
-    expect(decision.candidates.state).toBe("UNAVAILABLE");
-    if (decision.candidates.state === "UNAVAILABLE") expect(decision.candidates.reason).toContain("pool");
-    expect(decision.targetRationale).not.toContain("la recomendación pasa a");
+    expect(decision.poolState).toBe("EXHAUSTED");
+    if (decision.candidates.state === "UNAVAILABLE") expect(decision.candidates.reason).not.toContain("pool");
   });
 
   test("sin pool configurado el comportamiento previo se conserva (objetivo = posición del jugador)", async () => {
     expect((await decide(null)).targetPosition).toBe(4);
     expect((await decide({})).targetPosition).toBe(4);
     expect((await decide({ 4: [] }, { bans: [3] })).targetPosition).toBe(4); // pool vacío == no configurado
+    expect((await decide(null)).poolState).toBe("NONE");
   });
 });
 
@@ -119,14 +121,13 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
     return result!;
   }
 
-  test("la posición personal agotada no es la decisión del tablero; coincide con el objetivo de V4", async () => {
+  test("la posición personal con pool agotado sigue siendo la decisión del tablero; coincide con el objetivo de V4", async () => {
     const pools: Pools = { 4: [3] };
     const body = await board(pools, [3], 4);
     const v4 = await decide(pools, { bans: [3], personal: 4 });
-    expect(body.currentDecision.recommendedPosition).not.toBe(4);
+    expect(body.currentDecision.recommendedPosition).toBe(4);
     expect(body.currentDecision.recommendedPosition).toBe(v4.targetPosition);
     expect(body.currentDecision.actionablePositions).toContain(4);
-    expect(body.positions.find((column) => column.position === 4)!.state).toBe("UNAVAILABLE");
   });
 
   test("control: con el pool vivo el tablero y V4 apuntan a la posición personal", async () => {
@@ -135,11 +136,10 @@ describe("tablero del Team Coach (camino simulador) y V4 coinciden", () => {
     expect((await decide({ 4: [3] }, { personal: 4 })).targetPosition).toBe(4);
   });
 
-  test("las cinco agotadas: el tablero no recomienda héroe y lo dice con verdad", async () => {
+  test("las cinco agotadas: ninguna columna se cierra por su pool; sin héroe creíble disponible no hay recomendación", async () => {
     const pools: Pools = { 1: [1], 2: [4], 3: [5], 4: [3], 5: [2] };
     const body = await board(pools, [1, 2, 3, 4, 5], 4);
-    for (const column of body.positions) expect(column.state).toBe("UNAVAILABLE");
     expect(body.currentDecision.recommendedHeroId).toBeNull();
-    expect(body.currentDecision.reason).toContain("pool");
+    expect(body.currentDecision.reason).not.toContain("pool");
   });
 });

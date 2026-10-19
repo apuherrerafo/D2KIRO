@@ -1,7 +1,7 @@
 import { buildTeamCoachBoard, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
-import { configuredPoolForPosition, poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
+import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
 import { loadHeroCounters, type CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
@@ -53,11 +53,11 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   // Assignments are per observer/account. A pool overlay must not accidentally share state with
   // another account that happens to inspect the same simulator session.
   const coaches: { accountId: string; coach: CoachOrchestrator }[] = [];
-  // Step 1B-B: a configured, non-empty Party5 pool for the target position IS the candidate universe (hard admission --
-  // it never provides identity). Unconfigured/empty keeps the credible-universe behaviour.
-  function targetUniverse(context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
-    const pool = configuredPoolForPosition(context.playerPoolsByPosition, targetPosition);
-    if (pool) return { candidateHeroIds: pool, candidateUniverseIsAdmission: true };
+  // Hero Pools V2 / F1: the candidate universe of a position is ALWAYS the heroes credible there. A configured pool for
+  // that position (a teammate's, already filtered to the position they actually play -- team-positions.ts) is not an
+  // admission any more: it travels as `overrideHeroPool`, which `hero_pool_fit` turns into a preference. A pool hero
+  // that is not credible for the position is simply not a candidate; a pool that runs dry leaves the credible heroes.
+  function targetUniverse(_context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
     return { candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions) };
   }
   function coachFor(accountId: number | null): CoachOrchestrator {

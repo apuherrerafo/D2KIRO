@@ -12,10 +12,12 @@ import { createProtocolSessionRoutes } from "../server/routes/protocol-sessions"
 import type { HeroPositions } from "../signals/hero-positions";
 import { LiveCaptureRegistry } from "./live-capture-registry";
 
-// Step 1B-B -- HARD Party5 pools. A configured, non-empty pool for position P is the candidate universe of P:
-//   * pool controls ADMISSION (a pool hero is never expelled by credibility; a non-pool hero never appears),
-//   * pool NEVER provides IDENTITY (no hero -> position binding is ever derived from membership),
-//   * an exhausted pool is reported truthfully -- it never falls back to heroes outside it.
+// Hero Pools V2 (F1) -- Party5 pools are a PREFERENCE (formerly Step 1B-B "hard pools"). A configured pool for position P:
+//   * never decides ADMISSION: the candidates of P are always the heroes credible at P (a pool hero that is not credible
+//     there is not a candidate; a credible hero outside the pool still is),
+//   * NEVER provides IDENTITY (no hero -> position binding is ever derived from membership),
+//   * running dry closes nothing: the column keeps its credible heroes (the preference itself is scored by V6's
+//     `hero_pool_fit`, proven against the real scorer in protocol-sessions.hybrid-pools.test.ts).
 // REAL registry -> REAL kernel -> REAL store -> REAL Team Coach Board route. Positions and pools are inline (S10).
 // The V6 stand-in applies no positional admission of its own, so whatever universe reaches a column is the engine's decision.
 
@@ -89,44 +91,42 @@ const column = (board: TeamCoachBoard, position: Position) => board.positions.fi
 const ranking = (board: TeamCoachBoard, position: Position) => [...column(board, position).top].sort((a, b) => a.rank - b.rank).map((card) => card.heroId);
 const ALL_POSITIONS: Position[] = [1, 2, 3, 4, 5];
 
-describe("1. un héroe del pool que la estadística no ve en esa posición sigue siendo candidato", () => {
-  test("Rubick en el pool de Pos 1 es candidato de Pos 1", async () => {
+describe("1. estar en un pool no da elegibilidad posicional", () => {
+  test("Rubick (la estadística sólo lo ve en Pos 4) en el pool de Pos 1 NO es candidato de Pos 1", async () => {
     const t = setup("hp-1", { ...POOLS, 1: [10, RUBICK] });
     const body = await t.board();
     expect(column(body, 1).state).toBe("RANKED");
-    expect(ranking(body, 1)).toContain(RUBICK);
+    expect(ranking(body, 1)).not.toContain(RUBICK);
+    expect(ranking(body, 1)).toContain(10);
   });
 
-  test("lo es en cualquier fase del draft con otros héroes ya elegidos", async () => {
+  test("tampoco en una fase avanzada del draft", async () => {
     const t = setup("hp-1b", { ...POOLS, 1: [10, RUBICK] });
     t.enemy(70);
     t.enemy(71);
-    expect(ranking(await t.board(), 1)).toContain(RUBICK);
+    expect(ranking(await t.board(), 1)).not.toContain(RUBICK);
   });
 });
 
-describe("2. un héroe fuera del pool configurado no se recomienda", () => {
-  test("la columna de Pos 1 contiene exactamente el pool, aunque otros héroes sean creíbles ahí", async () => {
+describe("2. un héroe creíble fuera del pool sigue siendo candidato", () => {
+  test("la columna de Pos 1 incluye a los creíbles que no están en el pool", async () => {
     const t = setup("hp-2", POOLS);
     const body = await t.board();
-    expect([...ranking(body, 1)].sort((a, b) => a - b)).toEqual([10, 11]);
-    expect(ranking(body, 1)).not.toContain(12);
-    expect(ranking(body, 1)).not.toContain(13);
+    expect([...ranking(body, 1)].sort((a, b) => a - b)).toEqual([10, 11, 12, 13]);
   });
 
-  test("lo mismo en las cinco columnas: nadie sale de su propio pool", async () => {
+  test("las cinco columnas ofrecen sólo héroes creíbles de su propia posición", async () => {
     const body = await setup("hp-2b", POOLS).board();
     for (const position of ALL_POSITIONS) {
-      const pool = new Set(POOLS[position]);
-      expect(ranking(body, position).every((heroId) => pool.has(heroId))).toBe(true);
+      for (const heroId of ranking(body, position)) expect(POSITIONS[heroId]!.some((entry) => entry.position === position)).toBe(true);
     }
   });
 
-  test("la rationale y el primario también salen del pool", async () => {
+  test("el primario sale de los héroes creíbles de la posición", async () => {
     const body = await setup("hp-2c", POOLS).board();
     for (const position of ALL_POSITIONS) {
       const primary = column(body, position).primaryHeroId;
-      if (primary !== null) expect(POOLS[position]).toContain(primary);
+      if (primary !== null) expect(POSITIONS[primary]!.some((entry) => entry.position === position)).toBe(true);
     }
   });
 });
@@ -137,7 +137,8 @@ describe("3. un héroe del pool baneado o elegido no está disponible", () => {
     t.ban(10);
     t.enemy(20);
     const body = await t.board();
-    expect(ranking(body, 1)).toEqual([11]);
+    expect(ranking(body, 1)).not.toContain(10);
+    expect(ranking(body, 1)).toContain(11);
     expect(ranking(body, 2)).not.toContain(20);
     expect(ranking(body, 2).length).toBeGreaterThan(0);
   });
@@ -150,45 +151,37 @@ describe("3. un héroe del pool baneado o elegido no está disponible", () => {
   });
 });
 
-describe("4. un pool agotado no tiene fallback fuera del pool", () => {
-  test("pool de Pos 1 agotado: la columna queda sin opciones y no aparece ningún otro héroe", async () => {
+describe("4. un pool agotado no cierra la posición", () => {
+  test("pool de Pos 1 agotado: la columna sigue con los demás héroes creíbles de Pos 1", async () => {
     const t = setup("hp-4", POOLS);
     t.ban(10);
     t.enemy(11);
     const body = await t.board();
     const pos1 = column(body, 1);
-    expect(pos1.state).toBe("UNAVAILABLE");
-    expect(pos1.top).toEqual([]);
-    expect(pos1.primaryHeroId).toBeNull();
-    expect(pos1.note).toContain("pool");
-    // el resto del tablero sigue vivo
+    expect(pos1.state).toBe("RANKED");
+    expect([...ranking(body, 1)].sort((a, b) => a - b)).toEqual([12, 13]);
+    expect(pos1.primaryHeroId).not.toBeNull();
     for (const position of [2, 3, 4, 5] as Position[]) expect(column(body, position).state).toBe("RANKED");
   });
 
-  test("se prefiere otra posición viable: la decisión no apunta a la posición agotada", async () => {
+  test("el objetivo recomendado no se aparta de una posición por tener el pool agotado", async () => {
     const control = await setup("hp-4-control", POOLS).board();
     expect(control.currentDecision.recommendedPosition).toBe(5); // orden de fase: Pos 5 primero
     const t = setup("hp-4b", POOLS);
     for (const hero of [50, 51]) t.ban(hero);
     t.enemy(45);
     const body = await t.board();
-    expect(column(body, 5).state).toBe("UNAVAILABLE");
-    expect(body.currentDecision.recommendedPosition).not.toBe(5);
-    expect(body.currentDecision.recommendedPosition).not.toBeNull();
-    // la posición agotada sigue siendo legalmente elegible: sólo se estrecha el objetivo recomendado
+    expect(column(body, 5).state).toBe("RANKED"); // 52 y 53 siguen siendo creíbles en Pos 5
+    expect(body.currentDecision.recommendedPosition).toBe(5);
     expect(body.currentDecision.actionablePositions).toContain(5);
   });
 
-  test("todas las posiciones agotadas: se informa con verdad, sin héroe recomendado ni fuera del pool", async () => {
+  test("todas las posiciones con el pool agotado: siguen las columnas con héroes creíbles", async () => {
     const t = setup("hp-4c", { 1: [10], 2: [20], 3: [30], 4: [40], 5: [50] });
     for (const hero of [10, 20, 30, 40, 50]) t.ban(hero);
     const body = await t.board();
-    for (const position of ALL_POSITIONS) {
-      expect(column(body, position).state).toBe("UNAVAILABLE");
-      expect(column(body, position).top).toEqual([]);
-    }
-    expect(body.currentDecision.recommendedHeroId).toBeNull();
-    expect(body.currentDecision.reason).toContain("pool");
+    for (const position of ALL_POSITIONS) expect(column(body, position).state).toBe("RANKED");
+    expect(body.currentDecision.recommendedHeroId).not.toBeNull();
   });
 });
 
@@ -199,16 +192,16 @@ describe("5. sin pool configurado se conserva el universo creíble actual", () =
     expect(ranking(body, 1)).not.toContain(RUBICK);
   });
 
-  test("un pool vacío para una posición equivale a no configurarlo; las demás posiciones siguen duras", async () => {
+  test("un pool vacío para una posición equivale a no configurarlo", async () => {
     const body = await setup("hp-5b", { ...POOLS, 1: [] }).board();
     expect([...ranking(body, 1)].sort((a, b) => a - b)).toEqual([10, 11, 12, 13]);
-    expect([...ranking(body, 2)].sort((a, b) => a - b)).toEqual([20, 21, 22]);
+    expect([...ranking(body, 2)].sort((a, b) => a - b)).toEqual([20, 21, 22, 23]);
   });
 
   test("la columna sin pool no se contamina con el pool de otra posición", async () => {
     const body = await setup("hp-5c", { 2: [20, RUBICK] }).board();
     expect(ranking(body, 1)).not.toContain(RUBICK);
-    expect(ranking(body, 2)).toContain(RUBICK);
+    expect(ranking(body, 2)).not.toContain(RUBICK); // no es creíble en Pos 2
   });
 });
 
@@ -232,37 +225,34 @@ describe("7. la pertenencia a un pool jamás crea identidad héroe -> posición"
     expect(column(body, 4).filledHeroId).toBeNull();
   });
 
-  test("ofrecer a un héroe en una columna no lo convierte en dato de identidad de ese héroe en otra", async () => {
+  test("un pool que lista a un héroe no lo convierte en dato de identidad de ese héroe", async () => {
     const body = await setup("hp-7b", { ...POOLS, 1: [10, RUBICK] }).board();
-    expect(ranking(body, 1)).toContain(RUBICK);
     expect(column(body, 1).filledHeroId).toBeNull();
     expect(body.unboundOwnHeroIds).toEqual([]);
   });
 });
 
-describe("deriveCandidateResult con admittedPool (alternativas posicionales)", () => {
+describe("deriveCandidateResult con activePool (alternativas posicionales)", () => {
   const view = { bannedHeroes: [10], ownPicks: [], enemyPicks: [{ visibility: "REVEALED", heroId: 11 }] } as unknown as PerspectiveDraftView;
   const unrankable = { degradations: [{ reason: "NO_LEGAL_HERO_UNIVERSE", detail: "fixture" }], recommendations: [] } as unknown as RecommendationSetV2;
   const input = { targetPosition: 1 as Position, targetRanking: unrankable, view, heroPositions: POSITIONS, personalPoolApplied: false };
 
-  test("sin ranking confiable, las alternativas salen sólo del pool y legales, no del universo creíble", () => {
-    const result = deriveCandidateResult({ ...input, admittedPool: [10, 11, RUBICK, 13] });
+  test("sin ranking confiable, las alternativas son siempre el universo creíble legal; el pool no las restringe", () => {
+    const result = deriveCandidateResult({ ...input, activePool: [10, 11, RUBICK, 13] });
     expect(result.state).toBe("UNRANKED_POSITIONAL");
     if (result.state !== "UNRANKED_POSITIONAL") return;
-    expect(result.alternatives.map((alternative) => alternative.heroId)).toEqual([13, RUBICK]);
+    expect(result.alternatives.map((alternative) => alternative.heroId)).toEqual([12, 13]);
   });
 
-  test("contraste: sin pool configurado ofrece el universo creíble de la posición (comportamiento previo)", () => {
+  test("contraste: sin pool configurado ofrece lo mismo", () => {
     const result = deriveCandidateResult(input);
     expect(result.state).toBe("UNRANKED_POSITIONAL");
     if (result.state !== "UNRANKED_POSITIONAL") return;
     expect(result.alternatives.map((alternative) => alternative.heroId)).toEqual([12, 13]);
   });
 
-  test("pool totalmente no disponible: UNAVAILABLE con motivo de pool, nunca un héroe de fuera", () => {
-    const result = deriveCandidateResult({ ...input, admittedPool: [10, 11] });
-    expect(result.state).toBe("UNAVAILABLE");
-    if (result.state !== "UNAVAILABLE") return;
-    expect(result.reason).toContain("pool");
+  test("pool totalmente no disponible: las alternativas creíbles siguen ahí (el pool agotado no vacía la lista)", () => {
+    const result = deriveCandidateResult({ ...input, activePool: [10, 11] });
+    expect(result.state).toBe("UNRANKED_POSITIONAL");
   });
 });
