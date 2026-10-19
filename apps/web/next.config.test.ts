@@ -31,6 +31,7 @@ describe("engine rewrites", () => {
     expect(sources).toContain("/engine/api/simulator/sessions/:sessionId/state");
     expect(sources).toContain("/engine/api/team-groups");
     expect(sources).toContain("/engine/api/team-groups/:id");
+    expect(sources).toContain("/engine/api/team-groups/:id/members/:memberId/pools/:position");
 
     // TSK-214: estas cinco entraron a la allowlist a propósito. Antes este test afirmaba lo
     // contrario (regla de TSK-037/038: "el draft en vivo nunca pasa por /engine"), que asumía un

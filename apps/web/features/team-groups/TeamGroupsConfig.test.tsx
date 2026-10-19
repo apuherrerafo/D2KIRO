@@ -1,6 +1,6 @@
 import "@/test-support/happy-dom";
 
-import { cleanup, fireEvent, render, waitFor, type RenderResult } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within, type RenderResult } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { afterEach, beforeEach, expect, test } from "bun:test";
@@ -33,7 +33,7 @@ function mount(team: ReturnType<typeof party5Team>): RenderResult {
 }
 
 async function openSavedTeam(view: RenderResult): Promise<void> {
-  fireEvent.click(await view.findByRole("button", { name: "Editar" }));
+  fireEvent.click(await view.findByRole("button", { name: /^Editar/ }));
   await view.findByTestId("position-board");
 }
 
@@ -50,7 +50,7 @@ test("intercambiar dos jugadores en el editor cambia SU posición, no el orden d
   await openSavedTeam(view);
   fireEvent.click(view.getByTestId("position-board-player-1")); // Ana (Pos 1)
   fireEvent.click(view.getByTestId("position-board-move-2")); // ... con Bruno (Pos 2)
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "PUT")).toBe(true));
 
   const body = lastPut();
@@ -67,7 +67,7 @@ test("un equipo antiguo (sin posiciones) lo dice, no inventa posiciones, y guard
 
   fireEvent.click(view.getByTestId("position-board-player-3")); // Carla
   fireEvent.click(view.getByTestId("position-board-move-4")); // -> Pos 4
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "PUT")).toBe(true));
 
   expect(positionsBySlot(lastPut())).toEqual([[1, null], [2, null], [3, 4], [4, null], [5, null]]);
@@ -81,7 +81,7 @@ test("un equipo antiguo se confirma con un clic: nada se guarda hasta pulsar Gua
   expect(view.queryByTestId("team-legacy-positions")).toBeNull();
   expect(view.queryByTestId("team-confirm-list-order")).toBeNull();
 
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "PUT")).toBe(true));
   expect(positionsBySlot(lastPut())).toEqual([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]]);
 });
@@ -106,13 +106,13 @@ test("un equipo ya confirmado no muestra el aviso de equipo antiguo", async () =
 
 test("un equipo NUEVO de Party 5 arranca con posiciones visibles y editables, y se guardan explícitamente", async () => {
   const view = mount(party5Team([1, 2, 3, 4, 5]));
-  await view.findByRole("button", { name: "Editar" });
-  fireEvent.click(view.getByRole("button", { name: "Nuevo" }));
+  await view.findByRole("button", { name: /^Editar/ });
+  fireEvent.click(view.getByRole("button", { name: "Nuevo equipo" }));
   // happy-dom no entrega `fireEvent.change` de inputs de texto a React: se escribe como un usuario.
   await userEvent.setup().type(view.getByPlaceholderText("Nombre del equipo"), "Otro");
   // Party de 2 por defecto: cambiar a 5.
   fireEvent.change(view.getByRole("combobox"), { target: { value: "5" } });
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "POST")).toBe(true));
   const post = requests.find((request) => request.method === "POST")!.body as TeamGroupPutBody;
   expect(positionsBySlot(post)).toEqual([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]]);
@@ -120,10 +120,10 @@ test("un equipo NUEVO de Party 5 arranca con posiciones visibles y editables, y 
 
 test("un equipo de Party 2 arranca sin posiciones para sus compañeros (no hay un orden que tomar como posición)", async () => {
   const view = mount(party5Team([1, 2, 3, 4, 5]));
-  await view.findByRole("button", { name: "Editar" });
-  fireEvent.click(view.getByRole("button", { name: "Nuevo" }));
+  await view.findByRole("button", { name: /^Editar/ });
+  fireEvent.click(view.getByRole("button", { name: "Nuevo equipo" }));
   await userEvent.setup().type(view.getByPlaceholderText("Nombre del equipo"), "Duo");
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "POST")).toBe(true));
   const post = requests.find((request) => request.method === "POST")!.body as TeamGroupPutBody;
   expect(post.partySize).toBe(2);
@@ -135,7 +135,7 @@ test("guardar devuelve el id de cada miembro: la persona es el id, no el nombre 
   await openSavedTeam(view);
   fireEvent.click(view.getByTestId("position-board-player-1"));
   fireEvent.click(view.getByTestId("position-board-move-2"));
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "PUT")).toBe(true));
   expect(lastPut().members.map((member) => [member.id, member.heroPool])).toEqual([[11, [100]], [12, [101]], [13, [102]], [14, [103]], [15, [104]]]);
 });
@@ -148,10 +148,11 @@ test("renombrar a un jugador mantiene su id y sus héroes; 'Es otra persona' lo 
   const renamed = view.getAllByPlaceholderText(/Nombre del jugador/)[0]!;
   await user.clear(renamed);
   await user.type(renamed, "Otro apodo");
-  await user.click(view.getByTestId("team-replace-member-2"));
+  await user.click(within(view.getByTestId("roster-player-2")).getByRole("button"));
+  await user.click(within(view.getByTestId("team-replace-member-2")).getByRole("button"));
   await user.type(view.getAllByPlaceholderText(/Nombre del jugador/)[1]!, "Persona nueva");
 
-  fireEvent.click(view.getByRole("button", { name: "Guardar" }));
+  fireEvent.click(view.getByRole("button", { name: "Guardar equipo" }));
   await waitFor(() => expect(requests.some((request) => request.method === "PUT")).toBe(true));
   const [first, second, ...rest] = lastPut().members;
   expect([first!.id, first!.name, first!.heroPool]).toEqual([11, "Otro apodo", [100]]);

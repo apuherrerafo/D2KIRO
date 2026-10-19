@@ -1,0 +1,164 @@
+/* F4 · Equipos y pools por posición — local layer on top of Canonical LIGHT.
+   Contract: no color literal, no custom property declared here. Every color, font and duration is a Canonical token
+   (--r3-* / --cx-* / --f-* / --m-*), read inside `.r3-page [data-theme="light"]`. Only what Canonical has no equivalent
+   for lives here: text inputs, the hero chip, the drag board and the picker list. Spacing is the 4 px scale.
+   Nothing is global: every rule is under `.tg-*` and the scope only exists on the /team-groups route. */
+
+.r3-page.tg-page { background: transparent; display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; padding: 0; }
+.tg-light { background: var(--r3-bg); color: var(--r3-ink); flex: 1 1 auto; font-family: var(--f-plex); padding: 24px 16px 64px; }
+@media (min-width: 720px) { .tg-light { padding: 40px 32px 80px; } }
+.tg-main { display: grid; gap: 24px; margin: 0 auto; max-width: 1040px; min-width: 0; }
+.tg-light [hidden] { display: none; }
+
+/* ───────── type ───────── */
+.tg-head { display: grid; gap: 8px; }
+.tg-title { font: 700 clamp(28px, 5vw, 40px)/1 var(--f-syne); letter-spacing: -.03em; margin: 0; }
+.tg-lede { color: var(--r3-muted); font: 400 14px/1.5 var(--f-plex); margin: 0; max-width: 64ch; }
+.tg-h2 { font: 700 18px/1.2 var(--f-syne); letter-spacing: -.02em; margin: 0; }
+.tg-h3 { font: 600 14px/1.3 var(--f-plex); margin: 0; }
+.tg-hint { color: var(--r3-muted); font: 400 12px/1.5 var(--f-plex); margin: 0; max-width: 72ch; }
+.tg-label { color: var(--r3-muted); font: 600 12px/1.2 var(--f-plex); }
+
+/* ───────── surfaces ───────── */
+.tg-section { display: grid; gap: 16px; min-width: 0; padding: 20px; }
+@media (min-width: 720px) { .tg-section { padding: 24px; } }
+.tg-section-head { align-items: baseline; display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+.tg-block { background: var(--r3-panel); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); display: grid; gap: 12px; min-width: 0; padding: 16px; }
+.tg-list { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.tg-row { align-items: center; background: var(--r3-panel); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; padding: 12px 16px; }
+.tg-row[aria-current="true"] { box-shadow: inset 0 0 0 1.5px var(--r3-ink); }
+.tg-row-main { display: grid; gap: 4px; min-width: 0; }
+.tg-row-name { font: 600 14px/1.3 var(--f-plex); overflow-wrap: anywhere; }
+.tg-row-meta { color: var(--r3-muted); font: 400 12px/1.3 var(--f-plex); }
+.tg-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+
+/* ───────── tags: the state is always in words, never only in hue ───────── */
+.tg-tag { border: 1px solid var(--r3-line-strong); border-radius: 2px; color: var(--r3-ink); font: 600 11px/1 var(--f-plex); padding: 4px 8px; white-space: nowrap; }
+.tg-tag[data-tone="pending"] { border-style: dashed; }
+.tg-tag[data-tone="empty"] { border-style: dotted; color: var(--r3-muted); }
+.tg-tag[data-tone="saved"] { background: var(--r3-ink); border-color: var(--r3-ink); color: var(--r3-bg); }
+.tg-tags { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ───────── fields ───────── */
+.tg-fields { display: grid; gap: 12px 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) { .tg-fields { grid-template-columns: minmax(0, 1fr) 200px; } }
+.tg-field { display: grid; gap: 4px; min-width: 0; }
+.tg-input, .tg-select {
+  background: var(--r3-raise); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink);
+  font: 400 14px/1.2 var(--f-plex); min-height: 40px; padding: 0 12px; width: 100%;
+}
+.tg-input::placeholder { color: var(--r3-muted); }
+.tg-input:focus-visible, .tg-select:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+
+/* ───────── buttons Canonical has no equivalent for (secondary / confirm-in-place) ─────────
+   ActionPrimary is "the single spectral commitment per view" and ActionSecondary carries no press handler, so these two
+   are plain outlined / ink buttons built from the same ink, line and focus tokens. */
+.tg-btn {
+  -webkit-tap-highlight-color: transparent; align-items: center; background: transparent; border: 1px solid var(--r3-line-strong); border-radius: 8px;
+  color: var(--r3-ink); cursor: pointer; display: inline-flex; font: 600 13px/1 var(--f-plex); gap: 8px; justify-content: center; min-height: 40px;
+  padding: 0 16px; touch-action: manipulation; transition: background-color var(--m-fast) var(--m-ease-out), border-color var(--m-fast) var(--m-ease-out), color var(--m-fast) var(--m-ease-out);
+  white-space: nowrap;
+}
+.tg-btn--compact { font-size: 12px; min-height: 32px; padding: 0 12px; }
+@media (hover: hover) { .tg-btn:hover:not(:disabled) { border-color: var(--r3-ink); } }
+.tg-btn:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+.tg-btn:active:not(:disabled) { transform: translateY(1px); }
+.tg-btn--solid { background: var(--r3-ink); border-color: var(--r3-ink); color: var(--r3-bg); }
+.tg-btn[aria-busy="true"] { cursor: progress; }
+.tg-btn:disabled { background: transparent; border-color: var(--r3-line-strong); border-style: dotted; color: var(--r3-muted); cursor: not-allowed; }
+@media (pointer: coarse) { .tg-btn, .tg-input, .tg-select { min-height: 44px; } }
+
+/* ───────── notices: icon + words + a rule; hue is only the third channel ───────── */
+.tg-notice { align-items: start; background: var(--r3-raise); border-left: 2px solid var(--r3-ink); border-radius: 2px; box-shadow: inset 0 0 0 1px var(--r3-line); display: grid; gap: 8px 12px; grid-template-columns: auto minmax(0, 1fr); padding: 12px 16px; }
+.tg-notice[data-tone="error"] { border-left-color: var(--r3-down); }
+.tg-notice[data-tone="success"] { border-left-color: var(--r3-up); }
+.tg-notice[data-tone="warning"] { border-left-style: dashed; }
+.tg-notice .d2i { margin-top: 2px; }
+.tg-notice-body { display: grid; gap: 4px; min-width: 0; }
+.tg-notice-title { font: 600 13px/1.3 var(--f-plex); margin: 0; }
+.tg-notice-body p { font: 400 13px/1.5 var(--f-plex); margin: 0; }
+.tg-notice-body .tg-notice-title { font: 600 13px/1.3 var(--f-plex); }
+.tg-notice-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 4px; }
+
+/* ───────── status line (team-level save state) ───────── */
+.tg-state { align-items: center; display: inline-flex; font: 600 12px/1.2 var(--f-plex); gap: 8px; }
+.tg-state::before { background: var(--r3-ink); content: ""; height: 6px; width: 6px; }
+.tg-state[data-state="dirty"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--r3-ink); }
+.tg-state[data-state="new"]::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--r3-ink); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.tg-savebar { align-items: center; display: flex; flex-wrap: wrap; gap: 12px 16px; justify-content: space-between; }
+
+/* ───────── roster + player panel ───────── */
+.tg-split { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 840px) { .tg-split { grid-template-columns: 264px minmax(0, 1fr); } }
+.tg-roster, .tg-seats { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.tg-seats { grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr)); }
+:where(.tg-roster, .tg-seats) button.cx-target { appearance: none; background: var(--r3-raise); border: 1px solid var(--r3-line); border-radius: 4px; cursor: pointer; font: inherit; text-align: left; width: 100%; }
+.tg-roster .cx-target-title { font-size: 14px; }
+.tg-roster .cx-target-value { color: var(--r3-muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.tg-seats .cx-target-value { font-size: 14px; letter-spacing: 0; }
+.tg-seats .cx-target { min-height: 80px; padding: 12px 12px 12px 14px; }
+.tg-target-meta { color: var(--r3-muted); display: grid; font: 500 12px/1.3 var(--f-plex); gap: 2px; }
+.tg-target-meta b { color: var(--r3-ink); font-weight: 600; }
+.tg-panel { display: grid; gap: 16px; min-width: 0; padding: 16px; }
+@media (min-width: 720px) { .tg-panel { padding: 20px; } }
+.tg-member { display: grid; gap: 16px; min-width: 0; }
+.tg-pool { display: grid; gap: 12px; min-width: 0; }
+.tg-pool-head { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; }
+.tg-count { color: var(--r3-muted); font: 500 12px/1.2 var(--f-plex); font-variant-numeric: tabular-nums; }
+.tg-empty { background: transparent; border: 1px dashed var(--r3-line-strong); border-radius: 4px; display: grid; gap: 12px; padding: 16px; }
+.tg-empty p { font: 400 13px/1.5 var(--f-plex); margin: 0; }
+
+/* ───────── hero chips ───────── */
+.tg-heroes { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.tg-hero {
+  align-items: center; background: var(--r3-raise); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); cursor: pointer;
+  display: inline-flex; font: 600 12px/1 var(--f-plex); gap: 8px; min-height: 36px; padding: 4px 8px 4px 4px; text-align: left;
+  transition: border-color var(--m-fast) var(--m-ease-out);
+}
+@media (hover: hover) { .tg-hero:hover { border-color: var(--r3-down); } }
+.tg-hero-x { color: var(--r3-muted); font: 400 16px/1 var(--f-plex); }
+@media (pointer: coarse) { .tg-hero { min-height: 44px; } }
+
+/* ───────── hero picker (canonical variant of the shared HeroPicker) ───────── */
+.tg-picker { display: grid; gap: 8px; }
+.tg-picker-list { background: var(--r3-raise); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); display: grid; gap: 0; max-height: 240px; overflow-y: auto; padding: 4px; }
+.tg-picker-row {
+  align-items: center; background: transparent; border: 0; border-radius: 4px; color: var(--r3-ink); cursor: pointer; display: flex; font: 500 13px/1.2 var(--f-plex);
+  gap: 12px; justify-content: space-between; min-height: 40px; padding: 4px 8px; text-align: left; width: 100%;
+}
+.tg-picker-who { align-items: center; display: inline-flex; gap: 12px; }
+@media (hover: hover) { .tg-picker-row:hover:not(:disabled) { background: color-mix(in srgb, var(--r3-ink) 6%, transparent); } }
+.tg-picker-row:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: -2px; }
+.tg-picker-row:disabled { color: var(--r3-muted); cursor: not-allowed; }
+.tg-picker-note { color: var(--r3-muted); font: 500 11px/1 var(--f-plex); }
+.tg-picker-empty { color: var(--r3-muted); font: 400 12px/1.5 var(--f-plex); margin: 0; padding: 8px; }
+
+/* ───────── position board (canonical variant of the shared PositionBoard) ───────── */
+.tg-board { display: grid; gap: 12px; }
+.tg-board-grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr)); }
+.tg-seat { background: var(--r3-panel); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--r3-line); display: flex; flex-direction: column; gap: 8px; min-height: 96px; min-width: 0; padding: 12px; transition: box-shadow var(--m-fast) var(--m-ease-out); }
+.tg-seat--drop { box-shadow: inset 0 0 0 1px var(--r3-line); outline: 1.5px dashed var(--r3-ink); outline-offset: -4px; }
+.tg-seat-label { color: var(--r3-muted); font: 600 12px/1.2 var(--f-plex); }
+.tg-seat-owner { font: 600 12px/1.3 var(--f-plex); }
+.tg-seat-free { color: var(--r3-muted); font: 400 12px/1.2 var(--f-plex); }
+.tg-player {
+  position: relative; padding-left: 28px;
+  background: var(--r3-raise); border: 1px solid var(--r3-line-strong); border-radius: 4px; color: var(--r3-ink); cursor: grab; font: 600 14px/1.2 var(--f-plex);
+  min-height: 40px; overflow-wrap: anywhere; padding-bottom: 4px; padding-right: 12px; padding-top: 4px; text-align: left; touch-action: manipulation;
+  transition: border-color var(--m-fast) var(--m-ease-out), box-shadow var(--m-fast) var(--m-ease-out);
+}
+@media (hover: hover) { .tg-player:hover { border-color: var(--r3-ink); } }
+.tg-player:active { cursor: grabbing; }
+.tg-player:focus-visible { outline: 2px solid var(--r3-focus); outline-offset: 2px; }
+.tg-player[aria-pressed="true"] { border-color: var(--r3-ink); box-shadow: inset 0 0 0 1px var(--r3-ink); }
+/* Grip: a chip that can be dragged must not read as a text field. */
+.tg-player::before { background: radial-gradient(circle, var(--r3-muted) 1px, transparent 1.5px) 0 0 / 6px 6px; content: ""; height: 18px; left: 10px; position: absolute; top: 50%; translate: 0 -50%; width: 12px; }
+.tg-player[aria-pressed="true"]::before { background: radial-gradient(circle, var(--r3-ink) 1.25px, transparent 1.75px) 0 0 / 6px 6px; }
+@media (pointer: coarse) { .tg-player { min-height: 44px; } }
+.tg-tray { background: transparent; border: 1px dashed var(--r3-line-strong); border-radius: 4px; display: grid; gap: 8px; padding: 12px; }
+.tg-tray-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-btn, .tg-hero, .tg-player, .tg-seat { transition-duration: 0ms; }
+  .tg-btn:active:not(:disabled) { transform: none; }
+}

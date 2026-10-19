@@ -16,3 +16,12 @@ export const SEAT_LABELS: Readonly<Record<1 | 2 | 3 | 4 | 5, string>> = Object.f
   4: "Pos 4 — Support",
   5: "Pos 5 — Hard support",
 });
+
+// The same five positions split for a compact target: "Pos 1" on top and its role right under it (never a bare number).
+export const SEAT_SHORT: Readonly<Record<1 | 2 | 3 | 4 | 5, { title: string; role: string }>> = Object.freeze({
+  1: { title: "Pos 1", role: "Carry" },
+  2: { title: "Pos 2", role: "Midlane" },
+  3: { title: "Pos 3", role: "Offlane" },
+  4: { title: "Pos 4", role: "Support" },
+  5: { title: "Pos 5", role: "Hard support" },
+});

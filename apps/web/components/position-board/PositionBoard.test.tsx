@@ -5,7 +5,7 @@ import { useState } from "react";
 import { afterEach, expect, test } from "bun:test";
 import { placePlayer } from "@/features/team-groups/position-assignment";
 import type { Seat } from "@/features/team-groups/types";
-import { PositionBoard, type PositionBoardPlayer } from "./PositionBoard";
+import { PositionBoard, type PositionBoardPlayer, type PositionBoardVariant } from "./PositionBoard";
 
 afterEach(cleanup);
 
@@ -20,12 +20,12 @@ const TEAM: PositionBoardPlayer[] = [
 const NAMES = TEAM.map((player) => player.name);
 
 // Stateful host: the board only reports moves, so the test owns the state the way the editor / setup screen do.
-function Host({ initial = TEAM, ownerSeat = null }: { initial?: PositionBoardPlayer[]; ownerSeat?: Seat | null }) {
+function Host({ initial = TEAM, ownerSeat = null, variant }: { initial?: PositionBoardPlayer[]; ownerSeat?: Seat | null; variant?: PositionBoardVariant }) {
   const [players, setPlayers] = useState<PositionBoardPlayer[]>(initial);
   function handlePlace(key: number, seat: Seat | null) {
     setPlayers((current) => placePlayer(current, key, seat));
   }
-  return <PositionBoard players={players} ownerSeat={ownerSeat} onPlace={handlePlace} />;
+  return <PositionBoard players={players} ownerSeat={ownerSeat} onPlace={handlePlace} variant={variant} />;
 }
 
 // What the user SEES: in which position cell each nickname is (null = not in any position cell).
@@ -130,4 +130,19 @@ test("soltar algo que no es un jugador del tablero no cambia nada", () => {
   dataTransfer.setData("text/plain", "999");
   fireEvent.drop(view.getByTestId("position-board-seat-2"), { dataTransfer });
   expect(seatsByName(view)).toEqual({ Ana: 1, Bruno: 2, Carla: 3, Dani: 4, Eli: 5 });
+});
+
+test("la variante canónica cambia cómo se ve, no cómo se comporta: mismos testids y el mismo intercambio", () => {
+  const view = render(<Host variant="canonical" />);
+  expect(view.getByTestId("position-board").className).toBe("tg-board");
+  fireEvent.click(view.getByTestId("position-board-player-1"));
+  fireEvent.click(view.getByTestId("position-board-move-2"));
+  expect(seatsByName(view)).toEqual({ Ana: 2, Bruno: 1, Carla: 3, Dani: 4, Eli: 5 });
+});
+
+test("sin variante el tablero conserva su presentación de siempre (el simulador no cambia)", () => {
+  const view = render(<Host />);
+  expect(view.getByTestId("position-board").className).toBe("flex flex-col gap-3");
+  expect(view.getByTestId("position-board-seat-1").className).toContain("bg-surface-overlay");
+  expect(view.container.innerHTML).not.toContain("tg-");
 });

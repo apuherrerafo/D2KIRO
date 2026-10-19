@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
-import { HeroIcon } from "@/components/hero-icon/HeroIcon";
-import { HeroPicker } from "@/components/hero-picker/HeroPicker";
+import { useCallback, useState, type ChangeEvent } from "react";
 import { PositionBoard, type PositionBoardPlayer } from "@/components/position-board/PositionBoard";
-import { BUTTON_GHOST, BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
-import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { ActionPrimary } from "@/design/canonical/primitives/ActionPrimary";
+import { ActionQuiet } from "@/design/canonical/primitives/ActionQuiet";
+import { Glass } from "@/design/canonical/primitives/Glass";
 import {
   useCreateTeamGroupMutation,
   useDeleteTeamGroupMutation,
@@ -13,29 +12,29 @@ import {
   useGetTeamGroupsQuery,
   useUpdateTeamGroupMutation,
 } from "@/lib/engine-api";
-import { EMPTY_TEAM_GROUP_MESSAGE, MAX_COMPANION_POOL_SIZE, PARTY_SIZE_OPTIONS, REPLACE_MEMBER_HINT, SEAT_LABELS, TEAM_GROUP_DELETED_MESSAGE, TEAM_GROUP_SAVED_MESSAGE } from "./constants";
+import { CanonicalLightScope } from "./CanonicalLightScope";
+import { MAX_COMPANION_POOL_SIZE, PARTY_SIZE_OPTIONS, TEAM_GROUP_DELETED_MESSAGE, TEAM_GROUP_SAVED_MESSAGE } from "./constants";
+import { MemberEditor } from "./MemberEditor";
+import { PlayerRoster } from "./PlayerRoster";
+import { describeSaveFailure, needsReload, type SaveFailure } from "./pool-editor";
 import { confirmInListOrder, placePlayer } from "./position-assignment";
+import { SavedTeamsPanel } from "./SavedTeamsPanel";
+import { TgNotice } from "./TgNotice";
 import type { DraftTeamGroup, PartySize, Seat, TeamGroupEntry, TeamGroupPutBody } from "./types";
 
 const LEGACY_POSITIONS_MESSAGE =
-  "Este equipo se guardó antes de registrar posiciones, así que no sabemos quién juega dónde. Colócalos en el tablero y pulsa Guardar: hasta entonces no se aplica ningún pool de este equipo.";
+  "Este equipo se guardó antes de registrar posiciones, así que no sabemos quién juega dónde. Colócalos en el tablero y pulsa Guardar equipo: hasta entonces no se aplica ningún pool de este equipo.";
 const CONFIRM_LIST_ORDER_LABEL = "Confirmar tal como están (Jugador 1 = Pos 1 … Jugador 5 = Pos 5)";
-const CONFIRMED_ON_SCREEN_MESSAGE = "Posiciones confirmadas en pantalla. Pulsa Guardar para conservarlas.";
-const USUAL_POSITIONS_HINT = "Posiciones habituales de este equipo. Se guardan al pulsar Guardar; para cambiar solo una partida, hazlo al empezar el draft, sin guardar.";
+const CONFIRMED_ON_SCREEN_MESSAGE = "Posiciones confirmadas en pantalla. Pulsa Guardar equipo para conservarlas.";
+const USUAL_POSITIONS_HINT = "Posiciones habituales de este equipo. Se guardan al pulsar Guardar equipo; para cambiar solo una partida, hazlo al empezar el draft, sin guardar.";
 
 type DraftMember = DraftTeamGroup["members"][number];
 
 // Un equipo NUEVO de Party 5 arranca con una posición visible por jugador (editable en el tablero, se guarda al pulsar
-// Guardar). Nunca se aplica a un equipo ya guardado: ahí la posición es la que el usuario confirmó, o ninguna.
+// Guardar equipo). Nunca se aplica a un equipo ya guardado: ahí la posición es la que el usuario confirmó, o ninguna.
 function defaultPositionFor(partySize: PartySize, index: number): Seat | null {
   if (partySize !== 5) return null;
   return (index + 1) as Seat;
-}
-
-function memberTitle(member: DraftMember, partySize: PartySize): string {
-  const who = partySize === 5 ? `Jugador ${member.slot}` : `Compañero ${member.slot}`;
-  if (member.position === null) return `${who} — sin posición confirmada`;
-  return `${who} — ${SEAT_LABELS[member.position]}`;
 }
 
 function toBoardPlayers(members: DraftMember[]): PositionBoardPlayer[] {
@@ -75,10 +74,6 @@ function toPartySize(value: string): PartySize {
   return 2;
 }
 
-function findHero(heroes: HeroMeta[], id: number): HeroMeta | undefined {
-  return heroes.find((hero) => hero.id === id);
-}
-
 function toPutBody(draft: DraftTeamGroup): TeamGroupPutBody {
   return {
     name: draft.name,
@@ -87,140 +82,108 @@ function toPutBody(draft: DraftTeamGroup): TeamGroupPutBody {
   };
 }
 
-interface TeamGroupRowProps {
-  group: TeamGroupEntry;
-  onEdit: (group: TeamGroupEntry) => void;
-  onDelete: (id: number) => void;
-  isDeleting: boolean;
+// What is on screen vs what was last loaded or saved: the one honest source for "cambios sin guardar" at team level.
+function snapshotOf(draft: DraftTeamGroup): string {
+  return JSON.stringify(toPutBody(draft));
 }
 
-function TeamGroupRow({ group, onEdit, onDelete, isDeleting }: TeamGroupRowProps) {
-  function handleEdit() {
-    onEdit(group);
-  }
+interface TeamStateProps {
+  isNew: boolean;
+  dirty: boolean;
+}
 
-  function handleDelete() {
-    onDelete(group.id);
+function TeamStateLine({ isNew, dirty }: TeamStateProps) {
+  if (isNew) {
+    return (
+      <span className="tg-state" data-state="new" data-testid="team-state">
+        Equipo nuevo · aún sin guardar
+      </span>
+    );
   }
-
+  if (dirty) {
+    return (
+      <span className="tg-state" data-state="dirty" data-testid="team-state">
+        Cambios sin guardar
+      </span>
+    );
+  }
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-surface-border bg-surface-overlay p-3">
-      <div className="flex flex-col">
-        <span className="text-body text-content-primary">{group.name}</span>
-        <span className="text-caption text-content-muted">
-          Party de {group.partySize}, {group.members.length} {group.partySize === 5 ? "posiciones" : "compañero(s)"}
-        </span>
-      </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={handleEdit} className={BUTTON_SECONDARY}>
-          Editar
-        </button>
-        <button type="button" onClick={handleDelete} disabled={isDeleting} className={BUTTON_GHOST}>
-          Eliminar
-        </button>
-      </div>
-    </div>
+    <span className="tg-state" data-state="saved" data-testid="team-state">
+      Todo guardado
+    </span>
   );
 }
 
-interface MemberEditorProps {
-  member: DraftMember;
-  partySize: PartySize;
-  heroes: HeroMeta[];
-  onNameChange: (slot: number, name: string) => void;
-  onAddHero: (slot: number, hero: number) => void;
-  onRemoveHero: (slot: number, hero: number) => void;
-  onReplace: (slot: number) => void;
+interface TeamFailureProps {
+  failure: SaveFailure;
+  onReload: () => void;
 }
 
-function MemberEditor({ member, partySize, heroes, onNameChange, onAddHero, onRemoveHero, onReplace }: MemberEditorProps) {
-  const poolIsFull = member.heroPool.length >= MAX_COMPANION_POOL_SIZE;
-  const slotLabel = memberTitle(member, partySize);
-
-  function handleNameChange(event: ChangeEvent<HTMLInputElement>) {
-    onNameChange(member.slot, event.target.value);
-  }
-
-  function handleAddHero(hero: number) {
-    onAddHero(member.slot, hero);
-  }
-
-  function handleReplace() {
-    onReplace(member.slot);
-  }
-
+// A rejected team save keeps the draft exactly as it is. A stale tab can only recover by reading the teams again, so that
+// action is offered right here -- it refreshes the saved list and leaves the draft on screen alone.
+function TeamFailure({ failure, onReload }: TeamFailureProps) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-surface-border bg-surface-overlay p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-caption font-semibold text-content-primary">{slotLabel}</span>
-        {member.id !== undefined && (
-          <button type="button" onClick={handleReplace} className={BUTTON_GHOST} title={REPLACE_MEMBER_HINT} data-testid={`team-replace-member-${member.slot}`}>
-            Es otra persona
-          </button>
+    <div data-testid="team-save-failure" data-code={failure.code ?? "unknown"}>
+      <TgNotice tone="error" title={failure.title}>
+        <p>{failure.body}</p>
+        {needsReload(failure) && (
+          <div className="tg-notice-actions">
+            <ActionQuiet onPress={onReload}>Recargar equipos</ActionQuiet>
+            <span className="tg-hint">Lo que tienes en pantalla no se borra.</span>
+          </div>
         )}
-      </div>
-      <input
-        type="text"
-        value={member.name}
-        onChange={handleNameChange}
-        placeholder={`Nombre del jugador (${slotLabel})`}
-        className="rounded-md border border-surface-border bg-surface-raised px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
-      />
-      <div className="flex flex-wrap gap-2">
-        {member.heroPool.map((heroId) => (
-          <MemberHero key={heroId} slot={member.slot} heroId={heroId} hero={findHero(heroes, heroId)} onRemove={onRemoveHero} />
-        ))}
-      </div>
-      {member.heroPool.length === 0 && <span className="text-caption text-content-muted">Sin héroes cargados.</span>}
-      {!poolIsFull && <HeroPicker heroes={heroes} onSelect={handleAddHero} />}
-      {poolIsFull && <span className="text-caption text-content-muted">Máximo 5 héroes.</span>}
+      </TgNotice>
     </div>
-  );
-}
-
-interface MemberHeroProps {
-  slot: number;
-  heroId: number;
-  hero: HeroMeta | undefined;
-  onRemove: (slot: number, hero: number) => void;
-}
-
-function MemberHero({ slot, heroId, hero, onRemove }: MemberHeroProps) {
-  function handleRemove() {
-    onRemove(slot, heroId);
-  }
-
-  return (
-    <button type="button" onClick={handleRemove} className="flex items-center gap-2 rounded-md border border-surface-border bg-surface-raised px-2 py-1 text-caption text-content-primary">
-      <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={28} />
-      {hero?.localizedName ?? `Héroe ${heroId}`}
-    </button>
   );
 }
 
 export function TeamGroupsConfig() {
-  const { data: groups = [], isLoading, error } = useGetTeamGroupsQuery();
+  const { data: groups = [], isLoading, error, refetch } = useGetTeamGroupsQuery();
   const { data: heroes = [] } = useGetHeroesQuery();
   const [createTeamGroup, { isLoading: isCreating }] = useCreateTeamGroupMutation();
   const [updateTeamGroup, { isLoading: isUpdating }] = useUpdateTeamGroupMutation();
   const [deleteTeamGroup, { isLoading: isDeleting }] = useDeleteTeamGroupMutation();
   const [draft, setDraft] = useState<DraftTeamGroup>(createNewDraft);
+  const [baseline, setBaseline] = useState<string>(() => snapshotOf(createNewDraft()));
+  const [selectedSlot, setSelectedSlot] = useState(1);
+  const [dirtyPools, setDirtyPools] = useState<Record<number, number>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [saveFailure, setSaveFailure] = useState<SaveFailure | null>(null);
+
+  const handlePoolDirtyChange = useCallback((memberId: number, dirtyCount: number) => {
+    setDirtyPools((current) => (current[memberId] === dirtyCount ? current : { ...current, [memberId]: dirtyCount }));
+  }, []);
+
+  function openDraft(next: DraftTeamGroup) {
+    setDraft(next);
+    setBaseline(snapshotOf(next));
+    setSelectedSlot(1);
+    setMessage(null);
+    setSaveFailure(null);
+  }
 
   function handleNew() {
-    setDraft(createNewDraft());
-    setMessage(null);
+    openDraft(createNewDraft());
   }
 
   function handleEdit(group: TeamGroupEntry) {
-    setDraft(toDraftGroup(group));
-    setMessage(null);
+    openDraft(toDraftGroup(group));
   }
 
   async function handleDelete(id: number) {
-    await deleteTeamGroup(id).unwrap();
-    if (draft.id === id) setDraft(createNewDraft());
+    setSaveFailure(null);
+    try {
+      await deleteTeamGroup(id).unwrap();
+    } catch (failure) {
+      setSaveFailure(describeSaveFailure(failure));
+      return;
+    }
+    if (draft.id === id) openDraft(createNewDraft());
     setMessage(TEAM_GROUP_DELETED_MESSAGE);
+  }
+
+  function handleReload() {
+    void refetch();
   }
 
   function handleNameChange(event: ChangeEvent<HTMLInputElement>) {
@@ -256,7 +219,7 @@ export function TeamGroupsConfig() {
     setMessage(null);
   }
 
-  // The user says "yes, they play where they are listed": explicit, visible on the board, and only saved on Guardar.
+  // The user says "yes, they play where they are listed": explicit, visible on the board, and only saved on Guardar equipo.
   function handleConfirmListOrder() {
     const confirmed = confirmInListOrder(toBoardPlayers(draft.members));
     setDraft({ ...draft, members: draft.members.map((member) => ({ ...member, position: confirmed.find((player) => player.key === member.slot)?.position ?? null })) });
@@ -264,7 +227,7 @@ export function TeamGroupsConfig() {
   }
 
   // Editing the nickname renames the SAME person (their pool stays). This is the explicit "somebody else sits here now":
-  // the saved identity is dropped, so the newcomer starts with no pool and a fresh id on Guardar.
+  // the saved identity is dropped, so the newcomer starts with no pool and a fresh id on Guardar equipo.
   function handleReplaceMember(slot: number) {
     setDraft({ ...draft, members: draft.members.map((member) => (member.slot === slot ? { slot, position: member.position, name: "", heroPool: [] } : member)) });
     setMessage(null);
@@ -275,83 +238,153 @@ export function TeamGroupsConfig() {
     setMessage(null);
   }
 
+  // Un rechazo del motor (409 `positions_required`, `member_ids_required`, `use_position_pool_editor`...) se muestra con su
+  // recuperación y deja el borrador intacto: nunca "Equipo guardado." si no se guardó.
   async function handleSave() {
     setMessage(null);
+    setSaveFailure(null);
     const body = toPutBody(draft);
-    if (draft.id === null) {
-      // Sin esto, un segundo "Guardar" sobre el mismo equipo recién creado -- sin recargar ni
-      // pulsar "Editar" -- creaba un duplicado en vez de actualizar (draft.id seguía en null).
-      const created = await createTeamGroup(body).unwrap();
-      setDraft(toDraftGroup(created));
-    } else {
-      await updateTeamGroup({ id: draft.id, body }).unwrap();
+    try {
+      if (draft.id === null) {
+        // Sin esto, un segundo "Guardar" sobre el mismo equipo recién creado -- sin recargar ni
+        // pulsar "Editar" -- creaba un duplicado en vez de actualizar (draft.id seguía en null).
+        const created = await createTeamGroup(body).unwrap();
+        const saved = toDraftGroup(created);
+        setDraft(saved);
+        setBaseline(snapshotOf(saved));
+      } else {
+        await updateTeamGroup({ id: draft.id, body }).unwrap();
+        setBaseline(JSON.stringify(body));
+      }
+    } catch (failure) {
+      setSaveFailure(describeSaveFailure(failure));
+      return;
     }
     setMessage(TEAM_GROUP_SAVED_MESSAGE);
   }
 
   const isSaving = isCreating || isUpdating;
+  const savedGroup = groups.find((group) => group.id === draft.id);
+  const activeSlot = draft.members.find((member) => member.slot === selectedSlot)?.slot ?? draft.members[0]?.slot ?? 1;
+  const isDirty = snapshotOf(draft) !== baseline;
+  const needsPlacement = draft.id !== null && draft.partySize === 5;
 
   return (
-    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
-      <span className="text-heading text-content-primary">Equipos</span>
+    <CanonicalLightScope>
+      <main className="tg-main">
+        <header className="tg-head">
+          <h1 className="tg-title">Equipos</h1>
+          <p className="tg-lede">Cada jugador tiene un pool de héroes distinto por posición. Si una posición no tiene pool, el draft sigue con recomendaciones del rol.</p>
+        </header>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-body text-content-primary">Guardados</span>
-          <button type="button" onClick={handleNew} className={BUTTON_SECONDARY}>
-            Nuevo
-          </button>
-        </div>
-        {isLoading && <span className="text-body text-content-secondary">Cargando...</span>}
-        {error && <span className="text-body text-signal-negative">No se pudieron cargar los equipos.</span>}
-        {groups.length === 0 && !isLoading && <span className="text-caption text-content-muted">{EMPTY_TEAM_GROUP_MESSAGE}</span>}
-        {groups.map((group) => (
-          <TeamGroupRow key={group.id} group={group} onEdit={handleEdit} onDelete={handleDelete} isDeleting={isDeleting} />
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
-        <input
-          type="text"
-          value={draft.name}
-          onChange={handleNameChange}
-          placeholder="Nombre del equipo"
-          className="rounded-md border border-surface-border bg-surface-overlay px-3 py-2 text-body text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
+        <SavedTeamsPanel
+          groups={groups}
+          isLoading={isLoading}
+          loadFailed={error !== undefined}
+          editingId={draft.id}
+          isDeleting={isDeleting}
+          onNew={handleNew}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
         />
-        <label className="flex items-center gap-2 text-caption text-content-secondary">
-          Tamaño de party
-          <select
-            value={draft.partySize}
-            onChange={handlePartySizeChange}
-            className="rounded-md border border-surface-border bg-surface-overlay px-2 py-1 text-content-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"
-          >
-            {PARTY_SIZE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        {draft.id !== null && draft.partySize === 5 && draft.members.some((member) => member.position === null) && (
-          <span className="text-caption text-signal-warning" role="status" data-testid="team-legacy-positions">
-            {LEGACY_POSITIONS_MESSAGE}
-          </span>
-        )}
-        {draft.id !== null && draft.partySize === 5 && draft.members.every((member) => member.position === null) && (
-          <button type="button" onClick={handleConfirmListOrder} className={BUTTON_SECONDARY} data-testid="team-confirm-list-order">
-            {CONFIRM_LIST_ORDER_LABEL}
-          </button>
-        )}
-        <span className="text-caption text-content-muted">{USUAL_POSITIONS_HINT}</span>
-        <PositionBoard players={toBoardPlayers(draft.members)} onPlace={handlePlace} />
-        {draft.members.map((member) => (
-          <MemberEditor key={member.slot} member={member} partySize={draft.partySize} heroes={heroes} onNameChange={handleMemberNameChange} onAddHero={handleAddHero} onRemoveHero={handleRemoveHero} onReplace={handleReplaceMember} />
-        ))}
-        {message && <span className="text-caption text-content-secondary">{message}</span>}
-        <button type="button" onClick={handleSave} disabled={isSaving || draft.name.trim().length === 0} className={BUTTON_PRIMARY}>
-          Guardar
-        </button>
-      </div>
-    </main>
+
+        <Glass className="tg-section">
+          <div className="tg-section-head">
+            <h2 className="tg-h2">{draft.id === null ? "Equipo nuevo" : "Editando equipo"}</h2>
+          </div>
+
+          <div className="tg-fields">
+            <div className="tg-field">
+              <label className="tg-label" htmlFor="team-name">
+                Nombre del equipo
+              </label>
+              <input id="team-name" type="text" value={draft.name} onChange={handleNameChange} placeholder="Nombre del equipo" className="tg-input" />
+            </div>
+            <div className="tg-field">
+              <label className="tg-label" htmlFor="team-party-size">
+                Tamaño de party
+              </label>
+              <select id="team-party-size" value={draft.partySize} onChange={handlePartySizeChange} className="tg-select">
+                {PARTY_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {needsPlacement && draft.members.some((member) => member.position === null) && (
+            <div data-testid="team-legacy-positions">
+              <TgNotice tone="warning" title="Equipo sin posiciones confirmadas">
+                <p>{LEGACY_POSITIONS_MESSAGE}</p>
+                {draft.members.every((member) => member.position === null) && (
+                  <div className="tg-notice-actions">
+                    <button type="button" onClick={handleConfirmListOrder} className="tg-btn" data-testid="team-confirm-list-order">
+                      {CONFIRM_LIST_ORDER_LABEL}
+                    </button>
+                  </div>
+                )}
+              </TgNotice>
+            </div>
+          )}
+
+          <div className="tg-block">
+            <h3 className="tg-h3">Posición habitual</h3>
+            <span className="tg-hint">{USUAL_POSITIONS_HINT}</span>
+            <PositionBoard variant="canonical" players={toBoardPlayers(draft.members)} onPlace={handlePlace} />
+          </div>
+
+          <div className="tg-block">
+            <h3 className="tg-h3">Jugadores y sus pools</h3>
+            <span className="tg-hint">Elige a un jugador para ver y editar el pool de cada una de sus posiciones.</span>
+            <div className="tg-split">
+              <PlayerRoster
+                members={draft.members}
+                partySize={draft.partySize}
+                activeSlot={activeSlot}
+                savedMembers={savedGroup?.members ?? []}
+                dirtyPools={dirtyPools}
+                onSelect={setSelectedSlot}
+              />
+              <div>
+                {draft.members.map((member) => (
+                  <MemberEditor
+                    key={`${draft.id ?? "new"}:${member.slot}`}
+                    member={member}
+                    partySize={draft.partySize}
+                    heroes={heroes}
+                    active={member.slot === activeSlot}
+                    savedMember={savedGroup?.members.find((saved) => saved.id === member.id)}
+                    teamGroupId={draft.id}
+                    onNameChange={handleMemberNameChange}
+                    onAddHero={handleAddHero}
+                    onRemoveHero={handleRemoveHero}
+                    onReplace={handleReplaceMember}
+                    onPoolDirtyChange={handlePoolDirtyChange}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {saveFailure && <TeamFailure failure={saveFailure} onReload={handleReload} />}
+          {message && (
+            <div data-testid="team-save-message">
+              <TgNotice tone="success" title={message}>
+                <p>Los pools por posición se guardan aparte, con su propio botón.</p>
+              </TgNotice>
+            </div>
+          )}
+
+          <div className="tg-savebar">
+            <TeamStateLine isNew={draft.id === null} dirty={isDirty} />
+            <ActionPrimary onPress={handleSave} status={isSaving ? "busy" : "idle"} busyLabel="Guardando…" disabled={draft.name.trim().length === 0}>
+              Guardar equipo
+            </ActionPrimary>
+          </div>
+        </Glass>
+      </main>
+    </CanonicalLightScope>
   );
 }

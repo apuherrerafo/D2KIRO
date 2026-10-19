@@ -20,6 +20,7 @@ export interface PositionBoardProps {
   /** The owner's own seat, if known: marked, because it always plays from the owner's personal hero pool. */
   ownerSeat?: Seat | null;
   onPlace: (key: number, seat: Seat | null) => void;
+  variant?: PositionBoardVariant;
 }
 
 const DRAG_TYPE = "text/plain";
@@ -27,15 +28,59 @@ const CELL = "flex min-h-24 flex-col gap-2 rounded-lg border bg-surface-overlay 
 const CHIP =
   "cursor-grab rounded-md border px-3 py-2 text-body text-content-primary transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary active:scale-[0.98]";
 
-function chipClass(selected: boolean): string {
-  if (selected) return `${CHIP} border-accent-primary bg-surface-raised`;
-  return `${CHIP} border-surface-border bg-surface-raised hover:border-accent-primary`;
+// Dos presentaciones del mismo tablero. `default` es la de siempre (la usa el simulador); `canonical` es la de la pantalla
+// de equipos con el Design System Canonical LIGHT (clases `tg-*` en features/team-groups/team-groups.css). El arrastre, la
+// selección por teclado/toque y los testids son los mismos: solo cambia cómo se ve.
+export type PositionBoardVariant = "default" | "canonical";
+
+interface BoardLook {
+  root: string;
+  grid: string;
+  hint: string;
+  cell: (isDropTarget: boolean) => string;
+  tray: (isDropTarget: boolean) => string;
+  seatLabel: string;
+  ownerNote: string;
+  free: string;
+  chip: (selected: boolean) => string;
+  move: string;
+  trayTitle: string;
+  trayHint: string;
+  trayChips: string;
 }
 
-function cellClass(isDropTarget: boolean): string {
-  if (isDropTarget) return `${CELL} border-accent-primary`;
-  return `${CELL} border-surface-border`;
-}
+const LOOKS: Record<PositionBoardVariant, BoardLook> = {
+  default: {
+    root: "flex flex-col gap-3",
+    grid: "grid grid-cols-1 gap-2 sm:grid-cols-5",
+    hint: "text-caption text-content-muted",
+    cell: (isDropTarget) => (isDropTarget ? `${CELL} border-accent-primary` : `${CELL} border-surface-border`),
+    tray: (isDropTarget) => (isDropTarget ? `${CELL} border-accent-primary` : `${CELL} border-surface-border`),
+    seatLabel: "text-caption font-semibold text-content-secondary",
+    ownerNote: "text-caption text-signal-positive",
+    free: "text-caption text-content-muted",
+    chip: (selected) => (selected ? `${CHIP} border-accent-primary bg-surface-raised` : `${CHIP} border-surface-border bg-surface-raised hover:border-accent-primary`),
+    move: BUTTON_COMPACT,
+    trayTitle: "text-caption font-semibold text-content-secondary",
+    trayHint: "text-caption text-content-muted",
+    trayChips: "flex flex-wrap gap-2",
+  },
+  canonical: {
+    root: "tg-board",
+    grid: "tg-board-grid",
+    hint: "tg-hint",
+    cell: (isDropTarget) => (isDropTarget ? "tg-seat tg-seat--drop" : "tg-seat"),
+    tray: (isDropTarget) => (isDropTarget ? "tg-tray tg-seat--drop" : "tg-tray"),
+    seatLabel: "tg-seat-label",
+    ownerNote: "tg-seat-owner",
+    free: "tg-seat-free",
+    chip: () => "tg-player",
+    move: "tg-btn tg-btn--compact",
+    trayTitle: "tg-seat-label",
+    trayHint: "tg-hint",
+    trayChips: "tg-tray-chips",
+  },
+};
 
 function displayName(player: PositionBoardPlayer): string {
   const name = player.name.trim();
@@ -45,13 +90,14 @@ function displayName(player: PositionBoardPlayer): string {
 
 interface PlayerChipProps {
   player: PositionBoardPlayer;
+  look: BoardLook;
   selected: boolean;
   onSelect: (key: number) => void;
   onDragStartKey: (key: number, event: DragEvent<HTMLButtonElement>) => void;
   onDragEndKey: () => void;
 }
 
-function PlayerChip({ player, selected, onSelect, onDragStartKey, onDragEndKey }: PlayerChipProps) {
+function PlayerChip({ player, look, selected, onSelect, onDragStartKey, onDragEndKey }: PlayerChipProps) {
   function handleClick() {
     onSelect(player.key);
   }
@@ -66,7 +112,7 @@ function PlayerChip({ player, selected, onSelect, onDragStartKey, onDragEndKey }
       onClick={handleClick}
       onDragStart={handleDragStart}
       onDragEnd={onDragEndKey}
-      className={chipClass(selected)}
+      className={look.chip(selected)}
       data-testid={`position-board-player-${player.key}`}
     >
       {displayName(player)}
@@ -75,20 +121,22 @@ function PlayerChip({ player, selected, onSelect, onDragStartKey, onDragEndKey }
 }
 
 interface MoveHereProps {
+  look: BoardLook;
   label: string;
   onMove: () => void;
   testId: string;
 }
 
-function MoveHere({ label, onMove, testId }: MoveHereProps) {
+function MoveHere({ look, label, onMove, testId }: MoveHereProps) {
   return (
-    <button type="button" onClick={onMove} className={BUTTON_COMPACT} data-testid={testId}>
+    <button type="button" onClick={onMove} className={look.move} data-testid={testId}>
       {label}
     </button>
   );
 }
 
 interface SeatCellProps {
+  look: BoardLook;
   seat: Seat;
   occupant: PositionBoardPlayer | undefined;
   isOwnerSeat: boolean;
@@ -101,7 +149,7 @@ interface SeatCellProps {
   onMoveSelected: (seat: Seat) => void;
 }
 
-function SeatCell({ seat, occupant, isOwnerSeat, selected, dragging, onSelect, onDragStartKey, onDragEndKey, onDropOnSeat, onMoveSelected }: SeatCellProps) {
+function SeatCell({ look, seat, occupant, isOwnerSeat, selected, dragging, onSelect, onDragStartKey, onDragEndKey, onDropOnSeat, onMoveSelected }: SeatCellProps) {
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
   }
@@ -116,21 +164,22 @@ function SeatCell({ seat, occupant, isOwnerSeat, selected, dragging, onSelect, o
   const actionLabel = occupant === undefined ? "Poner aquí" : `Intercambiar con ${displayName(occupant)}`;
 
   return (
-    <div onDragOver={handleDragOver} onDrop={handleDrop} className={cellClass(dragging)} data-testid={`position-board-seat-${seat}`} data-seat={seat}>
-      <span className="text-caption font-semibold text-content-secondary">{SEAT_LABELS[seat]}</span>
+    <div onDragOver={handleDragOver} onDrop={handleDrop} className={look.cell(dragging)} data-testid={`position-board-seat-${seat}`} data-seat={seat}>
+      <span className={look.seatLabel}>{SEAT_LABELS[seat]}</span>
       {isOwnerSeat && (
-        <span className="text-caption text-signal-positive" data-testid={`position-board-owner-${seat}`}>
+        <span className={look.ownerNote} data-testid={`position-board-owner-${seat}`}>
           Tu posición — usas tu pool personal
         </span>
       )}
-      {occupant && <PlayerChip player={occupant} selected={selectedIsHere} onSelect={onSelect} onDragStartKey={onDragStartKey} onDragEndKey={onDragEndKey} />}
-      {!occupant && <span className="text-caption text-content-muted">Libre</span>}
-      {canReceive && <MoveHere label={actionLabel} onMove={handleMove} testId={`position-board-move-${seat}`} />}
+      {occupant && <PlayerChip player={occupant} look={look} selected={selectedIsHere} onSelect={onSelect} onDragStartKey={onDragStartKey} onDragEndKey={onDragEndKey} />}
+      {!occupant && <span className={look.free}>Libre</span>}
+      {canReceive && <MoveHere look={look} label={actionLabel} onMove={handleMove} testId={`position-board-move-${seat}`} />}
     </div>
   );
 }
 
 interface UnplacedTrayProps {
+  look: BoardLook;
   players: readonly PositionBoardPlayer[];
   selected: PositionBoardPlayer | undefined;
   dragging: boolean;
@@ -141,27 +190,28 @@ interface UnplacedTrayProps {
   onUnplaceSelected: () => void;
 }
 
-function UnplacedTray({ players, selected, dragging, onSelect, onDragStartKey, onDragEndKey, onDropOnTray, onUnplaceSelected }: UnplacedTrayProps) {
+function UnplacedTray({ look, players, selected, dragging, onSelect, onDragStartKey, onDragEndKey, onDropOnTray, onUnplaceSelected }: UnplacedTrayProps) {
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
   }
   const canUnplace = selected !== undefined && selected.position !== null;
   if (players.length === 0 && !canUnplace && !dragging) return null;
   return (
-    <div onDragOver={handleDragOver} onDrop={onDropOnTray} className={cellClass(dragging)} data-testid="position-board-unplaced">
-      <span className="text-caption font-semibold text-content-secondary">Sin posición</span>
-      <span className="text-caption text-content-muted">Sin posición no se aplica ningún pool de héroes. Colócalos arriba.</span>
-      <div className="flex flex-wrap gap-2">
+    <div onDragOver={handleDragOver} onDrop={onDropOnTray} className={look.tray(dragging)} data-testid="position-board-unplaced">
+      <span className={look.trayTitle}>Sin posición</span>
+      <span className={look.trayHint}>Sin posición no se aplica ningún pool de héroes. Colócalos arriba.</span>
+      <div className={look.trayChips}>
         {players.map((player) => (
-          <PlayerChip key={player.key} player={player} selected={selected?.key === player.key} onSelect={onSelect} onDragStartKey={onDragStartKey} onDragEndKey={onDragEndKey} />
+          <PlayerChip key={player.key} player={player} look={look} selected={selected?.key === player.key} onSelect={onSelect} onDragStartKey={onDragStartKey} onDragEndKey={onDragEndKey} />
         ))}
       </div>
-      {canUnplace && <MoveHere label="Quitar de su posición" onMove={onUnplaceSelected} testId="position-board-unplace" />}
+      {canUnplace && <MoveHere look={look} label="Quitar de su posición" onMove={onUnplaceSelected} testId="position-board-unplace" />}
     </div>
   );
 }
 
-export function PositionBoard({ players, ownerSeat = null, onPlace }: PositionBoardProps) {
+export function PositionBoard({ players, ownerSeat = null, onPlace, variant = "default" }: PositionBoardProps) {
+  const look = LOOKS[variant];
   const [selectedKey, setSelectedKey] = useState<number | null>(null);
   const [draggedKey, setDraggedKey] = useState<number | null>(null);
   const selected = players.find((player) => player.key === selectedKey);
@@ -218,12 +268,13 @@ export function PositionBoard({ players, ownerSeat = null, onPlace }: PositionBo
   const dragging = draggedKey !== null;
 
   return (
-    <div className="flex flex-col gap-3" role="group" aria-label="Posiciones del equipo" data-testid="position-board">
-      <span className="text-caption text-content-muted">Arrastra un jugador a otra posición para intercambiarlos, o toca al jugador y luego la posición.</span>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+    <div className={look.root} role="group" aria-label="Posiciones del equipo" data-testid="position-board">
+      <span className={look.hint}>Arrastra un jugador a otra posición para intercambiarlos, o toca al jugador y luego la posición.</span>
+      <div className={look.grid}>
         {SEATS.map((seat) => (
           <SeatCell
             key={seat}
+            look={look}
             seat={seat}
             occupant={players.find((player) => player.position === seat)}
             isOwnerSeat={ownerSeat === seat}
@@ -238,6 +289,7 @@ export function PositionBoard({ players, ownerSeat = null, onPlace }: PositionBo
         ))}
       </div>
       <UnplacedTray
+        look={look}
         players={unplaced}
         selected={selected}
         dragging={dragging}

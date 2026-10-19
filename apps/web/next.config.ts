@@ -15,6 +15,8 @@ const ENGINE_REWRITE_SOURCES = [
   "/engine/api/simulator/sessions/:sessionId/state",
   "/engine/api/team-groups",
   "/engine/api/team-groups/:id",
+  // Hero Pools V2 (F4): el ÚNICO camino de escritura de un pool por jugador y posición. Sin esta entrada el guardado da 404.
+  "/engine/api/team-groups/:id/members/:memberId/pools/:position",
   // TSK-214: rutas que apps/web llamaba desde el NAVEGADOR contra http://127.0.0.1:4000.
   // En Railway ese loopback no existe para el navegador del usuario, así que fallaban todas en
   // silencio -- los picks del simulador nunca llegaban al motor y el tablero quedaba congelado.

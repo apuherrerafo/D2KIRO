@@ -55,9 +55,10 @@ export function countActivePools(group: TeamGroupEntry | undefined, players: rea
   return players.filter((player) => {
     if (player.position === null || player.position === ownerSeat) return false;
     const saved = group.members.find((member) => member.id === player.key);
-    // Same rule as the engine: the saved pool belongs to the member's confirmed usual position, not to the seat they were moved to.
-    if (saved === undefined || saved.position === null || saved.position !== player.position) return false;
-    return saved.heroPool.length > 0;
+    // Same rule as the engine: only the pool saved for THIS seat counts. The legacy single list and the pools of other
+    // seats are never borrowed -- a person moved to a seat they have no pool for gets none.
+    const pool = saved?.positionPools.find((candidate) => candidate.position === player.position);
+    return pool !== undefined && pool.heroPool.length > 0;
   }).length;
 }
 

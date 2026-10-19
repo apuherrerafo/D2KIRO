@@ -9,7 +9,9 @@ import { countActivePools } from "./use-match-positions";
 // counts only on their CONFIRMED usual position. Inline fixtures; nothing here is a real team.
 
 function member(id: number, position: Seat | null, heroPool: number[]): TeamMemberEntry {
-  return { id, teamGroupId: 1, slot: id, position, name: `M${id}`, heroPool, updatedAt: "2026-10-19" };
+  // Like the 0011 backfill: a confirmed position with a list starts with one pool at that position (unconfirmed = legacy only).
+  const positionPools = position !== null && heroPool.length > 0 ? [{ position, heroPool, version: 1, updatedAt: "2026-10-19" }] : [];
+  return { id, teamGroupId: 1, slot: id, position, name: `M${id}`, heroPool, positionPools, updatedAt: "2026-10-19" };
 }
 
 const group: TeamGroupEntry = {
@@ -39,4 +41,16 @@ test("back on the usual confirmed seat the pool counts again", () => {
 
 test("a member with no confirmed position never counts, wherever they are placed", () => {
   expect(countActivePools(group, board([null, null, null, null, 5]), null)).toBe(0);
+});
+
+test("a person counts at a seat only if they have a pool saved for THAT seat; the legacy list and other seats' pools never stand in", () => {
+  const withSecondPool: TeamGroupEntry = {
+    ...group,
+    members: [
+      { ...member(1, 1, [11]), positionPools: [{ position: 1, heroPool: [11], version: 1, updatedAt: "x" }, { position: 5, heroPool: [15], version: 1, updatedAt: "x" }] },
+      { ...member(2, null, [21]), positionPools: [] }, // only a pending legacy list
+    ],
+  };
+  const players: PositionBoardPlayer[] = [{ key: 1, name: "M1", position: 5 }, { key: 2, name: "M2", position: 2 }];
+  expect(countActivePools(withSecondPool, players, null)).toBe(1);
 });
