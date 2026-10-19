@@ -69,6 +69,7 @@ function createTestDb() {
       hero_pool TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
   `);
   return drizzle(sqlite, { schema: { accounts, heroes, heroMatchups, settings, heroPool, teamGroups, teamMembers } });
 }
@@ -277,7 +278,7 @@ test("replaceTeamGroup reemplaza datos y miembros completos", () => {
     name: "Stack ranked",
     partySize: 2,
     updatedAt: "2026-07-30",
-    members: [{ id: 3, teamGroupId: saved.id, slot: 1, position: 4, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30" }],
+    members: [{ id: 3, teamGroupId: saved.id, slot: 1, position: 4, name: "Carla", heroPool: [3, 4], updatedAt: "2026-07-30", positionPools: [{ position: 4, heroPool: [3, 4], version: 1, updatedAt: "2026-07-30" }] }],
   });
 });
 

@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { accounts, draftFeedback, heroMatchups, heroPool, recommendationFeedback, teamGroups, teamMembers } from "./schema";
+import { accounts, draftFeedback, heroMatchups, heroPool, recommendationFeedback, teamGroups, teamMemberPositionPools, teamMembers } from "./schema";
 
 export function getMatchupsForHero<TSchema extends Record<string, unknown>>(
   db: BunSQLiteDatabase<TSchema>,
@@ -82,9 +82,19 @@ export interface TeamGroupWriteRow {
   members: TeamMemberWriteRow[];
 }
 
+/** One hero pool of one person at one seat (Hero Pools V2). `version` is the compare-and-set token. */
+export interface MemberPositionPoolRow {
+  position: 1 | 2 | 3 | 4 | 5;
+  heroPool: number[];
+  version: number;
+  updatedAt: string;
+}
+
 export interface TeamMemberReadRow extends TeamMemberWriteRow {
   id: number;
   teamGroupId: number;
+  /** Pools by seat, ordered by position. Independent of `position` (the usual seat) and of the legacy `heroPool`. */
+  positionPools: MemberPositionPoolRow[];
 }
 
 export interface TeamGroupReadRow {
@@ -96,17 +106,37 @@ export interface TeamGroupReadRow {
   members: TeamMemberReadRow[];
 }
 
-function attachMembers(groups: Omit<TeamGroupReadRow, "members">[], members: TeamMemberReadRow[]): TeamGroupReadRow[] {
+type TeamMemberRow = typeof teamMembers.$inferSelect;
+
+function attachMembers<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  groups: Omit<TeamGroupReadRow, "members">[],
+  members: TeamMemberRow[],
+): TeamGroupReadRow[] {
+  const groupIds = new Set(groups.map((group) => group.id));
+  const owned = members.filter((member) => groupIds.has(member.teamGroupId));
+  const pools = owned.length === 0
+    ? []
+    : db.select().from(teamMemberPositionPools).where(inArray(teamMemberPositionPools.memberId, owned.map((member) => member.id))).all();
   return groups.map((group) => ({
     ...group,
-    members: members.filter((member) => member.teamGroupId === group.id).sort((a, b) => a.slot - b.slot),
+    members: owned
+      .filter((member) => member.teamGroupId === group.id)
+      .sort((a, b) => a.slot - b.slot)
+      .map((member) => ({
+        ...member,
+        positionPools: pools
+          .filter((pool) => pool.memberId === member.id)
+          .sort((a, b) => a.position - b.position)
+          .map(({ position, heroPool, version, updatedAt }) => ({ position, heroPool, version, updatedAt })),
+      })),
   }));
 }
 
 export function getTeamGroups<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>, accountId: number): TeamGroupReadRow[] {
   const groups = db.select().from(teamGroups).where(eq(teamGroups.accountId, accountId)).all();
   const members = db.select().from(teamMembers).all();
-  return attachMembers(groups, members);
+  return attachMembers(db, groups, members);
 }
 
 export function getTeamGroup<TSchema extends Record<string, unknown>>(
@@ -116,7 +146,7 @@ export function getTeamGroup<TSchema extends Record<string, unknown>>(
   const [group] = db.select().from(teamGroups).where(and(eq(teamGroups.id, id), eq(teamGroups.accountId, accountId))).all();
   if (!group) return null;
   const members = db.select().from(teamMembers).where(eq(teamMembers.teamGroupId, id)).all();
-  return attachMembers([group], members)[0] ?? null;
+  return attachMembers(db, [group], members)[0] ?? null;
 }
 
 export function getTeamGroupById<TSchema extends Record<string, unknown>>(
@@ -126,7 +156,7 @@ export function getTeamGroupById<TSchema extends Record<string, unknown>>(
   const [group] = db.select().from(teamGroups).where(eq(teamGroups.id, id)).all();
   if (!group) return null;
   const members = db.select().from(teamMembers).where(eq(teamMembers.teamGroupId, id)).all();
-  return attachMembers([group], members)[0] ?? null;
+  return attachMembers(db, [group], members)[0] ?? null;
 }
 
 function insertTeamMembers<TSchema extends Record<string, unknown>>(
@@ -135,7 +165,12 @@ function insertTeamMembers<TSchema extends Record<string, unknown>>(
   members: TeamMemberWriteRow[],
 ) {
   for (const { id: _ignored, ...member } of members) {
-    db.insert(teamMembers).values({ ...member, teamGroupId }).run();
+    const [created] = db.insert(teamMembers).values({ ...member, teamGroupId }).returning({ id: teamMembers.id }).all();
+    // A new person who arrives with a confirmed seat AND a pool gets that pool as their pool for THAT seat (same rule
+    // as the 0011 backfill). Later position changes then can't re-aim the legacy list at another seat.
+    if (created && member.position !== null && member.heroPool.length > 0) {
+      db.insert(teamMemberPositionPools).values({ memberId: created.id, position: member.position, heroPool: member.heroPool, version: 1, updatedAt: member.updatedAt }).run();
+    }
   }
 }
 
@@ -160,11 +195,14 @@ function syncTeamMembers<TSchema extends Record<string, unknown>>(
     }
     if (!existingIds.has(member.id) || kept.has(member.id)) throw new Error("unknown_team_member");
     kept.add(member.id);
-    const { id: memberId, ...fields } = member;
+    // Defense in depth: an existing person's legacy `heroPool` is never rewritten here (the route refuses such an edit).
+    const { id: memberId, heroPool: _legacyPool, ...fields } = member;
     db.update(teamMembers).set(fields).where(and(eq(teamMembers.id, memberId), eq(teamMembers.teamGroupId, teamGroupId))).run();
   }
   for (const existingId of existingIds) {
-    if (!kept.has(existingId)) db.delete(teamMembers).where(eq(teamMembers.id, existingId)).run();
+    if (kept.has(existingId)) continue;
+    db.delete(teamMemberPositionPools).where(eq(teamMemberPositionPools.memberId, existingId)).run();
+    db.delete(teamMembers).where(eq(teamMembers.id, existingId)).run();
   }
   insertTeamMembers(db, teamGroupId, added);
 }
@@ -195,9 +233,43 @@ export function replaceTeamGroup<TSchema extends Record<string, unknown>>(
   return getTeamGroup(db, id, accountId);
 }
 
+export type SetMemberPoolResult =
+  | { ok: true; pool: MemberPositionPoolRow }
+  | { ok: false; reason: "not_found" | "stale_pool" };
+
+/**
+ * Writes ONE pool (member + seat) with compare-and-set: `expectedVersion` is the version the caller last read (0 = "I
+ * believe there is none yet"). A mismatch writes nothing, so a stale tab can't overwrite a newer pool. The member must
+ * belong to `teamGroupId`, which must belong to `accountId` -- anything else is `not_found`, never a cross-account write.
+ */
+export function setMemberPositionPool<TSchema extends Record<string, unknown>>(
+  db: BunSQLiteDatabase<TSchema>,
+  accountId: number,
+  teamGroupId: number,
+  memberId: number,
+  position: 1 | 2 | 3 | 4 | 5,
+  heroPool: number[],
+  expectedVersion: number,
+  updatedAt: string,
+): SetMemberPoolResult {
+  return db.transaction((tx) => {
+    const group = getTeamGroup(tx, teamGroupId, accountId);
+    if (!group || !group.members.some((member) => member.id === memberId)) return { ok: false, reason: "not_found" } as const;
+    const where = and(eq(teamMemberPositionPools.memberId, memberId), eq(teamMemberPositionPools.position, position));
+    const [current] = tx.select().from(teamMemberPositionPools).where(where).all();
+    if ((current?.version ?? 0) !== expectedVersion) return { ok: false, reason: "stale_pool" } as const;
+    const version = expectedVersion + 1;
+    if (current) tx.update(teamMemberPositionPools).set({ heroPool, version, updatedAt }).where(where).run();
+    else tx.insert(teamMemberPositionPools).values({ memberId, position, heroPool, version, updatedAt }).run();
+    return { ok: true, pool: { position, heroPool, version, updatedAt } } as const;
+  });
+}
+
 export function deleteTeamGroup<TSchema extends Record<string, unknown>>(db: BunSQLiteDatabase<TSchema>, id: number, accountId: number): boolean {
   if (!getTeamGroup(db, id, accountId)) return false;
   db.transaction((tx) => {
+    const memberIds = tx.select({ id: teamMembers.id }).from(teamMembers).where(eq(teamMembers.teamGroupId, id)).all().map((row) => row.id);
+    if (memberIds.length > 0) tx.delete(teamMemberPositionPools).where(inArray(teamMemberPositionPools.memberId, memberIds)).run();
     tx.delete(teamMembers).where(eq(teamMembers.teamGroupId, id)).run();
     tx.delete(teamGroups).where(eq(teamGroups.id, id)).run();
   });

@@ -18,6 +18,7 @@ function setup() {
     CREATE TABLE heroes (id INTEGER PRIMARY KEY, name TEXT NOT NULL, localized_name TEXT NOT NULL, img_url TEXT NOT NULL, primary_attr TEXT NOT NULL, attack_type TEXT NOT NULL, roles TEXT NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE team_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL, party_size INTEGER NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
   `);
   const insertHero = sqlite.prepare("INSERT INTO heroes VALUES (?, 'h', 'H', 'x', 'str', 'Melee', '[]', '2026-10-04')");
   for (const id of KNOWN_HEROES) insertHero.run(id);
@@ -63,6 +64,10 @@ function setup() {
   return { saveTeam, putTeam, startSession, party, db };
 }
 
+/** What the editor sends for a saved team: each entry carries the id of the person who holds that usual position. */
+const withSavedIds = (team: { members: { id: number; position: number | null }[] }, members: { position?: number | null }[], positionOf: (index: number) => number) =>
+  members.map((m, i) => ({ ...m, id: team.members.find((saved) => saved.position === positionOf(i))!.id }));
+
 /** Five people, usual positions 1..5, listed in the order given (so slot != position when reordered). */
 const fiveByPosition = (order: number[]) => order.map((position, index) => ({ slot: index + 1, position, heroPool: POOL[position]! }));
 
@@ -100,7 +105,8 @@ describe("saved team -- positions are stored and validated as explicit facts", (
   test("re-ordering the editor rows (slots) while keeping each person's position is a pure display change", async () => {
     const t = setup();
     const team = await t.saveTeam(5, fiveByPosition([1, 2, 3, 4, 5]));
-    const reordered = fiveByPosition([3, 5, 1, 2, 4]).map((m, i) => ({ ...m, name: `P${m.position}`, slot: i + 1 }));
+    const order = [3, 5, 1, 2, 4];
+    const reordered = withSavedIds(team, fiveByPosition(order).map((m, i) => ({ ...m, name: `P${m.position}`, slot: i + 1 })), (i) => order[i]!);
     const response = await t.putTeam(team.id, { name: "Team", partySize: 5, members: reordered });
     expect(response.status).toBe(200);
     const stored = (await response.json()) as { members: { name: string; position: number; heroPool: number[] }[] };
@@ -125,7 +131,7 @@ describe("saved team -- an older tab can't erase positions confirmed since it wa
   test("a PUT that sends position: null explicitly is a deliberate clear and is honoured", async () => {
     const t = setup();
     const team = await t.saveTeam(5, fiveByPosition([1, 2, 3, 4, 5]));
-    const cleared = fiveByPosition([1, 2, 3, 4, 5]).map((m, i) => ({ ...m, name: `P${i}`, position: null }));
+    const cleared = withSavedIds(team, fiveByPosition([1, 2, 3, 4, 5]).map((m, i) => ({ ...m, name: `P${i}`, position: null })), (i) => i + 1);
     expect((await t.putTeam(team.id, { name: "Team", partySize: 5, members: cleared })).status).toBe(200);
     expect(getTeamGroup(t.db, team.id, A)!.members.map((m) => m.position)).toEqual([null, null, null, null, null]);
   });
@@ -140,7 +146,8 @@ describe("saved team -- an older tab can't erase positions confirmed since it wa
   test("the editor's own save, positions included, still goes through", async () => {
     const t = setup();
     const team = await t.saveTeam(5, fiveByPosition([1, 2, 3, 4, 5]));
-    const reordered = fiveByPosition([2, 1, 3, 4, 5]).map((m, i) => ({ ...m, name: `P${i}` }));
+    const order = [2, 1, 3, 4, 5];
+    const reordered = withSavedIds(team, fiveByPosition(order).map((m, i) => ({ ...m, name: `P${i}` })), (i) => order[i]!);
     expect((await t.putTeam(team.id, { name: "Team", partySize: 5, members: reordered })).status).toBe(200);
   });
 });
@@ -363,9 +370,10 @@ describe("saved team -- a player's identity is the member id, never the nickname
     const after = stored(t, team);
     expect(after.find((m) => m.id === first.id)!.heroPool).toEqual(POOL[4]!);
     expect(after.find((m) => m.id === second.id)!.heroPool).toEqual(POOL[5]!);
-    // And the engine follows the person: `first` (pool 4x) now sits on Pos 5.
+    // Hero Pools V2: a pool belongs to member + SEAT. `first`'s 4x pool was written for Pos 4, so now that their usual
+    // seat is Pos 5 it does NOT follow them there (and `second`'s 5x pool does not land on Pos 4): neither seat has a pool.
     const started = await t.startSession({ ...t.party(3, [3, 4, 5], 3), teamGroupId: team.id });
-    expect(started.pools).toEqual({ 4: POOL[5], 5: POOL[4] });
+    expect(started.pools).toBeNull();
   });
 
   test("an entry WITHOUT an id is a new person: fresh id, and it never inherits the pool of whoever sat there before", async () => {

@@ -10,15 +10,19 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 //
 // A member with neither an override nor a usual position gets no pool: a position is never guessed.
 //
-// F0 guard: `heroPool` is ONE legacy list with no position of its own. It belongs to the member's confirmed usual
-// position and is applied ONLY while they play there -- moved to another seat (or never confirmed) it applies nowhere,
-// so a carry's pool never becomes the admission list of Pos 5. Hero Pools V2 will store a pool per position.
+// Pools (Hero Pools V2, F2): a pool belongs to member.id + position. The pool of the seat a member plays THIS match is
+// the one that activates -- `positionPools` has it, or that seat has none. The pool of any other seat is never borrowed:
+// a carry moved to Pos 5 gets their Pos 5 pool or nothing (the recommender then falls back to credible role candidates).
+// `heroPool` is the LEGACY single list. A member read from the DB never uses it (it records no seat; F4 will let the user
+// confirm one explicitly). It survives only as a fallback for records without a `positionPools` field, at the usual seat.
 
 export interface SavedTeamMember {
   /** `team_members.id`; what a per-match assignment names. Absent only for rows that can't be addressed. */
   id?: number;
   position?: number | null;
   heroPool: readonly number[];
+  /** One pool per seat. Absent = a row from before V2 (only the legacy `heroPool` fallback applies). */
+  positionPools?: readonly { position: number; heroPool: readonly number[] }[];
 }
 
 /**
@@ -39,6 +43,19 @@ function positionOf(member: SavedTeamMember, assignment: TeamAssignment | null |
   return assignment.get(member.id) ?? null;
 }
 
+/** The pool `member` brings to `seat`, or null. Never reads the pool of a different seat. */
+function poolForSeat(member: SavedTeamMember, seat: Position): readonly number[] | null {
+  const pools = member.positionPools ?? [];
+  const own = pools.find((pool) => pool.position === seat);
+  if (own) return own.heroPool;
+  // Legacy fallback ONLY for a record that predates `positionPools` altogether (hand-built callers/fixtures). A member
+  // read from the DB always carries the array: if it has no row for this seat, the legacy list does NOT stand in -- it
+  // doesn't record which seat it was written for, so it waits for an explicit confirmation (never inferred from the
+  // usual position, which can change after the list was written).
+  if (member.positionPools !== undefined) return null;
+  return seat === asPosition(member.position) ? member.heroPool : null;
+}
+
 /**
  * Pools keyed by the position each member actually plays. `ownerPosition` is left without a team pool: the owner
  * always uses their own personal hero pool. A position claimed by two members is left without a pool too -- there is
@@ -53,8 +70,8 @@ export function poolsByConfirmedPosition(
   const contested = new Set<Position>();
   for (const member of members) {
     const position = positionOf(member, assignment);
-    if (position === null || position !== asPosition(member.position)) continue;
-    const heroes = member.heroPool.filter((id) => Number.isInteger(id) && id > 0);
+    if (position === null) continue;
+    const heroes = (poolForSeat(member, position) ?? []).filter((id) => Number.isInteger(id) && id > 0);
     if (heroes.length === 0) continue;
     if (claims.has(position)) contested.add(position);
     else claims.set(position, heroes);

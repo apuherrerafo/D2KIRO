@@ -112,6 +112,22 @@ export const teamMembers = sqliteTable("team_members", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// Hero Pools V2 (F2): one pool per (member, position). A pool belongs to the person (`team_members.id`) AND the seat it
+// was written for, so changing a match position activates THAT seat's pool and never borrows another one. `version` is
+// a per-pool counter for compare-and-set writes (a stale tab can't overwrite a newer pool). An empty `hero_pool` is an
+// explicit "no pool for this seat" and shadows the legacy `team_members.hero_pool`, which stays untouched.
+export const teamMemberPositionPools = sqliteTable(
+  "team_member_position_pools",
+  {
+    memberId: integer("member_id").notNull().references(() => teamMembers.id),
+    position: integer("position").$type<1 | 2 | 3 | 4 | 5>().notNull(),
+    heroPool: text("hero_pool", { mode: "json" }).$type<number[]>().notNull(),
+    version: integer("version").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.memberId, table.position] })],
+);
+
 // TSK-050: inbox append-only de reportes de QA manual -- `draftState`/`suggestions` quedan sin
 // `$type<...>()` a propósito, ese contrato vive en apps/web y cambia con cada fase; tipar acá
 // acoplaría el motor a mantenerlo sincronizado sin necesidad real.

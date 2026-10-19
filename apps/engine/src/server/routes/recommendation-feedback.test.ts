@@ -29,6 +29,7 @@ function createTestDb() {
     CREATE TABLE hero_pool (account_id INTEGER NOT NULL, hero_id INTEGER NOT NULL, source TEXT NOT NULL, personal_winrate REAL, personal_games INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY (account_id, hero_id));
     CREATE TABLE team_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL, party_size INTEGER NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
     CREATE TABLE draft_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, comment TEXT NOT NULL, draft_state TEXT NOT NULL, suggestions TEXT, created_at TEXT NOT NULL);
     CREATE TABLE recommendation_feedback (
       id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, hero_id INTEGER NOT NULL,

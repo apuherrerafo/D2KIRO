@@ -59,6 +59,7 @@ function setup() {
   sqlite.exec(`
     CREATE TABLE team_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL, party_size INTEGER NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
   `);
   const store = new ProtocolSessionStore();
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now: () => clock });

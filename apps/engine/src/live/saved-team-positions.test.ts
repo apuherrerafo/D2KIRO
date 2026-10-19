@@ -31,6 +31,7 @@ function setup() {
   sqlite.exec(`
     CREATE TABLE team_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT NOT NULL, party_size INTEGER NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE team_members (id INTEGER PRIMARY KEY AUTOINCREMENT, team_group_id INTEGER NOT NULL, slot INTEGER NOT NULL, position INTEGER, name TEXT NOT NULL, hero_pool TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE team_member_position_pools (member_id INTEGER NOT NULL, position INTEGER NOT NULL, hero_pool TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (member_id, position));
   `);
   const store = new ProtocolSessionStore();
   const registry = new LiveCaptureRegistry({ store, defaultPatch: "7.41e", now: () => T0 });
@@ -41,7 +42,12 @@ function setup() {
   function saveGroup(partySize: 2 | 3 | 5, members: SavedMember[]): number {
     const group = sqlite.prepare("INSERT INTO team_groups (account_id, name, party_size, updated_at) VALUES (?, 'Team', ?, '2026-10-04') RETURNING id").get(A, partySize) as { id: number };
     const insert = sqlite.prepare("INSERT INTO team_members (team_group_id, slot, position, name, hero_pool, updated_at) VALUES (?, ?, ?, ?, ?, '2026-10-04')");
-    for (const member of members) insert.run(group.id, member.slot, member.position, member.name, JSON.stringify(member.heroPool));
+    const insertPool = sqlite.prepare("INSERT INTO team_member_position_pools (member_id, position, hero_pool, version, updated_at) VALUES (?, ?, ?, 1, '2026-10-04')");
+    for (const member of members) {
+      const row = insert.run(group.id, member.slot, member.position, member.name, JSON.stringify(member.heroPool));
+      // What migration 0011 did to every row that already had a confirmed seat AND a list; unconfirmed rows get none.
+      if (member.position !== null && member.heroPool.length > 0) insertPool.run(row.lastInsertRowid, member.position, JSON.stringify(member.heroPool));
+    }
     return group.id;
   }
   async function issue() {

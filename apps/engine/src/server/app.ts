@@ -619,6 +619,11 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       const auth = requireHttpAccount(request);
       return auth.ok ? teamGroupRoutes.post(request, auth.accountId) : auth.response;
     }
+    const poolPath = teamGroupRoutes.parsePoolPath(url.pathname);
+    if (poolPath !== null && request.method === "PUT") {
+      const auth = requireHttpAccount(request);
+      return auth.ok ? teamGroupRoutes.putPool(request, poolPath.teamGroupId, poolPath.memberId, poolPath.position, auth.accountId) : auth.response;
+    }
     const teamGroupId = teamGroupRoutes.parseId(url.pathname);
     if (teamGroupId !== null && request.method === "GET") {
       const auth = requireHttpAccount(request);
