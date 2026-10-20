@@ -4,6 +4,7 @@ import { useState, type JSX } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
+import { FlightRecorderPanel } from "@/features/flight-recorder";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "@/features/draft/styles";
 import { BanPhasePanel } from "@/features/random-draft-simulator/components/BanPhasePanel";
 import { BlindRoundPanel } from "@/features/random-draft-simulator/components/BlindRoundPanel";
@@ -301,6 +302,8 @@ function RankedAllPickSimulator() {
         />
       )}
       <ActivePanel session={session} heroCatalog={heroCatalog} />
+      {/* Diagnóstico temporal: sin NEXT_PUBLIC_D2_FLIGHT_RECORDER=1 en el build y ?flightRecorder=1 en la URL no renderiza ni graba nada. */}
+      <FlightRecorderPanel />
     </div>
   );
 }

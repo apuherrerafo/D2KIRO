@@ -61,6 +61,10 @@ COPY scripts/pro/aggregate.ts scripts/pro/compile-patterns.ts ./scripts/pro/
 RUN bun test apps/engine
 
 FROM base AS runtime-build
+# Flight Recorder (diagnóstico temporal): vacío por defecto = la grabadora no se habilita. Sólo un build de
+# preview/debug lo pone en "1" (variable del servicio en Railway); además la URL debe llevar ?flightRecorder=1.
+ARG NEXT_PUBLIC_D2_FLIGHT_RECORDER=
+ENV NEXT_PUBLIC_D2_FLIGHT_RECORDER=$NEXT_PUBLIC_D2_FLIGHT_RECORDER
 RUN cd apps/web && npm run build
 RUN chmod +x scripts/start-railway.sh
 
