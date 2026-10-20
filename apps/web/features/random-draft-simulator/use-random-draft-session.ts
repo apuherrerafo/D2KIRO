@@ -5,6 +5,17 @@ import type { TeamSide } from "@/features/draft/types";
 import { postLowConfidenceReport } from "@/features/pro-drafter/types";
 import { fetchTeamBoard } from "@/features/team-coach/client";
 import { reportClientError } from "@/lib/telemetry-client";
+import {
+  beginEngineRequest,
+  recordBoardResponse,
+  recordDecisionResponse,
+  recordEngineError,
+  recordGameEvent,
+  recordLockPick,
+  recordSessionStart,
+  recordTransition,
+  recordUserAction,
+} from "@/features/flight-recorder/instrumentation";
 import { BLIND_ROUND_SPECS } from "./constants";
 import { assignOwnCoachPosition, fetchCurrentDecision, fetchRecommendationsWithCoach } from "./coach-client";
 import { describeLiveCompanionRejection } from "./live-companion-rejection";
@@ -218,20 +229,27 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     // cleared so no second target, shortlist or degradation can render next to it. Live Companion
     // (manual sessions carry no HumanActionability) keeps the V3 path below.
     if (current.sessionMode === "simulation") {
+      const flightToken = beginEngineRequest();
       try {
         const output = await fetchCurrentDecision(requestSessionId, current.requestedTarget, fetchImpl);
-        if (useRandomDraftStore.getState().sessionId !== requestSessionId || refreshSeqRef.current !== requestSeq) return;
+        if (useRandomDraftStore.getState().sessionId !== requestSessionId || refreshSeqRef.current !== requestSeq) {
+          recordDecisionResponse(flightToken, output, "discarded_superseded", current.requestedTarget);
+          return;
+        }
         // Same monotonic-revision rule as the V3 path: an older computation never overwrites a newer one.
         const heldDecision = useRandomDraftStore.getState().currentDecision;
         if (heldDecision !== null && output.meta.revision < heldDecision.meta.revision) {
+          recordDecisionResponse(flightToken, output, "discarded_older_revision", current.requestedTarget);
           useRandomDraftStore.getState().setPreviewStatus("ready");
           return;
         }
         useRandomDraftStore.getState().setRecommendations(null);
         useRandomDraftStore.getState().setCoach(null);
         useRandomDraftStore.getState().setCurrentDecision(output);
+        recordDecisionResponse(flightToken, output, "accepted", current.requestedTarget);
         useRandomDraftStore.getState().setPreviewStatus("ready");
-      } catch {
+      } catch (error) {
+        recordEngineError("current_decision", flightToken, error);
         if (useRandomDraftStore.getState().sessionId === requestSessionId && refreshSeqRef.current === requestSeq) useRandomDraftStore.getState().setPreviewStatus("failed");
       }
       return;
@@ -261,10 +279,17 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const requestSeq = (teamBoardSeqRef.current += 1);
     const isLatest = () => useRandomDraftStore.getState().sessionId === requestSessionId && teamBoardSeqRef.current === requestSeq;
     useRandomDraftStore.getState().setTeamBoard(current.teamBoard, "loading");
+    const flightToken = beginEngineRequest();
     try {
       const board = await fetchTeamBoard(requestSessionId, fetchImpl);
-      if (isLatest()) useRandomDraftStore.getState().setTeamBoard(board, "ready");
-    } catch {
+      if (isLatest()) {
+        useRandomDraftStore.getState().setTeamBoard(board, "ready");
+        recordBoardResponse(flightToken, board, "accepted");
+      } else {
+        recordBoardResponse(flightToken, board, "discarded_superseded");
+      }
+    } catch (error) {
+      recordEngineError("team_board", flightToken, error);
       if (isLatest()) useRandomDraftStore.getState().setTeamBoard(useRandomDraftStore.getState().teamBoard, "failed");
     }
   }, [fetchImpl]);
@@ -292,12 +317,15 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     if (current.phase.type !== "blind_round" || current.requestedTarget === position) return;
     const shownView = current.currentDecision?.decision.kind === "ACTIONABLE" ? current.currentDecision.decision.viewedPosition : null;
     if (current.requestedTarget === null && shownView === position) return;
+    recordUserAction("select_target", { position });
     useRandomDraftStore.getState().setRequestedTarget(position);
     clearCurrentDecision();
     void refreshRecommendations();
   }, [clearCurrentDecision, refreshRecommendations]);
 
-  const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot): void {
+  // `source` names which engine call produced this snapshot -- it only labels the Flight Recorder entry.
+  const syncSnapshot = useCallback(function syncSnapshot(snapshot: ProtocolSnapshot, source: string, detail: Record<string, unknown> = {}): void {
+    recordTransition(source, snapshot, detail);
     protocolRef.current = snapshot;
     const current = useRandomDraftStore.getState();
     useRandomDraftStore.getState().setOwnAssignedPositions(snapshot.ownAssignedPositions);
@@ -343,6 +371,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     // A new attempt is a new decision: nothing from the previous one (target, cards) survives it.
     useRandomDraftStore.getState().setRequestedTarget(null);
     clearCurrentDecision();
+    recordGameEvent("attempt_opened", { round, attemptPositions, canYield, notice, conflictBans: roundConflictsRef.current.bans });
     useRandomDraftStore.getState().setVisualPhase({
       type: "blind_round",
       round,
@@ -370,6 +399,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     stopTimer();
     const current = useRandomDraftStore.getState();
     if (!current.config) return;
+    recordGameEvent("draft_complete", { resolvedBans: snapshot.view.bannedHeroes, picksByRound: revealedRoundsRef.current });
     useRandomDraftStore.getState().setVisualPhase({
       type: "complete",
       summary: {
@@ -396,6 +426,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const userPicks = visibleIds(snapshot.view.ownPicks).slice(start, start + count);
     const botPicks = visibleIds(snapshot.view.enemyPicks).slice(start, start + count);
     revealedRoundsRef.current[round - 1] = { userPicks, botPicks };
+    recordGameEvent("round_revealed", { round, userPicks, enemyPicks: botPicks });
     roundConflictsRef.current = { round: 0, bans: [] };
     useRandomDraftStore.getState().setVisualPhase({ type: "round_revealed", round, userPicks, botPicks, conflictBans: [] });
     await new Promise((resolve) => setTimeout(resolve, revealPauseMs));
@@ -409,7 +440,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     try {
       for (let guard = 0; guard < AUTO_DRIVE_GUARD; guard += 1) {
         const result = await requestEnemyAutoDrive(currentSessionId, fetchImpl);
-        syncSnapshot(result);
+        syncSnapshot(result, "enemy_auto_drive", { stopReason: result.stopReason, completedRound: result.completedRound });
         if (result.stopReason === "human_input") {
           beginAttempt(result, notice);
           return;
@@ -475,13 +506,14 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     const previousBans = [...snapshot.view.bannedHeroes];
     lockingRef.current = true;
     try {
+      recordLockPick(heroId, position, slotIndex);
       const next = await submitProtocolCommand(
         current.sessionId,
         { type: "SUBMIT_SEALED_SELECTION", side: snapshot.view.viewerSide, slotIndex, heroId },
         fetchImpl,
         position,
       );
-      syncSnapshot(next);
+      syncSnapshot(next, "own_pick_submitted", { accepted: next.accepted ?? null, rejected: next.rejected ?? null });
       if (next.accepted === false) {
         useRandomDraftStore.getState().setRoundNotice(`Ese héroe no está disponible (${next.rejected ?? "rechazado"}). Elegí otro.`);
         return;
@@ -525,12 +557,13 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
     if (lockingRef.current || current.phase.type !== "blind_round" || !current.sessionId || !current.phase.canYield) return;
     lockingRef.current = true;
     try {
+      recordUserAction("yield_round", {});
       const snapshot = await requestYield(current.sessionId, fetchImpl);
       // After a yield there is no human action for this round: nothing from the previous decision stays up.
       useRandomDraftStore.getState().setRequestedTarget(null);
       clearCurrentDecision();
       invalidateTeamBoard();
-      syncSnapshot(snapshot);
+      syncSnapshot(snapshot, "yield");
       await advance(null);
     } catch (error) {
       // P0-3 (INV-YIELD-002) -- a domain-level rejection (the server responded; it just said no,
@@ -560,7 +593,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       useRandomDraftStore.getState().setVisualPhase({ type: "ban_failed", message: describeBanFailure(outcome.error, outcome.retryable) });
       return;
     }
-    syncSnapshot(outcome.snapshot);
+    syncSnapshot(outcome.snapshot, "bans_resolved", { resolvedBans: outcome.resolvedBans });
     useRandomDraftStore.getState().setVisualPhase({ type: "ban_phase_complete", resolvedBans: outcome.resolvedBans });
     await advance(null);
   }, [advance, fetchImpl, syncSnapshot]);
@@ -608,7 +641,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         return;
       }
       const afterComplete = await submitProtocolCommand(current.sessionId, { type: "BAN_RESOLUTION_COMPLETE" }, fetchImpl);
-      syncSnapshot(afterComplete);
+      syncSnapshot(afterComplete, "live_bans_recorded");
       if (afterComplete.accepted === false) {
         useRandomDraftStore.getState().setVisualPhase({ type: "live_ban_entry", observedBans: heroIds, error: describeLiveCompanionRejection(afterComplete.rejected) });
         return;
@@ -634,7 +667,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
         { type: "SUBMIT_SEALED_SELECTION", side, slotIndex: slot.slotIndex, heroId },
         fetchImpl,
       );
-      syncSnapshot(next);
+      syncSnapshot(next, "live_selection_submitted", { side });
       if (next.accepted === false) {
         const fresh = useRandomDraftStore.getState().phase;
         if (fresh.type === "live_pending") {
@@ -672,9 +705,10 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       revealedRoundsRef.current = [];
       roundConflictsRef.current = { round: 0, bans: [] };
       useRandomDraftStore.getState().startSession(nextConfig, nextSessionId, { resolvedBans: [], rounds: [] }, mode);
+      recordSessionStart(nextConfig, mode, fetchImpl);
       if (mode === "live_companion") {
         const initial = await getProtocolSession(nextSessionId, fetchImpl);
-        syncSnapshot(initial);
+        syncSnapshot(initial, "live_initial");
         return;
       }
       await resolveBans();
