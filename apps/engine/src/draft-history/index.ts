@@ -20,3 +20,21 @@ export {
   type LoadedDraftHistory,
   type RejectedRecord,
 } from "./loader";
+export {
+  MAX_EXAMPLES,
+  createArrayHistoryIndex,
+  relatePatch,
+  wilsonInterval95,
+  type CreateHistoryIndexOptions,
+  type FormatRelation,
+  type HistoryGroup,
+  type HistoryGroupKey,
+  type HistoryHit,
+  type HistoryIndex,
+  type HistorySearchOptions,
+  type HistorySearchResult,
+  type HistorySearchStatus,
+  type MatchQuality,
+  type OurOutcome,
+  type PatchRelation,
+} from "./history-index";
