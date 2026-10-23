@@ -8,7 +8,7 @@ import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { isCandidateAdmittedForPosition, loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { lowMidTotals, MIN_PATCH_GAMES, patchMetaReady, patchMetaScorer } from "./patch-meta";
-import { createPositionFitScorer } from "./position-fit";
+import { createPositionFitScorer, type PositionFitSaturation } from "./position-fit";
 import { createTeamSynergyScorer } from "./team-synergy";
 import { recommendTeamOpeners } from "../drafter/team-opener";
 import { deriveDecisionContext, deriveDecisionPolicy, type DraftDecisionContext, type DraftDecisionPolicy } from "../drafter/decision-context";
@@ -96,6 +96,9 @@ export interface BuildSuggestionsOptions {
   // que se cura por parche.
   heroCounters?: Map<HeroId, CuratedCounter[]>;
   targetPosition?: 1 | 2 | 3 | 4 | 5;
+  // TSK-252: cómo satura `position_fit` con `targetPosition`. Ausente = "volume" (3000 partidas, byte-idéntico a V6). Sólo el Coach pide
+  // "credible-median" (ver position-fit.ts).
+  positionFitSaturation?: PositionFitSaturation;
   usePersonalPool?: boolean;
   // El simulador abre una composición completa bajo el control del capitán. No tiene sentido
   // aplicar todavía el rol personal ni el pool de una sola persona; esos filtros siguen siendo
@@ -943,7 +946,7 @@ export function buildSuggestions(
   const scorers: SignalScorer[] = [
     ...baseScorers,
     createCounterScorer(heroCounters),
-    createPositionFitScorer(heroPositions, positionFitTarget),
+    createPositionFitScorer(heroPositions, positionFitTarget, options.positionFitSaturation),
     createTeamSynergyScorer(heroCapabilities),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
   ];

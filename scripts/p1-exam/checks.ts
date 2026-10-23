@@ -45,6 +45,10 @@ export interface ExamState {
   positionFitSaturated: number | null;
   /** How many candidates those numbers were computed over. */
   candidateCount: number;
+  /** TSK-252: the WHOLE credible field of the recommended column scored by V6 (peeled past the TOP_N cut); null when there is no recommended column. */
+  positionFitField: FieldCandidate[] | null;
+  /** TSK-252: the same column scored under each `position_fit` rule at THIS state, to compare the rules on identical decisions. */
+  positionFitPaired: { volume: FieldCandidate[]; credibleMedian: FieldCandidate[] } | null;
 }
 
 export interface ExamWorld {
@@ -251,3 +255,86 @@ export function varianceShare(part: readonly number[], total: readonly number[])
 
 export const mean = (xs: readonly number[]): number | null => (xs.length === 0 ? null : xs.reduce((s, x) => s + x, 0) / xs.length);
 export const rate = (hits: number, total: number): number | null => (total === 0 ? null : hits / total);
+
+// ---- I5-field: position_fit over the WHOLE credible field, not only the TOP_N that V6 keeps -----------------------------------------
+// TSK-252. The original I5 (above) is computed among the ~6 candidates V6 returns, so it cannot see the selection `position_fit` already
+// made by deciding who survives the cut. Here the exam peels V6 (re-asking with the heroes already returned excluded) until the whole
+// credible field of the column is scored, and these pure functions read that field.
+
+/** One credible candidate of the recommended column, scored by V6 in the state. `matches` is the hero's recorded matches AT that position. */
+export interface FieldCandidate {
+  heroId: HeroId;
+  /** V6 score (0..100). */
+  score: number;
+  /** `position_fit.weighted` inside that score. */
+  positionFit: number;
+  /** The hero's recorded matches at the target position (formula-independent popularity). */
+  matches: number;
+}
+
+export interface FieldStats {
+  fieldSize: number;
+  /** Fraction of the top-3 / top-6 (by V6 score) that sit in the more-played half of the field by matches; a fair ranking would be ~0.5. */
+  top3MorePlayed: number;
+  top6MorePlayed: number;
+  /** Share of the score's variance that `position_fit` explains over the whole field (null when the score does not vary). */
+  orderShareField: number | null;
+  /** The same, among ONLY the more-played half of the field: is the order inside the popular half decided by volume or by the draft? */
+  orderShareMorePlayedHalf: number | null;
+  /** Jaccard between the real top-k and the top-k of the same score with `position_fit`'s contribution removed: 1 = it decides nothing. */
+  top3WithoutPositionFit: number;
+  top6WithoutPositionFit: number;
+}
+
+const topIds = (items: readonly FieldCandidate[], key: (c: FieldCandidate) => number, k: number): HeroId[] =>
+  [...items].sort((a, b) => key(b) - key(a) || a.heroId - b.heroId).slice(0, k).map((c) => c.heroId);
+
+/** Pure; needs at least 6 candidates (otherwise null: a column too thin to say anything about a cut at 6). */
+export function fieldStats(field: readonly FieldCandidate[]): FieldStats | null {
+  if (field.length < 6) return null;
+  const byMatches = [...field].sort((a, b) => b.matches - a.matches || a.heroId - b.heroId);
+  const morePlayed = new Set(byMatches.slice(0, Math.ceil(field.length / 2)).map((c) => c.heroId));
+  const popularHalf = field.filter((c) => morePlayed.has(c.heroId));
+  const share = (ids: readonly HeroId[]): number => ids.filter((id) => morePlayed.has(id)).length / ids.length;
+  const real3 = topIds(field, (c) => c.score, 3);
+  const real6 = topIds(field, (c) => c.score, 6);
+  const rest = (c: FieldCandidate): number => c.score - c.positionFit;
+  return {
+    fieldSize: field.length,
+    top3MorePlayed: share(real3),
+    top6MorePlayed: share(real6),
+    orderShareField: varianceShare(field.map((c) => c.positionFit), field.map((c) => c.score)),
+    orderShareMorePlayedHalf: varianceShare(popularHalf.map((c) => c.positionFit), popularHalf.map((c) => c.score)),
+    top3WithoutPositionFit: jaccard(real3, topIds(field, rest, 3)),
+    top6WithoutPositionFit: jaccard(real6, topIds(field, rest, 6)),
+  };
+}
+
+/** Two rankings of the SAME state's credible field (old rule vs new rule): did the top change, and how far did it move toward the less played? */
+export interface PairedChange {
+  top3Same: boolean;
+  jaccard3: number;
+  jaccard6: number;
+  entered3: HeroId[];
+  left3: HeroId[];
+  /** Mean matches of the top-3 under each rule (a drop means the new top leans on less volume). */
+  meanMatchesTop3Old: number;
+  meanMatchesTop3New: number;
+}
+
+export function pairedChange(oldField: readonly FieldCandidate[], newField: readonly FieldCandidate[]): PairedChange | null {
+  if (oldField.length < 6 || newField.length < 6) return null;
+  const score = (c: FieldCandidate): number => c.score;
+  const old3 = topIds(oldField, score, 3);
+  const new3 = topIds(newField, score, 3);
+  const matchesOf = (field: readonly FieldCandidate[], ids: readonly HeroId[]): number => ids.reduce((sum, id) => sum + (field.find((c) => c.heroId === id)?.matches ?? 0), 0) / ids.length;
+  return {
+    top3Same: old3.length === new3.length && old3.every((id) => new3.includes(id)),
+    jaccard3: jaccard(old3, new3),
+    jaccard6: jaccard(topIds(oldField, score, 6), topIds(newField, score, 6)),
+    entered3: new3.filter((id) => !old3.includes(id)),
+    left3: old3.filter((id) => !new3.includes(id)),
+    meanMatchesTop3Old: matchesOf(oldField, old3),
+    meanMatchesTop3New: matchesOf(newField, new3),
+  };
+}

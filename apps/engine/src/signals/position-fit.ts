@@ -1,5 +1,5 @@
 import type { DraftState, HeroId } from "../draft/reducer";
-import type { HeroPositions } from "./hero-positions";
+import { isCredibleForPosition, type HeroPositions } from "./hero-positions";
 import type { SignalContribution, SignalScorer } from "./types";
 
 // TSK-044 (SPEC.md §10.4): fusiona role_gap ("no repitas rol") + role_safety ("support primero,
@@ -123,6 +123,53 @@ function buildExplanation(fill: number, safety: number, t: number, ownCount: num
 // it, evidence scales linearly with how many games back the claim.
 const TARGET_EVIDENCE_SATURATION_MATCHES = 3000;
 
+// TSK-252 (F1 / T3): the fixed 3000 above makes `raw` a function of VOLUME. Measured over the whole credible field of the
+// exam's recommended column (docs/diagnostics/ENGINE_P1_EXAM_T3_BASE.md, "I5 sobre todo el campo creíble"), `position_fit`
+// explained ~82% of the spread of V6's score, every top-3 sat in the more-played half of its position, and removing its
+// contribution kept only ~23% of the top-3: the cut at TOP_N was being made by how many games a hero has, not by the draft.
+//
+// "credible-median" saturates at the MEDIAN of the matches-at-that-position of the heroes CREDIBLE there (the same
+// `isCredibleForPosition` the Coach uses to build its columns), so the more-played half ties at `raw = 1` and the rest of the
+// draft (counters, synergy, meta) decides among them; heroes below the median keep a proportionally lower `raw`, so a thin
+// tail is still penalised. The median is computed from the data once per dataset (never invented, never per hero).
+// "volume" (default) is the legacy 3000 rule, byte for byte: the Enemy Bot, the Ally Bot and `/api/suggestions/preview` stay on it.
+export type PositionFitSaturation = "volume" | "credible-median";
+
+type PositionKey = 1 | 2 | 3 | 4 | 5;
+const medianCache = new WeakMap<HeroPositions, Map<PositionKey, number | null>>();
+
+/**
+ * Median of the recorded matches at `position` over the heroes credible there; null when no hero is credible (or the median is not
+ * positive). Exported so the scorer and its tests read the very same number (tests never hard-code a median).
+ */
+export function credibleMedianMatches(position: PositionKey, positions: HeroPositions): number | null {
+  let byPosition = medianCache.get(positions);
+  if (!byPosition) {
+    byPosition = new Map();
+    medianCache.set(positions, byPosition);
+  }
+  if (byPosition.has(position)) return byPosition.get(position) ?? null;
+
+  const matches = Object.keys(positions)
+    .map(Number)
+    .filter((hero) => isCredibleForPosition(hero, position, positions))
+    .map((hero) => positions[hero]!.find((share) => share.position === position)!.matches)
+    .sort((a, b) => a - b);
+  let median: number | null = null;
+  if (matches.length > 0) {
+    const middle = Math.floor(matches.length / 2);
+    median = matches.length % 2 === 1 ? matches[middle]! : (matches[middle - 1]! + matches[middle]!) / 2;
+    if (!(median > 0)) median = null;
+  }
+  byPosition.set(position, median);
+  return median;
+}
+
+function saturationFor(position: PositionKey, positions: HeroPositions, saturation: PositionFitSaturation): number {
+  if (saturation === "volume") return TARGET_EVIDENCE_SATURATION_MATCHES;
+  return credibleMedianMatches(position, positions) ?? TARGET_EVIDENCE_SATURATION_MATCHES;
+}
+
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
@@ -134,7 +181,7 @@ function targetEvidenceExplanation(raw: number, position: Position): string {
   return `Evidencia limitada de que funciona como ${label}`;
 }
 
-function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, positions: HeroPositions): SignalContribution {
+function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, positions: HeroPositions, saturation: PositionFitSaturation): SignalContribution {
   const targetShare = (positions[candidate] ?? []).find((share) => share.position === targetPosition);
   if (!targetShare) {
     return {
@@ -146,7 +193,7 @@ function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, pos
     };
   }
 
-  const raw = clamp01(targetShare.matches / TARGET_EVIDENCE_SATURATION_MATCHES);
+  const raw = clamp01(targetShare.matches / saturationFor(targetPosition, positions, saturation));
   return {
     signal: "position_fit",
     raw,
@@ -156,7 +203,7 @@ function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, pos
   };
 }
 
-export function createPositionFitScorer(positions: HeroPositions, targetPosition?: Position): SignalScorer {
+export function createPositionFitScorer(positions: HeroPositions, targetPosition?: Position, saturation: PositionFitSaturation = "volume"): SignalScorer {
   // TSK-060: `buildSuggestions` llama a `score()` una vez por candidato (~120 héroes) sobre el
   // MISMO `state` -- `coverage`/`need` no dependen del candidato, así que recalcularlos en cada
   // llamada es trabajo O(candidatos × picks propios) que en realidad es O(picks propios). Un
@@ -203,7 +250,7 @@ export function createPositionFitScorer(positions: HeroPositions, targetPosition
       // The no-target case (team opening / general draft need) falls through to the legacy
       // fill/safety formula below, unchanged.
       if (targetPosition !== undefined) {
-        return scoreForTargetPosition(candidate, targetPosition, positions);
+        return scoreForTargetPosition(candidate, targetPosition, positions, saturation);
       }
 
       const own = ownPicks(state);

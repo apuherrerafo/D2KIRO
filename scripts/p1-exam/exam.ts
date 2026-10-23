@@ -18,7 +18,7 @@ import { SIDES, loadWorldData, muteLog, percentile, unmuteLog, type WorldData } 
 import { POLICIES, runExam } from "./session";
 import { collectEvidenceIdentity } from "../wave5/evidence-identity";
 import {
-  availableHardCounters, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
+  availableHardCounters, fieldStats, i1Illegal, pairedChange, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
   type ExamState, type ExamWorld, type Pos,
 } from "./checks";
 
@@ -31,6 +31,43 @@ const arg = (name: string): string | undefined => process.argv.find((a) => a.sta
 const EXAMPLES = 5;
 const examples = (items: readonly string[]): string[] => items.slice(0, EXAMPLES);
 const round4 = (x: number | null): number | null => (x === null ? null : Math.round(x * 10_000) / 10_000);
+
+/** TSK-252: I5 over the whole credible field (see `fieldStats`): is the cut at 6 made by popularity? Medians over the states where the column has >= 6 credible heroes. */
+function fieldObservation(states: readonly ExamState[]) {
+  const all = states.flatMap((s) => { const stats = s.positionFitField === null ? null : fieldStats(s.positionFitField); return stats === null ? [] : [stats]; });
+  const med = (xs: number[]): number | null => (xs.length === 0 ? null : round4(percentile([...xs].sort((a, b) => a - b), 50)));
+  const shares = all.flatMap((x) => (x.orderShareField === null ? [] : [x.orderShareField]));
+  const halfShares = all.flatMap((x) => (x.orderShareMorePlayedHalf === null ? [] : [x.orderShareMorePlayedHalf]));
+  return {
+    states: all.length,
+    fieldSizeMedian: med(all.map((x) => x.fieldSize)),
+    top3InMorePlayedHalf: round4(mean(all.map((x) => x.top3MorePlayed))),
+    top6InMorePlayedHalf: round4(mean(all.map((x) => x.top6MorePlayed))),
+    orderShareMedian: med(shares),
+    orderShareInMorePlayedHalfMedian: med(halfShares),
+    top3KeptWithoutPositionFit: round4(mean(all.map((x) => x.top3WithoutPositionFit))),
+    top6KeptWithoutPositionFit: round4(mean(all.map((x) => x.top6WithoutPositionFit))),
+    note: "Whole credible field of the recommended column, scored by V6 and peeled past its TOP_N cut. A fair cut is ~0.5 in the more-played half; 'kept without position_fit' = Jaccard between the real top-k and the top-k of the same scores with position_fit's contribution removed (1 = it decides nothing).",
+  };
+}
+
+/** TSK-252: the SAME decisions scored under the old rule (volume) and the new one (credible-median): how many tops changed, and which way. */
+function pairedObservation(states: readonly ExamState[]) {
+  const changes = states.flatMap((s) => { const p = s.positionFitPaired; const c = p === null ? null : pairedChange(p.volume, p.credibleMedian); return c === null ? [] : [{ s, c }]; });
+  const changed = changes.filter((x) => !x.c.top3Same);
+  const lessPlayed = changed.filter((x) => x.c.meanMatchesTop3New < x.c.meanMatchesTop3Old).length;
+  return {
+    states: changes.length,
+    top3Changed: changed.length,
+    top3ChangedRate: round4(rate(changed.length, changes.length)),
+    meanJaccardTop3: round4(mean(changes.map((x) => x.c.jaccard3))),
+    meanJaccardTop6: round4(mean(changes.map((x) => x.c.jaccard6))),
+    changedTopsThatLeanOnLessVolume: lessPlayed,
+    meanMatchesTop3Old: round4(mean(changes.map((x) => x.c.meanMatchesTop3Old))),
+    meanMatchesTop3New: round4(mean(changes.map((x) => x.c.meanMatchesTop3New))),
+    note: "Same decision points, two rules. 'Changed' = the set of the top-3 differs. This says WHAT moved, not whether it is better: that is the judge's call (changedDecisions in the judge packet).",
+  };
+}
 
 export function summarize(states: readonly ExamState[], world: ExamWorld) {
   const total = states.length;
@@ -104,6 +141,8 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
         states: levels.length, candidatesPerState: round4(mean(states.map((s) => s.candidateCount))),
         note: "level = share of V6's score that is position_fit; order = cov(position_fit, score)/var(score) among the candidates V6 keeps (TOP_N) for the recommended column. Not the whole credible field: V6 truncates before the exam can see it.",
       },
+      I5_positionFitOverWholeField: fieldObservation(states),
+      T3_pairedRuleChange: pairedObservation(states),
       I7_damageMix: { monoDamageStates: i7.length, top3Diversifies: i7.filter((r) => r.top3Diversifies).length },
       I6_fill: { gapOpenStates: i6.length, top3Fills: i6.filter((r) => r.top3Fills).length, fillerExistsInShownSet: i6.filter((r) => r.credibleFillerExists).length },
       I8_exposureOfRound1Primary: { states: exposures.length, meanHardCountersAvailable: round4(mean(exposures)), maxHardCountersAvailable: exposures.length === 0 ? null : Math.max(...exposures) },
@@ -158,7 +197,41 @@ function judgePacket(states: readonly ExamState[], world: ExamWorld, data: World
       judgeAnswers: Object.fromEntries([...COMPONENT_QUESTIONS, ...PLAN_QUESTIONS].map((q) => [q.id, { answer: null, notes: null }])),
     }];
   });
-  return { schema: "engine-p1-judge-packet/v1", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points };
+  return { schema: "engine-p1-judge-packet/v1", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points, changedDecisions: changedDecisions(states, data) };
+}
+
+const CHANGED_DECISIONS_SAMPLE = 12;
+
+/** TSK-252: decisions whose top-3 differs between the old and the new `position_fit` rule, spread evenly over the changed ones (deterministic), old and new unlabeled-by-order for a blind read. */
+function changedDecisions(states: readonly ExamState[], data: WorldData) {
+  const name = (id: number): string => data.name(id);
+  const changed = states.flatMap((s) => {
+    const p = s.positionFitPaired;
+    const c = p === null || s.board?.recommendedPosition == null ? null : pairedChange(p.volume, p.credibleMedian);
+    return c === null || c.top3Same ? [] : [{ s, c, p: p! }];
+  });
+  const step = Math.max(1, Math.floor(changed.length / CHANGED_DECISIONS_SAMPLE));
+  const picked = changed.filter((_, i) => i % step === 0).slice(0, CHANGED_DECISIONS_SAMPLE);
+  const top3 = (field: readonly { heroId: number; score: number }[]): number[] => [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId).slice(0, 3).map((c) => c.heroId);
+  return picked.map(({ s, p }) => {
+    const key = createHash("sha256").update(`${s.draftKey}#${s.index}`).digest("hex").slice(0, 12);
+    // Blind: which rule is A and which is B is decided by the key, so the read cannot learn "A is always the old one".
+    const swap = parseInt(key.slice(0, 1), 16) % 2 === 1;
+    const oldTop = top3(p.volume).map(name);
+    const newTop = top3(p.credibleMedian).map(name);
+    return {
+      opaqueKey: key,
+      round: s.round,
+      position: s.board!.recommendedPosition,
+      bans: s.banned.map(name),
+      ownPicks: s.ownPicks.map(name),
+      revealedEnemy: s.revealedEnemy.map(name),
+      optionA: swap ? newTop : oldTop,
+      optionB: swap ? oldTop : newTop,
+      answerKey: { optionAIs: swap ? "new" : "old" },
+      judgeAnswers: { C2: { better: null as "A" | "B" | "equivalent" | null, harmfulReason: null as string | null } },
+    };
+  });
 }
 
 // ---- Markdown ------------------------------------------------------------------------------------------------------------------------------
@@ -185,8 +258,12 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   lines.push("## Observaciones (no son ley)", "");
   lines.push(`- **I3 apertura en cores:** ${o.I3_openingOnCore.coreFirstWithoutWindow}/${o.I3_openingOnCore.openingStates} aperturas de ronda 1 recomiendan Pos 1/2 sin ventana de counter ni escasez de pool (${pct(o.I3_openingOnCore.rate)}).`);
   lines.push(`- **I4 reactividad (Jaccard del top-3, misma posición entre drafts distintos):** global ${o.I4_reactivityJaccardTop3.overall}; por posición ${JSON.stringify(o.I4_reactivityJaccardTop3.byPosition)}. 1.0 = siempre los mismos tres.`);
+  const f5 = o.I5_positionFitOverWholeField;
+  const t3 = o.T3_pairedRuleChange;
   const i5 = o.I5_positionFitShareOfScore;
   lines.push(`- **I5 peso de \`position_fit\`:** ${pct(i5.levelMedian)} del score (mediana; p10 ${pct(i5.levelP10)}, p90 ${pct(i5.levelP90)}) y ${pct(i5.orderMedian)} de la dispersión que ordena a los candidatos (mediana; p10 ${pct(i5.orderP10)}, p90 ${pct(i5.orderP90)}); ${i5.states} estados, ~${i5.candidatesPerState} candidatos por estado; en ${pct(i5.saturatedShareMean)} de ellos \`position_fit\` está saturado en 1 (suma la misma constante a todos). Es sobre lo que V6 conserva (TOP_N), no sobre todo el campo.`);
+  lines.push(`- **I5 sobre todo el campo creíble (TSK-252):** ${f5.states} estados con ≥6 creíbles (mediana ${f5.fieldSizeMedian}). El top-3 cae en la mitad más jugada ${pct(f5.top3InMorePlayedHalf)} de las veces y el top-6 ${pct(f5.top6InMorePlayedHalf)} (un corte neutro daría ~50%). \`position_fit\` explica ${pct(f5.orderShareMedian)} de la dispersión (mediana). Quitando su aporte, el top-3 se conserva en ${pct(f5.top3KeptWithoutPositionFit)} (Jaccard) y el top-6 en ${pct(f5.top6KeptWithoutPositionFit)}; 100% = no decide nada. Dentro de la mitad más jugada, \`position_fit\` explica ${pct(f5.orderShareInMorePlayedHalfMedian)} de la dispersión.`);
+  lines.push(`- **T3 misma decisión, dos reglas (volumen vs mediana de creíbles):** ${t3.states} estados; el top-3 cambia en ${t3.top3Changed} (${pct(t3.top3ChangedRate)}); Jaccard medio del top-3 ${t3.meanJaccardTop3}, del top-6 ${t3.meanJaccardTop6}; de los cambiados, ${t3.changedTopsThatLeanOnLessVolume} se apoyan en menos volumen (partidas medias del top-3: ${t3.meanMatchesTop3Old} → ${t3.meanMatchesTop3New}). Describe qué se movió, no si mejora.`);
   lines.push(`- **I6 relleno:** de ${o.I6_fill.gapOpenStates} estados con hueco abierto, el top-3 lo llena en ${o.I6_fill.top3Fills}; existe un relleno en lo mostrado en ${o.I6_fill.fillerExistsInShownSet}.`);
   lines.push(`- **I7 daño:** de ${o.I7_damageMix.monoDamageStates} estados mono-daño, el top-3 diversifica en ${o.I7_damageMix.top3Diversifies}.`);
   lines.push(`- **I8 exposición del primary de ronda 1:** ${o.I8_exposureOfRound1Primary.meanHardCountersAvailable} counters duros disponibles en promedio (máx ${o.I8_exposureOfRound1Primary.maxHardCountersAvailable}) sobre ${o.I8_exposureOfRound1Primary.states} aperturas.`);
@@ -253,6 +330,12 @@ async function main(): Promise<void> {
 
 function judgeMarkdown(packet: ReturnType<typeof judgePacket>): string {
   const lines = ["## Paquete del juez (se rellena en T6)", "", "Preguntas por componente:", ...packet.componentQuestions.map((q) => `- **${q.id}** ${q.text}`), "", "Preguntas de plan (línea base que decide la prioridad de F2):", ...packet.planQuestions.map((q) => `- **${q.id}** ${q.text}`), ""];
+  if (packet.changedDecisions.length > 0) {
+    lines.push("## Decisiones cambiadas por TSK-252 (lectura ciega: A y B no indican cuál es la regla vieja)", "", "Pregunta C2: ¿cuál de las dos ternas elegirías para esa posición? (A / B / equivalente; \"dañino\" solo con un motivo de Dota escrito). La clave está en el JSON (`answerKey`).", "");
+    for (const d of packet.changedDecisions) {
+      lines.push(`### ${d.opaqueKey} — Pos ${d.position} · ronda ${d.round}`, "", `bans: ${d.bans.join(", ") || "—"} · propios: ${d.ownPicks.join(", ") || "—"} · rivales: ${d.revealedEnemy.join(", ") || "—"}`, `- A: ${d.optionA.join(", ")}`, `- B: ${d.optionB.join(", ")}`, "");
+    }
+  }
   for (const point of packet.points) {
     lines.push(`### ${point.opaqueKey} — ${point.coverage}`, "", `Ronda ${point.round} · bans: ${point.bans.join(", ") || "—"} · propios: ${point.ownPicks.join(", ") || "—"} · rivales: ${point.revealedEnemy.join(", ") || "—"}`);
     lines.push(`- Posición recomendada por el board: Pos ${point.boardRecommendedPosition} · la precedencia declarada elegiría: ${point.precedenceWouldPick ?? "—"}`);

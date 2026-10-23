@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld } from "./checks";
+import { availableHardCounters, fieldStats, pairedChange, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -25,7 +25,7 @@ const world: ExamWorld = {
 };
 
 function state(over: Partial<ExamState> = {}): ExamState {
-  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, candidateCount: 0, ...over };
+  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, positionFitField: null, positionFitPaired: null, candidateCount: 0, ...over };
 }
 
 describe("I1 illegal", () => {
@@ -143,5 +143,79 @@ describe("I4 / I5 statistics", () => {
     expect(varianceShare([5, 5, 5, 5], total)).toBeCloseTo(0, 10);
     expect(varianceShare(a, total)! + varianceShare(b, total)!).toBeCloseTo(1, 10);
     expect(varianceShare([1, 2], [3, 3])).toBeNull();
+  });
+});
+
+describe("fieldStats (I5 over the whole credible field)", () => {
+  // 8 credible heroes; hero n has n*1000 matches at the position. Matches decide the "more played half" = heroes 5..8.
+  const candidate = (heroId: number, score: number, positionFit: number): FieldCandidate => ({ heroId, score, positionFit, matches: heroId * 1000 });
+
+  test("a column thinner than the cut of 6 says nothing", () => {
+    expect(fieldStats([candidate(1, 50, 10), candidate(2, 40, 10)])).toBeNull();
+  });
+
+  test("popularity-driven field: position_fit IS the order, so removing it reshuffles the top and the top is all more-played", () => {
+    // score = position_fit + 30 for everyone ("the rest" is flat), position_fit grows with matches
+    const field = [1, 2, 3, 4, 5, 6, 7, 8].map((hero) => candidate(hero, 30 + hero * 5, hero * 5));
+    const stats = fieldStats(field)!;
+    expect(stats.fieldSize).toBe(8);
+    expect(stats.top3MorePlayed).toBe(1); // 8,7,6 are all in the more-played half
+    expect(stats.top6MorePlayed).toBeCloseTo(4 / 6, 10); // 8,7,6,5 yes; 4,3 no
+    expect(stats.orderShareField).toBeCloseTo(1, 10);
+    // the rest is flat -> ties break by hero id ascending: top3 of "rest" = {1,2,3}, disjoint from {8,7,6}
+    expect(stats.top3WithoutPositionFit).toBe(0);
+  });
+
+  test("draft-driven field: position_fit is a constant, so it decides nothing", () => {
+    // everyone has position_fit 20; the rest varies and is UNcorrelated with popularity (hero 1 best)
+    const rest: Record<number, number> = { 1: 50, 2: 45, 3: 40, 4: 35, 5: 30, 6: 25, 7: 20, 8: 15 };
+    const field = [1, 2, 3, 4, 5, 6, 7, 8].map((hero) => candidate(hero, 20 + rest[hero]!, 20));
+    const stats = fieldStats(field)!;
+    expect(stats.orderShareField).toBeCloseTo(0, 10);
+    expect(stats.top3WithoutPositionFit).toBe(1);
+    expect(stats.top6WithoutPositionFit).toBe(1);
+    expect(stats.top3MorePlayed).toBeCloseTo(0, 10); // top = heroes 1,2,3, all in the LESS played half
+  });
+});
+
+describe("pairedChange (same state, old rule vs new rule)", () => {
+  const candidate = (heroId: number, score: number): FieldCandidate => ({ heroId, score, positionFit: 0, matches: heroId * 1000 });
+  const ids = [1, 2, 3, 4, 5, 6, 7];
+
+  test("identical rankings: nothing changed", () => {
+    const field = ids.map((id) => candidate(id, id * 10));
+    const change = pairedChange(field, field)!;
+    expect(change.top3Same).toBe(true);
+    expect(change.jaccard3).toBe(1);
+    expect(change.entered3).toEqual([]);
+  });
+
+  test("a less played hero overtakes the most played one: it enters the top-3 and the mean volume of the top-3 drops", () => {
+    const oldField = ids.map((id) => candidate(id, id * 10)); // top-3 = 7,6,5
+    const newField = ids.map((id) => candidate(id, id === 2 ? 100 : id * 10)); // hero 2 jumps to #1
+    const change = pairedChange(oldField, newField)!;
+    expect(change.top3Same).toBe(false);
+    expect(change.entered3).toEqual([2]);
+    expect(change.left3).toEqual([5]);
+    expect(change.jaccard3).toBe(0.5); // {7,6,5} vs {2,7,6}: 2 shared / 4
+    expect(change.meanMatchesTop3Old).toBe(6000);
+    expect(change.meanMatchesTop3New).toBeCloseTo(5000, 10); // (2000 + 7000 + 6000) / 3
+  });
+
+  test("a column too thin to have a cut at 6 is not compared", () => {
+    expect(pairedChange(ids.slice(0, 4).map((id) => candidate(id, id)), ids.map((id) => candidate(id, id)))).toBeNull();
+  });
+});
+
+describe("fieldStats -- inside the more-played half", () => {
+  const candidate = (heroId: number, score: number, positionFit: number): FieldCandidate => ({ heroId, score, positionFit, matches: heroId * 1000 });
+
+  test("popular half tied on position_fit: volume explains nothing there even if it explains the whole field", () => {
+    // heroes 5..8 are the more-played half: all at position_fit 20; heroes 1..4 are below it with growing position_fit
+    const low = [1, 2, 3, 4].map((id) => candidate(id, 10 + id * 5, id * 5));
+    const high = [5, 6, 7, 8].map((id) => candidate(id, 20 + (id % 3) * 7, 20));
+    const stats = fieldStats([...low, ...high])!;
+    expect(stats.orderShareMorePlayedHalf).toBeCloseTo(0, 10);
+    expect(stats.orderShareField!).toBeGreaterThan(0.5);
   });
 });
