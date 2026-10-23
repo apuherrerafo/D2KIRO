@@ -9,6 +9,9 @@ Estado real y siguiente paso: `docs/agents/PROGRESS.md` (**fuente de verdad del 
 - Por ruta (se cargan solos al tocar esos archivos, vía `paths:`): `engine.md` → `apps/engine/**`,
   `web.md` → `apps/web/**`, `testing-seams.md` → `*.test.ts(x)`, `context7.md` → `apps/**`.
 - Historia de fases cerradas (1–9.1): `docs/rules-archive/` — se lee a pedido, nunca se inyecta.
+- **AP Ranked Roles** (draft de producto vigente): el contrato vive en
+  `.kiro/specs/ap-ranked-roles-v1/product-decisions.md` y gana sobre requirements, design, código y
+  tests; su resumen vinculante está en `invariantes.md`, sección "Draft AP Ranked Roles".
 - Landing / Companion / Hero Knowledge V7: cada una trae **su propio** `.claude/rules/<área>.md` con
   `paths:` en el PR que la mergea. No se agregan reglas de un área a archivos de otra.
 - Proceso del ecosistema (journal, tickets, herramienta por tarea, modelos): `docs/agents/process.md`.
