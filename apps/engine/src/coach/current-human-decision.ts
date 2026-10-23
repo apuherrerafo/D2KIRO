@@ -7,6 +7,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import type { LivePositionPriority } from "./live-position-priority";
 import { positionPhrase } from "./reveal-strategy";
 
 // Product Semantics Recovery WP2 -- the CurrentHumanDecision builder (pure).
@@ -89,11 +90,34 @@ export function selectDecisionTarget(input: SelectDecisionTargetInput): Decision
 }
 
 /**
- * PSR-002: the position the Player is INSPECTING. Navigation only -- honoured when eligible, otherwise
- * the recommendation itself. It never changes the recommendation, ownership or session state.
+ * V4's target from the position priority the Team Coach board already computed. V4's wire has no PHASE_FALLBACK, and the
+ * habitual commitment order is exactly "no clear strategic priority", so it travels as DETERMINISTIC_DEFAULT -- only a
+ * counter window or a last pool hero is STRATEGIC. Null when absent or when it points at a position that is not
+ * eligible here (the caller falls back to selectDecisionTarget).
  */
-export function resolveViewedPosition(eligiblePositions: readonly Position[], recommended: Position, requested: Position | null | undefined): Position {
-  return requested != null && eligiblePositions.includes(requested) ? requested : recommended;
+export function targetFromPriority(priority: LivePositionPriority | null | undefined, eligiblePositions: readonly Position[]): DecisionTarget | null {
+  if (!priority || !eligiblePositions.includes(priority.targetPosition)) return null;
+  return {
+    targetPosition: priority.targetPosition,
+    targetBasis: priority.targetBasis === "STRATEGIC" ? "STRATEGIC" : "DETERMINISTIC_DEFAULT",
+    targetRationale: priority.targetRationale,
+  };
+}
+
+/**
+ * PSR-002: the position the Player is INSPECTING. Navigation only -- honoured when eligible. With no request
+ * the Player starts on their OWN position when it is still open (the recommendation may be a habit order such as
+ * Pos 5 first, which must not take their personal view away); otherwise on the recommendation itself.
+ * It never changes the recommendation, ownership or session state.
+ */
+export function resolveViewedPosition(
+  eligiblePositions: readonly Position[],
+  recommended: Position,
+  requested: Position | null | undefined,
+  playerPersonalPosition: Position | null = null,
+): Position {
+  if (requested != null && eligiblePositions.includes(requested)) return requested;
+  return playerPersonalPosition !== null && eligiblePositions.includes(playerPersonalPosition) ? playerPersonalPosition : recommended;
 }
 
 export interface DeriveCandidateResultInput {

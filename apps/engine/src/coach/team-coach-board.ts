@@ -18,8 +18,10 @@ import { positionPhrase } from "./reveal-strategy";
 //     -> per open controlled position: the SAME target ranking V4 uses (buildTargetRanking)
 //     -> deriveCandidateResult (the SAME candidate provenance as V4)
 //     -> a deterministic primary plan (no two positions share their #1 when an alternative exists)
-//     -> currentDecision: the SAME target V4 recommends (selectDecisionTarget) + that position's primary --
-//        EXCEPT a live capture session, whose target comes from LivePositionPriorityV1 (live-position-priority.ts)
+//     -> currentDecision: the target is LivePositionPriorityV1 (live-position-priority.ts) whenever a human may pick
+//        for >= 2 positions now (Party 5 / team preset, simulator or live) -- and V4 asks for this SAME priority
+//        (buildTeamPositionPriority), so board and V4 never disagree. With ONE open position it is selectDecisionTarget.
+//        The priority only names the position to look at first: every open column stays ranked and selectable.
 //
 // Nothing here scores, re-ranks or decides legality: V6 is the only scorer, the kernel the only
 // rule-keeper. The board never mutates the session -- it only reads the context it is handed.
@@ -68,7 +70,7 @@ export interface TeamCoachPosition {
 export type TeamTargetBasis = TargetBasis | "PHASE_FALLBACK";
 
 export interface TeamCoachDecision {
-  /** Simulator: the V4 target (selectDecisionTarget). Live capture: LivePositionPriorityV1. Never a FILLED position. */
+  /** LivePositionPriorityV1 with >= 2 open positions or a live capture; selectDecisionTarget with one. Never a FILLED position. */
   recommendedPosition: Position | null;
   recommendedHeroId: HeroId | null;
   targetBasis: TeamTargetBasis | null;
@@ -155,11 +157,28 @@ interface ColumnDraft {
   note: string | null;
 }
 
+/** LivePositionPriorityV1 decides the target when a human has >= 2 open positions to choose from, or on a live capture. */
+export function usesPositionPriority(liveCapture: boolean | undefined, openPositions: number): boolean {
+  return openPositions > 0 && (liveCapture === true || openPositions >= 2);
+}
+
 /**
  * Null when the session has no human-controlled positions or no HumanActionability (a session the
  * Team Coach cannot describe honestly). Never throws for a ranking failure: that column degrades.
  */
 export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Promise<TeamCoachBoard | null> {
+  return (await computeTeamCoach(input))?.board ?? null;
+}
+
+/**
+ * The position priority the board's own currentDecision uses, or null when none applies (one open position, no human
+ * action, no controlled positions). V4 takes its target from here so the two surfaces cannot diverge.
+ */
+export async function buildTeamPositionPriority(input: BuildTeamCoachBoardInput): Promise<LivePositionPriority | null> {
+  return (await computeTeamCoach(input))?.priority ?? null;
+}
+
+async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ board: TeamCoachBoard; priority: LivePositionPriority | null } | null> {
   const { context, heroPositions } = input;
   const { view } = context;
   const actionability = context.humanActionability;
@@ -223,7 +242,7 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
   // Hero Pools V2: a pool is a preference, so an exhausted pool never narrows the target field.
   const unavailable = unavailableHeroesFrom(view);
   const targetField = actionable;
-  const priority = context.liveCapture === true && actionable.length > 0
+  const priority = usesPositionPriority(context.liveCapture, actionable.length)
     ? selectLivePositionPriority({
         actionablePositions: targetField,
         phase: view.rankedAp?.phase ?? null,
@@ -253,7 +272,7 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     };
   });
 
-  return {
+  const board: TeamCoachBoard = {
     schema: TEAM_COACH_BOARD_SCHEMA,
     sessionId: view.sessionId,
     stateIdentity,
@@ -261,6 +280,7 @@ export async function buildTeamCoachBoard(input: BuildTeamCoachBoardInput): Prom
     positions: columns,
     unboundOwnHeroIds,
   };
+  return { board, priority };
 }
 
 /**
@@ -295,7 +315,7 @@ function deriveTeamDecision(
       roundCapacity: 0,
     };
   }
-  // Simulator: the SAME target function V4's CurrentHumanDecision uses. Live: LivePositionPriorityV1.
+  // >= 2 open positions (or live): LivePositionPriorityV1. One open position: the target function V4 uses on its own.
   const target = priority ?? selectDecisionTarget({ eligiblePositions: actionable, playerPersonalPosition: personal, viablePositions: targetField });
   const column = columns.find((candidate) => candidate.position === target.targetPosition);
   const primary = column?.top.find((candidate) => candidate.isPrimary) ?? null;

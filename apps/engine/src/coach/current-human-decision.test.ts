@@ -133,7 +133,10 @@ describe("WP2 -- Party2 / Party3", () => {
     expect(decision.roundCapacity).toBe(2);
     // PSR-001: the top hero resolves to Pos5, but a hero rank is not a priority between positions.
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetPosition).toBe(2); // the Player's own position (humanPosition = 2)
+    // TSK-251: with >= 2 open positions the target is LivePositionPriorityV1 -- here the habitual order (hard support first),
+    // not the Player's own Pos2. Both positions stay actionable and rankable.
+    expect(decision.targetPosition).toBe(5);
+    // The suggestion is not the view: the Player opens on their own Pos2, and the cards follow that view.
     expect(decision.viewedPosition).toBe(2);
     expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 2)).toBe(true);
   });
@@ -145,8 +148,8 @@ describe("WP2 -- Party2 / Party3", () => {
     const b = actionable(await v4(leaderIsPos4));
     expect(a.targetBasis).toBe("DETERMINISTIC_DEFAULT");
     expect(b.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(a.targetPosition).toBe(2);
-    expect(b.targetPosition).toBe(2);
+    expect(a.targetPosition).toBe(5);
+    expect(b.targetPosition).toBe(5);
     expect(a.targetRationale).toBe(b.targetRationale);
   });
 
@@ -167,7 +170,7 @@ describe("WP2 -- Party2 / Party3", () => {
     const decision = actionable(await v4(s));
     expect(decision.actionablePositions).toEqual([1, 3, 5]);
     expect(decision.roundCapacity).toBe(2);
-    expect(decision.targetPosition).toBe(1); // humanPosition = controlledPositions[0]; the Pos3-leading ranking does not move it
+    expect(decision.targetPosition).toBe(5); // habitual order; the Pos3-leading ranking does not move it
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
   });
 });
@@ -179,10 +182,10 @@ describe("WP2 -- Party5", () => {
     const decision = actionable(await v4(s));
     expect(decision.actionablePositions).toEqual([1, 2, 3, 4, 5]);
     expect(decision.roundCapacity).toBe(2);
-    expect(decision.targetPosition).toBe(1); // default = the Player's own position; the Pos3-leading V6 order is not a priority
+    expect(decision.targetPosition).toBe(5); // habitual order of the phase; the Pos3-leading V6 order is not a priority
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetRationale).toContain("No hay una prioridad estratégica clara");
-    expect(decision.viewedPosition).toBe(1);
+    expect(decision.targetRationale).toContain("Es un orden por fase del draft, no una ventaja");
+    expect(decision.viewedPosition).toBe(1); // the Player's own position (default session seat), not the suggested Pos5
     expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 1)).toBe(true);
   });
 
@@ -199,7 +202,7 @@ describe("WP2 -- Party5", () => {
     expect(decision.actionablePositions).toEqual([1, 2, 4, 5]);
     expect(decision.roundCapacity).toBe(1);
     expect(decision.targetPosition).not.toBe(3);
-    expect(decision.targetPosition).toBe(1); // recomputed default among the remaining four (the Player's own Pos1)
+    expect(decision.targetPosition).toBe(5); // recomputed habitual order among the remaining four
     expect(visibleHeroes(decision)).not.toContain(300);
     // OLD: "no card of the previous decision survives" -- obsolete: the default target (Pos1) legitimately
     // stays the same, so its cards may repeat. NEW: nothing of the SEALED position (Pos3) survives.
@@ -211,8 +214,8 @@ describe("WP2 -- Party5", () => {
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 4, degraded: ["no_signal_available"] });
     const decision = actionable(await v4(s));
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
-    expect(decision.targetPosition).toBe(4); // the Player's own position is the stable initial view
-    expect(decision.targetRationale).toContain("Vista inicial sugerida");
+    expect(decision.targetPosition).toBe(5); // no ranking evidence -> the habitual order, labelled as such
+    expect(decision.targetRationale).toContain("Vista sugerida");
   });
 });
 
@@ -299,14 +302,15 @@ describe("WP2 -- Personal Hero Pool sólo para la posición personal", () => {
 
   test("posición VISTA != posición personal: el pool NO toca las cartas activas (ninguna llamada con cuenta, ninguna marca); la recomendación sigue en la personal", async () => {
     const calls: FixtureOptions["calls"] = [];
-    // Party5, personal Pos2 (the recommended default); the Player views Pos3.
+    // Party5, personal Pos2 (not the recommended view any more: the habitual order suggests Pos5); the Player views Pos3.
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 2, leadOrder: [3, 1, 2, 4, 5], pool: [300, 200], calls });
     const response = await s.routes.getRecommendations(s.sessionId, new URL("http://127.0.0.1/x?format=v4&target=3"), 4242);
     const decision = actionable(((await response.json()) as { output: RecommendationOutputV4 }).output);
     expect(decision.viewedPosition).toBe(3);
-    expect(decision.targetPosition).toBe(2);
+    expect(decision.targetPosition).toBe(5);
     expect(decision.personalPoolApplied).toBe(false);
-    expect(calls.every((call) => call.accountId === null)).toBe(true);
+    // The position priority ranks the owner's own column with their pool (as the board does); the VIEWED column never is.
+    expect(calls.filter((call) => call.targetPosition === 3).every((call) => call.accountId === null)).toBe(true);
     if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
     expect(decision.candidates.cards.every((card) => card.isFromPool === false)).toBe(true);
   });
@@ -329,7 +333,7 @@ describe("personalPoolApplied refleja si el pool realmente votó, no si hay cuen
 
   test("A: autenticado SIN pool configurado, viendo su posición personal -> false (la cuenta sí llegó a V6)", async () => {
     const calls: NonNullable<FixtureOptions["calls"]> = [];
-    const decision = await decisionFor(ACCOUNT_WITHOUT_POOL, null, calls);
+    const decision = await decisionFor(ACCOUNT_WITHOUT_POOL, 2, calls);
     expect(decision.viewedPosition).toBe(2);
     expect(calls.some((call) => call.accountId === ACCOUNT_WITHOUT_POOL)).toBe(true);
     expect(decision.personalPoolApplied).toBe(false);
@@ -338,7 +342,7 @@ describe("personalPoolApplied refleja si el pool realmente votó, no si hay cuen
   });
 
   test("B: autenticado CON pool, viendo su posición personal -> true y la carta del pool se marca", async () => {
-    const decision = await decisionFor(ACCOUNT_WITH_POOL, null, []);
+    const decision = await decisionFor(ACCOUNT_WITH_POOL, 2, []);
     expect(decision.viewedPosition).toBe(2);
     expect(decision.personalPoolApplied).toBe(true);
     if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
@@ -350,7 +354,7 @@ describe("personalPoolApplied refleja si el pool realmente votó, no si hay cuen
     const decision = await decisionFor(ACCOUNT_WITH_POOL, 3, calls);
     expect(decision.viewedPosition).toBe(3);
     expect(decision.personalPoolApplied).toBe(false);
-    expect(calls.every((call) => call.accountId === null)).toBe(true);
+    expect(calls.filter((call) => call.targetPosition === 3).every((call) => call.accountId === null)).toBe(true);
     if (decision.candidates.state !== "RANKED") throw new Error("ranked expected");
     expect(decision.candidates.cards.every((card) => card.isFromPool === false)).toBe(true);
   });
@@ -388,14 +392,14 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
     return actionable(((await (await v4With(s, query)).json()) as { output: RecommendationOutputV4 }).output);
   }
 
-  test("PSR-002: Coach recomienda Pos1; el usuario mira Pos3 y luego Pos5 -> la recomendación NO se mueve, las cartas siguen a la vista, sin cartas viejas", async () => {
+  test("PSR-002: Coach recomienda Pos5; el usuario mira Pos3 y luego Pos1 -> la recomendación NO se mueve, las cartas siguen a la vista, sin cartas viejas", async () => {
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 1, leadOrder: [3, 1, 2, 4, 5] });
     const base = await decisionWith(s, "");
-    expect(base.targetPosition).toBe(1);
-    expect(base.viewedPosition).toBe(1);
+    expect(base.targetPosition).toBe(5);
+    expect(base.viewedPosition).toBe(1); // the first view is the Player's own Pos1; Pos5 is only the suggestion
 
     const viewPos3 = await decisionWith(s, "&target=3");
-    expect(viewPos3.targetPosition).toBe(1);
+    expect(viewPos3.targetPosition).toBe(5);
     expect(viewPos3.targetBasis).toBe(base.targetBasis);
     expect(viewPos3.targetRationale).toBe(base.targetRationale);
     expect(viewPos3.viewedPosition).toBe(3);
@@ -403,11 +407,11 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
     expect(viewPos3.actionablePositions).toEqual(base.actionablePositions);
     expect(visibleHeroes(viewPos3).every((hero) => heroPosition(hero) === 3)).toBe(true);
 
-    const viewPos5 = await decisionWith(s, "&target=5");
-    expect(viewPos5.targetPosition).toBe(1);
-    expect(viewPos5.viewedPosition).toBe(5);
-    expect(visibleHeroes(viewPos5).every((hero) => heroPosition(hero) === 5)).toBe(true);
-    expect(visibleHeroes(viewPos5).some((hero) => visibleHeroes(viewPos3).includes(hero))).toBe(false); // no stale Pos3 card
+    const viewPos1 = await decisionWith(s, "&target=1");
+    expect(viewPos1.targetPosition).toBe(5);
+    expect(viewPos1.viewedPosition).toBe(1);
+    expect(visibleHeroes(viewPos1).every((hero) => heroPosition(hero) === 1)).toBe(true);
+    expect(visibleHeroes(viewPos1).some((hero) => visibleHeroes(viewPos3).includes(hero))).toBe(false); // no stale Pos3 card
   });
 
   test("PSR-002: navegar no muta la sesión (sin cambios de propiedad, misma cronología de estado)", async () => {
@@ -420,9 +424,9 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
 
   test("PSR-002: pedir la misma posición recomendada no cambia nada", async () => {
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 1, leadOrder: [3, 1, 2, 4, 5] });
-    const decision = await decisionWith(s, "&target=1");
-    expect(decision.targetPosition).toBe(1);
-    expect(decision.viewedPosition).toBe(1);
+    const decision = await decisionWith(s, "&target=5");
+    expect(decision.targetPosition).toBe(5);
+    expect(decision.viewedPosition).toBe(5);
   });
 
   test("tras un pick real la recomendación se recalcula desde el estado nuevo aunque el usuario estuviera mirando otra posición", async () => {
@@ -431,7 +435,7 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
     const decision = await decisionWith(s, "&target=3");
     expect(decision.actionablePositions).not.toContain(1);
     expect(decision.targetPosition).not.toBe(1); // the sealed position is never recommended again
-    expect(decision.targetPosition).toBe(2); // lowest remaining eligible: personal Pos1 is gone
+    expect(decision.targetPosition).toBe(5); // habitual order among the remaining four: hard support
     expect(decision.viewedPosition).toBe(3);
   });
 

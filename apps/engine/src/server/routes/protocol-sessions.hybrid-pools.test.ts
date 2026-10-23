@@ -74,8 +74,9 @@ async function setup(options: { humanPosition: 1 | 2 | 3 | 4 | 5; pools?: Pools;
   expect(created.status).toBe(201);
   const { sessionId } = (await created.json()) as { sessionId: string };
   store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: options.bans ?? [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
-  async function decide(target: 1 | 2 | 3 | 4 | 5, accountId: number | null = null) {
-    const response = await routes.getRecommendations(sessionId, new URL(`http://127.0.0.1/x?format=v4&target=${target}`), accountId);
+  async function decide(target: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null = null) {
+    const query = target === null ? "format=v4" : `format=v4&target=${target}`;
+    const response = await routes.getRecommendations(sessionId, new URL(`http://127.0.0.1/x?${query}`), accountId);
     expect(response.status).toBe(200);
     const { output } = (await response.json()) as { output: RecommendationOutputV4 };
     if (output.decision.kind !== "ACTIONABLE") throw new Error("expected ACTIONABLE");
@@ -190,4 +191,31 @@ describe("F1 -- the F0 guard still decides which saved pool applies", () => {
     expect(heroesOf(cards)).toEqual([12, 13, 14, 15]);
     expect(heroesOf(cards)).not.toContain(1);
   });
+});
+
+// TSK-251 -- product check. A Party 5 opening now recommends Pos 5 first (the habitual commitment order). That is an
+// ORDER to look in, not a claim that Pos 5 is the best decision, and it must not get in the way of a Player who wants to
+// consult their own position first: one request for it, whatever their position.
+describe("Party 5 opening -- the habitual Pos 5 first never blocks consulting your own position", () => {
+  const OWN_POSITIONS = [1, 2, 3, 4, 5] as const;
+  for (const own of OWN_POSITIONS) {
+    test(`personal Pos ${own}: recommended Pos 5 is labelled as a habit, the first view is Pos ${own}, ranked, and the recommendation stays Pos 5`, async () => {
+      const { decide } = await setup({ humanPosition: own });
+      const opening = await decide(null, OWNER_ACCOUNT);
+      expect(opening.decision.targetPosition).toBe(5);
+      expect(opening.decision.targetBasis).toBe("DETERMINISTIC_DEFAULT"); // "no clear strategic priority", never STRATEGIC
+      expect(opening.decision.actionablePositions).toEqual([1, 2, 3, 4, 5]); // nothing is hidden or narrowed
+      // The suggestion is not the view: the Player opens on their OWN position, ranked, with no request needed.
+      expect(opening.decision.viewedPosition).toBe(own);
+      expect(opening.decision.candidates.state).toBe("RANKED");
+      for (const card of opening.cards) expect(card.position).toBe(own);
+
+      const mine = await decide(own, OWNER_ACCOUNT);
+      expect(mine.decision.viewedPosition).toBe(own);
+      expect(mine.decision.targetPosition).toBe(5); // consulting does not move the recommendation
+      expect(mine.decision.candidates.state).toBe("RANKED");
+      expect(mine.cards.length).toBeGreaterThan(0);
+      for (const card of mine.cards) expect(card.position).toBe(own);
+    });
+  }
 });

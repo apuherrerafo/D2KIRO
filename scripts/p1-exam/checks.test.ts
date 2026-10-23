@@ -51,6 +51,11 @@ describe("I2 roles", () => {
     expect(i2Roles(state({ board: { recommendedPosition: 4, targetBasis: null, columns: [col(4, [4]), col(5, [4])] } }), world)).toHaveLength(1);
     expect(i2Roles(state({ board: { recommendedPosition: 1, targetBasis: null, columns: [{ ...col(1, [2]), state: "UNRANKED_POSITIONAL" }] } }), world)).toEqual([]);
   });
+  test("v4 cards belong to the VIEWED position, not the suggested target (the Player opens on their own position)", () => {
+    const v4 = (heroId: number) => ({ kind: "own", targetPosition: 5 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId, rationale: "" }] });
+    expect(i2Roles(state({ v4: v4(1) }), world)).toEqual([]);
+    expect(i2Roles(state({ v4: v4(2) }), world)).toHaveLength(1);
+  });
   test("admitted is not credible: pos1 evidence under 25% share and not dominant is only an observation", () => {
     const s = state({ board: { recommendedPosition: 1, targetBasis: null, columns: [col(1, [6])] } });
     expect(i2Roles(s, world)).toEqual([]);
