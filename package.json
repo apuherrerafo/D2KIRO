@@ -23,6 +23,7 @@
     "test:wave5:smoke": "bun run scripts/wave5-smoke.ts",
     "wave5:evidence": "bun run scripts/wave5-certification.ts",
     "wave5:judge-packet": "bun run scripts/wave5-dota-judge-packet.ts",
+    "p1:exam": "bun run scripts/p1-exam/exam.ts",
     "test": "bun test apps/engine && bun test apps/web && bun test scripts",
     "verify:r1": "bun run scripts/r1/certify.ts",
     "dev:mvp": "bun run scripts/dev-mvp.ts",
