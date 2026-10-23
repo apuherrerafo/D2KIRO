@@ -307,7 +307,7 @@ export interface CardBasis {
   sources: BasisSource[];
 }
 
-export type CardRiskKind = "low_evidence" | "unresolved_role" | "countered_by_revealed" | "exposed_to_counter";
+export type CardRiskKind = "low_evidence" | "unresolved_role" | "countered_by_revealed" | "exposed_to_counter" | "CRITICAL_GAP";
 
 export interface CardRisk {
   kind: CardRiskKind;
@@ -376,7 +376,7 @@ export interface CurrentDecisionOutput {
 }
 
 const BASIS_KINDS: readonly string[] = ["statistical", "curated", "inferred"];
-const CARD_RISK_KINDS: readonly string[] = ["low_evidence", "unresolved_role", "countered_by_revealed", "exposed_to_counter"];
+const CARD_RISK_KINDS: readonly string[] = ["low_evidence", "unresolved_role", "countered_by_revealed", "exposed_to_counter", "CRITICAL_GAP"];
 /** Los riesgos que hablan de héroes concretos: sin al menos uno no hay nada que mostrar. */
 const HERO_NAMING_RISKS: readonly string[] = ["countered_by_revealed", "exposed_to_counter"];
 

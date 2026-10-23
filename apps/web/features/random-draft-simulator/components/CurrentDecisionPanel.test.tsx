@@ -252,8 +252,21 @@ test("TSK-254: los riesgos se ven con los héroes nombrados desde el catálogo; 
   expect(view.getAllByTestId("current-decision-risks")).toHaveLength(1); // only the card that carries risks
 });
 
+test("TSK-254: CRITICAL_GAP se ve con su título y su detalle, sin nombrar héroes (el hueco es del equipo)", () => {
+  const risks: CardRisk[] = [{ kind: "CRITICAL_GAP", detail: "A tu equipo le falta iniciación y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).", heroIds: [] }];
+  const view = render(<CurrentDecisionPanel output={parseCurrentDecisionOutput(withCard({ risks }))!} heroCatalog={new Map() as never} />);
+  const item = view.getByTestId("current-decision-risk");
+  expect(item.getAttribute("data-risk-kind")).toBe("CRITICAL_GAP");
+  expect(item.textContent).toContain("Hueco crítico del equipo");
+  expect(item.textContent).not.toContain("Hueco crítico del equipo:"); // no hero list after the title
+  expect(item.textContent).toContain("A tu equipo le falta iniciación");
+  expect(item.textContent).toContain("según las capacidades curadas");
+});
+
 test("TSK-254 borde: un riesgo desconocido, una base incoherente o un riesgo de héroes sin héroes rechazan la salida entera", () => {
-  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "CRITICAL_GAP", detail: "x", heroIds: [] }] }))).toBeNull(); // not produced yet: unknown to the contract
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "NOT_A_RISK", detail: "x", heroIds: [] }] }))).toBeNull(); // a kind the contract does not know
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "CRITICAL_GAP", detail: "x", heroIds: [] }] }))).not.toBeNull(); // a team-level gap names no heroes
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "CRITICAL_GAP", detail: 7, heroIds: [] }] }))).toBeNull();
   expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "exposed_to_counter", detail: "x", heroIds: [] }] }))).toBeNull();
   expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "low_evidence", detail: "x", heroIds: [0] }] }))).toBeNull();
   expect(parseCurrentDecisionOutput(withCard({ risks: "none" }))).toBeNull();

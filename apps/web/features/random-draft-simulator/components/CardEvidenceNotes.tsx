@@ -9,6 +9,7 @@ import { playerFacingRisk } from "../degradation-copy";
 const RISK_TITLES: Record<CardRiskKind, string> = {
   countered_by_revealed: "Counter duro ya revelado",
   exposed_to_counter: "Counter duro aún disponible",
+  CRITICAL_GAP: "Hueco crítico del equipo",
   unresolved_role: "Rol sin confirmar",
   low_evidence: "Poca evidencia",
 };
