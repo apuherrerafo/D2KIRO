@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld } from "./checks";
+import { availableHardCounters, fieldStats, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -25,7 +25,7 @@ const world: ExamWorld = {
 };
 
 function state(over: Partial<ExamState> = {}): ExamState {
-  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, candidateCount: 0, ...over };
+  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, positionFitField: null, positionFitPaired: null, candidateCount: 0, ...over };
 }
 
 describe("I1 illegal", () => {
@@ -143,5 +143,118 @@ describe("I4 / I5 statistics", () => {
     expect(varianceShare([5, 5, 5, 5], total)).toBeCloseTo(0, 10);
     expect(varianceShare(a, total)! + varianceShare(b, total)!).toBeCloseTo(1, 10);
     expect(varianceShare([1, 2], [3, 3])).toBeNull();
+  });
+});
+
+describe("fieldStats (I5 over the whole credible field)", () => {
+  // 8 credible heroes; hero n has n*1000 matches at the position. Matches decide the "more played half" = heroes 5..8.
+  const candidate = (heroId: number, score: number, positionFit: number): FieldCandidate => ({ heroId, score, positionFit, matches: heroId * 1000 });
+
+  test("a column thinner than the cut of 6 says nothing", () => {
+    expect(fieldStats([candidate(1, 50, 10), candidate(2, 40, 10)])).toBeNull();
+  });
+
+  test("popularity-driven field: position_fit IS the order, so removing it reshuffles the top and the top is all more-played", () => {
+    // score = position_fit + 30 for everyone ("the rest" is flat), position_fit grows with matches
+    const field = [1, 2, 3, 4, 5, 6, 7, 8].map((hero) => candidate(hero, 30 + hero * 5, hero * 5));
+    const stats = fieldStats(field)!;
+    expect(stats.fieldSize).toBe(8);
+    expect(stats.top3MorePlayed).toBe(1); // 8,7,6 are all in the more-played half
+    expect(stats.top6MorePlayed).toBeCloseTo(4 / 6, 10); // 8,7,6,5 yes; 4,3 no
+    expect(stats.orderShareField).toBeCloseTo(1, 10);
+    // the rest is flat -> ties break by hero id ascending: top3 of "rest" = {1,2,3}, disjoint from {8,7,6}
+    expect(stats.top3WithoutPositionFit).toBe(0);
+  });
+
+  test("draft-driven field: position_fit is a constant, so it decides nothing", () => {
+    // everyone has position_fit 20; the rest varies and is UNcorrelated with popularity (hero 1 best)
+    const rest: Record<number, number> = { 1: 50, 2: 45, 3: 40, 4: 35, 5: 30, 6: 25, 7: 20, 8: 15 };
+    const field = [1, 2, 3, 4, 5, 6, 7, 8].map((hero) => candidate(hero, 20 + rest[hero]!, 20));
+    const stats = fieldStats(field)!;
+    expect(stats.orderShareField).toBeCloseTo(0, 10);
+    expect(stats.top3WithoutPositionFit).toBe(1);
+    expect(stats.top6WithoutPositionFit).toBe(1);
+    expect(stats.top3MorePlayed).toBeCloseTo(0, 10); // top = heroes 1,2,3, all in the LESS played half
+  });
+});
+
+describe("pairedChange (same state, old rule vs new rule)", () => {
+  const candidate = (heroId: number, score: number): FieldCandidate => ({ heroId, score, positionFit: 0, matches: heroId * 1000 });
+  const ids = [1, 2, 3, 4, 5, 6, 7];
+
+  test("identical rankings: nothing changed", () => {
+    const field = ids.map((id) => candidate(id, id * 10));
+    const change = pairedChange(field, field)!;
+    expect(change.top3Same).toBe(true);
+    expect(change.jaccard3).toBe(1);
+    expect(change.entered3).toEqual([]);
+  });
+
+  test("a less played hero overtakes the most played one: it enters the top-3 and the mean volume of the top-3 drops", () => {
+    const oldField = ids.map((id) => candidate(id, id * 10)); // top-3 = 7,6,5
+    const newField = ids.map((id) => candidate(id, id === 2 ? 100 : id * 10)); // hero 2 jumps to #1
+    const change = pairedChange(oldField, newField)!;
+    expect(change.top3Same).toBe(false);
+    expect(change.entered3).toEqual([2]);
+    expect(change.left3).toEqual([5]);
+    expect(change.jaccard3).toBe(0.5); // {7,6,5} vs {2,7,6}: 2 shared / 4
+    expect(change.meanMatchesTop3Old).toBe(6000);
+    expect(change.meanMatchesTop3New).toBeCloseTo(5000, 10); // (2000 + 7000 + 6000) / 3
+  });
+
+  test("a column too thin to have a cut at 6 is not compared", () => {
+    expect(pairedChange(ids.slice(0, 4).map((id) => candidate(id, id)), ids.map((id) => candidate(id, id)))).toBeNull();
+  });
+});
+
+describe("fieldStats -- inside the more-played half", () => {
+  const candidate = (heroId: number, score: number, positionFit: number): FieldCandidate => ({ heroId, score, positionFit, matches: heroId * 1000 });
+
+  test("popular half tied on position_fit: volume explains nothing there even if it explains the whole field", () => {
+    // heroes 5..8 are the more-played half: all at position_fit 20; heroes 1..4 are below it with growing position_fit
+    const low = [1, 2, 3, 4].map((id) => candidate(id, 10 + id * 5, id * 5));
+    const high = [5, 6, 7, 8].map((id) => candidate(id, 20 + (id % 3) * 7, 20));
+    const stats = fieldStats([...low, ...high])!;
+    expect(stats.orderShareMorePlayedHalf).toBeCloseTo(0, 10);
+    expect(stats.orderShareField!).toBeGreaterThan(0.5);
+  });
+});
+
+describe("revealedCounterProfile", () => {
+  // curated layer is keyed by the VICTIM: 90 is hard-countered by 1; 91 is hard-countered by 2 (medium by 3); hero 4 is hard-countered by enemy 91
+  const curated = new Map<number, readonly CuratedCounter[]>([
+    [90, [{ vs: 1, level: "hard", why: "x" }]],
+    [91, [{ vs: 2, level: "hard", why: "x" }, { vs: 3, level: "medium", why: "x" }]],
+    [4, [{ vs: 91, level: "hard", why: "x" }]],
+  ]);
+
+  test("counts the heroes that hard-counter a revealed enemy, and those a revealed enemy hard-counters; medium never counts", () => {
+    expect(revealedCounterProfile([1, 3, 5], [90, 91], curated)).toEqual({ counters: 1, exposed: 0 }); // 1 counters 90; 3 is only a medium counter of 91
+    expect(revealedCounterProfile([2, 4, 5], [90, 91], curated)).toEqual({ counters: 1, exposed: 1 }); // 2 counters 91; 4 is countered BY 91
+  });
+
+  test("no revealed enemy: nothing to counter and nothing to be exposed to", () => {
+    expect(revealedCounterProfile([1, 2, 4], [], curated)).toEqual({ counters: 0, exposed: 0 });
+  });
+});
+
+describe("topThree", () => {
+  test("highest score first, ties by hero id", () => {
+    const field: FieldCandidate[] = [5, 3, 9, 1].map((heroId) => ({ heroId, score: heroId === 9 ? 50 : 40, positionFit: 0, matches: 0 }));
+    expect(topThree(field)).toEqual([9, 1, 3]);
+  });
+});
+
+describe("tiedAtCut", () => {
+  const field = (scores: number[]): FieldCandidate[] => scores.map((score, i) => ({ heroId: i + 1, score, positionFit: 0, matches: 0 }));
+
+  test("the 3rd and the 4th share a score: the cut is a tie", () => {
+    expect(tiedAtCut(field([90, 80, 70, 70, 60]), 3)).toBe(true);
+  });
+  test("a gap at the cut is not a tie, even if heroes above it tie among themselves", () => {
+    expect(tiedAtCut(field([80, 80, 80, 70, 60]), 3)).toBe(false);
+  });
+  test("nothing beyond the cut: not applicable", () => {
+    expect(tiedAtCut(field([90, 80, 70]), 3)).toBeNull();
   });
 });
