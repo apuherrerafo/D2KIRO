@@ -41,7 +41,9 @@ export interface ExamState {
   positionFitShare: number | null;
   /** Mean of position_fit.weighted / score over those same candidates (how much of the score LEVEL is position_fit). */
   positionFitLevelShare: number | null;
-  /** How many candidates those two numbers were computed over. */
+  /** Fraction of those candidates whose position_fit raw is saturated at 1 (then it adds the same constant to all of them). */
+  positionFitSaturated: number | null;
+  /** How many candidates those numbers were computed over. */
   candidateCount: number;
 }
 

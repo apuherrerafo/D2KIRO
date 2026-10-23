@@ -61,7 +61,7 @@ type RankingInput = Parameters<typeof buildRecommendationSetFromPerspective>[0];
  * candidate it keeps, V6's score and the weighted `position_fit` contribution. NOTE: V6 itself truncates to TOP_N before anything here can
  * see the list, so this is the spread among the candidates the product can SHOW, not over the whole credible field (that needs an engine hook).
  */
-async function fullColumnRanking(world: WorldData, context: PerspectiveRecommendationContext, position: Pos, ownerAccountId: number | null): Promise<{ score: number[]; positionFit: number[] }> {
+async function fullColumnRanking(world: WorldData, context: PerspectiveRecommendationContext, position: Pos, ownerAccountId: number | null): Promise<{ score: number[]; positionFit: number[]; saturated: number[] }> {
   const computeSuggestions: RankingInput["computeSuggestions"] = async (draft, _ignored, options) => {
     const meta = ownerAccountId === null ? world.meta : { ...world.meta, heroPool: world.pools[ownerAccountId] ?? [], personalBaselineWinrate: null };
     return buildSuggestions(draft, meta, { metaIsStale: true, heroPositions: world.heroPositions, ...options });
@@ -72,14 +72,16 @@ async function fullColumnRanking(world: WorldData, context: PerspectiveRecommend
   });
   const score: number[] = [];
   const positionFit: number[] = [];
+  const saturated: number[] = [];
   for (const rec of set.recommendations) {
     const hero = rec.actions[0]?.hero;
     const pf = hero === undefined ? undefined : rec.signalsByHero[hero]?.find((signal) => signal.signal === "position_fit");
     if (pf === undefined) continue;
     score.push(rec.score);
     positionFit.push(pf.weighted);
+    saturated.push(pf.raw !== null && pf.raw >= 1 ? 1 : 0);
   }
-  return { score, positionFit };
+  return { score, positionFit, saturated };
 }
 
 export async function runExam(world: WorldData, draftCount: number): Promise<Run> {
@@ -137,7 +139,7 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
 
         // I5 over the FULL credible field of the column the board recommends right now.
         const target = ((decision.recommendedPosition ?? actionable[0]) ?? null) as Pos | null;
-        const field = target === null ? { score: [], positionFit: [] } : await fullColumnRanking(world, context, target, target === humanPosition ? accountId : null);
+        const field = target === null ? { score: [], positionFit: [], saturated: [] } : await fullColumnRanking(world, context, target, target === humanPosition ? accountId : null);
         const scores = field.score;
         const positionFit = field.positionFit;
         const levelShares = scores.flatMap((score, i) => (score > 0 ? [positionFit[i]! / score] : []));
@@ -158,6 +160,7 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
             state: (v4Candidates.state ?? null) as string | null, cards: asArray(v4Candidates.cards).map(asRecord).map((c) => ({ heroId: Number(c.heroId), rationale: String(c.rationale ?? "") })),
           },
           lpp: precedence(world, accountId, humanPosition, columns, actionable, asRecord(v4Out?.meta).phase ?? null, { banned, ownPicks, revealedEnemy }),
+          positionFitSaturated: field.saturated.length === 0 ? null : field.saturated.reduce((a, b) => a + b, 0) / field.saturated.length,
           positionFitShare: varianceShare(positionFit, scores),
           positionFitLevelShare: levelShares.length === 0 ? null : levelShares.reduce((a, b) => a + b, 0) / levelShares.length,
           candidateCount: scores.length,

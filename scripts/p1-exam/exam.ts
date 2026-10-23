@@ -100,6 +100,7 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
       I5_positionFitShareOfScore: {
         levelMedian: round4(levels.length === 0 ? null : percentile(levels, 50)), levelP10: round4(levels.length === 0 ? null : percentile(levels, 10)), levelP90: round4(levels.length === 0 ? null : percentile(levels, 90)),
         orderMedian: round4(shares.length === 0 ? null : percentile(shares, 50)), orderP10: round4(shares.length === 0 ? null : percentile(shares, 10)), orderP90: round4(shares.length === 0 ? null : percentile(shares, 90)),
+        saturatedShareMean: round4(mean(states.flatMap((s) => (s.positionFitSaturated === null ? [] : [s.positionFitSaturated])))),
         states: levels.length, candidatesPerState: round4(mean(states.map((s) => s.candidateCount))),
         note: "level = share of V6's score that is position_fit; order = cov(position_fit, score)/var(score) among the candidates V6 keeps (TOP_N) for the recommended column. Not the whole credible field: V6 truncates before the exam can see it.",
       },
@@ -185,7 +186,7 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   lines.push(`- **I3 apertura en cores:** ${o.I3_openingOnCore.coreFirstWithoutWindow}/${o.I3_openingOnCore.openingStates} aperturas de ronda 1 recomiendan Pos 1/2 sin ventana de counter ni escasez de pool (${pct(o.I3_openingOnCore.rate)}).`);
   lines.push(`- **I4 reactividad (Jaccard del top-3, misma posición entre drafts distintos):** global ${o.I4_reactivityJaccardTop3.overall}; por posición ${JSON.stringify(o.I4_reactivityJaccardTop3.byPosition)}. 1.0 = siempre los mismos tres.`);
   const i5 = o.I5_positionFitShareOfScore;
-  lines.push(`- **I5 peso de \`position_fit\`:** ${pct(i5.levelMedian)} del score (mediana; p10 ${pct(i5.levelP10)}, p90 ${pct(i5.levelP90)}) y ${pct(i5.orderMedian)} de la dispersión que ordena a los candidatos (mediana; p10 ${pct(i5.orderP10)}, p90 ${pct(i5.orderP90)}); ${i5.states} estados, ~${i5.candidatesPerState} candidatos por estado. Es sobre lo que V6 conserva (TOP_N), no sobre todo el campo.`);
+  lines.push(`- **I5 peso de \`position_fit\`:** ${pct(i5.levelMedian)} del score (mediana; p10 ${pct(i5.levelP10)}, p90 ${pct(i5.levelP90)}) y ${pct(i5.orderMedian)} de la dispersión que ordena a los candidatos (mediana; p10 ${pct(i5.orderP10)}, p90 ${pct(i5.orderP90)}); ${i5.states} estados, ~${i5.candidatesPerState} candidatos por estado; en ${pct(i5.saturatedShareMean)} de ellos \`position_fit\` está saturado en 1 (suma la misma constante a todos). Es sobre lo que V6 conserva (TOP_N), no sobre todo el campo.`);
   lines.push(`- **I6 relleno:** de ${o.I6_fill.gapOpenStates} estados con hueco abierto, el top-3 lo llena en ${o.I6_fill.top3Fills}; existe un relleno en lo mostrado en ${o.I6_fill.fillerExistsInShownSet}.`);
   lines.push(`- **I7 daño:** de ${o.I7_damageMix.monoDamageStates} estados mono-daño, el top-3 diversifica en ${o.I7_damageMix.top3Diversifies}.`);
   lines.push(`- **I8 exposición del primary de ronda 1:** ${o.I8_exposureOfRound1Primary.meanHardCountersAvailable} counters duros disponibles en promedio (máx ${o.I8_exposureOfRound1Primary.maxHardCountersAvailable}) sobre ${o.I8_exposureOfRound1Primary.states} aperturas.`);

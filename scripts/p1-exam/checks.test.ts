@@ -25,7 +25,7 @@ const world: ExamWorld = {
 };
 
 function state(over: Partial<ExamState> = {}): ExamState {
-  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, candidateCount: 0, ...over };
+  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, candidateCount: 0, ...over };
 }
 
 describe("I1 illegal", () => {
