@@ -29,3 +29,10 @@ corregidas son `ENGINE_P1_EXAM_BASELINE_R2.*` y `ENGINE_P1_EXAM_T2_R2.*`: mismas
   orden ayuda.
 
 Reproducir: `bun scripts/p1-exam/exam.ts --out=<NOMBRE> --drafts=120` (el examen se niega a sobrescribir evidencia).
+
+## R3 — código final de TSK-251 (`d3f3266` + corrección del verificador)
+
+Misma corrida (120 semillas, `W5-EMP-001`) sobre el código final. **Idéntica a T2 R2 en todas las métricas**: I1/I2/I9 = 0,
+I3 = 0/628, I4 = 0.2936, I8 = 0.2066, apertura en Pos 5 en las 121 aperturas. Un primer intento dio I2 = 872: era el verificador, no el
+motor — comparaba las cartas v4 con la posición sugerida (`targetPosition`) cuando pertenecen a la posición vista (`viewedPosition`),
+que desde `d3f3266` puede ser la personal. Corregido con candado en rojo; reporte: `ENGINE_P1_EXAM_T2_R3.*`.
