@@ -1,37 +1,20 @@
 # Estado del Proyecto — se actualiza solo, no lo edites a mano
 
 ## FASE ACTUAL
-**Fase 10 — cerrar el lazo producto ↔ verificación. Bloques A, B y C DONE (`TSK-214`→`TSK-216`,
-2026-08-31). Bloques D y E pendientes. Fase 9.2+ CONGELADA por decisión del usuario.**
+**Camino al soft launch: R1 (protocolo + recomendación) mergeado; Etapa 1 (hooks) mergeada; Etapas 2-3 (instrucciones) en PR; luego `TSK-250`.**
 
-Origen: QA real del usuario en Railway (2026-08-30) — el bot del Simulador pickeó Wraith King en
-las 3 rondas con el tablero congelado. **No era calidad del motor: `apps/web` llamaba a
-`http://127.0.0.1:4000` desde el navegador en 6 call sites**, incluido el `DraftFeedbackBox` (todos
-los reportes de QA enviados desde producción se descartaron en silencio). Fase 9.0/9.1 mide el
-motor offline y dice la verdad sobre el motor; nada abre la app real, así que nada podía detectar
-que la pantalla donde se juzga la calidad estaba rota.
-
-- **A (`TSK-214`, done, `@redteam` APPROVED)** — transporte por el proxy `/engine`; `handleDraftEvent`
-  devuelve `draftState` (el tablero ya no depende del WebSocket, que Next rewrites no puede
-  proxear); `rateLimit` en `/api/session/manual`; push best-effort; gate mecánico anti-loopback en
-  `verify-simplicity.sh`. 4 hallazgos de seguimiento anotados en el ticket.
-- **B (`TSK-215`, done)** — `engineStatus` + `<EngineUnreachableBanner>`: un fallo de transporte
-  deja de ser un `console.error` mudo.
-- **C (`TSK-216`, done)** — candado anti-repetición del bot, independiente del arreglo de
-  transporte. Los 4 tests se verificaron rojos sin el arreglo.
-- **D (pendiente)** — E2E de navegador (Playwright): nada en el repo abre la app real hoy.
-- **E (pendiente)** — higiene de instrucciones: `CLAUDE.md` + `.claude/rules/**` son ~1.970 líneas
-  inyectadas por turno, en su mayoría de fases cerradas.
-
-**Siguiente paso**: desplegar A/B/C a Railway y confirmar en producción que el tablero avanza, que
-el Copilot cambia de recomendación entre rondas y que un reporte del `DraftFeedbackBox` llega a
-`GET /api/feedback`. Esa es la verificación que importa; D existe para que no vuelva a hacer falta
-descubrirlo a mano.
-
-**Nota operativa (`evt-20260831-248`)**: `bun test` en la raíz — el comando que documenta
-`CLAUDE.md` — da ~55 fallos falsos (`@happy-dom/global-registrator` parchea `fetch` global y
-contamina los tests de servidor del motor). Por raíz separada: **617 + 215 + 177, cero fallos**.
-CI y `verify-simplicity.sh` ya lo hacen bien. Corregir en el Bloque E.
+Estado verificado en `master` (2026-10-22):
+- **R1 S1–S7 mergeado (PR #7)**: kernel de protocolo de draft, `RecommendationSet/v2`, lookahead de un ply,
+  superficie mínima AP/CM en el simulador y certificador determinista (`bun run verify:r1`). El veredicto de
+  R1 es **`HUMAN_GATE`**, no PASS: faltan los 32 casos del Golden v1 con firma de revisor humano real
+  (`docs/r1/golden/human-review-guide.md`, `docs/r1/certification-report.md`). Sigue pendiente.
+- **Etapa 1 mergeada (PR #52)**: hooks `PreToolUse` fail-closed y acotados al worktree de la sesión.
+- **Etapas 2-3 (este PR)**: `.claude/rules` con `paths:` (antes `globs:`, que Claude Code ignora y cargaba
+  todo siempre), fases cerradas a `docs/rules-archive/`, `CLAUDE.md` de ~70 líneas, proceso a `process.md`.
+- **Siguiente paso**: mergear el PR de instrucciones y retomar `TSK-250` (ticket aún no versionado en `master`).
+- Landing, Companion y Hero Knowledge V7 viven en ramas aparte; su estado no está en `master` y cada una
+  aporta su propio archivo de reglas con `paths:` al mergearse.
+- Ya no aplica de esta sección anterior: Fase 10 (bloques D/E) — la higiene de instrucciones (E) la cierra este PR.
 
 --- histórico ---
 ### Fase 9.1 — `/blueprint` + `/rulebook` COMPLETOS (Sonnet, 2026-08-30). `SPEC.md` §16 + 6 tickets `TSK-207`->`TSK-212`.

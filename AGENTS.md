@@ -18,12 +18,12 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
 - **Invariantes que valen en toda fase** (versión de scoring activa, comando de test canónico,
   `raw: null` sagrado, etc.): `.claude/rules/invariantes.md`.
 - **Reglas por área técnica** (motor, frontend, seguridad, costuras de prueba): `.claude/rules/
-  {engine,web,security,testing-seams}.md`.
-- **Narrativa de fases ya cerradas**: `docs/rules-archive/fase-N.md` (no hace falta leerla salvo
-  que la tarea concreta lo pida).
-- **Tabla de agentes y su modelo/rol/tools**: la tabla de `CLAUDE.md` — no se repite aquí para
-  evitar un segundo conteo que se desactualice.
-- **Formato del log de `journal.md`**: `CLAUDE.md`, sección "FORMATO DE LOG EN journal.md" — Codex
+  {engine,web,security,testing-seams}.md` (cada una declara en su frontmatter `paths:` a qué rutas aplica).
+- **Narrativa de fases ya cerradas**: `docs/rules-archive/` (no hace falta leerla salvo que la
+  tarea concreta lo pida).
+- **Tabla de agentes, modelos, herramienta por tarea**: `docs/agents/process.md` — no se repite aquí
+  para evitar un segundo conteo que se desactualice.
+- **Formato del log de `journal.md`**: `CLAUDE.md` (resumen) y `docs/agents/process.md` (detalle) — Codex
   no escribe en `journal.md` ni conoce las skills de este ecosistema (por diseño, ver `CLAUDE.md`
   tabla "HERRAMIENTA POR TAREA"), pero puede necesitar leer el formato al revisar un diff.
 
@@ -31,7 +31,7 @@ a copiar esos hechos — apunta a donde viven, para no volver a desactualizarse 
 
 El comando canónico es `bun run test` desde la raíz (nunca `bun test` a secas ahí — contamina los
 tests del motor con el registrator global de `apps/web`, ver `invariantes.md`). El detalle completo
-de comandos vive en `CLAUDE.md`, sección "COMANDOS ESENCIALES" — léela antes de asumir que un
+de comandos vive en `CLAUDE.md`, sección "Comandos" — léela antes de asumir que un
 comando de una sesión anterior sigue siendo el vigente.
 
 ## Reglas que sí valen para cualquier agente, incluido Codex
@@ -40,6 +40,6 @@ comando de una sesión anterior sigue siendo el vigente.
   `doing` asignada a Codex.
 - **Prohibido refactorizar archivos no relacionados con la tarea.**
 - Un `dependency` de producción nuevo exige pasar por el procedimiento canónico de dependencias
-  (`CLAUDE.md`, "Política de dependencias por categoría") — nunca se agrega a ciegas.
+  (`CLAUDE.md`, "Reglas inviolables → Dependencias") — nunca se agrega a ciegas.
 - Los secretos viven únicamente en variables de entorno. Un literal sospechoso en el diff es motivo
   de rechazo, no un detalle a limpiar después.

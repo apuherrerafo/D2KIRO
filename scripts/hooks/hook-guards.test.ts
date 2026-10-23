@@ -4,9 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // TSK-194 — los dos guardias PreToolUse de Fase 9. Se ejercitan por spawn (payload JSON
-// por stdin, exit 0 = permitir, exit 2 = bloquear), igual que los invocaría Claude Code.
+// por stdin, exit 0 = permitir, exit 2 = bloquear), igual que los invocaría Claude Code: con
+// `cwd` en el payload (el worktree de la sesión) y CLAUDE_PROJECT_DIR en el entorno.
 // D2K_TASKS_DIR apunta el guardia a un directorio de tickets de fixture: ninguna prueba
-// depende del estado real de docs/agents/tasks/.
+// depende del estado real de docs/agents/tasks/. El aislamiento entre worktrees se prueba en
+// edit-guard-worktree.test.ts.
 
 const REPO = join(import.meta.dir, "..", "..");
 let tasksDir: string;
@@ -24,10 +26,10 @@ async function runGuard(
   env: Record<string, string> = {},
 ): Promise<number> {
   const proc = Bun.spawn(["python3", join(REPO, "scripts", "hooks", `${guard}.py`)], {
-    stdin: Buffer.from(JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath } })),
+    stdin: Buffer.from(JSON.stringify({ tool_name: "Edit", tool_input: { file_path: filePath }, cwd: REPO })),
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, D2K_TASKS_DIR: tasksDir, ...env },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: REPO, D2K_TASKS_DIR: tasksDir, ...env },
   });
   return await proc.exited;
 }
@@ -66,12 +68,22 @@ test("write-scope: ticket en doing SIN write_scope -> no bloquea (retrocompat)",
   expect(await runGuard("write-scope-guard", join(REPO, "apps/engine/src/mix.ts"))).toBe(0);
 });
 
-test("write-scope: dos tickets en doing -> el hook no opina (WIP=1 es otro gate)", async () => {
+test("write-scope: dos tickets en doing y uno con write_scope -> alcance ambiguo, bloquea", async () => {
+  // Antes el hook "no opinaba" y dejaba pasar todo: con dos tickets no se sabe qué alcance autoriza.
   ticket("TSK-903.md", { id: "TSK-903", state: "doing", write_scope: '["eval/**"]' });
   // TSK-902 (sin scope) + TSK-903 ambos en doing
-  expect(await runGuard("write-scope-guard", join(REPO, "apps/engine/src/mix.ts"))).toBe(0);
+  expect(await runGuard("write-scope-guard", join(REPO, "apps/engine/src/mix.ts"))).toBe(2);
+  expect(await runGuard("write-scope-guard", join(REPO, "eval/golden/x.json"))).toBe(2);
   rmSync(join(tasksDir, "TSK-902.md"));
   rmSync(join(tasksDir, "TSK-903.md"));
+});
+
+test("write-scope: dos tickets en doing, ninguno con write_scope -> no bloquea (retrocompat)", async () => {
+  ticket("TSK-904.md", { id: "TSK-904", state: "doing" });
+  ticket("TSK-905.md", { id: "TSK-905", state: "doing" });
+  expect(await runGuard("write-scope-guard", join(REPO, "apps/engine/src/mix.ts"))).toBe(0);
+  rmSync(join(tasksDir, "TSK-904.md"));
+  rmSync(join(tasksDir, "TSK-905.md"));
 });
 
 // ---------- data-boundary-guard ----------
@@ -100,10 +112,10 @@ test("data-boundary: un ticket que declara data/curated/ en write_scope sí pued
 
 test("ambos guardias ignoran tool calls que no son Edit/Write", async () => {
   const proc = Bun.spawn(["python3", join(REPO, "scripts/hooks/write-scope-guard.py")], {
-    stdin: Buffer.from(JSON.stringify({ tool_name: "Bash", tool_input: { command: "ls" } })),
+    stdin: Buffer.from(JSON.stringify({ tool_name: "Bash", tool_input: { command: "ls" }, cwd: REPO })),
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, D2K_TASKS_DIR: tasksDir },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: REPO, D2K_TASKS_DIR: tasksDir },
   });
   expect(await proc.exited).toBe(0);
 });
