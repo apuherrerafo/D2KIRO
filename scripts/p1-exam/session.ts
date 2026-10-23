@@ -41,14 +41,19 @@ async function startSession(lab: Lab, side: (typeof SIDES)[number], humanPositio
 
 interface BoardColumnJson { position: number; state: string; eligibleNow: boolean; top: { heroId: number; rank: number; reasons: string[] }[] }
 
-/** The LPP counterfactual: what LivePositionPriorityV1 declares over the board's own columns (it only runs in live today). */
-function precedence(world: WorldData, accountId: number, humanPosition: Pos, columns: BoardColumnJson[], actionable: Pos[], phase: unknown, s: { banned: number[]; ownPicks: number[]; revealedEnemy: number[] }): ExamState["lpp"] {
+/**
+ * The LPP counterfactual: what LivePositionPriorityV1 declares over the board's own columns (it only runs in live today).
+ * Its pool and occupancy inputs are the SESSION's own (`context.playerPoolsByPosition` / `ownPositionOccupancy`) -- the same facts the
+ * board is given, read from state, not from the code under test. The lab saves no team pools, so POOL_SCARCITY cannot fire here.
+ * (R1 of this exam approximated pools with the Player's PERSONAL pool at their personal position; that invented scarcity the real
+ * session does not have and produced 6 false "divergences" in T2. Found in the TSK-251 T2 run.)
+ */
+function precedence(world: WorldData, context: PerspectiveRecommendationContext, columns: BoardColumnJson[], actionable: Pos[], phase: unknown, s: { banned: number[]; ownPicks: number[]; revealedEnemy: number[] }): ExamState["lpp"] {
   if (actionable.length === 0) return null;
   const ranked = columns.filter((c) => c.top.length > 0).map((c) => ({ position: c.position as Pos, heroIds: [...c.top].sort((a, b) => a.rank - b.rank).map((t) => t.heroId) }));
-  const pool = (world.pools[accountId] ?? []).map((entry) => entry.hero);
   const priority = selectLivePositionPriority({
     actionablePositions: actionable, phase: phase as never, columns: ranked, revealedEnemies: s.revealedEnemy, heroCounters: world.heroCounters,
-    playerPoolsByPosition: { [humanPosition]: pool }, unavailable: new Set([...s.banned, ...s.ownPicks, ...s.revealedEnemy]), occupancy: null,
+    playerPoolsByPosition: context.playerPoolsByPosition, unavailable: new Set([...s.banned, ...s.ownPicks, ...s.revealedEnemy]), occupancy: context.ownPositionOccupancy,
   });
   return { position: priority.targetPosition as Pos, basis: priority.targetBasis, signal: priority.signal };
 }
@@ -159,7 +164,7 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
             kind: String(v4Decision.kind), targetPosition: (v4Decision.targetPosition ?? null) as Pos | null, targetBasis: (v4Decision.targetBasis ?? null) as string | null,
             state: (v4Candidates.state ?? null) as string | null, cards: asArray(v4Candidates.cards).map(asRecord).map((c) => ({ heroId: Number(c.heroId), rationale: String(c.rationale ?? "") })),
           },
-          lpp: precedence(world, accountId, humanPosition, columns, actionable, asRecord(v4Out?.meta).phase ?? null, { banned, ownPicks, revealedEnemy }),
+          lpp: precedence(world, context, columns, actionable, asRecord(v4Out?.meta).phase ?? null, { banned, ownPicks, revealedEnemy }),
           positionFitSaturated: field.saturated.length === 0 ? null : field.saturated.reduce((a, b) => a + b, 0) / field.saturated.length,
           positionFitShare: varianceShare(positionFit, scores),
           positionFitLevelShare: levelShares.length === 0 ? null : levelShares.reduce((a, b) => a + b, 0) / levelShares.length,

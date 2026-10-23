@@ -233,7 +233,7 @@ async function main(): Promise<void> {
     limitations: [
       "Frozen statistical snapshot labelled 7.41e (label unverified); curated positions/counters are hand-curated. Absolute numbers are comparative baselines, not truth.",
       "The simulated Player follows V3 (follow-coach / varied / deviate); the Enemy Bot is scripted. States are realistic, not human.",
-      "The lab has no saved-team pools: POOL_SCARCITY is approximated with the Player's own pool at their personal position.",
+      "The lab saves no team pools, so POOL_SCARCITY cannot fire: the declared-precedence reference reads the session's own pools/occupancy (R2). R1 approximated pools with the Player's personal pool and invented scarcity (found in the TSK-251 T2 run).",
       "I3 'declared precedence' is LivePositionPriorityV1 evaluated offline over the board's own columns; it does not run in the simulator today.",
       "I11 is not measurable until T5 creates the `basis` field.",
     ],
