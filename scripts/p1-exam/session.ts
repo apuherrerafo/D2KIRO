@@ -161,7 +161,7 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
             columns: columns.map((c) => ({ position: c.position as Pos, state: c.state, eligibleNow: c.eligibleNow, top: c.top.map((t) => ({ heroId: t.heroId, reason: t.reasons[0] ?? "" })) })),
           },
           v4: v4Out === null ? null : {
-            kind: String(v4Decision.kind), targetPosition: (v4Decision.targetPosition ?? null) as Pos | null, targetBasis: (v4Decision.targetBasis ?? null) as string | null,
+            kind: String(v4Decision.kind), targetPosition: (v4Decision.targetPosition ?? null) as Pos | null, viewedPosition: (v4Decision.viewedPosition ?? null) as Pos | null, targetBasis: (v4Decision.targetBasis ?? null) as string | null,
             state: (v4Candidates.state ?? null) as string | null, cards: asArray(v4Candidates.cards).map(asRecord).map((c) => ({ heroId: Number(c.heroId), rationale: String(c.rationale ?? "") })),
           },
           lpp: precedence(world, context, columns, actionable, asRecord(v4Out?.meta).phase ?? null, { banned, ownPicks, revealedEnemy }),

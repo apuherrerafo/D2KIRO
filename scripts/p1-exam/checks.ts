@@ -34,7 +34,7 @@ export interface ExamState {
   v3: { heroId: HeroId; rationale: string }[];
   v3PrimaryRationale: string;
   board: { recommendedPosition: Pos | null; targetBasis: string | null; columns: ExamColumn[] } | null;
-  v4: { kind: string; targetPosition: Pos | null; targetBasis: string | null; state: string | null; cards: { heroId: HeroId; rationale: string }[] } | null;
+  v4: { kind: string; targetPosition: Pos | null; /** The position the cards belong to (== target unless the Player opens on their own position). */ viewedPosition: Pos | null; targetBasis: string | null; state: string | null; cards: { heroId: HeroId; rationale: string }[] } | null;
   /** Counterfactual: what LivePositionPriorityV1 WOULD pick over the same columns (it does not run in the simulator today). */
   lpp: { position: Pos; basis: string; signal: string } | null;
   /** Covariance share of `position_fit` in the spread of V6's score among the candidates the recommended column keeps; null when undefined. */
@@ -96,8 +96,9 @@ export function i2Roles(state: ExamState, world: ExamWorld): string[] {
     });
   }
   const v4 = state.v4;
-  if (v4 && v4.state === "RANKED" && v4.targetPosition !== null) {
-    for (const card of v4.cards) if (!isCandidateAdmittedForPosition(card.heroId, v4.targetPosition, world.positions)) found.push(`${where(state)} v4: hero ${card.heroId} has no curated evidence for pos${v4.targetPosition}`);
+  const cardsPosition = v4 ? (v4.viewedPosition ?? v4.targetPosition) : null;
+  if (v4 && v4.state === "RANKED" && cardsPosition !== null) {
+    for (const card of v4.cards) if (!isCandidateAdmittedForPosition(card.heroId, cardsPosition, world.positions)) found.push(`${where(state)} v4: hero ${card.heroId} has no curated evidence for pos${cardsPosition}`);
   }
   return found;
 }
