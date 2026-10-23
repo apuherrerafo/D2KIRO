@@ -1,0 +1,1347 @@
+{
+  "schema": "engine-p1-exam/v1",
+  "purpose": "Baseline of how the Coach recommends heroes today (F1, TSK-250). Measures; changes nothing. PASS technical != strategic improvement.",
+  "identity": {
+    "schema": "wave5-evidence-identity/v1",
+    "certificationId": "ENGINE_P1_EXAM_T4_AFTER",
+    "runtime": {
+      "bun": "1.4.2"
+    },
+    "code": {
+      "head": "451a322876e692cce459e638ad5c9f7a3cf31339",
+      "branch": "feat/tsk-253-composition-gaps",
+      "isolation": "linked-worktree",
+      "cleanAtHead": true,
+      "dirtyPathCount": 0,
+      "dirtyDiffHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "dirty": [],
+      "trackedAndUntrackedFileCount": 1541,
+      "contentStateHash": "a34acede5ae117384f0941c5ab203a2fcfd419ba8f83f548a0f6706493cb8df0",
+      "outputsExcluded": [
+        "docs/diagnostics/"
+      ]
+    },
+    "data": {
+      "empiricalSnapshot": {
+        "certifiable": true,
+        "id": "W5-EMP-001",
+        "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+        "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+        "provenanceSha256": "e00376cdd577c618d3caf709cfbb573cc7ef8688473965d74fd4e58a307b1d51",
+        "verifiedAgainstProvenance": true,
+        "drift": [],
+        "rowCounts": {
+          "heroes": 127,
+          "hero_patch_stats": 1016,
+          "hero_matchups": 15982,
+          "matchupHeroesDistinct": 127
+        },
+        "source": "OpenDota",
+        "retrievalWindow": {
+          "from": "2026-09-18T01:11:38.894Z",
+          "to": "2026-09-19T20:49:59.597Z"
+        },
+        "interruptedSyncRunPresent": true,
+        "observationWindow": null,
+        "patchClaim": {
+          "label": "7.41e",
+          "verified": false
+        }
+      },
+      "empiricalPatchAttribution": "label-only, UNVERIFIED -- the source reports no patch; the label is applied by our ingestion",
+      "rulesetTarget": "7.41f",
+      "positionalDataset": {
+        "path": "apps/engine/src/signals/hero-positions.json",
+        "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78",
+        "format": "hero-position-observations/v1",
+        "mode": "as-loaded",
+        "denominatorCorrected": true,
+        "completeness": "all observed rows retained (see the file's provenance)",
+        "provenanceTwin": {
+          "path": "data/metadata/hero-positions.json",
+          "sha256": "ecb5cecb782f6c93234768f306cbfc05ddcee4b1da8511f543f34b39ee42287e"
+        }
+      },
+      "curatedData": [
+        {
+          "path": "apps/engine/src/signals/hero-counters.json",
+          "sha256": "b89087af92423a08f59c0829dcb503a8ad790862de697a3daffc3fce917549c4"
+        },
+        {
+          "path": "apps/engine/src/draft-paths/capabilities.json",
+          "sha256": "6d2474244c1d73b2772a29d79306e301475aa509a83073a2d3ce063531840870"
+        }
+      ],
+      "generatedData": [
+        {
+          "path": "data/generated/percentiles.json",
+          "sha256": "eb3a1084daf752dbb4df4c6467e18a755597c831f01fbd26602d2458b7efc3d9"
+        },
+        {
+          "path": "data/generated/signal-profile.json",
+          "sha256": "241e2fcdebe39d907d188bc0ab8b9af70363655479ea1e10007bc4465a7c797f"
+        },
+        {
+          "path": "data/generated/tolerance.json",
+          "sha256": "7b212ff49ecbe921d48cec586cce1c1f7cd772d172d9e465b062264f7c041ff8"
+        }
+      ]
+    },
+    "comparableKey": "60f84175bdcb0137078696affa36c04f4a00e7146f9b010b9fc4bfdc7f3732bb",
+    "reproduce": [
+      "bun scripts/p1-exam/exam.ts --out=ENGINE_P1_EXAM_T4_AFTER --drafts=120 --judge=t4"
+    ]
+  },
+  "config": {
+    "drafts": 120,
+    "policies": [
+      "follow-coach",
+      "varied",
+      "deviate"
+    ],
+    "personalPositions": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "sides": [
+      "radiant",
+      "dire"
+    ],
+    "seeds": "AUDIT001.."
+  },
+  "coverage": {
+    "drafts": 120,
+    "completed": 120,
+    "decisionPoints": 622,
+    "round1": 252,
+    "round2": 249,
+    "round3": 121,
+    "harnessFailures": 0,
+    "harnessBadStatuses": 0
+  },
+  "limitations": [
+    "Frozen statistical snapshot labelled 7.41e (label unverified); curated positions/counters are hand-curated. Absolute numbers are comparative baselines, not truth.",
+    "The simulated Player follows V3 (follow-coach / varied / deviate); the Enemy Bot is scripted. States are realistic, not human.",
+    "The lab saves no team pools, so POOL_SCARCITY cannot fire: the declared-precedence reference reads the session's own pools/occupancy (R2). R1 approximated pools with the Player's personal pool and invented scarcity (found in the TSK-251 T2 run).",
+    "I3 'declared precedence' is LivePositionPriorityV1 evaluated offline over the board's own columns; it does not run in the simulator today.",
+    "I11 is not measurable until T5 creates the `basis` field."
+  ],
+  "summary": {
+    "states": 622,
+    "hard": {
+      "I1_illegal": {
+        "violations": 0,
+        "examples": []
+      },
+      "I2_roleFeasibility": {
+        "violations": 0,
+        "examples": []
+      },
+      "I3_conformity": {
+        "targetDivergesFromDeclaredPrecedence": {
+          "states": 0,
+          "of": 622,
+          "rate": 0,
+          "examples": []
+        },
+        "openColumnNotRanked": {
+          "violations": 0,
+          "examples": []
+        },
+        "phaseShownAsStrategic": 0
+      },
+      "I6_visible": {
+        "gapOpenStates": 2,
+        "gapNotVisibleOnAnyCard": 2,
+        "note": "A late open initiation/catch gap that no card mentions. T4/T5 are expected to close it; at baseline it is a known defect."
+      },
+      "I9_visible": {
+        "hardCounteredHeroesInTop3": 0,
+        "statesAffected": 0,
+        "withoutVisibleRisk": 0,
+        "examples": [],
+        "note": "Plan v2: allowed in the top-3 only when fewer than 3 credible alternatives exist AND the risk is shown. At baseline the risk is never shown."
+      },
+      "I11_honestBasis": {
+        "status": "NOT_MEASURABLE",
+        "reason": "No `basis` field exists on any card yet (it is created by T5/TSK-254); today a curated claim and a statistical claim look identical."
+      }
+    },
+    "observations": {
+      "I3_openingOnCore": {
+        "openingStates": 121,
+        "coreFirstWithoutWindow": 0,
+        "rate": 0,
+        "note": "Simulator recommends Pos 1/2 on the Player's first decision of round 1 with no COUNTER_WINDOW/POOL_SCARCITY behind it."
+      },
+      "I4_reactivityJaccardTop3": {
+        "overall": 0.2173,
+        "byPosition": {
+          "pos1": 0.2155,
+          "pos2": 0.2374,
+          "pos3": 0.1974,
+          "pos4": 0.2334,
+          "pos5": 0.2027
+        },
+        "sampleStates": 121,
+        "note": "1.0 = the same three heroes for a position in every draft."
+      },
+      "I5_positionFitShareOfScore": {
+        "levelMedian": 0.5902,
+        "levelP10": 0.5399,
+        "levelP90": 0.6407,
+        "orderMedian": 0,
+        "orderP10": -0.0837,
+        "orderP90": 0.2968,
+        "saturatedShareMean": 0.8607,
+        "states": 622,
+        "candidatesPerState": 6,
+        "note": "level = share of V6's score that is position_fit; order = cov(position_fit, score)/var(score) among the candidates V6 keeps (TOP_N) for the recommended column. Not the whole credible field: V6 truncates before the exam can see it."
+      },
+      "I5_positionFitOverWholeField": {
+        "states": 622,
+        "fieldSizeMedian": 29,
+        "top3InMorePlayedHalf": 0.9823,
+        "top6InMorePlayedHalf": 0.9665,
+        "orderShareMedian": 0.8075,
+        "orderShareInMorePlayedHalfMedian": 0.0121,
+        "top3KeptWithoutPositionFit": 0.3614,
+        "top6KeptWithoutPositionFit": 0.377,
+        "note": "Whole credible field of the recommended column, scored by V6 and peeled past its TOP_N cut. A fair cut is ~0.5 in the more-played half; 'kept without position_fit' = Jaccard between the real top-k and the top-k of the same scores with position_fit's contribution removed (1 = it decides nothing)."
+      },
+      "T3_pairedRuleChange": {
+        "tieAtTop3CutOld": 0,
+        "tieAtTop3CutNew": 0,
+        "states": 622,
+        "top3Changed": 458,
+        "top3ChangedRate": 0.7363,
+        "meanJaccardTop3": 0.5605,
+        "meanJaccardTop6": 0.6112,
+        "changedTopsThatLeanOnLessVolume": 458,
+        "meanMatchesTop3Old": 4646.6854,
+        "meanMatchesTop3New": 3823.2508,
+        "againstRevealedEnemies": {
+          "states": 380,
+          "meanHeroesCounteringAnEnemyOld": 0.0974,
+          "meanHeroesCounteringAnEnemyNew": 0.1447,
+          "meanHeroesExposedToAnEnemyOld": 0.0105,
+          "meanHeroesExposedToAnEnemyNew": 0.0105
+        },
+        "note": "Same decision points, two rules. 'Changed' = the set of the top-3 differs. This says WHAT moved, not whether it is better: that is the judge's call (changedDecisions in the judge packet)."
+      },
+      "I7_damageMix": {
+        "monoDamageStates": 0,
+        "top3Diversifies": 0
+      },
+      "I6b_initiation": {
+        "gapOpenStates": 25,
+        "top3Fills": 23,
+        "fillerInField": 25,
+        "note": "Initiation on its own (TSK-253). The original I6 asks for initiation OR catch: 69% of curated heroes have one of the two, so that union is almost never missing."
+      },
+      "T4_closingNeeds": {
+        "windowStates": 250,
+        "statesWithCriticalGap": 32,
+        "criticalGapsByKind": {
+          "initiation": 25,
+          "damage_mix": 8,
+          "catch": 1
+        },
+        "criticalWithheldByUncuratedOwnPick": 8,
+        "identicalOutsideWindow": {
+          "states": 372,
+          "withDifferentScores": 0
+        },
+        "comparable": {
+          "states": 32,
+          "round2": 24,
+          "round3": 8,
+          "withAFillerInTheField": 32
+        },
+        "top3Changed": 20,
+        "top3ChangedRate": 0.625,
+        "top3WithAFiller": {
+          "legacy": 29,
+          "stageAware": 30,
+          "ofStatesWhereAFillerExists": 32
+        },
+        "meanFillersInTop3": {
+          "legacy": 1.8438,
+          "stageAware": 2.5313
+        },
+        "costUnderLegacyScore": {
+          "meanLegacyTop3": 77.308,
+          "meanStageAwareTop3": 75.3538
+        },
+        "meanMatchesTop3": {
+          "legacy": 3976.6458,
+          "stageAware": 3589.4063
+        },
+        "againstRevealedEnemies": {
+          "states": 32,
+          "meanHeroesCounteringAnEnemyLegacy": 0.2188,
+          "meanHeroesCounteringAnEnemyStageAware": 0.1875,
+          "meanHeroesExposedToAnEnemyLegacy": 0,
+          "meanHeroesExposedToAnEnemyStageAware": 0
+        },
+        "note": "Same decision points, same credible field. 'Critical' = initiation / catch / damage_mix open with <= 2 own picks left and every own pick curated. It says what moved and what it gives up under the legacy score; whether it is better is the judge's call."
+      },
+      "I6_fill": {
+        "gapOpenStates": 2,
+        "top3Fills": 2,
+        "fillerExistsInShownSet": 2
+      },
+      "I8_exposureOfRound1Primary": {
+        "states": 121,
+        "meanHardCountersAvailable": 0.3306,
+        "maxHardCountersAvailable": 1
+      },
+      "I10_round1Top3InMorePlayedHalf": {
+        "candidates": 1815,
+        "inMorePlayedHalf": 1815,
+        "rate": 1,
+        "note": "Observation only (plan v2 removed it as a gate): high = the ranking leans on popularity."
+      },
+      "top1Concentration": {
+        "pos1": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.2975
+        },
+        "pos2": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.2314
+        },
+        "pos3": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.3554
+        },
+        "pos4": {
+          "distinctPrimaries": 10,
+          "sample": 121,
+          "mostCommonShare": 0.2562
+        },
+        "pos5": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.2975
+        }
+      },
+      "shownButNotCredibleAtColumn": {
+        "count": 0,
+        "examples": []
+      }
+    }
+  },
+  "judgePacket": {
+    "schema": "engine-p1-judge-packet/v1",
+    "componentQuestions": [
+      {
+        "id": "C1-position",
+        "text": "Position order: is the position the board recommends the right one to commit to NOW (and not just the lowest open one)?"
+      },
+      {
+        "id": "C2-ranking",
+        "text": "Hero ranking: are the heroes shown for that position the ones you would consider, or do they look chosen for being popular?"
+      },
+      {
+        "id": "C3-composition",
+        "text": "Composition: does the advice notice what the team still lacks (initiation / catch / damage mix)?"
+      },
+      {
+        "id": "C4-exposure",
+        "text": "Exposure: is any recommended hero a clear counter-target of what the rival has shown, and does the card say so?"
+      }
+    ],
+    "planQuestions": [
+      {
+        "id": "P1-tempo",
+        "text": "Does this team need to win early, or can it scale?"
+      },
+      {
+        "id": "P2-objectives",
+        "text": "Can this draft convert an advantage into objectives?"
+      },
+      {
+        "id": "P3-plan",
+        "text": "Does the recommendation improve the plan, or only the score?"
+      }
+    ],
+    "points": [
+      {
+        "coverage": "round-1 opening recommends hard support / support",
+        "opaqueKey": "c2c44fe7f992",
+        "round": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Terrorblade",
+            "Morphling",
+            "Ursa"
+          ],
+          "pos2": [
+            "Earth Spirit",
+            "Outworld Destroyer",
+            "Invoker"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dawnbreaker",
+            "Timbersaw"
+          ],
+          "pos4": [
+            "Bounty Hunter",
+            "Techies",
+            "Mirana"
+          ],
+          "pos5": [
+            "Undying",
+            "Crystal Maiden",
+            "Disruptor"
+          ]
+        },
+        "v3Top3": [
+          "Bounty Hunter",
+          "Techies",
+          "Mirana"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "late open initiation/catch gap",
+        "opaqueKey": "449d0e9ea730",
+        "round": 2,
+        "bans": [
+          "Wraith King",
+          "Earthshaker",
+          "Skywrath Mage",
+          "Shadow Fiend",
+          "Mirana",
+          "Sniper",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Windranger",
+          "Spirit Breaker",
+          "Silencer",
+          "Ogre Magi",
+          "Lina",
+          "Slark",
+          "Zeus",
+          "Queen of Pain"
+        ],
+        "ownPicks": [
+          "Ringmaster",
+          "Techies",
+          "Anti-Mage"
+        ],
+        "revealedEnemy": [
+          "Storm Spirit",
+          "Tusk"
+        ],
+        "boardRecommendedPosition": 3,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Puck",
+            "Ember Spirit",
+            "Pangolier"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dawnbreaker",
+            "Mars"
+          ]
+        },
+        "v3Top3": [
+          "Underlord",
+          "Dawnbreaker",
+          "Mars"
+        ],
+        "precedenceWouldPick": "pos3 (PHASE)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round 2 after rival reveals",
+        "opaqueKey": "af20d530f8d3",
+        "round": 2,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle"
+        ],
+        "boardRecommendedPosition": 3,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Anti-Mage",
+            "Kez",
+            "Spectre"
+          ],
+          "pos2": [
+            "Pangolier",
+            "Void Spirit",
+            "Earth Spirit"
+          ],
+          "pos3": [
+            "Axe",
+            "Brewmaster",
+            "Slardar"
+          ]
+        },
+        "v3Top3": [
+          "Brewmaster",
+          "Axe",
+          "Slardar"
+        ],
+        "precedenceWouldPick": "pos3 (COUNTER_WINDOW)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round 3 closing pick",
+        "opaqueKey": "a05e55d37022",
+        "round": 3,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying",
+          "Axe"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern",
+          "Anti-Mage",
+          "Slardar"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle",
+          "Bounty Hunter",
+          "Timbersaw"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Necrophos",
+            "Void Spirit",
+            "Earth Spirit"
+          ]
+        },
+        "v3Top3": [
+          "Necrophos",
+          "Void Spirit",
+          "Earth Spirit"
+        ],
+        "precedenceWouldPick": "pos2 (SINGLE_POSITION)",
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      }
+    ],
+    "changedBy": "TSK-253",
+    "changedDecisions": [
+      {
+        "opaqueKey": "f579422e7113",
+        "round": 2,
+        "position": 3,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying",
+          "Axe"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern",
+          "Anti-Mage"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle",
+          "Bounty Hunter"
+        ],
+        "optionA": [
+          "Slardar",
+          "Tidehunter",
+          "Brewmaster"
+        ],
+        "optionB": [
+          "Slardar",
+          "Tidehunter",
+          "Necrophos"
+        ],
+        "answerKey": {
+          "optionAIs": "new"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "9118bc5128aa",
+        "round": 2,
+        "position": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [
+          "Disruptor",
+          "Skywrath Mage",
+          "Enigma"
+        ],
+        "revealedEnemy": [
+          "Underlord",
+          "Mirana"
+        ],
+        "optionA": [
+          "Kez",
+          "Sven",
+          "Juggernaut"
+        ],
+        "optionB": [
+          "Kez",
+          "Sven",
+          "Necrophos"
+        ],
+        "answerKey": {
+          "optionAIs": "new"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "a22692eafd76",
+        "round": 2,
+        "position": 1,
+        "bans": [
+          "Shadow Fiend",
+          "Windranger",
+          "Luna",
+          "Undying",
+          "Mirana",
+          "Ogre Magi",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Sniper",
+          "Necrophos",
+          "Spirit Breaker",
+          "Axe",
+          "Pudge",
+          "Zeus",
+          "Skywrath Mage",
+          "Razor"
+        ],
+        "ownPicks": [
+          "Oracle",
+          "Techies",
+          "Enigma"
+        ],
+        "revealedEnemy": [
+          "Earth Spirit",
+          "Ringmaster"
+        ],
+        "optionA": [
+          "Spectre",
+          "Anti-Mage",
+          "Slark"
+        ],
+        "optionB": [
+          "Spectre",
+          "Slark",
+          "Ursa"
+        ],
+        "answerKey": {
+          "optionAIs": "old"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "d2efa9cbb017",
+        "round": 2,
+        "position": 4,
+        "bans": [
+          "Wraith King",
+          "Earthshaker",
+          "Skywrath Mage",
+          "Shadow Fiend",
+          "Mirana",
+          "Sniper",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Windranger",
+          "Spirit Breaker",
+          "Silencer",
+          "Ogre Magi",
+          "Lina",
+          "Slark",
+          "Zeus",
+          "Queen of Pain"
+        ],
+        "ownPicks": [
+          "Io",
+          "Chen",
+          "Razor"
+        ],
+        "revealedEnemy": [
+          "Techies",
+          "Spectre"
+        ],
+        "optionA": [
+          "Lion",
+          "Pudge",
+          "Snapfire"
+        ],
+        "optionB": [
+          "Rubick",
+          "Lion",
+          "Pudge"
+        ],
+        "answerKey": {
+          "optionAIs": "new"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "4814d1ccb664",
+        "round": 3,
+        "position": 1,
+        "bans": [
+          "Wraith King",
+          "Earthshaker",
+          "Skywrath Mage",
+          "Shadow Fiend",
+          "Mirana",
+          "Sniper",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Windranger",
+          "Spirit Breaker",
+          "Silencer",
+          "Ogre Magi",
+          "Lina",
+          "Slark",
+          "Zeus",
+          "Queen of Pain"
+        ],
+        "ownPicks": [
+          "Io",
+          "Chen",
+          "Razor",
+          "Undying"
+        ],
+        "revealedEnemy": [
+          "Techies",
+          "Spectre",
+          "Outworld Destroyer",
+          "Ringmaster"
+        ],
+        "optionA": [
+          "Faceless Void",
+          "Phantom Lancer",
+          "Anti-Mage"
+        ],
+        "optionB": [
+          "Faceless Void",
+          "Tiny",
+          "Phantom Lancer"
+        ],
+        "answerKey": {
+          "optionAIs": "old"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "e4cfcae2a00d",
+        "round": 2,
+        "position": 4,
+        "bans": [
+          "Lina",
+          "Shadow Fiend",
+          "Phantom Lancer",
+          "Pudge",
+          "Shadow Shaman",
+          "Techies",
+          "Axe",
+          "Spirit Breaker",
+          "Invoker",
+          "Underlord",
+          "Luna",
+          "Witch Doctor",
+          "Wraith King",
+          "Crystal Maiden",
+          "Lion",
+          "Earthshaker"
+        ],
+        "ownPicks": [
+          "Necrophos",
+          "Anti-Mage",
+          "Ancient Apparition"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven"
+        ],
+        "optionA": [
+          "Snapfire",
+          "Nyx Assassin",
+          "Rubick"
+        ],
+        "optionB": [
+          "Snapfire",
+          "Nyx Assassin",
+          "Dark Willow"
+        ],
+        "answerKey": {
+          "optionAIs": "old"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "9aeddbe26973",
+        "round": 3,
+        "position": 4,
+        "bans": [
+          "Lina",
+          "Shadow Fiend",
+          "Phantom Lancer",
+          "Pudge",
+          "Shadow Shaman",
+          "Techies",
+          "Axe",
+          "Spirit Breaker",
+          "Invoker",
+          "Underlord",
+          "Luna",
+          "Witch Doctor",
+          "Wraith King",
+          "Crystal Maiden",
+          "Lion",
+          "Earthshaker"
+        ],
+        "ownPicks": [
+          "Necrophos",
+          "Anti-Mage",
+          "Ancient Apparition",
+          "Death Prophet"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven",
+          "Slardar",
+          "Windranger"
+        ],
+        "optionA": [
+          "Dark Willow",
+          "Snapfire",
+          "Earth Spirit"
+        ],
+        "optionB": [
+          "Mirana",
+          "Rubick",
+          "Dark Willow"
+        ],
+        "answerKey": {
+          "optionAIs": "new"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "b682584fdf86",
+        "round": 3,
+        "position": 2,
+        "bans": [
+          "Zeus",
+          "Windranger",
+          "Spectre",
+          "Invoker",
+          "Lion",
+          "Shadow Shaman",
+          "Ogre Magi",
+          "Skywrath Mage",
+          "Phantom Lancer",
+          "Magnus",
+          "Mirana",
+          "Slark",
+          "Witch Doctor",
+          "Wraith King",
+          "Jakiro",
+          "Disruptor"
+        ],
+        "ownPicks": [
+          "Grimstroke",
+          "Techies",
+          "Timbersaw",
+          "Drow Ranger"
+        ],
+        "revealedEnemy": [
+          "Doom",
+          "Pudge",
+          "Sniper",
+          "Winter Wyvern"
+        ],
+        "optionA": [
+          "Ember Spirit",
+          "Earth Spirit",
+          "Snapfire"
+        ],
+        "optionB": [
+          "Ember Spirit",
+          "Outworld Destroyer",
+          "Storm Spirit"
+        ],
+        "answerKey": {
+          "optionAIs": "new"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "05acdbf6bc2e",
+        "round": 2,
+        "position": 4,
+        "bans": [
+          "Pudge",
+          "Wraith King",
+          "Invoker",
+          "Juggernaut",
+          "Legion Commander",
+          "Vengeful Spirit",
+          "Lion",
+          "Rubick",
+          "Shadow Fiend",
+          "Phantom Assassin",
+          "Skywrath Mage",
+          "Ember Spirit",
+          "Queen of Pain",
+          "Bristleback",
+          "Venomancer",
+          "Dragon Knight"
+        ],
+        "ownPicks": [
+          "Ogre Magi",
+          "Keeper of the Light",
+          "Medusa"
+        ],
+        "revealedEnemy": [
+          "Anti-Mage",
+          "Outworld Destroyer"
+        ],
+        "optionA": [
+          "Spirit Breaker",
+          "Nyx Assassin",
+          "Hoodwink"
+        ],
+        "optionB": [
+          "Spirit Breaker",
+          "Nyx Assassin",
+          "Snapfire"
+        ],
+        "answerKey": {
+          "optionAIs": "old"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "4c39a75ff9ca",
+        "round": 2,
+        "position": 1,
+        "bans": [
+          "Lina",
+          "Pudge",
+          "Legion Commander",
+          "Sniper",
+          "Invoker",
+          "Hoodwink",
+          "Shadow Shaman",
+          "Outworld Destroyer",
+          "Drow Ranger",
+          "Lifestealer",
+          "Axe",
+          "Phantom Assassin",
+          "Skywrath Mage",
+          "Nature's Prophet",
+          "Night Stalker",
+          "Lich",
+          "Disruptor"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Undying",
+          "Wraith King"
+        ],
+        "revealedEnemy": [
+          "Anti-Mage",
+          "Winter Wyvern"
+        ],
+        "optionA": [
+          "Slark",
+          "Morphling",
+          "Windranger"
+        ],
+        "optionB": [
+          "Spectre",
+          "Slark",
+          "Morphling"
+        ],
+        "answerKey": {
+          "optionAIs": "old"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "1fd3344b2fc1",
+        "round": 3,
+        "position": 1,
+        "bans": [
+          "Wraith King",
+          "Lifestealer",
+          "Zeus",
+          "Shadow Shaman",
+          "Spirit Breaker",
+          "Magnus",
+          "Skywrath Mage",
+          "Legion Commander",
+          "Rubick",
+          "Invoker",
+          "Phantom Lancer",
+          "Windranger",
+          "Techies",
+          "Snapfire",
+          "Undying",
+          "Venomancer"
+        ],
+        "ownPicks": [
+          "Shadow Demon",
+          "Broodmother",
+          "Enchantress",
+          "Riki"
+        ],
+        "revealedEnemy": [
+          "Bounty Hunter",
+          "Outworld Destroyer",
+          "Dawnbreaker",
+          "Anti-Mage"
+        ],
+        "optionA": [
+          "Spectre",
+          "Faceless Void",
+          "Tiny"
+        ],
+        "optionB": [
+          "Spectre",
+          "Faceless Void",
+          "Phantom Assassin"
+        ],
+        "answerKey": {
+          "optionAIs": "new"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "e8b84d749418",
+        "round": 2,
+        "position": 2,
+        "bans": [
+          "Witch Doctor",
+          "Sniper",
+          "Lina",
+          "Pudge",
+          "Undying",
+          "Juggernaut",
+          "Lion",
+          "Ogre Magi",
+          "Wraith King",
+          "Invoker",
+          "Silencer",
+          "Spirit Breaker",
+          "Slark",
+          "Lifestealer",
+          "Earthshaker",
+          "Magnus"
+        ],
+        "ownPicks": [
+          "Troll Warlord",
+          "Broodmother",
+          "Lich"
+        ],
+        "revealedEnemy": [
+          "Skywrath Mage",
+          "Ember Spirit"
+        ],
+        "optionA": [
+          "Puck",
+          "Outworld Destroyer",
+          "Snapfire"
+        ],
+        "optionB": [
+          "Puck",
+          "Snapfire",
+          "Pangolier"
+        ],
+        "answerKey": {
+          "optionAIs": "old"
+        },
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      }
+    ]
+  },
+  "harnessFailures": []
+}

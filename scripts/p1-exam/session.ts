@@ -12,7 +12,7 @@ import { buildRecommendationSetFromPerspective } from "../../apps/engine/src/rec
 import type { PerspectiveRecommendationContext } from "../../apps/engine/src/recommendation/perspective-context";
 import { buildSuggestions } from "../../apps/engine/src/signals/mix";
 import { ACCOUNT_A, ACCOUNT_B, SIDES, askCoach, createLab, jsonRequest, seededIndex, visibleHeroes, type Lab, type Policy, type WorldData } from "../wave5/driver";
-import { varianceShare, type ExamState, type Pos } from "./checks";
+import { varianceShare, type ExamState, type FieldCandidate, type Pos } from "./checks";
 
 export const POLICIES: Policy[] = ["follow-coach", "varied", "deviate"];
 const POSITIONS: Pos[] = [1, 2, 3, 4, 5];
@@ -87,6 +87,44 @@ async function fullColumnRanking(world: WorldData, context: PerspectiveRecommend
     saturated.push(pf.raw !== null && pf.raw >= 1 ? 1 : 0);
   }
   return { score, positionFit, saturated };
+}
+
+/**
+ * TSK-252: the WHOLE credible field of one column, scored by V6 in this state. `buildSuggestions` returns at most TOP_N (6) per call, so the field
+ * is peeled: ask, set the returned heroes aside, ask again over the rest, until nothing is left. The options of every call are the ones the
+ * product sends (`buildRecommendationSetFromPerspective` builds them; only the candidate universe is narrowed by the peel), so `mode: "product"`
+ * measures whatever `position_fit` rule the Coach uses today; "volume" / "credible-median" force one rule to compare both on the same state. The first call is exactly the product's, so the first six are the real ones; later calls
+ * only differ in the state mean V6 uses to fill a missing signal, which does not touch a candidate that has data -- every credible hero has
+ * `position_fit` evidence at its own position.
+ */
+async function peeledColumnField(world: WorldData, context: PerspectiveRecommendationContext, position: Pos, ownerAccountId: number | null, mode: "product" | "volume" | "credible-median", needs: "product" | "flat" | "closing" = "product"): Promise<FieldCandidate[]> {
+  const meta = ownerAccountId === null ? world.meta : { ...world.meta, heroPool: world.pools[ownerAccountId] ?? [], personalBaselineWinrate: null };
+  const ownPicksLeft = Math.max(5 - visibleHeroes(context.view.ownPicks, ["KNOWN", "REVEALED"]).length, 0);
+  const field: FieldCandidate[] = [];
+  const computeSuggestions: RankingInput["computeSuggestions"] = async (draft, _ignored, options) => {
+    let remaining = [...(options?.candidateHeroIds ?? [])];
+    let first: Awaited<ReturnType<typeof buildSuggestions>> | null = null;
+    for (let guard = 0; guard < 20 && remaining.length > 0; guard += 1) {
+      // TSK-253: `flat` forces the legacy `team_synergy` (key removed), `closing` forces the stage-aware one (picks left from the state), `product` leaves whatever the Coach asks.
+      const needsOverride = needs === "product" ? {} : { teamNeedsOwnPicksRemaining: needs === "closing" ? ownPicksLeft : undefined };
+      const set = await buildSuggestions(draft, meta, { metaIsStale: true, heroPositions: world.heroPositions, ...options, ...(mode === "product" ? {} : { positionFitSaturation: mode }), ...needsOverride, candidateHeroIds: remaining });
+      first ??= set;
+      if (set.suggestions.length === 0) break;
+      for (const suggestion of set.suggestions) {
+        const pf = suggestion.signals.find((signal) => signal.signal === "position_fit");
+        const matches = (world.heroPositions[suggestion.hero] ?? []).find((share) => share.position === position)?.matches;
+        if (pf !== undefined && matches !== undefined) field.push({ heroId: suggestion.hero, score: suggestion.score, positionFit: pf.weighted, matches });
+      }
+      const taken = new Set(set.suggestions.map((s) => s.hero));
+      remaining = remaining.filter((hero) => !taken.has(hero));
+    }
+    return first ?? buildSuggestions(draft, meta, { metaIsStale: true, heroPositions: world.heroPositions, ...options });
+  };
+  await buildRecommendationSetFromPerspective({
+    context, computeSuggestions, heroPositions: world.heroPositions, targetPosition: position,
+    candidateHeroIds: credibleHeroesForPosition(position, world.heroPositions), teamOpening: false, singleSlotEvaluation: true, outputLimit: 50,
+  });
+  return field;
 }
 
 export async function runExam(world: WorldData, draftCount: number): Promise<Run> {
@@ -169,6 +207,16 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
           positionFitShare: varianceShare(positionFit, scores),
           positionFitLevelShare: levelShares.length === 0 ? null : levelShares.reduce((a, b) => a + b, 0) / levelShares.length,
           candidateCount: scores.length,
+          positionFitField: target === null ? null : await peeledColumnField(world, context, target, target === humanPosition ? accountId : null, "product"),
+          positionFitPaired: target === null ? null : {
+            volume: await peeledColumnField(world, context, target, target === humanPosition ? accountId : null, "volume"),
+            credibleMedian: await peeledColumnField(world, context, target, target === humanPosition ? accountId : null, "credible-median"),
+          },
+          // TSK-253: the same column, `credible-median` in both, differing ONLY in how `team_synergy` weighs what the team lacks.
+          teamNeedsPaired: target === null ? null : {
+            flat: await peeledColumnField(world, context, target, target === humanPosition ? accountId : null, "credible-median", "flat"),
+            closing: await peeledColumnField(world, context, target, target === humanPosition ? accountId : null, "credible-median", "closing"),
+          },
         };
         run.states.push(exam);
         run.v3Ms.push(answer.ms);

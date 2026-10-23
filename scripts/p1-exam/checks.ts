@@ -6,7 +6,8 @@
 //   HARD         a violation is a defect (I1, I2, I3-conformity, I6-visible, I9-visible, I11)
 //   OBSERVATION  a number to look at, not a law (I4, I5, I7, I8, I10, concentration)
 //   NOT_MEASURABLE  the thing the invariant needs does not exist in the system yet (reported honestly, never as PASS)
-import type { HeroId } from "../../apps/engine/src/draft/reducer";
+import type { DraftState, HeroId } from "../../apps/engine/src/draft/reducer";
+import { assessCompositionNeeds, unfilledCriticalGaps, type CompositionNeeds } from "../../apps/engine/src/draft-paths/gaps";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import { isCandidateAdmittedForPosition, isCredibleForPosition, type HeroPositions } from "../../apps/engine/src/signals/hero-positions";
@@ -45,6 +46,12 @@ export interface ExamState {
   positionFitSaturated: number | null;
   /** How many candidates those numbers were computed over. */
   candidateCount: number;
+  /** TSK-252: the WHOLE credible field of the recommended column scored by V6 (peeled past the TOP_N cut); null when there is no recommended column. */
+  positionFitField: FieldCandidate[] | null;
+  /** TSK-252: the same column scored under each `position_fit` rule at THIS state, to compare the rules on identical decisions. */
+  positionFitPaired: { volume: FieldCandidate[]; credibleMedian: FieldCandidate[] } | null;
+  /** TSK-253: the same column scored with the legacy `team_synergy` (`flat`) and with the stage-aware one (`closing`); both with `credible-median`. */
+  teamNeedsPaired: { flat: FieldCandidate[]; closing: FieldCandidate[] } | null;
 }
 
 export interface ExamWorld {
@@ -251,3 +258,191 @@ export function varianceShare(part: readonly number[], total: readonly number[])
 
 export const mean = (xs: readonly number[]): number | null => (xs.length === 0 ? null : xs.reduce((s, x) => s + x, 0) / xs.length);
 export const rate = (hits: number, total: number): number | null => (total === 0 ? null : hits / total);
+
+// ---- I5-field: position_fit over the WHOLE credible field, not only the TOP_N that V6 keeps -----------------------------------------
+// TSK-252. The original I5 (above) is computed among the ~6 candidates V6 returns, so it cannot see the selection `position_fit` already
+// made by deciding who survives the cut. Here the exam peels V6 (re-asking with the heroes already returned excluded) until the whole
+// credible field of the column is scored, and these pure functions read that field.
+
+/** One credible candidate of the recommended column, scored by V6 in the state. `matches` is the hero's recorded matches AT that position. */
+export interface FieldCandidate {
+  heroId: HeroId;
+  /** V6 score (0..100). */
+  score: number;
+  /** `position_fit.weighted` inside that score. */
+  positionFit: number;
+  /** The hero's recorded matches at the target position (formula-independent popularity). */
+  matches: number;
+}
+
+export interface FieldStats {
+  fieldSize: number;
+  /** Fraction of the top-3 / top-6 (by V6 score) that sit in the more-played half of the field by matches; a fair ranking would be ~0.5. */
+  top3MorePlayed: number;
+  top6MorePlayed: number;
+  /** Share of the score's variance that `position_fit` explains over the whole field (null when the score does not vary). */
+  orderShareField: number | null;
+  /** The same, among ONLY the more-played half of the field: is the order inside the popular half decided by volume or by the draft? */
+  orderShareMorePlayedHalf: number | null;
+  /** Jaccard between the real top-k and the top-k of the same score with `position_fit`'s contribution removed: 1 = it decides nothing. */
+  top3WithoutPositionFit: number;
+  top6WithoutPositionFit: number;
+}
+
+const topIds = (items: readonly FieldCandidate[], key: (c: FieldCandidate) => number, k: number): HeroId[] =>
+  [...items].sort((a, b) => key(b) - key(a) || a.heroId - b.heroId).slice(0, k).map((c) => c.heroId);
+
+/** Pure; needs at least 6 candidates (otherwise null: a column too thin to say anything about a cut at 6). */
+export function fieldStats(field: readonly FieldCandidate[]): FieldStats | null {
+  if (field.length < 6) return null;
+  const byMatches = [...field].sort((a, b) => b.matches - a.matches || a.heroId - b.heroId);
+  const morePlayed = new Set(byMatches.slice(0, Math.ceil(field.length / 2)).map((c) => c.heroId));
+  const popularHalf = field.filter((c) => morePlayed.has(c.heroId));
+  const share = (ids: readonly HeroId[]): number => ids.filter((id) => morePlayed.has(id)).length / ids.length;
+  const real3 = topIds(field, (c) => c.score, 3);
+  const real6 = topIds(field, (c) => c.score, 6);
+  const rest = (c: FieldCandidate): number => c.score - c.positionFit;
+  return {
+    fieldSize: field.length,
+    top3MorePlayed: share(real3),
+    top6MorePlayed: share(real6),
+    orderShareField: varianceShare(field.map((c) => c.positionFit), field.map((c) => c.score)),
+    orderShareMorePlayedHalf: varianceShare(popularHalf.map((c) => c.positionFit), popularHalf.map((c) => c.score)),
+    top3WithoutPositionFit: jaccard(real3, topIds(field, rest, 3)),
+    top6WithoutPositionFit: jaccard(real6, topIds(field, rest, 6)),
+  };
+}
+
+/** Two rankings of the SAME state's credible field (old rule vs new rule): did the top change, and how far did it move toward the less played? */
+export interface PairedChange {
+  top3Same: boolean;
+  jaccard3: number;
+  jaccard6: number;
+  entered3: HeroId[];
+  left3: HeroId[];
+  /** Mean matches of the top-3 under each rule (a drop means the new top leans on less volume). */
+  meanMatchesTop3Old: number;
+  meanMatchesTop3New: number;
+}
+
+export function pairedChange(oldField: readonly FieldCandidate[], newField: readonly FieldCandidate[]): PairedChange | null {
+  if (oldField.length < 6 || newField.length < 6) return null;
+  const score = (c: FieldCandidate): number => c.score;
+  const old3 = topIds(oldField, score, 3);
+  const new3 = topIds(newField, score, 3);
+  const matchesOf = (field: readonly FieldCandidate[], ids: readonly HeroId[]): number => ids.reduce((sum, id) => sum + (field.find((c) => c.heroId === id)?.matches ?? 0), 0) / ids.length;
+  return {
+    top3Same: old3.length === new3.length && old3.every((id) => new3.includes(id)),
+    jaccard3: jaccard(old3, new3),
+    jaccard6: jaccard(topIds(oldField, score, 6), topIds(newField, score, 6)),
+    entered3: new3.filter((id) => !old3.includes(id)),
+    left3: old3.filter((id) => !new3.includes(id)),
+    meanMatchesTop3Old: matchesOf(oldField, old3),
+    meanMatchesTop3New: matchesOf(newField, new3),
+  };
+}
+
+/**
+ * What a top-3 does against the enemies the Player can SEE (curated layer only): `counters` = heroes of the top-3 that hard-counter at least one
+ * revealed enemy (the offensive reason to pick them); `exposed` = heroes of the top-3 that a revealed enemy hard-counters. Pure.
+ */
+export function revealedCounterProfile(top3: readonly HeroId[], revealedEnemy: readonly HeroId[], counters: ReadonlyMap<HeroId, readonly CuratedCounter[]>): { counters: number; exposed: number } {
+  const countersAnEnemy = (hero: HeroId): boolean => revealedEnemy.some((enemy) => (counters.get(enemy) ?? []).some((entry) => entry.vs === hero && entry.level === "hard"));
+  return {
+    counters: top3.filter(countersAnEnemy).length,
+    exposed: top3.filter((hero) => hardCounteredBy(hero, revealedEnemy, counters).length > 0).length,
+  };
+}
+
+/** The top-3 of a scored field, by score (ties by hero id): the same cut every other field helper uses. */
+export const topThree = (field: readonly FieldCandidate[]): HeroId[] => topIds(field, (c) => c.score, 3);
+
+/**
+ * Is the cut of the top-`k` decided by an exact tie? When the k-th and the (k+1)-th have the same score, which one is shown falls to the hero-id
+ * tie-break, not to the draft -- a rule that saturates many heroes at the same `position_fit` can create exactly that.
+ */
+export function tiedAtCut(field: readonly FieldCandidate[], k: number): boolean | null {
+  if (field.length <= k) return null;
+  const sorted = [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId);
+  return Math.abs(sorted[k - 1]!.score - sorted[k]!.score) < 1e-9;
+}
+
+// ---- T4 (TSK-253): the team's critical gaps, and what a top-3 does about them ---------------------------------------------------
+// `needs` is read from the STATE (own picks + picks left + the curated capabilities), not from the code under test's scoring: the same
+// `assessCompositionNeeds` the product exposes, applied to what the Player has actually picked.
+
+/** The Player's team as the engine's own `DraftState` reads it (only `localSide` and `picks` are looked at by the gap functions). */
+const ownTeamState = (ownPicks: readonly HeroId[]): DraftState => ({ localSide: "radiant", picks: { radiant: [...ownPicks], dire: [] } }) as unknown as DraftState;
+
+export function examNeeds(state: ExamState, world: ExamWorld): CompositionNeeds {
+  return assessCompositionNeeds(ownTeamState(state.ownPicks), [...world.capabilities.values()], state.ownPicksRemaining);
+}
+
+/** An open gap that was NOT declared critical only because an own pick has no curated capabilities (unknown is not "lacking"). */
+export function criticalWithheldByUncuratedPick(state: ExamState, world: ExamWorld): boolean {
+  const needs = examNeeds(state, world);
+  const inWindow = state.ownPicksRemaining >= 1 && state.ownPicksRemaining <= 2;
+  return inWindow && needs.critical.length === 0 && state.ownPicks.some((hero) => !world.capabilities.has(hero)) && needs.open.some((gap) => gap === "initiation" || gap === "catch" || gap === "damage_mix");
+}
+
+/** Does this hero fill at least one of the team's critical gaps? Unknown capabilities fill nothing (and are never counted as lacking either). */
+export function fillsCritical(hero: HeroId, needs: CompositionNeeds, world: ExamWorld): boolean {
+  const capability = world.capabilities.get(hero);
+  if (capability === undefined || needs.critical.length === 0) return false;
+  return unfilledCriticalGaps(capability, needs).length < needs.critical.length;
+}
+
+export interface NeedsChange {
+  top3Same: boolean;
+  entered3: HeroId[];
+  left3: HeroId[];
+  /** Heroes of the top-3 that fill a critical gap, under the legacy rule and under the stage-aware one. */
+  top3FillersFlat: number;
+  top3FillersClosing: number;
+  /** A filler exists somewhere in the credible field of the column. */
+  fillerInField: boolean;
+  /** What the swap costs under the LEGACY score: mean flat score of the flat top-3 vs of the closing top-3 (a hero not in the flat field counts as the field's lowest). */
+  meanFlatScoreOfFlatTop3: number;
+  meanFlatScoreOfClosingTop3: number;
+  meanMatchesTop3Flat: number;
+  meanMatchesTop3Closing: number;
+}
+
+/** Same state, same credible field, legacy `team_synergy` vs stage-aware: did the top-3 move, did it move toward what the team critically lacks, and what did it give up. */
+export function needsChange(flat: readonly FieldCandidate[], closing: readonly FieldCandidate[], needs: CompositionNeeds, world: ExamWorld): NeedsChange | null {
+  if (flat.length < 6 || closing.length < 6) return null;
+  const flat3 = topThree(flat);
+  const closing3 = topThree(closing);
+  const flatScore = (id: HeroId): number => flat.find((c) => c.heroId === id)?.score ?? Math.min(...flat.map((c) => c.score));
+  const matchesIn = (field: readonly FieldCandidate[], ids: readonly HeroId[]): number => ids.reduce((sum, id) => sum + (field.find((c) => c.heroId === id)?.matches ?? 0), 0) / ids.length;
+  const mean = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
+  return {
+    top3Same: flat3.length === closing3.length && flat3.every((id) => closing3.includes(id)),
+    entered3: closing3.filter((id) => !flat3.includes(id)),
+    left3: flat3.filter((id) => !closing3.includes(id)),
+    top3FillersFlat: flat3.filter((id) => fillsCritical(id, needs, world)).length,
+    top3FillersClosing: closing3.filter((id) => fillsCritical(id, needs, world)).length,
+    fillerInField: closing.some((c) => fillsCritical(c.heroId, needs, world)),
+    meanFlatScoreOfFlatTop3: mean(flat3.map(flatScore)),
+    meanFlatScoreOfClosingTop3: mean(closing3.map(flatScore)),
+    meanMatchesTop3Flat: matchesIn(flat, flat3),
+    meanMatchesTop3Closing: matchesIn(closing, closing3),
+  };
+}
+
+// ---- I6b: INITIATION on its own (TSK-253). The original I6 asks for "initiation OR catch": 69% of curated heroes have one of the two, so that
+// union is almost never missing and the exam could not see the gap that does occur. Kept as a separate measure so I6 stays comparable with older reports.
+export interface I6bResult { applies: boolean; top3Fills: boolean; fillerInField: boolean }
+
+export function i6bInitiation(state: ExamState, world: ExamWorld): I6bResult {
+  const hasInitiation = (hero: HeroId): boolean => world.capabilities.get(hero)?.hasInitiation === true;
+  const allCurated = state.ownPicks.every((hero) => world.capabilities.has(hero));
+  const applies = state.ownPicksRemaining >= 1 && state.ownPicksRemaining <= 2 && state.ownPicks.length >= 3 && allCurated && !state.ownPicks.some(hasInitiation);
+  if (!applies) return { applies: false, top3Fills: false, fillerInField: false };
+  const column = state.board?.columns.find((c) => c.position === state.board?.recommendedPosition);
+  return {
+    applies,
+    top3Fills: (column?.top ?? []).slice(0, 3).some((t) => hasInitiation(t.heroId)),
+    fillerInField: (state.positionFitField ?? []).some((c) => hasInitiation(c.heroId)),
+  };
+}
