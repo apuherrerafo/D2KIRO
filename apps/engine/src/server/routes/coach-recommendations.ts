@@ -1,4 +1,4 @@
-import { buildTeamCoachBoard, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
+import { buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, credibleHeroesForPosition, personalCandidateUniverse, type CoachRecomputation, type CurrentDecisionRecomputation, type TeamCoachBoard } from "../../coach";
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
@@ -142,13 +142,16 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
     });
   }
+  function teamBoardInput(context: PerspectiveRecommendationContext, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null) {
+    const buildTargetRanking = (boardContext: PerspectiveRecommendationContext, position: 1 | 2 | 3 | 4 | 5) =>
+      buildTeamTargetRanking(boardContext, position, position === playerPersonalPosition ? accountId : null);
+    return { context, playerPersonalPosition, heroPositions, heroCounters, buildTargetRanking };
+  }
   return {
     async recommendTeamBoard(sessionId, playerPersonalPosition, accountId = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return undefined;
-      const buildTargetRanking = (boardContext: PerspectiveRecommendationContext, position: 1 | 2 | 3 | 4 | 5) =>
-        buildTeamTargetRanking(boardContext, position, position === playerPersonalPosition ? accountId : null);
-      return buildTeamCoachBoard({ context, playerPersonalPosition, heroPositions, heroCounters, buildTargetRanking });
+      return buildTeamCoachBoard(teamBoardInput(context, playerPersonalPosition, accountId));
     },
     async recommend(sessionId, playerPersonalPosition, accountId = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
@@ -158,7 +161,13 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
     async recommendCurrentDecision(sessionId, playerPersonalPosition, accountId = null, requestedTarget = null) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);
       if (!context) return undefined;
-      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null, requestedTarget });
+      // With >= 2 open positions V4 names the SAME position as the board (LivePositionPriorityV1); with one, nothing is
+      // computed here and selectDecisionTarget decides as before -- the individual mode never pays for the extra rankings.
+      const openPositions = context.humanActionability?.hasHumanAction ? context.humanActionability.eligiblePositions.length : 0;
+      const positionPriority = openPositions >= 2
+        ? await buildTeamPositionPriority(teamBoardInput(context, playerPersonalPosition, accountId))
+        : null;
+      return coachFor(accountId).recomputeCurrentDecision({ context, playerPersonalPosition, personalPoolAvailable: accountId !== null, requestedTarget, positionPriority });
     },
     async assignPosition(sessionId, playerPersonalPosition, accountId, heroId, position) {
       const context = deps.source.perspectiveRecommendationContext(sessionId);

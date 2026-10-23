@@ -93,7 +93,12 @@ describe("GET .../team-recommendations -- Team Coach Board", () => {
     expect(decision.kind).toBe("ACTIONABLE");
     if (decision.kind !== "ACTIONABLE") return;
     expect(body.currentDecision.recommendedPosition).toBe(decision.targetPosition);
-    expect(body.currentDecision.targetBasis).toBe(decision.targetBasis);
+    // TSK-251: Party5 round 1 with no tactical evidence -> the habitual order (hard support first). The board labels it
+    // PHASE_FALLBACK; V4's wire has no such value, so it travels as "no clear strategic priority" (DETERMINISTIC_DEFAULT).
+    expect(body.currentDecision.recommendedPosition).toBe(5);
+    expect(body.currentDecision.targetBasis).toBe("PHASE_FALLBACK");
+    expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
+    expect(decision.targetRationale).toBe(body.currentDecision.reason.slice(0, decision.targetRationale.length));
     expect(body.positions.filter((column) => column.position === body.currentDecision.recommendedPosition)).toHaveLength(1);
     const recommendedColumn = body.positions.find((column) => column.position === body.currentDecision.recommendedPosition)!;
     expect(body.currentDecision.recommendedHeroId).toBe(recommendedColumn.primaryHeroId);
@@ -117,26 +122,26 @@ describe("GET .../team-recommendations -- Team Coach Board", () => {
     }
   });
 
-  test("3. elegir Pos5 aunque la recomendación sea otra es legal; 4. recalcula; 5. el héroe desaparece", async () => {
+  test("3. elegir Pos1 aunque la recomendación sea otra es legal; 4. recalcula; 5. el héroe desaparece", async () => {
     const { board, pick } = await setup();
     const before = await board();
-    expect(before.currentDecision.recommendedPosition).not.toBe(5);
-    const chosen = before.positions.find((column) => column.position === 5)!.top[1]!.heroId; // not even the primary
-    const result = await pick(5, chosen);
+    expect(before.currentDecision.recommendedPosition).not.toBe(1);
+    const chosen = before.positions.find((column) => column.position === 1)!.top[1]!.heroId; // not even the primary
+    const result = await pick(1, chosen);
     expect(result.accepted).toBe(true);
 
     const after = await board();
     expect(after.stateIdentity).not.toBe(before.stateIdentity);
-    const pos5 = after.positions.find((column) => column.position === 5)!;
-    expect(pos5).toMatchObject({ state: "FILLED", alreadyFilled: true, filledHeroId: chosen, eligibleNow: false, top: [] });
-    const open = after.positions.filter((column) => column.position !== 5);
+    const pos1 = after.positions.find((column) => column.position === 1)!;
+    expect(pos1).toMatchObject({ state: "FILLED", alreadyFilled: true, filledHeroId: chosen, eligibleNow: false, top: [] });
+    const open = after.positions.filter((column) => column.position !== 1);
     expect(open).toHaveLength(4);
     for (const column of open) {
       expect(column.state).toBe("RANKED");
       expect(column.eligibleNow).toBe(true);
     }
     expect(heroesOf(after)).not.toContain(chosen);
-    expect(after.currentDecision.actionablePositions).toEqual([1, 2, 3, 4]);
+    expect(after.currentDecision.actionablePositions).toEqual([2, 3, 4, 5]);
   });
 
   test("6. todas las columnas usan el mismo stateIdentity (el del snapshot, igual al de V4)", async () => {
@@ -159,7 +164,10 @@ describe("GET .../team-recommendations -- Team Coach Board", () => {
     const { board } = await setup([1, 2, 3], 2);
     const body = await board();
     expect(body.positions.map((column) => column.position)).toEqual([1, 2, 3]);
-    expect(body.currentDecision.recommendedPosition).toBe(2);
+    // Party3 (Pos1/2/3): the habitual order puts Pos3 first; all three stay ranked and actionable.
+    expect(body.currentDecision.recommendedPosition).toBe(3);
+    expect(body.currentDecision.actionablePositions).toEqual([1, 2, 3]);
+    for (const column of body.positions) expect(column.state).toBe("RANKED");
   });
 
   test("sesión desconocida -> 404; lado ajeno -> 403", async () => {

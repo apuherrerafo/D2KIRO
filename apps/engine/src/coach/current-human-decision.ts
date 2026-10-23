@@ -7,6 +7,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
+import type { LivePositionPriority } from "./live-position-priority";
 import { positionPhrase } from "./reveal-strategy";
 
 // Product Semantics Recovery WP2 -- the CurrentHumanDecision builder (pure).
@@ -85,6 +86,21 @@ export function selectDecisionTarget(input: SelectDecisionTargetInput): Decision
     targetPosition: fallback,
     targetBasis: "DETERMINISTIC_DEFAULT",
     targetRationale: `No hay una prioridad estratégica clara entre tus posiciones pendientes. Vista inicial sugerida: ${positionPhrase(fallback)}.`,
+  };
+}
+
+/**
+ * V4's target from the position priority the Team Coach board already computed. V4's wire has no PHASE_FALLBACK, and the
+ * habitual commitment order is exactly "no clear strategic priority", so it travels as DETERMINISTIC_DEFAULT -- only a
+ * counter window or a last pool hero is STRATEGIC. Null when absent or when it points at a position that is not
+ * eligible here (the caller falls back to selectDecisionTarget).
+ */
+export function targetFromPriority(priority: LivePositionPriority | null | undefined, eligiblePositions: readonly Position[]): DecisionTarget | null {
+  if (!priority || !eligiblePositions.includes(priority.targetPosition)) return null;
+  return {
+    targetPosition: priority.targetPosition,
+    targetBasis: priority.targetBasis === "STRATEGIC" ? "STRATEGIC" : "DETERMINISTIC_DEFAULT",
+    targetRationale: priority.targetRationale,
   };
 }
 
