@@ -15,10 +15,12 @@ Muestra: {"drafts":120,"completed":120,"decisionPoints":622,"round1":252,"round2
 | I3 conformidad: objetivo = precedencia declarada | 0/622 estados divergen (0.0%) |
 | I3 toda columna abierta rankeada | 0 violaciones |
 | I3 PHASE presentado como ventaja | 0 |
-| I6-visible hueco de iniciación/catch | 0/0 estados con hueco abierto sin que ninguna tarjeta lo diga |
+| I6-visible hueco de iniciación/catch (**definición REVISADA, ver nota**) | 0/0 estados con hueco abierto sin que ninguna tarjeta lo diga |
 | I9-visible counter duro en top-3 | 0 apariciones en 0 estados; 0 sin riesgo visible |
 | I11 honestidad de la base | 0 violaciones en 3074 tarjetas V4 (bases {"statistical":2668,"mixed":363,"curated":43}; estadísticas sin muestra: 0) |
 | I6c CRITICAL_GAP en la tarjeta | 46 tarjetas lo llevan (de 160 en estados con hueco crítico); sin prueba: 0; faltante donde era demostrable: 0 |
+
+> **Nota de comparabilidad (añadida a mano; este reporte NO se regeneró).** La fila `I6-visible` de arriba usa la definición **revisada** de TSK-254 (sólo aplica con todos los picks propios curados; un riesgo V4 también hace visible el hueco) bajo la etiqueta de siempre. `ENGINE_P1_EXAM_T4_AFTER` midió I6 con la definición **original** (2/2). **0/0 no es una mejora respecto de 2/2**: es otra regla con el denominador encogido (los 2 estados eran Ringmaster/Largo, sin curar). El valor de I6 original sobre el código de T5 no está medido. Desde el siguiente examen el generador emite las dos por separado (`I6_visible` original, `I6_visible_revised`).
 
 ## Observaciones (no son ley)
 

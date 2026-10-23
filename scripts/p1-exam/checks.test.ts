@@ -92,6 +92,14 @@ describe("I6 gap / I7 damage", () => {
   test("an own pick without curated capabilities means the gap is not established (unknown is not lacking)", () => {
     expect(i6Gap(state({ ownPicksRemaining: 1, ownPicks: [1, 2, 777, 5] }), world).applies).toBe(false);
   });
+  test("the ORIGINAL and REVISED definitions are separate rulers: an uncurated own pick applies to the first only, and card risk text counts only for the second", () => {
+    const uncurated = state({ ownPicksRemaining: 1, ownPicks: [1, 2, 777, 5] });
+    expect(i6Gap(uncurated, world, "original").applies).toBe(true);
+    expect(i6Gap(uncurated, world, "revised").applies).toBe(false);
+    const cardOnly = state({ ...late, v4: { kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId: 1, rationale: "", basis: null, risks: [{ kind: "CRITICAL_GAP", detail: "A tu equipo le falta iniciación y te queda 1 pick", heroIds: [] }] }] } });
+    expect(i6Gap(cardOnly, world, "original").gapNotVisible).toBe(true);
+    expect(i6Gap(cardOnly, world, "revised").gapNotVisible).toBe(false);
+  });
   test("top-3 fills vs a filler existing elsewhere vs the gap being visible on a card", () => {
     const hidden = i6Gap(state({ ...late, v3: [{ heroId: 5, rationale: "x" }], board: { recommendedPosition: 1, targetBasis: null, columns: [{ position: 3, state: "RANKED", eligibleNow: true, top: [{ heroId: 3, reason: "x" }] }] } }), world);
     expect(hidden).toMatchObject({ top3Fills: false, credibleFillerExists: true, gapNotVisible: true });

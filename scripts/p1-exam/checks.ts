@@ -166,15 +166,23 @@ export interface I6Result {
   gapNotVisible: boolean;
 }
 
-export function i6Gap(state: ExamState, world: ExamWorld): I6Result {
+/**
+ * I6 has two DEFINITIONS and their numbers are not comparable with each other:
+ *  - "original" (T2..T4_AFTER): an own pick without curated capabilities counts as lacking, and only V3/board texts can make the gap visible.
+ *  - "revised" (T5, TSK-254): the gap applies only when EVERY own pick is curated, and a V4 card risk text also makes it visible.
+ * The revised rule shrinks the denominator (2 -> 0 states on the same seeds), so a drop from original to revised is a change of ruler, not an improvement.
+ */
+export type I6Definition = "original" | "revised";
+
+export function i6Gap(state: ExamState, world: ExamWorld, definition: I6Definition = "revised"): I6Result {
   const fills = (hero: HeroId): boolean => { const c = world.capabilities.get(hero); return c !== undefined && (c.hasInitiation || c.hasCatch); };
   // TSK-254: an own pick without curated capabilities is unknown, not "lacking" -- the gap is not established, so nothing is owed to the Player
   // (the same rule as the engine's critical gap and as I6b). Before T5 this made the exam flag 2 states that the product rightly leaves silent.
-  const allCurated = state.ownPicks.every((hero) => world.capabilities.has(hero));
+  const allCurated = definition === "original" || state.ownPicks.every((hero) => world.capabilities.has(hero));
   const applies = state.ownPicksRemaining <= 2 && state.ownPicks.length >= 3 && allCurated && !state.ownPicks.some(fills);
   if (!applies) return { applies: false, top3Fills: false, credibleFillerExists: false, gapNotVisible: false };
   const credible = new Set<HeroId>([...state.v3.map((c) => c.heroId), ...(state.board?.columns ?? []).flatMap((c) => c.top.map((t) => t.heroId))]);
-  const texts = [state.v3PrimaryRationale, ...state.v3.map((c) => c.rationale), ...(state.board?.columns ?? []).flatMap((c) => c.top.map((t) => t.reason)), ...(state.v4?.cards ?? []).flatMap((c) => c.risks.map((r) => r.detail))];
+  const texts = [state.v3PrimaryRationale, ...state.v3.map((c) => c.rationale), ...(state.board?.columns ?? []).flatMap((c) => c.top.map((t) => t.reason)), ...(definition === "revised" ? (state.v4?.cards ?? []).flatMap((c) => c.risks.map((r) => r.detail)) : [])];
   return { applies, top3Fills: state.v3.slice(0, 3).some((c) => fills(c.heroId)), credibleFillerExists: [...credible].some(fills), gapNotVisible: !texts.some((text) => GAP_WORDS.test(text)) };
 }
 

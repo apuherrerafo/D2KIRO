@@ -151,6 +151,7 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
   const coreFirst = opening.filter((r) => r.coreFirstWithoutWindow === true).length;
 
   const i6 = states.map((s) => i6Gap(s, world)).filter((r) => r.applies);
+  const i6Original = states.map((s) => i6Gap(s, world, "original")).filter((r) => r.applies);
   const i7 = states.map((s) => i7Damage(s, world)).filter((r) => r.applies);
   const i6b = states.map((s) => i6bInitiation(s, world)).filter((r) => r.applies);
   const gapCards = states.map((s) => criticalGapOnCards(s, world));
@@ -193,10 +194,18 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
         openColumnNotRanked: { violations: unrankedOpen.length, examples: examples(unrankedOpen) },
         phaseShownAsStrategic: phaseAsStrategic,
       },
+      // Same key and same definition as every report up to T4_AFTER, so the ladder stays comparable. NOT the same ruler as I6_visible_revised.
       I6_visible: {
+        definition: "original (T2..T4_AFTER): an uncurated own pick counts as lacking; only V3/board texts make the gap visible",
+        gapOpenStates: i6Original.length,
+        gapNotVisibleOnAnyCard: i6Original.filter((r) => r.gapNotVisible).length,
+        note: "A late open initiation/catch gap that no card mentions. T4/T5 are expected to close it; at baseline it is a known defect.",
+      },
+      I6_visible_revised: {
+        definition: "revised (T5, TSK-254): applies only with every own pick curated; a V4 card risk text also makes the gap visible",
         gapOpenStates: i6.length,
         gapNotVisibleOnAnyCard: i6.filter((r) => r.gapNotVisible).length,
-        note: "A late open initiation/catch gap that no card mentions. T4/T5 are expected to close it; at baseline it is a known defect.",
+        note: "Smaller denominator than I6_visible by construction. A drop from the original to this one is a change of ruler, NOT an improvement: do not compare the two numbers.",
       },
       I9_visible: {
         hardCounteredHeroesInTop3: i9.length,
@@ -365,7 +374,8 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   lines.push(`| I3 conformidad: objetivo = precedencia declarada | ${h.I3_conformity.targetDivergesFromDeclaredPrecedence.states}/${summary.states} estados divergen (${pct(h.I3_conformity.targetDivergesFromDeclaredPrecedence.rate)}) |`);
   lines.push(`| I3 toda columna abierta rankeada | ${h.I3_conformity.openColumnNotRanked.violations} violaciones |`);
   lines.push(`| I3 PHASE presentado como ventaja | ${h.I3_conformity.phaseShownAsStrategic} |`);
-  lines.push(`| I6-visible hueco de iniciación/catch | ${h.I6_visible.gapNotVisibleOnAnyCard}/${h.I6_visible.gapOpenStates} estados con hueco abierto sin que ninguna tarjeta lo diga |`);
+  lines.push(`| I6-visible (definición ORIGINAL, comparable con T2..T4_AFTER) | ${h.I6_visible.gapNotVisibleOnAnyCard}/${h.I6_visible.gapOpenStates} estados con hueco abierto sin que ninguna tarjeta lo diga |`);
+  lines.push(`| I6-visible (definición REVISADA T5, solo con todos los picks propios curados; NO comparable con la fila anterior ni con reportes previos) | ${h.I6_visible_revised.gapNotVisibleOnAnyCard}/${h.I6_visible_revised.gapOpenStates} estados con hueco abierto sin que ninguna tarjeta lo diga |`);
   lines.push(`| I9-visible counter duro en top-3 | ${h.I9_visible.hardCounteredHeroesInTop3} apariciones en ${h.I9_visible.statesAffected} estados; ${h.I9_visible.withoutVisibleRisk} sin riesgo visible |`);
   lines.push(`| I11 honestidad de la base | ${h.I11_honestBasis.violations} violaciones en ${h.I11_honestBasis.cards} tarjetas V4 (bases ${JSON.stringify(h.I11_honestBasis.basisKinds)}; estadísticas sin muestra: ${h.I11_honestBasis.statisticalWithoutSample}) |`);
   lines.push(`| I6c CRITICAL_GAP en la tarjeta | ${h.I6c_criticalGapOnCards.cardsCarryingIt} tarjetas lo llevan (de ${h.I6c_criticalGapOnCards.cardsInCriticalStates} en estados con hueco crítico); sin prueba: ${h.I6c_criticalGapOnCards.shownWithoutProof}; faltante donde era demostrable: ${h.I6c_criticalGapOnCards.missingOnADemonstrableCard} |`, "");
