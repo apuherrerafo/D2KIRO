@@ -85,8 +85,8 @@ describe("ui-probe -- lee lo que la pantalla muestra de verdad", () => {
           state: "RANKED",
           targetPosition: 3,
           cards: [
-            { heroId: 11, position: 3, rank: 1, score: 30, confidence: "alta", roleStatus: "LIKELY", badges: [], rationale: "a", isFromPool: false, poolMembership: "NO_POOL" },
-            { heroId: 12, position: 3, rank: 2, score: 20, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "b", isFromPool: false, poolMembership: "NO_POOL" },
+            { heroId: 11, position: 3, rank: 1, score: 30, confidence: "alta", roleStatus: "LIKELY", badges: [], rationale: "a", isFromPool: false, poolMembership: "NO_POOL", basis: { kind: "curated", sources: [{ kind: "curated", sampleSize: null }] }, risks: [] },
+            { heroId: 12, position: 3, rank: 2, score: 20, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "b", isFromPool: false, poolMembership: "NO_POOL", basis: { kind: "curated", sources: [{ kind: "curated", sampleSize: null }] }, risks: [] },
           ],
           degradations: [],
         },

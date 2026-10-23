@@ -95,7 +95,7 @@ class FakeEngine {
           targetBasis: "DETERMINISTIC_DEFAULT",
           targetRationale: "fixture",
           viewedPosition: targetPosition,
-          candidates: { state: "RANKED", targetPosition, cards: [{ heroId: 10 + this.own.length, position: targetPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false, poolMembership: "NO_POOL" }], degradations: [] },
+          candidates: { state: "RANKED", targetPosition, cards: [{ heroId: 10 + this.own.length, position: targetPosition, rank: 1, score: 10, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture", isFromPool: false, poolMembership: "NO_POOL", basis: { kind: "curated", sources: [{ kind: "curated", sampleSize: null }] }, risks: [] }], degradations: [] },
           personalPoolApplied: false,
           poolState: "NONE",
           poolOwner: null,
