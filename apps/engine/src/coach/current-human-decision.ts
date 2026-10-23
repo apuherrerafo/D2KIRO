@@ -5,6 +5,7 @@ import { unavailableHeroesFrom } from "../recommendation/perspective-context";
 import type { RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import { deriveCardBasis, deriveCardRisks } from "./card-evidence";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
@@ -188,6 +189,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
+      const evidenceContext = { revealedEnemies, heroCounters: input.heroCounters, bannedHeroes: view.bannedHeroes };
       const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {
@@ -202,6 +204,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),
+          basis: deriveCardBasis(candidate, card.badges.includes("COUNTER"), evidenceContext),
+          risks: deriveCardRisks(candidate, view, input.heroCounters),
         };
       });
       return { state: "RANKED", targetPosition, cards, degradations };
