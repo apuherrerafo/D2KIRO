@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { assessCompositionNeeds, assessCompositionNeedsOf, ownPicksRemainingFor, ownPicksRemainingOf } from "../draft-paths/gaps";
+import type { DraftState } from "../draft/reducer";
 import type { HeroCapabilities } from "../draft-paths/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCardRisks, deriveCompositionContext } from "./card-evidence";
@@ -107,5 +109,16 @@ describe("CRITICAL_GAP -- no toca el ranking ni el resto de la tarjeta", () => {
     expect(without.cards.map((card) => card.risks)).toEqual([[], []]);
     expect(withCaps.cards[0]?.risks.map((risk) => risk.kind)).toEqual(["CRITICAL_GAP"]);
     expect(withCaps.cards[1]?.risks).toEqual([]);
+  });
+});
+
+describe("CRITICAL_GAP -- una sola implementación de la evaluación, dos puertas", () => {
+  test("la puerta por héroes (Coach) y la puerta por estado (scorer) dan exactamente lo mismo", () => {
+    const caps = [...TEAM, NON_INITIATOR];
+    for (const own of [[], [1], [1, 2], [1, 2, 3], [1, 2, 99], [1, 2, 3, 4]]) {
+      const state = { localSide: "radiant", picks: { radiant: own, dire: [] } } as unknown as DraftState;
+      expect(ownPicksRemainingFor(own)).toBe(ownPicksRemainingOf(state));
+      expect(assessCompositionNeedsOf(own, caps, ownPicksRemainingFor(own))).toEqual(assessCompositionNeeds(state, caps, ownPicksRemainingOf(state)));
+    }
   });
 });

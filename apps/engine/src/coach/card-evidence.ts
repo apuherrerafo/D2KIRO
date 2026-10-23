@@ -1,6 +1,5 @@
-import { assessCompositionNeeds, capabilitiesByHero, ownPicksRemainingOf, unfilledCriticalGaps, type CompositionNeeds } from "../draft-paths/gaps";
+import { assessCompositionNeedsOf, capabilitiesByHero, ownPicksRemainingFor, unfilledCriticalGaps, type CompositionNeeds } from "../draft-paths/gaps";
 import type { DraftCapabilityGap, HeroCapabilities } from "../draft-paths/types";
-import { perspectiveToLegacyDraftState } from "../draft-protocol/adapters/suggestion-bridge";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { SignalContribution, SignalId } from "../signals/types";
@@ -115,15 +114,14 @@ export interface CardCompositionContext {
 }
 
 /**
- * One per decision, from the same state the scorer read (`perspectiveToLegacyDraftState`) and the same picks-left count
- * (`ownPicksRemainingOf`), so the card and the ranking agree on whether the closing window is open. Undefined when no
- * capabilities were supplied: the risk then simply cannot be derived (never guessed).
+ * One per decision, from the team the scorer read (the visible own picks of the view; none when the view has no side, as the
+ * legacy bridge does) and the same picks-left count, so the card and the ranking agree on whether the closing window is open.
+ * Undefined when no capabilities were supplied: the risk then simply cannot be derived (never guessed).
  */
 export function deriveCompositionContext(view: PerspectiveDraftView, capabilities: readonly HeroCapabilities[] | undefined): CardCompositionContext | undefined {
   if (!capabilities || capabilities.length === 0) return undefined;
-  // `patch` only labels the legacy state; the gap functions read `localSide` and `picks`.
-  const state = perspectiveToLegacyDraftState(view, { patch: "composition-needs" });
-  return { needs: assessCompositionNeeds(state, [...capabilities], ownPicksRemainingOf(state)), capabilities: capabilitiesByHero([...capabilities]) };
+  const own = view.viewerSide === null ? [] : view.ownPicks.flatMap((slot) => (slot.visibility === "HIDDEN" ? [] : [slot.heroId]));
+  return { needs: assessCompositionNeedsOf(own, [...capabilities], ownPicksRemainingFor(own)), capabilities: capabilitiesByHero([...capabilities]) };
 }
 
 const GAP_PHRASE: Record<DraftCapabilityGap, string> = {

@@ -34,9 +34,7 @@ function hasDamageMixGap(damageTypes: DamageType[]): boolean {
   return new Set(damageTypes).size === 1;
 }
 
-export function detectDraftGaps(state: DraftState, capabilities: HeroCapabilities[]): DraftCapabilityGap[] {
-  const own = ownCapabilities(state, capabilities);
-
+function gapsOfCapabilities(own: HeroCapabilities[]): DraftCapabilityGap[] {
   const gaps: DraftCapabilityGap[] = [];
   if (own.filter((entry) => entry.hasInitiation).length === 0) gaps.push("initiation");
   if (own.filter((entry) => entry.hasCatch).length === 0) gaps.push("catch");
@@ -46,6 +44,10 @@ export function detectDraftGaps(state: DraftState, capabilities: HeroCapabilitie
   if (own.reduce((sum, entry) => sum + levelScore(entry.scaling), 0) < GAP_THRESHOLD) gaps.push("scaling");
   if (hasDamageMixGap(own.map((entry) => entry.damageType))) gaps.push("damage_mix");
   return gaps;
+}
+
+export function detectDraftGaps(state: DraftState, capabilities: HeroCapabilities[]): DraftCapabilityGap[] {
+  return gapsOfCapabilities(ownCapabilities(state, capabilities));
 }
 
 // `ownDamageTypes`: cuando "damage_mix" está entre los gaps, siempre es monótono por construcción
@@ -95,17 +97,30 @@ export interface CompositionNeeds {
   ownPicksRemaining: number;
 }
 
-export function ownPicksRemainingOf(state: DraftState): number {
-  return Math.max(MAX_PICKS_PER_SIDE - getOwnHeroes(state).length, 0);
+export function ownPicksRemainingFor(ownHeroes: readonly HeroId[]): number {
+  return Math.max(MAX_PICKS_PER_SIDE - ownHeroes.length, 0);
 }
 
-export function assessCompositionNeeds(state: DraftState, capabilities: HeroCapabilities[], ownPicksRemaining: number): CompositionNeeds {
-  const own = ownCapabilities(state, capabilities);
-  const open = detectDraftGaps(state, capabilities);
-  const coverageIsKnown = getOwnHeroes(state).length === own.length;
+export function ownPicksRemainingOf(state: DraftState): number {
+  return ownPicksRemainingFor(getOwnHeroes(state));
+}
+
+/**
+ * The same assessment from the team's hero ids, for callers that hold a perspective view and must not import a draft state (the Coach,
+ * architecture-guard). `assessCompositionNeeds` below is this very function over a state's own picks -- one implementation, two doors.
+ */
+export function assessCompositionNeedsOf(ownHeroes: readonly HeroId[], capabilities: HeroCapabilities[], ownPicksRemaining: number): CompositionNeeds {
+  const byHero = capabilitiesByHero(capabilities);
+  const own = ownHeroes.map((hero) => byHero.get(hero)).filter((entry): entry is HeroCapabilities => entry !== undefined);
+  const open = gapsOfCapabilities(own);
+  const coverageIsKnown = ownHeroes.length === own.length;
   const inClosingWindow = ownPicksRemaining >= 1 && ownPicksRemaining <= CLOSING_WINDOW_PICKS;
   const critical = coverageIsKnown && inClosingWindow ? open.filter((gap) => CRITICAL_GAP_KINDS.includes(gap)) : [];
   return { open, critical, ownDamageTypes: own.map((entry) => entry.damageType), ownPicksRemaining };
+}
+
+export function assessCompositionNeeds(state: DraftState, capabilities: HeroCapabilities[], ownPicksRemaining: number): CompositionNeeds {
+  return assessCompositionNeedsOf(getOwnHeroes(state), capabilities, ownPicksRemaining);
 }
 
 /**
