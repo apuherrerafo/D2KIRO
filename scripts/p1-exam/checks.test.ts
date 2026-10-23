@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, fieldStats, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
+import { availableHardCounters, criticalWithheldByUncuratedPick, examNeeds, fieldStats, fillsCritical, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -25,7 +25,7 @@ const world: ExamWorld = {
 };
 
 function state(over: Partial<ExamState> = {}): ExamState {
-  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, positionFitField: null, positionFitPaired: null, candidateCount: 0, ...over };
+  return { draftKey: "k", index: 0, round: 1, ownPicksRemaining: 2, banned: [], ownPicks: [], revealedEnemy: [], v3: [], v3PrimaryRationale: "", board: null, v4: null, lpp: null, positionFitShare: null, positionFitLevelShare: null, positionFitSaturated: null, positionFitField: null, positionFitPaired: null, teamNeedsPaired: null, candidateCount: 0, ...over };
 }
 
 describe("I1 illegal", () => {
@@ -256,5 +256,72 @@ describe("tiedAtCut", () => {
   });
   test("nothing beyond the cut: not applicable", () => {
     expect(tiedAtCut(field([90, 80, 70]), 3)).toBeNull();
+  });
+});
+
+// ---- T4 (TSK-253) ---------------------------------------------------------------------------------------------------------------
+// World: hero 3 initiates; 1, 2, 5 do not; 4 is the only magical. Own team [2, 4, 6]: no initiator, a catcher (6), damage already mixed (hero 4): initiation is the only critical gap.
+describe("T4 -- critical gaps in the exam", () => {
+  const team = { ownPicks: [2, 4, 6], ownPicksRemaining: 2 };
+
+  test("examNeeds reads the gap from the state: no initiator among the picks, 2 left -> initiation is critical", () => {
+    expect(examNeeds(state(team), world).critical).toContain("initiation");
+  });
+
+  test("with 3 picks left it is open but not critical", () => {
+    const needs = examNeeds(state({ ownPicks: [1, 2], ownPicksRemaining: 3 }), world);
+    expect(needs.open).toContain("initiation");
+    expect(needs.critical).toEqual([]);
+  });
+
+  test("fillsCritical: the initiator does, the rest do not, an uncurated hero fills nothing (and is not counted as lacking)", () => {
+    const needs = examNeeds(state(team), world);
+    expect(fillsCritical(3, needs, world)).toBe(true);
+    expect(fillsCritical(5, needs, world)).toBe(false);
+    expect(fillsCritical(777, needs, world)).toBe(false);
+  });
+
+  test("an uncurated own pick withholds the critical gap, and the exam says so", () => {
+    expect(criticalWithheldByUncuratedPick(state({ ownPicks: [1, 2, 777], ownPicksRemaining: 2 }), world)).toBe(true);
+    expect(criticalWithheldByUncuratedPick(state(team), world)).toBe(false);
+  });
+
+  const candidate = (heroId: number, score: number): FieldCandidate => ({ heroId, score, positionFit: 0, matches: heroId * 1000 });
+  const ids = [1, 2, 3, 4, 5, 6, 8];
+
+  test("needsChange: the initiator climbs into the top-3 and the swap's cost under the legacy score is reported", () => {
+    const needs = examNeeds(state(team), world);
+    const flat = ids.map((id) => candidate(id, id === 3 ? 10 : id * 10)); // top-3 under legacy: 8, 6, 5 -- no initiator
+    const closing = ids.map((id) => candidate(id, id === 3 ? 90 : id * 10)); // hero 3 jumps to #1
+    const change = needsChange(flat, closing, needs, world)!;
+    expect(change.top3Same).toBe(false);
+    expect(change.entered3).toEqual([3]);
+    expect(change.left3).toEqual([5]);
+    expect(change.top3FillersFlat).toBe(0);
+    expect(change.top3FillersClosing).toBe(1);
+    expect(change.fillerInField).toBe(true);
+    expect(change.meanFlatScoreOfFlatTop3).toBeCloseTo((80 + 60 + 50) / 3, 10);
+    expect(change.meanFlatScoreOfClosingTop3).toBeCloseTo((80 + 60 + 10) / 3, 10); // the cost: hero 3 is only worth 10 to the legacy score
+  });
+
+  test("needsChange: too thin a column (<6) says nothing", () => {
+    const needs = examNeeds(state(team), world);
+    expect(needsChange(ids.slice(0, 4).map((id) => candidate(id, id)), ids.map((id) => candidate(id, id)), needs, world)).toBeNull();
+  });
+
+  test("I6b: initiation alone is measured (the original I6 union with catch hides it)", () => {
+    // Hero 6 has catch, nobody on the team initiates: I6 (initiation OR catch) does not apply when 6 is on the team; I6b does.
+    const withCatcher = state({ ownPicks: [1, 2, 6], ownPicksRemaining: 2 });
+    expect(i6Gap(withCatcher, world).applies).toBe(false);
+    expect(i6bInitiation(withCatcher, world).applies).toBe(true);
+  });
+
+  test("I6b: top-3 fill is read from the recommended column; does not apply with an initiator, with 3+ left, or with an uncurated pick", () => {
+    const column = (heroIds: number[]) => ({ recommendedPosition: 3 as const, targetBasis: null, columns: [{ position: 3 as const, state: "RANKED", eligibleNow: true, top: heroIds.map((heroId) => ({ heroId, reason: "x" })) }] });
+    expect(i6bInitiation(state({ ...team, board: column([1, 2, 5]) }), world)).toMatchObject({ applies: true, top3Fills: false });
+    expect(i6bInitiation(state({ ...team, board: column([3, 2, 5]) }), world)).toMatchObject({ applies: true, top3Fills: true });
+    expect(i6bInitiation(state({ ownPicks: [1, 3, 5], ownPicksRemaining: 2 }), world).applies).toBe(false);
+    expect(i6bInitiation(state({ ownPicks: [1, 2], ownPicksRemaining: 3 }), world).applies).toBe(false);
+    expect(i6bInitiation(state({ ownPicks: [1, 2, 777], ownPicksRemaining: 2 }), world).applies).toBe(false);
   });
 });

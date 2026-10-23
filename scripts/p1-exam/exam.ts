@@ -18,12 +18,13 @@ import { SIDES, loadWorldData, muteLog, percentile, unmuteLog, type WorldData } 
 import { POLICIES, runExam } from "./session";
 import { collectEvidenceIdentity } from "../wave5/evidence-identity";
 import {
-  availableHardCounters, fieldStats, i1Illegal, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
+  availableHardCounters, criticalWithheldByUncuratedPick, examNeeds, fieldStats, i1Illegal, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
   type ExamState, type ExamWorld, type Pos,
 } from "./checks";
 
 const OUT_DIR = join(import.meta.dir, "../../docs/diagnostics");
 const SCHEMA = "engine-p1-exam/v1";
+type JudgeKind = "t3" | "t4";
 const POSITIONS: Pos[] = [1, 2, 3, 4, 5];
 const arg = (name: string): string | undefined => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 
@@ -90,6 +91,54 @@ function pairedObservation(states: readonly ExamState[], world: ExamWorld) {
   };
 }
 
+const CLOSING_WINDOW = 2;
+
+/**
+ * TSK-253: the team's critical gaps in the closing window and what the stage-aware `team_synergy` does about them, on the SAME states and the
+ * SAME credible field (legacy `flat` vs `closing`, both with `position_fit` saturated at the credible median). Describes what moved and what it
+ * costs under the legacy score; whether it is better is the judge's call (changedDecisions in the judge packet).
+ */
+export function needsObservation(states: readonly ExamState[], world: ExamWorld) {
+  const inWindow = states.filter((s) => s.ownPicksRemaining >= 1 && s.ownPicksRemaining <= CLOSING_WINDOW);
+  const critical = inWindow.map((s) => ({ s, needs: examNeeds(s, world) })).filter(({ needs }) => needs.critical.length > 0);
+  const byKind: Record<string, number> = {};
+  for (const { needs } of critical) for (const gap of needs.critical) byKind[gap] = (byKind[gap] ?? 0) + 1;
+
+  // Lock: outside the closing window the stage-aware rule must score the field EXACTLY like the legacy one.
+  const outside = states.filter((s) => s.ownPicksRemaining > CLOSING_WINDOW && s.teamNeedsPaired !== null);
+  const outsideDifferent = outside.filter((s) => s.teamNeedsPaired!.flat.some((c) => s.teamNeedsPaired!.closing.find((o) => o.heroId === c.heroId)?.score !== c.score)).length;
+
+  const changes = critical.flatMap(({ s, needs }) => {
+    const p = s.teamNeedsPaired;
+    const c = p === null ? null : needsChange(p.flat, p.closing, needs, world);
+    return p === null || c === null ? [] : [{ s, c, p }];
+  });
+  const changed = changes.filter(({ c }) => !c.top3Same);
+  const withFiller = changes.filter(({ c }) => c.fillerInField);
+  const seen = changes.filter(({ s }) => s.revealedEnemy.length > 0).map(({ s, p }) => ({ old: revealedCounterProfile(topThree(p.flat), s.revealedEnemy, world.counters), now: revealedCounterProfile(topThree(p.closing), s.revealedEnemy, world.counters) }));
+  const roundOf = (r: number): number => changes.filter(({ s }) => s.round === r).length;
+  return {
+    windowStates: inWindow.length,
+    statesWithCriticalGap: critical.length,
+    criticalGapsByKind: byKind,
+    criticalWithheldByUncuratedOwnPick: inWindow.filter((s) => criticalWithheldByUncuratedPick(s, world)).length,
+    identicalOutsideWindow: { states: outside.length, withDifferentScores: outsideDifferent },
+    comparable: { states: changes.length, round2: roundOf(2), round3: roundOf(3), withAFillerInTheField: withFiller.length },
+    top3Changed: changed.length,
+    top3ChangedRate: round4(rate(changed.length, changes.length)),
+    top3WithAFiller: { legacy: changes.filter(({ c }) => c.top3FillersFlat > 0).length, stageAware: changes.filter(({ c }) => c.top3FillersClosing > 0).length, ofStatesWhereAFillerExists: withFiller.length },
+    meanFillersInTop3: { legacy: round4(mean(changes.map(({ c }) => c.top3FillersFlat))), stageAware: round4(mean(changes.map(({ c }) => c.top3FillersClosing))) },
+    costUnderLegacyScore: { meanLegacyTop3: round4(mean(changed.map(({ c }) => c.meanFlatScoreOfFlatTop3))), meanStageAwareTop3: round4(mean(changed.map(({ c }) => c.meanFlatScoreOfClosingTop3))) },
+    meanMatchesTop3: { legacy: round4(mean(changes.map(({ c }) => c.meanMatchesTop3Flat))), stageAware: round4(mean(changes.map(({ c }) => c.meanMatchesTop3Closing))) },
+    againstRevealedEnemies: {
+      states: seen.length,
+      meanHeroesCounteringAnEnemyLegacy: round4(mean(seen.map((x) => x.old.counters))), meanHeroesCounteringAnEnemyStageAware: round4(mean(seen.map((x) => x.now.counters))),
+      meanHeroesExposedToAnEnemyLegacy: round4(mean(seen.map((x) => x.old.exposed))), meanHeroesExposedToAnEnemyStageAware: round4(mean(seen.map((x) => x.now.exposed))),
+    },
+    note: "Same decision points, same credible field. 'Critical' = initiation / catch / damage_mix open with <= 2 own picks left and every own pick curated. It says what moved and what it gives up under the legacy score; whether it is better is the judge's call.",
+  };
+}
+
 export function summarize(states: readonly ExamState[], world: ExamWorld) {
   const total = states.length;
   const i1 = states.flatMap((s) => i1Illegal(s, world));
@@ -103,6 +152,7 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
 
   const i6 = states.map((s) => i6Gap(s, world)).filter((r) => r.applies);
   const i7 = states.map((s) => i7Damage(s, world)).filter((r) => r.applies);
+  const i6b = states.map((s) => i6bInitiation(s, world)).filter((r) => r.applies);
   const i9 = states.flatMap((s) => i9Counters(s, world).shown);
   const statesWithI9 = new Set(i9.map((x) => x.where.split(" ")[0]));
 
@@ -165,6 +215,8 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
       I5_positionFitOverWholeField: fieldObservation(states),
       T3_pairedRuleChange: pairedObservation(states, world),
       I7_damageMix: { monoDamageStates: i7.length, top3Diversifies: i7.filter((r) => r.top3Diversifies).length },
+      I6b_initiation: { gapOpenStates: i6b.length, top3Fills: i6b.filter((r) => r.top3Fills).length, fillerInField: i6b.filter((r) => r.fillerInField).length, note: "Initiation on its own (TSK-253). The original I6 asks for initiation OR catch: 69% of curated heroes have one of the two, so that union is almost never missing." },
+      T4_closingNeeds: needsObservation(states, world),
       I6_fill: { gapOpenStates: i6.length, top3Fills: i6.filter((r) => r.top3Fills).length, fillerExistsInShownSet: i6.filter((r) => r.credibleFillerExists).length },
       I8_exposureOfRound1Primary: { states: exposures.length, meanHardCountersAvailable: round4(mean(exposures)), maxHardCountersAvailable: exposures.length === 0 ? null : Math.max(...exposures) },
       I10_round1Top3InMorePlayedHalf: { candidates: popularity.length, inMorePlayedHalf: popularity.filter(Boolean).length, rate: round4(rate(popularity.filter(Boolean).length, popularity.length)), note: "Observation only (plan v2 removed it as a gate): high = the ranking leans on popularity." },
@@ -187,7 +239,7 @@ const PLAN_QUESTIONS = [
   { id: "P3-plan", text: "Does the recommendation improve the plan, or only the score?" },
 ];
 
-function judgePacket(states: readonly ExamState[], world: ExamWorld, data: WorldData) {
+function judgePacket(states: readonly ExamState[], world: ExamWorld, data: WorldData, judge: JudgeKind) {
   const criteria: { label: string; test: (s: ExamState) => boolean }[] = [
     { label: "round-1 opening recommends a core without a window", test: (s) => i3Order(s).coreFirstWithoutWindow === true },
     { label: "round-1 opening recommends hard support / support", test: (s) => s.round === 1 && s.ownPicks.length === 0 && (s.board?.recommendedPosition === 5 || s.board?.recommendedPosition === 4) },
@@ -218,14 +270,13 @@ function judgePacket(states: readonly ExamState[], world: ExamWorld, data: World
       judgeAnswers: Object.fromEntries([...COMPONENT_QUESTIONS, ...PLAN_QUESTIONS].map((q) => [q.id, { answer: null, notes: null }])),
     }];
   });
-  return { schema: "engine-p1-judge-packet/v1", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points, changedDecisions: changedDecisions(states, data) };
+  return { schema: "engine-p1-judge-packet/v1", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points, changedBy: judge === "t4" ? "TSK-253" : "TSK-252", changedDecisions: judge === "t4" ? changedDecisionsT4(states, data, world) : changedDecisions(states, data) };
 }
 
 const CHANGED_DECISIONS_SAMPLE = 12;
 
 /** TSK-252: decisions whose top-3 differs between the old and the new `position_fit` rule, spread evenly over the changed ones (deterministic), old and new unlabeled-by-order for a blind read. */
 function changedDecisions(states: readonly ExamState[], data: WorldData) {
-  const name = (id: number): string => data.name(id);
   const changed = states.flatMap((s) => {
     const p = s.positionFitPaired;
     const c = p === null || s.board?.recommendedPosition == null ? null : pairedChange(p.volume, p.credibleMedian);
@@ -234,25 +285,45 @@ function changedDecisions(states: readonly ExamState[], data: WorldData) {
   const step = Math.max(1, Math.floor(changed.length / CHANGED_DECISIONS_SAMPLE));
   const picked = changed.filter((_, i) => i % step === 0).slice(0, CHANGED_DECISIONS_SAMPLE);
   const top3 = (field: readonly { heroId: number; score: number }[]): number[] => [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId).slice(0, 3).map((c) => c.heroId);
-  return picked.map(({ s, p }) => {
-    const key = createHash("sha256").update(`${s.draftKey}#${s.index}`).digest("hex").slice(0, 12);
-    // Blind: which rule is A and which is B is decided by the key, so the read cannot learn "A is always the old one".
-    const swap = parseInt(key.slice(0, 1), 16) % 2 === 1;
-    const oldTop = top3(p.volume).map(name);
-    const newTop = top3(p.credibleMedian).map(name);
-    return {
-      opaqueKey: key,
-      round: s.round,
-      position: s.board!.recommendedPosition,
-      bans: s.banned.map(name),
-      ownPicks: s.ownPicks.map(name),
-      revealedEnemy: s.revealedEnemy.map(name),
-      optionA: swap ? newTop : oldTop,
-      optionB: swap ? oldTop : newTop,
-      answerKey: { optionAIs: swap ? "new" : "old" },
-      judgeAnswers: { C2: { better: null as "A" | "B" | "equivalent" | null, harmfulReason: null as string | null } },
-    };
+  return picked.map(({ s, p }) => blindPair(s, top3(p.volume), top3(p.credibleMedian), data, "C2"));
+}
+
+/** One decision as a blind A/B read: which rule is A and which is B is decided by the key, so the read cannot learn "A is always the old one". */
+function blindPair(s: ExamState, oldIds: readonly number[], newIds: readonly number[], data: WorldData, question: "C2" | "C3") {
+  const name = (id: number): string => data.name(id);
+  const key = createHash("sha256").update(`${s.draftKey}#${s.index}`).digest("hex").slice(0, 12);
+  const swap = parseInt(key.slice(0, 1), 16) % 2 === 1;
+  const oldTop = oldIds.map(name);
+  const newTop = newIds.map(name);
+  return {
+    opaqueKey: key,
+    round: s.round,
+    position: s.board!.recommendedPosition,
+    bans: s.banned.map(name),
+    ownPicks: s.ownPicks.map(name),
+    revealedEnemy: s.revealedEnemy.map(name),
+    optionA: swap ? newTop : oldTop,
+    optionB: swap ? oldTop : newTop,
+    answerKey: { optionAIs: swap ? "new" : "old" },
+    judgeAnswers: { [question]: { better: null as "A" | "B" | "equivalent" | null, harmfulReason: null as string | null } },
+  };
+}
+
+/**
+ * TSK-253: decisions whose top-3 differs between the legacy and the stage-aware `team_synergy`, all of them when there are at most
+ * CHANGED_DECISIONS_SAMPLE (the interesting set is small by construction: critical gap x closing window x a filler that moves the cut).
+ */
+function changedDecisionsT4(states: readonly ExamState[], data: WorldData, world: ExamWorld) {
+  const changed = states.flatMap((s) => {
+    const p = s.teamNeedsPaired;
+    if (p === null || s.board?.recommendedPosition == null) return [];
+    const needs = examNeeds(s, world);
+    const c = needs.critical.length === 0 ? null : needsChange(p.flat, p.closing, needs, world);
+    return c === null || c.top3Same ? [] : [{ s, p }];
   });
+  const step = Math.max(1, Math.floor(changed.length / CHANGED_DECISIONS_SAMPLE));
+  const top3 = (field: readonly { heroId: number; score: number }[]): number[] => [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId).slice(0, 3).map((c) => c.heroId);
+  return changed.filter((_, i) => i % step === 0).slice(0, CHANGED_DECISIONS_SAMPLE).map(({ s, p }) => blindPair(s, top3(p.flat), top3(p.closing), data, "C3"));
 }
 
 // ---- Markdown ------------------------------------------------------------------------------------------------------------------------------
@@ -288,6 +359,12 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   const t3seen = t3.againstRevealedEnemies;
   lines.push(`- **T3 frente a los rivales ya revelados (solo capa curada "hard"):** en ${t3seen.states} estados con rival visible, héroes del top-3 que counterean a un rival: ${t3seen.meanHeroesCounteringAnEnemyOld} → ${t3seen.meanHeroesCounteringAnEnemyNew}; héroes del top-3 expuestos a un rival: ${t3seen.meanHeroesExposedToAnEnemyOld} → ${t3seen.meanHeroesExposedToAnEnemyNew}.`);
   lines.push(`- **I6 relleno:** de ${o.I6_fill.gapOpenStates} estados con hueco abierto, el top-3 lo llena en ${o.I6_fill.top3Fills}; existe un relleno en lo mostrado en ${o.I6_fill.fillerExistsInShownSet}.`);
+  const i6bo = o.I6b_initiation;
+  lines.push(`- **I6b iniciación sola (TSK-253):** de ${i6bo.gapOpenStates} estados con los últimos picks y sin ningún iniciador, el top-3 del board lo llena en ${i6bo.top3Fills}; existe un iniciador creíble en la columna en ${i6bo.fillerInField}.`);
+  const t4 = o.T4_closingNeeds;
+  lines.push(`- **T4 huecos críticos en la ventana de cierre (TSK-253):** ${t4.statesWithCriticalGap} de ${t4.windowStates} estados con ≤2 picks propios por delante tienen un hueco crítico ${JSON.stringify(t4.criticalGapsByKind)}; en ${t4.criticalWithheldByUncuratedOwnPick} más no se declara por un pick propio sin capacidades curadas. Fuera de la ventana la regla nueva puntúa idéntico a la vieja: ${t4.identicalOutsideWindow.withDifferentScores}/${t4.identicalOutsideWindow.states} estados con scores distintos.`);
+  lines.push(`- **T4 misma decisión, dos reglas (team_synergy plano vs por etapa):** ${t4.comparable.states} estados comparables (ronda 2: ${t4.comparable.round2}, ronda 3: ${t4.comparable.round3}); el top-3 cambia en ${t4.top3Changed} (${pct(t4.top3ChangedRate)}). Top-3 con al menos un héroe que llena lo crítico: ${t4.top3WithAFiller.legacy} → ${t4.top3WithAFiller.stageAware} de ${t4.top3WithAFiller.ofStatesWhereAFillerExists} estados donde existe uno en el campo; promedio de rellenos en el top-3 ${t4.meanFillersInTop3.legacy} → ${t4.meanFillersInTop3.stageAware}. Costo bajo el score viejo (top-3 cambiados): ${t4.costUnderLegacyScore.meanLegacyTop3} → ${t4.costUnderLegacyScore.meanStageAwareTop3}; partidas medias del top-3 ${t4.meanMatchesTop3.legacy} → ${t4.meanMatchesTop3.stageAware}.`);
+  lines.push(`- **T4 frente a los rivales ya revelados (capa curada "hard"):** en ${t4.againstRevealedEnemies.states} estados con rival visible, héroes del top-3 que counterean a un rival ${t4.againstRevealedEnemies.meanHeroesCounteringAnEnemyLegacy} → ${t4.againstRevealedEnemies.meanHeroesCounteringAnEnemyStageAware}; expuestos a un rival ${t4.againstRevealedEnemies.meanHeroesExposedToAnEnemyLegacy} → ${t4.againstRevealedEnemies.meanHeroesExposedToAnEnemyStageAware}.`);
   lines.push(`- **I7 daño:** de ${o.I7_damageMix.monoDamageStates} estados mono-daño, el top-3 diversifica en ${o.I7_damageMix.top3Diversifies}.`);
   lines.push(`- **I8 exposición del primary de ronda 1:** ${o.I8_exposureOfRound1Primary.meanHardCountersAvailable} counters duros disponibles en promedio (máx ${o.I8_exposureOfRound1Primary.maxHardCountersAvailable}) sobre ${o.I8_exposureOfRound1Primary.states} aperturas.`);
   lines.push(`- **I10 popularidad:** ${pct(o.I10_round1Top3InMorePlayedHalf.rate)} de los top-3 de ronda 1 caen en la mitad más jugada de su posición (${o.I10_round1Top3InMorePlayedHalf.inMorePlayedHalf}/${o.I10_round1Top3InMorePlayedHalf.candidates}).`);
@@ -303,6 +380,9 @@ async function main(): Promise<void> {
   if (!out || !/^[A-Za-z0-9_]+$/.test(out)) throw new Error("usage: --out=<BASENAME> [--drafts=N]");
   if (existsSync(join(OUT_DIR, `${out}.json`)) || existsSync(join(OUT_DIR, `${out}.md`))) throw new Error(`${out}.{md,json} already exists -- evidence is never overwritten; pass a new --out=`);
   const draftCount = Number(arg("drafts") ?? 60);
+  const judgeArg = arg("judge") ?? "t3";
+  if (judgeArg !== "t3" && judgeArg !== "t4") throw new Error("--judge must be t3 or t4 (which change is put to the blind read; default t3 keeps older commands reproducible)");
+  const judge: JudgeKind = judgeArg;
   if (!Number.isInteger(draftCount) || draftCount < 1 || draftCount > 200) throw new Error("--drafts must be an integer in 1..200");
 
   const data = loadWorldData();
@@ -320,7 +400,7 @@ async function main(): Promise<void> {
     certificationId: out,
     snapshot: { id: data.snapshot.id, live: data.snapshot.live },
     positionsMode: data.positionsMode,
-    reproduce: [`bun scripts/p1-exam/exam.ts --out=${out} --drafts=${draftCount}`],
+    reproduce: [`bun scripts/p1-exam/exam.ts --out=${out} --drafts=${draftCount}${judge === "t3" ? "" : ` --judge=${judge}`}`],
   });
   // The wall clock is the only non-deterministic field of the identity: dropped so two runs of the same system are byte-identical.
   const { generatedAt: _generatedAt, ...stableIdentity } = identity;
@@ -338,7 +418,7 @@ async function main(): Promise<void> {
       "I11 is not measurable until T5 creates the `basis` field.",
     ],
     summary,
-    judgePacket: judgePacket(run.states, world, data),
+    judgePacket: judgePacket(run.states, world, data, judge),
     harnessFailures: run.failures.slice(0, 20),
   };
   mkdirSync(OUT_DIR, { recursive: true });
@@ -354,7 +434,8 @@ async function main(): Promise<void> {
 function judgeMarkdown(packet: ReturnType<typeof judgePacket>): string {
   const lines = ["## Paquete del juez (se rellena en T6)", "", "Preguntas por componente:", ...packet.componentQuestions.map((q) => `- **${q.id}** ${q.text}`), "", "Preguntas de plan (línea base que decide la prioridad de F2):", ...packet.planQuestions.map((q) => `- **${q.id}** ${q.text}`), ""];
   if (packet.changedDecisions.length > 0) {
-    lines.push("## Decisiones cambiadas por TSK-252 (lectura ciega: A y B no indican cuál es la regla vieja)", "", "Pregunta C2: ¿cuál de las dos ternas elegirías para esa posición? (A / B / equivalente; \"dañino\" solo con un motivo de Dota escrito). La clave está en el JSON (`answerKey`).", "");
+    const question = packet.changedBy === "TSK-253" ? "C3: ¿cuál de las dos ternas elegirías para esa posición dado lo que a este equipo le falta?" : "C2: ¿cuál de las dos ternas elegirías para esa posición?";
+    lines.push(`## Decisiones cambiadas por ${packet.changedBy} (lectura ciega: A y B no indican cuál es la regla vieja)`, "", `Pregunta ${question} (A / B / equivalente; "dañino" solo con un motivo de Dota escrito). La clave está en el JSON (\`answerKey\`).`, "");
     for (const d of packet.changedDecisions) {
       lines.push(`### ${d.opaqueKey} — Pos ${d.position} · ronda ${d.round}`, "", `bans: ${d.bans.join(", ") || "—"} · propios: ${d.ownPicks.join(", ") || "—"} · rivales: ${d.revealedEnemy.join(", ") || "—"}`, `- A: ${d.optionA.join(", ")}`, `- B: ${d.optionB.join(", ")}`, "");
     }
