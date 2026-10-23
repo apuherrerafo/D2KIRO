@@ -101,21 +101,24 @@ test("fail-closed: data-boundary-guard bloquea una ruta ambigua que referencia d
   // la normalización no puede garantizar repo-relative => se deniega (no fail-open).
   const ambiguous = "../dota2coach-sibling/data/curated/hero-x.json";
   const proc = Bun.spawn(["python3", join(REPO, "scripts", "hooks", "data-boundary-guard.py")], {
-    stdin: Buffer.from(JSON.stringify({ tool_name: "Edit", tool_input: { file_path: ambiguous } })),
+    stdin: Buffer.from(JSON.stringify({ tool_name: "Edit", tool_input: { file_path: ambiguous }, cwd: REPO })),
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: REPO },
   });
   expect(await proc.exited).toBe(2);
 });
 
-test("fail-closed: una ruta ambigua ajena a data/curated/ no amplía el bloqueo", async () => {
+test("fail-closed: una ruta que escapa del worktree se bloquea aunque no toque data/curated/", async () => {
+  // Contrato invertido a propósito (aislamiento entre worktrees): antes una ruta fuera del repo
+  // ajena a data/curated/ pasaba. Ahora cualquier escritura fuera del worktree de la sesión se
+  // bloquea antes de mirar el prefijo (edit-guard-worktree.test.ts cubre los casos completos).
   const ambiguousUnrelated = "../dota2coach-sibling/apps/engine/src/mix.ts";
   const proc = Bun.spawn(["python3", join(REPO, "scripts", "hooks", "data-boundary-guard.py")], {
-    stdin: Buffer.from(JSON.stringify({ tool_name: "Edit", tool_input: { file_path: ambiguousUnrelated } })),
+    stdin: Buffer.from(JSON.stringify({ tool_name: "Edit", tool_input: { file_path: ambiguousUnrelated }, cwd: REPO })),
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: REPO },
   });
-  expect(await proc.exited).toBe(0);
+  expect(await proc.exited).toBe(2);
 });
