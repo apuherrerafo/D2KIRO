@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, fieldStats, pairedChange, revealedCounterProfile, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
+import { availableHardCounters, fieldStats, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -242,5 +242,19 @@ describe("topThree", () => {
   test("highest score first, ties by hero id", () => {
     const field: FieldCandidate[] = [5, 3, 9, 1].map((heroId) => ({ heroId, score: heroId === 9 ? 50 : 40, positionFit: 0, matches: 0 }));
     expect(topThree(field)).toEqual([9, 1, 3]);
+  });
+});
+
+describe("tiedAtCut", () => {
+  const field = (scores: number[]): FieldCandidate[] => scores.map((score, i) => ({ heroId: i + 1, score, positionFit: 0, matches: 0 }));
+
+  test("the 3rd and the 4th share a score: the cut is a tie", () => {
+    expect(tiedAtCut(field([90, 80, 70, 70, 60]), 3)).toBe(true);
+  });
+  test("a gap at the cut is not a tie, even if heroes above it tie among themselves", () => {
+    expect(tiedAtCut(field([80, 80, 80, 70, 60]), 3)).toBe(false);
+  });
+  test("nothing beyond the cut: not applicable", () => {
+    expect(tiedAtCut(field([90, 80, 70]), 3)).toBeNull();
   });
 });

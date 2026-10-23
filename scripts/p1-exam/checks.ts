@@ -353,3 +353,13 @@ export function revealedCounterProfile(top3: readonly HeroId[], revealedEnemy: r
 
 /** The top-3 of a scored field, by score (ties by hero id): the same cut every other field helper uses. */
 export const topThree = (field: readonly FieldCandidate[]): HeroId[] => topIds(field, (c) => c.score, 3);
+
+/**
+ * Is the cut of the top-`k` decided by an exact tie? When the k-th and the (k+1)-th have the same score, which one is shown falls to the hero-id
+ * tie-break, not to the draft -- a rule that saturates many heroes at the same `position_fit` can create exactly that.
+ */
+export function tiedAtCut(field: readonly FieldCandidate[], k: number): boolean | null {
+  if (field.length <= k) return null;
+  const sorted = [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId);
+  return Math.abs(sorted[k - 1]!.score - sorted[k]!.score) < 1e-9;
+}

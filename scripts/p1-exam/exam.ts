@@ -18,7 +18,7 @@ import { SIDES, loadWorldData, muteLog, percentile, unmuteLog, type WorldData } 
 import { POLICIES, runExam } from "./session";
 import { collectEvidenceIdentity } from "../wave5/evidence-identity";
 import {
-  availableHardCounters, fieldStats, i1Illegal, pairedChange, revealedCounterProfile, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
+  availableHardCounters, fieldStats, i1Illegal, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
   type ExamState, type ExamWorld, type Pos,
 } from "./checks";
 
@@ -28,6 +28,7 @@ const POSITIONS: Pos[] = [1, 2, 3, 4, 5];
 const arg = (name: string): string | undefined => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 
 // ---- Summary ------------------------------------------------------------------------------------------------------------------------------
+type FieldCandidateList = NonNullable<ExamState["positionFitField"]>;
 const EXAMPLES = 5;
 const examples = (items: readonly string[]): string[] => items.slice(0, EXAMPLES);
 const round4 = (x: number | null): number | null => (x === null ? null : Math.round(x * 10_000) / 10_000);
@@ -62,7 +63,14 @@ function pairedObservation(states: readonly ExamState[], world: ExamWorld) {
     if (p === null || s.revealedEnemy.length === 0 || pairedChange(p.volume, p.credibleMedian) === null) return [];
     return [{ old: revealedCounterProfile(topThree(p.volume), s.revealedEnemy, world.counters), now: revealedCounterProfile(topThree(p.credibleMedian), s.revealedEnemy, world.counters) }];
   });
+  // Ties at the cut of the top-3, under each rule, over every state whose column has more than 3 credible heroes.
+  const ties = (pick: (p: NonNullable<ExamState["positionFitPaired"]>) => FieldCandidateList): number | null => {
+    const flags = states.flatMap((s) => { const flag = s.positionFitPaired === null ? null : tiedAtCut(pick(s.positionFitPaired), 3); return flag === null ? [] : [flag]; });
+    return round4(rate(flags.filter(Boolean).length, flags.length));
+  };
   return {
+    tieAtTop3CutOld: ties((p) => p.volume),
+    tieAtTop3CutNew: ties((p) => p.credibleMedian),
     states: changes.length,
     top3Changed: changed.length,
     top3ChangedRate: round4(rate(changed.length, changes.length)),
@@ -276,7 +284,7 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   const i5 = o.I5_positionFitShareOfScore;
   lines.push(`- **I5 peso de \`position_fit\`:** ${pct(i5.levelMedian)} del score (mediana; p10 ${pct(i5.levelP10)}, p90 ${pct(i5.levelP90)}) y ${pct(i5.orderMedian)} de la dispersión que ordena a los candidatos (mediana; p10 ${pct(i5.orderP10)}, p90 ${pct(i5.orderP90)}); ${i5.states} estados, ~${i5.candidatesPerState} candidatos por estado; en ${pct(i5.saturatedShareMean)} de ellos \`position_fit\` está saturado en 1 (suma la misma constante a todos). Es sobre lo que V6 conserva (TOP_N), no sobre todo el campo.`);
   lines.push(`- **I5 sobre todo el campo creíble (TSK-252):** ${f5.states} estados con ≥6 creíbles (mediana ${f5.fieldSizeMedian}). El top-3 cae en la mitad más jugada ${pct(f5.top3InMorePlayedHalf)} de las veces y el top-6 ${pct(f5.top6InMorePlayedHalf)} (un corte neutro daría ~50%). \`position_fit\` explica ${pct(f5.orderShareMedian)} de la dispersión (mediana). Quitando su aporte, el top-3 se conserva en ${pct(f5.top3KeptWithoutPositionFit)} (Jaccard) y el top-6 en ${pct(f5.top6KeptWithoutPositionFit)}; 100% = no decide nada. Dentro de la mitad más jugada, \`position_fit\` explica ${pct(f5.orderShareInMorePlayedHalfMedian)} de la dispersión.`);
-  lines.push(`- **T3 misma decisión, dos reglas (volumen vs mediana de creíbles):** ${t3.states} estados; el top-3 cambia en ${t3.top3Changed} (${pct(t3.top3ChangedRate)}); Jaccard medio del top-3 ${t3.meanJaccardTop3}, del top-6 ${t3.meanJaccardTop6}; de los cambiados, ${t3.changedTopsThatLeanOnLessVolume} se apoyan en menos volumen (partidas medias del top-3: ${t3.meanMatchesTop3Old} → ${t3.meanMatchesTop3New}). Describe qué se movió, no si mejora.`);
+  lines.push(`- **T3 misma decisión, dos reglas (volumen vs mediana de creíbles):** ${t3.states} estados; el top-3 cambia en ${t3.top3Changed} (${pct(t3.top3ChangedRate)}); Jaccard medio del top-3 ${t3.meanJaccardTop3}, del top-6 ${t3.meanJaccardTop6}; de los cambiados, ${t3.changedTopsThatLeanOnLessVolume} se apoyan en menos volumen (partidas medias del top-3: ${t3.meanMatchesTop3Old} → ${t3.meanMatchesTop3New}). Describe qué se movió, no si mejora. Empates exactos en el corte del top-3 (decide el id del héroe, no el draft): ${pct(t3.tieAtTop3CutOld)} → ${pct(t3.tieAtTop3CutNew)} de los estados.`);
   const t3seen = t3.againstRevealedEnemies;
   lines.push(`- **T3 frente a los rivales ya revelados (solo capa curada "hard"):** en ${t3seen.states} estados con rival visible, héroes del top-3 que counterean a un rival: ${t3seen.meanHeroesCounteringAnEnemyOld} → ${t3seen.meanHeroesCounteringAnEnemyNew}; héroes del top-3 expuestos a un rival: ${t3seen.meanHeroesExposedToAnEnemyOld} → ${t3seen.meanHeroesExposedToAnEnemyNew}.`);
   lines.push(`- **I6 relleno:** de ${o.I6_fill.gapOpenStates} estados con hueco abierto, el top-3 lo llena en ${o.I6_fill.top3Fills}; existe un relleno en lo mostrado en ${o.I6_fill.fillerExistsInShownSet}.`);
