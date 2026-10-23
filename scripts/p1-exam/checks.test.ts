@@ -89,6 +89,9 @@ describe("I6 gap / I7 damage", () => {
     expect(i6Gap(state({ ...late, round: 3, ownPicksRemaining: 3 }), world).applies).toBe(false);
     expect(i6Gap(state(late), world).applies).toBe(true);
   });
+  test("an own pick without curated capabilities means the gap is not established (unknown is not lacking)", () => {
+    expect(i6Gap(state({ ownPicksRemaining: 1, ownPicks: [1, 2, 777, 5] }), world).applies).toBe(false);
+  });
   test("top-3 fills vs a filler existing elsewhere vs the gap being visible on a card", () => {
     const hidden = i6Gap(state({ ...late, v3: [{ heroId: 5, rationale: "x" }], board: { recommendedPosition: 1, targetBasis: null, columns: [{ position: 3, state: "RANKED", eligibleNow: true, top: [{ heroId: 3, reason: "x" }] }] } }), world);
     expect(hidden).toMatchObject({ top3Fills: false, credibleFillerExists: true, gapNotVisible: true });
