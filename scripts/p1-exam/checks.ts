@@ -6,7 +6,8 @@
 //   HARD         a violation is a defect (I1, I2, I3-conformity, I6-visible, I9-visible, I11)
 //   OBSERVATION  a number to look at, not a law (I4, I5, I7, I8, I10, concentration)
 //   NOT_MEASURABLE  the thing the invariant needs does not exist in the system yet (reported honestly, never as PASS)
-import type { HeroId } from "../../apps/engine/src/draft/reducer";
+import type { DraftState, HeroId } from "../../apps/engine/src/draft/reducer";
+import { assessCompositionNeeds, unfilledCriticalGaps, type CompositionNeeds } from "../../apps/engine/src/draft-paths/gaps";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import { isCandidateAdmittedForPosition, isCredibleForPosition, type HeroPositions } from "../../apps/engine/src/signals/hero-positions";
@@ -49,6 +50,8 @@ export interface ExamState {
   positionFitField: FieldCandidate[] | null;
   /** TSK-252: the same column scored under each `position_fit` rule at THIS state, to compare the rules on identical decisions. */
   positionFitPaired: { volume: FieldCandidate[]; credibleMedian: FieldCandidate[] } | null;
+  /** TSK-253: the same column scored with the legacy `team_synergy` (`flat`) and with the stage-aware one (`closing`); both with `credible-median`. */
+  teamNeedsPaired: { flat: FieldCandidate[]; closing: FieldCandidate[] } | null;
 }
 
 export interface ExamWorld {
@@ -362,4 +365,84 @@ export function tiedAtCut(field: readonly FieldCandidate[], k: number): boolean 
   if (field.length <= k) return null;
   const sorted = [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId);
   return Math.abs(sorted[k - 1]!.score - sorted[k]!.score) < 1e-9;
+}
+
+// ---- T4 (TSK-253): the team's critical gaps, and what a top-3 does about them ---------------------------------------------------
+// `needs` is read from the STATE (own picks + picks left + the curated capabilities), not from the code under test's scoring: the same
+// `assessCompositionNeeds` the product exposes, applied to what the Player has actually picked.
+
+/** The Player's team as the engine's own `DraftState` reads it (only `localSide` and `picks` are looked at by the gap functions). */
+const ownTeamState = (ownPicks: readonly HeroId[]): DraftState => ({ localSide: "radiant", picks: { radiant: [...ownPicks], dire: [] } }) as unknown as DraftState;
+
+export function examNeeds(state: ExamState, world: ExamWorld): CompositionNeeds {
+  return assessCompositionNeeds(ownTeamState(state.ownPicks), [...world.capabilities.values()], state.ownPicksRemaining);
+}
+
+/** An open gap that was NOT declared critical only because an own pick has no curated capabilities (unknown is not "lacking"). */
+export function criticalWithheldByUncuratedPick(state: ExamState, world: ExamWorld): boolean {
+  const needs = examNeeds(state, world);
+  const inWindow = state.ownPicksRemaining >= 1 && state.ownPicksRemaining <= 2;
+  return inWindow && needs.critical.length === 0 && state.ownPicks.some((hero) => !world.capabilities.has(hero)) && needs.open.some((gap) => gap === "initiation" || gap === "catch" || gap === "damage_mix");
+}
+
+/** Does this hero fill at least one of the team's critical gaps? Unknown capabilities fill nothing (and are never counted as lacking either). */
+export function fillsCritical(hero: HeroId, needs: CompositionNeeds, world: ExamWorld): boolean {
+  const capability = world.capabilities.get(hero);
+  if (capability === undefined || needs.critical.length === 0) return false;
+  return unfilledCriticalGaps(capability, needs).length < needs.critical.length;
+}
+
+export interface NeedsChange {
+  top3Same: boolean;
+  entered3: HeroId[];
+  left3: HeroId[];
+  /** Heroes of the top-3 that fill a critical gap, under the legacy rule and under the stage-aware one. */
+  top3FillersFlat: number;
+  top3FillersClosing: number;
+  /** A filler exists somewhere in the credible field of the column. */
+  fillerInField: boolean;
+  /** What the swap costs under the LEGACY score: mean flat score of the flat top-3 vs of the closing top-3 (a hero not in the flat field counts as the field's lowest). */
+  meanFlatScoreOfFlatTop3: number;
+  meanFlatScoreOfClosingTop3: number;
+  meanMatchesTop3Flat: number;
+  meanMatchesTop3Closing: number;
+}
+
+/** Same state, same credible field, legacy `team_synergy` vs stage-aware: did the top-3 move, did it move toward what the team critically lacks, and what did it give up. */
+export function needsChange(flat: readonly FieldCandidate[], closing: readonly FieldCandidate[], needs: CompositionNeeds, world: ExamWorld): NeedsChange | null {
+  if (flat.length < 6 || closing.length < 6) return null;
+  const flat3 = topThree(flat);
+  const closing3 = topThree(closing);
+  const flatScore = (id: HeroId): number => flat.find((c) => c.heroId === id)?.score ?? Math.min(...flat.map((c) => c.score));
+  const matchesIn = (field: readonly FieldCandidate[], ids: readonly HeroId[]): number => ids.reduce((sum, id) => sum + (field.find((c) => c.heroId === id)?.matches ?? 0), 0) / ids.length;
+  const mean = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
+  return {
+    top3Same: flat3.length === closing3.length && flat3.every((id) => closing3.includes(id)),
+    entered3: closing3.filter((id) => !flat3.includes(id)),
+    left3: flat3.filter((id) => !closing3.includes(id)),
+    top3FillersFlat: flat3.filter((id) => fillsCritical(id, needs, world)).length,
+    top3FillersClosing: closing3.filter((id) => fillsCritical(id, needs, world)).length,
+    fillerInField: closing.some((c) => fillsCritical(c.heroId, needs, world)),
+    meanFlatScoreOfFlatTop3: mean(flat3.map(flatScore)),
+    meanFlatScoreOfClosingTop3: mean(closing3.map(flatScore)),
+    meanMatchesTop3Flat: matchesIn(flat, flat3),
+    meanMatchesTop3Closing: matchesIn(closing, closing3),
+  };
+}
+
+// ---- I6b: INITIATION on its own (TSK-253). The original I6 asks for "initiation OR catch": 69% of curated heroes have one of the two, so that
+// union is almost never missing and the exam could not see the gap that does occur. Kept as a separate measure so I6 stays comparable with older reports.
+export interface I6bResult { applies: boolean; top3Fills: boolean; fillerInField: boolean }
+
+export function i6bInitiation(state: ExamState, world: ExamWorld): I6bResult {
+  const hasInitiation = (hero: HeroId): boolean => world.capabilities.get(hero)?.hasInitiation === true;
+  const allCurated = state.ownPicks.every((hero) => world.capabilities.has(hero));
+  const applies = state.ownPicksRemaining >= 1 && state.ownPicksRemaining <= 2 && state.ownPicks.length >= 3 && allCurated && !state.ownPicks.some(hasInitiation);
+  if (!applies) return { applies: false, top3Fills: false, fillerInField: false };
+  const column = state.board?.columns.find((c) => c.position === state.board?.recommendedPosition);
+  return {
+    applies,
+    top3Fills: (column?.top ?? []).slice(0, 3).some((t) => hasInitiation(t.heroId)),
+    fillerInField: (state.positionFitField ?? []).some((c) => hasInitiation(c.heroId)),
+  };
 }

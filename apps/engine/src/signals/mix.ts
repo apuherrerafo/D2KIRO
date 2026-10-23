@@ -99,6 +99,9 @@ export interface BuildSuggestionsOptions {
   // TSK-252: cómo satura `position_fit` con `targetPosition`. Ausente = "volume" (3000 partidas, byte-idéntico a V6). Sólo el Coach pide
   // "credible-median" (ver position-fit.ts).
   positionFitSaturation?: PositionFitSaturation;
+  // TSK-253: picks propios que faltan (contando el que se decide). Ausente = `team_synergy` de siempre (`filled / 7`, byte-idéntico a V6).
+  // Sólo el Coach lo pide: en la ventana de cierre, lo crítico que le falta al equipo pesa más en la señal (ver team-synergy.ts).
+  teamNeedsOwnPicksRemaining?: number;
   usePersonalPool?: boolean;
   // El simulador abre una composición completa bajo el control del capitán. No tiene sentido
   // aplicar todavía el rol personal ni el pool de una sola persona; esos filtros siguen siendo
@@ -947,7 +950,7 @@ export function buildSuggestions(
     ...baseScorers,
     createCounterScorer(heroCounters),
     createPositionFitScorer(heroPositions, positionFitTarget, options.positionFitSaturation),
-    createTeamSynergyScorer(heroCapabilities),
+    createTeamSynergyScorer(heroCapabilities, options.teamNeedsOwnPicksRemaining),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
   ];
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;

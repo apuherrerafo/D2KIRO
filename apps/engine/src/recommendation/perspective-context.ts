@@ -116,6 +116,8 @@ export type ComputeSuggestionsForRecommendation = (
     candidateUniverseIsAdmission?: boolean;
     /** TSK-252: how `position_fit` saturates for `targetPosition` (mix.ts). The Coach asks for "credible-median". */
     positionFitSaturation?: "volume" | "credible-median";
+    /** TSK-253: picks propios que faltan, para que `team_synergy` pese lo crítico en la ventana de cierre (mix.ts). */
+    teamNeedsOwnPicksRemaining?: number;
   },
 ) => Promise<SuggestionSet>;
 

@@ -1,3 +1,4 @@
+import { MAX_PICKS_PER_SIDE } from "../draft/reducer";
 import { derivePerspectiveSuggestionInputs, perspectiveToLegacyDraftState } from "../draft-protocol/adapters/suggestion-bridge";
 import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
@@ -172,6 +173,8 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
       targetPosition: input.targetPosition,
       // TSK-252: when the Coach ranks FOR a position, `position_fit` must not be a popularity count (see position-fit.ts).
       ...(input.targetPosition !== undefined ? { positionFitSaturation: "credible-median" as const } : {}),
+      // TSK-253: when the Coach ranks FOR a position, what the team still lacks weighs more as its picks run out (see team-synergy.ts).
+      ...(input.targetPosition !== undefined ? { teamNeedsOwnPicksRemaining: Math.max(MAX_PICKS_PER_SIDE - derivePerspectiveSuggestionInputs(view).ownPicks.length, 0) } : {}),
       // Hero Pool remains a soft V6 signal. Restricting the candidate universe would make it an
       // illegitimate hard gate and hide a clearly better outside-pool personal option.
       usePersonalPool: false,
