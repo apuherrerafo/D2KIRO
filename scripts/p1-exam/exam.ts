@@ -18,7 +18,7 @@ import { SIDES, loadWorldData, muteLog, percentile, unmuteLog, type WorldData } 
 import { POLICIES, runExam } from "./session";
 import { collectEvidenceIdentity } from "../wave5/evidence-identity";
 import {
-  availableHardCounters, fieldStats, i1Illegal, pairedChange, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
+  availableHardCounters, fieldStats, i1Illegal, pairedChange, revealedCounterProfile, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
   type ExamState, type ExamWorld, type Pos,
 } from "./checks";
 
@@ -52,10 +52,16 @@ function fieldObservation(states: readonly ExamState[]) {
 }
 
 /** TSK-252: the SAME decisions scored under the old rule (volume) and the new one (credible-median): how many tops changed, and which way. */
-function pairedObservation(states: readonly ExamState[]) {
+function pairedObservation(states: readonly ExamState[], world: ExamWorld) {
   const changes = states.flatMap((s) => { const p = s.positionFitPaired; const c = p === null ? null : pairedChange(p.volume, p.credibleMedian); return c === null ? [] : [{ s, c }]; });
   const changed = changes.filter((x) => !x.c.top3Same);
   const lessPlayed = changed.filter((x) => x.c.meanMatchesTop3New < x.c.meanMatchesTop3Old).length;
+  // Against what the Player can SEE (curated hard counters only): does the top-3 punish the revealed enemy, and does it walk into one?
+  const seen = states.flatMap((s) => {
+    const p = s.positionFitPaired;
+    if (p === null || s.revealedEnemy.length === 0 || pairedChange(p.volume, p.credibleMedian) === null) return [];
+    return [{ old: revealedCounterProfile(topThree(p.volume), s.revealedEnemy, world.counters), now: revealedCounterProfile(topThree(p.credibleMedian), s.revealedEnemy, world.counters) }];
+  });
   return {
     states: changes.length,
     top3Changed: changed.length,
@@ -65,6 +71,13 @@ function pairedObservation(states: readonly ExamState[]) {
     changedTopsThatLeanOnLessVolume: lessPlayed,
     meanMatchesTop3Old: round4(mean(changes.map((x) => x.c.meanMatchesTop3Old))),
     meanMatchesTop3New: round4(mean(changes.map((x) => x.c.meanMatchesTop3New))),
+    againstRevealedEnemies: {
+      states: seen.length,
+      meanHeroesCounteringAnEnemyOld: round4(mean(seen.map((x) => x.old.counters))),
+      meanHeroesCounteringAnEnemyNew: round4(mean(seen.map((x) => x.now.counters))),
+      meanHeroesExposedToAnEnemyOld: round4(mean(seen.map((x) => x.old.exposed))),
+      meanHeroesExposedToAnEnemyNew: round4(mean(seen.map((x) => x.now.exposed))),
+    },
     note: "Same decision points, two rules. 'Changed' = the set of the top-3 differs. This says WHAT moved, not whether it is better: that is the judge's call (changedDecisions in the judge packet).",
   };
 }
@@ -142,7 +155,7 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
         note: "level = share of V6's score that is position_fit; order = cov(position_fit, score)/var(score) among the candidates V6 keeps (TOP_N) for the recommended column. Not the whole credible field: V6 truncates before the exam can see it.",
       },
       I5_positionFitOverWholeField: fieldObservation(states),
-      T3_pairedRuleChange: pairedObservation(states),
+      T3_pairedRuleChange: pairedObservation(states, world),
       I7_damageMix: { monoDamageStates: i7.length, top3Diversifies: i7.filter((r) => r.top3Diversifies).length },
       I6_fill: { gapOpenStates: i6.length, top3Fills: i6.filter((r) => r.top3Fills).length, fillerExistsInShownSet: i6.filter((r) => r.credibleFillerExists).length },
       I8_exposureOfRound1Primary: { states: exposures.length, meanHardCountersAvailable: round4(mean(exposures)), maxHardCountersAvailable: exposures.length === 0 ? null : Math.max(...exposures) },
@@ -264,6 +277,8 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   lines.push(`- **I5 peso de \`position_fit\`:** ${pct(i5.levelMedian)} del score (mediana; p10 ${pct(i5.levelP10)}, p90 ${pct(i5.levelP90)}) y ${pct(i5.orderMedian)} de la dispersión que ordena a los candidatos (mediana; p10 ${pct(i5.orderP10)}, p90 ${pct(i5.orderP90)}); ${i5.states} estados, ~${i5.candidatesPerState} candidatos por estado; en ${pct(i5.saturatedShareMean)} de ellos \`position_fit\` está saturado en 1 (suma la misma constante a todos). Es sobre lo que V6 conserva (TOP_N), no sobre todo el campo.`);
   lines.push(`- **I5 sobre todo el campo creíble (TSK-252):** ${f5.states} estados con ≥6 creíbles (mediana ${f5.fieldSizeMedian}). El top-3 cae en la mitad más jugada ${pct(f5.top3InMorePlayedHalf)} de las veces y el top-6 ${pct(f5.top6InMorePlayedHalf)} (un corte neutro daría ~50%). \`position_fit\` explica ${pct(f5.orderShareMedian)} de la dispersión (mediana). Quitando su aporte, el top-3 se conserva en ${pct(f5.top3KeptWithoutPositionFit)} (Jaccard) y el top-6 en ${pct(f5.top6KeptWithoutPositionFit)}; 100% = no decide nada. Dentro de la mitad más jugada, \`position_fit\` explica ${pct(f5.orderShareInMorePlayedHalfMedian)} de la dispersión.`);
   lines.push(`- **T3 misma decisión, dos reglas (volumen vs mediana de creíbles):** ${t3.states} estados; el top-3 cambia en ${t3.top3Changed} (${pct(t3.top3ChangedRate)}); Jaccard medio del top-3 ${t3.meanJaccardTop3}, del top-6 ${t3.meanJaccardTop6}; de los cambiados, ${t3.changedTopsThatLeanOnLessVolume} se apoyan en menos volumen (partidas medias del top-3: ${t3.meanMatchesTop3Old} → ${t3.meanMatchesTop3New}). Describe qué se movió, no si mejora.`);
+  const t3seen = t3.againstRevealedEnemies;
+  lines.push(`- **T3 frente a los rivales ya revelados (solo capa curada "hard"):** en ${t3seen.states} estados con rival visible, héroes del top-3 que counterean a un rival: ${t3seen.meanHeroesCounteringAnEnemyOld} → ${t3seen.meanHeroesCounteringAnEnemyNew}; héroes del top-3 expuestos a un rival: ${t3seen.meanHeroesExposedToAnEnemyOld} → ${t3seen.meanHeroesExposedToAnEnemyNew}.`);
   lines.push(`- **I6 relleno:** de ${o.I6_fill.gapOpenStates} estados con hueco abierto, el top-3 lo llena en ${o.I6_fill.top3Fills}; existe un relleno en lo mostrado en ${o.I6_fill.fillerExistsInShownSet}.`);
   lines.push(`- **I7 daño:** de ${o.I7_damageMix.monoDamageStates} estados mono-daño, el top-3 diversifica en ${o.I7_damageMix.top3Diversifies}.`);
   lines.push(`- **I8 exposición del primary de ronda 1:** ${o.I8_exposureOfRound1Primary.meanHardCountersAvailable} counters duros disponibles en promedio (máx ${o.I8_exposureOfRound1Primary.maxHardCountersAvailable}) sobre ${o.I8_exposureOfRound1Primary.states} aperturas.`);

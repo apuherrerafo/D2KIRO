@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, fieldStats, pairedChange, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
+import { availableHardCounters, fieldStats, pairedChange, revealedCounterProfile, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -217,5 +217,30 @@ describe("fieldStats -- inside the more-played half", () => {
     const stats = fieldStats([...low, ...high])!;
     expect(stats.orderShareMorePlayedHalf).toBeCloseTo(0, 10);
     expect(stats.orderShareField!).toBeGreaterThan(0.5);
+  });
+});
+
+describe("revealedCounterProfile", () => {
+  // curated layer is keyed by the VICTIM: 90 is hard-countered by 1; 91 is hard-countered by 2 (medium by 3); hero 4 is hard-countered by enemy 91
+  const curated = new Map<number, readonly CuratedCounter[]>([
+    [90, [{ vs: 1, level: "hard", why: "x" }]],
+    [91, [{ vs: 2, level: "hard", why: "x" }, { vs: 3, level: "medium", why: "x" }]],
+    [4, [{ vs: 91, level: "hard", why: "x" }]],
+  ]);
+
+  test("counts the heroes that hard-counter a revealed enemy, and those a revealed enemy hard-counters; medium never counts", () => {
+    expect(revealedCounterProfile([1, 3, 5], [90, 91], curated)).toEqual({ counters: 1, exposed: 0 }); // 1 counters 90; 3 is only a medium counter of 91
+    expect(revealedCounterProfile([2, 4, 5], [90, 91], curated)).toEqual({ counters: 1, exposed: 1 }); // 2 counters 91; 4 is countered BY 91
+  });
+
+  test("no revealed enemy: nothing to counter and nothing to be exposed to", () => {
+    expect(revealedCounterProfile([1, 2, 4], [], curated)).toEqual({ counters: 0, exposed: 0 });
+  });
+});
+
+describe("topThree", () => {
+  test("highest score first, ties by hero id", () => {
+    const field: FieldCandidate[] = [5, 3, 9, 1].map((heroId) => ({ heroId, score: heroId === 9 ? 50 : 40, positionFit: 0, matches: 0 }));
+    expect(topThree(field)).toEqual([9, 1, 3]);
   });
 });

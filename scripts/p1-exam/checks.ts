@@ -338,3 +338,18 @@ export function pairedChange(oldField: readonly FieldCandidate[], newField: read
     meanMatchesTop3New: matchesOf(newField, new3),
   };
 }
+
+/**
+ * What a top-3 does against the enemies the Player can SEE (curated layer only): `counters` = heroes of the top-3 that hard-counter at least one
+ * revealed enemy (the offensive reason to pick them); `exposed` = heroes of the top-3 that a revealed enemy hard-counters. Pure.
+ */
+export function revealedCounterProfile(top3: readonly HeroId[], revealedEnemy: readonly HeroId[], counters: ReadonlyMap<HeroId, readonly CuratedCounter[]>): { counters: number; exposed: number } {
+  const countersAnEnemy = (hero: HeroId): boolean => revealedEnemy.some((enemy) => (counters.get(enemy) ?? []).some((entry) => entry.vs === hero && entry.level === "hard"));
+  return {
+    counters: top3.filter(countersAnEnemy).length,
+    exposed: top3.filter((hero) => hardCounteredBy(hero, revealedEnemy, counters).length > 0).length,
+  };
+}
+
+/** The top-3 of a scored field, by score (ties by hero id): the same cut every other field helper uses. */
+export const topThree = (field: readonly FieldCandidate[]): HeroId[] => topIds(field, (c) => c.score, 3);
