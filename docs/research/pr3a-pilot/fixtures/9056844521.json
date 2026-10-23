@@ -1,0 +1,221 @@
+{
+  "match_id": 9056844521,
+  "leagueid": 19944,
+  "league": {
+    "leagueid": 19944,
+    "tier": "professional",
+    "name": "EPL Masters 2026 "
+  },
+  "game_mode": 2,
+  "radiant_win": false,
+  "patch": 60,
+  "start_time": 1792686683,
+  "picks_bans": [
+    {
+      "is_pick": false,
+      "hero_id": 36,
+      "team": 0,
+      "order": 0
+    },
+    {
+      "is_pick": false,
+      "hero_id": 21,
+      "team": 0,
+      "order": 1
+    },
+    {
+      "is_pick": false,
+      "hero_id": 90,
+      "team": 1,
+      "order": 2
+    },
+    {
+      "is_pick": false,
+      "hero_id": 105,
+      "team": 1,
+      "order": 3
+    },
+    {
+      "is_pick": false,
+      "hero_id": 78,
+      "team": 0,
+      "order": 4
+    },
+    {
+      "is_pick": false,
+      "hero_id": 33,
+      "team": 1,
+      "order": 5
+    },
+    {
+      "is_pick": false,
+      "hero_id": 62,
+      "team": 1,
+      "order": 6
+    },
+    {
+      "is_pick": true,
+      "hero_id": 49,
+      "team": 0,
+      "order": 7
+    },
+    {
+      "is_pick": true,
+      "hero_id": 112,
+      "team": 1,
+      "order": 8
+    },
+    {
+      "is_pick": false,
+      "hero_id": 155,
+      "team": 0,
+      "order": 9
+    },
+    {
+      "is_pick": false,
+      "hero_id": 47,
+      "team": 0,
+      "order": 10
+    },
+    {
+      "is_pick": false,
+      "hero_id": 86,
+      "team": 1,
+      "order": 11
+    },
+    {
+      "is_pick": true,
+      "hero_id": 123,
+      "team": 1,
+      "order": 12
+    },
+    {
+      "is_pick": true,
+      "hero_id": 50,
+      "team": 0,
+      "order": 13
+    },
+    {
+      "is_pick": true,
+      "hero_id": 119,
+      "team": 0,
+      "order": 14
+    },
+    {
+      "is_pick": true,
+      "hero_id": 93,
+      "team": 1,
+      "order": 15
+    },
+    {
+      "is_pick": true,
+      "hero_id": 14,
+      "team": 1,
+      "order": 16
+    },
+    {
+      "is_pick": true,
+      "hero_id": 69,
+      "team": 0,
+      "order": 17
+    },
+    {
+      "is_pick": false,
+      "hero_id": 80,
+      "team": 0,
+      "order": 18
+    },
+    {
+      "is_pick": false,
+      "hero_id": 145,
+      "team": 1,
+      "order": 19
+    },
+    {
+      "is_pick": false,
+      "hero_id": 76,
+      "team": 0,
+      "order": 20
+    },
+    {
+      "is_pick": false,
+      "hero_id": 53,
+      "team": 1,
+      "order": 21
+    },
+    {
+      "is_pick": true,
+      "hero_id": 109,
+      "team": 0,
+      "order": 22
+    },
+    {
+      "is_pick": true,
+      "hero_id": 1,
+      "team": 1,
+      "order": 23
+    }
+  ],
+  "players": [
+    {
+      "hero_id": 109,
+      "isRadiant": true,
+      "player_slot": 0,
+      "position_est": 1
+    },
+    {
+      "hero_id": 50,
+      "isRadiant": true,
+      "player_slot": 1,
+      "position_est": 5
+    },
+    {
+      "hero_id": 49,
+      "isRadiant": true,
+      "player_slot": 2,
+      "position_est": 2
+    },
+    {
+      "hero_id": 119,
+      "isRadiant": true,
+      "player_slot": 3,
+      "position_est": 4
+    },
+    {
+      "hero_id": 69,
+      "isRadiant": true,
+      "player_slot": 4,
+      "position_est": 3
+    },
+    {
+      "hero_id": 123,
+      "isRadiant": false,
+      "player_slot": 128,
+      "position_est": 4
+    },
+    {
+      "hero_id": 93,
+      "isRadiant": false,
+      "player_slot": 129,
+      "position_est": 2
+    },
+    {
+      "hero_id": 1,
+      "isRadiant": false,
+      "player_slot": 130,
+      "position_est": 1
+    },
+    {
+      "hero_id": 14,
+      "isRadiant": false,
+      "player_slot": 131,
+      "position_est": 3
+    },
+    {
+      "hero_id": 112,
+      "isRadiant": false,
+      "player_slot": 132,
+      "position_est": 5
+    }
+  ]
+}
