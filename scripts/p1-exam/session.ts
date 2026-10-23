@@ -200,7 +200,11 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
           },
           v4: v4Out === null ? null : {
             kind: String(v4Decision.kind), targetPosition: (v4Decision.targetPosition ?? null) as Pos | null, viewedPosition: (v4Decision.viewedPosition ?? null) as Pos | null, targetBasis: (v4Decision.targetBasis ?? null) as string | null,
-            state: (v4Candidates.state ?? null) as string | null, cards: asArray(v4Candidates.cards).map(asRecord).map((c) => ({ heroId: Number(c.heroId), rationale: String(c.rationale ?? "") })),
+            state: (v4Candidates.state ?? null) as string | null, cards: asArray(v4Candidates.cards).map(asRecord).map((c) => ({
+              heroId: Number(c.heroId), rationale: String(c.rationale ?? ""),
+              basis: c.basis === undefined ? null : { kind: String(asRecord(c.basis).kind), sources: asArray(asRecord(c.basis).sources).map(asRecord).map((src) => ({ kind: String(src.kind), sampleSize: typeof src.sampleSize === "number" ? src.sampleSize : null })) },
+              risks: asArray(c.risks).map(asRecord).map((risk) => ({ kind: String(risk.kind), detail: String(risk.detail ?? ""), heroIds: asArray(risk.heroIds).map(Number) })),
+            })),
           },
           lpp: precedence(world, context, columns, actionable, asRecord(v4Out?.meta).phase ?? null, { banned, ownPicks, revealedEnemy }),
           positionFitSaturated: field.saturated.length === 0 ? null : field.saturated.reduce((a, b) => a + b, 0) / field.saturated.length,

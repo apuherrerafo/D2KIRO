@@ -18,7 +18,7 @@ import { SIDES, loadWorldData, muteLog, percentile, unmuteLog, type WorldData } 
 import { POLICIES, runExam } from "./session";
 import { collectEvidenceIdentity } from "../wave5/evidence-identity";
 import {
-  availableHardCounters, criticalWithheldByUncuratedPick, examNeeds, fieldStats, i1Illegal, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
+  availableHardCounters, criticalGapOnCards, criticalWithheldByUncuratedPick, examNeeds, i11Basis, fieldStats, i1Illegal, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
   type ExamState, type ExamWorld, type Pos,
 } from "./checks";
 
@@ -153,6 +153,11 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
   const i6 = states.map((s) => i6Gap(s, world)).filter((r) => r.applies);
   const i7 = states.map((s) => i7Damage(s, world)).filter((r) => r.applies);
   const i6b = states.map((s) => i6bInitiation(s, world)).filter((r) => r.applies);
+  const gapCards = states.map((s) => criticalGapOnCards(s, world));
+  const i11 = states.map((s) => i11Basis(s));
+  const i11Violations = i11.flatMap((r) => r.violations);
+  const basisKinds: Record<string, number> = {};
+  for (const r of i11) for (const [kind, n] of Object.entries(r.kinds)) basisKinds[kind] = (basisKinds[kind] ?? 0) + n;
   const i9 = states.flatMap((s) => i9Counters(s, world).shown);
   const statesWithI9 = new Set(i9.map((x) => x.where.split(" ")[0]));
 
@@ -200,7 +205,23 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
         examples: examples(i9.filter((x) => !x.riskVisible).map((x) => `${x.where}: hero ${x.heroId} hard-countered by revealed ${x.by.join("+")}`)),
         note: "Plan v2: allowed in the top-3 only when fewer than 3 credible alternatives exist AND the risk is shown. At baseline the risk is never shown.",
       },
-      I11_honestBasis: { status: "NOT_MEASURABLE", reason: "No `basis` field exists on any card yet (it is created by T5/TSK-254); today a curated claim and a statistical claim look identical." },
+      I11_honestBasis: {
+        status: "MEASURED" as const,
+        cards: i11.reduce((sum, r) => sum + r.cards, 0),
+        violations: i11Violations.length,
+        examples: examples(i11Violations),
+        basisKinds,
+        statisticalWithoutSample: i11.reduce((sum, r) => sum + r.statisticalWithoutSample, 0),
+        note: "Every V4 card carries a coherent basis, and it does not contradict its reason (a capability claim is curated, a quoted statistic is statistical). Reports before TSK-254 had no basis (NOT_MEASURABLE).",
+      },
+      I6c_criticalGapOnCards: {
+        cardsCarryingIt: gapCards.reduce((sum, r) => sum + r.shown, 0),
+        cardsInCriticalStates: gapCards.reduce((sum, r) => sum + r.cardsInCriticalStates, 0),
+        shownWithoutProof: gapCards.flatMap((r) => r.shownWithoutProof).length,
+        missingOnADemonstrableCard: gapCards.flatMap((r) => r.missingOnCard).length,
+        examples: examples([...gapCards.flatMap((r) => r.shownWithoutProof), ...gapCards.flatMap((r) => r.missingOnCard)]),
+        note: "CRITICAL_GAP is shown only when the gap is critical (<= 2 own picks left, every own pick curated) and the card's hero is curated and does not fill it; and it is never missing from such a card.",
+      },
     },
     observations: {
       I3_openingOnCore: { openingStates: opening.length, coreFirstWithoutWindow: coreFirst, rate: round4(rate(coreFirst, opening.length)), note: "Simulator recommends Pos 1/2 on the Player's first decision of round 1 with no COUNTER_WINDOW/POOL_SCARCITY behind it." },
@@ -346,7 +367,8 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   lines.push(`| I3 PHASE presentado como ventaja | ${h.I3_conformity.phaseShownAsStrategic} |`);
   lines.push(`| I6-visible hueco de iniciación/catch | ${h.I6_visible.gapNotVisibleOnAnyCard}/${h.I6_visible.gapOpenStates} estados con hueco abierto sin que ninguna tarjeta lo diga |`);
   lines.push(`| I9-visible counter duro en top-3 | ${h.I9_visible.hardCounteredHeroesInTop3} apariciones en ${h.I9_visible.statesAffected} estados; ${h.I9_visible.withoutVisibleRisk} sin riesgo visible |`);
-  lines.push(`| I11 honestidad de la base | ${h.I11_honestBasis.status}: ${h.I11_honestBasis.reason} |`, "");
+  lines.push(`| I11 honestidad de la base | ${h.I11_honestBasis.violations} violaciones en ${h.I11_honestBasis.cards} tarjetas V4 (bases ${JSON.stringify(h.I11_honestBasis.basisKinds)}; estadísticas sin muestra: ${h.I11_honestBasis.statisticalWithoutSample}) |`);
+  lines.push(`| I6c CRITICAL_GAP en la tarjeta | ${h.I6c_criticalGapOnCards.cardsCarryingIt} tarjetas lo llevan (de ${h.I6c_criticalGapOnCards.cardsInCriticalStates} en estados con hueco crítico); sin prueba: ${h.I6c_criticalGapOnCards.shownWithoutProof}; faltante donde era demostrable: ${h.I6c_criticalGapOnCards.missingOnADemonstrableCard} |`, "");
   lines.push("## Observaciones (no son ley)", "");
   lines.push(`- **I3 apertura en cores:** ${o.I3_openingOnCore.coreFirstWithoutWindow}/${o.I3_openingOnCore.openingStates} aperturas de ronda 1 recomiendan Pos 1/2 sin ventana de counter ni escasez de pool (${pct(o.I3_openingOnCore.rate)}).`);
   lines.push(`- **I4 reactividad (Jaccard del top-3, misma posición entre drafts distintos):** global ${o.I4_reactivityJaccardTop3.overall}; por posición ${JSON.stringify(o.I4_reactivityJaccardTop3.byPosition)}. 1.0 = siempre los mismos tres.`);

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, criticalWithheldByUncuratedPick, examNeeds, fieldStats, fillsCritical, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamWorld, type FieldCandidate } from "./checks";
+import { availableHardCounters, criticalGapOnCards, criticalWithheldByUncuratedPick, i11Basis, examNeeds, fieldStats, fillsCritical, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamV4Card, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -52,7 +52,7 @@ describe("I2 roles", () => {
     expect(i2Roles(state({ board: { recommendedPosition: 1, targetBasis: null, columns: [{ ...col(1, [2]), state: "UNRANKED_POSITIONAL" }] } }), world)).toEqual([]);
   });
   test("v4 cards belong to the VIEWED position, not the suggested target (the Player opens on their own position)", () => {
-    const v4 = (heroId: number) => ({ kind: "own", targetPosition: 5 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId, rationale: "" }] });
+    const v4 = (heroId: number) => ({ kind: "own", targetPosition: 5 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId, rationale: "", basis: null, risks: [] }] });
     expect(i2Roles(state({ v4: v4(1) }), world)).toEqual([]);
     expect(i2Roles(state({ v4: v4(2) }), world)).toHaveLength(1);
   });
@@ -323,5 +323,82 @@ describe("T4 -- critical gaps in the exam", () => {
     expect(i6bInitiation(state({ ownPicks: [1, 3, 5], ownPicksRemaining: 2 }), world).applies).toBe(false);
     expect(i6bInitiation(state({ ownPicks: [1, 2], ownPicksRemaining: 3 }), world).applies).toBe(false);
     expect(i6bInitiation(state({ ownPicks: [1, 2, 777], ownPicksRemaining: 2 }), world).applies).toBe(false);
+  });
+});
+
+// ---- T5 (TSK-254): CRITICAL_GAP on the cards and I11 ---------------------------------------------------------------------------------
+// World: hero 3 initiates; 1, 2, 5 do not; 4 is the only magical; 6 has catch. Own team [2, 4, 6]: initiation is the only critical gap.
+describe("T5 -- CRITICAL_GAP on the V4 cards", () => {
+  const team = { ownPicks: [2, 4, 6], ownPicksRemaining: 2 };
+  const gapRisk = { kind: "CRITICAL_GAP", detail: "A tu equipo le falta iniciación", heroIds: [] as number[] };
+  const v4With = (cards: { heroId: number; risks: typeof gapRisk[] }[]) => ({ kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: cards.map((c) => ({ heroId: c.heroId, rationale: "", basis: null, risks: c.risks })) });
+
+  test("demonstrable and shown: a curated non-initiator carries it, the initiator does not -> clean", () => {
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 1, risks: [gapRisk] }, { heroId: 3, risks: [] }]) }), world);
+    expect(result).toMatchObject({ shown: 1, shownWithoutProof: [], missingOnCard: [], cardsInCriticalStates: 2 });
+  });
+
+  test("HARD: demonstrable but missing on the card of a curated non-initiator", () => {
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 1, risks: [] }]) }), world);
+    expect(result.missingOnCard).toHaveLength(1);
+  });
+
+  test("HARD: shown on an initiator (it fills the gap)", () => {
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 3, risks: [gapRisk] }]) }), world);
+    expect(result.shownWithoutProof).toHaveLength(1);
+  });
+
+  test("HARD: shown on a hero with unknown capabilities (never presented as certainty)", () => {
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 777, risks: [gapRisk] }]) }), world);
+    expect(result.shownWithoutProof).toHaveLength(1);
+    expect(criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 777, risks: [] }]) }), world)).toMatchObject({ shown: 0, shownWithoutProof: [], missingOnCard: [] });
+  });
+
+  test("HARD: shown when an own pick is uncurated (the gap may be false) or outside the closing window", () => {
+    expect(criticalGapOnCards(state({ ownPicks: [2, 4, 777], ownPicksRemaining: 2, v4: v4With([{ heroId: 1, risks: [gapRisk] }]) }), world).shownWithoutProof).toHaveLength(1);
+    expect(criticalGapOnCards(state({ ownPicks: [2, 4], ownPicksRemaining: 3, v4: v4With([{ heroId: 1, risks: [gapRisk] }]) }), world).shownWithoutProof).toHaveLength(1);
+  });
+
+  test("I6-visible reads the V4 risk text too: a late open initiation/catch gap is no longer invisible once a card says it", () => {
+    const late = { ownPicksRemaining: 1, ownPicks: [1, 2, 4, 5] };
+    const hidden = i6Gap(state({ ...late, v4: v4With([{ heroId: 1, risks: [] }]) }), world);
+    const visible = i6Gap(state({ ...late, v4: v4With([{ heroId: 1, risks: [{ ...gapRisk, detail: "A tu equipo le falta iniciación y te queda 1 pick" }] }]) }), world);
+    expect(hidden.gapNotVisible).toBe(true);
+    expect(visible.gapNotVisible).toBe(false);
+  });
+});
+
+describe("T5 -- I11 honest basis", () => {
+  const card = (rationale: string, basis: ExamV4Card["basis"]) =>
+    ({ kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId: 1, rationale, basis, risks: [] }] });
+  const statistical = { kind: "statistical", sources: [{ kind: "statistical", sampleSize: 4200 }] };
+  const curated = { kind: "curated", sources: [{ kind: "curated", sampleSize: null }] };
+
+  test("coherent bases are clean and counted by kind", () => {
+    expect(i11Basis(state({ v4: card("Evidencia sólida de que funciona como carry", statistical) }))).toMatchObject({ cards: 1, violations: [], kinds: { statistical: 1 } });
+    expect(i11Basis(state({ v4: card("Aporta initiation que a tu equipo le falta", curated) })).violations).toEqual([]);
+  });
+
+  test("HARD: a card with no basis", () => {
+    expect(i11Basis(state({ v4: card("x", null) })).violations).toHaveLength(1);
+  });
+
+  test("HARD: a capability claim labelled statistical-only (a curated claim must not look like a measurement)", () => {
+    expect(i11Basis(state({ v4: card("Aporta initiation que a tu equipo le falta", statistical) })).violations).toHaveLength(1);
+  });
+
+  test("HARD: a quoted statistic whose basis is not statistical", () => {
+    expect(i11Basis(state({ v4: card("Gana 61% en 4200 partidas", curated) })).violations).toHaveLength(1);
+  });
+
+  test("HARD: a curated source that claims a sample, a repeated kind, or a kind that does not follow its sources", () => {
+    expect(i11Basis(state({ v4: card("x", { kind: "curated", sources: [{ kind: "curated", sampleSize: 50 }] }) })).violations).toHaveLength(1);
+    expect(i11Basis(state({ v4: card("x", { kind: "mixed", sources: [{ kind: "curated", sampleSize: null }, { kind: "curated", sampleSize: null }] }) })).violations.length).toBeGreaterThan(0);
+    expect(i11Basis(state({ v4: card("x", { kind: "statistical", sources: [{ kind: "curated", sampleSize: null }] }) })).violations).toHaveLength(1);
+  });
+
+  test("OBSERVATION: a statistical source with an unknown sample is counted, not a violation", () => {
+    const unknownN = { kind: "statistical", sources: [{ kind: "statistical", sampleSize: null }] };
+    expect(i11Basis(state({ v4: card("Evidencia sólida de que funciona como carry", unknownN) }))).toMatchObject({ violations: [], statisticalWithoutSample: 1 });
   });
 });
