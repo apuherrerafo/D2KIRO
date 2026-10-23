@@ -1,48 +1,25 @@
 #!/bin/bash
-# PreToolUse hook (matcher: Bash) — bloquea git commit/push si verify-simplicity.sh falla.
-# Lee el payload JSON del hook desde stdin (formato documentado de Claude Code:
-# hook_event_name, tool_name, tool_input.command). Exit 2 = bloqueante.
+# PreToolUse hook (matcher: Bash|PowerShell) — bloquea git commit/push si verify-simplicity.sh
+# del worktree de la SESIÓN falla, o si el commit/push apunta a otro worktree o a un destino que
+# no se puede determinar. La lógica vive en commit-gate.py (parseo JSON real + análisis del
+# comando); este archivo sólo garantiza el fallo cerrado.
+# Claude Code 2.1.270 sólo bloquea con exit 2: cualquier otra salida distinta de 0 (python3
+# ausente, excepción no capturada) se traduce a 2 — un gate que no puede correr no deja pasar.
 set -uo pipefail
 
-input=$(cat)
-cmd=$(printf '%s' "$input" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"command"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/')
+here="$(cd "$(dirname "$0")" && pwd)" || exit 2
 
-# Directorio al que apunta la operación git. Por defecto, el cwd de la sesión (comportamiento
-# original). Sólo se redirige a OTRO worktree cuando es inequívoco: exactamente un `git commit|push`
-# y exactamente una directiva de directorio (`cd <dir> &&` al inicio, o `git -C <dir> commit|push`),
-# sin --git-dir/--work-tree/GIT_DIR/GIT_WORK_TREE, y el directorio existe y es un repo git.
-# Cualquier duda -> cwd de la sesión (estricto). Nunca se relaja el gate: sólo se elige a qué
-# árbol se le aplica, y es el verify-simplicity.sh de ESE árbol el que corre.
-resolve_target_dir() {
-  local c="$1" dir="" ops dirs
-  ops=$(printf '%s' "$c" | grep -oE 'git( +-C +[^ ]+)? +(commit|push)' | wc -l)
-  [ "$ops" -eq 1 ] || return 1
-  if printf '%s' "$c" | grep -qE -- '--git-dir|--work-tree|GIT_DIR=|GIT_WORK_TREE='; then return 1; fi
-  dirs=$(( $(printf '%s' "$c" | grep -oE '(^|[;&| ])cd +' | wc -l) + $(printf '%s' "$c" | grep -oE 'git +-C +' | wc -l) ))
-  [ "$dirs" -eq 1 ] || return 1
-  local re_cd='^[[:space:]]*cd[[:space:]]+([^][:space:];&|"]+)[[:space:]]*&&'
-  local re_c='git[[:space:]]+-C[[:space:]]+([^][:space:];&|"]+)[[:space:]]+(commit|push)'
-  if [[ "$c" =~ $re_cd ]]; then
-    dir="${BASH_REMATCH[1]}"
-  elif [[ "$c" =~ $re_c ]]; then
-    dir="${BASH_REMATCH[1]}"
-  else
-    return 1
-  fi
-  [ -d "$dir" ] || return 1
-  git -C "$dir" rev-parse --show-toplevel 2>/dev/null
-}
-
-if printf '%s' "$cmd" | grep -qE 'git (commit|push)|git +-C +[^ ]+ +(commit|push)'; then
-  target=$(resolve_target_dir "$cmd") || target="$(pwd)"
-  # Governance 2.0 (2026-08-24): VERIFY_COMMIT_GATE=1 activa el hard gate real de este camino
-  # (compilación/tipos + bun test) -- ver verify-simplicity.sh, sección 8. Los hooks
-  # PostToolUse/SubagentStop de .claude/settings.json llaman al mismo script sin este flag, así
-  # que solo el commit/push paga el costo de tsc+bun test completos.
-  if ! (cd "$target" && VERIFY_COMMIT_GATE=1 bash scripts/verify-simplicity.sh); then
-    echo "Bloqueado: scripts/verify-simplicity.sh falló. Corrige las violaciones antes de commitear/pushear." >&2
-    exit 2
-  fi
+# bash con el que commit-gate.py corre verify-simplicity.sh. En Git Bash, $BASH es una ruta MSYS
+# que un python nativo de Windows no entiende, y `bash` en PATH puede ser el lanzador de WSL.
+D2K_HOOK_BASH="$BASH"
+if command -v cygpath >/dev/null 2>&1; then
+  D2K_HOOK_BASH="$(cygpath -w "$BASH")"
 fi
+export D2K_HOOK_BASH
 
-exit 0
+python3 "$here/commit-gate.py"
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  exit 0
+fi
+exit 2
