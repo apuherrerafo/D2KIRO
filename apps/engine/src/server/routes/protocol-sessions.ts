@@ -1,3 +1,4 @@
+import type { HeroCapabilities } from "../../draft-paths/types";
 import { resolveSimulatorCollisionAuthority } from "../../draft-protocol/adapters/simulator-authority";
 import { lowestEligibleHeroIdStrategy } from "../../draft-protocol/adapters/cm-simulator";
 import { perspectiveToLegacyDraftState } from "../../draft-protocol/adapters/suggestion-bridge";
@@ -118,6 +119,8 @@ export interface ProtocolSessionRouteDeps {
   heroPositions?: HeroPositions;
   /** Curated counter relationships for the Coach's Safe Core opportunity (Wave 4A). Never the real file in tests. */
   heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
+  /** Curated capabilities for the Coach's CRITICAL_GAP card risk (S9). Never the real file in tests. */
+  heroCapabilities?: readonly HeroCapabilities[];
   /**
    * TEST-ONLY construction-time seam (same pattern as allowClientForcedBotSelection). When true,
    * POST /:id/test-advance-clock can push the Simulator TIMER clock of a session forward so an
@@ -743,6 +746,7 @@ export function createProtocolSessionRoutes(deps: ProtocolSessionRouteDeps) {
     computeSuggestions: deps.computeSuggestions,
     heroPositions: deps.heroPositions,
     heroCounters: deps.heroCounters,
+    heroCapabilities: deps.heroCapabilities,
   });
 
   /**

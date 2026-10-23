@@ -2,6 +2,8 @@ import { buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, cred
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
+import { loadHeroCapabilities } from "../../draft-paths/capabilities";
+import type { HeroCapabilities } from "../../draft-paths/types";
 import { loadHeroCounters, type CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
 
@@ -27,6 +29,8 @@ export interface CoachRecommendationsDeps {
   heroPositions?: HeroPositions;
   /** Curated counter relationships (Safe Core, Wave 4A). Defaults to the validated `hero-counters.json`. */
   heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
+  /** Curated capabilities (injectable, S9). Defaults to the validated `capabilities.json` -- the file `team_synergy` reads. */
+  heroCapabilities?: readonly HeroCapabilities[];
 }
 
 export interface CoachRecommendations {
@@ -50,6 +54,7 @@ export interface CoachRecommendations {
 export function createCoachRecommendations(deps: CoachRecommendationsDeps): CoachRecommendations {
   const heroPositions = deps.heroPositions ?? MODULE_HERO_POSITIONS;
   const heroCounters = deps.heroCounters ?? MODULE_HERO_COUNTERS;
+  const heroCapabilities = deps.heroCapabilities ?? loadHeroCapabilities();
   // Assignments are per observer/account. A pool overlay must not accidentally share state with
   // another account that happens to inspect the same simulator session.
   const coaches: { accountId: string; coach: CoachOrchestrator }[] = [];
@@ -75,6 +80,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       coach = new CoachOrchestrator({
         heroPositions,
         heroCounters,
+        heroCapabilities,
         buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
         buildActionRecommendationSet: (context, candidateHeroIds, targetPosition) => buildRecommendationSetFromPerspective({
           context,

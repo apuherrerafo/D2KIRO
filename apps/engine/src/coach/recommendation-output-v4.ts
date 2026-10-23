@@ -83,7 +83,7 @@ export interface CardBasis {
   sources: BasisSource[];
 }
 
-export type CardRiskKind = "low_evidence" | "unresolved_role" | "countered_by_revealed" | "exposed_to_counter";
+export type CardRiskKind = "low_evidence" | "unresolved_role" | "countered_by_revealed" | "exposed_to_counter" | "CRITICAL_GAP";
 
 export interface CardRisk {
   kind: CardRiskKind;

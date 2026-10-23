@@ -1,3 +1,6 @@
+import { assessCompositionNeeds, capabilitiesByHero, ownPicksRemainingOf, unfilledCriticalGaps, type CompositionNeeds } from "../draft-paths/gaps";
+import type { DraftCapabilityGap, HeroCapabilities } from "../draft-paths/types";
+import { perspectiveToLegacyDraftState } from "../draft-protocol/adapters/suggestion-bridge";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { SignalContribution, SignalId } from "../signals/types";
@@ -21,7 +24,9 @@ import { curatedHardCounterStatus } from "./safe-core";
 //
 // RISKS are public-evidence checks over the curated hard counters (the same data and "off the table"
 // semantic as Safe Core) plus the two per-hero risks V6 already derives for a recommendation (unresolved role,
-// low evidence). CRITICAL_GAP (TSK-253) joins this list when its producer exists.
+// low evidence), plus CRITICAL_GAP (TSK-253's contract): the team lacks something critical, the picks are running out and
+// THIS hero does not cover it. It is shown only when the gap is demonstrable -- every own pick has curated capabilities, it is
+// inside the closing window, and the card's hero has curated capabilities that do not fill it. Unknown is never "lacking".
 
 export interface CardEvidenceContext {
   /** Enemy heroes the Player can SEE. */
@@ -103,7 +108,44 @@ function counterNoun(count: number): string {
   return count === 1 ? "counter duro curado" : "counters duros curados";
 }
 
-export function deriveCardRisks(candidate: HeroCandidate, view: PerspectiveDraftView, heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): CardRisk[] {
+/** What the team critically lacks right now (TSK-253's `assessCompositionNeeds`) and the curated capabilities to judge a card against it. */
+export interface CardCompositionContext {
+  needs: CompositionNeeds;
+  capabilities: ReadonlyMap<HeroId, HeroCapabilities>;
+}
+
+/**
+ * One per decision, from the same state the scorer read (`perspectiveToLegacyDraftState`) and the same picks-left count
+ * (`ownPicksRemainingOf`), so the card and the ranking agree on whether the closing window is open. Undefined when no
+ * capabilities were supplied: the risk then simply cannot be derived (never guessed).
+ */
+export function deriveCompositionContext(view: PerspectiveDraftView, capabilities: readonly HeroCapabilities[] | undefined): CardCompositionContext | undefined {
+  if (!capabilities || capabilities.length === 0) return undefined;
+  // `patch` only labels the legacy state; the gap functions read `localSide` and `picks`.
+  const state = perspectiveToLegacyDraftState(view, { patch: "composition-needs" });
+  return { needs: assessCompositionNeeds(state, [...capabilities], ownPicksRemainingOf(state)), capabilities: capabilitiesByHero([...capabilities]) };
+}
+
+const GAP_PHRASE: Record<DraftCapabilityGap, string> = {
+  initiation: "iniciación",
+  catch: "catch",
+  waveclear: "waveclear",
+  structural_damage: "daño a estructuras",
+  teamfight: "teamfight",
+  scaling: "scaling",
+  damage_mix: "un segundo tipo de daño",
+};
+
+function listNaturally(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function picksLeftPhrase(count: number): string {
+  return count === 1 ? "te queda 1 pick" : `te quedan ${count} picks`;
+}
+
+export function deriveCardRisks(candidate: HeroCandidate, view: PerspectiveDraftView, heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined, composition?: CardCompositionContext): CardRisk[] {
   const risks: CardRisk[] = [];
   const status = heroCounters ? curatedHardCounterStatus(candidate.heroId, view, heroCounters) : { revealed: [], available: [] };
 
@@ -120,6 +162,17 @@ export function deriveCardRisks(candidate: HeroCandidate, view: PerspectiveDraft
       detail: `${status.available.length} ${counterNoun(status.available.length)} ${status.available.length === 1 ? "sigue disponible" : "siguen disponibles"} y el rival todavía puede elegir después de ver tu pick.`,
       heroIds: status.available,
     });
+  }
+  if (composition) {
+    // [] for a hero without curated capabilities: we do not know what it brings, so it is never said to leave the gap open.
+    const missing = unfilledCriticalGaps(composition.capabilities.get(candidate.heroId), composition.needs);
+    if (missing.length > 0) {
+      risks.push({
+        kind: "CRITICAL_GAP",
+        detail: `A tu equipo le falta ${listNaturally(missing.map((gap) => GAP_PHRASE[gap]))} y ${picksLeftPhrase(composition.needs.ownPicksRemaining)}; este héroe no lo cubre (según las capacidades curadas).`,
+        heroIds: [],
+      });
+    }
   }
   if (candidate.roleStatus === "UNRESOLVED") {
     risks.push({ kind: "unresolved_role", detail: "Sin evidencia de posición suficiente para confirmar el rol de este héroe.", heroIds: [] });

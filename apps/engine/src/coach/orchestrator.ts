@@ -1,4 +1,5 @@
 import { deriveDecisionContextFromView } from "../drafter/decision-context";
+import type { HeroCapabilities } from "../draft-paths/types";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { configuredPoolForPosition, poolForPosition, unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
@@ -69,6 +70,8 @@ export interface CoachOrchestratorDeps {
   heroPositions?: HeroPositions;
   /** Wave 4A: curated counter relationships for the Safe Core opportunity. Omitted -> no opportunity is ever produced. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /** TSK-254: curated capabilities for the CRITICAL_GAP risk of a V4 card (the list the ranking's `team_synergy` read). */
+  heroCapabilities?: readonly HeroCapabilities[];
 }
 
 export interface CoachRecomputeInput {
@@ -285,7 +288,7 @@ export class CoachOrchestrator {
       // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
       const personalPoolApplied = ownPoolInEffect && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
-      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied, activePool });
+      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, heroCapabilities: this.deps.heroCapabilities, personalPoolApplied, activePool });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied, ...derivePoolInfo({ activePool, personalPoolApplied, unavailable: unavailableHeroesFrom(view) }) });
       opportunity = await this.deriveSafeCoreOpportunity(input.context);
     }
