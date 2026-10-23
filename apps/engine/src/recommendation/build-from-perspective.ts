@@ -170,6 +170,8 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
     suggestionSet = await computeSuggestions(legacyState, null, {
       teamOpening: input.teamOpening ?? true,
       targetPosition: input.targetPosition,
+      // TSK-252: when the Coach ranks FOR a position, `position_fit` must not be a popularity count (see position-fit.ts).
+      ...(input.targetPosition !== undefined ? { positionFitSaturation: "credible-median" as const } : {}),
       // Hero Pool remains a soft V6 signal. Restricting the candidate universe would make it an
       // illegitimate hard gate and hide a clearly better outside-pool personal option.
       usePersonalPool: false,

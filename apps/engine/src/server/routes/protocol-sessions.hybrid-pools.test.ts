@@ -96,7 +96,11 @@ describe("F1 -- the pool is a preference, measured", () => {
     const withPool = await (await setup({ humanPosition: 1, pools: { 5: [13] } })).decide(5);
     expect(heroesOf(withPool.cards)[0]).toBe(13);
     expect(scoreOf(withPool.cards, 13)).toBeGreaterThan(scoreOf(withPool.cards, 12) + 5);
-    expect(scoreOf(withPool.cards, 13)).toBeGreaterThan(scoreOf(without.cards, 13));
+    // The edge is the pool's alone: without it 13 is exactly tied with its identical peers. (It is NOT compared against 13's score in the
+    // no-pool state: with position_fit saturated at the credible median the three identical heroes sit at the 100 ceiling there, and a
+    // state with one more voting signal re-bases every score, so an absolute cross-state comparison says nothing about the pool.)
+    expect(scoreOf(without.cards, 13)).toBeCloseTo(scoreOf(without.cards, 12), 10);
+    expect(scoreOf(without.cards, 13)).toBeCloseTo(scoreOf(without.cards, 14), 10);
   });
 
   test("an outside hero with a clearly better fit still beats a weaker pool hero, and says it is outside the pool", async () => {
@@ -168,7 +172,7 @@ describe("F1 -- isolation and labels", () => {
     expect(decision.poolState).toBe("NONE");
     expect(decision.poolOwner).toBeNull();
     expect(cards.every((card) => card.poolMembership === "NO_POOL" && card.isFromPool === false)).toBe(true);
-    const direct = buildSuggestions({ sessionId: "s", schema: "draft-state/v1", format: "all_pick", patch: "7.41e", localSide: "radiant", phase: "active", banned: [], picks: { radiant: [], dire: [] }, lastSeq: 0, appliedEventIds: [], quality: { unconfirmed: [], captureStatus: "ok" }, updatedAt: "2026-10-19T00:00:00Z", firstPickSide: null, turnStartedAt: null, reserveRemainingMs: null }, META, { teamOpening: false, targetPosition: 5, heroPositions: POSITIONS, candidateHeroIds: [12, 13, 14, 15] });
+    const direct = buildSuggestions({ sessionId: "s", schema: "draft-state/v1", format: "all_pick", patch: "7.41e", localSide: "radiant", phase: "active", banned: [], picks: { radiant: [], dire: [] }, lastSeq: 0, appliedEventIds: [], quality: { unconfirmed: [], captureStatus: "ok" }, updatedAt: "2026-10-19T00:00:00Z", firstPickSide: null, turnStartedAt: null, reserveRemainingMs: null }, META, { teamOpening: false, targetPosition: 5, heroPositions: POSITIONS, candidateHeroIds: [12, 13, 14, 15], positionFitSaturation: "credible-median" }); // the rule the Coach asks V6 for (TSK-252): the Coach adds nothing on top of it
     for (const suggestion of direct.suggestions) expect(scoreOf(cards, suggestion.hero)).toBeCloseTo(suggestion.score, 5);
   });
 });
