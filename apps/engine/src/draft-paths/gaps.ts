@@ -1,4 +1,4 @@
-import type { DraftState, HeroId } from "../draft/reducer";
+import { MAX_PICKS_PER_SIDE, type DraftState, type HeroId } from "../draft/reducer";
 import type { CapabilityLevel, DamageType, DraftCapabilityGap, HeroCapabilities } from "./types";
 
 const LEVEL_SCORE: Record<CapabilityLevel, number> = { low: 0, medium: 1, high: 2 };
@@ -66,4 +66,60 @@ export function filledGaps(candidate: HeroCapabilities, gaps: DraftCapabilityGap
     if (candidate.damageType === "mixed") return true;
     return !ownDamageTypes.includes(candidate.damageType);
   });
+}
+
+// ---- TSK-253 (F1 / T4): qué le falta al equipo y cuánto pesa ya -------------------------------------------------------------------
+//
+// `detectDraftGaps` dice QUÉ no tiene el equipo; no dice si importa todavía. Tres cosas distintas:
+//   - capacidad del héroe: booleana (initiation / catch / waveclear) o con nivel (structural_damage / teamfight / scaling). Donde el
+//     dato no tiene niveles NO se inventan: un iniciador es un iniciador, no "muy iniciador".
+//   - cobertura del equipo: lo que aportan los picks propios CURADOS. Un pick propio sin capacidades curadas (Ringmaster, Kez, Largo)
+//     es dato desconocido, no carencia (mismo criterio que `team_synergy`): con uno, el equipo no puede declarar un hueco como crítico.
+//   - importancia: con 1 pick propio casi todo "falta" (nada es una necesidad todavía); en los últimos picks, lo que sigue abierto ya
+//     no se puede esperar a llenar después.
+//
+// "Crítico" sale del plan v2 (invariantes I6 e I7), no de una escala nueva: no poder iniciar ni atrapar, o un solo tipo de daño, cuando
+// quedan CLOSING_WINDOW_PICKS o menos picks propios (el mismo corte con el que el examen mide I6).
+
+export const CRITICAL_GAP_KINDS: readonly DraftCapabilityGap[] = ["initiation", "catch", "damage_mix"];
+export const CLOSING_WINDOW_PICKS = 2;
+
+export interface CompositionNeeds {
+  /** Todo hueco abierto -- exactamente `detectDraftGaps`. */
+  open: DraftCapabilityGap[];
+  /** Los huecos críticos que ya no se pueden esperar a llenar; vacío fuera de la ventana de cierre o si un pick propio no está curado. */
+  critical: DraftCapabilityGap[];
+  /** Tipos de daño de los picks propios curados: lo que `filledGaps` necesita para saber si un candidato diversifica. */
+  ownDamageTypes: DamageType[];
+  /** Picks propios que faltan, contando el que se está decidiendo (5 - ya elegidos). */
+  ownPicksRemaining: number;
+}
+
+export function ownPicksRemainingOf(state: DraftState): number {
+  return Math.max(MAX_PICKS_PER_SIDE - getOwnHeroes(state).length, 0);
+}
+
+export function assessCompositionNeeds(state: DraftState, capabilities: HeroCapabilities[], ownPicksRemaining: number): CompositionNeeds {
+  const own = ownCapabilities(state, capabilities);
+  const open = detectDraftGaps(state, capabilities);
+  const coverageIsKnown = getOwnHeroes(state).length === own.length;
+  const inClosingWindow = ownPicksRemaining >= 1 && ownPicksRemaining <= CLOSING_WINDOW_PICKS;
+  const critical = coverageIsKnown && inClosingWindow ? open.filter((gap) => CRITICAL_GAP_KINDS.includes(gap)) : [];
+  return { open, critical, ownDamageTypes: own.map((entry) => entry.damageType), ownPicksRemaining };
+}
+
+/**
+ * Los huecos críticos que este candidato NO llena. Un candidato sin capacidades curadas devuelve [] : no sabemos qué aporta, y
+ * desconocido no es carencia (nunca se le atribuye el hueco).
+ */
+export function unfilledCriticalGaps(candidate: HeroCapabilities | undefined, needs: CompositionNeeds): DraftCapabilityGap[] {
+  if (candidate === undefined) return [];
+  const filled = new Set(filledGaps(candidate, needs.critical, needs.ownDamageTypes));
+  return needs.critical.filter((gap) => !filled.has(gap));
+}
+
+/** Qué parte de los picks que quedan se iría en llenar lo crítico (0 si no hay nada crítico; 1 si ya no alcanzan los picks). */
+export function criticalPressure(needs: CompositionNeeds): number {
+  if (needs.critical.length === 0 || needs.ownPicksRemaining < 1) return 0;
+  return Math.min(1, needs.critical.length / needs.ownPicksRemaining);
 }

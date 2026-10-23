@@ -1,5 +1,5 @@
 import type { DraftState, HeroId, TeamSide } from "../draft/reducer";
-import { detectDraftGaps, filledGaps, ownCapabilities } from "../draft-paths/gaps";
+import { assessCompositionNeeds, criticalPressure, detectDraftGaps, filledGaps, ownCapabilities, type CompositionNeeds } from "../draft-paths/gaps";
 import type { CapabilityLevel, DamageType, DraftCapabilityGap, HeroCapabilities } from "../draft-paths/types";
 import type { SignalContribution, SignalScorer } from "./types";
 
@@ -74,9 +74,17 @@ function ownPicks(state: { localSide: TeamSide | "unknown"; picks: Record<TeamSi
 interface NeededState {
   gaps: DraftCapabilityGap[];
   ownDamageTypes: DamageType[];
+  /** TSK-253: sólo cuando el llamador pidió la importancia por etapa. */
+  needs: CompositionNeeds | null;
 }
 
-export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): SignalScorer {
+/**
+ * TSK-253: `ownPicksRemaining` ausente = la fórmula de siempre (`filled / 7`, byte-idéntica). Presente (sólo el Coach lo pide), cuando el
+ * equipo tiene huecos críticos dentro de la ventana de cierre, la señal deja de medir "cuántas cosas distintas aporta" y pasa a medir
+ * "cuánto de lo crítico llena": la mezcla es `(1 - p) * filled/7 + p * críticosLlenados/críticosAbiertos`, con `p` = críticos abiertos /
+ * picks que quedan (tope 1). Antes de la ventana, `p = 0`.
+ */
+export function createTeamSynergyScorer(capabilities: HeroCapabilities[], ownPicksRemaining?: number): SignalScorer {
   const byHero = new Map(capabilities.map((entry) => [entry.hero, entry]));
 
   // TSK-069: un solo nivel de WeakMap por `state` alcanza -- a diferencia de la versión anterior
@@ -89,7 +97,8 @@ export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): Signa
   function needed(state: DraftState): NeededState {
     let cached = neededCache.get(state);
     if (!cached) {
-      cached = { gaps: detectDraftGaps(state, capabilities), ownDamageTypes: ownCapabilities(state, capabilities).map((c) => c.damageType) };
+      const needs = ownPicksRemaining === undefined ? null : assessCompositionNeeds(state, capabilities, ownPicksRemaining);
+      cached = { gaps: detectDraftGaps(state, capabilities), ownDamageTypes: ownCapabilities(state, capabilities).map((c) => c.damageType), needs };
       neededCache.set(state, cached);
     }
     return cached;
@@ -130,12 +139,15 @@ export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): Signa
         };
       }
 
-      const { gaps, ownDamageTypes } = needed(state);
+      const { gaps, ownDamageTypes, needs } = needed(state);
       const filled = filledGaps(candidateCapabilities, gaps, ownDamageTypes);
+      const breadth = filled.length / TOTAL_GAP_KINDS;
+      const pressure = needs === null ? 0 : criticalPressure(needs);
+      const criticalShare = needs === null || pressure === 0 ? 0 : filled.filter((gap) => needs.critical.includes(gap)).length / needs.critical.length;
 
       return {
         signal: "team_synergy",
-        raw: filled.length / TOTAL_GAP_KINDS,
+        raw: pressure === 0 ? breadth : (1 - pressure) * breadth + pressure * criticalShare,
         weighted: 0,
         explanation: buildExplanation(filled, candidateCapabilities),
         sampleSize: 0,
