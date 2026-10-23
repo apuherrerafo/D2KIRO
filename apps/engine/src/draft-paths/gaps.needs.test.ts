@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { DraftState } from "../draft/reducer";
-import { assessCompositionNeeds, criticalPressure, detectDraftGaps, ownPicksRemainingOf, unfilledCriticalGaps } from "./gaps";
+import { assessCompositionNeeds, capabilitiesByHero, criticalPressure, detectDraftGaps, ownPicksRemainingOf, unfilledCriticalGaps } from "./gaps";
 import type { HeroCapabilities } from "./types";
 
 // TSK-253: qué le falta al equipo y cuánto pesa ya. Fixtures inline (costura S9): nunca capabilities.json real.
@@ -116,5 +116,23 @@ describe("ownPicksRemainingOf", () => {
     expect(ownPicksRemainingOf(draftState([]))).toBe(5);
     expect(ownPicksRemainingOf(draftState([1, 2, 3]))).toBe(2);
     expect(ownPicksRemainingOf(draftState([1, 2, 3, 4, 5]))).toBe(0);
+  });
+});
+
+// El contrato que TSK-254 consume para `CRITICAL_GAP` (por tarjeta): sólo funciones y tipos ya existentes sobre el estado legado que el Coach
+// ya construye (`perspectiveToLegacyDraftState`). Esta prueba es el uso, no una API aparte.
+describe("consumo desde una tarjeta (CRITICAL_GAP de TSK-254)", () => {
+  const caps = [...NO_INITIATOR_TEAM, hero(10, { hasInitiation: true }), hero(11)];
+  const state = draftState([1, 2, 3]);
+  const needs = assessCompositionNeeds(state, caps, ownPicksRemainingOf(state));
+  const byHero = capabilitiesByHero(caps);
+
+  test("la tarjeta del iniciador no lleva el riesgo; la del héroe sin iniciación sí, con el hueco nombrado", () => {
+    expect(unfilledCriticalGaps(byHero.get(10), needs)).toEqual([]);
+    expect(unfilledCriticalGaps(byHero.get(11), needs)).toEqual(["initiation"]);
+  });
+
+  test("una tarjeta de un héroe sin capacidades curadas no lleva el riesgo (desconocido no es carencia)", () => {
+    expect(unfilledCriticalGaps(byHero.get(777), needs)).toEqual([]);
   });
 });
