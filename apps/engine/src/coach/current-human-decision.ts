@@ -105,11 +105,19 @@ export function targetFromPriority(priority: LivePositionPriority | null | undef
 }
 
 /**
- * PSR-002: the position the Player is INSPECTING. Navigation only -- honoured when eligible, otherwise
- * the recommendation itself. It never changes the recommendation, ownership or session state.
+ * PSR-002: the position the Player is INSPECTING. Navigation only -- honoured when eligible. With no request
+ * the Player starts on their OWN position when it is still open (the recommendation may be a habit order such as
+ * Pos 5 first, which must not take their personal view away); otherwise on the recommendation itself.
+ * It never changes the recommendation, ownership or session state.
  */
-export function resolveViewedPosition(eligiblePositions: readonly Position[], recommended: Position, requested: Position | null | undefined): Position {
-  return requested != null && eligiblePositions.includes(requested) ? requested : recommended;
+export function resolveViewedPosition(
+  eligiblePositions: readonly Position[],
+  recommended: Position,
+  requested: Position | null | undefined,
+  playerPersonalPosition: Position | null = null,
+): Position {
+  if (requested != null && eligiblePositions.includes(requested)) return requested;
+  return playerPersonalPosition !== null && eligiblePositions.includes(playerPersonalPosition) ? playerPersonalPosition : recommended;
 }
 
 export interface DeriveCandidateResultInput {

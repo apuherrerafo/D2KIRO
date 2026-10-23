@@ -199,12 +199,16 @@ describe("F1 -- the F0 guard still decides which saved pool applies", () => {
 describe("Party 5 opening -- the habitual Pos 5 first never blocks consulting your own position", () => {
   const OWN_POSITIONS = [1, 2, 3, 4, 5] as const;
   for (const own of OWN_POSITIONS) {
-    test(`personal Pos ${own}: recommended Pos 5 is labelled as a habit, and Pos ${own} is one request away, ranked, with the recommendation untouched`, async () => {
+    test(`personal Pos ${own}: recommended Pos 5 is labelled as a habit, the first view is Pos ${own}, ranked, and the recommendation stays Pos 5`, async () => {
       const { decide } = await setup({ humanPosition: own });
       const opening = await decide(null, OWNER_ACCOUNT);
       expect(opening.decision.targetPosition).toBe(5);
       expect(opening.decision.targetBasis).toBe("DETERMINISTIC_DEFAULT"); // "no clear strategic priority", never STRATEGIC
       expect(opening.decision.actionablePositions).toEqual([1, 2, 3, 4, 5]); // nothing is hidden or narrowed
+      // The suggestion is not the view: the Player opens on their OWN position, ranked, with no request needed.
+      expect(opening.decision.viewedPosition).toBe(own);
+      expect(opening.decision.candidates.state).toBe("RANKED");
+      for (const card of opening.cards) expect(card.position).toBe(own);
 
       const mine = await decide(own, OWNER_ACCOUNT);
       expect(mine.decision.viewedPosition).toBe(own);

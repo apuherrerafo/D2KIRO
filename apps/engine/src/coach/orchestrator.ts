@@ -272,7 +272,8 @@ export class CoachOrchestrator {
       const target = targetFromPriority(input.positionPriority, actionability.eligiblePositions)
         ?? selectDecisionTarget({ eligiblePositions: actionability.eligiblePositions, playerPersonalPosition: personal });
       // PSR-002: candidates follow the position being VIEWED; the recommendation (`target`) stays untouched.
-      const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget);
+      // The first view is the Player's own position, not the suggested one (Pos 5 first must not take it away).
+      const viewed = resolveViewedPosition(actionability.eligiblePositions, target.targetPosition, input.requestedTarget, personal);
       // COHERENCE-007: the Personal Hero Pool may shape the active candidates ONLY when the viewed position is the personal one...
       // Or in Party 5 / team preset, when the viewed position has a configured player pool in playerPoolsByPosition.
       const hasPositionPool = Boolean(poolForPosition(input.context.playerPoolsByPosition, viewed)?.length);

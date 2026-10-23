@@ -136,8 +136,9 @@ describe("WP2 -- Party2 / Party3", () => {
     // TSK-251: with >= 2 open positions the target is LivePositionPriorityV1 -- here the habitual order (hard support first),
     // not the Player's own Pos2. Both positions stay actionable and rankable.
     expect(decision.targetPosition).toBe(5);
-    expect(decision.viewedPosition).toBe(5);
-    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 5)).toBe(true);
+    // The suggestion is not the view: the Player opens on their own Pos2, and the cards follow that view.
+    expect(decision.viewedPosition).toBe(2);
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 2)).toBe(true);
   });
 
   test("PSR-001: el héroe líder pertenece a Pos1 o a Pos4 -> la base del objetivo es la MISMA (DETERMINISTIC_DEFAULT) y el objetivo no sigue al ranking", async () => {
@@ -184,8 +185,8 @@ describe("WP2 -- Party5", () => {
     expect(decision.targetPosition).toBe(5); // habitual order of the phase; the Pos3-leading V6 order is not a priority
     expect(decision.targetBasis).toBe("DETERMINISTIC_DEFAULT");
     expect(decision.targetRationale).toContain("Es un orden por fase del draft, no una ventaja");
-    expect(decision.viewedPosition).toBe(5);
-    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 5)).toBe(true);
+    expect(decision.viewedPosition).toBe(1); // the Player's own position (default session seat), not the suggested Pos5
+    expect(visibleHeroes(decision).every((hero) => heroPosition(hero) === 1)).toBe(true);
   });
 
   test("primer pick manual NO es Pos1 (Pos3): binding correcto y el objetivo se recalcula entre las cuatro restantes", async () => {
@@ -395,7 +396,7 @@ describe("WP3 soporte -- navegación del selector (target=P)", () => {
     const s = await session([1, 2, 3, 4, 5], { humanPosition: 1, leadOrder: [3, 1, 2, 4, 5] });
     const base = await decisionWith(s, "");
     expect(base.targetPosition).toBe(5);
-    expect(base.viewedPosition).toBe(5);
+    expect(base.viewedPosition).toBe(1); // the first view is the Player's own Pos1; Pos5 is only the suggestion
 
     const viewPos3 = await decisionWith(s, "&target=3");
     expect(viewPos3.targetPosition).toBe(5);
