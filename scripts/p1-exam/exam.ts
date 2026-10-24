@@ -357,7 +357,7 @@ const PLAN_QUESTIONS = [
 ];
 
 function judgePacket(states: readonly ExamState[], world: ExamWorld, data: WorldData, judge: JudgeKind) {
-  const criteria: { label: string; test: (s: ExamState) => boolean }[] = [
+  const criteria: { label: string; test: (s: ExamState) => boolean; limit?: number }[] = [
     { label: "round-1 opening recommends a core without a window", test: (s) => i3Order(s).coreFirstWithoutWindow === true },
     { label: "round-1 opening recommends hard support / support", test: (s) => s.round === 1 && s.ownPicks.length === 0 && (s.board?.recommendedPosition === 5 || s.board?.recommendedPosition === 4) },
     { label: "simulator target differs from the declared precedence", test: (s) => i3Order(s).divergences.length > 0 },
@@ -366,16 +366,25 @@ function judgePacket(states: readonly ExamState[], world: ExamWorld, data: World
     { label: "mono-damage team", test: (s) => i7Damage(s, world).applies },
     { label: "round 2 after rival reveals", test: (s) => s.round === 2 && s.revealedEnemy.length >= 2 },
     { label: "M1: a hero that fills the critical gap leads despite an adverse statistical counter", test: (s) => { const t = m1Tension(s, world, M1_THRESHOLDS[1]!); return t !== null && t.promoted && t.promotedAdverse; } },
-    { label: "round-1 opening whose first card has a curated hard counter still available", test: (s) => (exposureCommunication(s, world)?.cards[0]?.availableHardCounters ?? 0) > 0 },
+    { label: "round-1 opening whose first card has a curated hard counter still available", test: (s) => (exposureCommunication(s, world)?.cards[0]?.availableHardCounters ?? 0) > 0, limit: 3 },
+    { label: "a card carries CRITICAL_GAP", test: (s) => (s.v4?.cards ?? []).some((card) => card.risks.some((risk) => risk.kind === "CRITICAL_GAP")), limit: 3 },
     { label: "round 3 closing pick", test: (s) => s.round === 3 },
+    // Uniform samples (evenly spaced, deterministic) so the read is not only about the odd cases the criteria above look for.
+    { label: "uniform sample, round 1", test: (s) => s.round === 1, limit: 3 },
+    { label: "uniform sample, round 2", test: (s) => s.round === 2, limit: 3 },
+    { label: "uniform sample, round 3", test: (s) => s.round === 3, limit: 3 },
   ];
   const used = new Set<string>();
+  const key = (s: ExamState): string => `${s.draftKey}#${s.index}`;
+  const name = (id: number): string => data.name(id);
   const points = criteria.flatMap((criterion) => {
-    const hit = states.find((s) => !used.has(`${s.draftKey}#${s.index}`) && s.board && criterion.test(s));
-    if (!hit) return [];
-    used.add(`${hit.draftKey}#${hit.index}`);
-    const name = (id: number): string => data.name(id);
-    return [{
+    const matching = states.filter((s) => !used.has(key(s)) && s.board && criterion.test(s));
+    const limit = criterion.limit ?? 1;
+    // More than one per criterion: evenly spaced over the matching states (deterministic), never just the first few.
+    const step = Math.max(1, Math.floor(matching.length / limit));
+    const hits = limit === 1 ? matching.slice(0, 1) : matching.filter((_, i) => i % step === 0).slice(0, limit);
+    hits.forEach((hit) => used.add(key(hit)));
+    return hits.map((hit) => ({
       coverage: criterion.label,
       opaqueKey: createHash("sha256").update(`${hit.draftKey}#${hit.index}`).digest("hex").slice(0, 12),
       round: hit.round,
@@ -395,7 +404,7 @@ function judgePacket(states: readonly ExamState[], world: ExamWorld, data: World
         hardCountersStillAvailable: (world.counters.get(card.heroId) ?? []).filter((entry) => entry.level === "hard" && ![...hit.banned, ...hit.ownPicks, ...hit.revealedEnemy].includes(entry.vs)).map((entry) => name(entry.vs)),
       })),
       judgeAnswers: Object.fromEntries([...COMPONENT_QUESTIONS, ...PLAN_QUESTIONS].map((q) => [q.id, { answer: null, notes: null }])),
-    }];
+    }));
   });
   return { schema: "engine-p1-judge-packet/v2", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points, changedBy: judge === "t4" ? "TSK-253" : "TSK-252", changedDecisions: judge === "t4" ? changedDecisionsT4(states, data, world) : changedDecisions(states, data), m1Decisions: m1Decisions(states, data, world) };
 }
