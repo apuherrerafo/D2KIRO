@@ -1,0 +1,130 @@
+{
+  "schema": "f2-replay-set-manifest/v1",
+  "id": "f2-set-v1",
+  "frozen": "after F1 vs F1 = 0 differences and the P0 measurement on F1, before any engine change",
+  "engine": {
+    "checkpoint": "checkpoint/f1-v1",
+    "checkpointCommit": "04a1e7c16f603adfa042aeacfabb5d406b157f3b",
+    "engineEqualsCheckpoint": true,
+    "toolCommit": "9860dbdda5f40860618736ef585e55051c1d7092",
+    "toolTreeClean": true
+  },
+  "data": {
+    "snapshot": "W5-EMP-001",
+    "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+    "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+    "curatedData": [
+      {
+        "path": "apps/engine/src/signals/hero-counters.json",
+        "sha256": "b89087af92423a08f59c0829dcb503a8ad790862de697a3daffc3fce917549c4"
+      },
+      {
+        "path": "apps/engine/src/draft-paths/capabilities.json",
+        "sha256": "6d2474244c1d73b2772a29d79306e301475aa509a83073a2d3ce063531840870"
+      }
+    ],
+    "positionalDataset": {
+      "path": "apps/engine/src/signals/hero-positions.json",
+      "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78"
+    },
+    "generatedData": [
+      {
+        "path": "data/generated/percentiles.json",
+        "sha256": "eb3a1084daf752dbb4df4c6467e18a755597c831f01fbd26602d2458b7efc3d9"
+      },
+      {
+        "path": "data/generated/signal-profile.json",
+        "sha256": "241e2fcdebe39d907d188bc0ab8b9af70363655479ea1e10007bc4465a7c797f"
+      },
+      {
+        "path": "data/generated/tolerance.json",
+        "sha256": "7b212ff49ecbe921d48cec586cce1c1f7cd772d172d9e465b062264f7c041ff8"
+      }
+    ]
+  },
+  "capture": {
+    "drafts": 120,
+    "seeds": "AUDIT001..AUDIT060 x 2 sides",
+    "policies": [
+      "follow-coach",
+      "varied",
+      "deviate"
+    ],
+    "humanPositions": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "accounts": "synthetic A/B",
+    "momentsCaptured": 561,
+    "momentsValid": 561,
+    "draftsCutByCollision": 18,
+    "note": "the F1 exam saw 622 decision states; states after a collision that changed the bans are out of the set (not repaired)",
+    "byRound": {
+      "1": 240,
+      "2": 218,
+      "3": 103
+    },
+    "bySide": {
+      "radiant": 278,
+      "dire": 283
+    },
+    "byHumanPosition": {
+      "1": 114,
+      "2": 112,
+      "3": 111,
+      "4": 113,
+      "5": 111
+    }
+  },
+  "files": {
+    "moments": {
+      "path": "eval/replay/f2-set-v1.moments.json",
+      "sha256": "435b4d92fb32a0fd85b1dda41a6663300ec1c28e89cd92cfdd47b83312a82160"
+    },
+    "f1Reference": {
+      "path": "eval/replay/f2-set-v1.f1-reference.json",
+      "sha256": "06ea0652d4cfc2b6796d7c1e89462c8a47af99f1f97d7f76b952da2c60443949"
+    },
+    "rules": {
+      "path": "eval/replay/f2-e1.rules.json",
+      "sha256": "d5dbc085b9517dec8091c9787cdfc4fb9e4df159a626dbeb9eab09387b4e0bde"
+    },
+    "p0Baseline": {
+      "path": "eval/replay/f2-e1.p0.f1-only.json",
+      "sha256": "292240fbd288c95535204d7a35d4330928993cf21050a076a85533ced63ed9e5"
+    }
+  },
+  "f1VsF1": {
+    "moments": 561,
+    "identical": 561,
+    "different": 0,
+    "stateMismatches": 0,
+    "runs": "two separate processes, byte-identical result files"
+  },
+  "hiddenInformation": "see eval/replay/f2-set-v1.moments.json: visible state holds only revealed rivals; hidden enemy seals of the current round live under reconstruction only",
+  "p0": {
+    "prevalence": {
+      "n": 89,
+      "of": 192,
+      "pct": 46.35
+    },
+    "status": "PASS",
+    "denominators": {
+      "moments": 561,
+      "validF1": 561,
+      "closingWindow": 212,
+      "eligible": 192,
+      "A": 89,
+      "A2": 10,
+      "B": 472
+    },
+    "f1StructuralFillOnA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    }
+  }
+}

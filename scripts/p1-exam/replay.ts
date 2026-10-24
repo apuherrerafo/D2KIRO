@@ -97,8 +97,11 @@ export function validateMoment(value: unknown): string[] {
   const visible = asRecord(m.visible);
   if (!isRound(visible.round)) problems.push("visible.round");
   if (!asArray(m.pool).map(asRecord).every((p) => isInt(p.hero))) problems.push("pool");
-  const heroes = [...bans, ...own.map((s) => s.heroId), ...enemy.map((s) => s.heroId)];
-  if (new Set(heroes).size !== heroes.length) problems.push("a hero appears twice in the recipe");
+  // A hero may repeat only as a same-round collision-to-be: both sides sealed it before the reveal (hidden from the Player). Anywhere else it is a corrupt recipe.
+  const unique = (xs: number[]): boolean => new Set(xs).size === xs.length;
+  const ownIds = own.map((s) => s.heroId as number), enemyIds = enemy.map((s) => s.heroId as number);
+  const crossRound = own.some((o) => enemy.some((e) => e.heroId === o.heroId && e.round !== o.round));
+  if (!unique([...(bans as number[]), ...ownIds]) || !unique([...(bans as number[]), ...enemyIds]) || (bans as number[]).some((b) => ownIds.includes(b) || enemyIds.includes(b)) || crossRound) problems.push("a hero appears twice in the recipe");
   if (typeof m.visibleFingerprint !== "string" || m.visibleFingerprint !== fingerprint({ visible, pool: m.pool })) problems.push("visibleFingerprint does not match visible state and pool");
   return problems;
 }

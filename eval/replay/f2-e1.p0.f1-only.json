@@ -1,0 +1,63 @@
+{
+  "denominators": {
+    "moments": 561,
+    "validF1": 561,
+    "closingWindow": 212,
+    "eligible": 192,
+    "A": 89,
+    "A2": 10,
+    "B": 472
+  },
+  "P0": {
+    "prevalence": {
+      "n": 89,
+      "of": 192,
+      "pct": 46.35
+    },
+    "byPicksRemaining": {
+      "1": {
+        "n": 31,
+        "of": 92,
+        "pct": 33.7
+      },
+      "2": {
+        "n": 58,
+        "of": 100,
+        "pct": 58
+      }
+    },
+    "status": "PASS"
+  },
+  "baselineF1": {
+    "structuralFill_board_top3_onA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "structuralFill_v4_top3_onA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "exposureTop3_onA": 192,
+    "adverseCounterTop3_onA": {
+      "raw<=-0.03 y n>=30": 0,
+      "raw<=-0.05 y n>=30": 0,
+      "raw<=-0.075 y n>=100": 0
+    }
+  },
+  "invariantsF1": {
+    "illegal": 0,
+    "criticalGapShownWithoutProof": 0,
+    "criticalGapMissing": 0
+  },
+  "P1_ceiling": {
+    "f1FillRateOnA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "ceilingBreached": false,
+    "note": "if F1 already fills the gap > 80% of the time the +20 points are not reachable and P1 is INCONCLUSIVE by the frozen rule"
+  }
+}

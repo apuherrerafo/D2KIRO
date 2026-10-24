@@ -30,10 +30,19 @@ describe("Decision Replay: the moment", () => {
     expect(tamper((m) => { m.session.side = "north"; })).toContain("session.side");
     expect(tamper((m) => { m.reconstruction.ownSealed[0].assignedPosition = 9; })).toContain("reconstruction.ownSealed");
     expect(tamper((m) => { m.reconstruction.bans = []; })).toContain("reconstruction.bans");
-    expect(tamper((m) => { m.reconstruction.enemySealed[0].heroId = 21; })).toContain("a hero appears twice in the recipe");
+    expect(tamper((m) => { m.reconstruction.enemySealed[1].heroId = 21; })).toContain("a hero appears twice in the recipe");
     expect(tamper((m) => { m.visible.revealedEnemy = [31, 99]; })).toContain("visibleFingerprint does not match visible state and pool");
     expect(tamper((m) => { m.pool[0].hero = 12; })).toContain("visibleFingerprint does not match visible state and pool");
     expect(validateMoment("not an object")).toContain("schema");
+  });
+
+  test("a same-round collision-to-be (both sides sealed the same hero before the reveal) is a legal moment; a repeat across rounds or with a ban is not", () => {
+    const sameRound = momentAt(2, { ownSealed: [{ round: 2, slotIndex: 0, heroId: 40, assignedPosition: 2 }], enemySealed: [{ round: 2, slotIndex: 0, heroId: 40 }] });
+    expect(validateMoment(sameRound)).toEqual([]);
+    const acrossRounds = momentAt(2, { ownSealed: [{ round: 1, slotIndex: 0, heroId: 40, assignedPosition: 1 }], enemySealed: [{ round: 2, slotIndex: 0, heroId: 40 }] });
+    expect(validateMoment(acrossRounds)).toContain("a hero appears twice in the recipe");
+    const withBan = momentAt(2, { ownSealed: [{ round: 2, slotIndex: 0, heroId: 1, assignedPosition: 2 }] });
+    expect(validateMoment(withBan)).toContain("a hero appears twice in the recipe");
   });
 
   test("slot 0 is a legal slot", () => {
