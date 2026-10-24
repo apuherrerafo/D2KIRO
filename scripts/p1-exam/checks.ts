@@ -618,14 +618,15 @@ export function adverseFillersInField(state: ExamState, world: ExamWorld, thresh
 }
 
 // ---- Exposure of round 1: does the card say what the ranking exposes? -------------------------------------------------------------------
-export interface ExposureCard { heroId: HeroId; rank: number; availableHardCounters: number; warned: boolean }
+/** `curatedHardCounters` = ALL the curated hard counters the hero has (taken or not): 0 means "nothing curated", which is not the same as "cannot be countered". */
+export interface ExposureCard { heroId: HeroId; rank: number; availableHardCounters: number; curatedHardCounters: number; warned: boolean }
 
 /** Round 1 only: for each V4 card, how many curated hard counters are still on the table and whether the card carries `exposed_to_counter`. Null outside round 1 or without cards. */
 export function exposureCommunication(state: ExamState, world: ExamWorld): { cards: ExposureCard[] } | null {
   if (state.round !== 1 || state.v4 === null || state.v4.state !== "RANKED" || state.v4.cards.length === 0) return null;
   return {
     cards: state.v4.cards.map((card, index) => ({
-      heroId: card.heroId, rank: index + 1, availableHardCounters: availableHardCounters(card.heroId, state, world), warned: card.risks.some((risk) => risk.kind === "exposed_to_counter"),
+      heroId: card.heroId, rank: index + 1, availableHardCounters: availableHardCounters(card.heroId, state, world), curatedHardCounters: (world.counters.get(card.heroId) ?? []).filter((entry) => entry.level === "hard").length, warned: card.risks.some((risk) => risk.kind === "exposed_to_counter"),
     })),
   };
 }

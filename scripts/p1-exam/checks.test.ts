@@ -469,11 +469,11 @@ describe("T6 -- round-1 exposure on the cards", () => {
   const v4 = (cards: ReturnType<typeof card>[]) => ({ kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards });
   test("each card reports the curated hard counters still on the table and whether it says so", () => {
     const result = exposureCommunication(state({ round: 1, v4: v4([card(1, true), card(2, false)]) }), world);
-    expect(result?.cards).toEqual([{ heroId: 1, rank: 1, availableHardCounters: 1, warned: true }, { heroId: 2, rank: 2, availableHardCounters: 0, warned: false }]);
+    expect(result?.cards).toEqual([{ heroId: 1, rank: 1, availableHardCounters: 1, curatedHardCounters: 1, warned: true }, { heroId: 2, rank: 2, availableHardCounters: 0, curatedHardCounters: 0, warned: false }]);
   });
   test("a banned counter is no longer exposure, so the same hero is unexposed (and a warning would be an inconsistency)", () => {
     const result = exposureCommunication(state({ round: 1, banned: [9], v4: v4([card(1, false)]) }), world);
-    expect(result?.cards[0]).toMatchObject({ availableHardCounters: 0, warned: false });
+    expect(result?.cards[0]).toMatchObject({ availableHardCounters: 0, curatedHardCounters: 1, warned: false }); // banned: nothing available, but the hero DOES have a curated counter (unlike hero 2)
   });
   test("only round 1 with ranked cards is measured", () => {
     expect(exposureCommunication(state({ round: 2, v4: v4([card(1, true)]) }), world)).toBeNull();
