@@ -1,0 +1,922 @@
+{
+  "topThreeChanged": 72,
+  "counts": {
+    "REORDER_ONLY": 12,
+    "FILLER_FOR_NONFILLER": 35,
+    "GAIN": 14,
+    "POSSIBLE_REGRESSION": 8,
+    "UNCURATED_ENTRY": 1,
+    "STILL_UNFILLED": 2
+  },
+  "noGain": 58,
+  "rows": [
+    {
+      "id": "varied:AUDIT001:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT002:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT007:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        41
+      ],
+      "entered": [
+        18
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT007:radiant#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        106
+      ],
+      "entered": [
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT007:dire#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        93,
+        41
+      ],
+      "entered": [
+        48,
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT007:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        126
+      ],
+      "entered": [
+        49
+      ],
+      "position": 2
+    },
+    {
+      "id": "deviate:AUDIT008:radiant#3",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        129
+      ],
+      "entered": [
+        49
+      ],
+      "position": 3
+    },
+    {
+      "id": "deviate:AUDIT008:radiant#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        96
+      ],
+      "entered": [
+        108
+      ],
+      "position": 3
+    },
+    {
+      "id": "follow-coach:AUDIT008:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        54
+      ],
+      "entered": [
+        19
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT008:dire#4",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        107
+      ],
+      "entered": [
+        49
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT009:radiant#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT010:dire#3",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        1
+      ],
+      "entered": [
+        8
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT011:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        96
+      ],
+      "entered": [
+        135
+      ],
+      "position": 3
+    },
+    {
+      "id": "varied:AUDIT012:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        44
+      ],
+      "entered": [
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "deviate:AUDIT012:dire#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        119
+      ],
+      "entered": [
+        105
+      ],
+      "position": 4
+    },
+    {
+      "id": "deviate:AUDIT012:dire#4",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        9,
+        62
+      ],
+      "entered": [
+        105,
+        128
+      ],
+      "position": 4
+    },
+    {
+      "id": "follow-coach:AUDIT013:radiant#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        106
+      ],
+      "entered": [
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "follow-coach:AUDIT014:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        46
+      ],
+      "entered": [
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT019:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT019:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        107,
+        39
+      ],
+      "entered": [
+        128,
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "deviate:AUDIT020:radiant#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 5
+    },
+    {
+      "id": "follow-coach:AUDIT020:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        41
+      ],
+      "entered": [
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT020:dire#4",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT021:radiant#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        54
+      ],
+      "entered": [
+        11
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT021:radiant#4",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        126,
+        106
+      ],
+      "entered": [
+        49,
+        35
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT024:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        10
+      ],
+      "entered": [
+        48
+      ],
+      "position": 1
+    },
+    {
+      "id": "deviate:AUDIT024:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        104
+      ],
+      "entered": [
+        49
+      ],
+      "position": 3
+    },
+    {
+      "id": "follow-coach:AUDIT026:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        36
+      ],
+      "entered": [
+        135
+      ],
+      "position": 3
+    },
+    {
+      "id": "follow-coach:AUDIT026:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        93
+      ],
+      "entered": [
+        53
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT027:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        36
+      ],
+      "entered": [
+        108
+      ],
+      "position": 3
+    },
+    {
+      "id": "follow-coach:AUDIT028:radiant#3",
+      "cls": "UNCURATED_ENTRY",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        54
+      ],
+      "entered": [
+        145
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT028:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT028:dire#4",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        107
+      ],
+      "entered": [
+        49
+      ],
+      "position": 2
+    },
+    {
+      "id": "deviate:AUDIT029:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        96
+      ],
+      "entered": [
+        55
+      ],
+      "position": 3
+    },
+    {
+      "id": "varied:AUDIT031:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        1
+      ],
+      "entered": [
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "deviate:AUDIT032:radiant#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        60
+      ],
+      "entered": [
+        55
+      ],
+      "position": 3
+    },
+    {
+      "id": "deviate:AUDIT033:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 4
+    },
+    {
+      "id": "varied:AUDIT034:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        12
+      ],
+      "entered": [
+        19
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT035:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        70,
+        44
+      ],
+      "entered": [
+        8,
+        80
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT035:dire#4",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        126
+      ],
+      "entered": [
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT036:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        12
+      ],
+      "entered": [
+        8
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT037:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        46
+      ],
+      "entered": [
+        11
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT037:dire#4",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        120
+      ],
+      "entered": [
+        34
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT039:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        67
+      ],
+      "entered": [
+        8
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT042:radiant#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT042:radiant#4",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        13
+      ],
+      "entered": [
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "deviate:AUDIT042:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        13
+      ],
+      "entered": [
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT043:dire#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        46
+      ],
+      "entered": [
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT043:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        7,
+        126
+      ],
+      "entered": [
+        34,
+        128
+      ],
+      "position": 2
+    },
+    {
+      "id": "follow-coach:AUDIT046:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        1
+      ],
+      "entered": [
+        80
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT046:radiant#4",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        76,
+        7
+      ],
+      "entered": [
+        49,
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT048:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        46
+      ],
+      "entered": [
+        48
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT048:radiant#4",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 2,
+      "left": [
+        126,
+        107
+      ],
+      "entered": [
+        34,
+        49
+      ],
+      "position": 2
+    },
+    {
+      "id": "follow-coach:AUDIT049:radiant#3",
+      "cls": "POSSIBLE_REGRESSION",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        44
+      ],
+      "entered": [
+        18
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT049:radiant#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        107,
+        13
+      ],
+      "entered": [
+        74,
+        49
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT049:dire#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        46
+      ],
+      "entered": [
+        109
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT049:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        120
+      ],
+      "entered": [
+        49
+      ],
+      "position": 2
+    },
+    {
+      "id": "follow-coach:AUDIT050:dire#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        21
+      ],
+      "entered": [
+        19
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT050:dire#4",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT051:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        10
+      ],
+      "entered": [
+        53
+      ],
+      "position": 1
+    },
+    {
+      "id": "deviate:AUDIT051:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 3
+    },
+    {
+      "id": "follow-coach:AUDIT052:radiant#3",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -2,
+      "left": [
+        36
+      ],
+      "entered": [
+        137
+      ],
+      "position": 3
+    },
+    {
+      "id": "deviate:AUDIT053:radiant#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        22
+      ],
+      "entered": [
+        128
+      ],
+      "position": 4
+    },
+    {
+      "id": "follow-coach:AUDIT055:radiant#3",
+      "cls": "STILL_UNFILLED",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        10
+      ],
+      "entered": [
+        145
+      ],
+      "position": 1
+    },
+    {
+      "id": "follow-coach:AUDIT055:radiant#4",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        36
+      ],
+      "entered": [
+        34
+      ],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT055:dire#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        67
+      ],
+      "entered": [
+        11
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT055:dire#4",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        36,
+        76
+      ],
+      "entered": [
+        49,
+        113
+      ],
+      "position": 2
+    },
+    {
+      "id": "deviate:AUDIT057:dire#3",
+      "cls": "GAIN",
+      "lostGaps": [],
+      "exposureDelta": 1,
+      "left": [
+        100
+      ],
+      "entered": [
+        105
+      ],
+      "position": 5
+    },
+    {
+      "id": "deviate:AUDIT057:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        10
+      ],
+      "entered": [
+        6
+      ],
+      "position": 1
+    },
+    {
+      "id": "varied:AUDIT058:dire#3",
+      "cls": "REORDER_ONLY",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [],
+      "entered": [],
+      "position": 2
+    },
+    {
+      "id": "varied:AUDIT058:dire#4",
+      "cls": "FILLER_FOR_NONFILLER",
+      "lostGaps": [],
+      "exposureDelta": -1,
+      "left": [
+        36
+      ],
+      "entered": [
+        29
+      ],
+      "position": 3
+    },
+    {
+      "id": "deviate:AUDIT059:radiant#4",
+      "cls": "STILL_UNFILLED",
+      "lostGaps": [],
+      "exposureDelta": 0,
+      "left": [
+        14
+      ],
+      "entered": [
+        111
+      ],
+      "position": 5
+    }
+  ]
+}

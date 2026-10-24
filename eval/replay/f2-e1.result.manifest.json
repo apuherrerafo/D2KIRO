@@ -1,0 +1,186 @@
+{
+  "schema": "f2-experiment-result/v1",
+  "experiment": "F2-E1",
+  "verdict": "FAIL",
+  "verdictBasis": "frozen rules eval/replay/f2-e1.rules.json (committed before capture and before the engine change)",
+  "engine": {
+    "e1Commit": "39f011eb8ff49310f0b039bc217f0040bb0616fa",
+    "change": "apps/engine/src/draft-paths/gaps.ts: CRITICAL_GAP_KINDS += structural_damage",
+    "revertControl": "with only that constant reverted on this branch, the replay equals the F1 reference: 561 same, 0 different"
+  },
+  "frozenSet": {
+    "manifest": "eval/replay/f2-set-v1.manifest.json",
+    "manifestSha256": "86027372ec81731fcee7f85b4b2cd1053266ff657c19cdb22920fd4867f1757d",
+    "rulesSha256": "d5dbc085b9517dec8091c9787cdfc4fb9e4df159a626dbeb9eab09387b4e0bde"
+  },
+  "files": {
+    "eval/replay/f2-set-v1.e1.json": "c0f8d2f210249ff4f870075d50b83ae1116c66368348a74229b7d7f841bb0912",
+    "eval/replay/f2-e1.comparison.json": "e5641c732a3b032b6ccc2d1fcbfea2e9a0110807b31722481df4be51a3ef94c9",
+    "eval/replay/f2-e1.judge-packet.md": "5482f7f26f8ae818c52a218a083455779d1f72acbed302194737e280bbbb8c8a"
+  },
+  "blind": {
+    "packet": "eval/replay/f2-e1.judge-packet.md",
+    "questions": 16,
+    "changedMoments": 72,
+    "keyCommitmentSalted": "3c757827f22a2e99cef73a64f2008c6684888643640b50801ff7be1a264d9f00",
+    "keyOpened": false,
+    "keyLocation": "private, not recorded"
+  },
+  "results": {
+    "denominators": {
+      "moments": 561,
+      "validF1": 561,
+      "closingWindow": 212,
+      "eligible": 192,
+      "A": 89,
+      "A2": 10,
+      "B": 472
+    },
+    "P0": {
+      "prevalence": {
+        "n": 89,
+        "of": 192,
+        "pct": 46.35
+      },
+      "byPicksRemaining": {
+        "1": {
+          "n": 31,
+          "of": 92,
+          "pct": 33.7
+        },
+        "2": {
+          "n": 58,
+          "of": 100,
+          "pct": 58
+        }
+      },
+      "status": "PASS"
+    },
+    "P1": {
+      "structuralFillF1": {
+        "n": 68,
+        "of": 89,
+        "pct": 76.4
+      },
+      "structuralFillE1": {
+        "n": 82,
+        "of": 89,
+        "pct": 92.13
+      },
+      "deltaPercentagePoints": 15.73,
+      "v4SurfaceF1": {
+        "n": 68,
+        "of": 89,
+        "pct": 76.4
+      },
+      "v4SurfaceE1": {
+        "n": 82,
+        "of": 89,
+        "pct": 92.13
+      },
+      "status": "FAIL"
+    },
+    "P2": {
+      "violations": {
+        "n": 0,
+        "of": 472,
+        "pct": 0
+      },
+      "status": "PASS"
+    },
+    "P3": {
+      "exposureTop3_F1_onA": 192,
+      "exposureTop3_E1_onA": 173,
+      "delta": -19,
+      "onChangedOnly": {
+        "F1": 192,
+        "E1": 173
+      },
+      "status": "PASS"
+    },
+    "P4": {
+      "illegalE1": 0,
+      "criticalGapShownWithoutProofE1": 0,
+      "criticalGapMissingE1": 0,
+      "uncuratedPromotions": [
+        "follow-coach:AUDIT028:radiant#3:145",
+        "follow-coach:AUDIT055:radiant#3:145"
+      ],
+      "status": "FAIL"
+    },
+    "P5": {
+      "initiation": {
+        "moments": 23,
+        "fillF1": {
+          "n": 21,
+          "of": 23,
+          "pct": 91.3
+        },
+        "fillE1": {
+          "n": 21,
+          "of": 23,
+          "pct": 91.3
+        },
+        "deltaPp": 0,
+        "status": "PASS"
+      },
+      "catch": {
+        "moments": 1,
+        "fillF1": {
+          "n": 1,
+          "of": 1,
+          "pct": 100
+        },
+        "fillE1": {
+          "n": 1,
+          "of": 1,
+          "pct": 100
+        },
+        "deltaPp": 0,
+        "status": "INCONCLUSIVE"
+      },
+      "damage_mix": {
+        "moments": 8,
+        "fillF1": {
+          "n": 8,
+          "of": 8,
+          "pct": 100
+        },
+        "fillE1": {
+          "n": 8,
+          "of": 8,
+          "pct": 100
+        },
+        "deltaPp": 0,
+        "status": "INCONCLUSIVE"
+      }
+    },
+    "M1_reported": {
+      "adverseCounterTop3_onA": {
+        "F1": {
+          "raw<=-0.03 y n>=30": 0,
+          "raw<=-0.05 y n>=30": 0,
+          "raw<=-0.075 y n>=100": 0
+        },
+        "E1": {
+          "raw<=-0.03 y n>=30": 0,
+          "raw<=-0.05 y n>=30": 0,
+          "raw<=-0.075 y n>=100": 0
+        }
+      },
+      "adverseCounterTop3_onChanged": {
+        "F1": {
+          "raw<=-0.03 y n>=30": 0,
+          "raw<=-0.05 y n>=30": 0,
+          "raw<=-0.075 y n>=100": 0
+        },
+        "E1": {
+          "raw<=-0.03 y n>=30": 0,
+          "raw<=-0.05 y n>=30": 0,
+          "raw<=-0.075 y n>=100": 0
+        }
+      },
+      "note": "reported with the unchanged M1 thresholds; never a verdict input"
+    }
+  }
+}

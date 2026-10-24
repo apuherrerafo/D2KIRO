@@ -1,0 +1,64 @@
+{
+  "schema": "capability-curation-proposal/v1",
+  "status": "PROPOSED -- nothing here is applied; capabilities.json is untouched until the owner approves each value",
+  "source": {
+    "build": { "ClientVersion": 6966, "VersionDate": "Oct 22 2026", "SourceRevision": 11159903, "file": "pak01_dir.vpk (VPK v2, multi-part), read-only" },
+    "files": {
+      "npc_dota_hero_kez.txt": "24928e5081473724824eec0381f4404c44cc7bf069ab86d1cc1259bc13d73f7f",
+      "npc_dota_hero_ringmaster.txt": "fa3b8bd3692fbe4b7616d30bb8acdc75eae621a74fad2139e3094d480d33e270",
+      "npc_dota_hero_largo.txt": "df497f4f7f5ead7bdd9ce28902006ed117ca0872ddc40c754d745c7dd633438e"
+    },
+    "reproduce": "python -I docs/f2/curation/tools/vpk_extract.py \"<dota>/game/dota/pak01_dir.vpk\" <outdir> npc_dota_hero_kez npc_dota_hero_ringmaster npc_dota_hero_largo ; python -I docs/f2/curation/tools/kv_summary.py <outdir>/scripts__npc__heroes__npc_dota_hero_<name>.txt",
+    "licence": "Valve data is not committed; this file quotes ability numbers only. Whether derived Valve data may live in the repo is the open owner decision already recorded in the V7 blueprint."
+  },
+  "confidenceScale": {
+    "HIGH": "read directly from the game files (what the ability can target, its numbers)",
+    "MEDIUM": "follows from game data under a convention inferred from curated anchor heroes in capabilities.json (the repo has no written rubric)",
+    "LOW": "judgement: the game files do not decide it; the owner's call"
+  },
+  "heroes": {
+    "145": {
+      "name": "Kez",
+      "valveRoles": { "Role": "Carry,Escape,Disabler", "Rolelevels": "3,2,1", "attack": "melee 225 (katana) / 150 (sai), primary agility" },
+      "fields": {
+        "damageType": { "proposed": "physical", "confidence": "HIGH", "evidence": "attack, Echo Slash, Talon Toss and Kazurai Katana are physical; only the ultimate Raptor Dance is pure", "anchors": "Phantom Assassin, Spectre, Anti-Mage: physical" },
+        "hasInitiation": { "proposed": false, "alternative": true, "confidence": "MEDIUM", "decisionNeeded": true, "evidence": "Grappling Claw is a single-target gap closer (range 650-950, cd 13-7, slow 70-100% for 0.7-1.0 s); no AoE disable to open a fight", "anchors": "Slark, Riki, Weaver, Phantom Assassin: hasInitiation=false despite gap closers" },
+        "hasCatch": { "proposed": true, "confidence": "MEDIUM", "evidence": "Grappling Claw slow up to 100% for up to 1.0 s; Talon Toss (sai) silence 2.0-2.75 s, range 650-950, cd 13-7; Shodo Sai stun 0.5-0.8 s", "anchors": "Slark, Riki, Weaver: hasCatch=true" },
+        "hasWaveclear": { "proposed": false, "alternative": true, "confidence": "LOW", "decisionNeeded": true, "evidence": "Echo Slash (cd 21-12) and Raptor Dance (cd 40-30) can hit creeps (target type HERO|BASIC) but neither is a repeatable wave tool", "anchors": "Phantom Assassin, Anti-Mage, Slark: false" },
+        "structuralDamage": { "proposed": "low", "confidence": "HIGH", "evidence": "no ability can target buildings (Echo Slash and Raptor Dance target HERO|BASIC); Kazurai Katana is a bleed on attacks, not a push tool", "anchors": "agility carries curated 'low'" },
+        "teamfight": { "proposed": "low", "alternative": "medium", "confidence": "LOW", "decisionNeeded": true, "evidence": "Raptor Dance is an AoE (radius 450, 4 strikes, 100% lifesteal) but it is a single-target-focused carry ult", "anchors": "Phantom Assassin, Slark, Anti-Mage: low; Spectre: high" },
+        "scaling": { "proposed": "high", "confidence": "MEDIUM", "evidence": "primary-agility melee carry; katana/sai crit and bleed scale with attack damage; Rolelevels Carry=3 (the top of Valve's 1-3 scale)", "anchors": "Phantom Assassin, Anti-Mage, Slark, Weaver: high" }
+      }
+    },
+    "131": {
+      "name": "Ringmaster",
+      "valveRoles": { "Role": "Support,Nuker,Escape,Disabler", "Rolelevels": "2,2,2,1", "attack": "ranged 575, primary intelligence" },
+      "fields": {
+        "damageType": { "proposed": "magical", "confidence": "HIGH", "evidence": "Tame the Beasts, Impalement, The Wheel and Spotlight are all DAMAGE_TYPE_MAGICAL", "anchors": "Lion, Skywrath Mage: magical" },
+        "hasInitiation": { "proposed": true, "confidence": "MEDIUM", "evidence": "The Wheel: point-target, range 1400, mesmerize radius 500, trap 4 s, wheel stun 2.5-3.0 s, explosion 300-600; cd 90-70", "anchors": "Tidehunter, Treant Protector, Centaur Warrunner: true (AoE ult initiation)" },
+        "hasCatch": { "proposed": true, "confidence": "MEDIUM", "evidence": "Impalement: skillshot range 2400, cd 1, slow 100% for 0.5-0.8 s, bleed 3-6% max HP; plus the Wheel stun", "anchors": "Lion, Skywrath Mage, Grimstroke: true" },
+        "hasWaveclear": { "proposed": true, "confidence": "MEDIUM", "evidence": "Tame the Beasts: channelled AoE cone (range 700, cd 16-10), damage 50-180 up to 125-480 with channel time", "anchors": "Skywrath Mage, Dark Willow, Shadow Shaman: true" },
+        "structuralDamage": { "proposed": "low", "confidence": "HIGH", "evidence": "no ability targets buildings; Impalement bleed is explicitly a creep DPS (bleed_creep_dps)", "anchors": "Lion, Skywrath Mage, Shadow Shaman: low" },
+        "teamfight": { "proposed": "high", "alternative": "medium", "confidence": "MEDIUM", "decisionNeeded": true, "evidence": "Wheel 2.5-3.0 s AoE stun + 300-600 burst + aura damage 50-100 per 0.5 s; Tame the Beasts fear/damage cone", "anchors": "Shadow Shaman, Grimstroke: high; Lion, Skywrath Mage: medium" },
+        "scaling": { "proposed": "low", "confidence": "LOW", "decisionNeeded": true, "evidence": "the game files do not decide scaling; every comparable intelligence support is curated 'low'", "anchors": "Lion, Skywrath Mage, Dark Willow, Shadow Shaman, Rubick, Oracle: low" }
+      }
+    },
+    "155": {
+      "name": "Largo",
+      "valveRoles": { "Role": "Durable,Disabler,Support", "Rolelevels": "2,1,3", "attack": "melee 150, primary strength, attack 39-45 physical" },
+      "fields": {
+        "damageType": { "proposed": "magical", "alternative": "mixed", "confidence": "LOW", "decisionNeeded": true, "highImpact": "this field feeds the damage_mix critical gap", "evidence": "Catchy Lick, Frogstomp and the songs deal magical damage; his attack is physical but he is a support", "anchors": "Abaddon, Snapfire, Tidehunter: mixed; Oracle, Rubick: magical" },
+        "hasInitiation": { "proposed": false, "confidence": "MEDIUM", "evidence": "no gap closer, no AoE disable: Frogstomp stun is 0.1 s; Catchy Lick pulls the target 235-325 units over 0.3 s toward him", "anchors": "Abaddon, Oracle: false" },
+        "hasCatch": { "proposed": false, "alternative": true, "confidence": "LOW", "decisionNeeded": true, "evidence": "Valve rates Disabler at level 1 (the lowest); the only hard effect is a 0.3 s pull (cd 13-7, range 700) plus slow 12-30% from Frogstomp. Pudge's hook is curated as a catch, so a pull can count", "anchors": "Pudge: true; Abaddon, Oracle: false" },
+        "hasWaveclear": { "proposed": true, "alternative": false, "confidence": "LOW", "decisionNeeded": true, "evidence": "Frogstomp: point AoE radius 350, 4-7 ticks of 36-72 magical (up to 504 per cast), cd 20-14", "anchors": "Axe, Tidehunter: true; Abaddon, Oracle: false" },
+        "structuralDamage": { "proposed": "low", "confidence": "HIGH", "evidence": "no ability targets buildings (Catchy Lick targets HERO|CREEP|CUSTOM)", "anchors": "support/durable curated 'low'" },
+        "teamfight": { "proposed": "medium", "confidence": "LOW", "decisionNeeded": true, "evidence": "song buffs in radius 800 (spell amp 8-16%, armor stacks 2-4 up to 5, heal bursts 30-80), Frogstomp zone, Croak of Genius shares 30-45% of an ally's damage for 5 s", "anchors": "Oracle, Rubick: medium" },
+        "scaling": { "proposed": "medium", "confidence": "LOW", "decisionNeeded": true, "evidence": "armor stacks per rhythm; the game files do not decide scaling", "anchors": "Abaddon, Tidehunter: medium" }
+      }
+    }
+  },
+  "ifApproved": {
+    "effect": "capabilities.json changes, so its sha256 changes and the 'comparableKey' of every exam/replay changes. F1 must be re-measured on the frozen set with the new curation ('F1c') before any F2 comparison; the old F1 reference stays valid as the pre-curation baseline.",
+    "p4": "once the three heroes have curated capabilities their team_synergy is computed, not imputed, which removes the mechanism that promoted Kez in E1"
+  }
+}

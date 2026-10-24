@@ -1,0 +1,516 @@
+[
+  {
+    "id": "follow-coach:AUDIT028:radiant#3",
+    "position": 1,
+    "ownPicks": [
+      5,
+      88,
+      135
+    ],
+    "f1Top3": [
+      6,
+      10,
+      54
+    ],
+    "F1": {
+      "top3": [
+        6,
+        10,
+        54
+      ],
+      "teamSynergy": {
+        "mu": 8.37,
+        "wPrime": 0.1477,
+        "candidates": 30,
+        "withData": 29,
+        "min": 0,
+        "median": 14.285714285714285,
+        "max": 14.285714285714285,
+        "candidatesAboveMean": 17
+      },
+      "kezInFirstSet": {
+        "score": 73.21,
+        "signals": {
+          "patch_meta": {
+            "raw": 0.45471620590479545,
+            "normalized": 38.679051476198865,
+            "weighted": 5.7139507862566505
+          },
+          "hero_pool_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          },
+          "counter": {
+            "raw": 0.08304260108732585,
+            "normalized": 84.60108378638577,
+            "weighted": 23.07302285083248
+          },
+          "position_fit": {
+            "raw": 1,
+            "normalized": 100,
+            "weighted": 43.18181818181818
+          },
+          "team_synergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 1.237124944021495
+          },
+          "archetype_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          }
+        }
+      },
+      "kezTeamSynergyRaw": "not scored",
+      "kezImputedContribution": 1.24,
+      "heroesThatLeftTop3": [],
+      "firstSetTable": [
+        {
+          "hero": 6,
+          "score": 78.78,
+          "teamSynergy": {
+            "raw": 0.14285714285714285,
+            "normalized": 14.285714285714285,
+            "weighted": 2.1103896103896105
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 10,
+          "score": 77.08,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 54,
+          "score": 75.76,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 145,
+          "score": 73.21,
+          "teamSynergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 1.237124944021495
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 21,
+          "score": 72.33,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 41,
+          "score": 71.81,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        }
+      ]
+    },
+    "E1": {
+      "top3": [
+        6,
+        10,
+        145
+      ],
+      "teamSynergy": {
+        "mu": 33.5,
+        "wPrime": 0.1477,
+        "candidates": 30,
+        "withData": 29,
+        "min": 0,
+        "median": 57.14285714285714,
+        "max": 57.14285714285714,
+        "candidatesAboveMean": 17
+      },
+      "kezInFirstSet": {
+        "score": 76.92,
+        "signals": {
+          "patch_meta": {
+            "raw": 0.45471620590479545,
+            "normalized": 38.679051476198865,
+            "weighted": 5.7139507862566505
+          },
+          "hero_pool_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          },
+          "counter": {
+            "raw": 0.08304260108732585,
+            "normalized": 84.60108378638577,
+            "weighted": 23.07302285083248
+          },
+          "position_fit": {
+            "raw": 1,
+            "normalized": 100,
+            "weighted": 43.18181818181818
+          },
+          "team_synergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 4.94849977608598
+          },
+          "archetype_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          }
+        }
+      },
+      "kezTeamSynergyRaw": "not scored",
+      "kezImputedContribution": 4.95,
+      "heroesThatLeftTop3": [
+        {
+          "hero": 54,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0
+          },
+          "contributionIfScored": 0
+        }
+      ],
+      "firstSetTable": [
+        {
+          "hero": 6,
+          "score": 85.11,
+          "teamSynergy": {
+            "raw": 0.5714285714285714,
+            "normalized": 57.14285714285714,
+            "weighted": 8.441558441558442
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 10,
+          "score": 77.08,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 145,
+          "score": 76.92,
+          "teamSynergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 4.94849977608598
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 11,
+          "score": 76.09,
+          "teamSynergy": {
+            "raw": 0.5714285714285714,
+            "normalized": 57.14285714285714,
+            "weighted": 8.441558441558442
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 109,
+          "score": 75.89,
+          "teamSynergy": {
+            "raw": 0.5714285714285714,
+            "normalized": 57.14285714285714,
+            "weighted": 8.441558441558442
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 54,
+          "score": 75.76,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        }
+      ]
+    }
+  },
+  {
+    "id": "follow-coach:AUDIT055:radiant#3",
+    "position": 1,
+    "ownPicks": [
+      111,
+      128,
+      98
+    ],
+    "f1Top3": [
+      67,
+      54,
+      10
+    ],
+    "F1": {
+      "top3": [
+        67,
+        54,
+        10
+      ],
+      "teamSynergy": {
+        "mu": 8.16,
+        "wPrime": 0.1477,
+        "candidates": 29,
+        "withData": 28,
+        "min": 0,
+        "median": 14.285714285714285,
+        "max": 14.285714285714285,
+        "candidatesAboveMean": 16
+      },
+      "kezInFirstSet": {
+        "score": 72.78,
+        "signals": {
+          "patch_meta": {
+            "raw": 0.45471620590479545,
+            "normalized": 38.679051476198865,
+            "weighted": 5.7139507862566505
+          },
+          "hero_pool_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          },
+          "counter": {
+            "raw": 0.07953004521811867,
+            "normalized": 83.13751884088279,
+            "weighted": 22.673868774786214
+          },
+          "position_fit": {
+            "raw": 1,
+            "normalized": 100,
+            "weighted": 43.18181818181818
+          },
+          "team_synergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 1.205936920222634
+          },
+          "archetype_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          }
+        }
+      },
+      "kezTeamSynergyRaw": "not scored",
+      "kezImputedContribution": 1.21,
+      "heroesThatLeftTop3": [],
+      "firstSetTable": [
+        {
+          "hero": 67,
+          "score": 79.12,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 54,
+          "score": 74.3,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 10,
+          "score": 74.12,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 93,
+          "score": 73.57,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 145,
+          "score": 72.78,
+          "teamSynergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 1.205936920222634
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 1,
+          "score": 70.7,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        }
+      ]
+    },
+    "E1": {
+      "top3": [
+        67,
+        145,
+        54
+      ],
+      "teamSynergy": {
+        "mu": 32.65,
+        "wPrime": 0.1477,
+        "candidates": 29,
+        "withData": 28,
+        "min": 0,
+        "median": 57.14285714285714,
+        "max": 57.14285714285714,
+        "candidatesAboveMean": 16
+      },
+      "kezInFirstSet": {
+        "score": 76.39,
+        "signals": {
+          "patch_meta": {
+            "raw": 0.45471620590479545,
+            "normalized": 38.679051476198865,
+            "weighted": 5.7139507862566505
+          },
+          "hero_pool_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          },
+          "counter": {
+            "raw": 0.07953004521811867,
+            "normalized": 83.13751884088279,
+            "weighted": 22.673868774786214
+          },
+          "position_fit": {
+            "raw": 1,
+            "normalized": 100,
+            "weighted": 43.18181818181818
+          },
+          "team_synergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 4.823747680890536
+          },
+          "archetype_fit": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 0
+          }
+        }
+      },
+      "kezTeamSynergyRaw": "not scored",
+      "kezImputedContribution": 4.82,
+      "heroesThatLeftTop3": [
+        {
+          "hero": 10,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0
+          },
+          "contributionIfScored": 0
+        }
+      ],
+      "firstSetTable": [
+        {
+          "hero": 67,
+          "score": 79.12,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 145,
+          "score": 76.39,
+          "teamSynergy": {
+            "raw": null,
+            "normalized": null,
+            "weighted": 4.823747680890536
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 54,
+          "score": 74.3,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 10,
+          "score": 74.12,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 93,
+          "score": 73.57,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        },
+        {
+          "hero": 1,
+          "score": 70.7,
+          "teamSynergy": {
+            "raw": 0,
+            "normalized": 0,
+            "weighted": 0
+          },
+          "positionFit": 43.18181818181818
+        }
+      ]
+    }
+  }
+]
