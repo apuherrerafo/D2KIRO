@@ -123,7 +123,7 @@ export function analyze(moments: DecisionMoment[], f1: Run, e1: Run | null, worl
   const deltaPp = (pct(e1Fill, Ap.length) ?? 0) - (pct(f1Fill, Ap.length) ?? 0);
   const sumExposure = (xs: typeof pairs, which: "r1" | "r2") => xs.reduce((s, x) => s + exposure(x.m, boardTop3(which === "r1" ? x.r1!.output! : x.r2.output!), world.counters), 0);
   const adverse = (xs: typeof pairs, which: "r1" | "r2") => Object.fromEntries(M1_THRESHOLDS.map((t) => [t.label, xs.reduce((s, x) => s + (which === "r1" ? x.r1!.output! : x.r2.output!).counterTop3.filter((e) => isAdverse({ heroId: e.heroId, score: 0, positionFit: 0, matches: 0, counter: { raw: e.raw, weighted: 0, sampleSize: e.sampleSize, vsRevealed: e.vsRevealed } } as never, t)).length, 0)]));
-  const uncuratedIn = (o: MomentOutput): number[] => [...boardTop3(o), ...v4Top3(o)].filter((h) => UNCURATED_CAPABILITY_HERO_IDS.has(h));
+  const uncuratedIn = (o: MomentOutput): number[] => [...new Set([...boardTop3(o), ...v4Top3(o)])].filter((h) => UNCURATED_CAPABILITY_HERO_IDS.has(h));
 
   report.comparison = { pairs: pairs.length, bothReproduced: pairs.length === valid.length };
   report.changed = {

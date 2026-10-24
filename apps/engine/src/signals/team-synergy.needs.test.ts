@@ -20,16 +20,19 @@ function hero(id: number, overrides: Partial<HeroCapabilities> = {}): HeroCapabi
   return { hero: id, damageType: "physical", hasInitiation: false, hasCatch: true, hasWaveclear: true, structuralDamage: "medium", teamfight: "medium", scaling: "medium", ...overrides };
 }
 
-// El equipo propio (3 picks) lo tiene todo MENOS iniciación, y tiene bajos el daño a estructuras y el scaling. Dos candidatos:
+// El equipo propio (3 picks) lo tiene todo MENOS iniciación, y tiene bajos el teamfight y el scaling. Dos candidatos:
 //   - INITIATOR: llena el hueco crítico y nada más (iniciación).
-//   - RICH: no inicia, pero llena dos huecos blandos (daño a estructuras y scaling).
+//   - RICH: no inicia, pero llena dos huecos blandos (teamfight y scaling).
+// F2-E1: el daño a estructuras ahora también es crítico en la ventana de cierre, así que este equipo lo tiene CUBIERTO (hero 1 es "high"):
+// el escenario sigue siendo "sólo la iniciación es crítica", que es lo que estas pruebas demuestran. El caso con estructuras abierto vive en
+// draft-paths/gaps.structural-critical.test.ts y en la sección F2-E1 de este archivo.
 const OWN = [
-  hero(1, { structuralDamage: "low", scaling: "low", teamfight: "medium" }),
-  hero(2, { damageType: "magical", structuralDamage: "low", scaling: "low", teamfight: "medium" }),
-  hero(3, { structuralDamage: "low", scaling: "low", teamfight: "medium" }),
+  hero(1, { structuralDamage: "high", scaling: "low", teamfight: "low" }),
+  hero(2, { damageType: "magical", structuralDamage: "low", scaling: "low", teamfight: "low" }),
+  hero(3, { structuralDamage: "low", scaling: "low", teamfight: "low" }),
 ];
-const INITIATOR = hero(10, { hasInitiation: true, structuralDamage: "low", scaling: "low" });
-const RICH = hero(11, { hasInitiation: false, structuralDamage: "high", scaling: "high" });
+const INITIATOR = hero(10, { hasInitiation: true, structuralDamage: "low", scaling: "low", teamfight: "low" });
+const RICH = hero(11, { hasInitiation: false, structuralDamage: "high", scaling: "high", teamfight: "high" });
 const CAPS = [...OWN, INITIATOR, RICH];
 
 const raw = (scorer: ReturnType<typeof createTeamSynergyScorer>, state: DraftState, id: number): number | null => scorer.score(state, id, META).raw;
@@ -89,5 +92,50 @@ describe("team_synergy -- importancia por etapa (TSK-253)", () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+// F2-E1: el daño a estructuras también es crítico en la ventana de cierre. Equipo que tiene TODO cubierto menos daño a estructuras.
+describe("team_synergy -- F2-E1: el daño a estructuras pesa en la ventana de cierre", () => {
+  const lacking = [
+    hero(1, { hasInitiation: true, structuralDamage: "low" }),
+    hero(2, { hasInitiation: true, damageType: "magical", structuralDamage: "low" }),
+    hero(3, { hasInitiation: true, structuralDamage: "low" }),
+  ];
+  const BUILDER = hero(20, { hasInitiation: true, structuralDamage: "high" }); // llena el hueco de estructuras
+  const PLAIN = hero(21, { hasInitiation: true, structuralDamage: "low" }); //     no lo llena
+  const caps = [...lacking, BUILDER, PLAIN];
+  const state = draftState([1, 2, 3]);
+
+  test("sin el parámetro (camino legado) nada cambia: filled/7 y el mismo orden", () => {
+    const legacy = createTeamSynergyScorer(caps);
+    expect(raw(legacy, state, 20)).toBeCloseTo(1 / 7, 10);
+    expect(raw(legacy, state, 21)).toBe(0);
+  });
+
+  test("con 2 picks que quedan el hueco de estructuras es crítico: p = 1/2, el que lo llena sube y el que no, no", () => {
+    const aware = createTeamSynergyScorer(caps, 2);
+    expect(raw(aware, state, 20)).toBeCloseTo(0.5 * (1 / 7) + 0.5, 10);
+    expect(raw(aware, state, 21)).toBe(0);
+  });
+
+  test("con 1 pick que queda p = 1: la señal es sólo cuánto de lo crítico llena", () => {
+    const aware = createTeamSynergyScorer(caps, 1);
+    expect(raw(aware, state, 20)).toBe(1);
+    expect(raw(aware, state, 21)).toBe(0);
+  });
+
+  test("fuera de la ventana (3 picks que quedan) el parámetro no cambia nada", () => {
+    const early = draftState([1, 2]);
+    const legacy = createTeamSynergyScorer(caps);
+    const aware = createTeamSynergyScorer(caps, 3);
+    for (const id of [20, 21]) expect(raw(aware, early, id)).toBe(raw(legacy, early, id));
+  });
+
+  test("un pick propio sin capacidades curadas desactiva el énfasis también para estructuras", () => {
+    const uncertain = draftState([1, 2, 999]);
+    const legacy = createTeamSynergyScorer(caps);
+    const aware = createTeamSynergyScorer(caps, 1);
+    for (const id of [20, 21]) expect(raw(aware, uncertain, id)).toBe(raw(legacy, uncertain, id));
   });
 });

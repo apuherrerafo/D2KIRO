@@ -340,40 +340,43 @@ describe("T4 -- critical gaps in the exam", () => {
 // ---- T5 (TSK-254): CRITICAL_GAP on the cards and I11 ---------------------------------------------------------------------------------
 // World: hero 3 initiates; 1, 2, 5 do not; 4 is the only magical; 6 has catch. Own team [2, 4, 6]: initiation is the only critical gap.
 describe("T5 -- CRITICAL_GAP on the V4 cards", () => {
+  // F2-E1: structural damage is also a critical gap in the closing window. Hero 6 (on the team) covers it here, so the premise of these tests
+  // ("initiation is the only critical gap") still holds; the structural case is covered in f2-e1-analysis.test.ts and the engine tests.
+  const world5: ExamWorld = { ...world, capabilities: new Map([...world.capabilities, [6, cap(6, { hasCatch: true, structuralDamage: "high" })]]) };
   const team = { ownPicks: [2, 4, 6], ownPicksRemaining: 2 };
   const gapRisk = { kind: "CRITICAL_GAP", detail: "A tu equipo le falta iniciación", heroIds: [] as number[] };
   const v4With = (cards: { heroId: number; risks: typeof gapRisk[] }[]) => ({ kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: cards.map((c) => ({ heroId: c.heroId, rationale: "", basis: null, risks: c.risks })) });
 
   test("demonstrable and shown: a curated non-initiator carries it, the initiator does not -> clean", () => {
-    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 1, risks: [gapRisk] }, { heroId: 3, risks: [] }]) }), world);
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 1, risks: [gapRisk] }, { heroId: 3, risks: [] }]) }), world5);
     expect(result).toMatchObject({ shown: 1, shownWithoutProof: [], missingOnCard: [], cardsInCriticalStates: 2 });
   });
 
   test("HARD: demonstrable but missing on the card of a curated non-initiator", () => {
-    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 1, risks: [] }]) }), world);
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 1, risks: [] }]) }), world5);
     expect(result.missingOnCard).toHaveLength(1);
   });
 
   test("HARD: shown on an initiator (it fills the gap)", () => {
-    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 3, risks: [gapRisk] }]) }), world);
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 3, risks: [gapRisk] }]) }), world5);
     expect(result.shownWithoutProof).toHaveLength(1);
   });
 
   test("HARD: shown on a hero with unknown capabilities (never presented as certainty)", () => {
-    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 777, risks: [gapRisk] }]) }), world);
+    const result = criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 777, risks: [gapRisk] }]) }), world5);
     expect(result.shownWithoutProof).toHaveLength(1);
-    expect(criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 777, risks: [] }]) }), world)).toMatchObject({ shown: 0, shownWithoutProof: [], missingOnCard: [] });
+    expect(criticalGapOnCards(state({ ...team, v4: v4With([{ heroId: 777, risks: [] }]) }), world5)).toMatchObject({ shown: 0, shownWithoutProof: [], missingOnCard: [] });
   });
 
   test("HARD: shown when an own pick is uncurated (the gap may be false) or outside the closing window", () => {
-    expect(criticalGapOnCards(state({ ownPicks: [2, 4, 777], ownPicksRemaining: 2, v4: v4With([{ heroId: 1, risks: [gapRisk] }]) }), world).shownWithoutProof).toHaveLength(1);
-    expect(criticalGapOnCards(state({ ownPicks: [2, 4], ownPicksRemaining: 3, v4: v4With([{ heroId: 1, risks: [gapRisk] }]) }), world).shownWithoutProof).toHaveLength(1);
+    expect(criticalGapOnCards(state({ ownPicks: [2, 4, 777], ownPicksRemaining: 2, v4: v4With([{ heroId: 1, risks: [gapRisk] }]) }), world5).shownWithoutProof).toHaveLength(1);
+    expect(criticalGapOnCards(state({ ownPicks: [2, 4], ownPicksRemaining: 3, v4: v4With([{ heroId: 1, risks: [gapRisk] }]) }), world5).shownWithoutProof).toHaveLength(1);
   });
 
   test("I6-visible reads the V4 risk text too: a late open initiation/catch gap is no longer invisible once a card says it", () => {
     const late = { ownPicksRemaining: 1, ownPicks: [1, 2, 4, 5] };
-    const hidden = i6Gap(state({ ...late, v4: v4With([{ heroId: 1, risks: [] }]) }), world);
-    const visible = i6Gap(state({ ...late, v4: v4With([{ heroId: 1, risks: [{ ...gapRisk, detail: "A tu equipo le falta iniciación y te queda 1 pick" }] }]) }), world);
+    const hidden = i6Gap(state({ ...late, v4: v4With([{ heroId: 1, risks: [] }]) }), world5);
+    const visible = i6Gap(state({ ...late, v4: v4With([{ heroId: 1, risks: [{ ...gapRisk, detail: "A tu equipo le falta iniciación y te queda 1 pick" }] }]) }), world5);
     expect(hidden.gapNotVisible).toBe(true);
     expect(visible.gapNotVisible).toBe(false);
   });

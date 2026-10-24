@@ -28,11 +28,12 @@ const POS: HeroPositions = Object.fromEntries(CANDIDATES.map((id) => [id, [{ pos
 const heroes: Record<number, MetaHeroInfo> = Object.fromEntries([...CANDIDATES, ...OWN].map((id) => [id, { id, localizedName: `Hero ${id}` }]));
 const meta: MetaSnapshot = { heroes, matchups: {} };
 
-// El equipo (1, 2, 3) lo tiene todo MENOS iniciación y tiene bajos estructuras y scaling.
-const TEAM = OWN.map((id) => hero(id, { damageType: id === 2 ? "magical" : "physical", structuralDamage: "low", scaling: "low" }));
-const INITIATOR = hero(41, { hasInitiation: true, structuralDamage: "low", scaling: "low" }); // llena sólo el hueco crítico
-const RICH = hero(42, { structuralDamage: "high", scaling: "high" }); //                         llena dos huecos blandos, no inicia
-const NEUTRAL = [43, 44, 45, 46].map((id) => hero(id, { structuralDamage: "low", scaling: "low" }));
+// El equipo (1, 2, 3) lo tiene todo MENOS iniciación y tiene bajos teamfight y scaling. F2-E1: el daño a estructuras también es crítico en la
+// ventana de cierre, así que el hero 1 lo deja CUBIERTO ("high"): el escenario sigue siendo "sólo la iniciación es crítica".
+const TEAM = OWN.map((id) => hero(id, { damageType: id === 2 ? "magical" : "physical", structuralDamage: id === 1 ? "high" : "low", scaling: "low", teamfight: "low" }));
+const INITIATOR = hero(41, { hasInitiation: true, structuralDamage: "low", scaling: "low", teamfight: "low" }); // llena sólo el hueco crítico
+const RICH = hero(42, { structuralDamage: "high", scaling: "high", teamfight: "high" }); //                      llena dos huecos blandos, no inicia
+const NEUTRAL = [43, 44, 45, 46].map((id) => hero(id, { structuralDamage: "low", scaling: "low", teamfight: "low" }));
 const CAPS = [...TEAM, INITIATOR, RICH, ...NEUTRAL];
 
 const base = { teamOpening: false, targetPosition: 1 as const, heroPositions: POS, heroCounters: new Map(), heroCapabilities: CAPS, positionFitSaturation: "credible-median" as const };

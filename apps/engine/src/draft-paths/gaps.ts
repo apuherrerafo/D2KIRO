@@ -83,7 +83,7 @@ export function filledGaps(candidate: HeroCapabilities, gaps: DraftCapabilityGap
 // "Crítico" sale del plan v2 (invariantes I6 e I7), no de una escala nueva: no poder iniciar ni atrapar, o un solo tipo de daño, cuando
 // quedan CLOSING_WINDOW_PICKS o menos picks propios (el mismo corte con el que el examen mide I6).
 
-export const CRITICAL_GAP_KINDS: readonly DraftCapabilityGap[] = ["initiation", "catch", "damage_mix"];
+export const CRITICAL_GAP_KINDS: readonly DraftCapabilityGap[] = ["initiation", "catch", "damage_mix", "structural_damage"];
 export const CLOSING_WINDOW_PICKS = 2;
 
 export interface CompositionNeeds {
