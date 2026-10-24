@@ -23,6 +23,14 @@ export interface ExamColumn {
   top: { heroId: HeroId; reason: string }[];
 }
 
+/** What the exam keeps of a V4 card. `basis` / `risks` are null / empty on reports written before TSK-254. */
+export interface ExamV4Card {
+  heroId: HeroId;
+  rationale: string;
+  basis: { kind: string; sources: { kind: string; sampleSize: number | null }[] } | null;
+  risks: { kind: string; detail: string; heroIds: HeroId[] }[];
+}
+
 export interface ExamState {
   draftKey: string;
   index: number;
@@ -35,7 +43,7 @@ export interface ExamState {
   v3: { heroId: HeroId; rationale: string }[];
   v3PrimaryRationale: string;
   board: { recommendedPosition: Pos | null; targetBasis: string | null; columns: ExamColumn[] } | null;
-  v4: { kind: string; targetPosition: Pos | null; /** The position the cards belong to (== target unless the Player opens on their own position). */ viewedPosition: Pos | null; targetBasis: string | null; state: string | null; cards: { heroId: HeroId; rationale: string }[] } | null;
+  v4: { kind: string; targetPosition: Pos | null; /** The position the cards belong to (== target unless the Player opens on their own position). */ viewedPosition: Pos | null; targetBasis: string | null; state: string | null; cards: ExamV4Card[] } | null;
   /** Counterfactual: what LivePositionPriorityV1 WOULD pick over the same columns (it does not run in the simulator today). */
   lpp: { position: Pos; basis: string; signal: string } | null;
   /** Covariance share of `position_fit` in the spread of V6's score among the candidates the recommended column keeps; null when undefined. */
@@ -158,12 +166,23 @@ export interface I6Result {
   gapNotVisible: boolean;
 }
 
-export function i6Gap(state: ExamState, world: ExamWorld): I6Result {
+/**
+ * I6 has two DEFINITIONS and their numbers are not comparable with each other:
+ *  - "original" (T2..T4_AFTER): an own pick without curated capabilities counts as lacking, and only V3/board texts can make the gap visible.
+ *  - "revised" (T5, TSK-254): the gap applies only when EVERY own pick is curated, and a V4 card risk text also makes it visible.
+ * The revised rule shrinks the denominator (2 -> 0 states on the same seeds), so a drop from original to revised is a change of ruler, not an improvement.
+ */
+export type I6Definition = "original" | "revised";
+
+export function i6Gap(state: ExamState, world: ExamWorld, definition: I6Definition = "revised"): I6Result {
   const fills = (hero: HeroId): boolean => { const c = world.capabilities.get(hero); return c !== undefined && (c.hasInitiation || c.hasCatch); };
-  const applies = state.ownPicksRemaining <= 2 && state.ownPicks.length >= 3 && !state.ownPicks.some(fills);
+  // TSK-254: an own pick without curated capabilities is unknown, not "lacking" -- the gap is not established, so nothing is owed to the Player
+  // (the same rule as the engine's critical gap and as I6b). Before T5 this made the exam flag 2 states that the product rightly leaves silent.
+  const allCurated = definition === "original" || state.ownPicks.every((hero) => world.capabilities.has(hero));
+  const applies = state.ownPicksRemaining <= 2 && state.ownPicks.length >= 3 && allCurated && !state.ownPicks.some(fills);
   if (!applies) return { applies: false, top3Fills: false, credibleFillerExists: false, gapNotVisible: false };
   const credible = new Set<HeroId>([...state.v3.map((c) => c.heroId), ...(state.board?.columns ?? []).flatMap((c) => c.top.map((t) => t.heroId))]);
-  const texts = [state.v3PrimaryRationale, ...state.v3.map((c) => c.rationale), ...(state.board?.columns ?? []).flatMap((c) => c.top.map((t) => t.reason))];
+  const texts = [state.v3PrimaryRationale, ...state.v3.map((c) => c.rationale), ...(state.board?.columns ?? []).flatMap((c) => c.top.map((t) => t.reason)), ...(definition === "revised" ? (state.v4?.cards ?? []).flatMap((c) => c.risks.map((r) => r.detail)) : [])];
   return { applies, top3Fills: state.v3.slice(0, 3).some((c) => fills(c.heroId)), credibleFillerExists: [...credible].some(fills), gapNotVisible: !texts.some((text) => GAP_WORDS.test(text)) };
 }
 
@@ -445,4 +464,67 @@ export function i6bInitiation(state: ExamState, world: ExamWorld): I6bResult {
     top3Fills: (column?.top ?? []).slice(0, 3).some((t) => hasInitiation(t.heroId)),
     fillerInField: (state.positionFitField ?? []).some((c) => hasInitiation(c.heroId)),
   };
+}
+
+// ---- T5 (TSK-254): CRITICAL_GAP on the cards, and the honesty of `basis` (I11) ----------------------------------------------------
+// Both read the card the Player sees (`?format=v4`) against the STATE (own picks, picks left, curated capabilities), never against the
+// scoring: the card is only read-only evidence.
+
+export interface CriticalGapCardResult {
+  /** Cards carrying CRITICAL_GAP. */
+  shown: number;
+  /** HARD: a CRITICAL_GAP card that is not demonstrable (gap not critical, a pick or the hero uncurated, or the hero fills it). */
+  shownWithoutProof: string[];
+  /** HARD: a demonstrable gap (curated hero, critical gap, not filled) whose card does not carry CRITICAL_GAP. */
+  missingOnCard: string[];
+  /** Cards of a curated hero that fills / of an uncurated hero while the gap is critical: the risk must NOT be there (counted, for the report). */
+  cardsInCriticalStates: number;
+}
+
+export function criticalGapOnCards(state: ExamState, world: ExamWorld): CriticalGapCardResult {
+  const result: CriticalGapCardResult = { shown: 0, shownWithoutProof: [], missingOnCard: [], cardsInCriticalStates: 0 };
+  const needs = examNeeds(state, world);
+  for (const card of state.v4?.cards ?? []) {
+    const capability = world.capabilities.get(card.heroId);
+    const demonstrable = needs.critical.length > 0 && capability !== undefined && unfilledCriticalGaps(capability, needs).length > 0;
+    const carries = card.risks.some((risk) => risk.kind === "CRITICAL_GAP");
+    if (needs.critical.length > 0) result.cardsInCriticalStates += 1;
+    if (carries) result.shown += 1;
+    if (carries && !demonstrable) result.shownWithoutProof.push(`${where(state)} hero ${card.heroId}`);
+    if (demonstrable && !carries) result.missingOnCard.push(`${where(state)} hero ${card.heroId}`);
+  }
+  return result;
+}
+
+export interface I11Result {
+  cards: number;
+  /** HARD: the basis is missing, incoherent, or contradicts what the reason claims. */
+  violations: string[];
+  kinds: Record<string, number>;
+  /** OBSERVATION: a statistical source whose sample is not known (shown as "estadística", never with a made-up n). */
+  statisticalWithoutSample: number;
+}
+
+const QUOTES_A_STATISTIC = /\d+\s*(partidas|games)|\d+(?:[.,]\d+)?\s*%/i;
+const CLAIMS_A_CAPABILITY = /^Aporta\b/;
+
+export function i11Basis(state: ExamState): I11Result {
+  const result: I11Result = { cards: 0, violations: [], kinds: {}, statisticalWithoutSample: 0 };
+  for (const card of state.v4?.cards ?? []) {
+    result.cards += 1;
+    const at = `${where(state)} hero ${card.heroId}`;
+    const basis = card.basis;
+    if (basis === null || basis.sources.length === 0) { result.violations.push(`${at}: no basis`); continue; }
+    result.kinds[basis.kind] = (result.kinds[basis.kind] ?? 0) + 1;
+    const kinds = basis.sources.map((source) => source.kind);
+    if (new Set(kinds).size !== kinds.length) result.violations.push(`${at}: a kind is repeated inside the basis`);
+    if (basis.kind !== (basis.sources.length === 1 ? kinds[0] : "mixed")) result.violations.push(`${at}: basis.kind ${basis.kind} does not follow its sources`);
+    for (const source of basis.sources) {
+      if (source.kind !== "statistical" && source.sampleSize !== null) result.violations.push(`${at}: a ${source.kind} source claims a sample`);
+      if (source.kind === "statistical" && source.sampleSize === null) result.statisticalWithoutSample += 1;
+    }
+    if (CLAIMS_A_CAPABILITY.test(card.rationale) && !kinds.includes("curated")) result.violations.push(`${at}: the reason claims a capability but the basis is not curated`);
+    if (QUOTES_A_STATISTIC.test(card.rationale) && !kinds.includes("statistical")) result.violations.push(`${at}: the reason quotes a statistic but the basis is not statistical`);
+  }
+  return result;
 }

@@ -191,18 +191,27 @@ export function extractHeroCandidates(set: RecommendationSetV2, heroPositions?: 
     .map(({ candidate }) => candidate);
 }
 
-/** The phrase of the hero's strongest REAL signal (data-backed, highest contribution). */
-function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string {
+/**
+ * The signal the card's rationale is taken from: the counter signal when the card earned a COUNTER badge,
+ * otherwise the strongest REAL signal (data-backed, highest contribution). Null when none qualifies.
+ * Exported so the card's `basis` (card-evidence.ts) is read from the SAME signal the rationale quotes.
+ */
+export function pickRationaleSignal(candidate: HeroCandidate, hasCounterBadge = false): SignalContribution | null {
   if (hasCounterBadge) {
     const counterSignal = candidate.signals.find((s) => s.signal === "counter" && votedWithData(s));
     if (counterSignal?.explanation && !counterSignal.explanation.startsWith("Sin ")) {
-      return counterSignal.explanation;
+      return counterSignal;
     }
   }
   const backed = candidate.signals
     .filter((s) => votedWithData(s) && !s.explanation.startsWith("Sin "))
     .sort((a, b) => b.weighted - a.weighted);
-  return backed[0]?.explanation ?? "Sin señal con datos propios suficientes.";
+  return backed[0] ?? null;
+}
+
+/** The phrase of the hero's strongest REAL signal (data-backed, highest contribution). */
+function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string {
+  return pickRationaleSignal(candidate, hasCounterBadge)?.explanation ?? "Sin señal con datos propios suficientes.";
 }
 
 /**

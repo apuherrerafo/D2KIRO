@@ -1,3 +1,4 @@
+import type { HeroCapabilities } from "../draft-paths/types";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { HumanActionability } from "../recommendation/human-actionability";
@@ -5,6 +6,7 @@ import { unavailableHeroesFrom } from "../recommendation/perspective-context";
 import type { RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import { deriveCardBasis, deriveCardRisks, deriveCompositionContext } from "./card-evidence";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
@@ -127,6 +129,8 @@ export interface DeriveCandidateResultInput {
   view: PerspectiveDraftView;
   heroPositions: HeroPositions;
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /** Curated capabilities (the very list `team_synergy` reads). Omitted -> no CRITICAL_GAP can be derived. */
+  heroCapabilities?: readonly HeroCapabilities[];
   personalPoolApplied: boolean;
   shortlistSize?: number;
   /**
@@ -188,6 +192,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
+      const evidenceContext = { revealedEnemies, heroCounters: input.heroCounters, bannedHeroes: view.bannedHeroes };
+      const composition = deriveCompositionContext(view, input.heroCapabilities);
       const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {
@@ -202,6 +208,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),
+          basis: deriveCardBasis(candidate, card.badges.includes("COUNTER"), evidenceContext),
+          risks: deriveCardRisks(candidate, view, input.heroCounters, composition),
         };
       });
       return { state: "RANKED", targetPosition, cards, degradations };

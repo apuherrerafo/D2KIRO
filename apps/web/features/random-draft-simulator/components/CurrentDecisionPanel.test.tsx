@@ -2,7 +2,7 @@ import "@/test-support/happy-dom";
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
-import { parseCurrentDecisionOutput, type CandidateResult, type CurrentDecisionOutput, type TargetBasis } from "../coach-client";
+import { parseCurrentDecisionOutput, type CandidateResult, type CardBasis, type CardRisk, type CurrentDecisionOutput, type TargetBasis } from "../coach-client";
 import type { RecommendationSetV2 } from "../protocol-client";
 import { CopilotPanel } from "./CopilotPanel";
 import { CurrentDecisionPanel } from "./CurrentDecisionPanel";
@@ -11,12 +11,14 @@ import { CurrentDecisionPanel } from "./CurrentDecisionPanel";
 
 afterEach(cleanup);
 
+const STATISTICAL_BASIS: CardBasis = { kind: "statistical", sources: [{ kind: "statistical", sampleSize: 120 }] };
+
 const RANKED: CandidateResult = {
   state: "RANKED",
   targetPosition: 3,
   cards: [
-    { heroId: 11, position: 3, rank: 1, score: 30, confidence: "alta", roleStatus: "CONFIRMED_FORCED", badges: [], rationale: "fixture 11", isFromPool: false, poolMembership: "NO_POOL" },
-    { heroId: 12, position: 3, rank: 2, score: 20, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture 12", isFromPool: false, poolMembership: "NO_POOL" },
+    { heroId: 11, position: 3, rank: 1, score: 30, confidence: "alta", roleStatus: "CONFIRMED_FORCED", badges: [], rationale: "fixture 11", isFromPool: false, poolMembership: "NO_POOL", basis: STATISTICAL_BASIS, risks: [] },
+    { heroId: 12, position: 3, rank: 2, score: 20, confidence: "media", roleStatus: "LIKELY", badges: [], rationale: "fixture 12", isFromPool: false, poolMembership: "NO_POOL", basis: STATISTICAL_BASIS, risks: [] },
   ],
   degradations: [],
 };
@@ -204,4 +206,74 @@ test("borde: una oportunidad V4 malformada rechaza la salida entera; una válida
   expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: SAFE_CORE })?.opportunity?.heroId).toBe(99);
   expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: { ...SAFE_CORE, subtype: "OTHER" } })).toBeNull();
   expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: { ...SAFE_CORE, counterEvidence: { ...SAFE_CORE.counterEvidence, sourceType: "STATISTICAL" } } })).toBeNull();
+});
+
+// TSK-254 -- each card says where its reason comes from and which risks apply; the border rejects dishonest labels.
+function withCard(patch: { basis?: unknown; risks?: unknown }): unknown {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const cards = base.decision.candidates.cards.map((card, index) => (index === 0 ? { ...card, ...patch } : card));
+  return { ...base, decision: { ...base.decision, candidates: { ...base.decision.candidates, cards } } };
+}
+
+const CURATED_BASIS: CardBasis = { kind: "curated", sources: [{ kind: "curated", sampleSize: null }] };
+const MIXED_BASIS: CardBasis = { kind: "mixed", sources: [{ kind: "statistical", sampleSize: 240 }, { kind: "curated", sampleSize: null }] };
+const INFERRED_BASIS: CardBasis = { kind: "inferred", sources: [{ kind: "inferred", sampleSize: null }] };
+
+test("TSK-254: la base se distingue en la tarjeta -- estadística con su n, curada, mixta con cada fuente, inferida", () => {
+  const texts: [CardBasis, string][] = [
+    [STATISTICAL_BASIS, "Base: estadística (120 partidas)"],
+    [CURATED_BASIS, "Base: criterio curado"],
+    [MIXED_BASIS, "Base mixta: estadística (240 partidas) + criterio curado"],
+    [INFERRED_BASIS, "Base: inferido de la posición"],
+  ];
+  for (const [basis, text] of texts) {
+    const parsed = parseCurrentDecisionOutput(withCard({ basis }));
+    expect(parsed).not.toBeNull();
+    const view = render(<CurrentDecisionPanel output={parsed!} heroCatalog={new Map()} />);
+    const label = view.getAllByTestId("current-decision-basis")[0]!;
+    expect(label.textContent).toBe(text);
+    expect(label.getAttribute("data-basis-kind")).toBe(basis.kind);
+    cleanup();
+  }
+});
+
+test("TSK-254: los riesgos se ven con los héroes nombrados desde el catálogo; sin riesgos no hay recuadro", () => {
+  const risks: CardRisk[] = [
+    { kind: "countered_by_revealed", detail: "1 counter duro curado de este héroe ya está revelado en el equipo rival.", heroIds: [50] },
+    { kind: "exposed_to_counter", detail: "2 counters duros curados siguen disponibles y el rival todavía puede elegir después de ver tu pick.", heroIds: [51, 52] },
+  ];
+  const catalog = new Map([[50, { localizedName: "Axe" }], [51, { localizedName: "Pudge" }]]) as never;
+  const view = render(<CurrentDecisionPanel output={parseCurrentDecisionOutput(withCard({ risks }))!} heroCatalog={catalog} />);
+  const items = view.getAllByTestId("current-decision-risk");
+  expect(items.map((item) => item.getAttribute("data-risk-kind"))).toEqual(["countered_by_revealed", "exposed_to_counter"]);
+  expect(items[0]!.textContent).toContain("Counter duro ya revelado: Axe");
+  expect(items[1]!.textContent).toContain("Counter duro aún disponible: Pudge, Héroe 52");
+  expect(view.getAllByTestId("current-decision-risks")).toHaveLength(1); // only the card that carries risks
+});
+
+test("TSK-254: CRITICAL_GAP se ve con su título y su detalle, sin nombrar héroes (el hueco es del equipo)", () => {
+  const risks: CardRisk[] = [{ kind: "CRITICAL_GAP", detail: "A tu equipo le falta iniciación y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).", heroIds: [] }];
+  const view = render(<CurrentDecisionPanel output={parseCurrentDecisionOutput(withCard({ risks }))!} heroCatalog={new Map() as never} />);
+  const item = view.getByTestId("current-decision-risk");
+  expect(item.getAttribute("data-risk-kind")).toBe("CRITICAL_GAP");
+  expect(item.textContent).toContain("Hueco crítico del equipo");
+  expect(item.textContent).not.toContain("Hueco crítico del equipo:"); // no hero list after the title
+  expect(item.textContent).toContain("A tu equipo le falta iniciación");
+  expect(item.textContent).toContain("según las capacidades curadas");
+});
+
+test("TSK-254 borde: un riesgo desconocido, una base incoherente o un riesgo de héroes sin héroes rechazan la salida entera", () => {
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "NOT_A_RISK", detail: "x", heroIds: [] }] }))).toBeNull(); // a kind the contract does not know
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "CRITICAL_GAP", detail: "x", heroIds: [] }] }))).not.toBeNull(); // a team-level gap names no heroes
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "CRITICAL_GAP", detail: 7, heroIds: [] }] }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "exposed_to_counter", detail: "x", heroIds: [] }] }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCard({ risks: [{ kind: "low_evidence", detail: "x", heroIds: [0] }] }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCard({ risks: "none" }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCard({ basis: undefined }))).toBeNull(); // required: a card never ships without its basis
+  expect(parseCurrentDecisionOutput(withCard({ basis: { kind: "statistical", sources: [] } }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCard({ basis: { kind: "mixed", sources: [{ kind: "curated", sampleSize: null }] } }))).toBeNull(); // mixed needs 2+ kinds
+  expect(parseCurrentDecisionOutput(withCard({ basis: { kind: "curated", sources: [{ kind: "curated", sampleSize: 50 }] } }))).toBeNull(); // curated claims no sample
+  expect(parseCurrentDecisionOutput(withCard({ basis: { kind: "mixed", sources: [{ kind: "curated", sampleSize: null }, { kind: "curated", sampleSize: null }] } }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCard({ basis: MIXED_BASIS, risks: [] }))).not.toBeNull();
 });

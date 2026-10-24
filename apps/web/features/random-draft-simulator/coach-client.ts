@@ -287,6 +287,33 @@ export interface RankedCandidateCard {
   isFromPool: boolean;
   /** Is this hero in the pool that shaped the ranking? NO_POOL = no pool voted (never shown as "outside"). */
   poolMembership: PoolMembership;
+  /** What `rationale` rests on: a statistic (with its sample), curated criterion, or an inference. */
+  basis: CardBasis;
+  /** Risks to weigh before locking this hero. Empty when none was detected. */
+  risks: CardRisk[];
+}
+
+/** Espejo de `BasisKind`/`BasisSource`/`CardBasis` del motor. "mixed" = la razón combina fuentes distintas. */
+export type BasisKind = "statistical" | "curated" | "inferred";
+
+export interface BasisSource {
+  kind: BasisKind;
+  /** Partidas de una fuente estadística; null para las demás y para una estadística de muestra desconocida. */
+  sampleSize: number | null;
+}
+
+export interface CardBasis {
+  kind: BasisKind | "mixed";
+  sources: BasisSource[];
+}
+
+export type CardRiskKind = "low_evidence" | "unresolved_role" | "countered_by_revealed" | "exposed_to_counter" | "CRITICAL_GAP";
+
+export interface CardRisk {
+  kind: CardRiskKind;
+  detail: string;
+  /** Los héroes de los que habla el riesgo (los counters); vacío cuando no nombra ninguno. */
+  heroIds: HeroId[];
 }
 
 export type PoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
@@ -348,6 +375,32 @@ export interface CurrentDecisionOutput {
   };
 }
 
+const BASIS_KINDS: readonly string[] = ["statistical", "curated", "inferred"];
+const CARD_RISK_KINDS: readonly string[] = ["low_evidence", "unresolved_role", "countered_by_revealed", "exposed_to_counter", "CRITICAL_GAP"];
+/** Los riesgos que hablan de héroes concretos: sin al menos uno no hay nada que mostrar. */
+const HERO_NAMING_RISKS: readonly string[] = ["countered_by_revealed", "exposed_to_counter"];
+
+/** Sólo una fuente estadística tiene muestra; el resto la declara null. */
+function isBasisSource(value: unknown): value is BasisSource {
+  if (!isRecord(value) || typeof value.kind !== "string" || !BASIS_KINDS.includes(value.kind)) return false;
+  if (value.sampleSize === null) return true;
+  return value.kind === "statistical" && typeof value.sampleSize === "number" && Number.isInteger(value.sampleSize) && value.sampleSize > 0;
+}
+
+/** Una sola fuente => su propio kind; varias, de kinds distintos => "mixed". Cualquier otra combinación es contrato roto. */
+function isCardBasis(value: unknown): value is CardBasis {
+  if (!isRecord(value) || !Array.isArray(value.sources) || value.sources.length === 0 || !value.sources.every(isBasisSource)) return false;
+  const kinds = new Set(value.sources.map((source) => source.kind));
+  if (kinds.size !== value.sources.length) return false;
+  return value.kind === (value.sources.length === 1 ? value.sources[0]!.kind : "mixed");
+}
+
+function isCardRisk(value: unknown): value is CardRisk {
+  if (!isRecord(value) || typeof value.kind !== "string" || !CARD_RISK_KINDS.includes(value.kind) || typeof value.detail !== "string") return false;
+  if (!Array.isArray(value.heroIds) || !value.heroIds.every(isHeroId)) return false;
+  return !HERO_NAMING_RISKS.includes(value.kind) || value.heroIds.length > 0;
+}
+
 function isRankedCard(value: unknown, target: CoachPosition): value is RankedCandidateCard {
   if (!isRecord(value)) return false;
   const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
@@ -355,7 +408,8 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
     && typeof value.score === "number" && Number.isFinite(value.score) && isConfidence(value.confidence) && roleOk
     && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
     && typeof value.rationale === "string" && typeof value.isFromPool === "boolean"
-    && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL");
+    && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL")
+    && isCardBasis(value.basis) && Array.isArray(value.risks) && value.risks.every(isCardRisk);
 }
 
 function isPoolMembership(value: unknown): value is PoolMembership {

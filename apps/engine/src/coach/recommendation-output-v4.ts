@@ -59,6 +59,38 @@ export interface RankedCandidateCard {
    * position)? `NO_POOL` when no pool voted at all -- never reported as "outside" a pool nobody configured.
    */
   poolMembership: PoolMembership;
+  /** What `rationale` rests on: a statistic (with its sample), curated criterion, or an inference. */
+  basis: CardBasis;
+  /** Risks the Player should weigh before locking this hero. Empty when none was detected -- never absent. */
+  risks: CardRisk[];
+}
+
+/** Where a claim comes from. A curated claim is a judgement ("suele"), never a measured fact. */
+export type BasisKind = "statistical" | "curated" | "inferred";
+
+export interface BasisSource {
+  kind: BasisKind;
+  /** Games behind a statistical source. Null for every other kind, and for a statistic whose sample is unknown. */
+  sampleSize: number | null;
+}
+
+/**
+ * `kind` is the single source when there is one, and "mixed" when the claim combines distinct kinds -- `sources`
+ * then names each of them, and the wording follows the weakest one.
+ */
+export interface CardBasis {
+  kind: BasisKind | "mixed";
+  sources: BasisSource[];
+}
+
+export type CardRiskKind = "low_evidence" | "unresolved_role" | "countered_by_revealed" | "exposed_to_counter" | "CRITICAL_GAP";
+
+export interface CardRisk {
+  kind: CardRiskKind;
+  /** Plain-language explanation without hero names (the client names `heroIds` from its own catalog). */
+  detail: string;
+  /** The heroes the risk is about (the counters), empty when the risk names none. */
+  heroIds: HeroId[];
 }
 
 export type PoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";

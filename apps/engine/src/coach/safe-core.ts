@@ -102,6 +102,36 @@ function visibleIds(slots: PerspectiveDraftView["ownPicks"], allowed: ReadonlyAr
   return ids;
 }
 
+export interface CuratedHardCounterStatus {
+  /** Distinct curated HARD counters of the hero that are already revealed on the enemy team. */
+  revealed: HeroId[];
+  /** Distinct curated HARD counters still on the table: not banned, not on our team, not revealed. */
+  available: HeroId[];
+}
+
+/**
+ * Where the hero's curated hard counters stand right now (public evidence only). Same data and same "off the
+ * table" semantic as `detectSafeCoreWindow`, but it reports the exposure instead of deciding a Safe Core window:
+ * the card-level risks read it, and no coverage floor applies -- one available hard counter is already exposure.
+ */
+export function curatedHardCounterStatus(
+  heroId: HeroId,
+  view: PerspectiveDraftView,
+  heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]>,
+): CuratedHardCounterStatus {
+  const banned = new Set<HeroId>(view.bannedHeroes);
+  const own = visibleIds(view.ownPicks, ["KNOWN", "REVEALED"]);
+  const enemy = visibleIds(view.enemyPicks, ["REVEALED"]);
+  const hard = new Set<HeroId>();
+  for (const entry of heroCounters.get(heroId) ?? []) if (entry.level === "hard") hard.add(entry.vs);
+  const status: CuratedHardCounterStatus = { revealed: [], available: [] };
+  for (const vs of [...hard].sort((a, b) => a - b)) {
+    if (enemy.has(vs)) status.revealed.push(vs);
+    else if (!banned.has(vs) && !own.has(vs)) status.available.push(vs);
+  }
+  return status;
+}
+
 // The coverage floor is NOT a parameter: no caller (route, orchestrator, script) can lower it. The offline
 // incidence audit replays the pre-calibration rule with its own private copy (scripts/wave4a-safe-core-incidence.ts).
 export function detectSafeCoreWindow(
