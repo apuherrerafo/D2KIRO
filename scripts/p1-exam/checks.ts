@@ -7,7 +7,7 @@
 //   OBSERVATION  a number to look at, not a law (I4, I5, I7, I8, I10, concentration)
 //   NOT_MEASURABLE  the thing the invariant needs does not exist in the system yet (reported honestly, never as PASS)
 import type { DraftState, HeroId } from "../../apps/engine/src/draft/reducer";
-import { assessCompositionNeeds, unfilledCriticalGaps, type CompositionNeeds } from "../../apps/engine/src/draft-paths/gaps";
+import { assessCompositionNeeds, criticalPressure, unfilledCriticalGaps, type CompositionNeeds } from "../../apps/engine/src/draft-paths/gaps";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import { isCandidateAdmittedForPosition, isCredibleForPosition, type HeroPositions } from "../../apps/engine/src/signals/hero-positions";
@@ -292,6 +292,18 @@ export interface FieldCandidate {
   positionFit: number;
   /** The hero's recorded matches at the target position (formula-independent popularity). */
   matches: number;
+  /** TSK-255 (M1): the `counter` signal V6 read for this hero in this state; null/absent when the signal did not exist. */
+  counter?: FieldCounter | null;
+}
+
+/** The part of V6's `counter` signal the M1 measurement needs. `raw` is null when there is not enough data (never a made-up 0). */
+export interface FieldCounter {
+  raw: number | null;
+  weighted: number;
+  /** Games behind the statistical layer (0 when only curated/ban-relief evidence spoke). */
+  sampleSize: number;
+  /** The signal quoted evidence about a REVEALED enemy (not just ban relief). */
+  vsRevealed: boolean;
 }
 
 export interface FieldStats {
@@ -527,4 +539,115 @@ export function i11Basis(state: ExamState): I11Result {
     if (QUOTES_A_STATISTIC.test(card.rationale) && !kinds.includes("statistical")) result.violations.push(`${at}: the reason quotes a statistic but the basis is not statistical`);
   }
   return result;
+}
+
+// ---- T6 (TSK-255): M1, exposure of round 1 and D1 (a gap that cannot be evaluated) -------------------------------------------------------
+// All three read the states the exam already captured; none scores, re-ranks or changes the engine.
+
+/** What counts as an "adverse statistical counter" in M1. Three fixed thresholds, reported side by side so no single cut-off is chosen after seeing the result. */
+export interface M1Threshold { label: string; adverseRaw: number; minGames: number }
+export const M1_THRESHOLDS: readonly M1Threshold[] = [
+  { label: "raw<=-0.03 y n>=30", adverseRaw: 0.03, minGames: 30 },
+  { label: "raw<=-0.05 y n>=30", adverseRaw: 0.05, minGames: 30 },
+  { label: "raw<=-0.075 y n>=100", adverseRaw: 0.075, minGames: 100 },
+];
+
+const sortedByScore = (field: readonly FieldCandidate[]): FieldCandidate[] => [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId);
+const isAdverse = (candidate: FieldCandidate | undefined, threshold: M1Threshold): boolean => {
+  const counter = candidate?.counter;
+  return counter !== undefined && counter !== null && counter.vsRevealed && counter.raw !== null && counter.raw <= -threshold.adverseRaw && counter.sampleSize >= threshold.minGames;
+};
+
+export interface M1Tension {
+  /** The pressure the engine applied (`criticalPressure`): 1 = the team has no picks left to wait on the critical gap. */
+  pressure: number;
+  round: number | null;
+  ownPicksRemaining: number;
+  /** The stage-aware rule put a hero that fills a critical gap in FIRST place, where the legacy rule had somebody else. */
+  promoted: boolean;
+  promotedHero: HeroId;
+  displacedHero: HeroId;
+  /** The promoted hero has an adverse STATISTICAL counter against a revealed enemy (and no curated hard counter, which RB-4 already demotes). */
+  promotedAdverse: boolean;
+  /** The promoted hero is hard-countered (curated) by a revealed enemy: the product demotes it afterwards (RB-4), so it is not a harm of M1. */
+  promotedHardCountered: boolean;
+  /** The displaced hero's counter against the revealed enemies is known and not negative. */
+  displacedNeutralOrBetter: boolean;
+  promotedCounterRaw: number | null;
+  promotedGames: number;
+  displacedCounterRaw: number | null;
+  /** Score points the promoted hero leads by under the stage-aware rule. */
+  scoreLead: number;
+  /** Kinds of risk the promoted hero's V4 card carries; null when that hero is not on the cards (another column). */
+  promotedCardRisks: string[] | null;
+}
+
+/** M1 on one state: null when it does not apply (no critical gap in the window, no revealed enemy, or the paired fields are too small). */
+export function m1Tension(state: ExamState, world: ExamWorld, threshold: M1Threshold): M1Tension | null {
+  const paired = state.teamNeedsPaired;
+  if (paired === null || state.revealedEnemy.length === 0) return null;
+  const needs = examNeeds(state, world);
+  if (needs.critical.length === 0 || paired.flat.length < 6 || paired.closing.length < 6) return null;
+  const closing = sortedByScore(paired.closing);
+  const flat = sortedByScore(paired.flat);
+  const top = closing[0]!;
+  const was = flat[0]!;
+  const promoted = top.heroId !== was.heroId && fillsCritical(top.heroId, needs, world);
+  const hardCountered = hardCounteredBy(top.heroId, state.revealedEnemy, world.counters).length > 0;
+  const displacedCounter = was.counter;
+  const card = state.v4?.cards.find((c) => c.heroId === top.heroId);
+  return {
+    pressure: criticalPressure(needs), round: state.round, ownPicksRemaining: state.ownPicksRemaining, promoted, promotedHero: top.heroId, displacedHero: was.heroId,
+    promotedAdverse: isAdverse(top, threshold) && !hardCountered, promotedHardCountered: hardCountered,
+    displacedNeutralOrBetter: displacedCounter !== undefined && displacedCounter !== null && displacedCounter.vsRevealed && displacedCounter.raw !== null && displacedCounter.raw >= 0,
+    promotedCounterRaw: top.counter?.raw ?? null, promotedGames: top.counter?.sampleSize ?? 0, displacedCounterRaw: was.counter?.raw ?? null,
+    scoreLead: top.score - (closing.find((c) => c.heroId === was.heroId)?.score ?? top.score),
+    promotedCardRisks: card === undefined ? null : card.risks.map((risk) => risk.kind),
+  };
+}
+
+/** M1 reachability: in an applicable state, how many candidates of the whole field are adverse, how many of those also fill the critical gap, and how high the best one ranks under the stage-aware rule. */
+export function adverseFillersInField(state: ExamState, world: ExamWorld, threshold: M1Threshold): { adverse: number; adverseFillers: number; bestFillerRank: number | null } | null {
+  const paired = state.teamNeedsPaired;
+  if (paired === null || state.revealedEnemy.length === 0) return null;
+  const needs = examNeeds(state, world);
+  if (needs.critical.length === 0 || paired.flat.length < 6 || paired.closing.length < 6) return null;
+  const closing = sortedByScore(paired.closing);
+  const fillers = closing.flatMap((candidate, index) => (isAdverse(candidate, threshold) && fillsCritical(candidate.heroId, needs, world) ? [index + 1] : []));
+  return { adverse: closing.filter((candidate) => isAdverse(candidate, threshold)).length, adverseFillers: fillers.length, bestFillerRank: fillers[0] ?? null };
+}
+
+// ---- Exposure of round 1: does the card say what the ranking exposes? -------------------------------------------------------------------
+/** `curatedHardCounters` = ALL the curated hard counters the hero has (taken or not): 0 means "nothing curated", which is not the same as "cannot be countered". */
+export interface ExposureCard { heroId: HeroId; rank: number; availableHardCounters: number; curatedHardCounters: number; warned: boolean }
+
+/** Round 1 only: for each V4 card, how many curated hard counters are still on the table and whether the card carries `exposed_to_counter`. Null outside round 1 or without cards. */
+export function exposureCommunication(state: ExamState, world: ExamWorld): { cards: ExposureCard[] } | null {
+  if (state.round !== 1 || state.v4 === null || state.v4.state !== "RANKED" || state.v4.cards.length === 0) return null;
+  return {
+    cards: state.v4.cards.map((card, index) => ({
+      heroId: card.heroId, rank: index + 1, availableHardCounters: availableHardCounters(card.heroId, state, world), curatedHardCounters: (world.counters.get(card.heroId) ?? []).filter((entry) => entry.level === "hard").length, warned: card.risks.some((risk) => risk.kind === "exposed_to_counter"),
+    })),
+  };
+}
+
+// ---- D1: where CRITICAL_GAP cannot be evaluated -----------------------------------------------------------------------------------------
+export interface UnevaluableResult {
+  inWindow: boolean;
+  /** An own pick has no curated capabilities: the team's gap is not established, no card can say anything. */
+  uncuratedOwnPick: boolean;
+  /** ...and an open initiation/catch/damage_mix gap among the curated picks means the product MIGHT have warned (it stays silent on purpose). */
+  gapWithheld: boolean;
+  cards: number;
+  /** Cards whose hero has no curated capabilities: the card cannot say whether it covers the gap. */
+  cardsOfUncuratedHero: HeroId[];
+}
+
+export function unevaluable(state: ExamState, world: ExamWorld): UnevaluableResult {
+  const inWindow = state.ownPicksRemaining >= 1 && state.ownPicksRemaining <= 2;
+  const cards = state.v4?.cards ?? [];
+  return {
+    inWindow, uncuratedOwnPick: state.ownPicks.some((hero) => !world.capabilities.has(hero)), gapWithheld: criticalWithheldByUncuratedPick(state, world),
+    cards: cards.length, cardsOfUncuratedHero: cards.filter((card) => !world.capabilities.has(card.heroId)).map((card) => card.heroId),
+  };
 }

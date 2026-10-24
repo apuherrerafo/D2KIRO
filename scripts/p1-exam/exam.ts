@@ -18,7 +18,7 @@ import { SIDES, loadWorldData, muteLog, percentile, unmuteLog, type WorldData } 
 import { POLICIES, runExam } from "./session";
 import { collectEvidenceIdentity } from "../wave5/evidence-identity";
 import {
-  availableHardCounters, criticalGapOnCards, criticalWithheldByUncuratedPick, examNeeds, i11Basis, fieldStats, i1Illegal, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
+  M1_THRESHOLDS, adverseFillersInField, availableHardCounters, criticalGapOnCards, criticalWithheldByUncuratedPick, examNeeds, exposureCommunication, fillsCritical, i11Basis, fieldStats, m1Tension, unevaluable, i1Illegal, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, mean, meanPairwiseJaccard, notCredibleShown, rate, varianceShare,
   type ExamState, type ExamWorld, type Pos,
 } from "./checks";
 
@@ -139,7 +139,91 @@ export function needsObservation(states: readonly ExamState[], world: ExamWorld)
   };
 }
 
-export function summarize(states: readonly ExamState[], world: ExamWorld) {
+
+const median = (xs: readonly number[]): number | null => (xs.length === 0 ? null : percentile([...xs].sort((a, b) => a - b), 50));
+
+/**
+ * TSK-255 (M1): how often does the stage-aware `team_synergy` put a hero that fills a critical gap FIRST, over what the legacy rule had first, even though that
+ * hero has an adverse STATISTICAL counter against a revealed enemy? Reported at three fixed thresholds, by pressure, with the evidence behind the counter and
+ * whether the card says anything. The scoring is not touched; this only counts.
+ */
+export function m1Observation(states: readonly ExamState[], world: ExamWorld, name: (id: number) => string) {
+  const first = M1_THRESHOLDS.map((threshold) => {
+    const all = states.flatMap((s) => { const t = m1Tension(s, world, threshold); return t === null ? [] : [{ s, t }]; });
+    const promoted = all.filter(({ t }) => t.promoted);
+    const adverse = promoted.filter(({ t }) => t.promotedAdverse);
+    const strict = adverse.filter(({ t }) => t.displacedNeutralOrBetter);
+    const bucket = (xs: typeof all) => ({ applicable: xs.length, promotedFirst: xs.filter(({ t }) => t.promoted).length, promotedWithAdverseCounter: xs.filter(({ t }) => t.promoted && t.promotedAdverse).length, strict: xs.filter(({ t }) => t.promoted && t.promotedAdverse && t.displacedNeutralOrBetter).length });
+    return {
+      threshold: threshold.label,
+      applicable: all.length,
+      promotedFirst: promoted.length,
+      promotedWithAdverseCounter: adverse.length,
+      promotedWithAdverseCounterAndANeutralOrBetterAlternativeDisplaced: strict.length,
+      rateOfApplicable: round4(rate(adverse.length, all.length)),
+      byPressure: { pressure1: bucket(all.filter(({ t }) => t.pressure >= 1)), belowOne: bucket(all.filter(({ t }) => t.pressure < 1)) },
+      byRound: { round2: bucket(all.filter(({ t }) => t.round === 2)), round3: bucket(all.filter(({ t }) => t.round === 3)) },
+      evidenceOfTheAdverseCounter: { gamesMin: adverse.length === 0 ? null : Math.min(...adverse.map(({ t }) => t.promotedGames)), gamesMedian: median(adverse.map(({ t }) => t.promotedGames)), counterRawMedian: round4(median(adverse.flatMap(({ t }) => (t.promotedCounterRaw === null ? [] : [t.promotedCounterRaw])))), scoreLeadOverDisplacedMedian: round4(median(adverse.map(({ t }) => t.scoreLead))) },
+      cardOfThePromotedHero: { onTheCards: adverse.filter(({ t }) => t.promotedCardRisks !== null).length, withAnyRisk: adverse.filter(({ t }) => t.promotedCardRisks !== null && t.promotedCardRisks.length > 0).length, withoutAnyRisk: adverse.filter(({ t }) => t.promotedCardRisks !== null && t.promotedCardRisks.length === 0).length },
+      reachability: (() => {
+        const seen = states.flatMap((s) => { const r = adverseFillersInField(s, world, threshold); return r === null ? [] : [r]; });
+        const withOne = seen.filter((r) => r.adverseFillers > 0);
+        return { statesMeasured: seen.length, candidatesAdverse: seen.reduce((sum, r) => sum + r.adverse, 0), candidatesAdverseThatAlsoFillTheGap: seen.reduce((sum, r) => sum + r.adverseFillers, 0), statesWithAnAdverseFiller: withOne.length, statesWithAnAdverseFillerInTheTop3: withOne.filter((r) => r.bestFillerRank !== null && r.bestFillerRank <= 3).length, statesWithAnAdverseFillerFirst: withOne.filter((r) => r.bestFillerRank === 1).length };
+      })(),
+      examples: adverse.slice(0, 5).map(({ s, t }) => `${s.draftKey}#${s.index} r${t.round} p=${round4(t.pressure)}: ${name(t.promotedHero)} (counter ${round4(t.promotedCounterRaw)} en ${t.promotedGames} partidas) por delante de ${name(t.displacedHero)} (counter ${round4(t.displacedCounterRaw)}), ventaja ${round4(t.scoreLead)}`),
+    };
+  });
+  const hardCoveredByRb4 = states.flatMap((s) => { const t = m1Tension(s, world, M1_THRESHOLDS[0]!); return t !== null && t.promoted && t.promotedHardCountered ? [t] : []; }).length;
+  // Sanity: the paired `closing` field is what the product ranks. Same top-3 as the product field => the measurement reads the real thing.
+  const withBoth = states.filter((s) => s.positionFitField !== null && s.teamNeedsPaired !== null && s.positionFitField.length >= 6 && s.teamNeedsPaired.closing.length >= 6);
+  const sameTop3 = withBoth.filter((s) => { const a = topThree(s.positionFitField!); const b = topThree(s.teamNeedsPaired!.closing); return a.length === b.length && a.every((id) => b.includes(id)); }).length;
+  return {
+    thresholds: first,
+    promotedFirstThatRb4AlreadyDemotes: hardCoveredByRb4,
+    productFieldMatchesPairedClosing: { states: withBoth.length, identicalTop3: sameTop3 },
+    note: "Applicable = a critical gap in the closing window AND a revealed enemy. 'Promoted' = the stage-aware rule has a hero that fills the gap first where the legacy rule had somebody else. 'Adverse' = that hero's STATISTICAL counter against a revealed enemy is at or below the threshold with at least that many games, and no curated hard counter (RB-4 demotes those). It counts how often the trade-off exists; whether it hurts is the judge's call.",
+  };
+}
+
+/** TSK-255: round-1 exposure as the Player sees it: per V4 card, the curated hard counters still on the table and whether the card says so. */
+export function exposureObservation(states: readonly ExamState[], world: ExamWorld, name: (id: number) => string) {
+  const opens = states.flatMap((s) => { const e = exposureCommunication(s, world); return e === null ? [] : [e]; });
+  const cards = opens.flatMap((e) => e.cards);
+  const primary = opens.map((e) => e.cards[0]!);
+  const byRank = [1, 2, 3, 4, 5].map((rank) => ({ rank, cards: cards.filter((c) => c.rank === rank).length, meanAvailableHardCounters: round4(mean(cards.filter((c) => c.rank === rank).map((c) => c.availableHardCounters))), warned: cards.filter((c) => c.rank === rank && c.warned).length }));
+  const byHero = new Map<number, { openings: number; available: number }>();
+  for (const card of primary) { const entry = byHero.get(card.heroId) ?? { openings: 0, available: card.availableHardCounters }; entry.openings += 1; byHero.set(card.heroId, entry); }
+  return {
+    openingStates: opens.length,
+    primary: { exposed: primary.filter((c) => c.availableHardCounters > 0).length, warned: primary.filter((c) => c.warned).length, meanAvailableHardCounters: round4(mean(primary.map((c) => c.availableHardCounters))) },
+    cards: { total: cards.length, exposed: cards.filter((c) => c.availableHardCounters > 0).length, warned: cards.filter((c) => c.warned).length },
+    inconsistencies: cards.filter((c) => (c.availableHardCounters > 0) !== c.warned).length,
+    noCuratedHardCounterAtAll: { cards: cards.filter((c) => c.curatedHardCounters === 0).length, ofThePrimaryCard: primary.filter((c) => c.curatedHardCounters === 0).length },
+    statesWhereEveryCardIsWarned: opens.filter((e) => e.cards.every((c) => c.warned)).length,
+    statesWithAnUnwarnedAlternativeBelowAWarnedPrimary: opens.filter((e) => e.cards[0]!.warned && e.cards.slice(1).some((c) => !c.warned)).length,
+    byRank,
+    primaryHeroes: [...byHero.entries()].sort((a, b) => b[1].openings - a[1].openings || a[0] - b[0]).slice(0, 8).map(([hero, v]) => ({ hero: name(hero), openings: v.openings, hardCountersAvailable: v.available })),
+    note: "Cards, not the board's primary (I8): the V4 card is what carries `exposed_to_counter`. `inconsistencies` must be 0: a card with an available curated hard counter always says so in round 1, and never says so without one.",
+  };
+}
+
+/** TSK-255 (D1): how much of the closing window cannot be evaluated for lack of curated capabilities (the product stays silent there on purpose). */
+export function unevaluableObservation(states: readonly ExamState[], world: ExamWorld, name: (id: number) => string) {
+  const all = states.map((s) => unevaluable(s, world));
+  const inWindow = all.filter((u) => u.inWindow);
+  const shown = new Map<number, number>();
+  for (const u of all) for (const hero of u.cardsOfUncuratedHero) shown.set(hero, (shown.get(hero) ?? 0) + 1);
+  const notFullyEvaluable = inWindow.filter((u) => u.uncuratedOwnPick || u.cardsOfUncuratedHero.length > 0);
+  return {
+    states: states.length,
+    curatedHeroes: world.capabilities.size,
+    window: { states: inWindow.length, withAnUncuratedOwnPick: inWindow.filter((u) => u.uncuratedOwnPick).length, gapWithheldByThat: inWindow.filter((u) => u.gapWithheld).length, cards: inWindow.reduce((sum, u) => sum + u.cards, 0), cardsOfAnUncuratedHero: inWindow.reduce((sum, u) => sum + u.cardsOfUncuratedHero.length, 0), statesNotFullyEvaluable: notFullyEvaluable.length },
+    uncuratedHeroesShownOnCards: [...shown.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([hero, count]) => ({ hero: name(hero), cards: count })),
+    note: "'Not evaluable' = an own pick or the card's hero has no curated capabilities, so CRITICAL_GAP can neither be raised nor ruled out. The card then shows nothing, which looks the same as 'evaluated, no gap'. No card ever says 'no risk'.",
+  };
+}
+
+export function summarize(states: readonly ExamState[], world: ExamWorld, name: (id: number) => string = (id) => `#${id}`) {
   const total = states.length;
   const i1 = states.flatMap((s) => i1Illegal(s, world));
   const i2 = states.flatMap((s) => i2Roles(s, world));
@@ -247,6 +331,9 @@ export function summarize(states: readonly ExamState[], world: ExamWorld) {
       I7_damageMix: { monoDamageStates: i7.length, top3Diversifies: i7.filter((r) => r.top3Diversifies).length },
       I6b_initiation: { gapOpenStates: i6b.length, top3Fills: i6b.filter((r) => r.top3Fills).length, fillerInField: i6b.filter((r) => r.fillerInField).length, note: "Initiation on its own (TSK-253). The original I6 asks for initiation OR catch: 69% of curated heroes have one of the two, so that union is almost never missing." },
       T4_closingNeeds: needsObservation(states, world),
+      M1_criticalGapVsAdverseCounter: m1Observation(states, world, name),
+      T6_round1ExposureOnCards: exposureObservation(states, world, name),
+      D1_notEvaluable: unevaluableObservation(states, world, name),
       I6_fill: { gapOpenStates: i6.length, top3Fills: i6.filter((r) => r.top3Fills).length, fillerExistsInShownSet: i6.filter((r) => r.credibleFillerExists).length },
       I8_exposureOfRound1Primary: { states: exposures.length, meanHardCountersAvailable: round4(mean(exposures)), maxHardCountersAvailable: exposures.length === 0 ? null : Math.max(...exposures) },
       I10_round1Top3InMorePlayedHalf: { candidates: popularity.length, inMorePlayedHalf: popularity.filter(Boolean).length, rate: round4(rate(popularity.filter(Boolean).length, popularity.length)), note: "Observation only (plan v2 removed it as a gate): high = the ranking leans on popularity." },
@@ -270,7 +357,7 @@ const PLAN_QUESTIONS = [
 ];
 
 function judgePacket(states: readonly ExamState[], world: ExamWorld, data: WorldData, judge: JudgeKind) {
-  const criteria: { label: string; test: (s: ExamState) => boolean }[] = [
+  const criteria: { label: string; test: (s: ExamState) => boolean; limit?: number }[] = [
     { label: "round-1 opening recommends a core without a window", test: (s) => i3Order(s).coreFirstWithoutWindow === true },
     { label: "round-1 opening recommends hard support / support", test: (s) => s.round === 1 && s.ownPicks.length === 0 && (s.board?.recommendedPosition === 5 || s.board?.recommendedPosition === 4) },
     { label: "simulator target differs from the declared precedence", test: (s) => i3Order(s).divergences.length > 0 },
@@ -278,15 +365,26 @@ function judgePacket(states: readonly ExamState[], world: ExamWorld, data: World
     { label: "late open initiation/catch gap", test: (s) => i6Gap(s, world).applies },
     { label: "mono-damage team", test: (s) => i7Damage(s, world).applies },
     { label: "round 2 after rival reveals", test: (s) => s.round === 2 && s.revealedEnemy.length >= 2 },
+    { label: "M1: a hero that fills the critical gap leads despite an adverse statistical counter", test: (s) => { const t = m1Tension(s, world, M1_THRESHOLDS[1]!); return t !== null && t.promoted && t.promotedAdverse; } },
+    { label: "round-1 opening whose first card has a curated hard counter still available", test: (s) => (exposureCommunication(s, world)?.cards[0]?.availableHardCounters ?? 0) > 0, limit: 3 },
+    { label: "a card carries CRITICAL_GAP", test: (s) => (s.v4?.cards ?? []).some((card) => card.risks.some((risk) => risk.kind === "CRITICAL_GAP")), limit: 3 },
     { label: "round 3 closing pick", test: (s) => s.round === 3 },
+    // Uniform samples (evenly spaced, deterministic) so the read is not only about the odd cases the criteria above look for.
+    { label: "uniform sample, round 1", test: (s) => s.round === 1, limit: 3 },
+    { label: "uniform sample, round 2", test: (s) => s.round === 2, limit: 3 },
+    { label: "uniform sample, round 3", test: (s) => s.round === 3, limit: 3 },
   ];
   const used = new Set<string>();
+  const key = (s: ExamState): string => `${s.draftKey}#${s.index}`;
+  const name = (id: number): string => data.name(id);
   const points = criteria.flatMap((criterion) => {
-    const hit = states.find((s) => !used.has(`${s.draftKey}#${s.index}`) && s.board && criterion.test(s));
-    if (!hit) return [];
-    used.add(`${hit.draftKey}#${hit.index}`);
-    const name = (id: number): string => data.name(id);
-    return [{
+    const matching = states.filter((s) => !used.has(key(s)) && s.board && criterion.test(s));
+    const limit = criterion.limit ?? 1;
+    // More than one per criterion: evenly spaced over the matching states (deterministic), never just the first few.
+    const step = Math.max(1, Math.floor(matching.length / limit));
+    const hits = limit === 1 ? matching.slice(0, 1) : matching.filter((_, i) => i % step === 0).slice(0, limit);
+    hits.forEach((hit) => used.add(key(hit)));
+    return hits.map((hit) => ({
       coverage: criterion.label,
       opaqueKey: createHash("sha256").update(`${hit.draftKey}#${hit.index}`).digest("hex").slice(0, 12),
       round: hit.round,
@@ -297,10 +395,18 @@ function judgePacket(states: readonly ExamState[], world: ExamWorld, data: World
       boardTop3ByPosition: Object.fromEntries(hit.board!.columns.filter((c) => c.top.length > 0).map((c) => [`pos${c.position}`, c.top.slice(0, 3).map((t) => name(t.heroId))])),
       v3Top3: hit.v3.slice(0, 3).map((c) => name(c.heroId)),
       precedenceWouldPick: hit.lpp ? `pos${hit.lpp.position} (${hit.lpp.signal})` : null,
+      v4ViewedPosition: hit.v4?.viewedPosition ?? null,
+      v4Top3: (hit.v4?.cards ?? []).slice(0, 3).map((card) => ({
+        hero: name(card.heroId),
+        reason: card.rationale,
+        basis: card.basis === null ? null : card.basis.kind,
+        risks: card.risks.map((risk) => `${risk.kind}${risk.heroIds.length > 0 ? ` (${risk.heroIds.map(name).join(", ")})` : ""}`),
+        hardCountersStillAvailable: (world.counters.get(card.heroId) ?? []).filter((entry) => entry.level === "hard" && ![...hit.banned, ...hit.ownPicks, ...hit.revealedEnemy].includes(entry.vs)).map((entry) => name(entry.vs)),
+      })),
       judgeAnswers: Object.fromEntries([...COMPONENT_QUESTIONS, ...PLAN_QUESTIONS].map((q) => [q.id, { answer: null, notes: null }])),
-    }];
+    }));
   });
-  return { schema: "engine-p1-judge-packet/v1", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points, changedBy: judge === "t4" ? "TSK-253" : "TSK-252", changedDecisions: judge === "t4" ? changedDecisionsT4(states, data, world) : changedDecisions(states, data) };
+  return { schema: "engine-p1-judge-packet/v2", componentQuestions: COMPONENT_QUESTIONS, planQuestions: PLAN_QUESTIONS, points, changedBy: judge === "t4" ? "TSK-253" : "TSK-252", changedDecisions: judge === "t4" ? changedDecisionsT4(states, data, world) : changedDecisions(states, data), m1Decisions: m1Decisions(states, data, world) };
 }
 
 const CHANGED_DECISIONS_SAMPLE = 12;
@@ -356,6 +462,25 @@ function changedDecisionsT4(states: readonly ExamState[], data: WorldData, world
   return changed.filter((_, i) => i % step === 0).slice(0, CHANGED_DECISIONS_SAMPLE).map(({ s, p }) => blindPair(s, top3(p.flat), top3(p.closing), data, "C3"));
 }
 
+/**
+ * TSK-255 (M1): the decisions where the stage-aware rule put a gap-filling hero first despite an adverse statistical counter, as a blind A/B
+ * (legacy top-3 vs stage-aware top-3). Each hero shows its counter evidence so the read can weigh "covers the gap" against "loses the matchup".
+ */
+function m1Decisions(states: readonly ExamState[], data: WorldData, world: ExamWorld) {
+  const threshold = M1_THRESHOLDS[0]!;
+  const hits = states.flatMap((s) => { const t = m1Tension(s, world, threshold); return t !== null && t.promoted && t.promotedAdverse && s.teamNeedsPaired !== null && s.board?.recommendedPosition != null ? [{ s, p: s.teamNeedsPaired }] : []; });
+  const step = Math.max(1, Math.floor(hits.length / CHANGED_DECISIONS_SAMPLE));
+  const top3 = (field: readonly { heroId: number; score: number }[]): number[] => [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId).slice(0, 3).map((c) => c.heroId);
+  return hits.filter((_, i) => i % step === 0).slice(0, CHANGED_DECISIONS_SAMPLE).map(({ s, p }) => {
+    const heroEvidence = Object.fromEntries([...new Set([...top3(p.flat), ...top3(p.closing)])].map((id) => {
+      const counter = (p.closing.find((c) => c.heroId === id) ?? p.flat.find((c) => c.heroId === id))?.counter ?? null;
+      const needs = examNeeds(s, world);
+      return [data.name(id), { fillsTheCriticalGap: fillsCritical(id, needs, world), counterVsRevealed: counter === null || !counter.vsRevealed || counter.raw === null ? "sin dato suficiente" : `${(counter.raw * 100).toFixed(1)} pts de contrapick en ${counter.sampleSize} partidas` }];
+    }));
+    return { ...blindPair(s, top3(p.flat), top3(p.closing), data, "C3"), criticalGaps: examNeeds(s, world).critical, picksLeft: s.ownPicksRemaining, heroEvidence };
+  });
+}
+
 // ---- Markdown ------------------------------------------------------------------------------------------------------------------------------
 const pct = (x: number | null): string => (x === null ? "n/a" : `${(x * 100).toFixed(1)}%`);
 
@@ -364,7 +489,7 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   const h = summary.hard;
   const o = summary.observations;
   const lines: string[] = [];
-  lines.push("# ENGINE_P1_EXAM — línea base del examen de drafter (TSK-250)", "");
+  lines.push(`# ENGINE_P1_EXAM — examen de drafter de F1 (\`${identity.certificationId}\`)`, "");
   lines.push(`Código: \`${identity.code.head.slice(0, 7)}\` (${identity.code.cleanAtHead ? "árbol limpio" : `${identity.code.dirtyPathCount} archivo(s) distintos de HEAD`}) · estado \`${identity.code.contentStateHash.slice(0, 16)}\` · snapshot \`${(identity.data.empiricalSnapshot as { id?: string }).id}\` · clave comparable \`${identity.comparableKey.slice(0, 16)}\``, "");
   lines.push("Este reporte **mide, no juzga y no cambia comportamiento**. Camino medido: el del simulador (Team Coach Board + `?format=v4`) más la lista V3 que el juez de Wave 5 ya conocía.", "");
   lines.push(`Muestra: ${JSON.stringify(report.coverage)}`, "");
@@ -402,6 +527,16 @@ function markdown(report: { identity: ReturnType<typeof collectEvidenceIdentity>
   lines.push(`- **I10 popularidad:** ${pct(o.I10_round1Top3InMorePlayedHalf.rate)} de los top-3 de ronda 1 caen en la mitad más jugada de su posición (${o.I10_round1Top3InMorePlayedHalf.inMorePlayedHalf}/${o.I10_round1Top3InMorePlayedHalf.candidates}).`);
   lines.push(`- **Concentración del #1:** ${JSON.stringify(o.top1Concentration)}`);
   lines.push(`- **Mostrado pero no creíble en su columna:** ${o.shownButNotCredibleAtColumn.count}.`, "");
+  const m1 = o.M1_criticalGapVsAdverseCounter;
+  lines.push("", "## M1 — cubrir un hueco crítico frente a un counter estadístico adverso (mide, no cambia el scoring)", "", `${m1.note}`, "", "| Umbral de 'adverso' | Estados aplicables | Hueco-relleno primero (≠ regla vieja) | …con counter adverso | …y alternativa desplazada neutra o mejor | p=1 (adverso / aplicables) | Evidencia (partidas mín / mediana) | Tarjeta sin ningún riesgo |", "| --- | --- | --- | --- | --- | --- | --- | --- |");
+  for (const t of m1.thresholds) lines.push(`| ${t.threshold} | ${t.applicable} | ${t.promotedFirst} | ${t.promotedWithAdverseCounter} (${pct(t.rateOfApplicable)}) | ${t.promotedWithAdverseCounterAndANeutralOrBetterAlternativeDisplaced} | ${t.byPressure.pressure1.promotedWithAdverseCounter}/${t.byPressure.pressure1.applicable} | ${t.evidenceOfTheAdverseCounter.gamesMin ?? "n/a"} / ${t.evidenceOfTheAdverseCounter.gamesMedian ?? "n/a"} | ${t.cardOfThePromotedHero.withoutAnyRisk}/${t.cardOfThePromotedHero.onTheCards} |`);
+  for (const t of m1.thresholds) lines.push("", `Alcanzabilidad (${t.threshold}): en ${t.reachability.statesMeasured} estados medidos hay ${t.reachability.candidatesAdverse} candidatos con counter adverso en todo el campo (${t.reachability.candidatesAdverseThatAlsoFillTheGap} además cubren el hueco); hay uno de esos en ${t.reachability.statesWithAnAdverseFiller} estado(s), en el top-3 de ${t.reachability.statesWithAnAdverseFillerInTheTop3} y en primer lugar de ${t.reachability.statesWithAnAdverseFillerFirst}.`);
+  lines.push("", `Héroes promovidos que RB-4 ya demociona (counter duro curado): ${m1.promotedFirstThatRb4AlreadyDemotes}. El campo medido coincide con el del producto en ${m1.productFieldMatchesPairedClosing.identicalTop3}/${m1.productFieldMatchesPairedClosing.states} estados (top-3 idéntico).`);
+  for (const t of m1.thresholds.slice(0, 1)) for (const example of t.examples) lines.push(`- ${example}`);
+  const ex = o.T6_round1ExposureOnCards;
+  lines.push("", "## Exposición de ronda 1 en la tarjeta (TSK-254)", "", `- ${ex.openingStates} aperturas de ronda 1 con tarjetas V4. Primera tarjeta: ${ex.primary.exposed} con algún counter duro curado todavía disponible, ${ex.primary.warned} lo avisan (\`exposed_to_counter\`); media ${ex.primary.meanAvailableHardCounters} counters disponibles.`, `- Todas las tarjetas: ${ex.cards.exposed}/${ex.cards.total} expuestas, ${ex.cards.warned} avisadas. **Inconsistencias aviso↔realidad: ${ex.inconsistencies}** (debe ser 0).`, `- **Sin aviso no es sin riesgo:** ${ex.noCuratedHardCounterAtAll.cards}/${ex.cards.total} tarjetas son de un héroe sin NINGÚN counter duro curado (${ex.noCuratedHardCounterAtAll.ofThePrimaryCard}/${ex.openingStates} primeras tarjetas); ahí la tarjeta calla porque no hay dato, no porque se haya descartado la exposición.`, `- Estados donde TODAS las tarjetas llevan el aviso: ${ex.statesWhereEveryCardIsWarned}/${ex.openingStates}; estados donde la primera avisa y hay una alternativa sin aviso en pantalla: ${ex.statesWithAnUnwarnedAlternativeBelowAWarnedPrimary}.`, `- Por posición en la lista: ${ex.byRank.map((r) => `#${r.rank}: ${r.meanAvailableHardCounters} counters, ${r.warned}/${r.cards} avisadas`).join(" · ")}.`, `- Primeras tarjetas más frecuentes: ${ex.primaryHeroes.map((h) => `${h.hero} ×${h.openings} (${h.hardCountersAvailable} counters disponibles)`).join(", ")}.`);
+  const d1 = o.D1_notEvaluable;
+  lines.push("", "## D1 — hueco crítico que no se puede evaluar por falta de capacidades curadas", "", `${d1.note}`, "", `- ${d1.curatedHeroes} héroes con capacidades curadas. En la ventana de cierre (≤2 picks): ${d1.window.states} estados; ${d1.window.withAnUncuratedOwnPick} con un pick propio sin curar (en ${d1.window.gapWithheldByThat} de ellos había un hueco abierto que el producto calla); ${d1.window.cardsOfAnUncuratedHero}/${d1.window.cards} tarjetas de un héroe sin curar; ${d1.window.statesNotFullyEvaluable}/${d1.window.states} estados no totalmente evaluables.`, `- Héroes sin curar que aparecieron en tarjetas (todas las rondas): ${d1.uncuratedHeroesShownOnCards.map((h) => `${h.hero} ×${h.cards}`).join(", ") || "ninguno"}.`, "");
   lines.push("## Cómo reproducir", "", ...identity.reproduce.map((r) => `- \`${r}\``), "");
   return `${lines.join("\n")}\n`;
 }
@@ -425,7 +560,8 @@ async function main(): Promise<void> {
   const run = await runExam(data, draftCount);
   unmuteLog();
 
-  const summary = summarize(run.states, world);
+  const summary = summarize(run.states, world, data.name);
+  const judgeFull = judgePacket(run.states, world, data, judge);
   const byRound = (r: number): number => run.states.filter((s) => s.round === r).length;
   const coverage = { drafts: run.drafts, completed: run.completed, decisionPoints: run.states.length, round1: byRound(1), round2: byRound(2), round3: byRound(3), harnessFailures: run.failures.length, harnessBadStatuses: run.badStatuses.length };
   const identity = collectEvidenceIdentity({
@@ -438,7 +574,7 @@ async function main(): Promise<void> {
   const { generatedAt: _generatedAt, ...stableIdentity } = identity;
   const report = {
     schema: SCHEMA,
-    purpose: "Baseline of how the Coach recommends heroes today (F1, TSK-250). Measures; changes nothing. PASS technical != strategic improvement.",
+    purpose: "Drafter exam of F1 (TSK-250 .. TSK-255): how the Coach recommends heroes. Measures; changes nothing. PASS technical != strategic improvement.",
     identity: stableIdentity,
     config: { drafts: draftCount, policies: POLICIES, personalPositions: POSITIONS, sides: SIDES, seeds: "AUDIT001.." },
     coverage,
@@ -447,15 +583,19 @@ async function main(): Promise<void> {
       "The simulated Player follows V3 (follow-coach / varied / deviate); the Enemy Bot is scripted. States are realistic, not human.",
       "The lab saves no team pools, so POOL_SCARCITY cannot fire: the declared-precedence reference reads the session's own pools/occupancy (R2). R1 approximated pools with the Player's personal pool and invented scarcity (found in the TSK-251 T2 run).",
       "I3 'declared precedence' is LivePositionPriorityV1 evaluated offline over the board's own columns; it does not run in the simulator today.",
-      "I11 is not measurable until T5 creates the `basis` field.",
+      "I11 (honest basis) is measured from TSK-254 on; reports written before it had no `basis` field and say so.",
+      "I6 has two rulers: `I6_visible` keeps the ORIGINAL definition of every report up to T4_AFTER; `I6_visible_revised` (TSK-254) applies only with every own pick curated and also reads V4 card risks. Their numbers are not comparable; a drop from one to the other is a change of rule, not an improvement.",
+      "M1 / exposure / D1 are counts over the simulator's own states (a scripted rival, a frozen snapshot): they say how often a trade-off exists, never whether it hurts a real game. That is the judge's call.",
     ],
     summary,
-    judgePacket: judgePacket(run.states, world, data, judge),
+    judgePacket: withoutKeys(judgeFull),
     harnessFailures: run.failures.slice(0, 20),
   };
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, `${out}.json`), `${JSON.stringify(report, null, 2)}\n`);
-  writeFileSync(join(OUT_DIR, `${out}.md`), markdown({ identity, config: report.config, coverage, summary }) + judgeMarkdown(report.judgePacket));
+  writeFileSync(join(OUT_DIR, `${out}.md`), markdown({ identity, config: report.config, coverage, summary }) + `\n## Paquete del juez\n\nVa aparte, para que quien lo lea no vea la clave de la lectura ciega: \`${out}_JUDGE.md\` (preguntas y situaciones; sin respuestas) y \`${out}_JUDGE_KEY.json\` (qué lado es la regla vieja; **no abrir antes de responder**).\n`);
+  writeFileSync(join(OUT_DIR, `${out}_JUDGE.md`), judgeMarkdown(report.judgePacket, out));
+  writeFileSync(join(OUT_DIR, `${out}_JUDGE_KEY.json`), `${JSON.stringify({ schema: "engine-p1-judge-key/v1", certificationId: out, keys: blindKeys(judgeFull) }, null, 2)}\n`);
 
   const sorted = (xs: number[]): number[] => [...xs].sort((a, b) => a - b);
   console.log(`[p1-exam] ${coverage.drafts} drafts (${coverage.completed} completed), ${coverage.decisionPoints} decision points -> docs/diagnostics/${out}.{md,json}`);
@@ -463,22 +603,54 @@ async function main(): Promise<void> {
   if (run.failures.length > 0) console.log(`[p1-exam] harness failures: ${run.failures.length} (first: ${run.failures[0]})`);
 }
 
-function judgeMarkdown(packet: ReturnType<typeof judgePacket>): string {
-  const lines = ["## Paquete del juez (se rellena en T6)", "", "Preguntas por componente:", ...packet.componentQuestions.map((q) => `- **${q.id}** ${q.text}`), "", "Preguntas de plan (línea base que decide la prioridad de F2):", ...packet.planQuestions.map((q) => `- **${q.id}** ${q.text}`), ""];
-  if (packet.changedDecisions.length > 0) {
-    const question = packet.changedBy === "TSK-253" ? "C3: ¿cuál de las dos ternas elegirías para esa posición dado lo que a este equipo le falta?" : "C2: ¿cuál de las dos ternas elegirías para esa posición?";
-    lines.push(`## Decisiones cambiadas por ${packet.changedBy} (lectura ciega: A y B no indican cuál es la regla vieja)`, "", `Pregunta ${question} (A / B / equivalente; "dañino" solo con un motivo de Dota escrito). La clave está en el JSON (\`answerKey\`).`, "");
-    for (const d of packet.changedDecisions) {
-      lines.push(`### ${d.opaqueKey} — Pos ${d.position} · ronda ${d.round}`, "", `bans: ${d.bans.join(", ") || "—"} · propios: ${d.ownPicks.join(", ") || "—"} · rivales: ${d.revealedEnemy.join(", ") || "—"}`, `- A: ${d.optionA.join(", ")}`, `- B: ${d.optionB.join(", ")}`, "");
-    }
-  }
+type JudgePacket = ReturnType<typeof judgePacket>;
+type BlindEntry = { opaqueKey: string; answerKey?: { optionAIs: string } };
+
+/** The packet as the reader sees it: the A/B pairs without their `answerKey`. */
+function withoutKeys(packet: JudgePacket) {
+  const strip = <T extends BlindEntry>(entry: T): Omit<T, "answerKey"> => { const { answerKey: _answerKey, ...rest } = entry; return rest; };
+  return { ...packet, changedDecisions: packet.changedDecisions.map(strip), m1Decisions: packet.m1Decisions.map(strip) };
+}
+
+function blindKeys(packet: JudgePacket): Record<string, string> {
+  return Object.fromEntries([...packet.changedDecisions, ...packet.m1Decisions].map((entry) => [entry.opaqueKey, entry.answerKey.optionAIs]));
+}
+
+const BLANK = "_______________";
+
+function judgeMarkdown(packet: ReturnType<typeof withoutKeys>, out: string): string {
+  const lines = [
+    `# Paquete del juez de F1 — \`${out}\``, "",
+    "**Sin respuestas.** Este documento reúne situaciones reales del examen (120 drafts del simulador) para que una persona que sabe de Dota juzgue la **calidad estratégica**, que ningún número del examen puede medir. Nadie rellenó nada por ti.", "",
+    "Cómo responder: una respuesta corta por pregunta y, si dices \"dañino\", el motivo de Dota en una frase. \"No sé\" es una respuesta válida. La clave de las lecturas ciegas está en `" + out + "_JUDGE_KEY.json`: ábrela **después** de responder.", "",
+    "## Preguntas por componente", ...packet.componentQuestions.map((q) => `- **${q.id}** ${q.text}`), "",
+    "## Preguntas de plan", ...packet.planQuestions.map((q) => `- **${q.id}** ${q.text}`), "",
+  ];
+  lines.push("## Parte 1 — Situaciones (C1–C4 y P1–P3)", "", "Para cada situación: lo que el Coach muestra. Responde C1, C2, C3, C4 (¿bien / mal / no aplica?) y P1, P3.", "");
   for (const point of packet.points) {
     lines.push(`### ${point.opaqueKey} — ${point.coverage}`, "", `Ronda ${point.round} · bans: ${point.bans.join(", ") || "—"} · propios: ${point.ownPicks.join(", ") || "—"} · rivales: ${point.revealedEnemy.join(", ") || "—"}`);
     lines.push(`- Posición recomendada por el board: Pos ${point.boardRecommendedPosition} · la precedencia declarada elegiría: ${point.precedenceWouldPick ?? "—"}`);
     lines.push(`- Top-3 V3: ${point.v3Top3.join(", ")}`);
     for (const [position, heroes] of Object.entries(point.boardTop3ByPosition)) lines.push(`- Board ${position}: ${(heroes as string[]).join(", ")}`);
-    lines.push("");
+    lines.push(`- Tarjetas que ve el jugador (Pos ${point.v4ViewedPosition ?? "—"}):`);
+    for (const card of point.v4Top3) lines.push(`  - **${card.hero}** — ${card.reason} · base: ${card.basis ?? "—"} · riesgos: ${card.risks.join("; ") || "ninguno"} · counters duros aún disponibles: ${card.hardCountersStillAvailable.join(", ") || "ninguno"}`);
+    lines.push("", `Respuestas: C1 ${BLANK} · C2 ${BLANK} · C3 ${BLANK} · C4 ${BLANK} · P1 ${BLANK} · P2 ${BLANK} · P3 ${BLANK}`, `Notas: ${BLANK}`, "");
   }
+  const pairs = (title: string, question: string, entries: typeof packet.changedDecisions) => {
+    if (entries.length === 0) return;
+    lines.push(title, "", question, "");
+    for (const d of entries) {
+      lines.push(`### ${d.opaqueKey} — Pos ${d.position} · ronda ${d.round}`, "", `bans: ${d.bans.join(", ") || "—"} · propios: ${d.ownPicks.join(", ") || "—"} · rivales: ${d.revealedEnemy.join(", ") || "—"}`, `- A: ${d.optionA.join(", ")}`, `- B: ${d.optionB.join(", ")}`);
+      if ("heroEvidence" in d) {
+        const evidence = (d as { heroEvidence: Record<string, { fillsTheCriticalGap: boolean; counterVsRevealed: string }> }).heroEvidence;
+        for (const [hero, e] of Object.entries(evidence)) lines.push(`  - ${hero}: ${e.fillsTheCriticalGap ? "cubre el hueco crítico" : "no cubre el hueco crítico"} · contrapick vs rivales: ${e.counterVsRevealed}`);
+      }
+      lines.push("", `Mejor (A / B / equivalente): ${BLANK} · ¿alguna es dañina? motivo de Dota: ${BLANK}`, "");
+    }
+  };
+  pairs(`## Parte 2 — Decisiones cambiadas por ${packet.changedBy} (lectura ciega)`, "¿Cuál de las dos ternas elegirías para esa posición? (A y B no indican cuál es la regla vieja.)", packet.changedDecisions);
+  if (packet.m1Decisions.length === 0) lines.push("## Parte 3 — M1: cubrir el hueco crítico frente a un counter adverso", "", "**Sin casos en esta muestra.** En ningún estado del examen el Coach puso primero a un héroe que cubre el hueco crítico teniendo un counter estadístico adverso contra un rival ya visible (ver la sección M1 del reporte). No hay nada que juzgar aquí; no significa que no pueda ocurrir, solo que no ocurrió.", "");
+  pairs("## Parte 3 — M1: cubrir el hueco crítico frente a un counter adverso (lectura ciega)", "Una de las dos ternas pone primero a un héroe que cubre lo que le falta al equipo aunque pierde el contrapick contra un rival ya visible. ¿Cuál elegirías? ¿Cubrir el hueco compensa perder el matchup?", packet.m1Decisions);
   return `${lines.join("\n")}\n`;
 }
 
