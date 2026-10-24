@@ -1,0 +1,3364 @@
+{
+  "schema": "engine-p1-exam/v1",
+  "purpose": "Drafter exam of F1 (TSK-250 .. TSK-255): how the Coach recommends heroes. Measures; changes nothing. PASS technical != strategic improvement.",
+  "identity": {
+    "schema": "wave5-evidence-identity/v1",
+    "certificationId": "ENGINE_P1_EXAM_F1_FINAL",
+    "runtime": {
+      "bun": "1.4.2"
+    },
+    "code": {
+      "head": "ea997c3125fdc1bcfabfd88f64c26e59ab5f00cb",
+      "branch": "feat/tsk-255-f1-final-exam",
+      "isolation": "linked-worktree",
+      "cleanAtHead": true,
+      "dirtyPathCount": 0,
+      "dirtyDiffHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "dirty": [],
+      "trackedAndUntrackedFileCount": 1547,
+      "contentStateHash": "690c2ba510277ab0910d9b85e1dc1af98d9b89ca4388466b383db844159e78ff",
+      "outputsExcluded": [
+        "docs/diagnostics/"
+      ]
+    },
+    "data": {
+      "empiricalSnapshot": {
+        "certifiable": true,
+        "id": "W5-EMP-001",
+        "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+        "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+        "provenanceSha256": "e00376cdd577c618d3caf709cfbb573cc7ef8688473965d74fd4e58a307b1d51",
+        "verifiedAgainstProvenance": true,
+        "drift": [],
+        "rowCounts": {
+          "heroes": 127,
+          "hero_patch_stats": 1016,
+          "hero_matchups": 15982,
+          "matchupHeroesDistinct": 127
+        },
+        "source": "OpenDota",
+        "retrievalWindow": {
+          "from": "2026-09-18T01:11:38.894Z",
+          "to": "2026-09-19T20:49:59.597Z"
+        },
+        "interruptedSyncRunPresent": true,
+        "observationWindow": null,
+        "patchClaim": {
+          "label": "7.41e",
+          "verified": false
+        }
+      },
+      "empiricalPatchAttribution": "label-only, UNVERIFIED -- the source reports no patch; the label is applied by our ingestion",
+      "rulesetTarget": "7.41f",
+      "positionalDataset": {
+        "path": "apps/engine/src/signals/hero-positions.json",
+        "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78",
+        "format": "hero-position-observations/v1",
+        "mode": "as-loaded",
+        "denominatorCorrected": true,
+        "completeness": "all observed rows retained (see the file's provenance)",
+        "provenanceTwin": {
+          "path": "data/metadata/hero-positions.json",
+          "sha256": "ecb5cecb782f6c93234768f306cbfc05ddcee4b1da8511f543f34b39ee42287e"
+        }
+      },
+      "curatedData": [
+        {
+          "path": "apps/engine/src/signals/hero-counters.json",
+          "sha256": "b89087af92423a08f59c0829dcb503a8ad790862de697a3daffc3fce917549c4"
+        },
+        {
+          "path": "apps/engine/src/draft-paths/capabilities.json",
+          "sha256": "6d2474244c1d73b2772a29d79306e301475aa509a83073a2d3ce063531840870"
+        }
+      ],
+      "generatedData": [
+        {
+          "path": "data/generated/percentiles.json",
+          "sha256": "eb3a1084daf752dbb4df4c6467e18a755597c831f01fbd26602d2458b7efc3d9"
+        },
+        {
+          "path": "data/generated/signal-profile.json",
+          "sha256": "241e2fcdebe39d907d188bc0ab8b9af70363655479ea1e10007bc4465a7c797f"
+        },
+        {
+          "path": "data/generated/tolerance.json",
+          "sha256": "7b212ff49ecbe921d48cec586cce1c1f7cd772d172d9e465b062264f7c041ff8"
+        }
+      ]
+    },
+    "comparableKey": "51df8bbc5872bdd18f8d3255b09449cc744c1bf7d87444f9edad384b96026770",
+    "reproduce": [
+      "bun scripts/p1-exam/exam.ts --out=ENGINE_P1_EXAM_F1_FINAL --drafts=120 --judge=t4"
+    ]
+  },
+  "config": {
+    "drafts": 120,
+    "policies": [
+      "follow-coach",
+      "varied",
+      "deviate"
+    ],
+    "personalPositions": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "sides": [
+      "radiant",
+      "dire"
+    ],
+    "seeds": "AUDIT001.."
+  },
+  "coverage": {
+    "drafts": 120,
+    "completed": 120,
+    "decisionPoints": 622,
+    "round1": 252,
+    "round2": 249,
+    "round3": 121,
+    "harnessFailures": 0,
+    "harnessBadStatuses": 0
+  },
+  "limitations": [
+    "Frozen statistical snapshot labelled 7.41e (label unverified); curated positions/counters are hand-curated. Absolute numbers are comparative baselines, not truth.",
+    "The simulated Player follows V3 (follow-coach / varied / deviate); the Enemy Bot is scripted. States are realistic, not human.",
+    "The lab saves no team pools, so POOL_SCARCITY cannot fire: the declared-precedence reference reads the session's own pools/occupancy (R2). R1 approximated pools with the Player's personal pool and invented scarcity (found in the TSK-251 T2 run).",
+    "I3 'declared precedence' is LivePositionPriorityV1 evaluated offline over the board's own columns; it does not run in the simulator today.",
+    "I11 (honest basis) is measured from TSK-254 on; reports written before it had no `basis` field and say so.",
+    "I6 has two rulers: `I6_visible` keeps the ORIGINAL definition of every report up to T4_AFTER; `I6_visible_revised` (TSK-254) applies only with every own pick curated and also reads V4 card risks. Their numbers are not comparable; a drop from one to the other is a change of rule, not an improvement.",
+    "M1 / exposure / D1 are counts over the simulator's own states (a scripted rival, a frozen snapshot): they say how often a trade-off exists, never whether it hurts a real game. That is the judge's call."
+  ],
+  "summary": {
+    "states": 622,
+    "hard": {
+      "I1_illegal": {
+        "violations": 0,
+        "examples": []
+      },
+      "I2_roleFeasibility": {
+        "violations": 0,
+        "examples": []
+      },
+      "I3_conformity": {
+        "targetDivergesFromDeclaredPrecedence": {
+          "states": 0,
+          "of": 622,
+          "rate": 0,
+          "examples": []
+        },
+        "openColumnNotRanked": {
+          "violations": 0,
+          "examples": []
+        },
+        "phaseShownAsStrategic": 0
+      },
+      "I6_visible": {
+        "definition": "original (T2..T4_AFTER): an uncurated own pick counts as lacking; only V3/board texts make the gap visible",
+        "gapOpenStates": 2,
+        "gapNotVisibleOnAnyCard": 2,
+        "note": "A late open initiation/catch gap that no card mentions. T4/T5 are expected to close it; at baseline it is a known defect."
+      },
+      "I6_visible_revised": {
+        "definition": "revised (T5, TSK-254): applies only with every own pick curated; a V4 card risk text also makes the gap visible",
+        "gapOpenStates": 0,
+        "gapNotVisibleOnAnyCard": 0,
+        "note": "Smaller denominator than I6_visible by construction. A drop from the original to this one is a change of ruler, NOT an improvement: do not compare the two numbers."
+      },
+      "I9_visible": {
+        "hardCounteredHeroesInTop3": 0,
+        "statesAffected": 0,
+        "withoutVisibleRisk": 0,
+        "examples": [],
+        "note": "Plan v2: allowed in the top-3 only when fewer than 3 credible alternatives exist AND the risk is shown. At baseline the risk is never shown."
+      },
+      "I11_honestBasis": {
+        "status": "MEASURED",
+        "cards": 3074,
+        "violations": 0,
+        "examples": [],
+        "basisKinds": {
+          "statistical": 2668,
+          "mixed": 363,
+          "curated": 43
+        },
+        "statisticalWithoutSample": 0,
+        "note": "Every V4 card carries a coherent basis, and it does not contradict its reason (a capability claim is curated, a quoted statistic is statistical). Reports before TSK-254 had no basis (NOT_MEASURABLE)."
+      },
+      "I6c_criticalGapOnCards": {
+        "cardsCarryingIt": 46,
+        "cardsInCriticalStates": 160,
+        "shownWithoutProof": 0,
+        "missingOnADemonstrableCard": 0,
+        "examples": [],
+        "note": "CRITICAL_GAP is shown only when the gap is critical (<= 2 own picks left, every own pick curated) and the card's hero is curated and does not fill it; and it is never missing from such a card."
+      }
+    },
+    "observations": {
+      "I3_openingOnCore": {
+        "openingStates": 121,
+        "coreFirstWithoutWindow": 0,
+        "rate": 0,
+        "note": "Simulator recommends Pos 1/2 on the Player's first decision of round 1 with no COUNTER_WINDOW/POOL_SCARCITY behind it."
+      },
+      "I4_reactivityJaccardTop3": {
+        "overall": 0.2173,
+        "byPosition": {
+          "pos1": 0.2155,
+          "pos2": 0.2374,
+          "pos3": 0.1974,
+          "pos4": 0.2334,
+          "pos5": 0.2027
+        },
+        "sampleStates": 121,
+        "note": "1.0 = the same three heroes for a position in every draft."
+      },
+      "I5_positionFitShareOfScore": {
+        "levelMedian": 0.5902,
+        "levelP10": 0.5399,
+        "levelP90": 0.6407,
+        "orderMedian": 0,
+        "orderP10": -0.0837,
+        "orderP90": 0.2968,
+        "saturatedShareMean": 0.8607,
+        "states": 622,
+        "candidatesPerState": 6,
+        "note": "level = share of V6's score that is position_fit; order = cov(position_fit, score)/var(score) among the candidates V6 keeps (TOP_N) for the recommended column. Not the whole credible field: V6 truncates before the exam can see it."
+      },
+      "I5_positionFitOverWholeField": {
+        "states": 622,
+        "fieldSizeMedian": 29,
+        "top3InMorePlayedHalf": 0.9823,
+        "top6InMorePlayedHalf": 0.9665,
+        "orderShareMedian": 0.8075,
+        "orderShareInMorePlayedHalfMedian": 0.0121,
+        "top3KeptWithoutPositionFit": 0.3614,
+        "top6KeptWithoutPositionFit": 0.377,
+        "note": "Whole credible field of the recommended column, scored by V6 and peeled past its TOP_N cut. A fair cut is ~0.5 in the more-played half; 'kept without position_fit' = Jaccard between the real top-k and the top-k of the same scores with position_fit's contribution removed (1 = it decides nothing)."
+      },
+      "T3_pairedRuleChange": {
+        "tieAtTop3CutOld": 0,
+        "tieAtTop3CutNew": 0,
+        "states": 622,
+        "top3Changed": 458,
+        "top3ChangedRate": 0.7363,
+        "meanJaccardTop3": 0.5605,
+        "meanJaccardTop6": 0.6112,
+        "changedTopsThatLeanOnLessVolume": 458,
+        "meanMatchesTop3Old": 4646.6854,
+        "meanMatchesTop3New": 3823.2508,
+        "againstRevealedEnemies": {
+          "states": 380,
+          "meanHeroesCounteringAnEnemyOld": 0.0974,
+          "meanHeroesCounteringAnEnemyNew": 0.1447,
+          "meanHeroesExposedToAnEnemyOld": 0.0105,
+          "meanHeroesExposedToAnEnemyNew": 0.0105
+        },
+        "note": "Same decision points, two rules. 'Changed' = the set of the top-3 differs. This says WHAT moved, not whether it is better: that is the judge's call (changedDecisions in the judge packet)."
+      },
+      "I7_damageMix": {
+        "monoDamageStates": 0,
+        "top3Diversifies": 0
+      },
+      "I6b_initiation": {
+        "gapOpenStates": 25,
+        "top3Fills": 23,
+        "fillerInField": 25,
+        "note": "Initiation on its own (TSK-253). The original I6 asks for initiation OR catch: 69% of curated heroes have one of the two, so that union is almost never missing."
+      },
+      "T4_closingNeeds": {
+        "windowStates": 250,
+        "statesWithCriticalGap": 32,
+        "criticalGapsByKind": {
+          "initiation": 25,
+          "damage_mix": 8,
+          "catch": 1
+        },
+        "criticalWithheldByUncuratedOwnPick": 8,
+        "identicalOutsideWindow": {
+          "states": 372,
+          "withDifferentScores": 0
+        },
+        "comparable": {
+          "states": 32,
+          "round2": 24,
+          "round3": 8,
+          "withAFillerInTheField": 32
+        },
+        "top3Changed": 20,
+        "top3ChangedRate": 0.625,
+        "top3WithAFiller": {
+          "legacy": 29,
+          "stageAware": 30,
+          "ofStatesWhereAFillerExists": 32
+        },
+        "meanFillersInTop3": {
+          "legacy": 1.8438,
+          "stageAware": 2.5313
+        },
+        "costUnderLegacyScore": {
+          "meanLegacyTop3": 77.308,
+          "meanStageAwareTop3": 75.3538
+        },
+        "meanMatchesTop3": {
+          "legacy": 3976.6458,
+          "stageAware": 3589.4063
+        },
+        "againstRevealedEnemies": {
+          "states": 32,
+          "meanHeroesCounteringAnEnemyLegacy": 0.2188,
+          "meanHeroesCounteringAnEnemyStageAware": 0.1875,
+          "meanHeroesExposedToAnEnemyLegacy": 0,
+          "meanHeroesExposedToAnEnemyStageAware": 0
+        },
+        "note": "Same decision points, same credible field. 'Critical' = initiation / catch / damage_mix open with <= 2 own picks left and every own pick curated. It says what moved and what it gives up under the legacy score; whether it is better is the judge's call."
+      },
+      "M1_criticalGapVsAdverseCounter": {
+        "thresholds": [
+          {
+            "threshold": "raw<=-0.03 y n>=30",
+            "applicable": 32,
+            "promotedFirst": 6,
+            "promotedWithAdverseCounter": 0,
+            "promotedWithAdverseCounterAndANeutralOrBetterAlternativeDisplaced": 0,
+            "rateOfApplicable": 0,
+            "byPressure": {
+              "pressure1": {
+                "applicable": 10,
+                "promotedFirst": 1,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              },
+              "belowOne": {
+                "applicable": 22,
+                "promotedFirst": 5,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              }
+            },
+            "byRound": {
+              "round2": {
+                "applicable": 24,
+                "promotedFirst": 5,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              },
+              "round3": {
+                "applicable": 8,
+                "promotedFirst": 1,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              }
+            },
+            "evidenceOfTheAdverseCounter": {
+              "gamesMin": null,
+              "gamesMedian": null,
+              "counterRawMedian": null,
+              "scoreLeadOverDisplacedMedian": null
+            },
+            "cardOfThePromotedHero": {
+              "onTheCards": 0,
+              "withAnyRisk": 0,
+              "withoutAnyRisk": 0
+            },
+            "reachability": {
+              "statesMeasured": 32,
+              "candidatesAdverse": 6,
+              "candidatesAdverseThatAlsoFillTheGap": 1,
+              "statesWithAnAdverseFiller": 1,
+              "statesWithAnAdverseFillerInTheTop3": 0,
+              "statesWithAnAdverseFillerFirst": 0
+            },
+            "examples": []
+          },
+          {
+            "threshold": "raw<=-0.05 y n>=30",
+            "applicable": 32,
+            "promotedFirst": 6,
+            "promotedWithAdverseCounter": 0,
+            "promotedWithAdverseCounterAndANeutralOrBetterAlternativeDisplaced": 0,
+            "rateOfApplicable": 0,
+            "byPressure": {
+              "pressure1": {
+                "applicable": 10,
+                "promotedFirst": 1,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              },
+              "belowOne": {
+                "applicable": 22,
+                "promotedFirst": 5,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              }
+            },
+            "byRound": {
+              "round2": {
+                "applicable": 24,
+                "promotedFirst": 5,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              },
+              "round3": {
+                "applicable": 8,
+                "promotedFirst": 1,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              }
+            },
+            "evidenceOfTheAdverseCounter": {
+              "gamesMin": null,
+              "gamesMedian": null,
+              "counterRawMedian": null,
+              "scoreLeadOverDisplacedMedian": null
+            },
+            "cardOfThePromotedHero": {
+              "onTheCards": 0,
+              "withAnyRisk": 0,
+              "withoutAnyRisk": 0
+            },
+            "reachability": {
+              "statesMeasured": 32,
+              "candidatesAdverse": 3,
+              "candidatesAdverseThatAlsoFillTheGap": 0,
+              "statesWithAnAdverseFiller": 0,
+              "statesWithAnAdverseFillerInTheTop3": 0,
+              "statesWithAnAdverseFillerFirst": 0
+            },
+            "examples": []
+          },
+          {
+            "threshold": "raw<=-0.075 y n>=100",
+            "applicable": 32,
+            "promotedFirst": 6,
+            "promotedWithAdverseCounter": 0,
+            "promotedWithAdverseCounterAndANeutralOrBetterAlternativeDisplaced": 0,
+            "rateOfApplicable": 0,
+            "byPressure": {
+              "pressure1": {
+                "applicable": 10,
+                "promotedFirst": 1,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              },
+              "belowOne": {
+                "applicable": 22,
+                "promotedFirst": 5,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              }
+            },
+            "byRound": {
+              "round2": {
+                "applicable": 24,
+                "promotedFirst": 5,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              },
+              "round3": {
+                "applicable": 8,
+                "promotedFirst": 1,
+                "promotedWithAdverseCounter": 0,
+                "strict": 0
+              }
+            },
+            "evidenceOfTheAdverseCounter": {
+              "gamesMin": null,
+              "gamesMedian": null,
+              "counterRawMedian": null,
+              "scoreLeadOverDisplacedMedian": null
+            },
+            "cardOfThePromotedHero": {
+              "onTheCards": 0,
+              "withAnyRisk": 0,
+              "withoutAnyRisk": 0
+            },
+            "reachability": {
+              "statesMeasured": 32,
+              "candidatesAdverse": 0,
+              "candidatesAdverseThatAlsoFillTheGap": 0,
+              "statesWithAnAdverseFiller": 0,
+              "statesWithAnAdverseFillerInTheTop3": 0,
+              "statesWithAnAdverseFillerFirst": 0
+            },
+            "examples": []
+          }
+        ],
+        "promotedFirstThatRb4AlreadyDemotes": 0,
+        "productFieldMatchesPairedClosing": {
+          "states": 622,
+          "identicalTop3": 622
+        },
+        "note": "Applicable = a critical gap in the closing window AND a revealed enemy. 'Promoted' = the stage-aware rule has a hero that fills the gap first where the legacy rule had somebody else. 'Adverse' = that hero's STATISTICAL counter against a revealed enemy is at or below the threshold with at least that many games, and no curated hard counter (RB-4 demotes those). It counts how often the trade-off exists; whether it hurts is the judge's call."
+      },
+      "T6_round1ExposureOnCards": {
+        "openingStates": 252,
+        "primary": {
+          "exposed": 93,
+          "warned": 93,
+          "meanAvailableHardCounters": 0.4206
+        },
+        "cards": {
+          "total": 1231,
+          "exposed": 577,
+          "warned": 577
+        },
+        "inconsistencies": 0,
+        "noCuratedHardCounterAtAll": {
+          "cards": 466,
+          "ofThePrimaryCard": 79
+        },
+        "statesWhereEveryCardIsWarned": 6,
+        "statesWithAnUnwarnedAlternativeBelowAWarnedPrimary": 87,
+        "byRank": [
+          {
+            "rank": 1,
+            "cards": 252,
+            "meanAvailableHardCounters": 0.4206,
+            "warned": 93
+          },
+          {
+            "rank": 2,
+            "cards": 252,
+            "meanAvailableHardCounters": 0.4524,
+            "warned": 110
+          },
+          {
+            "rank": 3,
+            "cards": 252,
+            "meanAvailableHardCounters": 0.5238,
+            "warned": 123
+          },
+          {
+            "rank": 4,
+            "cards": 251,
+            "meanAvailableHardCounters": 0.5538,
+            "warned": 126
+          },
+          {
+            "rank": 5,
+            "cards": 224,
+            "meanAvailableHardCounters": 0.6027,
+            "warned": 125
+          }
+        ],
+        "primaryHeroes": [
+          {
+            "hero": "Axe",
+            "openings": 14,
+            "hardCountersAvailable": 0
+          },
+          {
+            "hero": "Techies",
+            "openings": 14,
+            "hardCountersAvailable": 0
+          },
+          {
+            "hero": "Nyx Assassin",
+            "openings": 13,
+            "hardCountersAvailable": 1
+          },
+          {
+            "hero": "Crystal Maiden",
+            "openings": 12,
+            "hardCountersAvailable": 0
+          },
+          {
+            "hero": "Sniper",
+            "openings": 12,
+            "hardCountersAvailable": 2
+          },
+          {
+            "hero": "Pudge",
+            "openings": 11,
+            "hardCountersAvailable": 1
+          },
+          {
+            "hero": "Terrorblade",
+            "openings": 11,
+            "hardCountersAvailable": 0
+          },
+          {
+            "hero": "Snapfire",
+            "openings": 11,
+            "hardCountersAvailable": 0
+          }
+        ],
+        "note": "Cards, not the board's primary (I8): the V4 card is what carries `exposed_to_counter`. `inconsistencies` must be 0: a card with an available curated hard counter always says so in round 1, and never says so without one."
+      },
+      "D1_notEvaluable": {
+        "states": 622,
+        "curatedHeroes": 124,
+        "window": {
+          "states": 250,
+          "withAnUncuratedOwnPick": 24,
+          "gapWithheldByThat": 8,
+          "cards": 1248,
+          "cardsOfAnUncuratedHero": 30,
+          "statesNotFullyEvaluable": 52
+        },
+        "uncuratedHeroesShownOnCards": [
+          {
+            "hero": "Kez",
+            "cards": 35
+          },
+          {
+            "hero": "Ringmaster",
+            "cards": 28
+          }
+        ],
+        "note": "'Not evaluable' = an own pick or the card's hero has no curated capabilities, so CRITICAL_GAP can neither be raised nor ruled out. The card then shows nothing, which looks the same as 'evaluated, no gap'. No card ever says 'no risk'."
+      },
+      "I6_fill": {
+        "gapOpenStates": 0,
+        "top3Fills": 0,
+        "fillerExistsInShownSet": 0
+      },
+      "I8_exposureOfRound1Primary": {
+        "states": 121,
+        "meanHardCountersAvailable": 0.3306,
+        "maxHardCountersAvailable": 1
+      },
+      "I10_round1Top3InMorePlayedHalf": {
+        "candidates": 1815,
+        "inMorePlayedHalf": 1815,
+        "rate": 1,
+        "note": "Observation only (plan v2 removed it as a gate): high = the ranking leans on popularity."
+      },
+      "top1Concentration": {
+        "pos1": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.2975
+        },
+        "pos2": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.2314
+        },
+        "pos3": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.3554
+        },
+        "pos4": {
+          "distinctPrimaries": 10,
+          "sample": 121,
+          "mostCommonShare": 0.2562
+        },
+        "pos5": {
+          "distinctPrimaries": 11,
+          "sample": 121,
+          "mostCommonShare": 0.2975
+        }
+      },
+      "shownButNotCredibleAtColumn": {
+        "count": 0,
+        "examples": []
+      }
+    }
+  },
+  "judgePacket": {
+    "schema": "engine-p1-judge-packet/v2",
+    "componentQuestions": [
+      {
+        "id": "C1-position",
+        "text": "Position order: is the position the board recommends the right one to commit to NOW (and not just the lowest open one)?"
+      },
+      {
+        "id": "C2-ranking",
+        "text": "Hero ranking: are the heroes shown for that position the ones you would consider, or do they look chosen for being popular?"
+      },
+      {
+        "id": "C3-composition",
+        "text": "Composition: does the advice notice what the team still lacks (initiation / catch / damage mix)?"
+      },
+      {
+        "id": "C4-exposure",
+        "text": "Exposure: is any recommended hero a clear counter-target of what the rival has shown, and does the card say so?"
+      }
+    ],
+    "planQuestions": [
+      {
+        "id": "P1-tempo",
+        "text": "Does this team need to win early, or can it scale?"
+      },
+      {
+        "id": "P2-objectives",
+        "text": "Can this draft convert an advantage into objectives?"
+      },
+      {
+        "id": "P3-plan",
+        "text": "Does the recommendation improve the plan, or only the score?"
+      }
+    ],
+    "points": [
+      {
+        "coverage": "round-1 opening recommends hard support / support",
+        "opaqueKey": "c2c44fe7f992",
+        "round": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Terrorblade",
+            "Morphling",
+            "Ursa"
+          ],
+          "pos2": [
+            "Earth Spirit",
+            "Outworld Destroyer",
+            "Invoker"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dawnbreaker",
+            "Timbersaw"
+          ],
+          "pos4": [
+            "Bounty Hunter",
+            "Techies",
+            "Mirana"
+          ],
+          "pos5": [
+            "Undying",
+            "Crystal Maiden",
+            "Disruptor"
+          ]
+        },
+        "v3Top3": [
+          "Bounty Hunter",
+          "Techies",
+          "Mirana"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "v4ViewedPosition": 1,
+        "v4Top3": [
+          {
+            "hero": "Terrorblade",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Morphling",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Doom)"
+            ],
+            "hardCountersStillAvailable": [
+              "Doom"
+            ]
+          },
+          {
+            "hero": "Ursa",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Shadow Demon)"
+            ],
+            "hardCountersStillAvailable": [
+              "Shadow Demon"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round 2 after rival reveals",
+        "opaqueKey": "af20d530f8d3",
+        "round": 2,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle"
+        ],
+        "boardRecommendedPosition": 3,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Anti-Mage",
+            "Kez",
+            "Spectre"
+          ],
+          "pos2": [
+            "Pangolier",
+            "Void Spirit",
+            "Earth Spirit"
+          ],
+          "pos3": [
+            "Axe",
+            "Brewmaster",
+            "Slardar"
+          ]
+        },
+        "v3Top3": [
+          "Brewmaster",
+          "Axe",
+          "Slardar"
+        ],
+        "precedenceWouldPick": "pos3 (COUNTER_WINDOW)",
+        "v4ViewedPosition": 1,
+        "v4Top3": [
+          {
+            "hero": "Anti-Mage",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Axe)"
+            ],
+            "hardCountersStillAvailable": [
+              "Axe"
+            ]
+          },
+          {
+            "hero": "Kez",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Spectre",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Viper)"
+            ],
+            "hardCountersStillAvailable": [
+              "Viper"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round-1 opening whose first card has a curated hard counter still available",
+        "opaqueKey": "49ac0b3f1872",
+        "round": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying"
+        ],
+        "ownPicks": [
+          "Techies"
+        ],
+        "revealedEnemy": [
+          "Sven"
+        ],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Anti-Mage",
+            "Spectre",
+            "Templar Assassin"
+          ],
+          "pos2": [
+            "Void Spirit",
+            "Pangolier",
+            "Earth Spirit"
+          ],
+          "pos3": [
+            "Brewmaster",
+            "Dawnbreaker",
+            "Underlord"
+          ],
+          "pos5": [
+            "Winter Wyvern",
+            "Lich",
+            "Shadow Shaman"
+          ]
+        },
+        "v3Top3": [
+          "Lich",
+          "Winter Wyvern",
+          "Shadow Shaman"
+        ],
+        "precedenceWouldPick": "pos5 (COUNTER_WINDOW)",
+        "v4ViewedPosition": 1,
+        "v4Top3": [
+          {
+            "hero": "Anti-Mage",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Axe)"
+            ],
+            "hardCountersStillAvailable": [
+              "Axe"
+            ]
+          },
+          {
+            "hero": "Spectre",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Viper)"
+            ],
+            "hardCountersStillAvailable": [
+              "Viper"
+            ]
+          },
+          {
+            "hero": "Templar Assassin",
+            "reason": "Fuerte contra Sven",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Venomancer, Viper)"
+            ],
+            "hardCountersStillAvailable": [
+              "Viper",
+              "Venomancer"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round-1 opening whose first card has a curated hard counter still available",
+        "opaqueKey": "fd947d4e75a7",
+        "round": 1,
+        "bans": [
+          "Shadow Shaman",
+          "Crystal Maiden",
+          "Lifestealer",
+          "Spirit Breaker",
+          "Undying",
+          "Axe",
+          "Lich",
+          "Invoker",
+          "Ogre Magi",
+          "Hoodwink",
+          "Drow Ranger",
+          "Lion",
+          "Magnus",
+          "Witch Doctor",
+          "Jakiro",
+          "Shadow Fiend"
+        ],
+        "ownPicks": [
+          "Dazzle"
+        ],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 4,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Juggernaut",
+            "Sven",
+            "Spectre"
+          ],
+          "pos2": [
+            "Sniper",
+            "Earthshaker",
+            "Void Spirit"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dark Seer",
+            "Dawnbreaker"
+          ],
+          "pos4": [
+            "Snapfire",
+            "Techies",
+            "Zeus"
+          ]
+        },
+        "v3Top3": [
+          "Snapfire",
+          "Techies",
+          "Zeus"
+        ],
+        "precedenceWouldPick": "pos4 (PHASE)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Sniper",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Storm Spirit, Spectre)"
+            ],
+            "hardCountersStillAvailable": [
+              "Storm Spirit",
+              "Spectre"
+            ]
+          },
+          {
+            "hero": "Earthshaker",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Void Spirit",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Night Stalker)"
+            ],
+            "hardCountersStillAvailable": [
+              "Night Stalker"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round-1 opening whose first card has a curated hard counter still available",
+        "opaqueKey": "f4f5d8c6e011",
+        "round": 1,
+        "bans": [
+          "Pudge",
+          "Wraith King",
+          "Invoker",
+          "Juggernaut",
+          "Legion Commander",
+          "Vengeful Spirit",
+          "Lion",
+          "Rubick",
+          "Shadow Fiend",
+          "Phantom Assassin",
+          "Skywrath Mage",
+          "Ember Spirit",
+          "Queen of Pain",
+          "Bristleback",
+          "Venomancer",
+          "Dragon Knight"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Templar Assassin",
+            "Morphling",
+            "Ursa"
+          ],
+          "pos2": [
+            "Void Spirit",
+            "Earth Spirit",
+            "Outworld Destroyer"
+          ],
+          "pos3": [
+            "Enigma",
+            "Magnus",
+            "Necrophos"
+          ],
+          "pos4": [
+            "Nyx Assassin",
+            "Dark Willow",
+            "Spirit Breaker"
+          ],
+          "pos5": [
+            "Crystal Maiden",
+            "Lich",
+            "Tusk"
+          ]
+        },
+        "v3Top3": [
+          "Crystal Maiden",
+          "Lich",
+          "Tusk"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "v4ViewedPosition": 4,
+        "v4Top3": [
+          {
+            "hero": "Nyx Assassin",
+            "reason": "Evidencia sólida de que funciona como support",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Slardar)"
+            ],
+            "hardCountersStillAvailable": [
+              "Slardar"
+            ]
+          },
+          {
+            "hero": "Dark Willow",
+            "reason": "Evidencia sólida de que funciona como support",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Spirit Breaker",
+            "reason": "Evidencia sólida de que funciona como support",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Underlord)"
+            ],
+            "hardCountersStillAvailable": [
+              "Underlord"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "a card carries CRITICAL_GAP",
+        "opaqueKey": "f579422e7113",
+        "round": 2,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying",
+          "Axe"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern",
+          "Anti-Mage"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle",
+          "Bounty Hunter"
+        ],
+        "boardRecommendedPosition": 3,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Void Spirit",
+            "Storm Spirit",
+            "Earth Spirit"
+          ],
+          "pos3": [
+            "Slardar",
+            "Tidehunter",
+            "Brewmaster"
+          ]
+        },
+        "v3Top3": [
+          "Slardar",
+          "Tidehunter",
+          "Brewmaster"
+        ],
+        "precedenceWouldPick": "pos3 (COUNTER_WINDOW)",
+        "v4ViewedPosition": 3,
+        "v4Top3": [
+          {
+            "hero": "Slardar",
+            "reason": "Le ganás a Bounty Hunter",
+            "basis": "curated",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Tidehunter",
+            "reason": "Evidencia sólida de que funciona como offlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Elder Titan)"
+            ],
+            "hardCountersStillAvailable": [
+              "Elder Titan"
+            ]
+          },
+          {
+            "hero": "Brewmaster",
+            "reason": "Fuerte contra Sven",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "a card carries CRITICAL_GAP",
+        "opaqueKey": "e4cfcae2a00d",
+        "round": 2,
+        "bans": [
+          "Lina",
+          "Shadow Fiend",
+          "Phantom Lancer",
+          "Pudge",
+          "Shadow Shaman",
+          "Techies",
+          "Axe",
+          "Spirit Breaker",
+          "Invoker",
+          "Underlord",
+          "Luna",
+          "Witch Doctor",
+          "Wraith King",
+          "Crystal Maiden",
+          "Lion",
+          "Earthshaker"
+        ],
+        "ownPicks": [
+          "Necrophos",
+          "Anti-Mage",
+          "Ancient Apparition"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven"
+        ],
+        "boardRecommendedPosition": 4,
+        "boardTop3ByPosition": {
+          "pos3": [
+            "Dawnbreaker",
+            "Slardar",
+            "Brewmaster"
+          ],
+          "pos4": [
+            "Snapfire",
+            "Nyx Assassin",
+            "Dark Willow"
+          ]
+        },
+        "v3Top3": [
+          "Dawnbreaker",
+          "Slardar",
+          "Brewmaster"
+        ],
+        "precedenceWouldPick": "pos4 (COUNTER_WINDOW)",
+        "v4ViewedPosition": 4,
+        "v4Top3": [
+          {
+            "hero": "Snapfire",
+            "reason": "Le ganás a Undying",
+            "basis": "curated",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Nyx Assassin",
+            "reason": "Evidencia sólida de que funciona como support",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Slardar)"
+            ],
+            "hardCountersStillAvailable": [
+              "Slardar"
+            ]
+          },
+          {
+            "hero": "Dark Willow",
+            "reason": "Evidencia sólida de que funciona como support",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "a card carries CRITICAL_GAP",
+        "opaqueKey": "e8b84d749418",
+        "round": 2,
+        "bans": [
+          "Witch Doctor",
+          "Sniper",
+          "Lina",
+          "Pudge",
+          "Undying",
+          "Juggernaut",
+          "Lion",
+          "Ogre Magi",
+          "Wraith King",
+          "Invoker",
+          "Silencer",
+          "Spirit Breaker",
+          "Slark",
+          "Lifestealer",
+          "Earthshaker",
+          "Magnus"
+        ],
+        "ownPicks": [
+          "Troll Warlord",
+          "Broodmother",
+          "Lich"
+        ],
+        "revealedEnemy": [
+          "Skywrath Mage",
+          "Ember Spirit"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Puck",
+            "Snapfire",
+            "Pangolier"
+          ],
+          "pos5": [
+            "Disruptor",
+            "Ringmaster",
+            "Grimstroke"
+          ]
+        },
+        "v3Top3": [
+          "Puck",
+          "Snapfire",
+          "Pangolier"
+        ],
+        "precedenceWouldPick": "pos2 (COUNTER_WINDOW)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Puck",
+            "reason": "Le ganás a Ember Spirit. 1 de sus counters está baneado: Silencer",
+            "basis": "curated",
+            "risks": [
+              "exposed_to_counter (Night Stalker)",
+              "CRITICAL_GAP"
+            ],
+            "hardCountersStillAvailable": [
+              "Night Stalker"
+            ]
+          },
+          {
+            "hero": "Snapfire",
+            "reason": "Fuerte contra Skywrath Mage",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Pangolier",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Bloodseeker)"
+            ],
+            "hardCountersStillAvailable": [
+              "Bloodseeker"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "round 3 closing pick",
+        "opaqueKey": "a05e55d37022",
+        "round": 3,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying",
+          "Axe"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern",
+          "Anti-Mage",
+          "Slardar"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle",
+          "Bounty Hunter",
+          "Timbersaw"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Necrophos",
+            "Void Spirit",
+            "Earth Spirit"
+          ]
+        },
+        "v3Top3": [
+          "Necrophos",
+          "Void Spirit",
+          "Earth Spirit"
+        ],
+        "precedenceWouldPick": "pos2 (SINGLE_POSITION)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Necrophos",
+            "reason": "Fuerte contra Sven",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Ancient Apparition",
+              "Muerta"
+            ]
+          },
+          {
+            "hero": "Void Spirit",
+            "reason": "Fuerte contra Sven",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Night Stalker"
+            ]
+          },
+          {
+            "hero": "Earth Spirit",
+            "reason": "Fuerte contra Timbersaw y Sven. 1 de sus counters está baneado: Legion Commander",
+            "basis": "mixed",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 1",
+        "opaqueKey": "7ee777d62e2d",
+        "round": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [
+          "Undying"
+        ],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 4,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Terrorblade",
+            "Sven",
+            "Spectre"
+          ],
+          "pos2": [
+            "Invoker",
+            "Void Spirit",
+            "Ember Spirit"
+          ],
+          "pos3": [
+            "Underlord",
+            "Dawnbreaker",
+            "Slardar"
+          ],
+          "pos4": [
+            "Techies",
+            "Mirana",
+            "Bounty Hunter"
+          ]
+        },
+        "v3Top3": [
+          "Techies",
+          "Mirana",
+          "Bounty Hunter"
+        ],
+        "precedenceWouldPick": "pos4 (PHASE)",
+        "v4ViewedPosition": 1,
+        "v4Top3": [
+          {
+            "hero": "Terrorblade",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Sven",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Winter Wyvern)"
+            ],
+            "hardCountersStillAvailable": [
+              "Winter Wyvern"
+            ]
+          },
+          {
+            "hero": "Spectre",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Viper)"
+            ],
+            "hardCountersStillAvailable": [
+              "Viper"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 1",
+        "opaqueKey": "3db28f3750b1",
+        "round": 1,
+        "bans": [
+          "Phantom Lancer",
+          "Rubick",
+          "Legion Commander",
+          "Axe",
+          "Juggernaut",
+          "Lion",
+          "Necrophos",
+          "Lina",
+          "Hoodwink",
+          "Shadow Shaman",
+          "Witch Doctor",
+          "Techies",
+          "Pudge",
+          "Skywrath Mage",
+          "Queen of Pain",
+          "Undying"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Phantom Assassin",
+            "Anti-Mage",
+            "Morphling"
+          ],
+          "pos2": [
+            "Outworld Destroyer",
+            "Earth Spirit",
+            "Sniper"
+          ],
+          "pos3": [
+            "Slardar",
+            "Enigma",
+            "Mars"
+          ],
+          "pos4": [
+            "Dark Willow",
+            "Nyx Assassin",
+            "Windranger"
+          ],
+          "pos5": [
+            "Crystal Maiden",
+            "Oracle",
+            "Dazzle"
+          ]
+        },
+        "v3Top3": [
+          "Crystal Maiden",
+          "Oracle",
+          "Dazzle"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Outworld Destroyer",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Nyx Assassin)"
+            ],
+            "hardCountersStillAvailable": [
+              "Nyx Assassin"
+            ]
+          },
+          {
+            "hero": "Earth Spirit",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Sniper",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Storm Spirit, Spectre)"
+            ],
+            "hardCountersStillAvailable": [
+              "Storm Spirit",
+              "Spectre"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 1",
+        "opaqueKey": "dcf348593401",
+        "round": 1,
+        "bans": [
+          "Spirit Breaker",
+          "Windranger",
+          "Lifestealer",
+          "Ogre Magi",
+          "Crystal Maiden",
+          "Shadow Shaman",
+          "Invoker",
+          "Magnus",
+          "Legion Commander",
+          "Techies",
+          "Pudge",
+          "Lina",
+          "Witch Doctor",
+          "Rubick",
+          "Hoodwink",
+          "Anti-Mage"
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "boardRecommendedPosition": 5,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Ursa",
+            "Spectre",
+            "Phantom Lancer"
+          ],
+          "pos2": [
+            "Earth Spirit",
+            "Storm Spirit",
+            "Tinker"
+          ],
+          "pos3": [
+            "Centaur Warrunner",
+            "Enigma",
+            "Dark Seer"
+          ],
+          "pos4": [
+            "Skywrath Mage",
+            "Zeus",
+            "Bounty Hunter"
+          ],
+          "pos5": [
+            "Ringmaster",
+            "Lich",
+            "Winter Wyvern"
+          ]
+        },
+        "v3Top3": [
+          "Skywrath Mage",
+          "Zeus",
+          "Bounty Hunter"
+        ],
+        "precedenceWouldPick": "pos5 (PHASE)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Earth Spirit",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Storm Spirit",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Nyx Assassin)"
+            ],
+            "hardCountersStillAvailable": [
+              "Nyx Assassin"
+            ]
+          },
+          {
+            "hero": "Tinker",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Spectre)"
+            ],
+            "hardCountersStillAvailable": [
+              "Spectre"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 2",
+        "opaqueKey": "7a8eeb5fe696",
+        "round": 2,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern",
+          "Axe"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle"
+        ],
+        "boardRecommendedPosition": 1,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Anti-Mage",
+            "Kez",
+            "Spectre"
+          ],
+          "pos2": [
+            "Necrophos",
+            "Void Spirit",
+            "Pangolier"
+          ]
+        },
+        "v3Top3": [
+          "Anti-Mage",
+          "Kez",
+          "Spectre"
+        ],
+        "precedenceWouldPick": "pos1 (PHASE)",
+        "v4ViewedPosition": 1,
+        "v4Top3": [
+          {
+            "hero": "Anti-Mage",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Kez",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Spectre",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Viper)"
+            ],
+            "hardCountersStillAvailable": [
+              "Viper"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 2",
+        "opaqueKey": "1e9a8fa43dda",
+        "round": 2,
+        "bans": [
+          "Phantom Lancer",
+          "Rubick",
+          "Legion Commander",
+          "Axe",
+          "Juggernaut",
+          "Lion",
+          "Necrophos",
+          "Lina",
+          "Hoodwink",
+          "Shadow Shaman",
+          "Witch Doctor",
+          "Techies",
+          "Pudge",
+          "Skywrath Mage",
+          "Queen of Pain",
+          "Undying"
+        ],
+        "ownPicks": [
+          "Ogre Magi",
+          "Mirana",
+          "Mars"
+        ],
+        "revealedEnemy": [
+          "Windranger",
+          "Dawnbreaker"
+        ],
+        "boardRecommendedPosition": 1,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Spectre",
+            "Faceless Void",
+            "Lifestealer"
+          ],
+          "pos2": [
+            "Void Spirit",
+            "Arc Warden",
+            "Ember Spirit"
+          ]
+        },
+        "v3Top3": [
+          "Spectre",
+          "Faceless Void",
+          "Lifestealer"
+        ],
+        "precedenceWouldPick": "pos1 (PHASE)",
+        "v4ViewedPosition": 1,
+        "v4Top3": [
+          {
+            "hero": "Spectre",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Viper)"
+            ],
+            "hardCountersStillAvailable": [
+              "Viper"
+            ]
+          },
+          {
+            "hero": "Faceless Void",
+            "reason": "Evidencia sólida de que funciona como carry",
+            "basis": "statistical",
+            "risks": [
+              "exposed_to_counter (Winter Wyvern)"
+            ],
+            "hardCountersStillAvailable": [
+              "Winter Wyvern"
+            ]
+          },
+          {
+            "hero": "Lifestealer",
+            "reason": "Fuerte contra Dawnbreaker. 1 de sus counters está baneado: Phantom Lancer",
+            "basis": "mixed",
+            "risks": [
+              "exposed_to_counter (Razor)"
+            ],
+            "hardCountersStillAvailable": [
+              "Razor"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 2",
+        "opaqueKey": "0815ea5e2488",
+        "round": 2,
+        "bans": [
+          "Lion",
+          "Legion Commander",
+          "Earthshaker",
+          "Lifestealer",
+          "Magnus",
+          "Windranger",
+          "Necrophos",
+          "Dawnbreaker",
+          "Phantom Lancer",
+          "Outworld Destroyer",
+          "Night Stalker",
+          "Snapfire",
+          "Sniper",
+          "Jakiro",
+          "Faceless Void",
+          "Techies"
+        ],
+        "ownPicks": [
+          "Undying",
+          "Pudge",
+          "Underlord"
+        ],
+        "revealedEnemy": [
+          "Spirit Breaker",
+          "Queen of Pain"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos1": [
+            "Kez",
+            "Morphling",
+            "Tiny"
+          ],
+          "pos2": [
+            "Puck",
+            "Keeper of the Light",
+            "Earth Spirit"
+          ]
+        },
+        "v3Top3": [
+          "Kez",
+          "Morphling",
+          "Tiny"
+        ],
+        "precedenceWouldPick": "pos2 (COUNTER_WINDOW)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Keeper of the Light",
+            "reason": "Fuerte contra Queen of Pain y Spirit Breaker. 1 de sus counters está baneado: Faceless Void",
+            "basis": "mixed",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Puck",
+            "reason": "Le ganás a Queen of Pain. 1 de sus counters está baneado: Night Stalker",
+            "basis": "curated",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Earth Spirit",
+            "reason": "Fuerte contra Queen of Pain. 2 de sus counters están baneados: Legion Commander y Lifestealer",
+            "basis": "mixed",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 3",
+        "opaqueKey": "32c0ab9beda0",
+        "round": 3,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [
+          "Disruptor",
+          "Skywrath Mage",
+          "Enigma",
+          "Sven"
+        ],
+        "revealedEnemy": [
+          "Underlord",
+          "Mirana",
+          "Invoker",
+          "Lich"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Outworld Destroyer",
+            "Void Spirit",
+            "Tinker"
+          ]
+        },
+        "v3Top3": [
+          "Outworld Destroyer",
+          "Void Spirit",
+          "Tinker"
+        ],
+        "precedenceWouldPick": "pos2 (SINGLE_POSITION)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Outworld Destroyer",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Nyx Assassin"
+            ]
+          },
+          {
+            "hero": "Void Spirit",
+            "reason": "Fuerte contra Lich",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Night Stalker"
+            ]
+          },
+          {
+            "hero": "Tinker",
+            "reason": "Fuerte contra Invoker",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Spectre",
+              "Anti-Mage"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 3",
+        "opaqueKey": "ed12d0ec5965",
+        "round": 3,
+        "bans": [
+          "Phantom Lancer",
+          "Rubick",
+          "Legion Commander",
+          "Axe",
+          "Juggernaut",
+          "Lion",
+          "Necrophos",
+          "Lina",
+          "Hoodwink",
+          "Shadow Shaman",
+          "Witch Doctor",
+          "Techies",
+          "Pudge",
+          "Skywrath Mage",
+          "Queen of Pain",
+          "Undying"
+        ],
+        "ownPicks": [
+          "Ogre Magi",
+          "Mirana",
+          "Mars",
+          "Faceless Void"
+        ],
+        "revealedEnemy": [
+          "Windranger",
+          "Dawnbreaker",
+          "Treant Protector",
+          "Phantom Assassin"
+        ],
+        "boardRecommendedPosition": 2,
+        "boardTop3ByPosition": {
+          "pos2": [
+            "Void Spirit",
+            "Arc Warden",
+            "Ember Spirit"
+          ]
+        },
+        "v3Top3": [
+          "Void Spirit",
+          "Arc Warden",
+          "Ember Spirit"
+        ],
+        "precedenceWouldPick": "pos2 (SINGLE_POSITION)",
+        "v4ViewedPosition": 2,
+        "v4Top3": [
+          {
+            "hero": "Void Spirit",
+            "reason": "Fuerte contra Dawnbreaker",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Night Stalker"
+            ]
+          },
+          {
+            "hero": "Arc Warden",
+            "reason": "Evidencia sólida de que funciona como midlane",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Meepo"
+            ]
+          },
+          {
+            "hero": "Ember Spirit",
+            "reason": "Fuerte contra Phantom Assassin y Windranger",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Puck"
+            ]
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      },
+      {
+        "coverage": "uniform sample, round 3",
+        "opaqueKey": "165a730850f2",
+        "round": 3,
+        "bans": [
+          "Spirit Breaker",
+          "Windranger",
+          "Lifestealer",
+          "Ogre Magi",
+          "Crystal Maiden",
+          "Shadow Shaman",
+          "Invoker",
+          "Magnus",
+          "Legion Commander",
+          "Techies",
+          "Pudge",
+          "Lina",
+          "Witch Doctor",
+          "Rubick",
+          "Hoodwink",
+          "Anti-Mage"
+        ],
+        "ownPicks": [
+          "Broodmother",
+          "Earth Spirit",
+          "Sven",
+          "Gyrocopter"
+        ],
+        "revealedEnemy": [
+          "Winter Wyvern",
+          "Zeus",
+          "Dark Seer",
+          "Luna"
+        ],
+        "boardRecommendedPosition": 3,
+        "boardTop3ByPosition": {
+          "pos3": [
+            "Axe",
+            "Night Stalker",
+            "Wraith King"
+          ]
+        },
+        "v3Top3": [
+          "Axe",
+          "Night Stalker",
+          "Wraith King"
+        ],
+        "precedenceWouldPick": "pos3 (SINGLE_POSITION)",
+        "v4ViewedPosition": 3,
+        "v4Top3": [
+          {
+            "hero": "Axe",
+            "reason": "Fuerte contra Winter Wyvern y Luna. 1 de sus counters está baneado: Lifestealer",
+            "basis": "mixed",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          },
+          {
+            "hero": "Night Stalker",
+            "reason": "Fuerte contra Zeus",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": [
+              "Naga Siren"
+            ]
+          },
+          {
+            "hero": "Wraith King",
+            "reason": "Fuerte contra Zeus",
+            "basis": "statistical",
+            "risks": [],
+            "hardCountersStillAvailable": []
+          }
+        ],
+        "judgeAnswers": {
+          "C1-position": {
+            "answer": null,
+            "notes": null
+          },
+          "C2-ranking": {
+            "answer": null,
+            "notes": null
+          },
+          "C3-composition": {
+            "answer": null,
+            "notes": null
+          },
+          "C4-exposure": {
+            "answer": null,
+            "notes": null
+          },
+          "P1-tempo": {
+            "answer": null,
+            "notes": null
+          },
+          "P2-objectives": {
+            "answer": null,
+            "notes": null
+          },
+          "P3-plan": {
+            "answer": null,
+            "notes": null
+          }
+        }
+      }
+    ],
+    "changedBy": "TSK-253",
+    "changedDecisions": [
+      {
+        "opaqueKey": "f579422e7113",
+        "round": 2,
+        "position": 3,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger",
+          "Undying",
+          "Axe"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Winter Wyvern",
+          "Anti-Mage"
+        ],
+        "revealedEnemy": [
+          "Sven",
+          "Oracle",
+          "Bounty Hunter"
+        ],
+        "optionA": [
+          "Slardar",
+          "Tidehunter",
+          "Brewmaster"
+        ],
+        "optionB": [
+          "Slardar",
+          "Tidehunter",
+          "Necrophos"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "9118bc5128aa",
+        "round": 2,
+        "position": 1,
+        "bans": [
+          "Earthshaker",
+          "Windranger",
+          "Legion Commander",
+          "Shadow Fiend",
+          "Pudge",
+          "Hoodwink",
+          "Zeus",
+          "Lion",
+          "Spirit Breaker",
+          "Magnus",
+          "Lina",
+          "Witch Doctor",
+          "Sniper",
+          "Ogre Magi",
+          "Snapfire",
+          "Drow Ranger"
+        ],
+        "ownPicks": [
+          "Disruptor",
+          "Skywrath Mage",
+          "Enigma"
+        ],
+        "revealedEnemy": [
+          "Underlord",
+          "Mirana"
+        ],
+        "optionA": [
+          "Kez",
+          "Sven",
+          "Juggernaut"
+        ],
+        "optionB": [
+          "Kez",
+          "Sven",
+          "Necrophos"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "a22692eafd76",
+        "round": 2,
+        "position": 1,
+        "bans": [
+          "Shadow Fiend",
+          "Windranger",
+          "Luna",
+          "Undying",
+          "Mirana",
+          "Ogre Magi",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Sniper",
+          "Necrophos",
+          "Spirit Breaker",
+          "Axe",
+          "Pudge",
+          "Zeus",
+          "Skywrath Mage",
+          "Razor"
+        ],
+        "ownPicks": [
+          "Oracle",
+          "Techies",
+          "Enigma"
+        ],
+        "revealedEnemy": [
+          "Earth Spirit",
+          "Ringmaster"
+        ],
+        "optionA": [
+          "Spectre",
+          "Anti-Mage",
+          "Slark"
+        ],
+        "optionB": [
+          "Spectre",
+          "Slark",
+          "Ursa"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "d2efa9cbb017",
+        "round": 2,
+        "position": 4,
+        "bans": [
+          "Wraith King",
+          "Earthshaker",
+          "Skywrath Mage",
+          "Shadow Fiend",
+          "Mirana",
+          "Sniper",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Windranger",
+          "Spirit Breaker",
+          "Silencer",
+          "Ogre Magi",
+          "Lina",
+          "Slark",
+          "Zeus",
+          "Queen of Pain"
+        ],
+        "ownPicks": [
+          "Io",
+          "Chen",
+          "Razor"
+        ],
+        "revealedEnemy": [
+          "Techies",
+          "Spectre"
+        ],
+        "optionA": [
+          "Lion",
+          "Pudge",
+          "Snapfire"
+        ],
+        "optionB": [
+          "Rubick",
+          "Lion",
+          "Pudge"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "4814d1ccb664",
+        "round": 3,
+        "position": 1,
+        "bans": [
+          "Wraith King",
+          "Earthshaker",
+          "Skywrath Mage",
+          "Shadow Fiend",
+          "Mirana",
+          "Sniper",
+          "Phantom Assassin",
+          "Lifestealer",
+          "Windranger",
+          "Spirit Breaker",
+          "Silencer",
+          "Ogre Magi",
+          "Lina",
+          "Slark",
+          "Zeus",
+          "Queen of Pain"
+        ],
+        "ownPicks": [
+          "Io",
+          "Chen",
+          "Razor",
+          "Undying"
+        ],
+        "revealedEnemy": [
+          "Techies",
+          "Spectre",
+          "Outworld Destroyer",
+          "Ringmaster"
+        ],
+        "optionA": [
+          "Faceless Void",
+          "Phantom Lancer",
+          "Anti-Mage"
+        ],
+        "optionB": [
+          "Faceless Void",
+          "Tiny",
+          "Phantom Lancer"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "e4cfcae2a00d",
+        "round": 2,
+        "position": 4,
+        "bans": [
+          "Lina",
+          "Shadow Fiend",
+          "Phantom Lancer",
+          "Pudge",
+          "Shadow Shaman",
+          "Techies",
+          "Axe",
+          "Spirit Breaker",
+          "Invoker",
+          "Underlord",
+          "Luna",
+          "Witch Doctor",
+          "Wraith King",
+          "Crystal Maiden",
+          "Lion",
+          "Earthshaker"
+        ],
+        "ownPicks": [
+          "Necrophos",
+          "Anti-Mage",
+          "Ancient Apparition"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven"
+        ],
+        "optionA": [
+          "Snapfire",
+          "Nyx Assassin",
+          "Rubick"
+        ],
+        "optionB": [
+          "Snapfire",
+          "Nyx Assassin",
+          "Dark Willow"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "9aeddbe26973",
+        "round": 3,
+        "position": 4,
+        "bans": [
+          "Lina",
+          "Shadow Fiend",
+          "Phantom Lancer",
+          "Pudge",
+          "Shadow Shaman",
+          "Techies",
+          "Axe",
+          "Spirit Breaker",
+          "Invoker",
+          "Underlord",
+          "Luna",
+          "Witch Doctor",
+          "Wraith King",
+          "Crystal Maiden",
+          "Lion",
+          "Earthshaker"
+        ],
+        "ownPicks": [
+          "Necrophos",
+          "Anti-Mage",
+          "Ancient Apparition",
+          "Death Prophet"
+        ],
+        "revealedEnemy": [
+          "Undying",
+          "Sven",
+          "Slardar",
+          "Windranger"
+        ],
+        "optionA": [
+          "Dark Willow",
+          "Snapfire",
+          "Earth Spirit"
+        ],
+        "optionB": [
+          "Mirana",
+          "Rubick",
+          "Dark Willow"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "b682584fdf86",
+        "round": 3,
+        "position": 2,
+        "bans": [
+          "Zeus",
+          "Windranger",
+          "Spectre",
+          "Invoker",
+          "Lion",
+          "Shadow Shaman",
+          "Ogre Magi",
+          "Skywrath Mage",
+          "Phantom Lancer",
+          "Magnus",
+          "Mirana",
+          "Slark",
+          "Witch Doctor",
+          "Wraith King",
+          "Jakiro",
+          "Disruptor"
+        ],
+        "ownPicks": [
+          "Grimstroke",
+          "Techies",
+          "Timbersaw",
+          "Drow Ranger"
+        ],
+        "revealedEnemy": [
+          "Doom",
+          "Pudge",
+          "Sniper",
+          "Winter Wyvern"
+        ],
+        "optionA": [
+          "Ember Spirit",
+          "Earth Spirit",
+          "Snapfire"
+        ],
+        "optionB": [
+          "Ember Spirit",
+          "Outworld Destroyer",
+          "Storm Spirit"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "05acdbf6bc2e",
+        "round": 2,
+        "position": 4,
+        "bans": [
+          "Pudge",
+          "Wraith King",
+          "Invoker",
+          "Juggernaut",
+          "Legion Commander",
+          "Vengeful Spirit",
+          "Lion",
+          "Rubick",
+          "Shadow Fiend",
+          "Phantom Assassin",
+          "Skywrath Mage",
+          "Ember Spirit",
+          "Queen of Pain",
+          "Bristleback",
+          "Venomancer",
+          "Dragon Knight"
+        ],
+        "ownPicks": [
+          "Ogre Magi",
+          "Keeper of the Light",
+          "Medusa"
+        ],
+        "revealedEnemy": [
+          "Anti-Mage",
+          "Outworld Destroyer"
+        ],
+        "optionA": [
+          "Spirit Breaker",
+          "Nyx Assassin",
+          "Hoodwink"
+        ],
+        "optionB": [
+          "Spirit Breaker",
+          "Nyx Assassin",
+          "Snapfire"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "4c39a75ff9ca",
+        "round": 2,
+        "position": 1,
+        "bans": [
+          "Lina",
+          "Pudge",
+          "Legion Commander",
+          "Sniper",
+          "Invoker",
+          "Hoodwink",
+          "Shadow Shaman",
+          "Outworld Destroyer",
+          "Drow Ranger",
+          "Lifestealer",
+          "Axe",
+          "Phantom Assassin",
+          "Skywrath Mage",
+          "Nature's Prophet",
+          "Night Stalker",
+          "Lich",
+          "Disruptor"
+        ],
+        "ownPicks": [
+          "Techies",
+          "Undying",
+          "Wraith King"
+        ],
+        "revealedEnemy": [
+          "Anti-Mage",
+          "Winter Wyvern"
+        ],
+        "optionA": [
+          "Slark",
+          "Morphling",
+          "Windranger"
+        ],
+        "optionB": [
+          "Spectre",
+          "Slark",
+          "Morphling"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "1fd3344b2fc1",
+        "round": 3,
+        "position": 1,
+        "bans": [
+          "Wraith King",
+          "Lifestealer",
+          "Zeus",
+          "Shadow Shaman",
+          "Spirit Breaker",
+          "Magnus",
+          "Skywrath Mage",
+          "Legion Commander",
+          "Rubick",
+          "Invoker",
+          "Phantom Lancer",
+          "Windranger",
+          "Techies",
+          "Snapfire",
+          "Undying",
+          "Venomancer"
+        ],
+        "ownPicks": [
+          "Shadow Demon",
+          "Broodmother",
+          "Enchantress",
+          "Riki"
+        ],
+        "revealedEnemy": [
+          "Bounty Hunter",
+          "Outworld Destroyer",
+          "Dawnbreaker",
+          "Anti-Mage"
+        ],
+        "optionA": [
+          "Spectre",
+          "Faceless Void",
+          "Tiny"
+        ],
+        "optionB": [
+          "Spectre",
+          "Faceless Void",
+          "Phantom Assassin"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      },
+      {
+        "opaqueKey": "e8b84d749418",
+        "round": 2,
+        "position": 2,
+        "bans": [
+          "Witch Doctor",
+          "Sniper",
+          "Lina",
+          "Pudge",
+          "Undying",
+          "Juggernaut",
+          "Lion",
+          "Ogre Magi",
+          "Wraith King",
+          "Invoker",
+          "Silencer",
+          "Spirit Breaker",
+          "Slark",
+          "Lifestealer",
+          "Earthshaker",
+          "Magnus"
+        ],
+        "ownPicks": [
+          "Troll Warlord",
+          "Broodmother",
+          "Lich"
+        ],
+        "revealedEnemy": [
+          "Skywrath Mage",
+          "Ember Spirit"
+        ],
+        "optionA": [
+          "Puck",
+          "Outworld Destroyer",
+          "Snapfire"
+        ],
+        "optionB": [
+          "Puck",
+          "Snapfire",
+          "Pangolier"
+        ],
+        "judgeAnswers": {
+          "C3": {
+            "better": null,
+            "harmfulReason": null
+          }
+        }
+      }
+    ],
+    "m1Decisions": []
+  },
+  "harnessFailures": []
+}

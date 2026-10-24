@@ -69,3 +69,6 @@ scripts/live/visual-capture/**/__pycache__/
 # (raw payloads carry the local SteamID/name; they live in %LOCALAPPDATA%\D2KIRO\Companion\diagnostics).
 scripts/live/companion/out/
 gsi-raw-*.jsonl
+
+# Judge keys (blind A/B): never published; kept out of the repo until the judge has answered
+docs/diagnostics/*_JUDGE_KEY.json
