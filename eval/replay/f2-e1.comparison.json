@@ -1,0 +1,306 @@
+{
+  "denominators": {
+    "moments": 561,
+    "validF1": 561,
+    "closingWindow": 212,
+    "eligible": 192,
+    "A": 89,
+    "A2": 10,
+    "B": 472
+  },
+  "P0": {
+    "prevalence": {
+      "n": 89,
+      "of": 192,
+      "pct": 46.35
+    },
+    "byPicksRemaining": {
+      "1": {
+        "n": 31,
+        "of": 92,
+        "pct": 33.7
+      },
+      "2": {
+        "n": 58,
+        "of": 100,
+        "pct": 58
+      }
+    },
+    "status": "PASS"
+  },
+  "baselineF1": {
+    "structuralFill_board_top3_onA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "structuralFill_v4_top3_onA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "exposureTop3_onA": 192,
+    "adverseCounterTop3_onA": {
+      "raw<=-0.03 y n>=30": 0,
+      "raw<=-0.05 y n>=30": 0,
+      "raw<=-0.075 y n>=100": 0
+    }
+  },
+  "invariantsF1": {
+    "illegal": 0,
+    "criticalGapShownWithoutProof": 0,
+    "criticalGapMissing": 0
+  },
+  "P1_ceiling": {
+    "f1FillRateOnA": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "ceilingBreached": false,
+    "note": "if F1 already fills the gap > 80% of the time the +20 points are not reachable and P1 is INCONCLUSIVE by the frozen rule"
+  },
+  "comparison": {
+    "pairs": 561,
+    "bothReproduced": true
+  },
+  "changed": {
+    "inA": {
+      "n": 88,
+      "of": 89,
+      "pct": 98.88
+    },
+    "inA2": {
+      "n": 10,
+      "of": 10,
+      "pct": 100
+    },
+    "inB": {
+      "n": 0,
+      "of": 472,
+      "pct": 0
+    },
+    "recommendedPositionChangedInA": 0,
+    "top3ChangedInA": 72,
+    "reasonsOnlyInA": 16,
+    "changedIdsInA": [
+      "varied:AUDIT001:dire#3",
+      "follow-coach:AUDIT002:dire#3",
+      "deviate:AUDIT003:dire#3",
+      "follow-coach:AUDIT007:radiant#3",
+      "follow-coach:AUDIT007:radiant#4",
+      "varied:AUDIT007:dire#3",
+      "varied:AUDIT007:dire#4",
+      "deviate:AUDIT008:radiant#3",
+      "deviate:AUDIT008:radiant#4",
+      "follow-coach:AUDIT008:dire#3",
+      "follow-coach:AUDIT008:dire#4",
+      "varied:AUDIT009:radiant#3",
+      "varied:AUDIT009:radiant#4",
+      "varied:AUDIT010:dire#3",
+      "follow-coach:AUDIT011:dire#3",
+      "varied:AUDIT012:radiant#3",
+      "deviate:AUDIT012:dire#3",
+      "deviate:AUDIT012:dire#4",
+      "follow-coach:AUDIT013:radiant#3",
+      "follow-coach:AUDIT013:radiant#4",
+      "follow-coach:AUDIT014:dire#3",
+      "follow-coach:AUDIT016:radiant#3",
+      "varied:AUDIT016:dire#3",
+      "varied:AUDIT019:dire#3",
+      "varied:AUDIT019:dire#4",
+      "deviate:AUDIT020:radiant#3",
+      "deviate:AUDIT020:radiant#4",
+      "follow-coach:AUDIT020:dire#3",
+      "follow-coach:AUDIT020:dire#4",
+      "varied:AUDIT021:radiant#3",
+      "varied:AUDIT021:radiant#4",
+      "varied:AUDIT024:radiant#3",
+      "varied:AUDIT024:radiant#4",
+      "deviate:AUDIT024:dire#3",
+      "deviate:AUDIT026:radiant#3",
+      "follow-coach:AUDIT026:dire#3",
+      "follow-coach:AUDIT026:dire#4",
+      "varied:AUDIT027:radiant#3",
+      "follow-coach:AUDIT028:radiant#3",
+      "varied:AUDIT028:dire#3",
+      "varied:AUDIT028:dire#4",
+      "deviate:AUDIT029:radiant#3",
+      "varied:AUDIT031:dire#3",
+      "deviate:AUDIT032:radiant#3",
+      "deviate:AUDIT032:radiant#4",
+      "deviate:AUDIT033:dire#3",
+      "deviate:AUDIT033:dire#4",
+      "follow-coach:AUDIT034:radiant#3",
+      "varied:AUDIT034:dire#3",
+      "follow-coach:AUDIT035:dire#3",
+      "follow-coach:AUDIT035:dire#4",
+      "varied:AUDIT036:radiant#3",
+      "deviate:AUDIT036:dire#3",
+      "follow-coach:AUDIT037:radiant#3",
+      "varied:AUDIT037:dire#3",
+      "varied:AUDIT037:dire#4",
+      "varied:AUDIT039:radiant#3",
+      "varied:AUDIT042:radiant#3",
+      "varied:AUDIT042:radiant#4",
+      "deviate:AUDIT042:dire#3",
+      "deviate:AUDIT042:dire#4",
+      "varied:AUDIT043:dire#3",
+      "varied:AUDIT043:dire#4",
+      "follow-coach:AUDIT046:radiant#3",
+      "follow-coach:AUDIT046:radiant#4",
+      "varied:AUDIT048:radiant#3",
+      "varied:AUDIT048:radiant#4",
+      "follow-coach:AUDIT049:radiant#3",
+      "follow-coach:AUDIT049:radiant#4",
+      "varied:AUDIT049:dire#3",
+      "varied:AUDIT049:dire#4",
+      "follow-coach:AUDIT050:dire#3",
+      "follow-coach:AUDIT050:dire#4",
+      "varied:AUDIT051:radiant#3",
+      "deviate:AUDIT051:dire#3",
+      "follow-coach:AUDIT052:radiant#3",
+      "deviate:AUDIT053:radiant#3",
+      "follow-coach:AUDIT055:radiant#3",
+      "follow-coach:AUDIT055:radiant#4",
+      "varied:AUDIT055:dire#3",
+      "varied:AUDIT055:dire#4",
+      "deviate:AUDIT057:dire#3",
+      "deviate:AUDIT057:dire#4",
+      "varied:AUDIT058:dire#3",
+      "varied:AUDIT058:dire#4",
+      "deviate:AUDIT059:radiant#3",
+      "deviate:AUDIT059:radiant#4",
+      "varied:AUDIT060:radiant#3"
+    ],
+    "mustNotChangeViolations": []
+  },
+  "P1": {
+    "structuralFillF1": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "structuralFillE1": {
+      "n": 82,
+      "of": 89,
+      "pct": 92.13
+    },
+    "deltaPercentagePoints": 15.73,
+    "v4SurfaceF1": {
+      "n": 68,
+      "of": 89,
+      "pct": 76.4
+    },
+    "v4SurfaceE1": {
+      "n": 82,
+      "of": 89,
+      "pct": 92.13
+    },
+    "status": "FAIL"
+  },
+  "P2": {
+    "violations": {
+      "n": 0,
+      "of": 472,
+      "pct": 0
+    },
+    "status": "PASS"
+  },
+  "P3": {
+    "exposureTop3_F1_onA": 192,
+    "exposureTop3_E1_onA": 173,
+    "delta": -19,
+    "onChangedOnly": {
+      "F1": 192,
+      "E1": 173
+    },
+    "status": "PASS"
+  },
+  "P4": {
+    "illegalE1": 0,
+    "criticalGapShownWithoutProofE1": 0,
+    "criticalGapMissingE1": 0,
+    "uncuratedPromotions": [
+      "follow-coach:AUDIT028:radiant#3:145",
+      "follow-coach:AUDIT055:radiant#3:145"
+    ],
+    "status": "FAIL"
+  },
+  "P5_otherGaps": {
+    "initiation": {
+      "moments": 23,
+      "fillF1": {
+        "n": 21,
+        "of": 23,
+        "pct": 91.3
+      },
+      "fillE1": {
+        "n": 21,
+        "of": 23,
+        "pct": 91.3
+      },
+      "deltaPp": 0,
+      "status": "PASS"
+    },
+    "catch": {
+      "moments": 1,
+      "fillF1": {
+        "n": 1,
+        "of": 1,
+        "pct": 100
+      },
+      "fillE1": {
+        "n": 1,
+        "of": 1,
+        "pct": 100
+      },
+      "deltaPp": 0,
+      "status": "INCONCLUSIVE"
+    },
+    "damage_mix": {
+      "moments": 8,
+      "fillF1": {
+        "n": 8,
+        "of": 8,
+        "pct": 100
+      },
+      "fillE1": {
+        "n": 8,
+        "of": 8,
+        "pct": 100
+      },
+      "deltaPp": 0,
+      "status": "INCONCLUSIVE"
+    }
+  },
+  "M1_reported": {
+    "adverseCounterTop3_onA": {
+      "F1": {
+        "raw<=-0.03 y n>=30": 0,
+        "raw<=-0.05 y n>=30": 0,
+        "raw<=-0.075 y n>=100": 0
+      },
+      "E1": {
+        "raw<=-0.03 y n>=30": 0,
+        "raw<=-0.05 y n>=30": 0,
+        "raw<=-0.075 y n>=100": 0
+      }
+    },
+    "adverseCounterTop3_onChanged": {
+      "F1": {
+        "raw<=-0.03 y n>=30": 0,
+        "raw<=-0.05 y n>=30": 0,
+        "raw<=-0.075 y n>=100": 0
+      },
+      "E1": {
+        "raw<=-0.03 y n>=30": 0,
+        "raw<=-0.05 y n>=30": 0,
+        "raw<=-0.075 y n>=100": 0
+      }
+    },
+    "note": "reported with the unchanged M1 thresholds; never a verdict input"
+  },
+  "verdict": "FAIL",
+  "verdictNote": "A numeric PASS is not a strategic improvement; the blind evaluation of the modified decisions is still required."
+}
