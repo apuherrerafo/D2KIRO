@@ -1,0 +1,40 @@
+{
+  "schema": "f2-experiment-rules/v1",
+  "experiment": "F2-E1",
+  "change": "add \"structural_damage\" to CRITICAL_GAP_KINDS (apps/engine/src/draft-paths/gaps.ts); nothing else",
+  "frozenBefore": "any capture, any measurement and any engine change; the rules hash is recorded in the replay-set manifest",
+  "comparison": {
+    "unit": "the same pick moment (replay of a frozen moment through the real routes, no bot in the loop)",
+    "baseline": "checkpoint/f1-v1 engine code, unchanged",
+    "primarySurface": "Team Coach Board, column of the recommended position, top 3",
+    "secondarySurface": "V4 cards (viewed position), top 3",
+    "fullOutputFingerprint": "sha256 of the canonical JSON of the whole MomentOutput (board columns with reasons, V4 cards with rationale and risks, V3 list, counterTop3)"
+  },
+  "definitions": {
+    "closingWindow": "own picks remaining in {1, 2}, where remaining = 5 - number of visible own picks (engine function ownPicksRemainingFor)",
+    "eligible": "closingWindow AND every visible own pick has curated capabilities (the engine only declares critical gaps in that case)",
+    "structuralGapOpen": "eligible AND assessCompositionNeedsOf(...).open contains structural_damage (computed on F1 code, before any change)",
+    "A_allowedToChange": "moments with structuralGapOpen",
+    "A2": "subset of A that already had at least one critical gap under F1 (initiation, catch or damage_mix): criticalPressure can change for them; reported separately",
+    "B_mustNotChange": "every moment not in A",
+    "fills": "filledGaps(candidate capabilities, [gap], ownDamageTypes) contains the gap; a hero without curated capabilities fills nothing and is never counted as lacking",
+    "GapFill@3": "share of applicable moments where at least one of the primary-surface top-3 heroes fills the gap",
+    "ExposureTop3": "sum over the primary-surface top-3 of curated HARD counters still available (checks.ts availableHardCounters, unchanged)",
+    "AdverseCounterTop3": "number of primary-surface top-3 heroes whose statistical counter evidence is adverse under checks.ts isAdverse with M1_THRESHOLDS, unchanged; reported, never a verdict input"
+  },
+  "predictions": {
+    "P0": { "statement": "prevalence of structuralGapOpen among eligible moments >= 5%", "pass": "open / eligible >= 0.05", "inconclusiveIf": "eligible < 50", "ifNotPass": "no engine change is made" },
+    "P1": { "statement": "GapFill@3 on A (same moments) improves by >= 20 percentage points over F1", "pass": "E1 - F1 >= 20", "inconclusiveIf": "|A| < 30 OR F1 GapFill@3 on A > 80% (the +20 points are not reachable)" },
+    "P2": { "statement": "zero modifications outside A", "pass": "number of B moments whose full-output fingerprint differs from F1 == 0" },
+    "P3": { "statement": "no increase of hard-counter exposure", "pass": "ExposureTop3(E1) <= ExposureTop3(F1) summed over A", "inconclusiveIf": "|A| < 30" },
+    "P4": { "statement": "no invariant violation and no undue promotion of uncurated heroes", "pass": "illegal hero in any shown list == 0 AND CRITICAL_GAP shown without proof == 0 AND CRITICAL_GAP missing == 0 AND uncurated hero entering a top-3 that was not in F1's == 0, over all moments" },
+    "P5_otherGaps": { "statement": "the change does not hurt other critical gaps", "pass": "for each of initiation, catch, damage_mix: GapFill@3(E1) >= GapFill@3(F1) - 5 points on the moments where that gap is critical", "inconclusiveIf": "fewer than 10 moments for that gap (reported per gap)" }
+  },
+  "verdict": {
+    "FAIL": "any of P0..P5 conclusively not met",
+    "INCONCLUSIVE": "none failed and at least one is inconclusive",
+    "PASS": "all of P0..P5 met with their denominators",
+    "note": "A numeric PASS is not a strategic improvement. The blind evaluation of the modified decisions is required before E1 is kept; its result is reported separately and never retunes a threshold."
+  },
+  "report": "every denominator is printed next to its ratio; thresholds are not changed after results are known"
+}

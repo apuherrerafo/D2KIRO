@@ -11,10 +11,12 @@
 // rebuild the kernel state and are never part of the visible state (`visible`), which is what the fingerprint covers.
 // Measurement tool, not a test; never imported from apps/ (invariantes.md).
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { ACCOUNT_A, ACCOUNT_B, SIDES, askCoach, createLab, jsonRequest, loadWorldData, muteLog, unmuteLog, visibleHeroes, type Lab, type WorldData } from "../wave5/driver";
-import { choose, startSession, type BoardColumnJson } from "./session";
+import { choose, peeledColumnField, startSession, type BoardColumnJson } from "./session";
+import { collectCodeIdentity, collectDataIdentity } from "../wave5/evidence-identity";
 
 export const MOMENT_SCHEMA = "decision-moment/v1";
 type Side = "radiant" | "dire";
@@ -52,6 +54,8 @@ export interface MomentOutput {
   board: { recommendedPosition: number | null; recommendedHeroId: number | null; targetBasis: string | null; columns: { position: number; state: string; eligibleNow: boolean; top: { heroId: number; rank: number; reasons: string[] }[] }[] };
   v4: null | { kind: string; targetPosition: number | null; viewedPosition: number | null; targetBasis: string | null; state: string | null; cards: { heroId: number; rationale: string; basisKind: string | null; risks: { kind: string; detail: string; heroIds: number[] }[] }[] };
   v3: { primary: string; shortlist: { heroId: number; rationale: string }[] };
+  /** The `counter` signal V6 read for each hero of the Board's recommended column top-3 (M1 evidence); null raw = no data. */
+  counterTop3: { heroId: number; raw: number | null; sampleSize: number; vsRevealed: boolean }[];
 }
 
 const asRecord = (value: unknown): Record<string, unknown> => (typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {});
@@ -152,7 +156,7 @@ function readVisible(lab: Lab, sessionId: string, side: Side, humanPosition: Pos
 }
 
 /** The three surfaces the exam already reads, reduced to what is decided (heroes, order, reasons, risks), without timings or session ids. */
-export async function askDecision(lab: Lab, sessionId: string, accountId: number): Promise<{ output: MomentOutput; actionable: Pos[] } | null> {
+export async function askDecision(lab: Lab, sessionId: string, accountId: number, humanPosition: Pos): Promise<{ output: MomentOutput; actionable: Pos[] } | null> {
   const base = `http://127.0.0.1/api/session/protocol/${sessionId}`;
   const answer = await askCoach(lab, sessionId, accountId);
   const boardResponse = await lab.routes.getTeamRecommendations(sessionId, new URL(`${base}/team-recommendations`), accountId);
@@ -182,7 +186,18 @@ export async function askDecision(lab: Lab, sessionId: string, accountId: number
       })),
     },
     v3: { primary: answer.output.primaryAction.label, shortlist: answer.output.shortlist.map((card) => ({ heroId: card.heroId, rationale: card.rationale })) },
+    counterTop3: [],
   };
+  const context = lab.store.perspectiveRecommendationContext(sessionId);
+  const target = output.board.recommendedPosition as Pos | null;
+  if (context && target !== null) {
+    const field = await peeledColumnField(lab.data, context, target, target === humanPosition ? accountId : null, "product");
+    const column = output.board.columns.find((c) => c.position === target);
+    output.counterTop3 = (column?.top ?? []).slice(0, 3).map((t) => {
+      const counter = field.find((f) => f.heroId === t.heroId)?.counter;
+      return { heroId: t.heroId, raw: counter?.raw ?? null, sampleSize: counter?.sampleSize ?? 0, vsRevealed: counter?.vsRevealed === true };
+    });
+  }
   return { output, actionable: asArray(decision.actionablePositions).map(Number) as Pos[] };
 }
 
@@ -219,7 +234,7 @@ export async function captureMoments(world: WorldData, draftCount: number): Prom
         if (stop !== "human_input") continue;
         const ranked = lab.store.get(sessionId)!.rankedAp!;
         if (ranked.bannedHeroes.length !== initialBans.length) { skipped.push(`${key}#${stateIndex}: a collision changed the bans`); break; }
-        const asked = await askDecision(lab, sessionId, accountOf(account));
+        const asked = await askDecision(lab, sessionId, accountOf(account), humanPosition);
         const visible = asked ? readVisible(lab, sessionId, side, humanPosition, asked.actionable) : null;
         const context = lab.store.perspectiveRecommendationContext(sessionId);
         if (!asked || !visible || !context) { skipped.push(`${key}#${stateIndex}: no answer`); break; }
@@ -286,7 +301,7 @@ export async function replayMoment(world: WorldData, moment: DecisionMoment): Pr
       if ((response.status !== 200 && response.status !== 202) || body.accepted !== true) return fail(`own seal rejected (${body.rejected ?? response.status}) at round ${command.round}`);
     }
   }
-  const asked = await askDecision(lab, sessionId, account);
+  const asked = await askDecision(lab, sessionId, account, moment.session.humanPosition);
   const visible = asked ? readVisible(lab, sessionId, moment.session.side, moment.session.humanPosition, asked.actionable) : null;
   if (!asked || !visible) return fail("no answer after rebuilding");
   const visibleFingerprint = fingerprint({ visible, pool: moment.pool });
@@ -315,7 +330,8 @@ export function compareRuns(a: ReplayResult[], b: ReplayResult[]): { same: numbe
 }
 
 function arg(name: string): string | undefined { return process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3); }
-const writeJson = (path: string, value: unknown): void => { const full = resolve(ROOT, path); mkdirSync(dirname(full), { recursive: true }); writeFileSync(full, `${JSON.stringify(value, null, 2)}\n`); };
+const writeJson = (path: string, value: unknown, compact = false): void => { const full = resolve(ROOT, path); mkdirSync(dirname(full), { recursive: true }); writeFileSync(full, `${JSON.stringify(value, null, compact ? undefined : 2)}\n`); };
+const git = (...args: string[]): string => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
 
 async function main(): Promise<void> {
   if (process.argv.includes("--compare") || arg("compare")) {
@@ -330,8 +346,13 @@ async function main(): Promise<void> {
     const world = loadWorldData();
     if (process.argv.includes("--capture")) {
       const { moments, skipped } = await captureMoments(world, Number(arg("drafts") ?? 6));
-      const chosen = selectRepresentative(moments, Number(arg("per-round") ?? 6));
-      writeJson(arg("out") ?? "eval/replay/pilot-v1.moments.json", { schema: "decision-moments/v1", snapshot: world.snapshot.id, captured: moments.length, skipped, moments: chosen });
+      const all = arg("per-round") === "all";
+      const chosen = all ? moments : selectRepresentative(moments, Number(arg("per-round") ?? 6));
+      // The engine under test must be the frozen checkpoint's: nothing under apps/ differs from the tag.
+      const checkpoint = arg("checkpoint") ?? "checkpoint/f1-v1";
+      const engineEqualsCheckpoint = git("diff", "--name-only", checkpoint, "HEAD", "--", "apps") === "" && git("status", "--porcelain", "--", "apps") === "";
+      const identity = { checkpoint, checkpointCommit: git("rev-parse", `${checkpoint}^{commit}`), engineEqualsCheckpoint, code: collectCodeIdentity(), data: collectDataIdentity(world.snapshot, world.positionsMode) };
+      writeJson(arg("out") ?? "eval/replay/pilot-v1.moments.json", { schema: "decision-moments/v1", snapshot: world.snapshot.id, identity, drafts: Number(arg("drafts") ?? 6), captured: moments.length, skipped, moments: chosen }, all);
       unmuteLog();
       console.log(`captured ${moments.length} moments, kept ${chosen.length}, skipped ${skipped.length}`);
       return;
@@ -340,7 +361,7 @@ async function main(): Promise<void> {
       const file = JSON.parse(readFileSync(resolve(ROOT, arg("moments") ?? "eval/replay/pilot-v1.moments.json"), "utf8")) as { moments: DecisionMoment[] };
       const results: ReplayResult[] = [];
       for (const moment of file.moments) results.push(await replayMoment(world, moment));
-      writeJson(arg("out") ?? "eval/replay/pilot-v1.replay.json", { schema: "decision-replay/v1", snapshot: world.snapshot.id, results });
+      writeJson(arg("out") ?? "eval/replay/pilot-v1.replay.json", { schema: "decision-replay/v1", snapshot: world.snapshot.id, results }, arg("compact") === "1");
       unmuteLog();
       console.log(`replayed ${results.length}: state reproduced ${results.filter((r) => r.stateReproduced).length}, problems ${results.filter((r) => r.problem).length}`);
       return;

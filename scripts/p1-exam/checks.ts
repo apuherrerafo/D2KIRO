@@ -553,7 +553,7 @@ export const M1_THRESHOLDS: readonly M1Threshold[] = [
 ];
 
 const sortedByScore = (field: readonly FieldCandidate[]): FieldCandidate[] => [...field].sort((a, b) => b.score - a.score || a.heroId - b.heroId);
-const isAdverse = (candidate: FieldCandidate | undefined, threshold: M1Threshold): boolean => {
+export const isAdverse = (candidate: FieldCandidate | undefined, threshold: M1Threshold): boolean => {
   const counter = candidate?.counter;
   return counter !== undefined && counter !== null && counter.vsRevealed && counter.raw !== null && counter.raw <= -threshold.adverseRaw && counter.sampleSize >= threshold.minGames;
 };

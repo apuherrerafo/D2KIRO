@@ -76,6 +76,7 @@ describe("Decision Replay: comparing two versions on the same moments", () => {
     board: { recommendedPosition: position, recommendedHeroId: heroes[0]!, targetBasis: null, columns: [{ position, state: "RANKED", eligibleNow: true, top: heroes.map((heroId, i) => ({ heroId, rank: i + 1, reasons: [reason] })) }] },
     v4: { kind: "k", targetPosition: position, viewedPosition: position, targetBasis: null, state: "RANKED", cards: heroes.map((heroId) => ({ heroId, rationale: reason, basisKind: "statistical", risks: [] })) },
     v3: { primary: "p", shortlist: heroes.map((heroId) => ({ heroId, rationale: reason })) },
+    counterTop3: [],
   });
   const result = (id: string, o: MomentOutput, stateReproduced = true): ReplayResult => ({ id, stateReproduced, visibleFingerprint: "f", outputFingerprint: fingerprint(o), output: o });
 

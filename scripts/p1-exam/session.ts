@@ -97,7 +97,7 @@ async function fullColumnRanking(world: WorldData, context: PerspectiveRecommend
  * only differ in the state mean V6 uses to fill a missing signal, which does not touch a candidate that has data -- every credible hero has
  * `position_fit` evidence at its own position.
  */
-async function peeledColumnField(world: WorldData, context: PerspectiveRecommendationContext, position: Pos, ownerAccountId: number | null, mode: "product" | "volume" | "credible-median", needs: "product" | "flat" | "closing" = "product"): Promise<FieldCandidate[]> {
+export async function peeledColumnField(world: WorldData, context: PerspectiveRecommendationContext, position: Pos, ownerAccountId: number | null, mode: "product" | "volume" | "credible-median", needs: "product" | "flat" | "closing" = "product"): Promise<FieldCandidate[]> {
   const meta = ownerAccountId === null ? world.meta : { ...world.meta, heroPool: world.pools[ownerAccountId] ?? [], personalBaselineWinrate: null };
   const ownPicksLeft = Math.max(5 - visibleHeroes(context.view.ownPicks, ["KNOWN", "REVEALED"]).length, 0);
   const field: FieldCandidate[] = [];
