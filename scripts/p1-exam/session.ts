@@ -113,7 +113,13 @@ async function peeledColumnField(world: WorldData, context: PerspectiveRecommend
       for (const suggestion of set.suggestions) {
         const pf = suggestion.signals.find((signal) => signal.signal === "position_fit");
         const matches = (world.heroPositions[suggestion.hero] ?? []).find((share) => share.position === position)?.matches;
-        if (pf !== undefined && matches !== undefined) field.push({ heroId: suggestion.hero, score: suggestion.score, positionFit: pf.weighted, matches });
+        const counter = suggestion.signals.find((signal) => signal.signal === "counter");
+        if (pf !== undefined && matches !== undefined) {
+          field.push({
+            heroId: suggestion.hero, score: suggestion.score, positionFit: pf.weighted, matches,
+            counter: counter === undefined ? null : { raw: counter.raw, weighted: counter.weighted, sampleSize: counter.sampleSize, vsRevealed: counter.hasRevealedEnemyCounterEvidence === true },
+          });
+        }
       }
       const taken = new Set(set.suggestions.map((s) => s.hero));
       remaining = remaining.filter((hero) => !taken.has(hero));

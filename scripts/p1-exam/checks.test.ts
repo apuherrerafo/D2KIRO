@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { HeroCapabilities } from "../../apps/engine/src/draft-paths/types";
 import type { CuratedCounter } from "../../apps/engine/src/signals/hero-counters";
 import type { HeroPositions } from "../../apps/engine/src/signals/hero-positions";
-import { availableHardCounters, criticalGapOnCards, criticalWithheldByUncuratedPick, i11Basis, examNeeds, fieldStats, fillsCritical, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamV4Card, type ExamWorld, type FieldCandidate } from "./checks";
+import { adverseFillersInField, exposureCommunication, m1Tension, unevaluable, availableHardCounters, criticalGapOnCards, criticalWithheldByUncuratedPick, i11Basis, examNeeds, fieldStats, fillsCritical, i6bInitiation, needsChange, pairedChange, revealedCounterProfile, tiedAtCut, topThree, hardCounteredBy, i1Illegal, i2Roles, i3Order, i6Gap, i7Damage, i9Counters, inMorePlayedHalf, jaccard, meanPairwiseJaccard, notCredibleShown, varianceShare, type ExamState, type ExamV4Card, type ExamWorld, type FieldCandidate } from "./checks";
 
 // Inline fixtures only: no curated file, no SQLite (invariantes.md).
 const positions: HeroPositions = {
@@ -411,5 +411,84 @@ describe("T5 -- I11 honest basis", () => {
   test("OBSERVATION: a statistical source with an unknown sample is counted, not a violation", () => {
     const unknownN = { kind: "statistical", sources: [{ kind: "statistical", sampleSize: null }] };
     expect(i11Basis(state({ v4: card("Evidencia sólida de que funciona como carry", unknownN) }))).toMatchObject({ violations: [], statisticalWithoutSample: 1 });
+  });
+});
+
+// ---- T6 (TSK-255): M1, exposure of round 1, D1 --------------------------------------------------------------------------------------------
+describe("T6 -- M1: a gap-filler promoted over a statistical counter", () => {
+  // Team of three plain physical heroes with two picks left: initiation, catch and damage mix are all critical. Hero 3 initiates; hero 4 is magical.
+  const team = { ownPicks: [1, 2, 5], ownPicksRemaining: 2, revealedEnemy: [9] };
+  const cand = (heroId: number, score: number, counter: FieldCandidate["counter"]): FieldCandidate => ({ heroId, score, positionFit: 0, matches: 1000, counter });
+  const stat = (raw: number, sampleSize: number, vsRevealed = true) => ({ raw, weighted: 0, sampleSize, vsRevealed });
+  const filler = [3, 4, 6, 8, 9, 10];
+  const field = (scores: Record<number, number>, counters: Record<number, FieldCandidate["counter"]> = {}): FieldCandidate[] => filler.map((id) => cand(id, scores[id] ?? 50, counters[id] ?? null));
+  const threshold = { label: "t", adverseRaw: 0.05, minGames: 30 };
+  const paired = (closingCounters: Record<number, FieldCandidate["counter"]>, flatCounters: Record<number, FieldCandidate["counter"]> = {}) => ({
+    flat: field({ 8: 88, 3: 80 }, flatCounters), closing: field({ 3: 90, 8: 85 }, closingCounters),
+  });
+
+  test("the filler that the stage-aware rule put first, with an adverse counter, over a neutral-or-better displaced hero, is the M1 tension", () => {
+    const s = state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.08, 120), 8: stat(0.05, 200) }, { 8: stat(0.05, 200) }) });
+    expect(m1Tension(s, world, threshold)).toMatchObject({ promoted: true, promotedHero: 3, displacedHero: 8, promotedAdverse: true, promotedHardCountered: false, displacedNeutralOrBetter: true, promotedGames: 120 });
+  });
+  test("a filler that was ALREADY first under the legacy rule was not promoted by the stage-aware one (nothing to blame on the bonus)", () => {
+    const same = { flat: field({ 3: 95, 8: 80 }, { 3: stat(-0.08, 120) }), closing: field({ 3: 98, 8: 85 }, { 3: stat(-0.08, 120) }) };
+    expect(m1Tension(state({ ...team, teamNeedsPaired: same }), world, threshold)).toMatchObject({ promoted: false, promotedHero: 3, displacedHero: 3 });
+  });
+  test("a thin sample (below the minimum of games) or a weak counter is not 'adverse'", () => {
+    expect(m1Tension(state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.08, 10) }) }), world, threshold)?.promotedAdverse).toBe(false);
+    expect(m1Tension(state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.02, 500) }) }), world, threshold)?.promotedAdverse).toBe(false);
+  });
+  test("ban relief or a counter that does not concern a REVEALED enemy never counts as adverse", () => {
+    expect(m1Tension(state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.2, 500, false) }) }), world, threshold)?.promotedAdverse).toBe(false);
+  });
+  test("a promoted hero that a revealed enemy hard-counters is NOT an M1 harm: RB-4 demotes it afterwards", () => {
+    const rb4World = { ...world, counters: new Map<number, readonly CuratedCounter[]>([[3, [{ vs: 9, level: "hard", why: "x" }]]]) };
+    expect(m1Tension(state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.2, 500) }) }), rb4World, threshold)).toMatchObject({ promoted: true, promotedHardCountered: true, promotedAdverse: false });
+  });
+  test("it does not apply without a critical gap, without a revealed enemy or with a field too small to compare", () => {
+    expect(m1Tension(state({ ...team, ownPicksRemaining: 3, teamNeedsPaired: paired({}) }), world, threshold)).toBeNull();
+    expect(m1Tension(state({ ...team, revealedEnemy: [], teamNeedsPaired: paired({}) }), world, threshold)).toBeNull();
+    expect(m1Tension(state({ ...team, teamNeedsPaired: { flat: field({}).slice(0, 3), closing: field({}).slice(0, 3) } }), world, threshold)).toBeNull();
+  });
+  test("a top card that carries no risk is visible to the measurement (the card says nothing about a statistical counter)", () => {
+    const v4 = { kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId: 3, rationale: "", basis: null, risks: [] }] };
+    expect(m1Tension(state({ ...team, v4, teamNeedsPaired: paired({ 3: stat(-0.08, 120) }) }), world, threshold)?.promotedCardRisks).toEqual([]);
+    expect(m1Tension(state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.08, 120) }) }), world, threshold)?.promotedCardRisks).toBeNull();
+  });
+  test("reachability counts adverse candidates, the ones that also fill the gap, and the best rank", () => {
+    const s = state({ ...team, teamNeedsPaired: paired({ 3: stat(-0.08, 120), 6: stat(-0.09, 90), 8: stat(-0.2, 300) }) });
+    // closing order: 3 (90), 8 (85), then the rest at 50; 3 and 6 fill (initiation / catch); 8 and 3 and 6 are adverse.
+    expect(adverseFillersInField(s, world, threshold)).toEqual({ adverse: 3, adverseFillers: 2, bestFillerRank: 1 });
+    expect(adverseFillersInField(state({ ...team, revealedEnemy: [], teamNeedsPaired: paired({}) }), world, threshold)).toBeNull();
+  });
+});
+
+describe("T6 -- round-1 exposure on the cards", () => {
+  const card = (heroId: number, warned: boolean) => ({ heroId, rationale: "", basis: null, risks: warned ? [{ kind: "exposed_to_counter", detail: "x", heroIds: [9] }] : [] });
+  const v4 = (cards: ReturnType<typeof card>[]) => ({ kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards });
+  test("each card reports the curated hard counters still on the table and whether it says so", () => {
+    const result = exposureCommunication(state({ round: 1, v4: v4([card(1, true), card(2, false)]) }), world);
+    expect(result?.cards).toEqual([{ heroId: 1, rank: 1, availableHardCounters: 1, warned: true }, { heroId: 2, rank: 2, availableHardCounters: 0, warned: false }]);
+  });
+  test("a banned counter is no longer exposure, so the same hero is unexposed (and a warning would be an inconsistency)", () => {
+    const result = exposureCommunication(state({ round: 1, banned: [9], v4: v4([card(1, false)]) }), world);
+    expect(result?.cards[0]).toMatchObject({ availableHardCounters: 0, warned: false });
+  });
+  test("only round 1 with ranked cards is measured", () => {
+    expect(exposureCommunication(state({ round: 2, v4: v4([card(1, true)]) }), world)).toBeNull();
+    expect(exposureCommunication(state({ round: 1, v4: null }), world)).toBeNull();
+  });
+});
+
+describe("T6 -- D1: where the critical gap cannot be evaluated", () => {
+  test("an uncurated own pick or an uncurated card hero is reported; a fully curated state is not", () => {
+    const v4 = { kind: "own", targetPosition: 1 as const, viewedPosition: 1 as const, targetBasis: null, state: "RANKED", cards: [{ heroId: 8, rationale: "", basis: null, risks: [] }, { heroId: 3, rationale: "", basis: null, risks: [] }] };
+    expect(unevaluable(state({ ownPicks: [1, 2, 777], ownPicksRemaining: 2, v4 }), world)).toMatchObject({ inWindow: true, uncuratedOwnPick: true, cards: 2, cardsOfUncuratedHero: [8] });
+    expect(unevaluable(state({ ownPicks: [1, 2, 5], ownPicksRemaining: 3, v4 }), world)).toMatchObject({ inWindow: false, uncuratedOwnPick: false, cardsOfUncuratedHero: [8] });
+  });
+  test("the gap counts as withheld only when an open critical-type gap sits among the CURATED picks and an own pick is uncurated", () => {
+    expect(unevaluable(state({ ownPicks: [1, 2, 777], ownPicksRemaining: 2 }), world).gapWithheld).toBe(true);
+    expect(unevaluable(state({ ownPicks: [3, 6, 4, 777], ownPicksRemaining: 1 }), world).gapWithheld).toBe(false); // initiation, catch and both damage types are covered by the curated picks
   });
 });
