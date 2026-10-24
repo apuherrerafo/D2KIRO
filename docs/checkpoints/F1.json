@@ -1,0 +1,161 @@
+{
+  "schema": "f1-checkpoint/v1",
+  "id": "F1",
+  "status": "F1 TECHNICAL REFERENCE, NO STRATEGIC CERTIFICATION",
+  "integration": {
+    "branch": "integration/f1-reference",
+    "baseCommit": "2ef19e0eaae5b84c2ef8f4b93dbf33b67e607482",
+    "contentCommit": "1d2f377ebe43f66172af91ff7229abf05d4d7e06",
+    "tag": "checkpoint/f1-v1",
+    "tagTargetAddsOnly": "docs/checkpoints/"
+  },
+  "exam": {
+    "certificationId": "ENGINE_P1_EXAM_F1_FINAL",
+    "codeCommit": "ea997c3125fdc1bcfabfd88f64c26e59ab5f00cb",
+    "contentStateHash": "690c2ba510277ab0910d9b85e1dc1af98d9b89ca4388466b383db844159e78ff",
+    "comparableKey": "51df8bbc5872bdd18f8d3255b09449cc744c1bf7d87444f9edad384b96026770",
+    "runtime": {
+      "bun": "1.4.2"
+    },
+    "reproduce": [
+      "bun scripts/p1-exam/exam.ts --out=ENGINE_P1_EXAM_F1_FINAL --drafts=120 --judge=t4"
+    ],
+    "config": {
+      "drafts": 120,
+      "policies": [
+        "follow-coach",
+        "varied",
+        "deviate"
+      ],
+      "personalPositions": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "sides": [
+        "radiant",
+        "dire"
+      ],
+      "seeds": "AUDIT001.."
+    },
+    "seeds": {
+      "pattern": "AUDIT%03d",
+      "first": 1,
+      "last": 60,
+      "count": 60
+    },
+    "coverage": {
+      "drafts": 120,
+      "completed": 120,
+      "decisionPoints": 622,
+      "round1": 252,
+      "round2": 249,
+      "round3": 121,
+      "harnessFailures": 0,
+      "harnessBadStatuses": 0
+    }
+  },
+  "data": {
+    "snapshot": {
+      "certifiable": true,
+      "id": "W5-EMP-001",
+      "fileSha256": "c02078b82b152770151b81d27d857d30e188fbf545a5c813f3123eff13577853",
+      "logicalFingerprint": "meta1:32ea4d5fc841cb53c9483179c1374491221b22a550678f342c5c79081d189e73",
+      "provenanceSha256": "e00376cdd577c618d3caf709cfbb573cc7ef8688473965d74fd4e58a307b1d51",
+      "verifiedAgainstProvenance": true,
+      "drift": [],
+      "rowCounts": {
+        "heroes": 127,
+        "hero_patch_stats": 1016,
+        "hero_matchups": 15982,
+        "matchupHeroesDistinct": 127
+      },
+      "source": "OpenDota",
+      "retrievalWindow": {
+        "from": "2026-09-18T01:11:38.894Z",
+        "to": "2026-09-19T20:49:59.597Z"
+      },
+      "interruptedSyncRunPresent": true,
+      "observationWindow": null,
+      "patchClaim": {
+        "label": "7.41e",
+        "verified": false
+      }
+    },
+    "curated": [
+      {
+        "path": "apps/engine/src/signals/hero-counters.json",
+        "sha256": "b89087af92423a08f59c0829dcb503a8ad790862de697a3daffc3fce917549c4"
+      },
+      {
+        "path": "apps/engine/src/draft-paths/capabilities.json",
+        "sha256": "6d2474244c1d73b2772a29d79306e301475aa509a83073a2d3ce063531840870"
+      }
+    ],
+    "positional": {
+      "path": "apps/engine/src/signals/hero-positions.json",
+      "sha256": "a0688df69fcf068e783cc62ea09ea1998bf6552334bfba7cd2af6c980b38ad78"
+    },
+    "generated": [
+      {
+        "path": "data/generated/percentiles.json",
+        "sha256": "eb3a1084daf752dbb4df4c6467e18a755597c831f01fbd26602d2458b7efc3d9"
+      },
+      {
+        "path": "data/generated/signal-profile.json",
+        "sha256": "241e2fcdebe39d907d188bc0ab8b9af70363655479ea1e10007bc4465a7c797f"
+      },
+      {
+        "path": "data/generated/tolerance.json",
+        "sha256": "7b212ff49ecbe921d48cec586cce1c1f7cd772d172d9e465b062264f7c041ff8"
+      }
+    ],
+    "rulesetTarget": "7.41f"
+  },
+  "results": [
+    {
+      "path": "docs/diagnostics/ENGINE_P1_EXAM_F1_FINAL.json",
+      "sha256": "030fcf968fc31c275d3f4934b005eaf89a8a8aa4d189cf2801beed77927c8677"
+    },
+    {
+      "path": "docs/diagnostics/ENGINE_P1_EXAM_F1_FINAL.md",
+      "sha256": "e9e371787015f32e746c781d02a7261297f79ca30f561b28ebf7f38095ee199f"
+    },
+    {
+      "path": "docs/diagnostics/ENGINE_P1_EXAM_F1_FINAL_M1_200.json",
+      "sha256": "84f677388b7c581db06cd38ac9fb228f06aafdfe87524a7e79476144638e2771"
+    },
+    {
+      "path": "docs/diagnostics/ENGINE_P1_EXAM_F1_FINAL_M1_200.md",
+      "sha256": "7789ba6869b9fd14ae18c53da661064c415b3cf6fb86cde03a3669ffce452e89"
+    },
+    {
+      "path": "docs/diagnostics/F1_CLOSURE.md",
+      "sha256": "2c4d0e32f5e5bc53126eff47f7946ca566a9baf477f3ba82da6c300998af4bc7"
+    }
+  ],
+  "judge": {
+    "packet": {
+      "path": "docs/diagnostics/ENGINE_P1_EXAM_F1_FINAL_JUDGE.md",
+      "sha256": "1505748652526e3f77e8704ec77308383c36479eb1dad139e1cb8822f835f8a9"
+    },
+    "key": {
+      "scheme": "sha256(salt || keyfile); salt and key kept outside the repository, revealed together after the judge has answered",
+      "commitment": "7122c8e84c8652d4c420f73ea392a5552f078c83645b1e09208d487da74aca95",
+      "opened": false,
+      "location": "private, not recorded"
+    }
+  },
+  "limitations": [
+    "Frozen statistical snapshot labelled 7.41e (label unverified); curated positions/counters are hand-curated. Absolute numbers are comparative baselines, not truth.",
+    "The simulated Player follows V3 (follow-coach / varied / deviate); the Enemy Bot is scripted. States are realistic, not human.",
+    "The lab saves no team pools, so POOL_SCARCITY cannot fire: the declared-precedence reference reads the session's own pools/occupancy (R2). R1 approximated pools with the Player's personal pool and invented scarcity (found in the TSK-251 T2 run).",
+    "I3 'declared precedence' is LivePositionPriorityV1 evaluated offline over the board's own columns; it does not run in the simulator today.",
+    "I11 (honest basis) is measured from TSK-254 on; reports written before it had no `basis` field and say so.",
+    "I6 has two rulers: `I6_visible` keeps the ORIGINAL definition of every report up to T4_AFTER; `I6_visible_revised` (TSK-254) applies only with every own pick curated and also reads V4 card risks. Their numbers are not comparable; a drop from one to the other is a change of rule, not an improvement.",
+    "M1 / exposure / D1 are counts over the simulator's own states (a scripted rival, a frozen snapshot): they say how often a trade-off exists, never whether it hurts a real game. That is the judge's call."
+  ],
+  "labRule": "The primary unit of comparison is the SAME PICK MOMENT, not just the same draft. Every version (F1, F1+F2, F1+F2+F3, F1+F2+F3+F4) must receive exactly the same decision state: allies and their positions, visible rivals, bans, evaluated position, Hero Pool, perspective and data snapshot. Information from future picks is never used. A full autonomous draft is a SECONDARY test, because different decisions produce different paths."
+}
