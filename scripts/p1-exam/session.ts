@@ -21,7 +21,7 @@ const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : [
 
 export interface Run { states: ExamState[]; failures: string[]; badStatuses: string[]; completed: number; drafts: number; boardMs: number[]; v4Ms: number[]; v3Ms: number[] }
 
-async function startSession(lab: Lab, side: (typeof SIDES)[number], humanPosition: Pos, seed: string): Promise<string | null> {
+export async function startSession(lab: Lab, side: (typeof SIDES)[number], humanPosition: Pos, seed: string): Promise<string | null> {
   const created = await lab.routes.post(jsonRequest({
     rulesetId: "dota2/ranked-all-pick",
     patch: "7.41e",
@@ -39,7 +39,7 @@ async function startSession(lab: Lab, side: (typeof SIDES)[number], humanPositio
   return sessionId;
 }
 
-interface BoardColumnJson { position: number; state: string; eligibleNow: boolean; top: { heroId: number; rank: number; reasons: string[] }[] }
+export interface BoardColumnJson { position: number; state: string; eligibleNow: boolean; top: { heroId: number; rank: number; reasons: string[] }[] }
 
 /**
  * The LPP counterfactual: what LivePositionPriorityV1 declares over the board's own columns (it only runs in live today).
@@ -264,7 +264,7 @@ export async function runExam(world: WorldData, draftCount: number): Promise<Run
 }
 
 /** follow-coach = the board's own recommendation; varied = a seeded hero from the recommended column; deviate = a seeded legal hero the board did NOT show. */
-function choose(world: WorldData, policy: Policy, key: string, index: number, decision: Record<string, unknown>, columns: BoardColumnJson[], actionable: Pos[], taken: Set<number>): { heroId: number; position: Pos } | null {
+export function choose(world: WorldData, policy: Policy, key: string, index: number, decision: Record<string, unknown>, columns: BoardColumnJson[], actionable: Pos[], taken: Set<number>): { heroId: number; position: Pos } | null {
   const recommended = (decision.recommendedPosition ?? null) as Pos | null;
   const recommendedHero = (decision.recommendedHeroId ?? null) as number | null;
   const column = (position: Pos): BoardColumnJson | undefined => columns.find((c) => c.position === position);

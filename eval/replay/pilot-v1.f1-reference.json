@@ -1,0 +1,3848 @@
+{
+  "schema": "decision-replay/v1",
+  "snapshot": "W5-EMP-001",
+  "results": [
+    {
+      "id": "follow-coach:AUDIT001:radiant#0",
+      "stateReproduced": true,
+      "visibleFingerprint": "dcaf928696e70f935f27eda7f88c978206eff0dfabd593eacae93ff9281cc68a",
+      "outputFingerprint": "53d5a21d4691e3509064cb4562618f644c0aeb4356aeafb77a608ca27c5efdfc",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 85,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 109,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 70,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 67,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 12,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 107,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 74,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 108,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 135,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 98,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 36,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 2,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 62,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 105,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 88,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 101,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 85,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 5,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 87,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 131,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 1,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 109,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 10,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    69
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 70,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    79
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 67,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    47
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 12,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "2 counters duros curados siguen disponibles y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    2,
+                    52
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Support (Pos 4)",
+          "shortlist": [
+            {
+              "heroId": 62,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 9,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 88,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT001:dire#0",
+      "stateReproduced": true,
+      "visibleFingerprint": "512530559a1f2ec1d685d42adbd06d55cc7e8c4b7a247e1b2b61fae4fe5e5a70",
+      "outputFingerprint": "c72497f9c7bd01818dd03fee6d051eae4551a4723133ec406160f678218764e6",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 85,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 109,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 70,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 67,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 12,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 107,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 74,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 108,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 135,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 98,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 36,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 2,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 62,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 105,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 88,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 101,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 85,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 5,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 87,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 131,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 2,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 107,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    88
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 74,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 126,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    60
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Support (Pos 4)",
+          "shortlist": [
+            {
+              "heroId": 62,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 9,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 88,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deviate:AUDIT002:radiant#0",
+      "stateReproduced": true,
+      "visibleFingerprint": "7a719b88fd1417cfd46c84754f059d9547821de5cacf6b4e7c8df95df0950fb7",
+      "outputFingerprint": "e72888aceb3dd5c740a793f7503c8b9a4d34b4e63b4907a34c7a6cbfe79185d2",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 5,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 67,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 54,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 44,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 145,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 17,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 34,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 90,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 107,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 28,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 78,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 2,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 33,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 108,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 101,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 62,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 88,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 71,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 5,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 84,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 31,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 27,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 112,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 3,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 28,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 78,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 2,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 33,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 108,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Hard support (Pos 5)",
+          "shortlist": [
+            {
+              "heroId": 5,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 84,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 31,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 27,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 112,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-coach:AUDIT002:dire#0",
+      "stateReproduced": true,
+      "visibleFingerprint": "4fa356ea91eae59aea21c40304124702de82651ff0ede8120401f50baaccf9d4",
+      "outputFingerprint": "b3110ed02e028016214603adf2668cdc1564fc48bebac74e04c729a2ac2017c0",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 5,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 67,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 54,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 44,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 145,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 17,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 34,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 90,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 107,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 28,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 78,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 33,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 108,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 55,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 101,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 62,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 88,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 71,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 5,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 84,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 31,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 27,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 112,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 4,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 9,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 62,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    28
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 88,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    28
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 71,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    108
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Hard support (Pos 5)",
+          "shortlist": [
+            {
+              "heroId": 5,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 84,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 31,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 27,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 112,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT003:radiant#0",
+      "stateReproduced": true,
+      "visibleFingerprint": "d9d7f5a302b51ef8f4077bd533dd1324cf543904b49916a6c08e51400146e897",
+      "outputFingerprint": "ff11febb984acbafe74a69271a7b15db85ed19910fdc182f9c9a227b66842d97",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 87,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 12,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 44,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 1,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 8,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 107,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 7,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 25,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 96,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 104,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 137,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 55,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 97,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 105,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 71,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 101,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 86,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 87,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 111,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 50,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 5,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 87,
+              "rationale": "Evidencia sólida de que funciona como hard support",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 111,
+              "rationale": "Evidencia sólida de que funciona como hard support",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    68
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 50,
+              "rationale": "Evidencia sólida de que funciona como hard support",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Support (Pos 4)",
+          "shortlist": [
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 71,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 9,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 86,
+              "rationale": "Evidencia sólida de que funciona como support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deviate:AUDIT003:dire#0",
+      "stateReproduced": true,
+      "visibleFingerprint": "cc82be261e0b2e528257bc7759eea82633100548a89f01a93c67db96d927c012",
+      "outputFingerprint": "fd440aae9863db0b0e8cc68dffdd9d407b853d66e88c7e13fc6972e834990c90",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 87,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 12,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 8,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 44,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 1,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 107,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 7,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 25,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 96,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 104,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 137,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 55,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 97,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 105,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 71,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 101,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 86,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 87,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 111,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 50,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 131,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 1,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 12,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    52
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 8,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    57
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 44,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 1,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 10,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    69
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Support (Pos 4)",
+          "shortlist": [
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 71,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 9,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 86,
+              "rationale": "Evidencia sólida de que funciona como support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT001:dire#2",
+      "stateReproduced": true,
+      "visibleFingerprint": "7a2ee680f4a1c06769d11530e3df1187f4b565b7f045979f49cece3443702c4a",
+      "outputFingerprint": "53c99efcaf884d52ecb808d676f19ac3adf4a0cc2c89f31818d943eca3e6ba0e",
+      "output": {
+        "board": {
+          "recommendedPosition": 3,
+          "recommendedHeroId": 78,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 145,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Underlord. 1 de sus counters está baneado: Legion Commander"
+                  ]
+                },
+                {
+                  "heroId": 18,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 8,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 48,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Mirana"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Underlord. 1 de sus counters está baneado: Lion"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 76,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 13,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 120,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 78,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 36,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 33,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 29,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Mirana"
+                  ]
+                },
+                {
+                  "heroId": 49,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 3,
+          "viewedPosition": 2,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    88
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 13,
+              "rationale": "Fuerte contra Underlord",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    60
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 120,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    4
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 126,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    60
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Offlane (Pos 3)",
+          "shortlist": [
+            {
+              "heroId": 78,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            },
+            {
+              "heroId": 36,
+              "rationale": "Fuerte contra Underlord"
+            },
+            {
+              "heroId": 33,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            },
+            {
+              "heroId": 29,
+              "rationale": "Fuerte contra Mirana"
+            },
+            {
+              "heroId": 49,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT001:dire#3",
+      "stateReproduced": true,
+      "visibleFingerprint": "2d6e12ee39dc251eb1bfa07fe3cf4ad4336b15e5bcab42ccb999096d680c8504",
+      "outputFingerprint": "abb46b766a67f130adc32e896af6c33d9ef53c80d031cb1204eb9eb6bad80950",
+      "output": {
+        "board": {
+          "recommendedPosition": 1,
+          "recommendedHeroId": 145,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 145,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Underlord. 1 de sus counters está baneado: Legion Commander"
+                  ]
+                },
+                {
+                  "heroId": 18,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 8,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 48,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Mirana"
+                  ]
+                },
+                {
+                  "heroId": 10,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Underlord. 1 de sus counters está baneado: Lion"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 76,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 36,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 120,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 13,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                },
+                {
+                  "heroId": 49,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 1,
+          "viewedPosition": 2,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    88
+                  ]
+                },
+                {
+                  "kind": "CRITICAL_GAP",
+                  "detail": "A tu equipo le falta un segundo tipo de daño y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).",
+                  "heroIds": []
+                }
+              ]
+            },
+            {
+              "heroId": 36,
+              "rationale": "Fuerte contra Underlord",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "2 counters duros curados siguen disponibles y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    68,
+                    138
+                  ]
+                },
+                {
+                  "kind": "CRITICAL_GAP",
+                  "detail": "A tu equipo le falta un segundo tipo de daño y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).",
+                  "heroIds": []
+                }
+              ]
+            },
+            {
+              "heroId": 120,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    4
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 13,
+              "rationale": "Fuerte contra Underlord",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    60
+                  ]
+                },
+                {
+                  "kind": "CRITICAL_GAP",
+                  "detail": "A tu equipo le falta un segundo tipo de daño y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).",
+                  "heroIds": []
+                }
+              ]
+            },
+            {
+              "heroId": 49,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    47
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Carry (Pos 1)",
+          "shortlist": [
+            {
+              "heroId": 145,
+              "rationale": "Fuerte contra Underlord. 1 de sus counters está baneado: Legion Commander"
+            },
+            {
+              "heroId": 18,
+              "rationale": "Fuerte contra Underlord"
+            },
+            {
+              "heroId": 8,
+              "rationale": "Fuerte contra Underlord"
+            },
+            {
+              "heroId": 48,
+              "rationale": "Fuerte contra Mirana"
+            },
+            {
+              "heroId": 10,
+              "rationale": "Fuerte contra Underlord. 1 de sus counters está baneado: Lion"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deviate:AUDIT002:radiant#3",
+      "stateReproduced": true,
+      "visibleFingerprint": "fe04486636d07ee1d3ac2499b4613bf9792e26b92efd332c8b2b59715260c052",
+      "outputFingerprint": "3892029befb4098cd2b4aed84b881ea1af575d22bb9f283dd5cad2bc783e6bbd",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 5,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 35,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Lich"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 34,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 17,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 107,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Slardar. 1 de sus counters está baneado: Legion Commander"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 5,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Slardar y Lich. 3 de sus counters están baneados: Juggernaut y Rubick"
+                  ]
+                },
+                {
+                  "heroId": 9,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Slardar. 1 de sus counters está baneado: Zeus"
+                  ]
+                },
+                {
+                  "heroId": 30,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Lich"
+                  ]
+                },
+                {
+                  "heroId": 100,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Lich. 1 de sus counters está baneado: Juggernaut"
+                  ]
+                },
+                {
+                  "heroId": 27,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Slardar. 1 de sus counters está baneado: Phantom Lancer"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 5,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 5,
+              "rationale": "Fuerte contra Slardar y Lich. 3 de sus counters están baneados: Juggernaut y Rubick",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 9,
+              "rationale": "Fuerte contra Slardar. 1 de sus counters está baneado: Zeus",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 30,
+              "rationale": "Fuerte contra Lich",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 100,
+              "rationale": "Fuerte contra Lich. 1 de sus counters está baneado: Juggernaut",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 27,
+              "rationale": "Fuerte contra Slardar. 1 de sus counters está baneado: Phantom Lancer",
+              "basisKind": "mixed",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Hard support (Pos 5)",
+          "shortlist": [
+            {
+              "heroId": 5,
+              "rationale": "Fuerte contra Slardar y Lich. 3 de sus counters están baneados: Juggernaut y Rubick"
+            },
+            {
+              "heroId": 9,
+              "rationale": "Fuerte contra Slardar. 1 de sus counters está baneado: Zeus"
+            },
+            {
+              "heroId": 30,
+              "rationale": "Fuerte contra Lich"
+            },
+            {
+              "heroId": 100,
+              "rationale": "Fuerte contra Lich. 1 de sus counters está baneado: Juggernaut"
+            },
+            {
+              "heroId": 27,
+              "rationale": "Fuerte contra Slardar. 1 de sus counters está baneado: Phantom Lancer"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-coach:AUDIT002:dire#3",
+      "stateReproduced": true,
+      "visibleFingerprint": "a27e2e99266062888c225b983ac204dc347792dbeb4340ff3a5ebf529d005bbe",
+      "outputFingerprint": "8ee2f669c8d982365fc730ef45e4a07e9d548999ebe23dd268d40c4ed0ebab74",
+      "output": {
+        "board": {
+          "recommendedPosition": 1,
+          "recommendedHeroId": 80,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 80,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 54,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 48,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Earthshaker"
+                  ]
+                },
+                {
+                  "heroId": 93,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 67,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 35,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Earthshaker"
+                  ]
+                },
+                {
+                  "heroId": 17,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Bounty Hunter. 1 de sus counters está baneado: Anti-Mage"
+                  ]
+                },
+                {
+                  "heroId": 106,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Earthshaker"
+                  ]
+                },
+                {
+                  "heroId": 36,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 1,
+          "viewedPosition": 1,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 80,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    112
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 54,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    15
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 48,
+              "rationale": "Fuerte contra Earthshaker",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 93,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    4
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 67,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    47
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Carry (Pos 1)",
+          "shortlist": [
+            {
+              "heroId": 80,
+              "rationale": "Evidencia sólida de que funciona como carry"
+            },
+            {
+              "heroId": 54,
+              "rationale": "Evidencia sólida de que funciona como carry"
+            },
+            {
+              "heroId": 48,
+              "rationale": "Fuerte contra Earthshaker"
+            },
+            {
+              "heroId": 93,
+              "rationale": "Evidencia sólida de que funciona como carry"
+            },
+            {
+              "heroId": 67,
+              "rationale": "Evidencia sólida de que funciona como carry"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT003:radiant#2",
+      "stateReproduced": true,
+      "visibleFingerprint": "5e0f382b3010235d0b0ebc691dbf07e2c78665c2fcc8721c36789c7b7371b802",
+      "outputFingerprint": "5bdd27788e62618a2e767cab8037235cf53920e054c0d211e252cb2f05c9576f",
+      "output": {
+        "board": {
+          "recommendedPosition": 3,
+          "recommendedHeroId": 104,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 44,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 70,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Phantom Lancer y Centaur Warrunner. 1 de sus counters está baneado: Windranger"
+                  ]
+                },
+                {
+                  "heroId": 1,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 8,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 48,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 107,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 128,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Phantom Lancer"
+                  ]
+                },
+                {
+                  "heroId": 39,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Phantom Lancer"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 104,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 49,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Phantom Lancer"
+                  ]
+                },
+                {
+                  "heroId": 36,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 135,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                },
+                {
+                  "heroId": 98,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como offlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 3,
+          "viewedPosition": 3,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 104,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    79
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 49,
+              "rationale": "Fuerte contra Phantom Lancer",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    47
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 36,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "2 counters duros curados siguen disponibles y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    68,
+                    138
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 135,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    75
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 98,
+              "rationale": "Evidencia sólida de que funciona como offlane",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    59
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Offlane (Pos 3)",
+          "shortlist": [
+            {
+              "heroId": 104,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            },
+            {
+              "heroId": 49,
+              "rationale": "Fuerte contra Phantom Lancer"
+            },
+            {
+              "heroId": 36,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            },
+            {
+              "heroId": 135,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            },
+            {
+              "heroId": 98,
+              "rationale": "Evidencia sólida de que funciona como offlane"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deviate:AUDIT003:dire#2",
+      "stateReproduced": true,
+      "visibleFingerprint": "4a09898cecdea60dd4ca983d95d57c2dab2b4d941d996d76586de28fcc2f8e29",
+      "outputFingerprint": "3f355d961a868ab8fa4e882787497b988c93ae86c704fce1de24be4a94757320",
+      "output": {
+        "board": {
+          "recommendedPosition": 4,
+          "recommendedHeroId": 105,
+          "targetBasis": "PHASE_FALLBACK",
+          "columns": [
+            {
+              "position": 1,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 44,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 8,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 6,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 145,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como carry"
+                  ]
+                },
+                {
+                  "heroId": 12,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Doom. 3 de sus counters están baneados: Axe y Underlord"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 76,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 49,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Doom"
+                  ]
+                },
+                {
+                  "heroId": 113,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 13,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 105,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 119,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 101,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 100,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 71,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 4,
+          "viewedPosition": 1,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 44,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 8,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    57
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 6,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    129
+                  ]
+                }
+              ]
+            },
+            {
+              "heroId": 145,
+              "rationale": "Evidencia sólida de que funciona como carry",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 12,
+              "rationale": "Fuerte contra Doom. 3 de sus counters están baneados: Axe y Underlord",
+              "basisKind": "mixed",
+              "risks": [
+                {
+                  "kind": "exposed_to_counter",
+                  "detail": "1 counter duro curado sigue disponible y el rival todavía puede elegir después de ver tu pick.",
+                  "heroIds": [
+                    52
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Support (Pos 4)",
+          "shortlist": [
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 119,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 100,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 71,
+              "rationale": "Evidencia sólida de que funciona como support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT001:dire#4",
+      "stateReproduced": true,
+      "visibleFingerprint": "8c56bde49c57fc1820a07c8eabb4bffef65b62edeb30261bdaeef46a40a0997d",
+      "outputFingerprint": "d82e10ea7319cebd4676a220f1b142837645828346caeea9d0d4085e351d2fc7",
+      "output": {
+        "board": {
+          "recommendedPosition": 2,
+          "recommendedHeroId": 76,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "columns": [
+            {
+              "position": 1,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 76,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Lich"
+                  ]
+                },
+                {
+                  "heroId": 34,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Invoker"
+                  ]
+                },
+                {
+                  "heroId": 120,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 13,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Underlord"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 2,
+          "viewedPosition": 2,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 126,
+              "rationale": "Fuerte contra Lich",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 34,
+              "rationale": "Fuerte contra Invoker",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 120,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 13,
+              "rationale": "Fuerte contra Underlord",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Midlane (Pos 2)",
+          "shortlist": [
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane"
+            },
+            {
+              "heroId": 126,
+              "rationale": "Fuerte contra Lich"
+            },
+            {
+              "heroId": 34,
+              "rationale": "Fuerte contra Invoker"
+            },
+            {
+              "heroId": 120,
+              "rationale": "Evidencia sólida de que funciona como midlane"
+            },
+            {
+              "heroId": 13,
+              "rationale": "Fuerte contra Underlord"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deviate:AUDIT002:radiant#4",
+      "stateReproduced": true,
+      "visibleFingerprint": "50ba224e5f9e027d854d09a458f5b426fb8a34de947d97797169ab46c688d225",
+      "outputFingerprint": "39f02f7035b54d81bb091a2b012e00818883ec3a8ce6bb5fb91b5e2f339ea229",
+      "output": {
+        "board": {
+          "recommendedPosition": 5,
+          "recommendedHeroId": 30,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "columns": [
+            {
+              "position": 1,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 2,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 30,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Lich"
+                  ]
+                },
+                {
+                  "heroId": 5,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Slardar y Lich. 3 de sus counters están baneados: Juggernaut y Rubick"
+                  ]
+                },
+                {
+                  "heroId": 121,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                },
+                {
+                  "heroId": 27,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Sven y Slardar. 1 de sus counters está baneado: Phantom Lancer"
+                  ]
+                },
+                {
+                  "heroId": 83,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como hard support"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 5,
+          "viewedPosition": 5,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 30,
+              "rationale": "Fuerte contra Lich",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 5,
+              "rationale": "Fuerte contra Slardar y Lich. 3 de sus counters están baneados: Juggernaut y Rubick",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 121,
+              "rationale": "Evidencia sólida de que funciona como hard support",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 27,
+              "rationale": "Fuerte contra Sven y Slardar. 1 de sus counters está baneado: Phantom Lancer",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 83,
+              "rationale": "Evidencia sólida de que funciona como hard support",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Hard support (Pos 5)",
+          "shortlist": [
+            {
+              "heroId": 30,
+              "rationale": "Fuerte contra Lich"
+            },
+            {
+              "heroId": 5,
+              "rationale": "Fuerte contra Slardar y Lich. 3 de sus counters están baneados: Juggernaut y Rubick"
+            },
+            {
+              "heroId": 121,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            },
+            {
+              "heroId": 27,
+              "rationale": "Fuerte contra Sven y Slardar. 1 de sus counters está baneado: Phantom Lancer"
+            },
+            {
+              "heroId": 83,
+              "rationale": "Evidencia sólida de que funciona como hard support"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "follow-coach:AUDIT002:dire#4",
+      "stateReproduced": true,
+      "visibleFingerprint": "c3340dd74d45ae8db6fdf664d5ff3dd7d5196866c2922d6ef79363a0aff0e19e",
+      "outputFingerprint": "7c483e8877d6aee59e32ca3046c971678da243e2237ca0c20638476d88938052",
+      "output": {
+        "board": {
+          "recommendedPosition": 2,
+          "recommendedHeroId": 35,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "columns": [
+            {
+              "position": 1,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 35,
+                  "rank": 1,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Earthshaker"
+                  ]
+                },
+                {
+                  "heroId": 106,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Earthshaker y Enigma"
+                  ]
+                },
+                {
+                  "heroId": 76,
+                  "rank": 4,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                },
+                {
+                  "heroId": 113,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 2,
+          "viewedPosition": 2,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 35,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 126,
+              "rationale": "Fuerte contra Earthshaker",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 106,
+              "rationale": "Fuerte contra Earthshaker y Enigma",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 113,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Midlane (Pos 2)",
+          "shortlist": [
+            {
+              "heroId": 35,
+              "rationale": "Evidencia sólida de que funciona como midlane"
+            },
+            {
+              "heroId": 126,
+              "rationale": "Fuerte contra Earthshaker"
+            },
+            {
+              "heroId": 106,
+              "rationale": "Fuerte contra Earthshaker y Enigma"
+            },
+            {
+              "heroId": 76,
+              "rationale": "Evidencia sólida de que funciona como midlane"
+            },
+            {
+              "heroId": 113,
+              "rationale": "Evidencia sólida de que funciona como midlane"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "varied:AUDIT003:radiant#4",
+      "stateReproduced": true,
+      "visibleFingerprint": "cefbc97d2a7b255eef92a94024d5c211b3952db85a01b755f2d6e8046a7ff1f3",
+      "outputFingerprint": "aa2881ee5496b4ed4d12d0438e67f718f94a8e1dfcbe01316d9efe1d2024b66b",
+      "output": {
+        "board": {
+          "recommendedPosition": 2,
+          "recommendedHeroId": 107,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "columns": [
+            {
+              "position": 1,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 2,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 107,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Hoodwink. 2 de sus counters están baneados: Lifestealer y Slark"
+                  ]
+                },
+                {
+                  "heroId": 128,
+                  "rank": 2,
+                  "reasons": [
+                    "Fuerte contra Phantom Lancer y Lich"
+                  ]
+                },
+                {
+                  "heroId": 126,
+                  "rank": 3,
+                  "reasons": [
+                    "Fuerte contra Lich"
+                  ]
+                },
+                {
+                  "heroId": 106,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Hoodwink"
+                  ]
+                },
+                {
+                  "heroId": 7,
+                  "rank": 5,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como midlane"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 2,
+          "viewedPosition": 2,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 107,
+              "rationale": "Fuerte contra Hoodwink. 2 de sus counters están baneados: Lifestealer y Slark",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 128,
+              "rationale": "Fuerte contra Phantom Lancer y Lich",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 126,
+              "rationale": "Fuerte contra Lich",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 106,
+              "rationale": "Fuerte contra Hoodwink",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 7,
+              "rationale": "Evidencia sólida de que funciona como midlane",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Midlane (Pos 2)",
+          "shortlist": [
+            {
+              "heroId": 107,
+              "rationale": "Fuerte contra Hoodwink. 2 de sus counters están baneados: Lifestealer y Slark"
+            },
+            {
+              "heroId": 128,
+              "rationale": "Fuerte contra Phantom Lancer y Lich"
+            },
+            {
+              "heroId": 126,
+              "rationale": "Fuerte contra Lich"
+            },
+            {
+              "heroId": 106,
+              "rationale": "Fuerte contra Hoodwink"
+            },
+            {
+              "heroId": 7,
+              "rationale": "Evidencia sólida de que funciona como midlane"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "deviate:AUDIT003:dire#4",
+      "stateReproduced": true,
+      "visibleFingerprint": "625c8d810a82946ea550b62470141ae8b41e00f981d1c648a3b37a81033d2bd3",
+      "outputFingerprint": "54487ea7a6a1985aa65d8c7e342316e69b9df925b1592126c38018290a92629c",
+      "output": {
+        "board": {
+          "recommendedPosition": 4,
+          "recommendedHeroId": 100,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "columns": [
+            {
+              "position": 1,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 2,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 3,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            },
+            {
+              "position": 4,
+              "state": "RANKED",
+              "eligibleNow": true,
+              "top": [
+                {
+                  "heroId": 100,
+                  "rank": 1,
+                  "reasons": [
+                    "Fuerte contra Earthshaker y Phantom Lancer. 1 de sus counters está baneado: Lifestealer"
+                  ]
+                },
+                {
+                  "heroId": 105,
+                  "rank": 2,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 101,
+                  "rank": 3,
+                  "reasons": [
+                    "Evidencia sólida de que funciona como support"
+                  ]
+                },
+                {
+                  "heroId": 71,
+                  "rank": 4,
+                  "reasons": [
+                    "Fuerte contra Phantom Lancer. 1 de sus counters está baneado: Underlord"
+                  ]
+                },
+                {
+                  "heroId": 119,
+                  "rank": 5,
+                  "reasons": [
+                    "Fuerte contra Earthshaker"
+                  ]
+                }
+              ]
+            },
+            {
+              "position": 5,
+              "state": "FILLED",
+              "eligibleNow": false,
+              "top": []
+            }
+          ]
+        },
+        "v4": {
+          "kind": "ACTIONABLE",
+          "targetPosition": 4,
+          "viewedPosition": 4,
+          "targetBasis": "DETERMINISTIC_DEFAULT",
+          "state": "RANKED",
+          "cards": [
+            {
+              "heroId": 100,
+              "rationale": "Fuerte contra Earthshaker y Phantom Lancer. 1 de sus counters está baneado: Lifestealer",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support",
+              "basisKind": "statistical",
+              "risks": []
+            },
+            {
+              "heroId": 71,
+              "rationale": "Fuerte contra Phantom Lancer. 1 de sus counters está baneado: Underlord",
+              "basisKind": "mixed",
+              "risks": []
+            },
+            {
+              "heroId": 119,
+              "rationale": "Fuerte contra Earthshaker",
+              "basisKind": "statistical",
+              "risks": []
+            }
+          ]
+        },
+        "v3": {
+          "primary": "Sugerencia: revela Support (Pos 4)",
+          "shortlist": [
+            {
+              "heroId": 100,
+              "rationale": "Fuerte contra Earthshaker y Phantom Lancer. 1 de sus counters está baneado: Lifestealer"
+            },
+            {
+              "heroId": 105,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 101,
+              "rationale": "Evidencia sólida de que funciona como support"
+            },
+            {
+              "heroId": 71,
+              "rationale": "Fuerte contra Phantom Lancer. 1 de sus counters está baneado: Underlord"
+            },
+            {
+              "heroId": 119,
+              "rationale": "Fuerte contra Earthshaker"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,2565 @@
+{
+  "schema": "decision-moments/v1",
+  "snapshot": "W5-EMP-001",
+  "captured": 27,
+  "skipped": [
+    "follow-coach:AUDIT001:radiant#2: a collision changed the bans"
+  ],
+  "moments": [
+    {
+      "schema": "decision-moment/v1",
+      "id": "follow-coach:AUDIT001:radiant#0",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "follow-coach:AUDIT001:radiant",
+        "stateIndex": 0
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 1,
+        "simulatorSeed": "AUDIT001",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 1,
+        "side": "radiant",
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "humanPosition": 1
+      },
+      "visibleFingerprint": "dcaf928696e70f935f27eda7f88c978206eff0dfabd593eacae93ff9281cc68a",
+      "reconstruction": {
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownSealed": [],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 85
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 18
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT001:dire#0",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT001:dire",
+        "stateIndex": 0
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 2,
+        "simulatorSeed": "AUDIT001",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 1,
+        "side": "dire",
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "humanPosition": 2
+      },
+      "visibleFingerprint": "512530559a1f2ec1d685d42adbd06d55cc7e8c4b7a247e1b2b61fae4fe5e5a70",
+      "reconstruction": {
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownSealed": [],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 108
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 9
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "deviate:AUDIT002:radiant#0",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "deviate:AUDIT002:radiant",
+        "stateIndex": 0
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 3,
+        "simulatorSeed": "AUDIT002",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 1,
+        "side": "radiant",
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "humanPosition": 3
+      },
+      "visibleFingerprint": "7a719b88fd1417cfd46c84754f059d9547821de5cacf6b4e7c8df95df0950fb7",
+      "reconstruction": {
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownSealed": [],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 28
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 31
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "follow-coach:AUDIT002:dire#0",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "follow-coach:AUDIT002:dire",
+        "stateIndex": 0
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 4,
+        "simulatorSeed": "AUDIT002",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 1,
+        "side": "dire",
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "humanPosition": 4
+      },
+      "visibleFingerprint": "4fa356ea91eae59aea21c40304124702de82651ff0ede8120401f50baaccf9d4",
+      "reconstruction": {
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownSealed": [],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 62
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 7
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT003:radiant#0",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT003:radiant",
+        "stateIndex": 0
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 5,
+        "simulatorSeed": "AUDIT003",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 1,
+        "side": "radiant",
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "humanPosition": 5
+      },
+      "visibleFingerprint": "d9d7f5a302b51ef8f4077bd533dd1324cf543904b49916a6c08e51400146e897",
+      "reconstruction": {
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownSealed": [],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 96
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 12
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "deviate:AUDIT003:dire#0",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "deviate:AUDIT003:dire",
+        "stateIndex": 0
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 1,
+        "simulatorSeed": "AUDIT003",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 1,
+        "side": "dire",
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownPicks": [],
+        "revealedEnemy": [],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "humanPosition": 1
+      },
+      "visibleFingerprint": "cc82be261e0b2e528257bc7759eea82633100548a89f01a93c67db96d927c012",
+      "reconstruction": {
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownSealed": [],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 9
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 69
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT001:dire#2",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT001:dire",
+        "stateIndex": 2
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 2,
+        "simulatorSeed": "AUDIT001",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 2,
+        "side": "dire",
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownPicks": [
+          {
+            "heroId": 87,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 101,
+            "assignedPosition": 4
+          }
+        ],
+        "revealedEnemy": [
+          108,
+          9
+        ],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3
+        ],
+        "humanPosition": 2
+      },
+      "visibleFingerprint": "7a2ee680f4a1c06769d11530e3df1187f4b565b7f045979f49cece3443702c4a",
+      "reconstruction": {
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 87,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 101,
+            "assignedPosition": 4
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 108
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 9
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 74
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 31
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT001:dire#3",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT001:dire",
+        "stateIndex": 3
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 2,
+        "simulatorSeed": "AUDIT001",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 2,
+        "side": "dire",
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownPicks": [
+          {
+            "heroId": 87,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 101,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 33,
+            "assignedPosition": 3
+          }
+        ],
+        "revealedEnemy": [
+          108,
+          9
+        ],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2
+        ],
+        "humanPosition": 2
+      },
+      "visibleFingerprint": "2d6e12ee39dc251eb1bfa07fe3cf4ad4336b15e5bcab42ccb999096d680c8504",
+      "reconstruction": {
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 87,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 101,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 33,
+            "assignedPosition": 3
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 108
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 9
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 74
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 31
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "deviate:AUDIT002:radiant#3",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "deviate:AUDIT002:radiant",
+        "stateIndex": 3
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 3,
+        "simulatorSeed": "AUDIT002",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 2,
+        "side": "radiant",
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownPicks": [
+          {
+            "heroId": 55,
+            "assignedPosition": 3
+          },
+          {
+            "heroId": 20,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 49,
+            "assignedPosition": 1
+          }
+        ],
+        "revealedEnemy": [
+          28,
+          31
+        ],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          2,
+          5
+        ],
+        "humanPosition": 3
+      },
+      "visibleFingerprint": "fe04486636d07ee1d3ac2499b4613bf9792e26b92efd332c8b2b59715260c052",
+      "reconstruction": {
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 55,
+            "assignedPosition": 3
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 20,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 49,
+            "assignedPosition": 1
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 28
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 31
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 18
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 34
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "follow-coach:AUDIT002:dire#3",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "follow-coach:AUDIT002:dire",
+        "stateIndex": 3
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 4,
+        "simulatorSeed": "AUDIT002",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 2,
+        "side": "dire",
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownPicks": [
+          {
+            "heroId": 5,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 88,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 28,
+            "assignedPosition": 3
+          }
+        ],
+        "revealedEnemy": [
+          62,
+          7
+        ],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2
+        ],
+        "humanPosition": 4
+      },
+      "visibleFingerprint": "a27e2e99266062888c225b983ac204dc347792dbeb4340ff3a5ebf529d005bbe",
+      "reconstruction": {
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 5,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 88,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 28,
+            "assignedPosition": 3
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 62
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 7
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 9
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 33
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT003:radiant#2",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT003:radiant",
+        "stateIndex": 2
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 5,
+        "simulatorSeed": "AUDIT003",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 2,
+        "side": "radiant",
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownPicks": [
+          {
+            "heroId": 111,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 9,
+            "assignedPosition": 4
+          }
+        ],
+        "revealedEnemy": [
+          96,
+          12
+        ],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          3
+        ],
+        "humanPosition": 5
+      },
+      "visibleFingerprint": "5e0f382b3010235d0b0ebc691dbf07e2c78665c2fcc8721c36789c7b7371b802",
+      "reconstruction": {
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 111,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 9,
+            "assignedPosition": 4
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 96
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 12
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 31
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 123
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "deviate:AUDIT003:dire#2",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "deviate:AUDIT003:dire",
+        "stateIndex": 2
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 1,
+        "simulatorSeed": "AUDIT003",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 2,
+        "side": "dire",
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownPicks": [
+          {
+            "heroId": 25,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 81,
+            "assignedPosition": 3
+          }
+        ],
+        "revealedEnemy": [
+          9,
+          69
+        ],
+        "hiddenEnemySlots": 2,
+        "actionablePositions": [
+          1,
+          2,
+          4
+        ],
+        "humanPosition": 1
+      },
+      "visibleFingerprint": "4a09898cecdea60dd4ca983d95d57c2dab2b4d941d996d76586de28fcc2f8e29",
+      "reconstruction": {
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 25,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 81,
+            "assignedPosition": 3
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 9
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 69
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 12
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 7
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT001:dire#4",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT001:dire",
+        "stateIndex": 4
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 2,
+        "simulatorSeed": "AUDIT001",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 3,
+        "side": "dire",
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownPicks": [
+          {
+            "heroId": 87,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 101,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 33,
+            "assignedPosition": 3
+          },
+          {
+            "heroId": 18,
+            "assignedPosition": 1
+          }
+        ],
+        "revealedEnemy": [
+          108,
+          9,
+          74,
+          31
+        ],
+        "hiddenEnemySlots": 1,
+        "actionablePositions": [
+          2
+        ],
+        "humanPosition": 2
+      },
+      "visibleFingerprint": "8c56bde49c57fc1820a07c8eabb4bffef65b62edeb30261bdaeef46a40a0997d",
+      "reconstruction": {
+        "bans": [
+          7,
+          21,
+          104,
+          11,
+          14,
+          123,
+          22,
+          26,
+          71,
+          97,
+          25,
+          30,
+          35,
+          84,
+          128,
+          6
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 87,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 101,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 33,
+            "assignedPosition": 3
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 18,
+            "assignedPosition": 1
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 108
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 9
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 74
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 31
+          },
+          {
+            "round": 3,
+            "slotIndex": 0,
+            "heroId": 67
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "deviate:AUDIT002:radiant#4",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "deviate:AUDIT002:radiant",
+        "stateIndex": 4
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 3,
+        "simulatorSeed": "AUDIT002",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 3,
+        "side": "radiant",
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownPicks": [
+          {
+            "heroId": 55,
+            "assignedPosition": 3
+          },
+          {
+            "heroId": 20,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 49,
+            "assignedPosition": 1
+          },
+          {
+            "heroId": 91,
+            "assignedPosition": 2
+          }
+        ],
+        "revealedEnemy": [
+          28,
+          31,
+          18,
+          34
+        ],
+        "hiddenEnemySlots": 1,
+        "actionablePositions": [
+          5
+        ],
+        "humanPosition": 3
+      },
+      "visibleFingerprint": "50ba224e5f9e027d854d09a458f5b426fb8a34de947d97797169ab46c688d225",
+      "reconstruction": {
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 55,
+            "assignedPosition": 3
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 20,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 49,
+            "assignedPosition": 1
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 91,
+            "assignedPosition": 2
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 28
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 31
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 18
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 34
+          },
+          {
+            "round": 3,
+            "slotIndex": 0,
+            "heroId": 9
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "follow-coach:AUDIT002:dire#4",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "follow-coach:AUDIT002:dire",
+        "stateIndex": 4
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 4,
+        "simulatorSeed": "AUDIT002",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 3,
+        "side": "dire",
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownPicks": [
+          {
+            "heroId": 5,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 88,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 28,
+            "assignedPosition": 3
+          },
+          {
+            "heroId": 80,
+            "assignedPosition": 1
+          }
+        ],
+        "revealedEnemy": [
+          62,
+          7,
+          9,
+          33
+        ],
+        "hiddenEnemySlots": 1,
+        "actionablePositions": [
+          2
+        ],
+        "humanPosition": 4
+      },
+      "visibleFingerprint": "c3340dd74d45ae8db6fdf664d5ff3dd7d5196866c2922d6ef79363a0aff0e19e",
+      "reconstruction": {
+        "bans": [
+          8,
+          85,
+          11,
+          74,
+          86,
+          104,
+          12,
+          22,
+          14,
+          26,
+          97,
+          6,
+          1,
+          123,
+          105,
+          119
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 5,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 88,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 28,
+            "assignedPosition": 3
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 80,
+            "assignedPosition": 1
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 62
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 7
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 9
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 33
+          },
+          {
+            "round": 3,
+            "slotIndex": 0,
+            "heroId": 109
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "varied:AUDIT003:radiant#4",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "varied:AUDIT003:radiant",
+        "stateIndex": 4
+      },
+      "session": {
+        "side": "radiant",
+        "humanPosition": 5,
+        "simulatorSeed": "AUDIT003",
+        "account": "A",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 14,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 86,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 35,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 74,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 2,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 3,
+        "side": "radiant",
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownPicks": [
+          {
+            "heroId": 111,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 9,
+            "assignedPosition": 4
+          },
+          {
+            "heroId": 49,
+            "assignedPosition": 3
+          },
+          {
+            "heroId": 1,
+            "assignedPosition": 1
+          }
+        ],
+        "revealedEnemy": [
+          96,
+          12,
+          31,
+          123
+        ],
+        "hiddenEnemySlots": 1,
+        "actionablePositions": [
+          2
+        ],
+        "humanPosition": 5
+      },
+      "visibleFingerprint": "cefbc97d2a7b255eef92a94024d5c211b3952db85a01b755f2d6e8046a7ff1f3",
+      "reconstruction": {
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 111,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 9,
+            "assignedPosition": 4
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 49,
+            "assignedPosition": 3
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 1,
+            "assignedPosition": 1
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 96
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 12
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 31
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 123
+          },
+          {
+            "round": 3,
+            "slotIndex": 0,
+            "heroId": 76
+          }
+        ]
+      }
+    },
+    {
+      "schema": "decision-moment/v1",
+      "id": "deviate:AUDIT003:dire#4",
+      "origin": {
+        "checkpoint": "F1",
+        "draftKey": "deviate:AUDIT003:dire",
+        "stateIndex": 4
+      },
+      "session": {
+        "side": "dire",
+        "humanPosition": 1,
+        "simulatorSeed": "AUDIT003",
+        "account": "B",
+        "patch": "7.41e"
+      },
+      "pool": [
+        {
+          "hero": 26,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 25,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 11,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 54,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "hero": 8,
+          "source": "manual",
+          "personalWinrate": null,
+          "personalGames": 0,
+          "updatedAt": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "visible": {
+        "round": 3,
+        "side": "dire",
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownPicks": [
+          {
+            "heroId": 25,
+            "assignedPosition": 5
+          },
+          {
+            "heroId": 81,
+            "assignedPosition": 3
+          },
+          {
+            "heroId": 36,
+            "assignedPosition": 1
+          },
+          {
+            "heroId": 23,
+            "assignedPosition": 2
+          }
+        ],
+        "revealedEnemy": [
+          9,
+          69,
+          12,
+          7
+        ],
+        "hiddenEnemySlots": 1,
+        "actionablePositions": [
+          4
+        ],
+        "humanPosition": 1
+      },
+      "visibleFingerprint": "625c8d810a82946ea550b62470141ae8b41e00f981d1c648a3b37a81033d2bd3",
+      "reconstruction": {
+        "bans": [
+          54,
+          35,
+          2,
+          27,
+          42,
+          11,
+          84,
+          108,
+          18,
+          20,
+          30,
+          93,
+          22,
+          21,
+          53,
+          62
+        ],
+        "ownSealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 25,
+            "assignedPosition": 5
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 81,
+            "assignedPosition": 3
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 36,
+            "assignedPosition": 1
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 23,
+            "assignedPosition": 2
+          }
+        ],
+        "enemySealed": [
+          {
+            "round": 1,
+            "slotIndex": 0,
+            "heroId": 9
+          },
+          {
+            "round": 1,
+            "slotIndex": 1,
+            "heroId": 69
+          },
+          {
+            "round": 2,
+            "slotIndex": 0,
+            "heroId": 12
+          },
+          {
+            "round": 2,
+            "slotIndex": 1,
+            "heroId": 7
+          },
+          {
+            "round": 3,
+            "slotIndex": 0,
+            "heroId": 86
+          }
+        ]
+      }
+    }
+  ]
+}
