@@ -174,3 +174,59 @@ describe("createTeamSynergyScorer", () => {
   // comparten cache entre sí porque cada una tiene la suya propia, la clase de bug queda eliminada
   // por construcción, no por un chequeo en runtime.
 });
+
+// Sinergia de PAREJA (base de conocimiento, 2026-10). Fixtures sintéticos, nunca hero-synergies.json real.
+describe("createTeamSynergyScorer con sinergias de pareja", () => {
+  const META = { heroes: { 10: { id: 10, localizedName: "Héroe Iniciador" } }, matchups: {} };
+  const PAIRS = new Map([
+    [WAVECLEARER.hero, [{ with: INITIATOR.hero, why: "Su combo se potencia." }]],
+    [INITIATOR.hero, [{ with: WAVECLEARER.hero, why: "Su combo se potencia." }]],
+  ]);
+  const withInitiator = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
+
+  // Números fijos de ANTES de las parejas (medidos con el scorer previo, 2026-10-27). Se comparan contra
+  // el mapa vacío y contra parejas cuyo compañero NO está en mi equipo: si el bono se filtrara, falla.
+  const PRE_PAIRS = {
+    [WAVECLEARER.hero]: { raw: 1 / 7, explanation: "Aporta waveclear que a tu equipo le falta" },
+    [SCALER.hero]: { raw: 1 / 7, explanation: "Aporta muy buen scaling que a tu equipo le falta" },
+    999: { raw: null, explanation: "Sin datos de capacidades tácticas para este héroe" },
+  };
+  const UNPICKED_PAIRS = new Map([
+    [WAVECLEARER.hero, [{ with: SCALER.hero, why: "No elegido" }]],
+    [SCALER.hero, [{ with: WAVECLEARER.hero, why: "No elegido" }]],
+    [999, [{ with: SCALER.hero, why: "No elegido" }]],
+  ]);
+
+  test("CANDADO de regresión cero: sin parejas propias, raw y frase son los números fijos de antes", () => {
+    for (const synergies of [new Map(), UNPICKED_PAIRS]) {
+      const scorer = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER], synergies);
+      for (const [candidate, expected] of Object.entries(PRE_PAIRS)) {
+        const result = scorer.score(withInitiator, Number(candidate), META);
+        expect(result.raw).toBe(expected.raw);
+        expect(result.explanation).toBe(expected.explanation);
+      }
+    }
+  });
+
+  test("pareja con un héroe propio suma 1/7 y lo explica con el porqué", () => {
+    const plain = createTeamSynergyScorer([INITIATOR, WAVECLEARER]).score(withInitiator, WAVECLEARER.hero, META);
+    const paired = createTeamSynergyScorer([INITIATOR, WAVECLEARER], PAIRS).score(withInitiator, WAVECLEARER.hero, META);
+    expect(paired.raw).toBeCloseTo((plain.raw ?? 0) + 1 / 7, 10);
+    expect(paired.explanation).toBe(`${plain.explanation}. Sinergia con Héroe Iniciador: Su combo se potencia`);
+  });
+
+  test("la pareja solo cuenta si el compañero está en MI equipo, no en el rival", () => {
+    const enemyHasIt = draftState({ picks: { radiant: [SCALER.hero], dire: [INITIATOR.hero] } });
+    const plain = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER]).score(enemyHasIt, WAVECLEARER.hero, META);
+    const paired = createTeamSynergyScorer([INITIATOR, WAVECLEARER, SCALER], PAIRS).score(enemyHasIt, WAVECLEARER.hero, META);
+    expect(paired).toEqual(plain);
+  });
+
+  test("el bono tiene tope de 2/7 y raw nunca pasa de 1", () => {
+    const many = new Map([[42, [1, 2, 3, 4].map((h) => ({ with: h, why: "x" }))]]);
+    const state = draftState({ picks: { radiant: [1, 2, 3, 4], dire: [] } });
+    const caps = [1, 2, 3, 4, 42].map((hero) => capability({ hero }));
+    const result = createTeamSynergyScorer(caps, many).score(state, 42, { heroes: {}, matchups: {} });
+    expect(result.raw).toBeCloseTo(2 / 7, 10);
+  });
+});

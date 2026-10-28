@@ -5,6 +5,7 @@ import type { DraftPathArchetype, HeroCapabilities } from "../draft-paths/types"
 import { createArchetypeFitScorer } from "./archetype-fit";
 import { createCounterScorer } from "./counter";
 import { loadHeroCounters, type CuratedCounter } from "./hero-counters";
+import { loadHeroSynergies, type CuratedSynergy } from "./hero-synergies";
 import { heroPoolFitScorer } from "./hero-pool-fit";
 import { isCandidateAdmittedForPosition, loadHeroPositions, type HeroPositions } from "./hero-positions";
 import { lowMidTotals, MIN_PATCH_GAMES, patchMetaReady, patchMetaScorer } from "./patch-meta";
@@ -95,6 +96,10 @@ export interface BuildSuggestionsOptions {
   // (loadHeroCounters()). Las pruebas inyectan su propio Map -- nunca dependen del archivo real,
   // que se cura por parche.
   heroCounters?: Map<HeroId, CuratedCounter[]>;
+  // Sinergias de pareja (base de conocimiento, 2026-10, familia S9): ausente -> carga
+  // signals/hero-synergies.json real (loadHeroSynergies()). Las pruebas inyectan su propio Map; un
+  // Map vacío deja `team_synergy` idéntico al de antes de existir este dato.
+  heroSynergies?: Map<HeroId, CuratedSynergy[]>;
   targetPosition?: 1 | 2 | 3 | 4 | 5;
   usePersonalPool?: boolean;
   // El simulador abre una composición completa bajo el control del capitán. No tiene sentido
@@ -151,6 +156,7 @@ const STATIC_SCORERS: SignalScorer[] = [patchMetaScorer, heroPoolFitScorer];
 const MODULE_HERO_POSITIONS: HeroPositions = loadHeroPositions();
 const MODULE_HERO_CAPABILITIES: HeroCapabilities[] = loadHeroCapabilities();
 const MODULE_HERO_COUNTERS: Map<HeroId, CuratedCounter[]> = loadHeroCounters();
+const MODULE_HERO_SYNERGIES: Map<HeroId, CuratedSynergy[]> = loadHeroSynergies();
 const TOP_N = 6;
 const HARD_CUTOFF_MS = 500;
 
@@ -944,7 +950,7 @@ export function buildSuggestions(
     ...baseScorers,
     createCounterScorer(heroCounters),
     createPositionFitScorer(heroPositions, positionFitTarget),
-    createTeamSynergyScorer(heroCapabilities),
+    createTeamSynergyScorer(heroCapabilities, options.heroSynergies ?? MODULE_HERO_SYNERGIES),
     createArchetypeFitScorer(heroCapabilities, options.archetypeIntent),
   ];
   const isTeamOpening = options.teamOpening === true && state.picks.radiant.length === 0 && state.picks.dire.length === 0;

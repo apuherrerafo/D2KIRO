@@ -34,7 +34,7 @@ test("la apertura de equipo entrega seis opciones, ignora rol/pool personal y ex
   expect(result.suggestions.map((suggestion) => suggestion.rank)).toEqual([1, 2, 3, 4, 5, 6]);
   expect(result.suggestions.map((suggestion) => suggestion.hero)).toContain(1);
   expect(result.suggestions.map((suggestion) => suggestion.hero)).toContain(2);
-  const withoutCounterBan = buildSuggestions(stateWithoutCounterBan, meta, { teamOpening: true, heroPositions, heroCapabilities: [] });
+  const withoutCounterBan = buildSuggestions(stateWithoutCounterBan, meta, { teamOpening: true, heroPositions, heroCapabilities: [], heroSynergies: new Map() });
   const relieved = result.suggestions.find((suggestion) => suggestion.hero === 1)!;
   const baseline = withoutCounterBan.suggestions.find((suggestion) => suggestion.hero === 1)!;
   expect(relieved.score).toBeGreaterThan(baseline.score);

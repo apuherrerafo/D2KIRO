@@ -1,7 +1,8 @@
 import type { DraftState, HeroId, TeamSide } from "../draft/reducer";
 import { detectDraftGaps, filledGaps, ownCapabilities } from "../draft-paths/gaps";
 import type { CapabilityLevel, DamageType, DraftCapabilityGap, HeroCapabilities } from "../draft-paths/types";
-import type { SignalContribution, SignalScorer } from "./types";
+import type { CuratedSynergy } from "./hero-synergies";
+import type { MetaSnapshot, SignalContribution, SignalScorer } from "./types";
 
 // TSK-069 (auditoría de inteligencia del motor, fase 2): antes, esta señal media "cobertura" con
 // las etiquetas roles[] de OpenDota (Disabler/Initiator/Durable/Pusher/Support) -- las mismas que
@@ -76,7 +77,31 @@ interface NeededState {
   ownDamageTypes: DamageType[];
 }
 
-export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): SignalScorer {
+// Sinergia de PAREJA (2026-10, base de conocimiento): si el candidato tiene una pareja documentada
+// con un héroe que tu equipo ya eligió (Magnus si ya tienes Queen of Pain), suma como si llenara
+// una necesidad más (1/7 por pareja, tope 2/7) y lo dice en la explicación. Sin parejas en el mapa
+// (`synergies` vacío, el default) el resultado es IDÉNTICO al de antes: mismo `raw`, misma frase.
+const PAIR_BONUS = 1 / TOTAL_GAP_KINDS;
+const PAIR_BONUS_CAP = 2 / TOTAL_GAP_KINDS;
+const MAX_NAMED_PAIRS = 2;
+
+function pairsWithOwnTeam(state: DraftState, candidate: HeroId, synergies: Map<HeroId, CuratedSynergy[]>): CuratedSynergy[] {
+  const mine = new Set(ownPicks(state));
+  return (synergies.get(candidate) ?? []).filter((entry) => mine.has(entry.with));
+}
+
+function withPairs(base: string, pairs: CuratedSynergy[], meta: MetaSnapshot): string {
+  if (pairs.length === 0) return base;
+  const named = pairs
+    .slice(0, MAX_NAMED_PAIRS)
+    .map((p) => `Sinergia con ${meta.heroes[p.with]?.localizedName ?? `héroe ${p.with}`}: ${p.why.replace(/[.\s]+$/, "")}`);
+  return `${base}. ${named.join(". ")}`;
+}
+
+export function createTeamSynergyScorer(
+  capabilities: HeroCapabilities[],
+  synergies: Map<HeroId, CuratedSynergy[]> = new Map(),
+): SignalScorer {
   const byHero = new Map(capabilities.map((entry) => [entry.hero, entry]));
 
   // TSK-069: un solo nivel de WeakMap por `state` alcanza -- a diferencia de la versión anterior
@@ -97,7 +122,7 @@ export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): Signa
 
   return {
     id: "team_synergy",
-    score(state, candidate): SignalContribution {
+    score(state, candidate, meta): SignalContribution {
       // No hay un equipo propio observado todavía (localSide desconocido o cero picks) o ningún pick
       // propio tiene capacidades tácticas conocidas -- no existe una "cobertura actual" contra la cual
       // medir qué le falta al equipo, así que se trata como dato insuficiente (null), nunca asumiendo
@@ -120,7 +145,8 @@ export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): Signa
       if (!candidateCapabilities) {
         // Datos de capacidades desconocidos/no disponibles: raw: null (dato insuficiente).
         // Nunca raw: 0, que asumiría falsamente que el héroe carece de todas las capacidades
-        // requeridas por el equipo (engine.md: raw: null es sagrado, nunca 0 ni 0.5).
+        // requeridas por el equipo (engine.md: raw: null es sagrado, nunca 0 ni 0.5). La pareja
+        // tampoco suma acá: sin base de capacidades no hay un raw al que sumarle el bono.
         return {
           signal: "team_synergy",
           raw: null,
@@ -130,14 +156,17 @@ export function createTeamSynergyScorer(capabilities: HeroCapabilities[]): Signa
         };
       }
 
+      const pairs = pairsWithOwnTeam(state, candidate, synergies);
+
       const { gaps, ownDamageTypes } = needed(state);
       const filled = filledGaps(candidateCapabilities, gaps, ownDamageTypes);
+      const bonus = Math.min(PAIR_BONUS_CAP, pairs.length * PAIR_BONUS);
 
       return {
         signal: "team_synergy",
-        raw: filled.length / TOTAL_GAP_KINDS,
+        raw: Math.min(1, filled.length / TOTAL_GAP_KINDS + bonus),
         weighted: 0,
-        explanation: buildExplanation(filled, candidateCapabilities),
+        explanation: withPairs(buildExplanation(filled, candidateCapabilities), pairs, meta),
         sampleSize: 0,
       };
     },

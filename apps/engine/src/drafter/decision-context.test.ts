@@ -33,11 +33,11 @@ test("el momento visible se declara una sola vez en decisionContext, nunca repet
   const response = buildSuggestions(activeState([1, 2], [11, 12]), {
     heroes: { 1: { id: 1, localizedName: "Uno" }, 2: { id: 2, localizedName: "Dos" }, 3: { id: 3, localizedName: "Tres" }, 11: { id: 11, localizedName: "Once" }, 12: { id: 12, localizedName: "Doce" } },
     matchups: {},
-  }, { heroPositions: {}, heroCapabilities: [] });
+  }, { heroPositions: {}, heroCapabilities: [], heroSynergies: new Map() });
   const blind = buildSuggestions(activeState([1, 2], []), {
     heroes: { 1: { id: 1, localizedName: "Uno" }, 2: { id: 2, localizedName: "Dos" }, 3: { id: 3, localizedName: "Tres" } },
     matchups: {},
-  }, { heroPositions: {}, heroCapabilities: [] });
+  }, { heroPositions: {}, heroCapabilities: [], heroSynergies: new Map() });
 
   expect(response.decisionContext).toBe("response_pick");
   expect(blind.decisionContext).toBe("blind_second_pick");
