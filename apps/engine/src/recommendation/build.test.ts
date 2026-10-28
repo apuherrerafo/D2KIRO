@@ -522,7 +522,7 @@ describe("buildRecommendationSetV2 -- Captain's Mode", () => {
           ...options,
           heroPositions: HERO_POSITIONS,
           heroCapabilities: [],
-          heroCounters: new Map(),
+          heroCounters: new Map(), heroSynergies: new Map(),
         });
         if (suggestionSet === undefined) suggestionSet = result;
         return result;
@@ -568,7 +568,7 @@ describe("buildRecommendationSetV2 -- rendimiento real (V6 real, sin mocks, Bloc
   };
 
   const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
-    buildSuggestions(state, PERF_META, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+    buildSuggestions(state, PERF_META, { ...options, heroPositions: HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map() });
 
   /** Captain's Mode, step 2 (actor "first"=radiant, same as step 1) -- our own top recommendation
    * is evaluated here, so applying it (inside buildRecommendationSetV2's S6 lookahead) advances
@@ -644,7 +644,7 @@ describe("buildRecommendationSetV2 -- CM real ban materializes steal end to end 
   // Identical wiring to the performance block's `realComputeSuggestions` -- no mock, no stub, no
   // fabricated SuggestionSet anywhere between this function and V6's own mix.ts.
   const realComputeSuggestions: ComputeSuggestionsForRecommendation = async (state, _accountId, options) =>
-    buildSuggestions(state, CM_META, { ...options, heroPositions: CM_HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map() });
+    buildSuggestions(state, CM_META, { ...options, heroPositions: CM_HERO_POSITIONS, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map() });
 
   test("CM real ban -> el héroe que el V6 real recomienda banear queda excluido del universo real del rival y el steal queda MATERIALIZED", async () => {
     const ready = cmReadyState("s6-real-steal-repair", CM_HERO_IDS);

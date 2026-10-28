@@ -55,7 +55,7 @@ function functional(set: ReturnType<typeof buildSuggestions>): FunctionalRecomme
 }
 
 function opening(heroIds: number[], capabilities: HeroCapabilities[], options: Parameters<typeof buildSuggestions>[2] = {}, meta = snapshot(heroIds)) {
-  return buildSuggestions(state(), meta, { teamOpening: true, heroPositions: {}, heroCapabilities: capabilities, heroCounters: new Map(), ...options });
+  return buildSuggestions(state(), meta, { teamOpening: true, heroPositions: {}, heroCapabilities: capabilities, heroCounters: new Map(), heroSynergies: new Map(), ...options });
 }
 
 describe("evidenceIdentityHash -- complete functional inputs", () => {
@@ -80,8 +80,8 @@ describe("evidenceIdentityHash -- complete functional inputs", () => {
   test("same numeric ban relief with a different counter source changes identity", () => {
     const matchupsA = { 1: [{ vsHero: 2, games: 200, wins: 76 }] }; // relief 0.12
     const matchupsB = { 1: [{ vsHero: 3, games: 200, wins: 76 }] }; // same relief, distinct cause
-    const a = buildSuggestions(state([2, 3]), snapshot([1, 2, 3], matchupsA), { teamOpening: true, heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
-    const b = buildSuggestions(state([2, 3]), snapshot([1, 2, 3], matchupsB), { teamOpening: true, heroPositions: {}, heroCapabilities: [], heroCounters: new Map() });
+    const a = buildSuggestions(state([2, 3]), snapshot([1, 2, 3], matchupsA), { teamOpening: true, heroPositions: {}, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map() });
+    const b = buildSuggestions(state([2, 3]), snapshot([1, 2, 3], matchupsB), { teamOpening: true, heroPositions: {}, heroCapabilities: [], heroCounters: new Map(), heroSynergies: new Map() });
     expect(a.suggestions[0]!.score).toBe(b.suggestions[0]!.score);
     expect(a.suggestions[0]!.reason).not.toBe(b.suggestions[0]!.reason);
     expect(evidenceIdentityHash(functional(a))).not.toBe(evidenceIdentityHash(functional(b)));

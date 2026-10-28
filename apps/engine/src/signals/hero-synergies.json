@@ -1,0 +1,567 @@
+[
+  {
+    "a": 102,
+    "b": 2,
+    "why": "Aphotic Shield y Mist Coil hacen a Axe mucho más resistente cuando entra con Blink Dagger"
+  },
+  {
+    "a": 102,
+    "b": 96,
+    "why": "Aphotic Shield absorbe el daño propio de Double Edge y explota, y Mist Coil lo mantiene vivo al frente"
+  },
+  {
+    "a": 102,
+    "b": 91,
+    "why": "Tether le da velocidad a Abaddon para perseguir y aumenta la curación que recibe"
+  },
+  {
+    "a": 102,
+    "b": 104,
+    "why": "Aphotic Shield antes del Duel la protege, la limpia y su explosión ayuda a ganar el duelo"
+  },
+  {
+    "a": 102,
+    "b": 111,
+    "why": "Purifying Flames rompe rápido el Aphotic Shield para que explote y cura a Abaddon durante Borrowed Time"
+  },
+  {
+    "a": 102,
+    "b": 44,
+    "why": "Aphotic Shield le quita stuns a Phantom Assassin para que use Phantom Strike, y su explosión ayuda a matar rápido"
+  },
+  {
+    "a": 102,
+    "b": 17,
+    "why": "Aphotic Shield y Mist Coil dejan a Storm Spirit entrar agresivo y le quitan el stun para escapar con su ulti"
+  },
+  {
+    "a": 73,
+    "b": 97,
+    "why": "Empower acelera muchísimo el farm de Alchemist y Reverse Polarity le deja pegar Unstable Concoction a varios"
+  },
+  {
+    "a": 73,
+    "b": 111,
+    "why": "False Promise junto a Chemical Rage hace a Alchemist casi inmortal, y Fortune's End lo limpia de stuns y deja al rival en el Acid Spray"
+  },
+  {
+    "a": 68,
+    "b": 104,
+    "why": "Duel deja al rival quieto para Cold Feet, Ice Vortex e Ice Blast completos"
+  },
+  {
+    "a": 1,
+    "b": 50,
+    "why": "Shallow Grave le da a Anti-Mage el tiempo para usar Blink y salir de un gank"
+  },
+  {
+    "a": 1,
+    "b": 26,
+    "why": "Earth Spike y Hex le dan a Anti-Mage el control que le falta para hacer su daño"
+  },
+  {
+    "a": 1,
+    "b": 97,
+    "why": "Empower acelera mucho el farmeo y la pelea de Anti-Mage para llegar antes a sus objetos"
+  },
+  {
+    "a": 1,
+    "b": 111,
+    "why": "Counterspell le baja el daño de Purifying Flames y la curación queda casi limpia; False Promise lo salva"
+  },
+  {
+    "a": 1,
+    "b": 79,
+    "why": "Disruption salva a Anti-Mage y le crea ilusiones con Mana Break; Demonic Cleanse le quita roots y silencios para que use Blink"
+  },
+  {
+    "a": 2,
+    "b": 87,
+    "why": "Berserker's Call deja a los rivales juntos para Kinetic Field y Static Storm de Disruptor"
+  },
+  {
+    "a": 2,
+    "b": 121,
+    "why": "Ink Swell le da velocidad a Axe para iniciar y su stun crece durante Berserker's Call"
+  },
+  {
+    "a": 2,
+    "b": 101,
+    "why": "Berserker's Call deja a los rivales juntos y quietos para el Mystic Flare de Skywrath Mage"
+  },
+  {
+    "a": 3,
+    "b": 74,
+    "why": "Nightmare y Fiend's Grip bloquean mucho tiempo y le dejan a Invoker meter Sun Strike y todo su combo"
+  },
+  {
+    "a": 38,
+    "b": 11,
+    "why": "Primal Roar deja al rival quieto para todo el daño de Shadow Fiend, y el push de Beastmaster acompaña su ritmo"
+  },
+  {
+    "a": 4,
+    "b": 107,
+    "why": "Las piedras de Earth Spirit mueven al rival con Rupture y le hacen daño enorme; además no lo deja escapar"
+  },
+  {
+    "a": 4,
+    "b": 14,
+    "why": "Meat Hook activa el daño de Rupture al arrastrar al rival, y Dismember prepara Blood Rite"
+  },
+  {
+    "a": 99,
+    "b": 50,
+    "why": "Shallow Grave le deja usar más Quill Spray y la baja de armadura de Dazzle aumenta su daño"
+  },
+  {
+    "a": 99,
+    "b": 90,
+    "why": "Chakra Magic le reinicia Quill Spray para usarlo dos veces seguidas y le da maná para spamear"
+  },
+  {
+    "a": 96,
+    "b": 121,
+    "why": "Ink Swell prepara el Hoof Stomp y Soulbind hace que dos rivales queden dentro de su área"
+  },
+  {
+    "a": 96,
+    "b": 79,
+    "why": "Disruption y Hoof Stomp forman un combo de control, según el panel de TI 2026"
+  },
+  {
+    "a": 96,
+    "b": 19,
+    "why": "Toss lanza a Centaur sobre los rivales para un Hoof Stomp inmediato"
+  },
+  {
+    "a": 96,
+    "b": 100,
+    "why": "Snowball lleva a Centaur pegado al rival para un Hoof Stomp seguro y Ice Shards lo encierra"
+  },
+  {
+    "a": 81,
+    "b": 5,
+    "why": "Frostbite deja al rival quieto para los golpes de Chaos Knight y Freezing Field limpia la pelea"
+  },
+  {
+    "a": 81,
+    "b": 79,
+    "why": "Disruption sobre Chaos Knight crea más ilusiones con Chaos Strike y Demonic Purge frena al rival para que no escape"
+  },
+  {
+    "a": 51,
+    "b": 74,
+    "why": "Power Cogs aísla al rival y le deja a Invoker un Sun Strike fácil"
+  },
+  {
+    "a": 51,
+    "b": 25,
+    "why": "Hookshot y Power Cogs le dejan a Lina el Light Strike Array asegurado; analistas de TI 2026 la ven como gran pareja"
+  },
+  {
+    "a": 5,
+    "b": 49,
+    "why": "Arcane Aura y la regeneración de Dragon Knight le dejan pelear casi sin volver a base"
+  },
+  {
+    "a": 5,
+    "b": 14,
+    "why": "Arcane Aura le da maná a Pudge para usar Hook y Rot más seguido"
+  },
+  {
+    "a": 55,
+    "b": 7,
+    "why": "Vacuum junta a los rivales para un Echo Slam que barre al equipo"
+  },
+  {
+    "a": 55,
+    "b": 103,
+    "why": "Vacuum junta a los rivales para Echo Stomp y Earth Splitter, y Surge le da velocidad a Elder Titan"
+  },
+  {
+    "a": 55,
+    "b": 106,
+    "why": "Ion Shell y Surge le dan a Ember daño y velocidad para entrar con Fire Remnant"
+  },
+  {
+    "a": 55,
+    "b": 32,
+    "why": "Ion Shell sobre Riki es como un daño en área invisible que gana la línea, y Vacuum junta a los rivales en su Smoke Screen"
+  },
+  {
+    "a": 119,
+    "b": 74,
+    "why": "Cursed Crown y Bramble Maze bloquean mucho tiempo y le dan a Invoker el Sun Strike asegurado"
+  },
+  {
+    "a": 119,
+    "b": 13,
+    "why": "Terrorize hace que los rivales salgan corriendo y rompan Dream Coil, que los stunea y les pega"
+  },
+  {
+    "a": 135,
+    "b": 59,
+    "why": "Solar Guardian salva a Huskar desde cualquier parte del mapa con curación y stun"
+  },
+  {
+    "a": 50,
+    "b": 59,
+    "why": "Shallow Grave deja a Huskar pelear casi muerto, con su máxima velocidad de ataque"
+  },
+  {
+    "a": 87,
+    "b": 103,
+    "why": "Echo Stomp prepara Kinetic Field y Static Storm, y luego Earth Splitter limpia la pelea"
+  },
+  {
+    "a": 87,
+    "b": 76,
+    "why": "Kinetic Field no deja que los rivales se alejen de Outworld Destroyer"
+  },
+  {
+    "a": 69,
+    "b": 121,
+    "why": "Soulbind hace que Doom silencie a dos héroes a la vez y Scorched Earth le deja pegar el Ink Swell completo"
+  },
+  {
+    "a": 49,
+    "b": 97,
+    "why": "Reverse Polarity junta a los rivales para el daño en área del dragón y Empower le suma cleave"
+  },
+  {
+    "a": 7,
+    "b": 97,
+    "why": "Reverse Polarity prepara un Echo Slam que barre al equipo, y Skewer acomoda a los rivales"
+  },
+  {
+    "a": 7,
+    "b": 89,
+    "why": "Song of the Siren duerme a los rivales juntos y deja un Echo Slam perfecto"
+  },
+  {
+    "a": 7,
+    "b": 13,
+    "why": "Dream Coil amarra a los rivales en grupo para un Echo Slam enorme"
+  },
+  {
+    "a": 7,
+    "b": 19,
+    "why": "Tiny lanza a Earthshaker a la pelea para un Echo Slam, y sus stuns le dejan a Tiny pegar"
+  },
+  {
+    "a": 103,
+    "b": 41,
+    "why": "Chronosphere deja a todos quietos para un Earth Splitter perfecto y Natural Order aumenta el daño de Void"
+  },
+  {
+    "a": 103,
+    "b": 20,
+    "why": "Los dos bajan la armadura de los rivales y Magic Missile prepara Echo Stomp: línea con mucha kill"
+  },
+  {
+    "a": 106,
+    "b": 121,
+    "why": "Ink Swell sobre Ember: cuando llega con Fire Remnant, el stun en área explota entre los rivales"
+  },
+  {
+    "a": 106,
+    "b": 90,
+    "why": "Chakra Magic le da maná y le reinicia el Sleight of Fist para usarlo dos veces seguidas"
+  },
+  {
+    "a": 106,
+    "b": 97,
+    "why": "Empower acelera el farmeo de Ember y potencia mucho su Sleight of Fist"
+  },
+  {
+    "a": 33,
+    "b": 97,
+    "why": "Reverse Polarity junta a los rivales y los deja listos para un Black Hole enorme"
+  },
+  {
+    "a": 33,
+    "b": 32,
+    "why": "Black Hole deja a los rivales juntos y quietos para Smoke Screen y Tricks of the Trade"
+  },
+  {
+    "a": 121,
+    "b": 39,
+    "why": "Soulbind duplica Shadow Strike sobre los dos rivales unidos y les impide escapar"
+  },
+  {
+    "a": 121,
+    "b": 19,
+    "why": "Ink Swell sobre Tiny agrega un stun en área a su entrada con Blink Dagger"
+  },
+  {
+    "a": 121,
+    "b": 47,
+    "why": "Ink Swell encaja con el estilo de frontline de Viper y Soulbind duplica Viper Strike"
+  },
+  {
+    "a": 59,
+    "b": 57,
+    "why": "Guardian Angel y Heavenly Grace mantienen vivo a Huskar con poca vida y Purification le cura y pega"
+  },
+  {
+    "a": 59,
+    "b": 111,
+    "why": "False Promise deja a Huskar pelear con casi nada de vida al máximo de Berserker's Blood, y Fortune's End lo limpia de stuns"
+  },
+  {
+    "a": 74,
+    "b": 104,
+    "why": "Los Sun Strike de Invoker aseguran el Duel de Legion en cualquier punto del mapa"
+  },
+  {
+    "a": 74,
+    "b": 97,
+    "why": "Reverse Polarity junta a los rivales para todos los hechizos en área de Invoker"
+  },
+  {
+    "a": 74,
+    "b": 53,
+    "why": "Sprout y Teleportation de Nature's Prophet preparan el Sun Strike y el combo de Invoker en cualquier punto del mapa"
+  },
+  {
+    "a": 74,
+    "b": 19,
+    "why": "Los Sun Strike globales de Invoker rematan los pickoffs de Tiny, y Alacrity le da a Tiny el ritmo de golpe que le falta"
+  },
+  {
+    "a": 91,
+    "b": 52,
+    "why": "Io le da maná y vida constantes a Leshrac, que farmea sin pausas y aguanta más dentro de la pelea"
+  },
+  {
+    "a": 91,
+    "b": 17,
+    "why": "Storm Spirit funciona muy bien con Io, según analistas de TI 2026: Io lo sostiene en sus entradas"
+  },
+  {
+    "a": 91,
+    "b": 19,
+    "why": "Io deja a Tiny entrar agresivo y Relocate lo saca a salvo; Overcharge le acelera los golpes"
+  },
+  {
+    "a": 90,
+    "b": 94,
+    "why": "Chakra Magic le llena el maná que es la vida de Medusa por Mana Shield, y Will-O-Wisp mantiene a los rivales mirándola durante Stone Gaze"
+  },
+  {
+    "a": 90,
+    "b": 17,
+    "why": "Chakra Magic le recarga el maná a Storm para entrar hondo, y Recall lo trae a la pelea"
+  },
+  {
+    "a": 104,
+    "b": 101,
+    "why": "Duel deja al rival quieto y Mystic Flare lo revienta"
+  },
+  {
+    "a": 104,
+    "b": 30,
+    "why": "Duel deja al rival quieto para Maledict y Death Ward completos"
+  },
+  {
+    "a": 52,
+    "b": 111,
+    "why": "False Promise y Fate's Edict cubren la fragilidad de Leshrac en medio de la pelea"
+  },
+  {
+    "a": 52,
+    "b": 27,
+    "why": "Las Serpent Wards tiran torres mientras el daño en área de Leshrac aleja a quien quiera limpiarlas"
+  },
+  {
+    "a": 54,
+    "b": 136,
+    "why": "Dispose y Rebound ayudan a Lifestealer a perseguir y llegar al objetivo"
+  },
+  {
+    "a": 54,
+    "b": 111,
+    "why": "Fortune's End le quita a Lifestealer los silencios que le impiden usar Rage"
+  },
+  {
+    "a": 54,
+    "b": 32,
+    "why": "Lifestealer infestado en Riki cruza el mapa sin ser visto y Blink Strike lo lleva hasta el objetivo"
+  },
+  {
+    "a": 54,
+    "b": 16,
+    "why": "Burrowstrike lleva a Lifestealer infestado hasta los rivales y Epicenter los castiga a todos"
+  },
+  {
+    "a": 54,
+    "b": 28,
+    "why": "Corrosive Haze baja la armadura y potencia el daño físico de Feast; Slardar con Blink es buen portador para Infest"
+  },
+  {
+    "a": 54,
+    "b": 71,
+    "why": "Charge of Darkness lleva a Lifestealer infestado a cualquier punto del mapa y Nether Strike retiene al objetivo"
+  },
+  {
+    "a": 54,
+    "b": 17,
+    "why": "Storm Spirit lleva a Lifestealer infestado con Ball Lightning hasta el objetivo y Electric Vortex lo retiene"
+  },
+  {
+    "a": 25,
+    "b": 27,
+    "why": "Hex y Shackles dejan al rival quieto para que Lina conecte Light Strike Array y el resto de su combo"
+  },
+  {
+    "a": 48,
+    "b": 60,
+    "why": "Eclipse hace de noche y activa el poder nocturno de Night Stalker, y los dos se dan visión para cazar"
+  },
+  {
+    "a": 77,
+    "b": 13,
+    "why": "Puck funciona bien con Lycan, según analistas de TI 2026"
+  },
+  {
+    "a": 97,
+    "b": 44,
+    "why": "Empower potencia el daño físico de Phantom Assassin, que ya revienta con Coup de Grace"
+  },
+  {
+    "a": 97,
+    "b": 39,
+    "why": "Reverse Polarity junta a los rivales para que Sonic Wave y Scream of Pain les peguen a todos"
+  },
+  {
+    "a": 97,
+    "b": 32,
+    "why": "Empower le da daño a Riki en línea y Reverse Polarity junta a los rivales para Tricks of the Trade"
+  },
+  {
+    "a": 97,
+    "b": 128,
+    "why": "Mortimer Kisses hace muchísimo daño a los rivales atrapados en Reverse Polarity"
+  },
+  {
+    "a": 97,
+    "b": 18,
+    "why": "Empower potencia a Sven y se suma a Great Cleave, y Reverse Polarity le junta a los rivales"
+  },
+  {
+    "a": 97,
+    "b": 95,
+    "why": "Empower le da cleave a Troll melee y Reverse Polarity le deja a todos juntos para golpearlos"
+  },
+  {
+    "a": 129,
+    "b": 47,
+    "why": "Arena of Blood encierra a los rivales dentro del Nethertoxin mientras Viper acumula veneno"
+  },
+  {
+    "a": 94,
+    "b": 110,
+    "why": "Stone Gaze protege la Supernova y Sun Ray le cura la vida a Medusa"
+  },
+  {
+    "a": 53,
+    "b": 71,
+    "why": "Spirit Breaker protege a un Nature's Prophet frágil y con Charge of Darkness y Nether Strike le deja al rival bloqueado"
+  },
+  {
+    "a": 53,
+    "b": 100,
+    "why": "Nature's Prophet se suma con Teleportation a las Snowball de Tusk y Sprout mantiene al rival a su alcance"
+  },
+  {
+    "a": 53,
+    "b": 85,
+    "why": "Undying es buena pareja de línea para Nature's Prophet, según analistas de TI 2026"
+  },
+  {
+    "a": 53,
+    "b": 22,
+    "why": "Zeus revela a los rivales en todo el mapa y Nature's Prophet llega con Teleportation a rematar o a presionar"
+  },
+  {
+    "a": 84,
+    "b": 76,
+    "why": "Bloodlust sube el daño y el ritmo de Arcane Orb, y Fireblast deja al rival quieto"
+  },
+  {
+    "a": 84,
+    "b": 42,
+    "why": "Bloodlust hace más peligroso a Wraith King, y Ogre lo ayuda a perseguir con sus stuns"
+  },
+  {
+    "a": 57,
+    "b": 14,
+    "why": "Un Meat Hook exitoso prepara Purification, y Heavenly Grace compensa el daño propio de Rot"
+  },
+  {
+    "a": 111,
+    "b": 14,
+    "why": "Oracle le da a Pudge aguante para Rot y Fortune's End le quita controles con poco cooldown"
+  },
+  {
+    "a": 76,
+    "b": 14,
+    "why": "Astral Imprisonment prepara un Hook seguro si se calcula bien"
+  },
+  {
+    "a": 76,
+    "b": 79,
+    "why": "Disseminate reparte el daño de Sanity's Eclipse a todo el grupo y Disruption más Astral Imprisonment dan dos salvadas"
+  },
+  {
+    "a": 76,
+    "b": 27,
+    "why": "Shackles y Hex dejan al rival quieto muchísimo tiempo para el daño de Outworld Destroyer"
+  },
+  {
+    "a": 110,
+    "b": 13,
+    "why": "Dream Coil deja a los rivales dentro de la Supernova y protege el huevo"
+  },
+  {
+    "a": 110,
+    "b": 18,
+    "why": "Sven protege a Supernova: entra con Storm Hammer y castiga a quienes intentan romper el huevo"
+  },
+  {
+    "a": 14,
+    "b": 105,
+    "why": "Meat Hook arrastra al rival hasta las Proximity Mines de Techies"
+  },
+  {
+    "a": 14,
+    "b": 19,
+    "why": "Toss lanza a Pudge encima de los rivales para Dismember inmediato y Rot los persigue"
+  },
+  {
+    "a": 11,
+    "b": 100,
+    "why": "Snowball e Ice Shards dejan al rival quieto para los Shadowraze, y Walrus PUNCH! asegura el kill"
+  },
+  {
+    "a": 27,
+    "b": 47,
+    "why": "Hex y Shackles dejan al rival quieto mientras Viper le acumula Poison Attack"
+  },
+  {
+    "a": 17,
+    "b": 30,
+    "why": "Storm Spirit entra y atrae la atención, y la Death Ward de Witch Doctor canaliza tranquila"
+  },
+  {
+    "a": 20,
+    "b": 21,
+    "why": "Wave of Terror baja la armadura y Vengeance Aura sube el daño: Focus Fire pega mucho más"
+  },
+  {
+    "a": 40,
+    "b": 47,
+    "why": "Nethertoxin quita pasivas y baja la resistencia mágica, lo que potencia los hechizos de Venomancer"
+  }
+]
