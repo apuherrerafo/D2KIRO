@@ -3,6 +3,7 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { Recommendation, RecommendationRoleImpact, RoleImpactStatus, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import { isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
+import { pairSentence } from "../signals/team-synergy";
 import type { SignalContribution, SignalId } from "../signals/types";
 
 // AP Ranked Roles V1 / Wave 2 (task 17) -- HeroCard / HeroBadge and the per-hero projection of a
@@ -199,6 +200,12 @@ function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string 
       return counterSignal.explanation;
     }
   }
+  // Una pareja documentada con un héroe que tu equipo ya eligió es la razón más concreta que tiene el
+  // coach ("Sinergia con Anti-Mage: ..."): gana sobre la señal más fuerte, que casi siempre es la de
+  // posición y no nombra a nadie. Solo cuenta si la señal votó con dato y aportó (`raw > 0`).
+  const synergy = candidate.signals.find((s) => s.signal === "team_synergy" && votedWithData(s) && (s.raw ?? 0) > 0);
+  const pair = synergy ? pairSentence(synergy.explanation) : null;
+  if (pair !== null) return pair;
   const backed = candidate.signals
     .filter((s) => votedWithData(s) && !s.explanation.startsWith("Sin "))
     .sort((a, b) => b.weighted - a.weighted);

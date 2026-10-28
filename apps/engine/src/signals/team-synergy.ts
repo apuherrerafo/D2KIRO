@@ -90,12 +90,26 @@ function pairsWithOwnTeam(state: DraftState, candidate: HeroId, synergies: Map<H
   return (synergies.get(candidate) ?? []).filter((entry) => mine.has(entry.with));
 }
 
+const PAIR_PREFIX = "Sinergia con ";
+
 function withPairs(base: string, pairs: CuratedSynergy[], meta: MetaSnapshot): string {
   if (pairs.length === 0) return base;
   const named = pairs
     .slice(0, MAX_NAMED_PAIRS)
-    .map((p) => `Sinergia con ${meta.heroes[p.with]?.localizedName ?? `héroe ${p.with}`}: ${p.why.replace(/[.\s]+$/, "")}`);
+    .map((p) => `${PAIR_PREFIX}${meta.heroes[p.with]?.localizedName ?? `héroe ${p.with}`}: ${p.why.replace(/[.\s]+$/, "")}`);
   return `${base}. ${named.join(". ")}`;
+}
+
+/**
+ * La parte "Sinergia con X: porqué" de una explicación de `team_synergy`, o null si el héroe no
+ * tiene pareja con tu equipo. Vive acá, junto a `withPairs`, para que el texto que se arma y el que
+ * se reconoce no puedan separarse. Las tarjetas lo usan para mostrar la pareja en vez de la señal
+ * más fuerte (que casi siempre es la de posición y nunca nombra a nadie).
+ */
+export function pairSentence(explanation: string): string | null {
+  const at = explanation.indexOf(PAIR_PREFIX);
+  if (at < 0) return null;
+  return explanation.slice(at);
 }
 
 export function createTeamSynergyScorer(

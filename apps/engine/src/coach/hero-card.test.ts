@@ -279,6 +279,32 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     expect(card.rationale).toBe("Fuerte contra Medusa");
   });
 
+  describe("pareja de sinergia en la frase de la tarjeta", () => {
+    const POSITION = "Evidencia sólida de que funciona como hard support";
+    const PAIR = "Sinergia con Anti-Mage: Shallow Grave le da tiempo para usar Blink";
+    const build = (raw: number, explanation: string) => {
+      const hero: HeroFixture = {
+        heroId: 7,
+        signals: [signal("position_fit", 0.9, 30, { explanation: POSITION }), signal("team_synergy", raw, 5, { explanation })],
+        impact: resolvedImpact(5),
+      };
+      const [cand] = extractHeroCandidates(recSet([hero]));
+      return buildHeroCard(cand!, []);
+    };
+
+    test("con pareja, la tarjeta dice con quién combina y por qué (gana sobre la señal de posición, que pesa más)", () => {
+      expect(build(0.3, `Aporta waveclear que a tu equipo le falta. ${PAIR}`).rationale).toBe(PAIR);
+    });
+
+    test("CANDADO: sin pareja la frase es exactamente la de antes (la señal más fuerte)", () => {
+      expect(build(0.3, "Aporta waveclear que a tu equipo le falta").rationale).toBe(POSITION);
+    });
+
+    test("una pareja que no aportó (raw <= 0) no se cuela en la tarjeta", () => {
+      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(POSITION);
+    });
+  });
+
   describe("provenance-aligned counter rationale on hero cards (Wave 5 follow-up)", () => {
     test("1. S05-style case: badge earned vs Crystal Maiden, medium Bristleback relation exists -> rationale names Crystal Maiden, not Bristleback", () => {
       const razorCandidate: HeroFixture = {
