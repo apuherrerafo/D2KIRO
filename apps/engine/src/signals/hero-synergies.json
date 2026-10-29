@@ -55,6 +55,11 @@
     "why": "Duel deja al rival quieto para Cold Feet, Ice Vortex e Ice Blast completos"
   },
   {
+    "a": 68,
+    "b": 19,
+    "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Ancient Apparition, mientras Tiny pone poco daño propio"
+  },
+  {
     "a": 1,
     "b": 50,
     "why": "Shallow Grave le da a Anti-Mage el tiempo para usar Blink y salir de un gank"
@@ -126,8 +131,28 @@
   },
   {
     "a": 62,
+    "b": 31,
+    "why": "Bounty Hunter maxea Shadow Walk para encadenar su stun y solo necesita algo de daño, que ponen Lich y Witch Doctor"
+  },
+  {
+    "a": 62,
     "b": 35,
     "why": "Track le da a Sniper visión extra para Assassinate; juntos son buena respuesta contra Lina en mid"
+  },
+  {
+    "a": 62,
+    "b": 30,
+    "why": "El stun de Shadow Walk de Bounty Hunter dura 3,2 s y se encadena con los stuns de Witch Doctor al salir de la invisibilidad: con Maledict y Death Ward matan a cualquiera"
+  },
+  {
+    "a": 78,
+    "b": 119,
+    "why": "Dark Willow tiene sustain infinito y chip damage y Brewmaster es muy tanque con slows de ataque: ganan la línea y se potencian en las peleas"
+  },
+  {
+    "a": 78,
+    "b": 50,
+    "why": "Shallow Grave salva a Brewmaster en pleno Primal Split y el daño del rival se desperdicia, y Shadow Wave rebota en los Primal Split"
   },
   {
     "a": 99,
@@ -160,6 +185,11 @@
     "why": "Snowball lleva a Centaur pegado al rival para un Hoof Stomp seguro y Ice Shards lo encierra"
   },
   {
+    "a": 96,
+    "b": 112,
+    "why": "La cura de Winter Wyvern es en porcentaje de vida, así que rinde muchísimo sobre héroes con mucha vida como Centaur"
+  },
+  {
     "a": 81,
     "b": 5,
     "why": "Frostbite deja al rival quieto para los golpes de Chaos Knight y Freezing Field limpia la pelea"
@@ -187,7 +217,7 @@
   {
     "a": 51,
     "b": 53,
-    "why": "Clockwerk pone el control para que Nature's Prophet y sus Treants rematen, y Battery Assault ayuda a cerrar la kill"
+    "why": "Clockwerk trae stun, empuje, slow y otro stun con poco cooldown, y Nature's Prophet necesita control barato para jugar un ritmo rápido con Teleportation y Treants"
   },
   {
     "a": 5,
@@ -240,6 +270,11 @@
     "why": "Terrorize hace que los rivales salgan corriendo y rompan Dream Coil, que los stunea y les pega"
   },
   {
+    "a": 119,
+    "b": 19,
+    "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Dark Willow, mientras Tiny pone poco daño propio"
+  },
+  {
     "a": 135,
     "b": 106,
     "why": "Dawnbreaker remata con su ultimate a los objetivos que ellos alcanzan: les cierra la distancia y ella los bloquea y les hace mucho daño"
@@ -257,7 +292,7 @@
   {
     "a": 135,
     "b": 71,
-    "why": "Dawnbreaker remata con su ultimate a los objetivos que ellos alcanzan: les cierra la distancia y ella los bloquea y les hace mucho daño"
+    "why": "El shard de Spirit Breaker desvía hacia él los hechizos dirigidos a su aliado, y rescata a Dawnbreaker cuando entra con Solar Guardian en una posición comprometida"
   },
   {
     "a": 50,
@@ -272,7 +307,7 @@
   {
     "a": 50,
     "b": 53,
-    "why": "Shadow Wave cura a todos los Treants que rodean al objetivo y a la vez daña a los rivales"
+    "why": "Shadow Wave de Dazzle conecta con los Treants de Nature's Prophet y gana campamentos y tradeos en la línea; Shallow Grave protege a un Nature's Prophet frágil cuando entra con Teleportation"
   },
   {
     "a": 87,
@@ -302,7 +337,7 @@
   {
     "a": 107,
     "b": 155,
-    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
+    "why": "Croak of Genius le baja el costo de maná a Earth Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
   },
   {
     "a": 7,
@@ -342,7 +377,7 @@
   {
     "a": 106,
     "b": 155,
-    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Ember Spirit"
+    "why": "Croak of Genius le baja el costo de maná a Ember Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Ember Spirit"
   },
   {
     "a": 106,
@@ -375,9 +410,14 @@
     "why": "Con el Aghanim's de Lone Druid el oso no muere y ataca desde cualquier lado, y Hoodwink limpia oleadas de un golpe, cruza árboles y tiene stun: empujan y buscan pickoffs"
   },
   {
+    "a": 123,
+    "b": 19,
+    "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Hoodwink, mientras Tiny pone poco daño propio"
+  },
+  {
     "a": 59,
     "b": 57,
-    "why": "Guardian Angel y Heavenly Grace mantienen vivo a Huskar con poca vida y Purification le cura y pega"
+    "why": "Guardian Angel y Repel mantienen vivo a Huskar con poca vida y Purification le cura y pega"
   },
   {
     "a": 59,
@@ -397,7 +437,7 @@
   {
     "a": 91,
     "b": 155,
-    "why": "Crooked Genius le saca 1% de la vida máxima por tick a cada espíritu de Io, y si Largo cura a quien tiene el Tether, la cura también llega a Io"
+    "why": "Croak of Genius le baja el costo de maná a Io y repite parte del daño que hacen sus habilidades, así que Io sacando espíritus sin parar rinde mucho con Largo"
   },
   {
     "a": 91,
@@ -442,7 +482,7 @@
   {
     "a": 155,
     "b": 17,
-    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Storm Spirit"
+    "why": "Croak of Genius le baja el costo de maná a Storm Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Storm Spirit"
   },
   {
     "a": 155,
@@ -510,6 +550,11 @@
     "why": "Eclipse hace de noche y activa el poder nocturno de Night Stalker, y los dos se dan visión para cazar"
   },
   {
+    "a": 48,
+    "b": 30,
+    "why": "Maledict deja al rival bajo de vida y Luna remata con Lucent Beam"
+  },
+  {
     "a": 77,
     "b": 13,
     "why": "Dream Coil retiene a los rivales mientras Lycan y sus lobos los persiguen"
@@ -545,6 +590,11 @@
     "why": "Stone Gaze protege la Supernova y Sun Ray le cura la vida a Medusa"
   },
   {
+    "a": 9,
+    "b": 19,
+    "why": "Sacred Arrow necesita un disable muy largo y Tiny se lo da con dos stuns; Tiny, que tiene poco daño, deja listos los hechizos difíciles de acertar"
+  },
+  {
     "a": 53,
     "b": 85,
     "why": "Undying es buena pareja de línea para Nature's Prophet: Decay y Tombstone sostienen la línea mientras Sprout encierra al rival"
@@ -562,7 +612,7 @@
   {
     "a": 57,
     "b": 14,
-    "why": "Un Meat Hook exitoso prepara Purification, y Heavenly Grace compensa el daño propio de Rot"
+    "why": "Un Meat Hook exitoso prepara Purification, y Repel compensa el daño propio de Rot con regeneración"
   },
   {
     "a": 111,
@@ -618,5 +668,15 @@
     "a": 11,
     "b": 100,
     "why": "Snowball e Ice Shards dejan al rival quieto para los Shadowraze, y Walrus PUNCH! asegura el kill"
+  },
+  {
+    "a": 101,
+    "b": 19,
+    "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Skywrath Mage, mientras Tiny pone poco daño propio"
+  },
+  {
+    "a": 18,
+    "b": 30,
+    "why": "Maledict deja al rival bajo de vida y Sven remata con Storm Hammer, y Warcry cubre el bajo armor de Witch Doctor"
   }
 ]
