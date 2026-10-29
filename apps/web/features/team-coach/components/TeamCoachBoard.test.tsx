@@ -63,6 +63,44 @@ function renderBoard(data: TeamCoachBoardData | null, options: { onPickHero?: (p
   );
 }
 
+describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", () => {
+  test("columna RANKED: la razón de cada candidato se ve como texto, no solo en un tooltip", () => {
+    const view = renderBoard(board([2], 2));
+    const reasons = view.getAllByTestId("team-coach-candidate-reason").map((node) => node.textContent);
+    expect(reasons).toEqual(["razón 21", "razón 22", "razón 23"]);
+  });
+
+  test("columna UNRANKED_POSITIONAL: no se repite la misma frase en los 5 héroes", () => {
+    const view = renderBoard(board([2], 2, { 2: { state: "UNRANKED_POSITIONAL" } }));
+    expect(view.queryAllByTestId("team-coach-candidate-reason")).toHaveLength(0);
+  });
+
+  test("un rival revelado que counterea al candidato se ve como 'Riesgo (X te counterea): porqué'", () => {
+    const withRisk = column(2);
+    withRisk.top[0] = { ...withRisk.top[0]!, risks: [{ vsHeroId: 7, why: "Berserker's Call lo obliga a pelear" }] };
+    const view = renderBoard({ ...board([2], 2), positions: [withRisk] });
+    const risks = view.getAllByTestId("team-coach-candidate-risk");
+    expect(risks).toHaveLength(1);
+    expect(risks[0]!.textContent).toBe("Riesgo (Hero 7 te counterea): Berserker's Call lo obliga a pelear");
+  });
+
+  test("sin riesgos (o un motor que no manda el campo): no aparece ninguna línea de riesgo", () => {
+    const view = renderBoard(board([2], 2));
+    expect(view.queryAllByTestId("team-coach-candidate-risk")).toHaveLength(0);
+  });
+
+  test("validación: acepta 'risks' ausente y bien formado; rechaza uno mal formado", () => {
+    const good = board([2], 2);
+    expect(parseTeamCoachBoard(good)).not.toBeNull();
+    const withRisk = board([2], 2);
+    withRisk.positions[0]!.top[0] = { ...withRisk.positions[0]!.top[0]!, risks: [{ vsHeroId: 7, why: "razón" }] };
+    expect(parseTeamCoachBoard(withRisk)).not.toBeNull();
+    const broken = board([2], 2);
+    (broken.positions[0]!.top[0] as unknown as { risks: unknown }).risks = [{ vsHeroId: "x", why: 3 }];
+    expect(parseTeamCoachBoard(broken)).toBeNull();
+  });
+});
+
 describe("TeamCoachBoard", () => {
   test("15. Party5 renderiza 5 columnas, POS1..POS5, con ícono de héroe en cada candidato", () => {
     const view = renderBoard(board());
