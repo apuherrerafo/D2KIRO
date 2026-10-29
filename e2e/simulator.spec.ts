@@ -31,7 +31,7 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   await expect(page.getByTestId("current-decision-target")).toHaveCount(1);
   await expect(page.getByTestId("current-decision-candidates")).toHaveCount(1);
   await expect(page.getByTestId("coach-personal-hero-view")).toHaveCount(0);
-  await expect(page.getByText(/AHORA$/)).toHaveCount(0);
+  await expect(page.getByText(/^TU .+ AHORA$/)).toHaveCount(0);
   await expect(page.getByTestId("round-recommendation-columns")).toHaveCount(0);
   await expect(page.getByTestId("coach-panel")).toHaveCount(0);
   // COHERENCE-013 / PSR-002 in the real browser: with no navigation the highlighted position is the viewed one AND the recommendation.

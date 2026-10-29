@@ -1,6 +1,6 @@
 // Pulido visual (hover/pressed/focus/disabled) con tokens semánticos y escala de 4 px -- ni un hex ni un px suelto.
 const INTERACTIVE =
-  "transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
+  "transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-primary active:scale-[0.98] enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
 
 export const BOARD_SHELL = "flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4";
 export const BOARD_GRID = "grid grid-cols-1 gap-3 md:grid-cols-5";
