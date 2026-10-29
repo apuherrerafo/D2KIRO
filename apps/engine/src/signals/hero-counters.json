@@ -211,7 +211,7 @@
     {
       "vs": 104,
       "level": "medium",
-      "why": "Press the Attack le quita el Frostbite a Legion Commander, así Crystal Maiden pierde su stun en la línea"
+      "why": "Press the Attack le quita el Frostbite a Legion Commander, así Crystal Maiden pierde su inmovilización en la línea"
     },
     {
       "vs": 32,
@@ -2109,7 +2109,7 @@
     {
       "vs": 112,
       "level": "medium",
-      "why": "Arctic Burn desgasta a los offlaners tanques por su vida máxima y aguanta la regeneración extra de Iron Will"
+      "why": "Arctic Burn le saca un porcentaje de la vida actual cada segundo a los offlaners tanques, y eso pesa más que la regeneración extra del Helm of Iron Will"
     }
   ],
   "56": [
@@ -3013,7 +3013,7 @@
     {
       "vs": 19,
       "level": "medium",
-      "why": "Avalanche y Toss stunean a varios Meepos y les impiden escapar con Poof"
+      "why": "Avalanche stunea a varios Meepos a la vez y Toss los lanza lejos, así les cuesta juntarse y escapar con Poof"
     }
   ],
   "83": [
@@ -3673,7 +3673,7 @@
     {
       "vs": 78,
       "level": "medium",
-      "why": "El Storm Brewling hace Tornado sobre Abaddon durante Borrowed Time y le desperdicia la duración de su ultimate; también puede dispelear Aphotic Shield"
+      "why": "El Storm Brewling hace Cyclone sobre Abaddon durante Borrowed Time y le desperdicia la duración de su ultimate; también puede dispelear Aphotic Shield"
     },
     {
       "vs": 76,
@@ -4035,7 +4035,7 @@
     {
       "vs": 120,
       "level": "medium",
-      "why": "Rolling Thunder da inmunidad a hechizos y Underlord solo tiene control suave para frenarlo"
+      "why": "Rolling Thunder lo vuelve inmune a debuffs mientras rueda y Underlord solo tiene control suave para frenarlo"
     },
     {
       "vs": 86,

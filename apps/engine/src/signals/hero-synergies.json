@@ -337,7 +337,7 @@
   {
     "a": 107,
     "b": 155,
-    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
+    "why": "Croak of Genius le baja el costo de maná a Earth Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
   },
   {
     "a": 7,
@@ -377,7 +377,7 @@
   {
     "a": 106,
     "b": 155,
-    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Ember Spirit"
+    "why": "Croak of Genius le baja el costo de maná a Ember Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Ember Spirit"
   },
   {
     "a": 106,
@@ -417,7 +417,7 @@
   {
     "a": 59,
     "b": 57,
-    "why": "Guardian Angel y Heavenly Grace mantienen vivo a Huskar con poca vida y Purification le cura y pega"
+    "why": "Guardian Angel y Repel mantienen vivo a Huskar con poca vida y Purification le cura y pega"
   },
   {
     "a": 59,
@@ -437,7 +437,7 @@
   {
     "a": 91,
     "b": 155,
-    "why": "Crooked Genius le saca 1% de la vida máxima por tick a cada espíritu de Io, y si Largo cura a quien tiene el Tether, la cura también llega a Io"
+    "why": "Croak of Genius le baja el costo de maná a Io y repite parte del daño que hacen sus habilidades, así que Io sacando espíritus sin parar rinde mucho con Largo"
   },
   {
     "a": 91,
@@ -482,7 +482,7 @@
   {
     "a": 155,
     "b": 17,
-    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Storm Spirit"
+    "why": "Croak of Genius le baja el costo de maná a Storm Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Storm Spirit"
   },
   {
     "a": 155,
@@ -612,7 +612,7 @@
   {
     "a": 57,
     "b": 14,
-    "why": "Un Meat Hook exitoso prepara Purification, y Heavenly Grace compensa el daño propio de Rot"
+    "why": "Un Meat Hook exitoso prepara Purification, y Repel compensa el daño propio de Rot con regeneración"
   },
   {
     "a": 111,
@@ -677,6 +677,6 @@
   {
     "a": 18,
     "b": 30,
-    "why": "Maledict deja al rival bajo de vida y Sven remata con Storm Hammer, y War Cry cubre el bajo armor de Witch Doctor"
+    "why": "Maledict deja al rival bajo de vida y Sven remata con Storm Hammer, y Warcry cubre el bajo armor de Witch Doctor"
   }
 ]
