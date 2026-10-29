@@ -183,7 +183,10 @@ export function createCounterScorer(
         const against = curatedForCandidate.find((entry) => entry.vs === rival);
         if (against) {
           curatedValue -= M[against.level];
-          negativeWhy.push(against.why);
+          // El `why` curado describe por qué el rival le gana al candidato, a menudo en tercera
+          // persona ("Death Pulse limpia ilusiones"): pegado crudo se leía como una ventaja. Se
+          // etiqueta siempre como riesgo y se nombra al rival (mismo criterio que e63e79d).
+          negativeWhy.push(`Riesgo (${heroName(meta, rival)} te counterea): ${against.why.trim().replace(/[.\s]+$/, "")}`);
           curatedHit = true;
         }
 
@@ -292,7 +295,7 @@ export function createCounterScorer(
       } else if (contribs.length > 0) {
         // No qualifying positive counter against revealed enemies.
         if (negativeWhy.length > 0) {
-          const base = negativeWhy.slice(0, MAX_NAMED_ENEMIES).join(" ");
+          const base = negativeWhy.slice(0, MAX_NAMED_ENEMIES).join(". ");
           explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
         } else if (banRelief > 0) {
           explanation = buildBanReliefClause(banReliefNames);
