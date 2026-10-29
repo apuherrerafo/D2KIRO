@@ -96,6 +96,8 @@ interface EnemyDelta {
   vsHero: HeroId;
   delta: number;
   games: number;
+  /** Winrate crudo del candidato contra este rival (0..1), para mostrarlo en el texto. */
+  observedWinrate: number;
 }
 
 // Explicación cuando SÓLO hubo capa estadística.
@@ -130,6 +132,11 @@ function buildCuratedExplanation(negativeWhy: string[], positiveNames: string[])
     parts.push(`Le ganás a ${positiveNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`);
   }
   return parts.join(" ");
+}
+
+// El `why` curado sin punto final ni espacios: las cláusulas se unen con ". ".
+function cleanWhy(why: string): string {
+  return why.trim().replace(/[.\s]+$/, "");
 }
 
 // TSK-188: cláusula de alivio -- "N de sus counters están baneados: <hasta 2 nombres>".
@@ -170,8 +177,8 @@ export function createCounterScorer(
 
       const contribs: number[] = [];
       const negativeWhy: string[] = [];
-      const positiveHardNames: string[] = [];
-      const positiveMediumNames: string[] = [];
+      const positiveHard: { name: string; why: string }[] = [];
+      const positiveMedium: { name: string; why: string }[] = [];
       const statDeltas: EnemyDelta[] = [];
       let statSampleSize = 0;
 
@@ -183,17 +190,21 @@ export function createCounterScorer(
         const against = curatedForCandidate.find((entry) => entry.vs === rival);
         if (against) {
           curatedValue -= M[against.level];
-          negativeWhy.push(against.why);
+          // El `why` curado describe por qué el rival le gana al candidato, a menudo en tercera
+          // persona ("Death Pulse limpia ilusiones"): pegado crudo se leía como una ventaja. Se
+          // etiqueta siempre como riesgo y se nombra al rival (mismo criterio que e63e79d).
+          negativeWhy.push(`Riesgo (${heroName(meta, rival)} te counterea): ${against.why.trim().replace(/[.\s]+$/, "")}`);
           curatedHit = true;
         }
 
         const counters = (curated.get(rival) ?? []).find((entry) => entry.vs === candidate);
         if (counters) {
           curatedValue += M[counters.level];
+          const reason = { name: heroName(meta, rival), why: cleanWhy(counters.why) };
           if (counters.level === "hard") {
-            positiveHardNames.push(heroName(meta, rival));
+            positiveHard.push(reason);
           } else {
-            positiveMediumNames.push(heroName(meta, rival));
+            positiveMedium.push(reason);
           }
           curatedHit = true;
         }
@@ -219,7 +230,7 @@ export function createCounterScorer(
 
         contribs.push(cr);
         statSampleSize += row.games;
-        statDeltas.push({ vsHero: rival, delta: cr, games: row.games });
+        statDeltas.push({ vsHero: rival, delta: cr, games: row.games, observedWinrate: row.observedWinrate });
       }
 
       // TSK-188: alivio positivo -- counters del candidato que están baneados (fuera de la mesa).
@@ -265,7 +276,7 @@ export function createCounterScorer(
       // Curated medium relations contribute to numerical scoring (+0.06) but do NOT qualify
       // alone for the visible COUNTER claim.
       // Ban relief alone or net-negative/sub-threshold statistical evidence never qualifies.
-      const hasCuratedHardCounter = positiveHardNames.length > 0;
+      const hasCuratedHardCounter = positiveHard.length > 0;
       const qualifyingStatDeltas = statDeltas.filter(
         (d) => d.games >= badgeMinGames && d.delta >= badgeMinDelta,
       );
@@ -277,7 +288,11 @@ export function createCounterScorer(
       if (hasCuratedHardCounter) {
         // A. Curated hard relation earned the badge: explanation must name that hard-counter target.
         // Medium curated relations and non-qualifying statistical relations are never named.
-        const base = `Le ganás a ${positiveHardNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`;
+        // El porqué curado va siempre: "Le ganás a X" sin mecanismo no dice nada que un jugador pueda comprobar.
+        const base = positiveHard
+          .slice(0, MAX_NAMED_ENEMIES)
+          .map((r) => `Le ganás a ${r.name}: ${r.why}`)
+          .join(". ");
         explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
       } else if (hasStatisticalCounter) {
         // B. Qualifying statistical relation earned the badge: explanation must name one or more
@@ -286,19 +301,18 @@ export function createCounterScorer(
         const qualifyingNames = qualifyingStatDeltas
           .sort((a, b) => b.delta - a.delta)
           .slice(0, MAX_NAMED_ENEMIES)
-          .map((d) => heroName(meta, d.vsHero));
+          .map((d) => `${heroName(meta, d.vsHero)} (${Math.round(d.observedWinrate * 100)}% en ${d.games} partidas)`);
+        // Esta capa es solo winrate: se dice con las cifras a la vista, no como si fuera una razón de Dota.
         const base = `Fuerte contra ${qualifyingNames.join(" y ")}`;
         explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
       } else if (contribs.length > 0) {
         // No qualifying positive counter against revealed enemies.
-        if (negativeWhy.length > 0) {
-          const base = negativeWhy.slice(0, MAX_NAMED_ENEMIES).join(" ");
-          explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
-        } else if (banRelief > 0) {
-          explanation = buildBanReliefClause(banReliefNames);
-        } else {
-          explanation = "Sin ventaja de contrapick conocida en este draft";
-        }
+        // Un counter curado `medium` sí mueve el puntaje (+0.06), así que el texto no puede decir que
+        // no hay ventaja: se nombra como "posible", con su porqué. No gana la insignia COUNTER.
+        const parts: string[] = negativeWhy.slice(0, MAX_NAMED_ENEMIES);
+        parts.push(...positiveMedium.slice(0, MAX_NAMED_ENEMIES).map((r) => `Ventaja posible contra ${r.name}: ${r.why}`));
+        if (banRelief > 0) parts.push(buildBanReliefClause(banReliefNames));
+        explanation = parts.length > 0 ? parts.join(". ") : "Sin ventaja de contrapick conocida en este draft";
       } else {
         explanation = buildBanReliefClause(banReliefNames);
       }

@@ -108,7 +108,7 @@ describe("createCounterScorer -- candado de regresion cero (§14.7-1)", () => {
     const baseline = (200 + 40 + 250) / (300 + 100 + 500);
     expect(legacy.raw).toBeCloseTo(200 / 300 - baseline, 10);
     expect(legacy.sampleSize).toBe(300);
-    expect(legacy.explanation).toBe("Fuerte contra Lina");
+    expect(legacy.explanation).toBe("Fuerte contra Lina (67% en 300 partidas)");
   });
 
   test("enemigos conocidos todos bajo 200 partidas: null con params legacy, raw shrunk real con params de produccion", () => {
@@ -445,6 +445,17 @@ describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => 
     expect(result.explanation).toContain("1 de sus counters está baneado: Necrophos");
   });
 
+  test("el why de un counter en tu contra se etiqueta como riesgo y nombra al rival", () => {
+    // Why en tercera persona: pegado crudo se leía como una ventaja del candidato.
+    const huskarCounters = new Map<HeroId, CuratedCounter[]>([
+      [59, [{ vs: ANCIENT_APPARITION, level: "hard", why: "Ice Blast corta la curacion de Huskar." }]],
+    ]);
+    const state = draftState({ picks: { radiant: [], dire: [ANCIENT_APPARITION] } });
+    const result = createCounterScorer(huskarCounters).score(state, 59, meta({ heroes: heroNames }));
+
+    expect(result.explanation).toBe("Riesgo (Ancient Apparition te counterea): Ice Blast corta la curacion de Huskar");
+  });
+
   test("candado de regresion §14.7 intacto: con params legacy y curated vacio, los bans no cambian nada", () => {
     const withBans = draftState({ banned: [SILENCER, ANCIENT_APPARITION, NECROPHOS], picks: { radiant: [], dire: [10, 11] } });
     const noBans = draftState({ banned: [], picks: { radiant: [], dire: [10, 11] } });
@@ -672,7 +683,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
     // Badge is legitimately earned against Crystal Maiden via statistical evidence
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
     // Rationale must name Crystal Maiden, NOT Bristleback
-    expect(result.explanation).toBe("Fuerte contra Crystal Maiden");
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas)");
     expect(result.explanation).not.toContain("Bristleback");
   });
 
@@ -687,7 +698,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
     const result = scorer.score(state, ANCIENT_APPARITION, testMeta);
 
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
-    expect(result.explanation).toBe("Le ganás a Huskar");
+    expect(result.explanation).toBe("Le ganás a Huskar: Ice Blast cancela la curación");
   });
 
   test("3. statistical-only badge: rationale names the qualifying statistical target", () => {
@@ -698,7 +709,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
     const result = scorer.score(state, 1, testMeta);
 
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
-    expect(result.explanation).toBe("Fuerte contra Medusa");
+    expect(result.explanation).toBe("Fuerte contra Medusa (80% en 50 partidas)");
   });
 
   test("4. medium-only curated: no badge", () => {
@@ -714,7 +725,8 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
     // Contributes numerically (+0.06), but NO badge
     expect(result.raw).toBeCloseTo(0.06, 10);
     expect(result.hasRevealedEnemyCounterEvidence).toBe(false);
-    expect(result.explanation).toBe("Sin ventaja de contrapick conocida en este draft");
+    // Mueve el puntaje, así que el texto lo dice como "posible" y con su porqué (nunca "Sin ventaja").
+    expect(result.explanation).toBe("Ventaja posible contra Bristleback: Medium counter relation");
   });
 
   test("5. negative statistical relation: never used as positive COUNTER rationale", () => {
@@ -749,7 +761,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
 
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
     // ONLY Crystal Maiden independently qualifies; no other enemy is named
-    expect(result.explanation).toBe("Fuerte contra Crystal Maiden");
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas)");
     expect(result.explanation).not.toContain("Bristleback");
     expect(result.explanation).not.toContain("Chaos Knight");
     expect(result.explanation).not.toContain("Morphling");
@@ -769,7 +781,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
 
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
     // Preserves the counter target and appends ban relief clause
-    expect(result.explanation).toBe("Fuerte contra Crystal Maiden. 1 de sus counters está baneado: Morphling");
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas). 1 de sus counters está baneado: Morphling");
   });
 
   test("latent case: statistical COUNTER badge with negative curated counter against candidate never outputs negative explanation", () => {
@@ -783,7 +795,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
     const result = scorer.score(state, RAZOR, testMeta);
 
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
-    expect(result.explanation).toBe("Fuerte contra Crystal Maiden");
+    expect(result.explanation).toBe("Fuerte contra Crystal Maiden (80% en 50 partidas)");
     expect(result.explanation).not.toContain("Waveform");
   });
 });
