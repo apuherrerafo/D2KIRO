@@ -75,6 +75,11 @@
     "why": "Disruption salva a Anti-Mage y le crea ilusiones con Mana Break; Demonic Cleanse le quita roots y silencios para que use Blink"
   },
   {
+    "a": 113,
+    "b": 27,
+    "why": "Shackles deja quieto al enemigo para sacar el máximo daño de Flux y de Spark Wraith"
+  },
+  {
     "a": 2,
     "b": 87,
     "why": "Berserker's Call deja a los rivales juntos para Kinetic Field y Static Storm de Disruptor"
@@ -110,6 +115,11 @@
     "why": "Meat Hook activa el daño de Rupture al arrastrar al rival, y Dismember prepara Blood Rite"
   },
   {
+    "a": 62,
+    "b": 35,
+    "why": "Track le da a Sniper visión extra para Assassinate; juntos son buena respuesta contra Lina en mid"
+  },
+  {
     "a": 99,
     "b": 50,
     "why": "Shallow Grave le deja usar más Quill Spray y la baja de armadura de Dazzle aumenta su daño"
@@ -127,7 +137,7 @@
   {
     "a": 96,
     "b": 79,
-    "why": "Disruption y Hoof Stomp forman un combo de control, según el panel de TI 2026"
+    "why": "Disruption y Hoof Stomp forman un combo de control"
   },
   {
     "a": 96,
@@ -157,7 +167,7 @@
   {
     "a": 51,
     "b": 25,
-    "why": "Hookshot y Power Cogs le dejan a Lina el Light Strike Array asegurado; analistas de TI 2026 la ven como gran pareja"
+    "why": "Hookshot y Power Cogs le dejan a Lina el Light Strike Array asegurado"
   },
   {
     "a": 5,
@@ -201,13 +211,38 @@
   },
   {
     "a": 135,
+    "b": 106,
+    "why": "Dawnbreaker remata con su ultimate a los objetivos que ellos alcanzan: les cierra la distancia y ella los bloquea y les hace mucho daño"
+  },
+  {
+    "a": 135,
     "b": 59,
     "why": "Solar Guardian salva a Huskar desde cualquier parte del mapa con curación y stun"
+  },
+  {
+    "a": 135,
+    "b": 67,
+    "why": "Dawnbreaker remata con su ultimate a los objetivos que ellos alcanzan: les cierra la distancia y ella los bloquea y les hace mucho daño"
+  },
+  {
+    "a": 135,
+    "b": 71,
+    "why": "Dawnbreaker remata con su ultimate a los objetivos que ellos alcanzan: les cierra la distancia y ella los bloquea y les hace mucho daño"
   },
   {
     "a": 50,
     "b": 59,
     "why": "Shallow Grave deja a Huskar pelear casi muerto, con su máxima velocidad de ataque"
+  },
+  {
+    "a": 50,
+    "b": 77,
+    "why": "Shadow Wave cura a todos los lobos que rodean al objetivo y a la vez daña a los rivales"
+  },
+  {
+    "a": 50,
+    "b": 53,
+    "why": "Shadow Wave cura a todos los Treants que rodean al objetivo y a la vez daña a los rivales"
   },
   {
     "a": 87,
@@ -223,6 +258,11 @@
     "a": 69,
     "b": 121,
     "why": "Soulbind hace que Doom silencie a dos héroes a la vez y Scorched Earth le deja pegar el Ink Swell completo"
+  },
+  {
+    "a": 49,
+    "b": 90,
+    "why": "Chakra Magic le acorta el enfriamiento de Dragon Tail: casi un stun encadenado que mata a cualquiera"
   },
   {
     "a": 49,
@@ -261,13 +301,13 @@
   },
   {
     "a": 106,
-    "b": 121,
-    "why": "Ink Swell sobre Ember: cuando llega con Fire Remnant, el stun en área explota entre los rivales"
+    "b": 90,
+    "why": "Chakra Magic le da maná y le reinicia el Sleight of Fist para usarlo dos veces seguidas"
   },
   {
     "a": 106,
-    "b": 90,
-    "why": "Chakra Magic le da maná y le reinicia el Sleight of Fist para usarlo dos veces seguidas"
+    "b": 155,
+    "why": "Largo potencia a los mid de mucho daño explosivo: se combina muy bien con ellos"
   },
   {
     "a": 106,
@@ -286,18 +326,8 @@
   },
   {
     "a": 121,
-    "b": 39,
-    "why": "Soulbind duplica Shadow Strike sobre los dos rivales unidos y les impide escapar"
-  },
-  {
-    "a": 121,
-    "b": 19,
-    "why": "Ink Swell sobre Tiny agrega un stun en área a su entrada con Blink Dagger"
-  },
-  {
-    "a": 121,
-    "b": 47,
-    "why": "Ink Swell encaja con el estilo de frontline de Viper y Soulbind duplica Viper Strike"
+    "b": 137,
+    "why": "Grimstroke pone Ink Swell, Primal Beast lo atraviesa con Onslaught y el movimiento activa el daño extra; Stroke of Fate remata al stuneado"
   },
   {
     "a": 59,
@@ -320,24 +350,9 @@
     "why": "Reverse Polarity junta a los rivales para todos los hechizos en área de Invoker"
   },
   {
-    "a": 74,
-    "b": 53,
-    "why": "Sprout y Teleportation de Nature's Prophet preparan el Sun Strike y el combo de Invoker en cualquier punto del mapa"
-  },
-  {
-    "a": 74,
-    "b": 19,
-    "why": "Los Sun Strike globales de Invoker rematan los pickoffs de Tiny, y Alacrity le da a Tiny el ritmo de golpe que le falta"
-  },
-  {
-    "a": 91,
-    "b": 52,
-    "why": "Io le da maná y vida constantes a Leshrac, que farmea sin pausas y aguanta más dentro de la pelea"
-  },
-  {
     "a": 91,
     "b": 17,
-    "why": "Storm Spirit funciona muy bien con Io, según analistas de TI 2026: Io lo sostiene en sus entradas"
+    "why": "Io sostiene a Storm Spirit en sus entradas con Tether y Overcharge"
   },
   {
     "a": 91,
@@ -351,8 +366,23 @@
   },
   {
     "a": 90,
+    "b": 120,
+    "why": "Con Keeper, Pangolier spamea sus dos habilidades y se vuelve muy fuerte y caótico"
+  },
+  {
+    "a": 155,
+    "b": 13,
+    "why": "Largo potencia a los mid de mucho daño explosivo: se combina muy bien con ellos"
+  },
+  {
+    "a": 155,
     "b": 17,
-    "why": "Chakra Magic le recarga el maná a Storm para entrar hondo, y Recall lo trae a la pelea"
+    "why": "Largo potencia a los mid de mucho daño explosivo: se combina muy bien con ellos"
+  },
+  {
+    "a": 155,
+    "b": 126,
+    "why": "Largo potencia a los mid de mucho daño explosivo: se combina muy bien con ellos"
   },
   {
     "a": 104,
@@ -366,13 +396,8 @@
   },
   {
     "a": 52,
-    "b": 111,
-    "why": "False Promise y Fate's Edict cubren la fragilidad de Leshrac en medio de la pelea"
-  },
-  {
-    "a": 52,
-    "b": 27,
-    "why": "Las Serpent Wards tiran torres mientras el daño en área de Leshrac aleja a quien quiera limpiarlas"
+    "b": 79,
+    "why": "Disruption seguido de Split Earth es un stun garantizado de 2 segundos"
   },
   {
     "a": 54,
@@ -410,11 +435,6 @@
     "why": "Storm Spirit lleva a Lifestealer infestado con Ball Lightning hasta el objetivo y Electric Vortex lo retiene"
   },
   {
-    "a": 25,
-    "b": 27,
-    "why": "Hex y Shackles dejan al rival quieto para que Lina conecte Light Strike Array y el resto de su combo"
-  },
-  {
     "a": 48,
     "b": 60,
     "why": "Eclipse hace de noche y activa el poder nocturno de Night Stalker, y los dos se dan visión para cazar"
@@ -422,17 +442,12 @@
   {
     "a": 77,
     "b": 13,
-    "why": "Puck funciona bien con Lycan, según analistas de TI 2026"
+    "why": "Dream Coil retiene a los rivales mientras Lycan y sus lobos los persiguen"
   },
   {
     "a": 97,
     "b": 44,
     "why": "Empower potencia el daño físico de Phantom Assassin, que ya revienta con Coup de Grace"
-  },
-  {
-    "a": 97,
-    "b": 39,
-    "why": "Reverse Polarity junta a los rivales para que Sonic Wave y Scream of Pain les peguen a todos"
   },
   {
     "a": 97,
@@ -455,34 +470,14 @@
     "why": "Empower le da cleave a Troll melee y Reverse Polarity le deja a todos juntos para golpearlos"
   },
   {
-    "a": 129,
-    "b": 47,
-    "why": "Arena of Blood encierra a los rivales dentro del Nethertoxin mientras Viper acumula veneno"
-  },
-  {
     "a": 94,
     "b": 110,
     "why": "Stone Gaze protege la Supernova y Sun Ray le cura la vida a Medusa"
   },
   {
     "a": 53,
-    "b": 71,
-    "why": "Spirit Breaker protege a un Nature's Prophet frágil y con Charge of Darkness y Nether Strike le deja al rival bloqueado"
-  },
-  {
-    "a": 53,
-    "b": 100,
-    "why": "Nature's Prophet se suma con Teleportation a las Snowball de Tusk y Sprout mantiene al rival a su alcance"
-  },
-  {
-    "a": 53,
     "b": 85,
-    "why": "Undying es buena pareja de línea para Nature's Prophet, según analistas de TI 2026"
-  },
-  {
-    "a": 53,
-    "b": 22,
-    "why": "Zeus revela a los rivales en todo el mapa y Nature's Prophet llega con Teleportation a rematar o a presionar"
+    "why": "Undying es buena pareja de línea para Nature's Prophet: Decay y Tombstone sostienen la línea mientras Sprout encierra al rival"
   },
   {
     "a": 84,
@@ -543,25 +538,5 @@
     "a": 11,
     "b": 100,
     "why": "Snowball e Ice Shards dejan al rival quieto para los Shadowraze, y Walrus PUNCH! asegura el kill"
-  },
-  {
-    "a": 27,
-    "b": 47,
-    "why": "Hex y Shackles dejan al rival quieto mientras Viper le acumula Poison Attack"
-  },
-  {
-    "a": 17,
-    "b": 30,
-    "why": "Storm Spirit entra y atrae la atención, y la Death Ward de Witch Doctor canaliza tranquila"
-  },
-  {
-    "a": 20,
-    "b": 21,
-    "why": "Wave of Terror baja la armadura y Vengeance Aura sube el daño: Focus Fire pega mucho más"
-  },
-  {
-    "a": 40,
-    "b": 47,
-    "why": "Nethertoxin quita pasivas y baja la resistencia mágica, lo que potencia los hechizos de Venomancer"
   }
 ]

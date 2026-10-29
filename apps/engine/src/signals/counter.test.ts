@@ -445,6 +445,17 @@ describe("createCounterScorer -- alivio por counters baneados (§14.13)", () => 
     expect(result.explanation).toContain("1 de sus counters está baneado: Necrophos");
   });
 
+  test("el why de un counter en tu contra se etiqueta como riesgo y nombra al rival", () => {
+    // Why en tercera persona: pegado crudo se leía como una ventaja del candidato.
+    const huskarCounters = new Map<HeroId, CuratedCounter[]>([
+      [59, [{ vs: ANCIENT_APPARITION, level: "hard", why: "Ice Blast corta la curacion de Huskar." }]],
+    ]);
+    const state = draftState({ picks: { radiant: [], dire: [ANCIENT_APPARITION] } });
+    const result = createCounterScorer(huskarCounters).score(state, 59, meta({ heroes: heroNames }));
+
+    expect(result.explanation).toBe("Riesgo (Ancient Apparition te counterea): Ice Blast corta la curacion de Huskar");
+  });
+
   test("candado de regresion §14.7 intacto: con params legacy y curated vacio, los bans no cambian nada", () => {
     const withBans = draftState({ banned: [SILENCER, ANCIENT_APPARITION, NECROPHOS], picks: { radiant: [], dire: [10, 11] } });
     const noBans = draftState({ banned: [], picks: { radiant: [], dire: [10, 11] } });
