@@ -37,6 +37,12 @@ export const TEAM_COACH_TOP_SIZE = 5;
 
 export type TeamCoachPositionState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAILABLE" | "FILLED" | "WAITING";
 
+/** A revealed enemy hero that curated-counters this candidate, with the curated reason (`why`). */
+export interface TeamCoachRisk {
+  vsHeroId: HeroId;
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   /** Rank inside THIS position's own ranking (1 = V6's best for this position). */
@@ -44,6 +50,8 @@ export interface TeamCoachCandidate {
   /** V6 score; `null` for an unranked positional alternative (no score exists). */
   score: number | null;
   reasons: string[];
+  /** Revealed enemies that counter this hero (curated, hard first, at most 2). Empty when none: never invented. */
+  risks: TeamCoachRisk[];
   /** The hero the team plan assigns to this position. At most one per position, never shared between positions. */
   isPrimary: boolean;
 }
@@ -195,6 +203,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const unboundOwnHeroIds = view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" && !boundHeroes.has(slot.heroId) ? [slot.heroId] : []));
 
   const positions = [...new Set(controlled)].sort((a, b) => a - b);
+  const revealedEnemies = revealedEnemyHeroes(view);
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
     const filledHeroId = heroByPosition.get(position) ?? null;
@@ -221,7 +230,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "RANKED",
         filledHeroId: null,
         note: null,
-        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], isPrimary: false })),
+        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], risks: risksOf(card.heroId, revealedEnemies, input.heroCounters), isPrimary: false })),
       };
     }
     if (result.state === "UNRANKED_POSITIONAL") {
@@ -230,7 +239,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "UNRANKED_POSITIONAL",
         filledHeroId: null,
         note: result.reason,
-        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], isPrimary: false })),
+        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], risks: risksOf(alternative.heroId, revealedEnemies, input.heroCounters), isPrimary: false })),
       };
     }
     return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: result.reason };
@@ -281,6 +290,20 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     unboundOwnHeroIds,
   };
   return { board, priority };
+}
+
+const MAX_RISKS_PER_CANDIDATE = 2;
+
+/**
+ * Which REVEALED enemies counter this hero according to the curated data (hard first, then medium). Only heroes the
+ * Player can see are read, so a sealed enemy seat can never leak into a card.
+ */
+export function risksOf(heroId: HeroId, revealedEnemies: readonly HeroId[], heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): TeamCoachRisk[] {
+  if (!heroCounters || revealedEnemies.length === 0) return [];
+  const revealed = new Set(revealedEnemies);
+  const entries = (heroCounters.get(heroId) ?? []).filter((entry) => revealed.has(entry.vs));
+  const hardFirst = [...entries.filter((entry) => entry.level === "hard"), ...entries.filter((entry) => entry.level !== "hard")];
+  return hardFirst.slice(0, MAX_RISKS_PER_CANDIDATE).map((entry) => ({ vsHeroId: entry.vs, why: entry.why.trim().replace(/[.\s]+$/, "") }));
 }
 
 /**

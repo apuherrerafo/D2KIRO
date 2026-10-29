@@ -7,6 +7,9 @@ import {
   BOARD_GRID,
   BOARD_SHELL,
   CANDIDATE_BUTTON,
+  CANDIDATE_HEAD,
+  CANDIDATE_REASON,
+  CANDIDATE_RISK,
   CANDIDATE_ROW,
   COLUMN_DEFAULT,
   COLUMN_HEADER,
@@ -143,6 +146,57 @@ interface CandidateProps {
   heroCatalog: Map<number, HeroMeta>;
   onPickHero?: (position: TeamPosition, heroId: number) => void;
   canPick: boolean;
+  /** La razón por héroe solo se muestra cuando el ranking es propio de cada uno (columna RANKED). */
+  showReason: boolean;
+}
+
+interface CandidateDetailProps {
+  candidate: TeamCoachCandidate;
+  heroCatalog: Map<number, HeroMeta>;
+  showReason: boolean;
+}
+
+function visibleReason(candidate: TeamCoachCandidate, showReason: boolean): string {
+  if (!showReason) return "";
+  return candidate.reasons[0] ?? "";
+}
+
+function CandidateReason({ text }: { text: string }) {
+  if (text === "") return null;
+  return <span className={CANDIDATE_REASON} data-testid="team-coach-candidate-reason">{text}</span>;
+}
+
+function CandidateRisks({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+  const risks = candidate.risks ?? [];
+  return (
+    <>
+      {risks.map((risk) => (
+        <span key={risk.vsHeroId} className={CANDIDATE_RISK} data-testid="team-coach-candidate-risk">
+          Riesgo ({heroName(risk.vsHeroId, heroCatalog)} te counterea): {risk.why}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// El porqué de cada héroe y los rivales que lo counterean, a la vista (antes solo en un tooltip).
+function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetailProps) {
+  return (
+    <>
+      <CandidateReason text={visibleReason(candidate, showReason)} />
+      <CandidateRisks candidate={candidate} heroCatalog={heroCatalog} />
+    </>
+  );
+}
+
+function CandidateHead({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+  return (
+    <span className={CANDIDATE_HEAD}>
+      <span className="text-content-muted">{candidate.rank}.</span>
+      <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
+      <PlanBadge candidate={candidate} />
+    </span>
+  );
 }
 
 function PlanBadge({ candidate }: { candidate: TeamCoachCandidate }) {
@@ -150,7 +204,7 @@ function PlanBadge({ candidate }: { candidate: TeamCoachCandidate }) {
   return <span className={PLAN_BADGE}>plan</span>;
 }
 
-function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick }: CandidateProps) {
+function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick, showReason }: CandidateProps) {
   function handlePick() {
     onPickHero?.(position, candidate.heroId);
   }
@@ -159,18 +213,16 @@ function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick }
   if (!canPick || !onPickHero) {
     return (
       <li className={CANDIDATE_ROW} {...common}>
-        <span className="text-content-muted">{candidate.rank}.</span>
-        <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
-        <PlanBadge candidate={candidate} />
+        <CandidateHead candidate={candidate} heroCatalog={heroCatalog} />
+        <CandidateDetail candidate={candidate} heroCatalog={heroCatalog} showReason={showReason} />
       </li>
     );
   }
   return (
     <li>
       <button type="button" onClick={handlePick} className={CANDIDATE_BUTTON} aria-label={`Elegir ${heroName(candidate.heroId, heroCatalog)} como ${teamPositionName(position)}`} {...common}>
-        <span className="text-content-muted">{candidate.rank}.</span>
-        <HeroLabel heroId={candidate.heroId} heroCatalog={heroCatalog} size={28} />
-        <PlanBadge candidate={candidate} />
+        <CandidateHead candidate={candidate} heroCatalog={heroCatalog} />
+        <CandidateDetail candidate={candidate} heroCatalog={heroCatalog} showReason={showReason} />
       </button>
     </li>
   );
@@ -197,7 +249,7 @@ function ColumnBody({ column, heroCatalog, onPickHero }: ColumnBodyProps) {
   return (
     <ol className="flex flex-col gap-1">
       {column.top.map((candidate) => (
-        <CandidateItem key={candidate.heroId} position={column.position} candidate={candidate} heroCatalog={heroCatalog} onPickHero={onPickHero} canPick={column.eligibleNow} />
+        <CandidateItem key={candidate.heroId} position={column.position} candidate={candidate} heroCatalog={heroCatalog} onPickHero={onPickHero} canPick={column.eligibleNow} showReason={column.state === "RANKED"} />
       ))}
     </ol>
   );

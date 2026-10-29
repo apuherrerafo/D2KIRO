@@ -14,12 +14,20 @@ export type TeamCoachPositionState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAIL
 /** PHASE_FALLBACK (live, and the simulator with >= 2 open positions): the position was chosen by draft-phase order because nothing tactical distinguishes them. */
 export type TeamCoachTargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT" | "PHASE_FALLBACK";
 
+/** Un rival ya revelado que counterea a este héroe, con el porqué curado. */
+export interface TeamCoachRisk {
+  vsHeroId: HeroId;
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   rank: number;
   /** `null` for an unranked positional alternative. */
   score: number | null;
   reasons: string[];
+  /** Opcional: un motor anterior no lo manda. Ausente = sin riesgos conocidos. */
+  risks?: TeamCoachRisk[];
   isPrimary: boolean;
 }
 

@@ -12,6 +12,7 @@ import type {
   LiveTeamGroupResult,
   TeamCoachBoardData,
   TeamCoachCandidate,
+  TeamCoachRisk,
   TeamCoachColumn,
   TeamCoachDecision,
   TeamPosition,
@@ -44,6 +45,10 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
+function isRisk(value: unknown): value is TeamCoachRisk {
+  return isRecord(value) && isHeroId(value.vsHeroId) && isString(value.why);
+}
+
 function isCandidate(value: unknown): value is TeamCoachCandidate {
   return (
     isRecord(value) &&
@@ -52,6 +57,7 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
     (value.score === null || (typeof value.score === "number" && Number.isFinite(value.score))) &&
     Array.isArray(value.reasons) &&
     value.reasons.every(isString) &&
+    (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isRisk))) &&
     typeof value.isPrimary === "boolean"
   );
 }
