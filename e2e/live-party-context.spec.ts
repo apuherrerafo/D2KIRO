@@ -80,7 +80,7 @@ test.describe("Live Dota + Party 5", () => {
     }
     // Selecting a preset does not bring a recommendation back while the draft is incomplete.
     await expect(page.getByTestId("team-coach-board")).toHaveCount(0);
-    await expect(page.getByTestId("live-team-coach")).not.toContainText(/PICK NOW/i);
+    await expect(page.getByTestId("live-team-coach")).not.toContainText(/PICK NOW|ELIGE AHORA|Recomendado ahora/i);
     await expect(page.getByTestId("live-manual-entry")).toHaveCount(0);
 
     // The remembered choice survives a reload (re-applied by the page if the engine forgot it).
@@ -99,7 +99,7 @@ test.describe("Live Dota + Party 5", () => {
     const ended = await request.post(`${ENGINE_DIRECT}/api/live/gsi/${link.liveId}`, { data: gsiBody(link.token, "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"), headers: { "content-type": "application/json" } });
     expect(ended.status()).toBe(200);
     await expect(page.getByTestId("team-coach-draft-ended")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("live-team-coach")).not.toContainText(/PICK NOW/i);
+    await expect(page.getByTestId("live-team-coach")).not.toContainText(/PICK NOW|ELIGE AHORA|Recomendado ahora/i);
     await expect(page.getByTestId("team-coach-pick-now")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Elegir / })).toHaveCount(0);
     // The live session stays up for the in-match coach: still connected, preset still active.

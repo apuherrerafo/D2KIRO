@@ -2,7 +2,7 @@
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { ADVISORY_NOTE, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PHASE_FALLBACK_NOTE, PICK_NOW_LABEL, teamPositionName, teamPositionTitle } from "../constants";
+import { ADVISORY_NOTE, BANNER_LABEL, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PHASE_FALLBACK_NOTE, PICK_HINT, PICK_NOW_LABEL, WHY_LABEL, teamPositionName, teamPositionTitle } from "../constants";
 import {
   BOARD_GRID,
   BOARD_SHELL,
@@ -15,6 +15,7 @@ import {
   DECISION_BANNER,
   PICK_NOW_BADGE,
   PLAN_BADGE,
+  PRIMARY_BUTTON,
 } from "../styles";
 import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamPosition } from "../types";
 
@@ -48,6 +49,8 @@ function HeroLabel({ heroId, heroCatalog, size }: HeroLabelProps) {
 interface DecisionBannerProps {
   board: TeamCoachBoardData;
   heroCatalog: Map<number, HeroMeta>;
+  /** Ausente -> tablero de sólo lectura: no hay botón de elegir ni pista de "toca un héroe". */
+  onPickHero?: (position: TeamPosition, heroId: number) => void;
 }
 
 function DecisionBannerHero({ board, heroCatalog }: DecisionBannerProps) {
@@ -63,7 +66,56 @@ function DefaultBasisNote({ board }: { board: TeamCoachBoardData }) {
   return <span className="text-caption text-content-muted">{DETERMINISTIC_DEFAULT_NOTE}</span>;
 }
 
-function DecisionBanner({ board, heroCatalog }: DecisionBannerProps) {
+interface PickRecommendedButtonProps {
+  position: TeamPosition;
+  heroId: number;
+  heroCatalog: Map<number, HeroMeta>;
+  onPickHero(position: TeamPosition, heroId: number): void;
+}
+
+// La recomendación es una acción, no sólo un texto: un clic elige al héroe recomendado en su posición.
+// El nombre accesible NO empieza con "Elegir " a propósito: ese prefijo lo usan los botones de cada
+// candidato de las columnas (uno por héroe), y esta es la misma acción, no un candidato más.
+function PickRecommendedButton({ position, heroId, heroCatalog, onPickHero }: PickRecommendedButtonProps) {
+  function handlePick() {
+    onPickHero(position, heroId);
+  }
+  const name = heroName(heroId, heroCatalog);
+  return (
+    <button type="button" onClick={handlePick} className={PRIMARY_BUTTON} aria-label={`Elige a ${name} como ${teamPositionName(position)}`} data-testid="team-coach-pick-recommended">
+      Elige a {name}
+    </button>
+  );
+}
+
+function DecisionAction({ board, heroCatalog, onPickHero }: DecisionBannerProps) {
+  const { recommendedPosition: position, recommendedHeroId: heroId } = board.currentDecision;
+  const column = board.positions.find((entry) => entry.position === position);
+  if (!onPickHero || position === null || heroId === null || column?.eligibleNow !== true) return null;
+  return <PickRecommendedButton position={position} heroId={heroId} heroCatalog={heroCatalog} onPickHero={onPickHero} />;
+}
+
+function PickHint({ onPickHero }: { onPickHero: DecisionBannerProps["onPickHero"] }) {
+  if (!onPickHero) return null;
+  return <span className="text-caption text-content-muted">{PICK_HINT}</span>;
+}
+
+// La teoría del motor ("conviene revelar primero lo que menos información le da al rival…") sigue
+// disponible, pero detrás de "¿Por qué?": lo primero que se lee es qué hacer, no el porqué.
+function DecisionWhy({ board }: { board: TeamCoachBoardData }) {
+  return (
+    <details className="text-caption text-content-secondary" data-testid="team-coach-why">
+      <summary className="w-fit text-content-muted hover:text-content-primary">{WHY_LABEL}</summary>
+      <div className="flex flex-col gap-1 pt-1">
+        <span data-testid="team-coach-reason">{board.currentDecision.reason}</span>
+        <DefaultBasisNote board={board} />
+        <span className="text-content-muted">{ADVISORY_NOTE}</span>
+      </div>
+    </details>
+  );
+}
+
+function DecisionBanner({ board, heroCatalog, onPickHero }: DecisionBannerProps) {
   const position = board.currentDecision.recommendedPosition;
   if (position === null) {
     return (
@@ -74,13 +126,13 @@ function DecisionBanner({ board, heroCatalog }: DecisionBannerProps) {
   }
   return (
     <div className={DECISION_BANNER} data-testid="team-coach-decision" data-recommended-position={position}>
-      <span className="text-caption font-semibold text-accent-primary">RECOMMENDED PICK NOW · {teamPositionName(position)}</span>
+      <span className="text-caption font-semibold text-accent-primary">{BANNER_LABEL} · {teamPositionName(position)}</span>
       <span className="text-body text-content-primary">
         <DecisionBannerHero board={board} heroCatalog={heroCatalog} />
       </span>
-      <span className="text-caption text-content-secondary" data-testid="team-coach-reason">{board.currentDecision.reason}</span>
-      <DefaultBasisNote board={board} />
-      <span className="text-caption text-content-muted">{ADVISORY_NOTE}</span>
+      <DecisionAction board={board} heroCatalog={heroCatalog} onPickHero={onPickHero} />
+      <PickHint onPickHero={onPickHero} />
+      <DecisionWhy board={board} />
     </div>
   );
 }
@@ -222,9 +274,9 @@ function DraftEndedBanner() {
   );
 }
 
-function BoardBanner({ board, heroCatalog, draftEnded }: DecisionBannerProps & { draftEnded: boolean }) {
+function BoardBanner({ board, heroCatalog, draftEnded, onPickHero }: DecisionBannerProps & { draftEnded: boolean }) {
   if (draftEnded) return <DraftEndedBanner />;
-  return <DecisionBanner board={board} heroCatalog={heroCatalog} />;
+  return <DecisionBanner board={board} heroCatalog={heroCatalog} onPickHero={onPickHero} />;
 }
 
 function BoardPlaceholder({ status, onRetry }: { status: RequestStatus; onRetry?: () => void }) {
@@ -268,7 +320,7 @@ function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, o
   const pickHero = draftEnded ? undefined : onPickHero;
   return (
     <>
-      <BoardBanner board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} />
+      <BoardBanner board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} onPickHero={pickHero} />
       <div className={BOARD_GRID}>
         {board.positions.map((column) => (
           <Column

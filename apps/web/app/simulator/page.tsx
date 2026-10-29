@@ -11,11 +11,13 @@ import { BlindRoundPanel } from "@/features/random-draft-simulator/components/Bl
 import { ConfigPanel } from "@/features/random-draft-simulator/components/ConfigPanel";
 import { CopilotPanel } from "@/features/random-draft-simulator/components/CopilotPanel";
 import { LiveBanEntryPanel, LivePendingPanel } from "@/features/random-draft-simulator/components/LiveCompanionPanel";
+import { RoundInstruction } from "@/features/random-draft-simulator/components/RoundInstruction";
 import { SessionSummaryPanel } from "@/features/random-draft-simulator/components/SessionSummaryPanel";
 import { SimulatorTeamRoster } from "@/features/random-draft-simulator/components/SimulatorTeamRoster";
 import { StaleWarningBanner } from "@/features/random-draft-simulator/components/StaleWarningBanner";
 import { EngineUnreachableBanner } from "@/features/random-draft-simulator/components/EngineUnreachableBanner";
 import { useRandomDraftSession } from "@/features/random-draft-simulator/use-random-draft-session";
+import { useScrollToTop } from "@/features/random-draft-simulator/use-scroll-to-top";
 import { TeamCoachBoard, type TeamPosition } from "@/features/team-coach";
 import type { RandomDraftState } from "@/features/random-draft-simulator";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
@@ -26,6 +28,41 @@ type Session = ReturnType<typeof useRandomDraftSession>;
 // instead, task spec section 4) -- CopilotPanel still requires this callback, so a stable no-op
 // function satisfies the prop without an inline anonymous handler (web.md).
 function noopSetHighlightedHeroIds(): void {}
+
+// El roster ("Tu equipo / Equipo rival") es información, no una acción. Durante una ronda va DEBAJO
+// del consejo (ActiveRoundPhaseView) para que lo primero que se vea sea qué elegir; en cualquier otra
+// fase (bans, resumen final) se queda arriba como siempre.
+function SimulatorRosterSection({ session, heroCatalog }: PhaseViewProps) {
+  const { phase, draftState, config, coach } = session.state;
+  if (!draftState || !config) return null;
+  return (
+    <SimulatorTeamRoster
+      draftState={draftState}
+      config={config}
+      phase={phase}
+      heroCatalog={heroCatalog}
+      ownAssignedPositions={session.state.ownAssignedPositions}
+      enemyRoleBeliefs={coach?.roleBeliefs?.enemy}
+    />
+  );
+}
+
+function RosterBeforeRound({ session, heroCatalog }: PhaseViewProps) {
+  const { phase } = session.state;
+  if (phase.type === "blind_round" || phase.type === "round_revealed") return null;
+  return <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />;
+}
+
+interface RoundInstructionBarProps {
+  phase: Session["state"]["phase"];
+  capacity: number | null;
+}
+
+// Sólo existe mientras hay una ronda en juego; en cualquier otra fase no renderiza nada.
+function RoundInstructionBar({ phase, capacity }: RoundInstructionBarProps) {
+  if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
+  return <RoundInstruction round={phase.round} capacity={capacity} revealed={phase.type === "round_revealed"} />;
+}
 
 interface PhaseViewProps {
   session: Session;
@@ -69,6 +106,9 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, recommendations, coach, previewStatus, config, currentDecision, requestedTarget, humanActionability, teamBoard, teamBoardStatus } = session.state;
   const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
+  // Antes del `return null` de abajo: un hook no puede quedar detrás de un return condicional.
+  const roundNumber = phase.type === "blind_round" || phase.type === "round_revealed" ? phase.round : 0;
+  useScrollToTop(roundNumber);
   if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
   // Team Coach Board: picking any hero for any open position goes through the SAME protocol selection
   // (lockPick -> SUBMIT_SEALED_SELECTION + assignedPosition). Only while the round accepts human picks.
@@ -93,6 +133,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
         onPickHero={boardPick}
         onRetry={session.actions.retryPreview}
       />
+      <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
           <BanPhasePanel resolvedBans={draftState?.banned ?? []} heroCatalog={heroCatalog} />
@@ -261,7 +302,7 @@ function RankedAllPickSimulator() {
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
 
-  const { phase, draftState, config, coach } = session.state;
+  const { phase, draftState, humanActionability } = session.state;
 
   // TSK-086: mismo timer que antes vivía dentro de BlindRoundPanel, ahora armado acá para
   // pasarlo como centerContent de CompactBoard -- solo durante blind_round (única fase con un
@@ -282,25 +323,22 @@ function RankedAllPickSimulator() {
           DraftState real los seguía teniendo, ningún componente los mostraba). Mismo componente
           que ya usa DraftLayout en /live-draft -- Radiant a la izquierda, centro (bans o timer de
           ronda), Dire a la derecha, siempre visible. */}
+      {/* El temporizador de la ronda corre mientras eliges héroes al fondo de la página: la franja
+          queda fija arriba para que el tiempo siempre se vea (antes se perdía al hacer scroll). */}
       {draftState && (
-        <CompactBoard
-          banned={draftState.banned}
-          picks={draftState.picks}
-          localSide={draftState.localSide}
-          heroCatalog={heroCatalog}
-          centerContent={centerContent}
-        />
+        <div className="sticky top-0 z-20 bg-surface-base py-1" data-testid="draft-sticky-strip">
+          <CompactBoard
+            banned={draftState.banned}
+            picks={draftState.picks}
+            localSide={draftState.localSide}
+            heroCatalog={heroCatalog}
+            centerContent={centerContent}
+          />
+        </div>
       )}
-      {draftState && config && (
-        <SimulatorTeamRoster
-          draftState={draftState}
-          config={config}
-          phase={phase}
-          heroCatalog={heroCatalog}
-          ownAssignedPositions={session.state.ownAssignedPositions}
-          enemyRoleBeliefs={coach?.roleBeliefs?.enemy}
-        />
-      )}
+      {/* Lo primero que se lee tras el temporizador es QUÉ HACER AHORA; el roster (informativo) va después. */}
+      <RoundInstructionBar phase={phase} capacity={humanActionability?.roundCapacity ?? null} />
+      <RosterBeforeRound session={session} heroCatalog={heroCatalog} />
       <ActivePanel session={session} heroCatalog={heroCatalog} />
       {/* Diagnóstico temporal: sin NEXT_PUBLIC_D2_FLIGHT_RECORDER=1 en el build y ?flightRecorder=1 en la URL no renderiza ni graba nada. */}
       <FlightRecorderPanel />

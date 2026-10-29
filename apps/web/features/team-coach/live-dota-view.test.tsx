@@ -260,7 +260,7 @@ describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
     await withSite(site, async () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("team-coach-decision")).toBeTruthy());
-      expect(view.getByTestId("team-coach-board").textContent).toContain("RECOMMENDED PICK NOW");
+      expect(view.getByTestId("team-coach-board").textContent).toContain("Recomendado ahora");
       expect(view.getAllByTestId("team-coach-pick-now")).toHaveLength(1);
       expect(view.queryByTestId("team-coach-draft-ended")).toBeNull();
       expect(view.queryAllByRole("button", { name: /^Elegir / })).toHaveLength(0);
@@ -276,7 +276,7 @@ describe("LiveDotaView -- a finished draft never says PICK NOW", () => {
       const view = render(<LiveDotaView />);
       await waitFor(() => expect(view.getByTestId("team-coach-draft-ended")).toBeTruthy());
       const text = view.getByTestId("live-team-coach").textContent ?? "";
-      expect(text).not.toMatch(/PICK NOW/i);
+      expect(text).not.toMatch(/PICK NOW|ELIGE AHORA|Recomendado ahora/i);
       expect(view.queryByTestId("team-coach-decision")).toBeNull();
       expect(view.queryByTestId("team-coach-pick-now")).toBeNull();
       expect(view.getByTestId("team-coach-draft-ended").textContent).toContain("DRAFT TERMINADO");

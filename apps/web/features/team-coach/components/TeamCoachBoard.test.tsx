@@ -123,6 +123,40 @@ describe("TeamCoachBoard", () => {
     expect(view.getAllByTestId("team-coach-candidate")).toHaveLength(15);
   });
 
+  describe("la recomendación es una acción", () => {
+    test("con pick habilitado, un botón elige al héroe recomendado EN su posición recomendada", () => {
+      const picks: [TeamPosition, number][] = [];
+      const view = renderBoard(board([1, 2, 3, 4, 5], 3), { onPickHero: (position, heroId) => picks.push([position, heroId]) });
+      fireEvent.click(view.getByTestId("team-coach-pick-recommended"));
+      expect(picks).toEqual([[3, 31]]);
+    });
+
+    test("el botón de la recomendación no suma un 'Elegir ...' más: los candidatos siguen siendo 15", () => {
+      const view = renderBoard(board(), { onPickHero: () => {} });
+      expect(view.getAllByRole("button", { name: /^Elegir / })).toHaveLength(15);
+      expect(view.getByRole("button", { name: "Elige a Hero 21 como Pos2 Mid" })).toBeTruthy();
+    });
+
+    test("CANDADO modo lectura: sin onPickHero no hay botón ni pista de 'toca un héroe'", () => {
+      const view = renderBoard(board());
+      expect(view.queryByTestId("team-coach-pick-recommended")).toBeNull();
+      expect(view.getByTestId("team-coach-decision").textContent).not.toContain("tocar cualquier héroe");
+    });
+
+    test("si la posición recomendada ya no es elegible, no se ofrece el botón", () => {
+      const view = renderBoard(board([1, 2, 3, 4, 5], 2, { 2: { eligibleNow: false } }), { onPickHero: () => {} });
+      expect(view.queryByTestId("team-coach-pick-recommended")).toBeNull();
+    });
+
+    test("la teoría del motor queda detrás de '¿Por qué?', no en la cara del jugador", () => {
+      const view = renderBoard(board(), { onPickHero: () => {} });
+      const why = view.getByTestId("team-coach-why");
+      expect(why.tagName).toBe("DETAILS");
+      expect(why.querySelector("summary")?.textContent).toBe("¿Por qué?");
+      expect(why.textContent).toContain("razón de la recomendación");
+    });
+  });
+
   test("sin acción humana: no hay PICK NOW y se explica por qué", () => {
     const view = renderBoard(board([1, 2, 3, 4, 5], null, Object.fromEntries([1, 2, 3, 4, 5].map((position) => [position, { eligibleNow: false, state: "WAITING", top: [], primaryHeroId: null, note: "esperando" }]))));
     expect(view.queryByTestId("team-coach-pick-now")).toBeNull();
