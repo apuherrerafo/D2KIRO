@@ -36,6 +36,11 @@
   },
   {
     "a": 73,
+    "b": 155,
+    "why": "Alchemist le da el Aghanim's Scepter a Largo y lo convierte de bot de backline en uno de los mayores frontliners del juego"
+  },
+  {
+    "a": 73,
     "b": 97,
     "why": "Empower acelera muchísimo el farm de Alchemist y Reverse Polarity le deja pegar Unstable Concoction a varios"
   },
@@ -165,6 +170,11 @@
     "why": "Disruption sobre Chaos Knight crea más ilusiones con Chaos Strike y Demonic Purge frena al rival para que no escape"
   },
   {
+    "a": 66,
+    "b": 12,
+    "why": "Phantom Lancer solo necesita sostén para pasar la línea y Chen necesita héroes que farmeen y peguen fuerte, porque Chen no hace daño"
+  },
+  {
     "a": 51,
     "b": 74,
     "why": "Power Cogs aísla al rival y le deja a Invoker un Sun Strike fácil"
@@ -277,7 +287,7 @@
   {
     "a": 69,
     "b": 121,
-    "why": "Soulbind hace que Doom silencie a dos héroes a la vez y Scorched Earth le deja pegar el Ink Swell completo"
+    "why": "Grimstroke deja atado al rival unos 6 segundos, tiempo de sobra para que Doom entre, y es fácil de ejecutar en el early game"
   },
   {
     "a": 49,
@@ -350,9 +360,19 @@
     "why": "Black Hole deja a los rivales juntos y quietos para Smoke Screen y Tricks of the Trade"
   },
   {
+    "a": 41,
+    "b": 110,
+    "why": "Phoenix es de los pocos supports de frontline y Chronosphere protege el huevo: mala línea, pero devastador en mid y late game"
+  },
+  {
     "a": 121,
     "b": 137,
     "why": "Grimstroke pone Ink Swell, Primal Beast lo atraviesa con Onslaught y el movimiento activa el daño extra; Stroke of Fate remata al stuneado"
+  },
+  {
+    "a": 123,
+    "b": 80,
+    "why": "Con el Aghanim's de Lone Druid el oso no muere y ataca desde cualquier lado, y Hoodwink limpia oleadas de un golpe, cruza árboles y tiene stun: empujan y buscan pickoffs"
   },
   {
     "a": 59,
@@ -408,6 +428,11 @@
     "a": 90,
     "b": 120,
     "why": "Con Keeper, Pangolier spamea sus dos habilidades y se vuelve muy fuerte y caótico"
+  },
+  {
+    "a": 23,
+    "b": 112,
+    "why": "Winter's Curse arma Torrent y Ghostship, y Kunkka tiene mucha vida, así que la cura en porcentaje de Winter Wyvern rinde muchísimo"
   },
   {
     "a": 155,
@@ -583,6 +608,11 @@
     "a": 14,
     "b": 19,
     "why": "Toss lanza a Pudge encima de los rivales para Dismember inmediato y Rot los persigue"
+  },
+  {
+    "a": 86,
+    "b": 108,
+    "why": "Underlord pone el pozo y cuando termina Rubick levanta al rival de vuelta al pozo con Telekinesis: queda enraizado y muere en nivel 2"
   },
   {
     "a": 11,
