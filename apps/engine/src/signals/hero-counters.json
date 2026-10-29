@@ -103,6 +103,11 @@
       "why": "Disruption salva al aliado de Berserker's Call o de Culling Blade y Demonic Purge con Aghanim le hace break a Counter Helix"
     },
     {
+      "vs": 11,
+      "level": "medium",
+      "why": "Shadowraze le pega a Axe desde afuera de su alcance, así que Counter Helix no le responde y tiene que acercarse para pelear"
+    },
+    {
       "vs": 28,
       "level": "medium",
       "why": "Slardar puede ser bueno contra Axe: Corrosive Haze le baja la armadura que necesita para aguantar"
@@ -241,9 +246,14 @@
       "why": "Vacuum arrastra a Drow Ranger a la pelea y Wall of Replica castiga a los carries de rango que pelean desde atrás"
     },
     {
+      "vs": 138,
+      "level": "medium",
+      "why": "Pierce the Veil la vuelve etérea y Drow Ranger no le puede pegar con ataques físicos, y Dead Shot rompe su kite con el miedo"
+    },
+    {
       "vs": 53,
       "level": "medium",
-      "why": "Nature's Prophet juega muy rápido: Drow Ranger no tiene cómo escapar de los Treants temprano y él le tumba edificios"
+      "why": "Teleportation y los Treants mejorados le caen encima a Drow Ranger, que no tiene cómo defenderse de ellos"
     },
     {
       "vs": 12,
@@ -429,6 +439,11 @@
       "vs": 129,
       "level": "medium",
       "why": "Arena of Blood limita sus proyectiles y Spear interrumpe Requiem mientras Mars fuerza a Shadow Fiend a reposicionarse"
+    },
+    {
+      "vs": 53,
+      "level": "medium",
+      "why": "Los Treants de Nature's Prophet pegan mucho más este parche y con Teleportation Shadow Fiend no tiene cómo defenderse en el early game"
     },
     {
       "vs": 86,
@@ -957,6 +972,11 @@
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
     },
     {
+      "vs": 35,
+      "level": "medium",
+      "why": "Sniper le pega desde más lejos que Lina con Take Aim y Shrapnel le frena la entrada, así que la castiga en la línea sin que ella pueda acercarse"
+    },
+    {
       "vs": 19,
       "level": "medium",
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
@@ -1068,6 +1088,11 @@
       "vs": 1,
       "level": "medium",
       "why": "Mana Break le quema el maná y le gana a Kraken Shell, Counterspell baja el daño de Gush y Ravage, y Blink entra después del Ravage"
+    },
+    {
+      "vs": 54,
+      "level": "medium",
+      "why": "Rage lo hace inmune a Gush y a Ravage, y Feast le saca vida según la vida máxima de Tidehunter, que es mucha"
     },
     {
       "vs": 70,
@@ -3844,6 +3869,11 @@
       "why": "Hex instantáneo deja a Ember sin Fire Remnant ni Sleight of Fist para escapar"
     },
     {
+      "vs": 28,
+      "level": "medium",
+      "why": "Slithereen Crush lo para en seco y Corrosive Haze le baja la armadura, y Guardian Sprint lo alcanza cuando Ember intenta escapar"
+    },
+    {
       "vs": 93,
       "level": "medium",
       "why": "Dark Pact quita Searing Chains y Pounce ata a Ember para pegarle; en la línea mid lo apaga"
@@ -3857,6 +3887,11 @@
       "vs": 108,
       "level": "medium",
       "why": "Pit of Malice clava a Ember una y otra vez en las peleas, y Underlord aguanta su daño"
+    },
+    {
+      "vs": 47,
+      "level": "medium",
+      "why": "Corrosive Skin le baja la velocidad de ataque a cada golpe de Sleight of Fist y Poison Attack lo frena, así que Ember no escapa ni se queda peleando en la línea"
     },
     {
       "vs": 112,
@@ -3889,6 +3924,11 @@
       "vs": 96,
       "level": "medium",
       "why": "Centaur controla la pelea contra Earth Spirit y puede salirse (disengage) cuando quiere"
+    },
+    {
+      "vs": 51,
+      "level": "medium",
+      "why": "Power Cogs encierra a Earth Spirit y le corta Rolling Boulder, y Hookshot lo agarra apenas se separa del equipo"
     },
     {
       "vs": 69,
@@ -4222,6 +4262,16 @@
       "vs": 13,
       "level": "medium",
       "why": "Waning Rift silencia a Pangolier antes de que entre con Rolling Thunder y Phase Shift esquiva su Swashbuckle"
+    },
+    {
+      "vs": 28,
+      "level": "medium",
+      "why": "Slithereen Crush le corta la entrada a Pangolier y Corrosive Haze le baja la armadura, así que Slardar le gana en el cuerpo a cuerpo"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Firesnap Cookie y Scatterblast le cortan la entrada a Pangolier, que es melé y tiene que acercarse para pelear"
     }
   ],
   "121": [

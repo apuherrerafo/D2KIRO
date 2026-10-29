@@ -116,6 +116,11 @@
   },
   {
     "a": 62,
+    "b": 55,
+    "why": "Shadow Walk le da invisibilidad a Dark Seer para farmear y sacar XP en el early game; en las peleas casi no hay sinergia"
+  },
+  {
+    "a": 62,
     "b": 35,
     "why": "Track le da a Sniper visión extra para Assassinate; juntos son buena respuesta contra Lina en mid"
   },
@@ -170,6 +175,11 @@
     "why": "Hookshot y Power Cogs le dejan a Lina el Light Strike Array asegurado"
   },
   {
+    "a": 51,
+    "b": 53,
+    "why": "Clockwerk pone el control para que Nature's Prophet y sus Treants rematen, y Battery Assault ayuda a cerrar la kill"
+  },
+  {
     "a": 5,
     "b": 49,
     "why": "Arcane Aura y la regeneración de Dragon Knight le dejan pelear casi sin volver a base"
@@ -198,6 +208,16 @@
     "a": 55,
     "b": 32,
     "why": "Ion Shell sobre Riki es como un daño en área invisible que gana la línea, y Vacuum junta a los rivales en su Smoke Screen"
+  },
+  {
+    "a": 55,
+    "b": 18,
+    "why": "Vacuum con el stun de Sven es de los mejores combos del juego: Wall y Vacuum agrupan a los rivales para el cleave y Surge acelera a Sven"
+  },
+  {
+    "a": 119,
+    "b": 107,
+    "why": "Dark Willow pone Bramble Maze y el silencio, Earth Spirit entra con Rolling Boulder y patea al rival contra las zarzas"
   },
   {
     "a": 119,
@@ -270,6 +290,11 @@
     "why": "Reverse Polarity junta a los rivales para el daño en área del dragón y Empower le suma cleave"
   },
   {
+    "a": 107,
+    "b": 155,
+    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
+  },
+  {
     "a": 7,
     "b": 97,
     "why": "Reverse Polarity prepara un Echo Slam que barre al equipo, y Skewer acomoda a los rivales"
@@ -307,7 +332,7 @@
   {
     "a": 106,
     "b": 155,
-    "why": "Largo potencia a los mid de mucho daño explosivo: se combina muy bien con ellos"
+    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Ember Spirit"
   },
   {
     "a": 106,
@@ -351,6 +376,16 @@
   },
   {
     "a": 91,
+    "b": 155,
+    "why": "Crooked Genius le saca 1% de la vida máxima por tick a cada espíritu de Io, y si Largo cura a quien tiene el Tether, la cura también llega a Io"
+  },
+  {
+    "a": 91,
+    "b": 76,
+    "why": "Tether le da a Outworld Destroyer la velocidad de ataque y el sostén que le faltan"
+  },
+  {
+    "a": 91,
     "b": 17,
     "why": "Io sostiene a Storm Spirit en sus entradas con Tether y Overcharge"
   },
@@ -358,6 +393,11 @@
     "a": 91,
     "b": 19,
     "why": "Io deja a Tiny entrar agresivo y Relocate lo saca a salvo; Overcharge le acelera los golpes"
+  },
+  {
+    "a": 8,
+    "b": 31,
+    "why": "Juggernaut necesita control para girar con Blade Fury y Lich le aporta frenos y un stun que Jug no tiene en su kit"
   },
   {
     "a": 90,
@@ -377,7 +417,7 @@
   {
     "a": 155,
     "b": 17,
-    "why": "Largo potencia a los mid de mucho daño explosivo: se combina muy bien con ellos"
+    "why": "Crooked Genius saca 1% de la vida máxima por tick de habilidad, así que rinde con héroes que pegan seguido con habilidades como Storm Spirit"
   },
   {
     "a": 155,
@@ -433,6 +473,11 @@
     "a": 54,
     "b": 17,
     "why": "Storm Spirit lleva a Lifestealer infestado con Ball Lightning hasta el objetivo y Electric Vortex lo retiene"
+  },
+  {
+    "a": 25,
+    "b": 112,
+    "why": "Winter's Curse junta a los rivales más o menos en el radio del stun de Light Strike Array, y Lina contraataca"
   },
   {
     "a": 48,
@@ -513,6 +558,11 @@
     "a": 76,
     "b": 27,
     "why": "Shackles y Hex dejan al rival quieto muchísimo tiempo para el daño de Outworld Destroyer"
+  },
+  {
+    "a": 12,
+    "b": 30,
+    "why": "Phantom Lancer tiene tres formas de acercarse para seguir el Maledict de Witch Doctor, que además lo cura en la línea"
   },
   {
     "a": 110,
