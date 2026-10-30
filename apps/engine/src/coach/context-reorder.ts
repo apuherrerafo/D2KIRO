@@ -7,8 +7,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 //     suma, no un combo. Incluye los bans por choque (Radiant y Dire eligieron el mismo héroe): el núcleo los suma a la
 //     misma lista de baneados (corrección del usuario, 2026-10-30).
 //   - Además, en las rondas 2 y 3 suben los que le ganan a lo que el rival YA tiene y los que combinan con los aliados
-//     que YA elegiste. Bajar al que un rival revelado counterea aplica SOLO a la lista del pool: la lista general no se
-//     sesga por eso (el riesgo igual se muestra en la tarjeta). Decisión del usuario, 2026-10-30.
+//     que YA elegiste; bajan los que un rival revelado counterea.
 //
 // Ajustes tras la revisión del breaker (2026-10-30), dentro de esa regla. Las magnitudes (tope, bonos) son parámetros de
 // producto elegidos a criterio, NO salen de datos: pendientes de calibrar con drafts profesionales.
@@ -47,8 +46,6 @@ export interface ContextReorderInput {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** héroe -> sus parejas curadas. Ausente = ninguna (el llamador de producción inyecta el archivo real). */
   heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
-  /** true (lista del pool): baja al que un rival revelado counterea medium. false (lista general): no se le castiga. */
-  penalizeRevealedCounters?: boolean;
 }
 
 const LEVEL_WEIGHT: Record<CounterLevel, number> = { hard: 2, medium: 1 };
@@ -132,10 +129,8 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
   if (!hasHardCounterFree(heroId, input)) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
   // Lo que el rival YA tiene (rondas 2 y 3; en la 1 no hay nadie a la vista y esto no suma nada).
   for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
-  if (input.penalizeRevealedCounters !== false) {
-    for (const entry of input.heroCounters?.get(heroId) ?? []) {
-      if (entry.level === "medium" && input.revealedEnemies.has(entry.vs)) bonus -= REVEALED_MEDIUM_PENALTY;
-    }
+  for (const entry of input.heroCounters?.get(heroId) ?? []) {
+    if (entry.level === "medium" && input.revealedEnemies.has(entry.vs)) bonus -= REVEALED_MEDIUM_PENALTY;
   }
   if (synergiesWithOwn(heroId, input).length > 0) bonus += SYNERGY_BONUS;
   return Math.max(-MAX_CONTEXT_BONUS, Math.min(MAX_CONTEXT_BONUS, bonus));
