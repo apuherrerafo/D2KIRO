@@ -74,7 +74,7 @@ export interface PositionalAlternative {
 }
 
 export type CandidateResult =
-  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; degradations: RecommendationDegradation[] }
+  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] }
   | { state: "UNRANKED_POSITIONAL"; targetPosition: Position; alternatives: PositionalAlternative[]; reason: string; degradations: RecommendationDegradation[] }
   | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: RecommendationDegradation[] };
 

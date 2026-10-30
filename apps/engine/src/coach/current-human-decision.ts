@@ -5,6 +5,7 @@ import { unavailableHeroesFrom } from "../recommendation/perspective-context";
 import type { RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import { reorderByContext } from "./context-reorder";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
@@ -129,6 +130,8 @@ export interface DeriveCandidateResultInput {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   personalPoolApplied: boolean;
   shortlistSize?: number;
+  /** Cuántos héroes de TU pool se listan aparte (solo si algún pool votó). */
+  poolShortlistSize?: number;
   /**
    * Hero Pools V2 -- the target position's configured teammate pool. It is a LABEL, never an admission: every card
    * still has to serve the target position, and a pool that ran dry leaves the credible heroes (labelled outside).
@@ -188,7 +191,15 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
-      const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
+      // Los bans abren héroes en la ronda 1; en las rondas 2 y 3 suben los que le ganan a lo ya revelado y los que
+      // combinan con tus aliados ya elegidos. Sin nada de eso que tocar, el orden es exactamente el de V6.
+      const ordered = reorderByContext(candidates, {
+        banned: new Set(view.bannedHeroes),
+        ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
+        revealedEnemies: new Set(revealedEnemies),
+        heroCounters: input.heroCounters,
+      });
+      const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {
           heroId: card.heroId,
@@ -203,8 +214,11 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),
         };
-      });
-      return { state: "RANKED", targetPosition, cards, degradations };
+      };
+      const cards = ordered.slice(0, size).map(toCard);
+      const poolSize = input.poolShortlistSize ?? 0;
+      const poolCards = poolSize === 0 ? [] : ordered.filter((candidate) => membershipOf(candidate, input) === "IN_POOL").slice(0, poolSize).map(toCard);
+      return { state: "RANKED", targetPosition, cards, poolCards, degradations };
     }
   }
 

@@ -6,6 +6,7 @@ import type { RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
+import { banOpeningOf, synergiesWithOwn, type BanOpening } from "./context-reorder";
 import { revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
@@ -52,6 +53,12 @@ export interface TeamCoachStrength {
   revealed: boolean;
 }
 
+/** A partner already on the Player's team and the curated reason the pair works. */
+export interface TeamCoachSynergy {
+  withHeroId: HeroId;
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   /** Rank inside THIS position's own ranking (1 = V6's best for this position). */
@@ -63,6 +70,10 @@ export interface TeamCoachCandidate {
   risks: TeamCoachRisk[];
   /** Heroes this candidate beats (curated, hard first, at most 3), so a card says WHY to pick it and not only where it plays. */
   strengths: TeamCoachStrength[];
+  /** What the visible bans opened for this hero (its banned counters) and the risk that stays (counters still free). */
+  opening: BanOpening;
+  /** Curated partners among the heroes the Player's team ALREADY picked (never a hypothetical ally). */
+  synergies: TeamCoachSynergy[];
   /** The hero the team plan assigns to this position. At most one per position, never shared between positions. */
   isPrimary: boolean;
 }
@@ -77,6 +88,8 @@ export interface TeamCoachPosition {
   primaryHeroId: HeroId | null;
   /** Primary first, then the rest of the position's own ranking in rank order. */
   top: TeamCoachCandidate[];
+  /** The best heroes of the configured pool for this position (may repeat heroes of `top`); empty when no pool voted. */
+  poolTop: TeamCoachCandidate[];
   /** Identity of the snapshot this column was ranked against (always the board's stateIdentity). */
   stateIdentity: string;
   note: string | null;
@@ -172,6 +185,7 @@ interface ColumnDraft {
   position: Position;
   state: TeamCoachPositionState;
   candidates: TeamCoachCandidate[];
+  poolCandidates: TeamCoachCandidate[];
   filledHeroId: HeroId | null;
   note: string | null;
 }
@@ -217,34 +231,53 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const revealedEnemies = revealedEnemyHeroes(view);
   const strengthIndex = strengthIndexOf(input.heroCounters);
   const revealedSet = new Set<HeroId>(revealedEnemies);
+  const ownPickSet = new Set<HeroId>(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : [])));
+  const bannedSet = new Set<HeroId>(view.bannedHeroes);
+  // Todo lo que una tarjeta cuenta del draft visible: riesgos, a quién le gana de lo ya revelado, qué abrieron los bans y
+  // con quién ya elegido combina. Nada de esto supone lo que el rival va a sacar.
+  const contextOf = (heroId: HeroId): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => ({
+    risks: risksOf(heroId, revealedEnemies, input.heroCounters),
+    strengths: strengthsOf(heroId, strengthIndex, cannotBeEnemy, revealedSet),
+    opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters }),
+    synergies: synergiesWithOwn(heroId, { ownPicks: ownPickSet }).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
+  });
+  const toCandidate = (card: { heroId: HeroId; rank: number; score: number; rationale: string }): TeamCoachCandidate => ({
+    heroId: card.heroId,
+    rank: card.rank,
+    score: card.score,
+    reasons: [card.rationale],
+    ...contextOf(card.heroId),
+    isPrimary: false,
+  });
   const cannotBeEnemy = new Set<HeroId>([...view.bannedHeroes, ...view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))]);
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
     const filledHeroId = heroByPosition.get(position) ?? null;
-    if (filledHeroId !== null) return { position, state: "FILLED", candidates: [], filledHeroId, note: null };
+    if (filledHeroId !== null) return { position, state: "FILLED", candidates: [], poolCandidates: [], filledHeroId, note: null };
     if (occupiedUnbound.has(position)) {
-      return { position, state: "FILLED", candidates: [], filledHeroId: null, note: "Ocupada por uno de tus héroes cuyo rol exacto todavía no se confirmó." };
+      return { position, state: "FILLED", candidates: [], poolCandidates: [], filledHeroId: null, note: "Ocupada por uno de tus héroes cuyo rol exacto todavía no se confirmó." };
     }
     if (!actionability.hasHumanAction) {
-      return { position, state: "WAITING", candidates: [], filledHeroId: null, note: "Sin acción humana en este momento: se recalcula cuando se abra la próxima ronda." };
+      return { position, state: "WAITING", candidates: [], poolCandidates: [], filledHeroId: null, note: "Sin acción humana en este momento: se recalcula cuando se abra la próxima ronda." };
     }
     let ranking: RecommendationSetV2;
     try {
       ranking = await input.buildTargetRanking(context, position);
     } catch {
-      return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: `No se pudo calcular el ranking de ${positionPhrase(position)}.` };
+      return { position, state: "UNAVAILABLE", candidates: [], poolCandidates: [], filledHeroId: null, note: `No se pudo calcular el ranking de ${positionPhrase(position)}.` };
     }
     if (ranking.basedOn.stateIdentity !== stateIdentity) {
-      return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: "El ranking no corresponde al estado actual del draft." };
+      return { position, state: "UNAVAILABLE", candidates: [], poolCandidates: [], filledHeroId: null, note: "El ranking no corresponde al estado actual del draft." };
     }
-    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, personalPoolApplied: position === input.playerPersonalPosition && rankingAppliedPersonalPool(ranking), shortlistSize: topSize, activePool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
+    const result = deriveCandidateResult({ targetPosition: position, targetRanking: ranking, view, heroPositions, heroCounters: input.heroCounters, personalPoolApplied: position === input.playerPersonalPosition && rankingAppliedPersonalPool(ranking), shortlistSize: topSize, poolShortlistSize: TEAM_COACH_POOL_SIZE, activePool: configuredPoolForPosition(context.playerPoolsByPosition, position) });
     if (result.state === "RANKED") {
       return {
         position,
         state: "RANKED",
         filledHeroId: null,
         note: null,
-        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], risks: risksOf(card.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(card.heroId, strengthIndex, cannotBeEnemy, revealedSet), isPrimary: false })),
+        candidates: result.cards.map(toCandidate),
+        poolCandidates: result.poolCards.map(toCandidate),
       };
     }
     if (result.state === "UNRANKED_POSITIONAL") {
@@ -253,10 +286,11 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "UNRANKED_POSITIONAL",
         filledHeroId: null,
         note: result.reason,
-        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], risks: risksOf(alternative.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(alternative.heroId, strengthIndex, cannotBeEnemy, revealedSet), isPrimary: false })),
+        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], ...contextOf(alternative.heroId), isPrimary: false })),
+        poolCandidates: [],
       };
     }
-    return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: result.reason };
+    return { position, state: "UNAVAILABLE", candidates: [], poolCandidates: [], filledHeroId: null, note: result.reason };
   }));
 
   const ranked = drafts.filter((draft) => draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
@@ -290,6 +324,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
       state: draft.state,
       primaryHeroId,
       top: withPrimaryFirst(draft.candidates, primaryHeroId),
+      poolTop: draft.poolCandidates,
       stateIdentity,
       note: draft.note,
     };
@@ -308,6 +343,9 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
 
 const MAX_RISKS_PER_CANDIDATE = 2;
 const MAX_STRENGTHS_PER_CANDIDATE = 3;
+const MAX_SYNERGIES_PER_CANDIDATE = 2;
+/** How many heroes of the configured pool get their own list per position. */
+export const TEAM_COACH_POOL_SIZE = 3;
 
 /** counterer -> the heroes it beats, built once per board from the curated counters (victim -> who counters it). */
 export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): Map<HeroId, TeamCoachStrength[]> {
@@ -329,7 +367,8 @@ export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly Curat
  * An enemy that is NOT revealed is flagged `revealed: false`: the card words it as "if they pick it", never as a fact.
  */
 export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly TeamCoachStrength[]>, excluded: ReadonlySet<HeroId>, revealedEnemies: ReadonlySet<HeroId> = new Set()): TeamCoachStrength[] {
-  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId)).map((entry) => ({ ...entry, revealed: revealedEnemies.has(entry.vsHeroId) }));
+  // Solo lo que el rival YA tiene: contar contra quién gana sobre algo que nadie ha sacado es suponer (decisión del usuario).
+  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId) && revealedEnemies.has(entry.vsHeroId)).map((entry) => ({ ...entry, revealed: true }));
   const rank = (entry: TeamCoachStrength): number => (entry.revealed ? 0 : 2) + (entry.level === "hard" ? 0 : 1);
   return usable.sort((a, b) => rank(a) - rank(b)).slice(0, MAX_STRENGTHS_PER_CANDIDATE);
 }
