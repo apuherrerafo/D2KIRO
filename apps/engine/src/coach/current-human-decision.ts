@@ -4,8 +4,10 @@ import type { HumanActionability } from "../recommendation/human-actionability";
 import { unavailableHeroesFrom } from "../recommendation/perspective-context";
 import type { RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
+import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
-import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
+import { reorderByContext } from "./context-reorder";
+import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
 import { positionPhrase } from "./reveal-strategy";
@@ -17,8 +19,11 @@ import { positionPhrase } from "./reveal-strategy";
 //     -> exactly ONE target-specific ranking (supplied by the caller for the chosen target)
 //     -> exactly ONE candidate provenance: RANKED | UNRANKED_POSITIONAL | UNAVAILABLE
 //
-// Nothing here scores or re-ranks: V6 stays the only scorer. Target selection reads the team
-// evaluation's own order and role resolution; candidate state reads the target ranking verbatim.
+// Nothing here SCORES: V6 stays the only scorer. Since 2026-10-29 (user's product decision) the candidate order is
+// V6's order adjusted by a capped bonus for what the Player can see (bans that open a hero, enemies it beats, allies it pairs
+// with -- see context-reorder.ts). A revealed counter LOWERS a hero (more if they meet in lane, less if an ally pairs
+// with it) but no longer sends it to the back: RB-4 stays only in the V3 path (user's decision, 2026-10-30).
+// Target selection reads the team evaluation's own order and role resolution.
 // Position is never inferred from round, slot or pick ordinal -- only from HumanActionability and
 // V6's role impact.
 
@@ -127,8 +132,12 @@ export interface DeriveCandidateResultInput {
   view: PerspectiveDraftView;
   heroPositions: HeroPositions;
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /** Curated pairs. Absent = none (production injects the real file; tests never read it). */
+  heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
   personalPoolApplied: boolean;
   shortlistSize?: number;
+  /** Cuántos héroes de TU pool se listan aparte (solo si algún pool votó). */
+  poolShortlistSize?: number;
   /**
    * Hero Pools V2 -- the target position's configured teammate pool. It is a LABEL, never an admission: every card
    * still has to serve the target position, and a pool that ran dry leaves the credible heroes (labelled outside).
@@ -182,13 +191,25 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
   const unavailable = unavailableHeroesFrom(view);
 
   if (!invalidatesRanking(degradations)) {
-    const candidates = demoteRevealedHardCountered(extractHeroCandidates(targetRanking, heroPositions), revealedEnemyHeroes(view), input.heroCounters)
+    // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
+    // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si una sinergia lo rescata), sin
+    // mandarlo al fondo de oficio. La lista del pool usa ESTE mismo orden. Sin contexto que toque a nadie, es el de V6.
+    const candidates = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), {
+      banned: new Set(view.bannedHeroes),
+      ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
+      revealedEnemies: new Set(revealedEnemyHeroes(view)),
+      heroCounters: input.heroCounters,
+      heroSynergies: input.heroSynergies,
+      heroPositions,
+      targetPosition,
+    })
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
-      const cards: RankedCandidateCard[] = candidates.slice(0, size).map((candidate, index) => {
+      const ordered = candidates;
+      const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {
           heroId: card.heroId,
@@ -203,8 +224,11 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),
         };
-      });
-      return { state: "RANKED", targetPosition, cards, degradations };
+      };
+      const cards = ordered.slice(0, size).map(toCard);
+      const poolSize = input.poolShortlistSize ?? 0;
+      const poolCards = poolSize === 0 ? [] : ordered.filter((candidate) => membershipOf(candidate, input) === "IN_POOL").slice(0, poolSize).map(toCard);
+      return { state: "RANKED", targetPosition, cards, poolCards, degradations };
     }
   }
 

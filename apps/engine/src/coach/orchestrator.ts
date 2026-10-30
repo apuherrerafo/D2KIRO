@@ -5,6 +5,7 @@ import { configuredPoolForPosition, poolForPosition, unavailableHeroesFrom, type
 import type { RecommendationSetV2 } from "../recommendation/types";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedCounter } from "../signals/hero-counters";
+import type { CuratedSynergy } from "../signals/hero-synergies";
 import { buildCoachObservableState, type CoachObservableState } from "./observable-state";
 import { credibleHeroesForPosition, extractHeroCandidates } from "./hero-card";
 import { safeCoreWindowPossible } from "./safe-core";
@@ -69,6 +70,8 @@ export interface CoachOrchestratorDeps {
   heroPositions?: HeroPositions;
   /** Wave 4A: curated counter relationships for the Safe Core opportunity. Omitted -> no opportunity is ever produced. */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /** Curated pairs for the context reorder (production: the real file; tests: their own map or none). */
+  heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
 }
 
 export interface CoachRecomputeInput {
@@ -285,7 +288,7 @@ export class CoachOrchestrator {
       // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
       const personalPoolApplied = ownPoolInEffect && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
-      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, personalPoolApplied, activePool });
+      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, heroSynergies: this.deps.heroSynergies, personalPoolApplied, activePool });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied, ...derivePoolInfo({ activePool, personalPoolApplied, unavailable: unavailableHeroesFrom(view) }) });
       opportunity = await this.deriveSafeCoreOpportunity(input.context);
     }

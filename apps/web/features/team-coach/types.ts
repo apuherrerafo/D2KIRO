@@ -29,6 +29,26 @@ export interface TeamCoachStrength {
   revealed?: boolean;
 }
 
+/** Un héroe que counterea al candidato, con su nivel. Espejo a mano del motor. */
+export interface TeamCoachCounterNote {
+  heroId: number;
+  level: "hard" | "medium";
+  /** Solo en "sigue libre": su posición habitual ya la ocupa un rival revelado (menos probable). */
+  takenPosition?: TeamPosition;
+}
+
+/** Qué abrieron los bans visibles para este héroe y qué riesgo queda. Espejo a mano del motor. */
+export interface TeamCoachOpening {
+  openedBy: TeamCoachCounterNote[];
+  stillFree: TeamCoachCounterNote[];
+}
+
+/** Un aliado que YA elegiste y el porqué de la pareja. Espejo a mano del motor. */
+export interface TeamCoachSynergy {
+  withHeroId: number;
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   rank: number;
@@ -39,6 +59,10 @@ export interface TeamCoachCandidate {
   risks?: TeamCoachRisk[];
   /** Opcional: un motor anterior no lo manda. Ausente = no se muestra ninguna fortaleza. */
   strengths?: TeamCoachStrength[];
+  /** Opcional: un motor anterior no lo manda. Ausente = no se muestra nada de bans. */
+  opening?: TeamCoachOpening;
+  /** Opcional: un motor anterior no lo manda. Ausente = sin sinergias con aliados. */
+  synergies?: TeamCoachSynergy[];
   isPrimary: boolean;
 }
 
@@ -50,6 +74,8 @@ export interface TeamCoachColumn {
   state: TeamCoachPositionState;
   primaryHeroId: HeroId | null;
   top: TeamCoachCandidate[];
+  /** Opcional: los mejores héroes de TU pool para la posición (pueden repetir los de `top`). Ausente o vacío = sin lista de pool. */
+  poolTop?: TeamCoachCandidate[];
   stateIdentity: string;
   note: string | null;
 }

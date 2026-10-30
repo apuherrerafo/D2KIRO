@@ -46,7 +46,7 @@ export interface RankedCandidateCard {
   /** Always the decision's targetPosition: a card never belongs to another position. */
   position: Position;
   rank: number;
-  /** V6 score (internal ordering). */
+  /** V6 score. The card order is this score plus the capped context bonus of context-reorder.ts (V6 + bono). */
   score: number;
   confidence: Confidence;
   roleStatus: RoleImpactStatus;
@@ -74,7 +74,7 @@ export interface PositionalAlternative {
 }
 
 export type CandidateResult =
-  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; degradations: RecommendationDegradation[] }
+  | { state: "RANKED"; targetPosition: Position; cards: RankedCandidateCard[]; /** Los mejores héroes de ESTE pool para la posición (puede repetir los de `cards`); vacío si ningún pool votó. */ poolCards: RankedCandidateCard[]; degradations: RecommendationDegradation[] }
   | { state: "UNRANKED_POSITIONAL"; targetPosition: Position; alternatives: PositionalAlternative[]; reason: string; degradations: RecommendationDegradation[] }
   | { state: "UNAVAILABLE"; targetPosition: Position; reason: string; degradations: RecommendationDegradation[] };
 

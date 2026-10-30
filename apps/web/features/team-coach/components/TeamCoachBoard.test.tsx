@@ -89,62 +89,128 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.queryAllByTestId("team-coach-candidate-risk")).toHaveLength(0);
   });
 
-  test("a quién le gana el candidato se ve con su porqué: 'Fuerte contra X: porqué' y 'También: Y, Z'", () => {
-    const withStrengths = column(2);
-    withStrengths.top[0] = {
-      ...withStrengths.top[0]!,
-      strengths: [
-        { vsHeroId: 7, level: "hard", why: "Orchid lo silencia" },
-        { vsHeroId: 8, level: "medium", why: "otro" },
-        { vsHeroId: 9, level: "medium", why: "otro más" },
-      ],
-    };
-    const view = renderBoard({ ...board([2], 2), positions: [withStrengths] });
-    expect(view.queryAllByTestId("team-coach-candidate-strength")).toHaveLength(0);
-    const hypotheses = view.getAllByTestId("team-coach-candidate-if-picked");
-    expect(hypotheses).toHaveLength(1);
-    expect(hypotheses[0]!.textContent).toBe("Si el rival saca a Hero 7 (counter fuerte): Orchid lo silencia");
-    expect(view.getByText("También si sacan: Hero 8, Hero 9")).toBeTruthy();
+  test("a quién le gana de lo que el rival YA tiene se ve con su porqué: 'Fuerte contra X (ya está en el rival): porqué'", () => {
+    const withStrength = column(2);
+    withStrength.top[0] = { ...withStrength.top[0]!, strengths: [{ vsHeroId: 7, level: "hard", why: "Orchid lo silencia", revealed: true }] };
+    const view = renderBoard({ ...board([2], 2), positions: [withStrength] });
+    const lines = view.getAllByTestId("team-coach-candidate-strength");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.textContent).toBe("Fuerte contra Hero 7 (ya está en el rival): Orchid lo silencia");
   });
 
-  test("un rival que NO salió nunca se afirma como hecho: sin 'Fuerte contra' ni 'ya está en el rival'", () => {
-    const hypothetical = column(2);
-    hypothetical.top[0] = { ...hypothetical.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón", revealed: false }] };
-    const view = renderBoard({ ...board([2], 2), positions: [hypothetical] });
-    expect(view.getByTestId("team-coach-candidate-if-picked").textContent).toBe("Si el rival saca a Hero 7 (ventaja posible): razón");
-    expect(view.container.textContent).not.toContain("ya está en el rival");
-  });
-
-  test("un rival que YA se ve sí se afirma, con su nivel y 'ya está en el rival'", () => {
-    const real = column(2);
-    real.top[0] = { ...real.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón", revealed: true }] };
-    const view = renderBoard({ ...board([2], 2), positions: [real] });
+  test("un counter medium dice 'Ventaja posible contra', nunca 'Fuerte contra'", () => {
+    const withMedium = column(2);
+    withMedium.top[0] = { ...withMedium.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón", revealed: true }] };
+    const view = renderBoard({ ...board([2], 2), positions: [withMedium] });
     expect(view.getByTestId("team-coach-candidate-strength").textContent).toBe("Ventaja posible contra Hero 7 (ya está en el rival): razón");
   });
 
-  test("sin fortalezas (o un motor que no manda el campo): no aparece ninguna línea", () => {
+  test("sin fortalezas, sin bans que abran nada y sin sinergias (o un motor que no manda los campos): no aparece ninguna línea", () => {
     const view = renderBoard(board([2], 2));
     expect(view.queryAllByTestId("team-coach-candidate-strength")).toHaveLength(0);
+    expect(view.queryAllByTestId("team-coach-candidate-opened")).toHaveLength(0);
+    expect(view.queryAllByTestId("team-coach-candidate-synergy")).toHaveLength(0);
   });
 
-  test("validación: acepta 'strengths' ausente y bien formado; rechaza uno mal formado", () => {
-    const good = board([2], 2);
-    good.positions[0]!.top[0] = { ...good.positions[0]!.top[0]!, strengths: [{ vsHeroId: 7, level: "hard", why: "razón" }] };
-    expect(parseTeamCoachBoard(good)).not.toBeNull();
-    const broken = board([2], 2);
-    (broken.positions[0]!.top[0] as unknown as { strengths: unknown }).strengths = [{ vsHeroId: 7, level: "enorme", why: "razón" }];
-    expect(parseTeamCoachBoard(broken)).toBeNull();
+  test("lo que abrieron los bans se dice con nombres, y el riesgo que queda también", () => {
+    const opened = column(2);
+    opened.top[0] = {
+      ...opened.top[0]!,
+      opening: { openedBy: [{ heroId: 7, level: "hard" }, { heroId: 8, level: "hard" }, { heroId: 9, level: "medium" }], stillFree: [{ heroId: 11, level: "medium" }, { heroId: 12, level: "medium" }] },
+    };
+    const view = renderBoard({ ...board([2], 2), positions: [opened] });
+    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Counters baneados: Hero 7, Hero 8 y Hero 9. Se abre el pick.");
+    expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 y Hero 12 también lo counterean y siguen libres.");
   });
 
-  test("validación: acepta 'risks' ausente y bien formado; rechaza uno mal formado", () => {
+  test("un solo counter baneado se dice en singular", () => {
+    const opened = column(2);
+    opened.top[0] = { ...opened.top[0]!, opening: { openedBy: [{ heroId: 7, level: "hard" }], stillFree: [] } };
+    const view = renderBoard({ ...board([2], 2), positions: [opened] });
+    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Counter baneado: Hero 7. Se abre el pick.");
+    expect(view.queryAllByTestId("team-coach-candidate-still-free")).toHaveLength(0);
+  });
+
+  test("si le queda un counter FUERTE libre no se dice 'se abre': se avisa de ese counter", () => {
+    const closed = column(2);
+    closed.top[0] = { ...closed.top[0]!, opening: { openedBy: [], stillFree: [{ heroId: 11, level: "hard" }] } };
+    const view = renderBoard({ ...board([2], 2), positions: [closed] });
+    expect(view.queryAllByTestId("team-coach-candidate-opened")).toHaveLength(0);
+    expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 lo counterea fuerte y sigue libre.");
+  });
+
+  test("un counter libre cuya posición ya ocupó el rival se avisa como menos probable", () => {
+    const taken = column(2);
+    taken.top[0] = { ...taken.top[0]!, opening: { openedBy: [], stillFree: [{ heroId: 11, level: "hard", takenPosition: 3 }] } };
+    const view = renderBoard({ ...board([2], 2), positions: [taken] });
+    expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 (menos probable: ya tienen offlane) lo counterea fuerte y sigue libre.");
+  });
+
+  test("sin nada que decir de los bans (ronda 2-3 o casi nada baneado) no aparece ninguna línea de bans", () => {
+    const quiet = column(2);
+    quiet.top[0] = { ...quiet.top[0]!, opening: { openedBy: [], stillFree: [] } };
+    const view = renderBoard({ ...board([2], 2), positions: [quiet] });
+    expect(view.queryAllByTestId("team-coach-candidate-opened")).toHaveLength(0);
+    expect(view.queryAllByTestId("team-coach-candidate-still-free")).toHaveLength(0);
+  });
+
+  test("si el motivo del motor ya es 'Sinergia con X', la misma pareja no se repite abajo", () => {
+    const repeated = column(2);
+    repeated.top[0] = { ...repeated.top[0]!, reasons: ["Sinergia con Hero 7: combo"], synergies: [{ withHeroId: 7, why: "combo" }] };
+    const view = renderBoard({ ...board([2], 2), positions: [repeated] });
+    expect(view.queryAllByTestId("team-coach-candidate-synergy")).toHaveLength(0);
+  });
+
+  test("la sinergia se dice solo con un aliado que YA elegiste: 'Combina con tu X: porqué'", () => {
+    const withPartner = column(2);
+    withPartner.top[0] = { ...withPartner.top[0]!, synergies: [{ withHeroId: 7, why: "Shallow Grave le da tiempo para usar Blink" }] };
+    const view = renderBoard({ ...board([2], 2), positions: [withPartner] });
+    expect(view.getByTestId("team-coach-candidate-synergy").textContent).toBe("Combina con tu Hero 7: Shallow Grave le da tiempo para usar Blink");
+  });
+
+  test("dos listas por posición: la de tu pool arriba y 'En general' abajo, y pueden repetir héroes", () => {
+    const withPool = column(2);
+    withPool.poolTop = [withPool.top[0]!];
+    const view = renderBoard({ ...board([2], 2), positions: [withPool] });
+    expect(view.getByTestId("team-coach-pool-list").textContent).toContain("Del pool");
+    expect(view.getByText("En general")).toBeTruthy();
+    const repeated = String(withPool.top[0]!.heroId);
+    expect(view.getAllByTestId("team-coach-candidate").filter((node) => node.getAttribute("data-hero-id") === repeated)).toHaveLength(1);
+    // La lista del pool usa su propio testid: la auditoría (Flight Recorder) compara solo la lista general con el motor.
+    expect(view.getAllByTestId("team-coach-pool-candidate").map((node) => node.getAttribute("data-hero-id"))).toEqual([repeated]);
+  });
+
+  test("sin lista de pool la columna queda como siempre: sin encabezados", () => {
+    const view = renderBoard(board([2], 2));
+    expect(view.queryAllByTestId("team-coach-pool-list")).toHaveLength(0);
+    expect(view.queryByText("En general")).toBeNull();
+  });
+
+  test("validación: acepta los campos nuevos ausentes y bien formados; rechaza los mal formados", () => {
     const good = board([2], 2);
+    good.positions[0]!.top[0] = {
+      ...good.positions[0]!.top[0]!,
+      strengths: [{ vsHeroId: 7, level: "hard", why: "razón", revealed: true }],
+      opening: { openedBy: [{ heroId: 7, level: "hard" }], stillFree: [] },
+      synergies: [{ withHeroId: 8, why: "razón" }],
+    };
+    good.positions[0]!.poolTop = [good.positions[0]!.top[0]!];
     expect(parseTeamCoachBoard(good)).not.toBeNull();
-    const withRisk = board([2], 2);
-    withRisk.positions[0]!.top[0] = { ...withRisk.positions[0]!.top[0]!, risks: [{ vsHeroId: 7, why: "razón" }] };
-    expect(parseTeamCoachBoard(withRisk)).not.toBeNull();
-    const broken = board([2], 2);
-    (broken.positions[0]!.top[0] as unknown as { risks: unknown }).risks = [{ vsHeroId: "x", why: 3 }];
-    expect(parseTeamCoachBoard(broken)).toBeNull();
+    const brokenStrength = board([2], 2);
+    (brokenStrength.positions[0]!.top[0] as unknown as { strengths: unknown }).strengths = [{ vsHeroId: 7, level: "enorme", why: "razón" }];
+    expect(parseTeamCoachBoard(brokenStrength)).toBeNull();
+    const brokenOpening = board([2], 2);
+    (brokenOpening.positions[0]!.top[0] as unknown as { opening: unknown }).opening = { openedBy: "no", stillFree: [] };
+    expect(parseTeamCoachBoard(brokenOpening)).toBeNull();
+    const brokenPool = board([2], 2);
+    (brokenPool.positions[0] as unknown as { poolTop: unknown }).poolTop = "abc";
+    expect(parseTeamCoachBoard(brokenPool)).toBeNull();
+    const brokenPoolItem = board([2], 2);
+    (brokenPoolItem.positions[0] as unknown as { poolTop: unknown }).poolTop = [{ nope: 1 }];
+    expect(parseTeamCoachBoard(brokenPoolItem)).toBeNull();
+    const brokenSynergy = board([2], 2);
+    (brokenSynergy.positions[0]!.top[0] as unknown as { synergies: unknown }).synergies = [{ withHeroId: "x", why: 3 }];
+    expect(parseTeamCoachBoard(brokenSynergy)).toBeNull();
   });
 });
 

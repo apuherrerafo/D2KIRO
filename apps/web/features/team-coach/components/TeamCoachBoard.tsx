@@ -8,22 +8,23 @@ import {
   BOARD_SHELL,
   CANDIDATE_BUTTON,
   CANDIDATE_HEAD,
-  CANDIDATE_ALSO,
-  CANDIDATE_IF_PICKED,
+  CANDIDATE_OPENED,
   CANDIDATE_REASON,
   CANDIDATE_RISK,
+  CANDIDATE_STILL_FREE,
   CANDIDATE_STRENGTH,
   CANDIDATE_ROW,
   COLUMN_DEFAULT,
   COLUMN_HEADER,
   COLUMN_RECOMMENDED,
   COLUMN_SELECTED,
+  LIST_HEADING,
   DECISION_BANNER,
   PICK_NOW_BADGE,
   PLAN_BADGE,
   PRIMARY_BUTTON,
 } from "../styles";
-import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachStrength, TeamPosition } from "../types";
+import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachStrength, TeamPosition } from "../types";
 
 // <Dominio><Cosa>: el Team Coach Board -- UN componente compartido por /simulator y /live-draft.
 //
@@ -153,6 +154,8 @@ interface CandidateProps {
   canPick: boolean;
   /** La razón por héroe solo se muestra cuando el ranking es propio de cada uno (columna RANKED). */
   showReason: boolean;
+  /** testid del ítem: la lista del pool usa el suyo para que la auditoría (Flight Recorder) compare solo la general. */
+  testId?: string;
 }
 
 interface CandidateDetailProps {
@@ -185,48 +188,82 @@ function CandidateRisks({ candidate, heroCatalog }: { candidate: TeamCoachCandid
 }
 
 const STRENGTH_LABELS: Record<TeamCoachStrength["level"], string> = { hard: "Fuerte contra", medium: "Ventaja posible contra" };
-const IF_PICKED_LABELS: Record<TeamCoachStrength["level"], string> = { hard: "counter fuerte", medium: "ventaja posible" };
-const MAX_ALSO_NAMES = 2;
 
-interface StrengthLineProps {
-  strength: TeamCoachStrength;
-  heroCatalog: Map<number, HeroMeta>;
+// "Axe", "Axe y Lion", "Axe, Lion y Ancient Apparition".
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
 }
 
-// Un rival que YA se ve: es un hecho del draft, va en verde y lo dice. Es lo único que se afirma sin condicional.
-function RevealedStrengthLine({ strength, heroCatalog }: StrengthLineProps) {
+const ROLE_WORDS: Record<TeamPosition, string> = { 1: "carry", 2: "mid", 3: "offlane", 4: "support", 5: "hard support" };
+
+// "Axe (menos probable: ya tienen offlane)": un counter cuya posición ya ocupó el rival pesa menos, pero se avisa igual.
+function noteName(note: TeamCoachCounterNote, heroCatalog: Map<number, HeroMeta>): string {
+  const name = heroName(note.heroId, heroCatalog);
+  if (note.takenPosition === undefined) return name;
+  return `${name} (menos probable: ya tienen ${ROLE_WORDS[note.takenPosition]})`;
+}
+
+function namesOf(notes: readonly TeamCoachCounterNote[], heroCatalog: Map<number, HeroMeta>): string {
+  return joinNames(notes.map((note) => noteName(note, heroCatalog)));
+}
+
+// A quién de lo que el rival YA tiene le gana este héroe. Solo hechos del draft: nunca se supone lo que va a sacar.
+function CandidateStrengths({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+  const [first] = candidate.strengths ?? [];
+  if (!first) return null;
   return (
     <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-strength">
-      {STRENGTH_LABELS[strength.level]} {heroName(strength.vsHeroId, heroCatalog)} (ya está en el rival): {strength.why}
+      {STRENGTH_LABELS[first.level]} {heroName(first.vsHeroId, heroCatalog)} (ya está en el rival): {first.why}
     </span>
   );
 }
 
-// Un rival que todavía NO salió: solo una hipótesis. En gris y con "si el rival saca a", para que no parezca que ya está.
-function IfPickedStrengthLine({ strength, heroCatalog }: StrengthLineProps) {
-  return (
-    <span className={CANDIDATE_IF_PICKED} data-testid="team-coach-candidate-if-picked">
-      Si el rival saca a {heroName(strength.vsHeroId, heroCatalog)} ({IF_PICKED_LABELS[strength.level]}): {strength.why}
-    </span>
-  );
+function pluralize(count: number, one: string, many: string): string {
+  if (count === 1) return one;
+  return many;
 }
 
-function StrengthLine({ strength, heroCatalog }: StrengthLineProps) {
-  if (strength.revealed === true) return <RevealedStrengthLine strength={strength} heroCatalog={heroCatalog} />;
-  return <IfPickedStrengthLine strength={strength} heroCatalog={heroCatalog} />;
-}
-
-// Para qué sirve este héroe además de su posición. Aparece desde la ronda 1, antes de ver rivales; el primero lleva su
-// porqué y los demás van solo por nombre.
-function CandidateStrengths({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
-  const [first, ...others] = candidate.strengths ?? [];
-  if (!first) return null;
-  const alsoNames = others.slice(0, MAX_ALSO_NAMES).map((strength) => heroName(strength.vsHeroId, heroCatalog));
+// Lo que los bans visibles abrieron para este héroe (sus counters baneados) y el riesgo que queda a ciegas (los que siguen
+// libres). Se muestra solo si algo se abrió: sin counters baneados no hay nada que decir.
+function CandidateOpening({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+  const opening = candidate.opening;
+  if (!opening) return null;
+  if (opening.openedBy.length === 0) return <HardCounterStillFree opening={opening} heroCatalog={heroCatalog} />;
   return (
     <>
-      <StrengthLine strength={first} heroCatalog={heroCatalog} />
-      {alsoNames.length > 0 && <span className={CANDIDATE_ALSO}>También si sacan: {alsoNames.join(", ")}</span>}
+      <span className={CANDIDATE_OPENED} data-testid="team-coach-candidate-opened">
+        {pluralize(opening.openedBy.length, "Counter baneado", "Counters baneados")}: {namesOf(opening.openedBy, heroCatalog)}. Se abre el pick.
+      </span>
+      {opening.stillFree.length > 0 && (
+        <span className={CANDIDATE_STILL_FREE} data-testid="team-coach-candidate-still-free">
+          Ojo: {namesOf(opening.stillFree, heroCatalog)} {pluralize(opening.stillFree.length, "también lo counterea y sigue libre", "también lo counterean y siguen libres")}.
+        </span>
+      )}
     </>
+  );
+}
+
+// Los bans tocaron sus counters, pero le queda uno FUERTE libre: lo primero que tienes que saber antes de pickearlo a ciegas.
+function HardCounterStillFree({ opening, heroCatalog }: { opening: NonNullable<TeamCoachCandidate["opening"]>; heroCatalog: Map<number, HeroMeta> }) {
+  if (opening.stillFree.length === 0) return null;
+  return (
+    <span className={CANDIDATE_STILL_FREE} data-testid="team-coach-candidate-still-free">
+      Ojo: {namesOf(opening.stillFree, heroCatalog)} {pluralize(opening.stillFree.length, "lo counterea fuerte y sigue libre", "lo counterean fuerte y siguen libres")}.
+    </span>
+  );
+}
+
+// Parejas con aliados que YA elegiste (nunca con uno hipotético).
+function CandidateSynergies({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+  const [first] = candidate.synergies ?? [];
+  if (!first) return null;
+  // El motivo del motor ya puede ser "Sinergia con X: ..."; la misma pareja no se dice dos veces en la tarjeta.
+  if ((candidate.reasons[0] ?? "").startsWith(`Sinergia con ${heroName(first.withHeroId, heroCatalog)}`)) return null;
+  return (
+    <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-synergy">
+      Combina con tu {heroName(first.withHeroId, heroCatalog)}: {first.why}
+    </span>
   );
 }
 
@@ -235,7 +272,9 @@ function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetail
   return (
     <>
       <CandidateReason text={visibleReason(candidate, showReason)} />
+      <CandidateOpening candidate={candidate} heroCatalog={heroCatalog} />
       <CandidateStrengths candidate={candidate} heroCatalog={heroCatalog} />
+      <CandidateSynergies candidate={candidate} heroCatalog={heroCatalog} />
       <CandidateRisks candidate={candidate} heroCatalog={heroCatalog} />
     </>
   );
@@ -256,12 +295,12 @@ function PlanBadge({ candidate }: { candidate: TeamCoachCandidate }) {
   return <span className={PLAN_BADGE}>plan</span>;
 }
 
-function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick, showReason }: CandidateProps) {
+function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick, showReason, testId = "team-coach-candidate" }: CandidateProps) {
   function handlePick() {
     onPickHero?.(position, candidate.heroId);
   }
   const reason = candidate.reasons[0] ?? "";
-  const common = { "data-testid": "team-coach-candidate", "data-hero-id": candidate.heroId, "data-primary": candidate.isPrimary, title: reason };
+  const common = { "data-testid": testId, "data-hero-id": candidate.heroId, "data-primary": candidate.isPrimary, title: reason };
   if (!canPick || !onPickHero) {
     return (
       <li className={CANDIDATE_ROW} {...common}>
@@ -299,12 +338,45 @@ function ColumnBody({ column, heroCatalog, onPickHero }: ColumnBodyProps) {
     return <span className="text-caption text-content-muted">{column.note ?? "Sin candidatos para esta posición ahora."}</span>;
   }
   return (
+    <>
+      <PoolList column={column} heroCatalog={heroCatalog} onPickHero={onPickHero} />
+      <GeneralHeading column={column} />
+      <CandidateList column={column} candidates={column.top} heroCatalog={heroCatalog} onPickHero={onPickHero} />
+    </>
+  );
+}
+
+interface CandidateListProps extends ColumnBodyProps {
+  candidates: TeamCoachCandidate[];
+  itemTestId?: string;
+}
+
+function CandidateList({ column, candidates, heroCatalog, onPickHero, itemTestId }: CandidateListProps) {
+  return (
     <ol className="flex flex-col gap-1">
-      {column.top.map((candidate) => (
-        <CandidateItem key={candidate.heroId} position={column.position} candidate={candidate} heroCatalog={heroCatalog} onPickHero={onPickHero} canPick={column.eligibleNow} showReason={column.state === "RANKED"} />
+      {candidates.map((candidate) => (
+        <CandidateItem key={candidate.heroId} position={column.position} candidate={candidate} heroCatalog={heroCatalog} onPickHero={onPickHero} canPick={column.eligibleNow} showReason={column.state === "RANKED"} testId={itemTestId} />
       ))}
     </ol>
   );
+}
+
+// La lista del pool de la posición (el tuyo o el de tu compañero) va aparte de la general: puede repetir héroes que también salen abajo, y no se mezclan.
+function PoolList({ column, heroCatalog, onPickHero }: ColumnBodyProps) {
+  const pool = column.poolTop ?? [];
+  if (pool.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1" data-testid="team-coach-pool-list">
+      <span className={LIST_HEADING}>Del pool</span>
+      <CandidateList column={column} candidates={pool} heroCatalog={heroCatalog} onPickHero={onPickHero} itemTestId="team-coach-pool-candidate" />
+    </div>
+  );
+}
+
+// El encabezado "En general" solo aparece cuando hay lista de pool encima: sin pool, la columna queda como siempre.
+function GeneralHeading({ column }: { column: TeamCoachColumn }) {
+  if ((column.poolTop ?? []).length === 0) return null;
+  return <span className={LIST_HEADING}>En general</span>;
 }
 
 function PickNowBadge({ recommended }: { recommended: boolean }) {

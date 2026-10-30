@@ -54,6 +54,18 @@ function isStrength(value: unknown): value is TeamCoachStrength {
   return isRecord(value) && isHeroId(value.vsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why) && (value.revealed === undefined || typeof value.revealed === "boolean");
 }
 
+function isCounterNote(value: unknown): boolean {
+  return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium") && (value.takenPosition === undefined || isPosition(value.takenPosition));
+}
+
+function isOpening(value: unknown): boolean {
+  return isRecord(value) && Array.isArray(value.openedBy) && value.openedBy.every(isCounterNote) && Array.isArray(value.stillFree) && value.stillFree.every(isCounterNote);
+}
+
+function isSynergy(value: unknown): boolean {
+  return isRecord(value) && isHeroId(value.withHeroId) && isString(value.why);
+}
+
 function isCandidate(value: unknown): value is TeamCoachCandidate {
   return (
     isRecord(value) &&
@@ -64,6 +76,8 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
     value.reasons.every(isString) &&
     (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isRisk))) &&
     (value.strengths === undefined || (Array.isArray(value.strengths) && value.strengths.every(isStrength))) &&
+    (value.opening === undefined || isOpening(value.opening)) &&
+    (value.synergies === undefined || (Array.isArray(value.synergies) && value.synergies.every(isSynergy))) &&
     typeof value.isPrimary === "boolean"
   );
 }
@@ -82,6 +96,7 @@ function isColumn(value: unknown): value is TeamCoachColumn {
     isNullable(value.primaryHeroId, isHeroId) &&
     Array.isArray(value.top) &&
     value.top.every(isCandidate) &&
+    (value.poolTop === undefined || (Array.isArray(value.poolTop) && value.poolTop.every(isCandidate))) &&
     isString(value.stateIdentity) &&
     isNullable(value.note, isString)
   );
