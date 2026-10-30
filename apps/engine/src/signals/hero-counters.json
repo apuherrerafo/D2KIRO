@@ -26,6 +26,11 @@
       "why": "Glimpse lo regresa después de usar Blink y Static Storm lo silencia para que no pueda escapar"
     },
     {
+      "vs": 145,
+      "level": "medium",
+      "why": "Kez tiene mucho daño y un silencio con Talon Toss que apaga el Blink de Anti-Mage, y su movilidad le deja kitearlo o cerrar la distancia"
+    },
+    {
       "vs": 104,
       "level": "medium",
       "why": "Counterspell no protege de nada contra Duel"
@@ -121,6 +126,11 @@
       "vs": 70,
       "level": "medium",
       "why": "Enrage baja casi todo el daño de Counter Helix y Blade Mail, y Fury Swipes acaba con la vida grande de Axe"
+    },
+    {
+      "vs": 37,
+      "level": "medium",
+      "why": "Axe se mete a héroes agrupados y es un blanco ideal para Fatal Bonds, y cuando Axe inicia, Warlock puede contra-iniciar con Chaotic Offering para ganar la pelea"
     }
   ],
   "3": [
@@ -158,6 +168,11 @@
       "vs": 86,
       "level": "medium",
       "why": "Rubick roba Fiend's Grip con facilidad y le gana a Bane en la línea"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Los Familiars pueden usar Stone Form para interrumpir Fiend's Grip aunque Visage esté bajo su efecto, y atacar a un objetivo con Nightmare para trasladar el sueño"
     }
   ],
   "4": [
@@ -249,6 +264,11 @@
       "vs": 55,
       "level": "medium",
       "why": "Vacuum arrastra a Drow Ranger a la pelea y Wall of Replica castiga a los carries de rango que pelean desde atrás"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Falcon Rush le deja a Kez engancharse a Drow Ranger de nuevo al instante cuando ella intenta escapar con Gust o Hurricane Pike, así que no logra alejarse de él"
     },
     {
       "vs": 138,
@@ -350,6 +370,11 @@
       "why": "Nightmare lo atrapa durante el cast point de Omnislash y lo saca de la pelea"
     },
     {
+      "vs": 65,
+      "level": "medium",
+      "why": "Flaming Lasso atraviesa la inmunidad a debuffs de Blade Fury y deja a Juggernaut sin moverse, atacar ni usar habilidades, y Firefly le permite alejarse de sus golpes"
+    },
+    {
       "vs": 55,
       "level": "medium",
       "why": "Juggernaut es vulnerable durante el cast point de Omnislash: hay muchas formas de atraparlo o sacarlo, y esta es una"
@@ -360,9 +385,19 @@
       "why": "Lifestealer le gana el mano a mano: Feast y Rage escalan mejor que Blade Fury"
     },
     {
+      "vs": 26,
+      "level": "medium",
+      "why": "Lion puede inmovilizar a Juggernaut al instante antes de que use Blade Fury y rematarlo con Finger of Death después del aturdimiento"
+    },
+    {
       "vs": 120,
       "level": "medium",
       "why": "Juggernaut es vulnerable durante el cast point de Omnislash: hay muchas formas de atraparlo o sacarlo, y esta es una"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Los Familiars absorben golpes de Omnislash y pueden aturdirlo repetidamente, y la dureza y la armadura de Visage reducen su potencial de matar"
     }
   ],
   "9": [
@@ -395,6 +430,11 @@
       "vs": 123,
       "level": "medium",
       "why": "En un 1 contra 1 Hoodwink suele ganarle a Mirana: Acorn Shot y Bushwhack la castigan en la línea"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Falcon Rush le deja a Kez engancharse de nuevo a Mirana al instante aunque se aleje saltando con Leap, y una Mirana frágil muere fácil"
     }
   ],
   "10": [
@@ -422,6 +462,11 @@
       "vs": 55,
       "level": "medium",
       "why": "Ion Shell y Vacuum le complican mucho la línea y las peleas a Morphling, casi como un counter duro"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Silence molesta mucho a Morphling porque depende de usar sus hechizos en las peleas"
     }
   ],
   "11": [
@@ -469,6 +514,11 @@
       "vs": 108,
       "level": "medium",
       "why": "Su aura le reduce el daño a Shadow Fiend, que pega muy fuerte conforme avanza la partida"
+    },
+    {
+      "vs": 20,
+      "level": "medium",
+      "why": "Nether Swap seguido de un aturdimiento castiga la poca movilidad de Shadow Fiend, y su fragilidad lo hace un blanco fácil si se posiciona mal una sola vez"
     }
   ],
   "12": [
@@ -556,6 +606,11 @@
       "vs": 85,
       "level": "medium",
       "why": "Phantom Lancer es débil en línea: hay que sobrevivir la fase de líneas contra Axe, Legion Commander o Undying"
+    },
+    {
+      "vs": 37,
+      "level": "medium",
+      "why": "Fatal Bonds y Chaotic Offering castigan mucho a las ilusiones: cualquier daño en área o nuke derrite los clones de Phantom Lancer a través de Fatal Bonds"
     }
   ],
   "13": [
@@ -734,9 +789,19 @@
       "why": "Blink rompe Static Link bajo demanda y Queen of Pain puede volver a entrar cuando Razor ya perdio su ventana"
     },
     {
+      "vs": 113,
+      "level": "medium",
+      "why": "Magnetic Field da evasión contra los golpes de Razor y Tempest Double puede gastar Static Link y sus habilidades, y Razor no puede inmovilizar a Arc Warden el tiempo suficiente para frenar su empuje en solitario"
+    },
+    {
       "vs": 96,
       "level": "medium",
       "why": "Retaliate devuelve daño en cada ataque de Razor y Centaur tiene vida de sobra contra Static Link"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "La movilidad de Kez le permite romper Static Link cada vez sin perder mucho daño, y llegar a un Razor de poca armadura para reventarlo"
     }
   ],
   "16": [
@@ -835,9 +900,24 @@
       "why": "Fiend's Grip atraviesa la BKB de Sven y lo deja fuera de la pelea"
     },
     {
+      "vs": 58,
+      "level": "medium",
+      "why": "Untouchable reduce el daño físico de ráfaga de Sven, y Enchantress puede mantener la distancia en las peleas y curarse con Nature's Attendants tras los primeros aturdimientos"
+    },
+    {
       "vs": 94,
       "level": "medium",
       "why": "Mana Shield le quita el daño explosivo a Sven durante el stun de Storm Hammer y Stone Gaze no le deja pelear de frente"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Sven depende de moverse en las peleas, y Nature's Grasp lo lentifica mientras Leech Seed y Overgrowth, que atraviesa la BKB, lo inmovilizan"
+    },
+    {
+      "vs": 20,
+      "level": "medium",
+      "why": "Wave of Terror le baja mucho la armadura a Sven y Nether Swap sirve para kitearlo y para salvar a sus carries de las combinaciones con Storm Hammer"
     }
   ],
   "19": [
@@ -865,6 +945,11 @@
       "vs": 74,
       "level": "medium",
       "why": "Tornado y Cold Snap cortan el combo de Avalanche y Toss de Tiny"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Tiny depende de moverse en las peleas, y Nature's Grasp lo lentifica mientras Leech Seed y Overgrowth, que atraviesa la BKB, lo inmovilizan"
     },
     {
       "vs": 47,
@@ -902,6 +987,16 @@
       "vs": 1,
       "level": "medium",
       "why": "Anti-Mage se mete a la retaguardia y castiga la poca movilidad de Vengeful Spirit, que no tiene un control largo para detenerlo, y Mana Break arruina su poco maná"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Primal Roar atraviesa la BKB desde lejos y deja a Vengeful Spirit sin poder lanzar Nether Swap para salvar a nadie"
+    },
+    {
+      "vs": 89,
+      "level": "medium",
+      "why": "Las ilusiones de Naga Siren ignoran la reducción de armadura de Vengeful Spirit y Song of the Siren deja inatacables a los enemigos del área, cancelando su agresión"
     },
     {
       "vs": 86,
@@ -976,6 +1071,11 @@
       "vs": 136,
       "level": "medium",
       "why": "Rebound le da a Marci un cierre natural sobre Zeus para reventarlo durante Unleash o seguir la persecución después de Heavenly Jump, y Dispose saca a aliados del área de Nimbus"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Zeus tiene poca movilidad y poca vida, así que Soul Assumption y los Familiars lo revientan rápido, y Gravekeeper's Cloak reduce el daño de sus hechizos"
     }
   ],
   "23": [
@@ -1079,9 +1179,29 @@
       "why": "Aphotic Shield aplica un dispel fuerte que libera aliados de Hex o Earth Spike y reduce el valor del control de Lion"
     },
     {
+      "vs": 72,
+      "level": "medium",
+      "why": "El daño en área de Gyrocopter revienta a Lion por su poca vida, y Lion debe elegir bien sus momentos para no quedar bajo Flak Cannon y Call Down"
+    },
+    {
+      "vs": 54,
+      "level": "medium",
+      "why": "Rage impide que Lion lo controle con Earth Spike o Hex y reduce gran parte de su daño"
+    },
+    {
       "vs": 32,
       "level": "medium",
       "why": "Lion en la mid es un héroe débil contra Riki, y matarlo primero es lo más importante de la pelea"
+    },
+    {
+      "vs": 29,
+      "level": "medium",
+      "why": "Kraken Shell quita Earth Spike y Hex cuando Tidehunter recibe suficiente daño, así que es difícil iniciarle sin Break"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Gravekeeper's Cloak dificulta que Lion reviente a Visage con Finger of Death, y Lion tiene poco wave clear contra el empuje temprano de los Familiars a las torres"
     }
   ],
   "27": [
@@ -1104,6 +1224,11 @@
       "vs": 82,
       "level": "medium",
       "why": "Varios Meepos sobreviven a tus controles de un solo objetivo"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Primal Roar puede matar o inmovilizar a Shadow Shaman antes de que lance algo, y Beastmaster empuja más fuerte y más rápido"
     },
     {
       "vs": 92,
@@ -1210,6 +1335,11 @@
       "vs": 94,
       "level": "medium",
       "why": "Mana Shield absorbe gran parte de Death Ward"
+    },
+    {
+      "vs": 26,
+      "level": "medium",
+      "why": "Hex y Earth Spike interrumpen Death Ward, y Finger of Death mata rápido a Witch Doctor antes de que se vuelva una amenaza"
     }
   ],
   "31": [
@@ -1402,6 +1532,16 @@
       "why": "Hookshot atrapa a Sniper, Power Cogs lo encierra y con Blade Mail castiga su daño; Sniper no tiene movilidad"
     },
     {
+      "vs": 58,
+      "level": "medium",
+      "why": "Untouchable baja muchísimo la velocidad de ataque de Sniper y reduce su impacto, y Enchantress cierra la distancia rápido por su velocidad y su resistencia gracias a Nature's Attendants"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Falcon Rush le deja a Kez engancharse de nuevo a Sniper al instante cuando intenta escapar con Concussive Grenade o Hurricane Pike, y un Sniper frágil muere fácil"
+    },
+    {
       "vs": 104,
       "level": "medium",
       "why": "Sniper pega fuerte pero es frágil: Duel con Blade Mail lo mata, y con Shadow Blade Legion llega sin ser vista"
@@ -1516,9 +1656,39 @@
       "why": "Shukuchi atraviesa la línea frontal y permite a Weaver alcanzar a Warlock"
     },
     {
+      "vs": 62,
+      "level": "medium",
+      "why": "Bounty Hunter persigue a supports como Warlock, que no tiene escape ni armadura, y Track hace que lo maten primero en las peleas"
+    },
+    {
       "vs": 99,
       "level": "medium",
       "why": "Bristleback aguanta Fatal Bonds y Chaotic Offering por su resistencia y su reducción de daño, y mata rápido al Golem con Quill Spray"
+    },
+    {
+      "vs": 103,
+      "level": "medium",
+      "why": "Natural Order le quita a Warlock la resistencia mágica y la armadura base, y Echo Stomp puede frenar sus canalizaciones"
+    },
+    {
+      "vs": 90,
+      "level": "medium",
+      "why": "Blinding Light y la movilidad de Keeper of the Light dificultan que Warlock acierte Upheaval"
+    },
+    {
+      "vs": 120,
+      "level": "medium",
+      "why": "Rolling Thunder es inmune a debuffs, así que ignora la lentitud de Upheaval para encontrar a Warlock escondido atrás y aturdirlo en cadena, y Warlock no tiene cómo esquivar esa definitiva"
+    },
+    {
+      "vs": 110,
+      "level": "medium",
+      "why": "Fire Spirits le baja la velocidad de ataque a los Golems de Warlock y Supernova lo saca de la pelea, y Warlock casi no puede cancelarla"
+    },
+    {
+      "vs": 108,
+      "level": "medium",
+      "why": "Underlord castiga a héroes agrupados y todo el kit de Warlock depende de agruparse, y Pit of Malice y Firestorm lo sacan de las peleas de equipo"
     }
   ],
   "38": [
@@ -1558,9 +1728,19 @@
       "why": "Frostbite inmoviliza y desarma a Beastmaster o a sus invocados en plena pelea"
     },
     {
+      "vs": 135,
+      "level": "medium",
+      "why": "Starbreaker y Celestial Hammer limpian por su área a los Boar y a los Hawk, y Solar Guardian da una salvación global y contra-iniciación contra Primal Roar"
+    },
+    {
       "vs": 103,
       "level": "medium",
       "why": "Astral Spirit atraviesa todas las unidades de Beastmaster y le da a Elder Titan mucho daño extra para ganar los intercambios de línea, y Echo Stomp controla a Beastmaster y a sus invocados en las peleas"
+    },
+    {
+      "vs": 106,
+      "level": "medium",
+      "why": "Todas las habilidades de Ember son en área y limpian fácil a los Boar y a los Hawk, y las muchas invocaciones lo mantienen invulnerable por más tiempo durante Sleight of Fist"
     },
     {
       "vs": 72,
@@ -1568,9 +1748,44 @@
       "why": "Flak Cannon y Rocket Barrage limpian rápido las invocaciones de Beastmaster, y su poca movilidad lo deja expuesto a la ráfaga de Gyrocopter"
     },
     {
+      "vs": 23,
+      "level": "medium",
+      "why": "Torrent y el barco frenan los empujes y desorganizan a las invocaciones, y el corte en área de Tidebringer las elimina rápido"
+    },
+    {
+      "vs": 31,
+      "level": "medium",
+      "why": "Chain Frost es una amenaza de muerte durante casi toda la partida y casi todo el daño de Beastmaster viene de sus invocaciones, que sufren con el daño en área de Lich"
+    },
+    {
+      "vs": 25,
+      "level": "medium",
+      "why": "Dragon Slave y Light Strike Array limpian al instante las invocaciones de Beastmaster, y Laguna Blade lo revienta si se sobreexpone"
+    },
+    {
+      "vs": 48,
+      "level": "medium",
+      "why": "Moon Glaives limpia con facilidad las invocaciones de Beastmaster, así que su juego de empujar torres con ellas pierde valor contra Luna"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Snapfire limpia fácil los Boar y los creeps con sus hechizos en área, Firesnap Cookie saca a los aliados atrapados por Primal Roar, y Mortimer Kisses castiga a los héroes agrupados"
+    },
+    {
+      "vs": 71,
+      "level": "medium",
+      "why": "Beastmaster casi nunca puede inmovilizar y matar a Spirit Breaker con Primal Roar porque la resistencia a estados de Bulldoze reduce mucho la duración del aturdimiento"
+    },
+    {
       "vs": 29,
       "level": "medium",
       "why": "Anchor Smash le baja el daño de ataque a Beastmaster y a sus invocados, y con Aghanim's Scepter los limpia desde una distancia segura"
+    },
+    {
+      "vs": 30,
+      "level": "medium",
+      "why": "Paralyzing Cask rebota entre las invocaciones de Beastmaster y le hace daño extra a él con cada rebote"
     }
   ],
   "39": [
@@ -1655,6 +1870,11 @@
       "vs": 5,
       "level": "medium",
       "why": "En la línea Frostbite y Crystal Nova juntos matan rápido a Venomancer, que es frágil de línea"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Venomancer no tiene herramientas defensivas para kitear a Kez, y Raptor Dance lo hace invulnerable un instante y disipa Venomous Gale"
     }
   ],
   "41": [
@@ -1682,6 +1902,16 @@
       "vs": 59,
       "level": "medium",
       "why": "Huskar acelera la partida y fuerza peleas antes de tus timings"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Faceless Void necesita farm y sufre con la presión temprana de Beastmaster, los Boar lo lentifican en línea y Primal Roar lo inmoviliza antes o después de Chronosphere"
+    },
+    {
+      "vs": 58,
+      "level": "medium",
+      "why": "Untouchable reduce el daño de golpes de Faceless Void durante Chronosphere"
     }
   ],
   "42": [
@@ -1719,6 +1949,11 @@
       "vs": 74,
       "level": "medium",
       "why": "EMP le quema casi todo el maná a Wraith King y lo deja sin Reincarnation"
+    },
+    {
+      "vs": 64,
+      "level": "medium",
+      "why": "Jakiro quema la primera vida de Wraith King con hechizos de daño en el tiempo, lo zonea en línea con Liquid Fire y Dual Breath, y Macropyre vuelve peligrosa la zona donde reencarna"
     },
     {
       "vs": 93,
@@ -2176,6 +2411,11 @@
       "vs": 145,
       "level": "medium",
       "why": "Kez lo persigue con su movilidad y Talon Toss le corta el Teleportation"
+    },
+    {
+      "vs": 136,
+      "level": "medium",
+      "why": "Rebound le da a Marci un cierre natural sobre Nature's Prophet para reventarlo durante Unleash, y puede salirse de los árboles con Rebound"
     }
   ],
   "54": [
@@ -2233,6 +2473,11 @@
       "vs": 32,
       "level": "medium",
       "why": "Smoke Screen desde la invisibilidad lo silencia y le impide usar Rage, y Riki lo revienta con Blink Strike"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Lifestealer no tiene buen daño en área y sufre contra varios objetivos como los Familiars, y Visage puede kitearlo durante Rage con Grave Chill"
     }
   ],
   "55": [
@@ -2299,6 +2544,16 @@
       "why": "Clinkz no tiene daño en área para lidiar con las ilusiones de Phantasm, y la combinación de Phantasm con Chaos Strike lo revienta en segundos cuando Chaos Knight se le pega"
     },
     {
+      "vs": 119,
+      "level": "medium",
+      "why": "Cursed Crown y Brambles atrapan a Clinkz y le quitan movilidad y escape, y Terrorize lo saca de posición haciéndolo huir"
+    },
+    {
+      "vs": 50,
+      "level": "medium",
+      "why": "Poison Touch lentifica y hostiga a Clinkz limitando su movilidad, y Shallow Grave salva a sus compañeros de ser reventados"
+    },
+    {
       "vs": 6,
       "level": "medium",
       "why": "Gust silencia a Clinkz y le impide usar sus hechizos para escapar o reventarla, y su daño alto lo baja antes de que se reposicione"
@@ -2309,14 +2564,49 @@
       "why": "Geomagnetic Grip silencia a Clinkz y le impide escapar o reposicionarse con Skeleton Walk, y Rolling Boulder cierra la distancia antes de que reviente a alguien"
     },
     {
+      "vs": 77,
+      "level": "medium",
+      "why": "La velocidad de Shapeshift le permite a Lycan perseguir fácil a Clinkz, y con Dust o Gem lo revela y lo mata en la mitad y el final del juego"
+    },
+    {
+      "vs": 82,
+      "level": "medium",
+      "why": "Earthbind inmoviliza a Clinkz en un área aunque esté invisible, y Poof lo remata rápido"
+    },
+    {
       "vs": 10,
       "level": "medium",
       "why": "Waveform lo saca de rango y Morphling castiga la poca resistencia de Clinkz, que no tiene respuesta a su regeneración ni a su ráfaga"
     },
     {
+      "vs": 89,
+      "level": "medium",
+      "why": "Naga Siren compra Manta Style y usa Ensnare para inmovilizar a Clinkz, que no logra encontrar a la Naga real"
+    },
+    {
+      "vs": 84,
+      "level": "medium",
+      "why": "Fireblast con multicast encadena aturdimientos sobre Clinkz, su poca vida se borra con Ignite y Fireblast, y Bloodlust protege a los aliados de su emboscada"
+    },
+    {
+      "vs": 44,
+      "level": "medium",
+      "why": "Phantom Assassin revienta a Clinkz antes de que escape con Skeleton Walk, y Blur le esquiva los proyectiles y le dificulta intercambiar golpes"
+    },
+    {
+      "vs": 12,
+      "level": "medium",
+      "why": "Las ilusiones de Phantom Lancer rodean y matan rápido a Clinkz, que no tiene daño en área ni control confiable para responder, y si lo atrapan se derrite bajo el daño de las ilusiones"
+    },
+    {
       "vs": 32,
       "level": "medium",
       "why": "Smoke Screen desde la invisibilidad de Cloak and Dagger silencia a Clinkz: no puede hacerse invisible con Skeleton Walk ni saltar para escapar"
+    },
+    {
+      "vs": 42,
+      "level": "medium",
+      "why": "A Wraith King no le molesta que Clinkz reviente su primera vida porque Reincarnation lo revive y lentifica a Clinkz, que ya no puede escapar fácil"
     }
   ],
   "57": [
@@ -2366,6 +2656,56 @@
       "vs": 30,
       "level": "medium",
       "why": "Death Ward no depende del ataque basico y mantiene alto daño físico pese a Untouchable"
+    },
+    {
+      "vs": 5,
+      "level": "medium",
+      "why": "Frostbite inmoviliza a Enchantress e impide que kitee, y su baja resistencia mágica la deja vulnerable al daño mágico de Crystal Maiden"
+    },
+    {
+      "vs": 119,
+      "level": "medium",
+      "why": "Cursed Crown y Brambles detienen el hostigamiento de Enchantress y frenan su control de creeps, y Terrorize puede obligarla a retirarse o dejarla fuera de posición"
+    },
+    {
+      "vs": 107,
+      "level": "medium",
+      "why": "El silencio de Geomagnetic Grip le impide usar Nature's Attendants, cortando su sostenimiento"
+    },
+    {
+      "vs": 48,
+      "level": "medium",
+      "why": "Untouchable baja mucho la velocidad de ataque de Luna y atraviesa cualquier inmunidad, pero Enchantress tiene muy poca vida y Lucent Beam y Eclipse la matan rápido"
+    },
+    {
+      "vs": 44,
+      "level": "medium",
+      "why": "Enchantress aguanta golpes con Untouchable, pero tiene poca vida y casi nada de control, así que Phantom Assassin la revienta con Phantom Strike y críticos"
+    },
+    {
+      "vs": 14,
+      "level": "medium",
+      "why": "Un solo Meat Hook bien puesto aísla y revienta a Enchantress, y Rot le hace daño mágico constante que no se frena con Untouchable"
+    },
+    {
+      "vs": 16,
+      "level": "medium",
+      "why": "Caustic Finale y Epicenter dan una ráfaga de daño mágico en área, y la curación de Enchantress no alcanza para compensarla ni tiene movilidad para huir"
+    },
+    {
+      "vs": 93,
+      "level": "medium",
+      "why": "Dark Pact disipa la lentitud de Enchant, y la movilidad de Slark evita su hostigamiento y le permite reventarla antes de que Nature's Attendants la cure"
+    },
+    {
+      "vs": 105,
+      "level": "medium",
+      "why": "El daño mágico de los hechizos de Techies esquiva Untouchable y revienta a Enchantress con Sticky Bomb, Blast Off! y tres Proximity Mines"
+    },
+    {
+      "vs": 108,
+      "level": "medium",
+      "why": "Pit of Malice inmoviliza a Enchantress y le dificulta kitear, y el daño en área y el sostenimiento de Underlord neutralizan a sus creeps y su hostigamiento"
     }
   ],
   "59": [
@@ -2470,6 +2810,11 @@
       "vs": 77,
       "level": "medium",
       "why": "Shapeshift ignora el slow de Void y Night Stalker no puede con los lobos con sus hechizos de un solo objetivo"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Overgrowth deja a Night Stalker sin moverse y Living Armor lo hace difícil de reventar durante la noche"
     }
   ],
   "61": [
@@ -2509,6 +2854,11 @@
       "why": "Axe mata a todas las arañas en menos de un segundo y bloquea a una Broodmother escurridiza con Berserker's Call"
     },
     {
+      "vs": 38,
+      "level": "medium",
+      "why": "El veneno de los Boar lentifica a Broodmother, Wild Axes e Inner Beast ayudan a limpiar sus arañas, y Primal Roar la deja inmóvil incluso cuando se escapa con su alta movilidad"
+    },
+    {
       "vs": 121,
       "level": "medium",
       "why": "Stroke of Fate atraviesa y mata filas de arañas, y Ink Swell y Soulbind la atrapan cuando entra a pelear"
@@ -2517,6 +2867,11 @@
       "vs": 104,
       "level": "medium",
       "why": "Overwhelming Odds mata a muchos spiderlings juntos de un golpe y le da a Legion un gran bonus de daño"
+    },
+    {
+      "vs": 136,
+      "level": "medium",
+      "why": "Rebound deja a Marci caer encima de Broodmother y perseguirla por acantilados y árboles para reventarla durante Unleash, y todas sus habilidades hacen daño en área para matar arañas"
     },
     {
       "vs": 29,
@@ -2581,6 +2936,11 @@
       "vs": 32,
       "level": "medium",
       "why": "Smoke Screen no le deja usar Shukuchi ni Time Lapse, y la invisibilidad le quita los escarabajos de The Swarm"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Los Familiars castigan la poca vida de Weaver y Soul Assumption se acumula rápido con sus golpes de hostigamiento, mientras Gravekeeper's Cloak reduce ese daño"
     }
   ],
   "64": [
@@ -2605,9 +2965,39 @@
       "why": "Global Silence corta la secuencia Ice Path más Macropyre"
     },
     {
+      "vs": 102,
+      "level": "medium",
+      "why": "Aphotic Shield disipa Dual Breath en línea y más adelante anula el aturdimiento de Ice Path y el daño del resto de sus hechizos"
+    },
+    {
       "vs": 51,
       "level": "medium",
       "why": "Battery Assault lo interrumpe con ministun, y todos los hechizos de Jakiro tienen tiempos de lanzamiento largos, así que casi no logra lanzar nada"
+    },
+    {
+      "vs": 59,
+      "level": "medium",
+      "why": "Berserker's Blood le da a Huskar mucha resistencia mágica y casi todo el daño de Jakiro es mágico, y Life Break lo derrite en segundos"
+    },
+    {
+      "vs": 104,
+      "level": "medium",
+      "why": "Legion Commander lo gana en Duel por su inmovilidad y poca armadura, y Jakiro no puede reaccionar por sus tiempos de lanzamiento largos ni con sus hechizos de daño en el tiempo contra la ráfaga de un solo objetivo"
+    },
+    {
+      "vs": 10,
+      "level": "medium",
+      "why": "Waveform le permite escapar fácil de Macropyre e Ice Path"
+    },
+    {
+      "vs": 120,
+      "level": "medium",
+      "why": "Rolling Thunder interrumpe las largas animaciones de lanzamiento de Jakiro, Shield Crash y Rolling Thunder lo aturden en cadena porque no tiene movilidad, y Dual Breath e Ice Path son difíciles de acertar a un Pangolier rodando"
+    },
+    {
+      "vs": 14,
+      "level": "medium",
+      "why": "Meat Shield bloquea daño de cualquier tipo, así que los hechizos de daño en el tiempo de Jakiro casi no le hacen nada, y Pudge consigue Meat Hooks fáciles porque Jakiro tiene problemas para esquivarlos"
     },
     {
       "vs": 86,
@@ -2640,6 +3030,16 @@
       "vs": 93,
       "level": "medium",
       "why": "Dark Pact puede disipar Flaming Lasso si Slark lo temporiza"
+    },
+    {
+      "vs": 33,
+      "level": "medium",
+      "why": "Batrider necesita meterse en la pelea y Black Hole lo castiga por hacerlo, y Midnight Pulse le baja la vida rápido"
+    },
+    {
+      "vs": 110,
+      "level": "medium",
+      "why": "Phoenix depende poco del posicionamiento, así que Flaming Lasso rinde menos, Fire Spirits le baja mucho la velocidad de ataque a Batrider y Icarus Dive le sirve para salir de los apuros"
     },
     {
       "vs": 29,
@@ -2679,9 +3079,69 @@
       "why": "Echo Slam escala con la cantidad de creeps de Chen"
     },
     {
+      "vs": 1,
+      "level": "medium",
+      "why": "Blink le deja esquivar los controles de Chen y reposicionarse, y Mana Break le quema el maná y le limita los hechizos para controlar creeps"
+    },
+    {
+      "vs": 55,
+      "level": "medium",
+      "why": "Ion Shell sobre sí mismo o sobre los creeps de Chen les hace daño en área y limpia rápido su ejército, y Surge le permite escapar"
+    },
+    {
+      "vs": 135,
+      "level": "medium",
+      "why": "Todas las habilidades de Dawnbreaker son en área, una gran molestia para el ejército de creeps de Chen, y Solar Guardian ayuda a defender contra su empuje dividido"
+    },
+    {
+      "vs": 107,
+      "level": "medium",
+      "why": "Los hechizos en área de Earth Spirit limpian los creeps de Chen, y el silencio de Geomagnetic Grip y el aturdimiento de Boulder Smash pueden interrumpir sus canalizaciones"
+    },
+    {
+      "vs": 90,
+      "level": "medium",
+      "why": "Blinding Light hace que los creeps de Chen fallen algunos ataques"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Kez tiene varios hechizos en área para matar al ejército de creeps de Chen y varios de movilidad para llegar a un Chen frágil y conseguir muertes fáciles"
+    },
+    {
+      "vs": 120,
+      "level": "medium",
+      "why": "Todas las habilidades activas de Pangolier hacen daño en área y limpian el ejército de creeps de Chen de una sola tanda, para aguantar su presión temprana"
+    },
+    {
       "vs": 32,
       "level": "medium",
       "why": "Blink Strike lo pone encima de Chen, que es frágil y no tiene escape, y Smoke Screen con Tricks of the Trade lo revienta"
+    },
+    {
+      "vs": 16,
+      "level": "medium",
+      "why": "Burrowstrike le da un aturdimiento confiable para interrumpir los hechizos y el control de creeps de Chen"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Lil' Shredder y Scatterblast limpian fácil el ejército de Chen, y Mortimer Kisses saca a los creeps agrupados y a los supports de atrás"
+    },
+    {
+      "vs": 85,
+      "level": "medium",
+      "why": "Tombstone y Decay aplastan el ejército invocado de Chen y neutralizan su empuje"
+    },
+    {
+      "vs": 63,
+      "level": "medium",
+      "why": "Las invocaciones de Chen hacen poco contra Weaver, que se reposiciona rápido y esquiva los nukes con Shukuchi"
+    },
+    {
+      "vs": 30,
+      "level": "medium",
+      "why": "Paralyzing Cask rebota entre los creeps de Chen y aumenta su daño con cada rebote"
     }
   ],
   "67": [
@@ -2716,6 +3176,11 @@
       "why": "Doom le quita a Spectre las curas y los hechizos y la saca de la pelea; Infernal Blade le pega por porcentaje de su vida grande"
     },
     {
+      "vs": 137,
+      "level": "medium",
+      "why": "Spectre escala lento y sufre ante la agresión temprana, Primal Beast fuerza peleas antes de que esté lista y Pulverize le niega los escapes"
+    },
+    {
       "vs": 14,
       "level": "medium",
       "why": "Un Pudge core le gana a Spectre en la línea por daño base y en la partida su Rot la castiga"
@@ -2746,6 +3211,11 @@
       "vs": 1,
       "level": "medium",
       "why": "Blink sale de Cold Feet y de Ice Blast, Counterspell le baja casi todo el daño mágico y Mana Void castiga su gran pool de maná"
+    },
+    {
+      "vs": 20,
+      "level": "medium",
+      "why": "Magic Missile aturde a Ancient Apparition y Nether Swap lo aísla para matarlo antes de que lance Ice Blast, y él no tiene movilidad para evitarlo"
     }
   ],
   "69": [
@@ -2768,6 +3238,11 @@
       "vs": 42,
       "level": "medium",
       "why": "Reincarnation limpia Doom al morir y obliga a Doom a elegir entre esperar la segunda vida o gastar su ultimate antes"
+    },
+    {
+      "vs": 65,
+      "level": "medium",
+      "why": "Flaming Lasso agarra a Doom temprano en las peleas y no lo deja usar su definitiva, y la ráfaga y la movilidad de Batrider le permiten enfocarlo rápido"
     },
     {
       "vs": 96,
@@ -2830,6 +3305,11 @@
       "vs": 32,
       "level": "medium",
       "why": "Smoke Screen silencia a Ursa sin Enrage y lo hace fallar; Tricks of the Trade esquiva las Fury Swipes"
+    },
+    {
+      "vs": 20,
+      "level": "medium",
+      "why": "Nether Swap desplaza a Ursa mientras acumula Fury Swipes, el aturdimiento de Magic Missile interrumpe su agresión, y Wave of Terror le baja la armadura"
     }
   ],
   "71": [
@@ -2876,6 +3356,11 @@
       "why": "Venomous Gale y Plague Wards kitean a Gyrocopter y dificultan que mantenga posición para explotar Flak Cannon"
     },
     {
+      "vs": 68,
+      "level": "medium",
+      "why": "Ice Blast le impide a Gyrocopter regenerarse o curarse, anulando Satanic y otras fuentes de curación, y el hostigamiento de largo alcance de Ancient Apparition castiga su lenta movilidad temprana"
+    },
+    {
       "vs": 113,
       "level": "medium",
       "why": "Arc Warden lo kitea con Spark Wraith y lentos constantes, y Tempest Double lo hostiga de lejos sin que Gyrocopter pueda alcanzarlo"
@@ -2884,6 +3369,21 @@
       "vs": 8,
       "level": "medium",
       "why": "Blade Fury atraviesa la magia temprana de Gyrocopter y Omnislash lo corta sin que Gyrocopter tenga un escape o un disable fuerte para detenerlo"
+    },
+    {
+      "vs": 90,
+      "level": "medium",
+      "why": "Illuminate y Blinding Light permiten a Keeper of the Light hostigar y kitear a Gyrocopter en línea, y Gyrocopter no tiene cierre confiable para matarlo temprano"
+    },
+    {
+      "vs": 15,
+      "level": "medium",
+      "why": "Static Link le roba daño a Gyrocopter en plena pelea y deja casi inútil a su Flak Cannon, y Razor aguanta la ráfaga mágica y lo supera en sostenimiento en línea"
+    },
+    {
+      "vs": 79,
+      "level": "medium",
+      "why": "Disruption saca del campo a los objetivos de Rocket Barrage y Homing Missile, y además crea ilusiones que a veces escalan mejor que Gyrocopter"
     }
   ],
   "73": [
@@ -2968,6 +3468,11 @@
       "vs": 12,
       "level": "medium",
       "why": "Las ilusiones de Phantom Lancer abruman a Invoker, que depende de hechizos de un solo uso"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Visage corre fácil detrás de un Invoker lento y frágil con los Familiars bajo el efecto de Grave Chill y remata con Soul Assumption para hacer muchísimo daño"
     }
   ],
   "75": [
@@ -2990,6 +3495,11 @@
       "vs": 77,
       "level": "medium",
       "why": "Lycan depende poco de hechizos durante Shapeshift"
+    },
+    {
+      "vs": 113,
+      "level": "medium",
+      "why": "Arc Warden juega a muy larga distancia con su clon empujando en solitario, evitando las peleas donde Global Silence funciona, y Spark Wraith y Magnetic Field lo protegen del hostigamiento de Silencer"
     }
   ],
   "76": [
@@ -3096,6 +3606,11 @@
       "vs": 61,
       "level": "medium",
       "why": "Broodmother abruma con múltiples unidades y fuerza Split defensivo"
+    },
+    {
+      "vs": 56,
+      "level": "medium",
+      "why": "Orchid Malevolence silencia a Brewmaster y le impide usar Primal Split, y la movilidad y el sigilo de Clinkz le dificultan atraparlo temprano"
     }
   ],
   "79": [
@@ -3150,6 +3665,11 @@
       "vs": 11,
       "level": "medium",
       "why": "Shadow Fiend gana su línea y su daño castiga a Lone Druid y al Spirit Bear"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Living Armor en las torres reduce el daño constante del oso, y en las peleas Overgrowth inmoviliza al héroe y al Spirit Bear"
     }
   ],
   "81": [
@@ -3269,6 +3789,11 @@
       "vs": 19,
       "level": "medium",
       "why": "Avalanche stunea a varios Meepos a la vez y Toss los lanza lejos, así les cuesta juntarse y escapar con Poof"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Overgrowth inmoviliza a todos los clones de Meepo que estén en el área, y Leech Seed y Nature's Grasp le dificultan escapar o iniciar sin castigo"
     }
   ],
   "83": [
@@ -3291,6 +3816,51 @@
       "vs": 103,
       "level": "medium",
       "why": "Natural Order reduce resistencias y Astral Spirit castiga tras los arboles"
+    },
+    {
+      "vs": 102,
+      "level": "medium",
+      "why": "Aphotic Shield y Borrowed Time disipan la raíz de Overgrowth de Abaddon y de uno de sus aliados"
+    },
+    {
+      "vs": 119,
+      "level": "medium",
+      "why": "Treant se mueve lento y es predecible, así que Brambles y Cursed Crown lo castigan, y Shadow Realm deja a Dark Willow inapuntable para evitar Overgrowth y contraatacar con mucho daño"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Death Prophet suele comprar Eul's Scepter para disipar Overgrowth y no quedar inmovilizada, y Silence impide que Treant lance hechizos"
+    },
+    {
+      "vs": 69,
+      "level": "medium",
+      "why": "Doom le impide a Treant lanzar hechizos o curarse mientras dura, así que no aporta nada a la pelea"
+    },
+    {
+      "vs": 58,
+      "level": "medium",
+      "why": "Los golpes de Treant casi no sirven contra Untouchable, que lentifica a quien la ataca, y Enchantress lo supera en sostenimiento"
+    },
+    {
+      "vs": 89,
+      "level": "medium",
+      "why": "Las ilusiones de Naga Siren queman rápido Living Armor y Song of the Siren cancela cualquier iniciación de Overgrowth, desperdiciando su gran enfriamiento"
+    },
+    {
+      "vs": 36,
+      "level": "medium",
+      "why": "La mucha vida y el sostenimiento de Treant se vuelven un problema frente a Reaper's Scythe, y Heartstopper Aura le quita un porcentaje de vida con el tiempo"
+    },
+    {
+      "vs": 93,
+      "level": "medium",
+      "why": "Dark Pact disipa Overgrowth y Leech Seed y deja a Slark correr a salvo o entrar sabiendo que está protegido"
+    },
+    {
+      "vs": 29,
+      "level": "medium",
+      "why": "Kraken Shell quita los debuffs de Treant al superar cierto umbral de daño, así que sus controles sirven menos a mitad y final de la partida"
     }
   ],
   "84": [
@@ -3399,6 +3969,11 @@
       "vs": 4,
       "level": "medium",
       "why": "Thirst da velocidad y Rupture obliga a Disruptor a quedarse quieto"
+    },
+    {
+      "vs": 20,
+      "level": "medium",
+      "why": "Nether Swap reposiciona objetivos y deja inútil a Glimpse de Disruptor, y rompe sus combos de Static Storm al salvar a los aliados al instante"
     }
   ],
   "88": [
@@ -3483,6 +4058,11 @@
       "vs": 64,
       "level": "medium",
       "why": "Macropyre y Dual Breath van borrando las ilusiones de Naga Siren, y Ice Path la atrapa cuando termina Song of the Siren"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "El daño en área de Kez borra las ilusiones de Naga Siren y reduce mucho su velocidad de farmeo y su daño en las peleas"
     }
   ],
   "90": [
@@ -3510,6 +4090,21 @@
       "vs": 3,
       "level": "medium",
       "why": "Keeper es frágil: Nightmare y Fiend's Grip lo anulan, y Brain Sap lo castiga en la línea"
+    },
+    {
+      "vs": 56,
+      "level": "medium",
+      "why": "Clinkz se mete a la retaguardia con Skeleton Walk y revienta rápido a Keeper of the Light, que es frágil"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Falcon Rush le deja a Kez engancharse de nuevo a Keeper of the Light al instante después de que lo empuje con Blinding Light, y un Keeper frágil muere fácil"
+    },
+    {
+      "vs": 136,
+      "level": "medium",
+      "why": "Rebound le da a Marci un cierre natural sobre Keeper of the Light para reventarlo durante Unleash antes de que reaccione con Blinding Light"
     }
   ],
   "91": [
@@ -3547,6 +4142,16 @@
       "vs": 64,
       "level": "medium",
       "why": "Ice Path puede interrumpir el canal de Relocate o atrapar a Io junto a su núcleo, y Macropyre le impide salvar a sus compañeros"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Falcon Rush le deja a Kez engancharse de nuevo a Io al instante cuando intenta escaparse con el salto de Tether, y un Io frágil muere fácil"
+    },
+    {
+      "vs": 136,
+      "level": "medium",
+      "why": "Rebound le da a Marci un cierre natural sobre Io para reventarlo durante Unleash, y un Dispose o Rebound bien sincronizado puede interrumpir el canal de Relocate"
     },
     {
       "vs": 53,
@@ -3591,6 +4196,11 @@
       "why": "Centaur aguanta el daño de Visage por su resistencia y su regeneración, y si lo hostigan con los Familiars usa Blade Mail con Hoof Stomp y Double Edge para matarlos y voltear la pelea"
     },
     {
+      "vs": 81,
+      "level": "medium",
+      "why": "El stun de Chaos Bolt y su ráfaga de daño pueden matar a Visage antes de que arme su juego, y las ilusiones de Chaos Knight superan a los Familiars"
+    },
+    {
       "vs": 23,
       "level": "medium",
       "why": "Tidebringer elimina con facilidad a los Familiars de Visage"
@@ -3601,14 +4211,39 @@
       "why": "Moon Glaives rebota entre varios objetivos y destruye con facilidad a los Familiars de Visage"
     },
     {
+      "vs": 77,
+      "level": "medium",
+      "why": "Las unidades de Lycan superan en daño a los Familiars en las peleas tempranas y destruyen rápido Gravekeeper's Cloak, y si Visage queda aislado cae rápido bajo las entradas de Shapeshift"
+    },
+    {
       "vs": 12,
       "level": "medium",
       "why": "La gran cantidad de ilusiones confunde el objetivo automático de los Familiars y desvía Soul Assumption hacia las unidades equivocadas, y Phantom Lancer es difícil de atrapar por Doppelganger y su agilidad"
     },
     {
+      "vs": 15,
+      "level": "medium",
+      "why": "Eye of the Storm destruye rápido a los Familiars de Visage, y Razor es más rápido y agresivo en las peleas"
+    },
+    {
       "vs": 29,
       "level": "medium",
       "why": "Los Familiars de Visage no atraviesan Kraken Shell y casi no le hacen daño a Tidehunter"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Living Armor frena el empuje temprano de Visage a las torres y Overgrowth inmoviliza a sus Familiars"
+    },
+    {
+      "vs": 126,
+      "level": "medium",
+      "why": "Void Spirit es muy móvil y esquiva con facilidad los proyectiles de Soul Assumption y a los Familiars, y Aether Remnant y Dissimilate le dejan reposicionarse y reventar"
+    },
+    {
+      "vs": 30,
+      "level": "medium",
+      "why": "Paralyzing Cask rebota entre los Familiars y Visage y le hace daño extra con cada rebote"
     }
   ],
   "93": [
@@ -3720,6 +4355,16 @@
       "vs": 21,
       "level": "medium",
       "why": "Windrun hace fallar sus ataques"
+    },
+    {
+      "vs": 26,
+      "level": "medium",
+      "why": "Hex y Earth Spike detienen los ataques de Troll Warlord, y la ráfaga de Finger of Death ayuda a matarlo antes de que active Berserker's Rage"
+    },
+    {
+      "vs": 137,
+      "level": "medium",
+      "why": "Trample le gana a Troll Warlord en la línea y Pulverize lo inmoviliza antes de que suba su daño"
     }
   ],
   "96": [
@@ -3967,6 +4612,11 @@
       "vs": 32,
       "level": "medium",
       "why": "Skywrath es frágil y sin escape: Blink Strike lo alcanza y Smoke Screen le apaga todos sus hechizos"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Los Familiars desordenan el posicionamiento de Skywrath Mage y pueden cancelar canalizaciones, Gravekeeper's Cloak resiste su ráfaga, y Skywrath no tiene cómo limpiar las invocaciones"
     }
   ],
   "102": [
@@ -4026,6 +4676,11 @@
       "vs": 17,
       "level": "medium",
       "why": "Ball Lightning esquiva sus hechizos telegráficos"
+    },
+    {
+      "vs": 56,
+      "level": "medium",
+      "why": "Clinkz encuentra fácilmente a Elder Titan en la retaguardia por su movilidad e invisibilidad"
     },
     {
       "vs": 58,
@@ -4088,6 +4743,11 @@
       "vs": 45,
       "level": "medium",
       "why": "Decrepify, en ella o en el aliado, no le deja ganar el Duel porque nadie puede golpear"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Overgrowth o Leech Seed desarman a Legion Commander durante o después de Duel, y Living Armor mantiene vivo al objetivo para negarle el remate del Duel"
     },
     {
       "vs": 100,
@@ -4460,6 +5120,11 @@
       "vs": 59,
       "level": "medium",
       "why": "La velocidad de ataque de Huskar rompe la Supernova enseguida, su resistencia mágica aguanta los hechizos y Life Break atrapa a Phoenix"
+    },
+    {
+      "vs": 64,
+      "level": "medium",
+      "why": "Dual Breath y Macropyre hacen daño sostenido a Phoenix a través de Icarus Dive y Fire Spirits, e Ice Path interrumpe sus canalizaciones"
     }
   ],
   "111": [
@@ -4482,6 +5147,11 @@
       "vs": 69,
       "level": "medium",
       "why": "Doom bloquea False Promise y el resto del kit defensivo"
+    },
+    {
+      "vs": 92,
+      "level": "medium",
+      "why": "Los Familiars interrumpen los canales de Oracle y le aplican presión constante, y a Oracle le cuesta limpiarlos"
     }
   ],
   "112": [
@@ -4509,6 +5179,11 @@
       "vs": 119,
       "level": "medium",
       "why": "Shadow Realm le deja kitear Arctic Burn y su regeneración aguanta el daño de Winter Wyvern"
+    },
+    {
+      "vs": 72,
+      "level": "medium",
+      "why": "Cold Embrace se puede castigar con Call Down y Flak Cannon, y la poca movilidad de Winter Wyvern la deja expuesta a Rocket Barrage en las escaramuzas tempranas"
     },
     {
       "vs": 76,
@@ -4543,6 +5218,16 @@
       "why": "Shadow Step llega a la retaguardia y fuerza cuerpo a cuerpo"
     },
     {
+      "vs": 38,
+      "level": "medium",
+      "why": "Beastmaster puede dejar a Arc Warden inmovilizado al instante con Blink Dagger seguido de Primal Roar"
+    },
+    {
+      "vs": 123,
+      "level": "medium",
+      "why": "Hoodwink puede reventar rápido al Arc Warden real o a su Tempest Double con su combo, y su movilidad y alcance le ayudan a evitar Spark Wraith y Magnetic Field"
+    },
+    {
       "vs": 136,
       "level": "medium",
       "why": "Rebound le da a Marci un cierre natural sobre Arc Warden para reventarlo durante Unleash, y Dispose lo saca de su Magnetic Field"
@@ -4553,9 +5238,39 @@
       "why": "Rolling Thunder cierra la distancia contra un Arc Warden frágil e inmóvil para aturdirlo en cadena y matarlo, y no tiene forma natural de evitar la colisión"
     },
     {
+      "vs": 44,
+      "level": "medium",
+      "why": "Phantom Strike la deja saltar sobre Spark Wraith y Magnetic Field para matar directamente al héroe real, que no tiene cómo escapar una vez que ella le cae encima, y su clon aguanta poco contra sus críticos"
+    },
+    {
+      "vs": 14,
+      "level": "medium",
+      "why": "Pudge consigue Meat Hooks fáciles sobre un Arc Warden frágil e inmóvil que se queda dentro de su Magnetic Field, y Dismember con Rot lo rematan"
+    },
+    {
       "vs": 32,
       "level": "medium",
       "why": "Blink Strike lo pone encima de un Arc Warden frágil e inmóvil dentro de su Magnetic Field, y Smoke Screen con Tricks of the Trade lo revientan sin que pueda salir del área"
+    },
+    {
+      "vs": 16,
+      "level": "medium",
+      "why": "Sand King puede reventar a Arc Warden con una iniciación sorpresa de Epicenter"
+    },
+    {
+      "vs": 34,
+      "level": "medium",
+      "why": "Laser ciega a Arc Warden en línea y March of the Machines lo saca por zona, y Defense Matrix absorbe su daño mediocre"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Living Armor frena la presión de mapa de Arc Warden, defiende torres en solitario, y Overgrowth inmoviliza a Arc Warden y a su clon en las emboscadas"
+    },
+    {
+      "vs": 37,
+      "level": "medium",
+      "why": "Los Golems de Warlock y la presión de las peleas de equipo superan la estrategia del clon de Arc Warden, y Fatal Bonds une al clon y al héroe para castigarlos juntos"
     }
   ],
   "114": [
@@ -4578,6 +5293,16 @@
       "vs": 40,
       "level": "medium",
       "why": "Plague Wards dan visión y Venomous Gale dificulta reposicionar Tree Dance"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Wild Axes destruye árboles, y si cae el árbol donde Monkey King está posado con Tree Dance, él cae y queda aturdido; además Dive Bomb lo enraíza y el veneno de los Boar lentifica su movimiento y sus ataques"
+    },
+    {
+      "vs": 58,
+      "level": "medium",
+      "why": "Enchant disipa las cargas de Jingu Mastery de Monkey King, lo que reduce mucho su daño y su supervivencia en las peleas"
     },
     {
       "vs": 20,
@@ -4639,6 +5364,16 @@
       "why": "Metamorphosis y las ilusiones presionan desde rango"
     },
     {
+      "vs": 65,
+      "level": "medium",
+      "why": "Flaming Lasso puede usarse durante Rolling Thunder y arrastra a Pangolier, impidiendo que ruede hacia el equipo de Batrider"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Primal Roar atraviesa la inmunidad a debuffs y deja a Pangolier inmóvil durante Rolling Thunder por mucho tiempo, desperdiciando casi toda su definitiva"
+    },
+    {
       "vs": 96,
       "level": "medium",
       "why": "Cada golpe de Swashbuckle activa Retaliate y le devuelve daño a Pangolier; Stampede le deja a su equipo esquivar Rolling Thunder"
@@ -4647,6 +5382,11 @@
       "vs": 51,
       "level": "medium",
       "why": "Power Cogs bloquean el camino de Rolling Thunder y lo dejan atrapado"
+    },
+    {
+      "vs": 72,
+      "level": "medium",
+      "why": "Flak Cannon sigue golpeando a Pangolier incluso durante Rolling Thunder, y Rocket Barrage y Call Down lo castigan cuando está aturdido o contra el terreno"
     },
     {
       "vs": 13,
@@ -4662,6 +5402,11 @@
       "vs": 128,
       "level": "medium",
       "why": "Firesnap Cookie y Scatterblast le cortan la entrada a Pangolier, que es melé y tiene que acercarse para pelear"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Overgrowth atraviesa la inmunidad a debuffs de Rolling Thunder e inmoviliza a Pangolier, arruinando su iniciación al instante"
     }
   ],
   "121": [
@@ -4684,6 +5429,11 @@
       "vs": 72,
       "level": "medium",
       "why": "Flak Cannon limpia Phantom's Embrace y castiga a los objetivos agrupados para Soulbind"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Grimstroke es frágil y no puede defenderse de los empujes con invocaciones, y Primal Roar lo deja inmóvil para entrarle con facilidad"
     }
   ],
   "123": [
@@ -4831,6 +5581,11 @@
       "vs": 41,
       "level": "medium",
       "why": "Chronosphere impide Solar Guardian y puede atrapar a Dawnbreaker antes de que aporte curación o control"
+    },
+    {
+      "vs": 64,
+      "level": "medium",
+      "why": "Ice Path puede detener el canal de Solar Guardian, y la poca resistencia mágica de Dawnbreaker la deja vulnerable a Dual Breath y Macropyre"
     }
   ],
   "136": [
@@ -4855,6 +5610,11 @@
       "why": "Reverse Polarity interrumpe Unleash y Empower ayuda a superar el daño físico de Marci"
     },
     {
+      "vs": 68,
+      "level": "medium",
+      "why": "Ice Blast anula la curación de Bodyguard y le dificulta a Marci meterse a las peleas con Unleash"
+    },
+    {
       "vs": 2,
       "level": "medium",
       "why": "Axe aguanta la ráfaga de Unleash por su armadura y la castiga con Blade Mail y Counter Helix hasta matarla"
@@ -4875,6 +5635,11 @@
       "why": "El silencio, el daño alto y la regeneración de Death Prophet de cerca hacen difícil que Marci se le meta y la reviente durante Unleash, y si lo intenta probablemente muere"
     },
     {
+      "vs": 41,
+      "level": "medium",
+      "why": "Chronosphere pausa los combos de Marci y Time Walk lo hace invulnerable para evitar la ráfaga de Unleash"
+    },
+    {
       "vs": 54,
       "level": "medium",
       "why": "Un Rage bien usado ignora los controles de Marci y le da ventaja en el intercambio de golpes por la curación de Feast y Open Wounds"
@@ -4893,6 +5658,16 @@
       "vs": 111,
       "level": "medium",
       "why": "El desarme de Fate's Edict arruina el daño de golpes de Marci durante Unleash, la raíz de Fortune's End anula su movilidad, y False Promise anula la ráfaga que ella necesita"
+    },
+    {
+      "vs": 13,
+      "level": "medium",
+      "why": "El silencio y la atadura de Puck dificultan que Marci maniobre con Rebound, y Phase Shift lo hace invulnerable para esquivar el aturdimiento de Rebound"
+    },
+    {
+      "vs": 63,
+      "level": "medium",
+      "why": "Shukuchi lo saca de la vista y le da máxima velocidad para esquivar el aturdimiento de Rebound, y puede pegar a distancia mientras kitea a Marci"
     }
   ],
   "137": [
@@ -4915,6 +5690,36 @@
       "vs": 18,
       "level": "medium",
       "why": "Warcry reduce el impacto de Trample y God's Strength permite a Sven ganar el duelo frontal tras la entrada"
+    },
+    {
+      "vs": 1,
+      "level": "medium",
+      "why": "Anti-Mage se saca con Blink de Onslaught y evita Trample por completo, y Mana Break debilita la capacidad de Primal Beast de gastar hechizos"
+    },
+    {
+      "vs": 87,
+      "level": "medium",
+      "why": "Primal Beast suele iniciar con Onslaught o Blink Dagger, y Glimpse interrumpe esa iniciación y salva a los compañeros, mientras Kinetic Field lo mantiene en su sitio"
+    },
+    {
+      "vs": 69,
+      "level": "medium",
+      "why": "Doom le anula todo el kit a Primal Beast durante la pelea, que no puede lanzar Trample ni Pulverize ni escapar, y su dureza aguanta su ráfaga"
+    },
+    {
+      "vs": 74,
+      "level": "medium",
+      "why": "Invoker tiene varias formas de detener el canal de Pulverize para que Primal Beast no use su hechizo más fuerte, y también de frenar Onslaught"
+    },
+    {
+      "vs": 83,
+      "level": "medium",
+      "why": "Leech Seed inmoviliza, desarma y drena a Primal Beast en sus intentos de entrada, y Overgrowth lo deja en su lugar"
+    },
+    {
+      "vs": 85,
+      "level": "medium",
+      "why": "Primal Beast quiere entrar a enemigos agrupados, pero Tombstone y los zombis castigan sus sobre-compromisos, y Decay arruina su escalado por fuerza"
     }
   ],
   "138": [
@@ -4961,6 +5766,16 @@
       "why": "Duel impide que Kez use sus múltiples herramientas de movilidad y lo fuerza a un combate que no puede reiniciar"
     },
     {
+      "vs": 2,
+      "level": "medium",
+      "why": "Berserker's Call le da mucha armadura a Axe y anula gran parte del daño físico de Kez, y Axe suele llevar Blade Mail, que castiga su ráfaga"
+    },
+    {
+      "vs": 4,
+      "level": "medium",
+      "why": "Rupture hace muchísimo daño a Kez porque no puede quitárselo con el dispel básico de Raptor Dance, y recibe mucho daño si intenta escapar moviéndose"
+    },
+    {
       "vs": 69,
       "level": "medium",
       "why": "Doom silencia a Kez y le quita las habilidades de las que depende para pelear"
@@ -4971,6 +5786,31 @@
       "why": "Time Dilation hace mucho daño con el tiempo y lentifica a Kez cuando ya gastó su combo y tiene casi todos sus hechizos en enfriamiento"
     },
     {
+      "vs": 26,
+      "level": "medium",
+      "why": "Lion tiene varios controles largos para dejar a Kez en su sitio y le drena el maná con Mana Drain, y sin sus hechizos Kez hace muy poco daño solo con golpes"
+    },
+    {
+      "vs": 129,
+      "level": "medium",
+      "why": "Los hechizos de Mars interrumpen casi toda la movilidad de Kez y no lo dejan moverse a su gusto en las peleas, y desde el nivel 6 puede dejarlo atrapado dentro de Arena of Blood"
+    },
+    {
+      "vs": 36,
+      "level": "medium",
+      "why": "Ghost Shroud lo vuelve inatacable frente al daño físico de Kez, lo que le da ventaja en las peleas durante toda la partida"
+    },
+    {
+      "vs": 88,
+      "level": "medium",
+      "why": "La ráfaga del combo de hechizos de Nyx Assassin desde el nivel 6 mata a un Kez frágil en cualquier momento de la partida"
+    },
+    {
+      "vs": 13,
+      "level": "medium",
+      "why": "Dream Coil ata a Kez en su lugar e impide que use su movilidad para saltar entre objetivos o escapar, y el silencio de Waning Rift le estorba para moverse o hacer daño"
+    },
+    {
       "vs": 39,
       "level": "medium",
       "why": "La ráfaga del combo de hechizos de Queen of Pain mata a un Kez frágil, y la presión crece cuando consigue Dagon"
@@ -4979,6 +5819,26 @@
       "vs": 32,
       "level": "medium",
       "why": "Smoke Screen silencia a Kez dentro de su área, le impide usar sus hechizos y lo anula casi por completo"
+    },
+    {
+      "vs": 75,
+      "level": "medium",
+      "why": "Global Silence y Last Word silencian a Kez, que depende de sus hechizos tanto para moverse como para hacer daño"
+    },
+    {
+      "vs": 17,
+      "level": "medium",
+      "why": "Electric Vortex arrastra a Kez hasta Storm Spirit y Ball Lightning le deja saltarle encima para matarlo antes de que escape"
+    },
+    {
+      "vs": 98,
+      "level": "medium",
+      "why": "Reactive Armor suma armadura con cada golpe recibido y reduce mucho el daño físico de Kez con su combo y sus golpes"
+    },
+    {
+      "vs": 70,
+      "level": "medium",
+      "why": "Enrage reduce la mayor parte del daño del combo de hechizos de Kez, y Fury Swipes y Overpower le dan ventaja en el duelo de golpes"
     }
   ],
   "155": [
