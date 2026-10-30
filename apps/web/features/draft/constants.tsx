@@ -58,7 +58,7 @@ export const SCREEN_STATE_GUIDANCE: Record<ScreenState, string> = {
   desconectado:
     "No hay conexión con el motor de sugerencias en este momento. El último draft conocido sigue visible abajo, atenuado -- no se perdió nada. Si el motor no está corriendo, reconectar no va a funcionar hasta que lo levantes.",
   esperando_draft:
-    "Todavía no se detectó ningún draft en curso. Con un capturador automático conectado a una partida real, esto se llena solo. En este ambiente de pruebas, usa \"Entrada manual\" para marcar los picks y bans tú mismo, o probá el simulador (All Pick vs bot) desde el menú de arriba.",
+    "Todavía no se detectó ningún draft en curso. Con un capturador automático conectado a una partida real, esto se llena solo. En este ambiente de pruebas, usa \"Entrada manual\" para marcar los picks y bans tú mismo, o prueba el simulador (All Pick vs bot) desde el menú de arriba.",
   activo:
     "El draft está en curso. La sugerencia principal y las 2 alternativas se recalculan solas después de cada pick o ban -- no hace falta refrescar la página.",
   degradado:

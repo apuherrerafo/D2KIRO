@@ -109,7 +109,7 @@ function HeroPickerModal({ heroCatalog, unavailableHeroIds, onSelect, onClose }:
     >
       <div className="flex max-h-[85vh] w-full max-w-4xl flex-col gap-4 overflow-y-auto rounded-lg border border-surface-border bg-surface-raised p-6 shadow-xl">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-heading text-content-primary">Elegí un héroe para tu Personal_Ban_List</span>
+          <span className="text-heading text-content-primary">Elige un héroe para tu Personal_Ban_List</span>
           <button type="button" onClick={onClose} className={BUTTON_GHOST}>
             Cerrar
           </button>
@@ -150,7 +150,7 @@ function PersonalBanListField({ personalBanList, heroCatalog, error, onAdd, onRe
         Tu Personal_Ban_List ({personalBanList.length}/{MAX_BAN_LIST})
       </span>
       <span className="text-caption text-content-muted">
-        Nominá hasta 4 héroes. Se resuelven junto con las nominaciones de los otros 9 jugadores: si llenás los 4 lugares, al menos uno se banea.
+        Nomina hasta 4 héroes. Se resuelven junto con las nominaciones de los otros 9 jugadores: si llenas los 4 lugares, al menos uno se banea.
       </span>
       <div className="flex flex-wrap gap-2">
         {personalBanList.map((heroId) => (
@@ -190,7 +190,7 @@ const MODE_OPTIONS: { value: SessionMode; label: string; description: string }[]
   {
     value: "live_companion",
     label: "Live Companion",
-    description: "Para usar junto a un draft REAL de Dota 2. Sin bot: reportás a mano cada ban/pick que ves en tu cliente.",
+    description: "Para usar junto a un draft REAL de Dota 2. Sin bot: reportas a mano cada ban/pick que ves en tu cliente.",
   },
 ];
 
@@ -225,10 +225,10 @@ const SIDE_OPTIONS: { value: TeamSide; label: string }[] = [
 ];
 
 const PARTY_SIZE_OPTIONS: { value: PartySize; label: string; description: string }[] = [
-  { value: 1, label: "Solo (1)", description: "Controlás 1 posición; tus 4 aliados y los 5 rivales son simulados automáticamente." },
-  { value: 2, label: "Party 2", description: "Controlás 2 posiciones; tus 3 aliados y los 5 rivales son simulados automáticamente." },
-  { value: 3, label: "Party 3", description: "Controlás 3 posiciones; tus 2 aliados y los 5 rivales son simulados automáticamente." },
-  { value: 5, label: "Party 5", description: "Controlás las 5 posiciones de tu equipo; los 5 rivales son simulados automáticamente." },
+  { value: 1, label: "Solo (1)", description: "Controlas 1 posición; tus 4 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 2, label: "Party 2", description: "Controlas 2 posiciones; tus 3 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 3, label: "Party 3", description: "Controlas 3 posiciones; tus 2 aliados y los 5 rivales son simulados automáticamente." },
+  { value: 5, label: "Party 5", description: "Controlas las 5 posiciones de tu equipo; los 5 rivales son simulados automáticamente." },
 ];
 
 // Terminología consistente con el resto del producto: nunca "pos 3" a secas sin el nombre al lado.
@@ -297,7 +297,7 @@ function PartyPositionsField({ partySize, selectedPositions, onTogglePosition }:
     <div className="flex flex-col gap-1" role="group" aria-label="Posiciones de tu party">
       <div className="flex items-center justify-between">
         <span className="text-caption text-content-secondary">
-          Posiciones que controla tu party (elegí exactamente {partySize})
+          Posiciones que controla tu party (elige exactamente {partySize})
         </span>
         <span className={`text-caption ${selectedPositions.length === partySize ? "text-signal-positive" : "text-signal-warning"}`}>
           {selectedPositions.length} de {partySize} seleccionadas
@@ -404,7 +404,7 @@ function PositionField({ position, allowedPositions, onChange }: PositionFieldPr
       </span>
       {options.length === 0 ? (
         <span className="text-caption text-signal-warning">
-          Primero seleccioná las posiciones de tu party arriba.
+          Primero selecciona las posiciones de tu party arriba.
         </span>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -647,14 +647,14 @@ export function ConfigPanel({ onStart }: ConfigPanelProps) {
       {!canStart && (
         <span className="text-caption text-signal-warning">
           {side === null
-            ? "Elegí tu lado para continuar."
+            ? "Elige tu lado para continuar."
             : (partySize === 2 || partySize === 3) && partyPositions.length !== partySize
-              ? `Elegí exactamente ${partySize} posiciones para tu party (${partyPositions.length} seleccionadas).`
+              ? `Elige exactamente ${partySize} posiciones para tu party (${partyPositions.length} seleccionadas).`
               : position === null
-                ? "Elegí cuál de las posiciones es tu posición personal."
+                ? "Elige cuál de las posiciones es tu posición personal."
                 : !isSeedValid
-                  ? "Verificá la semilla del draft."
-                  : "Completá la configuración para iniciar el draft."}
+                  ? "Verifica la semilla del draft."
+                  : "Completa la configuración para iniciar el draft."}
         </span>
       )}
       <button type="button" onClick={handleStart} disabled={!canStart} className={`self-start ${BUTTON_PRIMARY}`}>

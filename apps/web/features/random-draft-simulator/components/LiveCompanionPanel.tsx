@@ -99,7 +99,7 @@ export function LiveBanEntryPanel({ observedBans, error, heroCatalog, onConfirm,
     <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-4">
       <span className="text-heading text-content-primary">Bans observados</span>
       <span className="text-caption text-content-muted">
-        Escribí cada héroe baneado a medida que lo veas en tu cliente de Dota 2 -- de los dos equipos, en cualquier orden. Confirmá recién cuando ya
+        Escribe cada héroe baneado a medida que lo veas en tu cliente de Dota 2 -- de los dos equipos, en cualquier orden. Confirma recién cuando ya
         se cerró la fase de bans en el draft real.
       </span>
       <div className="flex flex-wrap gap-2" role="list" aria-label="Bans observados">

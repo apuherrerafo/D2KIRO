@@ -100,7 +100,7 @@ export function ownOpenSlotIndexes(snapshot: ProtocolSnapshot): number[] {
 
 function describeBanFailure(error: string, retryable: boolean): string {
   if (error === "engine_unreachable") return "No se pudo contactar al motor para resolver los bans. No se inició el draft.";
-  if (error === "invalid_ban_preferences") return "Tus preferencias de ban no son válidas. Corregilas y reintentá.";
+  if (error === "invalid_ban_preferences") return "Tus preferencias de ban no son válidas. Corrígelas y reintenta.";
   const suffix = retryable ? " Puedes reintentar con los mismos datos." : "";
   return `La resolución de bans falló (${error}); no se inició la Ronda 1 ni se inventaron bans.${suffix}`;
 }
@@ -110,7 +110,7 @@ function describeYieldRejection(errorCode: string | null): string {
   if (errorCode === "ally_bot_cannot_absorb_capacity") return "El Ally Bot ya no puede absorber el resto de esta ronda. Elige tú las posiciones que faltan.";
   if (errorCode === "no_ally_bot_capacity") return "Tu party controla las 5 posiciones: no hay Ally Bot al que cederle la ronda.";
   if (errorCode === "no_open_round") return "No hay una ronda abierta para ceder en este momento.";
-  return `No se pudo ceder la ronda (${errorCode ?? "rechazado"}). Elegí manualmente.`;
+  return `No se pudo ceder la ronda (${errorCode ?? "rechazado"}). Elige manualmente.`;
 }
 
 export type StartDraftConfig = Omit<DraftConfig, "patch">;
@@ -515,7 +515,7 @@ export function useRandomDraftSession(options: UseRandomDraftSessionOptions = {}
       );
       syncSnapshot(next, "own_pick_submitted", { accepted: next.accepted ?? null, rejected: next.rejected ?? null });
       if (next.accepted === false) {
-        useRandomDraftStore.getState().setRoundNotice(`Ese héroe no está disponible (${next.rejected ?? "rechazado"}). Elegí otro.`);
+        useRandomDraftStore.getState().setRoundNotice(`Ese héroe no está disponible (${next.rejected ?? "rechazado"}). Elige otro.`);
         return;
       }
       useRandomDraftStore.getState().confirmPick(heroId, position);

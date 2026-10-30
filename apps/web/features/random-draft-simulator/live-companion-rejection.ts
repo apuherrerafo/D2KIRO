@@ -7,7 +7,7 @@
 const REJECTION_MESSAGES: Record<string, string> = {
   HERO_ALREADY_TAKEN: "Ese héroe ya está baneado o pickeado en este draft.",
   DUPLICATE_HERO_IN_ROUND: "Ese héroe ya fue baneado o ya está sellado por este mismo lado en esta ronda.",
-  SLOT_NOT_OPEN: "Ese asiento ya no está abierto -- refrescá antes de reintentar.",
+  SLOT_NOT_OPEN: "Ese asiento ya no está abierto -- refresca antes de reintentar.",
   WRONG_PHASE: "El draft no está en la fase esperada para esta acción.",
   INVALID_HERO_ID: "Ese héroe no es válido.",
   COLLISION_ORDER_UNAVAILABLE: "Hay una colisión pendiente de resolución en esta ronda -- no se puede sellar otro héroe todavía.",

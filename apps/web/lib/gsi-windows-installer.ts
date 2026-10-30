@@ -187,7 +187,7 @@ function Show-Result([string]$Text, [bool]$Ok) {
     if (-not $Ok) { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
     [void][System.Windows.Forms.MessageBox]::Show($Text, 'D2KIRO', [System.Windows.Forms.MessageBoxButtons]::OK, $icon)
   } catch {
-    [void](Read-Host 'Presioná Enter para cerrar')
+    [void](Read-Host 'Presiona Enter para cerrar')
   }
 }
 
@@ -208,7 +208,7 @@ function Read-Payload {
   return $cfg + $NL
 }
 
-$NotFound = 'No encontramos Dota 2 en esta PC.' + $NL + $NL + 'Buscamos en todas tus bibliotecas de Steam (C:, D: y las demás). Si Dota 2 está instalado, volvé a la página de D2KIRO y usá «Instalarlo a mano».' + $NL + $NL + 'No se cambió nada.'
+$NotFound = 'No encontramos Dota 2 en esta PC.' + $NL + $NL + 'Buscamos en todas tus bibliotecas de Steam (C:, D: y las demás). Si Dota 2 está instalado, vuelve a la página de D2KIRO y usa «Instalarlo a mano».' + $NL + $NL + 'No se cambió nada.'
 
 if ($Mode -eq 'uninstall') {
   try {
@@ -218,11 +218,11 @@ if ($Mode -eq 'uninstall') {
       if ([IO.File]::Exists($file)) { [IO.File]::Delete($file); $removed++ }
     }
   } catch {
-    Show-Result ('No pudimos quitar la configuración de D2KIRO. Cerrá Dota 2 y probá de nuevo.') $false
+    Show-Result ('No pudimos quitar la configuración de D2KIRO. Cierra Dota 2 y prueba de nuevo.') $false
     exit 3
   }
   if ($removed -eq 0) { Show-Result ('No había ninguna configuración de D2KIRO instalada en Dota 2.' + $NL + $NL + 'No se cambió nada.') $true; exit 0 }
-  Show-Result ('Listo: se quitó la configuración de D2KIRO de Dota 2.' + $NL + $NL + 'Reiniciá Dota 2. Para cortar también la conexión desde el sitio, usá «Desconectar Dota» en la página de D2KIRO.') $true
+  Show-Result ('Listo: se quitó la configuración de D2KIRO de Dota 2.' + $NL + $NL + 'Reinicia Dota 2. Para cortar también la conexión desde el sitio, usa «Desconectar Dota» en la página de D2KIRO.') $true
   exit 0
 }
 
@@ -231,7 +231,7 @@ if ($Mode -ne 'install') { exit 4 }
 $cfgText = $null
 try { $cfgText = Read-Payload } catch { $cfgText = $null }
 if ($null -eq $cfgText) {
-  Show-Result ('Este instalador está incompleto o fue modificado.' + $NL + $NL + 'Descargá uno nuevo desde la página de D2KIRO. No se cambió nada.') $false
+  Show-Result ('Este instalador está incompleto o fue modificado.' + $NL + $NL + 'Descarga uno nuevo desde la página de D2KIRO. No se cambió nada.') $false
   exit 4
 }
 
@@ -246,17 +246,17 @@ foreach ($cfg in $folders) {
     [IO.File]::WriteAllText([IO.Path]::Combine($dir, $CfgName), $cfgText, (New-Object System.Text.UTF8Encoding($false)))
     [void]$installed.Add($dir)
   } catch {
-    Show-Result ('No pudimos guardar el archivo en:' + $NL + $dir + $NL + $NL + 'Cerrá Dota 2 y probá de nuevo descargando otro instalador. Si se repite, usá «Instalarlo a mano» en la página de D2KIRO.') $false
+    Show-Result ('No pudimos guardar el archivo en:' + $NL + $dir + $NL + $NL + 'Cierra Dota 2 y prueba de nuevo descargando otro instalador. Si se repite, usa «Instalarlo a mano» en la página de D2KIRO.') $false
     exit 3
   }
 }
 
 $copied = $false
 if (-not $NoDialog) { try { Set-Clipboard -Value $LaunchOption; $copied = $true } catch { $copied = $false } }
-$launchHint = 'Si todavía no lo hiciste: en Steam, clic derecho en Dota 2 > Propiedades > General > Opciones de lanzamiento, agregá ' + $LaunchOption
-if ($copied) { $launchHint = $launchHint + ' (ya está copiado: solo pegalo).' } else { $launchHint = $launchHint + '.' }
-$restart = 'Último paso: abrí Dota 2.'
-if (Get-Process -Name 'dota2' -ErrorAction SilentlyContinue) { $restart = 'Último paso: Dota 2 está abierto, cerralo y volvelo a abrir.' }
+$launchHint = 'Si todavía no lo hiciste: en Steam, clic derecho en Dota 2 > Propiedades > General > Opciones de lanzamiento, agrega ' + $LaunchOption
+if ($copied) { $launchHint = $launchHint + ' (ya está copiado: solo pégalo).' } else { $launchHint = $launchHint + '.' }
+$restart = 'Último paso: abre Dota 2.'
+if (Get-Process -Name 'dota2' -ErrorAction SilentlyContinue) { $restart = 'Último paso: Dota 2 está abierto, ciérralo y vuélvelo a abrir.' }
 Show-Result ('Listo: D2KIRO quedó conectado con Dota 2.' + $NL + $NL + 'Carpeta: ' + ($installed -join $NL) + $NL + $NL + $restart + ' La página de D2KIRO pasa sola a «Dota conectado».' + $NL + $NL + $launchHint + $NL + $NL + 'Este instalador ya se borró solo: tenía tu conexión personal.') $true
 exit 0
 ${SCRIPT_END}`;

@@ -62,13 +62,13 @@ test("muestra las posiciones controladas y permite elegir Pos4 antes que Pos5", 
 const PARTY5_PHASE: Extract<DraftPhase, { type: "blind_round" }> = { ...PHASE, attemptPositions: [1, 2, 3, 4, 5], pendingPositions: [1, 2, 3, 4, 5] };
 const PARTY5_R1 = { eligiblePositions: [1, 2, 3, 4, 5] as (1 | 2 | 3 | 4 | 5)[], roundCapacity: 2, hasHumanAction: true, noActionReason: null };
 
-test("Party5 Ronda 1: '2 espacios de pick disponibles' separado de las 5 posiciones pendientes -- nunca 'elegí 5 héroes'", () => {
+test("Party5 Ronda 1: '2 espacios de pick disponibles' separado de las 5 posiciones pendientes -- nunca 'elige 5 héroes'", () => {
   const view = render(
     <BlindRoundPanel phase={PARTY5_PHASE} draftState={null} heroCatalog={new Map([[1, HERO]])} onLockPick={noop} onYield={noop} humanActionability={PARTY5_R1} selectedTarget={3} />,
   );
   expect(view.getByTestId("round-capacity").textContent).toContain("2 espacios de pick disponibles");
   expect(view.getByTestId("pending-human-positions").textContent).toBe("Posiciones humanas pendientes: Pos1 Pos2 Pos3 Pos4 Pos5");
-  expect(view.container.textContent).not.toMatch(/elegí 5/i);
+  expect(view.container.textContent).not.toMatch(/elige 5/i);
 });
 
 test("COHERENCE-013: el selector muestra el objetivo del Coach y elegir otra posición lo pide al motor", () => {

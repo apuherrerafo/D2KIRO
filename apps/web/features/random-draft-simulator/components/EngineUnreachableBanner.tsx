@@ -26,7 +26,7 @@ export function EngineUnreachableBanner() {
         El motor no está recibiendo este draft.
       </span>
       <span className="text-caption text-content-secondary">
-        El tablero y las sugerencias que ves no corresponden a los picks reales. Reiniciá el draft
+        El tablero y las sugerencias que ves no corresponden a los picks reales. Reinicia el draft
         cuando vuelva la conexión — el intento se reanuda solo en cuanto el motor responda.
       </span>
     </div>

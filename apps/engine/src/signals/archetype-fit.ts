@@ -74,7 +74,7 @@ export function createArchetypeFitScorer(
           raw: null,
           weighted: 0,
           applicable: false,
-          explanation: "Elegí una intención de draft para activar esta señal",
+          explanation: "Elige una intención de draft para activar esta señal",
           sampleSize: 0,
         };
       }

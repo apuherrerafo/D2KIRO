@@ -208,7 +208,7 @@ function ActiveDraftState({ sessionId, draftState, suggestions, heroCatalog, onO
           />
         ) : (
           <span className="text-caption text-content-muted">
-            Elegí &quot;Pick Radiant&quot; o &quot;Pick Dire&quot; arriba para empezar a pickear desde la grilla.
+            Elige &quot;Pick Radiant&quot; o &quot;Pick Dire&quot; arriba para empezar a pickear desde la grilla.
           </span>
         )
       }
