@@ -65,24 +65,24 @@ describe("ronda 1 -- los bans abren héroes (fracción de su lista de counters, 
   });
 });
 
-describe("ronda 1 se decide por la fase real del draft cuando existe", () => {
-  test("PICK_ROUND_2 sin rivales a la vista (captura incompleta): los bans ya no cuentan ni se dice 'Se abre'", () => {
-    const round2 = ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), phase: "PICK_ROUND_2" });
-    expect(contextBonus(MORPHLING, round2)).toBe(0);
-    expect(banOpeningOf(MORPHLING, round2)).toEqual({ openedBy: [], stillFree: [] });
-  });
-
-  test("PICK_ROUND_1: los bans cuentan; sin fase, el respaldo es 'ningún rival a la vista'", () => {
-    expect(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), phase: "PICK_ROUND_1" }))).toBeCloseTo(3.6);
-    expect(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), phase: null }))).toBeCloseTo(3.6);
-  });
-});
-
-describe("rondas 2 y 3 -- manda lo que el rival YA tiene; los bans dejan de contar", () => {
-  test("con un rival a la vista los bans no suman ni se dice 'Se abre'", () => {
+describe("rondas 2 y 3 -- los bans siguen contando y se suma lo que el rival YA tiene", () => {
+  test("con un rival a la vista los bans siguen sumando y la tarjeta sigue diciendo qué se abrió", () => {
     const withEnemy = ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), revealedEnemies: new Set([ENEMY]) });
-    expect(contextBonus(MORPHLING, withEnemy)).toBe(0);
-    expect(banOpeningOf(MORPHLING, withEnemy)).toEqual({ openedBy: [], stillFree: [] });
+    expect(contextBonus(MORPHLING, withEnemy)).toBeCloseTo(3.6);
+    expect(banOpeningOf(MORPHLING, withEnemy).openedBy.map((note) => note.heroId)).toEqual([AXE, LION, ANCIENT]);
+  });
+
+  test("un héroe baneado por CHOQUE (Radiant y Dire eligieron el mismo) cuenta como cualquier ban", () => {
+    // El núcleo suma el héroe del choque a la misma lista de baneados: para el coach es un ban más.
+    const before = ctx({ banned: new Set([LION, ANCIENT, PUDGE]), revealedEnemies: new Set([ENEMY]) });
+    const afterCollision = ctx({ banned: new Set([LION, ANCIENT, PUDGE, AXE]), revealedEnemies: new Set([ENEMY]) });
+    expect(contextBonus(MORPHLING, before)).toBe(0); // Axe (fuerte) seguía libre
+    expect(contextBonus(MORPHLING, afterCollision)).toBeCloseTo(3.6);
+  });
+
+  test("un counter que el rival YA tiene no se lista como 'sigue libre' (eso es un riesgo, otro aviso)", () => {
+    const opening = banOpeningOf(MORPHLING, ctx({ banned: new Set([AXE, LION]), revealedEnemies: new Set([PUDGE]) }));
+    expect(opening.stillFree.map((note) => note.heroId)).toEqual([ANCIENT]);
   });
 
   test("le gana a un rival que ya se ve: sube (fuerte más que medium)", () => {

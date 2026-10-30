@@ -197,7 +197,6 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       banned: new Set(view.bannedHeroes),
       ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
       revealedEnemies: new Set(revealedEnemyHeroes(view)),
-      phase: view.rankedAp?.phase ?? null,
       heroCounters: input.heroCounters,
       heroSynergies: input.heroSynergies,
     });

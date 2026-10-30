@@ -66,9 +66,9 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     expect(result.cards.map((card) => card.heroId)).toContain(108);
   });
 
-  test("rondas 2 y 3: con un rival a la vista los mismos bans ya no mueven a nadie", () => {
+  test("rondas 2 y 3: con un rival a la vista los mismos bans siguen abriendo a 108", () => {
     const result = derive({ banned: [AXE, LION, ANCIENT], enemy: [555], heroCounters: COUNTERS });
-    expect(result.cards.map((card) => card.heroId)).toEqual([101, 102, 103, 104, 105]);
+    expect(result.cards.map((card) => card.heroId)).toContain(108);
   });
 
   test("CANDADO RB-4: si un rival YA revelado lo counterea fuerte, va al fondo aunque los bans lo hayan abierto", () => {

@@ -1,12 +1,13 @@
-import type { HeroId, RankedApPhase } from "../draft-protocol/types";
+import type { HeroId } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 
 // Decisión de producto (2026-10-29, el usuario): las sugerencias de cada posición ROTAN según lo que se ve del draft.
-//   - Ronda 1 (a ciegas, ningún rival a la vista): los bans abren héroes. Cuentan TODOS los counters del héroe, los
-//     fuertes pesan el doble; es una suma, no un combo.
-//   - Rondas 2 y 3 (ya hay rivales a la vista): suben los que le ganan a lo que el rival YA tiene y los que combinan con
-//     los aliados que YA elegiste; bajan los que un rival revelado counterea. Los bans ya no cuentan.
+//   - En TODAS las rondas los bans abren héroes: cuentan todos los counters del héroe, los fuertes pesan el doble; es una
+//     suma, no un combo. Incluye los bans por choque (Radiant y Dire eligieron el mismo héroe): el núcleo los suma a la
+//     misma lista de baneados (corrección del usuario, 2026-10-30).
+//   - Además, en las rondas 2 y 3 suben los que le ganan a lo que el rival YA tiene y los que combinan con los aliados
+//     que YA elegiste; bajan los que un rival revelado counterea.
 //
 // Ajustes tras la revisión del breaker (2026-10-30), dentro de esa regla. Las magnitudes (tope, bonos) son parámetros de
 // producto elegidos a criterio, NO salen de datos: pendientes de calibrar con drafts profesionales.
@@ -26,7 +27,7 @@ export interface CounterNote {
 }
 
 /**
- * Lo que la tarjeta dice de los bans en la ronda 1. Vacío fuera de la ronda 1 o cuando los bans no abrieron casi nada.
+ * Lo que la tarjeta dice de los bans (cualquier ronda). Vacío cuando los bans no abrieron casi nada.
  * - `openedBy` con datos: "Se abre: …"; `stillFree` son los counters medium que quedan libres ("Ojo: …").
  * - `openedBy` vacío y `stillFree` con datos: los bans tocaron sus counters, pero le queda uno FUERTE libre ("Ojo: …").
  */
@@ -41,8 +42,6 @@ export interface ContextReorderInput {
   ownPicks: ReadonlySet<HeroId>;
   /** Héroes del rival que ya se ven. */
   revealedEnemies: ReadonlySet<HeroId>;
-  /** Fase de Ranked All Pick. Con fase, "a ciegas" = PICK_ROUND_1; sin fase (captura en vivo) = ningún rival a la vista. */
-  phase?: RankedApPhase | null;
   /** victim -> quién la counterea (el formato de hero-counters.json). */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** héroe -> sus parejas curadas. Ausente = ninguna (el llamador de producción inyecta el archivo real). */
@@ -72,11 +71,6 @@ function byLevelThenId(a: CounterNote, b: CounterNote): number {
   return LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level] || a.heroId - b.heroId;
 }
 
-function isBlind(input: Pick<ContextReorderInput, "revealedEnemies" | "phase">): boolean {
-  if (input.phase) return input.phase === "PICK_ROUND_1";
-  return input.revealedEnemies.size === 0;
-}
-
 /** Fracción ponderada de los counters de este héroe que está baneada (0 sin counters). */
 export function banFraction(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "heroCounters">): number {
   let banned = 0;
@@ -89,17 +83,21 @@ export function banFraction(heroId: HeroId, input: Pick<ContextReorderInput, "ba
   return banned / Math.max(MIN_COUNTER_WEIGHT, total);
 }
 
-function hasHardCounterFree(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "heroCounters">): boolean {
-  return (input.heroCounters?.get(heroId) ?? []).some((entry) => entry.level === "hard" && !input.banned.has(entry.vs) && !input.ownPicks.has(entry.vs));
+/** Un counter "sigue libre" si el rival todavía puede sacarlo: no baneado, no tuyo y no ya en su equipo (eso es otro aviso). */
+function isFree(counter: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies">): boolean {
+  return !input.banned.has(counter) && !input.ownPicks.has(counter) && !input.revealedEnemies.has(counter);
+}
+
+function hasHardCounterFree(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies" | "heroCounters">): boolean {
+  return (input.heroCounters?.get(heroId) ?? []).some((entry) => entry.level === "hard" && isFree(entry.vs, input));
 }
 
 /** Lo que la tarjeta dice de los bans (ver `BanOpening`). Pura. */
-export function banOpeningOf(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies" | "heroCounters" | "phase">): BanOpening {
+export function banOpeningOf(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies" | "heroCounters">): BanOpening {
   const none: BanOpening = { openedBy: [], stillFree: [] };
-  if (!isBlind(input)) return none;
   const entries = input.heroCounters?.get(heroId) ?? [];
   const openedBy = entries.filter((entry) => input.banned.has(entry.vs)).map((entry): CounterNote => ({ heroId: entry.vs, level: entry.level }));
-  const free = entries.filter((entry) => !input.banned.has(entry.vs) && !input.ownPicks.has(entry.vs)).map((entry): CounterNote => ({ heroId: entry.vs, level: entry.level }));
+  const free = entries.filter((entry) => isFree(entry.vs, input)).map((entry): CounterNote => ({ heroId: entry.vs, level: entry.level }));
   const meaningful = openedBy.some((note) => note.level === "hard") || banFraction(heroId, input) * OPENING_SHARE_DIVISOR >= 1;
   if (!meaningful) return none;
   const hardFree = free.filter((note) => note.level === "hard");
@@ -126,14 +124,13 @@ export function synergiesWithOwn(heroId: HeroId, input: Pick<ContextReorderInput
 /** Bono de contexto en la escala del puntaje de V6, acotado a ±MAX_CONTEXT_BONUS. 0 = V6 manda sin tocar. */
 export function contextBonus(heroId: HeroId, input: ContextReorderInput): number {
   let bonus = 0;
-  if (isBlind(input)) {
-    // Con un counter FUERTE libre los bans no lo suben: la tarjeta dice "Ojo: X lo counterea fuerte", y el orden dice lo mismo.
-    if (!hasHardCounterFree(heroId, input)) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
-  } else {
-    for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
-    for (const entry of input.heroCounters?.get(heroId) ?? []) {
-      if (entry.level === "medium" && input.revealedEnemies.has(entry.vs)) bonus -= REVEALED_MEDIUM_PENALTY;
-    }
+  // Bans (todas las rondas, incluidos los de choque). Con un counter FUERTE libre no lo suben: la tarjeta dice
+  // "Ojo: X lo counterea fuerte", y el orden dice lo mismo.
+  if (!hasHardCounterFree(heroId, input)) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
+  // Lo que el rival YA tiene (rondas 2 y 3; en la 1 no hay nadie a la vista y esto no suma nada).
+  for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
+  for (const entry of input.heroCounters?.get(heroId) ?? []) {
+    if (entry.level === "medium" && input.revealedEnemies.has(entry.vs)) bonus -= REVEALED_MEDIUM_PENALTY;
   }
   if (synergiesWithOwn(heroId, input).length > 0) bonus += SYNERGY_BONUS;
   return Math.max(-MAX_CONTEXT_BONUS, Math.min(MAX_CONTEXT_BONUS, bonus));
