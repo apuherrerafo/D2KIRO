@@ -100,17 +100,26 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
       ],
     };
     const view = renderBoard({ ...board([2], 2), positions: [withStrengths] });
-    const strengths = view.getAllByTestId("team-coach-candidate-strength");
-    expect(strengths).toHaveLength(1);
-    expect(strengths[0]!.textContent).toBe("Fuerte contra Hero 7: Orchid lo silencia");
-    expect(view.getByText("También: Hero 8, Hero 9")).toBeTruthy();
+    expect(view.queryAllByTestId("team-coach-candidate-strength")).toHaveLength(0);
+    const hypotheses = view.getAllByTestId("team-coach-candidate-if-picked");
+    expect(hypotheses).toHaveLength(1);
+    expect(hypotheses[0]!.textContent).toBe("Si el rival saca a Hero 7 (counter fuerte): Orchid lo silencia");
+    expect(view.getByText("También si sacan: Hero 8, Hero 9")).toBeTruthy();
   });
 
-  test("un counter medium dice 'Ventaja posible contra', nunca 'Fuerte contra'", () => {
-    const withMedium = column(2);
-    withMedium.top[0] = { ...withMedium.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón" }] };
-    const view = renderBoard({ ...board([2], 2), positions: [withMedium] });
-    expect(view.getByTestId("team-coach-candidate-strength").textContent).toBe("Ventaja posible contra Hero 7: razón");
+  test("un rival que NO salió nunca se afirma como hecho: sin 'Fuerte contra' ni 'ya está en el rival'", () => {
+    const hypothetical = column(2);
+    hypothetical.top[0] = { ...hypothetical.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón", revealed: false }] };
+    const view = renderBoard({ ...board([2], 2), positions: [hypothetical] });
+    expect(view.getByTestId("team-coach-candidate-if-picked").textContent).toBe("Si el rival saca a Hero 7 (ventaja posible): razón");
+    expect(view.container.textContent).not.toContain("ya está en el rival");
+  });
+
+  test("un rival que YA se ve sí se afirma, con su nivel y 'ya está en el rival'", () => {
+    const real = column(2);
+    real.top[0] = { ...real.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón", revealed: true }] };
+    const view = renderBoard({ ...board([2], 2), positions: [real] });
+    expect(view.getByTestId("team-coach-candidate-strength").textContent).toBe("Ventaja posible contra Hero 7 (ya está en el rival): razón");
   });
 
   test("sin fortalezas (o un motor que no manda el campo): no aparece ninguna línea", () => {

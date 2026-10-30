@@ -9,6 +9,7 @@ import {
   CANDIDATE_BUTTON,
   CANDIDATE_HEAD,
   CANDIDATE_ALSO,
+  CANDIDATE_IF_PICKED,
   CANDIDATE_REASON,
   CANDIDATE_RISK,
   CANDIDATE_STRENGTH,
@@ -184,20 +185,47 @@ function CandidateRisks({ candidate, heroCatalog }: { candidate: TeamCoachCandid
 }
 
 const STRENGTH_LABELS: Record<TeamCoachStrength["level"], string> = { hard: "Fuerte contra", medium: "Ventaja posible contra" };
+const IF_PICKED_LABELS: Record<TeamCoachStrength["level"], string> = { hard: "counter fuerte", medium: "ventaja posible" };
 const MAX_ALSO_NAMES = 2;
 
-// Contra quién le sirve este héroe: la razón concreta para elegirlo, no solo en qué posición juega. Aparece desde la
-// ronda 1, antes de ver rivales; el primero lleva su porqué y los demás van solo por nombre.
+interface StrengthLineProps {
+  strength: TeamCoachStrength;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+// Un rival que YA se ve: es un hecho del draft, va en verde y lo dice. Es lo único que se afirma sin condicional.
+function RevealedStrengthLine({ strength, heroCatalog }: StrengthLineProps) {
+  return (
+    <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-strength">
+      {STRENGTH_LABELS[strength.level]} {heroName(strength.vsHeroId, heroCatalog)} (ya está en el rival): {strength.why}
+    </span>
+  );
+}
+
+// Un rival que todavía NO salió: solo una hipótesis. En gris y con "si el rival saca a", para que no parezca que ya está.
+function IfPickedStrengthLine({ strength, heroCatalog }: StrengthLineProps) {
+  return (
+    <span className={CANDIDATE_IF_PICKED} data-testid="team-coach-candidate-if-picked">
+      Si el rival saca a {heroName(strength.vsHeroId, heroCatalog)} ({IF_PICKED_LABELS[strength.level]}): {strength.why}
+    </span>
+  );
+}
+
+function StrengthLine({ strength, heroCatalog }: StrengthLineProps) {
+  if (strength.revealed === true) return <RevealedStrengthLine strength={strength} heroCatalog={heroCatalog} />;
+  return <IfPickedStrengthLine strength={strength} heroCatalog={heroCatalog} />;
+}
+
+// Para qué sirve este héroe además de su posición. Aparece desde la ronda 1, antes de ver rivales; el primero lleva su
+// porqué y los demás van solo por nombre.
 function CandidateStrengths({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
   const [first, ...others] = candidate.strengths ?? [];
   if (!first) return null;
   const alsoNames = others.slice(0, MAX_ALSO_NAMES).map((strength) => heroName(strength.vsHeroId, heroCatalog));
   return (
     <>
-      <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-strength">
-        {STRENGTH_LABELS[first.level]} {heroName(first.vsHeroId, heroCatalog)}: {first.why}
-      </span>
-      {alsoNames.length > 0 && <span className={CANDIDATE_ALSO}>También: {alsoNames.join(", ")}</span>}
+      <StrengthLine strength={first} heroCatalog={heroCatalog} />
+      {alsoNames.length > 0 && <span className={CANDIDATE_ALSO}>También si sacan: {alsoNames.join(", ")}</span>}
     </>
   );
 }

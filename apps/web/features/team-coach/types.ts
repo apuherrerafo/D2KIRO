@@ -25,6 +25,8 @@ export interface TeamCoachStrength {
   vsHeroId: number;
   level: "hard" | "medium";
   why: string;
+  /** true = ese rival ya se ve en el draft; false/ausente = es solo "si el rival lo saca". */
+  revealed?: boolean;
 }
 
 export interface TeamCoachCandidate {
