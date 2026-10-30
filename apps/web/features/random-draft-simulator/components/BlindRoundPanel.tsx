@@ -1,7 +1,7 @@
 "use client";
 
 import { DraftHeroSlot } from "@/components/draft-hero-slot/DraftHeroSlot";
-import { HeroGrid } from "@/components/hero-grid/HeroGrid";
+import { HeroPicker } from "@/components/hero-picker/HeroPicker";
 import type { DraftState } from "@/features/draft/types";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { useState } from "react";
@@ -105,9 +105,6 @@ interface BlindRoundActiveProps {
   phase: BlindRoundPhase;
   draftState: DraftState | null;
   heroCatalog: Map<number, HeroMeta>;
-  // TSK-084: mismos candidatos que ya destaca el Copilot al lado -- un solo highlight dorado
-  // consistente entre las dos superficies, no una segunda heurística.
-  highlightedHeroIds: ReadonlySet<HeroId>;
   onLockPick: (heroId: HeroId, position: Position) => void;
   onYield: () => void;
   humanActionability: HumanActionability | null;
@@ -156,7 +153,25 @@ function PositionTargetButton({ position, selected, locked, onSelect }: Position
   );
 }
 
-function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, onLockPick, onYield, humanActionability, selectedTarget, onSelectTarget }: BlindRoundActiveProps) {
+interface OtherHeroSearchProps {
+  heroes: HeroMeta[];
+  onSelect: (heroId: HeroId) => void;
+}
+
+// Las recomendaciones del Team Coach son el camino principal: la lista completa de 127 héroes ya no
+// ocupa la pantalla. Quien quiere un héroe que el coach no propuso lo busca por nombre.
+function OtherHeroSearch({ heroes, onSelect }: OtherHeroSearchProps) {
+  return (
+    <details className="text-caption text-content-secondary" data-testid="other-hero-search">
+      <summary className="w-fit cursor-pointer text-content-muted hover:text-content-primary">Buscar otro héroe</summary>
+      <div className="pt-2">
+        <HeroPicker heroes={heroes} onSelect={onSelect} />
+      </div>
+    </details>
+  );
+}
+
+function BlindRoundActive({ phase, draftState, heroCatalog, onLockPick, onYield, humanActionability, selectedTarget, onSelectTarget }: BlindRoundActiveProps) {
   const availablePositions = phase.attemptPositions.filter((position) => phase.lockedUserPicks[position] === undefined);
   const [preferredPosition, setPreferredPosition] = useState<Position | undefined>(availablePositions[0] ?? phase.attemptPositions[0]);
   // COHERENCE-013 / PSR-002 -- the selector shows the viewed position whenever there is one; the local
@@ -190,10 +205,7 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
       <span className="text-caption text-content-secondary" data-testid="pending-human-positions">
         Posiciones humanas pendientes: {pendingLabel}
       </span>
-      <span className="text-caption text-content-muted">
-        Elegís vos qué posición completa cada pick. Los demás aliados son simulados automáticamente. Al
-        elegir un héroe queda sellado y oculto para el rival hasta que cierre la ronda.
-      </span>
+      <span className="text-caption text-content-muted">Los demás aliados son simulados automáticamente.</span>
       <ConflictBanner conflictBans={phase.conflictBans} notice={phase.notice} heroCatalog={heroCatalog} />
       <TimerExpiredNotice phase={phase} />
       <div className="flex flex-wrap gap-4">
@@ -225,7 +237,7 @@ function BlindRoundActive({ phase, draftState, heroCatalog, highlightedHeroIds, 
           )}
         </div>
       )}
-      {canPick && <HeroGrid heroes={pickablePool} highlightedHeroIds={highlightedHeroIds} onSelect={handleHeroSelect} />}
+      {canPick && <OtherHeroSearch heroes={pickablePool} onSelect={handleHeroSelect} />}
     </div>
   );
 }
@@ -271,9 +283,6 @@ export interface BlindRoundPanelProps {
   phase: BlindRoundPhase | RoundRevealedPhase;
   draftState: DraftState | null;
   heroCatalog: Map<number, HeroMeta>;
-  // TSK-084: opcional a propósito -- mismo criterio que HeroGrid.highlightedHeroIds, un caller
-  // sin sugerencias frescas todavía (o ninguna) simplemente no resalta nada.
-  highlightedHeroIds?: ReadonlySet<HeroId>;
   onLockPick: (heroId: HeroId, position: Position) => void;
   onYield: () => void;
   /** WP1 -- server-derived eligibility vs. round capacity (latest snapshot). */
@@ -283,15 +292,12 @@ export interface BlindRoundPanelProps {
   onSelectTarget?: (position: Position) => void;
 }
 
-const EMPTY_HIGHLIGHTED: ReadonlySet<HeroId> = new Set();
-
 // <Dominio><Cosa>: cubre las fases blind_round y round_revealed (Req. 3) -- selección a ciegas
 // con timer visible y revelación simultánea al cerrar la ronda, sin ternario para elegir la vista.
 export function BlindRoundPanel({
   phase,
   draftState,
   heroCatalog,
-  highlightedHeroIds = EMPTY_HIGHLIGHTED,
   onLockPick,
   onYield,
   humanActionability = null,
@@ -304,7 +310,6 @@ export function BlindRoundPanel({
   return (
     <BlindRoundActive
       phase={phase}
-      highlightedHeroIds={highlightedHeroIds}
       draftState={draftState}
       heroCatalog={heroCatalog}
       onLockPick={onLockPick}

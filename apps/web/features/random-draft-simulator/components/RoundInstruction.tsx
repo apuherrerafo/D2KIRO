@@ -34,7 +34,7 @@ export function RoundInstruction({ round, capacity, revealed }: RoundInstruction
         Ronda {round} de {TOTAL_ROUNDS} · {pickInstruction(capacity)}
       </span>
       <span className="text-caption text-content-secondary">
-        Tus picks quedan sellados: el rival los ve recién cuando termina la ronda. Toca un héroe recomendado o búscalo en la lista de abajo.
+        Tus picks quedan sellados: el rival los ve recién cuando termina la ronda. Toca un héroe recomendado, o usa «Buscar otro héroe» si quieres uno que el coach no propuso.
       </span>
     </div>
   );

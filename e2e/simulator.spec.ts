@@ -104,9 +104,12 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   await expect(page.getByTestId("current-decision-candidates")).toContainText(`Pos${chosen} `);
   const cardsBefore = await decisionHeroIds(page);
 
-  // TSK-237: a hero-grid button, never the Team Coach candidate cards rendered above the grid (the
+  // TSK-237: a hero from the "Buscar otro héroe" search, never the Team Coach candidate cards (the
   // first of those is the Pos1 recommendation, which would consume Pos1 instead of the viewed Pos).
-  await page.locator('button[title]:not([disabled]):not([data-testid="team-coach-candidate"])').first().click();
+  // The full 127-hero grid no longer exists: the search is the manual path.
+  const manualSearch = page.getByTestId("other-hero-search");
+  await manualSearch.locator("summary").click();
+  await manualSearch.locator("button:not([disabled])").first().click();
 
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1", { timeout: 30_000 });
   await expect(page.getByTestId("pending-human-positions")).not.toContainText(`Pos${chosen}`);

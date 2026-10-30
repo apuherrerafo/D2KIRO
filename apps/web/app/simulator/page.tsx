@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { CompactBoard } from "@/components/draft-layout/DraftLayout";
 import { DraftTimer } from "@/components/draft-timer/DraftTimer";
 import { useHeroCatalog } from "@/features/draft/use-hero-catalog";
@@ -24,9 +24,9 @@ import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 
 type Session = ReturnType<typeof useRandomDraftSession>;
 
-// LIVE_COMPANION never renders a HeroGrid (LiveCompanionPanel uses HeroPicker's search box
-// instead, task spec section 4) -- CopilotPanel still requires this callback, so a stable no-op
-// function satisfies the prop without an inline anonymous handler (web.md).
+// Ni LIVE_COMPANION ni la ronda del simulador renderizan ya una HeroGrid (buscan por nombre con
+// HeroPicker) -- CopilotPanel igual exige este callback, así que una función estable que no hace
+// nada cumple el prop sin un handler anónimo inline (web.md).
 function noopSetHighlightedHeroIds(): void {}
 
 // El roster ("Tu equipo / Equipo rival") es información, no una acción. Durante una ronda va DEBAJO
@@ -69,6 +69,19 @@ interface PhaseViewProps {
   heroCatalog: Map<number, HeroMeta>;
 }
 
+interface RoundBansStripProps {
+  phase: Session["state"]["phase"];
+  bans: number[];
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+// Los bans viven en la franja fija de arriba durante toda la ronda: antes desaparecían del tope y
+// reaparecían 1500 px más abajo, así que había que hacer scroll para ver el draft entero.
+function RoundBansStrip({ phase, bans, heroCatalog }: RoundBansStripProps) {
+  if (phase.type !== "blind_round" && phase.type !== "round_revealed") return null;
+  return <BanPhasePanel resolvedBans={bans} heroCatalog={heroCatalog} compact />;
+}
+
 // Req. 1.1-1.4, 8.1, 8.4: configuración previa a cualquier draft.
 function IdlePhaseView({ session }: PhaseViewProps) {
   return <ConfigPanel onStart={session.startDraft} />;
@@ -105,7 +118,6 @@ function BanPhaseCompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 // vez del snapshot fijo de `ban_phase_complete`.
 function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
   const { phase, draftState, recommendations, coach, previewStatus, config, currentDecision, requestedTarget, humanActionability, teamBoard, teamBoardStatus } = session.state;
-  const [highlightedHeroIds, setHighlightedHeroIds] = useState<ReadonlySet<number>>(new Set());
   // Antes del `return null` de abajo: un hook no puede quedar detrás de un return condicional.
   const roundNumber = phase.type === "blind_round" || phase.type === "round_revealed" ? phase.round : 0;
   useScrollToTop(roundNumber);
@@ -136,12 +148,10 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
       <SimulatorRosterSection session={session} heroCatalog={heroCatalog} />
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
-          <BanPhasePanel resolvedBans={draftState?.banned ?? []} heroCatalog={heroCatalog} />
           <BlindRoundPanel
             phase={phase}
             draftState={draftState}
             heroCatalog={heroCatalog}
-            highlightedHeroIds={highlightedHeroIds}
             onLockPick={session.actions.lockPick}
             onYield={session.actions.yieldRound}
             humanActionability={humanActionability}
@@ -162,7 +172,7 @@ function ActiveRoundPhaseView({ session, heroCatalog }: PhaseViewProps) {
             previewStatus={previewStatus}
             onRetryPreview={session.actions.retryPreview}
             onAssignOwnPosition={session.actions.assignOwnPosition}
-            onSuggestedHeroIdsChange={setHighlightedHeroIds}
+            onSuggestedHeroIdsChange={noopSetHighlightedHeroIds}
             playerPosition={config?.playerPosition}
             partyPositions={config?.partyPositions}
             roundPickState={phase.type === "blind_round" ? {
@@ -260,19 +270,30 @@ function CompletePhaseView({ session, heroCatalog }: PhaseViewProps) {
 interface SimulatorHeaderProps {
   canReset: boolean;
   onReset(): void;
+  modeSwitcher: ReactNode;
 }
 
-function SimulatorHeader({ canReset, onReset }: SimulatorHeaderProps) {
-  if (!canReset) {
-    return <span className="text-heading text-content-primary">Simulador de Draft</span>;
-  }
+interface ResetDraftButtonProps {
+  canReset: boolean;
+  onReset(): void;
+}
 
+function ResetDraftButton({ canReset, onReset }: ResetDraftButtonProps) {
+  if (!canReset) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-heading text-content-primary">Simulador de Draft</span>
-      <button className={BUTTON_SECONDARY} onClick={onReset} type="button">
-        Reiniciar draft
-      </button>
+    <button className={BUTTON_SECONDARY} onClick={onReset} type="button">
+      Reiniciar draft
+    </button>
+  );
+}
+
+// Una sola fila: el modo y "Reiniciar draft" comparten línea. El título "Simulador de Draft" ya está
+// en la pestaña activa del menú; repetirlo ocupaba otra fila entera antes de ver una sola recomendación.
+function SimulatorHeader({ canReset, onReset, modeSwitcher }: SimulatorHeaderProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border pb-2">
+      {modeSwitcher}
+      <ResetDraftButton canReset={canReset} onReset={onReset} />
     </div>
   );
 }
@@ -297,7 +318,11 @@ const PHASE_VIEWS: Record<RandomDraftState["phase"]["type"], PhaseView> = {
 // compone paneles alrededor de su `state`/`actions`. Extraído de lo que antes era el default
 // export de esta página (R1 S7, Blocker 2) para que SimulatorPage pueda alternar con
 // CaptainsModeSimulator sin que ninguno de los dos comparta estado con el otro.
-function RankedAllPickSimulator() {
+interface SimulatorModeViewProps {
+  modeSwitcher: ReactNode;
+}
+
+function RankedAllPickSimulator({ modeSwitcher }: SimulatorModeViewProps) {
   const session = useRandomDraftSession();
   const { heroes: heroCatalog } = useHeroCatalog();
   const ActivePanel = PHASE_VIEWS[session.state.phase.type];
@@ -315,7 +340,7 @@ function RankedAllPickSimulator() {
 
   return (
     <div className="flex flex-col gap-4">
-      <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} />
+      <SimulatorHeader canReset={phase.type !== "idle"} onReset={session.actions.resetDraft} modeSwitcher={modeSwitcher} />
       <StaleWarningBanner />
       <EngineUnreachableBanner />
       {/* TSK-085: persistente en todas las fases con sesión ya arrancada -- antes, los picks de
@@ -334,6 +359,7 @@ function RankedAllPickSimulator() {
             heroCatalog={heroCatalog}
             centerContent={centerContent}
           />
+          <RoundBansStrip phase={phase} bans={draftState.banned} heroCatalog={heroCatalog} />
         </div>
       )}
       {/* Lo primero que se lee tras el temporizador es QUÉ HACER AHORA; el roster (informativo) va después. */}
@@ -359,7 +385,7 @@ function SimulatorModeSwitcher({ mode, onSelectMode }: SimulatorModeSwitcherProp
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-surface-border pb-3">
+    <div className="flex items-center gap-2">
       <span className="mr-2 text-body font-semibold text-content-primary">Modo:</span>
       <button
         type="button"
@@ -373,7 +399,7 @@ function SimulatorModeSwitcher({ mode, onSelectMode }: SimulatorModeSwitcherProp
   );
 }
 
-const MODE_VIEWS: Record<GameMode, () => JSX.Element> = {
+const MODE_VIEWS: Record<GameMode, (props: SimulatorModeViewProps) => JSX.Element> = {
   ranked_all_pick: RankedAllPickSimulator,
 };
 
@@ -383,9 +409,8 @@ export default function SimulatorPage() {
   const ActiveSimulator = MODE_VIEWS[gameMode];
 
   return (
-    <main className="flex min-h-screen flex-col gap-4 bg-surface-base p-6">
-      <SimulatorModeSwitcher mode={gameMode} onSelectMode={setGameMode} />
-      <ActiveSimulator />
+    <main className="flex min-h-screen flex-col gap-3 bg-surface-base p-4">
+      <ActiveSimulator modeSwitcher={<SimulatorModeSwitcher mode={gameMode} onSelectMode={setGameMode} />} />
     </main>
   );
 }
