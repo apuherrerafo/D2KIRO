@@ -233,7 +233,7 @@ function CandidateOpening({ candidate, heroCatalog }: { candidate: TeamCoachCand
   return (
     <>
       <span className={CANDIDATE_OPENED} data-testid="team-coach-candidate-opened">
-        Se abre: {namesOf(opening.openedBy, heroCatalog)}, que lo {pluralize(opening.openedBy.length, "counterea", "counterean")}, {pluralize(opening.openedBy.length, "está baneado", "están baneados")}.
+        {pluralize(opening.openedBy.length, "Counter baneado", "Counters baneados")}: {namesOf(opening.openedBy, heroCatalog)}. Se abre el pick.
       </span>
       {opening.stillFree.length > 0 && (
         <span className={CANDIDATE_STILL_FREE} data-testid="team-coach-candidate-still-free">

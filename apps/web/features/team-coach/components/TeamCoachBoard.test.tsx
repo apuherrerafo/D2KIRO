@@ -119,7 +119,7 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
       opening: { openedBy: [{ heroId: 7, level: "hard" }, { heroId: 8, level: "hard" }, { heroId: 9, level: "medium" }], stillFree: [{ heroId: 11, level: "medium" }, { heroId: 12, level: "medium" }] },
     };
     const view = renderBoard({ ...board([2], 2), positions: [opened] });
-    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Se abre: Hero 7, Hero 8 y Hero 9, que lo counterean, están baneados.");
+    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Counters baneados: Hero 7, Hero 8 y Hero 9. Se abre el pick.");
     expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 y Hero 12 también lo counterean y siguen libres.");
   });
 
@@ -127,7 +127,7 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     const opened = column(2);
     opened.top[0] = { ...opened.top[0]!, opening: { openedBy: [{ heroId: 7, level: "hard" }], stillFree: [] } };
     const view = renderBoard({ ...board([2], 2), positions: [opened] });
-    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Se abre: Hero 7, que lo counterea, está baneado.");
+    expect(view.getByTestId("team-coach-candidate-opened").textContent).toBe("Counter baneado: Hero 7. Se abre el pick.");
     expect(view.queryAllByTestId("team-coach-candidate-still-free")).toHaveLength(0);
   });
 
