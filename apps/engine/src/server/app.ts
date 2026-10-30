@@ -692,7 +692,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
           const verified = verifyAccountToken(message.accountToken, deps.internalAuthSecret, accountTokenNow, accountNonceStore);
           const known = verified.ok && deps.db.select({ id: accounts.steamAccountId }).from(accounts).where(eq(accounts.steamAccountId, verified.accountId)).limit(1).all().length > 0;
           if (!verified.ok || !known || !sessionStore.claimOwner(message.sessionId, verified.accountId)) {
-            ws.send(JSON.stringify(buildServerMessage("error", 0, { code: "unauthorized", message: "Sesión no válida — volvé a iniciar sesión" })));
+            ws.send(JSON.stringify(buildServerMessage("error", 0, { code: "unauthorized", message: "Sesión no válida — vuelve a iniciar sesión" })));
             ws.close(1008, "unauthorized");
             return;
           }
@@ -724,7 +724,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
               JSON.stringify(
                 buildServerMessage("error", state.lastSeq, {
                   code: "snapshot_unavailable",
-                  message: "No se pudo construir el snapshot de meta -- reintentá en unos segundos",
+                  message: "No se pudo construir el snapshot de meta -- reintenta en unos segundos",
                 }),
               ),
             );

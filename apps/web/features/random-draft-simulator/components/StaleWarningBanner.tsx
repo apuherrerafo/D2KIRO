@@ -43,11 +43,11 @@ export function StaleWarningBanner() {
   if (!data || (data.isStale === false && !isSyncing) || isSuccess) return null;
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-signal-warning bg-surface-raised p-4">
-      <div className="flex flex-col gap-1">
-        <span className="text-body text-content-primary">Los datos de héroes/parche están desactualizados.</span>
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-signal-warning bg-surface-raised px-3 py-2">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-caption text-content-primary">Los datos de héroes/parche están desactualizados.</span>
         <span className="text-caption text-content-secondary">Última sincronización: {formatSyncedAt(data.syncedAt)}</span>
-        {isError && <span className="text-caption text-signal-negative">No se pudo sincronizar. Podés seguir de todos modos.</span>}
+        {isError && <span className="text-caption text-signal-negative">No se pudo sincronizar. Puedes seguir de todos modos.</span>}
       </div>
       <button type="button" onClick={handleSyncClick} disabled={isSyncing} className={BUTTON_PRIMARY}>
         {syncButtonLabel(isSyncing)}

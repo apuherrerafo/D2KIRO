@@ -114,7 +114,7 @@ export function HeroPoolConfig() {
       await updateHeroPool({ entries: entries.map(toPutEntry) }).unwrap();
       setSaveMessage(POOL_SAVED_MESSAGE);
     } catch {
-      setSaveMessage("No se pudo guardar el pool -- revisá que el motor esté corriendo e intentá de nuevo.");
+      setSaveMessage("No se pudo guardar el pool -- revisa que el motor esté corriendo e intenta de nuevo.");
     }
   }
 
@@ -150,7 +150,7 @@ export function HeroPoolConfig() {
       setSaveMessage(POOL_SAVED_MESSAGE);
       setCalculateStatus({ kind: "idle" });
     } catch {
-      setSaveMessage("No se pudo guardar el pool -- revisá que el motor esté corriendo e intentá de nuevo.");
+      setSaveMessage("No se pudo guardar el pool -- revisa que el motor esté corriendo e intenta de nuevo.");
     }
   }
 

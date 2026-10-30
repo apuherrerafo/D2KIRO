@@ -32,12 +32,12 @@ function OwnRosterSeat({ heroId, heroCatalog, position, controller }: OwnRosterS
   const hero = heroId === null ? undefined : heroCatalog.get(heroId);
   return (
     <div
-      className="flex min-h-24 items-center gap-3 rounded-md border border-surface-border bg-surface-overlay p-3"
+      className="flex min-h-16 items-center gap-2 rounded-md border border-surface-border bg-surface-overlay p-2"
       data-testid={`own-roster-pos-${position}`}
     >
-      {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={48} />}
+      {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={40} />}
       {heroId === null && (
-        <div className="flex h-12 w-12 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-muted">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-muted">
           ?
         </div>
       )}
@@ -72,12 +72,12 @@ function EnemyRosterSeat({ heroId, heroCatalog, seat, roleLabel }: EnemyRosterSe
   const hero = heroId === null ? undefined : heroCatalog.get(heroId);
   return (
     <div
-      className="flex min-h-24 items-center gap-3 rounded-md border border-surface-border bg-surface-overlay p-3"
+      className="flex min-h-16 items-center gap-2 rounded-md border border-surface-border bg-surface-overlay p-2"
       data-testid={`enemy-roster-pos-${seat}`}
     >
-      {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={48} />}
+      {heroId !== null && <HeroIcon imgUrl={hero?.imgUrl ?? ""} alt={hero?.localizedName ?? `Héroe ${heroId}`} size={40} />}
       {heroId === null && (
-        <div className="flex h-12 w-12 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-muted">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md border border-surface-border bg-surface-raised text-caption text-content-muted">
           ?
         </div>
       )}
@@ -187,7 +187,7 @@ export interface SimulatorTeamRosterProps {
 export function SimulatorTeamRoster({ draftState, config, heroCatalog, ownAssignedPositions, enemyRoleBeliefs }: SimulatorTeamRosterProps) {
   const enemy = draftState.localSide === "dire" ? draftState.picks.radiant : draftState.picks.dire;
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-surface-border bg-surface-raised p-4" data-testid="team-roster">
+    <div className="flex flex-col gap-3 rounded-lg border border-surface-border bg-surface-raised p-3" data-testid="team-roster">
       <span className="text-heading text-content-primary">Roster Pos1-5</span>
       <OwnRosterSide byPosition={ownPicksByPosition(ownAssignedPositions)} config={config} heroCatalog={heroCatalog} />
       <EnemyRosterSide bySeat={picksByRosterSeat(enemy)} heroCatalog={heroCatalog} roleBeliefs={enemyRoleBeliefs} />

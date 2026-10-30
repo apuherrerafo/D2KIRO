@@ -124,12 +124,12 @@ function buildStatisticalExplanation(
 }
 
 // Explicación cuando hubo al menos una contribución curada: los `why` de los counters en tu
-// contra primero (hasta 2), luego los rivales a los que les ganás.
+// contra primero (hasta 2), luego los rivales a los que les ganas.
 function buildCuratedExplanation(negativeWhy: string[], positiveNames: string[]): string {
   const parts: string[] = [];
   if (negativeWhy.length > 0) parts.push(negativeWhy.slice(0, MAX_NAMED_ENEMIES).join(" "));
   if (positiveNames.length > 0) {
-    parts.push(`Le ganás a ${positiveNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`);
+    parts.push(`Le ganas a ${positiveNames.slice(0, MAX_NAMED_ENEMIES).join(" y ")}`);
   }
   return parts.join(" ");
 }
@@ -288,10 +288,10 @@ export function createCounterScorer(
       if (hasCuratedHardCounter) {
         // A. Curated hard relation earned the badge: explanation must name that hard-counter target.
         // Medium curated relations and non-qualifying statistical relations are never named.
-        // El porqué curado va siempre: "Le ganás a X" sin mecanismo no dice nada que un jugador pueda comprobar.
+        // El porqué curado va siempre: "Le ganas a X" sin mecanismo no dice nada que un jugador pueda comprobar.
         const base = positiveHard
           .slice(0, MAX_NAMED_ENEMIES)
-          .map((r) => `Le ganás a ${r.name}: ${r.why}`)
+          .map((r) => `Le ganas a ${r.name}: ${r.why}`)
           .join(". ");
         explanation = banRelief > 0 ? `${base}. ${buildBanReliefClause(banReliefNames)}` : base;
       } else if (hasStatisticalCounter) {

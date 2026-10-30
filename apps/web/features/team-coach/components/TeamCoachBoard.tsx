@@ -129,11 +129,13 @@ function DecisionBanner({ board, heroCatalog, onPickHero }: DecisionBannerProps)
   }
   return (
     <div className={DECISION_BANNER} data-testid="team-coach-decision" data-recommended-position={position}>
-      <span className="text-caption font-semibold text-accent-primary">{BANNER_LABEL} · {teamPositionName(position)}</span>
-      <span className="text-body text-content-primary">
-        <DecisionBannerHero board={board} heroCatalog={heroCatalog} />
-      </span>
-      <DecisionAction board={board} heroCatalog={heroCatalog} onPickHero={onPickHero} />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="text-caption font-semibold text-accent-primary">{BANNER_LABEL} · {teamPositionName(position)}</span>
+        <span className="text-body text-content-primary">
+          <DecisionBannerHero board={board} heroCatalog={heroCatalog} />
+        </span>
+        <DecisionAction board={board} heroCatalog={heroCatalog} onPickHero={onPickHero} />
+      </div>
       <PickHint onPickHero={onPickHero} />
       <DecisionWhy board={board} />
     </div>

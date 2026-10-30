@@ -229,7 +229,7 @@ export function deriveRevealStrategy(
   // 4. Otherwise the honest role the evidence points at (or the uncovered seat when it points nowhere),
   //    constrained to what the human may still act on (P0-1).
   if (!resolved || !domain.includes(top.position)) {
-    const reason = resolved ? "El ranking apunta a una posición que no controlás en esta ronda." : "El ranking no aporta evidencia de posición.";
+    const reason = resolved ? "El ranking apunta a una posición que no controlas en esta ronda." : "El ranking no aporta evidencia de posición.";
     return positionFallback(decisionContext, occupied, reason, serves, domain, options.roleCollision);
   }
   const rationale = options.roleCollision?.infeasible

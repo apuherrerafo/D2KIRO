@@ -43,20 +43,20 @@ export function CalculateStatusMessage({ status }: { status: CalculateStatus }) 
   if (status.kind === "empty") {
     return (
       <span className="text-caption text-content-muted">
-        Ningún héroe de tu historial reciente pasó el mínimo de partidas -- probá ampliar la ventana o añadir a mano.
+        Ningún héroe de tu historial reciente pasó el mínimo de partidas -- prueba ampliar la ventana o añadir a mano.
       </span>
     );
   }
   if (status.kind === "invalid_account") {
-    return <span className="text-caption text-signal-negative">Ese account_id no parece válido -- revisá que sean solo números.</span>;
+    return <span className="text-caption text-signal-negative">Ese account_id no parece válido -- revisa que sean solo números.</span>;
   }
   if (status.kind === "in_progress") {
-    return <span className="text-caption text-signal-warning">Ya hay un cálculo en curso -- esperá a que termine e intentá de nuevo.</span>;
+    return <span className="text-caption text-signal-warning">Ya hay un cálculo en curso -- espera a que termine e intenta de nuevo.</span>;
   }
   if (status.kind === "unavailable") {
     return (
       <span className="text-caption text-signal-negative">
-        OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- podés intentar de nuevo más tarde.
+        OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- puedes intentar de nuevo más tarde.
       </span>
     );
   }

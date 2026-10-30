@@ -293,14 +293,14 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 2).score(state, INVOKER, EMPTY_META);
       expect(result.raw).toBe(1.0);
       expect(result.sampleSize).toBe(6632);
-      expect(result.explanation).toBe("Evidencia sólida de que funciona como midlane");
+      expect(result.explanation).toBe("Evidencia sólida de que funciona como midlane (6.632 partidas de alto MMR)");
     });
 
     test("Pudge (540 matches en Pos2): raw 540/3000 = 0.18", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 2).score(state, PUDGE, EMPTY_META);
       expect(result.raw).toBeCloseTo(540 / 3000, 6);
       expect(result.sampleSize).toBe(540);
-      expect(result.explanation).toBe("Evidencia limitada de que funciona como midlane");
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como midlane (");
     });
 
     test("candidato sin entrada en Mid (targetPosition=2): raw null, no admisión mezclada con scoring", () => {
@@ -319,14 +319,14 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, SPECTRE, EMPTY_META);
       expect(result.raw).toBe(1.0);
       expect(result.sampleSize).toBe(4476);
-      expect(result.explanation).toBe("Evidencia sólida de que funciona como carry");
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como carry (");
     });
 
     test("Anti-Mage (1409 matches en Pos1): raw 1409/3000", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, ANTI_MAGE, EMPTY_META);
       expect(result.raw).toBeCloseTo(1409 / 3000, 6);
       expect(result.sampleSize).toBe(1409);
-      expect(result.explanation).toBe("Evidencia moderada de que funciona como carry");
+      expect(result.explanation).toStartWith("Evidencia moderada de que funciona como carry (");
     });
 
     test("adversarial: héroe con presencia secundaria en Pos1 no recibe bono de soporte", () => {
@@ -335,7 +335,7 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 1).score(state, WRAITH_KING, EMPTY_META);
       expect(result.raw).toBeCloseTo(415 / 3000, 6);
       expect(result.sampleSize).toBe(415);
-      expect(result.explanation).toBe("Evidencia limitada de que funciona como carry");
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como carry (");
     });
 
     test("candidato sin entrada en Pos1: raw null", () => {
@@ -351,14 +351,14 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 3).score(state, PUDGE, EMPTY_META);
       expect(result.raw).toBeCloseTo(2387 / 3000, 6);
       expect(result.sampleSize).toBe(2387);
-      expect(result.explanation).toBe("Evidencia sólida de que funciona como offlane");
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como offlane (");
     });
 
     test("Wraith King (593 matches en Pos3): raw 593/3000", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 3).score(state, WRAITH_KING, EMPTY_META);
       expect(result.raw).toBeCloseTo(593 / 3000, 6);
       expect(result.sampleSize).toBe(593);
-      expect(result.explanation).toBe("Evidencia limitada de que funciona como offlane");
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como offlane (");
     });
 
     test("candidato sin entrada en Pos3: raw null", () => {
@@ -374,7 +374,7 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 4).score(state, PUDGE, EMPTY_META);
       expect(result.raw).toBe(1.0);
       expect(result.sampleSize).toBe(4123);
-      expect(result.explanation).toBe("Evidencia sólida de que funciona como support");
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como support (");
     });
 
     test("adversarial (KotL S13 pattern): Invoker (6632 en Pos2, 735 en Pos4) con targetPosition=4 evalúa sólo Pos4", () => {
@@ -382,7 +382,7 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 4).score(state, INVOKER, EMPTY_META);
       expect(result.raw).toBeCloseTo(735 / 3000, 6);
       expect(result.sampleSize).toBe(735);
-      expect(result.explanation).toBe("Evidencia limitada de que funciona como support");
+      expect(result.explanation).toStartWith("Evidencia limitada de que funciona como support (");
     });
 
     test("candidato sin entrada en Pos4: raw null", () => {
@@ -398,14 +398,14 @@ describe("positionFitScorer -- target-aware (targetPosition=2)", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 5).score(state, LICH, EMPTY_META);
       expect(result.raw).toBeCloseTo(2966 / 3000, 6);
       expect(result.sampleSize).toBe(2966);
-      expect(result.explanation).toBe("Evidencia sólida de que funciona como hard support");
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como hard support (");
     });
 
     test("adversarial (Rubick S05 pattern): Crystal Maiden (2507 en Pos5, 520 en Pos4) no se diluye por jugar Pos4", () => {
       const result = createPositionFitScorer(FIXTURE_POSITIONS, 5).score(state, CRYSTAL_MAIDEN, EMPTY_META);
       expect(result.raw).toBeCloseTo(2507 / 3000, 6);
       expect(result.sampleSize).toBe(2507);
-      expect(result.explanation).toBe("Evidencia sólida de que funciona como hard support");
+      expect(result.explanation).toStartWith("Evidencia sólida de que funciona como hard support (");
     });
 
     test("candidato sin entrada en Pos5: raw null", () => {

@@ -169,7 +169,7 @@ describe("createCounterScorer -- capa curada (§14.10-3)", () => {
     const result = createCounterScorer(huskarCounteredByAA).score(state, 68, snapshot);
 
     expect(result.raw).toBeCloseTo(0.12, 10); // +M.hard
-    expect(result.explanation).toContain("Le ganás a Huskar");
+    expect(result.explanation).toContain("Le ganas a Huskar");
     expect(result.sampleSize).toBe(0);
   });
 
@@ -698,7 +698,7 @@ describe("Wave 5 Follow-up Remediation -- counter rationale bound to badge evide
     const result = scorer.score(state, ANCIENT_APPARITION, testMeta);
 
     expect(result.hasRevealedEnemyCounterEvidence).toBe(true);
-    expect(result.explanation).toBe("Le ganás a Huskar: Ice Blast cancela la curación");
+    expect(result.explanation).toBe("Le ganas a Huskar: Ice Blast cancela la curación");
   });
 
   test("3. statistical-only badge: rationale names the qualifying statistical target", () => {

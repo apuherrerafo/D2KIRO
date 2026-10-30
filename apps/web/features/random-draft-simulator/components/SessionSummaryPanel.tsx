@@ -62,7 +62,7 @@ export function SessionSummaryPanel({ summary, heroCatalog, onNewDraft }: Sessio
         <span className="text-caption font-semibold text-content-secondary">Historial por ronda</span>
         <div className="grid gap-3 sm:grid-cols-[auto_1fr_1fr] text-caption text-content-muted">
           <span />
-          <span>Vos ({summary.userSide})</span>
+          <span>Tú ({summary.userSide})</span>
           <span>Bot</span>
         </div>
         {summary.picksByRound.map((round, index) => (

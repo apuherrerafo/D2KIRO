@@ -69,8 +69,8 @@ export async function postSimulatorEvent(sessionId: string, seq: number, payload
 // expone estas 5 razones como texto, solo como código.
 const REJECTION_MESSAGES: Record<string, string> = {
   hero_already_taken: "Ese héroe ya está baneado o pickeado en este draft.",
-  wrong_phase: "El draft todavía no arrancó -- esperá a que esté activo antes de marcar picks o bans.",
-  stale_seq: "Esto quedó desactualizado porque el draft avanzó mientras tanto -- volvé a intentarlo.",
+  wrong_phase: "El draft todavía no arrancó -- espera a que esté activo antes de marcar picks o bans.",
+  stale_seq: "Esto quedó desactualizado porque el draft avanzó mientras tanto -- vuelve a intentarlo.",
   duplicate_event: "Ese cambio ya se había aplicado, no hacía falta reenviarlo.",
   unknown_hero: "Ese héroe no es válido.",
   // RCA post-TSK-076 (reducer.ts, MAX_PICKS_PER_SIDE): este equipo no puede recibir un 6to pick.
