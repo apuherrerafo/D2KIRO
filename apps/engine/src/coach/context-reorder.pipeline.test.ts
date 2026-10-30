@@ -72,11 +72,25 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     expect(result.cards.map((card) => card.heroId)).toContain(108);
   });
 
-  test("un counter fuerte YA revelado baja al héroe (deja el 1.º lugar), pero una sinergia de tu equipo lo rescata", () => {
-    // 101 es el primero de V6 y Axe (counter fuerte) ya está en el rival.
-    expect(derive({ enemy: [AXE], heroCounters: COUNTERS }).cards[0]?.heroId).not.toBe(101);
+  test("un counter fuerte YA revelado baja al héroe; una sinergia de tu equipo lo deja CERCA de su lugar", () => {
+    // Lista completa (8). 101 es el primero de V6 (100) y Axe (counter fuerte) ya está en el rival: 100 − 12 = 88, al fondo
+    // de ESTA lista porque las demás están a menos de 4 puntos. Con la pareja: 100 − 3 = 97 (la sinergia rescata pero no
+    // suma además su +3): sube por encima de los que V6 tenía por debajo de 97.
+    const alone = derive({ enemy: [AXE], heroCounters: COUNTERS, shortlistSize: 8 }).cards.map((card) => card.heroId);
     const rescue: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[101, [{ with: ALLY, why: "lo salva" }]]]);
-    expect(derive({ enemy: [AXE], own: [ALLY], heroCounters: COUNTERS, heroSynergies: rescue }).cards[0]?.heroId).toBe(101);
+    const rescued = derive({ enemy: [AXE], own: [ALLY], heroCounters: COUNTERS, heroSynergies: rescue, shortlistSize: 8 }).cards.map((card) => card.heroId);
+    expect(alone.slice(-2)).toEqual([101, 108]); // 108 también lo counterea Axe en este fixture
+    expect(rescued.indexOf(101)).toBeLessThan(alone.indexOf(101));
+    expect(rescued[0]).not.toBe(101);
+  });
+
+  test("S05 del juez de Dota en V4 (decisión del usuario 2026-10-30): el héroe que el rival counterea fuerte baja 12, sin ir al fondo de oficio", () => {
+    // Meepo-like 30 (90) contra Axe-like 40 revelado; alternativas 31 (50) y 32 (40). RB-4 ya no aplica en Team Coach/Copilot:
+    // Meepo baja 12 (90 → 78) y sigue primero porque V6 le saca más de 12 a las alternativas. RB-4 sigue en V3.
+    const ranking = { recommendations: [[30, 90], [31, 50], [32, 40]].map(([hero, score]) => ({ actions: [{ hero }], roleImpact: { [hero!]: { status: "LIKELY", position: 2, marginals: { 1: 0, 2: 1, 3: 0, 4: 0, 5: 0 }, entropy: 0 } }, signalsByHero: { [hero!]: [{ signal: "position_fit", raw: 1, weighted: score, explanation: "x", sampleSize: 1, applicable: true }] }, risks: [], confidence: "media" })), degradations: [] } as never;
+    const result = deriveCandidateResult({ targetPosition: 2, targetRanking: ranking, view: view({ enemy: [40] }), heroPositions: {}, heroCounters: new Map([[30, [{ vs: 40, level: "hard", why: "x" }]]]), personalPoolApplied: false });
+    if (result.state !== "RANKED") throw new Error(result.state);
+    expect(result.cards.map((card) => card.heroId)).toEqual([30, 31, 32]);
   });
 
   test("CANDADO: la lista del pool es la general filtrada a tus héroes, en el MISMO orden", () => {

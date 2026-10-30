@@ -21,7 +21,8 @@ import { positionPhrase } from "./reveal-strategy";
 //
 // Nothing here SCORES: V6 stays the only scorer. Since 2026-10-29 (user's product decision) the candidate order is
 // V6's order adjusted by a capped bonus for what the Player can see (bans that open a hero, enemies it beats, allies it pairs
-// with -- see context-reorder.ts), and RB-4 still sends a hero a revealed enemy hard-counters to the back afterwards.
+// with -- see context-reorder.ts). A revealed counter LOWERS a hero (more if they meet in lane, less if an ally pairs
+// with it) but no longer sends it to the back: RB-4 stays only in the V3 path (user's decision, 2026-10-30).
 // Target selection reads the team evaluation's own order and role resolution.
 // Position is never inferred from round, slot or pick ordinal -- only from HumanActionability and
 // V6's role impact.

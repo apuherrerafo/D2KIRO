@@ -72,8 +72,9 @@ describe("bans (todas las rondas): abren héroes por la fracción de su lista de
 });
 
 describe("Axe todavía no sale pero el rival ya tiene Legion de offlane: pesa menos, y se avisa", () => {
-  test("el aviso dice que Axe es menos probable (ya tienen offlane)", () => {
+  test("la tarjeta dice qué se abrió y avisa de Axe como menos probable (ya tienen offlane)", () => {
     const opening = banOpeningOf(ANTI_MAGE, ctx({ banned: new Set([LION, ANCIENT, PUDGE]), revealedEnemies: new Set([LEGION]) }));
+    expect(opening.openedBy.map((note) => note.heroId)).toEqual([LION, ANCIENT, PUDGE]);
     expect(opening.stillFree).toEqual([{ heroId: AXE, level: "hard", takenPosition: 3 }]);
   });
 
@@ -98,7 +99,20 @@ describe("el rival YA sacó un counter: baja, pero no al fondo de oficio", () =>
   test("con Oracle en tu equipo (sinergia), Anti-Mage vuelve cerca de su lugar aunque esté Axe", () => {
     const withOracle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([ORACLE]), heroSynergies: ORACLE_PAIR });
     expect(revealedCounterPenalty(ANTI_MAGE, withOracle)).toBe(3);
-    expect(contextBonus(ANTI_MAGE, withOracle)).toBe(0); // +3 por la sinergia, −3 por el Axe rescatado
+    expect(contextBonus(ANTI_MAGE, withOracle)).toBe(-3); // la sinergia rescata (−12 → −3) pero NO suma además su +3
+  });
+
+  test("héroe flex: un Viper que figura mid pero va offlane 1 de cada 4 partidas o más SÍ se cruza con el carry", () => {
+    const viperLike: HeroPositions = { 60: [{ position: 2, matches: 560 }, { position: 3, matches: 440 }] };
+    expect(crossesInLane(60, { targetPosition: 1, heroPositions: viperLike })).toBe(true);
+    const pureMid: HeroPositions = { 60: [{ position: 2, matches: 900 }, { position: 3, matches: 100 }] };
+    expect(crossesInLane(60, { targetPosition: 1, heroPositions: pureMid })).toBe(false);
+  });
+
+  test("'ya tienen esa posición' solo con un héroe que juega ahí casi siempre (un flex no la ocupa)", () => {
+    const flexLegion: HeroPositions = { ...POSITIONS, [LEGION]: [{ position: 3, matches: 500 }, { position: 1, matches: 500 }] };
+    const opening = banOpeningOf(ANTI_MAGE, ctx({ banned: new Set([LION, ANCIENT, PUDGE]), revealedEnemies: new Set([LEGION]), heroPositions: flexLegion }));
+    expect(opening.stillFree).toEqual([{ heroId: AXE, level: "hard" }]);
   });
 
   test("le gana a un rival que ya salió: sube", () => {

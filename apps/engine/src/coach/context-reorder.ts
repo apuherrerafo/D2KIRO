@@ -1,4 +1,5 @@
 import type { HeroId } from "../draft-protocol/types";
+import type { Position } from "../draft-protocol/roles/role-belief";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedSynergy } from "../signals/hero-synergies";
@@ -21,7 +22,6 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 // profesionales. Sin counters ni sinergias que toquen a nadie, el orden es EXACTAMENTE el de V6. Pura: sin I/O.
 
 export type CounterLevel = "hard" | "medium";
-export type Position = 1 | 2 | 3 | 4 | 5;
 
 /** Un héroe que counterea al candidato (o al que el candidato le gana), con su nivel. */
 export interface CounterNote {
@@ -93,6 +93,18 @@ function byLevelThenId(a: CounterNote, b: CounterNote): number {
   return LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level] || a.heroId - b.heroId;
 }
 
+/** Una posición "cuenta" para la línea si el héroe la juega en al menos 1/LANE_SHARE_DIVISOR de sus partidas (flex). */
+const LANE_SHARE_DIVISOR = 4;
+/** "Ya tienen esa posición" solo si el héroe revelado la juega en al menos TAKEN_SHARE_TENTHS/10 de sus partidas. */
+const TAKEN_SHARE_TENTHS = 7;
+
+function sharesOf(heroId: HeroId, heroPositions: HeroPositions | undefined): { position: Position; share: number }[] {
+  const shares = heroPositions?.[heroId] ?? [];
+  const total = shares.reduce((sum, entry) => sum + entry.matches, 0);
+  if (total === 0) return [];
+  return shares.map((entry) => ({ position: entry.position, share: entry.matches / total }));
+}
+
 /** La posición en la que más se juega un héroe según los datos curados; null si no hay datos. */
 export function likelyPosition(heroId: HeroId, heroPositions: HeroPositions | undefined): Position | null {
   let best: { position: Position; matches: number } | null = null;
@@ -102,21 +114,24 @@ export function likelyPosition(heroId: HeroId, heroPositions: HeroPositions | un
   return best?.position ?? null;
 }
 
-/** Posiciones del rival ya ocupadas por sus héroes revelados (según la posición habitual de cada uno). */
+/** Posiciones del rival ya ocupadas por sus héroes revelados: solo cuenta un héroe que juega ahí casi siempre (no flex). */
 function takenEnemyPositions(input: Pick<ContextReorderInput, "revealedEnemies" | "heroPositions">): Set<Position> {
   const taken = new Set<Position>();
   for (const enemy of input.revealedEnemies) {
-    const position = likelyPosition(enemy, input.heroPositions);
-    if (position !== null) taken.add(position);
+    for (const entry of sharesOf(enemy, input.heroPositions)) if (entry.share * 10 >= TAKEN_SHARE_TENTHS) taken.add(entry.position);
   }
   return taken;
 }
 
-/** ¿Ese rival se cruza contigo en línea? Sin tu posición o sin la de él, se asume que sí (lo más prudente). */
+/**
+ * ¿Ese rival se cruza contigo en línea? Cuenta cualquier posición que juegue en al menos 1 de cada 4 partidas (un Viper
+ * mid que va offlane el 44% sí se le para al carry). Sin tu posición o sin datos de él, se asume que sí (lo prudente).
+ */
 export function crossesInLane(enemy: HeroId, input: Pick<ContextReorderInput, "targetPosition" | "heroPositions">): boolean {
-  const enemyPosition = likelyPosition(enemy, input.heroPositions);
-  if (input.targetPosition === undefined || enemyPosition === null) return true;
-  return LANE_OPPONENTS[input.targetPosition].includes(enemyPosition);
+  const shares = sharesOf(enemy, input.heroPositions);
+  if (input.targetPosition === undefined || shares.length === 0) return true;
+  const lane = LANE_OPPONENTS[input.targetPosition];
+  return shares.some((entry) => entry.share * LANE_SHARE_DIVISOR >= 1 && lane.includes(entry.position));
 }
 
 /** Un counter "sigue libre" si el rival todavía puede sacarlo: no baneado, no tuyo y no ya en su equipo (eso es otro aviso). */
@@ -156,8 +171,10 @@ export function banOpeningOf(heroId: HeroId, input: ContextReorderInput): BanOpe
   const meaningful = openedBy.some((note) => note.level === "hard") || banFraction(heroId, input) * OPENING_SHARE_DIVISOR >= 1;
   if (!meaningful) return none;
   const free = freeCounters(heroId, input);
-  const hardFree = free.filter((note) => note.level === "hard");
-  if (hardFree.length > 0) return { openedBy: [], stillFree: hardFree.sort(byLevelThenId).slice(0, MAX_LISTED) };
+  // Un fuerte libre y PROBABLE tapa el "Se abre" (y el bono, en contextBonus). Uno menos probable (ya tienen su posición)
+  // no lo tapa: se dice qué se abrió y se avisa de él como menos probable, igual que el orden.
+  const probableHardFree = free.filter((note) => note.level === "hard" && note.takenPosition === undefined);
+  if (probableHardFree.length > 0) return { openedBy: [], stillFree: probableHardFree.sort(byLevelThenId).slice(0, MAX_LISTED) };
   return { openedBy: openedBy.sort(byLevelThenId).slice(0, MAX_LISTED), stillFree: free.sort(byLevelThenId).slice(0, MAX_LISTED) };
 }
 
@@ -177,6 +194,11 @@ export function synergiesWithOwn(heroId: HeroId, input: Pick<ContextReorderInput
   return (all.get(heroId) ?? []).filter((synergy) => input.ownPicks.has(synergy.with));
 }
 
+/** ¿Alguna sinergia con tus aliados rescata a este héroe de sus counters revelados? */
+function rescuedBySynergy(heroId: HeroId, input: ContextReorderInput): boolean {
+  return synergiesWithOwn(heroId, input).length > 0;
+}
+
 /** Cuánto baja el héroe por los counters que el rival YA tiene (0 sin ninguno). Pura. */
 export function revealedCounterPenalty(heroId: HeroId, input: ContextReorderInput): number {
   let penalty = 0;
@@ -185,7 +207,7 @@ export function revealedCounterPenalty(heroId: HeroId, input: ContextReorderInpu
     const [crossing, elsewhere] = REVEALED_COUNTER_PENALTY[entry.level];
     penalty += crossesInLane(entry.vs, input) ? crossing : elsewhere;
   }
-  if (penalty > 0 && synergiesWithOwn(heroId, input).length > 0) penalty /= SYNERGY_RESCUE_DIVISOR;
+  if (penalty > 0 && rescuedBySynergy(heroId, input)) penalty /= SYNERGY_RESCUE_DIVISOR;
   return Math.min(MAX_COUNTER_PENALTY, penalty);
 }
 
@@ -196,8 +218,11 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
   const blockingHardFree = freeCounters(heroId, input).some((note) => note.level === "hard" && note.takenPosition === undefined);
   if (!blockingHardFree) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
   for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
-  if (synergiesWithOwn(heroId, input).length > 0) bonus += SYNERGY_BONUS;
-  return Math.min(MAX_CONTEXT_BONUS, bonus) - revealedCounterPenalty(heroId, input);
+  const penalty = revealedCounterPenalty(heroId, input);
+  // La sinergia suma UNA vez: o rescata de un counter revelado, o da el bono; nunca las dos (un counter fuerte en tu
+  // línea no puede quedar en cero solo porque tienes una pareja).
+  if (synergiesWithOwn(heroId, input).length > 0 && penalty === 0) bonus += SYNERGY_BONUS;
+  return Math.min(MAX_CONTEXT_BONUS, bonus) - penalty;
 }
 
 /**
