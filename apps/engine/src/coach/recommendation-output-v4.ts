@@ -46,7 +46,7 @@ export interface RankedCandidateCard {
   /** Always the decision's targetPosition: a card never belongs to another position. */
   position: Position;
   rank: number;
-  /** V6 score. The card order is V6's order with the bounded context jumps of context-reorder.ts, not this score. */
+  /** V6 score. The card order is this score plus the capped context bonus of context-reorder.ts (V6 + bono). */
   score: number;
   confidence: Confidence;
   roleStatus: RoleImpactStatus;

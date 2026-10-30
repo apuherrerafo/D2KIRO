@@ -20,7 +20,7 @@ import { positionPhrase } from "./reveal-strategy";
 //     -> exactly ONE candidate provenance: RANKED | UNRANKED_POSITIONAL | UNAVAILABLE
 //
 // Nothing here SCORES: V6 stays the only scorer. Since 2026-10-29 (user's product decision) the candidate order is
-// V6's order with bounded jumps for what the Player can see (bans that open a hero, enemies it beats, allies it pairs
+// V6's order adjusted by a capped bonus for what the Player can see (bans that open a hero, enemies it beats, allies it pairs
 // with -- see context-reorder.ts), and RB-4 still sends a hero a revealed enemy hard-counters to the back afterwards.
 // Target selection reads the team evaluation's own order and role resolution.
 // Position is never inferred from round, slot or pick ordinal -- only from HumanActionability and
@@ -197,6 +197,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       banned: new Set(view.bannedHeroes),
       ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
       revealedEnemies: new Set(revealedEnemyHeroes(view)),
+      phase: view.rankedAp?.phase ?? null,
       heroCounters: input.heroCounters,
       heroSynergies: input.heroSynergies,
     });

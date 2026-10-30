@@ -140,6 +140,19 @@ describe("Wave 2 no usa números inventados en su comportamiento", () => {
     }
   });
 
+  // Excepción con nombre (2026-10-30, decisión del usuario sobre cómo rotan las sugerencias): estos módulos SÍ tienen
+  // magnitudes de producto elegidas a criterio (bonos y topes en enteros), pendientes de calibrar contra drafts
+  // profesionales. Que no tengan decimales no las vuelve datos: por eso se registran aquí y cada uno lo declara en su
+  // cabecera. Sumar un archivo a esta lista es una decisión explícita, nunca una forma de esquivar la regla.
+  const CALIBRATION_PENDING = ["context-reorder.ts"];
+
+  test("los módulos con parámetros de producto sin calibrar están registrados y lo declaran en su cabecera", () => {
+    for (const name of CALIBRATION_PENDING) {
+      const raw = readFileSync(join(COACH_DIR, name), "utf8");
+      expect(raw, name).toContain("pendientes de calibrar");
+    }
+  });
+
   test("REVEAL_HERO, DEFER_POSITION y OPPORTUNITY son parte del modelo pero deriveRevealStrategy nunca los produce", () => {
     const strategy = coachSources.find((file) => file.name === "reveal-strategy.ts")!.content;
     // Type-union members use `kind: "X";`; a PRODUCED strategy is an object literal, `kind: "X",`.

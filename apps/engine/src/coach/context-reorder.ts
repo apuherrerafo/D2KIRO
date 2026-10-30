@@ -1,4 +1,4 @@
-import type { HeroId } from "../draft-protocol/types";
+import type { HeroId, RankedApPhase } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 
@@ -39,8 +39,10 @@ export interface ContextReorderInput {
   banned: ReadonlySet<HeroId>;
   /** Héroes que ya elegiste tú / tu equipo (no pueden estar en el rival). */
   ownPicks: ReadonlySet<HeroId>;
-  /** Héroes del rival que ya se ven. Vacío = ronda 1, a ciegas. */
+  /** Héroes del rival que ya se ven. */
   revealedEnemies: ReadonlySet<HeroId>;
+  /** Fase de Ranked All Pick. Con fase, "a ciegas" = PICK_ROUND_1; sin fase (captura en vivo) = ningún rival a la vista. */
+  phase?: RankedApPhase | null;
   /** victim -> quién la counterea (el formato de hero-counters.json). */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** héroe -> sus parejas curadas. Ausente = ninguna (el llamador de producción inyecta el archivo real). */
@@ -70,7 +72,8 @@ function byLevelThenId(a: CounterNote, b: CounterNote): number {
   return LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level] || a.heroId - b.heroId;
 }
 
-function isBlind(input: Pick<ContextReorderInput, "revealedEnemies">): boolean {
+function isBlind(input: Pick<ContextReorderInput, "revealedEnemies" | "phase">): boolean {
+  if (input.phase) return input.phase === "PICK_ROUND_1";
   return input.revealedEnemies.size === 0;
 }
 
@@ -91,7 +94,7 @@ function hasHardCounterFree(heroId: HeroId, input: Pick<ContextReorderInput, "ba
 }
 
 /** Lo que la tarjeta dice de los bans (ver `BanOpening`). Pura. */
-export function banOpeningOf(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies" | "heroCounters">): BanOpening {
+export function banOpeningOf(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies" | "heroCounters" | "phase">): BanOpening {
   const none: BanOpening = { openedBy: [], stillFree: [] };
   if (!isBlind(input)) return none;
   const entries = input.heroCounters?.get(heroId) ?? [];
@@ -137,6 +140,8 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
 }
 
 /**
+ * PRECONDICIÓN: `candidates` ya viene en el orden de V6 (score de mayor a menor, empates por posición), como lo entrega
+ * `extractHeroCandidates`; así, con bono 0 para todos, el resultado es idéntico a la entrada.
  * Reordena por puntaje de V6 + bono de contexto. Estable: a igualdad gana el que ya iba primero en V6. Como el bono tiene
  * tope, un héroe solo pasa a otro que V6 tenía a menos de MAX_CONTEXT_BONUS puntos. Sin bono para nadie -> el mismo orden.
  */

@@ -62,7 +62,7 @@ export interface TeamCoachSynergy {
 
 export interface TeamCoachCandidate {
   heroId: HeroId;
-  /** Rank inside THIS list (1 = first). The order is V6's with bounded context jumps (context-reorder.ts). */
+  /** Rank inside THIS list (1 = first). The order is V6's score plus the capped context bonus (context-reorder.ts). */
   rank: number;
   /** V6 score; `null` for an unranked positional alternative (no score exists). */
   score: number | null;
@@ -241,7 +241,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const contextOf = (heroId: HeroId): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => ({
     risks: risksOf(heroId, revealedEnemies, input.heroCounters),
     strengths: strengthsOf(heroId, strengthIndex, cannotBeEnemy, revealedSet),
-    opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters }),
+    opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, phase: view.rankedAp?.phase ?? null, heroCounters: input.heroCounters }),
     synergies: synergiesWithOwn(heroId, { ownPicks: ownPickSet, heroSynergies: input.heroSynergies }).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
   });
   const toCandidate = (card: { heroId: HeroId; rank: number; score: number; rationale: string }): TeamCoachCandidate => ({

@@ -65,6 +65,19 @@ describe("ronda 1 -- los bans abren héroes (fracción de su lista de counters, 
   });
 });
 
+describe("ronda 1 se decide por la fase real del draft cuando existe", () => {
+  test("PICK_ROUND_2 sin rivales a la vista (captura incompleta): los bans ya no cuentan ni se dice 'Se abre'", () => {
+    const round2 = ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), phase: "PICK_ROUND_2" });
+    expect(contextBonus(MORPHLING, round2)).toBe(0);
+    expect(banOpeningOf(MORPHLING, round2)).toEqual({ openedBy: [], stillFree: [] });
+  });
+
+  test("PICK_ROUND_1: los bans cuentan; sin fase, el respaldo es 'ningún rival a la vista'", () => {
+    expect(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), phase: "PICK_ROUND_1" }))).toBeCloseTo(3.6);
+    expect(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), phase: null }))).toBeCloseTo(3.6);
+  });
+});
+
 describe("rondas 2 y 3 -- manda lo que el rival YA tiene; los bans dejan de contar", () => {
   test("con un rival a la vista los bans no suman ni se dice 'Se abre'", () => {
     const withEnemy = ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), revealedEnemies: new Set([ENEMY]) });
