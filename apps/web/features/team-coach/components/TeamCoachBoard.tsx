@@ -195,8 +195,17 @@ function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
 }
 
+const ROLE_WORDS: Record<TeamPosition, string> = { 1: "carry", 2: "mid", 3: "offlane", 4: "support", 5: "hard support" };
+
+// "Axe (menos probable: ya tienen offlane)": un counter cuya posición ya ocupó el rival pesa menos, pero se avisa igual.
+function noteName(note: TeamCoachCounterNote, heroCatalog: Map<number, HeroMeta>): string {
+  const name = heroName(note.heroId, heroCatalog);
+  if (note.takenPosition === undefined) return name;
+  return `${name} (menos probable: ya tienen ${ROLE_WORDS[note.takenPosition]})`;
+}
+
 function namesOf(notes: readonly TeamCoachCounterNote[], heroCatalog: Map<number, HeroMeta>): string {
-  return joinNames(notes.map((note) => heroName(note.heroId, heroCatalog)));
+  return joinNames(notes.map((note) => noteName(note, heroCatalog)));
 }
 
 // A quién de lo que el rival YA tiene le gana este héroe. Solo hechos del draft: nunca se supone lo que va a sacar.

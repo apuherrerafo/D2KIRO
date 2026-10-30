@@ -33,6 +33,8 @@ export interface TeamCoachStrength {
 export interface TeamCoachCounterNote {
   heroId: number;
   level: "hard" | "medium";
+  /** Solo en "sigue libre": su posición habitual ya la ocupa un rival revelado (menos probable). */
+  takenPosition?: TeamPosition;
 }
 
 /** Qué abrieron los bans visibles para este héroe y qué riesgo queda. Espejo a mano del motor. */

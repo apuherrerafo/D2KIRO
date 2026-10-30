@@ -55,7 +55,7 @@ function isStrength(value: unknown): value is TeamCoachStrength {
 }
 
 function isCounterNote(value: unknown): boolean {
-  return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium");
+  return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium") && (value.takenPosition === undefined || isPosition(value.takenPosition));
 }
 
 function isOpening(value: unknown): boolean {

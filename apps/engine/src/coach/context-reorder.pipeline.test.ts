@@ -36,7 +36,7 @@ const COUNTERS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
   [101, [{ vs: AXE, level: "hard", why: "a" }, { vs: LION, level: "hard", why: "b" }, { vs: ANCIENT, level: "medium", why: "c" }]],
 ]);
 
-function derive(input: { banned?: number[]; own?: number[]; enemy?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroSynergies?: ReadonlyMap<number, readonly CuratedSynergy[]>; activePool?: number[]; poolShortlistSize?: number }) {
+function derive(input: { banned?: number[]; own?: number[]; enemy?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>; heroSynergies?: ReadonlyMap<number, readonly CuratedSynergy[]>; activePool?: number[]; poolShortlistSize?: number; shortlistSize?: number }) {
   const result = deriveCandidateResult({
     targetPosition: 1,
     targetRanking: ranking(),
@@ -47,6 +47,7 @@ function derive(input: { banned?: number[]; own?: number[]; enemy?: number[]; he
     personalPoolApplied: false,
     activePool: input.activePool,
     poolShortlistSize: input.poolShortlistSize,
+    shortlistSize: input.shortlistSize,
   });
   if (result.state !== "RANKED") throw new Error(`esperaba RANKED, salió ${result.state}`);
   return result;
@@ -71,10 +72,17 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     expect(result.cards.map((card) => card.heroId)).toContain(108);
   });
 
-  test("CANDADO RB-4: si un rival YA revelado lo counterea fuerte, va al fondo aunque los bans lo hayan abierto", () => {
-    // 101 es el primero de V6. Lion y Ancient están baneados (lo abren), pero Axe ya está en el rival.
-    const result = derive({ banned: [LION, ANCIENT], enemy: [AXE], heroCounters: COUNTERS });
-    expect(result.cards.map((card) => card.heroId)).not.toContain(101);
+  test("un counter fuerte YA revelado baja al héroe (deja el 1.º lugar), pero una sinergia de tu equipo lo rescata", () => {
+    // 101 es el primero de V6 y Axe (counter fuerte) ya está en el rival.
+    expect(derive({ enemy: [AXE], heroCounters: COUNTERS }).cards[0]?.heroId).not.toBe(101);
+    const rescue: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[101, [{ with: ALLY, why: "lo salva" }]]]);
+    expect(derive({ enemy: [AXE], own: [ALLY], heroCounters: COUNTERS, heroSynergies: rescue }).cards[0]?.heroId).toBe(101);
+  });
+
+  test("CANDADO: la lista del pool es la general filtrada a tus héroes, en el MISMO orden", () => {
+    const result = derive({ enemy: [AXE], banned: [LION], heroCounters: COUNTERS, activePool: [101, 103, 105, 107], poolShortlistSize: 3, shortlistSize: 8 });
+    const generalInPool = result.cards.map((card) => card.heroId).filter((hero) => [101, 103, 105, 107].includes(hero));
+    expect(result.poolCards.map((card) => card.heroId)).toEqual(generalInPool.slice(0, 3));
   });
 
   test("una pareja curada con un aliado YA elegido sube al héroe; sin ese aliado no se mueve", () => {

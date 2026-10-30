@@ -7,7 +7,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { reorderByContext } from "./context-reorder";
-import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
+import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
 import { positionPhrase } from "./reveal-strategy";
@@ -190,17 +190,18 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
   const unavailable = unavailableHeroesFrom(view);
 
   if (!invalidatesRanking(degradations)) {
-    // Los bans abren héroes en la ronda 1; en las rondas 2 y 3 suben los que le ganan a lo ya revelado y los que combinan
-    // con tus aliados ya elegidos. Primero ese reordenamiento y DESPUÉS RB-4: un héroe que un rival revelado counterea
-    // fuerte vuelve al fondo aunque los bans lo hayan "abierto". Sin contexto que toque a nadie, el orden es el de V6.
-    const contextOrdered = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), {
+    // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
+    // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si una sinergia lo rescata), sin
+    // mandarlo al fondo de oficio. La lista del pool usa ESTE mismo orden. Sin contexto que toque a nadie, es el de V6.
+    const candidates = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), {
       banned: new Set(view.bannedHeroes),
       ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
       revealedEnemies: new Set(revealedEnemyHeroes(view)),
       heroCounters: input.heroCounters,
       heroSynergies: input.heroSynergies,
-    });
-    const candidates = demoteRevealedHardCountered(contextOrdered, revealedEnemyHeroes(view), input.heroCounters)
+      heroPositions,
+      targetPosition,
+    })
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));

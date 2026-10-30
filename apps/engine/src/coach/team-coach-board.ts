@@ -238,18 +238,18 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const bannedSet = new Set<HeroId>(view.bannedHeroes);
   // Todo lo que una tarjeta cuenta del draft visible: riesgos, a quién le gana de lo ya revelado, qué abrieron los bans y
   // con quién ya elegido combina. Nada de esto supone lo que el rival va a sacar.
-  const contextOf = (heroId: HeroId): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => ({
+  const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => ({
     risks: risksOf(heroId, revealedEnemies, input.heroCounters),
     strengths: strengthsOf(heroId, strengthIndex, cannotBeEnemy, revealedSet),
-    opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters }),
+    opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroPositions: input.heroPositions, targetPosition: position }),
     synergies: synergiesWithOwn(heroId, { ownPicks: ownPickSet, heroSynergies: input.heroSynergies }).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
   });
-  const toCandidate = (card: { heroId: HeroId; rank: number; score: number; rationale: string }): TeamCoachCandidate => ({
+  const toCandidate = (card: { heroId: HeroId; position: Position; rank: number; score: number; rationale: string }): TeamCoachCandidate => ({
     heroId: card.heroId,
     rank: card.rank,
     score: card.score,
     reasons: [card.rationale],
-    ...contextOf(card.heroId),
+    ...contextOf(card.heroId, card.position),
     isPrimary: false,
   });
   const cannotBeEnemy = new Set<HeroId>([...view.bannedHeroes, ...view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))]);
@@ -289,7 +289,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "UNRANKED_POSITIONAL",
         filledHeroId: null,
         note: result.reason,
-        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], ...contextOf(alternative.heroId), isPrimary: false })),
+        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], ...contextOf(alternative.heroId, position), isPrimary: false })),
         poolCandidates: [],
       };
     }

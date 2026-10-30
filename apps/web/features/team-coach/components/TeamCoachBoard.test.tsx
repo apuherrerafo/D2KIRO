@@ -139,6 +139,13 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 lo counterea fuerte y sigue libre.");
   });
 
+  test("un counter libre cuya posición ya ocupó el rival se avisa como menos probable", () => {
+    const taken = column(2);
+    taken.top[0] = { ...taken.top[0]!, opening: { openedBy: [], stillFree: [{ heroId: 11, level: "hard", takenPosition: 3 }] } };
+    const view = renderBoard({ ...board([2], 2), positions: [taken] });
+    expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 (menos probable: ya tienen offlane) lo counterea fuerte y sigue libre.");
+  });
+
   test("sin nada que decir de los bans (ronda 2-3 o casi nada baneado) no aparece ninguna línea de bans", () => {
     const quiet = column(2);
     quiet.top[0] = { ...quiet.top[0]!, opening: { openedBy: [], stillFree: [] } };
