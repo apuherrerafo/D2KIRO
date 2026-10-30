@@ -251,7 +251,7 @@ function LiveCollisionUnsupportedPhaseView({ session }: PhaseViewProps) {
       <span className="text-heading text-content-primary">Colisión no soportada todavía</span>
       <span className="text-body text-content-secondary">
         Ambos equipos parecen haber elegido el mismo héroe una 3ra vez en esta ronda. Ese caso necesita una autoridad externa que este MVP de Live
-        Companion todavía no expone -- reportalo y reiniciá el draft.
+        Companion todavía no expone -- repórtalo y reinicia el draft.
       </span>
       <button type="button" onClick={session.actions.resetDraft} className={`self-start ${BUTTON_SECONDARY}`}>
         Reiniciar draft

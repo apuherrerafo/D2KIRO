@@ -146,7 +146,7 @@ function PrimaryAction({ coach, heroCatalog }: PrimaryActionProps) {
         />
       )}
       <span className="text-caption text-content-muted">
-        {CONFIDENCE_LABELS[coach.meta.confidence]} · {isCollision ? "Consejo de recuperación: mitiga el conflicto de roles." : "Es una sugerencia: podés elegir cualquier héroe legal."}
+        {CONFIDENCE_LABELS[coach.meta.confidence]} · {isCollision ? "Consejo de recuperación: mitiga el conflicto de roles." : "Es una sugerencia: puedes elegir cualquier héroe legal."}
       </span>
     </div>
   );
@@ -193,7 +193,7 @@ export function SafeCoreOpportunity({ opportunity, sessionId, stateIdentity, rul
         />
       )}
       <span className="text-caption text-content-muted" data-testid="coach-opportunity-source">
-        {CURATED_EVIDENCE_LABEL} · Es informativo: podés ignorarlo.
+        {CURATED_EVIDENCE_LABEL} · Es informativo: puedes ignorarlo.
       </span>
     </div>
   );

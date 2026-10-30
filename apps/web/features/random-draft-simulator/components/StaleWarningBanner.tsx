@@ -47,7 +47,7 @@ export function StaleWarningBanner() {
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-caption text-content-primary">Los datos de héroes/parche están desactualizados.</span>
         <span className="text-caption text-content-secondary">Última sincronización: {formatSyncedAt(data.syncedAt)}</span>
-        {isError && <span className="text-caption text-signal-negative">No se pudo sincronizar. Podés seguir de todos modos.</span>}
+        {isError && <span className="text-caption text-signal-negative">No se pudo sincronizar. Puedes seguir de todos modos.</span>}
       </div>
       <button type="button" onClick={handleSyncClick} disabled={isSyncing} className={BUTTON_PRIMARY}>
         {syncButtonLabel(isSyncing)}

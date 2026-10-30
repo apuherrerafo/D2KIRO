@@ -82,7 +82,7 @@ function TimerExpiredNotice({ phase }: TimerNoticeProps) {
   if (phase.timerRemainingMs > 0 || phase.pendingPositions.length === 0) return null;
   return (
     <span className="text-caption text-signal-warning" role="alert" data-testid="timer-expired">
-      Se acabó el tiempo base: tus posiciones pendientes pierden {phase.penaltyRatePerSecond} de oro por segundo. Podés seguir eligiendo.
+      Se acabó el tiempo base: tus posiciones pendientes pierden {phase.penaltyRatePerSecond} de oro por segundo. Puedes seguir eligiendo.
     </span>
   );
 }

@@ -42,7 +42,7 @@ function TargetHeader({ decision }: TargetHeaderProps) {
       <div className="flex flex-col gap-1 rounded-lg border border-accent-primary bg-surface-overlay p-3" {...common}>
         <span className="text-caption font-semibold text-accent-primary">Objetivo recomendado: {positionName(decision.targetPosition)}</span>
         <span className="text-caption text-content-secondary" data-testid="current-decision-rationale">{decision.targetRationale}</span>
-        <span className="text-caption text-content-muted">Es una sugerencia: podés elegir cualquier posición pendiente y cualquier héroe legal.</span>
+        <span className="text-caption text-content-muted">Es una sugerencia: puedes elegir cualquier posición pendiente y cualquier héroe legal.</span>
       </div>
     );
   }

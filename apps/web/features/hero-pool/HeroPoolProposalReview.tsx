@@ -56,7 +56,7 @@ export function CalculateStatusMessage({ status }: { status: CalculateStatus }) 
   if (status.kind === "unavailable") {
     return (
       <span className="text-caption text-signal-negative">
-        OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- podés intentar de nuevo más tarde.
+        OpenDota no respondió. Tu pool guardado (si existe) sigue funcionando -- puedes intentar de nuevo más tarde.
       </span>
     );
   }

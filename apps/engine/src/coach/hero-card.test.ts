@@ -331,7 +331,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
         signals: [
           signal("counter", 0.12, 25, {
             hasRevealedEnemyCounterEvidence: true,
-            explanation: "Le ganás a Huskar",
+            explanation: "Le ganas a Huskar",
           }),
         ],
         impact: resolvedImpact(5),
@@ -340,7 +340,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       const [cand] = extractHeroCandidates(recSet([aaCandidate]));
       const card = buildHeroCard(cand!, [], { revealedEnemies: [59], heroCounters: curated });
       expect(card.badges).toContain("COUNTER");
-      expect(card.rationale).toBe("Le ganás a Huskar");
+      expect(card.rationale).toBe("Le ganas a Huskar");
     });
 
     test("3. statistical-only badge: rationale names the qualifying statistical target", () => {

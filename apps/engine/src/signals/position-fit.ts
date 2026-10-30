@@ -127,11 +127,17 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function targetEvidenceExplanation(raw: number, position: Position): string {
+// "2340" -> "2.340": el jugador lee la cantidad real de partidas, no sólo el adjetivo del escalón.
+function formatMatchCount(matches: number): string {
+  return String(matches).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function targetEvidenceExplanation(raw: number, position: Position, matches: number): string {
   const label = POSITION_LABELS[position];
-  if (raw >= 0.66) return `Evidencia sólida de que funciona como ${label}`;
-  if (raw >= 0.33) return `Evidencia moderada de que funciona como ${label}`;
-  return `Evidencia limitada de que funciona como ${label}`;
+  const evidence = `${formatMatchCount(matches)} partidas de alto MMR`;
+  if (raw >= 0.66) return `Evidencia sólida de que funciona como ${label} (${evidence})`;
+  if (raw >= 0.33) return `Evidencia moderada de que funciona como ${label} (${evidence})`;
+  return `Evidencia limitada de que funciona como ${label} (${evidence})`;
 }
 
 function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, positions: HeroPositions): SignalContribution {
@@ -151,7 +157,7 @@ function scoreForTargetPosition(candidate: HeroId, targetPosition: Position, pos
     signal: "position_fit",
     raw,
     weighted: 0,
-    explanation: targetEvidenceExplanation(raw, targetPosition),
+    explanation: targetEvidenceExplanation(raw, targetPosition, targetShare.matches),
     sampleSize: targetShare.matches,
   };
 }
