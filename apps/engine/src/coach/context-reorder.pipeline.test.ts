@@ -71,10 +71,15 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     expect(result.cards.map((card) => card.heroId)).toContain(108);
   });
 
-  test("CANDADO RB-4: si un rival YA revelado lo counterea fuerte, va al fondo aunque los bans lo hayan abierto", () => {
-    // 101 es el primero de V6. Lion y Ancient están baneados (lo abren), pero Axe ya está en el rival.
-    const result = derive({ banned: [LION, ANCIENT], enemy: [AXE], heroCounters: COUNTERS });
-    expect(result.cards.map((card) => card.heroId)).not.toContain(101);
+  test("CANDADO lista del POOL (RB-4): si un rival YA revelado lo counterea fuerte, va al fondo aunque los bans lo abran", () => {
+    // 101 es el primero de V6 y es del pool. Lion y Ancient están baneados (lo abren), pero Axe ya está en el rival.
+    const result = derive({ banned: [LION, ANCIENT], enemy: [AXE], heroCounters: COUNTERS, activePool: [101, 102, 103, 104], poolShortlistSize: 3 });
+    expect(result.poolCards.map((card) => card.heroId)).toEqual([102, 103, 104]);
+  });
+
+  test("CANDADO lista GENERAL: no se sesga por 'el rival ya lo counterea' (el riesgo va en la tarjeta)", () => {
+    const result = derive({ banned: [LION, ANCIENT], enemy: [AXE], heroCounters: COUNTERS, activePool: [101, 102, 103, 104], poolShortlistSize: 3 });
+    expect(result.cards[0]?.heroId).toBe(101);
   });
 
   test("una pareja curada con un aliado YA elegido sube al héroe; sin ese aliado no se mueve", () => {

@@ -91,8 +91,9 @@ describe("rondas 2 y 3 -- los bans siguen contando y se suma lo que el rival YA 
     expect(contextBonus(MORPHLING, ctx({ heroCounters: beats, revealedEnemies: new Set([ENEMY]) }))).toBe(3);
   });
 
-  test("un rival que ya se ve y lo counterea medium lo baja", () => {
+  test("un rival que ya se ve y lo counterea medium lo baja en la lista del pool; en la general no se le castiga", () => {
     expect(contextBonus(MORPHLING, ctx({ revealedEnemies: new Set([ANCIENT]) }))).toBe(-3);
+    expect(contextBonus(MORPHLING, ctx({ revealedEnemies: new Set([ANCIENT]), penalizeRevealedCounters: false }))).toBe(0);
   });
 
   test("la sinergia cuenta solo con aliados que YA elegiste, y una sola vez aunque haya varias parejas", () => {
