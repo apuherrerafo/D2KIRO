@@ -86,6 +86,10 @@ export function banFraction(heroId: HeroId, input: Pick<ContextReorderInput, "ba
   return banned / Math.max(MIN_COUNTER_WEIGHT, total);
 }
 
+function hasHardCounterFree(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "heroCounters">): boolean {
+  return (input.heroCounters?.get(heroId) ?? []).some((entry) => entry.level === "hard" && !input.banned.has(entry.vs) && !input.ownPicks.has(entry.vs));
+}
+
 /** Lo que la tarjeta dice de los bans (ver `BanOpening`). Pura. */
 export function banOpeningOf(heroId: HeroId, input: Pick<ContextReorderInput, "banned" | "ownPicks" | "revealedEnemies" | "heroCounters">): BanOpening {
   const none: BanOpening = { openedBy: [], stillFree: [] };
@@ -120,7 +124,8 @@ export function synergiesWithOwn(heroId: HeroId, input: Pick<ContextReorderInput
 export function contextBonus(heroId: HeroId, input: ContextReorderInput): number {
   let bonus = 0;
   if (isBlind(input)) {
-    bonus += MAX_BAN_BONUS * banFraction(heroId, input);
+    // Con un counter FUERTE libre los bans no lo suben: la tarjeta dice "Ojo: X lo counterea fuerte", y el orden dice lo mismo.
+    if (!hasHardCounterFree(heroId, input)) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
   } else {
     for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
     for (const entry of input.heroCounters?.get(heroId) ?? []) {

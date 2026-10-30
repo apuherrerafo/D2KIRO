@@ -40,7 +40,7 @@ describe("ronda 1 -- los bans abren héroes (fracción de su lista de counters, 
   test("una lista larga de medium NO se abre más por tenerla larga: 3 baneados de 22 pesan poco", () => {
     const longBans = ctx({ banned: new Set([100, 101, 102]) });
     expect(banFraction(EMBER, longBans)).toBeCloseTo(3 / 22);
-    expect(contextBonus(EMBER, longBans)).toBeLessThan(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION]) })));
+    expect(contextBonus(EMBER, longBans)).toBeLessThan(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT]) })));
   });
 
   test("Axe, Lion, Ancient y Pudge baneados: la tarjeta dice qué se abrió", () => {
@@ -53,6 +53,11 @@ describe("ronda 1 -- los bans abren héroes (fracción de su lista de counters, 
     const opening = banOpeningOf(MORPHLING, ctx({ banned: new Set([LION, ANCIENT]) }));
     expect(opening.openedBy).toEqual([]);
     expect(opening.stillFree).toEqual([{ heroId: AXE, level: "hard" }]);
+  });
+
+  test("con un counter FUERTE libre los bans no lo suben (el orden dice lo mismo que el 'Ojo' de la tarjeta)", () => {
+    expect(contextBonus(MORPHLING, ctx({ banned: new Set([LION, ANCIENT, PUDGE]) }))).toBe(0); // Axe sigue libre
+    expect(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]) }))).toBeCloseTo(3.6);
   });
 
   test("con pocos counters baneados (menos de un cuarto y ninguno fuerte) no se dice nada: sería ruido", () => {
