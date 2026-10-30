@@ -219,7 +219,8 @@ function pluralize(count: number, one: string, many: string): string {
 // libres). Se muestra solo si algo se abrió: sin counters baneados no hay nada que decir.
 function CandidateOpening({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
   const opening = candidate.opening;
-  if (!opening || opening.openedBy.length === 0) return null;
+  if (!opening) return null;
+  if (opening.openedBy.length === 0) return <HardCounterStillFree opening={opening} heroCatalog={heroCatalog} />;
   return (
     <>
       <span className={CANDIDATE_OPENED} data-testid="team-coach-candidate-opened">
@@ -231,6 +232,16 @@ function CandidateOpening({ candidate, heroCatalog }: { candidate: TeamCoachCand
         </span>
       )}
     </>
+  );
+}
+
+// Los bans tocaron sus counters, pero le queda uno FUERTE libre: lo primero que tienes que saber antes de pickearlo a ciegas.
+function HardCounterStillFree({ opening, heroCatalog }: { opening: NonNullable<TeamCoachCandidate["opening"]>; heroCatalog: Map<number, HeroMeta> }) {
+  if (opening.stillFree.length === 0) return null;
+  return (
+    <span className={CANDIDATE_STILL_FREE} data-testid="team-coach-candidate-still-free">
+      Ojo: {namesOf(opening.stillFree, heroCatalog)} {pluralize(opening.stillFree.length, "lo counterea fuerte y sigue libre", "lo counterean fuerte y siguen libres")}.
+    </span>
   );
 }
 

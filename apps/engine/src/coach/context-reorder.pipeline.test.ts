@@ -15,7 +15,7 @@ function ranking() {
   const recommendations = V6_ORDER.map((hero, index) => ({
     actions: [{ hero }],
     roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
-    signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 100 - index, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }] },
+    signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 100 - index * 0.5, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }] },
     risks: [],
     confidence: "media",
   }));
@@ -57,13 +57,18 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     for (const result of [derive({}), derive({ heroCounters: COUNTERS }), derive({ banned: [999], heroCounters: COUNTERS })]) {
       expect(result.cards.map((card) => card.heroId)).toEqual([101, 102, 103, 104, 105]);
       expect(result.cards.map((card) => card.rank)).toEqual([1, 2, 3, 4, 5]);
-      expect(result.cards.map((card) => card.score)).toEqual([100, 99, 98, 97, 96]);
+      expect(result.cards.map((card) => card.score)).toEqual([100, 99.5, 99, 98.5, 98]);
     }
   });
 
-  test("sensibilidad: Axe, Lion y Ancient baneados -> 108 (último de V6) entra al top-5 porque se abrió", () => {
+  test("sensibilidad (ronda 1): Axe, Lion y Ancient baneados -> 108 (último de V6, a 3,5 puntos) entra al top-5", () => {
     const result = derive({ banned: [AXE, LION, ANCIENT], heroCounters: COUNTERS });
     expect(result.cards.map((card) => card.heroId)).toContain(108);
+  });
+
+  test("rondas 2 y 3: con un rival a la vista los mismos bans ya no mueven a nadie", () => {
+    const result = derive({ banned: [AXE, LION, ANCIENT], enemy: [555], heroCounters: COUNTERS });
+    expect(result.cards.map((card) => card.heroId)).toEqual([101, 102, 103, 104, 105]);
   });
 
   test("CANDADO RB-4: si un rival YA revelado lo counterea fuerte, va al fondo aunque los bans lo hayan abierto", () => {

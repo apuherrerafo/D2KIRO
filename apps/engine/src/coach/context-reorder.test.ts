@@ -1,102 +1,117 @@
 import { describe, expect, test } from "bun:test";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
-import { banOpeningOf, beatsRevealed, contextPoints, reorderByContext, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
+import { banFraction, banOpeningOf, beatsRevealed, contextBonus, reorderByContext, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
 
 // Fixtures inline (familia S9): ninguna prueba lee hero-counters.json ni hero-synergies.json reales.
-// Ejemplo del usuario: Morphling lo counterean Axe, Lion y Ancient Apparition. Si los tres están baneados, Morphling se abre.
+// Ejemplo del usuario: a Morphling lo counterean Axe, Lion y Ancient Apparition. Si están baneados, Morphling se abre.
 const MORPHLING = 10;
+const EMBER = 11;
 const AXE = 20;
 const LION = 21;
 const ANCIENT = 22;
 const PUDGE = 23;
-const OTHER_A = 30;
-const OTHER_B = 31;
-const OTHER_C = 32;
+const ENEMY = 30;
+const ALLY = 31;
 
-function counters(rows: Array<[victim: number, entries: CuratedCounter[]]>): ReadonlyMap<number, readonly CuratedCounter[]> {
-  return new Map(rows);
-}
-
-const MORPH_COUNTERS = counters([
-  [
-    MORPHLING,
-    [
-      { vs: AXE, level: "hard", why: "a" },
-      { vs: LION, level: "hard", why: "b" },
-      { vs: ANCIENT, level: "medium", why: "c" },
-      { vs: PUDGE, level: "medium", why: "d" },
-    ],
-  ],
+const MORPH: CuratedCounter[] = [
+  { vs: AXE, level: "hard", why: "a" },
+  { vs: LION, level: "hard", why: "b" },
+  { vs: ANCIENT, level: "medium", why: "c" },
+  { vs: PUDGE, level: "medium", why: "d" },
+];
+// Un héroe con una lista LARGA de counters medium (como Ember): banear 3 no lo abre más que a uno con lista corta.
+const LONG_LIST: CuratedCounter[] = Array.from({ length: 22 }, (_, index) => ({ vs: 100 + index, level: "medium" as const, why: "x" }));
+const COUNTERS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
+  [MORPHLING, MORPH],
+  [EMBER, LONG_LIST],
 ]);
 
 function ctx(overrides: Partial<ContextReorderInput> = {}): ContextReorderInput {
-  return { banned: new Set(), ownPicks: new Set(), revealedEnemies: new Set(), heroCounters: MORPH_COUNTERS, heroSynergies: new Map(), ...overrides };
+  return { banned: new Set(), ownPicks: new Set(), revealedEnemies: new Set(), heroCounters: COUNTERS, heroSynergies: new Map(), ...overrides };
 }
 
-describe("banOpeningOf -- qué abrieron los bans y qué riesgo queda", () => {
-  test("Axe, Lion y Ancient baneados: se abrieron los tres y queda libre Pudge", () => {
-    const opening = banOpeningOf(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT]) }));
+describe("ronda 1 -- los bans abren héroes (fracción de su lista de counters, los fuertes pesan el doble)", () => {
+  test("cuenta todos los counters, los fuertes pesan el doble, con denominador mínimo", () => {
+    expect(banFraction(MORPHLING, ctx({ banned: new Set([AXE]) }))).toBe(2 / 10); // lista de peso 6 < 10
+    expect(banFraction(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]) }))).toBe(6 / 10);
+  });
+
+  test("una lista larga de medium NO se abre más por tenerla larga: 3 baneados de 22 pesan poco", () => {
+    const longBans = ctx({ banned: new Set([100, 101, 102]) });
+    expect(banFraction(EMBER, longBans)).toBeCloseTo(3 / 22);
+    expect(contextBonus(EMBER, longBans)).toBeLessThan(contextBonus(MORPHLING, ctx({ banned: new Set([AXE, LION]) })));
+  });
+
+  test("Axe, Lion, Ancient y Pudge baneados: la tarjeta dice qué se abrió", () => {
+    const opening = banOpeningOf(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]) }));
     expect(opening.openedBy.map((note) => note.heroId)).toEqual([AXE, LION, ANCIENT]);
-    expect(opening.stillFree.map((note) => note.heroId)).toEqual([PUDGE]);
+    expect(opening.stillFree).toEqual([]);
   });
 
-  test("sin bans de sus counters no se abrió nada, y todos siguen libres (se listan hasta 3, los fuertes primero)", () => {
-    const opening = banOpeningOf(MORPHLING, ctx());
+  test("si le queda un counter FUERTE libre no se dice 'Se abre': se avisa de ese counter", () => {
+    const opening = banOpeningOf(MORPHLING, ctx({ banned: new Set([LION, ANCIENT]) }));
     expect(opening.openedBy).toEqual([]);
-    expect(opening.stillFree.map((note) => note.heroId)).toEqual([AXE, LION, ANCIENT]);
+    expect(opening.stillFree).toEqual([{ heroId: AXE, level: "hard" }]);
   });
 
-  test("un counter que es TU pick o que el rival YA tiene no cuenta como 'sigue libre'", () => {
-    const opening = banOpeningOf(MORPHLING, ctx({ ownPicks: new Set([PUDGE]), revealedEnemies: new Set([AXE]) }));
-    expect(opening.stillFree.map((note) => note.heroId)).toEqual([LION, ANCIENT]);
+  test("con pocos counters baneados (menos de un cuarto y ninguno fuerte) no se dice nada: sería ruido", () => {
+    expect(banOpeningOf(EMBER, ctx({ banned: new Set([100, 101]) }))).toEqual({ openedBy: [], stillFree: [] });
   });
 });
 
-describe("contextPoints -- los bans suman: todos los counters baneados, los fuertes pesan más", () => {
-  test("hard vale 2 y medium 1 (suma, no combo)", () => {
-    expect(contextPoints(MORPHLING, ctx({ banned: new Set([AXE]) }))).toBe(2);
-    expect(contextPoints(MORPHLING, ctx({ banned: new Set([AXE, ANCIENT]) }))).toBe(3);
-    expect(contextPoints(MORPHLING, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]) }))).toBe(6);
+describe("rondas 2 y 3 -- manda lo que el rival YA tiene; los bans dejan de contar", () => {
+  test("con un rival a la vista los bans no suman ni se dice 'Se abre'", () => {
+    const withEnemy = ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]), revealedEnemies: new Set([ENEMY]) });
+    expect(contextBonus(MORPHLING, withEnemy)).toBe(0);
+    expect(banOpeningOf(MORPHLING, withEnemy)).toEqual({ openedBy: [], stillFree: [] });
   });
 
-  test("un héroe al que le ganas y que el rival YA tiene vale el doble que un ban", () => {
-    const beats = counters([[OTHER_A, [{ vs: MORPHLING, level: "hard", why: "x" }]]]);
-    expect(beatsRevealed(MORPHLING, { revealedEnemies: new Set([OTHER_A]), heroCounters: beats }).map((note) => note.heroId)).toEqual([OTHER_A]);
-    expect(contextPoints(MORPHLING, ctx({ heroCounters: beats, revealedEnemies: new Set([OTHER_A]) }))).toBe(4);
+  test("le gana a un rival que ya se ve: sube (fuerte más que medium)", () => {
+    const beats = new Map<number, CuratedCounter[]>([[ENEMY, [{ vs: MORPHLING, level: "hard", why: "x" }]]]);
+    expect(beatsRevealed(MORPHLING, { revealedEnemies: new Set([ENEMY]), heroCounters: beats }).map((note) => note.heroId)).toEqual([ENEMY]);
+    expect(contextBonus(MORPHLING, ctx({ heroCounters: beats, revealedEnemies: new Set([ENEMY]) }))).toBe(3);
   });
 
-  test("la sinergia cuenta solo con aliados que YA elegiste", () => {
-    const synergies = new Map<number, CuratedSynergy[]>([[MORPHLING, [{ with: OTHER_B, why: "combo" }]]]);
+  test("un rival que ya se ve y lo counterea medium lo baja", () => {
+    expect(contextBonus(MORPHLING, ctx({ revealedEnemies: new Set([ANCIENT]) }))).toBe(-3);
+  });
+
+  test("la sinergia cuenta solo con aliados que YA elegiste, y una sola vez aunque haya varias parejas", () => {
+    const synergies = new Map<number, CuratedSynergy[]>([[MORPHLING, [{ with: ALLY, why: "combo" }, { with: ALLY + 1, why: "otro" }]]]);
     expect(synergiesWithOwn(MORPHLING, { ownPicks: new Set(), heroSynergies: synergies })).toEqual([]);
-    expect(synergiesWithOwn(MORPHLING, { ownPicks: new Set([OTHER_B]), heroSynergies: synergies })).toEqual([{ with: OTHER_B, why: "combo" }]);
-    expect(contextPoints(MORPHLING, ctx({ heroSynergies: synergies, ownPicks: new Set([OTHER_B]) }))).toBe(2);
+    expect(contextBonus(MORPHLING, ctx({ heroSynergies: synergies, ownPicks: new Set([ALLY]) }))).toBe(3);
+    expect(contextBonus(MORPHLING, ctx({ heroSynergies: synergies, ownPicks: new Set([ALLY, ALLY + 1]) }))).toBe(3);
   });
 });
 
-describe("reorderByContext", () => {
-  const V6_ORDER = [OTHER_A, OTHER_B, OTHER_C, MORPHLING].map((heroId) => ({ heroId }));
+describe("reorderByContext -- desempata, no pisa a V6", () => {
+  const V6 = [
+    { heroId: 1, score: 80 },
+    { heroId: 2, score: 76 },
+    { heroId: MORPHLING, score: 74 },
+  ];
 
-  test("CANDADO: sin bans ni picks ni sinergias que toquen a nadie, el orden es EXACTAMENTE el de V6", () => {
-    expect(reorderByContext(V6_ORDER, ctx()).map((c) => c.heroId)).toEqual([OTHER_A, OTHER_B, OTHER_C, MORPHLING]);
-    expect(reorderByContext(V6_ORDER, ctx({ heroCounters: undefined, banned: new Set([AXE, LION, ANCIENT]) })).map((c) => c.heroId)).toEqual([OTHER_A, OTHER_B, OTHER_C, MORPHLING]);
+  test("CANDADO: sin contexto que toque a nadie, el orden es EXACTAMENTE el de V6", () => {
+    expect(reorderByContext(V6, ctx()).map((c) => c.heroId)).toEqual([1, 2, MORPHLING]);
+    expect(reorderByContext(V6, ctx({ heroCounters: undefined, banned: new Set([AXE, LION]) })).map((c) => c.heroId)).toEqual([1, 2, MORPHLING]);
   });
 
-  test("Axe, Lion y Ancient baneados: Morphling (último en V6) sube porque se abrió", () => {
-    const result = reorderByContext(V6_ORDER, ctx({ banned: new Set([AXE, LION, ANCIENT]) })).map((c) => c.heroId);
-    expect(result[0]).toBe(MORPHLING);
+  test("Morphling pasa a uno que V6 tenía a 2 puntos, pero no a uno que tenía a 6 o más", () => {
+    const result = reorderByContext(V6, ctx({ banned: new Set([AXE, LION, ANCIENT, PUDGE]) })).map((c) => c.heroId);
+    expect(result).toEqual([1, MORPHLING, 2]); // bono 3.6: pasa al de 76, no al de 80
   });
 
-  test("un solo counter medium baneado mueve poco: sube un lugar, no salta a todos (el empate lo gana V6)", () => {
-    const longList = [OTHER_A, OTHER_B, OTHER_C, 33, 34, 35, MORPHLING].map((heroId) => ({ heroId }));
-    const result = reorderByContext(longList, ctx({ banned: new Set([PUDGE]) })).map((c) => c.heroId);
-    expect(result.indexOf(MORPHLING)).toBe(5); // lugar efectivo 6 - (1 punto × 2) = 4, pero el héroe que ya iba 5.º en V6 gana el empate
+  test("el bono tiene tope: ni con todo a favor pasa a un héroe que V6 tenía muy arriba", () => {
+    const far = [{ heroId: 1, score: 90 }, { heroId: MORPHLING, score: 80 }];
+    const everything = new Map<number, CuratedCounter[]>([[ENEMY, [{ vs: MORPHLING, level: "hard", why: "x" }]], [ENEMY + 1, [{ vs: MORPHLING, level: "hard", why: "y" }]]]);
+    const input = ctx({ heroCounters: everything, revealedEnemies: new Set([ENEMY, ENEMY + 1]), heroSynergies: new Map([[MORPHLING, [{ with: ALLY, why: "c" }]]]), ownPicks: new Set([ALLY]) });
+    expect(contextBonus(MORPHLING, input)).toBe(6);
+    expect(reorderByContext(far, input).map((c) => c.heroId)).toEqual([1, MORPHLING]);
   });
 
-  test("estable y determinista: dos corridas dan lo mismo y los empates conservan el orden de V6", () => {
+  test("estable y determinista", () => {
     const input = ctx({ banned: new Set([AXE]) });
-    expect(reorderByContext(V6_ORDER, input)).toEqual(reorderByContext(V6_ORDER, input));
-    const noPoints = [OTHER_C, OTHER_A, OTHER_B].map((heroId) => ({ heroId }));
-    expect(reorderByContext(noPoints, input).map((c) => c.heroId)).toEqual([OTHER_C, OTHER_A, OTHER_B]);
+    expect(reorderByContext(V6, input)).toEqual(reorderByContext(V6, input));
   });
 });

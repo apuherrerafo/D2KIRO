@@ -131,10 +131,18 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.queryAllByTestId("team-coach-candidate-still-free")).toHaveLength(0);
   });
 
-  test("si ningún counter está baneado no se dice 'se abre' ni se avisa de los libres", () => {
+  test("si le queda un counter FUERTE libre no se dice 'se abre': se avisa de ese counter", () => {
     const closed = column(2);
     closed.top[0] = { ...closed.top[0]!, opening: { openedBy: [], stillFree: [{ heroId: 11, level: "hard" }] } };
     const view = renderBoard({ ...board([2], 2), positions: [closed] });
+    expect(view.queryAllByTestId("team-coach-candidate-opened")).toHaveLength(0);
+    expect(view.getByTestId("team-coach-candidate-still-free").textContent).toBe("Ojo: Hero 11 lo counterea fuerte y sigue libre.");
+  });
+
+  test("sin nada que decir de los bans (ronda 2-3 o casi nada baneado) no aparece ninguna línea de bans", () => {
+    const quiet = column(2);
+    quiet.top[0] = { ...quiet.top[0]!, opening: { openedBy: [], stillFree: [] } };
+    const view = renderBoard({ ...board([2], 2), positions: [quiet] });
     expect(view.queryAllByTestId("team-coach-candidate-opened")).toHaveLength(0);
     expect(view.queryAllByTestId("team-coach-candidate-still-free")).toHaveLength(0);
   });
