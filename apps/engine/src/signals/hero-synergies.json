@@ -371,6 +371,11 @@
   },
   {
     "a": 106,
+    "b": 121,
+    "why": "Ink Swell sobre Ember: cuando llega con Fire Remnant, el stun en área explota entre los rivales"
+  },
+  {
+    "a": 106,
     "b": 90,
     "why": "Chakra Magic le da maná y le reinicia el Sleight of Fist para usarlo dos veces seguidas"
   },
@@ -405,6 +410,16 @@
     "why": "Grimstroke pone Ink Swell, Primal Beast lo atraviesa con Onslaught y el movimiento activa el daño extra; Stroke of Fate remata al stuneado"
   },
   {
+    "a": 121,
+    "b": 19,
+    "why": "Ink Swell sobre Tiny agrega un stun en área a su entrada con Blink Dagger"
+  },
+  {
+    "a": 121,
+    "b": 47,
+    "why": "Ink Swell encaja con el estilo de frontline de Viper y Soulbind duplica Viper Strike"
+  },
+  {
     "a": 123,
     "b": 80,
     "why": "Con el Aghanim's de Lone Druid el oso no muere y ataca desde cualquier lado, y Hoodwink limpia oleadas de un golpe, cruza árboles y tiene stun: empujan y buscan pickoffs"
@@ -435,9 +450,24 @@
     "why": "Reverse Polarity junta a los rivales para todos los hechizos en área de Invoker"
   },
   {
+    "a": 74,
+    "b": 53,
+    "why": "Sprout y Teleportation de Nature's Prophet preparan el Sun Strike y el combo de Invoker en cualquier punto del mapa"
+  },
+  {
+    "a": 74,
+    "b": 19,
+    "why": "Los Sun Strike globales de Invoker rematan los pickoffs de Tiny, y Alacrity le da a Tiny el ritmo de golpe que le falta"
+  },
+  {
     "a": 91,
     "b": 155,
     "why": "Croak of Genius le baja el costo de maná a Io y repite parte del daño que hacen sus habilidades, así que Io sacando espíritus sin parar rinde mucho con Largo"
+  },
+  {
+    "a": 91,
+    "b": 52,
+    "why": "Io le da maná y vida constantes a Leshrac, que farmea sin pausas y aguanta más dentro de la pelea"
   },
   {
     "a": 91,
@@ -470,6 +500,11 @@
     "why": "Con Keeper, Pangolier spamea sus dos habilidades y se vuelve muy fuerte y caótico"
   },
   {
+    "a": 90,
+    "b": 17,
+    "why": "Chakra Magic le recarga el maná a Storm para entrar hondo, y Recall lo trae a la pelea"
+  },
+  {
     "a": 23,
     "b": 112,
     "why": "Winter's Curse arma Torrent y Ghostship, y Kunkka tiene mucha vida, así que la cura en porcentaje de Winter Wyvern rinde muchísimo"
@@ -498,6 +533,11 @@
     "a": 104,
     "b": 30,
     "why": "Duel deja al rival quieto para Maledict y Death Ward completos"
+  },
+  {
+    "a": 52,
+    "b": 111,
+    "why": "False Promise y Fate's Edict cubren la fragilidad de Leshrac en medio de la pelea"
   },
   {
     "a": 52,
@@ -566,6 +606,11 @@
   },
   {
     "a": 97,
+    "b": 39,
+    "why": "Reverse Polarity junta a los rivales para que Sonic Wave y Scream of Pain les peguen a todos"
+  },
+  {
+    "a": 97,
     "b": 32,
     "why": "Empower le da daño a Riki en línea y Reverse Polarity junta a los rivales para Tricks of the Trade"
   },
@@ -596,8 +641,23 @@
   },
   {
     "a": 53,
+    "b": 71,
+    "why": "Spirit Breaker protege a un Nature's Prophet frágil y con Charge of Darkness y Nether Strike le deja al rival bloqueado"
+  },
+  {
+    "a": 53,
+    "b": 100,
+    "why": "Nature's Prophet se suma con Teleportation a las Snowball de Tusk y Sprout mantiene al rival a su alcance"
+  },
+  {
+    "a": 53,
     "b": 85,
     "why": "Undying es buena pareja de línea para Nature's Prophet: Decay y Tombstone sostienen la línea mientras Sprout encierra al rival"
+  },
+  {
+    "a": 53,
+    "b": 22,
+    "why": "Zeus revela a los rivales en todo el mapa y Nature's Prophet llega con Teleportation a rematar o a presionar"
   },
   {
     "a": 84,
