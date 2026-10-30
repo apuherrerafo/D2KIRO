@@ -43,6 +43,13 @@ export interface TeamCoachRisk {
   why: string;
 }
 
+/** A hero this candidate beats according to the curated data, with the curated reason (`why`). Never invented. */
+export interface TeamCoachStrength {
+  vsHeroId: HeroId;
+  level: "hard" | "medium";
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   /** Rank inside THIS position's own ranking (1 = V6's best for this position). */
@@ -52,6 +59,8 @@ export interface TeamCoachCandidate {
   reasons: string[];
   /** Revealed enemies that counter this hero (curated, hard first, at most 2). Empty when none: never invented. */
   risks: TeamCoachRisk[];
+  /** Heroes this candidate beats (curated, hard first, at most 3), so a card says WHY to pick it and not only where it plays. */
+  strengths: TeamCoachStrength[];
   /** The hero the team plan assigns to this position. At most one per position, never shared between positions. */
   isPrimary: boolean;
 }
@@ -204,6 +213,8 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
 
   const positions = [...new Set(controlled)].sort((a, b) => a - b);
   const revealedEnemies = revealedEnemyHeroes(view);
+  const strengthIndex = strengthIndexOf(input.heroCounters);
+  const cannotBeEnemy = new Set<HeroId>([...view.bannedHeroes, ...view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))]);
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
     const filledHeroId = heroByPosition.get(position) ?? null;
@@ -230,7 +241,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "RANKED",
         filledHeroId: null,
         note: null,
-        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], risks: risksOf(card.heroId, revealedEnemies, input.heroCounters), isPrimary: false })),
+        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], risks: risksOf(card.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(card.heroId, strengthIndex, cannotBeEnemy), isPrimary: false })),
       };
     }
     if (result.state === "UNRANKED_POSITIONAL") {
@@ -239,7 +250,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "UNRANKED_POSITIONAL",
         filledHeroId: null,
         note: result.reason,
-        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], risks: risksOf(alternative.heroId, revealedEnemies, input.heroCounters), isPrimary: false })),
+        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], risks: risksOf(alternative.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(alternative.heroId, strengthIndex, cannotBeEnemy), isPrimary: false })),
       };
     }
     return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: result.reason };
@@ -293,6 +304,31 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
 }
 
 const MAX_RISKS_PER_CANDIDATE = 2;
+const MAX_STRENGTHS_PER_CANDIDATE = 3;
+
+/** counterer -> the heroes it beats, built once per board from the curated counters (victim -> who counters it). */
+export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): Map<HeroId, TeamCoachStrength[]> {
+  const index = new Map<HeroId, TeamCoachStrength[]>();
+  if (!heroCounters) return index;
+  for (const [victim, entries] of heroCounters) {
+    for (const entry of entries) {
+      const list = index.get(entry.vs) ?? [];
+      list.push({ vsHeroId: victim, level: entry.level, why: entry.why.trim().replace(/[.\s]+$/, "") });
+      index.set(entry.vs, list);
+    }
+  }
+  return index;
+}
+
+/**
+ * Whom this hero beats according to the curated data (hard first, then medium, stable by hero id). Banned heroes and the
+ * Player's own picks cannot appear in the enemy team, so they are never offered as a reason.
+ */
+export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly TeamCoachStrength[]>, excluded: ReadonlySet<HeroId>): TeamCoachStrength[] {
+  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId));
+  const ordered = [...usable.filter((entry) => entry.level === "hard"), ...usable.filter((entry) => entry.level !== "hard")];
+  return ordered.slice(0, MAX_STRENGTHS_PER_CANDIDATE);
+}
 
 /**
  * Which REVEALED enemies counter this hero according to the curated data (hard first, then medium). Only heroes the

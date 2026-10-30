@@ -89,6 +89,44 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.queryAllByTestId("team-coach-candidate-risk")).toHaveLength(0);
   });
 
+  test("a quién le gana el candidato se ve con su porqué: 'Fuerte contra X: porqué' y 'También: Y, Z'", () => {
+    const withStrengths = column(2);
+    withStrengths.top[0] = {
+      ...withStrengths.top[0]!,
+      strengths: [
+        { vsHeroId: 7, level: "hard", why: "Orchid lo silencia" },
+        { vsHeroId: 8, level: "medium", why: "otro" },
+        { vsHeroId: 9, level: "medium", why: "otro más" },
+      ],
+    };
+    const view = renderBoard({ ...board([2], 2), positions: [withStrengths] });
+    const strengths = view.getAllByTestId("team-coach-candidate-strength");
+    expect(strengths).toHaveLength(1);
+    expect(strengths[0]!.textContent).toBe("Fuerte contra Hero 7: Orchid lo silencia");
+    expect(view.getByText("También: Hero 8, Hero 9")).toBeTruthy();
+  });
+
+  test("un counter medium dice 'Ventaja posible contra', nunca 'Fuerte contra'", () => {
+    const withMedium = column(2);
+    withMedium.top[0] = { ...withMedium.top[0]!, strengths: [{ vsHeroId: 7, level: "medium", why: "razón" }] };
+    const view = renderBoard({ ...board([2], 2), positions: [withMedium] });
+    expect(view.getByTestId("team-coach-candidate-strength").textContent).toBe("Ventaja posible contra Hero 7: razón");
+  });
+
+  test("sin fortalezas (o un motor que no manda el campo): no aparece ninguna línea", () => {
+    const view = renderBoard(board([2], 2));
+    expect(view.queryAllByTestId("team-coach-candidate-strength")).toHaveLength(0);
+  });
+
+  test("validación: acepta 'strengths' ausente y bien formado; rechaza uno mal formado", () => {
+    const good = board([2], 2);
+    good.positions[0]!.top[0] = { ...good.positions[0]!.top[0]!, strengths: [{ vsHeroId: 7, level: "hard", why: "razón" }] };
+    expect(parseTeamCoachBoard(good)).not.toBeNull();
+    const broken = board([2], 2);
+    (broken.positions[0]!.top[0] as unknown as { strengths: unknown }).strengths = [{ vsHeroId: 7, level: "enorme", why: "razón" }];
+    expect(parseTeamCoachBoard(broken)).toBeNull();
+  });
+
   test("validación: acepta 'risks' ausente y bien formado; rechaza uno mal formado", () => {
     const good = board([2], 2);
     expect(parseTeamCoachBoard(good)).not.toBeNull();

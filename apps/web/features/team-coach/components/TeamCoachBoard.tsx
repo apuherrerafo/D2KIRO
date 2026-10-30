@@ -8,8 +8,10 @@ import {
   BOARD_SHELL,
   CANDIDATE_BUTTON,
   CANDIDATE_HEAD,
+  CANDIDATE_ALSO,
   CANDIDATE_REASON,
   CANDIDATE_RISK,
+  CANDIDATE_STRENGTH,
   CANDIDATE_ROW,
   COLUMN_DEFAULT,
   COLUMN_HEADER,
@@ -20,7 +22,7 @@ import {
   PLAN_BADGE,
   PRIMARY_BUTTON,
 } from "../styles";
-import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamPosition } from "../types";
+import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachStrength, TeamPosition } from "../types";
 
 // <Dominio><Cosa>: el Team Coach Board -- UN componente compartido por /simulator y /live-draft.
 //
@@ -181,11 +183,31 @@ function CandidateRisks({ candidate, heroCatalog }: { candidate: TeamCoachCandid
   );
 }
 
-// El porqué de cada héroe y los rivales que lo counterean, a la vista (antes solo en un tooltip).
+const STRENGTH_LABELS: Record<TeamCoachStrength["level"], string> = { hard: "Fuerte contra", medium: "Ventaja posible contra" };
+const MAX_ALSO_NAMES = 2;
+
+// Contra quién le sirve este héroe: la razón concreta para elegirlo, no solo en qué posición juega. Aparece desde la
+// ronda 1, antes de ver rivales; el primero lleva su porqué y los demás van solo por nombre.
+function CandidateStrengths({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+  const [first, ...others] = candidate.strengths ?? [];
+  if (!first) return null;
+  const alsoNames = others.slice(0, MAX_ALSO_NAMES).map((strength) => heroName(strength.vsHeroId, heroCatalog));
+  return (
+    <>
+      <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-strength">
+        {STRENGTH_LABELS[first.level]} {heroName(first.vsHeroId, heroCatalog)}: {first.why}
+      </span>
+      {alsoNames.length > 0 && <span className={CANDIDATE_ALSO}>También: {alsoNames.join(", ")}</span>}
+    </>
+  );
+}
+
+// El porqué de cada héroe, contra quién gana y los rivales que lo counterean, a la vista (antes solo en un tooltip).
 function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetailProps) {
   return (
     <>
       <CandidateReason text={visibleReason(candidate, showReason)} />
+      <CandidateStrengths candidate={candidate} heroCatalog={heroCatalog} />
       <CandidateRisks candidate={candidate} heroCatalog={heroCatalog} />
     </>
   );

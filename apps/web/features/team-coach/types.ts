@@ -20,6 +20,13 @@ export interface TeamCoachRisk {
   why: string;
 }
 
+/** Un héroe al que este candidato le gana según los datos curados, con el porqué. Espejo a mano del motor. */
+export interface TeamCoachStrength {
+  vsHeroId: number;
+  level: "hard" | "medium";
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   rank: number;
@@ -28,6 +35,8 @@ export interface TeamCoachCandidate {
   reasons: string[];
   /** Opcional: un motor anterior no lo manda. Ausente = sin riesgos conocidos. */
   risks?: TeamCoachRisk[];
+  /** Opcional: un motor anterior no lo manda. Ausente = no se muestra ninguna fortaleza. */
+  strengths?: TeamCoachStrength[];
   isPrimary: boolean;
 }
 

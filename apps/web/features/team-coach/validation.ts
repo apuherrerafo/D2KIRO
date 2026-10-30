@@ -13,6 +13,7 @@ import type {
   TeamCoachBoardData,
   TeamCoachCandidate,
   TeamCoachRisk,
+  TeamCoachStrength,
   TeamCoachColumn,
   TeamCoachDecision,
   TeamPosition,
@@ -49,6 +50,10 @@ function isRisk(value: unknown): value is TeamCoachRisk {
   return isRecord(value) && isHeroId(value.vsHeroId) && isString(value.why);
 }
 
+function isStrength(value: unknown): value is TeamCoachStrength {
+  return isRecord(value) && isHeroId(value.vsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why);
+}
+
 function isCandidate(value: unknown): value is TeamCoachCandidate {
   return (
     isRecord(value) &&
@@ -58,6 +63,7 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
     Array.isArray(value.reasons) &&
     value.reasons.every(isString) &&
     (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isRisk))) &&
+    (value.strengths === undefined || (Array.isArray(value.strengths) && value.strengths.every(isStrength))) &&
     typeof value.isPrimary === "boolean"
   );
 }
