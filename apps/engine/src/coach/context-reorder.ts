@@ -1,6 +1,6 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
-import { loadHeroSynergies, type CuratedSynergy } from "../signals/hero-synergies";
+import type { CuratedSynergy } from "../signals/hero-synergies";
 
 // Decisión de producto (2026-10-29, el usuario): las sugerencias de cada posición ROTAN según lo que se ve del draft.
 //   - Ronda 1 (a ciegas): los bans abren héroes. Si Axe, Lion y Ancient Apparition (que counterean a Morphling) están
@@ -36,7 +36,7 @@ export interface ContextReorderInput {
   revealedEnemies: ReadonlySet<HeroId>;
   /** victim -> quién la counterea (el formato de hero-counters.json). */
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
-  /** héroe -> sus parejas curadas. Por defecto, el archivo real cargado una vez al iniciar el módulo. */
+  /** héroe -> sus parejas curadas. Ausente = ninguna (el llamador de producción inyecta el archivo real). */
   heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
 }
 
@@ -49,7 +49,7 @@ const JUMP_PER_POINT = 2;
 const MAX_JUMP = 20;
 const MAX_LISTED = 3;
 
-const MODULE_HERO_SYNERGIES: ReadonlyMap<HeroId, readonly CuratedSynergy[]> = loadHeroSynergies();
+const NO_SYNERGIES: ReadonlyMap<HeroId, readonly CuratedSynergy[]> = new Map();
 
 function byLevelThenId(a: CounterNote, b: CounterNote): number {
   return LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level] || a.heroId - b.heroId;
@@ -79,7 +79,7 @@ export function beatsRevealed(heroId: HeroId, input: Pick<ContextReorderInput, "
 
 /** Parejas curadas de este héroe con los aliados que YA elegiste. Pura. */
 export function synergiesWithOwn(heroId: HeroId, input: Pick<ContextReorderInput, "ownPicks" | "heroSynergies">): CuratedSynergy[] {
-  const all = input.heroSynergies ?? MODULE_HERO_SYNERGIES;
+  const all = input.heroSynergies ?? NO_SYNERGIES;
   return (all.get(heroId) ?? []).filter((synergy) => input.ownPicks.has(synergy.with));
 }
 

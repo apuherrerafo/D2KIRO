@@ -4,6 +4,7 @@ import type { HumanActionability } from "../recommendation/human-actionability";
 import { unavailableHeroesFrom } from "../recommendation/perspective-context";
 import type { RecommendationDegradation, RecommendationSetV2 } from "../recommendation/types";
 import type { CuratedCounter } from "../signals/hero-counters";
+import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { reorderByContext } from "./context-reorder";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, demoteRevealedHardCountered, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
@@ -18,8 +19,10 @@ import { positionPhrase } from "./reveal-strategy";
 //     -> exactly ONE target-specific ranking (supplied by the caller for the chosen target)
 //     -> exactly ONE candidate provenance: RANKED | UNRANKED_POSITIONAL | UNAVAILABLE
 //
-// Nothing here scores or re-ranks: V6 stays the only scorer. Target selection reads the team
-// evaluation's own order and role resolution; candidate state reads the target ranking verbatim.
+// Nothing here SCORES: V6 stays the only scorer. Since 2026-10-29 (user's product decision) the candidate order is
+// V6's order with bounded jumps for what the Player can see (bans that open a hero, enemies it beats, allies it pairs
+// with -- see context-reorder.ts), and RB-4 still sends a hero a revealed enemy hard-counters to the back afterwards.
+// Target selection reads the team evaluation's own order and role resolution.
 // Position is never inferred from round, slot or pick ordinal -- only from HumanActionability and
 // V6's role impact.
 
@@ -128,6 +131,8 @@ export interface DeriveCandidateResultInput {
   view: PerspectiveDraftView;
   heroPositions: HeroPositions;
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
+  /** Curated pairs. Absent = none (production injects the real file; tests never read it). */
+  heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
   personalPoolApplied: boolean;
   shortlistSize?: number;
   /** Cuántos héroes de TU pool se listan aparte (solo si algún pool votó). */
@@ -185,20 +190,23 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
   const unavailable = unavailableHeroesFrom(view);
 
   if (!invalidatesRanking(degradations)) {
-    const candidates = demoteRevealedHardCountered(extractHeroCandidates(targetRanking, heroPositions), revealedEnemyHeroes(view), input.heroCounters)
+    // Los bans abren héroes en la ronda 1; en las rondas 2 y 3 suben los que le ganan a lo ya revelado y los que combinan
+    // con tus aliados ya elegidos. Primero ese reordenamiento y DESPUÉS RB-4: un héroe que un rival revelado counterea
+    // fuerte vuelve al fondo aunque los bans lo hayan "abierto". Sin contexto que toque a nadie, el orden es el de V6.
+    const contextOrdered = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), {
+      banned: new Set(view.bannedHeroes),
+      ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
+      revealedEnemies: new Set(revealedEnemyHeroes(view)),
+      heroCounters: input.heroCounters,
+      heroSynergies: input.heroSynergies,
+    });
+    const candidates = demoteRevealedHardCountered(contextOrdered, revealedEnemyHeroes(view), input.heroCounters)
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
-      // Los bans abren héroes en la ronda 1; en las rondas 2 y 3 suben los que le ganan a lo ya revelado y los que
-      // combinan con tus aliados ya elegidos. Sin nada de eso que tocar, el orden es exactamente el de V6.
-      const ordered = reorderByContext(candidates, {
-        banned: new Set(view.bannedHeroes),
-        ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
-        revealedEnemies: new Set(revealedEnemies),
-        heroCounters: input.heroCounters,
-      });
+      const ordered = candidates;
       const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {

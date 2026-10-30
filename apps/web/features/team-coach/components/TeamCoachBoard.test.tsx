@@ -139,6 +139,13 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.queryAllByTestId("team-coach-candidate-still-free")).toHaveLength(0);
   });
 
+  test("si el motivo del motor ya es 'Sinergia con X', la misma pareja no se repite abajo", () => {
+    const repeated = column(2);
+    repeated.top[0] = { ...repeated.top[0]!, reasons: ["Sinergia con Hero 7: combo"], synergies: [{ withHeroId: 7, why: "combo" }] };
+    const view = renderBoard({ ...board([2], 2), positions: [repeated] });
+    expect(view.queryAllByTestId("team-coach-candidate-synergy")).toHaveLength(0);
+  });
+
   test("la sinergia se dice solo con un aliado que YA elegiste: 'Combina con tu X: porqué'", () => {
     const withPartner = column(2);
     withPartner.top[0] = { ...withPartner.top[0]!, synergies: [{ withHeroId: 7, why: "Shallow Grave le da tiempo para usar Blink" }] };
@@ -150,10 +157,12 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     const withPool = column(2);
     withPool.poolTop = [withPool.top[0]!];
     const view = renderBoard({ ...board([2], 2), positions: [withPool] });
-    expect(view.getByTestId("team-coach-pool-list").textContent).toContain("De tu pool");
+    expect(view.getByTestId("team-coach-pool-list").textContent).toContain("Del pool");
     expect(view.getByText("En general")).toBeTruthy();
     const repeated = String(withPool.top[0]!.heroId);
-    expect(view.getAllByTestId("team-coach-candidate").filter((node) => node.getAttribute("data-hero-id") === repeated)).toHaveLength(2);
+    expect(view.getAllByTestId("team-coach-candidate").filter((node) => node.getAttribute("data-hero-id") === repeated)).toHaveLength(1);
+    // La lista del pool usa su propio testid: la auditoría (Flight Recorder) compara solo la lista general con el motor.
+    expect(view.getAllByTestId("team-coach-pool-candidate").map((node) => node.getAttribute("data-hero-id"))).toEqual([repeated]);
   });
 
   test("sin lista de pool la columna queda como siempre: sin encabezados", () => {
@@ -178,6 +187,12 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     const brokenOpening = board([2], 2);
     (brokenOpening.positions[0]!.top[0] as unknown as { opening: unknown }).opening = { openedBy: "no", stillFree: [] };
     expect(parseTeamCoachBoard(brokenOpening)).toBeNull();
+    const brokenPool = board([2], 2);
+    (brokenPool.positions[0] as unknown as { poolTop: unknown }).poolTop = "abc";
+    expect(parseTeamCoachBoard(brokenPool)).toBeNull();
+    const brokenPoolItem = board([2], 2);
+    (brokenPoolItem.positions[0] as unknown as { poolTop: unknown }).poolTop = [{ nope: 1 }];
+    expect(parseTeamCoachBoard(brokenPoolItem)).toBeNull();
     const brokenSynergy = board([2], 2);
     (brokenSynergy.positions[0]!.top[0] as unknown as { synergies: unknown }).synergies = [{ withHeroId: "x", why: 3 }];
     expect(parseTeamCoachBoard(brokenSynergy)).toBeNull();

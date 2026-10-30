@@ -154,6 +154,8 @@ interface CandidateProps {
   canPick: boolean;
   /** La razón por héroe solo se muestra cuando el ranking es propio de cada uno (columna RANKED). */
   showReason: boolean;
+  /** testid del ítem: la lista del pool usa el suyo para que la auditoría (Flight Recorder) compare solo la general. */
+  testId?: string;
 }
 
 interface CandidateDetailProps {
@@ -236,6 +238,8 @@ function CandidateOpening({ candidate, heroCatalog }: { candidate: TeamCoachCand
 function CandidateSynergies({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
   const [first] = candidate.synergies ?? [];
   if (!first) return null;
+  // El motivo del motor ya puede ser "Sinergia con X: ..."; la misma pareja no se dice dos veces en la tarjeta.
+  if ((candidate.reasons[0] ?? "").startsWith(`Sinergia con ${heroName(first.withHeroId, heroCatalog)}`)) return null;
   return (
     <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-synergy">
       Combina con tu {heroName(first.withHeroId, heroCatalog)}: {first.why}
@@ -271,12 +275,12 @@ function PlanBadge({ candidate }: { candidate: TeamCoachCandidate }) {
   return <span className={PLAN_BADGE}>plan</span>;
 }
 
-function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick, showReason }: CandidateProps) {
+function CandidateItem({ position, candidate, heroCatalog, onPickHero, canPick, showReason, testId = "team-coach-candidate" }: CandidateProps) {
   function handlePick() {
     onPickHero?.(position, candidate.heroId);
   }
   const reason = candidate.reasons[0] ?? "";
-  const common = { "data-testid": "team-coach-candidate", "data-hero-id": candidate.heroId, "data-primary": candidate.isPrimary, title: reason };
+  const common = { "data-testid": testId, "data-hero-id": candidate.heroId, "data-primary": candidate.isPrimary, title: reason };
   if (!canPick || !onPickHero) {
     return (
       <li className={CANDIDATE_ROW} {...common}>
@@ -324,26 +328,27 @@ function ColumnBody({ column, heroCatalog, onPickHero }: ColumnBodyProps) {
 
 interface CandidateListProps extends ColumnBodyProps {
   candidates: TeamCoachCandidate[];
+  itemTestId?: string;
 }
 
-function CandidateList({ column, candidates, heroCatalog, onPickHero }: CandidateListProps) {
+function CandidateList({ column, candidates, heroCatalog, onPickHero, itemTestId }: CandidateListProps) {
   return (
     <ol className="flex flex-col gap-1">
       {candidates.map((candidate) => (
-        <CandidateItem key={candidate.heroId} position={column.position} candidate={candidate} heroCatalog={heroCatalog} onPickHero={onPickHero} canPick={column.eligibleNow} showReason={column.state === "RANKED"} />
+        <CandidateItem key={candidate.heroId} position={column.position} candidate={candidate} heroCatalog={heroCatalog} onPickHero={onPickHero} canPick={column.eligibleNow} showReason={column.state === "RANKED"} testId={itemTestId} />
       ))}
     </ol>
   );
 }
 
-// La lista de TU pool va aparte de la general: puede repetir héroes que también salen abajo, y no se mezclan.
+// La lista del pool de la posición (el tuyo o el de tu compañero) va aparte de la general: puede repetir héroes que también salen abajo, y no se mezclan.
 function PoolList({ column, heroCatalog, onPickHero }: ColumnBodyProps) {
   const pool = column.poolTop ?? [];
   if (pool.length === 0) return null;
   return (
     <div className="flex flex-col gap-1" data-testid="team-coach-pool-list">
-      <span className={LIST_HEADING}>De tu pool</span>
-      <CandidateList column={column} candidates={pool} heroCatalog={heroCatalog} onPickHero={onPickHero} />
+      <span className={LIST_HEADING}>Del pool</span>
+      <CandidateList column={column} candidates={pool} heroCatalog={heroCatalog} onPickHero={onPickHero} itemTestId="team-coach-pool-candidate" />
     </div>
   );
 }

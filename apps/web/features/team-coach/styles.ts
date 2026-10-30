@@ -18,7 +18,6 @@ export const CANDIDATE_STRENGTH = "line-clamp-3 text-caption text-signal-positiv
 export const CANDIDATE_OPENED = "line-clamp-3 text-caption text-signal-positive";
 export const CANDIDATE_STILL_FREE = "line-clamp-3 text-caption text-signal-warning";
 export const LIST_HEADING = "text-caption font-semibold text-content-secondary";
-export const CANDIDATE_ALSO = "line-clamp-2 text-caption text-content-muted";
 export const CANDIDATE_RISK = "line-clamp-3 text-caption text-signal-warning";
 export const PLAN_BADGE = "ml-auto rounded-full border border-accent-primary px-2 text-caption text-accent-primary";
 export const DECISION_BANNER = "flex flex-col gap-1 rounded-lg border border-accent-primary bg-surface-overlay p-3";

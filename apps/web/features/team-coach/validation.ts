@@ -96,6 +96,7 @@ function isColumn(value: unknown): value is TeamCoachColumn {
     isNullable(value.primaryHeroId, isHeroId) &&
     Array.isArray(value.top) &&
     value.top.every(isCandidate) &&
+    (value.poolTop === undefined || (Array.isArray(value.poolTop) && value.poolTop.every(isCandidate))) &&
     isString(value.stateIdentity) &&
     isNullable(value.note, isString)
   );
