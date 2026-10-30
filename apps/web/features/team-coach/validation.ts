@@ -51,7 +51,7 @@ function isRisk(value: unknown): value is TeamCoachRisk {
 }
 
 function isStrength(value: unknown): value is TeamCoachStrength {
-  return isRecord(value) && isHeroId(value.vsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why);
+  return isRecord(value) && isHeroId(value.vsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why) && (value.revealed === undefined || typeof value.revealed === "boolean");
 }
 
 function isCandidate(value: unknown): value is TeamCoachCandidate {

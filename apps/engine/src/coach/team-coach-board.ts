@@ -48,6 +48,8 @@ export interface TeamCoachStrength {
   vsHeroId: HeroId;
   level: "hard" | "medium";
   why: string;
+  /** True only when that enemy is already visible to the Player; otherwise it is a "what if they pick it" note. */
+  revealed: boolean;
 }
 
 export interface TeamCoachCandidate {
@@ -214,6 +216,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const positions = [...new Set(controlled)].sort((a, b) => a - b);
   const revealedEnemies = revealedEnemyHeroes(view);
   const strengthIndex = strengthIndexOf(input.heroCounters);
+  const revealedSet = new Set<HeroId>(revealedEnemies);
   const cannotBeEnemy = new Set<HeroId>([...view.bannedHeroes, ...view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))]);
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
@@ -241,7 +244,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "RANKED",
         filledHeroId: null,
         note: null,
-        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], risks: risksOf(card.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(card.heroId, strengthIndex, cannotBeEnemy), isPrimary: false })),
+        candidates: result.cards.map((card) => ({ heroId: card.heroId, rank: card.rank, score: card.score, reasons: [card.rationale], risks: risksOf(card.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(card.heroId, strengthIndex, cannotBeEnemy, revealedSet), isPrimary: false })),
       };
     }
     if (result.state === "UNRANKED_POSITIONAL") {
@@ -250,7 +253,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
         state: "UNRANKED_POSITIONAL",
         filledHeroId: null,
         note: result.reason,
-        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], risks: risksOf(alternative.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(alternative.heroId, strengthIndex, cannotBeEnemy), isPrimary: false })),
+        candidates: result.alternatives.map((alternative, index) => ({ heroId: alternative.heroId, rank: index + 1, score: null, reasons: [result.reason], risks: risksOf(alternative.heroId, revealedEnemies, input.heroCounters), strengths: strengthsOf(alternative.heroId, strengthIndex, cannotBeEnemy, revealedSet), isPrimary: false })),
       };
     }
     return { position, state: "UNAVAILABLE", candidates: [], filledHeroId: null, note: result.reason };
@@ -313,7 +316,7 @@ export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly Curat
   for (const [victim, entries] of heroCounters) {
     for (const entry of entries) {
       const list = index.get(entry.vs) ?? [];
-      list.push({ vsHeroId: victim, level: entry.level, why: entry.why.trim().replace(/[.\s]+$/, "") });
+      list.push({ vsHeroId: victim, level: entry.level, why: entry.why.trim().replace(/[.\s]+$/, ""), revealed: false });
       index.set(entry.vs, list);
     }
   }
@@ -321,13 +324,14 @@ export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly Curat
 }
 
 /**
- * Whom this hero beats according to the curated data (hard first, then medium, stable by hero id). Banned heroes and the
- * Player's own picks cannot appear in the enemy team, so they are never offered as a reason.
+ * Whom this hero beats according to the curated data: enemies the Player can already see first, then hard before medium,
+ * stable by hero id. Banned heroes and the Player's own picks cannot appear in the enemy team, so they are never offered.
+ * An enemy that is NOT revealed is flagged `revealed: false`: the card words it as "if they pick it", never as a fact.
  */
-export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly TeamCoachStrength[]>, excluded: ReadonlySet<HeroId>): TeamCoachStrength[] {
-  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId));
-  const ordered = [...usable.filter((entry) => entry.level === "hard"), ...usable.filter((entry) => entry.level !== "hard")];
-  return ordered.slice(0, MAX_STRENGTHS_PER_CANDIDATE);
+export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly TeamCoachStrength[]>, excluded: ReadonlySet<HeroId>, revealedEnemies: ReadonlySet<HeroId> = new Set()): TeamCoachStrength[] {
+  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId)).map((entry) => ({ ...entry, revealed: revealedEnemies.has(entry.vsHeroId) }));
+  const rank = (entry: TeamCoachStrength): number => (entry.revealed ? 0 : 2) + (entry.level === "hard" ? 0 : 1);
+  return usable.sort((a, b) => rank(a) - rank(b)).slice(0, MAX_STRENGTHS_PER_CANDIDATE);
 }
 
 /**

@@ -19,7 +19,7 @@ function curated(rows: Array<[victim: number, entry: CuratedCounter]>): Readonly
 describe("strengthsOf -- a quién le gana un candidato", () => {
   test("invierte los counters curados y deja el porqué sin punto final", () => {
     const index = strengthIndexOf(curated([[AXE, { vs: HERO, level: "hard", why: "Orchid lo silencia. " }]]));
-    expect(strengthsOf(HERO, index, new Set())).toEqual([{ vsHeroId: AXE, level: "hard", why: "Orchid lo silencia" }]);
+    expect(strengthsOf(HERO, index, new Set())).toEqual([{ vsHeroId: AXE, level: "hard", why: "Orchid lo silencia", revealed: false }]);
   });
 
   test("hasta 3, los fuertes primero aunque vengan después en los datos", () => {
@@ -32,6 +32,18 @@ describe("strengthsOf -- a quién le gana un candidato", () => {
       ]),
     );
     expect(strengthsOf(HERO, index, new Set()).map((entry) => entry.vsHeroId)).toEqual([AXE, LINA, PUDGE]);
+  });
+
+  test("un rival que YA se ve va primero y marcado revealed; los demás quedan como hipótesis (revealed: false)", () => {
+    const index = strengthIndexOf(
+      curated([
+        [AXE, { vs: HERO, level: "hard", why: "a" }],
+        [LINA, { vs: HERO, level: "medium", why: "b" }],
+        [PUDGE, { vs: HERO, level: "hard", why: "c" }],
+      ]),
+    );
+    const result = strengthsOf(HERO, index, new Set(), new Set([LINA]));
+    expect(result.map((entry) => [entry.vsHeroId, entry.revealed])).toEqual([[LINA, true], [AXE, false], [PUDGE, false]]);
   });
 
   test("un héroe baneado o ya elegido por tu equipo no se ofrece como razón", () => {
