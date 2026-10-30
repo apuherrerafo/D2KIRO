@@ -72,10 +72,13 @@ const SYNERGY_BONUS = 3;
 const MAX_CONTEXT_BONUS = 6;
 /** Baja por cada counter YA revelado: [se cruzan en línea, no se cruzan]. Fuerte baja mucho, medium poco. */
 const REVEALED_COUNTER_PENALTY: Record<CounterLevel, readonly [number, number]> = { hard: [12, 6], medium: [4, 2] };
-/** Con una sinergia de tu equipo la baja se divide por esto: "vuelve cerca de su lugar". */
-const SYNERGY_RESCUE_DIVISOR = 4;
-/** Tope de la baja por counters revelados. */
-const MAX_COUNTER_PENALTY = 12;
+/**
+ * Con una sinergia de tu equipo la baja se divide por esto. Provisorio y prudente (el usuario, 2026-10-30): qué parejas
+ * rescatan de verdad hay que investigarlo con analistas; mientras, cualquier pareja la reduce a la mitad, no más.
+ */
+const SYNERGY_RESCUE_DIVISOR = 2;
+/** Tope de la baja: dos counters fuertes revelados se suman (bajan mucho); uno fuerte y uno medium, un poco más que uno. */
+const MAX_COUNTER_PENALTY = 24;
 const MAX_LISTED = 3;
 
 /** Tabla del usuario: con qué posiciones del rival te cruzas en la fase de línea. */

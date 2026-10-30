@@ -98,8 +98,8 @@ describe("el rival YA sacó un counter: baja, pero no al fondo de oficio", () =>
 
   test("con Oracle en tu equipo (sinergia), Anti-Mage vuelve cerca de su lugar aunque esté Axe", () => {
     const withOracle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([ORACLE]), heroSynergies: ORACLE_PAIR });
-    expect(revealedCounterPenalty(ANTI_MAGE, withOracle)).toBe(3);
-    expect(contextBonus(ANTI_MAGE, withOracle)).toBe(-3); // la sinergia rescata (−12 → −3) pero NO suma además su +3
+    expect(revealedCounterPenalty(ANTI_MAGE, withOracle)).toBe(6);
+    expect(contextBonus(ANTI_MAGE, withOracle)).toBe(-6); // la sinergia rescata a la mitad (provisorio) y NO suma además su +3
   });
 
   test("héroe flex: un Viper que figura mid pero va offlane 1 de cada 4 partidas o más SÍ se cruza con el carry", () => {
@@ -113,6 +113,12 @@ describe("el rival YA sacó un counter: baja, pero no al fondo de oficio", () =>
     const flexLegion: HeroPositions = { ...POSITIONS, [LEGION]: [{ position: 3, matches: 500 }, { position: 1, matches: 500 }] };
     const opening = banOpeningOf(ANTI_MAGE, ctx({ banned: new Set([LION, ANCIENT, PUDGE]), revealedEnemies: new Set([LEGION]), heroPositions: flexLegion }));
     expect(opening.stillFree).toEqual([{ heroId: AXE, level: "hard" }]);
+  });
+
+  test("dos counters fuertes revelados en tu línea se suman (bajan mucho); fuerte + medium, un poco más que uno", () => {
+    const twoHard = new Map<number, CuratedCounter[]>([[ANTI_MAGE, [{ vs: AXE, level: "hard", why: "a" }, { vs: PUDGE, level: "hard", why: "b" }]]]);
+    expect(revealedCounterPenalty(ANTI_MAGE, ctx({ heroCounters: twoHard, revealedEnemies: new Set([AXE, PUDGE]) }))).toBe(24);
+    expect(revealedCounterPenalty(ANTI_MAGE, ctx({ revealedEnemies: new Set([AXE, PUDGE]) }))).toBe(16);
   });
 
   test("le gana a un rival que ya salió: sube", () => {
@@ -144,9 +150,9 @@ describe("reorderByContext", () => {
     expect(reorderByContext(V6, ctx({ revealedEnemies: new Set([AXE]) })).map((c) => c.heroId)).toEqual([50, 51, ANTI_MAGE, 52]); // 80 − 12 = 68
   });
 
-  test("Axe en su línea pero con Oracle en tu equipo: Anti-Mage se queda arriba", () => {
+  test("Axe en su línea pero con Oracle en tu equipo: Anti-Mage vuelve cerca de su lugar (2.º en vez de 3.º)", () => {
     const withOracle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([ORACLE]), heroSynergies: ORACLE_PAIR });
-    expect(reorderByContext(V6, withOracle)[0]?.heroId).toBe(ANTI_MAGE);
+    expect(reorderByContext(V6, withOracle).map((c) => c.heroId)).toEqual([50, ANTI_MAGE, 51, 52]); // 80 − 6 = 74
   });
 
   test("el bono positivo tiene tope: los bans no pasan a un héroe que V6 tenía muy arriba", () => {

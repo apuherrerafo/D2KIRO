@@ -72,16 +72,10 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
     expect(result.cards.map((card) => card.heroId)).toContain(108);
   });
 
-  test("un counter fuerte YA revelado baja al héroe; una sinergia de tu equipo lo deja CERCA de su lugar", () => {
-    // Lista completa (8). 101 es el primero de V6 (100) y Axe (counter fuerte) ya está en el rival: 100 − 12 = 88, al fondo
-    // de ESTA lista porque las demás están a menos de 4 puntos. Con la pareja: 100 − 3 = 97 (la sinergia rescata pero no
-    // suma además su +3): sube por encima de los que V6 tenía por debajo de 97.
+  test("un counter fuerte YA revelado baja al héroe y lo saca del 1.º lugar", () => {
+    // 101 es el primero de V6 (100) y Axe (counter fuerte) ya está en el rival: 100 − 12 = 88.
     const alone = derive({ enemy: [AXE], heroCounters: COUNTERS, shortlistSize: 8 }).cards.map((card) => card.heroId);
-    const rescue: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[101, [{ with: ALLY, why: "lo salva" }]]]);
-    const rescued = derive({ enemy: [AXE], own: [ALLY], heroCounters: COUNTERS, heroSynergies: rescue, shortlistSize: 8 }).cards.map((card) => card.heroId);
     expect(alone.slice(-2)).toEqual([101, 108]); // 108 también lo counterea Axe en este fixture
-    expect(rescued.indexOf(101)).toBeLessThan(alone.indexOf(101));
-    expect(rescued[0]).not.toBe(101);
   });
 
   test("S05 del juez de Dota en V4 (decisión del usuario 2026-10-30): el héroe que el rival counterea fuerte baja 12, sin ir al fondo de oficio", () => {
