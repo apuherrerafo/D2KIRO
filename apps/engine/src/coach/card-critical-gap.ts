@@ -27,14 +27,16 @@ export function deriveCompositionContext(view: PerspectiveDraftView, capabilitie
   return { needs: assessCompositionNeedsOf(own, [...capabilities], ownPicksRemainingFor(own)), capabilities: capabilitiesByHero([...capabilities]) };
 }
 
-const GAP_PHRASE: Record<DraftCapabilityGap, string> = {
-  initiation: "iniciación",
-  catch: "catch",
-  waveclear: "waveclear",
-  structural_damage: "daño a estructuras",
-  teamfight: "teamfight",
-  scaling: "scaling",
-  damage_mix: "un segundo tipo de daño",
+// Cómo se lee cada carencia como verbo de "Tu equipo ...". Los tres críticos son los que hoy pueden aparecer; el resto queda definido
+// para que el Record sea total.
+const GAP_CLAUSE: Record<DraftCapabilityGap, string> = {
+  initiation: "no tiene cómo iniciar peleas",
+  catch: "no tiene cómo atrapar a un rival",
+  waveclear: "no tiene waveclear",
+  structural_damage: "tiene poco daño a estructuras",
+  teamfight: "tiene poco teamfight",
+  scaling: "tiene poco scaling",
+  damage_mix: "hace casi todo el daño del mismo tipo y le falta un segundo tipo",
 };
 
 function listNaturally(items: readonly string[]): string {
@@ -42,11 +44,16 @@ function listNaturally(items: readonly string[]): string {
   return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
 }
 
-function picksLeftPhrase(count: number): string {
-  return count === 1 ? "te queda 1 pick" : `te quedan ${count} picks`;
+/** Sin imperativos: informa, no ordena. Con 1 pick ya no queda quien lo cubra; con más, todavía puede hacerlo otro pick. */
+function pickClause(remaining: number): string {
+  if (remaining === 1) return "es tu último pick. Este héroe no ayuda con eso y ya no queda otro pick para cubrirlo";
+  return `te quedan ${remaining} picks. Este héroe no ayuda con eso; tendría que cubrirlo otro de tus próximos picks`;
 }
 
-/** Los avisos de la tarjeta: hoy sólo CRITICAL_GAP. Vacío cuando no hay nada demostrable (nunca ausente). */
+/**
+ * Los avisos de la tarjeta: hoy sólo CRITICAL_GAP. Vacío cuando no hay nada demostrable (nunca ausente).
+ * `detail` es lenguaje llano para el jugador: sin jerga del motor ni nombres de héroe.
+ */
 export function deriveCardRisks(candidate: HeroCandidate, composition?: CardCompositionContext): CardRisk[] {
   if (!composition) return [];
   // [] para un héroe sin capacidades curadas: no sabemos qué aporta, así que nunca se dice que deja el hueco abierto.
@@ -55,7 +62,7 @@ export function deriveCardRisks(candidate: HeroCandidate, composition?: CardComp
   return [
     {
       kind: "CRITICAL_GAP",
-      detail: `A tu equipo le falta ${listNaturally(missing.map((gap) => GAP_PHRASE[gap]))} y ${picksLeftPhrase(composition.needs.ownPicksRemaining)}; este héroe no lo cubre (según las capacidades curadas).`,
+      detail: `Hoy tu equipo ${listNaturally(missing.map((gap) => GAP_CLAUSE[gap]))} y ${pickClause(composition.needs.ownPicksRemaining)} (según nuestra lista de héroes).`,
       heroIds: [],
     },
   ];

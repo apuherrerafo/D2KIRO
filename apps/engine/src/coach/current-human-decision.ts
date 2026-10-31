@@ -229,7 +229,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),
-          risks: deriveCardRisks(candidate, composition),
+          // Sólo la primera tarjeta de cada lista lleva el aviso: es la decisión que el jugador está por tomar; en las demás sería ruido repetido.
+          risks: index === 0 ? deriveCardRisks(candidate, composition) : [],
         };
       };
       const cards = ordered.slice(0, size).map(toCard);

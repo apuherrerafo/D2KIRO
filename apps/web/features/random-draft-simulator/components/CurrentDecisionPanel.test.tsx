@@ -208,7 +208,7 @@ test("borde: una oportunidad V4 malformada rechaza la salida entera; una válida
 
 // ---- Aviso "hueco crítico del equipo" (rescatado de TSK-254, cadena F1) -----------------------------------------------------------------
 
-const GAP_DETAIL = "A tu equipo le falta iniciación y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).";
+const GAP_DETAIL = "Hoy tu equipo no tiene cómo iniciar peleas y te quedan 2 picks. Este héroe no ayuda con eso; tendría que cubrirlo otro de tus próximos picks (según nuestra lista de héroes).";
 
 function withRisks(risksByCard: (CardRisk[] | undefined)[]): CurrentDecisionOutput {
   const base = output(RANKED);
@@ -221,7 +221,7 @@ test("hueco crítico: la tarjeta que lo lleva muestra el aviso con el texto del 
   const view = render(<CurrentDecisionPanel output={withRisks([[{ kind: "CRITICAL_GAP", detail: GAP_DETAIL, heroIds: [] }], []])} heroCatalog={new Map()} />);
   const risks = view.getAllByTestId("current-decision-risks");
   expect(risks).toHaveLength(1);
-  expect(risks[0]!.textContent).toContain("Hueco crítico del equipo");
+  expect(risks[0]!.textContent).toContain("Ojo con el equipo");
   expect(risks[0]!.textContent).toContain(GAP_DETAIL);
   expect(view.getAllByTestId("current-decision-card")[0]!.contains(risks[0]!)).toBe(true);
 });
@@ -239,8 +239,17 @@ test("el validador acepta tarjetas con y sin `risks`, y rechaza un aviso mal for
   const good = JSON.parse(JSON.stringify(withRisks([[{ kind: "CRITICAL_GAP", detail: GAP_DETAIL, heroIds: [] }], []])));
   expect(parseCurrentDecisionOutput(good)).not.toBeNull();
   expect(parseCurrentDecisionOutput(JSON.parse(JSON.stringify(output(RANKED))))).not.toBeNull();
-  for (const bad of [{ kind: "OTRO", detail: "x", heroIds: [] }, { kind: "CRITICAL_GAP", detail: 5, heroIds: [] }, { kind: "CRITICAL_GAP", detail: "x", heroIds: ["a"] }]) {
+  for (const bad of [{ kind: "CRITICAL_GAP", detail: 5, heroIds: [] }, { kind: "CRITICAL_GAP", detail: "x", heroIds: ["a"] }]) {
     const broken = JSON.parse(JSON.stringify(withRisks([[bad as never], []])));
     expect(parseCurrentDecisionOutput(broken)).toBeNull();
   }
+});
+
+test("un aviso de un tipo que este cliente no conoce NO rompe el panel: se acepta la respuesta y el aviso se ignora", () => {
+  const future = JSON.parse(JSON.stringify(withRisks([[{ kind: "FUTURO", detail: "algo nuevo", heroIds: [] } as never], []])));
+  const parsed = parseCurrentDecisionOutput(future);
+  expect(parsed).not.toBeNull();
+  const view = render(<CurrentDecisionPanel output={parsed!} heroCatalog={new Map()} />);
+  expect(view.queryByTestId("current-decision-risks")).toBeNull();
+  expect(view.getAllByTestId("current-decision-card")).toHaveLength(2);
 });

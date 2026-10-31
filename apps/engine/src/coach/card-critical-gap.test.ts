@@ -30,16 +30,19 @@ describe("CRITICAL_GAP -- sólo con una carencia crítica demostrable", () => {
   test("equipo sin iniciador, 2 picks por delante, héroe sin iniciación -> aviso, con el hueco y los picks nombrados", () => {
     const risks = risksOf([...TEAM, NON_INITIATOR]);
     expect(kinds(risks)).toEqual(["CRITICAL_GAP"]);
-    expect(risks[0]!.detail).toContain("iniciación");
+    expect(risks[0]!.detail).toContain("no tiene cómo iniciar peleas");
     expect(risks[0]!.detail).toContain("te quedan 2 picks");
-    expect(risks[0]!.detail).toContain("según las capacidades curadas");
+    expect(risks[0]!.detail).toContain("tendría que cubrirlo otro de tus próximos picks");
+    expect(risks[0]!.detail).toContain("según nuestra lista de héroes");
+    expect(risks[0]!.detail).not.toMatch(/capacidades|deberías|elige/i); // sin jerga del motor ni imperativos
     expect(risks[0]!.heroIds).toEqual([]); // el hueco es del equipo, no de héroes rivales
   });
 
-  test("con 1 pick por delante el texto concuerda en singular", () => {
+  test("con 1 pick por delante el texto dice que es el último y que ya no queda quien lo cubra", () => {
     const viewArg = view("PICK_ROUND_3", [known(1), known(2), known(3), known(4)], [hidden()]);
     const risks = risksOf([...TEAM, hero(4), NON_INITIATOR], viewArg);
-    expect(risks[0]?.detail).toContain("te queda 1 pick");
+    expect(risks[0]?.detail).toContain("es tu último pick");
+    expect(risks[0]?.detail).toContain("ya no queda otro pick para cubrirlo");
   });
 
   test("un héroe que SÍ llena el hueco no lleva el aviso", () => {
@@ -60,7 +63,7 @@ describe("CRITICAL_GAP -- sólo con una carencia crítica demostrable", () => {
     const mono = [hero(1, { hasInitiation: true }), hero(2, { hasInitiation: true }), hero(3, { hasInitiation: true })];
     const same = risksOf([...mono, hero(CANDIDATE, { hasInitiation: true })]);
     expect(kinds(same)).toEqual(["CRITICAL_GAP"]);
-    expect(same[0]!.detail).toContain("un segundo tipo de daño");
+    expect(same[0]!.detail).toContain("hace casi todo el daño del mismo tipo y le falta un segundo tipo");
     expect(risksOf([...mono, hero(CANDIDATE, { hasInitiation: true, damageType: "magical" })])).toEqual([]);
   });
 });
@@ -108,6 +111,12 @@ describe("CRITICAL_GAP -- candado de regresión cero: no toca el ranking ni el r
     expect(without.cards.map((card) => card.risks)).toEqual([[], []]);
     expect(withCaps.cards[0]?.risks.map((risk) => risk.kind)).toEqual(["CRITICAL_GAP"]);
     expect(withCaps.cards[1]?.risks).toEqual([]);
+  });
+
+  test("si varias tarjetas dejan el hueco abierto, sólo la primera lleva el aviso (el resto sería ruido repetido)", () => {
+    const both = derive([...TEAM, hero(7), hero(8)]); // ninguno de los dos inicia
+    if (both.state !== "RANKED") throw new Error("expected RANKED");
+    expect(both.cards.map((card) => card.risks.length)).toEqual([1, 0]);
   });
 
   test("el hero 7 (primero del ranking) conserva el primer lugar aunque lleve el aviso: el aviso no baja a nadie", () => {

@@ -5,7 +5,7 @@ import { playerFacingRisk } from "../degradation-copy";
 // ordena ni infiere. Sin aviso no se dibuja nada -- una tarjeta sin riesgo se ve exactamente igual que antes.
 
 const RISK_TITLES: Record<CardRiskKind, string> = {
-  CRITICAL_GAP: "Hueco crítico del equipo",
+  CRITICAL_GAP: "Ojo con el equipo",
 };
 
 interface CardRiskNoticeProps {
@@ -25,11 +25,17 @@ function CardRiskItem({ risk }: CardRiskItemProps) {
   );
 }
 
+function isKnownRisk(risk: CardRisk): boolean {
+  return Object.hasOwn(RISK_TITLES, risk.kind);
+}
+
 export function CardRiskNotice({ risks }: CardRiskNoticeProps) {
-  if (!risks || risks.length === 0) return null;
+  // Un aviso de un tipo que esta versión del cliente no conoce se ignora: nunca rompe la tarjeta ni el panel.
+  const known = (risks ?? []).filter(isKnownRisk);
+  if (known.length === 0) return null;
   return (
     <ul className="flex flex-col gap-1 rounded-md border border-signal-warning bg-surface-raised p-2" data-testid="current-decision-risks">
-      {risks.map((risk) => (
+      {known.map((risk) => (
         <CardRiskItem key={risk.kind} risk={risk} />
       ))}
     </ul>

@@ -364,10 +364,9 @@ export interface CurrentDecisionOutput {
   };
 }
 
-const CARD_RISK_KINDS: readonly string[] = ["CRITICAL_GAP"];
-
+// Un `kind` futuro que este cliente no conoce NO invalida la respuesta (el aviso es informativo): la forma sí se exige y el panel lo ignora.
 function isCardRisk(value: unknown): value is CardRisk {
-  if (!isRecord(value) || typeof value.kind !== "string" || !CARD_RISK_KINDS.includes(value.kind) || typeof value.detail !== "string") return false;
+  if (!isRecord(value) || typeof value.kind !== "string" || typeof value.detail !== "string") return false;
   return Array.isArray(value.heroIds) && value.heroIds.every(isHeroId);
 }
 
