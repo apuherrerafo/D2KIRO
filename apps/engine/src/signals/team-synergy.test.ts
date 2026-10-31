@@ -73,7 +73,7 @@ describe("createTeamSynergyScorer", () => {
     expect(result.explanation).toContain("Sin datos de capacidades");
   });
 
-  test("héroes con capacidades no curadas / CAPABILITY_DATA_UNAVAILABLE (131, 145, 155) reciben raw: null y nunca raw: 0", () => {
+  test("héroes sin ficha en la lista inyectada (aquí 131, 145, 155) reciben raw: null y nunca raw: 0", () => {
     const scorer = createTeamSynergyScorer([INITIATOR]);
     const state = draftState({ picks: { radiant: [INITIATOR.hero], dire: [] } });
 
@@ -84,9 +84,9 @@ describe("createTeamSynergyScorer", () => {
     }
   });
 
-  test("equipo propio con solo héroes uncurated / capacidades no disponibles -> raw: null (no asume que carecen de todo)", () => {
+  test("equipo propio con solo héroes sin ficha en la lista inyectada -> raw: null (no asume que carecen de todo)", () => {
     const scorer = createTeamSynergyScorer([INITIATOR]);
-    // Radiant solo tiene Ringmaster (131), sin capacidades en la lista inyectada
+    // Radiant solo tiene a 131, que no está en la lista inyectada (en producción 131 ya tiene ficha; el fixture simula un héroe sin ella)
     const state = draftState({ picks: { radiant: [131], dire: [] } });
 
     const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });
@@ -97,7 +97,7 @@ describe("createTeamSynergyScorer", () => {
 
   test("equipo propio con mezcla de conocido y desconocido: evalúa sobre lo conocido sin fallar", () => {
     const scorer = createTeamSynergyScorer([WAVECLEARER, INITIATOR]);
-    // Radiant tiene WAVECLEARER y Ringmaster (131)
+    // Radiant tiene WAVECLEARER y el 131, que no está en la lista inyectada
     const state = draftState({ picks: { radiant: [WAVECLEARER.hero, 131], dire: [] } });
 
     const result = scorer.score(state, INITIATOR.hero, { heroes: {}, matchups: {} });

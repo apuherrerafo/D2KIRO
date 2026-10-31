@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { CURATED_HERO_IDS } from "../signals/curated-hero-ids";
 import {
   CAPABILITY_DATA_UNAVAILABLE,
   getCapabilityAvailability,
@@ -28,6 +29,14 @@ test("UNCURATED_CAPABILITY_HERO_IDS está vacío: Ringmaster (131), Kez (145) y 
 
   // Alias retrocompatible
   expect(UNKNOWN_CAPABILITY_HERO_IDS).toBe(UNCURATED_CAPABILITY_HERO_IDS);
+});
+
+test("todo héroe del censo activo (CURATED_HERO_IDS) tiene ficha de capacidades", () => {
+  const covered = new Set(loadHeroCapabilities().map((entry) => entry.hero));
+  const missing = [...CURATED_HERO_IDS].filter((id) => !covered.has(id));
+
+  expect(missing).toEqual([]);
+  expect(covered.size).toBe(CURATED_HERO_IDS.size);
 });
 
 test("Ringmaster (131), Kez (145) y Largo (155) tienen una ficha válida y distinta de un héroe sin datos", () => {

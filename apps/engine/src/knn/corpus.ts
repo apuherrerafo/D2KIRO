@@ -6,7 +6,7 @@ import type { HeroId } from "../draft/reducer";
 // al cargar, nunca SQLite ni red en el camino caliente.
 //
 // [SUPUESTO, ver plan de Fase 5-8]: el doc de investigación no especifica fuente ni formato para
-// este corpus. Se resuelve acá con el mismo criterio que el hueco de 124/126 en capabilities.json:
+// este corpus. Se resuelve acá con el mismo criterio que el hueco que tuvo capabilities.json (124/127 hasta 2026-10-31):
 // un seed pequeño e incompleto a propósito, marcado como tal -- completarlo con drafts reales de
 // torneos profesionales es trabajo de curación aparte, no de esta tarea.
 

@@ -922,7 +922,7 @@
     {
       "vs": 46,
       "level": "medium",
-      "why": "Meld le baja la armadura y Refraction absorbe sus pocos golpes fuertes; Sven necesita matar en pocos golpes y no puede"
+      "why": "Meld le baja la armadura y Refraction absorbe un número limitado de golpes, justo lo que Sven necesita para matar rápido"
     }
   ],
   "19": [
@@ -5775,11 +5775,6 @@
       "vs": 85,
       "level": "medium",
       "why": "Primal Beast quiere entrar a enemigos agrupados, pero Tombstone y los zombis castigan sus sobre-compromisos, y Decay arruina su escalado por fuerza"
-    },
-    {
-      "vs": 54,
-      "level": "medium",
-      "why": "En línea Lifestealer pega rápido y Feast quita un porcentaje de la mucha vida de Primal Beast, que tiene mala animación de ataque"
     }
   ],
   "138": [

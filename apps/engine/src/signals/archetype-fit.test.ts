@@ -17,7 +17,7 @@ const PUDGE = 14;
 const LION = 26;
 const NATURES_PROPHET = 53;
 const LYCAN = 77;
-const NO_CAPABILITIES_ENTRY = 999; // representa el hueco real (hoy: héroes 131/145/155)
+const NO_CAPABILITIES_ENTRY = 999; // representa un héroe sin ficha (hasta 2026-10-31 eran 131/145/155; hoy ninguno, el mecanismo se conserva)
 
 const FIXTURE_CAPABILITIES: HeroCapabilities[] = [
   { hero: ANTI_MAGE, damageType: "physical", hasInitiation: false, hasCatch: false, hasWaveclear: false, structuralDamage: "low", teamfight: "low", scaling: "high" },
