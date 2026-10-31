@@ -1,6 +1,11 @@
 [
   {
     "a": 102,
+    "b": 113,
+    "why": "Aphotic Shield absorbe daño y quita debuffs con un dispel fuerte, y Borrowed Time deja a Abaddon aguantar al frente mientras Arc Warden hace daño"
+  },
+  {
+    "a": 102,
     "b": 2,
     "why": "Aphotic Shield y Mist Coil hacen a Axe mucho más resistente cuando entra con Blink Dagger"
   },
@@ -86,8 +91,28 @@
   },
   {
     "a": 113,
+    "b": 2,
+    "why": "Berserker's Call obliga a los rivales a pegarle a Axe, y Arc Warden lanza Spark Wraith y Flux desde atrás sin que lo toquen"
+  },
+  {
+    "a": 113,
+    "b": 87,
+    "why": "Kinetic Field encierra a los rivales y Static Storm los silencia, así que no escapan de los ataques y habilidades de Arc Warden"
+  },
+  {
+    "a": 113,
+    "b": 111,
+    "why": "False Promise salva a Arc Warden o a su Tempest Double de un daño letal y Fortune's End inmoviliza a quien lo persigue"
+  },
+  {
+    "a": 113,
     "b": 27,
     "why": "Shackles deja quieto al enemigo para sacar el máximo daño de Flux y de Spark Wraith"
+  },
+  {
+    "a": 113,
+    "b": 108,
+    "why": "Pit of Malice inmoviliza a los rivales que pisan el área y Arc Warden los castiga con Spark Wraith y Flux"
   },
   {
     "a": 2,
@@ -110,9 +135,29 @@
     "why": "Nightmare y Fiend's Grip bloquean mucho tiempo y le dejan a Invoker meter Sun Strike y todo su combo"
   },
   {
+    "a": 65,
+    "b": 4,
+    "why": "Rupture hace daño según la distancia que se mueve el rival, y Flaming Lasso lo arrastra mientras está roto"
+  },
+  {
+    "a": 65,
+    "b": 57,
+    "why": "Repel le da a Batrider inmunidad a debuffs y regeneración, así que mantiene el Lasso y el Firefly sin que lo frenen ni lo aturdan"
+  },
+  {
+    "a": 65,
+    "b": 105,
+    "why": "Flaming Lasso arrastra al rival detrás de Batrider y lo puede llevar hacia las Proximity Mines de Techies"
+  },
+  {
     "a": 38,
     "b": 11,
     "why": "Primal Roar deja al rival quieto para todo el daño de Shadow Fiend, y el push de Beastmaster acompaña su ritmo"
+  },
+  {
+    "a": 38,
+    "b": 92,
+    "why": "Primal Roar aturde al objetivo y los Familiars lo golpean sin que escape"
   },
   {
     "a": 4,
@@ -165,6 +210,11 @@
     "why": "Chakra Magic le reinicia Quill Spray para usarlo dos veces seguidas y le da maná para spamear"
   },
   {
+    "a": 99,
+    "b": 83,
+    "why": "Overgrowth deja a los rivales quietos y sin poder atacar dentro del alcance de Quill Spray, y Living Armor cura a Bristleback y le bloquea daño"
+  },
+  {
     "a": 96,
     "b": 121,
     "why": "Ink Swell prepara el Hoof Stomp y Soulbind hace que dos rivales queden dentro de su área"
@@ -203,6 +253,21 @@
     "a": 66,
     "b": 12,
     "why": "Phantom Lancer solo necesita sostén para pasar la línea y Chen necesita héroes que farmeen y peguen fuerte, porque Chen no hace daño"
+  },
+  {
+    "a": 56,
+    "b": 87,
+    "why": "Kinetic Field encierra al rival y Static Storm lo silencia, así que Clinkz le dispara sin que pueda escapar ni lanzar habilidades"
+  },
+  {
+    "a": 56,
+    "b": 84,
+    "why": "Bloodlust le da a Clinkz velocidad de ataque y de movimiento para perseguir y hacer daño"
+  },
+  {
+    "a": 56,
+    "b": 75,
+    "why": "Global Silence impide que los rivales lancen habilidades en todo el mapa, y Clinkz entra a matar sin que le respondan"
   },
   {
     "a": 51,
@@ -446,6 +511,11 @@
   },
   {
     "a": 121,
+    "b": 136,
+    "why": "Ink Swell la acelera y, al terminar, aturde a los rivales cercanos, justo cuando Marci entra con Rebound y Unleash"
+  },
+  {
+    "a": 121,
     "b": 137,
     "why": "Grimstroke pone Ink Swell, Primal Beast lo atraviesa con Onslaught y el movimiento activa el daño extra; Stroke of Fate remata al stuneado"
   },
@@ -458,6 +528,11 @@
     "a": 121,
     "b": 47,
     "why": "Ink Swell encaja con el estilo de frontline de Viper y Soulbind duplica Viper Strike"
+  },
+  {
+    "a": 121,
+    "b": 92,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo, como Grave Chill, y deja atados a los dos"
   },
   {
     "a": 72,
@@ -560,6 +635,11 @@
     "why": "Chakra Magic le recarga el maná a Storm para entrar hondo, y Recall lo trae a la pelea"
   },
   {
+    "a": 90,
+    "b": 92,
+    "why": "Chakra Magic le devuelve mana y baja el cooldown de Soul Assumption y Grave Chill, para lanzarlos más seguido"
+  },
+  {
     "a": 145,
     "b": 28,
     "why": "Corrosive Haze le baja la armadura al objetivo para el daño físico de Kez, y Slithereen Crush abre la pelea para que Kez remate"
@@ -615,6 +695,11 @@
     "why": "Disruption seguido de Split Earth es un stun garantizado de 2 segundos"
   },
   {
+    "a": 52,
+    "b": 83,
+    "why": "Living Armor cura a Leshrac y le bloquea daño, y Overgrowth deja a los rivales quietos dentro de su Pulse Nova y su Diabolic Edict"
+  },
+  {
     "a": 54,
     "b": 136,
     "why": "Dispose y Rebound ayudan a Lifestealer a perseguir y llegar al objetivo"
@@ -661,6 +746,11 @@
   },
   {
     "a": 48,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y los Moon Glaives de Luna pegan más fuerte en cada rebote"
+  },
+  {
+    "a": 48,
     "b": 30,
     "why": "Maledict deja al rival bajo de vida y Luna remata con Lucent Beam"
   },
@@ -698,6 +788,26 @@
     "a": 97,
     "b": 95,
     "why": "Empower le da cleave a Troll melee y Reverse Polarity le deja a todos juntos para golpearlos"
+  },
+  {
+    "a": 136,
+    "b": 44,
+    "why": "Bodyguard le pasa a Phantom Assassin robo de vida y una barrera compartida, y Dispose o Rebound la sacan del peligro"
+  },
+  {
+    "a": 136,
+    "b": 15,
+    "why": "Bodyguard le pasa a Razor robo de vida y una barrera compartida, y Dispose o Rebound lo sacan del peligro"
+  },
+  {
+    "a": 136,
+    "b": 128,
+    "why": "Rebound de Marci aturde y Firesnap Cookie le da otra forma de entrar, y las Mortimer Kisses caen sobre rivales que quedaron aturdidos"
+  },
+  {
+    "a": 136,
+    "b": 18,
+    "why": "Bodyguard le pasa a Sven robo de vida y una barrera compartida, y Dispose o Rebound lo sacan del peligro"
   },
   {
     "a": 94,
@@ -825,8 +935,38 @@
     "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Skywrath Mage, mientras Tiny pone poco daño propio"
   },
   {
+    "a": 28,
+    "b": 92,
+    "why": "Corrosive Haze baja la armadura del objetivo para que los Familiars hagan mucho más daño físico, y además lo revela"
+  },
+  {
+    "a": 128,
+    "b": 92,
+    "why": "Stone Form de los Familiars aturde y las Mortimer Kisses caen sobre rivales quietos, mientras Soul Assumption suma daño de largo alcance"
+  },
+  {
     "a": 18,
     "b": 30,
     "why": "Maledict deja al rival bajo de vida y Sven remata con Storm Hammer, y Warcry cubre el bajo armor de Witch Doctor"
+  },
+  {
+    "a": 46,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura y el daño de los rivales, y Magic Missile los aturde para que Templar Assassin los remate"
+  },
+  {
+    "a": 109,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y los golpes de Terrorblade y sus ilusiones les hacen más daño"
+  },
+  {
+    "a": 19,
+    "b": 83,
+    "why": "Overgrowth inmoviliza, desarma y no deja hacer blink a los rivales, y Tiny los revienta sin que escapen"
+  },
+  {
+    "a": 108,
+    "b": 20,
+    "why": "Pit of Malice inmoviliza y Magic Missile aturde a quien está en el área, y Atrophy Aura y Wave of Terror le bajan el daño a los rivales"
   }
 ]

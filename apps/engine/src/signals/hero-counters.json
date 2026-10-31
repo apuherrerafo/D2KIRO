@@ -2707,6 +2707,11 @@
       "vs": 42,
       "level": "medium",
       "why": "A Wraith King no le molesta que Clinkz reviente su primera vida porque Reincarnation lo revive y lentifica a Clinkz, que ya no puede escapar fácil"
+    },
+    {
+      "vs": 113,
+      "level": "medium",
+      "why": "Magnetic Field da evasión contra los ataques que vienen de fuera del campo, así que las flechas de Clinkz fallan, y Flux y Spark Wraith lo frenan si intenta huir"
     }
   ],
   "57": [
@@ -4369,6 +4374,11 @@
       "vs": 30,
       "level": "medium",
       "why": "Paralyzing Cask rebota entre los Familiars y Visage y le hace daño extra con cada rebote"
+    },
+    {
+      "vs": 112,
+      "level": "medium",
+      "why": "Winter's Curse obliga a los rivales cercanos a atacar al objetivo: si es Visage, sus propios Familiars lo atacan"
     }
   ],
   "93": [
@@ -5426,6 +5436,11 @@
       "vs": 37,
       "level": "medium",
       "why": "Los Golems de Warlock y la presión de las peleas de equipo superan la estrategia del clon de Arc Warden, y Fatal Bonds une al clon y al héroe para castigarlos juntos"
+    },
+    {
+      "vs": 12,
+      "level": "medium",
+      "why": "Doppelganger dispela el Flux que lo frena y lo hace reaparecer rodeado de copias, y Arc Warden pierde el blanco"
     }
   ],
   "114": [
