@@ -56,6 +56,11 @@
   },
   {
     "a": 68,
+    "b": 38,
+    "why": "Primal Roar aturde al objetivo y Ice Blast lo marca: no regenera ni se cura mientras Beastmaster y sus unidades lo rematan"
+  },
+  {
+    "a": 68,
     "b": 104,
     "why": "Duel deja al rival quieto para Cold Feet, Ice Vortex e Ice Blast completos"
   },
@@ -151,8 +156,23 @@
   },
   {
     "a": 38,
+    "b": 74,
+    "why": "Primal Roar aturde al objetivo y el Sun Strike de Invoker, que cae con retraso, no falla"
+  },
+  {
+    "a": 38,
+    "b": 53,
+    "why": "Primal Roar aturde al objetivo y da tiempo a que Nature's Prophet llegue con Teleportation y su Wrath of Nature conecte"
+  },
+  {
+    "a": 38,
     "b": 11,
     "why": "Primal Roar deja al rival quieto para todo el daño de Shadow Fiend, y el push de Beastmaster acompaña su ritmo"
+  },
+  {
+    "a": 38,
+    "b": 101,
+    "why": "Primal Roar aturde al objetivo y lo deja dentro del área de Mystic Flare, que reparte su daño entre los héroes que están ahí"
   },
   {
     "a": 38,
@@ -251,6 +271,11 @@
   },
   {
     "a": 66,
+    "b": 82,
+    "why": "Hand of God cura a todos los héroes aliados del mapa, incluidos todos los clones de Meepo, que tienen poca vida"
+  },
+  {
+    "a": 66,
     "b": 12,
     "why": "Phantom Lancer solo necesita sostén para pasar la línea y Chen necesita héroes que farmeen y peguen fuerte, porque Chen no hace daño"
   },
@@ -293,6 +318,11 @@
     "a": 5,
     "b": 49,
     "why": "Arcane Aura y la regeneración de Dragon Knight le dejan pelear casi sin volver a base"
+  },
+  {
+    "a": 5,
+    "b": 10,
+    "why": "Frostbite deja al rival sin moverse ni atacar, y Morphling lo remata con Adaptive Strike; Arcane Aura le da el mana que le falta"
   },
   {
     "a": 5,
@@ -391,8 +421,18 @@
   },
   {
     "a": 50,
+    "b": 10,
+    "why": "Shallow Grave evita que Morphling muera mientras hace daño en la pelea"
+  },
+  {
+    "a": 50,
     "b": 53,
     "why": "Shadow Wave de Dazzle conecta con los Treants de Nature's Prophet y gana campamentos y tradeos en la línea; Shallow Grave protege a un Nature's Prophet frágil cuando entra con Teleportation"
+  },
+  {
+    "a": 50,
+    "b": 137,
+    "why": "Shallow Grave evita que Primal Beast muera mientras entra con Trample y Pulverize"
   },
   {
     "a": 87,
@@ -511,8 +551,18 @@
   },
   {
     "a": 121,
+    "b": 26,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo de Lion: Hex, Finger of Death y Mana Drain golpean a los dos"
+  },
+  {
+    "a": 121,
     "b": 136,
     "why": "Ink Swell la acelera y, al terminar, aturde a los rivales cercanos, justo cuando Marci entra con Rebound y Unleash"
+  },
+  {
+    "a": 121,
+    "b": 10,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo, como Adaptive Strike, y deja atados a los dos"
   },
   {
     "a": 121,
@@ -686,6 +736,11 @@
   },
   {
     "a": 52,
+    "b": 26,
+    "why": "Mana Drain puede cargar de mana a un aliado, y Leshrac convierte ese mana en daño; Earth Spike prepara el Split Earth"
+  },
+  {
+    "a": 52,
     "b": 111,
     "why": "False Promise y Fate's Edict cubren la fragilidad de Leshrac en medio de la pelea"
   },
@@ -738,6 +793,21 @@
     "a": 25,
     "b": 112,
     "why": "Winter's Curse junta a los rivales más o menos en el radio del stun de Light Strike Array, y Lina contraataca"
+  },
+  {
+    "a": 26,
+    "b": 94,
+    "why": "Mana Drain le da mana a Medusa, que es su vida efectiva por Mana Shield, y Earth Spike y Hex inmovilizan al objetivo para que ella dispare"
+  },
+  {
+    "a": 26,
+    "b": 17,
+    "why": "Mana Drain puede cargar de mana a un aliado, y Storm Spirit lo gasta en Ball Lightning"
+  },
+  {
+    "a": 26,
+    "b": 22,
+    "why": "Mana Drain puede cargar de mana a un aliado, y Zeus convierte ese mana en daño con sus habilidades"
   },
   {
     "a": 48,
@@ -898,6 +968,11 @@
     "a": 110,
     "b": 37,
     "why": "Shadow Word cura a Phoenix durante Supernova y Upheaval evita que los rivales escapen del sol"
+  },
+  {
+    "a": 137,
+    "b": 128,
+    "why": "Pulverize sujeta al objetivo y lo mini-aturde en área mientras llegan las Mortimer Kisses, que dañan y frenan"
   },
   {
     "a": 14,

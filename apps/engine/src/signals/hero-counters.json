@@ -477,6 +477,11 @@
       "vs": 43,
       "level": "medium",
       "why": "Silence molesta mucho a Morphling porque depende de usar sus hechizos en las peleas"
+    },
+    {
+      "vs": 68,
+      "level": "medium",
+      "why": "Ice Blast le impide regenerar y curarse, y lo destruye si queda con poca vida"
     }
   ],
   "11": [
@@ -626,6 +631,11 @@
       "vs": 37,
       "level": "medium",
       "why": "Fatal Bonds y Chaotic Offering castigan mucho a las ilusiones: cualquier daño en área o nuke derrite los clones de Phantom Lancer a través de Fatal Bonds"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Drums of Slom daña a todas las ilusiones cercanas y cura a Beastmaster por cada una, y Wild Axes las limpia en área"
     }
   ],
   "13": [
@@ -3919,6 +3929,11 @@
       "vs": 83,
       "level": "medium",
       "why": "Overgrowth inmoviliza a todos los clones de Meepo que estén en el área, y Leech Seed y Nature's Grasp le dificultan escapar o iniciar sin castigo"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Drums of Slom daña a todos los Meepo cercanos y cura a Beastmaster por cada golpe, y Wild Axes pega a todos los clones"
     }
   ],
   "83": [
@@ -4193,6 +4208,11 @@
       "vs": 145,
       "level": "medium",
       "why": "El daño en área de Kez borra las ilusiones de Naga Siren y reduce mucho su velocidad de farmeo y su daño en las peleas"
+    },
+    {
+      "vs": 38,
+      "level": "medium",
+      "why": "Drums of Slom daña a todas las ilusiones de Mirror Image y cura a Beastmaster por cada una, y Wild Axes las limpia en área"
     }
   ],
   "90": [
