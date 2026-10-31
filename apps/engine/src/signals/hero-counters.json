@@ -131,6 +131,11 @@
       "vs": 37,
       "level": "medium",
       "why": "Axe se mete a héroes agrupados y es un blanco ideal para Fatal Bonds, y cuando Axe inicia, Warlock puede contra-iniciar con Chaotic Offering para ganar la pelea"
+    },
+    {
+      "vs": 131,
+      "level": "medium",
+      "why": "Escape Act deja a su aliado intargeteable y desarmado, así que Berserker's Call no lo obliga a pegar y no activa Counter Helix"
     }
   ],
   "3": [
@@ -173,6 +178,11 @@
       "vs": 92,
       "level": "medium",
       "why": "Los Familiars pueden usar Stone Form para interrumpir Fiend's Grip aunque Visage esté bajo su efecto, y atacar a un objetivo con Nightmare para trasladar el sueño"
+    },
+    {
+      "vs": 131,
+      "level": "medium",
+      "why": "Escape Act mete a su aliado en una caja intargeteable y lo saca del agarre de Fiend's Grip"
     }
   ],
   "4": [
@@ -519,6 +529,11 @@
       "vs": 20,
       "level": "medium",
       "why": "Nether Swap seguido de un aturdimiento castiga la poca movilidad de Shadow Fiend, y su fragilidad lo hace un blanco fácil si se posiciona mal una sola vez"
+    },
+    {
+      "vs": 26,
+      "level": "medium",
+      "why": "Hex le desactiva todas las habilidades, incluido Shadowraze, y Finger of Death lo remata"
     }
   ],
   "12": [
@@ -824,6 +839,11 @@
       "vs": 28,
       "level": "medium",
       "why": "Corrosive Haze mantiene visión sobre Sand King dentro de Sand Storm y Slithereen Crush lo controla incluso a corta distancia"
+    },
+    {
+      "vs": 47,
+      "level": "medium",
+      "why": "Corrosive Skin le da resistencia mágica a Viper y casi todo el daño de Sand King es mágico"
     }
   ],
   "17": [
@@ -1059,6 +1079,11 @@
       "vs": 23,
       "level": "medium",
       "why": "Con X Marks the Spot y Torrent o Ghostship de trampa, Windranger no puede escapar con Windrun"
+    },
+    {
+      "vs": 26,
+      "level": "medium",
+      "why": "Hex la saca de combate al instante y le desactiva todas las habilidades, y Finger of Death le da la ráfaga que Windranger no aguanta"
     }
   ],
   "22": [
@@ -1222,6 +1247,11 @@
       "vs": 92,
       "level": "medium",
       "why": "Gravekeeper's Cloak dificulta que Lion reviente a Visage con Finger of Death, y Lion tiene poco wave clear contra el empuje temprano de los Familiars a las torres"
+    },
+    {
+      "vs": 77,
+      "level": "medium",
+      "why": "Hex solo frena a un objetivo y Lycan pelea junto a los lobos de Summon Wolves, así que Lion no logra aislarlo"
     }
   ],
   "27": [
@@ -1667,6 +1697,11 @@
       "vs": 47,
       "level": "medium",
       "why": "Viper Strike le apaga los pasivos (como Heartstopper Aura) y lo frena, y Corrosive Skin le da resistencia mágica a Viper, así que Death Pulse le hace poco: Necro no puede hostigar ni farmear en línea"
+    },
+    {
+      "vs": 131,
+      "level": "medium",
+      "why": "Escape Act deja al objetivo intargeteable y Reaper's Scythe no lo puede alcanzar"
     }
   ],
   "37": [
@@ -4492,6 +4527,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Falcon Rush lo persigue aunque use Stampede, porque le da resistencia a los slows, y Centaur casi no tiene armadura contra el daño físico de Kez"
     }
   ],
   "97": [
@@ -5136,6 +5176,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
+    },
+    {
+      "vs": 26,
+      "level": "medium",
+      "why": "Hex le desactiva todas las habilidades a Underlord y Finger of Death le da el daño que necesita"
     }
   ],
   "109": [

@@ -281,6 +281,11 @@
   },
   {
     "a": 119,
+    "b": 131,
+    "why": "Bramble Maze y Wheel of Wonder atrapan a los rivales y Escape Act salva a Dark Willow, que es frágil"
+  },
+  {
+    "a": 119,
     "b": 19,
     "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Dark Willow, mientras Tiny pone poco daño propio"
   },
@@ -408,6 +413,11 @@
     "a": 106,
     "b": 97,
     "why": "Empower acelera el farmeo de Ember y potencia mucho su Sleight of Fist"
+  },
+  {
+    "a": 106,
+    "b": 131,
+    "why": "Searing Chains se suma al control de Ringmaster y Escape Act salva a Ember cuando lo atrapan"
   },
   {
     "a": 33,
@@ -551,8 +561,18 @@
   },
   {
     "a": 145,
+    "b": 28,
+    "why": "Corrosive Haze le baja la armadura al objetivo para el daño físico de Kez, y Slithereen Crush abre la pelea para que Kez remate"
+  },
+  {
+    "a": 145,
     "b": 71,
     "why": "Spirit Breaker abre con Charge of Darkness y aguanta al frente, y Kez entra a rematar a los aturdidos"
+  },
+  {
+    "a": 145,
+    "b": 21,
+    "why": "Shackleshot inmoviliza al objetivo para que Kez lo alcance y lo remate con su daño físico"
   },
   {
     "a": 23,
@@ -686,6 +706,11 @@
   },
   {
     "a": 9,
+    "b": 16,
+    "why": "Burrowstrike y Epicenter dejan a los rivales quietos y frenados para que Sacred Arrow conecte"
+  },
+  {
+    "a": 9,
     "b": 19,
     "why": "Sacred Arrow necesita un disable muy largo y Tiny se lo da con dos stuns; Tiny, que tiene poco daño, deja listos los hechizos difíciles de acertar"
   },
@@ -773,6 +798,11 @@
     "a": 14,
     "b": 19,
     "why": "Toss lanza a Pudge encima de los rivales para Dismember inmediato y Rot los persigue"
+  },
+  {
+    "a": 131,
+    "b": 28,
+    "why": "Slithereen Crush abre la pelea y Wheel of Wonder fija a los rivales, mientras Escape Act salva a Slardar"
   },
   {
     "a": 86,
