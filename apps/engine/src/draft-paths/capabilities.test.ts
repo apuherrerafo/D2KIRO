@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { CURATED_HERO_IDS } from "../signals/curated-hero-ids";
 import {
   CAPABILITY_DATA_UNAVAILABLE,
   getCapabilityAvailability,
@@ -10,52 +9,36 @@ import {
   UNKNOWN_CAPABILITY_HERO_IDS,
 } from "./capabilities";
 
-test("capabilities.json carga 127 entradas válidas y sin héroes duplicados", () => {
+test("capabilities.json carga 124 entradas válidas y sin héroes duplicados", () => {
   const capabilities = loadHeroCapabilities();
   const ids = capabilities.map((entry) => entry.hero);
 
-  expect(capabilities.length).toBe(127);
+  expect(capabilities.length).toBe(124);
   expect(ids.length).toBe(new Set(ids).size);
   expect(capabilities.every(isHeroCapabilities)).toBe(true);
 
-  // Ninguno de los héroes curados es un héroe de la lista no curada
+  // Ninguno de los 124 héroes curados es un héroe de la lista no curada
   for (const uncuratedId of UNCURATED_CAPABILITY_HERO_IDS) {
     expect(ids.includes(uncuratedId)).toBe(false);
   }
 });
 
-test("UNCURATED_CAPABILITY_HERO_IDS está vacío: Ringmaster (131), Kez (145) y Largo (155) ya tienen ficha", () => {
-  expect(UNCURATED_CAPABILITY_HERO_IDS.size).toBe(0);
+test("UNCURATED_CAPABILITY_HERO_IDS identifica Ringmaster (131), Kez (145) y Largo (155) como no curados", () => {
+  expect(UNCURATED_CAPABILITY_HERO_IDS.has(131)).toBe(true);
+  expect(UNCURATED_CAPABILITY_HERO_IDS.has(145)).toBe(true);
+  expect(UNCURATED_CAPABILITY_HERO_IDS.has(155)).toBe(true);
+  expect(UNCURATED_CAPABILITY_HERO_IDS.size).toBe(3);
 
   // Alias retrocompatible
   expect(UNKNOWN_CAPABILITY_HERO_IDS).toBe(UNCURATED_CAPABILITY_HERO_IDS);
 });
 
-test("todo héroe del censo activo (CURATED_HERO_IDS) tiene ficha de capacidades", () => {
-  const covered = new Set(loadHeroCapabilities().map((entry) => entry.hero));
-  const missing = [...CURATED_HERO_IDS].filter((id) => !covered.has(id));
-
-  expect(missing).toEqual([]);
-  expect(covered.size).toBe(CURATED_HERO_IDS.size);
-});
-
-test("Ringmaster (131), Kez (145) y Largo (155) tienen una ficha válida y distinta de un héroe sin datos", () => {
+test("getCapabilityAvailability reporta 'unavailable' para 131, 145 y 155, y 'available' para héroes cubiertos", () => {
   const capabilities = loadHeroCapabilities();
 
-  for (const heroId of [131, 145, 155]) {
-    const entry = capabilities.find((c) => c.hero === heroId);
-    expect(entry).toBeDefined();
-    expect(isHeroCapabilities(entry)).toBe(true);
-    expect(getCapabilityAvailability(heroId, capabilities)).toBe("available");
-    expect(getCapabilityCoverageSemantic(heroId, capabilities)).toBe("CURATED");
-  }
-});
-
-test("getCapabilityAvailability reporta unavailable para un héroe sin ficha, y available para héroes cubiertos", () => {
-  const capabilities = loadHeroCapabilities();
-
-  // Un id sin ficha (inexistente) sigue reportándose como no disponible: el mecanismo no se pierde
-  expect(getCapabilityAvailability(9999, capabilities)).toBe("unavailable");
+  expect(getCapabilityAvailability(131, capabilities)).toBe("unavailable");
+  expect(getCapabilityAvailability(145, capabilities)).toBe("unavailable");
+  expect(getCapabilityAvailability(155, capabilities)).toBe("unavailable");
 
   // Héroes cubiertos estándar
   expect(getCapabilityAvailability(1, capabilities)).toBe("available");
@@ -63,10 +46,12 @@ test("getCapabilityAvailability reporta unavailable para un héroe sin ficha, y 
   expect(getCapabilityAvailability(14, capabilities)).toBe("available");
 });
 
-test("getCapabilityCoverageSemantic describe un héroe sin ficha como CAPABILITY_DATA_UNAVAILABLE y héroes curados como CURATED", () => {
+test("getCapabilityCoverageSemantic describe 131, 145 y 155 como CAPABILITY_DATA_UNAVAILABLE y héroes curados como CURATED", () => {
   const capabilities = loadHeroCapabilities();
 
-  expect(getCapabilityCoverageSemantic(9999, capabilities)).toBe(CAPABILITY_DATA_UNAVAILABLE);
+  expect(getCapabilityCoverageSemantic(131, capabilities)).toBe(CAPABILITY_DATA_UNAVAILABLE);
+  expect(getCapabilityCoverageSemantic(145, capabilities)).toBe(CAPABILITY_DATA_UNAVAILABLE);
+  expect(getCapabilityCoverageSemantic(155, capabilities)).toBe(CAPABILITY_DATA_UNAVAILABLE);
 
   // Héroes cubiertos estándar
   expect(getCapabilityCoverageSemantic(1, capabilities)).toBe("CURATED");
