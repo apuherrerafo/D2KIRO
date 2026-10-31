@@ -1,0 +1,86 @@
+{
+  "source": "OpenDota public API (https://api.opendota.com/api)",
+  "requestBudget": 7,
+  "requestsUsed": 7,
+  "requestsDetails": [
+    {
+      "path": "/matches/9057084643",
+      "status": 200,
+      "bytes": 269340,
+      "sha256": "3d1b1050f6386d16853c1c6969abd4328254047d22775ae5ff70ed7cecc541ba",
+      "at": "2026-10-22T22:34:50.462Z"
+    },
+    {
+      "path": "/matches/9056988862",
+      "status": 200,
+      "bytes": 255033,
+      "sha256": "43fa83763e9fb08da375c3b0c841afa1a22b4a4dc278feba06959c65fadef4db",
+      "at": "2026-10-22T22:34:52.531Z"
+    },
+    {
+      "path": "/matches/9056844521",
+      "status": 200,
+      "bytes": 248359,
+      "sha256": "30382988e6e8277eb4ae0f6e0b8701b7c9b24e45e2cffe6e0f2491538792bca4",
+      "at": "2026-10-22T22:34:54.603Z"
+    },
+    {
+      "path": "/matches/9056685103",
+      "status": 200,
+      "bytes": 330259,
+      "sha256": "b48b2834a6217732f8aadfb740ac1652ab055a78bb7b3592eb64812df0047ca2",
+      "at": "2026-10-22T22:34:56.828Z"
+    },
+    {
+      "path": "/matches/9056536159",
+      "status": 200,
+      "bytes": 255784,
+      "sha256": "d78609aecd29b6f152022e64ba4239bc329cd5f51f0ed38d274d6c45e1aa9aa7",
+      "at": "2026-10-22T22:34:58.834Z"
+    }
+  ],
+  "selectionFile": "selection.json",
+  "matches": [
+    {
+      "match_id": 9057084643,
+      "leagueid": 19944,
+      "fetchedAt": "2026-10-22T22:34:50.464Z",
+      "rawBodySha256": "3d1b1050f6386d16853c1c6969abd4328254047d22775ae5ff70ed7cecc541ba",
+      "rawBodyBytes": 269340,
+      "fixture": "fixtures/9057084643.json"
+    },
+    {
+      "match_id": 9056988862,
+      "leagueid": 19944,
+      "fetchedAt": "2026-10-22T22:34:52.534Z",
+      "rawBodySha256": "43fa83763e9fb08da375c3b0c841afa1a22b4a4dc278feba06959c65fadef4db",
+      "rawBodyBytes": 255033,
+      "fixture": "fixtures/9056988862.json"
+    },
+    {
+      "match_id": 9056844521,
+      "leagueid": 19944,
+      "fetchedAt": "2026-10-22T22:34:54.605Z",
+      "rawBodySha256": "30382988e6e8277eb4ae0f6e0b8701b7c9b24e45e2cffe6e0f2491538792bca4",
+      "rawBodyBytes": 248359,
+      "fixture": "fixtures/9056844521.json"
+    },
+    {
+      "match_id": 9056685103,
+      "leagueid": 19944,
+      "fetchedAt": "2026-10-22T22:34:56.831Z",
+      "rawBodySha256": "b48b2834a6217732f8aadfb740ac1652ab055a78bb7b3592eb64812df0047ca2",
+      "rawBodyBytes": 330259,
+      "fixture": "fixtures/9056685103.json"
+    },
+    {
+      "match_id": 9056536159,
+      "leagueid": 19944,
+      "fetchedAt": "2026-10-22T22:34:58.836Z",
+      "rawBodySha256": "d78609aecd29b6f152022e64ba4239bc329cd5f51f0ed38d274d6c45e1aa9aa7",
+      "rawBodyBytes": 255784,
+      "fixture": "fixtures/9056536159.json"
+    }
+  ],
+  "note": "Respuestas crudas NO almacenadas (contienen account_id). Fixtures sanitizados + sha256 del cuerpo original."
+}
