@@ -136,6 +136,11 @@
       "vs": 131,
       "level": "medium",
       "why": "Escape Act deja a su aliado intargeteable y desarmado, así que Berserker's Call no lo obliga a pegar y no activa Counter Helix"
+    },
+    {
+      "vs": 75,
+      "level": "medium",
+      "why": "Global Silence le impide lanzar Berserker's Call, y Arcane Curse le hace daño y alarga su duración cada vez que Axe lanza un hechizo"
     }
   ],
   "3": [
@@ -827,6 +832,11 @@
       "vs": 145,
       "level": "medium",
       "why": "La movilidad de Kez le permite romper Static Link cada vez sin perder mucho daño, y llegar a un Razor de poca armadura para reventarlo"
+    },
+    {
+      "vs": 4,
+      "level": "medium",
+      "why": "Rupture le hace daño por cada paso que da Razor y Blood Rite lo silencia, así que no puede perseguir ni usar Static Link"
     }
   ],
   "16": [
@@ -854,6 +864,16 @@
       "vs": 47,
       "level": "medium",
       "why": "Corrosive Skin le da resistencia mágica a Viper y casi todo el daño de Sand King es mágico"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "False Promise retrasa el daño que pone Sand King y Fate's Edict da resistencia mágica, y casi todo su daño es mágico"
+    },
+    {
+      "vs": 42,
+      "level": "medium",
+      "why": "Reincarnation lo hace mal objetivo: Sand King gasta su combo y Wraith King vuelve a la vida"
     }
   ],
   "17": [
@@ -901,6 +921,11 @@
       "vs": 101,
       "level": "medium",
       "why": "Ancient Seal lo silencia y le quita Ball Lightning para escapar"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Silence le impide usar Ball Lightning y Electric Vortex, que son su forma de entrar y salir"
     }
   ],
   "18": [
@@ -953,6 +978,11 @@
       "vs": 46,
       "level": "medium",
       "why": "Meld le baja la armadura y Refraction absorbe un número limitado de golpes, justo lo que Sven necesita para matar rápido"
+    },
+    {
+      "vs": 34,
+      "level": "medium",
+      "why": "Defense Matrix da resistencia a estados que acorta el aturdimiento de Storm Hammer, y Laser lo ciega para que sus ataques fallen"
     }
   ],
   "19": [
@@ -1432,6 +1462,26 @@
       "vs": 1,
       "level": "medium",
       "why": "Counterspell puede devolver Frost Blast o Sinister Gaze"
+    },
+    {
+      "vs": 131,
+      "level": "medium",
+      "why": "Escape Act deja a su aliado intargeteable, así que Chain Frost no lo puede elegir como blanco, y le suma resistencia mágica"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Stampede lleva al equipo a máxima velocidad, así que los slows de Lich no los frenan"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "Fortune's End dispela el Frost Shield del aliado de Lich, y False Promise o Fate's Edict salvan a un aliado de Chain Frost"
+    },
+    {
+      "vs": 42,
+      "level": "medium",
+      "why": "Reincarnation lo deja sobrevivir al daño de Lich y seguir peleando"
     }
   ],
   "32": [
@@ -1521,6 +1571,11 @@
       "vs": 72,
       "level": "medium",
       "why": "Flak Cannon y Rocket Barrage dañan en área a los Eidolons y castigan a Enigma si farmea la jungla sin apoyo"
+    },
+    {
+      "vs": 135,
+      "level": "medium",
+      "why": "Solar Guardian aturde al aterrizar, atraviesa la BKB e interrumpe el Black Hole"
     }
   ],
   "34": [
@@ -1573,6 +1628,21 @@
       "vs": 14,
       "level": "medium",
       "why": "Meat Hook atrapa fácil a un Tinker frágil e inmóvil mientras canaliza Rearm o se teletransporta"
+    },
+    {
+      "vs": 45,
+      "level": "medium",
+      "why": "Nether Ward dispara a cada héroe que lanza un hechizo según el mana que gasta, y Tinker gasta mucho mana en cada ráfaga"
+    },
+    {
+      "vs": 75,
+      "level": "medium",
+      "why": "Global Silence y Last Word le impiden lanzar las habilidades con las que Tinker entra, sale y hace daño"
+    },
+    {
+      "vs": 101,
+      "level": "medium",
+      "why": "Ancient Seal lo silencia a distancia y sin las habilidades Tinker queda inútil en la pelea"
     }
   ],
   "35": [
@@ -1717,6 +1787,16 @@
       "vs": 131,
       "level": "medium",
       "why": "Escape Act deja al objetivo intargeteable y Reaper's Scythe no lo puede alcanzar"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Silence le impide lanzar Ghost Shroud y Reaper's Scythe, y Exorcism la cura al terminar según el daño que hizo"
+    },
+    {
+      "vs": 75,
+      "level": "medium",
+      "why": "Global Silence le impide lanzar Ghost Shroud y Reaper's Scythe"
     }
   ],
   "37": [
@@ -1913,6 +1993,11 @@
       "vs": 104,
       "level": "medium",
       "why": "Duel le impide hacer Blink y la obliga a pelear cuerpo a cuerpo"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Silence le impide usar Blink y sus otras habilidades de movilidad"
     }
   ],
   "40": [
@@ -2086,6 +2171,16 @@
       "vs": 120,
       "level": "medium",
       "why": "Con Mage Slayer reduce el daño de Exorcism, que sigue siendo un hechizo: es lo único que frena a Death Prophet"
+    },
+    {
+      "vs": 69,
+      "level": "medium",
+      "why": "Doom le impide lanzar habilidades y curarse mientras le hace daño, así que Exorcism y su curación quedan anulados"
+    },
+    {
+      "vs": 103,
+      "level": "medium",
+      "why": "Echo Stomp la deja inconsciente y Natural Order le quita armadura y resistencia mágica"
     }
   ],
   "44": [
@@ -2118,6 +2213,11 @@
       "vs": 14,
       "level": "medium",
       "why": "Pudge aguanta su ráfaga y la bloquea con Dismember, que atraviesa la BKB; con Blade Mail o Ghost Scepter la castiga aún más"
+    },
+    {
+      "vs": 129,
+      "level": "medium",
+      "why": "God's Rebuke tiene True Strike y no falla contra la evasión de Phantom Assassin"
     }
   ],
   "45": [
@@ -2175,6 +2275,11 @@
       "vs": 145,
       "level": "medium",
       "why": "Talon Toss silencia a Pugna y su combo de daño llega antes de que reaccione, así que lo fuerza a usar Decrepify o a retirarse"
+    },
+    {
+      "vs": 84,
+      "level": "medium",
+      "why": "Fireblast lo aturde e interrumpe el Life Drain"
     }
   ],
   "46": [
@@ -2353,6 +2458,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn desgasta a los offlaners tanques por su vida máxima y aguanta la regeneración extra de Dragon Blood"
+    },
+    {
+      "vs": 34,
+      "level": "medium",
+      "why": "Defense Matrix da resistencia a estados que acorta el aturdimiento de Dragon Tail, su forma de fijar a un héroe"
     }
   ],
   "50": [
@@ -2821,6 +2931,11 @@
       "vs": 108,
       "level": "medium",
       "why": "Pit of Malice inmoviliza a Enchantress y le dificulta kitear, y el daño en área y el sostenimiento de Underlord neutralizan a sus creeps y su hostigamiento"
+    },
+    {
+      "vs": 34,
+      "level": "medium",
+      "why": "Tinker hace daño con hechizos, que no son ataques, así que Untouchable no lo frena"
     }
   ],
   "59": [
@@ -2992,6 +3107,21 @@
       "vs": 29,
       "level": "medium",
       "why": "Anchor Smash y Ravage matan a todas las arañas a la vez y Kraken Shell aguanta su daño: Brood se queda sin su fuente de oro y presión"
+    },
+    {
+      "vs": 5,
+      "level": "medium",
+      "why": "Frostbite la inmoviliza y le impide atacar, y Crystal Nova la frena"
+    },
+    {
+      "vs": 25,
+      "level": "medium",
+      "why": "Dragon Slave y Light Strike Array eliminan arañas en línea y en área desde lejos"
+    },
+    {
+      "vs": 95,
+      "level": "medium",
+      "why": "Whirling Axes daña en área a las arañas y su velocidad de ataque las elimina rápido"
     }
   ],
   "62": [
@@ -3440,6 +3570,11 @@
       "vs": 20,
       "level": "medium",
       "why": "Nether Swap desplaza a Ursa mientras acumula Fury Swipes, el aturdimiento de Magic Missile interrumpe su agresión, y Wave of Terror le baja la armadura"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Silence le impide usar Enrage y Overpower en el momento clave"
     }
   ],
   "71": [
@@ -3630,6 +3765,11 @@
       "vs": 113,
       "level": "medium",
       "why": "Arc Warden juega a muy larga distancia con su clon empujando en solitario, evitando las peleas donde Global Silence funciona, y Spark Wraith y Magnetic Field lo protegen del hostigamiento de Silencer"
+    },
+    {
+      "vs": 29,
+      "level": "medium",
+      "why": "Kraken Shell quita efectos negativos como el silencio al recibir suficiente daño, y Tidehunter aguanta el hostigamiento de Silencer"
     }
   ],
   "76": [
@@ -3934,6 +4074,16 @@
       "vs": 38,
       "level": "medium",
       "why": "Drums of Slom daña a todos los Meepo cercanos y cura a Beastmaster por cada golpe, y Wild Axes pega a todos los clones"
+    },
+    {
+      "vs": 16,
+      "level": "medium",
+      "why": "Epicenter golpea y frena a todos los clones de Meepo a la vez"
+    },
+    {
+      "vs": 31,
+      "level": "medium",
+      "why": "Chain Frost rebota entre todos los Meepo y cada rebote hace más daño"
     }
   ],
   "83": [
@@ -4028,6 +4178,11 @@
       "vs": 37,
       "level": "medium",
       "why": "Fatal Bonds castiga que Ogre Magi se quede pegado a su equipo y Chaotic Offering lo aturde desde lejos, donde no puede responder"
+    },
+    {
+      "vs": 93,
+      "level": "medium",
+      "why": "Dark Pact dispela los debuffs que le pone Ogre Magi, como Ignite"
     }
   ],
   "85": [
@@ -4520,6 +4675,11 @@
       "vs": 137,
       "level": "medium",
       "why": "Trample le gana a Troll Warlord en la línea y Pulverize lo inmoviliza antes de que suba su daño"
+    },
+    {
+      "vs": 138,
+      "level": "medium",
+      "why": "Pierce the Veil la vuelve etérea y los golpes físicos de Troll Warlord no le hacen daño"
     }
   ],
   "96": [
@@ -4723,6 +4883,11 @@
       "vs": 93,
       "level": "medium",
       "why": "Essence Shift le roba stats pegándole por cualquier lado y Dark Pact le quita el Goo; Pounce entra y sale para curarse"
+    },
+    {
+      "vs": 34,
+      "level": "medium",
+      "why": "Laser lo ciega y sus ataques fallan, y Defense Matrix acorta el efecto de Viscous Nasal Goo con la resistencia a estados"
     }
   ],
   "100": [
@@ -4928,6 +5093,11 @@
       "vs": 42,
       "level": "medium",
       "why": "Wraith King es mal objetivo de Duel: aguanta con su lifesteal y aunque pierda, Reincarnation lo trae de vuelta"
+    },
+    {
+      "vs": 131,
+      "level": "medium",
+      "why": "Escape Act deja al aliado duelado intargeteable y desarmado, así que Legion Commander no puede pegarle"
     }
   ],
   "105": [
@@ -5268,6 +5438,16 @@
       "vs": 37,
       "level": "medium",
       "why": "Fatal Bonds destruye ilusiones con daño en área, y los Golems y Upheaval interrumpen el posicionamiento de Terrorblade y le impiden usar Sunder con seguridad"
+    },
+    {
+      "vs": 31,
+      "level": "medium",
+      "why": "Chain Frost rebota entre Terrorblade y sus ilusiones, y cada rebote hace más daño"
+    },
+    {
+      "vs": 34,
+      "level": "medium",
+      "why": "Laser lo ciega y sus ataques fallan, y el daño puro de Tinker ignora su armadura"
     }
   ],
   "110": [
@@ -5379,6 +5559,11 @@
       "vs": 128,
       "level": "medium",
       "why": "Cold Embrace solo bloquea daño físico y casi todo el daño de Snapfire (Scatterblast, Mortimer Kisses, Firesnap Cookie) es mágico, así que no puede salvar a su aliado"
+    },
+    {
+      "vs": 43,
+      "level": "medium",
+      "why": "Silence le impide lanzar Cold Embrace y Winter's Curse"
     }
   ],
   "113": [
@@ -5737,6 +5922,16 @@
       "vs": 39,
       "level": "medium",
       "why": "Blink reposiciona a Queen of Pain alrededor de Arena y Sonic Wave castiga a Mars"
+    },
+    {
+      "vs": 50,
+      "level": "medium",
+      "why": "Shallow Grave mantiene vivo a un aliado aunque Mars lo castigue"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "Fate's Edict desarma a Mars y False Promise retrasa el daño que Mars le pone a un aliado"
     }
   ],
   "131": [
@@ -5764,6 +5959,11 @@
       "vs": 79,
       "level": "medium",
       "why": "Demonic Purge purga el Escape Act en cuanto Ringmaster lo usa, así que lo deja sin su salvado"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "Fortune's End dispela en área los buffs de los enemigos, incluida la caja de Escape Act, y deja a Ringmaster sin su salvado"
     }
   ],
   "135": [
@@ -5791,6 +5991,16 @@
       "vs": 64,
       "level": "medium",
       "why": "Ice Path puede detener el canal de Solar Guardian, y la poca resistencia mágica de Dawnbreaker la deja vulnerable a Dual Breath y Macropyre"
+    },
+    {
+      "vs": 6,
+      "level": "medium",
+      "why": "Gust la silencia y la empuja lejos, y sin habilidades Dawnbreaker casi no puede pelear"
+    },
+    {
+      "vs": 47,
+      "level": "medium",
+      "why": "Nethertoxin le baja la velocidad de ataque y le hace más daño cuanto más tiempo se queda dentro"
     }
   ],
   "136": [
