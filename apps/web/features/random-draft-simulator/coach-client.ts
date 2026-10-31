@@ -287,6 +287,22 @@ export interface RankedCandidateCard {
   isFromPool: boolean;
   /** Is this hero in the pool that shaped the ranking? NO_POOL = no pool voted (never shown as "outside"). */
   poolMembership: PoolMembership;
+  /**
+   * Espejo de `risks` del motor: avisos a pesar antes de fijar este héroe (hoy sólo CRITICAL_GAP). El motor lo manda siempre
+   * (vacío si no hay ninguno); aquí es opcional para tolerar un motor anterior al aviso. INFORMATIVO: no mueve ni puntúa nada.
+   */
+  risks?: CardRisk[];
+}
+
+/** Espejo de `CardRiskKind`/`CardRisk` del motor. */
+export type CardRiskKind = "CRITICAL_GAP";
+
+export interface CardRisk {
+  kind: CardRiskKind;
+  /** Lenguaje llano, sin nombres de héroe. */
+  detail: string;
+  /** Los héroes de los que habla el aviso; vacío para CRITICAL_GAP (el hueco es del equipo). */
+  heroIds: HeroId[];
 }
 
 export type PoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
@@ -348,6 +364,13 @@ export interface CurrentDecisionOutput {
   };
 }
 
+const CARD_RISK_KINDS: readonly string[] = ["CRITICAL_GAP"];
+
+function isCardRisk(value: unknown): value is CardRisk {
+  if (!isRecord(value) || typeof value.kind !== "string" || !CARD_RISK_KINDS.includes(value.kind) || typeof value.detail !== "string") return false;
+  return Array.isArray(value.heroIds) && value.heroIds.every(isHeroId);
+}
+
 function isRankedCard(value: unknown, target: CoachPosition): value is RankedCandidateCard {
   if (!isRecord(value)) return false;
   const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
@@ -355,7 +378,8 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
     && typeof value.score === "number" && Number.isFinite(value.score) && isConfidence(value.confidence) && roleOk
     && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
     && typeof value.rationale === "string" && typeof value.isFromPool === "boolean"
-    && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL");
+    && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL")
+    && (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isCardRisk)));
 }
 
 function isPoolMembership(value: unknown): value is PoolMembership {

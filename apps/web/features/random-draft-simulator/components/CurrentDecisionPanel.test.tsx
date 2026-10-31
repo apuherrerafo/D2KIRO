@@ -2,7 +2,7 @@ import "@/test-support/happy-dom";
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
-import { parseCurrentDecisionOutput, type CandidateResult, type CurrentDecisionOutput, type TargetBasis } from "../coach-client";
+import { parseCurrentDecisionOutput, type CandidateResult, type CardRisk, type CurrentDecisionOutput, type TargetBasis } from "../coach-client";
 import type { RecommendationSetV2 } from "../protocol-client";
 import { CopilotPanel } from "./CopilotPanel";
 import { CurrentDecisionPanel } from "./CurrentDecisionPanel";
@@ -204,4 +204,43 @@ test("borde: una oportunidad V4 malformada rechaza la salida entera; una válida
   expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: SAFE_CORE })?.opportunity?.heroId).toBe(99);
   expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: { ...SAFE_CORE, subtype: "OTHER" } })).toBeNull();
   expect(parseCurrentDecisionOutput({ ...output(RANKED), opportunity: { ...SAFE_CORE, counterEvidence: { ...SAFE_CORE.counterEvidence, sourceType: "STATISTICAL" } } })).toBeNull();
+});
+
+// ---- Aviso "hueco crítico del equipo" (rescatado de TSK-254, cadena F1) -----------------------------------------------------------------
+
+const GAP_DETAIL = "A tu equipo le falta iniciación y te quedan 2 picks; este héroe no lo cubre (según las capacidades curadas).";
+
+function withRisks(risksByCard: (CardRisk[] | undefined)[]): CurrentDecisionOutput {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const cards = base.decision.candidates.cards.map((card, index) => ({ ...card, risks: risksByCard[index] }));
+  return { ...base, decision: { ...base.decision, candidates: { ...base.decision.candidates, cards } } };
+}
+
+test("hueco crítico: la tarjeta que lo lleva muestra el aviso con el texto del motor; la otra no muestra nada", () => {
+  const view = render(<CurrentDecisionPanel output={withRisks([[{ kind: "CRITICAL_GAP", detail: GAP_DETAIL, heroIds: [] }], []])} heroCatalog={new Map()} />);
+  const risks = view.getAllByTestId("current-decision-risks");
+  expect(risks).toHaveLength(1);
+  expect(risks[0]!.textContent).toContain("Hueco crítico del equipo");
+  expect(risks[0]!.textContent).toContain(GAP_DETAIL);
+  expect(view.getAllByTestId("current-decision-card")[0]!.contains(risks[0]!)).toBe(true);
+});
+
+test("sin avisos (vacío, o un motor anterior que no manda el campo) la tarjeta se ve exactamente igual que antes", () => {
+  const sin = render(<CurrentDecisionPanel output={output(RANKED)} heroCatalog={new Map()} />);
+  const antes = sin.container.innerHTML;
+  cleanup();
+  const vacio = render(<CurrentDecisionPanel output={withRisks([[], []])} heroCatalog={new Map()} />);
+  expect(vacio.container.innerHTML).toBe(antes);
+  expect(vacio.queryByTestId("current-decision-risks")).toBeNull();
+});
+
+test("el validador acepta tarjetas con y sin `risks`, y rechaza un aviso mal formado", () => {
+  const good = JSON.parse(JSON.stringify(withRisks([[{ kind: "CRITICAL_GAP", detail: GAP_DETAIL, heroIds: [] }], []])));
+  expect(parseCurrentDecisionOutput(good)).not.toBeNull();
+  expect(parseCurrentDecisionOutput(JSON.parse(JSON.stringify(output(RANKED))))).not.toBeNull();
+  for (const bad of [{ kind: "OTRO", detail: "x", heroIds: [] }, { kind: "CRITICAL_GAP", detail: 5, heroIds: [] }, { kind: "CRITICAL_GAP", detail: "x", heroIds: ["a"] }]) {
+    const broken = JSON.parse(JSON.stringify(withRisks([[bad as never], []])));
+    expect(parseCurrentDecisionOutput(broken)).toBeNull();
+  }
 });

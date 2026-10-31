@@ -1,4 +1,5 @@
 import { deriveDecisionContextFromView } from "../drafter/decision-context";
+import type { HeroCapabilities } from "../draft-paths/types";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { configuredPoolForPosition, poolForPosition, unavailableHeroesFrom, type PerspectiveRecommendationContext } from "../recommendation/perspective-context";
@@ -72,6 +73,8 @@ export interface CoachOrchestratorDeps {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** Curated pairs for the context reorder (production: the real file; tests: their own map or none). */
   heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
+  /** Capacidades curadas para el aviso CRITICAL_GAP de una tarjeta V4 (la lista que lee el `team_synergy` del ranking). */
+  heroCapabilities?: readonly HeroCapabilities[];
 }
 
 export interface CoachRecomputeInput {
@@ -288,7 +291,7 @@ export class CoachOrchestrator {
       // ...and it is reported as applied only when its signal actually voted (an account without a configured pool does not).
       const personalPoolApplied = ownPoolInEffect && rankingAppliedPersonalPool(targetRanking);
       sourceSet = targetRanking;
-      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, heroSynergies: this.deps.heroSynergies, personalPoolApplied, activePool });
+      const candidates = deriveCandidateResult({ targetPosition: viewed, targetRanking, view, heroPositions, heroCounters: this.deps.heroCounters, heroSynergies: this.deps.heroSynergies, heroCapabilities: this.deps.heroCapabilities, personalPoolApplied, activePool });
       decision = buildCurrentHumanDecision({ actionability, target, candidates, personalPoolApplied, ...derivePoolInfo({ activePool, personalPoolApplied, unavailable: unavailableHeroesFrom(view) }) });
       opportunity = await this.deriveSafeCoreOpportunity(input.context);
     }

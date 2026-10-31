@@ -2,6 +2,8 @@ import { buildTeamCoachBoard, buildTeamPositionPriority, CoachOrchestrator, cred
 import { buildRecommendationSetFromPerspective } from "../../recommendation/build-from-perspective";
 import { AP_RECOMMENDATION_OUTPUT_LIMIT } from "../../recommendation/construct";
 import { poolForPosition, type ComputeSuggestionsForRecommendation, type PerspectiveRecommendationContext } from "../../recommendation/perspective-context";
+import { loadHeroCapabilities } from "../../draft-paths/capabilities";
+import type { HeroCapabilities } from "../../draft-paths/types";
 import { loadHeroCounters, type CuratedCounter } from "../../signals/hero-counters";
 import { loadHeroSynergies, type CuratedSynergy } from "../../signals/hero-synergies";
 import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positions";
@@ -30,6 +32,8 @@ export interface CoachRecommendationsDeps {
   heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]>;
   /** Curated pairs for the context reorder. Absent = the real file, loaded once (same pattern as heroCounters). */
   heroSynergies?: ReadonlyMap<number, readonly CuratedSynergy[]>;
+  /** Curated capabilities (injectable, S9). Absent = the validated `capabilities.json` -- the file `team_synergy` reads. Feeds the CRITICAL_GAP card notice only. */
+  heroCapabilities?: readonly HeroCapabilities[];
 }
 
 export interface CoachRecommendations {
@@ -54,6 +58,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   const heroPositions = deps.heroPositions ?? MODULE_HERO_POSITIONS;
   const heroCounters = deps.heroCounters ?? MODULE_HERO_COUNTERS;
   const heroSynergies = deps.heroSynergies ?? MODULE_HERO_SYNERGIES;
+  const heroCapabilities = deps.heroCapabilities ?? loadHeroCapabilities();
   // Assignments are per observer/account. A pool overlay must not accidentally share state with
   // another account that happens to inspect the same simulator session.
   const coaches: { accountId: string; coach: CoachOrchestrator }[] = [];
@@ -80,6 +85,7 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
         heroPositions,
         heroCounters,
         heroSynergies,
+        heroCapabilities,
         buildRecommendationSet: (context) => buildRecommendationSetFromPerspective({ context, computeSuggestions: computeForTeam, heroPositions, outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT }),
         buildActionRecommendationSet: (context, candidateHeroIds, targetPosition) => buildRecommendationSetFromPerspective({
           context,

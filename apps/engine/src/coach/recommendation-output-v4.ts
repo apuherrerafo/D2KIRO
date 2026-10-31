@@ -59,6 +59,21 @@ export interface RankedCandidateCard {
    * position)? `NO_POOL` when no pool voted at all -- never reported as "outside" a pool nobody configured.
    */
   poolMembership: PoolMembership;
+  /**
+   * Avisos a pesar antes de fijar este héroe. Vacío cuando no hay ninguno demostrable -- nunca ausente. Hoy sólo CRITICAL_GAP
+   * (card-critical-gap.ts). INFORMATIVO: se calcula sobre la tarjeta ya ordenada y no mueve ni puntúa a nadie.
+   */
+  risks: CardRisk[];
+}
+
+export type CardRiskKind = "CRITICAL_GAP";
+
+export interface CardRisk {
+  kind: CardRiskKind;
+  /** Explicación en lenguaje llano, sin nombres de héroe (el cliente nombra los `heroIds` con su propio catálogo). */
+  detail: string;
+  /** Los héroes de los que habla el aviso; vacío cuando no nombra ninguno (CRITICAL_GAP es del equipo, no de rivales). */
+  heroIds: HeroId[];
 }
 
 export type PoolMembership = "IN_POOL" | "OUTSIDE_POOL" | "NO_POOL";
