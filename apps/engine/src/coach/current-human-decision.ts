@@ -1,3 +1,4 @@
+import type { HeroCapabilities } from "../draft-paths/types";
 import type { HeroId, PerspectiveDraftView } from "../draft-protocol/types";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import type { HumanActionability } from "../recommendation/human-actionability";
@@ -7,6 +8,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { reorderByContext } from "./context-reorder";
+import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
@@ -134,6 +136,8 @@ export interface DeriveCandidateResultInput {
   heroCounters?: ReadonlyMap<HeroId, readonly CuratedCounter[]>;
   /** Curated pairs. Absent = none (production injects the real file; tests never read it). */
   heroSynergies?: ReadonlyMap<HeroId, readonly CuratedSynergy[]>;
+  /** Capacidades curadas (la lista que lee `team_synergy`). Omitida -> no se puede derivar ningún CRITICAL_GAP. */
+  heroCapabilities?: readonly HeroCapabilities[];
   personalPoolApplied: boolean;
   shortlistSize?: number;
   /** Cuántos héroes de TU pool se listan aparte (solo si algún pool votó). */
@@ -208,6 +212,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
     if (candidates.length > 0) {
       const revealedEnemies = revealedEnemyHeroes(view);
+      // Aviso informativo: se calcula DESPUÉS del orden, no lo cambia (ver card-critical-gap.ts).
+      const composition = deriveCompositionContext(view, input.heroCapabilities);
       const ordered = candidates;
       const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
@@ -223,6 +229,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),
+          // Sólo la primera tarjeta de cada lista lleva el aviso: es la decisión que el jugador está por tomar; en las demás sería ruido repetido.
+          risks: index === 0 ? deriveCardRisks(candidate, composition) : [],
         };
       };
       const cards = ordered.slice(0, size).map(toCard);

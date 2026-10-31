@@ -7,6 +7,7 @@ import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
+import { CardRiskNotice } from "./CardRiskNotice";
 import { BADGE_LABELS, CoachRoleBeliefs, RoleCollisionBanner, SafeCoreOpportunity } from "./CoachPanel";
 
 // Product Semantics Recovery WP3 -- the ONE visual owner of the Simulator's current human decision.
@@ -146,6 +147,7 @@ function RankedCardView({ card, poolOwner, heroCatalog, sessionId, stateIdentity
         <PoolBadge membership={card.poolMembership} owner={poolOwner} />
       </div>
       <span className="text-caption text-content-secondary">{card.rationale}</span>
+      <CardRiskNotice risks={card.risks} />
       <RecommendationFeedback sessionId={sessionId} heroId={card.heroId} targetPosition={card.position} stateIdentity={stateIdentity} rulesetVersion={rulesetVersion} />
     </li>
   );

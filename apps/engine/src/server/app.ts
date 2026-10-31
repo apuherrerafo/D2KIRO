@@ -149,6 +149,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       : undefined,
     allowClientForcedBotSelection: deps.allowClientForcedBotSelection === true,
     allowTestClockControl: deps.allowTestClockControl === true,
+    heroCapabilities: deps.heroCapabilities,
     heroUniverse: async () => {
       const heroRows = await getAllHeroMeta(deps.db);
       const meta = await getCachedMetaSnapshot<TSchema>(deps.db, null);
