@@ -10,8 +10,10 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 //   - Rivales ya revelados: suben los que les ganan. Un counter ya revelado BAJA al héroe (fuerte mucho, medium poco), pero
 //     NO lo manda al fondo: depende de
 //       · si se cruzan en línea (tabla del usuario: carry con offlane y pos4, mid con mid, offlane con carry y pos5…);
-//       · si una sinergia con tus aliados lo rescata (con Oracle en tu equipo, Anti-Mage vuelve cerca de su lugar aunque
-//         esté Axe).
+//       · si un aliado YA elegido le gana a ese counter (la base dice que Abaddon counterea a Legion: con Abaddon en tu
+//         equipo, Legion revelada pesa menos). Una SINERGIA no rescata: verificado con las notas de Valve y la wiki
+//         (2026-10-30) en 4 de 4 casos — Culling Blade mata a través de Shallow Grave, Aphotic Shield no quita el Call,
+//         Ice Blast corta la curación de Solar Guardian, Disruption saca al aliado del Duel aunque tenga escudo.
 //   - Counter que todavía NO sale pero cuya posición ya está ocupada en el rival (ya tienen offlane): pesa menos, y se avisa.
 //   - Sinergia con aliados YA elegidos: suma una sola vez.
 //   - La lista del pool y la general usan ESTE mismo orden: si un héroe está arriba en general, está arriba en tu pool.
@@ -73,10 +75,10 @@ const MAX_CONTEXT_BONUS = 6;
 /** Baja por cada counter YA revelado: [se cruzan en línea, no se cruzan]. Fuerte baja mucho, medium poco. */
 const REVEALED_COUNTER_PENALTY: Record<CounterLevel, readonly [number, number]> = { hard: [12, 6], medium: [4, 2] };
 /**
- * Con una sinergia de tu equipo la baja se divide por esto. Provisorio y prudente (el usuario, 2026-10-30): qué parejas
- * rescatan de verdad hay que investigarlo con analistas; mientras, cualquier pareja la reduce a la mitad, no más.
+ * Si un aliado que ya elegiste counterea a ese counter revelado, SU baja se divide por esto (solo la de ese counter).
+ * Magnitud de criterio, pendiente de calibrar; qué otros rescates existen (ítems) se investiga con fuentes.
  */
-const SYNERGY_RESCUE_DIVISOR = 2;
+const ALLY_ANSWER_DIVISOR = 2;
 /** Tope de la baja: dos counters fuertes revelados se suman (bajan mucho); uno fuerte y uno medium, un poco más que uno. */
 const MAX_COUNTER_PENALTY = 24;
 const MAX_LISTED = 3;
@@ -197,9 +199,12 @@ export function synergiesWithOwn(heroId: HeroId, input: Pick<ContextReorderInput
   return (all.get(heroId) ?? []).filter((synergy) => input.ownPicks.has(synergy.with));
 }
 
-/** ¿Alguna sinergia con tus aliados rescata a este héroe de sus counters revelados? */
-function rescuedBySynergy(heroId: HeroId, input: ContextReorderInput): boolean {
-  return synergiesWithOwn(heroId, input).length > 0;
+/** Aliados ya elegidos que le ganan a este rival (están en su lista de counters curados). Pura. */
+export function alliesAnswering(enemy: HeroId, input: Pick<ContextReorderInput, "ownPicks" | "heroCounters">): CounterNote[] {
+  return (input.heroCounters?.get(enemy) ?? [])
+    .filter((entry) => input.ownPicks.has(entry.vs))
+    .map((entry): CounterNote => ({ heroId: entry.vs, level: entry.level }))
+    .sort(byLevelThenId);
 }
 
 /** Cuánto baja el héroe por los counters que el rival YA tiene (0 sin ninguno). Pura. */
@@ -208,9 +213,9 @@ export function revealedCounterPenalty(heroId: HeroId, input: ContextReorderInpu
   for (const entry of input.heroCounters?.get(heroId) ?? []) {
     if (!input.revealedEnemies.has(entry.vs)) continue;
     const [crossing, elsewhere] = REVEALED_COUNTER_PENALTY[entry.level];
-    penalty += crossesInLane(entry.vs, input) ? crossing : elsewhere;
+    const base = crossesInLane(entry.vs, input) ? crossing : elsewhere;
+    penalty += alliesAnswering(entry.vs, input).length > 0 ? base / ALLY_ANSWER_DIVISOR : base;
   }
-  if (penalty > 0 && rescuedBySynergy(heroId, input)) penalty /= SYNERGY_RESCUE_DIVISOR;
   return Math.min(MAX_COUNTER_PENALTY, penalty);
 }
 
@@ -222,8 +227,8 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
   if (!blockingHardFree) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
   for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
   const penalty = revealedCounterPenalty(heroId, input);
-  // La sinergia suma UNA vez: o rescata de un counter revelado, o da el bono; nunca las dos (un counter fuerte en tu
-  // línea no puede quedar en cero solo porque tienes una pareja).
+  // La sinergia suma UNA vez y solo si no hay un counter revelado: no tapa a un counter (un Axe en tu línea no se
+  // compensa con una pareja).
   if (synergiesWithOwn(heroId, input).length > 0 && penalty === 0) bonus += SYNERGY_BONUS;
   return Math.min(MAX_CONTEXT_BONUS, bonus) - penalty;
 }

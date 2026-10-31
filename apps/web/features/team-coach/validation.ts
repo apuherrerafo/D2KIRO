@@ -47,7 +47,7 @@ function isString(value: unknown): value is string {
 }
 
 function isRisk(value: unknown): value is TeamCoachRisk {
-  return isRecord(value) && isHeroId(value.vsHeroId) && isString(value.why);
+  return isRecord(value) && isHeroId(value.vsHeroId) && isString(value.why) && (value.answeredBy === undefined || (Array.isArray(value.answeredBy) && value.answeredBy.every(isHeroId)));
 }
 
 function isStrength(value: unknown): value is TeamCoachStrength {

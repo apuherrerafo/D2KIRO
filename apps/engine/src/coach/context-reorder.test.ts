@@ -2,10 +2,11 @@ import { describe, expect, test } from "bun:test";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedSynergy } from "../signals/hero-synergies";
-import { banFraction, banOpeningOf, beatsRevealed, contextBonus, crossesInLane, reorderByContext, revealedCounterPenalty, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
+import { alliesAnswering, banFraction, banOpeningOf, beatsRevealed, contextBonus, crossesInLane, reorderByContext, revealedCounterPenalty, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
 
 // Fixtures inline (familia S9): ninguna prueba lee hero-counters.json, hero-synergies.json ni hero-positions.json reales.
-// Los ejemplos son los del usuario: Anti-Mage carry contra Axe; Oracle lo rescata; Legion ya ocupa la offlane.
+// Los ejemplos son los del usuario: Anti-Mage carry contra Axe; Dazzle (sinergia) NO lo rescata, verificado con Valve y la
+// wiki; un aliado que le gana a Axe sí; Legion ya ocupa la offlane.
 const ANTI_MAGE = 1;
 const AXE = 2;
 const LION = 3;
@@ -15,6 +16,8 @@ const LEGION = 6;
 const ORACLE = 7;
 const STORM = 8;
 const EMBER = 9;
+const DAZZLE = 10;
+const AXE_ANSWER = 11; // un héroe que en la base counterea a Axe
 
 const POSITIONS: HeroPositions = {
   [AXE]: [{ position: 3, matches: 900 }, { position: 4, matches: 100 }],
@@ -36,8 +39,10 @@ const LONG_LIST: CuratedCounter[] = Array.from({ length: 22 }, (_, index) => ({ 
 const COUNTERS: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
   [ANTI_MAGE, AM_COUNTERS],
   [EMBER, LONG_LIST],
+  [AXE, [{ vs: AXE_ANSWER, level: "medium", why: "le gana a Axe" }]],
 ]);
 const ORACLE_PAIR: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[ANTI_MAGE, [{ with: ORACLE, why: "False Promise lo salva" }]]]);
+const DAZZLE_PAIR: ReadonlyMap<number, readonly CuratedSynergy[]> = new Map([[ANTI_MAGE, [{ with: DAZZLE, why: "Shallow Grave le da tiempo" }]]]);
 
 function ctx(overrides: Partial<ContextReorderInput> = {}): ContextReorderInput {
   return { banned: new Set(), ownPicks: new Set(), revealedEnemies: new Set(), heroCounters: COUNTERS, heroSynergies: new Map(), heroPositions: POSITIONS, targetPosition: 1, ...overrides };
@@ -96,10 +101,18 @@ describe("el rival YA sacó un counter: baja, pero no al fondo de oficio", () =>
     expect(revealedCounterPenalty(ANTI_MAGE, ctx({ revealedEnemies: new Set([PUDGE]) }))).toBe(4); // Pudge pos4 cruza al carry
   });
 
-  test("con Oracle en tu equipo (sinergia), Anti-Mage vuelve cerca de su lugar aunque esté Axe", () => {
-    const withOracle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([ORACLE]), heroSynergies: ORACLE_PAIR });
-    expect(revealedCounterPenalty(ANTI_MAGE, withOracle)).toBe(6);
-    expect(contextBonus(ANTI_MAGE, withOracle)).toBe(-6); // la sinergia rescata a la mitad (provisorio) y NO suma además su +3
+  test("CANDADO: una sinergia NO rescata de un counter revelado (Culling Blade mata a través de Shallow Grave)", () => {
+    const withDazzle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([DAZZLE]), heroSynergies: DAZZLE_PAIR });
+    expect(revealedCounterPenalty(ANTI_MAGE, withDazzle)).toBe(12);
+    expect(contextBonus(ANTI_MAGE, withDazzle)).toBe(-12); // y tampoco suma su +3: no tapa al counter
+  });
+
+  test("un aliado YA elegido que le gana a ese counter sí lo suaviza: solo la baja de ese counter, a la mitad", () => {
+    const withAnswer = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([AXE_ANSWER]) });
+    expect(alliesAnswering(AXE, withAnswer)).toEqual([{ heroId: AXE_ANSWER, level: "medium" }]);
+    expect(revealedCounterPenalty(ANTI_MAGE, withAnswer)).toBe(6);
+    // Con Axe y Pudge revelados, el aliado responde a Axe pero no a Pudge: 12/2 + 4 = 10.
+    expect(revealedCounterPenalty(ANTI_MAGE, ctx({ revealedEnemies: new Set([AXE, PUDGE]), ownPicks: new Set([AXE_ANSWER]) }))).toBe(10);
   });
 
   test("héroe flex: un Viper que figura mid pero va offlane 1 de cada 4 partidas o más SÍ se cruza con el carry", () => {
@@ -150,9 +163,14 @@ describe("reorderByContext", () => {
     expect(reorderByContext(V6, ctx({ revealedEnemies: new Set([AXE]) })).map((c) => c.heroId)).toEqual([50, 51, ANTI_MAGE, 52]); // 80 − 12 = 68
   });
 
-  test("Axe en su línea pero con Oracle en tu equipo: Anti-Mage vuelve cerca de su lugar (2.º en vez de 3.º)", () => {
-    const withOracle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([ORACLE]), heroSynergies: ORACLE_PAIR });
-    expect(reorderByContext(V6, withOracle).map((c) => c.heroId)).toEqual([50, ANTI_MAGE, 51, 52]); // 80 − 6 = 74
+  test("Axe en su línea con Dazzle (sinergia) en tu equipo: Anti-Mage baja igual que sin él", () => {
+    const withDazzle = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([DAZZLE]), heroSynergies: DAZZLE_PAIR });
+    expect(reorderByContext(V6, withDazzle).map((c) => c.heroId)).toEqual([50, 51, ANTI_MAGE, 52]); // 80 − 12 = 68
+  });
+
+  test("Axe en su línea con un aliado que le gana a Axe: Anti-Mage vuelve cerca de su lugar (2.º en vez de 3.º)", () => {
+    const withAnswer = ctx({ revealedEnemies: new Set([AXE]), ownPicks: new Set([AXE_ANSWER]) });
+    expect(reorderByContext(V6, withAnswer).map((c) => c.heroId)).toEqual([50, ANTI_MAGE, 51, 52]); // 80 − 6 = 74
   });
 
   test("el bono positivo tiene tope: los bans no pasan a un héroe que V6 tenía muy arriba", () => {

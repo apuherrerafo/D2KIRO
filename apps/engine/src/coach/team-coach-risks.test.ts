@@ -31,6 +31,16 @@ describe("risksOf -- qué rivales ya revelados counterean a un candidato", () =>
     expect(risksOf(HERO, [LINA, PUDGE, AXE], map).map((risk) => risk.vsHeroId)).toEqual([AXE, LINA]);
   });
 
+  test("un aliado YA elegido que counterea a ese rival se anota (por eso baja menos); una sinergia no cuenta", () => {
+    const ABADDON = 5;
+    const map = new Map<number, readonly CuratedCounter[]>([
+      [HERO, [{ vs: AXE, level: "hard", why: "fuerte" }]],
+      [AXE, [{ vs: ABADDON, level: "medium", why: "le gana a Axe" }]],
+    ]);
+    expect(risksOf(HERO, [AXE], map, new Set([ABADDON]))).toEqual([{ vsHeroId: AXE, why: "fuerte", answeredBy: [ABADDON] }]);
+    expect(risksOf(HERO, [AXE], map, new Set([LINA]))).toEqual([{ vsHeroId: AXE, why: "fuerte" }]);
+  });
+
   test("sin counters curados o sin rivales revelados -> lista vacía, nunca lanza", () => {
     expect(risksOf(HERO, [AXE], undefined)).toEqual([]);
     expect(risksOf(HERO, [], counters([{ vs: AXE, level: "hard", why: "razon" }]))).toEqual([]);

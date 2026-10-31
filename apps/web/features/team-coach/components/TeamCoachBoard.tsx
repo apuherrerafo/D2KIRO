@@ -24,7 +24,7 @@ import {
   PLAN_BADGE,
   PRIMARY_BUTTON,
 } from "../styles";
-import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachStrength, TeamPosition } from "../types";
+import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachRisk, TeamCoachStrength, TeamPosition } from "../types";
 
 // <Dominio><Cosa>: el Team Coach Board -- UN componente compartido por /simulator y /live-draft.
 //
@@ -181,10 +181,19 @@ function CandidateRisks({ candidate, heroCatalog }: { candidate: TeamCoachCandid
       {risks.map((risk) => (
         <span key={risk.vsHeroId} className={CANDIDATE_RISK} data-testid="team-coach-candidate-risk">
           Riesgo ({heroName(risk.vsHeroId, heroCatalog)} te counterea): {risk.why}
+          <RiskAnsweredBy risk={risk} heroCatalog={heroCatalog} />
         </span>
       ))}
     </>
   );
+}
+
+// "(tu Abaddon le gana a Legion Commander: pesa menos)": un aliado que counterea a ese rival, no una sinergia.
+function RiskAnsweredBy({ risk, heroCatalog }: { risk: TeamCoachRisk; heroCatalog: Map<number, HeroMeta> }) {
+  const allies = risk.answeredBy ?? [];
+  if (allies.length === 0) return null;
+  const names = joinNames(allies.map((heroId) => heroName(heroId, heroCatalog)));
+  return <> (tu {names} {pluralize(allies.length, "le gana", "le ganan")} a {heroName(risk.vsHeroId, heroCatalog)}: pesa menos)</>;
 }
 
 const STRENGTH_LABELS: Record<TeamCoachStrength["level"], string> = { hard: "Fuerte contra", medium: "Ventaja posible contra" };
