@@ -216,7 +216,7 @@
     {
       "vs": 75,
       "level": "medium",
-      "why": "Global Silence corta Freezing Field desde cualquier lugar y obliga a Crystal Maiden a esperar BKB o un dispel"
+      "why": "Global Silence corta Freezing Field desde cualquier lugar y atraviesa el BKB; solo un dispel libera a Crystal Maiden"
     },
     {
       "vs": 14,
@@ -850,7 +850,7 @@
     {
       "vs": 75,
       "level": "medium",
-      "why": "Global Silence bloquea Ball Lightning desde cualquier punto y fuerza a Storm a gastar BKB o dispel antes de comprometerse"
+      "why": "Global Silence bloquea Ball Lightning desde cualquier punto y atraviesa el BKB; Storm necesita un dispel para volver a lanzar hechizos"
     },
     {
       "vs": 69,
