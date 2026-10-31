@@ -1,0 +1,252 @@
+{
+  "9057084643": {
+    "rawBodySha256": "3d1b1050f6386d16853c1c6969abd4328254047d22775ae5ff70ed7cecc541ba",
+    "rawBodyBytes": 269340,
+    "fetchedAt": "2026-10-22T22:34:50.464Z",
+    "detailMatchId": 9057084643,
+    "detailLeagueId": 19944,
+    "detailLeagueObjectId": 19944,
+    "detailLeagueTier": "professional",
+    "gameMode": 2,
+    "radiantWinRaw": false,
+    "patchRaw": 60,
+    "startTime": 1792696356,
+    "turnCount": 24,
+    "ordersContiguous": true,
+    "pickCount": 10,
+    "banCount": 14,
+    "sequence": "Db Db Rb Rb Db Rb Rb Dp Rp Db Db Rb Rp Dp Dp Rp Rp Dp Db Rb Db Rb Dp Rp",
+    "heroIdsDistinct": true,
+    "radiantPickHeroes": [
+      70,
+      106,
+      119,
+      123,
+      137
+    ],
+    "direPickHeroes": [
+      18,
+      21,
+      93,
+      112,
+      135
+    ],
+    "radiantPlayerHeroes": [
+      70,
+      106,
+      119,
+      123,
+      137
+    ],
+    "direPlayerHeroes": [
+      18,
+      21,
+      93,
+      112,
+      135
+    ],
+    "radiantPositionEstIsPermutation": true,
+    "direPositionEstIsPermutation": true,
+    "playerCount": 10
+  },
+  "9056988862": {
+    "rawBodySha256": "43fa83763e9fb08da375c3b0c841afa1a22b4a4dc278feba06959c65fadef4db",
+    "rawBodyBytes": 255033,
+    "fetchedAt": "2026-10-22T22:34:52.534Z",
+    "detailMatchId": 9056988862,
+    "detailLeagueId": 19944,
+    "detailLeagueObjectId": 19944,
+    "detailLeagueTier": "professional",
+    "gameMode": 2,
+    "radiantWinRaw": true,
+    "patchRaw": 60,
+    "startTime": 1792692706,
+    "turnCount": 24,
+    "ordersContiguous": true,
+    "pickCount": 10,
+    "banCount": 14,
+    "sequence": "Db Db Rb Rb Db Rb Rb Dp Rp Db Db Rb Rp Dp Dp Rp Rp Dp Db Rb Db Rb Dp Rp",
+    "heroIdsDistinct": true,
+    "radiantPickHeroes": [
+      49,
+      55,
+      56,
+      112,
+      119
+    ],
+    "direPickHeroes": [
+      11,
+      28,
+      30,
+      38,
+      51
+    ],
+    "radiantPlayerHeroes": [
+      49,
+      55,
+      56,
+      112,
+      119
+    ],
+    "direPlayerHeroes": [
+      11,
+      28,
+      30,
+      38,
+      51
+    ],
+    "radiantPositionEstIsPermutation": true,
+    "direPositionEstIsPermutation": true,
+    "playerCount": 10
+  },
+  "9056844521": {
+    "rawBodySha256": "30382988e6e8277eb4ae0f6e0b8701b7c9b24e45e2cffe6e0f2491538792bca4",
+    "rawBodyBytes": 248359,
+    "fetchedAt": "2026-10-22T22:34:54.605Z",
+    "detailMatchId": 9056844521,
+    "detailLeagueId": 19944,
+    "detailLeagueObjectId": 19944,
+    "detailLeagueTier": "professional",
+    "gameMode": 2,
+    "radiantWinRaw": false,
+    "patchRaw": 60,
+    "startTime": 1792686683,
+    "turnCount": 24,
+    "ordersContiguous": true,
+    "pickCount": 10,
+    "banCount": 14,
+    "sequence": "Rb Rb Db Db Rb Db Db Rp Dp Rb Rb Db Dp Rp Rp Dp Dp Rp Rb Db Rb Db Rp Dp",
+    "heroIdsDistinct": true,
+    "radiantPickHeroes": [
+      49,
+      50,
+      69,
+      109,
+      119
+    ],
+    "direPickHeroes": [
+      1,
+      14,
+      93,
+      112,
+      123
+    ],
+    "radiantPlayerHeroes": [
+      49,
+      50,
+      69,
+      109,
+      119
+    ],
+    "direPlayerHeroes": [
+      1,
+      14,
+      93,
+      112,
+      123
+    ],
+    "radiantPositionEstIsPermutation": true,
+    "direPositionEstIsPermutation": true,
+    "playerCount": 10
+  },
+  "9056685103": {
+    "rawBodySha256": "b48b2834a6217732f8aadfb740ac1652ab055a78bb7b3592eb64812df0047ca2",
+    "rawBodyBytes": 330259,
+    "fetchedAt": "2026-10-22T22:34:56.831Z",
+    "detailMatchId": 9056685103,
+    "detailLeagueId": 19944,
+    "detailLeagueObjectId": 19944,
+    "detailLeagueTier": "professional",
+    "gameMode": 2,
+    "radiantWinRaw": true,
+    "patchRaw": 60,
+    "startTime": 1792681136,
+    "turnCount": 24,
+    "ordersContiguous": true,
+    "pickCount": 10,
+    "banCount": 14,
+    "sequence": "Db Db Rb Rb Db Rb Rb Dp Rp Db Db Rb Rp Dp Dp Rp Rp Dp Db Rb Db Rb Dp Rp",
+    "heroIdsDistinct": true,
+    "radiantPickHeroes": [
+      21,
+      70,
+      107,
+      112,
+      155
+    ],
+    "direPickHeroes": [
+      16,
+      30,
+      77,
+      91,
+      119
+    ],
+    "radiantPlayerHeroes": [
+      21,
+      70,
+      107,
+      112,
+      155
+    ],
+    "direPlayerHeroes": [
+      16,
+      30,
+      77,
+      91,
+      119
+    ],
+    "radiantPositionEstIsPermutation": true,
+    "direPositionEstIsPermutation": true,
+    "playerCount": 10
+  },
+  "9056536159": {
+    "rawBodySha256": "d78609aecd29b6f152022e64ba4239bc329cd5f51f0ed38d274d6c45e1aa9aa7",
+    "rawBodyBytes": 255784,
+    "fetchedAt": "2026-10-22T22:34:58.836Z",
+    "detailMatchId": 9056536159,
+    "detailLeagueId": 19944,
+    "detailLeagueObjectId": 19944,
+    "detailLeagueTier": "professional",
+    "gameMode": 2,
+    "radiantWinRaw": false,
+    "patchRaw": 60,
+    "startTime": 1792675118,
+    "turnCount": 24,
+    "ordersContiguous": true,
+    "pickCount": 10,
+    "banCount": 14,
+    "sequence": "Db Db Rb Rb Db Rb Rb Dp Rp Db Db Rb Rp Dp Dp Rp Rp Dp Db Rb Db Rb Dp Rp",
+    "heroIdsDistinct": true,
+    "radiantPickHeroes": [
+      36,
+      86,
+      98,
+      112,
+      120
+    ],
+    "direPickHeroes": [
+      16,
+      49,
+      68,
+      119,
+      145
+    ],
+    "radiantPlayerHeroes": [
+      36,
+      86,
+      98,
+      112,
+      120
+    ],
+    "direPlayerHeroes": [
+      16,
+      49,
+      68,
+      119,
+      145
+    ],
+    "radiantPositionEstIsPermutation": true,
+    "direPositionEstIsPermutation": true,
+    "playerCount": 10
+  }
+}
