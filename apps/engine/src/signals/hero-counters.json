@@ -203,11 +203,6 @@
       "vs": 131,
       "level": "medium",
       "why": "Escape Act mete a su aliado en una caja intargeteable y lo saca del agarre de Fiend's Grip"
-    },
-    {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell quita efectos negativos como Nightmare o Fiend's Grip al recibir suficiente daño"
     }
   ],
   "4": [
@@ -240,11 +235,6 @@
       "vs": 111,
       "level": "medium",
       "why": "Fortune's End dispela el silencio de Blood Rite, y Purifying Flames compensa el daño que Bloodseeker pone"
-    },
-    {
-      "vs": 8,
-      "level": "medium",
-      "why": "Healing Ward cura en área, así que Thirst tiene menos efecto"
     }
   ],
   "5": [
@@ -282,11 +272,6 @@
       "vs": 105,
       "level": "medium",
       "why": "Sticky Bomb la frena y Blast Off! la aturde"
-    },
-    {
-      "vs": 51,
-      "level": "medium",
-      "why": "Hookshot la aturde y Power Cogs la atrapan"
     },
     {
       "vs": 45,
@@ -723,39 +708,9 @@
       "why": "Fatal Bonds y Chaotic Offering castigan mucho a las ilusiones: cualquier daño en área o nuke derrite los clones de Phantom Lancer a través de Fatal Bonds"
     },
     {
-      "vs": 38,
-      "level": "medium",
-      "why": "Drums of Slom daña a todas las ilusiones cercanas y cura a Beastmaster por cada una, y Wild Axes las limpia en área"
-    },
-    {
-      "vs": 128,
-      "level": "medium",
-      "why": "Scatterblast daña en cono y Mortimer Kisses en área, así que limpia las ilusiones de Phantom Lancer"
-    },
-    {
       "vs": 23,
       "level": "medium",
       "why": "El cleave de Tidebringer atraviesa las ilusiones y ayuda a encontrar al Phantom Lancer real"
-    },
-    {
-      "vs": 97,
-      "level": "medium",
-      "why": "El cleave de Empower en sus aliados elimina las ilusiones rápido, y Reverse Polarity y Shockwave las castigan juntas"
-    },
-    {
-      "vs": 120,
-      "level": "medium",
-      "why": "Swashbuckle y Shield Crash dañan en área a Phantom Lancer y a sus ilusiones a la vez"
-    },
-    {
-      "vs": 5,
-      "level": "medium",
-      "why": "Crystal Nova y Freezing Field dañan en área y limpian las ilusiones"
-    },
-    {
-      "vs": 55,
-      "level": "medium",
-      "why": "Ion Shell daña en área y limpia las ilusiones mientras Dark Seer farmea"
     }
   ],
   "13": [
@@ -996,11 +951,6 @@
       "why": "Corrosive Skin le da resistencia mágica a Viper y casi todo el daño de Sand King es mágico"
     },
     {
-      "vs": 111,
-      "level": "medium",
-      "why": "False Promise retrasa el daño que pone Sand King y Fate's Edict da resistencia mágica, y casi todo su daño es mágico"
-    },
-    {
       "vs": 42,
       "level": "medium",
       "why": "Reincarnation lo hace mal objetivo: Sand King gasta su combo y Wraith King vuelve a la vida"
@@ -1133,11 +1083,6 @@
       "vs": 85,
       "level": "medium",
       "why": "Decay le roba fuerza y le baja la vida máxima"
-    },
-    {
-      "vs": 70,
-      "level": "medium",
-      "why": "Enrage le da reducción de daño y resistencia a estados, así que sobrevive al burst de Sven y pelea mejor"
     }
   ],
   "19": [
@@ -1561,11 +1506,6 @@
       "vs": 93,
       "level": "medium",
       "why": "Dark Pact dispela Corrosive Haze y puede lanzarse antes para quitar el aturdimiento de Slithereen Crush"
-    },
-    {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell bloquea parte del daño físico, y Tidehunter es muy tanque contra el burst físico de Slardar"
     }
   ],
   "29": [
@@ -1613,11 +1553,6 @@
       "vs": 123,
       "level": "medium",
       "why": "Sharpshooter le aplica Break y le apaga los pasivos, como Kraken Shell"
-    },
-    {
-      "vs": 36,
-      "level": "medium",
-      "why": "Reaper's Scythe hace daño según la vida que le falta, y Tidehunter es muy tanque pero con poca resistencia mágica"
     },
     {
       "vs": 93,
@@ -1940,11 +1875,6 @@
       "vs": 100,
       "level": "medium",
       "why": "Snowball cierra la distancia e Ice Shards lo encierra: Sniper no tiene escape"
-    },
-    {
-      "vs": 44,
-      "level": "medium",
-      "why": "Phantom Strike la lleva encima de Sniper, que no tiene movilidad y depende de su alcance"
     },
     {
       "vs": 93,
@@ -2344,11 +2274,6 @@
       "why": "Untouchable reduce el daño de golpes de Faceless Void durante Chronosphere"
     },
     {
-      "vs": 102,
-      "level": "medium",
-      "why": "Aphotic Shield y Mist Coil mantienen vivo a un aliado dentro de Chronosphere"
-    },
-    {
       "vs": 87,
       "level": "medium",
       "why": "Glimpse lo regresa a donde estaba segundos antes, deshaciendo su Time Walk, y Static Storm lo silencia antes de Chronosphere"
@@ -2357,11 +2282,6 @@
       "vs": 33,
       "level": "medium",
       "why": "Black Hole atraviesa la BKB y lo atrapa antes o después de Chronosphere"
-    },
-    {
-      "vs": 23,
-      "level": "medium",
-      "why": "Ghostship aturde a Faceless Void y protege a los aliados atrapados en Chronosphere"
     }
   ],
   "42": [
@@ -2416,19 +2336,9 @@
       "why": "Los zombies de la Tombstone lo frenan, y en peleas largas Reincarnation no alcanza para ganar"
     },
     {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell bloquea daño físico de Wraith King y sus esqueletos, y Anchor Smash daña en área y baja su daño de ataque"
-    },
-    {
       "vs": 54,
       "level": "medium",
       "why": "Rage lo vuelve inmune a debuffs, así que Wraithfire Blast no lo detiene"
-    },
-    {
-      "vs": 110,
-      "level": "medium",
-      "why": "Fire Spirits le bajan mucho la velocidad de ataque, que es casi todo su daño"
     }
   ],
   "43": [
@@ -2657,26 +2567,6 @@
       "vs": 64,
       "level": "medium",
       "why": "Las habilidades de Jakiro son de área: Macropyre sigue dañando aunque Templar Assassin se quede quieta en Meld"
-    },
-    {
-      "vs": 89,
-      "level": "medium",
-      "why": "Las ilusiones de Naga Siren golpean muchas veces y consumen rápido las cargas de Refraction"
-    },
-    {
-      "vs": 109,
-      "level": "medium",
-      "why": "Los muchos golpes de las ilusiones de Terrorblade consumen las cargas de Refraction"
-    },
-    {
-      "vs": 95,
-      "level": "medium",
-      "why": "Su velocidad de ataque gasta muy rápido las cargas de Refraction"
-    },
-    {
-      "vs": 120,
-      "level": "medium",
-      "why": "Swashbuckle da muchos golpes seguidos y gasta las cargas de Refraction"
     }
   ],
   "47": [
@@ -2949,11 +2839,6 @@
       "vs": 103,
       "level": "medium",
       "why": "Natural Order le quita la resistencia mágica y la armadura base, y Echo Stomp lo deja inconsciente"
-    },
-    {
-      "vs": 94,
-      "level": "medium",
-      "why": "Mana Shield absorbe el daño de Pulse Nova y Diabolic Edict a cambio de mana, y Medusa tiene mucho"
     }
   ],
   "53": [
@@ -3522,31 +3407,6 @@
       "vs": 5,
       "level": "medium",
       "why": "Frostbite la inmoviliza y le impide atacar, y Crystal Nova la frena"
-    },
-    {
-      "vs": 25,
-      "level": "medium",
-      "why": "Dragon Slave y Light Strike Array eliminan arañas en línea y en área desde lejos"
-    },
-    {
-      "vs": 95,
-      "level": "medium",
-      "why": "Whirling Axes daña en área a las arañas y su velocidad de ataque las elimina rápido"
-    },
-    {
-      "vs": 97,
-      "level": "medium",
-      "why": "Shockwave y el cleave de Empower eliminan las arañas, y Reverse Polarity castiga que se agrupe"
-    },
-    {
-      "vs": 120,
-      "level": "medium",
-      "why": "Swashbuckle y Shield Crash dañan en área y eliminan las arañas de una sola ráfaga"
-    },
-    {
-      "vs": 11,
-      "level": "medium",
-      "why": "Shadowraze limpia las arañas de forma eficiente y le permite farmear rápido para disputarle el control"
     }
   ],
   "62": [
@@ -3584,11 +3444,6 @@
       "vs": 93,
       "level": "medium",
       "why": "Dark Pact dispela Track, con un cooldown parecido"
-    },
-    {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell quita efectos negativos como Track al recibir suficiente daño"
     }
   ],
   "63": [
@@ -3852,11 +3707,6 @@
       "vs": 9,
       "level": "medium",
       "why": "Sacred Arrow mata de un golpe al primer creep no ancestral que toca, como los creeps que controla Chen"
-    },
-    {
-      "vs": 95,
-      "level": "medium",
-      "why": "Whirling Axes daña en área a los creeps de Chen"
     }
   ],
   "67": [
@@ -3951,11 +3801,6 @@
       "vs": 20,
       "level": "medium",
       "why": "Magic Missile aturde a Ancient Apparition y Nether Swap lo aísla para matarlo antes de que lance Ice Blast, y él no tiene movilidad para evitarlo"
-    },
-    {
-      "vs": 94,
-      "level": "medium",
-      "why": "Mana Shield es su vida efectiva y Ice Blast no afecta su regeneración de mana"
     }
   ],
   "69": [
@@ -4300,11 +4145,6 @@
       "vs": 113,
       "level": "medium",
       "why": "Arc Warden juega a muy larga distancia con su clon empujando en solitario, evitando las peleas donde Global Silence funciona, y Spark Wraith y Magnetic Field lo protegen del hostigamiento de Silencer"
-    },
-    {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell quita efectos negativos como el silencio al recibir suficiente daño, y Tidehunter aguanta el hostigamiento de Silencer"
     }
   ],
   "76": [
@@ -4394,21 +4234,6 @@
       "vs": 4,
       "level": "medium",
       "why": "Rupture hace daño por la distancia que se mueve, así que Lycan no puede correr con Shapeshift sin castigo"
-    },
-    {
-      "vs": 23,
-      "level": "medium",
-      "why": "El cleave de Tidebringer elimina a los lobos de Lycan"
-    },
-    {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell bloquea parte del daño físico y Anchor Smash daña a los lobos y baja el daño de ataque de Lycan"
-    },
-    {
-      "vs": 5,
-      "level": "medium",
-      "why": "Frostbite deja a Lycan o a sus lobos sin moverse ni atacar cuando se tiran encima"
     }
   ],
   "78": [
@@ -4517,16 +4342,6 @@
       "why": "Natural Order le quita la armadura base a Lone Druid y al Spirit Bear, y Echo Stomp deja inconsciente al oso"
     },
     {
-      "vs": 23,
-      "level": "medium",
-      "why": "El cleave de Tidebringer limpia al Spirit Bear y a Lone Druid cuando están juntos"
-    },
-    {
-      "vs": 31,
-      "level": "medium",
-      "why": "Chain Frost rebota entre Lone Druid y el Spirit Bear, y Frost Shield baja el daño del oso"
-    },
-    {
       "vs": 99,
       "level": "medium",
       "why": "Viscous Nasal Goo frena y baja la armadura tanto a Lone Druid como al Spirit Bear"
@@ -4592,21 +4407,6 @@
       "vs": 112,
       "level": "medium",
       "why": "Winter's Curse hace que Chaos Knight y sus ilusiones se peguen entre ellos, y Splinter Blast daña a todas las ilusiones"
-    },
-    {
-      "vs": 23,
-      "level": "medium",
-      "why": "El cleave de Tidebringer y Ghostship destruyen las ilusiones de Chaos Knight"
-    },
-    {
-      "vs": 110,
-      "level": "medium",
-      "why": "Fire Spirits le bajan mucho la velocidad de ataque, así que le cuesta destruir el Supernova"
-    },
-    {
-      "vs": 94,
-      "level": "medium",
-      "why": "Split Shot ataca a Chaos Knight y a sus ilusiones a la vez"
     }
   ],
   "82": [
@@ -4671,64 +4471,9 @@
       "why": "Overgrowth inmoviliza a todos los clones de Meepo que estén en el área, y Leech Seed y Nature's Grasp le dificultan escapar o iniciar sin castigo"
     },
     {
-      "vs": 38,
-      "level": "medium",
-      "why": "Drums of Slom daña a todos los Meepo cercanos y cura a Beastmaster por cada golpe, y Wild Axes pega a todos los clones"
-    },
-    {
-      "vs": 16,
-      "level": "medium",
-      "why": "Epicenter golpea y frena a todos los clones de Meepo a la vez"
-    },
-    {
-      "vs": 31,
-      "level": "medium",
-      "why": "Chain Frost rebota entre todos los Meepo y cada rebote hace más daño"
-    },
-    {
-      "vs": 30,
-      "level": "medium",
-      "why": "Paralyzing Cask rebota entre los clones y Maledict alcanza a todos los Meepo juntos"
-    },
-    {
       "vs": 6,
       "level": "medium",
       "why": "Gust lo silencia y le impide usar Poof para escapar o juntarse con sus clones"
-    },
-    {
-      "vs": 128,
-      "level": "medium",
-      "why": "Mortimer Kisses daña en área y castiga a Meepo si junta a sus clones"
-    },
-    {
-      "vs": 105,
-      "level": "medium",
-      "why": "Reactive Tazer desarma a quien ataca, y sus daños en área pegan a todos los clones"
-    },
-    {
-      "vs": 33,
-      "level": "medium",
-      "why": "Midnight Pulse hace daño según la vida actual de cada clon y Black Hole los atrapa a todos"
-    },
-    {
-      "vs": 23,
-      "level": "medium",
-      "why": "Tidebringer parte a varios clones con su cleave y Ghostship daña y aturde a los Meepo juntos"
-    },
-    {
-      "vs": 120,
-      "level": "medium",
-      "why": "Swashbuckle y Shield Crash dañan en área y amenazan a todos los clones a la vez"
-    },
-    {
-      "vs": 5,
-      "level": "medium",
-      "why": "Crystal Nova y Freezing Field dañan en área a todos los Meepo y frenan al grupo"
-    },
-    {
-      "vs": 11,
-      "level": "medium",
-      "why": "Shadowraze limpia clones rápido, y Meepo sufre contra daño mágico en área"
     }
   ],
   "83": [
@@ -4860,11 +4605,6 @@
       "vs": 64,
       "level": "medium",
       "why": "Jakiro limpia Tombstone rápido con golpes dobles, Macropyre y Dual Breath desgastan a Undying en su forma de Flesh Golem, y su poca movilidad lo deja vulnerable a Ice Path"
-    },
-    {
-      "vs": 70,
-      "level": "medium",
-      "why": "Overpower le da muchos golpes rápidos para destruir la Tombstone"
     },
     {
       "vs": 86,
@@ -5050,39 +4790,9 @@
       "why": "El daño en área de Kez borra las ilusiones de Naga Siren y reduce mucho su velocidad de farmeo y su daño en las peleas"
     },
     {
-      "vs": 38,
-      "level": "medium",
-      "why": "Drums of Slom daña a todas las ilusiones de Mirror Image y cura a Beastmaster por cada una, y Wild Axes las limpia en área"
-    },
-    {
-      "vs": 128,
-      "level": "medium",
-      "why": "Scatterblast daña y frena en cono y Mortimer Kisses en área, así que limpia las ilusiones de Mirror Image"
-    },
-    {
-      "vs": 105,
-      "level": "medium",
-      "why": "Sticky Bomb, Blast Off! y las Proximity Mines dañan en área y limpian los Mirror Image"
-    },
-    {
       "vs": 108,
       "level": "medium",
       "why": "Atrophy Aura le baja el daño base a Naga Siren, que escala justo con daño base"
-    },
-    {
-      "vs": 48,
-      "level": "medium",
-      "why": "Los rebotes de Moon Glaives limpian rápido las ilusiones de Naga Siren"
-    },
-    {
-      "vs": 29,
-      "level": "medium",
-      "why": "Kraken Shell bloquea daño físico, que es casi todo el de Naga Siren y sus ilusiones, y Anchor Smash baja su daño de ataque"
-    },
-    {
-      "vs": 98,
-      "level": "medium",
-      "why": "Whirling Death y Chakram dañan en área y limpian las ilusiones de Mirror Image"
     },
     {
       "vs": 69,
@@ -5187,11 +4897,6 @@
       "vs": 112,
       "level": "medium",
       "why": "Cada vez que Io usa Relocate, Wyvern prepara Winter's Curse y sigue con Terrorize"
-    },
-    {
-      "vs": 97,
-      "level": "medium",
-      "why": "Reverse Polarity jala y aturde a Io y a su aliado conectado, que están pegados"
     }
   ],
   "92": [
@@ -5641,11 +5346,6 @@
       "vs": 4,
       "level": "medium",
       "why": "Rupture le cobra vida cada vez que se mueve, y Timber Chain lo hace moverse mucho"
-    },
-    {
-      "vs": 52,
-      "level": "medium",
-      "why": "Pulse Nova es daño mágico, que la armadura de Reactive Armor no reduce"
     }
   ],
   "99": [
@@ -5767,16 +5467,6 @@
       "vs": 92,
       "level": "medium",
       "why": "Los Familiars desordenan el posicionamiento de Skywrath Mage y pueden cancelar canalizaciones, Gravekeeper's Cloak resiste su ráfaga, y Skywrath no tiene cómo limpiar las invocaciones"
-    },
-    {
-      "vs": 94,
-      "level": "medium",
-      "why": "Mana Shield absorbe el daño mágico de Skywrath Mage a cambio de mana, y ella sobrevive y escala más que él"
-    },
-    {
-      "vs": 46,
-      "level": "medium",
-      "why": "Refraction absorbe el daño mágico de Skywrath Mage, y ella lo mata en pocos golpes"
     }
   ],
   "102": [
@@ -5965,16 +5655,6 @@
       "vs": 8,
       "level": "medium",
       "why": "Blade Fury le da resistencia mágica e inmunidad a debuffs mientras gira, y Techies hace casi todo su daño con magia"
-    },
-    {
-      "vs": 46,
-      "level": "medium",
-      "why": "Refraction absorbe el daño de las minas, y ella revienta a Techies antes de que reaccione"
-    },
-    {
-      "vs": 94,
-      "level": "medium",
-      "why": "Mana Shield absorbe el daño de las minas y de Blast Off! a cambio de mana"
     }
   ],
   "106": [
@@ -6325,19 +6005,9 @@
       "why": "Fatal Bonds destruye ilusiones con daño en área, y los Golems y Upheaval interrumpen el posicionamiento de Terrorblade y le impiden usar Sunder con seguridad"
     },
     {
-      "vs": 31,
-      "level": "medium",
-      "why": "Chain Frost rebota entre Terrorblade y sus ilusiones, y cada rebote hace más daño"
-    },
-    {
       "vs": 34,
       "level": "medium",
       "why": "Laser lo ciega y sus ataques fallan, y el daño puro de Tinker ignora su armadura"
-    },
-    {
-      "vs": 128,
-      "level": "medium",
-      "why": "Scatterblast daña en cono y Mortimer Kisses en área, así que limpia sus ilusiones rápido"
     },
     {
       "vs": 90,
@@ -6348,11 +6018,6 @@
       "vs": 112,
       "level": "medium",
       "why": "Winter's Curse obliga a los rivales cercanos al objetivo, incluidas las ilusiones, a atacar a Terrorblade"
-    },
-    {
-      "vs": 110,
-      "level": "medium",
-      "why": "Fire Spirits le bajan mucho la velocidad de ataque, así que le cuesta destruir el Supernova"
     }
   ],
   "110": [
@@ -6390,11 +6055,6 @@
       "vs": 64,
       "level": "medium",
       "why": "Dual Breath y Macropyre hacen daño sostenido a Phoenix a través de Icarus Dive y Fire Spirits, e Ice Path interrumpe sus canalizaciones"
-    },
-    {
-      "vs": 9,
-      "level": "medium",
-      "why": "Leap le da velocidad de ataque y movimiento para llegar al Supernova y destruirlo rápido"
     },
     {
       "vs": 101,
@@ -6944,11 +6604,6 @@
       "why": "Blink reposiciona a Queen of Pain alrededor de Arena y Sonic Wave castiga a Mars"
     },
     {
-      "vs": 50,
-      "level": "medium",
-      "why": "Shallow Grave mantiene vivo a un aliado aunque Mars lo castigue"
-    },
-    {
       "vs": 111,
       "level": "medium",
       "why": "Fate's Edict desarma a Mars y False Promise retrasa el daño que Mars le pone a un aliado"
@@ -7021,11 +6676,6 @@
       "vs": 6,
       "level": "medium",
       "why": "Gust la silencia y la empuja lejos, y sin habilidades Dawnbreaker casi no puede pelear"
-    },
-    {
-      "vs": 47,
-      "level": "medium",
-      "why": "Nethertoxin le baja la velocidad de ataque y le hace más daño cuanto más tiempo se queda dentro"
     }
   ],
   "136": [
