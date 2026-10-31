@@ -547,7 +547,15 @@ describe("buildS1Snapshot — WAL-safe (FIX 4)", () => {
       // RED: copia ingenua del archivo principal (lo que hacía el freeze viejo) — no arrastra el -wal
       const naive = join(dir, "naive-copy.sqlite");
       copyFileSync(src, naive);
-      const fpNaive = computeMetaSnapshotVersion(naive);
+      // En Linux la copia abre y da otra huella; en macOS (SQLite del sistema) abrirla readonly sin
+      // -wal/-shm ni siquiera es posible y lanza. Ambos resultados prueban lo mismo: la copia
+      // ingenua NO representa el estado commiteado.
+      let fpNaive: string | null;
+      try {
+        fpNaive = computeMetaSnapshotVersion(naive);
+      } catch {
+        fpNaive = null;
+      }
       expect(fpNaive).not.toBe(fpSource); // la copia ingenua NO representa el estado commiteado
 
       // GREEN: buildS1Snapshot materializa con VACUUM INTO desde una conexión readonly
