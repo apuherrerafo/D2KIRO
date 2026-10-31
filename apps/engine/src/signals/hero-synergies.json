@@ -206,6 +206,11 @@
   },
   {
     "a": 51,
+    "b": 72,
+    "why": "Hookshot, Power Cogs y Battery Assault encierran a los rivales para que Gyrocopter descargue Rocket Barrage y Call Down"
+  },
+  {
+    "a": 51,
     "b": 74,
     "why": "Power Cogs aísla al rival y le deja a Invoker un Sun Strike fácil"
   },
@@ -246,6 +251,11 @@
   },
   {
     "a": 55,
+    "b": 64,
+    "why": "Vacuum junta a los rivales para que las habilidades de área de Jakiro lleguen a todos"
+  },
+  {
+    "a": 55,
     "b": 32,
     "why": "Ion Shell sobre Riki es como un daño en área invisible que gana la línea, y Vacuum junta a los rivales en su Smoke Screen"
   },
@@ -283,6 +293,11 @@
     "a": 135,
     "b": 59,
     "why": "Solar Guardian salva a Huskar desde cualquier parte del mapa con curación y stun"
+  },
+  {
+    "a": 135,
+    "b": 145,
+    "why": "Solar Guardian cae sobre Kez y lo cura mientras pelea en medio de los rivales, donde es frágil"
   },
   {
     "a": 135,
@@ -338,6 +353,11 @@
     "a": 107,
     "b": 155,
     "why": "Croak of Genius le baja el costo de maná a Earth Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
+  },
+  {
+    "a": 7,
+    "b": 72,
+    "why": "Fissure y Echo Slam juntan y frenan a los rivales para que Call Down y Flak Cannon los castiguen"
   },
   {
     "a": 7,
@@ -400,6 +420,16 @@
     "why": "Black Hole deja a los rivales juntos y quietos para Smoke Screen y Tricks of the Trade"
   },
   {
+    "a": 33,
+    "b": 37,
+    "why": "Black Hole y Chaotic Offering se suman: si Warlock espera a que Enigma lance el Black Hole, su Golem cae sobre rivales ya inmovilizados"
+  },
+  {
+    "a": 41,
+    "b": 64,
+    "why": "El slow de Time Dilation se suma al de Dual Breath y los dos persiguen a los que huyen"
+  },
+  {
     "a": 41,
     "b": 110,
     "why": "Phoenix es de los pocos supports de frontline y Chronosphere protege el huevo: mala línea, pero devastador en mid y late game"
@@ -418,6 +448,11 @@
     "a": 121,
     "b": 47,
     "why": "Ink Swell encaja con el estilo de frontline de Viper y Soulbind duplica Viper Strike"
+  },
+  {
+    "a": 72,
+    "b": 91,
+    "why": "Tether le da sostén a Gyrocopter y Overcharge le sube la velocidad de ataque y de movimiento, así que dominan la línea juntos"
   },
   {
     "a": 123,
@@ -485,6 +520,16 @@
     "why": "Io deja a Tiny entrar agresivo y Relocate lo saca a salvo; Overcharge le acelera los golpes"
   },
   {
+    "a": 64,
+    "b": 145,
+    "why": "El stun largo y el slow de Ice Path son la apertura perfecta para que Kez remate con su daño en ráfaga"
+  },
+  {
+    "a": 64,
+    "b": 23,
+    "why": "X Marks lleva a los rivales a Ice Path y Macropyre, que los frenan y los queman mientras Kunkka hace el daño"
+  },
+  {
     "a": 8,
     "b": 31,
     "why": "Juggernaut necesita control para girar con Blade Fury y Lich le aporta frenos y un stun que Jug no tiene en su kit"
@@ -503,6 +548,11 @@
     "a": 90,
     "b": 17,
     "why": "Chakra Magic le recarga el maná a Storm para entrar hondo, y Recall lo trae a la pelea"
+  },
+  {
+    "a": 145,
+    "b": 71,
+    "why": "Spirit Breaker abre con Charge of Darkness y aguanta al frente, y Kez entra a rematar a los aturdidos"
   },
   {
     "a": 23,
@@ -710,6 +760,11 @@
     "why": "Sven protege a Supernova: entra con Storm Hammer y castiga a quienes intentan romper el huevo"
   },
   {
+    "a": 110,
+    "b": 37,
+    "why": "Shadow Word cura a Phoenix durante Supernova y Upheaval evita que los rivales escapen del sol"
+  },
+  {
     "a": 14,
     "b": 105,
     "why": "Meat Hook arrastra al rival hasta las Proximity Mines de Techies"
@@ -723,6 +778,11 @@
     "a": 86,
     "b": 108,
     "why": "Underlord pone el pozo y cuando termina Rubick levanta al rival de vuelta al pozo con Telekinesis: queda enraizado y muere en nivel 2"
+  },
+  {
+    "a": 16,
+    "b": 37,
+    "why": "Chaotic Offering y Upheaval mantienen a los rivales cerca durante Epicenter"
   },
   {
     "a": 11,

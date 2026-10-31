@@ -1254,6 +1254,11 @@
       "vs": 92,
       "level": "medium",
       "why": "Los Familiars de Visage interrumpen Shackles y cancelan cualquier canalización, y Gravekeeper's Cloak lo hace lo bastante resistente para sobrevivir a las Serpent Wards"
+    },
+    {
+      "vs": 72,
+      "level": "medium",
+      "why": "Rocket Barrage y Flak Cannon lo matan rápido si sus aliados no lo protegen, y Gyrocopter rinde en peleas caóticas"
     }
   ],
   "28": [
@@ -1466,6 +1471,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Winter's Curse interrumpe lo que casi nada interrumpe, como el BKB de Enigma, y Splinter Blast le pega a sus Eidolons"
+    },
+    {
+      "vs": 72,
+      "level": "medium",
+      "why": "Flak Cannon y Rocket Barrage dañan en área a los Eidolons y castigan a Enigma si farmea la jungla sin apoyo"
     }
   ],
   "34": [
@@ -2110,6 +2120,11 @@
       "vs": 100,
       "level": "medium",
       "why": "Pugna es frágil: Tusk lo agarra con Snowball y Walrus Punch antes de que juegue su combo"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Talon Toss silencia a Pugna y su combo de daño llega antes de que reaccione, así que lo fuerza a usar Decrepify o a retirarse"
     }
   ],
   "46": [
@@ -2157,6 +2172,11 @@
       "vs": 19,
       "level": "medium",
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
+    },
+    {
+      "vs": 64,
+      "level": "medium",
+      "why": "Las habilidades de Jakiro son de área: Macropyre sigue dañando aunque Templar Assassin se quede quieta en Meld"
     }
   ],
   "47": [
@@ -2545,6 +2565,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn le saca un porcentaje de la vida actual cada segundo a los offlaners tanques, y eso pesa más que la regeneración extra del Helm of Iron Will"
+    },
+    {
+      "vs": 72,
+      "level": "medium",
+      "why": "Flak Cannon limpia las réplicas que crea Wall of Replica, y su daño repartido no depende de buffs"
     }
   ],
   "56": [
@@ -3214,6 +3239,11 @@
       "vs": 14,
       "level": "medium",
       "why": "Un Pudge core le gana a Spectre en la línea por daño base y en la partida su Rot la castiga"
+    },
+    {
+      "vs": 37,
+      "level": "medium",
+      "why": "Shadow Word cura a tu equipo durante Haunt, Upheaval frena a Spectre y el Golem de Chaotic Offering la aturde: no le conviene una pelea larga"
     }
   ],
   "68": [
@@ -3710,6 +3740,11 @@
       "vs": 83,
       "level": "medium",
       "why": "Living Armor en las torres reduce el daño constante del oso, y en las peleas Overgrowth inmoviliza al héroe y al Spirit Bear"
+    },
+    {
+      "vs": 64,
+      "level": "medium",
+      "why": "Liquid Fire y Macropyre frenan el empuje del Oso con daño en el tiempo e Ice Path detiene sus iniciaciones"
     }
   ],
   "81": [
@@ -3923,6 +3958,11 @@
       "vs": 81,
       "level": "medium",
       "why": "Phantasm absorbe hechizos de objetivo unico"
+    },
+    {
+      "vs": 37,
+      "level": "medium",
+      "why": "Fatal Bonds castiga que Ogre Magi se quede pegado a su equipo y Chaotic Offering lo aturde desde lejos, donde no puede responder"
     }
   ],
   "85": [
@@ -4479,6 +4519,11 @@
       "vs": 59,
       "level": "medium",
       "why": "Magnus no tiene daño para matar a Huskar con su resistencia mágica, y Huskar salta con Life Break antes de que inicie"
+    },
+    {
+      "vs": 145,
+      "level": "medium",
+      "why": "Talon Toss silencia a Magnus antes de que lance Reverse Polarity o Skewer, y Grappling Claw lo alcanza"
     }
   ],
   "98": [
@@ -5390,6 +5435,11 @@
       "vs": 128,
       "level": "medium",
       "why": "Todo el daño de Dark Willow es de área y Snapfire entra cerca con Firesnap Cookie y Scatterblast"
+    },
+    {
+      "vs": 37,
+      "level": "medium",
+      "why": "Shadow Word cura a tus aliados y daña a los rivales cercanos, así que aguanta el hostigamiento de Dark Willow, y Chaotic Offering la aturde y le daña en área"
     }
   ],
   "120": [
@@ -5894,6 +5944,16 @@
       "vs": 70,
       "level": "medium",
       "why": "Enrage reduce la mayor parte del daño del combo de hechizos de Kez, y Fury Swipes y Overpower le dan ventaja en el duelo de golpes"
+    },
+    {
+      "vs": 110,
+      "level": "medium",
+      "why": "Supernova castiga que Kez entre cuerpo a cuerpo e Icarus Dive le deja reposicionarse para evitar su combo"
+    },
+    {
+      "vs": 67,
+      "level": "medium",
+      "why": "Shadow Step la lleva sobre Kez desde cualquier parte del mapa, Spectral Dagger lo frena y Desolate da daño puro a sus golpes si pelean sin aliados cerca"
     }
   ],
   "155": [
