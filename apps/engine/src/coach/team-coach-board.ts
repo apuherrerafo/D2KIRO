@@ -7,7 +7,7 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
-import { banOpeningOf, synergiesWithOwn, type BanOpening } from "./context-reorder";
+import { alliesAnswering, banOpeningOf, synergiesWithOwn, type BanOpening } from "./context-reorder";
 import { revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
@@ -43,6 +43,8 @@ export type TeamCoachPositionState = "RANKED" | "UNRANKED_POSITIONAL" | "UNAVAIL
 export interface TeamCoachRisk {
   vsHeroId: HeroId;
   why: string;
+  /** Aliados ya elegidos que le ganan a ese rival (por eso baja menos). Ausente = ninguno. */
+  answeredBy?: HeroId[];
 }
 
 /** A hero this candidate beats according to the curated data, with the curated reason (`why`). Never invented. */
@@ -239,7 +241,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   // Todo lo que una tarjeta cuenta del draft visible: riesgos, a quién le gana de lo ya revelado, qué abrieron los bans y
   // con quién ya elegido combina. Nada de esto supone lo que el rival va a sacar.
   const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => ({
-    risks: risksOf(heroId, revealedEnemies, input.heroCounters),
+    risks: risksOf(heroId, revealedEnemies, input.heroCounters, ownPickSet),
     strengths: strengthsOf(heroId, strengthIndex, cannotBeEnemy, revealedSet),
     opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroPositions: input.heroPositions, targetPosition: position }),
     synergies: synergiesWithOwn(heroId, { ownPicks: ownPickSet, heroSynergies: input.heroSynergies }).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
@@ -379,12 +381,17 @@ export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly 
  * Which REVEALED enemies counter this hero according to the curated data (hard first, then medium). Only heroes the
  * Player can see are read, so a sealed enemy seat can never leak into a card.
  */
-export function risksOf(heroId: HeroId, revealedEnemies: readonly HeroId[], heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): TeamCoachRisk[] {
+export function risksOf(heroId: HeroId, revealedEnemies: readonly HeroId[], heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined, ownPicks: ReadonlySet<HeroId> = new Set()): TeamCoachRisk[] {
   if (!heroCounters || revealedEnemies.length === 0) return [];
   const revealed = new Set(revealedEnemies);
   const entries = (heroCounters.get(heroId) ?? []).filter((entry) => revealed.has(entry.vs));
   const hardFirst = [...entries.filter((entry) => entry.level === "hard"), ...entries.filter((entry) => entry.level !== "hard")];
-  return hardFirst.slice(0, MAX_RISKS_PER_CANDIDATE).map((entry) => ({ vsHeroId: entry.vs, why: entry.why.trim().replace(/[.\s]+$/, "") }));
+  return hardFirst.slice(0, MAX_RISKS_PER_CANDIDATE).map((entry) => {
+    const risk: TeamCoachRisk = { vsHeroId: entry.vs, why: entry.why.trim().replace(/[.\s]+$/, "") };
+    const answeredBy = alliesAnswering(entry.vs, { ownPicks, heroCounters }).map((note) => note.heroId);
+    if (answeredBy.length > 0) risk.answeredBy = answeredBy;
+    return risk;
+  });
 }
 
 /**

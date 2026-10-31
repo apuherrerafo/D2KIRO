@@ -192,7 +192,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
 
   if (!invalidatesRanking(degradations)) {
     // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
-    // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si una sinergia lo rescata), sin
+    // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si un aliado tuyo le gana a ese counter), sin
     // mandarlo al fondo de oficio. La lista del pool usa ESTE mismo orden. Sin contexto que toque a nadie, es el de V6.
     const candidates = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), {
       banned: new Set(view.bannedHeroes),

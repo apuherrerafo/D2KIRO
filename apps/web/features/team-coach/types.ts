@@ -18,6 +18,8 @@ export type TeamCoachTargetBasis = "STRATEGIC" | "DETERMINISTIC_DEFAULT" | "PHAS
 export interface TeamCoachRisk {
   vsHeroId: HeroId;
   why: string;
+  /** Aliados ya elegidos que le ganan a ese rival (por eso baja menos). Opcional: un motor anterior no lo manda. */
+  answeredBy?: HeroId[];
 }
 
 /** Un héroe al que este candidato le gana según los datos curados, con el porqué. Espejo a mano del motor. */

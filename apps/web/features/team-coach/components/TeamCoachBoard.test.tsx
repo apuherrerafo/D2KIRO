@@ -84,6 +84,13 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(risks[0]!.textContent).toBe("Riesgo (Hero 7 te counterea): Berserker's Call lo obliga a pelear");
   });
 
+  test("si un aliado tuyo le gana a ese rival, el riesgo lo dice: '(tu X le gana a Y: pesa menos)'", () => {
+    const withRisk = column(2);
+    withRisk.top[0] = { ...withRisk.top[0]!, risks: [{ vsHeroId: 7, why: "Duel", answeredBy: [8] }] };
+    const view = renderBoard({ ...board([2], 2), positions: [withRisk] });
+    expect(view.getAllByTestId("team-coach-candidate-risk")[0]!.textContent).toBe("Riesgo (Hero 7 te counterea): Duel (tu Hero 8 le gana a Hero 7: pesa menos)");
+  });
+
   test("sin riesgos (o un motor que no manda el campo): no aparece ninguna línea de riesgo", () => {
     const view = renderBoard(board([2], 2));
     expect(view.queryAllByTestId("team-coach-candidate-risk")).toHaveLength(0);
@@ -211,6 +218,12 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     const brokenSynergy = board([2], 2);
     (brokenSynergy.positions[0]!.top[0] as unknown as { synergies: unknown }).synergies = [{ withHeroId: "x", why: 3 }];
     expect(parseTeamCoachBoard(brokenSynergy)).toBeNull();
+    const answered = board([2], 2);
+    (answered.positions[0]!.top[0] as unknown as { risks: unknown }).risks = [{ vsHeroId: 7, why: "Duel", answeredBy: [8] }];
+    expect(parseTeamCoachBoard(answered)).not.toBeNull();
+    const brokenAnswered = board([2], 2);
+    (brokenAnswered.positions[0]!.top[0] as unknown as { risks: unknown }).risks = [{ vsHeroId: 7, why: "Duel", answeredBy: ["x"] }];
+    expect(parseTeamCoachBoard(brokenAnswered)).toBeNull();
   });
 });
 
