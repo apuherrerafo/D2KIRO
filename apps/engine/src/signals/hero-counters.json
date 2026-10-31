@@ -205,7 +205,7 @@
   "5": [
     {
       "vs": 8,
-      "level": "hard",
+      "level": "medium",
       "why": "Blade Fury ignora Frostbite y Crystal Nova mientras Juggernaut te alcanza, y Healing Ward compensa tu daño sostenido"
     },
     {
@@ -1007,7 +1007,7 @@
   "21": [
     {
       "vs": 129,
-      "level": "hard",
+      "level": "medium",
       "why": "Arena of Blood bloquea los ataques de Focus Fire y Spear te fija, impidiendo que Windrun convierta velocidad en escape"
     },
     {
@@ -1451,7 +1451,7 @@
   "34": [
     {
       "vs": 67,
-      "level": "hard",
+      "level": "medium",
       "why": "Shadow Step lleva a Spectre directamente sobre Tinker"
     },
     {
@@ -3060,7 +3060,7 @@
   "66": [
     {
       "vs": 58,
-      "level": "hard",
+      "level": "medium",
       "why": "Enchant roba creeps controlados por Chen"
     },
     {
@@ -4291,7 +4291,7 @@
     },
     {
       "vs": 76,
-      "level": "hard",
+      "level": "medium",
       "why": "Arcane Orb y Astral Imprisonment presionan su maná y reducen Mana Shield"
     },
     {
@@ -4444,7 +4444,7 @@
   "98": [
     {
       "vs": 59,
-      "level": "hard",
+      "level": "medium",
       "why": "Burning Spear aporta daño mágico sostenido y Life Break mantiene a Huskar pegado pese a Reactive Armor"
     },
     {
@@ -4768,7 +4768,7 @@
   "105": [
     {
       "vs": 22,
-      "level": "hard",
+      "level": "medium",
       "why": "Lightning Bolt da visión verdadera sobre Proximity Mines"
     },
     {
@@ -4800,7 +4800,7 @@
   "106": [
     {
       "vs": 13,
-      "level": "hard",
+      "level": "medium",
       "why": "Dream Coil castiga Fire Remnant y Waning Rift silencia a Ember antes de escapar"
     },
     {
@@ -5046,7 +5046,7 @@
   "109": [
     {
       "vs": 7,
-      "level": "hard",
+      "level": "medium",
       "why": "Echo Slam escala con las ilusiones de Terrorblade"
     },
     {
@@ -5135,7 +5135,7 @@
     },
     {
       "vs": 68,
-      "level": "hard",
+      "level": "medium",
       "why": "Ice Blast bloquea la curación de False Promise y la vuelve una ejecución"
     },
     {
@@ -5276,7 +5276,7 @@
   "114": [
     {
       "vs": 23,
-      "level": "hard",
+      "level": "medium",
       "why": "Torrent y X Marks cortan las rutas entre arboles y Ghostship cubre Wukong's Command"
     },
     {
@@ -5591,7 +5591,7 @@
   "136": [
     {
       "vs": 138,
-      "level": "hard",
+      "level": "medium",
       "why": "Pierce the Veil vuelve a Muerta inmune a los ataques físicos y anula la ventana de Unleash"
     },
     {
