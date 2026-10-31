@@ -5664,6 +5664,11 @@
       "vs": 32,
       "level": "medium",
       "why": "Nullifier le quita el escape a Ringmaster y Riki lo mata cada vez que lo alcanza, porque no tiene cómo defenderse"
+    },
+    {
+      "vs": 79,
+      "level": "medium",
+      "why": "Demonic Purge purga el Escape Act en cuanto Ringmaster lo usa, así que lo deja sin su salvado"
     }
   ],
   "135": [
