@@ -216,7 +216,7 @@
     {
       "vs": 75,
       "level": "medium",
-      "why": "Global Silence corta Freezing Field desde cualquier lugar y obliga a Crystal Maiden a esperar BKB o un dispel"
+      "why": "Global Silence corta Freezing Field desde cualquier lugar y atraviesa el BKB; solo un dispel libera a Crystal Maiden"
     },
     {
       "vs": 14,
@@ -850,7 +850,7 @@
     {
       "vs": 75,
       "level": "medium",
-      "why": "Global Silence bloquea Ball Lightning desde cualquier punto y fuerza a Storm a gastar BKB o dispel antes de comprometerse"
+      "why": "Global Silence bloquea Ball Lightning desde cualquier punto y atraviesa el BKB; Storm necesita un dispel para volver a lanzar hechizos"
     },
     {
       "vs": 69,
@@ -918,6 +918,11 @@
       "vs": 20,
       "level": "medium",
       "why": "Wave of Terror le baja mucho la armadura a Sven y Nether Swap sirve para kitearlo y para salvar a sus carries de las combinaciones con Storm Hammer"
+    },
+    {
+      "vs": 46,
+      "level": "medium",
+      "why": "Meld le baja la armadura y Refraction absorbe sus pocos golpes fuertes; Sven necesita matar en pocos golpes y no puede"
     }
   ],
   "19": [
@@ -960,6 +965,21 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn es devastador contra un Tiny carry"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Retaliate le devuelve daño a cada golpe de Tiny, que es melee, y Hoof Stomp lo aturde cuando entra"
+    },
+    {
+      "vs": 95,
+      "level": "medium",
+      "why": "En forma de rango, Whirling Axes frena a Tiny y los golpes de Berserker's Rage pueden mutilarlo (más daño y menos velocidad), y Tiny es melee"
+    },
+    {
+      "vs": 108,
+      "level": "medium",
+      "why": "Atrophy Aura le baja el daño de ataque base a Tiny cuando está cerca y Pit of Malice lo enraíza si entra a pelear"
     }
   ],
   "20": [
@@ -1632,6 +1652,11 @@
       "vs": 11,
       "level": "medium",
       "why": "En la línea Necrophos sufre mucho contra Shadow Fiend: los Shadowraze lo castigan y SF farmea más rápido"
+    },
+    {
+      "vs": 47,
+      "level": "medium",
+      "why": "Viper Strike le apaga los pasivos (como Heartstopper Aura) y lo frena, y Corrosive Skin le da resistencia mágica a Viper, así que Death Pulse le hace poco: Necro no puede hostigar ni farmear en línea"
     }
   ],
   "37": [
@@ -2478,6 +2503,11 @@
       "vs": 92,
       "level": "medium",
       "why": "Lifestealer no tiene buen daño en área y sufre contra varios objetivos como los Familiars, y Visage puede kitearlo durante Rage con Grave Chill"
+    },
+    {
+      "vs": 155,
+      "level": "medium",
+      "why": "Si Lifestealer pone Open Wounds en Largo o en un aliado suyo, Catchy Lick se lo disipa y además le da regeneración a Largo"
     }
   ],
   "55": [
@@ -3268,6 +3298,16 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
+    },
+    {
+      "vs": 53,
+      "level": "medium",
+      "why": "Nature's Prophet es de rango: Sprout atrapa a Doom en el lugar y Wrath of Nature le pega desde cualquier punto mientras lo vea, y Doom es melee y tiene que acercarse"
+    },
+    {
+      "vs": 11,
+      "level": "medium",
+      "why": "Shadowraze castiga a Doom antes de que llegue y le apila daño extra, y Doom, que es melee, tiene que acercarse para poder pegar"
     }
   ],
   "70": [
@@ -4912,6 +4952,16 @@
       "vs": 112,
       "level": "medium",
       "why": "Winter's Curse castiga a Ember cuando se mete solo en una pelea o en el split push"
+    },
+    {
+      "vs": 95,
+      "level": "medium",
+      "why": "En melee, Berserker's Rage puede atar a Ember e impedirle moverse y usar habilidades de movilidad como Fire Remnant, y Whirling Axes le hace fallar ataques"
+    },
+    {
+      "vs": 21,
+      "level": "medium",
+      "why": "Windrun le da evasión contra golpes físicos y velocidad, Shackleshot lo inmoviliza y su daño a un solo objetivo lo mata"
     }
   ],
   "107": [
@@ -5493,6 +5543,11 @@
       "vs": 35,
       "level": "medium",
       "why": "Sniper lo hostiga desde lejos con su alcance y Shrapnel; Void Spirit debe gastar Astral Step solo para alcanzarlo"
+    },
+    {
+      "vs": 36,
+      "level": "medium",
+      "why": "En mid Necrophos abusa de los melee: Heartstopper Aura drena a Void Spirit cuando se acerca y Death Pulse lo hostiga mientras cura a Necro"
     }
   ],
   "128": [
@@ -5720,6 +5775,11 @@
       "vs": 85,
       "level": "medium",
       "why": "Primal Beast quiere entrar a enemigos agrupados, pero Tombstone y los zombis castigan sus sobre-compromisos, y Decay arruina su escalado por fuerza"
+    },
+    {
+      "vs": 54,
+      "level": "medium",
+      "why": "En línea Lifestealer pega rápido y Feast quita un porcentaje de la mucha vida de Primal Beast, que tiene mala animación de ataque"
     }
   ],
   "138": [

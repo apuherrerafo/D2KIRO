@@ -15,25 +15,20 @@ export const CAPABILITY_DATA_UNAVAILABLE = "CAPABILITY_DATA_UNAVAILABLE" as cons
 export const CAPABILITY_DATA_AVAILABLE = "CAPABILITY_DATA_AVAILABLE" as const;
 
 /**
- * Héroes jugables del censo activo de Dota 2 (CURATED_HERO_IDS, 127 héroes) cuyas capacidades tácticas
- * permanecen sin curar en capabilities.json (UNCURATED / CAPABILITY_DATA_UNAVAILABLE):
+ * Héroes del censo activo (CURATED_HERO_IDS, 127 héroes) cuyas capacidades tácticas siguen SIN curar en capabilities.json
+ * (UNCURATED / CAPABILITY_DATA_UNAVAILABLE).
  *
- * - Ringmaster (131): héroe jugable (introducido en parche 7.37). Excluido en TSK-036 / commit 20e4ca0 por falta de curación táctica confiable.
- * - Kez (145): héroe jugable (introducido en parche 7.37d / Crownfall IV). Excluido por la misma razón.
- * - Largo (155): héroe jugable activo en partidas clasificadas (confirmado en OpenDota y snapshot STRATZ con >2000 partidas Immortal AP).
- *   Excluido por la misma razón: sus capacidades tácticas subjetivas no han sido curadas en capabilities.json.
+ * Hoy está vacío: Ringmaster (131), Kez (145) y Largo (155), que estaban excluidos desde TSK-036 por falta de curación táctica
+ * confiable, se curaron el 2026-10-31 a partir del texto de sus habilidades en el Dota instalado (build del 27-oct-2026) y se
+ * calibraron contra héroes parecidos ya curados. Son valoraciones tácticas, no medidas: se revisan por separado como cualquier
+ * otra entrada de este archivo (127/127 curados).
  *
- * Ninguno de estos héroes es un concepto interno ni carece de estado jugable; son héroes plenamente activos
- * en el ecosistema, con datos empíricos de partidas y presencia en el catálogo, pero cuyas capacidades
- * tácticas multidimensionales (iniciación, waveclear, control, escala) aún no han recibido curación experta
- * en el archivo estático capabilities.json (124/127 curados).
- *
- * En el motor de scoring (team_synergy, archetype_fit), la semántica canónica dicta que:
+ * Si en el futuro sale un héroe nuevo sin ficha, se agrega aquí su id: en el motor de scoring (team_synergy, archetype_fit)
+ * la semántica canónica sigue siendo
  *   dato desconocido != carencia de capacidad
- * Por tanto, estos héroes reciben `raw: null` (imputación neutral de stateMean en mixCandidateByState),
- * evitando penalizarlos falsamente con raw: 0 o inventar valoraciones subjetivas no autoritativas.
+ * así que ese héroe recibe `raw: null` (imputación neutral de stateMean en mixCandidateByState), nunca raw: 0.
  */
-export const UNCURATED_CAPABILITY_HERO_IDS: ReadonlySet<number> = new Set([131, 145, 155]);
+export const UNCURATED_CAPABILITY_HERO_IDS: ReadonlySet<number> = new Set<number>();
 
 /** Alias de compatibilidad con código existente */
 export const UNKNOWN_CAPABILITY_HERO_IDS: ReadonlySet<number> = UNCURATED_CAPABILITY_HERO_IDS;
