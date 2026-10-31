@@ -59,6 +59,26 @@
       "vs": 95,
       "level": "medium",
       "why": "El root pasivo de Troll no le deja usar Blink, Whirling Axes lo hace fallar y Mana Void casi no daña a Troll porque tiene poco maná"
+    },
+    {
+      "vs": 6,
+      "level": "medium",
+      "why": "Gust lo silencia y le impide usar Blink"
+    },
+    {
+      "vs": 27,
+      "level": "medium",
+      "why": "Hex le deshabilita todas las habilidades, incluido Blink, y Shackles lo deja sin moverse ni atacar"
+    },
+    {
+      "vs": 41,
+      "level": "medium",
+      "why": "Chronosphere lo deja pausado, sin poder usar Blink, y es un kill seguro en cualquier etapa"
+    },
+    {
+      "vs": 57,
+      "level": "medium",
+      "why": "Guardian Angel vuelve inmunes al daño físico a los aliados cerca de Omniknight, y Anti-Mage hace casi todo su daño con ataques"
     }
   ],
   "2": [
@@ -141,6 +161,11 @@
       "vs": 75,
       "level": "medium",
       "why": "Global Silence le impide lanzar Berserker's Call, y Arcane Curse le hace daño y alarga su duración cada vez que Axe lanza un hechizo"
+    },
+    {
+      "vs": 30,
+      "level": "medium",
+      "why": "Maledict hace más daño cuanta más vida pierde Axe, y Axe quiere recibir daño para provocar con Berserker's Call"
     }
   ],
   "3": [
@@ -215,6 +240,11 @@
       "vs": 49,
       "level": "medium",
       "why": "La armadura y regeneración de Dragon Blood aguantan el daño físico de Bloodseeker, que no logra curarse con Bloodrage"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "Fortune's End dispela el silencio de Blood Rite, y Purifying Flames compensa el daño que Bloodseeker pone"
     }
   ],
   "5": [
@@ -247,6 +277,11 @@
       "vs": 32,
       "level": "medium",
       "why": "Crystal Maiden es frágil y sin escape: Blink Strike la alcanza y Smoke Screen le corta Freezing Field"
+    },
+    {
+      "vs": 105,
+      "level": "medium",
+      "why": "Sticky Bomb la frena y Blast Off! la aturde"
     }
   ],
   "6": [
@@ -314,6 +349,11 @@
       "vs": 18,
       "level": "medium",
       "why": "Warcry le da armadura extra y Marksmanship no la atraviesa"
+    },
+    {
+      "vs": 93,
+      "level": "medium",
+      "why": "Dark Pact dispela el slow de Frost Arrows y el silencio de Gust"
     }
   ],
   "7": [
@@ -450,6 +490,11 @@
       "vs": 145,
       "level": "medium",
       "why": "Falcon Rush le deja a Kez engancharse de nuevo a Mirana al instante aunque se aleje saltando con Leap, y una Mirana frágil muere fácil"
+    },
+    {
+      "vs": 4,
+      "level": "medium",
+      "why": "Rupture hace daño por la distancia que se mueve, así que Mirana no puede usar Leap sin castigo"
     }
   ],
   "10": [
@@ -641,6 +686,16 @@
       "vs": 38,
       "level": "medium",
       "why": "Drums of Slom daña a todas las ilusiones cercanas y cura a Beastmaster por cada una, y Wild Axes las limpia en área"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Scatterblast daña en cono y Mortimer Kisses en área, así que limpia las ilusiones de Phantom Lancer"
+    },
+    {
+      "vs": 23,
+      "level": "medium",
+      "why": "El cleave de Tidebringer atraviesa las ilusiones y ayuda a encontrar al Phantom Lancer real"
     }
   ],
   "13": [
@@ -837,6 +892,11 @@
       "vs": 4,
       "level": "medium",
       "why": "Rupture le hace daño por cada paso que da Razor y Blood Rite lo silencia, así que no puede perseguir ni usar Static Link"
+    },
+    {
+      "vs": 63,
+      "level": "medium",
+      "why": "Shukuchi le da velocidad máxima y lo saca de vista, y Static Link se corta si Weaver se aleja del rango"
     }
   ],
   "16": [
@@ -926,6 +986,16 @@
       "vs": 43,
       "level": "medium",
       "why": "Silence le impide usar Ball Lightning y Electric Vortex, que son su forma de entrar y salir"
+    },
+    {
+      "vs": 27,
+      "level": "medium",
+      "why": "Hex le deshabilita todas las habilidades, incluido Ball Lightning, si lo agarra a mitad de salto"
+    },
+    {
+      "vs": 121,
+      "level": "medium",
+      "why": "Phantom's Embrace lo silencia y le impide usar Ball Lightning"
     }
   ],
   "18": [
@@ -1178,6 +1248,11 @@
       "vs": 8,
       "level": "medium",
       "why": "Blade Fury evita gran parte del combo de Torrent y Ghostship y permite a Juggernaut pelear sin respetar tu control mágico"
+    },
+    {
+      "vs": 103,
+      "level": "medium",
+      "why": "Natural Order le quita la armadura base y Echo Stomp lo deja inconsciente"
     }
   ],
   "25": [
@@ -1329,6 +1404,11 @@
       "vs": 72,
       "level": "medium",
       "why": "Rocket Barrage y Flak Cannon lo matan rápido si sus aliados no lo protegen, y Gyrocopter rinde en peleas caóticas"
+    },
+    {
+      "vs": 42,
+      "level": "medium",
+      "why": "Reincarnation le permite volver a la vida y sobrevivir a los controles largos de Shadow Shaman"
     }
   ],
   "28": [
@@ -1440,6 +1520,11 @@
       "vs": 26,
       "level": "medium",
       "why": "Hex y Earth Spike interrumpen Death Ward, y Finger of Death mata rápido a Witch Doctor antes de que se vuelva una amenaza"
+    },
+    {
+      "vs": 16,
+      "level": "medium",
+      "why": "Burrowstrike lo aturde e interrumpe Death Ward, y el daño mágico de Sand King lo revienta rápido"
     }
   ],
   "31": [
@@ -1482,6 +1567,11 @@
       "vs": 42,
       "level": "medium",
       "why": "Reincarnation lo deja sobrevivir al daño de Lich y seguir peleando"
+    },
+    {
+      "vs": 77,
+      "level": "medium",
+      "why": "Shapeshift no se puede ralentizar, así que los slows de Lich no lo detienen"
     }
   ],
   "32": [
@@ -1797,6 +1887,11 @@
       "vs": 75,
       "level": "medium",
       "why": "Global Silence le impide lanzar Ghost Shroud y Reaper's Scythe"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "Fate's Edict y False Promise son dos salvadas contra Reaper's Scythe"
     }
   ],
   "37": [
@@ -1998,6 +2093,16 @@
       "vs": 43,
       "level": "medium",
       "why": "Silence le impide usar Blink y sus otras habilidades de movilidad"
+    },
+    {
+      "vs": 27,
+      "level": "medium",
+      "why": "Hex le deshabilita todas las habilidades, incluido Blink, y Shackles la deja sin moverse ni atacar"
+    },
+    {
+      "vs": 41,
+      "level": "medium",
+      "why": "Time Dilation alarga el cooldown de sus habilidades y la frena, y Queen of Pain casi no puede usarlas"
     }
   ],
   "40": [
@@ -2082,6 +2187,36 @@
       "vs": 58,
       "level": "medium",
       "why": "Untouchable reduce el daño de golpes de Faceless Void durante Chronosphere"
+    },
+    {
+      "vs": 102,
+      "level": "medium",
+      "why": "Aphotic Shield y Mist Coil mantienen vivo a un aliado dentro de Chronosphere"
+    },
+    {
+      "vs": 87,
+      "level": "medium",
+      "why": "Glimpse lo regresa a donde estaba segundos antes, deshaciendo su Time Walk, y Static Storm lo silencia antes de Chronosphere"
+    },
+    {
+      "vs": 33,
+      "level": "medium",
+      "why": "Black Hole atraviesa la BKB y lo atrapa antes o después de Chronosphere"
+    },
+    {
+      "vs": 23,
+      "level": "medium",
+      "why": "Ghostship aturde a Faceless Void y protege a los aliados atrapados en Chronosphere"
+    },
+    {
+      "vs": 75,
+      "level": "medium",
+      "why": "Global Silence le impide lanzar Time Walk y Chronosphere"
+    },
+    {
+      "vs": 42,
+      "level": "medium",
+      "why": "Reincarnation hace que Faceless Void gaste Chronosphere en la primera vida de Wraith King"
     }
   ],
   "42": [
@@ -2218,6 +2353,11 @@
       "vs": 129,
       "level": "medium",
       "why": "God's Rebuke tiene True Strike y no falla contra la evasión de Phantom Assassin"
+    },
+    {
+      "vs": 41,
+      "level": "medium",
+      "why": "Chronosphere la pausa antes de que escape, y Faceless Void le pega mientras no puede hacer nada"
     }
   ],
   "45": [
@@ -2369,6 +2509,11 @@
       "vs": 53,
       "level": "medium",
       "why": "Viper pega a un solo objetivo y no puede con los Treants de Nature's Call, y Sprout lo deja atrapado"
+    },
+    {
+      "vs": 63,
+      "level": "medium",
+      "why": "Time Lapse lo regresa cinco segundos atrás con su vida y le quita debuffs como el veneno, y Nethertoxin pega menos a quien no se queda dentro"
     }
   ],
   "48": [
@@ -2579,6 +2724,16 @@
       "vs": 120,
       "level": "medium",
       "why": "Con Mage Slayer reduce el daño de hechizos de Leshrac, y su movilidad le sobra contra un mid que se queda en la línea"
+    },
+    {
+      "vs": 68,
+      "level": "medium",
+      "why": "Ice Blast le impide curarse y regenerar, y lo destruye si queda con poca vida"
+    },
+    {
+      "vs": 103,
+      "level": "medium",
+      "why": "Natural Order le quita la resistencia mágica y la armadura base, y Echo Stomp lo deja inconsciente"
     }
   ],
   "53": [
@@ -2859,6 +3014,16 @@
       "vs": 69,
       "level": "medium",
       "why": "Doom silencia a Omniknight y le quita Guardian Angel; sin hechizos no puede curar ni salvar a nadie"
+    },
+    {
+      "vs": 68,
+      "level": "medium",
+      "why": "Ice Blast le impide curarse con Purification y lo destruye si queda con poca vida"
+    },
+    {
+      "vs": 103,
+      "level": "medium",
+      "why": "Natural Order le quita la armadura y la resistencia mágica, y Echo Stomp lo deja inconsciente"
     }
   ],
   "58": [
@@ -2936,6 +3101,11 @@
       "vs": 34,
       "level": "medium",
       "why": "Tinker hace daño con hechizos, que no son ataques, así que Untouchable no lo frena"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Sacred Arrow mata de un golpe al primer creep no ancestral que toca, como los creeps que controla Enchantress"
     }
   ],
   "59": [
@@ -3186,6 +3356,16 @@
       "vs": 92,
       "level": "medium",
       "why": "Los Familiars castigan la poca vida de Weaver y Soul Assumption se acumula rápido con sus golpes de hostigamiento, mientras Gravekeeper's Cloak reduce ese daño"
+    },
+    {
+      "vs": 119,
+      "level": "medium",
+      "why": "Bramble Maze lo inmoviliza y Cursed Crown lo aturde, así que gasta Time Lapse antes de tiempo"
+    },
+    {
+      "vs": 6,
+      "level": "medium",
+      "why": "Gust lo silencia y le impide usar Shukuchi y Time Lapse"
     }
   ],
   "64": [
@@ -3387,6 +3567,11 @@
       "vs": 30,
       "level": "medium",
       "why": "Paralyzing Cask rebota entre los creeps de Chen y aumenta su daño con cada rebote"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Sacred Arrow mata de un golpe al primer creep no ancestral que toca, como los creeps que controla Chen"
     }
   ],
   "67": [
@@ -3575,6 +3760,11 @@
       "vs": 43,
       "level": "medium",
       "why": "Silence le impide usar Enrage y Overpower en el momento clave"
+    },
+    {
+      "vs": 27,
+      "level": "medium",
+      "why": "Hex le deshabilita las habilidades y el ataque, y Shackles lo deja sin moverse ni atacar"
     }
   ],
   "71": [
@@ -3597,6 +3787,11 @@
       "vs": 129,
       "level": "medium",
       "why": "Spear of Mars y Arena of Blood frenan su carga"
+    },
+    {
+      "vs": 87,
+      "level": "medium",
+      "why": "Glimpse lo teletransporta a donde estaba segundos antes, deshaciendo la distancia que ganó con Charge of Darkness"
     }
   ],
   "72": [
@@ -3676,6 +3871,11 @@
       "vs": 36,
       "level": "medium",
       "why": "El daño de Alchemist es físico y Ghost Shroud lo anula; Heartstopper Aura le corta la curación de Chemical Rage y Reaper's Scythe lo termina"
+    },
+    {
+      "vs": 57,
+      "level": "medium",
+      "why": "Guardian Angel vuelve inmunes al daño físico a los aliados y los golpes de Alchemist no les hacen nada"
     }
   ],
   "74": [
@@ -3854,6 +4054,21 @@
       "vs": 99,
       "level": "medium",
       "why": "Los lobos de Lycan casi no dañan a Bristleback y Quill Spray los mata aunque sean invisibles; Lycan no tiene daño explosivo para matarlo"
+    },
+    {
+      "vs": 4,
+      "level": "medium",
+      "why": "Rupture hace daño por la distancia que se mueve, así que Lycan no puede correr con Shapeshift sin castigo"
+    },
+    {
+      "vs": 23,
+      "level": "medium",
+      "why": "El cleave de Tidebringer elimina a los lobos de Lycan"
+    },
+    {
+      "vs": 29,
+      "level": "medium",
+      "why": "Kraken Shell bloquea parte del daño físico y Anchor Smash daña a los lobos y baja el daño de ataque de Lycan"
     }
   ],
   "78": [
@@ -4007,6 +4222,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Winter's Curse hace que Chaos Knight y sus ilusiones se peguen entre ellos, y Splinter Blast daña a todas las ilusiones"
+    },
+    {
+      "vs": 23,
+      "level": "medium",
+      "why": "El cleave de Tidebringer y Ghostship destruyen las ilusiones de Chaos Knight"
     }
   ],
   "82": [
@@ -4084,6 +4304,41 @@
       "vs": 31,
       "level": "medium",
       "why": "Chain Frost rebota entre todos los Meepo y cada rebote hace más daño"
+    },
+    {
+      "vs": 30,
+      "level": "medium",
+      "why": "Paralyzing Cask rebota entre los clones y Maledict alcanza a todos los Meepo juntos"
+    },
+    {
+      "vs": 6,
+      "level": "medium",
+      "why": "Gust lo silencia y le impide usar Poof para escapar o juntarse con sus clones"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Mortimer Kisses daña en área y castiga a Meepo si junta a sus clones"
+    },
+    {
+      "vs": 105,
+      "level": "medium",
+      "why": "Reactive Tazer desarma a quien ataca, y sus daños en área pegan a todos los clones"
+    },
+    {
+      "vs": 33,
+      "level": "medium",
+      "why": "Midnight Pulse hace daño según la vida actual de cada clon y Black Hole los atrapa a todos"
+    },
+    {
+      "vs": 23,
+      "level": "medium",
+      "why": "Tidebringer parte a varios clones con su cleave y Ghostship daña y aturde a los Meepo juntos"
+    },
+    {
+      "vs": 57,
+      "level": "medium",
+      "why": "Guardian Angel vuelve inmunes al daño físico a los aliados y los golpes de todos los Meepo no les hacen nada"
     }
   ],
   "83": [
@@ -4274,6 +4529,16 @@
       "vs": 20,
       "level": "medium",
       "why": "Nether Swap reposiciona objetivos y deja inútil a Glimpse de Disruptor, y rompe sus combos de Static Storm al salvar a los aliados al instante"
+    },
+    {
+      "vs": 8,
+      "level": "medium",
+      "why": "Blade Fury lo vuelve inmune a debuffs, así que atraviesa Kinetic Field"
+    },
+    {
+      "vs": 54,
+      "level": "medium",
+      "why": "Rage lo vuelve inmune a debuffs, así que atraviesa Kinetic Field"
     }
   ],
   "88": [
@@ -4316,6 +4581,16 @@
       "vs": 54,
       "level": "medium",
       "why": "Rage anula Impale y Mana Burn, y Nyx no puede reventarlo ni escapar de él"
+    },
+    {
+      "vs": 27,
+      "level": "medium",
+      "why": "Hex le deshabilita todas las habilidades antes de que use Spiked Carapace o Vendetta para escapar"
+    },
+    {
+      "vs": 121,
+      "level": "medium",
+      "why": "Phantom's Embrace lo silencia mientras el fantasma esté pegado, y sin habilidades Nyx no puede escapar"
     }
   ],
   "89": [
@@ -4368,6 +4643,21 @@
       "vs": 38,
       "level": "medium",
       "why": "Drums of Slom daña a todas las ilusiones de Mirror Image y cura a Beastmaster por cada una, y Wild Axes las limpia en área"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Scatterblast daña y frena en cono y Mortimer Kisses en área, así que limpia las ilusiones de Mirror Image"
+    },
+    {
+      "vs": 105,
+      "level": "medium",
+      "why": "Sticky Bomb, Blast Off! y las Proximity Mines dañan en área y limpian los Mirror Image"
+    },
+    {
+      "vs": 108,
+      "level": "medium",
+      "why": "Atrophy Aura le baja el daño base a Naga Siren, que escala justo con daño base"
     }
   ],
   "90": [
@@ -4591,6 +4881,11 @@
       "vs": 76,
       "level": "medium",
       "why": "Astral Imprisonment salva al aliado del Pounce, Arcane Orb hace daño puro que ignora la armadura robada y Sanity's Eclipse lo mata por su poco maná"
+    },
+    {
+      "vs": 57,
+      "level": "medium",
+      "why": "Guardian Angel lo vuelve inmune al daño físico, así que los golpes de Slark no le hacen nada"
     }
   ],
   "94": [
@@ -4680,6 +4975,11 @@
       "vs": 138,
       "level": "medium",
       "why": "Pierce the Veil la vuelve etérea y los golpes físicos de Troll Warlord no le hacen daño"
+    },
+    {
+      "vs": 121,
+      "level": "medium",
+      "why": "Phantom's Embrace lo silencia y le impide activar Battle Trance, y Soulbind hace riesgoso agruparse en melee"
     }
   ],
   "96": [
@@ -5130,6 +5430,11 @@
       "vs": 42,
       "level": "medium",
       "why": "Reincarnation hace que Techies gaste todo su combo y Wraith King vuelva; los esqueletos pisan y gastan las Proximity Mines"
+    },
+    {
+      "vs": 8,
+      "level": "medium",
+      "why": "Blade Fury le da resistencia mágica e inmunidad a debuffs mientras gira, y Techies hace casi todo su daño con magia"
     }
   ],
   "106": [
@@ -5344,6 +5649,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Arctic Burn es devastador contra un Earth Spirit en mid"
+    },
+    {
+      "vs": 121,
+      "level": "medium",
+      "why": "Phantom's Embrace lo silencia y Soulbind lo ata a otro rival, así que no puede usar sus habilidades para escapar"
     }
   ],
   "108": [
@@ -5448,6 +5758,16 @@
       "vs": 34,
       "level": "medium",
       "why": "Laser lo ciega y sus ataques fallan, y el daño puro de Tinker ignora su armadura"
+    },
+    {
+      "vs": 6,
+      "level": "medium",
+      "why": "Marksmanship ignora la armadura base de Terrorblade"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Scatterblast daña en cono y Mortimer Kisses en área, así que limpia sus ilusiones rápido"
     }
   ],
   "110": [
@@ -5485,6 +5805,11 @@
       "vs": 64,
       "level": "medium",
       "why": "Dual Breath y Macropyre hacen daño sostenido a Phoenix a través de Icarus Dive y Fire Spirits, e Ice Path interrumpe sus canalizaciones"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Leap le da velocidad de ataque y movimiento para llegar al Supernova y destruirlo rápido"
     }
   ],
   "111": [
@@ -5512,6 +5837,11 @@
       "vs": 92,
       "level": "medium",
       "why": "Los Familiars interrumpen los canales de Oracle y le aplican presión constante, y a Oracle le cuesta limpiarlos"
+    },
+    {
+      "vs": 79,
+      "level": "medium",
+      "why": "Demonic Purge dispela la resistencia mágica de Fate's Edict y la curación de Purifying Flames"
     }
   ],
   "112": [
@@ -5564,6 +5894,16 @@
       "vs": 43,
       "level": "medium",
       "why": "Silence le impide lanzar Cold Embrace y Winter's Curse"
+    },
+    {
+      "vs": 52,
+      "level": "medium",
+      "why": "Pulse Nova es daño mágico, que Cold Embrace no bloquea, y puede matar a Winter Wyvern dentro del capullo"
+    },
+    {
+      "vs": 22,
+      "level": "medium",
+      "why": "Cold Embrace solo bloquea daño físico y el daño de Zeus es mágico, así que puede matar al aliado dentro del capullo"
     }
   ],
   "113": [
@@ -5683,6 +6023,46 @@
       "vs": 20,
       "level": "medium",
       "why": "Nether Swap lo saca del anillo de Wukong's Command y termina su definitiva, y la visión de Wave of Terror la ayuda a encontrarlo cuando se esconde en un árbol con Tree Dance"
+    },
+    {
+      "vs": 33,
+      "level": "medium",
+      "why": "Midnight Pulse destruye árboles, y si Monkey King está sobre uno cae y queda aturdido"
+    },
+    {
+      "vs": 90,
+      "level": "medium",
+      "why": "Blinding Light lo empuja fuera del anillo de Wukong's Command y termina su definitiva"
+    },
+    {
+      "vs": 97,
+      "level": "medium",
+      "why": "Skewer lo arrastra y Reverse Polarity lo desplaza, lo saca del anillo de Wukong's Command y termina su definitiva"
+    },
+    {
+      "vs": 129,
+      "level": "medium",
+      "why": "Spear of Mars lo empuja fuera del anillo de Wukong's Command, y al salir del área los soldados se dispersan y la definitiva termina"
+    },
+    {
+      "vs": 138,
+      "level": "medium",
+      "why": "Pierce the Veil la vuelve etérea e inmune al daño físico de Monkey King"
+    },
+    {
+      "vs": 105,
+      "level": "medium",
+      "why": "Blast Off! destruye árboles, así que lo tira aturdido si está sobre uno"
+    },
+    {
+      "vs": 47,
+      "level": "medium",
+      "why": "Viper Strike le desactiva los pasivos, como Jingu Mastery, y lo frena"
+    },
+    {
+      "vs": 21,
+      "level": "medium",
+      "why": "Powershot rompe árboles y Monkey King cae aturdido si estaba sobre uno"
     }
   ],
   "119": [
@@ -5787,6 +6167,11 @@
       "vs": 83,
       "level": "medium",
       "why": "Overgrowth atraviesa la inmunidad a debuffs de Rolling Thunder e inmoviliza a Pangolier, arruinando su iniciación al instante"
+    },
+    {
+      "vs": 41,
+      "level": "medium",
+      "why": "Chronosphere lo pausa a mitad de Rolling Thunder y lo deja sin su habilidad principal"
     }
   ],
   "121": [
@@ -6135,6 +6520,11 @@
       "vs": 85,
       "level": "medium",
       "why": "Primal Beast quiere entrar a enemigos agrupados, pero Tombstone y los zombis castigan sus sobre-compromisos, y Decay arruina su escalado por fuerza"
+    },
+    {
+      "vs": 105,
+      "level": "medium",
+      "why": "Trample lo desarma y no puede destruir las Proximity Mines antes de que exploten"
     }
   ],
   "138": [
