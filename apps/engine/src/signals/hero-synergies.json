@@ -1,6 +1,11 @@
 [
   {
     "a": 102,
+    "b": 113,
+    "why": "Aphotic Shield absorbe daño y quita debuffs con un dispel fuerte, y Borrowed Time deja a Abaddon aguantar al frente mientras Arc Warden hace daño"
+  },
+  {
+    "a": 102,
     "b": 2,
     "why": "Aphotic Shield y Mist Coil hacen a Axe mucho más resistente cuando entra con Blink Dagger"
   },
@@ -8,6 +13,11 @@
     "a": 102,
     "b": 96,
     "why": "Aphotic Shield absorbe el daño propio de Double Edge y explota, y Mist Coil lo mantiene vivo al frente"
+  },
+  {
+    "a": 102,
+    "b": 119,
+    "why": "Aphotic Shield quita aturdimientos y otros debuffs a Dark Willow o a un aliado, y Borrowed Time los salva de morir"
   },
   {
     "a": 102,
@@ -21,6 +31,11 @@
   },
   {
     "a": 102,
+    "b": 52,
+    "why": "Aphotic Shield le da una barrera de daño y un dispel fuerte para que no lo kiteen con slows y aturdimientos"
+  },
+  {
+    "a": 102,
     "b": 111,
     "why": "Purifying Flames rompe rápido el Aphotic Shield para que explote y cura a Abaddon durante Borrowed Time"
   },
@@ -31,8 +46,23 @@
   },
   {
     "a": 102,
+    "b": 35,
+    "why": "Aphotic Shield le quita los debuffs a Sniper y le da una barrera de daño, para que dispare sin que lo controlen"
+  },
+  {
+    "a": 102,
+    "b": 67,
+    "why": "Aphotic Shield absorbe daño y Dispersion lo refleja antes de las reducciones, así que Spectre aguanta y sigue devolviendo daño"
+  },
+  {
+    "a": 102,
     "b": 17,
     "why": "Aphotic Shield y Mist Coil dejan a Storm Spirit entrar agresivo y le quitan el stun para escapar con su ulti"
+  },
+  {
+    "a": 73,
+    "b": 121,
+    "why": "Soulbind repite Unstable Concoction en el segundo rival, y Ink Swell acelera a Alchemist para entrar"
   },
   {
     "a": 73,
@@ -51,13 +81,48 @@
   },
   {
     "a": 68,
+    "b": 106,
+    "why": "Searing Chains ancla a varios rivales en su lugar, así que Cold Feet los congela y aturde"
+  },
+  {
+    "a": 68,
+    "b": 41,
+    "why": "Chronosphere deja quietos a los rivales, así que Cold Feet los congela y aturde y Ice Blast los alcanza"
+  },
+  {
+    "a": 68,
     "b": 104,
     "why": "Duel deja al rival quieto para Cold Feet, Ice Vortex e Ice Blast completos"
   },
   {
     "a": 68,
+    "b": 13,
+    "why": "Dream Coil ata a los rivales y los obliga a quedarse en el área, así que Cold Feet los congela y aturde"
+  },
+  {
+    "a": 68,
     "b": 19,
     "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Ancient Apparition, mientras Tiny pone poco daño propio"
+  },
+  {
+    "a": 68,
+    "b": 108,
+    "why": "Pit of Malice inmoviliza a los rivales, así que Cold Feet los congela y aturde y Ice Blast los alcanza"
+  },
+  {
+    "a": 68,
+    "b": 112,
+    "why": "Winter's Curse deja al objetivo congelado en su lugar, así que Cold Feet y Ice Blast lo alcanzan, y Arctic Burn lo frena"
+  },
+  {
+    "a": 68,
+    "b": 42,
+    "why": "Wraithfire Blast aturde y frena al objetivo y Cold Feet lo congela y aturde después"
+  },
+  {
+    "a": 68,
+    "b": 22,
+    "why": "Ice Blast impide que los rivales se curen y los destruye si bajan de cierto porcentaje de vida, y el daño mágico de Zeus los remata"
   },
   {
     "a": 1,
@@ -86,6 +151,16 @@
   },
   {
     "a": 113,
+    "b": 87,
+    "why": "Kinetic Field encierra a los rivales y Static Storm los silencia, así que no escapan de los ataques y habilidades de Arc Warden"
+  },
+  {
+    "a": 113,
+    "b": 111,
+    "why": "False Promise salva a Arc Warden o a su Tempest Double de un daño letal y Fortune's End inmoviliza a quien lo persigue"
+  },
+  {
+    "a": 113,
     "b": 27,
     "why": "Shackles deja quieto al enemigo para sacar el máximo daño de Flux y de Spark Wraith"
   },
@@ -101,8 +176,18 @@
   },
   {
     "a": 2,
+    "b": 111,
+    "why": "Fate's Edict le da gran resistencia mágica a Axe, que ya tiene mucha armadura, y Fortune's End lo ayuda a entrar"
+  },
+  {
+    "a": 2,
     "b": 101,
     "why": "Berserker's Call deja a los rivales juntos y quietos para el Mystic Flare de Skywrath Mage"
+  },
+  {
+    "a": 3,
+    "b": 121,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo de Bane, como Enfeeble, Brain Sap, Nightmare y Fiend's Grip"
   },
   {
     "a": 3,
@@ -110,9 +195,54 @@
     "why": "Nightmare y Fiend's Grip bloquean mucho tiempo y le dejan a Invoker meter Sun Strike y todo su combo"
   },
   {
+    "a": 3,
+    "b": 9,
+    "why": "Nightmare y Fiend's Grip inmovilizan al objetivo mucho tiempo, así que Sacred Arrow conecta desde lejos con un aturdimiento largo"
+  },
+  {
+    "a": 3,
+    "b": 101,
+    "why": "Nightmare y Fiend's Grip dejan al rival fuera de combate mucho tiempo para que Skywrath Mage lance Mystic Flare"
+  },
+  {
+    "a": 65,
+    "b": 4,
+    "why": "Rupture hace daño según la distancia que se mueve el rival, y Flaming Lasso lo arrastra mientras está roto"
+  },
+  {
+    "a": 65,
+    "b": 33,
+    "why": "Flaming Lasso reposiciona a los rivales dentro del Black Hole"
+  },
+  {
+    "a": 65,
+    "b": 101,
+    "why": "Flaming Lasso arrastra a los rivales hacia Mystic Flare y Ancient Seal los silencia"
+  },
+  {
+    "a": 65,
+    "b": 105,
+    "why": "Flaming Lasso arrastra al rival detrás de Batrider y lo puede llevar hacia las Proximity Mines de Techies"
+  },
+  {
+    "a": 38,
+    "b": 74,
+    "why": "Primal Roar aturde al objetivo y el Sun Strike de Invoker, que cae con retraso, no falla"
+  },
+  {
+    "a": 38,
+    "b": 53,
+    "why": "Primal Roar aturde al objetivo y da tiempo a que Nature's Prophet llegue con Teleportation y su Wrath of Nature conecte"
+  },
+  {
     "a": 38,
     "b": 11,
     "why": "Primal Roar deja al rival quieto para todo el daño de Shadow Fiend, y el push de Beastmaster acompaña su ritmo"
+  },
+  {
+    "a": 38,
+    "b": 101,
+    "why": "Primal Roar aturde al objetivo y lo deja dentro del área de Mystic Flare, que reparte su daño entre los héroes que están ahí"
   },
   {
     "a": 4,
@@ -121,8 +251,23 @@
   },
   {
     "a": 4,
+    "b": 52,
+    "why": "Bloodrage le suma mucho daño de hechizos a Leshrac, y su costo de vida lo compensa con su itemización"
+  },
+  {
+    "a": 4,
     "b": 14,
     "why": "Meat Hook activa el daño de Rupture al arrastrar al rival, y Dismember prepara Blood Rite"
+  },
+  {
+    "a": 4,
+    "b": 71,
+    "why": "Thirst le da vista de los héroes con poca vida, y Charge of Darkness puede perseguirlos desde cualquier lugar"
+  },
+  {
+    "a": 4,
+    "b": 22,
+    "why": "Bloodrage le suma mucho daño de hechizos a Zeus"
   },
   {
     "a": 62,
@@ -136,8 +281,23 @@
   },
   {
     "a": 62,
+    "b": 53,
+    "why": "Track da vista del objetivo, así que Wrath of Nature y Teleportation llegan a él"
+  },
+  {
+    "a": 62,
     "b": 35,
     "why": "Track le da a Sniper visión extra para Assassinate; juntos son buena respuesta contra Lina en mid"
+  },
+  {
+    "a": 62,
+    "b": 67,
+    "why": "Track da vista verdadera del objetivo, así que Shadow Step puede apuntarle desde cualquier lugar"
+  },
+  {
+    "a": 62,
+    "b": 71,
+    "why": "Track da vista verdadera del objetivo, así que Charge of Darkness puede apuntarle desde cualquier lugar"
   },
   {
     "a": 62,
@@ -161,6 +321,11 @@
   },
   {
     "a": 99,
+    "b": 121,
+    "why": "Soulbind repite Viscous Nasal Goo en el segundo rival y deja atados a los dos"
+  },
+  {
+    "a": 99,
     "b": 90,
     "why": "Chakra Magic le reinicia Quill Spray para usarlo dos veces seguidas y le da maná para spamear"
   },
@@ -171,8 +336,18 @@
   },
   {
     "a": 96,
+    "b": 8,
+    "why": "Stampede lleva a Juggernaut a máxima velocidad para alcanzar objetivos prioritarios"
+  },
+  {
+    "a": 96,
     "b": 79,
     "why": "Disruption y Hoof Stomp forman un combo de control"
+  },
+  {
+    "a": 96,
+    "b": 101,
+    "why": "Hoof Stomp aturde en área y Mystic Flare cae sobre los rivales quietos"
   },
   {
     "a": 96,
@@ -196,6 +371,11 @@
   },
   {
     "a": 81,
+    "b": 87,
+    "why": "Glimpse devuelve a los rivales a donde estaban y Chaos Knight los alcanza para matarlos"
+  },
+  {
+    "a": 81,
     "b": 79,
     "why": "Disruption sobre Chaos Knight crea más ilusiones con Chaos Strike y Demonic Purge frena al rival para que no escape"
   },
@@ -203,6 +383,16 @@
     "a": 66,
     "b": 12,
     "why": "Phantom Lancer solo necesita sostén para pasar la línea y Chen necesita héroes que farmeen y peguen fuerte, porque Chen no hace daño"
+  },
+  {
+    "a": 56,
+    "b": 87,
+    "why": "Kinetic Field encierra al rival y Static Storm lo silencia, así que Clinkz le dispara sin que pueda escapar ni lanzar habilidades"
+  },
+  {
+    "a": 51,
+    "b": 72,
+    "why": "Hookshot, Power Cogs y Battery Assault encierran a los rivales para que Gyrocopter descargue Rocket Barrage y Call Down"
   },
   {
     "a": 51,
@@ -218,6 +408,21 @@
     "a": 51,
     "b": 53,
     "why": "Clockwerk trae stun, empuje, slow y otro stun con poco cooldown, y Nature's Prophet necesita control barato para jugar un ritmo rápido con Teleportation y Treants"
+  },
+  {
+    "a": 51,
+    "b": 15,
+    "why": "Power Cogs atrapan a los rivales dentro del anillo y Static Link no se corta por distancia"
+  },
+  {
+    "a": 51,
+    "b": 101,
+    "why": "Hookshot y Power Cogs dejan a los rivales atrapados y Skywrath Mage les lanza Mystic Flare desde fuera"
+  },
+  {
+    "a": 51,
+    "b": 93,
+    "why": "Power Cogs atrapan a los rivales para que Slark salte con Pounce y los mate"
   },
   {
     "a": 5,
@@ -246,8 +451,23 @@
   },
   {
     "a": 55,
+    "b": 33,
+    "why": "Vacuum jala a los rivales hacia el Black Hole, y Ion Shell y Midnight Pulse suman daño"
+  },
+  {
+    "a": 55,
+    "b": 64,
+    "why": "Vacuum junta a los rivales para que las habilidades de área de Jakiro lleguen a todos"
+  },
+  {
+    "a": 55,
     "b": 32,
     "why": "Ion Shell sobre Riki es como un daño en área invisible que gana la línea, y Vacuum junta a los rivales en su Smoke Screen"
+  },
+  {
+    "a": 55,
+    "b": 67,
+    "why": "Surge le da velocidad máxima y atraviesa unidades, e Ion Shell le suma daño al correr hacia los rivales"
   },
   {
     "a": 55,
@@ -266,8 +486,23 @@
   },
   {
     "a": 119,
+    "b": 23,
+    "why": "X Marks the Spot y Torrent dejan al rival en su lugar para Bramble Maze y Cursed Crown"
+  },
+  {
+    "a": 119,
     "b": 13,
     "why": "Terrorize hace que los rivales salgan corriendo y rompan Dream Coil, que los stunea y les pega"
+  },
+  {
+    "a": 119,
+    "b": 131,
+    "why": "Bramble Maze y Wheel of Wonder atrapan a los rivales y Escape Act salva a Dark Willow, que es frágil"
+  },
+  {
+    "a": 119,
+    "b": 93,
+    "why": "Bramble Maze inmoviliza a los rivales en área para que Slark los alcance con Pounce"
   },
   {
     "a": 119,
@@ -281,8 +516,18 @@
   },
   {
     "a": 135,
+    "b": 33,
+    "why": "Black Hole deja a los rivales sin moverse, atacar ni lanzar habilidades mientras los pulsos de Solar Guardian los dañan"
+  },
+  {
+    "a": 135,
     "b": 59,
     "why": "Solar Guardian salva a Huskar desde cualquier parte del mapa con curación y stun"
+  },
+  {
+    "a": 135,
+    "b": 145,
+    "why": "Solar Guardian cae sobre Kez y lo cura mientras pelea en medio de los rivales, donde es frágil"
   },
   {
     "a": 135,
@@ -306,8 +551,18 @@
   },
   {
     "a": 50,
+    "b": 82,
+    "why": "Shadow Wave cura a varios Meepo a la vez, y Shallow Grave salva al Meepo al que le apuntan"
+  },
+  {
+    "a": 50,
     "b": 53,
     "why": "Shadow Wave de Dazzle conecta con los Treants de Nature's Prophet y gana campamentos y tradeos en la línea; Shallow Grave protege a un Nature's Prophet frágil cuando entra con Teleportation"
+  },
+  {
+    "a": 43,
+    "b": 101,
+    "why": "Ancient Seal silencia al objetivo y lo deja más débil a los hechizos, y Death Prophet lo castiga con Silence y Spirit Siphon"
   },
   {
     "a": 87,
@@ -316,13 +571,53 @@
   },
   {
     "a": 87,
+    "b": 23,
+    "why": "X Marks the Spot y Torrent dejan al rival en su lugar y Static Storm lo silencia mientras le hace daño"
+  },
+  {
+    "a": 87,
     "b": 76,
     "why": "Kinetic Field no deja que los rivales se alejen de Outworld Destroyer"
+  },
+  {
+    "a": 87,
+    "b": 15,
+    "why": "Kinetic Field encierra al rival dentro del alcance de Static Link, y Static Storm lo silencia mientras Razor lo golpea"
+  },
+  {
+    "a": 87,
+    "b": 29,
+    "why": "Kinetic Field y Static Storm dejan a los rivales en su lugar justo después de Ravage"
+  },
+  {
+    "a": 87,
+    "b": 108,
+    "why": "Pit of Malice inmoviliza a los rivales, Static Storm los silencia y Kinetic Field los encierra"
+  },
+  {
+    "a": 87,
+    "b": 40,
+    "why": "Kinetic Field encierra a los rivales dentro del área de Poison Nova y Static Storm los silencia"
+  },
+  {
+    "a": 87,
+    "b": 30,
+    "why": "Kinetic Field encierra a los rivales y Static Storm los silencia, para que no interrumpan Death Ward"
   },
   {
     "a": 69,
     "b": 121,
     "why": "Grimstroke deja atado al rival unos 6 segundos, tiempo de sobra para que Doom entre, y es fácil de ejecutar en el early game"
+  },
+  {
+    "a": 69,
+    "b": 22,
+    "why": "Doom le impide al rival lanzar hechizos y curarse mientras le hace daño, y Thundergod's Wrath lo remata desde cualquier lugar del mapa"
+  },
+  {
+    "a": 49,
+    "b": 91,
+    "why": "Overcharge le da velocidad de ataque a Dragon Knight conectado por Tether, y Io lo cura mientras empuja"
   },
   {
     "a": 49,
@@ -335,9 +630,19 @@
     "why": "Reverse Polarity junta a los rivales para el daño en área del dragón y Empower le suma cleave"
   },
   {
+    "a": 6,
+    "b": 28,
+    "why": "Corrosive Haze baja la armadura del objetivo para el daño físico de Drow Ranger, y Slithereen Crush aturde a los rivales"
+  },
+  {
     "a": 107,
     "b": 155,
     "why": "Croak of Genius le baja el costo de maná a Earth Spirit y repite parte del daño de sus habilidades, así que rinde con héroes que pegan seguido con habilidades como Earth Spirit"
+  },
+  {
+    "a": 7,
+    "b": 72,
+    "why": "Fissure y Echo Slam juntan y frenan a los rivales para que Call Down y Flak Cannon los castiguen"
   },
   {
     "a": 7,
@@ -390,9 +695,19 @@
     "why": "Empower acelera el farmeo de Ember y potencia mucho su Sleight of Fist"
   },
   {
+    "a": 106,
+    "b": 131,
+    "why": "Searing Chains se suma al control de Ringmaster y Escape Act salva a Ember cuando lo atrapan"
+  },
+  {
     "a": 33,
     "b": 97,
     "why": "Reverse Polarity junta a los rivales y los deja listos para un Black Hole enorme"
+  },
+  {
+    "a": 33,
+    "b": 89,
+    "why": "Ensnare inmoviliza a los rivales y Reel In los arrastra hacia Naga, lo que puede meterlos en el Black Hole"
   },
   {
     "a": 33,
@@ -400,14 +715,134 @@
     "why": "Black Hole deja a los rivales juntos y quietos para Smoke Screen y Tricks of the Trade"
   },
   {
+    "a": 33,
+    "b": 11,
+    "why": "Black Hole junta y deja inmóviles a los rivales para un Requiem en medio de la pelea"
+  },
+  {
+    "a": 33,
+    "b": 75,
+    "why": "Black Hole deja a los rivales sin moverse, atacar ni lanzar, y Global Silence les impide cualquier habilidad al salir"
+  },
+  {
+    "a": 33,
+    "b": 101,
+    "why": "Black Hole junta y deja inmóviles a los rivales, y Mystic Flare reparte su daño entre todos los que están ahí"
+  },
+  {
+    "a": 33,
+    "b": 17,
+    "why": "Electric Vortex jala a los rivales hacia el Black Hole"
+  },
+  {
+    "a": 33,
+    "b": 37,
+    "why": "Black Hole y Chaotic Offering se suman: si Warlock espera a que Enigma lance el Black Hole, su Golem cae sobre rivales ya inmovilizados"
+  },
+  {
+    "a": 33,
+    "b": 30,
+    "why": "Black Hole deja a los rivales sin moverse, atacar ni lanzar hechizos mientras Maledict y Death Ward los destruyen"
+  },
+  {
+    "a": 41,
+    "b": 64,
+    "why": "El slow de Time Dilation se suma al de Dual Breath y los dos persiguen a los que huyen"
+  },
+  {
+    "a": 41,
+    "b": 31,
+    "why": "Chronosphere junta y deja quietos a los rivales para Chain Frost, y Frost Shield protege a Faceless Void al entrar"
+  },
+  {
     "a": 41,
     "b": 110,
     "why": "Phoenix es de los pocos supports de frontline y Chronosphere protege el huevo: mala línea, pero devastador en mid y late game"
   },
   {
+    "a": 41,
+    "b": 101,
+    "why": "Chronosphere deja a los rivales dentro del área de Mystic Flare, que reparte su daño entre los héroes que están ahí"
+  },
+  {
+    "a": 41,
+    "b": 128,
+    "why": "Chronosphere deja quietos a los rivales y las Mortimer Kisses caen sobre todos desde fuera de la esfera"
+  },
+  {
+    "a": 41,
+    "b": 29,
+    "why": "Chronosphere y Ravage son dos controles en área que se pueden escalonar para encadenar la pelea"
+  },
+  {
+    "a": 41,
+    "b": 30,
+    "why": "Chronosphere deja a los rivales quietos y Witch Doctor canaliza Death Ward desde fuera de la esfera"
+  },
+  {
+    "a": 121,
+    "b": 8,
+    "why": "Soulbind repite Omnislash en el segundo rival y deja atados a los dos"
+  },
+  {
+    "a": 121,
+    "b": 23,
+    "why": "Soulbind repite X Marks the Spot en el segundo rival, y los dos quedan marcados y se devuelven juntos"
+  },
+  {
+    "a": 121,
+    "b": 104,
+    "why": "Soulbind repite Duel en el segundo rival y deja atados a los dos"
+  },
+  {
+    "a": 121,
+    "b": 31,
+    "why": "Soulbind mantiene juntos a dos rivales, así que Chain Frost rebota entre ellos, y repite en el segundo cualquier habilidad con objetivo"
+  },
+  {
+    "a": 121,
+    "b": 26,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo de Lion: Hex, Finger of Death y Mana Drain golpean a los dos"
+  },
+  {
+    "a": 121,
+    "b": 136,
+    "why": "Ink Swell la acelera y, al terminar, aturde a los rivales cercanos, justo cuando Marci entra con Rebound y Unleash"
+  },
+  {
+    "a": 121,
+    "b": 94,
+    "why": "Soulbind repite Mystic Snake en el segundo rival y deja atados a los dos"
+  },
+  {
+    "a": 121,
+    "b": 10,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo, como Adaptive Strike, y deja atados a los dos"
+  },
+  {
     "a": 121,
     "b": 137,
     "why": "Grimstroke pone Ink Swell, Primal Beast lo atraviesa con Onslaught y el movimiento activa el daño extra; Stroke of Fate remata al stuneado"
+  },
+  {
+    "a": 121,
+    "b": 15,
+    "why": "Soulbind repite Static Link en el segundo rival y deja atados a los dos, así que Razor drena el daño de ambos"
+  },
+  {
+    "a": 121,
+    "b": 86,
+    "why": "Soulbind repite Telekinesis en el segundo rival, así que dos héroes quedan levantados a la vez"
+  },
+  {
+    "a": 121,
+    "b": 27,
+    "why": "Soulbind repite Hex y Shackles en el segundo rival, así que dos héroes quedan controlados a la vez"
+  },
+  {
+    "a": 121,
+    "b": 71,
+    "why": "Ink Swell lo acelera mientras carga y aturde al terminar"
   },
   {
     "a": 121,
@@ -418,6 +853,16 @@
     "a": 121,
     "b": 47,
     "why": "Ink Swell encaja con el estilo de frontline de Viper y Soulbind duplica Viper Strike"
+  },
+  {
+    "a": 121,
+    "b": 92,
+    "why": "Soulbind repite en el segundo rival cualquier habilidad con objetivo, como Grave Chill, y deja atados a los dos"
+  },
+  {
+    "a": 72,
+    "b": 91,
+    "why": "Tether le da sostén a Gyrocopter y Overcharge le sube la velocidad de ataque y de movimiento, así que dominan la línea juntos"
   },
   {
     "a": 123,
@@ -471,8 +916,33 @@
   },
   {
     "a": 91,
+    "b": 48,
+    "why": "Overcharge le da velocidad de ataque a Luna conectada por Tether"
+  },
+  {
+    "a": 91,
     "b": 76,
     "why": "Tether le da a Outworld Destroyer la velocidad de ataque y el sostén que le faltan"
+  },
+  {
+    "a": 91,
+    "b": 44,
+    "why": "Overcharge le da velocidad de ataque a Phantom Assassin conectada por Tether, que golpea más crítico por segundo"
+  },
+  {
+    "a": 91,
+    "b": 28,
+    "why": "Overcharge le da velocidad de ataque a Slardar conectado por Tether, y Corrosive Haze le baja la armadura al objetivo"
+  },
+  {
+    "a": 91,
+    "b": 35,
+    "why": "Overcharge le da velocidad de ataque a Sniper conectado por Tether, y Io lo cura"
+  },
+  {
+    "a": 91,
+    "b": 71,
+    "why": "Overcharge y Tether le dan velocidad de ataque y de movimiento"
   },
   {
     "a": 91,
@@ -483,6 +953,26 @@
     "a": 91,
     "b": 19,
     "why": "Io deja a Tiny entrar agresivo y Relocate lo saca a salvo; Overcharge le acelera los golpes"
+  },
+  {
+    "a": 91,
+    "b": 95,
+    "why": "Overcharge le da velocidad de ataque y regeneración a Troll Warlord, que sube su daño por segundo en las peleas"
+  },
+  {
+    "a": 91,
+    "b": 70,
+    "why": "Overcharge le da velocidad de ataque y regeneración a Io y al aliado conectado por Tether, que acumula Fury Swipes más rápido"
+  },
+  {
+    "a": 64,
+    "b": 145,
+    "why": "El stun largo y el slow de Ice Path son la apertura perfecta para que Kez remate con su daño en ráfaga"
+  },
+  {
+    "a": 64,
+    "b": 23,
+    "why": "X Marks lleva a los rivales a Ice Path y Macropyre, que los frenan y los queman mientras Kunkka hace el daño"
   },
   {
     "a": 8,
@@ -503,6 +993,31 @@
     "a": 90,
     "b": 17,
     "why": "Chakra Magic le recarga el maná a Storm para entrar hondo, y Recall lo trae a la pelea"
+  },
+  {
+    "a": 145,
+    "b": 28,
+    "why": "Corrosive Haze le baja la armadura al objetivo para el daño físico de Kez, y Slithereen Crush abre la pelea para que Kez remate"
+  },
+  {
+    "a": 145,
+    "b": 71,
+    "why": "Spirit Breaker abre con Charge of Darkness y aguanta al frente, y Kez entra a rematar a los aturdidos"
+  },
+  {
+    "a": 145,
+    "b": 21,
+    "why": "Shackleshot inmoviliza al objetivo para que Kez lo alcance y lo remate con su daño físico"
+  },
+  {
+    "a": 23,
+    "b": 101,
+    "why": "Torrent aturde al rival en su lugar y Mystic Flare cae sobre él"
+  },
+  {
+    "a": 23,
+    "b": 128,
+    "why": "X Marks the Spot y Torrent dejan al rival en su lugar y las Mortimer Kisses caen sobre él"
   },
   {
     "a": 23,
@@ -536,8 +1051,18 @@
   },
   {
     "a": 52,
+    "b": 57,
+    "why": "Repel le da inmunidad a debuffs y resistencia mágica, así que Leshrac entra a las peleas con Pulse Nova sin que lo frenen ni lo aturdan"
+  },
+  {
+    "a": 52,
     "b": 111,
     "why": "False Promise y Fate's Edict cubren la fragilidad de Leshrac en medio de la pelea"
+  },
+  {
+    "a": 52,
+    "b": 45,
+    "why": "Decrepify hace que el rival reciba más daño mágico, y Pulse Nova y Lightning Storm pegan más"
   },
   {
     "a": 52,
@@ -585,9 +1110,24 @@
     "why": "Winter's Curse junta a los rivales más o menos en el radio del stun de Light Strike Array, y Lina contraataca"
   },
   {
+    "a": 26,
+    "b": 94,
+    "why": "Mana Drain le da mana a Medusa, que es su vida efectiva por Mana Shield, y Earth Spike y Hex inmovilizan al objetivo para que ella dispare"
+  },
+  {
+    "a": 80,
+    "b": 128,
+    "why": "Lil' Shredder baja la armadura del objetivo y el oso gana los intercambios"
+  },
+  {
     "a": 48,
     "b": 60,
     "why": "Eclipse hace de noche y activa el poder nocturno de Night Stalker, y los dos se dan visión para cazar"
+  },
+  {
+    "a": 48,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y los Moon Glaives de Luna pegan más fuerte en cada rebote"
   },
   {
     "a": 48,
@@ -626,6 +1166,11 @@
   },
   {
     "a": 97,
+    "b": 105,
+    "why": "Reverse Polarity junta y aturde a los rivales para que Techies caiga con Blast Off! sobre las Proximity Mines"
+  },
+  {
+    "a": 97,
     "b": 95,
     "why": "Empower le da cleave a Troll melee y Reverse Polarity le deja a todos juntos para golpearlos"
   },
@@ -635,9 +1180,44 @@
     "why": "Stone Gaze protege la Supernova y Sun Ray le cura la vida a Medusa"
   },
   {
+    "a": 94,
+    "b": 128,
+    "why": "Las Mortimer Kisses caen mientras Medusa sostiene con Stone Gaze, y Lil' Shredder baja la armadura para matar frontlines"
+  },
+  {
+    "a": 94,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y los Split Shot de Medusa les pegan más"
+  },
+  {
+    "a": 82,
+    "b": 36,
+    "why": "Death Pulse cura en área a todos los Meepo y daña a los rivales"
+  },
+  {
+    "a": 82,
+    "b": 110,
+    "why": "Sun Ray cura a todos los Meepo que toque el rayo y daña a los rivales"
+  },
+  {
+    "a": 9,
+    "b": 16,
+    "why": "Burrowstrike y Epicenter dejan a los rivales quietos y frenados para que Sacred Arrow conecte"
+  },
+  {
+    "a": 9,
+    "b": 79,
+    "why": "Sacred Arrow se lanza para que llegue justo cuando el objetivo vuelve de Disruption, y el flechazo lo aturde de inmediato"
+  },
+  {
     "a": 9,
     "b": 19,
     "why": "Sacred Arrow necesita un disable muy largo y Tiny se lo da con dos stuns; Tiny, que tiene poco daño, deja listos los hechizos difíciles de acertar"
+  },
+  {
+    "a": 9,
+    "b": 21,
+    "why": "Shackleshot aturde al objetivo, así que Sacred Arrow conecta desde lejos y aturde más cuanta más distancia recorre"
   },
   {
     "a": 53,
@@ -660,6 +1240,11 @@
     "why": "Zeus revela a los rivales en todo el mapa y Nature's Prophet llega con Teleportation a rematar o a presionar"
   },
   {
+    "a": 36,
+    "b": 111,
+    "why": "Fate's Edict le da gran resistencia mágica y Ghost Shroud lo vuelve inmune al daño físico"
+  },
+  {
     "a": 84,
     "b": 76,
     "why": "Bloodlust sube el daño y el ritmo de Arcane Orb, y Fireblast deja al rival quieto"
@@ -675,9 +1260,24 @@
     "why": "Un Meat Hook exitoso prepara Purification, y Repel compensa el daño propio de Rot con regeneración"
   },
   {
+    "a": 57,
+    "b": 95,
+    "why": "Repel le da inmunidad a debuffs, así que no lo frenan ni aturden durante su definitiva"
+  },
+  {
     "a": 111,
     "b": 14,
     "why": "Oracle le da a Pudge aguante para Rot y Fortune's End le quita controles con poco cooldown"
+  },
+  {
+    "a": 111,
+    "b": 93,
+    "why": "Fortune's End inmoviliza al rival para Pounce, y Fate's Edict le da a Slark resistencia mágica"
+  },
+  {
+    "a": 111,
+    "b": 109,
+    "why": "False Promise salva a Terrorblade del daño letal y Fortune's End quita los controles que le pongan"
   },
   {
     "a": 76,
@@ -695,6 +1295,26 @@
     "why": "Shackles y Hex dejan al rival quieto muchísimo tiempo para el daño de Outworld Destroyer"
   },
   {
+    "a": 120,
+    "b": 28,
+    "why": "Corrosive Haze baja la armadura del objetivo y potencia el daño de Swashbuckle y Rolling Thunder"
+  },
+  {
+    "a": 120,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y potencia el daño de Swashbuckle y Rolling Thunder"
+  },
+  {
+    "a": 44,
+    "b": 28,
+    "why": "Corrosive Haze baja la armadura del objetivo y lo revela, y Phantom Assassin lo corta mucho más rápido"
+  },
+  {
+    "a": 44,
+    "b": 128,
+    "why": "Lil' Shredder baja la armadura de los rivales y las Mortimer Kisses caen después de que Phantom Assassin salta"
+  },
+  {
     "a": 12,
     "b": 30,
     "why": "Phantom Lancer tiene tres formas de acercarse para seguir el Maledict de Witch Doctor, que además lo cura en la línea"
@@ -710,6 +1330,16 @@
     "why": "Sven protege a Supernova: entra con Storm Hammer y castiga a quienes intentan romper el huevo"
   },
   {
+    "a": 110,
+    "b": 37,
+    "why": "Shadow Word cura a Phoenix durante Supernova y Upheaval evita que los rivales escapen del sol"
+  },
+  {
+    "a": 13,
+    "b": 98,
+    "why": "Dream Coil ata a los rivales y Chakram los daña en área mientras están atados"
+  },
+  {
     "a": 14,
     "b": 105,
     "why": "Meat Hook arrastra al rival hasta las Proximity Mines de Techies"
@@ -720,9 +1350,49 @@
     "why": "Toss lanza a Pudge encima de los rivales para Dismember inmediato y Rot los persigue"
   },
   {
+    "a": 45,
+    "b": 101,
+    "why": "Decrepify hace que el rival reciba más daño mágico, y Mystic Flare pega más"
+  },
+  {
+    "a": 45,
+    "b": 128,
+    "why": "Decrepify hace que el rival reciba más daño mágico, y las Mortimer Kisses pegan más"
+  },
+  {
+    "a": 45,
+    "b": 22,
+    "why": "Decrepify hace que el rival reciba más daño mágico, y las ráfagas de Zeus pegan más"
+  },
+  {
+    "a": 15,
+    "b": 27,
+    "why": "Shackles y Hex dejan al rival quieto dentro del alcance de Static Link, que así no se corta y drena el daño completo"
+  },
+  {
+    "a": 15,
+    "b": 20,
+    "why": "Magic Missile aturde al objetivo para que Static Link dure completo, y Wave of Terror baja la armadura de los rivales para el daño físico de Razor"
+  },
+  {
+    "a": 131,
+    "b": 28,
+    "why": "Slithereen Crush abre la pelea y Wheel of Wonder fija a los rivales, mientras Escape Act salva a Slardar"
+  },
+  {
     "a": 86,
     "b": 108,
     "why": "Underlord pone el pozo y cuando termina Rubick levanta al rival de vuelta al pozo con Telekinesis: queda enraizado y muere en nivel 2"
+  },
+  {
+    "a": 16,
+    "b": 37,
+    "why": "Chaotic Offering y Upheaval mantienen a los rivales cerca durante Epicenter"
+  },
+  {
+    "a": 11,
+    "b": 28,
+    "why": "Corrosive Haze baja la armadura del objetivo y potencia los golpes de Shadow Fiend"
   },
   {
     "a": 11,
@@ -730,13 +1400,78 @@
     "why": "Snowball e Ice Shards dejan al rival quieto para los Shadowraze, y Walrus PUNCH! asegura el kill"
   },
   {
+    "a": 11,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y potencia el daño físico de Shadow Fiend"
+  },
+  {
+    "a": 101,
+    "b": 28,
+    "why": "Slithereen Crush aturde en área y Skywrath Mage lanza Mystic Flare sin fallar"
+  },
+  {
     "a": 101,
     "b": 19,
     "why": "Tiny arma con sus stuns los hechizos difíciles de acertar de Skywrath Mage, mientras Tiny pone poco daño propio"
   },
   {
+    "a": 28,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura y el daño de los rivales y Nether Swap reposiciona, potenciando a Slardar"
+  },
+  {
+    "a": 28,
+    "b": 92,
+    "why": "Corrosive Haze baja la armadura del objetivo para que los Familiars hagan mucho más daño físico, y además lo revela"
+  },
+  {
+    "a": 28,
+    "b": 63,
+    "why": "Corrosive Haze baja la armadura del objetivo para el daño físico de Weaver, y Slithereen Crush le da el control que le falta"
+  },
+  {
+    "a": 28,
+    "b": 30,
+    "why": "Slithereen Crush aturde en área y Corrosive Haze baja la armadura, lo que amplifica el daño físico de Death Ward"
+  },
+  {
     "a": 18,
     "b": 30,
     "why": "Maledict deja al rival bajo de vida y Sven remata con Storm Hammer, y Warcry cubre el bajo armor de Witch Doctor"
+  },
+  {
+    "a": 105,
+    "b": 19,
+    "why": "Toss lanza a un rival sobre las Proximity Mines de Techies, y Avalanche lo mantiene ahí"
+  },
+  {
+    "a": 105,
+    "b": 20,
+    "why": "Nether Swap cambia de lugar a un rival con Vengeful Spirit, que puede dejarlo sobre las Proximity Mines"
+  },
+  {
+    "a": 46,
+    "b": 29,
+    "why": "Gush le baja la armadura al objetivo y potencia el daño físico de Templar Assassin, y Ravage aturde en área"
+  },
+  {
+    "a": 46,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura y el daño de los rivales, y Magic Missile los aturde para que Templar Assassin los remate"
+  },
+  {
+    "a": 109,
+    "b": 20,
+    "why": "Wave of Terror baja la armadura de los rivales y los golpes de Terrorblade y sus ilusiones les hacen más daño"
+  },
+  {
+    "a": 108,
+    "b": 20,
+    "why": "Pit of Malice inmoviliza y Magic Missile aturde a quien está en el área, y Atrophy Aura y Wave of Terror le bajan el daño a los rivales"
+  },
+  {
+    "a": 70,
+    "b": 20,
+    "why": "Magic Missile aturde y Wave of Terror baja la armadura, que potencia los golpes físicos de Ursa"
   }
 ]
