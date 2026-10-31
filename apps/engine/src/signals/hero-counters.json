@@ -1326,6 +1326,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Cold Embrace anula el daño físico de Slardar y Winter's Curse lo castiga cuando entra"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Scatterblast lo frena y lo daña en cono y Firesnap Cookie lo aturde, y Slardar, que es melee, tiene que acercarse para pegar"
     }
   ],
   "29": [
@@ -2244,6 +2249,11 @@
       "vs": 81,
       "level": "medium",
       "why": "Viper no tiene daño en área para las ilusiones de Phantasm y no gana una pelea directa; la resistencia mágica de Corrosive Skin casi no le importa a un carry físico"
+    },
+    {
+      "vs": 53,
+      "level": "medium",
+      "why": "Viper pega a un solo objetivo y no puede con los Treants de Nature's Call, y Sprout lo deja atrapado"
     }
   ],
   "48": [
@@ -5334,6 +5344,11 @@
       "vs": 29,
       "level": "medium",
       "why": "Ravage atrapa a todo el equipo de Winter Wyvern de una vez, antes de que pueda responder con Winter's Curse o Cold Embrace"
+    },
+    {
+      "vs": 128,
+      "level": "medium",
+      "why": "Cold Embrace solo bloquea daño físico y casi todo el daño de Snapfire (Scatterblast, Mortimer Kisses, Firesnap Cookie) es mágico, así que no puede salvar a su aliado"
     }
   ],
   "113": [
