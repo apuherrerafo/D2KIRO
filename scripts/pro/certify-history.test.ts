@@ -25,6 +25,9 @@ import {
 
 const FETCHED_AT = "2026-10-22T12:00:00Z";
 const MATCH_ID = 7100000001;
+// 7.41 salió el 2026-03-24 (00:00 UTC = 1774310400).
+const AFTER_741_S = Date.parse("2026-08-20T10:00:00Z") / 1000;
+const BEFORE_741_S = Date.parse("2026-03-10T10:00:00Z") / 1000;
 const LEAGUE_PREMIUM = 15001;
 const LEAGUE_PRO = 15002;
 const LEAGUE_AMATEUR = 15003;
@@ -273,9 +276,41 @@ describe("ganador, parche y formato", () => {
   test("patch numérico de la fuente -> source_id_only, jamás una etiqueta inventada", () => {
     const result = certified(certifyProMatch({ match: match({ patch: 60 }) }, context()));
     expect(result.record.patch).toEqual({ state: "source_id_only", sourceId: "60" });
+    // Sin patch legible, la fecha de la partida (posterior a 7.41) es lo que permite certificarla.
     for (const bad of [undefined, null, "7.41e", 7.41, -3, "60"]) {
-      expect(certified(certifyProMatch({ match: match({ patch: bad }) }, context())).record.patch).toEqual({ state: "unknown" });
+      const withDate = match({ patch: bad, start_time: AFTER_741_S });
+      expect(certified(certifyProMatch({ match: withDate }, context())).record.patch).toEqual({ state: "unknown" });
     }
+  });
+
+  test("parche anterior a 7.41 (id < 60) -> rechazada, aunque la liga sea premium", () => {
+    for (const old of [59, 58, 0]) {
+      expect(certifyProMatch({ match: match({ patch: old }) }, context())).toMatchObject({
+        status: "rejected",
+        code: "PATCH_BEFORE_CURRENT",
+      });
+    }
+  });
+
+  test("jugada antes del 2026-03-24 -> rechazada aunque diga patch 60", () => {
+    expect(certifyProMatch({ match: match({ start_time: BEFORE_741_S }) }, context())).toMatchObject({
+      status: "rejected",
+      code: "MATCH_BEFORE_CURRENT_PATCH",
+    });
+  });
+
+  test("sin patch ni fecha legibles -> cuarentena: nunca se supone que es del meta actual", () => {
+    for (const bad of [undefined, null, "7.41e"]) {
+      expect(certifyProMatch({ match: match({ patch: bad, start_time: bad }) }, context())).toMatchObject({
+        status: "quarantined",
+        code: "PATCH_UNVERIFIABLE",
+      });
+    }
+  });
+
+  test("patch 60 y fecha posterior a 7.41 -> certificada (candado del caso normal)", () => {
+    const result = certified(certifyProMatch({ match: match({ patch: 60, start_time: AFTER_741_S }) }, context()));
+    expect(result.record.patch).toEqual({ state: "source_id_only", sourceId: "60" });
   });
 
   test("game_mode distinto de Captain's Mode (o ausente) -> rechazada", () => {

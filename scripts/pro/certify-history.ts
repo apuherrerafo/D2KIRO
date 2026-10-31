@@ -78,6 +78,9 @@ export type CertificationFailureCode =
   | "LEAGUE_TIER_NOT_ELIGIBLE"
   | "LEAGUE_TIER_CONTRADICTION"
   | "GAME_MODE_NOT_CAPTAINS_MODE"
+  | "PATCH_BEFORE_CURRENT"
+  | "MATCH_BEFORE_CURRENT_PATCH"
+  | "PATCH_UNVERIFIABLE"
   | "CM_TABLE_UNAVAILABLE"
   | "PICKS_BANS_MISSING"
   | "CM_SEQUENCE_INVALID"
@@ -237,6 +240,31 @@ function readOutcome(detail: unknown): MatchOutcome {
   return { status: "unknown" };
 }
 
+// Sólo entran partidas del parche vigente en adelante: 7.41 (id 60 en OpenDota/dotaconstants), lanzado
+// el 2026-03-24. Una partida de un parche anterior no es evidencia del meta actual: se rechaza.
+const MIN_PATCH_ID = 60;
+const MIN_START_TIME_S = Date.parse("2026-03-24T00:00:00Z") / 1000;
+
+function isPatchIdValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isStartTimeValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+/** El parche y la fecha se contrastan por separado: cualquiera de los dos que diga "antes de 7.41" rechaza.
+ *  Si no hay ninguno de los dos, no se puede saber si es del meta actual: cuarentena (nunca se supone). */
+function checkCurrentPatch(detail: unknown, matchId: string): void {
+  const patch = field(detail, "patch");
+  const startTime = field(detail, "start_time");
+  const hasPatch = isPatchIdValue(patch);
+  const hasStart = isStartTimeValue(startTime);
+  if (hasPatch && patch < MIN_PATCH_ID) fail("rejected", "PATCH_BEFORE_CURRENT", matchId);
+  if (hasStart && startTime < MIN_START_TIME_S) fail("rejected", "MATCH_BEFORE_CURRENT_PATCH", matchId);
+  if (!hasPatch && !hasStart) fail("quarantined", "PATCH_UNVERIFIABLE", matchId);
+}
+
 // OpenDota sólo da un id numérico de parche. Una etiqueta ("7.41e") no se deduce de él.
 function readPatch(detail: unknown): PatchState {
   const patch = field(detail, "patch");
@@ -306,6 +334,7 @@ function certify(input: CertifyInput, context: CertifyContext): CertifyResult {
   const tier = certifyLeague(leagueId, detail, context.catalog, matchId);
 
   if (detail.game_mode !== CAPTAINS_MODE) fail("rejected", "GAME_MODE_NOT_CAPTAINS_MODE", matchId);
+  checkCurrentPatch(detail, matchId);
   const table = context.captainsModeTable;
   if (table === null) fail("quarantined", "CM_TABLE_UNAVAILABLE", matchId);
 
