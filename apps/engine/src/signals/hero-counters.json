@@ -73,12 +73,7 @@
     {
       "vs": 41,
       "level": "medium",
-      "why": "Chronosphere lo deja pausado, sin poder usar Blink, y es un kill seguro en cualquier etapa"
-    },
-    {
-      "vs": 57,
-      "level": "medium",
-      "why": "Guardian Angel vuelve inmunes al daño físico a los aliados cerca de Omniknight, y Anti-Mage hace casi todo su daño con ataques"
+      "why": "Chronosphere atraviesa la BKB y lo deja pausado, sin poder usar Blink"
     }
   ],
   "2": [
@@ -161,11 +156,6 @@
       "vs": 75,
       "level": "medium",
       "why": "Global Silence le impide lanzar Berserker's Call, y Arcane Curse le hace daño y alarga su duración cada vez que Axe lanza un hechizo"
-    },
-    {
-      "vs": 30,
-      "level": "medium",
-      "why": "Maledict hace más daño cuanta más vida pierde Axe, y Axe quiere recibir daño para provocar con Berserker's Call"
     }
   ],
   "3": [
@@ -296,7 +286,7 @@
     {
       "vs": 51,
       "level": "medium",
-      "why": "Hookshot la aturde y Power Cogs la atrapan, y es un kill fácil"
+      "why": "Hookshot la aturde y Power Cogs la atrapan"
     },
     {
       "vs": 45,
@@ -1877,7 +1867,7 @@
     {
       "vs": 75,
       "level": "medium",
-      "why": "Global Silence y Last Word le impiden lanzar las habilidades con las que Tinker entra, sale y hace daño"
+      "why": "Global Silence y Last Word le impiden lanzar las habilidades con las que Tinker hace daño y se defiende, como Laser y Defense Matrix"
     },
     {
       "vs": 101,
@@ -2372,16 +2362,6 @@
       "vs": 23,
       "level": "medium",
       "why": "Ghostship aturde a Faceless Void y protege a los aliados atrapados en Chronosphere"
-    },
-    {
-      "vs": 75,
-      "level": "medium",
-      "why": "Global Silence le impide lanzar Time Walk y Chronosphere"
-    },
-    {
-      "vs": 42,
-      "level": "medium",
-      "why": "Reincarnation hace que Faceless Void gaste Chronosphere en la primera vida de Wraith King"
     }
   ],
   "42": [
@@ -4223,11 +4203,6 @@
       "why": "El daño de Alchemist es físico y Ghost Shroud lo anula; Heartstopper Aura le corta la curación de Chemical Rage y Reaper's Scythe lo termina"
     },
     {
-      "vs": 57,
-      "level": "medium",
-      "why": "Guardian Angel vuelve inmunes al daño físico a los aliados y los golpes de Alchemist no les hacen nada"
-    },
-    {
       "vs": 102,
       "level": "medium",
       "why": "Aphotic Shield dispela el aturdimiento de Unstable Concoction"
@@ -4739,11 +4714,6 @@
       "vs": 23,
       "level": "medium",
       "why": "Tidebringer parte a varios clones con su cleave y Ghostship daña y aturde a los Meepo juntos"
-    },
-    {
-      "vs": 57,
-      "level": "medium",
-      "why": "Guardian Angel vuelve inmunes al daño físico a los aliados y los golpes de todos los Meepo no les hacen nada"
     },
     {
       "vs": 120,
@@ -5351,11 +5321,6 @@
       "vs": 76,
       "level": "medium",
       "why": "Astral Imprisonment salva al aliado del Pounce, Arcane Orb hace daño puro que ignora la armadura robada y Sanity's Eclipse lo mata por su poco maná"
-    },
-    {
-      "vs": 57,
-      "level": "medium",
-      "why": "Guardian Angel lo vuelve inmune al daño físico, así que los golpes de Slark no le hacen nada"
     },
     {
       "vs": 36,
@@ -6370,11 +6335,6 @@
       "why": "Laser lo ciega y sus ataques fallan, y el daño puro de Tinker ignora su armadura"
     },
     {
-      "vs": 6,
-      "level": "medium",
-      "why": "Marksmanship ignora la armadura base de Terrorblade"
-    },
-    {
       "vs": 128,
       "level": "medium",
       "why": "Scatterblast daña en cono y Mortimer Kisses en área, así que limpia sus ilusiones rápido"
@@ -6449,17 +6409,12 @@
     {
       "vs": 8,
       "level": "medium",
-      "why": "Blade Fury lo vuelve inmune a debuffs, así que Fire Spirits no lo afectan, y puede atacar el huevo de Supernova"
+      "why": "Blade Fury lo vuelve inmune a debuffs, así que Fire Spirits no lo afectan"
     },
     {
       "vs": 54,
       "level": "medium",
       "why": "Rage lo vuelve inmune a debuffs, así que Fire Spirits no lo afectan, y puede atacar el huevo de Supernova"
-    },
-    {
-      "vs": 111,
-      "level": "medium",
-      "why": "False Promise retrasa el daño de Sun Ray y Phoenix no lo quema lo bastante rápido"
     }
   ],
   "111": [
