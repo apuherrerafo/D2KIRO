@@ -593,6 +593,6 @@ describe("sello de liga y fecha jugada (endurecimiento V7)", () => {
       revealedEnemyHeroIds: [],
       bans: { status: "unknown" },
     });
-    expect(result.population).toMatchObject({ indexedRecords: 2, eligibleRecords: 1, excludedUnverifiedProvenance: 1 });
+    expect(result.population).toMatchObject({ indexedRecords: 2, eligibleRecords: 1, excludedLeagueWithoutSeal: 1 });
   });
 });

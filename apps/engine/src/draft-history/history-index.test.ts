@@ -725,7 +725,8 @@ describe("elegibilidad: la partida de liga necesita el sello de certificación",
       draft({ id: "8100000002", radiant: R, dire: D, winner: "radiant", uncertified: true }),
     ]);
     const result = index.search(obs({ allyHeroIds: [1] }));
-    expect(result.population).toMatchObject({ indexedRecords: 2, eligibleRecords: 1, excludedUnverifiedProvenance: 1, matchedRecords: 1 });
+    // Se cuenta aparte de las fuentes que nunca serán elegibles: una partida de liga sin sello se puede recertificar.
+    expect(result.population).toMatchObject({ indexedRecords: 2, eligibleRecords: 1, excludedLeagueWithoutSeal: 1, excludedUnverifiedProvenance: 0, matchedRecords: 1 });
     expect(keysOf(allExamples(result))).toEqual(["valve:8100000001"]);
   });
 
@@ -738,7 +739,18 @@ describe("elegibilidad: la partida de liga necesita el sello de certificación",
     const ranked = draft({ id: "8100000004", radiant: R, dire: D, winner: "radiant", evidenceClass: "ranked" });
     const matchSource = draft({ id: "8100000005", radiant: R, dire: D, winner: "radiant", source: "opendota_match" });
     const result = indexOf([ranked, matchSource]).search(obs({ allyHeroIds: [1] }));
-    expect(result.population).toMatchObject({ eligibleRecords: 0, excludedByEvidenceClass: 1, excludedUnverifiedProvenance: 1 });
+    expect(result.population).toMatchObject({ eligibleRecords: 0, excludedByEvidenceClass: 1, excludedUnverifiedProvenance: 1, excludedLeagueWithoutSeal: 0 });
+  });
+
+  test("el índice NO confía en el tipo: un sello roto (null, {}, 0, 'x', false, [], tier inválido, leagueId 0) no certifica", () => {
+    const broken: unknown[] = [null, {}, 0, "x", false, [], { leagueId: 15001, tier: "amateur", verifiedAt: "2026-10-20T12:00:00Z" }, { leagueId: 0, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" }];
+    broken.forEach((seal, i) => {
+      const base = draft({ id: `83000000${String(i).padStart(2, "0")}`, radiant: R, dire: D, winner: "radiant" });
+      const record = { ...base, provenance: { ...base.provenance, leagueCertification: seal } } as unknown as DraftHistoryRecord;
+      const result = indexOf([record]).search(obs({ allyHeroIds: [1] }));
+      expect(result.status).toBe("no_eligible_records");
+      expect(result.population.excludedLeagueWithoutSeal).toBe(1);
+    });
   });
 });
 
@@ -758,7 +770,8 @@ describe("robustez: ni la construcción ni la búsqueda lanzan hacia el motor", 
     const hollow = { ...draft({ id: "8200000003", radiant: R, dire: D, winner: "radiant" }), picks: undefined } as unknown as DraftHistoryRecord;
     const result = indexOf([hollow, good]).search(obs({ allyHeroIds: [1] }));
     expect(result.status).toBe("ok");
-    expect(result.population.excludedMalformed).toBe(1);
+    // Un registro roto nunca cuenta como indexado, falle al clasificar (caso anterior) o al indexar (éste): mismo criterio.
+    expect(result.population).toMatchObject({ excludedMalformed: 1, indexedRecords: 1, eligibleRecords: 1 });
   });
 
   test("un fallo inesperado dentro de search devuelve search_failed con la población, nunca una excepción", () => {
@@ -771,5 +784,22 @@ describe("robustez: ni la construcción ni la búsqueda lanzan hacia el motor", 
     expect(result?.interpretation).toBe("descriptive_only");
     expect(result?.groups).toEqual([]);
     expect(result?.population.eligibleRecords).toBe(1);
+  });
+});
+
+describe("aviso opcional de fallo interno", () => {
+  test("onInternalError recibe sólo un código (nunca datos) por registro roto y por búsqueda fallida", () => {
+    const codes: string[] = [];
+    const broken = { schemaVersion: 1, evidenceClass: "professional" } as unknown as DraftHistoryRecord;
+    const volatile = { ...draft({ id: "8400000001", radiant: R, dire: D }), outcome: { get status(): never { throw new Error("boom"); } } } as unknown as DraftHistoryRecord;
+    const index = createArrayHistoryIndex([broken, volatile], { heroUniverse: TEST_HERO_UNIVERSE, onInternalError: (code) => codes.push(code) });
+    index.search(obs({ allyHeroIds: [1] }));
+    expect(codes).toEqual(["record_malformed", "search_failed"]);
+  });
+
+  test("un onInternalError que lanza no se convierte en un segundo fallo", () => {
+    const broken = { schemaVersion: 1, evidenceClass: "professional" } as unknown as DraftHistoryRecord;
+    const throwing = () => { throw new Error("callback roto"); };
+    expect(() => createArrayHistoryIndex([broken], { heroUniverse: TEST_HERO_UNIVERSE, onInternalError: throwing })).not.toThrow();
   });
 });

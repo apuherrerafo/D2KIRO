@@ -274,8 +274,15 @@ function readProvenance(value: unknown, path: string, c: Collector): Provenance 
 
 const ABSENT = Symbol("absent");
 
+/**
+ * ISO-8601 UTC y calendario REAL: `Date.parse` sola acepta "2026-02-30T00:00:00Z" (lo corre al 2 de marzo). Se compara contra la fecha
+ * normalizada para que un día inexistente se rechace en vez de moverse en silencio.
+ */
 function isIsoUtc(value: unknown): value is string {
-  return typeof value === "string" && ISO_UTC.test(value) && Number.isFinite(Date.parse(value));
+  if (typeof value !== "string" || !ISO_UTC.test(value)) return false;
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return false;
+  return new Date(ms).toISOString().slice(0, 19) === value.slice(0, 19);
 }
 
 function readPlayedAt(value: unknown, path: string, c: Collector): string | null | typeof ABSENT | undefined {

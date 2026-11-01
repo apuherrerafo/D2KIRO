@@ -737,3 +737,28 @@ describe("parche: un solo formato en el borde y en el índice", () => {
     }
   });
 });
+
+describe("fechas ISO: el calendario tiene que ser real", () => {
+  const STAMP_OK = { leagueId: 15001, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" };
+  function withDates(playedAt: unknown, verifiedAt: string = STAMP_OK.verifiedAt): unknown {
+    const base = clone(rankedAllPickRecord()) as unknown as Record<string, unknown>;
+    return {
+      ...base,
+      evidenceClass: "professional",
+      provenance: { source: "opendota_league", sourceMatchId: "7000000002", fetchedAt: null, playedAt, leagueCertification: { ...STAMP_OK, verifiedAt } },
+    };
+  }
+
+  test("un día inexistente se rechaza en playedAt y en verifiedAt (Date.parse solo lo mueve al mes siguiente)", () => {
+    expectRejected(withDates("2026-02-30T00:00:00Z"), "INVALID_PROVENANCE", "$.provenance.playedAt");
+    expectRejected(withDates("2026-04-31T10:00:00Z"), "INVALID_PROVENANCE", "$.provenance.playedAt");
+    expectRejected(withDates(null, "2026-02-30T00:00:00Z"), "INVALID_PROVENANCE", "$.provenance.leagueCertification.verifiedAt");
+  });
+
+  test("fechas reales siguen válidas, incluido el 29 de febrero de un año bisiesto y los milisegundos", () => {
+    for (const ok of ["2028-02-29T00:00:00Z", "2026-03-24T00:00:00Z", "2026-08-20T10:00:00.123Z"]) {
+      expect(validateDraftHistoryRecord(withDates(ok), WITH_SHORT).ok).toBe(true);
+    }
+    expectRejected(withDates("2027-02-29T00:00:00Z"), "INVALID_PROVENANCE", "$.provenance.playedAt");
+  });
+});

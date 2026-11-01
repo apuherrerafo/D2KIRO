@@ -117,11 +117,10 @@ export interface HistorySearchResult {
     /** Profesionales con procedencia verificable: el único universo buscable. */
     eligibleRecords: number;
     excludedByEvidenceClass: number;
-    /**
-     * `professional` sin anclaje verificable: `manual_curated`, `opendota_match`, o una partida de `opendota_league` SIN el sello de
-     * certificación de liga. La etiqueta de fuente no basta.
-     */
+    /** `professional` de una fuente que nunca será elegible por sí sola: `manual_curated` u `opendota_match`. La etiqueta de fuente no basta. */
     excludedUnverifiedProvenance: number;
+    /** Partidas de `opendota_league` profesionales SIN un sello de certificación válido: hay que recertificarlas, no descartarlas. */
+    excludedLeagueWithoutSeal: number;
     /** Registros que no se pudieron procesar (estructura inesperada pese a venir "validados"): se saltan y se cuentan, nunca tiran el índice. */
     excludedMalformed: number;
     duplicatesDropped: number;
@@ -158,6 +157,11 @@ export interface HistoryIndex {
 export interface CreateHistoryIndexOptions {
   /** Universo de héroes con el que se valida cada observación (default: el curado de PR-1). */
   heroUniverse?: ReadonlySet<number>;
+  /**
+   * Aviso opcional de un fallo interno (sólo un código, jamás el error ni datos del registro: nada que pueda llevar PII). Sin él, el fallo
+   * queda visible igual: `excludedMalformed` o el estado `search_failed`. Lo que lance el callback se ignora.
+   */
+  onInternalError?: (code: "record_malformed" | "search_failed") => void;
 }
 
 export const MAX_EXAMPLES = 10;
@@ -553,13 +557,29 @@ function buildGroups(matches: readonly Match[], obs: Obs): HistoryGroup[] {
 // `scripts/pro/certify-history.ts` tras contrastar la liga con el catálogo de OpenDota). La etiqueta `evidenceClass: "professional"` y
 // la etiqueta de fuente las escribe quien arma el registro: por sí solas no prueban que la partida sea profesional.
 // `opendota_match`, `manual_curated` u `opendota_league` sin sello quedan fuera (cuentan como `unverified_professional`).
-type Eligibility = "eligible" | "unverified_professional" | "ranked";
-const ELIGIBILITY_PREFERENCE: Record<Eligibility, number> = { eligible: 0, unverified_professional: 1, ranked: 2 };
+// `league_without_seal`: partida de `opendota_league` profesional SIN un sello válido -> hay que recertificarla (se cuenta aparte de las
+// fuentes que nunca serán elegibles, como `opendota_match` o `manual_curated`).
+type Eligibility = "eligible" | "league_without_seal" | "unverified_professional" | "ranked";
+const ELIGIBILITY_PREFERENCE: Record<Eligibility, number> = { eligible: 0, league_without_seal: 1, unverified_professional: 2, ranked: 3 };
+
+/**
+ * El índice recibe registros TIPADOS y no los revalida: por eso comprueba aquí la forma del sello y no sólo su presencia
+ * (un `null`, `{}`, `0`, `"x"` o `false` en `leagueCertification` NO certifica nada).
+ */
+function hasValidSeal(seal: unknown): boolean {
+  if (typeof seal !== "object" || seal === null || Array.isArray(seal)) return false;
+  const s = seal as { leagueId?: unknown; tier?: unknown; verifiedAt?: unknown };
+  return (
+    typeof s.leagueId === "number" && Number.isSafeInteger(s.leagueId) && s.leagueId >= 1 &&
+    (s.tier === "premium" || s.tier === "professional") &&
+    typeof s.verifiedAt === "string" && s.verifiedAt.length > 0
+  );
+}
 
 function classify(record: DraftHistoryRecord): Eligibility {
   if (record.evidenceClass !== "professional") return "ranked";
-  const certified = record.provenance.source === "opendota_league" && record.provenance.leagueCertification !== undefined;
-  return certified ? "eligible" : "unverified_professional";
+  if (record.provenance.source !== "opendota_league") return "unverified_professional";
+  return hasValidSeal(record.provenance.leagueCertification) ? "eligible" : "league_without_seal";
 }
 
 function clampExamples(requested: number | undefined): number {
@@ -584,6 +604,13 @@ export function createArrayHistoryIndex(
   records: readonly DraftHistoryRecord[],
   options: CreateHistoryIndexOptions = {},
 ): HistoryIndex {
+  const reportInternal = (code: "record_malformed" | "search_failed"): void => {
+    try {
+      options.onInternalError?.(code);
+    } catch {
+      // el aviso es opcional: si el callback falla no se vuelve un segundo fallo
+    }
+  };
   const chosen = new Map<string, { record: DraftHistoryRecord; eligibility: Eligibility }>();
   let duplicatesDropped = 0;
   let excludedMalformed = 0;
@@ -595,6 +622,7 @@ export function createArrayHistoryIndex(
       eligibility = classify(record);
     } catch {
       excludedMalformed += 1; // un registro roto se salta y se cuenta; no tira el índice entero
+      reportInternal("record_malformed");
       continue;
     }
     const existing = chosen.get(key);
@@ -611,18 +639,24 @@ export function createArrayHistoryIndex(
   const eligible: Entry[] = [];
   let excludedByEvidenceClass = 0;
   let excludedUnverifiedProvenance = 0;
+  let excludedLeagueWithoutSeal = 0;
+  let failedToIndex = 0;
   for (const { record, eligibility } of chosen.values()) {
     if (eligibility === "ranked") excludedByEvidenceClass += 1;
     else if (eligibility === "unverified_professional") excludedUnverifiedProvenance += 1;
+    else if (eligibility === "league_without_seal") excludedLeagueWithoutSeal += 1;
     else {
       try {
         eligible.push(toEntry(record));
       } catch {
         excludedMalformed += 1;
+        failedToIndex += 1;
+        reportInternal("record_malformed");
       }
     }
   }
-  const indexed = chosen.size;
+  // Un registro roto NUNCA cuenta como indexado, falle donde falle (al clasificar o al indexar): `excludedMalformed` los reúne a todos.
+  const indexed = chosen.size - failedToIndex;
 
   const makeBase = () => ({
     interpretation: "descriptive_only" as const,
@@ -631,6 +665,7 @@ export function createArrayHistoryIndex(
       eligibleRecords: eligible.length,
       excludedByEvidenceClass,
       excludedUnverifiedProvenance,
+      excludedLeagueWithoutSeal,
       excludedMalformed,
       duplicatesDropped,
       matchedRecords: 0,
@@ -704,6 +739,7 @@ export function createArrayHistoryIndex(
     try {
       return runSearch(observation, searchOptions);
     } catch {
+      reportInternal("search_failed");
       return { ...makeBase(), status: "search_failed" };
     }
   };
