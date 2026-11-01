@@ -13,7 +13,9 @@ on:
 jobs:
   test:
     name: test (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    # Fijado a 24.04: en ubuntu-26.04 (el nuevo `ubuntu-latest`) el runner no trae `node-gyp` y el
+    # `bun install` de la raíz muere en el install script de better-sqlite3 (exit 127).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -211,7 +213,7 @@ jobs:
   r1-certification:
     name: r1-certification (verify:r1)
     needs: [test, verify-simplicity, intelligence-ci]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # mismo motivo que el job `test` (better-sqlite3 sin node-gyp en 26.04)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
