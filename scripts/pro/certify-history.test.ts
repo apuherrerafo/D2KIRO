@@ -91,6 +91,8 @@ describe("certificación de liga", () => {
       source: "opendota_league",
       sourceMatchId: "7100000001",
       fetchedAt: FETCHED_AT,
+      // El sello que el índice exige para considerar elegible la partida (el fixture no trae start_time: no hay playedAt).
+      leagueCertification: { leagueId: LEAGUE_PREMIUM, tier: "premium", verifiedAt: FETCHED_AT },
     });
     expect(result.record.evidenceClass).toBe("professional");
     expect(result.record.format).toBe("captains_mode");
@@ -102,9 +104,13 @@ describe("certificación de liga", () => {
       source: "opendota_leagues_catalog",
       verifiedAt: FETCHED_AT,
     });
-    // La evidencia NO vive en el registro canónico (esquema cerrado de PR #49).
-    expect(JSON.stringify(result.record)).not.toContain("tier");
-    expect(JSON.stringify(result.record)).not.toContain("leagueId");
+    // Decisión de diseño revisada en el endurecimiento V7: el sello (liga, tier, fecha de verificación) SÍ viaja en el registro, pero SÓLO
+    // dentro de `provenance.leagueCertification` (esquema cerrado: ningún otro campo de la raíz lo lleva). Así el índice puede distinguir una
+    // partida certificada de una que sólo trae la etiqueta de fuente. El sello es un dato escrito por el certificador, no una prueba criptográfica.
+    const { provenance, ...rest } = result.record;
+    expect(JSON.stringify(rest)).not.toContain("leagueId");
+    expect(JSON.stringify(rest)).not.toContain("tier");
+    expect(provenance.leagueCertification).toEqual({ leagueId: LEAGUE_PREMIUM, tier: "premium", verifiedAt: FETCHED_AT });
   });
 
   test("liga professional del catálogo -> certificada con tier professional", () => {
@@ -552,5 +558,41 @@ describe("integración con PR #49 y PR #50", () => {
     const search = createArrayHistoryIndex([labelOnly], { heroUniverse: TEST_HERO_UNIVERSE }).search(OBSERVATION);
     expect(search.population.eligibleRecords).toBe(0);
     expect(search.population.excludedUnverifiedProvenance).toBe(1);
+  });
+});
+
+describe("sello de liga y fecha jugada (endurecimiento V7)", () => {
+  test("la partida certificada lleva el sello con la liga y el tier del catálogo, no los del payload", () => {
+    const result = certified(certifyProMatch({ match: match({ league: { leagueid: LEAGUE_PREMIUM, tier: "premium" } }) }, context()));
+    expect(result.record.provenance.leagueCertification).toEqual({ leagueId: LEAGUE_PREMIUM, tier: "premium", verifiedAt: FETCHED_AT });
+  });
+
+  test("start_time legible -> playedAt ISO UTC (cuándo se jugó, no cuándo se descargó)", () => {
+    const result = certified(certifyProMatch({ match: match({ start_time: AFTER_741_S }) }, context()));
+    expect(result.record.provenance.playedAt).toBe("2026-08-20T10:00:00Z");
+    expect(result.record.provenance.fetchedAt).toBe(FETCHED_AT);
+  });
+
+  test("sin start_time no se inventa playedAt (sólo certifica por el id de parche)", () => {
+    const result = certified(certifyProMatch({ match: match() }, context()));
+    expect("playedAt" in result.record.provenance).toBe(false);
+  });
+
+  test("candado de integración: lo que el certificador produce SÍ es elegible en el índice, y una partida sin sello NO", () => {
+    const sealed = certified(certifyProMatch({ match: match({ start_time: AFTER_741_S }) }, context())).record;
+    const unsealed = { ...sealed, provenance: { source: sealed.provenance.source, sourceMatchId: "7100000099", fetchedAt: FETCHED_AT } };
+    const index = createArrayHistoryIndex([sealed, unsealed], { heroUniverse: new Set([1, 2, 3, 4, 5, 6]) });
+    const heroPicked = sealed.format === "captains_mode" ? (sealed.actions.find((a) => a.action === "pick")?.heroId ?? 0) : 0;
+    const ally = sealed.format === "captains_mode" ? (sealed.actions.find((a) => a.action === "pick")?.side ?? "radiant") : "radiant";
+    const result = index.search({
+      schemaVersion: 1,
+      perspective: ally,
+      format: "captains_mode",
+      patch: { state: "unknown" },
+      allyHeroIds: [heroPicked],
+      revealedEnemyHeroIds: [],
+      bans: { status: "unknown" },
+    });
+    expect(result.population).toMatchObject({ indexedRecords: 2, eligibleRecords: 1, excludedUnverifiedProvenance: 1 });
   });
 });

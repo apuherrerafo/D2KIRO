@@ -2,6 +2,7 @@ import type { CaptainsModeTurnTable } from "../draft/draft-format-turns";
 import { isValidHeroId } from "../draft-protocol/hero-id";
 import { CURATED_HERO_IDS } from "../signals/curated-hero-ids";
 import { canonicalSourceMatchId } from "./match-id";
+import { PATCH_LABEL } from "./patch-label";
 import {
   DRAFT_HISTORY_SCHEMA_VERSION,
   MAX_BANS,
@@ -20,6 +21,7 @@ import {
   type PositionBasis,
   type PositionClaim,
   type PositionNumber,
+  type LeagueCertificationStamp,
   type Provenance,
   type ProvenanceSource,
   type Rejection,
@@ -233,7 +235,7 @@ const PROVENANCE_SOURCES = [
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 
 function readProvenance(value: unknown, path: string, c: Collector): Provenance | undefined {
-  const obj = readObject(value, ["source", "sourceMatchId", "fetchedAt"], path, c, "INVALID_PROVENANCE");
+  const obj = readObject(value, ["source", "sourceMatchId", "fetchedAt", "playedAt", "leagueCertification"], path, c, "INVALID_PROVENANCE");
   if (!obj) return undefined;
   const source = readEnum(req(obj, "source", path, c), PROVENANCE_SOURCES, `${path}.source`, c, "INVALID_PROVENANCE");
   const matchId = req(obj, "sourceMatchId", path, c);
@@ -258,9 +260,64 @@ function readProvenance(value: unknown, path: string, c: Collector): Provenance 
     }
   }
 
+  const playedAt = readPlayedAt(own(obj, "playedAt"), `${path}.playedAt`, c);
+  const certification = readLeagueCertification(own(obj, "leagueCertification"), source, `${path}.leagueCertification`, c);
+
   if (source === undefined || sourceMatchId === undefined || fetched === undefined) return undefined;
-  return { source, sourceMatchId, fetchedAt: fetched };
+  if (playedAt === undefined || certification === undefined) return undefined; // ya reportado arriba: un opcional presente pero roto invalida la procedencia
+  const provenance: Provenance = { source, sourceMatchId, fetchedAt: fetched };
+  // Los opcionales sólo viajan cuando la fuente los dio: ausente sigue siendo "desconocido", nunca un valor inventado.
+  if (playedAt !== ABSENT) provenance.playedAt = playedAt;
+  if (certification !== ABSENT) provenance.leagueCertification = certification;
+  return provenance;
 }
+
+const ABSENT = Symbol("absent");
+
+function isIsoUtc(value: unknown): value is string {
+  return typeof value === "string" && ISO_UTC.test(value) && Number.isFinite(Date.parse(value));
+}
+
+function readPlayedAt(value: unknown, path: string, c: Collector): string | null | typeof ABSENT | undefined {
+  if (value === undefined) return ABSENT;
+  if (value === null || isIsoUtc(value)) return value;
+  c.add("INVALID_PROVENANCE", path);
+  return undefined;
+}
+
+function readLeagueCertification(
+  value: unknown,
+  source: ProvenanceSource | undefined,
+  path: string,
+  c: Collector,
+): LeagueCertificationStamp | typeof ABSENT | undefined {
+  if (value === undefined) return ABSENT;
+  // El sello sólo tiene sentido en la fuente de ligas: en otra es una afirmación sin respaldo, no se acepta en silencio.
+  if (source !== undefined && source !== "opendota_league") {
+    c.add("INVALID_PROVENANCE", path);
+    return undefined;
+  }
+  const obj = readObject(value, ["leagueId", "tier", "verifiedAt"], path, c, "INVALID_PROVENANCE");
+  if (!obj) return undefined;
+  const leagueId = own(obj, "leagueId");
+  const rawTier = own(obj, "tier");
+  const tier = readEnum(rawTier, CERTIFIED_TIERS, `${path}.tier`, c, "INVALID_PROVENANCE");
+  const verifiedAt = own(obj, "verifiedAt");
+  if (rawTier === undefined) c.add("INVALID_PROVENANCE", `${path}.tier`); // readEnum calla un campo ausente: aquí ausente es inválido
+  let ok = tier !== undefined;
+  if (!(typeof leagueId === "number" && Number.isSafeInteger(leagueId) && leagueId >= 1)) {
+    c.add("INVALID_PROVENANCE", `${path}.leagueId`);
+    ok = false;
+  }
+  if (!isIsoUtc(verifiedAt)) {
+    c.add("INVALID_PROVENANCE", `${path}.verifiedAt`);
+    ok = false;
+  }
+  if (!ok || tier === undefined) return undefined;
+  return { leagueId: leagueId as number, tier, verifiedAt: verifiedAt as string };
+}
+
+const CERTIFIED_TIERS = ["premium", "professional"] as const;
 
 const EVIDENCE_CLASSES = ["professional", "ranked"] as const satisfies readonly EvidenceClass[];
 
@@ -283,7 +340,6 @@ function readOutcome(value: unknown, path: string, c: Collector): MatchOutcome |
 }
 
 const PATCH_STATES = ["exact", "source_id_only", "unknown"] as const;
-const PATCH_LABEL = /^\d{1,3}\.\d{1,3}[a-z]{0,3}$/;
 const SOURCE_PATCH_ID = /^[A-Za-z0-9_.-]{1,32}$/;
 
 function readPatch(value: unknown, path: string, c: Collector): PatchState | undefined {

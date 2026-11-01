@@ -265,6 +265,14 @@ function checkCurrentPatch(detail: unknown, matchId: string): void {
   if (!hasPatch && !hasStart) fail("quarantined", "PATCH_UNVERIFIABLE", matchId);
 }
 
+/** Cuándo se JUGÓ la partida (`start_time` de OpenDota, segundos Unix) como ISO UTC. Sin fecha legible: nada (desconocido, nunca inventado). */
+function playedAtOf(detail: unknown): { playedAt: string } | Record<string, never> {
+  const startTime = field(detail, "start_time");
+  if (!isStartTimeValue(startTime)) return {};
+  const date = new Date(startTime * 1000);
+  return Number.isFinite(date.getTime()) ? { playedAt: date.toISOString().replace(/\.\d{3}Z$/, "Z") } : {};
+}
+
 // OpenDota sólo da un id numérico de parche. Una etiqueta ("7.41e") no se deduce de él.
 function readPatch(detail: unknown): PatchState {
   const patch = field(detail, "patch");
@@ -344,7 +352,14 @@ function certify(input: CertifyInput, context: CertifyContext): CertifyResult {
   const candidate = {
     schemaVersion: 1,
     format: "captains_mode",
-    provenance: { source: "opendota_league", sourceMatchId: matchId, fetchedAt: context.fetchedAt },
+    provenance: {
+      source: "opendota_league",
+      sourceMatchId: matchId,
+      fetchedAt: context.fetchedAt,
+      ...playedAtOf(detail),
+      // El sello que el índice exige para considerar elegible la partida: la liga se contrastó con el catálogo de OpenDota.
+      leagueCertification: { leagueId, tier, verifiedAt: context.fetchedAt },
+    },
     evidenceClass: "professional",
     outcome: readOutcome(detail),
     patch: readPatch(detail),
