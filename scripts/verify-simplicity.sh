@@ -48,7 +48,7 @@ echo "🔒 Toolchain Bun OK: ${ACTUAL_BUN_VERSION} == package.json#packageManage
 
 # --- Sincronización de contexto: acción EXPLÍCITA, ya no colateral de este gate ---
 # R0.4/Task 27 (design.md §4.4 "Filosofía de hooks"): el nivel AFTER EDIT (este script, corrido
-# desde PostToolUse/SubagentStop en .claude/settings.json) es escaneo estático barato y NO debe
+# desde el commit gate PreToolUse y CI; ya no desde PostToolUse/SubagentStop) es escaneo estático barato y NO debe
 # tener efectos secundarios -- regenerar docs/agents/hub.html en cada Edit/Write es exactamente el
 # efecto secundario que el diseño pide eliminar de este nivel. `scripts/sync-context.ts` sigue
 # existiendo tal cual y se invoca a mano cuando hace falta (`bun scripts/sync-context.ts`); este
@@ -60,7 +60,7 @@ echo "🔒 Toolchain Bun OK: ${ACTUAL_BUN_VERSION} == package.json#packageManage
 # práctico (todo lo trackeado cuenta como "añadido"), sin depender de que exista HEAD.
 EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-# Local (sesiones de Claude Code vía hooks PostToolUse/SubagentStop, o invocación manual): el
+# Local (commit gate PreToolUse de Claude Code, o invocación manual): el
 # gate siempre miró el diff sin commitear contra HEAD -- eso NO cambia acá. Cambiarlo a
 # origin/master rompería el uso real que ya tiene (revisar cambios en curso antes de commitear),
 # documentado en CLAUDE.md y usado en cada sesión de esta fase.
@@ -128,7 +128,10 @@ done
 # en un archivo nuevo pasaría inadvertido si solo se mira el diff de lo ya trackeado -- a
 # aquí también debe bloquear aunque esté en documentación o un ticket.
 SECRET_PATTERN='(api[_-]?key|password|secret|token)\s*[:=]\s*["'"'"'][A-Za-z0-9_\-]{8,}'
-TRACKED_SECRET_HIT=$(git diff "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | grep -Eio "$SECRET_PATTERN") || true
+# --ignore-cr-at-eol: un archivo que cambia de LF a CRLF (editores/herramientas de Windows) hace que
+# git marque TODAS sus líneas como -/+; sin el flag, el historial viejo reaparece como "añadido" y
+# dispara este patrón en falso. Una línea con contenido nuevo sigue apareciendo como '+'.
+TRACKED_SECRET_HIT=$(git diff --ignore-cr-at-eol "$DIFF_BASE" 2>/dev/null | grep -E '^\+' | grep -Eio "$SECRET_PATTERN") || true
 UNTRACKED_ALL_FILES=$(git ls-files --others --exclude-standard 2>/dev/null) || true
 UNTRACKED_SECRET_FILES=""
 if [ -n "$UNTRACKED_ALL_FILES" ]; then
@@ -157,8 +160,15 @@ for tool_val in claude-code codex kiro-nativo hermes-vps; do
 done
 
 # --- 4. journal*.md (incluidas particiones mensuales archivadas) y ledger.md deben ser append-only ---
-for f in docs/agents/journal*.md docs/agents/ledger.md; do
-  if [ -f "$f" ] && git diff "$DIFF_BASE" -- "$f" 2>/dev/null | grep -qE '^-[^-]'; then
+# La lista sale de la BASE (ls-tree), no del disco: si el archivo se borra entero, un glob sobre el
+# working tree ya no lo ve y el borrado pasaría inadvertido.
+APPEND_ONLY_FILES=$(git ls-tree -r --name-only "$DIFF_BASE" -- docs/agents 2>/dev/null | grep -E '^docs/agents/(journal[^/]*\.md|ledger\.md)$') || true
+for f in $APPEND_ONLY_FILES; do
+  # --ignore-cr-at-eol: ver sección 2. Una línea realmente borrada/editada sigue contando.
+  # --numstat (columna 2 = líneas borradas) en vez de grep '^-[^-]': toda entrada del journal empieza
+  # con "- [", su borrado se ve como "-- [" y ese grep nunca lo detectaba.
+  DELETED_LINES=$(git diff --ignore-cr-at-eol --numstat "$DIFF_BASE" -- "$f" 2>/dev/null | awk '{d+=$2} END {print d+0}')
+  if [ "${DELETED_LINES:-0}" -gt 0 ]; then
     echo "❌ ERROR: $f tiene líneas eliminadas. Es append-only — nunca se reescribe."
     ERRORS=$((ERRORS + 1))
   fi

@@ -1,3 +1,9 @@
+---
+description: Context7 MCP — documentación de librería al día (sólo desarrollo)
+paths:
+  - "apps/**"
+---
+
 Fuente: informe #3 "AI Engineering Harness" (`docs/research/fase9-research-consolidation.md`, R3-12).
 Context7 = MCP para recuperar documentación de librería **al día**. Privilegio mínimo por agente.
 
