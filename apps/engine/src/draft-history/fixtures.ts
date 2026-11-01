@@ -51,6 +51,14 @@ function makeLongTable(): CaptainsModeTurnTable {
 }
 export const LONG_TABLE: CaptainsModeTurnTable = makeLongTable();
 
+/** Sello de certificación de liga de ejemplo (liga ficticia): lo que `scripts/pro/certify-history.ts` escribe tras contrastar la liga. */
+export const CERTIFIED_STAMP = { leagueId: 15001, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" } as const;
+
+/** Procedencia de una partida de liga CERTIFICADA: la única que el índice considera elegible. */
+export function certifiedLeagueProvenance(sourceMatchId: string, fetchedAt: string | null = null) {
+  return { source: "opendota_league", sourceMatchId, fetchedAt, leagueCertification: CERTIFIED_STAMP } as const;
+}
+
 export function validProvenance(sourceMatchId = "7000000001") {
   return { source: "opendota_match", sourceMatchId, fetchedAt: "2026-10-20T12:00:00Z" } as const;
 }

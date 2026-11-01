@@ -674,3 +674,91 @@ describe("clasificación: evidencia profesional vs Ranked, formato y resultado",
     expectRejected(mutate(rankedAllPickRecord(), { outcome: "radiant" }), "INVALID_FIELD", "$.outcome");
   });
 });
+
+// ---- Endurecimiento V7: fecha de la partida, sello de liga y un solo formato de parche ----------------------------------------------
+
+describe("procedencia: playedAt y sello de certificación de liga", () => {
+  const STAMP = { leagueId: 15001, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" } as const;
+  function withProvenance(extra: Record<string, unknown>, source = "opendota_league"): unknown {
+    const base = clone(rankedAllPickRecord()) as unknown as Record<string, unknown>;
+    return { ...base, evidenceClass: "professional", provenance: { source, sourceMatchId: "7000000002", fetchedAt: null, ...extra } };
+  }
+
+  test("sin playedAt ni sello el registro sigue siendo válido y NO se inventan (compatibilidad)", () => {
+    const result = validateDraftHistoryRecord(withProvenance({}), WITH_SHORT);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect("playedAt" in result.value.provenance).toBe(false);
+      expect("leagueCertification" in result.value.provenance).toBe(false);
+    }
+  });
+
+  test("playedAt: ISO UTC o null explícito se conservan; cualquier otra cosa -> INVALID_PROVENANCE", () => {
+    const ok = validateDraftHistoryRecord(withProvenance({ playedAt: "2026-08-20T10:00:00Z" }), WITH_SHORT);
+    expect(ok.ok && ok.value.provenance.playedAt).toBe("2026-08-20T10:00:00Z");
+    const unknown = validateDraftHistoryRecord(withProvenance({ playedAt: null }), WITH_SHORT);
+    expect(unknown.ok && unknown.value.provenance.playedAt).toBeNull();
+    for (const bad of ["2026-08-20", "ayer", 1774310400, "2026-13-45T00:00:00Z", {}]) {
+      expectRejected(withProvenance({ playedAt: bad }), "INVALID_PROVENANCE", "$.provenance.playedAt");
+    }
+  });
+
+  test("sello de liga válido en opendota_league se conserva tal cual", () => {
+    const result = validateDraftHistoryRecord(withProvenance({ leagueCertification: STAMP }), WITH_SHORT);
+    expect(result.ok && result.value.provenance.leagueCertification).toEqual(STAMP);
+  });
+
+  test("el sello fuera de opendota_league se rechaza: una afirmación sin respaldo no entra en silencio", () => {
+    expectRejected(withProvenance({ leagueCertification: STAMP }, "opendota_match"), "INVALID_PROVENANCE", "$.provenance.leagueCertification");
+    const manual = { ...(clone(rankedAllPickRecord()) as unknown as Record<string, unknown>), provenance: { source: "manual_curated", sourceMatchId: "case_1", fetchedAt: null, leagueCertification: STAMP } };
+    expectRejected(manual, "INVALID_PROVENANCE", "$.provenance.leagueCertification");
+  });
+
+  test("sello mal formado: cada campo roto o ausente se rechaza con su ruta", () => {
+    expectRejected(withProvenance({ leagueCertification: { ...STAMP, tier: "amateur" } }), "INVALID_PROVENANCE", "$.provenance.leagueCertification.tier");
+    expectRejected(withProvenance({ leagueCertification: { leagueId: 15001, verifiedAt: STAMP.verifiedAt } }), "INVALID_PROVENANCE", "$.provenance.leagueCertification.tier");
+    for (const id of [0, -1, 1.5, "15001", null]) {
+      expectRejected(withProvenance({ leagueCertification: { ...STAMP, leagueId: id } }), "INVALID_PROVENANCE", "$.provenance.leagueCertification.leagueId");
+    }
+    expectRejected(withProvenance({ leagueCertification: { ...STAMP, verifiedAt: "hoy" } }), "INVALID_PROVENANCE", "$.provenance.leagueCertification.verifiedAt");
+    expectRejected(withProvenance({ leagueCertification: { ...STAMP, extra: 1 } }), "UNKNOWN_FIELD", "$.provenance.leagueCertification.extra");
+  });
+});
+
+describe("parche: un solo formato en el borde y en el índice", () => {
+  function withPatch(patch: unknown): unknown {
+    return { ...(clone(rankedAllPickRecord()) as unknown as Record<string, unknown>), patch };
+  }
+
+  test("'7.41' y '7.41e' son válidos; '7.41ab' y '7.41abc' se rechazan en el borde (antes pasaban y salían con vigencia desconocida)", () => {
+    for (const ok of ["7.41", "7.41e", "7.9a"]) expect(validateDraftHistoryRecord(withPatch({ state: "exact", label: ok }), WITH_SHORT).ok).toBe(true);
+    for (const bad of ["7.41ab", "7.41abc", "7.41E", "7.", "v7.41"]) {
+      expectRejected(withPatch({ state: "exact", label: bad }), "INVALID_PATCH", "$.patch.label");
+    }
+  });
+});
+
+describe("fechas ISO: el calendario tiene que ser real", () => {
+  const STAMP_OK = { leagueId: 15001, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" };
+  function withDates(playedAt: unknown, verifiedAt: string = STAMP_OK.verifiedAt): unknown {
+    const base = clone(rankedAllPickRecord()) as unknown as Record<string, unknown>;
+    return {
+      ...base,
+      evidenceClass: "professional",
+      provenance: { source: "opendota_league", sourceMatchId: "7000000002", fetchedAt: null, playedAt, leagueCertification: { ...STAMP_OK, verifiedAt } },
+    };
+  }
+
+  test("un día inexistente se rechaza en playedAt y en verifiedAt (Date.parse solo lo mueve al mes siguiente)", () => {
+    expectRejected(withDates("2026-02-30T00:00:00Z"), "INVALID_PROVENANCE", "$.provenance.playedAt");
+    expectRejected(withDates("2026-04-31T10:00:00Z"), "INVALID_PROVENANCE", "$.provenance.playedAt");
+    expectRejected(withDates(null, "2026-02-30T00:00:00Z"), "INVALID_PROVENANCE", "$.provenance.leagueCertification.verifiedAt");
+  });
+
+  test("fechas reales siguen válidas, incluido el 29 de febrero de un año bisiesto y los milisegundos", () => {
+    for (const ok of ["2028-02-29T00:00:00Z", "2026-03-24T00:00:00Z", "2026-08-20T10:00:00.123Z"]) {
+      expect(validateDraftHistoryRecord(withDates(ok), WITH_SHORT).ok).toBe(true);
+    }
+    expectRejected(withDates("2027-02-29T00:00:00Z"), "INVALID_PROVENANCE", "$.provenance.playedAt");
+  });
+});

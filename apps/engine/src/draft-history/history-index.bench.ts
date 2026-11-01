@@ -94,7 +94,7 @@ function makeRecords(count: number, rand: () => number): UnorderedDraftRecord[] 
     records.push({
       schemaVersion: 1,
       format: rand() < 0.5 ? "ranked_all_pick" : "unknown",
-      provenance: { source: "opendota_league", sourceMatchId: String(7_000_000_000 + i), fetchedAt: null },
+      provenance: { source: "opendota_league", sourceMatchId: String(7_000_000_000 + i), fetchedAt: null, leagueCertification: { leagueId: 15001, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" } },
       evidenceClass: "professional",
       outcome: winner === null ? { status: "unknown" } : { status: "known", winner },
       patch: PATCHES[Math.floor(rand() * PATCHES.length)] as PatchState,

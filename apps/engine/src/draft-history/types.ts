@@ -45,6 +45,25 @@ export interface Provenance {
   sourceMatchId: string;
   /** ISO-8601 UTC (`...Z`). `null` = la fuente no dijo cuándo se obtuvo. */
   fetchedAt: string | null;
+  /**
+   * Cuándo se JUGÓ la partida (ISO-8601 UTC), no cuándo se descargó. Ausente o `null` = la fuente no lo dijo: nunca se rellena.
+   * Es lo que permite saber si una partida es del meta actual (7.41 en adelante); `fetchedAt` no sirve para eso.
+   */
+  playedAt?: string | null;
+  /**
+   * Sello de certificación de liga: SÓLO `opendota_league`. Lo escribe quien certificó la liga contra el catálogo de OpenDota
+   * (`scripts/pro/certify-history.ts`). Sin este sello, un registro `professional` de `opendota_league` NO es elegible: la etiqueta
+   * de fuente por sí sola no prueba que la liga sea profesional. Datos públicos de la liga, nunca de una cuenta.
+   */
+  leagueCertification?: LeagueCertificationStamp;
+}
+
+export interface LeagueCertificationStamp {
+  /** Id público de la liga (entero positivo). */
+  leagueId: number;
+  tier: "premium" | "professional";
+  /** ISO-8601 UTC: cuándo se verificó la liga contra el catálogo. */
+  verifiedAt: string;
 }
 
 // El parche tiene TRES estados porque el repo ya tropezó con eso (SPEC §16.4: el corpus guarda

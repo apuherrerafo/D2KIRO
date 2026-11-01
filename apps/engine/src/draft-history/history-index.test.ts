@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { captainsModeRecord, LONG_TABLE, TEST_HERO_UNIVERSE } from "./fixtures";
+import { captainsModeRecord, CERTIFIED_STAMP, certifiedLeagueProvenance, LONG_TABLE, TEST_HERO_UNIVERSE } from "./fixtures";
 import {
   MAX_EXAMPLES,
   createArrayHistoryIndex,
@@ -40,6 +40,8 @@ interface Draft {
   winner?: Side | null;
   evidenceClass?: "professional" | "ranked";
   source?: ProvenanceSource;
+  /** `opendota_league` SIN el sello de certificación de liga (por defecto una partida de liga lo trae). */
+  uncertified?: boolean;
   patch?: PatchState;
   bans?: BanKnowledge;
   format?: "ranked_all_pick" | "unknown";
@@ -56,7 +58,12 @@ function draft(d: Draft): UnorderedDraftRecord {
   return {
     schemaVersion: 1,
     format: d.format ?? "unknown",
-    provenance: { source: d.source ?? "opendota_league", sourceMatchId: d.id, fetchedAt: "2026-10-20T12:00:00Z" },
+    provenance: {
+      source: d.source ?? "opendota_league",
+      sourceMatchId: d.id,
+      fetchedAt: "2026-10-20T12:00:00Z",
+      ...((d.source ?? "opendota_league") === "opendota_league" && d.uncertified !== true ? { leagueCertification: CERTIFIED_STAMP } : {}),
+    },
     evidenceClass: d.evidenceClass ?? "professional",
     outcome,
     patch: d.patch ?? EXACT_741E,
@@ -557,7 +564,7 @@ describe("bans desconocidos: nunca inventados", () => {
   test("Captain's Mode: los bans salen de las acciones; sin acciones de ban son desconocidos", () => {
     // captainsModeRecord(LONG_TABLE): la acción `i` usa el héroe `i + 1`; las acciones 0..6 son bans y la 7 el pick 8.
     const full = captainsModeRecord(LONG_TABLE, "radiant", {
-      provenance: { source: "opendota_league", sourceMatchId: "7600000040", fetchedAt: null },
+      provenance: certifiedLeagueProvenance("7600000040"),
     });
     const compared = indexOf([full]).search(obs({ allyHeroIds: [8], bans: { status: "confirmed_visible", heroIds: [1, 2, 99] } }));
     expect(compared.examples.wins[0]?.banMatches).toBe(2);
@@ -628,7 +635,7 @@ describe("parches: exacto, antiguo, más nuevo y desconocido", () => {
 describe("formato: Captain's Mode vs Ranked All Pick", () => {
   test("se anota, no se esconde ni se presenta como directamente equivalente", () => {
     const cm = captainsModeRecord(LONG_TABLE, "radiant", {
-      provenance: { source: "opendota_league", sourceMatchId: "7800000001", fetchedAt: null },
+      provenance: certifiedLeagueProvenance("7800000001"),
     });
     const ap = draft({ id: "7800000002", radiant: [8, 20, 21, 22, 23], dire: [60, 61, 62, 63, 64], winner: "radiant", format: "ranked_all_pick" });
     const unk = draft({ id: "7800000003", radiant: [8, 24, 25, 26, 27], dire: [60, 61, 62, 63, 64], winner: "radiant", format: "unknown" });
@@ -694,7 +701,7 @@ describe("integración con el cargador de PR-1", () => {
       schemaVersion: 1,
       records: [
         captainsModeRecord(LONG_TABLE, "radiant", {
-          provenance: { source: "opendota_league", sourceMatchId: "7000000101", fetchedAt: null },
+          provenance: certifiedLeagueProvenance("7000000101"),
         }),
         draft({ id: "7000000102", radiant: [8, 30, 31, 32, 33], dire: [60, 61, 62, 63, 64], winner: "radiant" }),
         { ...draft({ id: "7000000103", radiant: R, dire: D }), account_id: 1 }, // rechazado por PR-1
@@ -706,5 +713,93 @@ describe("integración con el cargador de PR-1", () => {
     const result = createArrayHistoryIndex(loaded.records, UNIVERSE).search(obs({ allyHeroIds: [8] }));
     expect(result.status).toBe("ok");
     expect(result.population.matchedRecords).toBe(2);
+  });
+});
+
+// ---- Endurecimiento V7: sello de liga como condición de elegibilidad y búsqueda que nunca lanza -------------------------------------
+
+describe("elegibilidad: la partida de liga necesita el sello de certificación", () => {
+  test("opendota_league SIN sello no es elegible: cuenta como profesional sin anclaje verificado", () => {
+    const index = indexOf([
+      draft({ id: "8100000001", radiant: R, dire: D, winner: "radiant" }), // con sello (por defecto)
+      draft({ id: "8100000002", radiant: R, dire: D, winner: "radiant", uncertified: true }),
+    ]);
+    const result = index.search(obs({ allyHeroIds: [1] }));
+    // Se cuenta aparte de las fuentes que nunca serán elegibles: una partida de liga sin sello se puede recertificar.
+    expect(result.population).toMatchObject({ indexedRecords: 2, eligibleRecords: 1, excludedLeagueWithoutSeal: 1, excludedUnverifiedProvenance: 0, matchedRecords: 1 });
+    expect(keysOf(allExamples(result))).toEqual(["valve:8100000001"]);
+  });
+
+  test("un índice sólo con partidas de liga sin sello equivale a no tener evidencia profesional", () => {
+    const index = indexOf([draft({ id: "8100000003", radiant: R, dire: D, winner: "radiant", uncertified: true })]);
+    expect(index.search(obs({ allyHeroIds: [1] })).status).toBe("no_eligible_records");
+  });
+
+  test("el sello no rescata a Ranked ni a otras fuentes: sigue mandando la clase de evidencia y la fuente", () => {
+    const ranked = draft({ id: "8100000004", radiant: R, dire: D, winner: "radiant", evidenceClass: "ranked" });
+    const matchSource = draft({ id: "8100000005", radiant: R, dire: D, winner: "radiant", source: "opendota_match" });
+    const result = indexOf([ranked, matchSource]).search(obs({ allyHeroIds: [1] }));
+    expect(result.population).toMatchObject({ eligibleRecords: 0, excludedByEvidenceClass: 1, excludedUnverifiedProvenance: 1, excludedLeagueWithoutSeal: 0 });
+  });
+
+  test("el índice NO confía en el tipo: un sello roto (null, {}, 0, 'x', false, [], tier inválido, leagueId 0) no certifica", () => {
+    const broken: unknown[] = [null, {}, 0, "x", false, [], { leagueId: 15001, tier: "amateur", verifiedAt: "2026-10-20T12:00:00Z" }, { leagueId: 0, tier: "premium", verifiedAt: "2026-10-20T12:00:00Z" }];
+    broken.forEach((seal, i) => {
+      const base = draft({ id: `83000000${String(i).padStart(2, "0")}`, radiant: R, dire: D, winner: "radiant" });
+      const record = { ...base, provenance: { ...base.provenance, leagueCertification: seal } } as unknown as DraftHistoryRecord;
+      const result = indexOf([record]).search(obs({ allyHeroIds: [1] }));
+      expect(result.status).toBe("no_eligible_records");
+      expect(result.population.excludedLeagueWithoutSeal).toBe(1);
+    });
+  });
+});
+
+describe("robustez: ni la construcción ni la búsqueda lanzan hacia el motor", () => {
+  test("un registro roto (estructura inesperada) se salta y se cuenta; el resto sigue buscable", () => {
+    const good = draft({ id: "8200000001", radiant: R, dire: D, winner: "radiant" });
+    const broken = { schemaVersion: 1, evidenceClass: "professional" } as unknown as DraftHistoryRecord; // sin provenance
+    const index = indexOf([broken, good]);
+    expect(index.size).toBe(1);
+    const result = index.search(obs({ allyHeroIds: [1] }));
+    expect(result.status).toBe("ok");
+    expect(result.population).toMatchObject({ indexedRecords: 1, excludedMalformed: 1, eligibleRecords: 1 });
+  });
+
+  test("un registro elegible cuyo contenido revienta al indexar se salta y se cuenta (no tira el índice)", () => {
+    const good = draft({ id: "8200000002", radiant: R, dire: D, winner: "radiant" });
+    const hollow = { ...draft({ id: "8200000003", radiant: R, dire: D, winner: "radiant" }), picks: undefined } as unknown as DraftHistoryRecord;
+    const result = indexOf([hollow, good]).search(obs({ allyHeroIds: [1] }));
+    expect(result.status).toBe("ok");
+    // Un registro roto nunca cuenta como indexado, falle al clasificar (caso anterior) o al indexar (éste): mismo criterio.
+    expect(result.population).toMatchObject({ excludedMalformed: 1, indexedRecords: 1, eligibleRecords: 1 });
+  });
+
+  test("un fallo inesperado dentro de search devuelve search_failed con la población, nunca una excepción", () => {
+    // El resultado se lee DENTRO de la búsqueda (al evaluar la coincidencia), no al indexar: un registro así pasa la construcción y revienta en search.
+    const volatile = { ...draft({ id: "8200000004", radiant: R, dire: D }), outcome: { get status(): never { throw new Error("boom"); } } } as unknown as DraftHistoryRecord;
+    const index = indexOf([volatile]);
+    let result: ReturnType<HistoryIndex["search"]> | undefined;
+    expect(() => { result = index.search(obs({ allyHeroIds: [1] })); }).not.toThrow();
+    expect(result?.status).toBe("search_failed");
+    expect(result?.interpretation).toBe("descriptive_only");
+    expect(result?.groups).toEqual([]);
+    expect(result?.population.eligibleRecords).toBe(1);
+  });
+});
+
+describe("aviso opcional de fallo interno", () => {
+  test("onInternalError recibe sólo un código (nunca datos) por registro roto y por búsqueda fallida", () => {
+    const codes: string[] = [];
+    const broken = { schemaVersion: 1, evidenceClass: "professional" } as unknown as DraftHistoryRecord;
+    const volatile = { ...draft({ id: "8400000001", radiant: R, dire: D }), outcome: { get status(): never { throw new Error("boom"); } } } as unknown as DraftHistoryRecord;
+    const index = createArrayHistoryIndex([broken, volatile], { heroUniverse: TEST_HERO_UNIVERSE, onInternalError: (code) => codes.push(code) });
+    index.search(obs({ allyHeroIds: [1] }));
+    expect(codes).toEqual(["record_malformed", "search_failed"]);
+  });
+
+  test("un onInternalError que lanza no se convierte en un segundo fallo", () => {
+    const broken = { schemaVersion: 1, evidenceClass: "professional" } as unknown as DraftHistoryRecord;
+    const throwing = () => { throw new Error("callback roto"); };
+    expect(() => createArrayHistoryIndex([broken], { heroUniverse: TEST_HERO_UNIVERSE, onInternalError: throwing })).not.toThrow();
   });
 });
