@@ -31,8 +31,8 @@ RUN set -eu; \
 COPY apps/engine/package.json apps/engine/bun.lock ./apps/engine/
 RUN cd apps/engine && bun install --frozen-lockfile
 
-COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
-RUN cd apps/web && npm ci
+COPY apps/web/package.json apps/web/bun.lock ./apps/web/
+RUN cd apps/web && bun install --frozen-lockfile
 
 COPY apps/engine/src ./apps/engine/src
 COPY apps/engine/drizzle.config.ts apps/engine/tsconfig.json ./apps/engine/
@@ -46,7 +46,7 @@ COPY apps/web/server ./apps/web/server
 COPY apps/web/public ./apps/web/public
 # next-env.d.ts nunca se copia -- vive en apps/web/.gitignore a proposito (Next.js lo
 # genera/actualiza solo en next dev/build/lint), asi que nunca existe en el contexto de build de
-# Railway (que construye desde GitHub, no desde el filesystem local). npm run build lo recrea.
+# Railway (que construye desde GitHub, no desde el filesystem local). bun run build lo recrea.
 COPY apps/web/eslint.config.mjs apps/web/next.config.ts apps/web/postcss.config.mjs apps/web/proxy.ts apps/web/tsconfig.json ./apps/web/
 
 COPY scripts/start-railway.sh ./scripts/start-railway.sh
@@ -65,7 +65,7 @@ FROM base AS runtime-build
 # preview/debug lo pone en "1" (variable del servicio en Railway); además la URL debe llevar ?flightRecorder=1.
 ARG NEXT_PUBLIC_D2_FLIGHT_RECORDER=
 ENV NEXT_PUBLIC_D2_FLIGHT_RECORDER=$NEXT_PUBLIC_D2_FLIGHT_RECORDER
-RUN cd apps/web && npm run build
+RUN cd apps/web && bun run build
 RUN chmod +x scripts/start-railway.sh
 
 CMD ["./scripts/start-railway.sh"]

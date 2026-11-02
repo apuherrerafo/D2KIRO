@@ -109,7 +109,7 @@ for attempt in $(seq 1 60); do
 done
 
 cd apps/web
-# npm would leave WEB_PID pointing at its wrapper. Invoke the CLI installed by npm ci directly so
+# bun would leave WEB_PID pointing at its wrapper. Invoke the CLI installed by bun install directly so
 # WEB_PID is the long-lived Node/Next process that owns PORT.
 node ./node_modules/next/dist/bin/next start -H :: -p "$PORT" &
 WEB_PID="$!"

@@ -5,12 +5,12 @@
     "": {
       "name": "engine",
       "dependencies": {
-        "drizzle-orm": "latest",
+        "drizzle-orm": "0.45.2",
       },
       "devDependencies": {
-        "@types/bun": "latest",
-        "drizzle-kit": "latest",
-        "typescript": "latest",
+        "@types/bun": "1.3.14",
+        "drizzle-kit": "0.31.10",
+        "typescript": "7.0.2",
       },
     },
   },
