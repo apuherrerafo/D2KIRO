@@ -489,6 +489,11 @@
       "vs": 137,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f), wiki Fandom (7.41d)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "7": [
@@ -748,6 +753,31 @@
     },
     {
       "vs": 129,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 87,
+      "level": "medium",
+      "why": "Lo dicen: BananaSlamJamma (7.41e), KheZu (7.41e)"
+    },
+    {
+      "vs": 119,
+      "level": "medium",
+      "why": "Lo dicen: KheZu (7.41e)"
+    },
+    {
+      "vs": 88,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 32,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 67,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
     }
@@ -1285,6 +1315,11 @@
       "vs": 42,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "15": [
@@ -2364,6 +2399,11 @@
       "vs": 48,
       "level": "medium",
       "why": "Lo dicen: wiki Fandom (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "33": [
@@ -3308,6 +3348,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "45": [
@@ -3931,6 +3976,11 @@
       "vs": 137,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "54": [
@@ -3968,11 +4018,6 @@
       "vs": 65,
       "level": "medium",
       "why": "Flaming Lasso atraviesa la inmunidad a debuffs y lo deja sin moverse, atacar ni usar habilidades incluso durante Rage, y Flamebreak y Firefly permiten kitearlo"
-    },
-    {
-      "vs": 96,
-      "level": "medium",
-      "why": "Retaliate le devuelve daño en cada golpe a Lifestealer, un carry que vive de pegar"
     },
     {
       "vs": 81,
@@ -4575,6 +4620,11 @@
     },
     {
       "vs": 92,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
     }
@@ -6636,6 +6686,11 @@
       "vs": 84,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "89": [
@@ -7198,6 +7253,11 @@
       "vs": 128,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "95": [
@@ -7347,6 +7407,46 @@
       "vs": 42,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 51,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
+    },
+    {
+      "vs": 50,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 111,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 93,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 46,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
+    },
+    {
+      "vs": 29,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 70,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 54,
+      "level": "hard",
+      "why": "Lo dicen: DotaCoach (7.41f), BananaSlamJamma (7.41e), panel TI (sin identificar) (7.41e)"
     }
   ],
   "97": [
@@ -8800,6 +8900,11 @@
       "vs": 92,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "111": [
@@ -9026,6 +9131,11 @@
       "vs": 12,
       "level": "medium",
       "why": "Doppelganger dispela el Flux que lo frena y lo hace reaparecer rodeado de copias, y Arc Warden pierde el blanco"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "114": [
@@ -10010,6 +10120,11 @@
     },
     {
       "vs": 105,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
     }
