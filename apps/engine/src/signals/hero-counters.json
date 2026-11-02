@@ -104,7 +104,7 @@
     },
     {
       "vs": 36,
-      "level": "hard",
+      "level": "medium",
       "why": "Heartstopper Aura erosiona tu enorme vida y Reaper's Scythe remata a Axe antes de que pueda prolongar la pelea"
     },
     {
@@ -139,17 +139,17 @@
     },
     {
       "vs": 11,
-      "level": "hard",
+      "level": "medium",
       "why": "Shadowraze le pega a Axe desde afuera de su alcance, así que Counter Helix no le responde y tiene que acercarse para pelear"
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Slardar puede ser bueno contra Axe: Corrosive Haze le baja la armadura que necesita para aguantar"
     },
     {
       "vs": 85,
-      "level": "hard",
+      "level": "medium",
       "why": "En las peleas, la Tombstone y sus zombies frenan la entrada de Axe y protegen a los aliados"
     },
     {
@@ -164,7 +164,7 @@
     },
     {
       "vs": 131,
-      "level": "hard",
+      "level": "medium",
       "why": "Escape Act deja a su aliado intargeteable y desarmado, así que Berserker's Call no lo obliga a pegar y no activa Counter Helix"
     },
     {
@@ -281,7 +281,7 @@
     },
     {
       "vs": 131,
-      "level": "hard",
+      "level": "medium",
       "why": "Escape Act mete a su aliado en una caja intargeteable y lo saca del agarre de Fiend's Grip"
     },
     {
@@ -519,7 +519,7 @@
     },
     {
       "vs": 86,
-      "level": "hard",
+      "level": "medium",
       "why": "Rubick le roba Fissure y la usa sin esa preparación lenta y con más alcance: Earthshaker pierde su mejor herramienta"
     },
     {
@@ -842,12 +842,12 @@
     },
     {
       "vs": 6,
-      "level": "hard",
+      "level": "medium",
       "why": "Drow Ranger gana la línea contra Shadow Fiend con el daño extra de Frost Arrows y él no logra acercarse"
     },
     {
       "vs": 53,
-      "level": "hard",
+      "level": "medium",
       "why": "Los Treants de Nature's Prophet pegan mucho más este parche y con Teleportation Shadow Fiend no tiene cómo defenderse en el early game"
     },
     {
@@ -857,12 +857,12 @@
     },
     {
       "vs": 67,
-      "level": "hard",
+      "level": "medium",
       "why": "Spectre les apaga el impulso temprano a estos carries de rango: los persigue en cada pelea y cierra la distancia con facilidad"
     },
     {
       "vs": 108,
-      "level": "hard",
+      "level": "medium",
       "why": "Su aura le reduce el daño a Shadow Fiend, que pega muy fuerte conforme avanza la partida"
     },
     {
@@ -872,7 +872,7 @@
     },
     {
       "vs": 26,
-      "level": "hard",
+      "level": "medium",
       "why": "Hex le desactiva todas las habilidades, incluido Shadowraze, y Finger of Death lo remata"
     },
     {
@@ -979,7 +979,7 @@
     },
     {
       "vs": 69,
-      "level": "hard",
+      "level": "medium",
       "why": "Doom con Radiance quema las ilusiones de Phantom Lancer y Doom le corta Doppelganger"
     },
     {
@@ -989,7 +989,7 @@
     },
     {
       "vs": 107,
-      "level": "hard",
+      "level": "medium",
       "why": "Con los Magnetize volando por todas partes, Phantom Lancer lo pasa mal contra Earth Spirit"
     },
     {
@@ -1131,7 +1131,7 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Winter's Curse castiga la iniciación de Puck y lo vuelve contra su propio equipo"
     },
     {
@@ -1568,7 +1568,7 @@
     },
     {
       "vs": 98,
-      "level": "hard",
+      "level": "medium",
       "why": "Whirling Death reduce fuerza y hace daño puro, castigando exactamente el atributo que vuelve resistente a Tiny"
     },
     {
@@ -1588,7 +1588,7 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Arctic Burn es devastador contra un Tiny carry"
     },
     {
@@ -1603,7 +1603,7 @@
     },
     {
       "vs": 108,
-      "level": "hard",
+      "level": "medium",
       "why": "Atrophy Aura le baja el daño de ataque base a Tiny cuando está cerca y Pit of Malice lo enraíza si entra a pelear"
     },
     {
@@ -1672,7 +1672,7 @@
   "21": [
     {
       "vs": 129,
-      "level": "hard",
+      "level": "medium",
       "why": "Arena of Blood bloquea los ataques de Focus Fire y Spear te fija, impidiendo que Windrun convierta velocidad en escape"
     },
     {
@@ -1707,7 +1707,7 @@
     },
     {
       "vs": 26,
-      "level": "hard",
+      "level": "medium",
       "why": "Hex la saca de combate al instante y le desactiva todas las habilidades, y Finger of Death le da la ráfaga que Windranger no aguanta"
     },
     {
@@ -1838,12 +1838,12 @@
     },
     {
       "vs": 129,
-      "level": "hard",
+      "level": "medium",
       "why": "Spear of Mars la clava y Arena of Blood la encierra; Lina es frágil y no tiene escape"
     },
     {
       "vs": 53,
-      "level": "hard",
+      "level": "medium",
       "why": "Teleportation le permite llegar por la espalda y cazar a Lina, que es frágil"
     },
     {
@@ -1853,17 +1853,17 @@
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
     },
     {
       "vs": 35,
-      "level": "hard",
+      "level": "medium",
       "why": "Sniper le pega desde más lejos que Lina con Take Aim y Shrapnel le frena la entrada, así que la castiga en la línea sin que ella pueda acercarse"
     },
     {
       "vs": 19,
-      "level": "hard",
+      "level": "medium",
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
     },
     {
@@ -1905,7 +1905,7 @@
     },
     {
       "vs": 32,
-      "level": "hard",
+      "level": "medium",
       "why": "Lion en la mid es un héroe débil contra Riki, y matarlo primero es lo más importante de la pelea"
     },
     {
@@ -1920,7 +1920,7 @@
     },
     {
       "vs": 77,
-      "level": "hard",
+      "level": "medium",
       "why": "Hex solo frena a un objetivo y Lycan pelea junto a los lobos de Summon Wolves, así que Lion no logra aislarlo"
     },
     {
@@ -2044,12 +2044,12 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Cold Embrace anula el daño físico de Slardar y Winter's Curse lo castiga cuando entra"
     },
     {
       "vs": 128,
-      "level": "hard",
+      "level": "medium",
       "why": "Scatterblast lo frena y lo daña en cono y Firesnap Cookie lo aturde, y Slardar, que es melee, tiene que acercarse para pegar"
     },
     {
@@ -2399,7 +2399,7 @@
     },
     {
       "vs": 72,
-      "level": "hard",
+      "level": "medium",
       "why": "Flak Cannon y Rocket Barrage dañan en área a los Eidolons y castigan a Enigma si farmea la jungla sin apoyo"
     },
     {
@@ -2590,7 +2590,7 @@
     },
     {
       "vs": 69,
-      "level": "hard",
+      "level": "medium",
       "why": "Doom impide lanzar Death Pulse, Ghost Shroud y Reaper's Scythe"
     },
     {
@@ -2650,7 +2650,7 @@
     },
     {
       "vs": 131,
-      "level": "hard",
+      "level": "medium",
       "why": "Escape Act deja al objetivo intargeteable y Reaper's Scythe no lo puede alcanzar"
     },
     {
@@ -2958,7 +2958,7 @@
     },
     {
       "vs": 5,
-      "level": "hard",
+      "level": "medium",
       "why": "En la línea Frostbite y Crystal Nova juntos matan rápido a Venomancer, que es frágil de línea"
     },
     {
@@ -3209,7 +3209,7 @@
     },
     {
       "vs": 106,
-      "level": "hard",
+      "level": "medium",
       "why": "Con Mage Slayer reduce el daño de Exorcism, que sigue siendo un hechizo: es lo único que frena a Death Prophet"
     },
     {
@@ -3343,12 +3343,12 @@
     },
     {
       "vs": 137,
-      "level": "hard",
+      "level": "medium",
       "why": "Tienen buen daño físico y los héroes melé en general le ganan a Pugna"
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Tienen buen daño físico y los héroes melé en general le ganan a Pugna"
     },
     {
@@ -3430,7 +3430,7 @@
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
     },
     {
@@ -3574,7 +3574,7 @@
     },
     {
       "vs": 67,
-      "level": "hard",
+      "level": "medium",
       "why": "Spectre les apaga el impulso temprano a estos carries de rango: los persigue en cada pelea y cierra la distancia con facilidad"
     },
     {
@@ -3641,7 +3641,7 @@
     },
     {
       "vs": 90,
-      "level": "hard",
+      "level": "medium",
       "why": "Keeper suele sacar Veil of Discord, que baja la resistencia mágica del rival: muy molesto para un Dragon Knight de daño mágico"
     },
     {
@@ -3666,7 +3666,7 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Arctic Burn desgasta a los offlaners tanques por su vida máxima y aguanta la regeneración extra de Dragon Blood"
     },
     {
@@ -3847,7 +3847,7 @@
     },
     {
       "vs": 106,
-      "level": "hard",
+      "level": "medium",
       "why": "Con Mage Slayer reduce el daño de hechizos de Leshrac, y su movilidad le sobra contra un mid que se queda en la línea"
     },
     {
@@ -3941,7 +3941,7 @@
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Bash of the Deep atraviesa Rage con control físico y Corrosive Haze amplifica daño físico"
     },
     {
@@ -3996,7 +3996,7 @@
     },
     {
       "vs": 155,
-      "level": "hard",
+      "level": "medium",
       "why": "Si Lifestealer pone Open Wounds en Largo o en un aliado suyo, Catchy Lick se lo disipa y además le da regeneración a Largo"
     },
     {
@@ -4058,7 +4058,7 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Arctic Burn le saca un porcentaje de la vida actual cada segundo a los offlaners tanques, y eso pesa más que la regeneración extra del Helm of Iron Will"
     },
     {
@@ -5126,7 +5126,7 @@
     },
     {
       "vs": 91,
-      "level": "hard",
+      "level": "medium",
       "why": "Con Tether y Relocate, Io saca de la pelea al aliado que Doom acaba de anular"
     },
     {
@@ -5141,17 +5141,17 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
     },
     {
       "vs": 53,
-      "level": "hard",
+      "level": "medium",
       "why": "Nature's Prophet es de rango: Sprout atrapa a Doom en el lugar y Wrath of Nature le pega desde cualquier punto mientras lo vea, y Doom es melee y tiene que acercarse"
     },
     {
       "vs": 11,
-      "level": "hard",
+      "level": "medium",
       "why": "Shadowraze castiga a Doom antes de que llegue y le apila daño extra, y Doom, que es melee, tiene que acercarse para poder pegar"
     },
     {
@@ -5486,7 +5486,7 @@
     },
     {
       "vs": 120,
-      "level": "hard",
+      "level": "medium",
       "why": "Rolling Thunder interrumpe lanzamientos repetidamente"
     },
     {
@@ -5496,7 +5496,7 @@
     },
     {
       "vs": 106,
-      "level": "hard",
+      "level": "medium",
       "why": "Ember lo alcanza con Fire Remnant y Flame Guard absorbe parte del daño mágico de Invoker"
     },
     {
@@ -5516,12 +5516,12 @@
     },
     {
       "vs": 129,
-      "level": "hard",
+      "level": "medium",
       "why": "Spear of Mars y Arena of Blood atrapan a Invoker, que no tiene escape fácil"
     },
     {
       "vs": 12,
-      "level": "hard",
+      "level": "medium",
       "why": "Las ilusiones de Phantom Lancer abruman a Invoker, que depende de hechizos de un solo uso"
     },
     {
@@ -5978,7 +5978,7 @@
     },
     {
       "vs": 11,
-      "level": "hard",
+      "level": "medium",
       "why": "Shadow Fiend gana su línea y su daño castiga a Lone Druid y al Spirit Bear"
     },
     {
@@ -6599,7 +6599,7 @@
     },
     {
       "vs": 5,
-      "level": "hard",
+      "level": "medium",
       "why": "En la línea Frostbite y Crystal Nova juntos matan rápido a Nyx, que es frágil de línea"
     },
     {
@@ -6763,7 +6763,7 @@
     },
     {
       "vs": 3,
-      "level": "hard",
+      "level": "medium",
       "why": "Keeper es frágil: Nightmare y Fiend's Grip lo anulan, y Brain Sap lo castiga en la línea"
     },
     {
@@ -6880,7 +6880,7 @@
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Cada vez que Io usa Relocate, Wyvern prepara Winter's Curse y sigue con Terrorize"
     },
     {
@@ -7270,12 +7270,12 @@
     },
     {
       "vs": 98,
-      "level": "hard",
+      "level": "medium",
       "why": "Whirling Death reduce fuerza y el daño puro de Timbersaw evita atravesar su armadura"
     },
     {
       "vs": 108,
-      "level": "hard",
+      "level": "medium",
       "why": "Firestorm hace daño porcentual sobre su vida y Pit of Malice limita Stampede"
     },
     {
@@ -7290,27 +7290,27 @@
     },
     {
       "vs": 129,
-      "level": "hard",
+      "level": "medium",
       "why": "Arena of Blood corta las rutas de escape del Stampede y Spear of Mars atrapa a Centaur"
     },
     {
       "vs": 131,
-      "level": "hard",
+      "level": "medium",
       "why": "En la línea Ringmaster le saca vida a Centaur con el daño porcentual de su tercera habilidad"
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Corrosive Haze le quita armadura a Centaur, que vive de aguantar golpes en la pelea"
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
     },
     {
       "vs": 145,
-      "level": "hard",
+      "level": "medium",
       "why": "Falcon Rush lo persigue aunque use Stampede, porque le da resistencia a los slows, y Centaur casi no tiene armadura contra el daño físico de Kez"
     },
     {
@@ -7519,7 +7519,7 @@
     },
     {
       "vs": 51,
-      "level": "hard",
+      "level": "medium",
       "why": "Los Power Cogs le queman el maná a Timbersaw en la fase temprana"
     },
     {
@@ -7554,7 +7554,7 @@
     },
     {
       "vs": 11,
-      "level": "hard",
+      "level": "medium",
       "why": "Shadow Fiend lo castiga en la línea con Shadowraze, daño mágico que Reactive Armor no frena"
     },
     {
@@ -7758,7 +7758,7 @@
     },
     {
       "vs": 33,
-      "level": "hard",
+      "level": "medium",
       "why": "Dentro de Black Hole Tusk no puede usar Snowball ni Blink para salvar a nadie"
     },
     {
@@ -8250,7 +8250,7 @@
     },
     {
       "vs": 2,
-      "level": "hard",
+      "level": "medium",
       "why": "Berserker's Call es el control que hace falta para atrapar a Ember Spirit"
     },
     {
@@ -8285,7 +8285,7 @@
     },
     {
       "vs": 36,
-      "level": "hard",
+      "level": "medium",
       "why": "Necrophos aguanta la línea contra Ember con la curación de Death Pulse y castiga su poca vida"
     },
     {
@@ -8295,12 +8295,12 @@
     },
     {
       "vs": 120,
-      "level": "hard",
+      "level": "medium",
       "why": "Cuando Ember sale a farmear confiado, Rolling Thunder lo atrapa y la cadena de stuns lo mata"
     },
     {
       "vs": 45,
-      "level": "hard",
+      "level": "medium",
       "why": "Nether Ward castiga cada hechizo de Ember y Decrepify salva al aliado de Sleight of Fist"
     },
     {
@@ -8310,7 +8310,7 @@
     },
     {
       "vs": 27,
-      "level": "hard",
+      "level": "medium",
       "why": "Hex instantáneo deja a Ember sin Fire Remnant ni Sleight of Fist para escapar"
     },
     {
@@ -8325,32 +8325,32 @@
     },
     {
       "vs": 128,
-      "level": "hard",
+      "level": "medium",
       "why": "Scatterblast y Firesnap Cookie castigan a los mid melee como Ember desde la línea"
     },
     {
       "vs": 108,
-      "level": "hard",
+      "level": "medium",
       "why": "Pit of Malice clava a Ember una y otra vez en las peleas, y Underlord aguanta su daño"
     },
     {
       "vs": 47,
-      "level": "hard",
+      "level": "medium",
       "why": "Corrosive Skin le baja la velocidad de ataque a cada golpe de Sleight of Fist y Poison Attack lo frena, así que Ember no escapa ni se queda peleando en la línea"
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Winter's Curse castiga a Ember cuando se mete solo en una pelea o en el split push"
     },
     {
       "vs": 95,
-      "level": "hard",
+      "level": "medium",
       "why": "En melee, Berserker's Rage puede atar a Ember e impedirle moverse y usar habilidades de movilidad como Fire Remnant, y Whirling Axes le hace fallar ataques"
     },
     {
       "vs": 21,
-      "level": "hard",
+      "level": "medium",
       "why": "Windrun le da evasión contra golpes físicos y velocidad, Shackleshot lo inmoviliza y su daño a un solo objetivo lo mata"
     },
     {
@@ -8432,17 +8432,17 @@
     },
     {
       "vs": 96,
-      "level": "hard",
+      "level": "medium",
       "why": "Centaur controla la pelea contra Earth Spirit y puede salirse (disengage) cuando quiere"
     },
     {
       "vs": 51,
-      "level": "hard",
+      "level": "medium",
       "why": "Power Cogs encierra a Earth Spirit y le corta Rolling Boulder, y Hookshot lo agarra apenas se separa del equipo"
     },
     {
       "vs": 69,
-      "level": "hard",
+      "level": "medium",
       "why": "Con Doom lo anulas apenas entra rodando: no puede usar sus hechizos y lo matas antes de que juegue"
     },
     {
@@ -8467,7 +8467,7 @@
     },
     {
       "vs": 8,
-      "level": "hard",
+      "level": "medium",
       "why": "Healing Ward anula el Magnetize: ese daño en el tiempo no logra nada si el aliado no baja de vida"
     },
     {
@@ -8477,22 +8477,22 @@
     },
     {
       "vs": 114,
-      "level": "hard",
+      "level": "medium",
       "why": "Monkey King lo castiga a golpes, mejor con Desolator y un purge de Oracle que le quite el Magnetize"
     },
     {
       "vs": 111,
-      "level": "hard",
+      "level": "medium",
       "why": "El purge de Oracle le quita el Magnetize y el Spirit Vessel a su aliado"
     },
     {
       "vs": 28,
-      "level": "hard",
+      "level": "medium",
       "why": "Slardar lo castiga a golpes: los counters de Earth Spirit son los que le pegan sin parar"
     },
     {
       "vs": 112,
-      "level": "hard",
+      "level": "medium",
       "why": "Arctic Burn es devastador contra un Earth Spirit en mid"
     },
     {
@@ -8559,7 +8559,7 @@
     },
     {
       "vs": 120,
-      "level": "hard",
+      "level": "medium",
       "why": "Rolling Thunder lo vuelve inmune a debuffs mientras rueda y Underlord solo tiene control suave para frenarlo"
     },
     {
@@ -8569,7 +8569,7 @@
     },
     {
       "vs": 100,
-      "level": "hard",
+      "level": "medium",
       "why": "Si Tusk empieza la pelea, Snowball y Walrus PUNCH! revientan a Underlord antes de que use Pit of Malice"
     },
     {
@@ -8579,7 +8579,7 @@
     },
     {
       "vs": 26,
-      "level": "hard",
+      "level": "medium",
       "why": "Hex le desactiva todas las habilidades a Underlord y Finger of Death le da el daño que necesita"
     },
     {
@@ -8862,7 +8862,7 @@
     },
     {
       "vs": 119,
-      "level": "hard",
+      "level": "medium",
       "why": "Shadow Realm le deja kitear Arctic Burn y su regeneración aguanta el daño de Winter Wyvern"
     },
     {
@@ -8877,12 +8877,12 @@
     },
     {
       "vs": 29,
-      "level": "hard",
+      "level": "medium",
       "why": "Ravage atrapa a todo el equipo de Winter Wyvern de una vez, antes de que pueda responder con Winter's Curse o Cold Embrace"
     },
     {
       "vs": 128,
-      "level": "hard",
+      "level": "medium",
       "why": "Cold Embrace solo bloquea daño físico y casi todo el daño de Snapfire (Scatterblast, Mortimer Kisses, Firesnap Cookie) es mágico, así que no puede salvar a su aliado"
     },
     {
@@ -9183,12 +9183,12 @@
     },
     {
       "vs": 155,
-      "level": "hard",
+      "level": "medium",
       "why": "Largo puede purgar (dispelear) los controles de Dark Willow"
     },
     {
       "vs": 128,
-      "level": "hard",
+      "level": "medium",
       "why": "Todo el daño de Dark Willow es de área y Snapfire entra cerca con Firesnap Cookie y Scatterblast"
     },
     {
@@ -9250,7 +9250,7 @@
     },
     {
       "vs": 114,
-      "level": "hard",
+      "level": "medium",
       "why": "Jingu Mastery castiga los intercambios cercanos y Boundless Strike controla a Pangolier"
     },
     {
@@ -9295,7 +9295,7 @@
     },
     {
       "vs": 128,
-      "level": "hard",
+      "level": "medium",
       "why": "Firesnap Cookie y Scatterblast le cortan la entrada a Pangolier, que es melé y tiene que acercarse para pelear"
     },
     {
@@ -9461,7 +9461,7 @@
     },
     {
       "vs": 25,
-      "level": "hard",
+      "level": "medium",
       "why": "Lina lo castiga en la línea con Dragon Slave y Light Strike Array: Void Spirit compra casi nada de vida y no puede aguantar su ráfaga mágica"
     },
     {
@@ -9627,12 +9627,12 @@
     },
     {
       "vs": 32,
-      "level": "hard",
+      "level": "medium",
       "why": "Nullifier le quita el escape a Ringmaster y Riki lo mata cada vez que lo alcanza, porque no tiene cómo defenderse"
     },
     {
       "vs": 79,
-      "level": "hard",
+      "level": "medium",
       "why": "Demonic Purge purga el Escape Act en cuanto Ringmaster lo usa, así que lo deja sin su salvado"
     },
     {
@@ -10149,7 +10149,7 @@
     },
     {
       "vs": 74,
-      "level": "hard",
+      "level": "medium",
       "why": "Invoker castiga a Largo con mucho daño a un solo objetivo"
     }
   ]
