@@ -336,6 +336,8 @@ Hay un solo flujo con dos puntos de entrada:
 
 ### 5.4 Estado real de `apps/web` y aplicación a Task 3
 
+> **Actualización 2026-11-02 (PR #98):** `apps/web/package-lock.json` fue eliminado y el Dockerfile de producción instala `apps/web` con `bun install --frozen-lockfile`. `apps/web/bun.lock` es el único lockfile; la columna `package-lock.json` de abajo es el estado histórico del momento de este análisis.
+
 | Paquete | `apps/web/package.json` | `apps/web/bun.lock` | `apps/web/package-lock.json` | instalación local |
 |---|---|---|---|---|
 | `@testing-library/react` | Ya declarado en `devDependencies` | Presente | Presente | Ausente; `require.resolve` devuelve `MODULE_NOT_FOUND` |
