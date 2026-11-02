@@ -1315,11 +1315,6 @@
       "vs": 42,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
-      "vs": 9,
-      "level": "medium",
-      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "15": [
@@ -2202,7 +2197,7 @@
     {
       "vs": 114,
       "level": "hard",
-      "why": "Lo dicen: MrJeansDota (7.41f), panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: MrJeansDota (7.41f), panel del TI (7.41e)"
     },
     {
       "vs": 128,
@@ -6686,11 +6681,6 @@
       "vs": 84,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
-      "vs": 96,
-      "level": "medium",
-      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "89": [
@@ -7409,21 +7399,6 @@
       "why": "Lo dicen: DotaCoach (7.41f)"
     },
     {
-      "vs": 51,
-      "level": "medium",
-      "why": "Lo dicen: wiki Fandom (7.41d)"
-    },
-    {
-      "vs": 50,
-      "level": "medium",
-      "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
-      "vs": 111,
-      "level": "medium",
-      "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
       "vs": 93,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
@@ -7434,11 +7409,6 @@
       "why": "Lo dicen: wiki Fandom (7.41d)"
     },
     {
-      "vs": 29,
-      "level": "medium",
-      "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
       "vs": 70,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
@@ -7446,7 +7416,7 @@
     {
       "vs": 54,
       "level": "hard",
-      "why": "Lo dicen: DotaCoach (7.41f), BananaSlamJamma (7.41e), panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: DotaCoach (7.41f), BananaSlamJamma (7.41e), panel del TI (7.41e)"
     }
   ],
   "97": [
@@ -8603,7 +8573,7 @@
     {
       "vs": 98,
       "level": "hard",
-      "why": "Lo dicen: KheZu (7.41e), panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: KheZu (7.41e), panel del TI (7.41e)"
     },
     {
       "vs": 17,
@@ -9131,11 +9101,6 @@
       "vs": 12,
       "level": "medium",
       "why": "Doppelganger dispela el Flux que lo frena y lo hace reaparecer rodeado de copias, y Arc Warden pierde el blanco"
-    },
-    {
-      "vs": 96,
-      "level": "medium",
-      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "114": [
@@ -10238,7 +10203,7 @@
     {
       "vs": 112,
       "level": "hard",
-      "why": "Lo dicen: panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: panel del TI (7.41e)"
     }
   ],
   "155": [
