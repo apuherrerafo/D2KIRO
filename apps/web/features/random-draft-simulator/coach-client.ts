@@ -294,8 +294,8 @@ export interface RankedCandidateCard {
    * misma fuente que el tablero del equipo. Opcional para tolerar un motor anterior; ausente = no se pinta nada de esto.
    */
   context?: CardDraftContext;
-  /** Espejo de `rationaleIsPositionOnly`: `rationale` es "Por su posición: …"; con `context` no vacío, la lista la calla. */
-  rationaleIsPositionOnly?: boolean;
+  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` ("Por su posición: …") se calla porque hay una razón real en `context`. */
+  hideRationale?: boolean;
   /**
    * Espejo de `risks` del motor: avisos a pesar antes de fijar este héroe (hoy sólo CRITICAL_GAP). El motor lo manda siempre
    * (vacío si no hay ninguno); aquí es opcional para tolerar un motor anterior al aviso. INFORMATIVO: no mueve ni puntúa nada.
@@ -401,7 +401,7 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
     && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL")
     && (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isCardRisk)))
     && (value.context === undefined || isCardDraftContext(value.context))
-    && (value.rationaleIsPositionOnly === undefined || typeof value.rationaleIsPositionOnly === "boolean");
+    && (value.hideRationale === undefined || typeof value.hideRationale === "boolean");
 }
 
 function isPoolMembership(value: unknown): value is PoolMembership {

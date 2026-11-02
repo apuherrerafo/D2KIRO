@@ -5,7 +5,7 @@ import { RecommendationFeedback } from "@/components/recommendation-feedback/Rec
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
 import { CandidateOpening, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
-import type { ActionableDecision, CandidateDegradation, CardDraftContext, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
+import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
 import { CardRiskNotice } from "./CardRiskNotice";
@@ -120,19 +120,14 @@ function PoolBadge({ membership, owner }: PoolBadgeProps) {
   return <span className="rounded-md border border-surface-border px-2 py-1 text-caption text-content-muted" data-testid="current-decision-outside-pool-badge">{POOL_BADGE_LABELS[owner].outside}</span>;
 }
 
-function hasDraftReasons(context: CardDraftContext | undefined): boolean {
-  if (!context) return false;
-  return context.strengths.length > 0 || context.opening.openedBy.length > 0 || context.opening.stillFree.length > 0 || context.synergies.length > 0;
-}
-
 interface CardReasonsProps {
   card: RankedCandidateCard;
   heroCatalog: Map<number, HeroMeta>;
 }
 
-// La frase "Por su posición: …" es el último recurso: si la tarjeta ya trae razones reales del draft se calla (igual que el tablero del equipo).
+// La frase "Por su posición: …" es el último recurso: el motor decide (`hideRationale`) cuándo se calla porque hay una razón real del draft.
 function CardRationale({ card }: { card: RankedCandidateCard }) {
-  if (card.rationaleIsPositionOnly === true && hasDraftReasons(card.context)) return null;
+  if (card.hideRationale === true) return null;
   return <span className="text-caption text-content-secondary">{card.rationale}</span>;
 }
 

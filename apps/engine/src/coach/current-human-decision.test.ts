@@ -539,7 +539,7 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
     expect(card.context.opening.openedBy).toEqual([{ heroId: BANNED_COUNTER, level: "hard" }]);
     expect(card.context.strengths).toEqual([{ vsHeroId: ENEMY, level: "hard", why: "Orchid lo silencia", revealed: true }]);
     expect(card.context.synergies).toEqual([{ withHeroId: ALLY, why: "Combo de fixture" }]);
-    expect(card.rationaleIsPositionOnly).toBe(true); // la web calla "Por su posición" porque hay razones reales
+    expect(card.hideRationale).toBe(true); // "Por su posición" se calla porque hay razones reales
   });
 
   test("un rival SIN revelar nunca aparece como 'le gana a' (decidir sobre lo que nadie sacó es suponer)", () => {
@@ -556,7 +556,18 @@ describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible
     expect(card.context.opening).toEqual({ openedBy: [], stillFree: [] });
     expect(card.context.strengths).toEqual([]);
     expect(card.context.synergies).toEqual([]);
-    expect(card.rationaleIsPositionOnly).toBe(true);
+    expect(card.hideRationale).toBe(false); // sin razón real, la frase de posición se queda
+  });
+
+  test("un counter baneado + otro FUERTE todavía libre: solo 'Ojo' (stillFree) y SIN razón positiva -> la frase de posición se queda (igual que el tablero)", () => {
+    const FREE_HARD = 302;
+    const cs: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[HERO, [{ vs: BANNED_COUNTER, level: "hard", why: "fixture" }, { vs: FREE_HARD, level: "hard", why: "fixture" }]]]);
+    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view: { bannedHeroes: [BANNED_COUNTER], ownPicks: [], enemyPicks: [] } as never, heroPositions: positions, heroCounters: cs, personalPoolApplied: false });
+    if (result.state !== "RANKED") throw new Error("se esperaba RANKED");
+    const card = result.cards[0]!;
+    expect(card.context.opening.openedBy).toEqual([]);
+    expect(card.context.opening.stillFree).toEqual([{ heroId: FREE_HARD, level: "hard" }]);
+    expect(card.hideRationale).toBe(false);
   });
 });
 

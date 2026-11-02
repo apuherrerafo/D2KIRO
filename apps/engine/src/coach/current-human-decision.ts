@@ -9,7 +9,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { banOpeningOf, beatsRevealed, reorderByContext, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
 import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
-import { cardContextOf } from "./card-context";
+import { cardContextOf, hasCardContext } from "./card-context";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, POSITION_ONLY_PREFIX, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
 import type { LivePositionPriority } from "./live-position-priority";
@@ -250,6 +250,7 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       const ordered = reasoned;
       const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
+        const context = cardContextOf(candidate.heroId, contextInput);
         return {
           heroId: card.heroId,
           position: targetPosition,
@@ -259,8 +260,8 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
           roleStatus: card.roleStatus,
           badges: card.badges.filter((badge) => badge !== "YOUR_POOL" && badge !== "OUTSIDE_YOUR_POOL"),
           rationale: card.rationale,
-          rationaleIsPositionOnly: card.rationale.startsWith(POSITION_ONLY_PREFIX),
-          context: cardContextOf(candidate.heroId, contextInput),
+          hideRationale: card.rationale.startsWith(POSITION_ONLY_PREFIX) && hasCardContext(context),
+          context,
           // COHERENCE-007: a pool mark exists only when a pool actually shaped this ranking.
           isFromPool: membershipOf(candidate, input) === "IN_POOL",
           poolMembership: membershipOf(candidate, input),

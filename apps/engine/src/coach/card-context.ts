@@ -59,7 +59,8 @@ export interface CardContext {
   synergies: TeamCoachSynergy[];
 }
 
-// El índice depende solo del archivo de counters (una instancia por proceso): se arma una vez por Map, no por tarjeta.
+// El índice depende solo del archivo de counters (una instancia por proceso, que NO se muta en sitio: se carga una vez y se reemplaza entero
+// si cambia): se arma una vez por Map, no por tarjeta. Si algún día se mutara ese Map, este caché quedaría viejo sin avisar.
 const STRENGTH_INDEX_CACHE = new WeakMap<object, Map<HeroId, TeamCoachStrength[]>>();
 
 function cachedStrengthIndex(heroCounters: ContextReorderInput["heroCounters"]): Map<HeroId, TeamCoachStrength[]> {

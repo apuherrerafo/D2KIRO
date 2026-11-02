@@ -66,10 +66,11 @@ export interface RankedCandidateCard {
    */
   context: CardContext;
   /**
-   * True cuando `rationale` es la frase de "Por su posición: …" (la única razón era el rol). Con `context` no vacío, la pantalla la
-   * calla y deja el motivo real, igual que el tablero.
+   * True cuando `rationale` es la frase de "Por su posición: …" (la única razón era el rol) Y la tarjeta ya trae una razón real del
+   * draft (`context`): la pantalla la calla y deja el motivo real, igual que el tablero. Lo decide el motor, una sola vez
+   * (`hasCardContext`), para que ninguna pantalla repita el criterio.
    */
-  rationaleIsPositionOnly: boolean;
+  hideRationale: boolean;
   /**
    * Avisos a pesar antes de fijar este héroe. Vacío cuando no hay ninguno demostrable -- nunca ausente. Hoy sólo CRITICAL_GAP
    * (card-critical-gap.ts). INFORMATIVO: se calcula sobre la tarjeta ya ordenada y no mueve ni puntúa a nadie.
