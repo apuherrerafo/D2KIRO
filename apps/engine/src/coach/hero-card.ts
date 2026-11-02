@@ -198,6 +198,26 @@ export function extractHeroCandidates(set: RecommendationSetV2, heroPositions?: 
  */
 export const POSITION_ONLY_PREFIX = "Por su posición: ";
 
+const OPENING_TIER_PHRASE: Record<string, string> = {
+  sólida: "apertura segura",
+  moderada: "apertura razonable",
+  limitada: "apertura con poca evidencia",
+};
+
+/**
+ * Con la posición como única razón (típico del primer pick, donde solo hay bans a la vista) la tarjeta dice qué tan sólida es la
+ * apertura en esa posición, sin la cifra de partidas: cinco tarjetas con "(2.340 partidas de alto MMR)" leen igual y parecen
+ * evidencia del draft (decisión del usuario 2026-11-02). Una frase de posición con otra forma (p. ej. "Cubre la posición ...")
+ * se deja tal cual.
+ */
+function openingPhrase(positionExplanation: string): string {
+  const match = /^Evidencia (sólida|moderada|limitada) de que funciona como ([^(]+?)(?: \(.*\))?$/.exec(positionExplanation);
+  const tier = match?.[1];
+  const label = match?.[2];
+  if (tier === undefined || label === undefined) return positionExplanation;
+  return `${OPENING_TIER_PHRASE[tier] ?? tier} como ${label}`;
+}
+
 /**
  * The phrase of the hero's most CONCRETE real reason: a counter against a revealed enemy, a documented pair with an ally, what the
  * team still needs (`team_synergy`), the draft intent the Player chose (`archetype_fit`) and, last, the hero's strongest signal.
@@ -227,7 +247,7 @@ function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string 
     .sort((a, b) => b.weighted - a.weighted);
   const strongest = backed[0];
   if (!strongest) return "Sin señal con datos propios suficientes.";
-  return strongest.signal === "position_fit" ? `${POSITION_ONLY_PREFIX}${strongest.explanation}` : strongest.explanation;
+  return strongest.signal === "position_fit" ? `${POSITION_ONLY_PREFIX}${openingPhrase(strongest.explanation)}` : strongest.explanation;
 }
 
 /**

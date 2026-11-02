@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { buildHeroCard, candidateServesPosition, curatedFlexPositions, demoteRevealedHardCountered, deriveHeroBadges, extractHeroCandidates, POSITION_ONLY_PREFIX } from "./hero-card";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
+import type { DraftState } from "../draft/reducer";
+import { createPositionFitScorer } from "../signals/position-fit";
 import { neutralImpact, recSet, resolvedImpact, roleOnlyHero, signal, singleRec, type HeroFixture } from "./test.fixtures";
 
 // AP Ranked Roles V1 / Wave 2 (task 17) -- badges come from real evidence only.
@@ -301,7 +303,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     });
 
     test("una pareja que no aportó (raw <= 0) no se cuela en la tarjeta", () => {
-      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(`${POSITION_ONLY_PREFIX}${POSITION}`); // solo la posición: y lo dice
+      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(`${POSITION_ONLY_PREFIX}apertura segura como hard support`); // solo la posición: y lo dice
     });
 
     test("la intención de draft que el jugador eligió gana sobre la posición", () => {
@@ -317,7 +319,33 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     test("con solo la señal de posición con datos, la frase empieza con 'Por su posición:' (no pasa por evidencia del draft)", () => {
       const hero: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation: POSITION })], impact: resolvedImpact(5) };
       const [cand] = extractHeroCandidates(recSet([hero]));
-      expect(buildHeroCard(cand!, []).rationale).toBe(`${POSITION_ONLY_PREFIX}${POSITION}`);
+      expect(buildHeroCard(cand!, []).rationale).toBe(`${POSITION_ONLY_PREFIX}apertura segura como hard support`);
+    });
+
+    const onlyPosition = (explanation: string): string => {
+      const hero: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation })], impact: resolvedImpact(5) };
+      const [cand] = extractHeroCandidates(recSet([hero]));
+      return buildHeroCard(cand!, []).rationale;
+    };
+
+    test("la frase de apertura NO trae la cifra de partidas y distingue sólida / moderada / limitada", () => {
+      const sample = " (2.340 partidas de alto MMR)";
+      expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).toBe(`${POSITION_ONLY_PREFIX}apertura segura como carry`);
+      expect(onlyPosition(`Evidencia moderada de que funciona como midlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}apertura razonable como midlane`);
+      expect(onlyPosition(`Evidencia limitada de que funciona como offlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}apertura con poca evidencia como offlane`);
+      expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).not.toContain("partidas");
+    });
+
+    test("candado contra el scorer real de position_fit (fixture inline): su frase sigue siendo reconocida y sin cifras", () => {
+      const scorer = createPositionFitScorer({ 7: [{ position: 1, matches: 2340 }] }, 1);
+      const state: DraftState = {
+        sessionId: "s1", schema: "draft-state/v1", format: "all_pick", patch: "7.41e", localSide: "radiant", phase: "active", banned: [],
+        picks: { radiant: [], dire: [] }, lastSeq: 0, appliedEventIds: [], quality: { unconfirmed: [], captureStatus: "ok" },
+        updatedAt: "2026-08-21T00:00:00Z", firstPickSide: null, turnStartedAt: null, reserveRemainingMs: null,
+      };
+      const contribution = scorer.score(state, 7, { heroes: {}, matchups: {} });
+      expect(contribution.explanation).toContain("2.340 partidas"); // el scorer sigue diciendo la cifra: el recorte es de la tarjeta
+      expect(onlyPosition(contribution.explanation)).toBe(`${POSITION_ONLY_PREFIX}apertura segura como carry`);
     });
   });
 
