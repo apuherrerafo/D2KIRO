@@ -1,5 +1,7 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, SuggestionConfidence } from "@/features/draft/types";
+import type { TeamCoachOpening, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
+import { isOpening, isStrength, isSynergy } from "@/features/team-coach/validation";
 import { parseRecommendationSet, type RecommendationSetV2 } from "./protocol-client";
 
 // AP Ranked Roles V1 / Wave 2 -- Coach output (RecommendationOutputV3) client. Espejo a mano del
@@ -288,10 +290,24 @@ export interface RankedCandidateCard {
   /** Is this hero in the pool that shaped the ranking? NO_POOL = no pool voted (never shown as "outside"). */
   poolMembership: PoolMembership;
   /**
+   * Espejo de `context` del motor: qué abrieron los bans, a quién de lo ya revelado le gana y con qué aliado ya elegido combina. Es la
+   * misma fuente que el tablero del equipo. Opcional para tolerar un motor anterior; ausente = no se pinta nada de esto.
+   */
+  context?: CardDraftContext;
+  /** Espejo de `hideRationale`: el motor ya decidió que `rationale` ("Por su posición: …") se calla porque hay una razón real en `context`. */
+  hideRationale?: boolean;
+  /**
    * Espejo de `risks` del motor: avisos a pesar antes de fijar este héroe (hoy sólo CRITICAL_GAP). El motor lo manda siempre
    * (vacío si no hay ninguno); aquí es opcional para tolerar un motor anterior al aviso. INFORMATIVO: no mueve ni puntúa nada.
    */
   risks?: CardRisk[];
+}
+
+/** Espejo de `CardContext` del motor (apps/engine/src/coach/card-context.ts). */
+export interface CardDraftContext {
+  opening: TeamCoachOpening;
+  strengths: TeamCoachStrength[];
+  synergies: TeamCoachSynergy[];
 }
 
 /** Espejo de `CardRiskKind`/`CardRisk` del motor. */
@@ -370,6 +386,11 @@ function isCardRisk(value: unknown): value is CardRisk {
   return Array.isArray(value.heroIds) && value.heroIds.every(isHeroId);
 }
 
+function isCardDraftContext(value: unknown): value is CardDraftContext {
+  return isRecord(value) && isOpening(value.opening) && Array.isArray(value.strengths) && value.strengths.every(isStrength)
+    && Array.isArray(value.synergies) && value.synergies.every(isSynergy);
+}
+
 function isRankedCard(value: unknown, target: CoachPosition): value is RankedCandidateCard {
   if (!isRecord(value)) return false;
   const roleOk = value.roleStatus === "CONFIRMED_FORCED" || value.roleStatus === "LIKELY" || value.roleStatus === "UNRESOLVED";
@@ -378,7 +399,9 @@ function isRankedCard(value: unknown, target: CoachPosition): value is RankedCan
     && Array.isArray(value.badges) && value.badges.every((badge) => typeof badge === "string" && BADGES.includes(badge))
     && typeof value.rationale === "string" && typeof value.isFromPool === "boolean"
     && isPoolMembership(value.poolMembership) && value.isFromPool === (value.poolMembership === "IN_POOL")
-    && (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isCardRisk)));
+    && (value.risks === undefined || (Array.isArray(value.risks) && value.risks.every(isCardRisk)))
+    && (value.context === undefined || isCardDraftContext(value.context))
+    && (value.hideRationale === undefined || typeof value.hideRationale === "boolean");
 }
 
 function isPoolMembership(value: unknown): value is PoolMembership {

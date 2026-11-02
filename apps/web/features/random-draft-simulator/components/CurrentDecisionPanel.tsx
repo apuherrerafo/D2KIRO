@@ -4,6 +4,7 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
+import { CandidateOpening, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
 import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
@@ -119,6 +120,31 @@ function PoolBadge({ membership, owner }: PoolBadgeProps) {
   return <span className="rounded-md border border-surface-border px-2 py-1 text-caption text-content-muted" data-testid="current-decision-outside-pool-badge">{POOL_BADGE_LABELS[owner].outside}</span>;
 }
 
+interface CardReasonsProps {
+  card: RankedCandidateCard;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
+// La frase "Por su posición: …" es el último recurso: el motor decide (`hideRationale`) cuándo se calla porque hay una razón real del draft.
+function CardRationale({ card }: { card: RankedCandidateCard }) {
+  if (card.hideRationale === true) return null;
+  return <span className="text-caption text-content-secondary">{card.rationale}</span>;
+}
+
+// Las MISMAS razones del draft que el tablero del equipo (bans que abren al héroe, a quién de lo ya revelado le gana, con quién combina):
+// mismos componentes, misma fuente en el motor. Nada de esto supone lo que el rival va a sacar.
+function CardDraftReasons({ card, heroCatalog }: CardReasonsProps) {
+  if (!card.context) return null;
+  const source = { ...card.context, reasons: [card.rationale] };
+  return (
+    <>
+      <CandidateOpening candidate={source} heroCatalog={heroCatalog} />
+      <CandidateStrengths candidate={source} heroCatalog={heroCatalog} />
+      <CandidateSynergies candidate={source} heroCatalog={heroCatalog} />
+    </>
+  );
+}
+
 interface RankedCardViewProps {
   card: RankedCandidateCard;
   poolOwner: PoolOwner | null;
@@ -146,7 +172,8 @@ function RankedCardView({ card, poolOwner, heroCatalog, sessionId, stateIdentity
         ))}
         <PoolBadge membership={card.poolMembership} owner={poolOwner} />
       </div>
-      <span className="text-caption text-content-secondary">{card.rationale}</span>
+      <CardRationale card={card} />
+      <CardDraftReasons card={card} heroCatalog={heroCatalog} />
       <CardRiskNotice risks={card.risks} />
       <RecommendationFeedback sessionId={sessionId} heroId={card.heroId} targetPosition={card.position} stateIdentity={stateIdentity} rulesetVersion={rulesetVersion} />
     </li>
