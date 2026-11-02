@@ -121,6 +121,8 @@ export function assertNoSimulatorTruthLeak(snapshots: SnapshotBody[], rawBodies:
 
 /** Player-visible "cannot be selected": the hero is either absent from the pool or its button is disabled. */
 export async function expectNotSelectable(page: Page, name: string): Promise<void> {
+  // The manual-pick search must itself be on screen, otherwise "absent" would prove nothing about this hero.
+  await expect(heroSearch(page)).toBeVisible({ timeout: 30_000 });
   await expect
     .poll(async () => {
       const button = heroButton(page, name);
@@ -129,8 +131,30 @@ export async function expectNotSelectable(page: Page, name: string): Promise<voi
     .toBe(true);
 }
 
+// OLD_ASSERTION: every hero was a `button[title="<name>"]` of the full 127-hero grid, always on screen.
+// WHY_OBSOLETE: the Simulator no longer renders that grid (TSK-237 / 17eddb7): the Team Coach cards are the main path and the
+//   manual path is the "Buscar otro héroe" search (`other-hero-search`), a closed <details> whose rows are plain buttons
+//   (`<span>name</span>`, no `title`). Heroes that are banned / already picked are NOT in that list at all.
+// NEW_PRODUCT_CONTRACT: "selectable" == a row of the search list that exists and is enabled; selecting == open the search, click the row.
+export function heroSearch(page: Page) {
+  return page.getByTestId("other-hero-search");
+}
+
 export function heroButton(page: Page, name: string) {
-  return page.locator(`button[title="${name}"]`).first();
+  return heroSearch(page).locator(`button:has(span:text-is("${name}"))`).first();
+}
+
+/** Opens the "Buscar otro héroe" disclosure when it is closed (idempotent). */
+export async function openHeroSearch(page: Page): Promise<void> {
+  const search = heroSearch(page);
+  await expect(search).toBeVisible({ timeout: 30_000 });
+  if (!(await search.evaluate((node) => (node as HTMLDetailsElement).open))) await search.locator("summary").click();
+}
+
+/** The real manual path: open the search and click the named hero's row. */
+export async function pickHero(page: Page, name: string, timeout = 10_000): Promise<void> {
+  await openHeroSearch(page);
+  await heroButton(page, name).click({ timeout });
 }
 
 /** First name of `names` whose grid button exists AND is enabled (i.e. legal for the Player right now). */
@@ -171,7 +195,7 @@ export async function awaitRoundHandlingCollision(page: Page, expected: RegExp, 
     expect(repicks, "a round cannot need an unbounded number of re-picks").toBeLessThan(maxRepicks);
     const before = await roundCapacity(page);
     const collisionBefore = await collisionBanner();
-    await heroButton(page, await firstEnabled(page, preferred)).click();
+    await pickHero(page, await firstEnabled(page, preferred));
     repicks++;
     // The re-pick is observed through ANY of: the round settled, the capacity changed, or the collision banner grew (a second
     // consecutive collision leaves the capacity identical but adds the newly banned hero to the banner).
@@ -223,7 +247,10 @@ export async function heroNamesIn(page: Page, testId: string): Promise<string[]>
 export async function resolvedBanNames(page: Page): Promise<string[]> {
   const panel = page.getByTestId("resolved-bans");
   await expect(panel).toBeVisible();
-  const names = await panel.locator("span.text-content-secondary").allInnerTexts();
+  // OLD_ASSERTION: names read from `span.text-content-secondary` (the DraftHeroSlot "ban" cards of the big panel).
+  // WHY_OBSOLETE: 17eddb7 fixed the bans on top as a compact row of 24 px icons; each ban's name is `sr-only` text (+ tooltip).
+  // NEW_PRODUCT_CONTRACT: every resolved ban exposes its name as screen-reader text inside the `resolved-bans` row.
+  const names = await panel.locator("span.sr-only").allTextContents();
   return names.map((name) => name.trim()).filter((name) => name.length > 0);
 }
 
@@ -236,7 +263,7 @@ export async function lockPicks(page: Page, alternatives: readonly (readonly str
   const picked: string[] = [];
   for (const [index, options] of alternatives.entries()) {
     const name = await firstEnabled(page, options.filter((candidate) => !picked.includes(candidate)));
-    await heroButton(page, name).click();
+    await pickHero(page, name);
     picked.push(name);
     if (index < total - 1) await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", String(total - index - 1));
   }

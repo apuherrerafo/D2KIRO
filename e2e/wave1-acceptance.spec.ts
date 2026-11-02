@@ -11,6 +11,7 @@ import {
   expectNotSelectable,
   firstEnabled,
   heroButton,
+  pickHero,
   heroNamesIn,
   lockPicks,
   record,
@@ -272,7 +273,7 @@ test.describe("Wave 1 acceptance -- timers and gold penalty (deterministic clock
 
     // The Player can still choose after expiry: lock one seat -- its penalty freezes, the other keeps accruing.
     const first = await firstEnabled(page, [...MID, ...CARRY]);
-    await heroButton(page, first).click();
+    await pickHero(page, first);
     await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
     const afterLock = await simulatorOf(request, baseURL!, sessionId);
     expect(afterLock.pendingSeats).toHaveLength(1);
@@ -291,7 +292,7 @@ test.describe("Wave 1 acceptance -- timers and gold penalty (deterministic clock
 
     // Late pick still accepted; the round proceeds to a fresh 25 s Round 2.
     const second = await firstEnabled(page, [...OFFLANE, ...SOFT_SUPPORT]);
-    await heroButton(page, second).click();
+    await pickHero(page, second);
     await expect(page.getByText(ROUND_HEADING(2, 2))).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("timer-expired")).toHaveCount(0);
     const round2 = rec.snapshots().filter((snapshot) => snapshot.stopReason === "human_input").at(-1)!;
@@ -363,9 +364,9 @@ test.describe("Wave 1 acceptance -- hidden information and collision (determinis
 
     // Pick the enemy hero A (hidden to us) plus a harmless hero -> collision at the round close.
     const other = await firstEnabled(page, ["Tinker", "Necrophos", "Luna", "Sven"].filter((name) => name !== enemyA && name !== enemyB));
-    await heroButton(page, enemyA).click();
+    await pickHero(page, enemyA);
     await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
-    await heroButton(page, other).click();
+    await pickHero(page, other);
 
     await expect(page.getByText(/Baneados por colisión en esta ronda/)).toContainText(enemyA, { timeout: 30_000 });
     await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1"); // only the colliding seat reopened
@@ -377,7 +378,7 @@ test.describe("Wave 1 acceptance -- hidden information and collision (determinis
     for (let attempt = 0; attempt < 80; attempt += 1) {
       if (await page.getByText("Draft completo").isVisible()) break;
       const name = await firstEnabled(page, Array.from(FIXTURE_HERO_NAME_BY_ID.values())).catch(() => null);
-      if (name) await heroButton(page, name).click({ timeout: 2_000 }).catch(() => undefined);
+      if (name) await pickHero(page, name, 2_000).catch(() => undefined);
       await page.waitForTimeout(500);
     }
     await expect(page.getByText("Draft completo")).toBeVisible({ timeout: 60_000 });
