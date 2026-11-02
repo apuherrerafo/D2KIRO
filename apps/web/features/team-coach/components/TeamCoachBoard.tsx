@@ -24,6 +24,7 @@ import {
   PLAN_BADGE,
   PRIMARY_BUTTON,
 } from "../styles";
+import { GoldenCardView } from "./GoldenCardView";
 import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachRisk, TeamCoachStrength, TeamPosition } from "../types";
 
 // <Dominio><Cosa>: el Team Coach Board -- UN componente compartido por /simulator y /live-draft.
@@ -507,6 +508,15 @@ export function TeamCoachBoard({ board, status, heroCatalog, selectedPosition, o
   );
 }
 
+// La card dorada solo se puede elegir si esa posición sigue abierta ahora; con el draft terminado queda como referencia, sin botón.
+function GoldenCardSlot({ board, heroCatalog, draftEnded, onPickHero }: DecisionBannerProps & { draftEnded: boolean }) {
+  const goldenCard = board.goldenCard;
+  if (!goldenCard) return null;
+  const column = board.positions.find((entry) => entry.position === goldenCard.position);
+  const canPick = !draftEnded && column?.eligibleNow === true;
+  return <GoldenCardView goldenCard={goldenCard} heroCatalog={heroCatalog} onPickHero={canPick ? onPickHero : undefined} />;
+}
+
 function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, onSelectPosition, onPickHero, onRetry, draftEnded }: TeamCoachBoardProps) {
   if (draftEnded && !board) return <DraftEndedBanner />;
   if (!board) return <BoardPlaceholder status={status} onRetry={onRetry} />;
@@ -516,6 +526,7 @@ function TeamCoachBoardContent({ board, status, heroCatalog, selectedPosition, o
   return (
     <>
       <BoardBanner board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} onPickHero={pickHero} />
+      <GoldenCardSlot board={board} heroCatalog={heroCatalog} draftEnded={draftEnded === true} onPickHero={pickHero} />
       <div className={BOARD_GRID}>
         {board.positions.map((column) => (
           <Column

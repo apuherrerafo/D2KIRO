@@ -81,3 +81,11 @@ describe("Team Coach Board -- una columna sin ranking nunca nombra un héroe rec
     expect(plainCandidate?.reasons[0]?.startsWith(POSITION_ONLY_PREFIX)).toBe(true);
   });
 });
+
+describe("Team Coach Board -- la card dorada viaja en el tablero", () => {
+  test("sin rivales a la vista el campo existe y es null (nunca ausente: la web lo valida como obligatorio)", async () => {
+    const board = await boardWith(fakeCompute());
+    expect(board.goldenCard).toBeNull();
+    expect(Object.keys(board)).toContain("goldenCard");
+  });
+});

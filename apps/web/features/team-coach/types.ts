@@ -91,6 +91,27 @@ export interface TeamCoachDecision {
   roundCapacity: number;
 }
 
+/** A quién de lo ya sacado le gana la card dorada, con la razón curada. Espejo a mano del motor (golden-card.ts). */
+export interface TeamCoachGoldenWin {
+  vsHeroId: number;
+  level: "hard" | "medium";
+  why: string;
+  /** El rival juega pos 1, 2 o 3. */
+  core: boolean;
+}
+
+/** La card dorada: UN héroe fuera de tu pool que encaja de verdad con este draft. Espejo a mano del motor. */
+export interface TeamCoachGoldenCard {
+  heroId: number;
+  position: TeamPosition;
+  wins: TeamCoachGoldenWin[];
+  /** Sus counters duros que siguen libres (0 o 1): se avisan por nombre. */
+  stillFreeHardCounters: number[];
+  /** Sus counters que ya están fuera de juego (baneados o en tu equipo). */
+  counteredOutBy: number[];
+  synergies: TeamCoachSynergy[];
+}
+
 export interface TeamCoachBoardData {
   schema: "team-coach-board/v1";
   sessionId: string;
@@ -98,6 +119,8 @@ export interface TeamCoachBoardData {
   currentDecision: TeamCoachDecision;
   positions: TeamCoachColumn[];
   unboundOwnHeroIds: HeroId[];
+  /** Opcional: un motor anterior no lo manda. Ausente o null = no hay card dorada. */
+  goldenCard?: TeamCoachGoldenCard | null;
 }
 
 export type LiveConnection = "waiting" | "connected" | "stale";
