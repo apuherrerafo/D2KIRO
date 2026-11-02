@@ -48,7 +48,7 @@ function fixtureCompute(options: FixtureOptions = {}): ComputeSuggestionsForDraf
     const suggestions: Suggestion[] = ordered.slice(0, 12).map((hero, index) => {
       const signals: SignalContribution[] = [
         { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 99 - index, explanation: `posición de ${hero}`, sampleSize: 100 },
-        { signal: "patch_meta", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: `parche de ${hero}`, sampleSize: 200 }, // motivo propio (regla 2026-11-02); suma de pesos intacta
+        { signal: "team_synergy", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: `pareja de ${hero}`, sampleSize: 200 }, // motivo propio (regla 2026-11-02); suma de pesos intacta
       ];
       if (accountId !== null && options.pool?.includes(hero)) {
         signals.push({ signal: "hero_pool_fit", raw: 1, normalized: 100, evidenceConfidence: 1, weighted: 1, explanation: "En tu pool de héroes", sampleSize: 1, applicable: true });
@@ -464,7 +464,7 @@ describe("deriveCandidateResult -- resolved role vs viewed position", () => {
     const recommendation = {
       actions: [{ hero: FLEX }],
       roleImpact: { [FLEX]: impact },
-      signalsByHero: { [FLEX]: [{ signal: "patch_meta", raw: 0.6, weighted: 1, explanation: "Parche", sampleSize: 200, applicable: true }] }, // motivo propio (regla "sin motivo no se recomienda", 2026-11-02)
+      signalsByHero: { [FLEX]: [{ signal: "team_synergy", raw: 0.6, weighted: 1, explanation: "Pareja", sampleSize: 200, applicable: true }] }, // motivo propio (regla "sin motivo no se recomienda", 2026-11-02)
       risks: [],
       confidence: "media",
     };

@@ -15,7 +15,7 @@ function ranking() {
   const recommendations = V6_ORDER.map((hero, index) => ({
     actions: [{ hero }],
     roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
-    signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - index * 0.5, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 1, explanation: `Parche ${hero}`, sampleSize: 200, applicable: true }] }, // patch_meta = motivo propio (regla 2026-11-02); suma de pesos intacta
+    signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - index * 0.5, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "team_synergy", raw: 0.6, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 200, applicable: true }] }, // patch_meta = motivo propio (regla 2026-11-02); suma de pesos intacta
     risks: [],
     confidence: "media",
   }));
@@ -81,7 +81,7 @@ describe("reordenamiento por contexto sobre deriveCandidateResult", () => {
   test("S05 del juez de Dota en V4 (decisión del usuario 2026-10-30): el héroe que el rival counterea fuerte baja 12, sin ir al fondo de oficio", () => {
     // Meepo-like 30 (90) contra Axe-like 40 revelado; alternativas 31 (50) y 32 (40). RB-4 ya no aplica en Team Coach/Copilot:
     // Meepo baja 12 (90 → 78) y sigue primero porque V6 le saca más de 12 a las alternativas. RB-4 sigue en V3.
-    const ranking = { recommendations: [[30, 90], [31, 50], [32, 40]].map(([hero, score]) => ({ actions: [{ hero }], roleImpact: { [hero!]: { status: "LIKELY", position: 2, marginals: { 1: 0, 2: 1, 3: 0, 4: 0, 5: 0 }, entropy: 0 } }, signalsByHero: { [hero!]: [{ signal: "position_fit", raw: 1, weighted: score! - 1, explanation: "x", sampleSize: 1, applicable: true }, { signal: "patch_meta", raw: 0.6, weighted: 1, explanation: "x", sampleSize: 200, applicable: true }] }, risks: [], confidence: "media" })), degradations: [] } as never;
+    const ranking = { recommendations: [[30, 90], [31, 50], [32, 40]].map(([hero, score]) => ({ actions: [{ hero }], roleImpact: { [hero!]: { status: "LIKELY", position: 2, marginals: { 1: 0, 2: 1, 3: 0, 4: 0, 5: 0 }, entropy: 0 } }, signalsByHero: { [hero!]: [{ signal: "position_fit", raw: 1, weighted: score! - 1, explanation: "x", sampleSize: 1, applicable: true }, { signal: "team_synergy", raw: 0.6, weighted: 1, explanation: "x", sampleSize: 200, applicable: true }] }, risks: [], confidence: "media" })), degradations: [] } as never;
     const result = deriveCandidateResult({ targetPosition: 2, targetRanking: ranking, view: view({ enemy: [40] }), heroPositions: {}, heroCounters: new Map([[30, [{ vs: 40, level: "hard", why: "x" }]]]), personalPoolApplied: false });
     if (result.state !== "RANKED") throw new Error(result.state);
     expect(result.cards.map((card) => card.heroId)).toEqual([30, 31, 32]);

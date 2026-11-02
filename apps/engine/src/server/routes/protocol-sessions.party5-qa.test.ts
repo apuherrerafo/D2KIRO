@@ -63,7 +63,7 @@ function mockSuggestionsWithPool(
         },
         // motivo propio (regla "sin motivo no se recomienda", 2026-11-02); la suma de pesos no cambia
         {
-          signal: "patch_meta" as const,
+          signal: "team_synergy" as const,
           raw: 0.6,
           normalized: 60,
           evidenceConfidence: 1,

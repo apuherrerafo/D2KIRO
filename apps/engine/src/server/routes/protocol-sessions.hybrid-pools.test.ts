@@ -28,13 +28,8 @@ const POSITIONS: HeroPositions = {
   40: [{ position: 3, matches: 1000 }],
   41: [{ position: 3, matches: 1000 }],
 };
-// Regla "sin motivo no se recomienda" (2026-11-02): para que estos héroes (idénticos "en papel") conserven un motivo propio, el parche
-// vota igual para todos (misma muestra y mismo winrate): `patch_meta` queda "listo" (>= 20 héroes con datos) sin separar a nadie.
-const FILLER_IDS = Array.from({ length: 10 }, (_, index) => 90 + index); // héroes sin posición curada: nunca son candidatos, solo dan cobertura de parche
-const ALL_IDS = [...Object.keys(POSITIONS).map(Number), ...FILLER_IDS];
-const HEROES: Record<number, MetaHeroInfo> = Object.fromEntries(ALL_IDS.map((id) => [id, { id, localizedName: `Hero ${id}` }]));
-const PATCH_STATS = Object.fromEntries(ALL_IDS.map((id) => [id, [{ patch: "7.41e", bracket: "herald" as const, picks: 1000, wins: 560 }]]));
-const META: MetaSnapshot = { heroes: HEROES, matchups: {}, patchStats: PATCH_STATS };
+const HEROES: Record<number, MetaHeroInfo> = Object.fromEntries(Object.keys(POSITIONS).map((id) => [Number(id), { id: Number(id), localizedName: `Hero ${id}` }]));
+const META: MetaSnapshot = { heroes: HEROES, matchups: {} };
 const OWNER_ACCOUNT = 777;
 const OWNER_POOL = [14];
 

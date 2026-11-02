@@ -42,7 +42,7 @@ function poolAwareCompute(): ComputeSuggestionsForRecommendation {
           score: weighted,
           signals: [
             { signal: "position_fit" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: weighted - 1, explanation: "fixture", sampleSize: 100 },
-            { signal: "patch_meta" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: "fixture", sampleSize: 200 }, // motivo propio (regla 2026-11-02); suma intacta
+            { signal: "team_synergy" as const, raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: "fixture", sampleSize: 200 }, // motivo propio (regla 2026-11-02); suma intacta
             { signal: "hero_pool_fit" as const, raw: boost.has(hero) ? 0.9 : 0.1, normalized: boost.has(hero) ? 90 : 10, evidenceConfidence: 1, weighted: 0, explanation: "fixture", sampleSize: 1, applicable: boost.size > 0 },
           ],
           reason: "fixture",

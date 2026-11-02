@@ -11,16 +11,16 @@ import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures
 
 const ALL: Position[] = [1, 2, 3, 4, 5];
 
-/** El mismo stand-in de V6 pero sin ninguna razón aparte del rol: se quita la señal de parche de cada héroe. */
+/** El mismo stand-in de V6 pero sin ninguna razón aparte del rol: se quita la señal de sinergia de cada héroe. */
 function roleOnlyCompute(): ComputeSuggestionsForRecommendation {
   const base = fakeCompute();
   return async (...args) => {
     const set = await base(...args);
     return {
       ...set,
-      suggestions: set.suggestions.map((suggestion) => ({ ...suggestion, signals: suggestion.signals.filter((signal) => signal.signal !== "patch_meta") })),
+      suggestions: set.suggestions.map((suggestion) => ({ ...suggestion, signals: suggestion.signals.filter((signal) => signal.signal !== "team_synergy") })),
       functionalEvidence: set.functionalEvidence
-        ? { ...set.functionalEvidence, signalEvidence: set.functionalEvidence.signalEvidence.map((entry) => ({ ...entry, signals: entry.signals.filter((signal) => signal.signal !== "patch_meta") })) }
+        ? { ...set.functionalEvidence, signalEvidence: set.functionalEvidence.signalEvidence.map((entry) => ({ ...entry, signals: entry.signals.filter((signal) => signal.signal !== "team_synergy") })) }
         : set.functionalEvidence,
     };
   };
@@ -28,6 +28,7 @@ function roleOnlyCompute(): ComputeSuggestionsForRecommendation {
 
 async function boardWith(compute: ComputeSuggestionsForRecommendation) {
   const h = harness({ adapterKind: "simulator", controlledPositions: ALL });
+  h.seal(h.side, 0, 8); // un pick propio ya a la vista: desde aquí el draft "dice algo" y el rol solo no alcanza (en el primer pick no se filtra)
   const context: PerspectiveRecommendationContext = { ...h.store.perspectiveRecommendationContext(h.id)!, playerPoolsByPosition: null };
   const board = await buildTeamCoachBoard({
     context,
