@@ -7,7 +7,7 @@ import type { RecommendationDegradation, RecommendationSetV2 } from "../recommen
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
-import { reorderByContext } from "./context-reorder";
+import { banOpeningOf, beatsRevealed, reorderByContext, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
 import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
 import type { CandidateResult, CurrentHumanDecision, PoolMembership, PoolOwner, PoolState, PositionalAlternative, RankedCandidateCard, TargetBasis } from "./recommendation-output-v4";
@@ -188,17 +188,44 @@ function positionalAlternatives(target: Position, view: PerspectiveDraftView, he
     .map((heroId) => ({ heroId, position: target }));
 }
 
+/**
+ * ¿Ya hay información DEL DRAFT? Un pick revelado (tuyo o del rival). Los bans NO cuentan aquí: en el primer pick el contexto son los
+ * bans y ya reordenan la lista (context-reorder.ts); sin nada más que mirar, V6 manda (regla del usuario: "el contexto desempata, no
+ * pisa a V6"). Pura.
+ */
+export function hasDraftInformation(context: Pick<ContextReorderInput, "ownPicks" | "revealedEnemies">): boolean {
+  return context.ownPicks.size > 0 || context.revealedEnemies.size > 0;
+}
+
+/**
+ * Regla del usuario (2026-11-02): una vez que el draft ya dice algo, un héroe cuya ÚNICA razón es "juega ese rol" NO se recomienda
+ * (sigue eligible a mano). Tiene motivo cuando algo del draft lo respalda: los bans lo abren (se baneó lo que lo counterea), le gana
+ * a un rival ya revelado, hace pareja con un aliado, pertenece a TU pool, o es la intención de draft que el jugador eligió
+ * (`archetype_fit` votó con datos). `position_fit`, el parche (`patch_meta`) y FLEX NUNCA cuentan como motivo: votan en casi todos los
+ * héroes (Dota-Judge RB-3) y el winrate de rangos bajos favorece a los héroes fáciles. Pura.
+ */
+export function hasDraftMotive(candidate: HeroCandidate, input: DeriveCandidateResultInput, revealedEnemies: readonly HeroId[], context: ContextReorderInput): boolean {
+  if (membershipOf(candidate, input) === "IN_POOL") return true;
+  if (banOpeningOf(candidate.heroId, context).openedBy.length > 0) return true;
+  if (beatsRevealed(candidate.heroId, context).length > 0) return true;
+  if (synergiesWithOwn(candidate.heroId, context).length > 0) return true;
+  const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
+  if (card.badges.some((badge) => badge === "COUNTER" || badge === "SYNERGY")) return true;
+  return candidate.signals.some((signal) => signal.signal === "archetype_fit" && signal.raw !== null && signal.applicable !== false && signal.weighted > 0);
+}
+
 export function deriveCandidateResult(input: DeriveCandidateResultInput): CandidateResult {
   const { targetPosition, targetRanking, view, heroPositions } = input;
   const size = input.shortlistSize ?? CURRENT_DECISION_SHORTLIST_SIZE;
   const degradations = [...targetRanking.degradations];
   const unavailable = unavailableHeroesFrom(view);
+  let droppedForNoMotive = false;
 
   if (!invalidatesRanking(degradations)) {
     // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
     // sube a quien le gana y baja a quien lo counterea (según si se cruzan en línea y si un aliado tuyo le gana a ese counter), sin
     // mandarlo al fondo de oficio. La lista del pool usa ESTE mismo orden. Sin contexto que toque a nadie, es el de V6.
-    const candidates = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), {
+    const contextInput: ContextReorderInput = {
       banned: new Set(view.bannedHeroes),
       ownPicks: new Set(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))),
       revealedEnemies: new Set(revealedEnemyHeroes(view)),
@@ -206,15 +233,20 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       heroSynergies: input.heroSynergies,
       heroPositions,
       targetPosition,
-    })
+    };
+    const candidates = reorderByContext(extractHeroCandidates(targetRanking, heroPositions), contextInput)
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
-    if (candidates.length > 0) {
-      const revealedEnemies = revealedEnemyHeroes(view);
+    const revealedEnemies = revealedEnemyHeroes(view);
+    // Con información del draft: fuera los que solo tienen el rol como razón (siguen eligibles a mano, solo no se recomiendan).
+    // Sin ella (primer pick): manda V6 con el reordenamiento por bans; no hay nada más que pedirle a un héroe.
+    const reasoned = hasDraftInformation(contextInput) ? candidates.filter((candidate) => hasDraftMotive(candidate, input, revealedEnemies, contextInput)) : candidates;
+    droppedForNoMotive = candidates.length > 0 && reasoned.length === 0;
+    if (reasoned.length > 0) {
       // Aviso informativo: se calcula DESPUÉS del orden, no lo cambia (ver card-critical-gap.ts).
       const composition = deriveCompositionContext(view, input.heroCapabilities);
-      const ordered = candidates;
+      const ordered = reasoned;
       const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {
@@ -246,7 +278,9 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       state: "UNRANKED_POSITIONAL",
       targetPosition,
       alternatives,
-      reason: `No hay un ranking confiable para ${positionPhrase(targetPosition)}: se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`,
+      reason: droppedForNoMotive
+        ? `Sin recomendación con motivo para ${positionPhrase(targetPosition)}: ningún héroe tiene en este draft un counter, una sinergia o fuerza en el parche que lo respalde. Se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`
+        : `No hay un ranking confiable para ${positionPhrase(targetPosition)}: se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`,
       degradations,
     };
   }

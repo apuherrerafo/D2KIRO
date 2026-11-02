@@ -19,7 +19,7 @@ const TEAM = [hero(1), hero(2, { damageType: "magical" }), hero(3)];
 const NON_INITIATOR = hero(CANDIDATE);
 const INITIATOR = hero(CANDIDATE, { hasInitiation: true });
 
-const solid: HeroFixture = { heroId: CANDIDATE, signals: [signal("position_fit", 0.7, 20)], impact: resolvedImpact(1) };
+const solid: HeroFixture = { heroId: CANDIDATE, signals: [signal("position_fit", 0.7, 19), signal("team_synergy", 0.6, 1)], impact: resolvedImpact(1) }; // patch_meta = motivo propio (regla 2026-11-02), suma 20
 const candidateOf = () => extractHeroCandidates(recSet([solid]))[0]!;
 const closing = (own = [known(1), known(2), known(3)]) => view("PICK_ROUND_2", own, [hidden(), hidden()]);
 const risksOf = (capabilities: HeroCapabilities[], viewArg = closing()) =>
@@ -95,8 +95,8 @@ describe("CRITICAL_GAP -- lo desconocido nunca se presenta como certeza", () => 
 describe("CRITICAL_GAP -- candado de regresión cero: no toca el ranking ni el resto de la tarjeta", () => {
   const POSITIONS: HeroPositions = { 7: [{ position: 1, matches: 3000 }], 8: [{ position: 1, matches: 3000 }] };
   const heroes: HeroFixture[] = [
-    { heroId: 7, signals: [signal("position_fit", 0.9, 30, { sampleSize: 3000 })], impact: resolvedImpact(1) },
-    { heroId: 8, signals: [signal("position_fit", 0.8, 20, { sampleSize: 3000 })], impact: resolvedImpact(1) },
+    { heroId: 7, signals: [signal("position_fit", 0.9, 29, { sampleSize: 3000 }), signal("team_synergy", 0.6, 1)], impact: resolvedImpact(1) },
+    { heroId: 8, signals: [signal("position_fit", 0.8, 19, { sampleSize: 3000 }), signal("team_synergy", 0.6, 1)], impact: resolvedImpact(1) },
   ];
   const derive = (heroCapabilities: HeroCapabilities[] | undefined) =>
     deriveCandidateResult({ targetPosition: 1, targetRanking: recSet(heroes), view: closing(), heroPositions: POSITIONS, heroCapabilities, personalPoolApplied: false });

@@ -75,6 +75,17 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.queryAllByTestId("team-coach-candidate-reason")).toHaveLength(0);
   });
 
+  test("columna UNRANKED_POSITIONAL: muestra el porqué exacto que manda el motor ('Sin recomendación con motivo…'); sin porqué, el texto genérico", () => {
+    const withNote = column(2);
+    withNote.state = "UNRANKED_POSITIONAL";
+    withNote.note = "Sin recomendación con motivo para Pos2 Mid: ningún héroe tiene en este draft un counter, una sinergia o fuerza en el parche que lo respalde.";
+    expect(renderBoard({ ...board([2], 2), positions: [withNote] }).getByText(/^Sin recomendación con motivo para Pos2 Mid/)).toBeTruthy();
+    const noNote = column(2);
+    noNote.state = "UNRANKED_POSITIONAL";
+    noNote.note = null;
+    expect(renderBoard({ ...board([2], 2), positions: [noNote] }).getByText(/^Sin ranking confiable/)).toBeTruthy();
+  });
+
   test("un rival revelado que counterea al candidato se ve como 'Riesgo (X te counterea): porqué'", () => {
     const withRisk = column(2);
     withRisk.top[0] = { ...withRisk.top[0]!, risks: [{ vsHeroId: 7, why: "Berserker's Call lo obliga a pelear" }] };
