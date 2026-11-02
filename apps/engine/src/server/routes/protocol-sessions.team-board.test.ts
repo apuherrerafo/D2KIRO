@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { assignTeamPrimaries, type RecommendationOutputV4, type TeamCoachBoard } from "../../coach";
-import { TEAM_TARGET_CANDIDATE_LIMIT } from "./coach-recommendations";
+import { teamTargetCandidateLimit } from "./coach-recommendations";
 import { fakeCompute } from "../../coach/session-harness.fixtures";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
@@ -207,15 +207,25 @@ describe("assignTeamPrimaries (pure)", () => {
   });
 });
 
-describe("Team Coach Board -- siempre 5 tarjetas por columna mientras haya candidatos (se suben los de atrás)", () => {
-  test("el ranking por posición le pide a V6 más candidatos que los 6 por defecto (el resto de los rankings, no)", async () => {
+describe("Team Coach Board -- la lista es una fila que avanza: se pide TODO el universo creíble, no un tope", () => {
+  test("teamTargetCandidateLimit: el universo manda, con piso de 6 (los de siempre de V6)", () => {
+    expect(teamTargetCandidateLimit([])).toBe(6);
+    expect(teamTargetCandidateLimit([1, 2, 3])).toBe(6);
+    expect(teamTargetCandidateLimit(Array.from({ length: 35 }, (_, index) => index + 1))).toBe(35);
+    expect(teamTargetCandidateLimit(Array.from({ length: 90 }, (_, index) => index + 1))).toBe(90); // más allá de los 20 de antes
+  });
+
+  test("las 5 columnas le piden a V6 todo el universo creíble de su posición (el resto de los rankings, no)", async () => {
+    // Fixture propio: 30 héroes creíbles en las 5 posiciones => cada columna debe pedir 30, no 20 ni 6.
+    const heroes = Array.from({ length: 30 }, (_, index) => index + 1);
+    const wide: HeroPositions = Object.fromEntries(heroes.map((id) => [id, [1, 2, 3, 4, 5].map((position) => ({ position: position as 1 | 2 | 3 | 4 | 5, matches: 1000 }))]));
     const limits: (number | undefined)[] = [];
     const spy: typeof fakeCompute extends (...a: never[]) => infer R ? R : never = async (state, accountId, options) => {
       limits.push(options?.limit);
-      return fakeCompute(POOL, POSITIONS)(state, accountId, options);
+      return fakeCompute(heroes, wide)(state, accountId, options);
     };
     const store = new ProtocolSessionStore();
-    const routes = createProtocolSessionRoutes({ store, computeSuggestions: spy, heroPositions: POSITIONS, heroCounters: new Map() });
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: spy, heroPositions: wide, heroCounters: new Map() });
     const created = await routes.post(jsonRequest({
       rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", humanPosition: 2, simulatorSeed: "FIVECARDS",
       partyContext: { partySize: 5, side: "radiant", controlledSlots: [] }, controlledPositions: [1, 2, 3, 4, 5],
@@ -224,7 +234,6 @@ describe("Team Coach Board -- siempre 5 tarjetas por columna mientras haya candi
     store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
     const response = await routes.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`));
     expect(response.status).toBe(200);
-    expect(limits).toContain(TEAM_TARGET_CANDIDATE_LIMIT); // las 5 columnas piden margen
-    expect(limits.filter((limit) => limit === TEAM_TARGET_CANDIDATE_LIMIT).length).toBe(5);
+    expect(limits.filter((limit) => limit === 30).length).toBe(5);
   });
 });

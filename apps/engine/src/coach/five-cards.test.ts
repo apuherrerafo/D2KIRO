@@ -31,8 +31,8 @@ function cappedCompute(): ComputeSuggestionsForRecommendation {
   };
 }
 
-async function cardsFor(candidateLimit: number | undefined) {
-  const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5], pool: HEROES, heroPositions: POSITIONS });
+async function cardsFor(candidateLimit: number | undefined, bans: number[] = []) {
+  const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5], pool: HEROES, heroPositions: POSITIONS, bans });
   h.seal(h.side, 0, 14); // un pick propio a la vista: desde aquí el draft "dice algo" y se filtra a los de solo rol
   const context = h.store.perspectiveRecommendationContext(h.id)!;
   const ranking = await buildRecommendationSetFromPerspective({
@@ -64,3 +64,16 @@ describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los 
     expect([...heroIds].sort((a, b) => a - b)).toEqual(heroIds.slice().sort((a, b) => a - b));
   });
 });
+
+describe("la lista es una fila que avanza (pedir TODO el universo, no un tope)", () => {
+  test("si un héroe sale del juego (baneado), la fila corre: los de atrás suben y siguen siendo 5, en el mismo orden de V6", async () => {
+    const before = await cardsFor(HEROES.length);
+    const after = await cardsFor(HEROES.length, [9]);
+    if (before.state !== "RANKED" || after.state !== "RANKED") throw new Error("esperaba RANKED");
+    expect(before.cards.map((card) => card.heroId)).toEqual([7, 8, 9, 10, 11]);
+    expect(after.cards.map((card) => card.heroId)).toEqual([7, 8, 10, 11, 12]); // el 9 salió; el 12 subió al quinto lugar
+    expect(after.cards.map((card) => card.rank)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+});
+
