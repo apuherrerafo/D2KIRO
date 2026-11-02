@@ -3,7 +3,7 @@ import { computeRoleBelief } from "../draft-protocol/roles/role-belief";
 import type { ComputeSuggestionsForRecommendation } from "../recommendation/perspective-context";
 import type { FunctionalRecommendationEvidence } from "../recommendation/evidence";
 import { createCoachRecommendations } from "../server/routes/coach-recommendations";
-import { loadHeroCounters, type CuratedCounter } from "../signals/hero-counters";
+import type { CuratedCounter } from "../signals/hero-counters";
 import { isCandidateAdmittedForPosition, isCredibleForPosition, type HeroPositions } from "../signals/hero-positions";
 import { createCounterScorer } from "../signals/counter";
 import type { Suggestion, SuggestionSet } from "../signals/mix";
@@ -14,7 +14,7 @@ import { harness } from "./session-harness.fixtures";
 
 // WAVE 5 -- Dota Judge remediation (RB-1..RB-4). Release regression suite for the judge scenarios S01 / S04 / S05 / S09 /
 // S12 / S13 / S14 / S15. It asserts the PRODUCT INVARIANT each scenario broke, never a copy of an expected hero ranking. Everything is
-// inline: no SQLite, no network. S14 tests against the real production curated hero-counters.json catalog. Only V6's scorer is a
+// inline: no SQLite, no network. S14 tests a curated-counter catalog injected inline (never the real hero-counters.json: that file is regenerated per patch). Only V6's scorer is a
 // scripted stand-in; the perspective-safe Coach, the orchestrator, the position rules and the store are the real ones.
 
 // ---- inline world -----------------------------------------------------------------------------------------------
@@ -447,9 +447,9 @@ describe("RB-4 -- revealed curated hard counters demote (S05: Meepo vs Axe)", ()
   });
 });
 
-// ---- RB-4: S14 (Real Production Curated Counter Catalog) -------------------------------------------------------------
-describe("RB-4: S14 -- real production curated hard counter demotion (Anti-Mage vs Axe)", () => {
-  // Real production catalog: hero-counters.json
+// ---- RB-4: S14 (curated counter catalog, inline fixture) -------------------------------------------------------------
+describe("RB-4: S14 -- curated hard counter demotion (Anti-Mage vs Axe)", () => {
+  // Inline fixture shaped like the production catalog (the tests never read hero-counters.json):
   // - Hero 1 (Anti-Mage) is hard-countered by Hero 2 (Axe):
   //     { vs: 2, level: "hard", why: "Berserker's Call atraviesa Counterspell, impide Blink..." }
   // - Hero 8 (Juggernaut) has medium counter vs Axe (never demotes):
@@ -457,7 +457,10 @@ describe("RB-4: S14 -- real production curated hard counter demotion (Anti-Mage 
   // - Hero 4 (Bloodseeker) has no counter vs Axe.
   // - All three (1, 4, 8) survive normal candidate admission for Pos 1.
   // - Hero 2 (Axe) is admitted for Pos 3 (enemy offlaner).
-  const realCounters = loadHeroCounters();
+  const realCounters = new Map<number, CuratedCounter[]>([
+    [1, [{ vs: 2, level: "hard", why: "Berserker's Call atraviesa Counterspell, impide Blink" }]],
+    [8, [{ vs: 2, level: "medium", why: "Berserker's Call atraviesa Blade Fury" }]],
+  ]);
   const s14Positions: HeroPositions = {
     ...POSITIONS,
     1: [{ position: 1, matches: 1409 }], // Anti-Mage (dominant Pos 1)
@@ -501,7 +504,7 @@ describe("RB-4: S14 -- real production curated hard counter demotion (Anti-Mage 
     expect(personalIds[0]).toBe(1);
   });
 
-  test("S14: un counter MEDIUM de producción (Juggernaut vs Axe) nunca demota", async () => {
+  test("S14: un counter MEDIUM (Juggernaut vs Axe) nunca demota", async () => {
     // Si Anti-Mage no está en pool, Juggernaut (8, score 90) y Bloodseeker (4, score 70)
     const scoresNoAm = { 8: 90, 4: 70 };
     const poolNoAm = [2, 4, 8, 11, 18, 41];
