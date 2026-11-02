@@ -253,3 +253,55 @@ test("un aviso de un tipo que este cliente no conoce NO rompe el panel: se acept
   expect(view.queryByTestId("current-decision-risks")).toBeNull();
   expect(view.getAllByTestId("current-decision-card")).toHaveLength(2);
 });
+
+// PR "razones de la lista": la lista pinta las MISMAS razones del draft que el tablero del equipo (bans que abren al héroe, a quién de lo ya
+// revelado le gana, pareja con un aliado ya elegido) y calla "Por su posición: …" cuando hay una razón real.
+function withCardContext(rationale: string, positionOnly: boolean, context: unknown): CurrentDecisionOutput {
+  const base = output(RANKED);
+  if (base.decision.kind !== "ACTIONABLE" || base.decision.candidates.state !== "RANKED") throw new Error("fixture");
+  const [first, ...rest] = base.decision.candidates.cards;
+  const card = { ...first!, rationale, rationaleIsPositionOnly: positionOnly, context } as typeof first;
+  return { ...base, decision: { ...base.decision, candidates: { ...base.decision.candidates, cards: [card!, ...rest] } } };
+}
+
+const REAL_CONTEXT = {
+  opening: { openedBy: [{ heroId: 7, level: "hard" }], stillFree: [] },
+  strengths: [{ vsHeroId: 8, level: "hard", why: "Orchid lo silencia", revealed: true }],
+  synergies: [{ withHeroId: 9, why: "Combo de fixture" }],
+};
+const EMPTY_CONTEXT = { opening: { openedBy: [], stillFree: [] }, strengths: [], synergies: [] };
+const POSITION_ONLY = "Por su posición: muy jugado como offlane en alto MMR";
+
+test("la tarjeta de la lista muestra ban abierto, 'le gana a' y pareja; y calla la frase de solo posición", () => {
+  const view = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, true, REAL_CONTEXT)} heroCatalog={new Map()} />);
+  const card = view.getAllByTestId("current-decision-card")[0]!;
+  expect(card.querySelector('[data-testid="team-coach-candidate-opened"]')?.textContent).toContain("Se abre el pick");
+  expect(card.querySelector('[data-testid="team-coach-candidate-strength"]')?.textContent).toContain("Orchid lo silencia");
+  expect(card.querySelector('[data-testid="team-coach-candidate-synergy"]')?.textContent).toContain("Combo de fixture");
+  expect(card.textContent).not.toContain("Por su posición");
+});
+
+test("sin razones del draft la frase de solo posición SE QUEDA (no se deja una tarjeta muda)", () => {
+  const view = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, true, EMPTY_CONTEXT)} heroCatalog={new Map()} />);
+  const card = view.getAllByTestId("current-decision-card")[0]!;
+  expect(card.textContent).toContain(POSITION_ONLY);
+  expect(card.querySelector('[data-testid="team-coach-candidate-opened"]')).toBeNull();
+});
+
+test("una frase que NO es de solo posición se queda aunque haya razones del draft", () => {
+  const view = render(<CurrentDecisionPanel output={withCardContext("Fuerte contra Medusa", false, REAL_CONTEXT)} heroCatalog={new Map()} />);
+  expect(view.getAllByTestId("current-decision-card")[0]!.textContent).toContain("Fuerte contra Medusa");
+});
+
+test("un motor anterior (sin context ni rationaleIsPositionOnly) sigue validando y se pinta como antes", () => {
+  const legacy = withCardContext(POSITION_ONLY, true, undefined);
+  expect(parseCurrentDecisionOutput(legacy)).not.toBeNull();
+  const view = render(<CurrentDecisionPanel output={legacy} heroCatalog={new Map()} />);
+  expect(view.getAllByTestId("current-decision-card")[0]!.textContent).toContain(POSITION_ONLY);
+});
+
+test("la validación rechaza un context mal formado (nunca se renderiza a medias)", () => {
+  expect(parseCurrentDecisionOutput(withCardContext("x", false, { ...REAL_CONTEXT, strengths: [{ vsHeroId: 8, level: "enorme", why: "x" }] }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCardContext("x", false, { ...REAL_CONTEXT, opening: { openedBy: "no", stillFree: [] } }))).toBeNull();
+  expect(parseCurrentDecisionOutput(withCardContext("x", false, REAL_CONTEXT))).not.toBeNull();
+});

@@ -497,6 +497,69 @@ describe("deriveCandidateResult -- resolved role vs viewed position", () => {
   });
 });
 
+// PR "razones de la lista": la tarjeta de la lista del simulador lleva las MISMAS razones del draft que el tablero del equipo (una sola
+// fuente: card-context.ts). Antes solo recibía una frase y 10-18 % de sus tarjetas decían "Por su posición" aunque tenían ban-abierto,
+// "le gana a X" o pareja que la lista no pintaba. Fixtures inline; ningún dato curado real.
+describe("deriveCandidateResult -- la tarjeta trae las razones del draft visible", () => {
+  const HERO = 900;
+  const ENEMY = 300; // rival ya revelado al que HERO le gana
+  const BANNED_COUNTER = 301; // counter de HERO, baneado -> los bans lo abren
+  const ALLY = 400; // aliado ya elegido con el que HERO hace pareja
+  const positions: HeroPositions = { [HERO]: [{ position: 4, matches: 2000 }] };
+  const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([
+    [ENEMY, [{ vs: HERO, level: "hard", why: "Orchid lo silencia." }]],
+    [HERO, [{ vs: BANNED_COUNTER, level: "hard", why: "fixture" }]],
+  ]);
+  const synergies = new Map([[HERO, [{ with: ALLY, why: "Combo de fixture." }]]]);
+
+  // Solo la señal de posición: sin ninguna razón propia del draft en el ranking, para que la frase sea "Por su posición: …".
+  const ranking = {
+    recommendations: [{
+      actions: [{ hero: HERO }],
+      roleImpact: { [HERO]: { status: "UNRESOLVED", position: null, marginals: { 1: 0, 2: 0, 3: 0, 4: 1, 5: 0 }, entropy: 0 } },
+      signalsByHero: { [HERO]: [{ signal: "position_fit", raw: 0.9, weighted: 30, explanation: "Evidencia sólida de que funciona como support (2.000 partidas de alto MMR)", sampleSize: 2000, applicable: true }] },
+      risks: [],
+      confidence: "media",
+    }],
+    degradations: [],
+  } as never;
+
+  function derive(view: never) {
+    const result = deriveCandidateResult({ targetPosition: 4, targetRanking: ranking, view, heroPositions: positions, heroCounters: counters, heroSynergies: synergies, personalPoolApplied: false });
+    if (result.state !== "RANKED") throw new Error(`se esperaba RANKED, salió ${result.state}`);
+    return result.cards[0]!;
+  }
+
+  test("ban abierto + le gana a un rival revelado + pareja con un aliado ya elegido: los tres viajan en la tarjeta", () => {
+    const card = derive({
+      bannedHeroes: [BANNED_COUNTER],
+      ownPicks: [{ heroId: ALLY, visibility: "REVEALED" }],
+      enemyPicks: [{ heroId: ENEMY, visibility: "REVEALED" }],
+    } as never);
+    expect(card.context.opening.openedBy).toEqual([{ heroId: BANNED_COUNTER, level: "hard" }]);
+    expect(card.context.strengths).toEqual([{ vsHeroId: ENEMY, level: "hard", why: "Orchid lo silencia", revealed: true }]);
+    expect(card.context.synergies).toEqual([{ withHeroId: ALLY, why: "Combo de fixture" }]);
+    expect(card.rationaleIsPositionOnly).toBe(true); // la web calla "Por su posición" porque hay razones reales
+  });
+
+  test("un rival SIN revelar nunca aparece como 'le gana a' (decidir sobre lo que nadie sacó es suponer)", () => {
+    const card = derive({
+      bannedHeroes: [BANNED_COUNTER],
+      ownPicks: [{ heroId: ALLY, visibility: "REVEALED" }],
+      enemyPicks: [{ heroId: ENEMY, visibility: "HIDDEN" }],
+    } as never);
+    expect(card.context.strengths).toEqual([]);
+  });
+
+  test("sin bans, sin rivales revelados ni aliados: contexto vacío (la frase de posición se queda)", () => {
+    const card = derive({ bannedHeroes: [], ownPicks: [], enemyPicks: [] } as never);
+    expect(card.context.opening).toEqual({ openedBy: [], stillFree: [] });
+    expect(card.context.strengths).toEqual([]);
+    expect(card.context.synergies).toEqual([]);
+    expect(card.rationaleIsPositionOnly).toBe(true);
+  });
+});
+
 // Greptile PR #9 (P1) -- Safe Core survives in the V4 Simulation path as an INFORMATIONAL block. Same rule and
 // same subject as V3 (V6's team-level leader), curated + public evidence only, never a target or a view.
 describe("Safe Core en V4 -- informativa, nunca dueña de la acción", () => {

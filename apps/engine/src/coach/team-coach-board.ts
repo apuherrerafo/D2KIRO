@@ -7,7 +7,8 @@ import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
-import { alliesAnswering, banOpeningOf, synergiesWithOwn, type BanOpening } from "./context-reorder";
+import { alliesAnswering, type BanOpening } from "./context-reorder";
+import { cardContextOf, hasCardContext, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { POSITION_ONLY_PREFIX, revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
@@ -33,6 +34,9 @@ import { positionPhrase } from "./reveal-strategy";
 // POSITION != PICK ORDER != SLOT: positions come only from HumanActionability and the session's own
 // position bindings, never from a round slot or pick ordinal.
 
+export { strengthIndexOf, strengthsOf } from "./card-context";
+export type { TeamCoachStrength, TeamCoachSynergy } from "./card-context";
+
 export const TEAM_COACH_BOARD_SCHEMA = "team-coach-board/v1" as const;
 /** Cards per position (the product floor is 3). */
 export const TEAM_COACH_TOP_SIZE = 5;
@@ -45,21 +49,6 @@ export interface TeamCoachRisk {
   why: string;
   /** Aliados ya elegidos que le ganan a ese rival (por eso baja menos). Ausente = ninguno. */
   answeredBy?: HeroId[];
-}
-
-/** A hero this candidate beats according to the curated data, with the curated reason (`why`). Never invented. */
-export interface TeamCoachStrength {
-  vsHeroId: HeroId;
-  level: "hard" | "medium";
-  why: string;
-  /** True only when that enemy is already visible to the Player; otherwise it is a "what if they pick it" note. */
-  revealed: boolean;
-}
-
-/** A partner already on the Player's team and the curated reason the pair works. */
-export interface TeamCoachSynergy {
-  withHeroId: HeroId;
-  why: string;
 }
 
 export interface TeamCoachCandidate {
@@ -234,27 +223,23 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
 
   const positions = [...new Set(controlled)].sort((a, b) => a - b);
   const revealedEnemies = revealedEnemyHeroes(view);
-  const strengthIndex = strengthIndexOf(input.heroCounters);
   const revealedSet = new Set<HeroId>(revealedEnemies);
   const ownPickSet = new Set<HeroId>(view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : [])));
   const bannedSet = new Set<HeroId>(view.bannedHeroes);
   // Todo lo que una tarjeta cuenta del draft visible: riesgos, a quién le gana de lo ya revelado, qué abrieron los bans y
   // con quién ya elegido combina. Nada de esto supone lo que el rival va a sacar.
-  const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => ({
-    risks: risksOf(heroId, revealedEnemies, input.heroCounters, ownPickSet),
-    strengths: strengthsOf(heroId, strengthIndex, cannotBeEnemy, revealedSet),
-    opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroPositions: input.heroPositions, targetPosition: position }),
-    synergies: synergiesWithOwn(heroId, { ownPicks: ownPickSet, heroSynergies: input.heroSynergies }).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
-  });
+  const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => {
+    const { opening, strengths, synergies } = cardContextOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, heroPositions: input.heroPositions, targetPosition: position });
+    return { risks: risksOf(heroId, revealedEnemies, input.heroCounters, ownPickSet), strengths, opening, synergies };
+  };
   const toCandidate = (card: { heroId: HeroId; position: Position; rank: number; score: number; rationale: string }): TeamCoachCandidate => {
     const context = contextOf(card.heroId, card.position);
     // Si la única frase es "Por su posición: …" pero la tarjeta YA trae razones reales del draft (a quién le gana, qué abrieron los bans,
     // con quién combina), la frase de posición se calla: lo que se lee primero es el motivo real, no el rol (queja del usuario 2026-11-02).
-    const hasDraftContext = context.strengths.length > 0 || context.opening.openedBy.length > 0 || context.synergies.length > 0;
+    const hasDraftContext = hasCardContext(context);
     const positionOnly = card.rationale.startsWith(POSITION_ONLY_PREFIX);
     return { heroId: card.heroId, rank: card.rank, score: card.score, reasons: positionOnly && hasDraftContext ? [] : [card.rationale], ...context, isPrimary: false };
   };
-  const cannotBeEnemy = new Set<HeroId>([...view.bannedHeroes, ...view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))]);
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {
     const filledHeroId = heroByPosition.get(position) ?? null;
@@ -349,35 +334,8 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
 }
 
 const MAX_RISKS_PER_CANDIDATE = 2;
-const MAX_STRENGTHS_PER_CANDIDATE = 3;
-const MAX_SYNERGIES_PER_CANDIDATE = 2;
 /** How many heroes of the configured pool get their own list per position. */
 export const TEAM_COACH_POOL_SIZE = 3;
-
-/** counterer -> the heroes it beats, built once per board from the curated counters (victim -> who counters it). */
-export function strengthIndexOf(heroCounters: ReadonlyMap<HeroId, readonly CuratedCounter[]> | undefined): Map<HeroId, TeamCoachStrength[]> {
-  const index = new Map<HeroId, TeamCoachStrength[]>();
-  if (!heroCounters) return index;
-  for (const [victim, entries] of heroCounters) {
-    for (const entry of entries) {
-      const list = index.get(entry.vs) ?? [];
-      list.push({ vsHeroId: victim, level: entry.level, why: entry.why.trim().replace(/[.\s]+$/, ""), revealed: false });
-      index.set(entry.vs, list);
-    }
-  }
-  return index;
-}
-
-/**
- * Whom this hero beats among the enemies the Player can ALREADY see (hard before medium, stable by hero id). An enemy
- * that is not revealed is never offered: saying who it beats before anyone picked it is a guess (user, 2026-10-29).
- */
-export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly TeamCoachStrength[]>, excluded: ReadonlySet<HeroId>, revealedEnemies: ReadonlySet<HeroId> = new Set()): TeamCoachStrength[] {
-  // Solo lo que el rival YA tiene: contar contra quién gana sobre algo que nadie ha sacado es suponer (decisión del usuario).
-  const usable = (index.get(heroId) ?? []).filter((entry) => !excluded.has(entry.vsHeroId) && revealedEnemies.has(entry.vsHeroId)).map((entry) => ({ ...entry, revealed: true }));
-  const rank = (entry: TeamCoachStrength): number => (entry.level === "hard" ? 0 : 1);
-  return usable.sort((a, b) => rank(a) - rank(b)).slice(0, MAX_STRENGTHS_PER_CANDIDATE);
-}
 
 /**
  * Which REVEALED enemies counter this hero according to the curated data (hard first, then medium). Only heroes the

@@ -50,7 +50,7 @@ function isRisk(value: unknown): value is TeamCoachRisk {
   return isRecord(value) && isHeroId(value.vsHeroId) && isString(value.why) && (value.answeredBy === undefined || (Array.isArray(value.answeredBy) && value.answeredBy.every(isHeroId)));
 }
 
-function isStrength(value: unknown): value is TeamCoachStrength {
+export function isStrength(value: unknown): value is TeamCoachStrength {
   return isRecord(value) && isHeroId(value.vsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why) && (value.revealed === undefined || typeof value.revealed === "boolean");
 }
 
@@ -58,11 +58,11 @@ function isCounterNote(value: unknown): boolean {
   return isRecord(value) && isHeroId(value.heroId) && (value.level === "hard" || value.level === "medium") && (value.takenPosition === undefined || isPosition(value.takenPosition));
 }
 
-function isOpening(value: unknown): boolean {
+export function isOpening(value: unknown): boolean {
   return isRecord(value) && Array.isArray(value.openedBy) && value.openedBy.every(isCounterNote) && Array.isArray(value.stillFree) && value.stillFree.every(isCounterNote);
 }
 
-function isSynergy(value: unknown): boolean {
+export function isSynergy(value: unknown): boolean {
   return isRecord(value) && isHeroId(value.withHeroId) && isString(value.why);
 }
 

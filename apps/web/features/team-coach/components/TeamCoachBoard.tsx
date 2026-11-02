@@ -158,6 +158,14 @@ interface CandidateProps {
   testId?: string;
 }
 
+/** Lo que necesitan los renderizadores de razones: el tablero les pasa un candidato; la lista del simulador, solo estos campos. */
+export type CandidateReasonSource = Pick<TeamCoachCandidate, "opening" | "strengths" | "synergies" | "reasons">;
+
+export interface CandidateReasonProps {
+  candidate: CandidateReasonSource;
+  heroCatalog: Map<number, HeroMeta>;
+}
+
 interface CandidateDetailProps {
   candidate: TeamCoachCandidate;
   heroCatalog: Map<number, HeroMeta>;
@@ -218,7 +226,7 @@ function namesOf(notes: readonly TeamCoachCounterNote[], heroCatalog: Map<number
 }
 
 // A quién de lo que el rival YA tiene le gana este héroe. Solo hechos del draft: nunca se supone lo que va a sacar.
-function CandidateStrengths({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+export function CandidateStrengths({ candidate, heroCatalog }: CandidateReasonProps) {
   const [first] = candidate.strengths ?? [];
   if (!first) return null;
   return (
@@ -235,7 +243,7 @@ function pluralize(count: number, one: string, many: string): string {
 
 // Lo que los bans visibles abrieron para este héroe (sus counters baneados) y el riesgo que queda a ciegas (los que siguen
 // libres). Se muestra solo si algo se abrió: sin counters baneados no hay nada que decir.
-function CandidateOpening({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+export function CandidateOpening({ candidate, heroCatalog }: CandidateReasonProps) {
   const opening = candidate.opening;
   if (!opening) return null;
   if (opening.openedBy.length === 0) return <HardCounterStillFree opening={opening} heroCatalog={heroCatalog} />;
@@ -264,7 +272,7 @@ function HardCounterStillFree({ opening, heroCatalog }: { opening: NonNullable<T
 }
 
 // Parejas con aliados que YA elegiste (nunca con uno hipotético).
-function CandidateSynergies({ candidate, heroCatalog }: { candidate: TeamCoachCandidate; heroCatalog: Map<number, HeroMeta> }) {
+export function CandidateSynergies({ candidate, heroCatalog }: CandidateReasonProps) {
   const [first] = candidate.synergies ?? [];
   if (!first) return null;
   // El motivo del motor ya puede ser "Sinergia con X: ..."; la misma pareja no se dice dos veces en la tarjeta.

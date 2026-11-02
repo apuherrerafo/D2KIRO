@@ -4,6 +4,7 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { MetaReadiness } from "../meta/readiness";
 import type { NoHumanActionReason } from "../recommendation/human-actionability";
 import type { RecommendationBasedOn, RecommendationDegradation, RoleImpactStatus } from "../recommendation/types";
+import type { CardContext } from "./card-context";
 import type { Confidence, HeroBadge } from "./hero-card";
 import type { RoleCollisionObservation } from "./observable-state";
 import type { CoachObservableState } from "./observable-state";
@@ -59,6 +60,16 @@ export interface RankedCandidateCard {
    * position)? `NO_POOL` when no pool voted at all -- never reported as "outside" a pool nobody configured.
    */
   poolMembership: PoolMembership;
+  /**
+   * Lo que el draft VISIBLE dice de este héroe: qué abrieron los bans, a quién de lo ya revelado le gana y con qué aliado ya elegido
+   * combina. Es la misma fuente que usa el tablero del equipo (card-context.ts): las dos pantallas dicen las mismas razones.
+   */
+  context: CardContext;
+  /**
+   * True cuando `rationale` es la frase de "Por su posición: …" (la única razón era el rol). Con `context` no vacío, la pantalla la
+   * calla y deja el motivo real, igual que el tablero.
+   */
+  rationaleIsPositionOnly: boolean;
   /**
    * Avisos a pesar antes de fijar este héroe. Vacío cuando no hay ninguno demostrable -- nunca ausente. Hoy sólo CRITICAL_GAP
    * (card-critical-gap.ts). INFORMATIVO: se calcula sobre la tarjeta ya ordenada y no mueve ni puntúa a nadie.
