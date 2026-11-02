@@ -83,6 +83,12 @@ export interface BuildSuggestionsOptions {
   metaIsStale?: boolean;
   metaReadiness?: MetaReadiness;
   now?: () => number; // inyectable para pruebas de rendimiento determinísticas
+  /**
+   * Cuántos candidatos devuelve. Por defecto TOP_N (6: el grid 2×3 del Copilot). El Team Coach pide más para que, después de sacar lo que
+   * ya no está disponible (baneados, elegidos) o no tiene motivo, le sigan quedando 5 que mostrar: "subir los de atrás". Es el MISMO
+   * ranking, solo más largo: ni el orden ni los puntajes cambian. Solo aplica fuera de la apertura de equipo.
+   */
+  limit?: number;
 
   // TSK-045 (Fase 3, SPEC.md §10.2, costura S10): ausente -> carga hero-positions.json real
   // (loadHeroPositions()). Las pruebas inyectan su propio fixture -- nunca dependen del archivo
@@ -1107,7 +1113,7 @@ export function buildSuggestions(
     : diversifyEquivalentCandidates(scored, options.diversitySeed).map((entry) => ({ ...entry, openingReason: null }));
   // TSK-192: 6 recomendaciones en apertura y en picks normales (el Copilot del Simulador las
   // muestra en grid 2×3).
-  const limit = TOP_N;
+  const limit = teamOpening ? TOP_N : Math.max(TOP_N, options.limit ?? TOP_N);
   const suggestions: Suggestion[] = ranked.slice(0, limit).map((entry, index) => {
     const roleReason = targetPositionReason(entry.hero, options.teamOpening ? {} : options) ?? flexibilityReason(entry.hero, heroPositions);
     // Fuente única -> vista de cable. `reason`/`comparison`/`evidence` se derivan de

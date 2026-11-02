@@ -51,6 +51,11 @@ export interface BuildRecommendationSetFromPerspectiveInput {
   candidateUniverseIsAdmission?: boolean;
   overrideHeroPool?: readonly HeroId[];
   outputLimit?: number;
+  /**
+   * Cuántos candidatos pide a V6 (por defecto, los 6 de siempre). Solo el ranking POR POSICIÓN del Team Coach lo sube: ese ranking pasa
+   * después por filtros (baneados, elegidos, sin motivo, fuera de la posición) y necesita margen para que sigan quedando 5 tarjetas.
+   */
+  candidateLimit?: number;
 }
 
 function roundOf(phase: RankedApPhase | undefined): number | null {
@@ -175,6 +180,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
       usePersonalPool: false,
       diversitySeed: undefined,
       candidateHeroIds: input.candidateHeroIds,
+      ...(input.candidateLimit !== undefined ? { limit: input.candidateLimit } : {}),
       ...(input.candidateUniverseIsAdmission ? { candidateUniverseIsAdmission: true } : {}),
       overrideHeroPool: input.overrideHeroPool,
     });
@@ -191,7 +197,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const functionalEvidence: FunctionalRecommendationEvidence = { ...suggestionSet.functionalEvidence, partyPreferredPositions: [...(partyPreferredPositions ?? [])] };
   const basedOn = buildBasedOn({ ...identityInputs, evidenceHash: evidenceIdentityHash(functionalEvidence) });
 
-  const shortlist = buildShortlist(suggestionSet, null, unavailableHeroesFrom(view));
+  const shortlist = buildShortlist(suggestionSet, null, unavailableHeroesFrom(view), input.candidateLimit);
   if (shortlist.length === 0) {
     pushUniqueDegradation(degradations, { reason: "NO_LEGAL_HERO_UNIVERSE", detail: "ningún héroe legal quedó en el shortlist tras intersectar con la elegibilidad certificada" });
     return emptyWith(basedOn, "no_action");

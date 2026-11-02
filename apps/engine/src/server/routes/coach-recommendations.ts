@@ -20,6 +20,13 @@ import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positi
 // Legacy `GET .../recommendations` (RecommendationSetV2 from authoritative state) does not go
 // through here and is unchanged.
 
+/**
+ * Cuántos candidatos se le piden a V6 para el ranking POR POSICIÓN del Team Coach (la lista de 5 tarjetas por columna). V6 entrega 6 por
+ * defecto y, al sacar baneados, elegidos y héroes sin motivo, la columna se quedaba con 3, 2 o 1. Con margen, "se suben los de atrás":
+ * siempre hay 5 mientras existan candidatos creíbles. Mismo ranking, más largo: el orden no cambia.
+ */
+export const TEAM_TARGET_CANDIDATE_LIMIT = 20;
+
 export interface PerspectiveContextSource {
   perspectiveRecommendationContext(sessionId: string): PerspectiveRecommendationContext | null;
 }
@@ -128,7 +135,8 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
             ...targetUniverse(context, targetPosition),
             teamOpening: false,
             singleSlotEvaluation: true,
-            outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+            outputLimit: TEAM_TARGET_CANDIDATE_LIMIT,
+            candidateLimit: TEAM_TARGET_CANDIDATE_LIMIT,
           });
         },
       });
@@ -150,7 +158,8 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       ...targetUniverse(context, targetPosition),
       teamOpening: false,
       singleSlotEvaluation: true,
-      outputLimit: AP_RECOMMENDATION_OUTPUT_LIMIT,
+      outputLimit: TEAM_TARGET_CANDIDATE_LIMIT,
+      candidateLimit: TEAM_TARGET_CANDIDATE_LIMIT,
     });
   }
   function teamBoardInput(context: PerspectiveRecommendationContext, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null) {
