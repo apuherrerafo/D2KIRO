@@ -188,11 +188,35 @@ function positionalAlternatives(target: Position, view: PerspectiveDraftView, he
     .map((heroId) => ({ heroId, position: target }));
 }
 
+/** Punto de equilibrio de un winrate (gana tanto como pierde). No es un umbral inventado: es el 50 % de siempre, escrito como fracción. */
+const BREAK_EVEN_WINRATE = 1 / 2;
+
+/**
+ * Regla del usuario (2026-11-02, opción A): un héroe cuya ÚNICA razón es "juega ese rol" NO se recomienda. Tiene motivo cuando,
+ * en ESTE draft, algo más lo respalda: un counter contra un rival ya revelado, una sinergia con un aliado, fuerza en el parche
+ * (META), pertenecer a TU pool, o la intención de draft que el jugador eligió (`archetype_fit` votó con datos).
+ * `position_fit` y FLEX NUNCA cuentan como motivo (voltea a casi todos los héroes: Dota-Judge RB-3). Pura.
+ */
+export function hasDraftMotive(candidate: HeroCandidate, input: DeriveCandidateResultInput, revealedEnemies: readonly HeroId[]): boolean {
+  if (membershipOf(candidate, input) === "IN_POOL") return true;
+  const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
+  if (card.badges.some((badge) => badge === "COUNTER" || badge === "SYNERGY")) return true;
+  // La intención de draft cuenta por el VOTO de su señal. "Fuerte en el parche" = gana MÁS de lo que pierde (winrate > 50 %: ningún número
+  // inventado). `patch_meta` vota en casi todos los héroes, así que solo votar NO es un motivo; aun con el meta atrasado cuenta, porque un
+  // meta viejo sigue diciendo algo del héroe y no del rol (la insignia META se calla por frescura, pero eso no hace a nadie "solo rol").
+  return candidate.signals.some(
+    (signal) =>
+      signal.raw !== null && signal.applicable !== false && signal.weighted > 0 &&
+      (signal.signal === "archetype_fit" || (signal.signal === "patch_meta" && signal.raw > BREAK_EVEN_WINRATE)),
+  );
+}
+
 export function deriveCandidateResult(input: DeriveCandidateResultInput): CandidateResult {
   const { targetPosition, targetRanking, view, heroPositions } = input;
   const size = input.shortlistSize ?? CURRENT_DECISION_SHORTLIST_SIZE;
   const degradations = [...targetRanking.degradations];
   const unavailable = unavailableHeroesFrom(view);
+  let droppedForNoMotive = false;
 
   if (!invalidatesRanking(degradations)) {
     // Regla del usuario (grill-me 2026-10-30), ver context-reorder.ts: los bans abren héroes; lo que el rival YA tiene
@@ -210,11 +234,14 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       // COHERENCE-006: every visible card is legal and serves THIS target, whatever else V6 returned. A candidate
       // whose role V6 already resolved serves only that resolved position (never relabelled as the viewed one).
       .filter((candidate) => !unavailable.has(candidate.heroId) && candidateServesPosition(candidate, targetPosition, heroPositions));
-    if (candidates.length > 0) {
-      const revealedEnemies = revealedEnemyHeroes(view);
+    const revealedEnemies = revealedEnemyHeroes(view);
+    // Opción A del usuario: fuera los que solo tienen el rol como razón (siguen eligibles a mano, solo no se recomiendan).
+    const reasoned = candidates.filter((candidate) => hasDraftMotive(candidate, input, revealedEnemies));
+    droppedForNoMotive = candidates.length > 0 && reasoned.length === 0;
+    if (reasoned.length > 0) {
       // Aviso informativo: se calcula DESPUÉS del orden, no lo cambia (ver card-critical-gap.ts).
       const composition = deriveCompositionContext(view, input.heroCapabilities);
-      const ordered = candidates;
+      const ordered = reasoned;
       const toCard = (candidate: HeroCandidate, index: number): RankedCandidateCard => {
         const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
         return {
@@ -246,7 +273,9 @@ export function deriveCandidateResult(input: DeriveCandidateResultInput): Candid
       state: "UNRANKED_POSITIONAL",
       targetPosition,
       alternatives,
-      reason: `No hay un ranking confiable para ${positionPhrase(targetPosition)}: se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`,
+      reason: droppedForNoMotive
+        ? `Sin recomendación con motivo para ${positionPhrase(targetPosition)}: ningún héroe tiene en este draft un counter, una sinergia o fuerza en el parche que lo respalde. Se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`
+        : `No hay un ranking confiable para ${positionPhrase(targetPosition)}: se listan héroes legales que se juegan en esa posición, sin orden de preferencia.`,
       degradations,
     };
   }

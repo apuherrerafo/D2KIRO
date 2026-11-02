@@ -34,6 +34,9 @@ export function fakeCompute(pool: readonly number[] = POOL, positions: HeroPosit
       const countersRevealed = hero === HERO_COUNTERING_ENEMY_9 && enemyRevealed.has(9);
       const signals: SignalContribution[] = [
         { signal: "position_fit", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 20 - index, explanation: `posición de ${hero}`, sampleSize: 100 },
+        // Regla "sin motivo no se recomienda" (2026-11-02): cada héroe del harness trae un motivo propio (fuerza en el parche), para que
+        // las pruebas de flujo (pools, party, tablero) sigan midiendo lo suyo y no la regla nueva, que tiene sus pruebas aparte.
+        { signal: "patch_meta", raw: 0.6, normalized: 60, evidenceConfidence: 1, weighted: 1, explanation: `parche de ${hero}`, sampleSize: 200 },
         countersRevealed
           ? { signal: "counter", raw: 0.8, normalized: 90, evidenceConfidence: 1, weighted: 40, explanation: `counter de ${hero}`, sampleSize: 100, hasRevealedEnemyCounterEvidence: true }
           : { signal: "counter", raw: null, normalized: null, evidenceConfidence: 0, weighted: 0, explanation: "sin datos", sampleSize: 0, hasRevealedEnemyCounterEvidence: false },

@@ -57,9 +57,19 @@ function mockSuggestionsWithPool(
           raw: 0.5,
           normalized: 50,
           evidenceConfidence: 1,
-          weighted: 50,
+          weighted: 49,
           explanation: "fixture",
           sampleSize: 50,
+        },
+        // motivo propio (regla "sin motivo no se recomienda", 2026-11-02); la suma de pesos no cambia
+        {
+          signal: "patch_meta" as const,
+          raw: 0.6,
+          normalized: 60,
+          evidenceConfidence: 1,
+          weighted: 1,
+          explanation: "fixture",
+          sampleSize: 200,
         },
         ...(item.hero === 60 ? [{
           signal: "counter" as const,
