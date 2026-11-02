@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { Position } from "../draft-protocol/roles/role-belief";
 import { buildRecommendationSetFromPerspective } from "../recommendation/build-from-perspective";
 import type { ComputeSuggestionsForRecommendation, PerspectiveRecommendationContext } from "../recommendation/perspective-context";
+import type { CuratedCounter } from "../signals/hero-counters";
+import { POSITION_ONLY_PREFIX } from "./hero-card";
 import { buildTeamCoachBoard } from "./team-coach-board";
 import { fakeCompute, harness, HERO_POSITIONS } from "./session-harness.fixtures";
 
@@ -26,14 +28,16 @@ function roleOnlyCompute(): ComputeSuggestionsForRecommendation {
   };
 }
 
-async function boardWith(compute: ComputeSuggestionsForRecommendation) {
-  const h = harness({ adapterKind: "simulator", controlledPositions: ALL });
-  h.seal(h.side, 0, 8); // un pick propio ya a la vista: desde aquí el draft "dice algo" y el rol solo no alcanza (en el primer pick no se filtra)
+async function boardWith(compute: ComputeSuggestionsForRecommendation, options: { informed?: boolean; bans?: number[]; heroCounters?: ReadonlyMap<number, readonly CuratedCounter[]> } = {}) {
+  const informed = options.informed ?? true;
+  const h = harness({ adapterKind: "simulator", controlledPositions: ALL, bans: options.bans });
+  if (informed) h.seal(h.side, 0, 8); // un pick propio ya a la vista: desde aquí el draft "dice algo" y el rol solo no alcanza (en el primer pick no se filtra)
   const context: PerspectiveRecommendationContext = { ...h.store.perspectiveRecommendationContext(h.id)!, playerPoolsByPosition: null };
   const board = await buildTeamCoachBoard({
     context,
     playerPersonalPosition: 4,
     heroPositions: HERO_POSITIONS,
+    heroCounters: options.heroCounters,
     buildTargetRanking: (ctx, targetPosition) =>
       buildRecommendationSetFromPerspective({ context: ctx, computeSuggestions: compute, heroPositions: HERO_POSITIONS, targetPosition, teamOpening: false, singleSlotEvaluation: true }),
   });
@@ -63,5 +67,17 @@ describe("Team Coach Board -- una columna sin ranking nunca nombra un héroe rec
       expect(column.note?.startsWith("Sin recomendación con motivo")).toBe(true);
     }
     expect(board.currentDecision.recommendedHeroId).toBeNull();
+  });
+
+  test("la tarjeta de solo posición dice 'Por su posición' si no hay nada más; si los bans la abren, la frase de posición se calla y queda el motivo real", async () => {
+    const BANNED = 8;
+    const counters: ReadonlyMap<number, readonly CuratedCounter[]> = new Map([[3, [{ vs: BANNED, level: "hard", why: "x" }]]]);
+    const board = await boardWith(roleOnlyCompute(), { informed: false, bans: [BANNED], heroCounters: counters });
+    const all = board.positions.flatMap((column) => column.top);
+    const opened = all.find((candidate) => candidate.heroId === 3);
+    expect(opened?.opening.openedBy.length).toBeGreaterThan(0);
+    expect(opened?.reasons).toEqual([]);
+    const plainCandidate = all.find((candidate) => candidate.opening.openedBy.length === 0 && candidate.strengths.length === 0 && candidate.synergies.length === 0);
+    expect(plainCandidate?.reasons[0]?.startsWith(POSITION_ONLY_PREFIX)).toBe(true);
   });
 });

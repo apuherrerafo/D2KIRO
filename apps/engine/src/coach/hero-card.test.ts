@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildHeroCard, candidateServesPosition, curatedFlexPositions, demoteRevealedHardCountered, deriveHeroBadges, extractHeroCandidates } from "./hero-card";
+import { buildHeroCard, candidateServesPosition, curatedFlexPositions, demoteRevealedHardCountered, deriveHeroBadges, extractHeroCandidates, POSITION_ONLY_PREFIX } from "./hero-card";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import { neutralImpact, recSet, resolvedImpact, roleOnlyHero, signal, singleRec, type HeroFixture } from "./test.fixtures";
@@ -296,12 +296,28 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       expect(build(0.3, `Aporta waveclear que a tu equipo le falta. ${PAIR}`).rationale).toBe(PAIR);
     });
 
-    test("CANDADO: sin pareja la frase es exactamente la de antes (la señal más fuerte)", () => {
-      expect(build(0.3, "Aporta waveclear que a tu equipo le falta").rationale).toBe(POSITION);
+    test("sin pareja, lo que le falta al equipo (razón DEL DRAFT) gana sobre la señal de posición, que no dice nada de este draft", () => {
+      expect(build(0.3, "Aporta waveclear que a tu equipo le falta").rationale).toBe("Aporta waveclear que a tu equipo le falta");
     });
 
     test("una pareja que no aportó (raw <= 0) no se cuela en la tarjeta", () => {
-      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(POSITION);
+      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(`${POSITION_ONLY_PREFIX}${POSITION}`); // solo la posición: y lo dice
+    });
+
+    test("la intención de draft que el jugador eligió gana sobre la posición", () => {
+      const hero: HeroFixture = {
+        heroId: 7,
+        signals: [signal("position_fit", 0.9, 30, { explanation: POSITION }), signal("archetype_fit", 0.7, 5, { explanation: "Encaja con tu draft de Push" })],
+        impact: resolvedImpact(5),
+      };
+      const [cand] = extractHeroCandidates(recSet([hero]));
+      expect(buildHeroCard(cand!, []).rationale).toBe("Encaja con tu draft de Push");
+    });
+
+    test("con solo la señal de posición con datos, la frase empieza con 'Por su posición:' (no pasa por evidencia del draft)", () => {
+      const hero: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation: POSITION })], impact: resolvedImpact(5) };
+      const [cand] = extractHeroCandidates(recSet([hero]));
+      expect(buildHeroCard(cand!, []).rationale).toBe(`${POSITION_ONLY_PREFIX}${POSITION}`);
     });
   });
 
@@ -377,7 +393,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       const card = buildHeroCard(cand!, [], { revealedEnemies: [99], heroCounters: curated });
       expect(card.badges).not.toContain("COUNTER");
       // Rationale does not make false counter claim, uses position fit
-      expect(card.rationale).toBe("Cubre la posición offlane que a tu equipo le falta");
+      expect(card.rationale).toBe(`${POSITION_ONLY_PREFIX}Cubre la posición offlane que a tu equipo le falta`);
       expect(card.rationale).not.toContain("Bristleback");
     });
 
@@ -396,7 +412,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       const [cand] = extractHeroCandidates(recSet([negativeCandidate]));
       const card = buildHeroCard(cand!, [], { revealedEnemies: [10] });
       expect(card.badges).not.toContain("COUNTER");
-      expect(card.rationale).toBe("Cubre la posición carry que a tu equipo le falta");
+      expect(card.rationale).toBe(`${POSITION_ONLY_PREFIX}Cubre la posición carry que a tu equipo le falta`);
     });
 
     test("6. if multiple enemies exist: every enemy named in COUNTER rationale independently qualifies under visible badge semantics", () => {
