@@ -114,6 +114,8 @@ export type ComputeSuggestionsForRecommendation = (
     overrideHeroPool?: readonly HeroId[];
     /** Step 1B-B: `candidateHeroIds` is a configured Party5 pool -- the final admission, no positional-credibility filter after it. */
     candidateUniverseIsAdmission?: boolean;
+    /** Cuántos candidatos devolver (ver `BuildSuggestionsOptions.limit`): el Team Coach pide más de 6 para poder rellenar sus 5 tarjetas. */
+    limit?: number;
   },
 ) => Promise<SuggestionSet>;
 

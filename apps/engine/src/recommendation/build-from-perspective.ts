@@ -51,6 +51,11 @@ export interface BuildRecommendationSetFromPerspectiveInput {
   candidateUniverseIsAdmission?: boolean;
   overrideHeroPool?: readonly HeroId[];
   outputLimit?: number;
+  /**
+   * Cuántos candidatos pide a V6 (por defecto, los 6 de siempre). Solo el ranking POR POSICIÓN del Team Coach lo sube: ese ranking pasa
+   * después por filtros (baneados, elegidos, sin motivo, fuera de la posición) y necesita margen para que sigan quedando 5 tarjetas.
+   */
+  candidateLimit?: number;
 }
 
 function roundOf(phase: RankedApPhase | undefined): number | null {
@@ -175,6 +180,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
       usePersonalPool: false,
       diversitySeed: undefined,
       candidateHeroIds: input.candidateHeroIds,
+      ...(input.candidateLimit !== undefined ? { limit: input.candidateLimit } : {}),
       ...(input.candidateUniverseIsAdmission ? { candidateUniverseIsAdmission: true } : {}),
       overrideHeroPool: input.overrideHeroPool,
     });

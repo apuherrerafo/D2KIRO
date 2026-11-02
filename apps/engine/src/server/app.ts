@@ -233,6 +233,8 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
       overrideHeroPool?: readonly number[];
       // Step 1B-B: forwarded verbatim into buildSuggestions -- see mix.ts's own doc.
       candidateUniverseIsAdmission?: boolean;
+      // Team Coach: pide más de 6 candidatos para poder rellenar sus 5 tarjetas -- forwarded verbatim, ver mix.ts.
+      limit?: number;
     } = {},
   ): Promise<SuggestionSet> {
     let meta: Awaited<ReturnType<typeof getCachedMetaSnapshot>>;

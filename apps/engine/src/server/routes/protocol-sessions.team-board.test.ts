@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { assignTeamPrimaries, type RecommendationOutputV4, type TeamCoachBoard } from "../../coach";
+import { TEAM_TARGET_CANDIDATE_LIMIT } from "./coach-recommendations";
 import { fakeCompute } from "../../coach/session-harness.fixtures";
 import type { HeroPositions } from "../../signals/hero-positions";
 import { ProtocolSessionStore } from "../protocol-session";
@@ -203,5 +204,27 @@ describe("assignTeamPrimaries (pure)", () => {
     ]);
     expect(plan.get(1)).toBe(7);
     expect(plan.get(3)).toBeNull();
+  });
+});
+
+describe("Team Coach Board -- siempre 5 tarjetas por columna mientras haya candidatos (se suben los de atrás)", () => {
+  test("el ranking por posición le pide a V6 más candidatos que los 6 por defecto (el resto de los rankings, no)", async () => {
+    const limits: (number | undefined)[] = [];
+    const spy: typeof fakeCompute extends (...a: never[]) => infer R ? R : never = async (state, accountId, options) => {
+      limits.push(options?.limit);
+      return fakeCompute(POOL, POSITIONS)(state, accountId, options);
+    };
+    const store = new ProtocolSessionStore();
+    const routes = createProtocolSessionRoutes({ store, computeSuggestions: spy, heroPositions: POSITIONS, heroCounters: new Map() });
+    const created = await routes.post(jsonRequest({
+      rulesetId: "dota2/ranked-all-pick", patch: "7.41e", localSide: "radiant", adapterKind: "simulator", humanPosition: 2, simulatorSeed: "FIVECARDS",
+      partyContext: { partySize: 5, side: "radiant", controlledSlots: [] }, controlledPositions: [1, 2, 3, 4, 5],
+    }));
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    store.applyAtomically(sessionId, [{ type: "RECORD_RESOLVED_BANS", heroes: [] }, { type: "BAN_RESOLUTION_COMPLETE" }]);
+    const response = await routes.getTeamRecommendations(sessionId, new URL(`http://127.0.0.1/api/session/protocol/${sessionId}/team-recommendations`));
+    expect(response.status).toBe(200);
+    expect(limits).toContain(TEAM_TARGET_CANDIDATE_LIMIT); // las 5 columnas piden margen
+    expect(limits.filter((limit) => limit === TEAM_TARGET_CANDIDATE_LIMIT).length).toBe(5);
   });
 });

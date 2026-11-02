@@ -116,6 +116,19 @@ test("semillas distintas rotan alternativas de calidad equivalente sin volver in
   expect(nextDraft.suggestions.map((suggestion) => suggestion.hero)).not.toEqual(firstDraft.suggestions.map((suggestion) => suggestion.hero));
 });
 
+test("limit: por defecto el scorer entrega 6 (el grid del Copilot); con `limit` entrega más del MISMO ranking, y la apertura de equipo lo ignora", () => {
+  const heroes: Record<number, { id: number; localizedName: string }> = {};
+  for (let id = 1; id <= 14; id += 1) heroes[id] = { id, localizedName: `Hero ${id}` };
+  const snapshot = meta(heroes);
+  const base = buildSuggestions(draftState(), snapshot, { heroPositions: {} });
+  const wide = buildSuggestions(draftState(), snapshot, { heroPositions: {}, limit: 12 });
+  expect(base.suggestions).toHaveLength(6); // CANDADO: sin `limit` nada cambia
+  expect(wide.suggestions).toHaveLength(12);
+  expect(wide.suggestions.slice(0, 6).map((s) => s.hero)).toEqual(base.suggestions.map((s) => s.hero)); // mismo orden: solo más largo
+  expect(wide.suggestions.slice(0, 6).map((s) => s.score)).toEqual(base.suggestions.map((s) => s.score));
+  expect(buildSuggestions(draftState(), snapshot, { heroPositions: {}, limit: 2 }).suggestions).toHaveLength(6); // un límite menor nunca recorta el piso de 6
+});
+
 describe("SCORING_WEIGHTS_V1", () => {
   test("los 4 pesos suman exactamente 1.0", () => {
     const sum = Object.values(SCORING_WEIGHTS_V1).reduce((a, b) => a + b, 0);
