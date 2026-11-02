@@ -48,6 +48,8 @@ export function summarizeBoard(board: TeamCoachBoardData): Record<string, unknow
     stateIdentity: board.stateIdentity,
     currentDecision: board.currentDecision,
     unboundOwnHeroIds: board.unboundOwnHeroIds,
+    // La card dorada tal cual la devolvió el motor (null si ninguna): para diagnosticar "no apareció" o "me recomendó mal".
+    goldenCard: board.goldenCard ?? null,
     positions: board.positions.map((column) => ({
       position: column.position,
       state: column.state,

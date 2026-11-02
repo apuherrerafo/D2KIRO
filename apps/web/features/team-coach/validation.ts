@@ -115,11 +115,33 @@ function isDecision(value: unknown): value is TeamCoachDecision {
   );
 }
 
+function isGoldenWin(value: unknown): boolean {
+  return isRecord(value) && isHeroId(value.vsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why) && typeof value.core === "boolean";
+}
+
+function isGoldenCard(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isHeroId(value.heroId) &&
+    isPosition(value.position) &&
+    Array.isArray(value.wins) &&
+    value.wins.every(isGoldenWin) &&
+    Array.isArray(value.stillFreeHardCounters) &&
+    value.stillFreeHardCounters.every(isHeroId) &&
+    Array.isArray(value.counteredOutBy) &&
+    value.counteredOutBy.every(isHeroId) &&
+    Array.isArray(value.synergies) &&
+    value.synergies.every(isSynergy)
+  );
+}
+
 export function parseTeamCoachBoard(value: unknown): TeamCoachBoardData | null {
   if (!isRecord(value) || value.schema !== "team-coach-board/v1") return null;
   if (!isString(value.sessionId) || !isString(value.stateIdentity) || !isDecision(value.currentDecision)) return null;
   if (!Array.isArray(value.positions) || !value.positions.every(isColumn)) return null;
   if (!Array.isArray(value.unboundOwnHeroIds) || !value.unboundOwnHeroIds.every(isHeroId)) return null;
+  // La card dorada es opcional (motor anterior) y decorativa: una forma rota rechaza el tablero ENTERO, nunca se pinta a medias.
+  if (value.goldenCard !== undefined && value.goldenCard !== null && !isGoldenCard(value.goldenCard)) return null;
   // One board = one snapshot: a column ranked against another state is refused, never shown.
   if (value.positions.some((column) => column.stateIdentity !== value.stateIdentity)) return null;
   return value as unknown as TeamCoachBoardData;

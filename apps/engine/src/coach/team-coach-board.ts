@@ -8,6 +8,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
 import { alliesAnswering, type BanOpening } from "./context-reorder";
+import { selectGoldenCard, type GoldenCard } from "./golden-card";
 import { cardContextOf, hasCardContext, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { POSITION_ONLY_PREFIX, revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
@@ -112,6 +113,8 @@ export interface TeamCoachBoard {
   positions: TeamCoachPosition[];
   /** Own visible heroes with no position binding (e.g. a live pick whose role the game did not report). */
   unboundOwnHeroIds: HeroId[];
+  /** La card dorada: UN héroe fuera de tu pool que encaja de verdad con este draft (ver golden-card.ts). null = ninguno cumple el estándar. */
+  goldenCard: GoldenCard | null;
 }
 
 export interface BuildTeamCoachBoardInput {
@@ -322,6 +325,15 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     };
   });
 
+  const openPositions = columns.filter((column) => column.eligibleNow && !column.alreadyFilled).map((column) => column.position);
+  const goldenCard = selectGoldenCard({
+    view,
+    openPositions,
+    heroPositions: input.heroPositions,
+    heroCounters: input.heroCounters,
+    heroSynergies: input.heroSynergies,
+    poolFor: (position) => configuredPoolForPosition(context.playerPoolsByPosition, position),
+  });
   const board: TeamCoachBoard = {
     schema: TEAM_COACH_BOARD_SCHEMA,
     sessionId: view.sessionId,
@@ -329,6 +341,7 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     currentDecision: deriveTeamDecision(actionability, actionable, targetField, columns, input.playerPersonalPosition, priority),
     positions: columns,
     unboundOwnHeroIds,
+    goldenCard,
   };
   return { board, priority };
 }
