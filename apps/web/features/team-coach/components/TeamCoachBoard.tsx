@@ -2,7 +2,7 @@
 
 import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { ADVISORY_NOTE, BANNER_LABEL, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PHASE_FALLBACK_NOTE, PICK_HINT, PICK_NOW_LABEL, WHY_LABEL, teamPositionName, teamPositionTitle } from "../constants";
+import { ADVISORY_NOTE, BANNER_LABEL, DETERMINISTIC_DEFAULT_NOTE, LIVE_DRAFT_ENDED_NOTE, LIVE_DRAFT_ENDED_TITLE, PHASE_FALLBACK_NOTE, PICK_HINT, PICK_NOW_LABEL, UNRANKED_FALLBACK_NOTE, WHY_LABEL, teamPositionName, teamPositionTitle } from "../constants";
 import {
   BOARD_GRID,
   BOARD_SHELL,
@@ -395,7 +395,9 @@ function PickNowBadge({ recommended }: { recommended: boolean }) {
 
 function UnrankedNote({ column }: { column: TeamCoachColumn }) {
   if (column.state !== "UNRANKED_POSITIONAL") return null;
-  return <span className="text-caption text-signal-warning">Sin ranking confiable: héroes legales de la posición, sin orden de preferencia.</span>;
+  // El motor trae el porqué exacto (p. ej. "Sin recomendación con motivo para…"): se muestra tal cual y solo si falta se usa el texto genérico.
+  const text = column.note ?? UNRANKED_FALLBACK_NOTE;
+  return <span className="text-caption text-signal-warning">{text}</span>;
 }
 
 interface ColumnProps extends ColumnBodyProps {

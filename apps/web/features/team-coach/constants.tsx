@@ -18,6 +18,7 @@ export function teamPositionName(position: TeamPosition): string {
 }
 
 export const PICK_NOW_LABEL = "★ ELIGE AHORA";
+export const UNRANKED_FALLBACK_NOTE = "Sin ranking confiable: héroes legales de la posición, sin orden de preferencia.";
 export const BANNER_LABEL = "Recomendado ahora";
 export const WHY_LABEL = "¿Por qué?";
 export const PICK_HINT = "También puedes tocar cualquier héroe de las columnas de abajo para elegirlo en esa posición.";

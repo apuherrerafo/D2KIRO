@@ -298,7 +298,9 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     return { position, state: "UNAVAILABLE", candidates: [], poolCandidates: [], filledHeroId: null, note: result.reason };
   }));
 
-  const ranked = drafts.filter((draft) => draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
+  // Solo las columnas con ranking de verdad entran al plan: las alternativas de una columna UNRANKED_POSITIONAL son héroes legales en orden
+  // de id, sin preferencia alguna, y NUNCA pueden volverse "el héroe recomendado" (regla "sin motivo no se recomienda", 2026-11-02).
+  const ranked = drafts.filter((draft) => draft.state === "RANKED" && draft.candidates.length > 0).map((draft) => ({ position: draft.position, heroIds: draft.candidates.map((candidate) => candidate.heroId) }));
   // A FILLED column is never actionable, whatever the actionability said.
   const actionable = (actionability.hasHumanAction ? actionability.eligiblePositions : []).filter((position) => drafts.find((draft) => draft.position === position)?.state !== "FILLED");
   // Hero Pools V2: a pool is a preference, so an exhausted pool never narrows the target field.
