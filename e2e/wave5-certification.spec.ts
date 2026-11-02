@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { FIXTURE_HERO_ID_BY_NAME, FIXTURE_HERO_IDS, FIXTURE_HERO_NAME_BY_ID } from "./fixtures/hero-catalog";
-import { ROUND_HEADING, assertNoSimulatorTruthLeak, awaitRoundHandlingCollision, configureAndStart, firstEnabled, heroButton, heroNamesIn, record, type Recorder } from "./support/wave1";
+import { ROUND_HEADING, assertNoSimulatorTruthLeak, awaitRoundHandlingCollision, configureAndStart, firstEnabled, heroButton, heroNamesIn, pickHero, record, type Recorder } from "./support/wave1";
 
 // WAVE 5 -- PRODUCT CERTIFICATION, browser layer (real Chromium, production web build, real engine, fixture DB).
 // Entry point: `bun run test:wave5:smoke`. Reuses the Wave 1/2 harness (playwright.config.ts, e2e/support/wave1.ts).
@@ -48,6 +48,7 @@ interface V4Json {
     roundCapacity: number;
     targetPosition: number;
     targetBasis: string;
+    targetRationale: string;
     viewedPosition: number;
     personalPoolApplied: boolean;
     candidates: { state: string; targetPosition: number; cards?: { heroId: number; position: number; isFromPool: boolean }[]; alternatives?: { heroId: number }[] };
@@ -132,6 +133,10 @@ interface JourneySummary {
   outputs: V4Json[];
   triggers: string[];
   targetBases: string[];
+  /** Round-1 decisions (nothing revealed yet): the recommendation can only be the deterministic default. */
+  round1TargetBases: string[];
+  /** Every decision whose recommendation claims a strategic priority, with the round it was made in and the evidence it cites. */
+  strategicDecisions: { round: number | null; rationale: string }[];
   perspectiveIdentities: string[];
   ownCommandSides: string[];
   outputKeys: string[];
@@ -174,11 +179,25 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // OLD_ASSERTION: a SEPARATE "TU [ROLE] AHORA" personal panel (`coach-personal-hero-view`) carried the Hero Pool, next to the team shortlist.
   // WHY_OBSOLETE: WP3 removed the parallel panel -- one visual owner. Two panels for one decision is exactly what PSR fixed.
   // NEW_PRODUCT_CONTRACT: the pool shapes the ACTIVE candidates only when the viewed position is the Player's personal position
-  //   (COHERENCE-007). The Coach's default recommendation is that position; viewing any other position never applies the pool.
+  //   (COHERENCE-007). The FIRST view is that position (TSK-251, d3f3266); the Coach's recommendation is an open position that may
+  //   differ (Party5 opening habit: Pos5) and then the "Estas viendo X / Coach sugiere Y" notice is shown. Viewing any other
+  //   position never applies the pool.
   await expect(page.getByTestId("coach-personal-hero-view")).toHaveCount(0); // the parallel panel stays gone
-  await expect(page.getByText(/AHORA$/)).toHaveCount(0);
-  await expect(page.getByTestId("current-decision-target")).toHaveAttribute("data-target-position", String(config.personalPosition));
-  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0); // recommended == viewed
+  // Only the retired personal panel ("TU <ROL> AHORA") must stay gone; the Team Coach's own "★ ELIGE AHORA" badge (PICK_NOW_LABEL) is a
+  // legitimate part of the one visual owner and ends in the same word.
+  await expect(page.getByText(/^TU .+ AHORA$/)).toHaveCount(0);
+  // OLD_ASSERTION: data-target-position == personal position, and `current-decision-viewed` absent (recommended == viewed).
+  // WHY_OBSOLETE: the recommendation (`targetPosition`) and the first view (`viewedPosition`) are two things since PSR-002/TSK-251.
+  // NEW_PRODUCT_CONTRACT: the recommendation is one of the 5 open positions; the first view is the personal one; the notice renders IFF they differ.
+  const openingTarget = Number(await page.getByTestId("current-decision-target").getAttribute("data-target-position"));
+  expect([1, 2, 3, 4, 5]).toContain(openingTarget);
+  const openingNotice = page.getByTestId("current-decision-viewed");
+  if (openingTarget === config.personalPosition) {
+    await expect(openingNotice).toHaveCount(0);
+  } else {
+    await expect(openingNotice).toHaveAttribute("data-viewed-position", String(config.personalPosition));
+    await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${openingTarget}`);
+  }
   await assertPlayerFacingCopyIsClean(page);
   await shot(page, side, "1-round1-opening");
 
@@ -213,7 +232,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   // FIRST ALLIED PICK -- a FLEX hero when the journey exercises assignment. The Coach recomputes BEFORE allied pick #2.
   const flexName = await firstEnabled(page, config.flexAssignment ? FLEX_CANDIDATES : [...config.roundThreePlan, ...ANY_HERO]);
   const flexId = FIXTURE_HERO_ID_BY_NAME.get(flexName)!;
-  await heroButton(page, flexName).click();
+  await pickHero(page, flexName);
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
   const afterFirst = await coachSnapshot(page);
@@ -261,7 +280,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
     }
   }
   expect(ignoredName, "a legal hero outside the Coach's advice").not.toBeNull();
-  await heroButton(page, ignoredName!).click();
+  await pickHero(page, ignoredName!);
   let repicks = await awaitRoundHandlingCollision(page, /Ronda 1 -- revelada|Ronda 2 · /, ANY_HERO);
   await expect(page.getByText(/no está disponible/)).toHaveCount(0); // deviating is legal: no rejection, no "wrong choice"
   await expect(page.getByTestId("copilot-panel")).not.toContainText(/incorrect|equivocad|no deberías/i);
@@ -283,11 +302,11 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
 
   // Follow the Coach for one seat, take a pool hero (the Player's own preference) for the other.
   const followName = FIXTURE_HERO_NAME_BY_ID.get(round2.shortlist[0]!)!;
-  await heroButton(page, followName).click();
+  await pickHero(page, followName);
   await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
   await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
   // The other seat: the Player's own preference (a pool hero when one is legal right now), whatever the Coach offers.
-  await heroButton(page, await firstEnabled(page, [...config.pool.filter((name) => name !== followName), ...ANY_HERO])).click();
+  await pickHero(page, await firstEnabled(page, [...config.pool.filter((name) => name !== followName), ...ANY_HERO]));
 
   // ---------------------------------------------------------------- ROUND 3
   repicks += await awaitRoundHandlingCollision(page, ROUND_HEADING(3, 1), ANY_HERO);
@@ -295,7 +314,7 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
   const round3 = await coachSnapshot(page);
   expect(round3.trigger).toBe("ROUND_REVEALED");
   expect(round3.shortlist.length).toBeGreaterThan(0);
-  await heroButton(page, await firstEnabled(page, [...config.roundThreePlan, ...ANY_HERO])).click();
+  await pickHero(page, await firstEnabled(page, [...config.roundThreePlan, ...ANY_HERO]));
 
   // ---------------------------------------------------------------- COMPLETE
   repicks += await awaitRoundHandlingCollision(page, /Draft completo/, ANY_HERO);
@@ -334,6 +353,8 @@ async function playJourney(page: Page, request: APIRequestContext, config: Journ
     outputs,
     triggers: [...new Set(outputs.map((output) => output.meta.trigger))].sort(),
     targetBases: actionable.map((output) => output.decision.targetBasis),
+    round1TargetBases: actionable.filter((output) => output.meta.round === 1).map((output) => output.decision.targetBasis),
+    strategicDecisions: actionable.filter((output) => output.decision.targetBasis === "STRATEGIC").map((output) => ({ round: output.meta.round, rationale: output.decision.targetRationale })),
     perspectiveIdentities: [...new Set(outputs.map((output) => output.meta.basedOn.perspectiveIdentity))],
     ownCommandSides: [...new Set(commands.map((command) => command.side))],
     outputKeys: Object.keys(outputs[0]!).sort(),
@@ -387,8 +408,20 @@ test.describe.serial("Wave 5 -- complete MVP journeys (Tasks 28, 29, 32, 33)", (
     expect(radiant!.poolAppliedSeen).toBe(true); // the pool shaped the personal-position candidates on both sides
     expect(dire!.poolAppliedSeen).toBe(true);
     expect(radiant!.poolMarkWithoutPool || dire!.poolMarkWithoutPool).toBe(false); // a pool mark never appears where the pool was not applied, on either side
-    expect(radiant!.targetBases.every((basis) => basis === "DETERMINISTIC_DEFAULT")).toBe(true); // PSR-001: no fabricated strategic priority, on either side
-    expect(dire!.targetBases.every((basis) => basis === "DETERMINISTIC_DEFAULT")).toBe(true);
+    // OLD_ASSERTION: every recommendation of both journeys is DETERMINISTIC_DEFAULT (PSR-001: no fabricated strategic priority).
+    // WHY_OBSOLETE: TSK-251 (d3f3266) routed the simulator through LivePositionPriorityV1, which CAN claim STRATEGIC -- but only on a
+    //   categorical signal: a curated hard-counter window against an already REVEALED enemy, or the last hero of a saved pool.
+    // NEW_PRODUCT_CONTRACT: PSR-001 still holds where it matters -- nothing is revealed in Round 1, so Round 1 is always the deterministic
+    //   default, and any STRATEGIC claim (Round 2+) cites its evidence ("Ventana de counter" / "Asegurar el pool"); no other basis exists.
+    for (const journey of [radiant!, dire!]) {
+      expect(journey.targetBases.every((basis) => basis === "DETERMINISTIC_DEFAULT" || basis === "STRATEGIC")).toBe(true);
+      expect(journey.round1TargetBases.length).toBeGreaterThan(0);
+      expect(journey.round1TargetBases.every((basis) => basis === "DETERMINISTIC_DEFAULT")).toBe(true);
+      for (const decision of journey.strategicDecisions) {
+        expect(decision.round, "a strategic priority needs something revealed").toBeGreaterThanOrEqual(2);
+        expect(decision.rationale, "a strategic priority must cite its evidence").toMatch(/Ventana de counter|Asegurar el pool/);
+      }
+    }
     expect(radiant!.ownCommandSides).toEqual(["radiant"]);
     expect(dire!.ownCommandSides).toEqual(["dire"]); // every allied pick was a Dire pick
     expect(radiant!.perspectiveIdentities).toHaveLength(1);

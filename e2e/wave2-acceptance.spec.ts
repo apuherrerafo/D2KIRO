@@ -7,6 +7,7 @@ import {
   configureAndStart,
   firstEnabled,
   heroButton,
+  pickHero,
   record,
   type Recorder,
 } from "./support/wave1";
@@ -109,7 +110,7 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
       // (b) OWN PICK #1 -> the Coach recomputes IMMEDIATELY, before the second seat and before any enemy reveal.
       const firstName = await firstEnabled(page, alternatives[0]!);
       const requestsBefore = recommendationRequests(rec);
-      await heroButton(page, firstName).click();
+      await pickHero(page, firstName);
       await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
       await expect(primary(page)).toHaveAttribute("data-trigger", "OWN_PICK_CONFIRMED", { timeout: 30_000 });
       const afterFirst = await snapshotOfCoach(page);
@@ -121,9 +122,9 @@ async function playWithCoach(page: Page, run: CoachRun): Promise<Recorder> {
       const snapshot = rec.snapshots().at(-1)!;
       expect(snapshot.view.enemyPicks.filter((slot) => slot.visibility === "REVEALED")).toHaveLength(round === 1 ? 0 : 2);
       const remaining = alternatives[1]!.filter((name) => name !== firstName);
-      await heroButton(page, await firstEnabled(page, remaining)).click();
+      await pickHero(page, await firstEnabled(page, remaining));
     } else {
-      await heroButton(page, await firstEnabled(page, alternatives[0]!)).click();
+      await pickHero(page, await firstEnabled(page, alternatives[0]!));
     }
     // A legal collision reopens a seat instead of closing the round: re-pick through the UI, then continue.
     const next = run.plan[index + 1];
@@ -189,7 +190,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
       }
     }
     expect(ignored, "no legal hero outside the Coach shortlist").not.toBeNull();
-    await heroButton(page, ignored!).click();
+    await pickHero(page, ignored!);
 
     // Accepted: the seat is sealed, no rejection notice, no HTTP error -- and the Coach has recomputed.
     await expect(page.getByTestId("round-capacity")).toHaveAttribute("data-round-capacity", "1");
@@ -204,7 +205,7 @@ test.describe("Wave 2 acceptance -- Coach orchestration in a real browser", () =
 
     // The draft keeps going: the second seat is still open and can be sealed.
     const second = await firstEnabled(page, [...CARRY, ...MID].filter((name) => name !== ignored));
-    await heroButton(page, second).click();
+    await pickHero(page, second);
     await expect(page.getByText(/Ronda 1 -- revelada|Ronda 2 · /).first()).toBeVisible({ timeout: 30_000 });
     expect(commandsSoFar(rec)).toBe(2);
     expect(rec.responses.filter((entry) => entry.status >= 400)).toEqual([]);

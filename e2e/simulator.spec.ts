@@ -34,11 +34,28 @@ async function playFullDraft(page: Page, side: "Radiant" | "Dire", position: str
   await expect(page.getByText(/^TU .+ AHORA$/)).toHaveCount(0);
   await expect(page.getByTestId("round-recommendation-columns")).toHaveCount(0);
   await expect(page.getByTestId("coach-panel")).toHaveCount(0);
-  // COHERENCE-013 / PSR-002 in the real browser: with no navigation the highlighted position is the viewed one AND the recommendation.
-  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0);
+  // COHERENCE-013 / PSR-002 / TSK-251 in the real browser.
+  // OLD_ASSERTION: with no navigation `current-decision-viewed` never renders (viewed === recommended) and the
+  //   highlighted position is the recommended one.
+  // WHY_OBSOLETE: TSK-251 (d3f3266) made the FIRST view the Player's own position, while the Coach may recommend
+  //   another open one (Party5 opening habit); "Estas viendo PosN · Coach sugiere PosM" is the explicit notice.
+  // NEW_PRODUCT_CONTRACT: without navigation the viewed position is the Player's personal one; the notice renders
+  //   IFF viewed != recommended; the selector highlights the VIEWED position (BlindRoundPanel `selectedTarget`);
+  //   the recommendation is an open position and never moves with the view.
+  const personal = position.match(/\d/)?.[0] ?? "";
   const target = await page.getByTestId("current-decision-target").getAttribute("data-target-position");
-  const targetButton = page.getByRole("group", { name: "Posición para el próximo pick" }).getByRole("button", { name: new RegExp(`Pos${target} `) });
-  await expect(targetButton).toHaveClass(/border-accent-primary/);
+  expect(["1", "2", "3", "4", "5"]).toContain(target);
+  const viewedNotice = page.getByTestId("current-decision-viewed");
+  if (target === personal) {
+    await expect(viewedNotice).toHaveCount(0);
+  } else {
+    await expect(viewedNotice).toHaveCount(1);
+    await expect(viewedNotice).toHaveAttribute("data-viewed-position", personal);
+    await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${target}`);
+  }
+  const viewedButton = page.getByRole("group", { name: "Posición para el próximo pick" }).getByRole("button", { name: new RegExp(`Pos${personal} `) });
+  await expect(viewedButton).toHaveClass(/border-accent-primary/);
+  await expect(page.getByTestId("current-decision-candidates")).toContainText(`Pos${personal} `);
 
   // Any hero at any time: the first selectable hero, repeatedly, until the draft completes. A pick
   // that collides with the (hidden) enemy pick is handled by the engine: ban + repick.
@@ -121,6 +138,17 @@ test("Party5: primer pick manual (no Pos1) -> binding, capacidad 1, objetivo rec
   // The previous (Pos`chosen`) card set is gone: a new target owns the list now. A flex hero may
   // legitimately be credible at both positions, so the check is on the set, not on each hero.
   expect(cardsAfter).not.toEqual(cardsBefore);
-  await expect(page.getByTestId("current-decision-viewed")).toHaveCount(0); // a real pick resets navigation to the recomputed recommendation
+  // OLD_ASSERTION: after a real pick `current-decision-viewed` is absent (navigation resets to the recomputed recommendation).
+  // WHY_OBSOLETE: TSK-251 (d3f3266) -- the reset view is the Player's OWN position (Pos2) while it is open, not the recommendation.
+  // NEW_PRODUCT_CONTRACT: a real pick drops the manual navigation (the viewed position is no longer `chosen`); the view returns to the
+  //   Player's personal position, and the "viewing X / Coach suggests Y" notice renders IFF that differs from the recomputed recommendation.
+  const personalAfter = 2; // chosen is 4 or 5, so the personal Midlane stays open
+  const viewedAfter = page.getByTestId("current-decision-viewed");
+  if (nextTarget === personalAfter) {
+    await expect(viewedAfter).toHaveCount(0);
+  } else {
+    await expect(viewedAfter).toHaveAttribute("data-viewed-position", String(personalAfter), { timeout: 30_000 });
+    await expect(page.getByTestId("current-decision-coach-suggests")).toContainText(`Coach sugiere Pos${nextTarget}`);
+  }
   await expect(page.getByText("ALLY BOT", { exact: true })).toHaveCount(0); // Party5: no allied bot exists to act
 });
