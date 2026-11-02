@@ -173,11 +173,6 @@
       "why": "Global Silence le impide lanzar Berserker's Call, y Arcane Curse le hace daño y alarga su duración cada vez que Axe lanza un hechizo"
     },
     {
-      "vs": 46,
-      "level": "hard",
-      "why": "Lo dicen: MrJeansDota (7.41f)"
-    },
-    {
       "vs": 64,
       "level": "medium",
       "why": "Lo dicen: wiki Fandom (7.41f)"
@@ -1870,11 +1865,6 @@
       "vs": 19,
       "level": "medium",
       "why": "Son gap closers tanques y móviles: saltan sobre los héroes de rango, los pokean y se van, y esos héroes no quieren que los salten"
-    },
-    {
-      "vs": 74,
-      "level": "medium",
-      "why": "Lo dicen: DotaCoach (7.41f)"
     },
     {
       "vs": 67,
@@ -6499,11 +6489,6 @@
       "why": "Lo dicen: DotaCoach (7.41f), wiki Fandom (antes de 7.41)"
     },
     {
-      "vs": 50,
-      "level": "medium",
-      "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
       "vs": 52,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
@@ -6840,11 +6825,6 @@
       "vs": 63,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
-      "vs": 23,
-      "level": "hard",
-      "why": "Lo dicen: MrJeansDota (7.41f)"
     }
   ],
   "91": [
@@ -8422,11 +8402,6 @@
       "vs": 61,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
-    },
-    {
-      "vs": 25,
-      "level": "hard",
-      "why": "Lo dicen: KheZu (7.41e)"
     },
     {
       "vs": 17,
