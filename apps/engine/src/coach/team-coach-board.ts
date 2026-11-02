@@ -8,7 +8,7 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
 import { alliesAnswering, banOpeningOf, synergiesWithOwn, type BanOpening } from "./context-reorder";
-import { revealedEnemyHeroes } from "./hero-card";
+import { POSITION_ONLY_PREFIX, revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
 import { positionPhrase } from "./reveal-strategy";
@@ -246,14 +246,14 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
     opening: banOpeningOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroPositions: input.heroPositions, targetPosition: position }),
     synergies: synergiesWithOwn(heroId, { ownPicks: ownPickSet, heroSynergies: input.heroSynergies }).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
   });
-  const toCandidate = (card: { heroId: HeroId; position: Position; rank: number; score: number; rationale: string }): TeamCoachCandidate => ({
-    heroId: card.heroId,
-    rank: card.rank,
-    score: card.score,
-    reasons: [card.rationale],
-    ...contextOf(card.heroId, card.position),
-    isPrimary: false,
-  });
+  const toCandidate = (card: { heroId: HeroId; position: Position; rank: number; score: number; rationale: string }): TeamCoachCandidate => {
+    const context = contextOf(card.heroId, card.position);
+    // Si la única frase es "Por su posición: …" pero la tarjeta YA trae razones reales del draft (a quién le gana, qué abrieron los bans,
+    // con quién combina), la frase de posición se calla: lo que se lee primero es el motivo real, no el rol (queja del usuario 2026-11-02).
+    const hasDraftContext = context.strengths.length > 0 || context.opening.openedBy.length > 0 || context.synergies.length > 0;
+    const positionOnly = card.rationale.startsWith(POSITION_ONLY_PREFIX);
+    return { heroId: card.heroId, rank: card.rank, score: card.score, reasons: positionOnly && hasDraftContext ? [] : [card.rationale], ...context, isPrimary: false };
+  };
   const cannotBeEnemy = new Set<HeroId>([...view.bannedHeroes, ...view.ownPicks.flatMap((slot) => (slot.visibility !== "HIDDEN" ? [slot.heroId] : []))]);
   // Every ranking is requested against the SAME context object: one snapshot, one stateIdentity.
   const drafts: ColumnDraft[] = await Promise.all(positions.map(async (position): Promise<ColumnDraft> => {

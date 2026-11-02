@@ -192,7 +192,17 @@ export function extractHeroCandidates(set: RecommendationSetV2, heroPositions?: 
     .map(({ candidate }) => candidate);
 }
 
-/** The phrase of the hero's strongest REAL signal (data-backed, highest contribution). */
+/**
+ * Prefijo con el que una tarjeta dice, sin rodeos, que su ÚNICA razón visible es la posición (regla del usuario 2026-11-02: "no
+ * recomendar solo porque es del rol" -- y si por falta de información igual se muestra, que no parezca otra cosa).
+ */
+export const POSITION_ONLY_PREFIX = "Por su posición: ";
+
+/**
+ * The phrase of the hero's most CONCRETE real reason: a counter against a revealed enemy, a documented pair with an ally, what the
+ * team still needs (`team_synergy`), the draft intent the Player chose (`archetype_fit`) and, last, the hero's strongest signal.
+ * When that last resort is the position signal, the phrase says so ("Por su posición: ...") instead of passing for evidence.
+ */
 function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string {
   if (hasCounterBadge) {
     const counterSignal = candidate.signals.find((s) => s.signal === "counter" && votedWithData(s));
@@ -206,10 +216,18 @@ function rationaleOf(candidate: HeroCandidate, hasCounterBadge = false): string 
   const synergy = candidate.signals.find((s) => s.signal === "team_synergy" && votedWithData(s) && (s.raw ?? 0) > 0);
   const pair = synergy ? pairSentence(synergy.explanation) : null;
   if (pair !== null) return pair;
+  // Lo que a tu equipo le falta y la intención de draft que elegiste son razones DEL DRAFT: ganan sobre la señal más fuerte, que casi
+  // siempre es la de posición y no dice nada de este draft.
+  const needs = candidate.signals.find((s) => s.signal === "team_synergy" && votedWithData(s) && (s.raw ?? 0) > 0 && !s.explanation.startsWith("Sin "));
+  if (needs) return needs.explanation;
+  const intent = candidate.signals.find((s) => s.signal === "archetype_fit" && votedWithData(s) && !s.explanation.startsWith("Sin "));
+  if (intent) return intent.explanation;
   const backed = candidate.signals
     .filter((s) => votedWithData(s) && !s.explanation.startsWith("Sin "))
     .sort((a, b) => b.weighted - a.weighted);
-  return backed[0]?.explanation ?? "Sin señal con datos propios suficientes.";
+  const strongest = backed[0];
+  if (!strongest) return "Sin señal con datos propios suficientes.";
+  return strongest.signal === "position_fit" ? `${POSITION_ONLY_PREFIX}${strongest.explanation}` : strongest.explanation;
 }
 
 /**
