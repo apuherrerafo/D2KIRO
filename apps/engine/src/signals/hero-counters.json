@@ -94,7 +94,7 @@
   "2": [
     {
       "vs": 54,
-      "level": "medium",
+      "level": "hard",
       "why": "Feast daña y cura segun tu vida maxima, mientras Rage reduce mucho el impacto de Battle Hunger y del control aliado"
     },
     {
@@ -119,7 +119,7 @@
     },
     {
       "vs": 114,
-      "level": "medium",
+      "level": "hard",
       "why": "En la línea acumula Jingu Mastery sobre un Axe sin movilidad, y su rango largo lo protege de Counter Helix"
     },
     {
@@ -154,7 +154,7 @@
     },
     {
       "vs": 70,
-      "level": "medium",
+      "level": "hard",
       "why": "Enrage baja casi todo el daño de Counter Helix y Blade Mail, y Fury Swipes acaba con la vida grande de Axe"
     },
     {
@@ -271,7 +271,7 @@
     },
     {
       "vs": 86,
-      "level": "medium",
+      "level": "hard",
       "why": "Rubick roba Fiend's Grip con facilidad y le gana a Bane en la línea"
     },
     {
@@ -355,7 +355,7 @@
     },
     {
       "vs": 104,
-      "level": "medium",
+      "level": "hard",
       "why": "Press the Attack le quita el Frostbite a Legion Commander, así Crystal Maiden pierde su inmovilización en la línea"
     },
     {
@@ -832,7 +832,7 @@
     },
     {
       "vs": 109,
-      "level": "medium",
+      "level": "hard",
       "why": "La alta armadura de Terrorblade reduce su daño físico y Metamorphosis lo presiona desde fuera de su rango cómodo"
     },
     {
@@ -852,7 +852,7 @@
     },
     {
       "vs": 86,
-      "level": "medium",
+      "level": "hard",
       "why": "Rubick puede robarle Requiem of Souls y usarlo contra su equipo"
     },
     {
@@ -994,7 +994,7 @@
     },
     {
       "vs": 7,
-      "level": "medium",
+      "level": "hard",
       "why": "Echo Slam rebota en cada ilusión de Phantom Lancer: cuantas más tiene, más daño recibe"
     },
     {
@@ -1106,7 +1106,7 @@
     },
     {
       "vs": 27,
-      "level": "medium",
+      "level": "hard",
       "why": "Hex instantáneo deja a Puck sin Phase Shift ni Illusory Orb para escapar"
     },
     {
@@ -1702,7 +1702,7 @@
     },
     {
       "vs": 23,
-      "level": "medium",
+      "level": "hard",
       "why": "Con X Marks the Spot y Torrent o Ghostship de trampa, Windranger no puede escapar con Windrun"
     },
     {
@@ -2024,7 +2024,7 @@
     },
     {
       "vs": 12,
-      "level": "medium",
+      "level": "hard",
       "why": "Doppelganger crea múltiples objetivos"
     },
     {
@@ -2039,7 +2039,7 @@
     },
     {
       "vs": 95,
-      "level": "medium",
+      "level": "hard",
       "why": "Troll Warlord le apaga la línea a Slardar, y con Manta se libra de él y de Ember"
     },
     {
@@ -2394,7 +2394,7 @@
     },
     {
       "vs": 112,
-      "level": "medium",
+      "level": "hard",
       "why": "Winter's Curse interrumpe lo que casi nada interrumpe, como el BKB de Enigma, y Splinter Blast le pega a sus Eidolons"
     },
     {
@@ -2620,12 +2620,12 @@
     },
     {
       "vs": 74,
-      "level": "medium",
+      "level": "hard",
       "why": "Cold Snap y Tornado controlan al Necrophos carry y el daño mágico de Invoker lo revienta, más aún con Ghost Shroud activo"
     },
     {
       "vs": 25,
-      "level": "medium",
+      "level": "hard",
       "why": "Ghost Shroud hace que Necrophos reciba más daño mágico y Lina lo revienta con Dragon Slave y Laguna Blade"
     },
     {
@@ -2635,12 +2635,12 @@
     },
     {
       "vs": 79,
-      "level": "medium",
+      "level": "hard",
       "why": "Demonic Purge le quita Ghost Shroud y lo frena, y Disruption saca de peligro a un aliado"
     },
     {
       "vs": 11,
-      "level": "medium",
+      "level": "hard",
       "why": "En la línea Necrophos sufre mucho contra Shadow Fiend: los Shadowraze lo castigan y SF farmea más rápido"
     },
     {
@@ -3358,7 +3358,7 @@
     },
     {
       "vs": 100,
-      "level": "medium",
+      "level": "hard",
       "why": "Pugna es frágil: Tusk lo agarra con Snowball y Walrus Punch antes de que juegue su combo"
     },
     {
@@ -3564,7 +3564,7 @@
     },
     {
       "vs": 55,
-      "level": "medium",
+      "level": "hard",
       "why": "Wall of Replica crea copias de Luna que heredan Moon Glaives y Lunar Blessing y le pegan a su propio equipo; Surge le deja escapar de Eclipse"
     },
     {
@@ -3718,7 +3718,7 @@
     },
     {
       "vs": 75,
-      "level": "medium",
+      "level": "hard",
       "why": "Global Silence impide Shallow Grave y Shadow Wave"
     },
     {
@@ -4525,7 +4525,7 @@
     },
     {
       "vs": 121,
-      "level": "medium",
+      "level": "hard",
       "why": "Stroke of Fate atraviesa y mata filas de arañas, y Ink Swell y Soulbind la atrapan cuando entra a pelear"
     },
     {
@@ -4746,7 +4746,7 @@
     },
     {
       "vs": 86,
-      "level": "medium",
+      "level": "hard",
       "why": "Rubick roba Ice Path, Dual Breath y Macropyre y los lanza sin la preparación lenta de Jakiro, con más alcance y mejor puntería"
     },
     {
@@ -5121,7 +5121,7 @@
     },
     {
       "vs": 96,
-      "level": "medium",
+      "level": "hard",
       "why": "Si Doom anula a un aliado, Stampede le permite al resto del equipo escapar del seguimiento"
     },
     {
@@ -5131,7 +5131,7 @@
     },
     {
       "vs": 80,
-      "level": "medium",
+      "level": "hard",
       "why": "Lone Druid son dos unidades: si Doom usa el ulti en uno, el otro sigue peleando; True Form le da la vida igual aunque esté con Doom"
     },
     {
@@ -5471,12 +5471,12 @@
   "74": [
     {
       "vs": 13,
-      "level": "medium",
+      "level": "hard",
       "why": "Phase Shift esquiva Sun Strike y Dream Coil castiga la reposición"
     },
     {
       "vs": 126,
-      "level": "medium",
+      "level": "hard",
       "why": "Void Spirit entra sobre Invoker y Dissimilate evita sus combos"
     },
     {
@@ -5506,12 +5506,12 @@
     },
     {
       "vs": 23,
-      "level": "medium",
+      "level": "hard",
       "why": "Torrent mata a los Forged Spirits, Kunkka aguanta la línea y tiene daño para negarle los creeps"
     },
     {
       "vs": 54,
-      "level": "medium",
+      "level": "hard",
       "why": "Rage lo vuelve inmune a los hechizos de Invoker mientras le pega"
     },
     {
@@ -5958,7 +5958,7 @@
     },
     {
       "vs": 108,
-      "level": "medium",
+      "level": "hard",
       "why": "Firestorm castiga la vida del Spirit Bear y Pit of Malice lo controla"
     },
     {
@@ -6465,7 +6465,7 @@
     },
     {
       "vs": 93,
-      "level": "medium",
+      "level": "hard",
       "why": "Rubick es frágil y sin escape: Pounce lo atrapa y Slark lo encuentra en cada pelea"
     },
     {
@@ -6855,7 +6855,7 @@
     },
     {
       "vs": 87,
-      "level": "medium",
+      "level": "hard",
       "why": "Glimpse devuelve a Io a donde estaba antes de usar Relocate y le rompe la jugada"
     },
     {
@@ -7549,7 +7549,7 @@
     },
     {
       "vs": 45,
-      "level": "medium",
+      "level": "hard",
       "why": "Timbersaw lanza hechizos sin parar y Nether Ward lo castiga; Life Drain ignora Reactive Armor y él no tiene stun para cortarlo"
     },
     {
@@ -8255,7 +8255,7 @@
     },
     {
       "vs": 69,
-      "level": "medium",
+      "level": "hard",
       "why": "Con Doom, Ember no puede usar Sleight of Fist, Flame Guard ni sus Remnants para escapar"
     },
     {
@@ -8265,12 +8265,12 @@
     },
     {
       "vs": 59,
-      "level": "medium",
+      "level": "hard",
       "why": "Con poca vida Huskar gana resistencia mágica y regeneración, y le gana el intercambio a Ember en la línea"
     },
     {
       "vs": 23,
-      "level": "medium",
+      "level": "hard",
       "why": "En la línea Kunkka aprovecha su daño inicial para negarle los creeps y ganarle a Ember"
     },
     {
@@ -8320,7 +8320,7 @@
     },
     {
       "vs": 93,
-      "level": "medium",
+      "level": "hard",
       "why": "Dark Pact quita Searing Chains y Pounce ata a Ember para pegarle; en la línea mid lo apaga"
     },
     {
@@ -8422,7 +8422,7 @@
     },
     {
       "vs": 54,
-      "level": "medium",
+      "level": "hard",
       "why": "Rage ignora el control y daño mágico de Earth Spirit"
     },
     {
@@ -8447,22 +8447,22 @@
     },
     {
       "vs": 103,
-      "level": "medium",
+      "level": "hard",
       "why": "Cuando Earth Spirit entra rodando Elder Titan lo revienta de una: una respuesta nuclear que lo mata antes de que juegue"
     },
     {
       "vs": 106,
-      "level": "medium",
+      "level": "hard",
       "why": "Searing Chains lo deja sin Rolling Boulder para escapar y, más tarde en la partida, el daño de Ember escala por encima del de Earth Spirit"
     },
     {
       "vs": 33,
-      "level": "medium",
+      "level": "hard",
       "why": "Cuando Earth Spirit entra rodando Enigma lo revienta de una: una respuesta nuclear que lo mata antes de que juegue"
     },
     {
       "vs": 59,
-      "level": "medium",
+      "level": "hard",
       "why": "Earth Spirit hace daño casi todo mágico y Huskar con poca vida tiene mucha resistencia mágica"
     },
     {
@@ -8564,7 +8564,7 @@
     },
     {
       "vs": 86,
-      "level": "medium",
+      "level": "hard",
       "why": "Rubick le roba Pit of Malice o Fiend's Gate y se los devuelve en la pelea"
     },
     {
@@ -8574,7 +8574,7 @@
     },
     {
       "vs": 112,
-      "level": "medium",
+      "level": "hard",
       "why": "Arctic Burn tiene poco cooldown y se puede spamear sobre héroes de fuerza con mucha vida que se quedan en la línea"
     },
     {
@@ -8646,7 +8646,7 @@
     },
     {
       "vs": 89,
-      "level": "medium",
+      "level": "hard",
       "why": "Las ilusiones de Naga y Rip Tide (le baja la armadura) ganan la guerra de ilusiones contra Terrorblade"
     },
     {
@@ -8852,7 +8852,7 @@
     },
     {
       "vs": 67,
-      "level": "medium",
+      "level": "hard",
       "why": "Shadow Step coloca a Spectre sobre Wyvern y elimina la distancia para Cold Embrace"
     },
     {
@@ -9280,7 +9280,7 @@
     },
     {
       "vs": 72,
-      "level": "medium",
+      "level": "hard",
       "why": "Flak Cannon sigue golpeando a Pangolier incluso durante Rolling Thunder, y Rocket Barrage y Call Down lo castigan cuando está aturdido o contra el terreno"
     },
     {
@@ -10047,7 +10047,7 @@
     },
     {
       "vs": 69,
-      "level": "medium",
+      "level": "hard",
       "why": "Doom silencia a Kez y le quita las habilidades de las que depende para pelear"
     },
     {
