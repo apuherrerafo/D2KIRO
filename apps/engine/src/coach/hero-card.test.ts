@@ -303,7 +303,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     });
 
     test("una pareja que no aportó (raw <= 0) no se cuela en la tarjeta", () => {
-      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(`${POSITION_ONLY_PREFIX}apertura segura como hard support`); // solo la posición: y lo dice
+      expect(build(0, `Sin datos. ${PAIR}`).rationale).toBe(`${POSITION_ONLY_PREFIX}muy jugado como hard support en alto MMR`); // solo la posición: y lo dice
     });
 
     test("la intención de draft que el jugador eligió gana sobre la posición", () => {
@@ -319,7 +319,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
     test("con solo la señal de posición con datos, la frase empieza con 'Por su posición:' (no pasa por evidencia del draft)", () => {
       const hero: HeroFixture = { heroId: 7, signals: [signal("position_fit", 0.9, 30, { explanation: POSITION })], impact: resolvedImpact(5) };
       const [cand] = extractHeroCandidates(recSet([hero]));
-      expect(buildHeroCard(cand!, []).rationale).toBe(`${POSITION_ONLY_PREFIX}apertura segura como hard support`);
+      expect(buildHeroCard(cand!, []).rationale).toBe(`${POSITION_ONLY_PREFIX}muy jugado como hard support en alto MMR`);
     });
 
     const onlyPosition = (explanation: string): string => {
@@ -330,9 +330,9 @@ describe("extractHeroCandidates / buildHeroCard", () => {
 
     test("la frase de apertura NO trae la cifra de partidas y distingue sólida / moderada / limitada", () => {
       const sample = " (2.340 partidas de alto MMR)";
-      expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).toBe(`${POSITION_ONLY_PREFIX}apertura segura como carry`);
-      expect(onlyPosition(`Evidencia moderada de que funciona como midlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}apertura razonable como midlane`);
-      expect(onlyPosition(`Evidencia limitada de que funciona como offlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}apertura con poca evidencia como offlane`);
+      expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).toBe(`${POSITION_ONLY_PREFIX}muy jugado como carry en alto MMR`);
+      expect(onlyPosition(`Evidencia moderada de que funciona como midlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}jugado a menudo como midlane en alto MMR`);
+      expect(onlyPosition(`Evidencia limitada de que funciona como offlane${sample}`)).toBe(`${POSITION_ONLY_PREFIX}poco jugado como offlane en alto MMR`);
       expect(onlyPosition(`Evidencia sólida de que funciona como carry${sample}`)).not.toContain("partidas");
     });
 
@@ -345,7 +345,7 @@ describe("extractHeroCandidates / buildHeroCard", () => {
       };
       const contribution = scorer.score(state, 7, { heroes: {}, matchups: {} });
       expect(contribution.explanation).toContain("2.340 partidas"); // el scorer sigue diciendo la cifra: el recorte es de la tarjeta
-      expect(onlyPosition(contribution.explanation)).toBe(`${POSITION_ONLY_PREFIX}apertura segura como carry`);
+      expect(onlyPosition(contribution.explanation)).toBe(`${POSITION_ONLY_PREFIX}muy jugado como carry en alto MMR`);
     });
   });
 

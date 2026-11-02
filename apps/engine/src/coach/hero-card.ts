@@ -199,23 +199,23 @@ export function extractHeroCandidates(set: RecommendationSetV2, heroPositions?: 
 export const POSITION_ONLY_PREFIX = "Por su posición: ";
 
 const OPENING_TIER_PHRASE: Record<string, string> = {
-  sólida: "apertura segura",
-  moderada: "apertura razonable",
-  limitada: "apertura con poca evidencia",
+  sólida: "muy jugado",
+  moderada: "jugado a menudo",
+  limitada: "poco jugado",
 };
 
 /**
- * Con la posición como única razón (típico del primer pick, donde solo hay bans a la vista) la tarjeta dice qué tan sólida es la
- * apertura en esa posición, sin la cifra de partidas: cinco tarjetas con "(2.340 partidas de alto MMR)" leen igual y parecen
- * evidencia del draft (decisión del usuario 2026-11-02). Una frase de posición con otra forma (p. ej. "Cubre la posición ...")
- * se deja tal cual.
+ * Con la posición como única razón (típico del primer pick, donde solo hay bans a la vista) la tarjeta dice cuánto se juega ese
+ * héroe en esa posición, sin la cifra de partidas: cinco tarjetas con "(2.340 partidas de alto MMR)" leen igual y parecen evidencia
+ * del draft. Dice "muy jugado", NO "seguro": el dato cuenta partidas, no sabe si el rival lo counterea (auditor de Dota, PR #93).
+ * Una frase de posición con otra forma (p. ej. "Cubre la posición ...") se deja tal cual.
  */
 function openingPhrase(positionExplanation: string): string {
   const match = /^Evidencia (sólida|moderada|limitada) de que funciona como ([^(]+?)(?: \(.*\))?$/.exec(positionExplanation);
   const tier = match?.[1];
   const label = match?.[2];
   if (tier === undefined || label === undefined) return positionExplanation;
-  return `${OPENING_TIER_PHRASE[tier] ?? tier} como ${label}`;
+  return `${OPENING_TIER_PHRASE[tier] ?? tier} como ${label} en alto MMR`;
 }
 
 /**
