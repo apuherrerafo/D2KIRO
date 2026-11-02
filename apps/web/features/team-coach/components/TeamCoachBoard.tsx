@@ -285,18 +285,22 @@ export function CandidateSynergies({ candidate, heroCatalog }: CandidateReasonPr
   );
 }
 
-const STEAL_LABELS: Record<TeamCoachSteal["level"], string> = { hard: "Le quitas un counter fuerte", medium: "Le quitas un counter" };
+const STEAL_LABELS: Record<TeamCoachSteal["level"], string> = { hard: "Counterea fuerte a tu", medium: "Counterea a tu" };
+const STEAL_CLOSING = "Si lo eliges tú, el rival no lo tiene.";
 
-// El "robo": este héroe sigue libre y counterea a un pick TUYO ya elegido; si lo eliges tú, el rival no lo tiene. Solo hechos del draft.
+// El "robo": este héroe sigue libre y counterea a un pick TUYO ya elegido; si lo eliges tú, el rival no lo tiene. Una línea por pick
+// protegido, cada una con SU nivel y SU porqué (nunca se mezcla la razón de un counter fuerte con la de uno medio). Solo hechos del draft.
 export function CandidateSteals({ candidate, heroCatalog }: CandidateReasonProps) {
   const steals = candidate.steals ?? [];
-  const [first] = steals;
-  if (!first) return null;
-  const names = joinNames(steals.map((steal) => heroName(steal.protectsHeroId, heroCatalog)));
+  const lastIndex = steals.length - 1;
   return (
-    <span className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-steal">
-      {STEAL_LABELS[first.level]} a tu {names}: {first.why}. Sigue libre.
-    </span>
+    <>
+      {steals.map((steal, index) => (
+        <span key={steal.protectsHeroId} className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-steal">
+          {STEAL_LABELS[steal.level]} {heroName(steal.protectsHeroId, heroCatalog)}: {steal.why}.{index === lastIndex ? ` ${STEAL_CLOSING}` : ""}
+        </span>
+      ))}
+    </>
   );
 }
 

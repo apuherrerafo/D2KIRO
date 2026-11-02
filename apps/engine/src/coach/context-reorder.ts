@@ -81,7 +81,10 @@ const SYNERGY_BONUS = 3;
  * Magnitud de criterio, pendiente de calibrar.
  */
 const STEAL_BONUS: Record<CounterLevel, number> = { hard: 4, medium: 2 };
-/** Partidas mínimas (en alto MMR) para que un héroe cuente como robo: un counter de nicho que casi nadie juega no es amenaza real. */
+/**
+ * Partidas mínimas (en alto MMR) para que un héroe cuente como robo: un counter de nicho que casi nadie juega no es amenaza real.
+ * Magnitud de criterio, pendiente de calibrar (con el archivo real deja sin robo a ~1 de cada 6 héroes, los menos jugados).
+ */
 const STEAL_MIN_GAMES = 1500;
 /** Una razón de la base que solo dice a quién se lo atribuye ("Lo dicen: DotaCoach (7.41f)") no cuenta como razón de Dota. */
 const UNREASONED_PREFIX = "Lo dicen";
@@ -246,6 +249,7 @@ function isPlayedEnoughToSteal(heroId: HeroId, input: Pick<ContextReorderInput, 
  * la base es solo "Lo dicen: …". Solo hechos de lo que se ve. Pura.
  */
 export function stealsOf(heroId: HeroId, input: ContextReorderInput): StealNote[] {
+  if (input.ownPicks.size === 0) return []; // ronda 1: no hay a quién proteger (y se evita el cálculo)
   if (!isFree(heroId, input) || !isPlayedEnoughToSteal(heroId, input) || revealedCounterPenalty(heroId, input) > 0) return [];
   const notes: StealNote[] = [];
   for (const own of input.ownPicks) {

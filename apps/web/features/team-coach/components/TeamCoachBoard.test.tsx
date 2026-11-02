@@ -186,15 +186,18 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.getByTestId("team-coach-candidate-synergy").textContent).toBe("Combina con tu Hero 7: Shallow Grave le da tiempo para usar Blink");
   });
 
-  test("el robo: un héroe libre que counterea a un pick tuyo lo dice con su porqué y 'Sigue libre'; con dos picks los nombra a los dos", () => {
+  test("el robo: un héroe libre que counterea a un pick tuyo lo dice con su porqué; con dos picks, una línea por cada uno con SU nivel y SU razón", () => {
     const stealing = column(2);
     stealing.top[0] = { ...stealing.top[0]!, steals: [{ protectsHeroId: 7, level: "hard", why: "Mana Break vacía su maná" }] };
     const first = renderBoard({ ...board([2], 2), positions: [stealing] });
-    expect(first.getByTestId("team-coach-candidate-steal").textContent).toBe("Le quitas un counter fuerte a tu Hero 7: Mana Break vacía su maná. Sigue libre.");
+    expect(first.getByTestId("team-coach-candidate-steal").textContent).toBe("Counterea fuerte a tu Hero 7: Mana Break vacía su maná. Si lo eliges tú, el rival no lo tiene.");
     first.unmount();
     const medium = column(2);
     medium.top[0] = { ...medium.top[0]!, steals: [{ protectsHeroId: 7, level: "medium", why: "Global Silence lo frena" }, { protectsHeroId: 9, level: "medium", why: "otro" }] };
-    expect(renderBoard({ ...board([2], 2), positions: [medium] }).getByTestId("team-coach-candidate-steal").textContent).toBe("Le quitas un counter a tu Hero 7 y Hero 9: Global Silence lo frena. Sigue libre.");
+    medium.top[0] = { ...medium.top[0]!, steals: [{ protectsHeroId: 9, level: "hard", why: "al otro lo mata" }, { protectsHeroId: 7, level: "medium", why: "Global Silence lo frena" }] };
+    const lines = renderBoard({ ...board([2], 2), positions: [medium] }).getAllByTestId("team-coach-candidate-steal").map((node) => node.textContent);
+    // Cada línea lleva el nivel y la razón de SU pick: nunca la razón del counter fuerte pegada al medio.
+    expect(lines).toEqual(["Counterea fuerte a tu Hero 9: al otro lo mata.", "Counterea a tu Hero 7: Global Silence lo frena. Si lo eliges tú, el rival no lo tiene."]);
   });
 
   test("sin robo (o un motor anterior que no manda el campo) no aparece ninguna línea de robo", () => {

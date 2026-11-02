@@ -145,13 +145,13 @@ describe("la tarjeta cuenta el robo", () => {
 });
 
 describe("contra el pipeline completo (deriveCandidateResult)", () => {
-  // Ocho héroes de V6; el último (108) es el counter duro de Storm y V6 lo tenía a 3,5 puntos del primero.
+  // Ocho héroes de V6; el último (108) es el counter duro de Storm y V6 lo tenía a 1 punto del primero.
   const V6_ORDER = [101, 102, 103, 104, 105, 106, 107, 108];
   function ranking() {
     const recommendations = V6_ORDER.map((hero, index) => ({
       actions: [{ hero }],
       roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
-      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - index * 0.5, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "team_synergy", raw: 0.6, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 200, applicable: true }] },
+      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - Math.floor(index / 4), explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }, { signal: "team_synergy", raw: 1, weighted: 1, explanation: `Pareja ${hero}`, sampleSize: 200, applicable: true }] },
       risks: [],
       confidence: "media",
     }));
@@ -170,7 +170,7 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
     return result.cards.map((card) => card.heroId);
   }
 
-  test("sensibilidad: el counter libre de tu pick 1, último de V6 a 3,5 puntos, pasa a ser el primero y la tarjeta dice a quién protege", () => {
+  test("sensibilidad: el counter libre de tu pick 1, último de V6 a 1 punto, pasa a ser el primero y la tarjeta dice a quién protege", () => {
     const result = derive([STORM], counters);
     expect(ids(result)[0]).toBe(108);
     if (result.state !== "RANKED") throw new Error("esperaba RANKED");
@@ -184,5 +184,25 @@ describe("contra el pipeline completo (deriveCandidateResult)", () => {
       if (result.state !== "RANKED") throw new Error("esperaba RANKED");
       expect(result.cards.every((card) => card.context?.steals.length === 0)).toBe(true);
     }
+  });
+
+  // Solo la señal de posición (que NUNCA cuenta como motivo): ni pareja ni intención. Aquí lo único que respalda a 108 es ser un robo.
+  function bareRanking() {
+    const recommendations = [107, 108].map((hero, index) => ({
+      actions: [{ hero }],
+      roleImpact: { [hero]: { status: "LIKELY", position: 1, marginals: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 0 }, entropy: 0 } },
+      signalsByHero: { [hero]: [{ signal: "position_fit", raw: 1, weighted: 99 - index, explanation: `Encaja ${hero}`, sampleSize: 10, applicable: true }] },
+      risks: [],
+      confidence: "media",
+    }));
+    return { recommendations, degradations: [] } as never;
+  }
+
+  test("el robo es un MOTIVO real: con el draft ya diciendo algo, un héroe con solo el rol como razón no se recomienda, salvo que sea un robo", () => {
+    const withSteal = deriveCandidateResult({ targetPosition: 1, targetRanking: bareRanking(), view: view([STORM]), heroPositions: positions, heroCounters: counters, personalPoolApplied: false });
+    if (withSteal.state !== "RANKED") throw new Error(`esperaba RANKED, salió ${withSteal.state}`);
+    expect(withSteal.cards.map((card) => card.heroId)).toEqual([108]); // 107 solo tiene el rol: fuera; 108 es robo: entra
+    const withoutSteal = deriveCandidateResult({ targetPosition: 1, targetRanking: bareRanking(), view: view([STORM]), heroPositions: positions, heroCounters: undefined, personalPoolApplied: false });
+    expect(withoutSteal.state).toBe("UNRANKED_POSITIONAL"); // sin el robo, nadie tiene motivo
   });
 });
