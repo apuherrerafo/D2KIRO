@@ -4,7 +4,7 @@ import { HeroIcon } from "@/components/hero-icon/HeroIcon";
 import { RecommendationFeedback } from "@/components/recommendation-feedback/RecommendationFeedback";
 import { CONFIDENCE_LABELS } from "@/features/draft/constants";
 import type { HeroMeta } from "@/features/draft/use-hero-catalog";
-import { CandidateOpening, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
+import { CandidateOpening, CandidateSteals, CandidateStrengths, CandidateSynergies } from "@/features/team-coach/components/TeamCoachBoard";
 import type { ActionableDecision, CandidateDegradation, CandidateResult, CoachPosition, CurrentDecisionOutput, NoHumanActionReason, PoolMembership, PoolOwner, PositionalAlternative, RankedCandidateCard } from "../coach-client";
 import { playerFacingDegradation } from "../degradation-copy";
 import { SIMULATOR_POSITION_LABELS } from "../roster";
@@ -141,6 +141,7 @@ function CardDraftReasons({ card, heroCatalog }: CardReasonsProps) {
       <CandidateOpening candidate={source} heroCatalog={heroCatalog} />
       <CandidateStrengths candidate={source} heroCatalog={heroCatalog} />
       <CandidateSynergies candidate={source} heroCatalog={heroCatalog} />
+      <CandidateSteals candidate={source} heroCatalog={heroCatalog} />
     </>
   );
 }

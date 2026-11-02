@@ -1,6 +1,6 @@
 import type { HeroId } from "../draft-protocol/types";
 import type { CuratedCounter } from "../signals/hero-counters";
-import { banOpeningOf, synergiesWithOwn, type BanOpening, type ContextReorderInput } from "./context-reorder";
+import { banOpeningOf, stealsOf, synergiesWithOwn, type BanOpening, type ContextReorderInput, type StealNote } from "./context-reorder";
 
 // Lo que una tarjeta de héroe cuenta DEL DRAFT VISIBLE, con una sola fuente para el tablero del equipo y la lista del simulador
 // (antes la lista solo recibía una frase y el tablero armaba esto aparte, así que dos pantallas decían razones distintas del mismo
@@ -50,6 +50,9 @@ export function strengthsOf(heroId: HeroId, index: ReadonlyMap<HeroId, readonly 
   return usable.sort((a, b) => rank(a) - rank(b)).slice(0, MAX_STRENGTHS_PER_CANDIDATE);
 }
 
+/** Un pick tuyo ya elegido al que este héroe le quita un counter si lo eliges (está libre), con el porqué curado. Es el "robo". */
+export type TeamCoachSteal = StealNote;
+
 export interface CardContext {
   /** What the visible bans opened for this hero (its banned counters) and the risk that stays (counters still free). */
   opening: BanOpening;
@@ -57,6 +60,8 @@ export interface CardContext {
   strengths: TeamCoachStrength[];
   /** Curated partners among the heroes the Player's team ALREADY picked (never a hypothetical ally). */
   synergies: TeamCoachSynergy[];
+  /** Picks TUYOS a los que este héroe libre les quita un counter (fuertes primero, hasta 2). Vacío = no es un robo. */
+  steals: TeamCoachSteal[];
 }
 
 // El índice depende solo del archivo de counters (una instancia por proceso, que NO se muta en sitio: se carga una vez y se reemplaza entero
@@ -78,10 +83,11 @@ export function cardContextOf(heroId: HeroId, input: ContextReorderInput): CardC
     opening: banOpeningOf(heroId, input),
     strengths: strengthsOf(heroId, cachedStrengthIndex(input.heroCounters), cannotBeEnemy, input.revealedEnemies),
     synergies: synergiesWithOwn(heroId, input).slice(0, MAX_SYNERGIES_PER_CANDIDATE).map((synergy) => ({ withHeroId: synergy.with, why: synergy.why.trim().replace(/[.\s]+$/, "") })),
+    steals: stealsOf(heroId, input),
   };
 }
 
 /** ¿La tarjeta trae al menos una razón real del draft? (la frase de solo posición se calla cuando sí.) */
 export function hasCardContext(context: CardContext): boolean {
-  return context.strengths.length > 0 || context.opening.openedBy.length > 0 || context.synergies.length > 0;
+  return context.strengths.length > 0 || context.opening.openedBy.length > 0 || context.synergies.length > 0 || context.steals.length > 0;
 }

@@ -1,7 +1,7 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, SuggestionConfidence } from "@/features/draft/types";
-import type { TeamCoachOpening, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
-import { isOpening, isStrength, isSynergy } from "@/features/team-coach/validation";
+import type { TeamCoachOpening, TeamCoachSteal, TeamCoachStrength, TeamCoachSynergy } from "@/features/team-coach/types";
+import { isOpening, isSteal, isStrength, isSynergy } from "@/features/team-coach/validation";
 import { parseRecommendationSet, type RecommendationSetV2 } from "./protocol-client";
 
 // AP Ranked Roles V1 / Wave 2 -- Coach output (RecommendationOutputV3) client. Espejo a mano del
@@ -308,6 +308,8 @@ export interface CardDraftContext {
   opening: TeamCoachOpening;
   strengths: TeamCoachStrength[];
   synergies: TeamCoachSynergy[];
+  /** Picks tuyos a los que este héroe libre les quita un counter (el "robo"). Opcional: un motor anterior no lo manda. */
+  steals?: TeamCoachSteal[];
 }
 
 /** Espejo de `CardRiskKind`/`CardRisk` del motor. */
@@ -388,7 +390,8 @@ function isCardRisk(value: unknown): value is CardRisk {
 
 function isCardDraftContext(value: unknown): value is CardDraftContext {
   return isRecord(value) && isOpening(value.opening) && Array.isArray(value.strengths) && value.strengths.every(isStrength)
-    && Array.isArray(value.synergies) && value.synergies.every(isSynergy);
+    && Array.isArray(value.synergies) && value.synergies.every(isSynergy)
+    && (value.steals === undefined || (Array.isArray(value.steals) && value.steals.every(isSteal)));
 }
 
 function isRankedCard(value: unknown, target: CoachPosition): value is RankedCandidateCard {
