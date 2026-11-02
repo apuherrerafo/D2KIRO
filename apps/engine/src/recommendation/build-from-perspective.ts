@@ -197,7 +197,7 @@ export async function buildRecommendationSetFromPerspective(input: BuildRecommen
   const functionalEvidence: FunctionalRecommendationEvidence = { ...suggestionSet.functionalEvidence, partyPreferredPositions: [...(partyPreferredPositions ?? [])] };
   const basedOn = buildBasedOn({ ...identityInputs, evidenceHash: evidenceIdentityHash(functionalEvidence) });
 
-  const shortlist = buildShortlist(suggestionSet, null, unavailableHeroesFrom(view));
+  const shortlist = buildShortlist(suggestionSet, null, unavailableHeroesFrom(view), input.candidateLimit);
   if (shortlist.length === 0) {
     pushUniqueDegradation(degradations, { reason: "NO_LEGAL_HERO_UNIVERSE", detail: "ningún héroe legal quedó en el shortlist tras intersectar con la elegibilidad certificada" });
     return emptyWith(basedOn, "no_action");
