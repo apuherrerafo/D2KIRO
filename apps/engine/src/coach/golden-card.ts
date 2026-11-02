@@ -14,11 +14,17 @@ import { likelyPosition, synergiesWithOwn } from "./context-reorder";
 //   1. Ya se ven al menos 2 héroes rivales (con menos, no hay a quién ganarle).
 //   2. No está baneado, ni pickeado, ni en la lista de exclusión de ejecución difícil, ni en TU pool de esa posición; y juega esa
 //      posición en al menos 1/4 de sus partidas y esa posición todavía te falta.
-//   3. Le gana DURO a un rival CORE (pos 1-3) ya sacado, con una razón real en la base (no "Lo dicen: …").
-//   4. Ningún rival ya sacado lo counterea duro; un counter medio rival se tolera solo si suma 4 o más puntos de victoria.
+//   3. Le gana DURO a un rival CORE (pos 1-3) ya sacado, con una razón real en la base. Una victoria cuya razón solo dice "Lo dicen: …"
+//      no cuenta ni se muestra, y las victorias sobre rivales que no son core no suman puntos.
+//   4. Ningún rival ya sacado lo counterea duro; con 2 o más counters medios rivales no hay card; con 1 solo, solo si las victorias
+//      suman 5 o más puntos.
 //   5. Como mucho 1 counter duro suyo sigue libre (se avisa por nombre); con 2 o más no hay card.
 // Los counters suyos ya fuera de juego (baneados o en tu equipo) y las parejas con tus picks NO son condición: solo ordenan entre
 // varios que cumplen. Los winrates no se usan en ninguna regla.
+//
+// Magnitudes de producto elegidas a criterio de dos expertos de Dota (puntos 2/1, tolerancia de 5 puntos, 1 counter libre, 1/4 de
+// partidas, pesos de protección), pendientes de calibrar contra drafts profesionales reales (la medición actual es aproximada y
+// usa bans simulados). Que sean enteros no las vuelve datos: por eso este módulo está registrado en `perspective-graph-guard.test.ts`.
 
 /** Mínimo de rivales ya sacados para que exista la card. */
 export const GOLDEN_MIN_REVEALED_ENEMIES = 2;
@@ -26,7 +32,9 @@ export const GOLDEN_MIN_REVEALED_ENEMIES = 2;
 const POSITION_SHARE_DIVISOR = 4;
 /** Puntos de victoria: duro 2, medio 1. Un counter medio rival se tolera con al menos este total. */
 const WIN_POINTS = { hard: 2, medium: 1 } as const;
-const MEDIUM_RIVAL_COUNTER_MIN_POINTS = 4;
+/** Con exactamente 1 counter medio de un rival ya sacado, las victorias deben sumar al menos esto; con 2 o más no hay card. */
+const MEDIUM_RIVAL_COUNTER_MIN_POINTS = 5;
+const MAX_MEDIUM_RIVAL_COUNTERS = 1;
 /** Cuántos counters duros suyos pueden seguir libres (se avisan por nombre). */
 const MAX_STILL_FREE_HARD = 1;
 /** Puntos de protección (solo para ordenar, en cuartos para no usar decimales): duro 4, medio 1. */
@@ -38,9 +46,9 @@ const CORE_POSITIONS: readonly Position[] = [1, 2, 3];
 /**
  * Héroes que no se ofrecen como "perfecto" porque salen mal para quien no los domina (decisión de producto, lista propuesta por un
  * experto de Dota y pendiente de ajuste del usuario): Rubick, Invoker, Meepo, Chen, Tinker, Techies, Visage, Arc Warden, Io,
- * Lone Druid, Earth Spirit.
+ * Lone Druid, Earth Spirit, y (a sugerencia del auditor de Dota) Storm Spirit, Puck y Void Spirit.
  */
-export const GOLDEN_CARD_EXCLUDED: ReadonlySet<HeroId> = new Set([86, 74, 82, 66, 34, 105, 92, 113, 91, 80, 107]);
+export const GOLDEN_CARD_EXCLUDED: ReadonlySet<HeroId> = new Set([86, 74, 82, 66, 34, 105, 92, 113, 91, 80, 107, 17, 13, 126]);
 
 export interface GoldenCardWin {
   vsHeroId: HeroId;
@@ -109,7 +117,7 @@ function winsOf(candidate: HeroId, revealedEnemies: readonly HeroId[], input: Go
   const wins: GoldenCardWin[] = [];
   for (const enemy of revealedEnemies) {
     const entry = (input.heroCounters?.get(enemy) ?? []).find((counter) => counter.vs === candidate);
-    if (!entry) continue;
+    if (!entry || entry.why.startsWith(UNREASONED_PREFIX)) continue;
     const enemyPosition = likelyPosition(enemy, input.heroPositions);
     wins.push({ vsHeroId: enemy, level: entry.level, why: cleanWhy(entry.why), core: enemyPosition !== null && CORE_POSITIONS.includes(enemyPosition) });
   }
@@ -120,13 +128,13 @@ function evaluate(candidate: HeroId, revealedEnemies: readonly HeroId[], own: Re
   const position = coveredPosition(candidate, input);
   if (position === null) return null;
   const wins = winsOf(candidate, revealedEnemies, input);
-  const hardCoreWin = wins.some((win) => win.level === "hard" && win.core && !win.why.startsWith(UNREASONED_PREFIX));
-  if (!hardCoreWin) return null;
-  const winPoints = wins.reduce((sum, win) => sum + WIN_POINTS[win.level], 0);
+  if (!wins.some((win) => win.level === "hard" && win.core)) return null;
+  const winPoints = wins.filter((win) => win.core).reduce((sum, win) => sum + WIN_POINTS[win.level], 0);
   const ownCounters = input.heroCounters?.get(candidate) ?? [];
   const revealed = new Set(revealedEnemies);
   const rivalCounters = ownCounters.filter((counter) => revealed.has(counter.vs));
   if (rivalCounters.some((counter) => counter.level === "hard")) return null;
+  if (rivalCounters.length > MAX_MEDIUM_RIVAL_COUNTERS) return null;
   if (rivalCounters.length > 0 && winPoints < MEDIUM_RIVAL_COUNTER_MIN_POINTS) return null;
   const stillFreeHard = ownCounters.filter((counter) => counter.level === "hard" && !banned.has(counter.vs) && !own.has(counter.vs)).map((counter) => counter.vs);
   if (stillFreeHard.length > MAX_STILL_FREE_HARD) return null;
@@ -141,6 +149,15 @@ function evaluate(candidate: HeroId, revealedEnemies: readonly HeroId[], own: Re
  * luego más counters suyos ya fuera de juego, luego más parejas con tus picks, luego el id más bajo (determinista).
  */
 export function selectGoldenCard(input: GoldenCardInput): GoldenCard | null {
+  // Pieza decorativa: si algo inesperado lanzara, el tablero sigue sin la card (una señal rota nunca tira el motor).
+  try {
+    return pickGoldenCard(input);
+  } catch {
+    return null;
+  }
+}
+
+function pickGoldenCard(input: GoldenCardInput): GoldenCard | null {
   const revealedEnemies = input.view.enemyPicks.flatMap((slot) => (slot.visibility === "REVEALED" ? [slot.heroId] : []));
   if (revealedEnemies.length < GOLDEN_MIN_REVEALED_ENEMIES) return null;
   const own = new Set<HeroId>(visibleHeroes(input.view.ownPicks));

@@ -83,7 +83,7 @@ describe("Team Coach Board -- una columna sin ranking nunca nombra un héroe rec
 });
 
 describe("Team Coach Board -- la card dorada viaja en el tablero", () => {
-  test("sin rivales a la vista el campo existe y es null (nunca ausente: la web lo valida como obligatorio)", async () => {
+  test("sin rivales a la vista el campo existe y es null (nunca ausente en lo que manda el motor; la web además tolera un motor anterior que no lo mande)", async () => {
     const board = await boardWith(fakeCompute());
     expect(board.goldenCard).toBeNull();
     expect(Object.keys(board)).toContain("goldenCard");

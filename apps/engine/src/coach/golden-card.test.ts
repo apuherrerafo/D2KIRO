@@ -91,12 +91,35 @@ describe("selectGoldenCard -- regla 4: ningún rival ya sacado lo counterea", ()
     expect(selectGoldenCard(input({ heroCounters: counters([[CORE_A, [hard(ME)]], [SUPPORT, [medium(ME)]], [ME, [hard(SUPPORT)]]]) }))).toBeNull();
   });
 
-  test("un rival ya sacado lo counterea MEDIO: solo pasa con 4 o más puntos de victoria", () => {
-    const withMediumRival = counters([[CORE_A, [hard(ME)]], [SUPPORT, [medium(ME)]], [ME, [medium(SUPPORT)]]]); // 2 + 1 = 3 puntos
-    expect(selectGoldenCard(input({ heroCounters: withMediumRival }))).toBeNull();
-    const enemies = [{ heroId: CORE_A, visibility: "REVEALED" as const }, { heroId: CORE_B, visibility: "REVEALED" as const }, { heroId: SUPPORT, visibility: "REVEALED" as const }];
-    const fourPoints = counters([[CORE_A, [hard(ME)]], [CORE_B, [hard(ME)]], [ME, [medium(SUPPORT)]]]); // 2 + 2 = 4 puntos
-    expect(selectGoldenCard(input({ heroCounters: fourPoints, view: view({ enemies }) }))?.heroId).toBe(ME);
+  test("un rival ya sacado lo counterea MEDIO: solo pasa con 5 o más puntos de victoria (core) y como máximo 1 medio", () => {
+    const CORE_C = 303;
+    const positions: HeroPositions = { ...POSITIONS, [CORE_C]: [{ position: 3, matches: 3000 }] };
+    const enemies3 = [{ heroId: CORE_A, visibility: "REVEALED" as const }, { heroId: CORE_B, visibility: "REVEALED" as const }, { heroId: SUPPORT, visibility: "REVEALED" as const }];
+    const fourPoints = counters([[CORE_A, [hard(ME)]], [CORE_B, [hard(ME)]], [ME, [medium(SUPPORT)]]]); // 2 + 2 = 4 puntos: ya no alcanza
+    expect(selectGoldenCard(input({ heroCounters: fourPoints, view: view({ enemies: enemies3 }) }))).toBeNull();
+    const enemies4 = [...enemies3, { heroId: CORE_C, visibility: "REVEALED" as const }];
+    const sixPoints = counters([[CORE_A, [hard(ME)]], [CORE_B, [hard(ME)]], [CORE_C, [hard(ME)]], [ME, [medium(SUPPORT)]]]); // 6 puntos
+    expect(selectGoldenCard(input({ heroPositions: positions, heroCounters: sixPoints, view: view({ enemies: enemies4 }) }))?.heroId).toBe(ME);
+    const twoMediums = counters([[CORE_A, [hard(ME)]], [CORE_B, [hard(ME)]], [CORE_C, [hard(ME)]], [ME, [medium(SUPPORT), medium(CORE_B)]]]);
+    expect(selectGoldenCard(input({ heroPositions: positions, heroCounters: twoMediums, view: view({ enemies: enemies4 }) }))).toBeNull(); // 2 medios rivales: nunca
+  });
+});
+
+describe("selectGoldenCard -- solo cuentan las victorias con razón real y sobre cores", () => {
+  test("una victoria que solo dice 'Lo dicen: …' ni cuenta ni se muestra en la card", () => {
+    const card = selectGoldenCard(input({ heroCounters: counters([[CORE_A, [hard(ME)]], [SUPPORT, [medium(ME, "Lo dicen: DotaCoach (7.41f)")]]]) }));
+    expect(card?.heroId).toBe(ME);
+    expect(card?.wins.map((win) => win.vsHeroId)).toEqual([CORE_A]);
+  });
+
+  test("las victorias sobre un rival que no es core no suman puntos (no sirven para tolerar un counter medio rival)", () => {
+    const SUPPORT_B = 304;
+    const SUPPORT_C = 306;
+    const positions: HeroPositions = { ...POSITIONS, [SUPPORT_B]: [{ position: 5, matches: 3000 }], [SUPPORT_C]: [{ position: 5, matches: 3000 }] };
+    const enemies = [CORE_A, SUPPORT, SUPPORT_B, SUPPORT_C].map((heroId) => ({ heroId, visibility: "REVEALED" as const }));
+    // ME le gana duro a un core (2) y a dos supports (si contaran serían 6 >= 5); un support rival lo counterea medio.
+    const c = counters([[CORE_A, [hard(ME)]], [SUPPORT, [hard(ME)]], [SUPPORT_B, [hard(ME)]], [ME, [medium(SUPPORT_C)]]]);
+    expect(selectGoldenCard(input({ heroPositions: positions, heroCounters: c, view: view({ enemies }) }))).toBeNull(); // cuentan 2 < 5
   });
 });
 
@@ -129,6 +152,38 @@ describe("selectGoldenCard -- fuera de pool, posición abierta, exclusión", () 
     const positions: HeroPositions = { ...POSITIONS, [rubick]: [{ position: 3, matches: 2000 }] };
     const c = counters([[CORE_A, [hard(rubick)]], [SUPPORT, [medium(rubick)]]]);
     expect(selectGoldenCard({ ...input({ heroPositions: positions, heroCounters: c }), excluded: undefined })).toBeNull();
+  });
+
+  test("Storm Spirit, Puck y Void Spirit también están excluidos (criterio del auditor de Dota)", () => {
+    for (const heroId of [17, 13, 126]) expect(GOLDEN_CARD_EXCLUDED.has(heroId)).toBe(true);
+  });
+
+  test("un héroe que el RIVAL ya sacó no se ofrece como card aunque cumpla (ya no está disponible)", () => {
+    const c = counters([[CORE_A, [hard(SUPPORT)]], [CORE_B, [medium(SUPPORT)]]]);
+    const enemies = [{ heroId: CORE_A, visibility: "REVEALED" as const }, { heroId: CORE_B, visibility: "REVEALED" as const }, { heroId: SUPPORT, visibility: "REVEALED" as const }];
+    expect(selectGoldenCard(input({ heroCounters: c, openPositions: [5], view: view({ enemies }) }))).toBeNull();
+  });
+
+  test("si está en tu pool de una posición abierta pero juega otra posición abierta fuera de pool, sale por la segunda", () => {
+    const JUMP = 902;
+    const positions: HeroPositions = { ...POSITIONS, [JUMP]: [{ position: 3, matches: 2000 }, { position: 4, matches: 1500 }] };
+    const c = counters([[CORE_A, [hard(JUMP)]], [SUPPORT, [medium(JUMP)]]]);
+    const card = selectGoldenCard(input({ heroPositions: positions, heroCounters: c, poolFor: (position) => (position === 3 ? [JUMP] : undefined) }));
+    expect(card?.heroId).toBe(JUMP);
+    expect(card?.position).toBe(4);
+  });
+
+  test("el borde exacto cuenta: 1/4 de sus partidas en esa posición (1.000 de 4.000) alcanza", () => {
+    const EDGE = 903;
+    const positions: HeroPositions = { ...POSITIONS, [EDGE]: [{ position: 3, matches: 1000 }, { position: 4, matches: 3000 }] };
+    const c = counters([[CORE_A, [hard(EDGE)]], [SUPPORT, [medium(EDGE)]]]);
+    expect(selectGoldenCard(input({ heroPositions: positions, heroCounters: c, openPositions: [3] }))?.heroId).toBe(EDGE);
+    const below: HeroPositions = { ...POSITIONS, [EDGE]: [{ position: 3, matches: 999 }, { position: 4, matches: 3001 }] };
+    expect(selectGoldenCard(input({ heroPositions: below, heroCounters: c, openPositions: [3] }))).toBeNull();
+  });
+
+  test("pieza decorativa: si algo lanza por dentro, devuelve null (el tablero nunca cae por la card)", () => {
+    expect(selectGoldenCard(input({ poolFor: () => { throw new Error("falla de fixture"); } }))).toBeNull();
   });
 
   test("un héroe baneado o ya pickeado no sale", () => {

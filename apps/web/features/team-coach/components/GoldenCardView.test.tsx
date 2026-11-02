@@ -64,7 +64,7 @@ describe("GoldenCardView -- se pinta lo que decidió el motor", () => {
     const card = view.getByTestId("golden-card");
     expect(card.textContent).toContain("Card dorada · Pos3 Offlane");
     expect(card.textContent).toContain("Hero 7");
-    expect(card.textContent).toContain("Fuera de tu pool");
+    expect(card.textContent).toContain("No está en tu pool de esta posición");
     const wins = view.getAllByTestId("golden-card-win").map((node) => node.textContent);
     expect(wins[0]).toContain("Fuerte contra Hero 11 (ya está en el rival): Orchid lo silencia");
     expect(wins[1]).toContain("Ventaja posible contra Hero 12");

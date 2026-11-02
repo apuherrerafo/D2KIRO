@@ -52,6 +52,13 @@ describe("summarizeBoard", () => {
     expect(one.top[4]).toMatchObject({ heroId: 15, rank: 5 });
   });
 
+  test("graba la card dorada tal cual la devolvió el motor (y null cuando no hubo), para diagnosticar 'no apareció' o 'me recomendó mal'", () => {
+    const golden = { heroId: 7, position: 3 as TeamPosition, wins: [{ vsHeroId: 11, level: "hard" as const, why: "razón", core: true }], stillFreeHardCounters: [], counteredOutBy: [21], synergies: [] };
+    const withCard = summarizeBoard({ ...board("s1", {}), goldenCard: golden }) as { goldenCard: unknown };
+    expect(withCard.goldenCard).toEqual(golden);
+    expect((summarizeBoard(board("s1", {})) as { goldenCard: unknown }).goldenCard).toBeNull(); // campo ausente (motor anterior) -> null
+  });
+
   test("copia los campos extra del candidato sin conocerlos (p. ej. señales que el motor agregue)", () => {
     const withExtra = board("s1", { 1: [11] });
     (withExtra.positions[0]!.top[0] as unknown as Record<string, unknown>).signals = [{ id: "counter", raw: 62 }];
