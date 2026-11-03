@@ -21,7 +21,7 @@ export const CAPABILITY_DATA_AVAILABLE = "CAPABILITY_DATA_AVAILABLE" as const;
  * - Largo (155): héroe jugable activo en partidas clasificadas. Falta UN campo con fuente: `hasWaveclear` (ninguna guía escrita ni
  *   analista aprobado lo dice; el cargador exige un booleano, así que la ficha entera espera). Los otros siete campos tienen respaldo.
  *
- * Ringmaster (131) y Kez (145) se curaron (2026-11-03) con textos del juego + guías citables, revisadas por el auditor de Dota:
+ * Ringmaster (131) y Kez (145) se curaron con textos del juego + guías citables, revisadas por el auditor de Dota:
  * Ringmaster `scaling` y Kez `teamfight` salen de UNA guía (confianza media).
  *
  * En el motor de scoring (team_synergy, archetype_fit), la semántica canónica dicta que:
