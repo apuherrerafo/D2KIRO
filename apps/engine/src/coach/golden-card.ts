@@ -3,7 +3,7 @@ import type { Position } from "../draft-protocol/roles/role-belief";
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { HeroPositions } from "../signals/hero-positions";
 import type { CuratedSynergy } from "../signals/hero-synergies";
-import { likelyPosition, synergiesWithOwn } from "./context-reorder";
+import { crossesInLane, likelyPosition, synergiesWithOwn } from "./context-reorder";
 
 // Card dorada -- UN héroe que NO está en tu pool pero encaja de verdad con este draft. Máximo 1, no siempre activa, para cualquier
 // posición que todavía te falte. El estándar lo fijaron dos expertos de Dota y el usuario eligió la variante que sale casi siempre
@@ -42,6 +42,10 @@ const PROTECTION_POINTS = { hard: 4, medium: 1 } as const;
 /** Una razón de la base que solo dice a quién se lo atribuye ("Lo dicen: DotaCoach (7.41f)") no cuenta como razón de Dota. */
 const UNREASONED_PREFIX = "Lo dicen";
 const CORE_POSITIONS: readonly Position[] = [1, 2, 3];
+/** Una razón de la base que habla de la fase de líneas ("le gana a Bane en la línea"). */
+const LANE_WORDS = /l[ií]nea|carril/i;
+/** En ranked la gente se sale de su rol: si no se cruzan en la línea, no se afirma que se enfrenten ahí. */
+const LANE_CAVEAT = " (si se cruzan en la línea)";
 
 /**
  * Héroes que no se ofrecen como "perfecto" porque salen mal para quien no los domina (decisión de producto, lista propuesta por un
@@ -113,13 +117,16 @@ function coveredPosition(heroId: HeroId, input: GoldenCardInput): Position | nul
   return null;
 }
 
-function winsOf(candidate: HeroId, revealedEnemies: readonly HeroId[], input: GoldenCardInput): GoldenCardWin[] {
+function winsOf(candidate: HeroId, position: Position, revealedEnemies: readonly HeroId[], input: GoldenCardInput): GoldenCardWin[] {
   const wins: GoldenCardWin[] = [];
   for (const enemy of revealedEnemies) {
     const entry = (input.heroCounters?.get(enemy) ?? []).find((counter) => counter.vs === candidate);
     if (!entry || entry.why.startsWith(UNREASONED_PREFIX)) continue;
     const enemyPosition = likelyPosition(enemy, input.heroPositions);
-    wins.push({ vsHeroId: enemy, level: entry.level, why: cleanWhy(entry.why), core: enemyPosition !== null && CORE_POSITIONS.includes(enemyPosition) });
+    // Una razón que habla de la línea solo se dice sin reservas si ese rival SÍ se cruza con la posición que cubre la card (tabla del
+    // usuario, flex incluido); si no, lleva el aviso. Nunca se afirma una línea que no se sabe que ocurra.
+    const caveat = LANE_WORDS.test(entry.why) && !crossesInLane(enemy, { targetPosition: position, heroPositions: input.heroPositions }) ? LANE_CAVEAT : "";
+    wins.push({ vsHeroId: enemy, level: entry.level, why: `${cleanWhy(entry.why)}${caveat}`, core: enemyPosition !== null && CORE_POSITIONS.includes(enemyPosition) });
   }
   return wins.sort((a, b) => WIN_POINTS[b.level] - WIN_POINTS[a.level] || a.vsHeroId - b.vsHeroId);
 }
@@ -127,7 +134,7 @@ function winsOf(candidate: HeroId, revealedEnemies: readonly HeroId[], input: Go
 function evaluate(candidate: HeroId, revealedEnemies: readonly HeroId[], own: ReadonlySet<HeroId>, banned: ReadonlySet<HeroId>, input: GoldenCardInput): Scored | null {
   const position = coveredPosition(candidate, input);
   if (position === null) return null;
-  const wins = winsOf(candidate, revealedEnemies, input);
+  const wins = winsOf(candidate, position, revealedEnemies, input);
   if (!wins.some((win) => win.level === "hard" && win.core)) return null;
   const winPoints = wins.filter((win) => win.core).reduce((sum, win) => sum + WIN_POINTS[win.level], 0);
   const ownCounters = input.heroCounters?.get(candidate) ?? [];
