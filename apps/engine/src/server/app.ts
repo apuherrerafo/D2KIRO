@@ -28,6 +28,7 @@ import {
 import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes, CURRENT_PATCH } from "./routes/meta";
+import { orderHeroesByPicks } from "../meta/patch-scope";
 import { createLiveCaptureRoutes } from "./routes/live-capture";
 import { createLiveGsiRoutes } from "./routes/live-gsi";
 import { LiveCaptureRegistry } from "../live/live-capture-registry";
@@ -153,10 +154,10 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     heroUniverse: async () => {
       const heroRows = await getAllHeroMeta(deps.db);
       const meta = await getCachedMetaSnapshot<TSchema>(deps.db, null);
-      const totalPicks = (heroId: number): number => (meta.patchStats?.[heroId] ?? []).reduce((sum, stat) => sum + stat.picks, 0);
       const allHeroIds = heroRows.map((hero) => hero.id);
-      // Proxy for "how likely to be banned": no ban-rate data exists in this project, so total pick volume orders the pool.
-      const metaOrder = [...allHeroIds].sort((a, b) => totalPicks(b) - totalPicks(a) || a - b);
+      // Proxy for "how likely to be banned": no ban-rate data exists in this project, so pick volume orders the pool.
+      // Se agrega dentro de UN solo parche (nunca se suman parches distintos; ver meta/patch-scope.ts).
+      const metaOrder = orderHeroesByPicks(allHeroIds, meta.patchStats ?? {}, CURRENT_PATCH);
       return { allHeroIds, metaOrder };
     },
     heroPositions: deps.heroPositions,

@@ -75,3 +75,29 @@ test("loadMetaSnapshot retorna currentPatch:'unknown' sin patchStats", async () 
   expect(result.currentPatch).toBe("unknown");
   expect(result.metaBanPool).toEqual([1]);
 });
+
+test("metaBanPool ordena por picks de UN solo parche: los restos con patch vacío no cuentan", async () => {
+  // Antes se sumaban todas las filas: el héroe 1 (restos de 9000 picks) quedaba primero aunque en 7.41e tenga 100.
+  mockFetch(
+    [
+      { id: 1, localizedName: "Resto viejo", roles: ["Carry"] },
+      { id: 2, localizedName: "Meta actual", roles: ["Support"] },
+    ],
+    {
+      "1": [
+        { patch: "", bracket: "all", picks: 9000, wins: 4500 },
+        { patch: "7.41e", bracket: "all", picks: 100, wins: 50 },
+      ],
+      "2": [
+        { patch: "", bracket: "all", picks: 10, wins: 5 },
+        { patch: "7.41e", bracket: "all", picks: 500, wins: 250 },
+      ],
+    },
+  );
+
+  const result = await loadMetaSnapshot();
+
+  expect(result.currentPatch).toBe("7.41e");
+  expect(result.metaBanPool).toEqual([2, 1]);
+  expect(result.meta.currentPatch).toBe("7.41e");
+});

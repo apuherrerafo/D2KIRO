@@ -8,6 +8,7 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId } from "./types";
 import type { HeroPatchStat, HeroPositions, MetaHeroEntry, MetaSnapshot } from "./bot-drafter";
+import { statsInPatch } from "./patch-scope";
 
 interface RawHero {
   id: number;
@@ -33,9 +34,9 @@ export interface LoadedMeta {
   currentPatch: string;
 }
 
-function totalPicks(stats: HeroPatchStat[] | undefined): number {
-  if (!stats) return 0;
-  return stats.reduce((sum, entry) => sum + entry.picks, 0);
+/** Picks de UN solo parche: nunca se suman parches distintos (restos con patch "" de una sync vieja). */
+function totalPicks(stats: HeroPatchStat[] | undefined, patch: string): number {
+  return statsInPatch(stats, patch).reduce((sum, entry) => sum + entry.picks, 0);
 }
 
 function detectCurrentPatch(patchStats: Record<HeroId, HeroPatchStat[]>): string {
@@ -82,14 +83,15 @@ export async function loadMetaSnapshot(): Promise<LoadedMeta> {
     normalizedPatchStats[Number(heroIdStr)] = stats;
   }
 
+  const currentPatch = detectCurrentPatch(normalizedPatchStats);
   const metaBanPool = allHeroIds
     .slice()
-    .sort((a, b) => totalPicks(normalizedPatchStats[b]) - totalPicks(normalizedPatchStats[a]));
+    .sort((a, b) => totalPicks(normalizedPatchStats[b], currentPatch) - totalPicks(normalizedPatchStats[a], currentPatch));
 
   return {
-    meta: { heroes, patchStats: normalizedPatchStats, heroPositions: heroPositions ?? {} },
+    meta: { heroes, patchStats: normalizedPatchStats, currentPatch, heroPositions: heroPositions ?? {} },
     allHeroIds,
     metaBanPool,
-    currentPatch: detectCurrentPatch(normalizedPatchStats),
+    currentPatch,
   };
 }
