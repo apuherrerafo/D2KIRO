@@ -284,10 +284,13 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
   if (!blockingHardFree) bonus += MAX_BAN_BONUS * banFraction(heroId, input);
   for (const beaten of beatsRevealed(heroId, input)) bonus += BEATS_BONUS[beaten.level];
   const penalty = revealedCounterPenalty(heroId, input);
-  // La sinergia sube con cuántos de tus picks ya elegidos combinan con el héroe (el primero +3, cada otro +1, hasta 3
+  // La sinergia sube con cuántos de tus picks ya elegidos combinan con el héroe (el primero +3, cada otro con razón +1, hasta 3
   // aliados) y solo si no hay un counter revelado: no tapa a un counter (un Axe en tu línea no se compensa con una pareja).
-  const partners = new Set(synergiesWithOwn(heroId, input).map((synergy) => synergy.with)).size;
-  if (partners > 0 && penalty === 0) bonus += SYNERGY_BONUS + SYNERGY_EXTRA_ALLY_BONUS * (Math.min(partners, MAX_SYNERGY_ALLIES) - 1);
+  // Los escalones extra cuentan solo parejas con razón de Dota: una que dice únicamente "Lo dicen: …" es atribución, no razón.
+  const pairs = synergiesWithOwn(heroId, input);
+  const reasonedPartners = new Set(pairs.filter((synergy) => !synergy.why.trim().startsWith(UNREASONED_PREFIX)).map((synergy) => synergy.with)).size;
+  const extraAllies = Math.max(0, Math.min(reasonedPartners, MAX_SYNERGY_ALLIES) - 1);
+  if (pairs.length > 0 && penalty === 0) bonus += SYNERGY_BONUS + SYNERGY_EXTRA_ALLY_BONUS * extraAllies;
   // El robo: una sola vez, el mejor (las notas vienen con el fuerte primero). `stealsOf` ya calla si hay un counter rival revelado.
   const [bestSteal] = stealsOf(heroId, input);
   if (bestSteal) bonus += STEAL_BONUS[bestSteal.level];

@@ -155,6 +155,17 @@ describe("el rival YA sacó un counter: baja, pero no al fondo de oficio", () =>
     expect(bonusWith([ORACLE, DAZZLE], [ORACLE])).toBe(3); // combina con 1 de los 2 picks: cuenta 1
     expect(bonusWith([], [ORACLE, DAZZLE])).toBe(0); // sin picks tuyos a la vista, nada
   });
+
+  test("las parejas que solo dicen 'Lo dicen: …' (atribución, sin razón de Dota) no suben el escalón extra, pero el primer +3 sigue", () => {
+    const attributed = new Map<number, readonly CuratedSynergy[]>([[ANTI_MAGE, [
+      { with: ORACLE, why: "False Promise lo salva" },
+      { with: DAZZLE, why: "Lo dicen: DotaCoach (7.41f)" },
+      { with: EMBER, why: "Lo dicen: wiki Fandom" },
+    ]]]);
+    expect(contextBonus(ANTI_MAGE, ctx({ ownPicks: new Set([ORACLE, DAZZLE, EMBER]), heroSynergies: attributed }))).toBe(3);
+    const onlyAttributed = new Map<number, readonly CuratedSynergy[]>([[ANTI_MAGE, [{ with: DAZZLE, why: "Lo dicen: DotaCoach (7.41f)" }]]]);
+    expect(contextBonus(ANTI_MAGE, ctx({ ownPicks: new Set([DAZZLE]), heroSynergies: onlyAttributed }))).toBe(3);
+  });
 });
 
 describe("reorderByContext", () => {
