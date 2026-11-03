@@ -489,6 +489,11 @@
       "vs": 137,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f), wiki Fandom (7.41d)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "7": [
@@ -748,6 +753,31 @@
     },
     {
       "vs": 129,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 87,
+      "level": "medium",
+      "why": "Lo dicen: BananaSlamJamma (7.41e), KheZu (7.41e)"
+    },
+    {
+      "vs": 119,
+      "level": "medium",
+      "why": "Lo dicen: KheZu (7.41e)"
+    },
+    {
+      "vs": 88,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 32,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 67,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
     }
@@ -2167,7 +2197,7 @@
     {
       "vs": 114,
       "level": "hard",
-      "why": "Lo dicen: MrJeansDota (7.41f), panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: MrJeansDota (7.41f), panel del TI (7.41e)"
     },
     {
       "vs": 128,
@@ -2364,6 +2394,11 @@
       "vs": 48,
       "level": "medium",
       "why": "Lo dicen: wiki Fandom (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "33": [
@@ -3308,6 +3343,11 @@
       "vs": 112,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
     }
   ],
   "45": [
@@ -3931,6 +3971,11 @@
       "vs": 137,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 9,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "54": [
@@ -3968,11 +4013,6 @@
       "vs": 65,
       "level": "medium",
       "why": "Flaming Lasso atraviesa la inmunidad a debuffs y lo deja sin moverse, atacar ni usar habilidades incluso durante Rage, y Flamebreak y Firefly permiten kitearlo"
-    },
-    {
-      "vs": 96,
-      "level": "medium",
-      "why": "Retaliate le devuelve daño en cada golpe a Lifestealer, un carry que vive de pegar"
     },
     {
       "vs": 81,
@@ -4575,6 +4615,11 @@
     },
     {
       "vs": 92,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
     }
@@ -7198,6 +7243,11 @@
       "vs": 128,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "95": [
@@ -7347,6 +7397,26 @@
       "vs": 42,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 93,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 46,
+      "level": "medium",
+      "why": "Lo dicen: wiki Fandom (7.41d)"
+    },
+    {
+      "vs": 70,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 54,
+      "level": "hard",
+      "why": "Lo dicen: DotaCoach (7.41f), BananaSlamJamma (7.41e), panel del TI (7.41e)"
     }
   ],
   "97": [
@@ -8503,7 +8573,7 @@
     {
       "vs": 98,
       "level": "hard",
-      "why": "Lo dicen: KheZu (7.41e), panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: KheZu (7.41e), panel del TI (7.41e)"
     },
     {
       "vs": 17,
@@ -8798,6 +8868,11 @@
     },
     {
       "vs": 92,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 9,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
     }
@@ -10012,6 +10087,11 @@
       "vs": 105,
       "level": "medium",
       "why": "Lo dicen: DotaCoach (7.41f)"
+    },
+    {
+      "vs": 96,
+      "level": "medium",
+      "why": "Lo dicen: DotaCoach (7.41f)"
     }
   ],
   "145": [
@@ -10123,7 +10203,7 @@
     {
       "vs": 112,
       "level": "hard",
-      "why": "Lo dicen: panel TI (sin identificar) (7.41e)"
+      "why": "Lo dicen: panel del TI (7.41e)"
     }
   ],
   "155": [
