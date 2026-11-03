@@ -20,12 +20,18 @@ import { loadHeroPositions, type HeroPositions } from "../../signals/hero-positi
 // Legacy `GET .../recommendations` (RecommendationSetV2 from authoritative state) does not go
 // through here and is unchanged.
 
+/** Piso del pedido a V6 (los 6 de siempre): un universo diminuto nunca baja de lo que V6 entrega por defecto. */
+const TEAM_TARGET_MIN_CANDIDATES = 6;
+
 /**
- * Cuántos candidatos se le piden a V6 para el ranking POR POSICIÓN del Team Coach (la lista de 5 tarjetas por columna). V6 entrega 6 por
- * defecto y, al sacar baneados, elegidos y héroes sin motivo, la columna se quedaba con 3, 2 o 1. Con margen, "se suben los de atrás":
- * siempre hay 5 mientras existan candidatos creíbles. Mismo ranking, más largo: el orden no cambia.
+ * Cuántos candidatos se le piden a V6 para el ranking POR POSICIÓN del Team Coach: TODO el universo creíble de esa posición, no un tope.
+ * La lista es una fila que avanza: si los dos equipos sacan al #3, pasa a 1, 2, 4, 5, 6 y el 6 sube a 5; la fila no se acaba mientras
+ * quede un héroe creíble legal. V6 entrega 6 por defecto y, al sacar baneados, elegidos y héroes sin motivo, la columna se quedaba con 3,
+ * 2 o 1; un tope fijo (antes 20) solo movía el problema más atrás. Mismo ranking, más largo: el orden no cambia. Pura.
  */
-export const TEAM_TARGET_CANDIDATE_LIMIT = 20;
+export function teamTargetCandidateLimit(universe: readonly number[]): number {
+  return Math.max(TEAM_TARGET_MIN_CANDIDATES, universe.length);
+}
 
 export interface PerspectiveContextSource {
   perspectiveRecommendationContext(sessionId: string): PerspectiveRecommendationContext | null;
@@ -74,7 +80,9 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
   // admission any more: it travels as `overrideHeroPool`, which `hero_pool_fit` turns into a preference. A pool hero
   // that is not credible for the position is simply not a candidate; a pool that runs dry leaves the credible heroes.
   function targetUniverse(_context: PerspectiveRecommendationContext, targetPosition: 1 | 2 | 3 | 4 | 5) {
-    return { candidateHeroIds: credibleHeroesForPosition(targetPosition, heroPositions) };
+    const candidateHeroIds = credibleHeroesForPosition(targetPosition, heroPositions);
+    const limit = teamTargetCandidateLimit(candidateHeroIds);
+    return { candidateHeroIds, outputLimit: limit, candidateLimit: limit };
   }
   function coachFor(accountId: number | null): CoachOrchestrator {
     const key = accountId === null ? "anonymous" : String(accountId);
@@ -135,8 +143,6 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
             ...targetUniverse(context, targetPosition),
             teamOpening: false,
             singleSlotEvaluation: true,
-            outputLimit: TEAM_TARGET_CANDIDATE_LIMIT,
-            candidateLimit: TEAM_TARGET_CANDIDATE_LIMIT,
           });
         },
       });
@@ -158,8 +164,6 @@ export function createCoachRecommendations(deps: CoachRecommendationsDeps): Coac
       ...targetUniverse(context, targetPosition),
       teamOpening: false,
       singleSlotEvaluation: true,
-      outputLimit: TEAM_TARGET_CANDIDATE_LIMIT,
-      candidateLimit: TEAM_TARGET_CANDIDATE_LIMIT,
     });
   }
   function teamBoardInput(context: PerspectiveRecommendationContext, playerPersonalPosition: 1 | 2 | 3 | 4 | 5 | null, accountId: number | null) {

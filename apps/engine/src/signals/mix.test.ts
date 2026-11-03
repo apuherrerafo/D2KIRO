@@ -471,10 +471,12 @@ describe("Fase 8 -- counter cableado como scorer por llamada (candado de pipelin
       50: { id: 50, localizedName: "Dazzle" },
     });
 
+    // Un catálogo curado que no toca a ningún héroe de este draft (fixture inline: la prueba nunca lee hero-counters.json real).
+    const unrelatedCatalog = new Map([[900, [{ vs: 901, level: "hard" as const, why: "fixture sin relación con este draft" }]]]);
     const withEmpty = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: new Map(), heroSynergies: new Map() });
-    const withRealFile = buildSuggestions(state, snapshot, OPTS); // carga hero-counters.json real
+    const withUnrelated = buildSuggestions(state, snapshot, { ...OPTS, heroCounters: unrelatedCatalog });
 
-    expect(withEmpty.suggestions.map((s) => s.hero)).toEqual(withRealFile.suggestions.map((s) => s.hero));
+    expect(withEmpty.suggestions.map((s) => s.hero)).toEqual(withUnrelated.suggestions.map((s) => s.hero));
     for (const suggestion of withEmpty.suggestions) {
       expect(suggestion.signals.find((s) => s.signal === "counter")?.raw).toBeNull();
     }

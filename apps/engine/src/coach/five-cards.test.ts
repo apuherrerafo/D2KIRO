@@ -31,8 +31,8 @@ function cappedCompute(): ComputeSuggestionsForRecommendation {
   };
 }
 
-async function cardsFor(candidateLimit: number | undefined) {
-  const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5], pool: HEROES, heroPositions: POSITIONS });
+async function cardsFor(candidateLimit: number | undefined, bans: number[] = []) {
+  const h = harness({ adapterKind: "simulator", controlledPositions: [1, 2, 3, 4, 5], pool: HEROES, heroPositions: POSITIONS, bans });
   h.seal(h.side, 0, 14); // un pick propio a la vista: desde aquí el draft "dice algo" y se filtra a los de solo rol
   const context = h.store.perspectiveRecommendationContext(h.id)!;
   const ranking = await buildRecommendationSetFromPerspective({
@@ -54,8 +54,8 @@ describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los 
     expect(result.state).toBe("UNRANKED_POSITIONAL");
   });
 
-  test("AHORA: pidiendo margen, suben los de atrás y la columna llega a 5 tarjetas, en el orden de V6", async () => {
-    const result = await cardsFor(20);
+  test("AHORA: pidiendo todo el universo, suben los de atrás y la columna llega a 5 tarjetas, en el orden de V6", async () => {
+    const result = await cardsFor(HEROES.length);
     if (result.state !== "RANKED") throw new Error(`esperaba RANKED, salió ${result.state}`);
     expect(result.cards).toHaveLength(5);
     expect(result.cards.map((card) => card.rank)).toEqual([1, 2, 3, 4, 5]);
@@ -63,4 +63,16 @@ describe("siempre 5 tarjetas por columna mientras haya candidatos (se suben los 
     expect(heroIds.every((hero) => hero > 6)).toBe(true); // ninguno de los 6 "solo rol"
     expect([...heroIds].sort((a, b) => a - b)).toEqual(heroIds.slice().sort((a, b) => a - b));
   });
+});
+
+describe("la fila avanza cuando un héroe sale del juego (mecanismo del shortlist; la ruta pide el universo en protocol-sessions.team-board.test.ts)", () => {
+  test("si un héroe sale del juego (baneado), la fila corre: los de atrás suben y siguen siendo 5, en el mismo orden de V6", async () => {
+    const before = await cardsFor(HEROES.length);
+    const after = await cardsFor(HEROES.length, [9]);
+    if (before.state !== "RANKED" || after.state !== "RANKED") throw new Error("esperaba RANKED");
+    expect(before.cards.map((card) => card.heroId)).toEqual([7, 8, 9, 10, 11]);
+    expect(after.cards.map((card) => card.heroId)).toEqual([7, 8, 10, 11, 12]); // el 9 salió; el 12 subió al quinto lugar
+    expect(after.cards.map((card) => card.rank)).toEqual([1, 2, 3, 4, 5]);
+  });
+
 });
