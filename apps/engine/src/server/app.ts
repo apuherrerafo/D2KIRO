@@ -28,6 +28,7 @@ import {
 import { createDraftPathsRoutes } from "./routes/draft-paths";
 import { createHeroPoolRoutes } from "./routes/hero-pool";
 import { createMetaRoutes, CURRENT_PATCH } from "./routes/meta";
+import { loadHeroUniverse } from "../meta/hero-universe";
 import { createLiveCaptureRoutes } from "./routes/live-capture";
 import { createLiveGsiRoutes } from "./routes/live-gsi";
 import { LiveCaptureRegistry } from "../live/live-capture-registry";
@@ -150,15 +151,7 @@ export function createApp<TSchema extends Record<string, unknown>>(deps: AppDeps
     allowClientForcedBotSelection: deps.allowClientForcedBotSelection === true,
     allowTestClockControl: deps.allowTestClockControl === true,
     heroCapabilities: deps.heroCapabilities,
-    heroUniverse: async () => {
-      const heroRows = await getAllHeroMeta(deps.db);
-      const meta = await getCachedMetaSnapshot<TSchema>(deps.db, null);
-      const totalPicks = (heroId: number): number => (meta.patchStats?.[heroId] ?? []).reduce((sum, stat) => sum + stat.picks, 0);
-      const allHeroIds = heroRows.map((hero) => hero.id);
-      // Proxy for "how likely to be banned": no ban-rate data exists in this project, so total pick volume orders the pool.
-      const metaOrder = [...allHeroIds].sort((a, b) => totalPicks(b) - totalPicks(a) || a - b);
-      return { allHeroIds, metaOrder };
-    },
+    heroUniverse: () => loadHeroUniverse(deps.db, CURRENT_PATCH),
     heroPositions: deps.heroPositions,
     loadTeamGroup: async (id, accountId) => {
       if (accountId !== null) {

@@ -7,6 +7,7 @@ import type { HeroCapabilities } from "../draft-paths/types";
 import { OpenDotaClient } from "../meta/opendota-client";
 import type { HeroPositions } from "../signals/hero-positions";
 import { createApp } from "./app";
+import { CURRENT_PATCH } from "./routes/meta";
 
 // TSK-036: fixture propio en vez de depender de capabilities.json real -- ese archivo es un
 // borrador que se sigue corrigiendo a mano, un test que dependiera de su contenido cambiaría de
@@ -376,6 +377,14 @@ describe("servidor Bun (TSK-010)", () => {
     expect(res.status).toBe(200);
     expect(body.heroPositions["1"]).toEqual([{ position: 1, matches: 1000 }]);
     expect(body.heroPositions["2"]).toEqual([{ position: 5, matches: 800 }]);
+  });
+
+  // Aditivo: el web agrega dentro del mismo parche que el motor (patch-scope), no por conteo propio.
+  test("GET /api/meta/hero-stats devuelve currentPatch (el parche vigente del motor)", async () => {
+    const res = await fetch(`${baseUrl}/api/meta/hero-stats`);
+    const body = (await res.json()) as { currentPatch: string };
+    expect(res.status).toBe(200);
+    expect(body.currentPatch).toBe(CURRENT_PATCH);
   });
 
   test("POST/GET /api/simulator/sessions retira el simulador CM legacy y apunta al kernel", async () => {

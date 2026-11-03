@@ -276,3 +276,63 @@ describe("el bot nunca repite un héroe ya tomado (TSK-216)", () => {
     expect(new Set(picked).size).toBe(3);
   });
 });
+
+// Parches mezclados: restos con patch "" (sync antigua, producción tenía 1016 filas así) no pueden
+// pesar en el puntaje de popularidad del bot. Antes `getPickRate` sumaba todas las filas.
+describe("botPickHero: estadística de un solo parche", () => {
+  const OLD_STAR = 1; // enorme en los restos "", pequeño en el parche vigente
+  const CURRENT_STAR = 2; // moderado pero real en el parche vigente
+
+  function mixedMeta(overrides: Partial<MetaSnapshot> = {}): MetaSnapshot {
+    return {
+      heroes: {
+        [OLD_STAR]: { id: OLD_STAR, localizedName: "Resto viejo" },
+        [CURRENT_STAR]: { id: CURRENT_STAR, localizedName: "Meta actual" },
+      },
+      patchStats: {
+        [OLD_STAR]: [
+          { patch: "", bracket: "all", picks: 9000, wins: 6000 },
+          { patch: "7.41e", bracket: "all", picks: 100, wins: 40 },
+        ],
+        [CURRENT_STAR]: [{ patch: "7.41e", bracket: "all", picks: 500, wins: 260 }],
+      },
+      ...overrides,
+    };
+  }
+
+  // Fórmula ANTERIOR (suma todas las filas sin mirar el parche), reproducida aquí como referencia.
+  function legacyScore(stats: { picks: number; wins: number }[]): number {
+    const picks = stats.reduce((s, r) => s + r.picks, 0);
+    const wins = stats.reduce((s, r) => s + r.wins, 0);
+    return (wins / picks) * Math.log1p(picks);
+  }
+
+  function pick(snapshot: MetaSnapshot): number | undefined {
+    return botPickHero({ draftState: draftState(), botSide: "radiant", meta: snapshot, rng: createSeededRng("AAAAAAAA"), conflictCount: 0 })?.heroId;
+  }
+
+  test("anterior: sumar parches mezclados hacía ganar al héroe de los restos vacíos", () => {
+    const stats = mixedMeta().patchStats!;
+    expect(legacyScore(stats[OLD_STAR]!)).toBeGreaterThan(legacyScore(stats[CURRENT_STAR]!));
+  });
+
+  test("corregido: con currentPatch explícito gana el héroe del meta vigente", () => {
+    expect(pick(mixedMeta({ currentPatch: "7.41e" }))).toBe(CURRENT_STAR);
+  });
+
+  test("corregido: sin currentPatch usa el parche no vacío dominante (ignora el vacío)", () => {
+    expect(pick(mixedMeta())).toBe(CURRENT_STAR);
+  });
+
+  test("héroe sin filas del parche vigente puntúa 0 (no se completa con otro parche)", () => {
+    const snapshot = mixedMeta({
+      currentPatch: "7.41e",
+      patchStats: { [OLD_STAR]: [{ patch: "", bracket: "all", picks: 9000, wins: 6000 }], [CURRENT_STAR]: [{ patch: "7.41e", bracket: "all", picks: 500, wins: 260 }] },
+    });
+    expect(pick(snapshot)).toBe(CURRENT_STAR);
+  });
+
+  test('currentPatch "unknown" (centinela del loader) no es un parche: se resuelve como ausente y usa el dominante no vacío', () => {
+    expect(pick(mixedMeta({ currentPatch: "unknown" }))).toBe(CURRENT_STAR);
+  });
+});

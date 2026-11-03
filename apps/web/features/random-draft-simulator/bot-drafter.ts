@@ -12,6 +12,7 @@ import type { DraftState } from "@/features/draft/types";
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId, TeamSide } from "./types";
 import type { SeededRng } from "./seeded-rng";
+import { dominantNonEmptyPatch, statsInPatch } from "./patch-scope";
 
 // ---------------------------------------------------------------------------
 // Tipos locales de meta (espejo de apps/engine/src/signals/types.ts)
@@ -45,6 +46,8 @@ export type HeroPositions = Record<HeroId, HeroPositionShare[]>;
 export interface MetaSnapshot {
   heroes: Record<HeroId, MetaHeroEntry>;
   patchStats?: Record<HeroId, HeroPatchStat[]>;
+  /** Parche con el que se agregan las estadísticas. Ausente: el no vacío dominante de `patchStats`. */
+  currentPatch?: string;
   heroPositions?: HeroPositions;
 }
 
@@ -116,13 +119,24 @@ function getBotPicks(draftState: DraftState, botSide: TeamSide): HeroId[] {
   return botSide === "radiant" ? draftState.picks.radiant : draftState.picks.dire;
 }
 
+/** Parche de agregación de un snapshot (cacheado por snapshot: el bot lo pide por cada héroe). */
+const aggregationPatchCache = new WeakMap<MetaSnapshot, string | null>();
+function aggregationPatch(meta: MetaSnapshot): string | null {
+  // "unknown" es el centinela de "sin parche real" del loader, no un parche: se resuelve como ausente.
+  if (meta.currentPatch && meta.currentPatch !== "unknown") return meta.currentPatch;
+  if (aggregationPatchCache.has(meta)) return aggregationPatchCache.get(meta) ?? null;
+  const patch = dominantNonEmptyPatch(meta.patchStats ?? {});
+  aggregationPatchCache.set(meta, patch);
+  return patch;
+}
+
 /**
- * Obtiene el pick rate total de un héroe sumando todos los brackets del patch más reciente.
- * Retorna 0 si no hay datos disponibles.
+ * Obtiene el pick rate total de un héroe sumando todos los brackets de UN solo parche (el vigente).
+ * Nunca mezcla parches. Retorna 0 si no hay datos de ese parche.
  */
 function getPickRate(heroId: HeroId, meta: MetaSnapshot): number {
-  const stats = meta.patchStats?.[heroId];
-  if (!stats || stats.length === 0) return 0;
+  const stats = statsInPatch(meta.patchStats?.[heroId], aggregationPatch(meta));
+  if (stats.length === 0) return 0;
 
   let totalPicks = 0;
   let totalWins = 0;

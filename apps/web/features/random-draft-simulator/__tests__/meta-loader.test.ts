@@ -7,10 +7,10 @@ afterEach(() => {
   global.fetch = originalFetch;
 });
 
-function mockFetch(heroes: unknown[], patchStats: Record<string, unknown[]>): void {
+function mockFetch(heroes: unknown[], patchStats: Record<string, unknown[]>, currentPatch?: string): void {
   global.fetch = (async (url: string) => {
     if (url.includes("/api/heroes")) return new Response(JSON.stringify(heroes));
-    if (url.includes("/api/meta/hero-stats")) return new Response(JSON.stringify({ patchStats }));
+    if (url.includes("/api/meta/hero-stats")) return new Response(JSON.stringify({ patchStats, currentPatch }));
     throw new Error(`unexpected url: ${url}`);
   }) as typeof fetch;
 }
@@ -74,4 +74,45 @@ test("loadMetaSnapshot retorna currentPatch:'unknown' sin patchStats", async () 
 
   expect(result.currentPatch).toBe("unknown");
   expect(result.metaBanPool).toEqual([1]);
+});
+
+test("metaBanPool ordena por picks de UN solo parche: los restos con patch vacío no cuentan", async () => {
+  // Antes se sumaban todas las filas: el héroe 1 (restos de 9000 picks) quedaba primero aunque en 7.41e tenga 100.
+  mockFetch(
+    [
+      { id: 1, localizedName: "Resto viejo", roles: ["Carry"] },
+      { id: 2, localizedName: "Meta actual", roles: ["Support"] },
+    ],
+    {
+      "1": [
+        { patch: "", bracket: "all", picks: 9000, wins: 4500 },
+        { patch: "7.41e", bracket: "all", picks: 100, wins: 50 },
+      ],
+      "2": [
+        { patch: "", bracket: "all", picks: 10, wins: 5 },
+        { patch: "7.41e", bracket: "all", picks: 500, wins: 250 },
+      ],
+    },
+  );
+
+  const result = await loadMetaSnapshot();
+
+  expect(result.currentPatch).toBe("7.41e");
+  expect(result.metaBanPool).toEqual([2, 1]);
+  expect(result.meta.currentPatch).toBe("7.41e");
+});
+
+test("usa el currentPatch que informa el motor aunque otro parche domine por conteo (misma regla que el motor)", async () => {
+  mockFetch(
+    [{ id: 1, localizedName: "Hero Uno", roles: ["Carry"] }, { id: 2, localizedName: "Hero Dos", roles: ["Support"] }],
+    {
+      "1": [{ patch: "7.40", bracket: "all", picks: 900, wins: 450 }, { patch: "7.40", bracket: "other", picks: 900, wins: 450 }],
+      "2": [{ patch: "7.40", bracket: "all", picks: 10, wins: 5 }, { patch: "7.41e", bracket: "all", picks: 20, wins: 10 }],
+    },
+    "7.41e",
+  );
+  const result = await loadMetaSnapshot();
+  expect(result.currentPatch).toBe("7.41e");
+  expect(result.meta.currentPatch).toBe("7.41e");
+  expect(result.metaBanPool).toEqual([2, 1]); // sólo cuentan los picks de 7.41e (héroe 1 tiene 0)
 });
