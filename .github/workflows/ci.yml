@@ -165,13 +165,12 @@ jobs:
   # es gitignored y ausente en un checkout limpio (R0/Task 7): Benchmark B sale
   # SKIPPED informational, visible, y NO bloquea a Benchmark A ni al job.
   #
-  # La GENERACIÓN de un candidate HEAD (`scripts/eval/run.ts`) necesita las
-  # SQLite gitignored del corpus y NO corre acá -- eso es R0.2B (Tasks 19/20).
-  # Task 10 sólo cablea el enforcement: el gate se ejecuta contra el
-  # `ReferenceBaseline` aceptado y versionado (`eval/baselines/v6-measured.json`),
-  # que sí está en el árbol. Sin candidate explícito el gate juzga la referencia
-  # contra sí misma (modo 9.x documentado en gate.ts) y sigue fallando fuerte si
-  # la referencia falta, es ilegible o es incomparable.
+  # CORRECCIÓN: este job antes corría `gate.ts --enforce` a secas, que sin `D2K_GATE_CURRENT`
+  # compara el baseline contra SÍ MISMO -- un PASS que no podía fallar. Ahora corre
+  # `scripts/eval/ci-gate.ts`: mide el motor del checkout (`run.ts` sobre el snapshot S1 y el split
+  # congelados, ambos versionados) y delega el veredicto a `gate.ts --enforce` contra el baseline
+  # ACEPTADO. Sigue sin reimplementar umbrales ni comparabilidad. No promueve baselines (eso es
+  # `promote-candidate.ts`, decisión del Product Owner) y no escribe en el repo.
   intelligence-ci:
     name: intelligence-ci (eval --enforce)
     runs-on: ubuntu-latest
@@ -195,11 +194,15 @@ jobs:
           echo "expected=$EXPECTED actual=$ACTUAL"
           [ "$EXPECTED" = "$ACTUAL" ] || { echo "Bun version drift: setup-bun instaló $ACTUAL, packageManager fija $EXPECTED"; exit 1; }
 
-      # The standing per-PR enforcement stays on its accepted default baseline.
-      # Task 19 evidence is an explicit, local/approved operation; it does not run
-      # in ordinary PR or push CI and Task 20 alone owns any promotion.
-      - name: Evaluation gate -- gate.ts --enforce (canonical authority, Tasks 8/9)
-        run: bun run scripts/eval/gate.ts --enforce
+      # run.ts importa el motor: necesita sus dependencias (mismo patrón que el job `test`).
+      - name: Install dependencies (apps/engine)
+        working-directory: apps/engine
+        run: bun install --frozen-lockfile
+
+      # Mide el motor ACTUAL y lo compara contra el baseline aceptado; promover un baseline nuevo
+      # sigue siendo una decisión explícita y local (promote-candidate.ts, Task 20).
+      - name: Evaluation gate -- ci-gate.ts (candidate real vs baseline aceptado)
+        run: bun run scripts/eval/ci-gate.ts
 
   # ---------------------------------------------------------------------------
   # R1 S7 -- single certification decision for the R1 program (protocol kernel,
