@@ -60,10 +60,10 @@ calla el sistema durante un draft.
   `iron-session`; sin sesión válida, cualquier ruta salvo `/login`, `/api/auth/*` y `/healthz`
   redirige a login. Es el único gate de acceso al sitio a partir de esta fase — no conviven dos
   mecanismos de auth en paralelo.
-- **La sesión es la cookie `d2k_session`** (`httpOnly`/`lax`/`secure` en prod), con exactamente 3
-  campos: `accountId`, `issuedAt`, `firstLoginAt`. Nunca datos de perfil de Steam (nombre/avatar —
-  fuera de alcance, ver abajo). TTL 30 días con renovación deslizante desde los 7 días de
-  antigüedad, tope absoluto de 90 días.
+- **La sesión es la cookie `d2k_session`** (`httpOnly`/`lax`/`secure` en prod), con 3 campos
+  base: `accountId`, `issuedAt`, `firstLoginAt`, más `personaName`/`avatarUrl` opcionales (ver la nota
+  "Nombre y avatar de Steam" más abajo). Ningún otro dato de perfil. TTL 30 días con renovación
+  deslizante desde los 7 días de antigüedad, tope absoluto de 90 días.
 - **El token para el WebSocket del motor se acuña del lado del servidor, nunca en el navegador.**
   `GET /api/auth/engine-token` (exige sesión) devuelve un token de 60 s de un solo uso. El cliente
   lo pide **inmediatamente antes de cada conexión**, incluida cada reconexión — nunca lo guarda en
@@ -79,9 +79,13 @@ calla el sistema durante un draft.
 - **`/settings` (pantalla y endpoints genéricos de clave/valor) se retira.** Reemplazada por "Mi
   cuenta", que expone únicamente `GET`/`POST /api/account`. No hay editor genérico de KV expuesto
   al usuario en esta fase.
-- **El MVP no muestra nombre ni avatar de Steam.** La UI identifica a la cuenta por su Steam32,
-  igual que hoy — mostrar el perfil público exigiría una Steam Web API key (secreto nuevo fuera de
-  alcance) y agrega dato personal de terceros que nadie pidió.
+- **Nombre y avatar de Steam: OPCIONALES (actualizado 2026-11-02, auditoría de Sentinel).** Si
+  `STEAM_WEB_API_KEY` está definida, el callback de login guarda en la cookie `personaName` y
+  `avatarUrl` (perfil público del propio usuario; `avatarUrl` validado contra la allowlist de hosts
+  del CDN de Steam en `lib/steam-profile.ts`). Sin la clave, o si la llamada falla, se usa el perfil
+  de reserva ("Steam <Steam32>") y el login sigue funcionando. La cookie ya NO tiene "exactamente
+  3 campos": son `accountId`, `issuedAt`, `firstLoginAt` más esos dos opcionales. Nunca se guardan
+  otros datos de perfil. En producción la clave no está configurada.
 - **Régimen de datos sin cambios de criterio**: login/cuenta son "páginas normales del sitio" (RTK
   Query), nunca WebSocket/Zustand — la única pieza de esta fase que toca el transporte en vivo es
   pedir el token de 60 s justo antes de conectar/reconectar el draft, no el resto del flujo de
