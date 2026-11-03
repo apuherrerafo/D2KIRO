@@ -43,7 +43,8 @@ const PROTECTION_POINTS = { hard: 4, medium: 1 } as const;
 const UNREASONED_PREFIX = "Lo dicen";
 const CORE_POSITIONS: readonly Position[] = [1, 2, 3];
 /** Una razón de la base que habla de la fase de líneas ("le gana a Bane en la línea"). */
-const LANE_WORDS = /l[ií]nea|carril/i;
+// "línea frontal" es la fila de frente de la pelea, no la fase de líneas.
+const LANE_WORDS = /l[ií]nea(?!\s+frontal)|carril/i;
 /** En ranked la gente se sale de su rol: si no se cruzan en la línea, no se afirma que se enfrenten ahí. */
 const LANE_CAVEAT = " (si se cruzan en la línea)";
 
@@ -125,7 +126,9 @@ function winsOf(candidate: HeroId, position: Position, revealedEnemies: readonly
     const enemyPosition = likelyPosition(enemy, input.heroPositions);
     // Una razón que habla de la línea solo se dice sin reservas si ese rival SÍ se cruza con la posición que cubre la card (tabla del
     // usuario, flex incluido); si no, lleva el aviso. Nunca se afirma una línea que no se sabe que ocurra.
-    const caveat = LANE_WORDS.test(entry.why) && !crossesInLane(enemy, { targetPosition: position, heroPositions: input.heroPositions }) ? LANE_CAVEAT : "";
+    // Sin datos de posición del rival tampoco se sabe que se crucen (`crossesInLane` asume que sí, lo prudente para el orden, no para afirmar).
+    const knownToCross = likelyPosition(enemy, input.heroPositions) !== null && crossesInLane(enemy, { targetPosition: position, heroPositions: input.heroPositions });
+    const caveat = LANE_WORDS.test(entry.why) && !knownToCross ? LANE_CAVEAT : "";
     wins.push({ vsHeroId: enemy, level: entry.level, why: `${cleanWhy(entry.why)}${caveat}`, core: enemyPosition !== null && CORE_POSITIONS.includes(enemyPosition) });
   }
   return wins.sort((a, b) => WIN_POINTS[b.level] - WIN_POINTS[a.level] || a.vsHeroId - b.vsHeroId);
