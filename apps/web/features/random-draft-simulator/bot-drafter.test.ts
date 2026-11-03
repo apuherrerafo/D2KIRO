@@ -331,4 +331,8 @@ describe("botPickHero: estadística de un solo parche", () => {
     });
     expect(pick(snapshot)).toBe(CURRENT_STAR);
   });
+
+  test('currentPatch "unknown" (centinela del loader) no es un parche: se resuelve como ausente y usa el dominante no vacío', () => {
+    expect(pick(mixedMeta({ currentPatch: "unknown" }))).toBe(CURRENT_STAR);
+  });
 });

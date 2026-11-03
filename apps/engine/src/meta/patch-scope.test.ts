@@ -40,6 +40,18 @@ describe("resolveAggregationPatch", () => {
   test("preferido ausente en los datos -> cae al dominante no vacío", () => {
     expect(resolveAggregationPatch({ 1: [{ patch: "a", picks: 1 }, { patch: "b", picks: 1 }, { patch: "b", picks: 1 }] }, "zzz")).toBe("b");
   });
+  test("empate exacto entre dos parches no vacíos: el mayor en orden de texto (determinista)", () => {
+    expect(resolveAggregationPatch({ 1: [{ patch: "7.40", picks: 1 }, { patch: "7.41e", picks: 1 }] })).toBe("7.41e");
+  });
+  test("filas con patch ausente/solo espacios se ignoran", () => {
+    const rows = [{ patch: undefined as unknown as string, picks: 9 }, { patch: "   ", picks: 9 }, { patch: "7.41e", picks: 1 }];
+    expect(resolveAggregationPatch({ 1: rows })).toBe("7.41e");
+  });
+  test("preferido presente en UN solo héroe: gana igual (comportamiento documentado); el resto cuenta 0, nunca otro parche", () => {
+    const stats = { 1: [{ patch: "7.41e", picks: 5 }], 2: [{ patch: "7.40", picks: 900 }], 3: [{ patch: "7.40", picks: 800 }] };
+    expect(resolveAggregationPatch(stats, "7.41e")).toBe("7.41e");
+    expect(orderHeroesByPicks([1, 2, 3], stats, "7.41e")).toEqual([1, 2, 3]);
+  });
   test("sólo parche vacío -> null (sin dato, nunca inventado)", () => {
     expect(resolveAggregationPatch({ 1: [{ patch: "", picks: 5 }] })).toBeNull();
     expect(resolveAggregationPatch({})).toBeNull();

@@ -52,7 +52,8 @@ export function createMetaRoutes<TSchema extends Record<string, unknown>>(deps: 
   async function heroStats(): Promise<Response> {
     const meta = await getCachedMetaSnapshot(deps.db, null);
     const heroPositions = deps.heroPositions ?? loadHeroPositions();
-    return Response.json({ patchStats: meta.patchStats, heroPositions });
+    // currentPatch (aditivo): el simulador web agrega dentro del MISMO parche que el motor (ver meta/patch-scope.ts).
+    return Response.json({ patchStats: meta.patchStats, heroPositions, currentPatch: CURRENT_PATCH });
   }
 
   // Asíncrono, no bloquea: crea la fila de meta_sync (rápido) y responde de inmediato con el

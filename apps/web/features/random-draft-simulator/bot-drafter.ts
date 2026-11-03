@@ -122,7 +122,8 @@ function getBotPicks(draftState: DraftState, botSide: TeamSide): HeroId[] {
 /** Parche de agregación de un snapshot (cacheado por snapshot: el bot lo pide por cada héroe). */
 const aggregationPatchCache = new WeakMap<MetaSnapshot, string | null>();
 function aggregationPatch(meta: MetaSnapshot): string | null {
-  if (meta.currentPatch) return meta.currentPatch;
+  // "unknown" es el centinela de "sin parche real" del loader, no un parche: se resuelve como ausente.
+  if (meta.currentPatch && meta.currentPatch !== "unknown") return meta.currentPatch;
   if (aggregationPatchCache.has(meta)) return aggregationPatchCache.get(meta) ?? null;
   const patch = dominantNonEmptyPatch(meta.patchStats ?? {});
   aggregationPatchCache.set(meta, patch);

@@ -6,8 +6,11 @@ import type { HeroPatchStat } from "./bot-drafter";
 
 type Stat = Pick<HeroPatchStat, "patch">;
 
-/** Parche no vacío con más filas (empate: el mayor en orden de texto). `null` si no hay ninguno. */
-export function dominantNonEmptyPatch(statsByHero: Record<number, readonly Stat[]>): string | null {
+/**
+ * Parche con el que se agrega: `preferred` si algún héroe tiene filas de él (mismo criterio que el motor); si no,
+ * el no vacío con más filas (empate: el mayor en orden de texto). `null` si no hay ninguno.
+ */
+export function dominantNonEmptyPatch(statsByHero: Record<number, readonly Stat[]>, preferred?: string | null): string | null {
   const counts = new Map<string, number>();
   for (const rows of Object.values(statsByHero)) {
     for (const row of rows) {
@@ -15,6 +18,7 @@ export function dominantNonEmptyPatch(statsByHero: Record<number, readonly Stat[
       counts.set(row.patch, (counts.get(row.patch) ?? 0) + 1);
     }
   }
+  if (preferred && counts.has(preferred)) return preferred;
   let best: string | null = null;
   let bestCount = 0;
   for (const [patch, count] of counts) {

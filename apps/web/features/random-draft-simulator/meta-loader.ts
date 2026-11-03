@@ -8,7 +8,7 @@
 import { ENGINE_HTTP_BASE_URL } from "@/lib/engine-url";
 import type { HeroId } from "./types";
 import type { HeroPatchStat, HeroPositions, MetaHeroEntry, MetaSnapshot } from "./bot-drafter";
-import { statsInPatch } from "./patch-scope";
+import { dominantNonEmptyPatch, statsInPatch } from "./patch-scope";
 
 interface RawHero {
   id: number;
@@ -21,6 +21,8 @@ interface HeroStatsResponse {
   // TSK-063: agregado a la misma respuesta -- ausente se trata como "sin dato de posición para
   // ningún héroe" (heroPositions: {}), nunca rompe la carga del meta.
   heroPositions?: HeroPositions;
+  // Parche vigente según el motor (aditivo; ausente en motores viejos -> se usa el dominante).
+  currentPatch?: string;
 }
 
 export interface LoadedMeta {
@@ -39,25 +41,9 @@ function totalPicks(stats: HeroPatchStat[] | undefined, patch: string): number {
   return statsInPatch(stats, patch).reduce((sum, entry) => sum + entry.picks, 0);
 }
 
-function detectCurrentPatch(patchStats: Record<HeroId, HeroPatchStat[]>): string {
-  const counts = new Map<string, number>();
-  for (const stats of Object.values(patchStats)) {
-    for (const stat of stats) {
-      // Un patch vacío (restos de la sync antigua en una base ya existente) nunca es un parche real: el motor
-      // rechaza un draft con patch "" (400), así que no puede competir por ser el "actual".
-      if (typeof stat.patch !== "string" || stat.patch.trim().length === 0) continue;
-      counts.set(stat.patch, (counts.get(stat.patch) ?? 0) + 1);
-    }
-  }
-  let best: string | null = null;
-  let bestCount = 0;
-  for (const [patch, count] of counts) {
-    if (count > bestCount) {
-      best = patch;
-      bestCount = count;
-    }
-  }
-  return best ?? "unknown";
+function detectCurrentPatch(patchStats: Record<HeroId, HeroPatchStat[]>, preferred?: string): string {
+  // Un patch vacío (restos de la sync antigua) nunca es un parche real; criterio único en patch-scope.ts.
+  return dominantNonEmptyPatch(patchStats, preferred) ?? "unknown";
 }
 
 /** Carga heroes + patchStats del motor y arma el MetaSnapshot + metaBanPool que necesita `initDraft`. */
@@ -68,7 +54,7 @@ export async function loadMetaSnapshot(): Promise<LoadedMeta> {
   ]);
 
   const rawHeroes = (await heroesRes.json()) as RawHero[];
-  const { patchStats, heroPositions } = (await statsRes.json()) as HeroStatsResponse;
+  const { patchStats, heroPositions, currentPatch: enginePatch } = (await statsRes.json()) as HeroStatsResponse;
 
   const heroes: Record<HeroId, MetaHeroEntry> = {};
   const allHeroIds: HeroId[] = [];
@@ -83,7 +69,7 @@ export async function loadMetaSnapshot(): Promise<LoadedMeta> {
     normalizedPatchStats[Number(heroIdStr)] = stats;
   }
 
-  const currentPatch = detectCurrentPatch(normalizedPatchStats);
+  const currentPatch = detectCurrentPatch(normalizedPatchStats, typeof enginePatch === "string" ? enginePatch : undefined);
   const metaBanPool = allHeroIds
     .slice()
     .sort((a, b) => totalPicks(normalizedPatchStats[b], currentPatch) - totalPicks(normalizedPatchStats[a], currentPatch));
