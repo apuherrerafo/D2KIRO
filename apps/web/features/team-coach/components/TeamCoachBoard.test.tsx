@@ -190,14 +190,14 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     const stealing = column(2);
     stealing.top[0] = { ...stealing.top[0]!, steals: [{ protectsHeroId: 7, level: "hard", why: "Mana Break vacía su maná" }] };
     const first = renderBoard({ ...board([2], 2), positions: [stealing] });
-    expect(first.getByTestId("team-coach-candidate-steal").textContent).toBe("Counterea fuerte a tu Hero 7: Mana Break vacía su maná. Si lo eliges tú, el rival no lo tiene.");
+    expect(first.getByTestId("team-coach-candidate-steal").textContent).toBe("Robo: el rival lo usaría fuerte contra tu Hero 7 (Mana Break vacía su maná). Si lo eliges tú, no lo tiene.");
     first.unmount();
     const medium = column(2);
     medium.top[0] = { ...medium.top[0]!, steals: [{ protectsHeroId: 7, level: "medium", why: "Global Silence lo frena" }, { protectsHeroId: 9, level: "medium", why: "otro" }] };
     medium.top[0] = { ...medium.top[0]!, steals: [{ protectsHeroId: 9, level: "hard", why: "al otro lo mata" }, { protectsHeroId: 7, level: "medium", why: "Global Silence lo frena" }] };
     const lines = renderBoard({ ...board([2], 2), positions: [medium] }).getAllByTestId("team-coach-candidate-steal").map((node) => node.textContent);
     // Cada línea lleva el nivel y la razón de SU pick: nunca la razón del counter fuerte pegada al medio.
-    expect(lines).toEqual(["Counterea fuerte a tu Hero 9: al otro lo mata.", "Counterea a tu Hero 7: Global Silence lo frena. Si lo eliges tú, el rival no lo tiene."]);
+    expect(lines).toEqual(["Robo: el rival lo usaría fuerte contra tu Hero 9 (al otro lo mata).", "Robo: el rival lo usaría contra tu Hero 7 (Global Silence lo frena). Si lo eliges tú, no lo tiene."]);
   });
 
   test("sin robo (o un motor anterior que no manda el campo) no aparece ninguna línea de robo", () => {

@@ -285,7 +285,7 @@ test("la tarjeta de la lista también muestra el robo (misma fuente que el table
   const stealing = { ...EMPTY_CONTEXT, steals: [{ protectsHeroId: 9, level: "hard", why: "Mana Break vacía su maná" }] };
   const withSteal = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, true, stealing)} heroCatalog={new Map()} />);
   const card = withSteal.getAllByTestId("current-decision-card")[0]!;
-  expect(card.querySelector('[data-testid="team-coach-candidate-steal"]')?.textContent).toContain("Mana Break vacía su maná. Si lo eliges tú, el rival no lo tiene.");
+  expect(card.querySelector('[data-testid="team-coach-candidate-steal"]')?.textContent).toContain("(Mana Break vacía su maná). Si lo eliges tú, no lo tiene.");
   withSteal.unmount();
   const older = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, false, EMPTY_CONTEXT)} heroCatalog={new Map()} />).getAllByTestId("current-decision-card")[0]!;
   expect(older.querySelector('[data-testid="team-coach-candidate-steal"]')).toBeNull();
