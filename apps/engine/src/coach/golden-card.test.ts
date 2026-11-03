@@ -62,6 +62,47 @@ describe("selectGoldenCard -- el caso que cumple el estándar", () => {
   });
 });
 
+describe("selectGoldenCard -- razones que hablan de la línea", () => {
+  // ME cubre la offlane (pos 3): se cruza con el carry rival (CORE_A, pos 1) y NO con el mid rival (CORE_B, pos 2).
+  const laneCounters = counters([
+    [CORE_A, [hard(ME, "le gana en la línea porque lo apaga")]],
+    [CORE_B, [medium(ME, "Lo castiga en la línea con su stun")]],
+    [SUPPORT, [medium(ME, "roba su hechizo con facilidad")]],
+  ]);
+  const threeEnemies = view({ enemies: [{ heroId: CORE_A, visibility: "REVEALED" }, { heroId: CORE_B, visibility: "REVEALED" }, { heroId: SUPPORT, visibility: "REVEALED" }] });
+  const winsOfCard = () => selectGoldenCard(input({ heroCounters: laneCounters, view: threeEnemies }))?.wins ?? [];
+
+  test("si se cruzan en la línea la razón queda tal cual; si no se cruzan, lleva '(si se cruzan en la línea)'", () => {
+    const byEnemy = Object.fromEntries(winsOfCard().map((win) => [win.vsHeroId, win.why]));
+    expect(byEnemy[CORE_A]).toBe("le gana en la línea porque lo apaga");
+    expect(byEnemy[CORE_B]).toBe("Lo castiga en la línea con su stun (si se cruzan en la línea)");
+  });
+
+  test("una razón que no habla de la línea nunca recibe el aviso, se crucen o no", () => {
+    const sameLane = winsOfCard().find((win) => win.vsHeroId === SUPPORT);
+    expect(sameLane?.why).toBe("roba su hechizo con facilidad");
+    const noLane = selectGoldenCard(input({ heroCounters: counters([[CORE_A, [hard(ME, "lo apaga")]], [CORE_B, [medium(ME, "lo frena")]]]), view: threeEnemies }));
+    expect(noLane?.wins.map((win) => win.why)).toEqual(["lo apaga", "lo frena"]);
+  });
+
+  test("'línea frontal' (la fila de frente de la pelea) no es la fase de líneas: sin aviso", () => {
+    const front = selectGoldenCard(input({ heroCounters: counters([[CORE_A, [hard(ME, "lo apaga")]], [CORE_B, [medium(ME, "atraviesa la línea frontal y lo mata")]]]), view: threeEnemies }));
+    expect(front?.wins.find((win) => win.vsHeroId === CORE_B)?.why).toBe("atraviesa la línea frontal y lo mata");
+  });
+
+  test("un rival sin datos de posición SÍ lleva el aviso: sin datos no se sabe que se crucen, y la card no afirma una línea que no conoce", () => {
+    const { [CORE_B]: _mid, ...withoutMid } = POSITIONS;
+    const unknown = selectGoldenCard(input({ heroCounters: laneCounters, heroPositions: withoutMid, view: threeEnemies }));
+    expect(unknown?.wins.find((win) => win.vsHeroId === CORE_B)?.why).toBe("Lo castiga en la línea con su stun (si se cruzan en la línea)");
+  });
+
+  test("un rival flex que juega la posición que se cruza (1 de cada 4 partidas o más) cuenta como que se cruza", () => {
+    const flexMid: HeroPositions = { ...POSITIONS, [CORE_B]: [{ position: 2, matches: 2000 }, { position: 1, matches: 1000 }] };
+    const flexWins = selectGoldenCard(input({ heroCounters: laneCounters, heroPositions: flexMid, view: threeEnemies }))?.wins ?? [];
+    expect(flexWins.find((win) => win.vsHeroId === CORE_B)?.why).toBe("Lo castiga en la línea con su stun");
+  });
+});
+
 describe("selectGoldenCard -- regla 1: hay que ver al menos 2 rivales", () => {
   test("con un solo rival sacado no hay card (no hay a quién ganarle)", () => {
     expect(selectGoldenCard(input({ view: view({ enemies: [{ heroId: CORE_A, visibility: "REVEALED" }] }) }))).toBeNull();
