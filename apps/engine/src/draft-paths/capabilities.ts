@@ -18,22 +18,18 @@ export const CAPABILITY_DATA_AVAILABLE = "CAPABILITY_DATA_AVAILABLE" as const;
  * Héroes jugables del censo activo de Dota 2 (CURATED_HERO_IDS, 127 héroes) cuyas capacidades tácticas
  * permanecen sin curar en capabilities.json (UNCURATED / CAPABILITY_DATA_UNAVAILABLE):
  *
- * - Ringmaster (131): héroe jugable (introducido en parche 7.37). Excluido en TSK-036 / commit 20e4ca0 por falta de curación táctica confiable.
- * - Kez (145): héroe jugable (introducido en parche 7.37d / Crownfall IV). Excluido por la misma razón.
- * - Largo (155): héroe jugable activo en partidas clasificadas (confirmado en OpenDota y snapshot STRATZ con >2000 partidas Immortal AP).
- *   Excluido por la misma razón: sus capacidades tácticas subjetivas no han sido curadas en capabilities.json.
+ * - Largo (155): héroe jugable activo en partidas clasificadas. Falta UN campo con fuente: `hasWaveclear` (ninguna guía escrita ni
+ *   analista aprobado lo dice; el cargador exige un booleano, así que la ficha entera espera). Los otros siete campos tienen respaldo.
  *
- * Ninguno de estos héroes es un concepto interno ni carece de estado jugable; son héroes plenamente activos
- * en el ecosistema, con datos empíricos de partidas y presencia en el catálogo, pero cuyas capacidades
- * tácticas multidimensionales (iniciación, waveclear, control, escala) aún no han recibido curación experta
- * en el archivo estático capabilities.json (124/127 curados).
+ * Ringmaster (131) y Kez (145) se curaron (2026-11-03) con textos del juego + guías citables, revisadas por el auditor de Dota:
+ * Ringmaster `scaling` y Kez `teamfight` salen de UNA guía (confianza media).
  *
  * En el motor de scoring (team_synergy, archetype_fit), la semántica canónica dicta que:
  *   dato desconocido != carencia de capacidad
- * Por tanto, estos héroes reciben `raw: null` (imputación neutral de stateMean en mixCandidateByState),
- * evitando penalizarlos falsamente con raw: 0 o inventar valoraciones subjetivas no autoritativas.
+ * Por tanto, un héroe sin entrada recibe `raw: null` (imputación neutral de stateMean en mixCandidateByState),
+ * evitando penalizarlo falsamente con raw: 0 o inventar valoraciones subjetivas no autoritativas.
  */
-export const UNCURATED_CAPABILITY_HERO_IDS: ReadonlySet<number> = new Set([131, 145, 155]);
+export const UNCURATED_CAPABILITY_HERO_IDS: ReadonlySet<number> = new Set([155]);
 
 /** Alias de compatibilidad con código existente */
 export const UNKNOWN_CAPABILITY_HERO_IDS: ReadonlySet<number> = UNCURATED_CAPABILITY_HERO_IDS;
