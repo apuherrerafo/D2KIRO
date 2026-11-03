@@ -25,7 +25,7 @@ import {
   PRIMARY_BUTTON,
 } from "../styles";
 import { GoldenCardView } from "./GoldenCardView";
-import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachRisk, TeamCoachStrength, TeamPosition } from "../types";
+import type { RequestStatus, TeamCoachBoardData, TeamCoachCandidate, TeamCoachColumn, TeamCoachCounterNote, TeamCoachRisk, TeamCoachSteal, TeamCoachStrength, TeamPosition } from "../types";
 
 // <Dominio><Cosa>: el Team Coach Board -- UN componente compartido por /simulator y /live-draft.
 //
@@ -160,7 +160,7 @@ interface CandidateProps {
 }
 
 /** Lo que necesitan los renderizadores de razones: el tablero les pasa un candidato; la lista del simulador, solo estos campos. */
-export type CandidateReasonSource = Pick<TeamCoachCandidate, "opening" | "strengths" | "synergies" | "reasons">;
+export type CandidateReasonSource = Pick<TeamCoachCandidate, "opening" | "strengths" | "synergies" | "steals" | "reasons">;
 
 export interface CandidateReasonProps {
   candidate: CandidateReasonSource;
@@ -285,6 +285,25 @@ export function CandidateSynergies({ candidate, heroCatalog }: CandidateReasonPr
   );
 }
 
+const STEAL_LABELS: Record<TeamCoachSteal["level"], string> = { hard: "Counterea fuerte a tu", medium: "Counterea a tu" };
+const STEAL_CLOSING = "Si lo eliges tú, el rival no lo tiene.";
+
+// El "robo": este héroe sigue libre y counterea a un pick TUYO ya elegido; si lo eliges tú, el rival no lo tiene. Una línea por pick
+// protegido, cada una con SU nivel y SU porqué (nunca se mezcla la razón de un counter fuerte con la de uno medio). Solo hechos del draft.
+export function CandidateSteals({ candidate, heroCatalog }: CandidateReasonProps) {
+  const steals = candidate.steals ?? [];
+  const lastIndex = steals.length - 1;
+  return (
+    <>
+      {steals.map((steal, index) => (
+        <span key={steal.protectsHeroId} className={CANDIDATE_STRENGTH} data-testid="team-coach-candidate-steal">
+          {STEAL_LABELS[steal.level]} {heroName(steal.protectsHeroId, heroCatalog)}: {steal.why}.{index === lastIndex ? ` ${STEAL_CLOSING}` : ""}
+        </span>
+      ))}
+    </>
+  );
+}
+
 // El porqué de cada héroe, contra quién gana y los rivales que lo counterean, a la vista (antes solo en un tooltip).
 function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetailProps) {
   return (
@@ -293,6 +312,7 @@ function CandidateDetail({ candidate, heroCatalog, showReason }: CandidateDetail
       <CandidateOpening candidate={candidate} heroCatalog={heroCatalog} />
       <CandidateStrengths candidate={candidate} heroCatalog={heroCatalog} />
       <CandidateSynergies candidate={candidate} heroCatalog={heroCatalog} />
+      <CandidateSteals candidate={candidate} heroCatalog={heroCatalog} />
       <CandidateRisks candidate={candidate} heroCatalog={heroCatalog} />
     </>
   );

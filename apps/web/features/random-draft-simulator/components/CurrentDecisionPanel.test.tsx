@@ -281,6 +281,16 @@ test("la tarjeta de la lista muestra ban abierto, 'le gana a' y pareja; y, si el
   expect(card.textContent).not.toContain("Por su posición");
 });
 
+test("la tarjeta de la lista también muestra el robo (misma fuente que el tablero) y un motor anterior sin el campo sigue válido", () => {
+  const stealing = { ...EMPTY_CONTEXT, steals: [{ protectsHeroId: 9, level: "hard", why: "Mana Break vacía su maná" }] };
+  const withSteal = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, true, stealing)} heroCatalog={new Map()} />);
+  const card = withSteal.getAllByTestId("current-decision-card")[0]!;
+  expect(card.querySelector('[data-testid="team-coach-candidate-steal"]')?.textContent).toContain("Mana Break vacía su maná. Si lo eliges tú, el rival no lo tiene.");
+  withSteal.unmount();
+  const older = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, false, EMPTY_CONTEXT)} heroCatalog={new Map()} />).getAllByTestId("current-decision-card")[0]!;
+  expect(older.querySelector('[data-testid="team-coach-candidate-steal"]')).toBeNull();
+});
+
 test("sin razones del draft la frase de solo posición SE QUEDA (no se deja una tarjeta muda)", () => {
   const view = render(<CurrentDecisionPanel output={withCardContext(POSITION_ONLY, false, EMPTY_CONTEXT)} heroCatalog={new Map()} />);
   const card = view.getAllByTestId("current-decision-card")[0]!;

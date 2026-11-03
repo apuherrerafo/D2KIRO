@@ -7,7 +7,7 @@ import type { RecommendationDegradation, RecommendationSetV2 } from "../recommen
 import type { CuratedCounter } from "../signals/hero-counters";
 import type { CuratedSynergy } from "../signals/hero-synergies";
 import type { HeroPositions } from "../signals/hero-positions";
-import { banOpeningOf, beatsRevealed, reorderByContext, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
+import { banOpeningOf, beatsRevealed, reorderByContext, stealsOf, synergiesWithOwn, type ContextReorderInput } from "./context-reorder";
 import { deriveCardRisks, deriveCompositionContext } from "./card-critical-gap";
 import { cardContextOf, hasCardContext } from "./card-context";
 import { buildHeroCard, candidateServesPosition, credibleHeroesForPosition, extractHeroCandidates, POSITION_ONLY_PREFIX, revealedEnemyHeroes, type HeroCandidate } from "./hero-card";
@@ -201,7 +201,7 @@ export function hasDraftInformation(context: Pick<ContextReorderInput, "ownPicks
 /**
  * Regla del usuario (2026-11-02): una vez que el draft ya dice algo, un héroe cuya ÚNICA razón es "juega ese rol" NO se recomienda
  * (sigue eligible a mano). Tiene motivo cuando algo del draft lo respalda: los bans lo abren (se baneó lo que lo counterea), le gana
- * a un rival ya revelado, hace pareja con un aliado, pertenece a TU pool, o es la intención de draft que el jugador eligió
+ * a un rival ya revelado, hace pareja con un aliado, le quita un counter a un pick tuyo (robo), pertenece a TU pool, o es la intención de draft que el jugador eligió
  * (`archetype_fit` votó con datos). `position_fit`, el parche (`patch_meta`) y FLEX NUNCA cuentan como motivo: votan en casi todos los
  * héroes (Dota-Judge RB-3) y el winrate de rangos bajos favorece a los héroes fáciles. Pura.
  */
@@ -210,6 +210,8 @@ export function hasDraftMotive(candidate: HeroCandidate, input: DeriveCandidateR
   if (banOpeningOf(candidate.heroId, context).openedBy.length > 0) return true;
   if (beatsRevealed(candidate.heroId, context).length > 0) return true;
   if (synergiesWithOwn(candidate.heroId, context).length > 0) return true;
+  // Le quita un counter a un pick tuyo (el "robo"): es una razón real del draft, no solo el rol.
+  if (stealsOf(candidate.heroId, context).length > 0) return true;
   const card = buildHeroCard(candidate, [], { revealedEnemies, heroCounters: input.heroCounters });
   if (card.badges.some((badge) => badge === "COUNTER" || badge === "SYNERGY")) return true;
   return candidate.signals.some((signal) => signal.signal === "archetype_fit" && signal.raw !== null && signal.applicable !== false && signal.weighted > 0);

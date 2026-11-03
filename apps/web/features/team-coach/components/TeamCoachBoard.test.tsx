@@ -186,6 +186,42 @@ describe("TeamCoachBoard -- el porqué de cada héroe, a la vista (Parte 2)", ()
     expect(view.getByTestId("team-coach-candidate-synergy").textContent).toBe("Combina con tu Hero 7: Shallow Grave le da tiempo para usar Blink");
   });
 
+  test("el robo: un héroe libre que counterea a un pick tuyo lo dice con su porqué; con dos picks, una línea por cada uno con SU nivel y SU razón", () => {
+    const stealing = column(2);
+    stealing.top[0] = { ...stealing.top[0]!, steals: [{ protectsHeroId: 7, level: "hard", why: "Mana Break vacía su maná" }] };
+    const first = renderBoard({ ...board([2], 2), positions: [stealing] });
+    expect(first.getByTestId("team-coach-candidate-steal").textContent).toBe("Counterea fuerte a tu Hero 7: Mana Break vacía su maná. Si lo eliges tú, el rival no lo tiene.");
+    first.unmount();
+    const medium = column(2);
+    medium.top[0] = { ...medium.top[0]!, steals: [{ protectsHeroId: 7, level: "medium", why: "Global Silence lo frena" }, { protectsHeroId: 9, level: "medium", why: "otro" }] };
+    medium.top[0] = { ...medium.top[0]!, steals: [{ protectsHeroId: 9, level: "hard", why: "al otro lo mata" }, { protectsHeroId: 7, level: "medium", why: "Global Silence lo frena" }] };
+    const lines = renderBoard({ ...board([2], 2), positions: [medium] }).getAllByTestId("team-coach-candidate-steal").map((node) => node.textContent);
+    // Cada línea lleva el nivel y la razón de SU pick: nunca la razón del counter fuerte pegada al medio.
+    expect(lines).toEqual(["Counterea fuerte a tu Hero 9: al otro lo mata.", "Counterea a tu Hero 7: Global Silence lo frena. Si lo eliges tú, el rival no lo tiene."]);
+  });
+
+  test("sin robo (o un motor anterior que no manda el campo) no aparece ninguna línea de robo", () => {
+    const quiet = column(2);
+    quiet.top[0] = { ...quiet.top[0]!, steals: [] };
+    const empty = renderBoard({ ...board([2], 2), positions: [quiet] });
+    expect(empty.queryAllByTestId("team-coach-candidate-steal")).toHaveLength(0);
+    empty.unmount();
+    expect(renderBoard(board([2], 2)).queryAllByTestId("team-coach-candidate-steal")).toHaveLength(0);
+  });
+
+  test("el robo se valida en el borde: una forma rota rechaza el tablero entero, una ausente se acepta", () => {
+    const withSteals = (steals: unknown) => {
+      const stealing = column(2);
+      stealing.top[0] = { ...stealing.top[0]!, steals } as never;
+      return parseTeamCoachBoard({ ...board([2], 2), positions: [stealing] });
+    };
+    expect(withSteals([{ protectsHeroId: 7, level: "hard", why: "x" }])).not.toBeNull();
+    expect(withSteals(undefined)).not.toBeNull();
+    expect(withSteals([{ protectsHeroId: 7, level: "soft", why: "x" }])).toBeNull();
+    expect(withSteals([{ protectsHeroId: "7", level: "hard", why: "x" }])).toBeNull();
+    expect(withSteals("no es una lista")).toBeNull();
+  });
+
   test("dos listas por posición: la de tu pool arriba y 'En general' abajo, y pueden repetir héroes", () => {
     const withPool = column(2);
     withPool.poolTop = [withPool.top[0]!];

@@ -51,6 +51,13 @@ export interface TeamCoachSynergy {
   why: string;
 }
 
+/** Un pick tuyo ya elegido al que este héroe LIBRE le quita un counter si lo eliges (el "robo"), con el porqué curado. Espejo a mano del motor. */
+export interface TeamCoachSteal {
+  protectsHeroId: number;
+  level: "hard" | "medium";
+  why: string;
+}
+
 export interface TeamCoachCandidate {
   heroId: HeroId;
   rank: number;
@@ -65,6 +72,8 @@ export interface TeamCoachCandidate {
   opening?: TeamCoachOpening;
   /** Opcional: un motor anterior no lo manda. Ausente = sin sinergias con aliados. */
   synergies?: TeamCoachSynergy[];
+  /** Opcional: un motor anterior no lo manda. Ausente = no es un robo. */
+  steals?: TeamCoachSteal[];
   isPrimary: boolean;
 }
 

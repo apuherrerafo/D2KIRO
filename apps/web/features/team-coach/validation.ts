@@ -66,6 +66,10 @@ export function isSynergy(value: unknown): boolean {
   return isRecord(value) && isHeroId(value.withHeroId) && isString(value.why);
 }
 
+export function isSteal(value: unknown): boolean {
+  return isRecord(value) && isHeroId(value.protectsHeroId) && (value.level === "hard" || value.level === "medium") && isString(value.why);
+}
+
 function isCandidate(value: unknown): value is TeamCoachCandidate {
   return (
     isRecord(value) &&
@@ -78,6 +82,7 @@ function isCandidate(value: unknown): value is TeamCoachCandidate {
     (value.strengths === undefined || (Array.isArray(value.strengths) && value.strengths.every(isStrength))) &&
     (value.opening === undefined || isOpening(value.opening)) &&
     (value.synergies === undefined || (Array.isArray(value.synergies) && value.synergies.every(isSynergy))) &&
+    (value.steals === undefined || (Array.isArray(value.steals) && value.steals.every(isSteal))) &&
     typeof value.isPrimary === "boolean"
   );
 }

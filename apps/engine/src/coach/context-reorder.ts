@@ -16,6 +16,11 @@ import type { CuratedSynergy } from "../signals/hero-synergies";
 //         Ice Blast corta la curación de Solar Guardian, Disruption saca al aliado del Duel aunque tenga escudo.
 //   - Counter que todavía NO sale pero cuya posición ya está ocupada en el rival (ya tienen offlane): pesa menos, y se avisa.
 //   - Sinergia con aliados YA elegidos: suma una sola vez.
+//   - ROBO (segundo pick, decisión del usuario 2026-11-02, estándar de un experto de Dota): un héroe LIBRE que counterea (fuerte o
+//     medium, con razón real en la base) a un pick TUYO ya elegido sube, porque si lo eliges tú el rival no lo tiene. Suma una sola
+//     vez (el mejor robo), no se aplica si un rival ya revelado lo counterea, y exige que el héroe se juegue de verdad (partidas
+//     suficientes y la posición que estás eligiendo). Fuerte pesa más que medium; con una pareja se suman (hasta el tope), así que
+//     quien junta pareja + robo va primero y quien tiene solo una de las dos, después. Nunca supone lo que el rival va a sacar.
 //   - La lista del pool y la general usan ESTE mismo orden: si un héroe está arriba en general, está arriba en tu pool.
 //
 // El contexto DESEMPATA, no pisa a V6 hacia arriba: el bono positivo tiene tope (MAX_CONTEXT_BONUS) en la escala del
@@ -70,6 +75,21 @@ const OPENING_SHARE_DIVISOR = 4;
 const BEATS_BONUS: Record<CounterLevel, number> = { hard: 3, medium: 2 };
 /** Bono por combinar con algún aliado que ya elegiste (una sola vez). */
 const SYNERGY_BONUS = 3;
+/**
+ * Bono por "robar" un counter de un pick tuyo (una sola vez, el mejor). Fuerte 4 > pareja 3 > medium 2: con una pareja se suman hasta el
+ * tope (pareja + robo fuerte 7 -> 6, pareja + robo medium 5), así el orden es pareja+robo, robo fuerte, pareja sola, robo medium.
+ * Magnitud de criterio, pendiente de calibrar.
+ */
+const STEAL_BONUS: Record<CounterLevel, number> = { hard: 4, medium: 2 };
+/**
+ * Partidas mínimas (en alto MMR) para que un héroe cuente como robo: un counter de nicho que casi nadie juega no es amenaza real.
+ * Magnitud de criterio, pendiente de calibrar (con el archivo real deja sin robo a ~1 de cada 6 héroes, los menos jugados).
+ */
+const STEAL_MIN_GAMES = 1500;
+/** Una razón de la base que solo dice a quién se lo atribuye ("Lo dicen: DotaCoach (7.41f)") no cuenta como razón de Dota. */
+const UNREASONED_PREFIX = "Lo dicen";
+/** Un robo que protege a dos picks tuyos se muestra una sola vez nombrando hasta este número. */
+const MAX_STEALS_LISTED = 2;
 /** Tope del bono positivo en la escala de V6 (0-100): el contexto sube a héroes parejos, nunca pisa diferencias grandes. */
 const MAX_CONTEXT_BONUS = 6;
 /** Baja por cada counter YA revelado: [se cruzan en línea, no se cruzan]. Fuerte baja mucho, medium poco. */
@@ -207,6 +227,39 @@ export function alliesAnswering(enemy: HeroId, input: Pick<ContextReorderInput, 
     .sort(byLevelThenId);
 }
 
+/** Un pick tuyo ya elegido al que este héroe le quita un counter, con el porqué curado (sin punto final). */
+export interface StealNote {
+  protectsHeroId: HeroId;
+  level: CounterLevel;
+  why: string;
+}
+
+/** ¿Se juega de verdad? Partidas suficientes y, si ya sabes la posición que eliges, que la juegue en al menos 1/4 de sus partidas. */
+function isPlayedEnoughToSteal(heroId: HeroId, input: Pick<ContextReorderInput, "heroPositions" | "targetPosition">): boolean {
+  const shares = input.heroPositions?.[heroId] ?? [];
+  const total = shares.reduce((sum, entry) => sum + entry.matches, 0);
+  if (total < STEAL_MIN_GAMES) return false;
+  if (input.targetPosition === undefined) return true;
+  return shares.some((entry) => entry.position === input.targetPosition && entry.matches * LANE_SHARE_DIVISOR >= total);
+}
+
+/**
+ * A qué picks TUYOS ya elegidos les quita este héroe un counter si lo eliges tú (fuertes primero, hasta MAX_STEALS_LISTED). Vacío si
+ * ya no está libre, si un rival ya revelado lo counterea (el robo no tapa ese riesgo), si no se juega lo suficiente o si la razón de
+ * la base es solo "Lo dicen: …". Solo hechos de lo que se ve. Pura.
+ */
+export function stealsOf(heroId: HeroId, input: ContextReorderInput): StealNote[] {
+  if (input.ownPicks.size === 0) return []; // ronda 1: no hay a quién proteger (y se evita el cálculo)
+  if (!isFree(heroId, input) || !isPlayedEnoughToSteal(heroId, input) || revealedCounterPenalty(heroId, input) > 0) return [];
+  const notes: StealNote[] = [];
+  for (const own of input.ownPicks) {
+    const entry = (input.heroCounters?.get(own) ?? []).find((counter) => counter.vs === heroId);
+    if (!entry || entry.why.trim().startsWith(UNREASONED_PREFIX)) continue;
+    notes.push({ protectsHeroId: own, level: entry.level, why: entry.why.trim().replace(/[.\s]+$/, "") });
+  }
+  return notes.sort((a, b) => LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level] || a.protectsHeroId - b.protectsHeroId).slice(0, MAX_STEALS_LISTED);
+}
+
 /** Cuánto baja el héroe por los counters que el rival YA tiene (0 sin ninguno). Pura. */
 export function revealedCounterPenalty(heroId: HeroId, input: ContextReorderInput): number {
   let penalty = 0;
@@ -230,6 +283,9 @@ export function contextBonus(heroId: HeroId, input: ContextReorderInput): number
   // La sinergia suma UNA vez y solo si no hay un counter revelado: no tapa a un counter (un Axe en tu línea no se
   // compensa con una pareja).
   if (synergiesWithOwn(heroId, input).length > 0 && penalty === 0) bonus += SYNERGY_BONUS;
+  // El robo: una sola vez, el mejor (las notas vienen con el fuerte primero). `stealsOf` ya calla si hay un counter rival revelado.
+  const [bestSteal] = stealsOf(heroId, input);
+  if (bestSteal) bonus += STEAL_BONUS[bestSteal.level];
   return Math.min(MAX_CONTEXT_BONUS, bonus) - penalty;
 }
 

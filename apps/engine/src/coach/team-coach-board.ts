@@ -9,7 +9,7 @@ import type { HeroPositions } from "../signals/hero-positions";
 import { deriveCandidateResult, rankingAppliedPersonalPool, selectDecisionTarget } from "./current-human-decision";
 import { alliesAnswering, type BanOpening } from "./context-reorder";
 import { selectGoldenCard, type GoldenCard } from "./golden-card";
-import { cardContextOf, hasCardContext, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
+import { cardContextOf, hasCardContext, type TeamCoachSteal, type TeamCoachStrength, type TeamCoachSynergy } from "./card-context";
 import { POSITION_ONLY_PREFIX, revealedEnemyHeroes } from "./hero-card";
 import { selectLivePositionPriority, type LivePositionPriority } from "./live-position-priority";
 import type { TargetBasis } from "./recommendation-output-v4";
@@ -67,6 +67,8 @@ export interface TeamCoachCandidate {
   opening: BanOpening;
   /** Curated partners among the heroes the Player's team ALREADY picked (never a hypothetical ally). */
   synergies: TeamCoachSynergy[];
+  /** Own picks this FREE hero takes a counter away from if the Player picks it (the "robo"; hard first, at most 2). Empty = not a steal. */
+  steals: TeamCoachSteal[];
   /** The hero the team plan assigns to this position. At most one per position, never shared between positions. */
   isPrimary: boolean;
 }
@@ -231,9 +233,9 @@ async function computeTeamCoach(input: BuildTeamCoachBoardInput): Promise<{ boar
   const bannedSet = new Set<HeroId>(view.bannedHeroes);
   // Todo lo que una tarjeta cuenta del draft visible: riesgos, a quién le gana de lo ya revelado, qué abrieron los bans y
   // con quién ya elegido combina. Nada de esto supone lo que el rival va a sacar.
-  const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies"> => {
-    const { opening, strengths, synergies } = cardContextOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, heroPositions: input.heroPositions, targetPosition: position });
-    return { risks: risksOf(heroId, revealedEnemies, input.heroCounters, ownPickSet), strengths, opening, synergies };
+  const contextOf = (heroId: HeroId, position: Position): Pick<TeamCoachCandidate, "risks" | "strengths" | "opening" | "synergies" | "steals"> => {
+    const { opening, strengths, synergies, steals } = cardContextOf(heroId, { banned: bannedSet, ownPicks: ownPickSet, revealedEnemies: revealedSet, heroCounters: input.heroCounters, heroSynergies: input.heroSynergies, heroPositions: input.heroPositions, targetPosition: position });
+    return { risks: risksOf(heroId, revealedEnemies, input.heroCounters, ownPickSet), strengths, opening, synergies, steals };
   };
   const toCandidate = (card: { heroId: HeroId; position: Position; rank: number; score: number; rationale: string }): TeamCoachCandidate => {
     const context = contextOf(card.heroId, card.position);
