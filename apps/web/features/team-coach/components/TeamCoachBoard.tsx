@@ -287,8 +287,8 @@ export function CandidateSynergies({ candidate, heroCatalog }: CandidateReasonPr
 
 // "Robo:" va primero a propósito: la columna es angosta y recorta el final de la línea, y sin esa palabra se lee como si el héroe
 // fuera contra tu propio aliado (es al revés: es un counter que el rival podría tomar contra tu pick).
-const STEAL_LABELS: Record<TeamCoachSteal["level"], string> = { hard: "Robo: le haría mucho daño a tu", medium: "Robo: le haría daño a tu" };
-const STEAL_CLOSING = "Si lo eliges tú, el rival no lo tiene.";
+const STEAL_LABELS: Record<TeamCoachSteal["level"], string> = { hard: "Robo: el rival lo usaría fuerte contra tu", medium: "Robo: el rival lo usaría contra tu" };
+const STEAL_CLOSING = "Si lo eliges tú, no lo tiene.";
 
 // El "robo": este héroe sigue libre y counterea a un pick TUYO ya elegido; si lo eliges tú, el rival no lo tiene. Una línea por pick
 // protegido, cada una con SU nivel y SU porqué (nunca se mezcla la razón de un counter fuerte con la de uno medio). Solo hechos del draft.
